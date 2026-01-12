@@ -6,7 +6,7 @@
 
 Today’s AI chat interfaces make long-term and complex work frustrating: context gets lost, ideas scatter, and information overload builds over time. ThinkEx raises the standard with a flexible workspace designed to capture what's relevant, organize knowledge, and use AI without losing control.
 
-Head over to [thinkex.app](https://thinkex.app) to start using ThinkEx right away, no setup required.
+Head over to [thinkex.app](https://thinkex.app) to start right away, no setup required.
 
 ## Tech Stack
 
