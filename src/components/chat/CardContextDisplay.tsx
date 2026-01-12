@@ -150,21 +150,26 @@ export const CardContextDisplay = memo(CardContextDisplayImpl, (prevProps, nextP
   // Compare items array length and IDs to avoid re-renders when items haven't actually changed
   if (prevProps.items.length !== nextProps.items.length) return false;
 
-  // Create sets of item IDs for comparison
-  const prevItemIds = new Set(prevProps.items.map(item => item.id));
-  const nextItemIds = new Set(nextProps.items.map(item => item.id));
+  // Create maps of items by ID for efficient lookup
+  const prevItemsMap = new Map(prevProps.items.map(item => [item.id, item]));
+  const nextItemsMap = new Map(nextProps.items.map(item => [item.id, item]));
 
   // Check if all IDs match
-  if (prevItemIds.size !== nextItemIds.size) return false;
-  for (const id of prevItemIds) {
-    if (!nextItemIds.has(id)) return false;
+  if (prevItemsMap.size !== nextItemsMap.size) return false;
+  for (const id of prevItemsMap.keys()) {
+    if (!nextItemsMap.has(id)) return false;
   }
 
-  // Check if items color/name changed - sometimes updates happen to existing items
-  // Since we are showing names and colors in the dropdown, we should probably check for updates
-  // But doing a deep comparison might be expensive.
-  // The original implementation only checked IDs.
-  // We can rely on react-query or parent re-renders for deep updates usually.
+  // Check if any item's name or color has changed (these are displayed in the chips)
+  for (const [id, prevItem] of prevItemsMap) {
+    const nextItem = nextItemsMap.get(id);
+    if (!nextItem) return false; // Shouldn't happen due to ID check above, but be safe
+    
+    // Compare name and color since these are displayed in the chips
+    if (prevItem.name !== nextItem.name || prevItem.color !== nextItem.color) {
+      return false; // Properties changed, allow re-render
+    }
+  }
 
   return true; // Items are the same, skip re-render
 });
