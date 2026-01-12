@@ -284,13 +284,19 @@ export function FlashcardWorkspaceCard({
     const goNext = (e: React.MouseEvent) => {
         e.stopPropagation();
         setIsFlipped(false); // Reset flip
+        setIsFlipping(true); // Hide tabs during flip animation
         handleIndexChange((currentIndex + 1) % cards.length);
+        // Show tabs again after animation completes (600ms flip animation)
+        setTimeout(() => setIsFlipping(false), 600);
     };
 
     const goPrev = (e: React.MouseEvent) => {
         e.stopPropagation();
         setIsFlipped(false); // Reset flip
+        setIsFlipping(true); // Hide tabs during flip animation
         handleIndexChange((currentIndex - 1 + cards.length) % cards.length);
+        // Show tabs again after animation completes (600ms flip animation)
+        setTimeout(() => setIsFlipping(false), 600);
     };
 
     // Calculate border styling to match WorkspaceCard
