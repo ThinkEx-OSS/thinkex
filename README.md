@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://thinkex.app">
-    <img alt="ThinkEx: Rethinking the User Interface of AI"" src="public/readmeimage.svg" width="500" />
+    <img alt="ThinkEx: Rethinking the User Interface of AI"" src="public/newreadmeimage.svg" width="500" />
   </a>
 </p>
 
