@@ -1,0 +1,185 @@
+"use client";
+
+import { useState } from "react";
+import { X, Maximize, Minimize } from "lucide-react";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
+import { formatKeyboardShortcut } from "@/lib/utils/keyboard-shortcut";
+import ItemHeader from "@/components/workspace-canvas/ItemHeader";
+import CardRenderer from "@/components/workspace-canvas/CardRenderer";
+import LazyAppPdfViewer from "@/components/pdf/LazyAppPdfViewer";
+import { PdfPanelHeader } from "@/components/pdf/PdfPanelHeader";
+import { getCardColorCSS, getCardAccentColor, getWhiteTintedColor } from "@/lib/workspace-state/colors";
+import type { Item, ItemData, PdfData } from "@/lib/workspace-state/types";
+import { useUIStore } from "@/lib/stores/ui-store";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
+interface ItemPanelContentProps {
+    item: Item;
+    onClose: () => void;
+    onMaximize: () => void;
+    isMaximized?: boolean;
+    onUpdateItem: (updates: Partial<Item>) => void;
+    onUpdateItemData: (updater: (prev: ItemData) => ItemData) => void;
+    isRightmostPanel?: boolean; // Whether this is the rightmost panel (for showing chat button)
+    isLeftPanel?: boolean; // Whether this is the leftmost panel (for showing sidebar trigger)
+}
+
+export function ItemPanelContent({
+    item,
+    onClose,
+    onMaximize,
+    isMaximized = false,
+    onUpdateItem,
+    onUpdateItemData,
+    isRightmostPanel = true, // Default to true for backwards compat
+    isLeftPanel = false, // Default to false for backwards compat
+}: ItemPanelContentProps) {
+    const isChatExpanded = useUIStore((state) => state.isChatExpanded);
+    const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
+    const isDesktop = true;
+
+    const isPdf = item.type === 'pdf';
+    const pdfData = item.data as PdfData;
+
+    // PDF-specific state
+    const [showThumbnails, setShowThumbnails] = useState(false);
+
+    const accentColor = item.color
+        ? getCardAccentColor(item.color, 0.2)
+        : "rgba(255, 255, 255, 0.15)";
+
+    const backgroundColor = item.color
+        ? getCardColorCSS(item.color, 0.1)
+        : "rgba(0, 0, 0, 0.1)";
+
+    // Standard header for non-PDF items
+    const renderStandardHeader = () => (
+        <div>
+            <div className="flex items-center justify-between py-2 px-3">
+                <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
+                    {(isMaximized || isLeftPanel) && (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <SidebarTrigger />
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                                Toggle Sidebar <kbd className="ml-1 pointer-events-none inline-flex h-5 select-none items-center gap-1 font-mono text-sm font-medium text-muted-foreground opacity-100">{formatKeyboardShortcut('S', true)}</kbd>
+                            </TooltipContent>
+                        </Tooltip>
+                    )}
+
+                    <ItemHeader
+                        id={item.id}
+                        name={item.name}
+                        subtitle={item.subtitle}
+                        description=""
+                        onNameChange={(v) => onUpdateItem({ name: v })}
+                        onNameCommit={(v) => onUpdateItem({ name: v })}
+                        onSubtitleChange={(v) => onUpdateItem({ subtitle: v })}
+                        noMargin={true}
+                        textSize="lg"
+                        fullWidth
+                    />
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button
+                                type="button"
+                                aria-label={isMaximized ? "Restore to Panel" : "Maximize to Modal"}
+                                title={isMaximized ? "Restore to Panel" : "Maximize to Modal"}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+                                onClick={onMaximize}
+                            >
+                                {isMaximized ? (
+                                    <Minimize className="h-4 w-4" />
+                                ) : (
+                                    <Maximize className="h-4 w-4" />
+                                )}
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            {isMaximized ? "Restore to Panel" : "Maximize to Modal"}
+                        </TooltipContent>
+                    </Tooltip>
+
+                    <button
+                        type="button"
+                        aria-label="Close"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+                        onClick={onClose}
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
+
+                    {!isChatExpanded && isRightmostPanel && (
+                        <ChatFloatingButton
+                            isDesktop={isDesktop}
+                            isChatExpanded={isChatExpanded}
+                            setIsChatExpanded={setIsChatExpanded}
+                        />
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+
+    return (
+        <div
+            className="w-full h-full flex flex-col overflow-hidden relative"
+            style={{
+                backgroundColor,
+                backdropFilter: "blur(24px)",
+                WebkitBackdropFilter: "blur(24px)",
+            }}
+        >
+            {/* Header - PDF has integrated controls, others use standard header */}
+            {!isPdf && renderStandardHeader()}
+
+            {/* Content */}
+            <div
+                className={isPdf ? "flex-1 flex flex-col min-h-0" : "flex-1 overflow-y-auto modal-scrollable flex flex-col"}
+                style={!isPdf ? {
+                    ['--scrollbar-color' as string]: item.color
+                        ? getWhiteTintedColor(item.color, 0.7, 0.2)
+                        : "rgba(255, 255, 255, 0.2)",
+                } : undefined}
+            >
+                {isPdf && pdfData?.fileUrl ? (
+                    <div className="w-full flex-1 min-h-0 flex flex-col">
+                        <LazyAppPdfViewer
+                            pdfSrc={pdfData.fileUrl}
+                            showThumbnails={showThumbnails}
+                            itemName={item.name}
+                            isMaximized={isMaximized}
+                            renderHeader={(documentId, annotationControls) => (
+                                <div>
+                                    <PdfPanelHeader
+                                        documentId={documentId}
+                                        itemName={item.name}
+                                        isMaximized={isMaximized}
+                                        onClose={onClose}
+                                        onMaximize={onMaximize}
+                                        showThumbnails={showThumbnails}
+                                        onToggleThumbnails={() => setShowThumbnails(!showThumbnails)}
+                                        showAnnotations={annotationControls?.showAnnotations}
+                                        onToggleAnnotations={annotationControls?.toggleAnnotations}
+                                        isRightmostPanel={isRightmostPanel}
+                                        isLeftPanel={isLeftPanel}
+                                    />
+                                </div>
+                            )}
+                        />
+                    </div>
+                ) : (
+                    <CardRenderer
+                        key={item.id}
+                        item={item}
+                        onUpdateData={onUpdateItemData}
+                    />
+                )}
+            </div>
+        </div>
+    );
+}

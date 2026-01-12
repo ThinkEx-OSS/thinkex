@@ -1,0 +1,1514 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@daveyplate/better-auth-ui/css";
+
+/* Path to your installed `@blocknote/shadcn` package. */
+@source "../node_modules/@blocknote/shadcn";
+
+/* Streamdown markdown library - custom components handle styling, no @source needed */
+
+/* Streamdown font sizes - smaller for chat context */
+.streamdown-content {
+  font-size: 0.875rem;
+  /* 14px - text-sm */
+  line-height: 1.6;
+}
+
+.streamdown-content h1 {
+  font-size: 1.5rem;
+}
+
+.streamdown-content h2 {
+  font-size: 1.25rem;
+}
+
+.streamdown-content h3 {
+  font-size: 1.125rem;
+}
+
+.streamdown-content h4,
+.streamdown-content h5,
+.streamdown-content h6 {
+  font-size: 1rem;
+}
+
+/* Reduce padding on code block headers */
+.streamdown-content [data-streamdown="code-block"]>div:first-child {
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+}
+
+/* Remove BlockNote editor background */
+.bn-container,
+.bn-editor,
+.bn-editor .ProseMirror {
+  background: transparent !important;
+}
+
+/* Make links lighter blue in BlockNote editor */
+.bn-editor a,
+.bn-container a,
+.bn-editor .ProseMirror a {
+  color: #aecbfa !important;
+}
+
+/* Make links light blue in BlockNote preview (workspace read-only cards) */
+.blocknote-preview a {
+  color: #aecbfa !important;
+}
+
+/* Soften nested indent guide lines in BlockNote */
+.bn-block-group .bn-block:not(:has(.bn-toggle-wrapper)) .bn-block-group .bn-block-outer:not([data-prev-depth-changed]):before {
+  /* Use a lighter, more transparent border to reduce visual weight */
+  border-left: 1px solid color-mix(in srgb, var(--bn-colors-side-menu) 35%, transparent) !important;
+  opacity: 0 !important;
+}
+
+/* Move drag handle menu further to the right */
+.bn-drag-handle-menu {
+  transform: translateX(24px) !important;
+  /* Allow overflow so dropdowns aren't clipped */
+  overflow: visible !important;
+}
+
+/* Ensure colors dropdown and other sub-menus aren't clipped */
+.bn-drag-handle-menu *,
+.bn-drag-handle-menu [role="menu"],
+.bn-drag-handle-menu [role="menuitem"] {
+  overflow: visible !important;
+}
+
+/* Allow BlockNote container to show overflowing menus */
+.bn-container {
+  overflow: visible !important;
+}
+
+.bn-editor {
+  overflow: visible !important;
+}
+
+/* Customize BlockNote image upload/embed dialog offset */
+/* This targets the Floating UI element that contains the Upload/Embed tabs */
+/* You can add custom offset styling here if needed */
+
+/* Dark mode styling for BlockNote "Add image" button */
+.bn-file-block-content-wrapper {
+  background: transparent !important;
+}
+
+.bn-add-file-button {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  transition: all 0.2s ease !important;
+  padding: 12px 16px !important;
+}
+
+.bn-add-file-button:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: rgba(255, 255, 255, 1) !important;
+}
+
+.bn-add-file-button-icon {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.bn-add-file-button:hover .bn-add-file-button-icon {
+  color: rgba(255, 255, 255, 1) !important;
+}
+
+.bn-add-file-button-text {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.bn-add-file-button:hover .bn-add-file-button-text {
+  color: rgba(255, 255, 255, 1) !important;
+}
+
+/* Make code blocks in BlockNote editor wrap instead of horizontal scroll */
+.bn-editor pre,
+.bn-container pre,
+.bn-editor .ProseMirror pre {
+  overflow-x: visible !important;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+.bn-editor pre code,
+.bn-container pre code,
+.bn-editor .ProseMirror pre code {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+/* Ensure syntax-highlighted code blocks also wrap properly */
+.bn-editor pre code *,
+.bn-container pre code *,
+.bn-editor .ProseMirror pre code * {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+/* Fix BlockNote formatting toolbar display - compact version */
+.bn-formatting-toolbar {
+  min-height: 1.75rem !important;
+  min-width: fit-content !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.125rem !important;
+  padding: 0.125rem 0.25rem !important;
+}
+
+/* Hide empty formatting toolbars */
+.bn-formatting-toolbar:empty,
+.bn-formatting-toolbar:not(:has(button)),
+.bn-formatting-toolbar:not(:has(*)) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Also hide the parent floating UI container if toolbar is empty */
+[data-floating-ui-focusable]:has(.bn-formatting-toolbar:empty),
+[data-floating-ui-focusable]:has(.bn-formatting-toolbar:not(:has(button))),
+[data-floating-ui-focusable]:has(.bn-formatting-toolbar:not(:has(*))) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Ensure formatting toolbar buttons are visible - compact */
+.bn-formatting-toolbar button {
+  min-width: 1.5rem !important;
+  min-height: 1.5rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0.25rem !important;
+}
+
+/* Ensure formatting toolbar content is visible */
+.bn-formatting-toolbar>* {
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* Fix BlockNote tooltip arrow fill color - ensure polygon matches tooltip background */
+/* Target ONLY BlockNote tooltips (those with bg-primary class or inside .bn-formatting-toolbar) */
+/* The arrow SVG polygon should match the tooltip background color */
+.bn-formatting-toolbar [data-slot="tooltip-content"] svg polygon,
+.bn-formatting-toolbar [data-slot="tooltip-content"] svg[class*="fill-primary"] polygon,
+.bn-formatting-toolbar [data-slot="tooltip-content"] svg[class*="bg-primary"] polygon,
+[data-slot="tooltip-content"].bg-primary svg polygon,
+[data-slot="tooltip-content"][class*="bg-primary"] svg polygon,
+[data-slot="tooltip-content"].bg-primary svg[class*="fill-primary"] polygon,
+[data-slot="tooltip-content"][class*="bg-primary"] svg[class*="fill-primary"] polygon {
+  fill: var(--primary) !important;
+}
+
+/* Fix BlockNote tooltip arrow - remove rotation that makes it look like a square */
+/* The SVG polygon already forms an arrow shape, so rotation breaks it */
+/* Only target BlockNote tooltips (those with bg-primary or inside .bn-formatting-toolbar) */
+.bn-formatting-toolbar [data-slot="tooltip-content"] svg[data-radix-tooltip-arrow],
+[data-slot="tooltip-content"].bg-primary svg.rotate-45,
+[data-slot="tooltip-content"][class*="bg-primary"] svg.rotate-45 {
+  transform: translateY(calc(-50% - 2px)) !important;
+  /* Keep positioning transform, remove rotation */
+}
+
+/* Ensure arrow colors match tooltip - only for BlockNote tooltips */
+.bn-formatting-toolbar [data-slot="tooltip-content"] svg[data-radix-tooltip-arrow] polygon,
+[data-slot="tooltip-content"].bg-primary svg[data-radix-tooltip-arrow] polygon,
+[data-slot="tooltip-content"][class*="bg-primary"] svg[data-radix-tooltip-arrow] polygon {
+  fill: hsl(var(--sidebar)) !important;
+  stroke: rgb(107, 114, 128) !important;
+  /* matches border-gray-600 */
+  stroke-width: 1 !important;
+}
+
+/* Hide arrows from BlockNote tooltips */
+.bn-formatting-toolbar [data-slot="tooltip-content"] svg[data-radix-tooltip-arrow],
+.bn-formatting-toolbar [data-slot="tooltip-content"] svg.rotate-45,
+.bn-formatting-toolbar [data-slot="tooltip-content"] svg.bg-primary,
+[data-slot="tooltip-content"].bg-primary svg[data-radix-tooltip-arrow],
+[data-slot="tooltip-content"].bg-primary svg.rotate-45,
+[data-slot="tooltip-content"][class*="bg-primary"] svg[data-radix-tooltip-arrow],
+[data-slot="tooltip-content"][class*="bg-primary"] svg.rotate-45 {
+  display: none !important;
+}
+
+/* Push inline content up a bit */
+.bn-inline-content {
+  margin-top: -0.125rem !important;
+}
+
+
+
+.bn-block-content[data-content-type="checkListItem"] input[type="checkbox"] {
+  margin-top: 0.25rem !important;
+  flex-shrink: 0 !important;
+  width: 1rem !important;
+  height: 1rem !important;
+  cursor: pointer !important;
+}
+
+
+.bn-block-content[data-content-type="checkListItem"] .bn-inline-content {
+  margin-top: 0 !important;
+  flex: 1 !important;
+}
+
+/* Make BlockNote blockquotes white instead of gray */
+.bn-block-content[data-content-type="quote"] blockquote,
+.bn-block-content[data-content-type="quote"] .bn-inline-content {
+  color: hsl(var(--foreground)) !important;
+}
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Google Keep-inspired dark mode color palette */
+  /* Dark gray background like Google Keep */
+  /* White text for primary content */
+  --card: oklch(1 0 0);
+  /* Dark card background */
+  --card-foreground: oklch(0.129 0.042 264.695);
+  /* White card text */
+  --primary: oklch(0.208 0.042 265.755);
+  /* Primary elements in white */
+  --primary-foreground: oklch(0.984 0.003 247.858);
+  /* Primary text on white background */
+  --secondary: oklch(0.968 0.000 0);
+  /* Secondary neutral gray */
+  --secondary-foreground: oklch(0.208 0.005 240);
+  /* Secondary text in neutral gray */
+  --muted: oklch(0.968 0.000 0);
+  /* Muted background - pure gray */
+  --muted-foreground: oklch(0.554 0.010 240);
+  /* Muted text in neutral gray */
+  --accent: oklch(0.968 0.000 0);
+  /* Neutral gray accent */
+  --accent-foreground: oklch(0.208 0.005 240);
+  /* Accent text in neutral gray */
+  --destructive: oklch(0.577 0.245 27.325);
+  /* Google red for errors */
+  --destructive-foreground: #ffffff;
+  --border: oklch(0.929 0.013 255.508);
+  /* Dark borders */
+  --input: oklch(0.929 0.013 255.508);
+  /* Input background */
+  --ring: oklch(0.704 0.04 256.788);
+  /* Blue focus ring */
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.625rem;
+  /* More rounded corners like Google Keep */
+  --sidebar: hsl(0 0% 98%);
+  /* Slightly different sidebar background */
+  --sidebar-foreground: hsl(240 5.3% 26.1%);
+  /* Sidebar text */
+  --sidebar-primary: hsl(240 5.9% 10%);
+  /* Sidebar primary background */
+  --sidebar-primary-foreground: hsl(0 0% 98%);
+  /* Sidebar primary text */
+  --sidebar-accent: hsl(240 4.8% 95.9%);
+  /* Sidebar accent */
+  --sidebar-accent-foreground: hsl(240 5.9% 10%);
+  /* Sidebar accent text */
+  --sidebar-border: hsl(220 13% 91%);
+  /* Sidebar border */
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+  /* Sidebar focus ring */
+  --font-geist: "Geist", sans-serif;
+  --font-inter: "Inter", sans-serif;
+  --font-outfit: "Outfit", sans-serif;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.129 0.042 264.695);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.129 0.042 264.695);
+}
+
+/* Remove light mode entirely - always use dark theme */
+.light {
+  /* Inherit dark theme values */
+  --background: #202124;
+  --foreground: #ffffff;
+  --card: #303134;
+  --card-foreground: #ffffff;
+  --primary: #ffffff;
+  --primary-foreground: #202124;
+  --secondary: #404040;
+  --secondary-foreground: #ffffff;
+  --muted: #404040;
+  --muted-foreground: #a0a0a0;
+  --accent: #8ab4f8;
+  --accent-foreground: #ffffff;
+  --destructive: #ea4335;
+  --destructive-foreground: #ffffff;
+  --border: #3c4043;
+  --input: #303134;
+  --ring: rgba(138, 180, 248, 0.3);
+  --sidebar: #2d2e30;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #3c4043;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #8ab4f8;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #3c4043;
+  --sidebar-ring: rgba(138, 180, 248, 0.3);
+}
+
+/* Ensure dark mode is always applied */
+.dark {
+  --background: oklch(0.18 0 0);
+  --foreground: oklch(0.984 0.003 247.858);
+  --card: hsl(0 0% 12%);
+  --card-foreground: oklch(0.984 0.003 247.858);
+  --primary: hsl(0 0% 98%);
+  --primary-foreground: hsl(0 0% 9%);
+  --secondary: hsl(0 0% 14.9%);
+  --secondary-foreground: hsl(0 0% 98%);
+  --muted: hsl(0 0% 14.9%);
+  --muted-foreground: hsl(0 0% 63.9%);
+  --accent: hsl(0 0% 14.9%);
+  --accent-foreground: hsl(0 0% 98%);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: #ffffff;
+  --border: hsl(0 0% 25%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.551 0.027 264.364);
+  --sidebar: hsl(240 5.9% 10%);
+  --sidebar-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-primary: hsl(224.3 76.3% 48%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(240 3.7% 15.9%);
+  --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-border: hsl(240 3.7% 15.9%);
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+  --popover: hsl(0 0% 12%);
+  --popover-foreground: oklch(0.984 0.003 247.858);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+}
+
+@theme inline {
+  /* Default to Inter as app-wide sans font */
+  --font-sans: var(--font-inter);
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --animate-shimmer: shimmer-sweep var(--shimmer-duration, 1000ms) linear infinite both;
+
+  @keyframes shimmer-sweep {
+    from {
+      background-position: 150% 0;
+    }
+
+    to {
+      background-position: -100% 0;
+    }
+  }
+}
+
+@layer base {
+  * {
+    @apply outline-ring/50;
+    /* Disable overscroll behavior on all elements */
+    overscroll-behavior: none;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+body {
+  font-family: var(--font-sans);
+  /* Disable overscroll behavior */
+  overscroll-behavior: none;
+}
+
+body,
+html {
+  height: 100%;
+  /* Disable overscroll behavior globally */
+  overscroll-behavior: none;
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4.
+  We set border-color only for elements that explicitly have a border-width
+  to avoid unwanted borders while ensuring components use the correct border color.
+*/
+@layer base {
+  [class*="border"]:not([class*="border-0"]):not([class*="border-none"]) {
+    border-color: var(--color-border);
+  }
+}
+
+.copilotKitMessages {
+  @apply !pr-0;
+
+  div:empty {
+    display: none;
+  }
+
+  .copilotKitMessage {
+
+    &,
+    & * {
+      @apply !font-sans !text-sm !subpixel-antialiased !leading-normal !text-foreground;
+    }
+
+    /* Prevent text-sm from being applied to highlight marks - they should inherit parent font size */
+    & mark.text-highlight {
+      font-size: inherit !important;
+    }
+
+    &.copilotKitAssistantMessage {
+      @apply !mb-6 !mx-auto flex flex-col items-center;
+      margin-right: auto !important;
+      margin-left: auto !important;
+
+      /* Center the message content */
+      .copilotKitMarkdown {
+        @apply text-left;
+        max-width: 85% !important;
+
+        /* Markdown typography */
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+          font-weight: 600 !important;
+          margin-top: 1.5em !important;
+          margin-bottom: 0.5em !important;
+          line-height: 1.3 !important;
+          color: hsl(var(--foreground)) !important;
+        }
+
+        h1 {
+          font-size: 1.5rem !important;
+          margin-top: 0.5em !important;
+        }
+
+        h2 {
+          font-size: 1.35rem !important;
+        }
+
+        h3 {
+          font-size: 1.2rem !important;
+        }
+
+        h4 {
+          font-size: 1.1rem !important;
+        }
+
+        h5 {
+          font-size: 1rem !important;
+        }
+
+        h6 {
+          font-size: 0.95rem !important;
+        }
+
+        /* First heading has less top margin */
+        h1:first-child,
+        h2:first-child,
+        h3:first-child,
+        h4:first-child,
+        h5:first-child,
+        h6:first-child {
+          margin-top: 0.25em !important;
+        }
+
+        p {
+          font-size: 0.95rem !important;
+          line-height: 1.6 !important;
+          margin-bottom: 1em !important;
+          margin-top: 0.5em !important;
+        }
+
+        p:first-child {
+          margin-top: 0 !important;
+        }
+
+        ul,
+        ol {
+          margin-top: 0.25em !important;
+          margin-bottom: 1em !important;
+          padding-left: 1.75em !important;
+        }
+
+        /* Reduce space between paragraph and following list */
+        .copilotKitMarkdownElement+.copilotKitMarkdownElement {
+          &:is(ul, ol) {
+            margin-top: 0.25em !important;
+          }
+        }
+
+        /* Reduce bottom margin on paragraphs before lists */
+        .copilotKitMarkdownElement:is(p):has(+ ul),
+        .copilotKitMarkdownElement:is(p):has(+ ol) {
+          margin-bottom: 0.25em !important;
+        }
+
+        li {
+          margin: 0.35em 0 !important;
+          line-height: 1.5 !important;
+        }
+
+        code {
+          background: hsl(var(--muted)) !important;
+          padding: 0.15em 0.4em !important;
+          border-radius: 0.25rem !important;
+          font-size: 0.9em !important;
+          font-family: var(--font-mono) !important;
+        }
+
+        pre {
+          background: hsl(var(--muted)) !important;
+          padding: 1em !important;
+          border-radius: 0.5rem !important;
+          margin: 1em 0 !important;
+          overflow-x: auto !important;
+
+          code {
+            background: transparent !important;
+            padding: 0 !important;
+          }
+        }
+
+        blockquote {
+          border-left: 3px solid hsl(var(--accent)) !important;
+          padding-left: 1em !important;
+          margin: 1em 0 !important;
+          color: hsl(var(--foreground)) !important;
+        }
+
+        a {
+          color: hsl(var(--accent)) !important;
+          text-decoration: underline !important;
+
+          &:hover {
+            opacity: 0.8 !important;
+          }
+        }
+
+        strong {
+          font-weight: 700 !important;
+        }
+
+        em {
+          font-style: italic !important;
+        }
+
+        hr {
+          margin: 1.5em 0 !important;
+          border-color: hsl(var(--border)) !important;
+        }
+
+        table {
+          width: 100% !important;
+          border-collapse: collapse !important;
+          margin: 1em 0 !important;
+
+          th,
+          td {
+            border: 1px solid hsl(var(--border)) !important;
+            padding: 0.5em !important;
+            text-align: left !important;
+          }
+
+          th {
+            background: hsl(var(--muted)) !important;
+            font-weight: 600 !important;
+          }
+        }
+      }
+
+      /* Position message controls at the start of text */
+      .copilotKitMessageControls {
+        @apply flex justify-start !mt-3 !gap-x-2.5 !opacity-100 !w-full;
+        max-width: 85% !important;
+        position: relative !important;
+        left: auto !important;
+
+        &,
+        & * {
+          @apply !text-muted-foreground !transition-colors;
+        }
+
+        & button:hover,
+        & button:hover * {
+          @apply !text-accent;
+          transform: scale(1) !important;
+        }
+      }
+
+      /* Enable text selection with highlighting */
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
+      user-select: text;
+
+      /* Custom selection styling */
+      &::selection {
+        background-color: rgba(138, 180, 248, 0.3);
+        color: inherit;
+      }
+
+      /* Firefox selection styling */
+      &::-moz-selection {
+        background-color: rgba(138, 180, 248, 0.3);
+        color: inherit;
+      }
+    }
+
+    &.copilotKitUserMessage {
+      @apply !rounded-xl !pr-4 !mb-7 !border border-border/30 !bg-muted/30 !backdrop-blur-sm flex flex-col items-end;
+      max-width: 85% !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
+    }
+
+    /* Target the parent container that wraps user messages */
+    .copilotKitUserMessage {
+      .flex.justify-end.w-full {
+        @apply justify-center;
+      }
+    }
+  }
+}
+
+/* Very dark scroll track styling for CopilotKit chat */
+.copilotKitMessages,
+.copilotKitMessages * {
+  scrollbar-width: thin;
+  scrollbar-color: #333333 #111111;
+}
+
+.copilotKitMessages::-webkit-scrollbar,
+.copilotKitMessages *::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.copilotKitMessages::-webkit-scrollbar-track,
+.copilotKitMessages *::-webkit-scrollbar-track {
+  background: #111111;
+  /* Very dark track background */
+  border-radius: 6px;
+}
+
+.copilotKitMessages::-webkit-scrollbar-thumb,
+.copilotKitMessages *::-webkit-scrollbar-thumb {
+  background: #333333;
+  /* Dark gray thumb */
+  border-radius: 6px;
+  border: 2px solid #111111;
+  transition: background-color 0.2s ease;
+}
+
+.copilotKitMessages::-webkit-scrollbar-thumb:hover,
+.copilotKitMessages *::-webkit-scrollbar-thumb:hover {
+  background: #444444;
+  /* Slightly lighter gray on hover */
+}
+
+.copilotKitMessages::-webkit-scrollbar-corner,
+.copilotKitMessages *::-webkit-scrollbar-corner {
+  background: #111111;
+  /* Very dark corner matching track background */
+}
+
+/* Hide CopilotKit's default popup button - we're using our custom button */
+[class*="copilotKitButton"],
+button[class*="copilotKitButton"],
+[data-copilotkit-popup-button],
+.copilotKitPopupButton {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Hide the "Powered by CopilotKit" text - targeting the specific element */
+p.poweredBy {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: 0 !important;
+}
+
+/* Add margin bottom to input container to compensate for removed powered by text */
+.copilotKitInputContainer {
+  margin-bottom: 20px !important;
+}
+
+/* Match CopilotKit chat background to sidebar background */
+.copilotKitChat,
+.copilotKitChat>div,
+.copilotKitChat>div>div,
+[class*="copilotKitChat"] {
+  background: hsl(var(--sidebar)) !important;
+}
+
+/* Ensure messages container also uses sidebar background */
+.copilotKitMessages {
+  background: hsl(var(--sidebar)) !important;
+}
+
+/* Assistant-UI styles removed */
+
+/* Text selection tooltip styles */
+.text-selection-tooltip {
+  @apply fixed z-50 flex items-center gap-2 rounded-xl border border-border/50 bg-card/90 backdrop-blur-sm px-4 py-2.5 shadow-lg;
+  animation: fadeInUp 0.2s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Subtle pulse animation for the add button */
+.animate-pulse-subtle {
+  animation: pulseSubtle 2s ease-in-out infinite;
+}
+
+@keyframes pulseSubtle {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.95;
+    transform: scale(1.01);
+  }
+}
+
+/* Subtle scale pulse animation for warning indicators */
+@keyframes pulse-scale {
+  0% {
+    transform: scale(1);
+  }
+
+  /* Small pulses throughout */
+  12.5% {
+    transform: scale(1.05);
+  }
+
+  25% {
+    transform: scale(1);
+  }
+
+  37.5% {
+    transform: scale(1.05);
+  }
+
+  50% {
+    transform: scale(1);
+  }
+
+  62.5% {
+    transform: scale(1.05);
+  }
+
+  75% {
+    transform: scale(1);
+  }
+
+  /* Big pulse at the end */
+  87.5% {
+    transform: scale(1.18);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Selection summary panel styles */
+.selection-summary-panel {
+  @apply fixed bottom-20 left-4 right-4 md:left-auto md:right-4 md:w-80 z-40 rounded-xl border border-border/50 bg-card/90 backdrop-blur-sm shadow-lg;
+  animation: slideInUp 0.3s ease-out;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Disable pointer events on iframes during marquee selection to prevent blocking */
+body.marquee-selecting iframe {
+  pointer-events: none !important;
+}
+
+/* Line clamp utility for text truncation */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Custom scrollbar styling for dark theme */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3c4043 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 6px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #3c4043;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  transition: background-color 0.2s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #5f6368;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Custom scrollbar styling for modal */
+.modal-scrollable {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-color, rgba(255, 255, 255, 0.2)) transparent;
+}
+
+.modal-scrollable::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.modal-scrollable::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 6px;
+}
+
+.modal-scrollable::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-color, rgba(255, 255, 255, 0.2));
+  border-radius: 6px;
+  border: 2px solid transparent;
+  transition: background-color 0.2s ease;
+}
+
+.modal-scrollable::-webkit-scrollbar-thumb:hover {
+  filter: brightness(1.3);
+}
+
+.modal-scrollable::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Highlight Tooltip Styles */
+.highlight-tooltip-container {
+  pointer-events: auto;
+  z-index: 9999;
+}
+
+.highlight-tooltip-action {
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.highlight-tooltip-action:hover {
+  transform: scale(1.05);
+}
+
+.highlight-tooltip-action:active {
+  transform: scale(0.95);
+}
+
+/* Ensure tooltip appears above all other elements */
+[data-radix-popper-content-wrapper] {
+  z-index: 9999 !important;
+}
+
+/* Chat Sidebar Slide-in Animation */
+.chat-sidebar-enter {
+  animation: slideInFromRight 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* React Grid Layout Overrides */
+.react-grid-layout {
+  position: relative;
+}
+
+.react-grid-item {
+  /* Smooth transitions for grid item movements */
+  transition: transform 250ms ease-out,
+    width 250ms ease-out,
+    height 250ms ease-out !important;
+}
+
+/* Flashcard flip animation isolation - prevent grid transitions from affecting flip */
+.react-grid-item .flip-card,
+.react-grid-item .flip-card * {
+  /* Ensure flip card manages its own transitions */
+  transition: none;
+}
+
+.react-grid-item .flip-card-inner {
+  /* Only the inner container should have the vertical flip transition */
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transform-style: preserve-3d !important;
+}
+
+/* Prevent any inherited transforms from affecting flip card content */
+.react-grid-item .flip-card-front,
+.react-grid-item .flip-card-back {
+  /* Content should not have any transitions that could cause flicker */
+  transition: none !important;
+}
+
+/* Ensure flip card content is isolated from parent compositing layers */
+.flip-card-content {
+  isolation: isolate;
+  contain: layout style;
+}
+
+/* Cursor styles for draggable grid items */
+.react-grid-item.react-draggable {
+  cursor: grab;
+}
+
+.react-grid-item.react-draggable-dragging {
+  cursor: grabbing !important;
+  touch-action: none !important;
+  /* Prevent scrolling during drag on mobile */
+}
+
+.react-grid-item.react-draggable-dragging * {
+  cursor: grabbing !important;
+  touch-action: none !important;
+}
+
+/* Improve resize handles for mobile */
+@media (max-width: 768px) {
+  .react-grid-item>.react-resizable-handle {
+    width: 25px;
+    height: 25px;
+  }
+
+  .react-grid-item>.react-resizable-handle::after {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.react-grid-item.react-grid-placeholder {
+  transition: all 200ms ease-out;
+}
+
+.react-grid-item img {
+  pointer-events: none;
+  user-select: none;
+}
+
+.react-grid-item>.react-resizable-handle {
+  position: absolute;
+  width: 25px;
+  height: 25px;
+}
+
+.react-grid-item>.react-resizable-handle::after {
+  content: "";
+  position: absolute;
+  right: 0px;
+  bottom: 0px;
+  width: 14px;
+  height: 14px;
+  border-right: 3px solid rgba(255, 255, 255, 1);
+  border-bottom: 3px solid rgba(255, 255, 255, 1);
+  border-radius: 0 0 10px 0;
+  opacity: 0;
+  transition: opacity 0.2s ease, border-color 0.2s ease;
+  /* Use drop-shadow to create contrast on any background */
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));
+}
+
+.react-grid-item>.react-resizable-handle-sw {
+  bottom: -3px;
+  left: -3px;
+  cursor: sw-resize;
+  transform: rotate(90deg);
+}
+
+.react-grid-item>.react-resizable-handle-se {
+  bottom: -3px;
+  right: -3px;
+  cursor: se-resize;
+}
+
+.react-grid-item>.react-resizable-handle-nw {
+  top: -3px;
+  left: -3px;
+  cursor: nw-resize;
+  transform: rotate(180deg);
+}
+
+.react-grid-item>.react-resizable-handle-ne {
+  top: -3px;
+  right: -3px;
+  cursor: ne-resize;
+  transform: rotate(270deg);
+}
+
+/* Edge handles (N, S, E, W) - span nearly full edge for large hit area */
+.react-grid-item>.react-resizable-handle-w,
+.react-grid-item>.react-resizable-handle-e {
+  top: 30px;
+  height: calc(100% - 60px);
+  width: 15px;
+  cursor: ew-resize;
+  margin-top: 0;
+}
+
+.react-grid-item>.react-resizable-handle-w {
+  left: -3px;
+}
+
+.react-grid-item>.react-resizable-handle-e {
+  right: -3px;
+}
+
+.react-grid-item>.react-resizable-handle-n,
+.react-grid-item>.react-resizable-handle-s {
+  left: 30px;
+  width: calc(100% - 60px);
+  height: 15px;
+  cursor: ns-resize;
+  margin-left: 0;
+}
+
+.react-grid-item>.react-resizable-handle-n {
+  top: -3px;
+}
+
+.react-grid-item>.react-resizable-handle-s {
+  bottom: -3px;
+}
+
+/* Make edge handles straight lines (horizontal for N/S, vertical for E/W) */
+.react-grid-item>.react-resizable-handle-n::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 3px;
+  background: rgba(255, 255, 255, 1);
+  border: none;
+  border-radius: 0;
+  top: 0;
+  bottom: auto;
+  right: auto;
+  margin-top: 0;
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));
+}
+
+.react-grid-item>.react-resizable-handle-s::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 3px;
+  background: rgba(255, 255, 255, 1);
+  border: none;
+  border-radius: 0;
+  bottom: 0;
+  top: auto;
+  right: auto;
+  margin-top: 0;
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));
+}
+
+.react-grid-item>.react-resizable-handle-e::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  background: rgba(255, 255, 255, 1);
+  border: none;
+  border-radius: 0;
+  right: 0;
+  left: auto;
+  bottom: auto;
+  margin-left: 0;
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));
+}
+
+.react-grid-item>.react-resizable-handle-w::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  background: rgba(255, 255, 255, 1);
+  border: none;
+  border-radius: 0;
+  left: 0;
+  right: auto;
+  bottom: auto;
+  margin-left: 0;
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));
+}
+
+/* Show resize handles on hover - corner handles */
+.react-grid-item:hover>.react-resizable-handle-se::after,
+.react-grid-item:hover>.react-resizable-handle-sw::after,
+.react-grid-item:hover>.react-resizable-handle-ne::after,
+.react-grid-item:hover>.react-resizable-handle-nw::after {
+  opacity: 1;
+}
+
+/* Show resize handles on hover - edge handles */
+.react-grid-item:hover>.react-resizable-handle-n::after,
+.react-grid-item:hover>.react-resizable-handle-s::after,
+.react-grid-item:hover>.react-resizable-handle-e::after,
+.react-grid-item:hover>.react-resizable-handle-w::after {
+  opacity: 1;
+}
+
+/* Placeholder styling during drag */
+.react-grid-item.react-grid-placeholder {
+  background: rgba(59, 130, 246, 0.15);
+  border: 2px dashed rgba(59, 130, 246, 0.5);
+  border-radius: 1rem;
+  opacity: 0.7;
+  transition: all 200ms ease-out !important;
+  z-index: 2;
+  user-select: none;
+}
+
+.react-grid-item.resizing {
+  opacity: 0.9;
+  z-index: 100;
+}
+
+.react-grid-item.static {
+  background: transparent;
+}
+
+.react-grid-item .text,
+.react-grid-item button {
+  user-select: none;
+}
+
+/* Disable text selection during drag */
+.react-grid-item.react-draggable-dragging {
+  transition: none !important;
+  z-index: 1000;
+  opacity: 0.8;
+}
+
+.react-grid-item.react-draggable-dragging * {
+  user-select: none;
+}
+
+/* Disable transitions when manually resizing */
+.react-grid-item.resizing {
+  transition: none !important;
+}
+
+/* Allow dragging beyond scroll boundaries */
+.react-grid-layout:has(.react-draggable-dragging) {
+  overflow: visible !important;
+}
+
+/* Allow parent containers to overflow during drag */
+.layout:has(.react-draggable-dragging) {
+  overflow: visible !important;
+}
+
+/* NOTE: Removed overly broad div selector that was breaking scroll containers */
+/* The grid layout itself handles overflow properly */
+
+/* Reset overflow for the article content inside cards */
+/* Only apply scrolling to non-flex articles */
+.react-grid-item article:not(.flex) {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* Card content layout with overflow handling */
+/* Flex containers handle overflow internally */
+.react-grid-item article.flex {
+  overflow: hidden !important;
+}
+
+.react-grid-item article:not(.flex) {
+  display: block;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar for cards */
+.react-grid-item article::-webkit-scrollbar {
+  width: 6px;
+}
+
+.react-grid-item article::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.react-grid-item article::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.react-grid-item article::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Ensure tag containers respect boundaries */
+.react-grid-item article [class*="flex-wrap"] {
+  max-width: 100%;
+  word-break: break-word;
+}
+
+/* Constrain textareas within cards */
+.react-grid-item article textarea {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Dark theme styling for react-color SwatchesPicker */
+.color-picker-wrapper .swatches-picker {
+  background: transparent !important;
+}
+
+.color-picker-wrapper .swatches-picker>div {
+  background: transparent !important;
+}
+
+.color-picker-wrapper .swatches-picker>div>div {
+  background: transparent !important;
+}
+
+/* Remove box-shadow from color picker */
+.color-picker-wrapper [style*="box-shadow"] {
+  box-shadow: none !important;
+}
+
+/* Override only white backgrounds (not the color swatches themselves) - use --popover to match dialog */
+.color-picker-wrapper [style*="background: rgb(255, 255, 255)"],
+.color-picker-wrapper [style*="background-color: rgb(255, 255, 255)"],
+.color-picker-wrapper [style*='background: rgb(255, 255, 255)'],
+.color-picker-wrapper [style*='background-color: rgb(255, 255, 255)'] {
+  background: var(--popover) !important;
+  background-color: var(--popover) !important;
+}
+
+/* Style the scrollable container background */
+.color-picker-wrapper [style*="height: 240px"][style*="overflow-y: scroll"] {
+  background: var(--popover) !important;
+  background-color: var(--popover) !important;
+}
+
+/* Target the main container wrapper */
+.color-picker-wrapper .swatches-picker>div>div>div[style*="position: relative"] {
+  background: var(--popover) !important;
+}
+
+/* Make checkmarks white instead of black */
+.color-picker-wrapper [style*="color: rgb(0, 0, 0)"] svg,
+.color-picker-wrapper [style*="color: rgb(0, 0, 0)"] {
+  color: rgb(255, 255, 255) !important;
+}
+
+.color-picker-wrapper svg {
+  fill: rgb(255, 255, 255) !important;
+  color: rgb(255, 255, 255) !important;
+}
+
+/* Glassmorphic toast styling */
+.toast-glass {
+  background: rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-radius: 16px !important;
+  box-shadow:
+    0 8px 32px 0 rgba(0, 0, 0, 0.37),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.15) !important;
+  padding: 12px 16px !important;
+}
+
+.toast-glass:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Performance optimization: Use content-visibility for readonly editors in cards */
+/* Since cards have overflow-hidden, most editor content is clipped - this skips rendering work for clipped portions */
+.workspace-card-readonly-editor {
+  content-visibility: auto;
+  /* contain-intrinsic-size helps browser estimate size for layout calculations */
+  contain-intrinsic-size: auto 200px;
+}
+
+/* Reduce horizontal padding for read-only editor in workspace cards only - placed at end for higher specificity */
+.workspace-card-readonly-editor .ProseMirror,
+.workspace-card-readonly-editor .bn-editor .ProseMirror,
+.workspace-card-readonly-editor .bn-container .bn-editor .ProseMirror,
+.workspace-card-readonly-editor .bn-editor-wrapper .ProseMirror,
+.workspace-card-readonly-editor .bn-container .bn-editor-wrapper .ProseMirror {
+  padding-left: 0.5rem !important;
+  padding-right: 0.5rem !important;
+}
+
+/* White scrollbar for workspace card readonly editor */
+.workspace-card-readonly-editor {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.5) transparent;
+  scrollbar-gutter: stable both-edges;
+}
+
+.workspace-card-readonly-editor::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.workspace-card-readonly-editor::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.workspace-card-readonly-editor::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  border: 1px solid transparent;
+  transition: background-color 0.2s ease;
+}
+
+.workspace-card-readonly-editor::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.workspace-card-readonly-editor::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Hide workspace cards when detail modal is open */
+body:has(.card-detail-modal) .workspace-grid-container {
+  opacity: 0;
+  pointer-events: none;
+}

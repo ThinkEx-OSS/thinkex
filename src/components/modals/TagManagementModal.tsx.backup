@@ -1,0 +1,437 @@
+import { useState, useMemo } from "react";
+import { X, Plus, Tag as TagIcon, Check, Users } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import type { Item } from "@/lib/workspace-state/types";
+
+interface TagManagementModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  selectedItems: Item[];
+  allItems: Item[];
+  onUpdateItems: (updates: { itemId: string; tags: string[] }[]) => void;
+}
+
+export default function TagManagementModal({
+  open,
+  onOpenChange,
+  selectedItems,
+  allItems,
+  onUpdateItems,
+}: TagManagementModalProps) {
+  const [newTagInput, setNewTagInput] = useState("");
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'bulk' | 'individual'>('bulk');
+
+  // Get all existing tags from all items in the workspace
+  const allExistingTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    allItems.forEach((item) => {
+      item.tags?.forEach((tag) => tagSet.add(tag));
+    });
+    return Array.from(tagSet).sort();
+  }, [allItems]);
+
+  // Get common tags (tags that ALL selected items have)
+  const commonTags = useMemo(() => {
+    if (selectedItems.length === 0) return [];
+    
+    const tagCounts = new Map<string, number>();
+    selectedItems.forEach((item) => {
+      item.tags?.forEach((tag) => {
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      });
+    });
+
+    return Array.from(tagCounts.entries())
+      .filter(([_, count]) => count === selectedItems.length)
+      .map(([tag]) => tag)
+      .sort();
+  }, [selectedItems]);
+
+  // Get partial tags (tags that SOME but not all selected items have)
+  const partialTags = useMemo(() => {
+    if (selectedItems.length === 0) return [];
+    
+    const tagCounts = new Map<string, number>();
+    selectedItems.forEach((item) => {
+      item.tags?.forEach((tag) => {
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      });
+    });
+
+    return Array.from(tagCounts.entries())
+      .filter(([_, count]) => count > 0 && count < selectedItems.length)
+      .map(([tag]) => tag)
+      .sort();
+  }, [selectedItems]);
+
+  const handleAddTag = (tagName: string, itemId?: string) => {
+    const trimmedTag = tagName.trim();
+    if (!trimmedTag) return;
+
+    if (itemId) {
+      // Add tag to specific item
+      const item = selectedItems.find(i => i.id === itemId);
+      if (!item) return;
+      
+      const currentTags = item.tags || [];
+      const newTags = currentTags.includes(trimmedTag)
+        ? currentTags
+        : [...currentTags, trimmedTag];
+      
+      onUpdateItems([{ itemId, tags: newTags }]);
+    } else {
+      // Add tag to all selected items
+      const updates = selectedItems.map((item) => {
+        const currentTags = item.tags || [];
+        const newTags = currentTags.includes(trimmedTag)
+          ? currentTags
+          : [...currentTags, trimmedTag];
+        
+        return {
+          itemId: item.id,
+          tags: newTags,
+        };
+      });
+
+      onUpdateItems(updates);
+    }
+    setNewTagInput("");
+  };
+
+  const handleRemoveTag = (tagName: string, itemId?: string) => {
+    if (itemId) {
+      // Remove tag from specific item
+      const item = selectedItems.find(i => i.id === itemId);
+      if (!item) return;
+      
+      const currentTags = item.tags || [];
+      const newTags = currentTags.filter((tag) => tag !== tagName);
+      
+      onUpdateItems([{ itemId, tags: newTags }]);
+    } else {
+      // Remove tag from all selected items
+      const updates = selectedItems.map((item) => {
+        const currentTags = item.tags || [];
+        const newTags = currentTags.filter((tag) => tag !== tagName);
+        
+        return {
+          itemId: item.id,
+          tags: newTags,
+        };
+      });
+
+      onUpdateItems(updates);
+    }
+  };
+
+  const handleToggleTag = (tagName: string, itemId?: string) => {
+    if (itemId) {
+      const item = selectedItems.find(i => i.id === itemId);
+      if (!item) return;
+      
+      const hasTag = item.tags?.includes(tagName);
+      if (hasTag) {
+        handleRemoveTag(tagName, itemId);
+      } else {
+        handleAddTag(tagName, itemId);
+      }
+    } else {
+      const isCommon = commonTags.includes(tagName);
+      
+      if (isCommon) {
+        // Remove from all
+        handleRemoveTag(tagName);
+      } else {
+        // Add to all
+        handleAddTag(tagName);
+      }
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddTag(newTagInput);
+    }
+  };
+
+  // Get the currently viewed card (for individual mode)
+  const currentCard = selectedCardId 
+    ? selectedItems.find(item => item.id === selectedCardId) || selectedItems[0]
+    : selectedItems[0];
+
+  // Close modal if no items are selected (e.g., after clearing selection)
+  if (selectedItems.length === 0 && open) {
+    onOpenChange(false);
+    return null;
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <TagIcon className="h-5 w-5" />
+            Manage Tags
+          </DialogTitle>
+          <DialogDescription>
+            {selectedItems.length === 1
+              ? "Add or remove tags for this card"
+              : `Managing tags for ${selectedItems.length} selected cards`}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          {/* View Mode Toggle - Only show if multiple cards selected */}
+          {selectedItems.length > 1 && (
+            <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
+              <button
+                onClick={() => setViewMode('bulk')}
+                className={cn(
+                  "flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                  viewMode === 'bulk'
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Users className="h-4 w-4 inline mr-2" />
+                Bulk Edit ({selectedItems.length} cards)
+              </button>
+              <button
+                onClick={() => {
+                  setViewMode('individual');
+                  if (!selectedCardId) setSelectedCardId(selectedItems[0].id);
+                }}
+                className={cn(
+                  "flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                  viewMode === 'individual'
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <TagIcon className="h-4 w-4 inline mr-2" />
+                Individual Cards
+              </button>
+            </div>
+          )}
+
+          {/* Card Selector - Only show in individual mode */}
+          {viewMode === 'individual' && selectedItems.length > 1 && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select Card</label>
+              <ScrollArea className="w-full">
+                <div className="flex gap-2 pb-2">
+                  {selectedItems.map((item) => (
+                    <Tooltip key={item.id}>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => setSelectedCardId(item.id)}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all flex-shrink-0",
+                            selectedCardId === item.id
+                              ? "border-primary bg-primary/10 ring-2 ring-primary/20"
+                              : "border-border hover:border-primary/50 hover:bg-accent"
+                          )}
+                        >
+                          <div
+                            className="h-3 w-3 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: item.color || '#6366f1' }}
+                          />
+                          <span className="text-sm font-medium truncate max-w-[120px]">
+                            {item.name}
+                          </span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="font-medium">{item.name}</p>
+                        {item.tags && item.tags.length > 0 && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Tags: {item.tags.join(', ')}
+                          </p>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+          {/* Add New Tag Input */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {viewMode === 'individual' && selectedItems.length > 1
+                ? `Add Tag to "${currentCard.name}"`
+                : viewMode === 'bulk' && selectedItems.length > 1
+                ? `Add Tag to All ${selectedItems.length} Cards`
+                : 'Add New Tag'}
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newTagInput}
+                onChange={(e) => setNewTagInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Enter tag name..."
+                className="flex-1 px-3 py-2 text-sm rounded-md border border-input bg-background"
+              />
+              <button
+                onClick={() => handleAddTag(newTagInput, viewMode === 'individual' ? currentCard.id : undefined)}
+                disabled={!newTagInput.trim()}
+                className={cn(
+                  "inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium",
+                  "bg-primary text-primary-foreground",
+                  "hover:bg-primary/90 transition-colors",
+                  "disabled:opacity-50 disabled:cursor-not-allowed"
+                )}
+              >
+                <Plus className="h-4 w-4" />
+                Add
+              </button>
+            </div>
+          </div>
+
+          {/* Current Tags */}
+          {viewMode === 'individual' ? (
+            // Individual card tags
+            currentCard.tags && currentCard.tags.length > 0 ? (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Tags on This Card</label>
+                <div className="flex flex-wrap gap-2">
+                  {currentCard.tags.map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant="default"
+                      className="flex items-center gap-1.5 px-3 py-1.5 cursor-pointer hover:bg-primary/80"
+                      onClick={() => handleRemoveTag(tag, currentCard.id)}
+                    >
+                      {tag}
+                      <X className="h-3 w-3 ml-1" />
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Click a tag to remove it from this card
+                </p>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground py-2">
+                No tags on this card yet
+              </div>
+            )
+          ) : (
+            // Bulk mode - show common and partial tags
+            (commonTags.length > 0 || partialTags.length > 0) && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Current Tags</label>
+                <div className="flex flex-wrap gap-2">
+                  {commonTags.map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant="default"
+                      className="flex items-center gap-1.5 px-3 py-1.5 cursor-pointer hover:bg-primary/80"
+                      onClick={() => handleRemoveTag(tag)}
+                    >
+                      <Check className="h-3 w-3" />
+                      {tag}
+                      <X className="h-3 w-3 ml-1" />
+                    </Badge>
+                  ))}
+                  {partialTags.map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant="outline"
+                      className="flex items-center gap-1.5 px-3 py-1.5 cursor-pointer hover:bg-accent"
+                      onClick={() => handleToggleTag(tag)}
+                    >
+                      <span className="text-muted-foreground text-xs">Some</span>
+                      {tag}
+                      <X className="h-3 w-3 ml-1" />
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Click a tag to remove it. Tags with "Some" are only on some selected cards.
+                </p>
+              </div>
+            )
+          )}
+
+          {/* Available Tags from Workspace */}
+          {allExistingTags.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Available Tags</label>
+              <ScrollArea className="max-h-[120px]">
+                <div className="flex flex-wrap gap-2 pr-4">
+                  {viewMode === 'individual' ? (
+                    // Individual mode - show tags not on current card
+                    allExistingTags
+                      .filter((tag) => !currentCard.tags?.includes(tag))
+                      .map((tag) => (
+                        <Badge
+                          key={tag}
+                          variant="secondary"
+                          className="cursor-pointer hover:bg-secondary/80"
+                          onClick={() => handleAddTag(tag, currentCard.id)}
+                        >
+                          {tag}
+                        </Badge>
+                      ))
+                  ) : (
+                    // Bulk mode - show tags not common to all
+                    allExistingTags
+                      .filter((tag) => !commonTags.includes(tag) && !partialTags.includes(tag))
+                      .map((tag) => (
+                        <Badge
+                          key={tag}
+                          variant="secondary"
+                          className="cursor-pointer hover:bg-secondary/80"
+                          onClick={() => handleAddTag(tag)}
+                        >
+                          {tag}
+                        </Badge>
+                      ))
+                  )}
+                </div>
+              </ScrollArea>
+              {(viewMode === 'individual' 
+                ? allExistingTags.filter((tag) => !currentCard.tags?.includes(tag)).length === 0
+                : allExistingTags.filter((tag) => !commonTags.includes(tag) && !partialTags.includes(tag)).length === 0
+              ) && (
+                <p className="text-sm text-muted-foreground">All workspace tags are already applied</p>
+              )}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {allExistingTags.length === 0 && 
+           (viewMode === 'individual' ? !currentCard.tags?.length : (commonTags.length === 0 && partialTags.length === 0)) && (
+            <div className="text-center py-8 text-muted-foreground">
+              <TagIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">No tags yet. Create your first tag above!</p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => onOpenChange(false)}
+            className="px-4 py-2 text-sm font-medium rounded-md border border-input hover:bg-accent transition-colors"
+          >
+            Done
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

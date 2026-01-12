@@ -1,0 +1,58 @@
+/* Native text highlight styles - using mark element */
+.text-highlight {
+  background-color: rgba(147, 197, 253, 0.4);
+  border-bottom: 2px solid rgb(59, 130, 246);
+  border-radius: 2px;
+  transition: background-color 0.2s ease;
+  /* Inherit all text properties from parent to prevent style changes */
+  color: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  font-family: inherit !important;
+  line-height: inherit !important;
+  letter-spacing: inherit !important;
+  text-decoration: inherit !important;
+}
+
+.text-highlight:hover {
+  background-color: rgba(147, 197, 253, 0.6);
+}
+
+/* Base reset class for custom colored highlights */
+.text-highlight-reset {
+  /* Inherit all text properties from parent to prevent style changes */
+  color: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  font-family: inherit !important;
+  line-height: inherit !important;
+  letter-spacing: inherit !important;
+  text-decoration: inherit !important;
+  /* Reset default mark styles */
+  color: inherit;
+  /* Common highlight styles */
+  border-radius: 2px;
+  transition: background-color 0.2s ease;
+}
+
+/* Dark mode styles */
+@media (prefers-color-scheme: dark) {
+  .text-highlight {
+    background-color: rgba(29, 78, 216, 0.4);
+    border-bottom-color: rgb(96, 165, 250);
+  }
+
+  .text-highlight:hover {
+    background-color: rgba(29, 78, 216, 0.6);
+  }
+}
+
+/* Alternative: Use data attribute for theme-aware styling */
+[data-theme="dark"] .text-highlight {
+  background-color: rgba(29, 78, 216, 0.4);
+  border-bottom-color: rgb(96, 165, 250);
+}
+
+[data-theme="dark"] .text-highlight:hover {
+  background-color: rgba(29, 78, 216, 0.6);
+}
