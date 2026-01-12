@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { Menu } from "lucide-react";
+import { Menu, Github } from "lucide-react";
 import { useState, useEffect } from "react";
 import { usePostHog } from 'posthog-js/react';
 import { useSession } from "@/lib/auth-client";
@@ -115,6 +115,14 @@ export function Navbar() {
           <div className="hidden md:flex md:items-center md:gap-4 z-10">
             {!isPending && !session && (
               <>
+                <a
+                  href="https://github.com/thinkex-oss/thinkex/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-foreground/70 transition-colors hover:text-foreground cursor-pointer"
+                >
+                  <Github className="h-5 w-5" />
+                </a>
                 <Link 
                   href="/auth/sign-in"
                   className="text-sm font-normal text-foreground/70 transition-colors hover:text-foreground cursor-pointer"
@@ -212,6 +220,16 @@ export function Navbar() {
                 {!isPending && !session && (
                   <>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <a
+                        href="https://github.com/thinkex-oss/thinkex/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="cursor-pointer flex items-center justify-center"
+                      >
+                        <Github className="h-4 w-4" />
+                      </a>
+                    </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link 
                         href="/auth/sign-in"
