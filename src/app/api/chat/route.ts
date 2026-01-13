@@ -17,19 +17,6 @@ import { cookies } from "next/headers";
 import { randomUUID } from "crypto";
 import { db, workspaces } from "@/lib/db/client";
 import { eq } from "drizzle-orm";
-import { createClient } from "@supabase/supabase-js";
-
-// Initialize Supabase Admin Client for secure storage access
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-);
 
 export const maxDuration = 30;
 
@@ -176,162 +163,78 @@ export async function POST(req: Request) {
 
           const fileResults: string[] = [];
 
-          // Handle Supabase file URLs by downloading and passing to Gemini in a SINGLE batched call
+          // Handle Supabase file URLs by sending URLs directly to Gemini
           if (supabaseUrls.length > 0) {
             try {
-              // Step 1: Download all files in parallel
-              const downloadPromises = supabaseUrls.map(async (fileUrl: string) => {
-                try {
-                  // Parse the URL to get bucket and path
-                  const urlObj = new URL(fileUrl);
-                  const pathParts = urlObj.pathname.split('/storage/v1/object/')[1]?.split('/');
-
-                  if (!pathParts || pathParts.length < 2) {
-                    logger.warn("📁 [FILE_TOOL] URL does not match Supabase storage format:", fileUrl);
-                    return { success: false, error: `Invalid Supabase URL format: ${fileUrl}` };
-                  }
-
-                  let bucket = "";
-                  let filePath = "";
-
-                  if (urlObj.pathname.includes('/public/')) {
-                    const parts = urlObj.pathname.split('/public/');
-                    if (parts[1]) {
-                      const bucketAndPath = parts[1].split('/');
-                      bucket = bucketAndPath[0];
-                      filePath = bucketAndPath.slice(1).join('/');
-                    }
-                  } else if (urlObj.pathname.includes('/sign/')) {
-                    const parts = urlObj.pathname.split('/sign/');
-                    if (parts[1]) {
-                      const bucketAndPath = parts[1].split('/');
-                      bucket = bucketAndPath[0];
-                      filePath = bucketAndPath.slice(1).join('/');
-                    }
-                  } else {
-                    logger.warn("📁 [FILE_TOOL] Could not parse bucket/path from URL:", fileUrl);
-                    return { success: false, error: `Could not parse URL: ${fileUrl}` };
-                  }
-
-                  // Decode URI components
-                  bucket = decodeURIComponent(bucket);
-                  filePath = decodeURIComponent(filePath);
-
-                  if (!bucket || !filePath) {
-                    logger.warn("📁 [FILE_TOOL] Invalid bucket or path:", { bucket, filePath });
-                    return { success: false, error: `Invalid bucket or path for: ${fileUrl}` };
-                  }
-
-                  logger.debug("📁 [FILE_TOOL] Downloading from storage:", { bucket, filePath });
-
-                  // Download using Admin SDK
-                  const { data, error } = await supabaseAdmin
-                    .storage
-                    .from(bucket)
-                    .download(filePath);
-
-                  if (error || !data) {
-                    logger.error("📁 [FILE_TOOL] Supabase download error:", error);
-                    return { success: false, error: `Download error: ${error?.message || "Unknown error"}` };
-                  }
-
-                  // Convert Blob to Base64
-                  const arrayBuffer = await data.arrayBuffer();
-                  const buffer = Buffer.from(arrayBuffer);
-                  const base64Data = buffer.toString('base64');
-
-                  // Determine media type
-                  let mediaType = data.type || 'application/octet-stream';
-                  const urlLower = fileUrl.toLowerCase();
-                  if (mediaType === 'application/octet-stream' || !mediaType) {
-                    if (urlLower.endsWith('.pdf')) {
-                      mediaType = 'application/pdf';
-                    } else if (urlLower.match(/\.(jpg|jpeg)$/)) {
-                      mediaType = 'image/jpeg';
-                    } else if (urlLower.endsWith('.png')) {
-                      mediaType = 'image/png';
-                    } else if (urlLower.endsWith('.gif')) {
-                      mediaType = 'image/gif';
-                    } else if (urlLower.endsWith('.webp')) {
-                      mediaType = 'image/webp';
-                    } else if (urlLower.endsWith('.svg')) {
-                      mediaType = 'image/svg+xml';
-                    } else if (urlLower.match(/\.(mp4|mov|avi)$/)) {
-                      mediaType = 'video/mp4';
-                    } else if (urlLower.match(/\.(mp3|wav|ogg)$/)) {
-                      mediaType = 'audio/mpeg';
-                    } else if (urlLower.match(/\.(doc|docx)$/)) {
-                      mediaType = 'application/msword';
-                    } else if (urlLower.endsWith('.txt')) {
-                      mediaType = 'text/plain';
-                    }
-                  }
-
-                  const filename = decodeURIComponent(fileUrl.split('/').pop() || 'file');
-                  const dataUrl = `data:${mediaType};base64,${base64Data}`;
-
-                  logger.debug("📁 [FILE_TOOL] Successfully downloaded:", filename);
-                  return {
-                    success: true,
-                    filename,
-                    dataUrl,
-                    mediaType,
-                  };
-                } catch (fileError) {
-                  logger.error("📁 [FILE_TOOL] Error downloading file:", {
-                    url: fileUrl,
-                    error: fileError instanceof Error ? fileError.message : String(fileError),
-                  });
-                  return { success: false, error: `Error downloading ${fileUrl}: ${fileError instanceof Error ? fileError.message : String(fileError)}` };
+              // Helper function to determine media type from URL
+              const getMediaTypeFromUrl = (url: string): string => {
+                const urlLower = url.toLowerCase();
+                if (urlLower.endsWith('.pdf')) {
+                  return 'application/pdf';
+                } else if (urlLower.match(/\.(jpg|jpeg)$/)) {
+                  return 'image/jpeg';
+                } else if (urlLower.endsWith('.png')) {
+                  return 'image/png';
+                } else if (urlLower.endsWith('.gif')) {
+                  return 'image/gif';
+                } else if (urlLower.endsWith('.webp')) {
+                  return 'image/webp';
+                } else if (urlLower.endsWith('.svg')) {
+                  return 'image/svg+xml';
+                } else if (urlLower.match(/\.(mp4|mov|avi)$/)) {
+                  return 'video/mp4';
+                } else if (urlLower.match(/\.(mp3|wav|ogg)$/)) {
+                  return 'audio/mpeg';
+                } else if (urlLower.match(/\.(doc|docx)$/)) {
+                  return 'application/msword';
+                } else if (urlLower.endsWith('.txt')) {
+                  return 'text/plain';
                 }
+                return 'application/octet-stream';
+              };
+
+              // Prepare file info with URLs directly
+              type FileInfo = { fileUrl: string; filename: string; mediaType: string };
+              const fileInfos: FileInfo[] = supabaseUrls.map((fileUrl: string) => {
+                const filename = decodeURIComponent(fileUrl.split('/').pop() || 'file');
+                const mediaType = getMediaTypeFromUrl(fileUrl);
+                return { fileUrl, filename, mediaType };
               });
 
-              // Wait for all downloads to complete in parallel
-              const downloadResults = await Promise.all(downloadPromises);
+              // Analyze all files in a SINGLE batched AI call
+              try {
+                const fileListText = fileInfos.map((f: FileInfo, i: number) => `${i + 1}. ${f.filename}`).join('\n');
+                
+                const batchPrompt = instruction
+                  ? `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\n${instruction}\n\nProvide your analysis for each file, clearly labeled with the filename.`
+                  : `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\nFor each file, extract and summarize:\n- Main topics, themes, or subject matter\n- Key information, data, or details\n- Important facts or insights\n- Any structured data, lists, or specific information\n\nProvide a clear, comprehensive analysis for each file, clearly labeled with the filename.`;
 
-              // Separate successful downloads from errors
-              const successfulDownloads = downloadResults.filter((r): r is { success: true; filename: string; dataUrl: string; mediaType: string } => r.success === true);
-              const failedDownloads = downloadResults.filter((r): r is { success: false; error: string } => r.success === false);
+                // Build message content with all files using URLs directly
+                const messageContent: Array<{ type: "text"; text: string } | { type: "file"; data: string; mediaType: string; filename?: string }> = [
+                  { type: "text", text: batchPrompt },
+                  ...fileInfos.map((f: FileInfo) => ({
+                    type: "file" as const,
+                    data: f.fileUrl,
+                    mediaType: f.mediaType,
+                    filename: f.filename,
+                  })),
+                ];
 
-              // Add errors to results
-              failedDownloads.forEach(f => fileResults.push(f.error));
+                logger.debug("📁 [FILE_TOOL] Sending batched analysis request for", fileInfos.length, "files with URLs");
 
-              // Step 2: Analyze all successfully downloaded files in a SINGLE batched AI call
-              if (successfulDownloads.length > 0) {
-                try {
-                  const fileListText = successfulDownloads.map((f, i) => `${i + 1}. ${f.filename}`).join('\n');
-                  
-                  const batchPrompt = instruction
-                    ? `Analyze the following ${successfulDownloads.length} file(s):\n${fileListText}\n\n${instruction}\n\nProvide your analysis for each file, clearly labeled with the filename.`
-                    : `Analyze the following ${successfulDownloads.length} file(s):\n${fileListText}\n\nFor each file, extract and summarize:\n- Main topics, themes, or subject matter\n- Key information, data, or details\n- Important facts or insights\n- Any structured data, lists, or specific information\n\nProvide a clear, comprehensive analysis for each file, clearly labeled with the filename.`;
+                const { text: batchAnalysis } = await generateText({
+                  model: google("gemini-2.5-flash"),
+                  messages: [{
+                    role: "user",
+                    content: messageContent,
+                  }],
+                });
 
-                  // Build message content with all files
-                  const messageContent: Array<{ type: "text"; text: string } | { type: "file"; data: string; mediaType: string; filename: string }> = [
-                    { type: "text", text: batchPrompt },
-                    ...successfulDownloads.map(f => ({
-                      type: "file" as const,
-                      data: f.dataUrl,
-                      mediaType: f.mediaType,
-                      filename: f.filename,
-                    })),
-                  ];
-
-                  logger.debug("📁 [FILE_TOOL] Sending batched analysis request for", successfulDownloads.length, "files");
-
-                  const { text: batchAnalysis } = await generateText({
-                    model: google("gemini-2.5-flash"),
-                    messages: [{
-                      role: "user",
-                      content: messageContent,
-                    }],
-                  });
-
-                  logger.debug("📁 [FILE_TOOL] Successfully analyzed", successfulDownloads.length, "files in batch");
-                  fileResults.push(batchAnalysis);
-                } catch (analysisError) {
-                  logger.error("📁 [FILE_TOOL] Error in batched analysis:", analysisError);
-                  fileResults.push(`Error analyzing files: ${analysisError instanceof Error ? analysisError.message : String(analysisError)}`);
-                }
+                logger.debug("📁 [FILE_TOOL] Successfully analyzed", fileInfos.length, "files in batch");
+                fileResults.push(batchAnalysis);
+              } catch (analysisError) {
+                logger.error("📁 [FILE_TOOL] Error in batched analysis:", analysisError);
+                fileResults.push(`Error analyzing files: ${analysisError instanceof Error ? analysisError.message : String(analysisError)}`);
               }
             } catch (error) {
               logger.error("📁 [FILE_TOOL] Error in Supabase file processing:", error);
