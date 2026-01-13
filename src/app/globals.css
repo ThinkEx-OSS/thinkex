@@ -59,8 +59,6 @@
 
 /* Soften nested indent guide lines in BlockNote */
 .bn-block-group .bn-block:not(:has(.bn-toggle-wrapper)) .bn-block-group .bn-block-outer:not([data-prev-depth-changed]):before {
-  /* Use a lighter, more transparent border to reduce visual weight */
-  border-left: 1px solid color-mix(in srgb, var(--bn-colors-side-menu) 35%, transparent) !important;
   opacity: 0 !important;
 }
 
