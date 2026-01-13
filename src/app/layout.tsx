@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     siteName: "ThinkEx",
     images: [
       {
-        url: "/thinkexnewopengraph.png",
+        url: "/opengraph.png",
         width: 1200,
         height: 630,
         alt: "ThinkEx",
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
     title: "ThinkEx",
     description:
       "Import documents, control AI context, and organize your information in a workspace built for modern knowledge work.",
-    images: ["/thinkexnewopengraph.png"],
+    images: ["/opengraph.png"],
   },
   icons: {
     icon: [

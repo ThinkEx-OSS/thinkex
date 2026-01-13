@@ -36,16 +36,6 @@ export async function generateMetadata(
     return {
         title: `Shared Workspace: ${title}`,
         description: description,
-        openGraph: {
-            title: `Shared Workspace: ${title}`,
-            description: description,
-            type: "website",
-        },
-        twitter: {
-            card: "summary_large_image",
-            title: `Shared Workspace: ${title}`,
-            description: description,
-        },
     };
 }
 
