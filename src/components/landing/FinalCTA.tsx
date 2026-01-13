@@ -150,7 +150,7 @@ export function FinalCTA() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="mx-auto max-w-2xl text-xl text-muted-foreground sm:text-2xl"
           >
-            Join 100+ users who are already on ThinkEx.
+            Join 50+ users who are already on ThinkEx.
           </motion.p>
 
           <motion.div
