@@ -203,8 +203,8 @@ export const PreviewBlock = memo(function PreviewBlock({ block, index, blocks, i
         case "bulletListItem":
             return (
                 <div className="mb-1">
-                    <div className="flex gap-2 items-start">
-                        <span className="select-none text-muted-foreground mt-1">•</span>
+                    <div className="flex gap-2 items-center">
+                        <span className="select-none text-muted-foreground">•</span>
                         <div className="flex-1 min-w-0 break-words">
                             <p><InlineContent content={content} /></p>
                         </div>
@@ -216,12 +216,13 @@ export const PreviewBlock = memo(function PreviewBlock({ block, index, blocks, i
         case "numberedListItem": {
             // Calculate the list number by counting how many consecutive numberedListItem blocks
             // appear before this one (starting from the beginning of the list)
+            // For nested lists, each nested list restarts numbering from 1
             let listNumber = 1;
 
             // Count backwards to find where the list starts
             let startIndex = index;
             for (let i = index - 1; i >= 0; i--) {
-                if (blocks[i].type === "numberedListItem") {
+                if (blocks[i]?.type === "numberedListItem") {
                     startIndex = i;
                 } else {
                     break; // Stop when we hit a non-numbered-list item
@@ -233,8 +234,8 @@ export const PreviewBlock = memo(function PreviewBlock({ block, index, blocks, i
 
             return (
                 <div className="mb-1">
-                    <div className="flex gap-2 items-start">
-                        <span className="select-none text-muted-foreground font-mono text-xs mt-1">{listNumber}.</span>
+                    <div className="flex gap-2 items-center">
+                        <span className="select-none text-muted-foreground font-mono text-xs">{listNumber}.</span>
                         <div className="flex-1 min-w-0 break-words">
                             <p><InlineContent content={content} /></p>
                         </div>
