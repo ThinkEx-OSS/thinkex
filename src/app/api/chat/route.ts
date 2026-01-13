@@ -18,8 +18,6 @@ import { randomUUID } from "crypto";
 import { db, workspaces } from "@/lib/db/client";
 import { eq } from "drizzle-orm";
 
-export const maxDuration = 30;
-
 /**
  * Extract workspaceId from system context or request body
  * The workspaceId is passed from the frontend through the request body or system context
