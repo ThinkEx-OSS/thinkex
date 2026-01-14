@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://thinkex.app">Try ThinkEx</a> · <a href="#features">Features</a> · <a href="#how-it-works">How It Works</a> · <a href="#self-hosting">Self-Host</a> · <a href="#contributing">Contribute</a>
+  <a href="https://thinkex.app">Try ThinkEx</a> · <a href="#what-is-thinkex">What is ThinkEx?</a> · <a href="#features">Features</a> · <a href="#self-hosting">Self-Host</a> · <a href="#contributing">Contribute</a>
 </p>
 
 
