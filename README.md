@@ -1,12 +1,11 @@
 <p align="center">
   <a href="https://thinkex.app">
-    <img alt="ThinkEx: Rethinking the User Interface of AI"" src="public/newreadmeimage.svg" width="500" />
+    <img alt="ThinkEx: Rethinking the User Interface of AI" src="public/newreadmeimage.svg" width="500" />
   </a>
 </p>
 
 Today’s AI chat interfaces make long-term and complex work frustrating: context gets lost, ideas scatter, and information overload builds over time. ThinkEx raises the standard with a flexible workspace designed to capture what's relevant, organize knowledge, and use AI without losing control.
 
-Head over to [thinkex.app](https://thinkex.app) to start right away, no setup required.
 
 ## Tech Stack
 
@@ -14,6 +13,7 @@ Head over to [thinkex.app](https://thinkex.app) to start right away, no setup re
 *   **Styling:** [Tailwind CSS](https://tailwindcss.com/), [Shadcn UI](https://ui.shadcn.com/)
 *   **Database:** [PostgreSQL](https://github.com/postgres/postgres) with [Drizzle ORM](https://orm.drizzle.team/)
 *   **State & Data:** [TanStack Query](https://tanstack.com/query/latest), [Zustand](https://github.com/pmndrs/zustand)
+
 
 ## Self-Hosting
 
@@ -29,7 +29,7 @@ Want to run ThinkEx on your own infrastructure? Follow these steps.
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/yourusername/thinkex.git
+    git clone https://github.com/ThinkEx-OSS/thinkex.git
     cd thinkex
     ```
 
@@ -39,16 +39,15 @@ Want to run ThinkEx on your own infrastructure? Follow these steps.
     ```
 
 3.  **Environment Setup:**
-    Duplicate the example environment file and configure your keys.
     ```bash
     cp .env.example .env.local
     ```
-    *   Add your `DATABASE_URL`
-    *   Add your `GOOGLE_CLIENT_ID` / `SECRET` (for Auth)
-    *   Add your AI API keys (e.g., `GOOGLE_GENERATIVE_AI_API_KEY`)
+    Configure your keys:
+    *   `DATABASE_URL` – Your PostgreSQL connection string
+    *   `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` – For authentication
+    *   AI provider keys (e.g., `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`)
 
 4.  **Database Setup:**
-    Push the schema to your database.
     ```bash
     pnpm db:push
     ```
@@ -62,24 +61,29 @@ Want to run ThinkEx on your own infrastructure? Follow these steps.
 
 ## Contributing
 
-We welcome contributions! Please follow these steps:
+We welcome contributions! Whether it's bug fixes, new features, or documentation improvements.
 
-1.  Fork the repository.
-2.  Create your feature branch: `git checkout -b feature/amazing-feature`.
-3.  Commit your changes: `git commit -m 'Add some amazing feature'`.
-4.  Push to the branch: `git push origin feature/amazing-feature`.
-5.  Open a Pull Request.
+1.  Fork the repository
+2.  Create your feature branch: `git checkout -b feature/amazing-feature`
+3.  Commit your changes: `git commit -m 'Add some amazing feature'`
+4.  Push to the branch: `git push origin feature/amazing-feature`
+5.  Open a Pull Request
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
 
 ## Acknowledgments
 
-Special thanks to the following open-source projects that power key features of ThinkEx:
+ThinkEx is built on incredible open-source projects:
+s
+*   [Assistant UI](https://www.assistant-ui.com/) – AI chat components
+*   [EmbedPDF](https://embedpdf.com/) – PDF rendering
+*   [BlockNote](https://blocknotejs.org/) – Block-based editor
+*   [Better Auth](https://www.better-auth.com/) & [Better Auth UI](https://better-auth-ui.com/) – Authentication
+*   [React Grid Layout](https://github.com/react-grid-layout/react-grid-layout) – Canvas layout system
 
-*   [Assistant UI](https://www.assistant-ui.com/)
-*   [EmbedPDF](https://embedpdf.com/)
-*   [BlockNote](https://blocknotejs.org/)
-*   [Better Auth](https://www.better-auth.com/) & [Better Auth UI](https://better-auth-ui.com/)
-*   [React Grid Layout](https://github.com/react-grid-layout/react-grid-layout)
-  
+
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
