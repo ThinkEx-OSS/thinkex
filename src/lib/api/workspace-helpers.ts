@@ -6,9 +6,9 @@ import { eq } from "drizzle-orm";
 
 /**
  * Get authenticated user from session
- * Returns userId or null if not authenticated
+ * Returns userId, name, and email or null if not authenticated
  */
-export async function getAuthenticatedUser(): Promise<{ userId: string } | null> {
+export async function getAuthenticatedUser(): Promise<{ userId: string; name?: string; email?: string } | null> {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -17,7 +17,11 @@ export async function getAuthenticatedUser(): Promise<{ userId: string } | null>
     return null;
   }
 
-  return { userId: session.user.id };
+  return {
+    userId: session.user.id,
+    name: session.user.name ?? undefined,
+    email: session.user.email ?? undefined,
+  };
 }
 
 /**
@@ -101,4 +105,16 @@ export async function requireAuth(): Promise<string> {
     throw NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return user.userId;
+}
+
+/**
+ * Require authentication with user info - returns userId, name, and email or throws 401
+ * Use this when you need user name/email to avoid duplicate session fetches
+ */
+export async function requireAuthWithUserInfo(): Promise<{ userId: string; name?: string; email?: string }> {
+  const user = await getAuthenticatedUser();
+  if (!user) {
+    throw NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return user;
 }
