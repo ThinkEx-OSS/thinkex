@@ -1,46 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
 import type { SnapshotInfo } from "@/lib/workspace/events";
-import { db, workspaces, workspaceSnapshots } from "@/lib/db/client";
+import { db, workspaceSnapshots } from "@/lib/db/client";
 import { eq, desc } from "drizzle-orm";
+import { requireAuth, verifyWorkspaceOwnership, withErrorHandling } from "@/lib/api/workspace-helpers";
 
 /**
  * GET /api/workspaces/[id]/snapshots
  * Fetch all snapshots for a workspace (for version history)
  * Note: Owner only (sharing is fork-based)
  */
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await params;
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+  // Start independent operations in parallel
+  const paramsPromise = params;
+  const authPromise = requireAuth();
+  
+  const { id } = await paramsPromise;
+  const userId = await authPromise;
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const userId = session.user.id;
-
-    // Check if user is workspace owner
-    const workspace = await db
-      .select({ userId: workspaces.userId })
-      .from(workspaces)
-      .where(eq(workspaces.id, id))
-      .limit(1);
-
-    if (!workspace[0]) {
-      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
-    }
-
-    // Enforce strict ownership (sharing is fork-based)
-    if (workspace[0].userId !== userId) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 });
-    }
+  // Check if user is workspace owner
+  await verifyWorkspaceOwnership(id, userId);
 
     // Get ALL snapshots for version history
     const allSnapshotsData = await db
@@ -58,10 +39,7 @@ export async function GET(
       state: s.state as any,
     }));
 
-    return NextResponse.json({ snapshots });
-  } catch (error) {
-    console.error("Error in GET /api/workspaces/[id]/snapshots:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+  return NextResponse.json({ snapshots });
 }
 
+export const GET = withErrorHandling(handleGET, "GET /api/workspaces/[id]/snapshots");

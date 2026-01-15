@@ -1,46 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
 import { db, workspaces } from "@/lib/db/client";
 import { eq, and } from "drizzle-orm";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
+import { requireAuth, withErrorHandling } from "@/lib/api/workspace-helpers";
 
 /**
  * GET /api/workspaces/slug/[slug]
  * Get a workspace by slug (more user-friendly than UUID)
  * Note: Owner only (sharing is fork-based)
  */
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  try {
-    const { slug } = await params;
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+  // Start independent operations in parallel
+  const paramsPromise = params;
+  const authPromise = requireAuth();
+  
+  const { slug } = await paramsPromise;
+  const userId = await authPromise;
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const userId = session.user.id;
-
-    // Get workspace by slug for this user (ownership only)
-    const workspace = await db
-      .select()
-      .from(workspaces)
-      .where(
-        and(
-          eq(workspaces.slug, slug),
-          eq(workspaces.userId, userId)
-        )
+  // Get workspace by slug for this user (ownership only)
+  const workspace = await db
+    .select()
+    .from(workspaces)
+    .where(
+      and(
+        eq(workspaces.slug, slug),
+        eq(workspaces.userId, userId)
       )
-      .limit(1);
+    )
+    .limit(1);
 
-    if (!workspace[0]) {
-      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
-    }
+  if (!workspace[0]) {
+    return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+  }
 
     // Get workspace state by replaying events
     const state = await loadWorkspaceState(workspace[0].id);
@@ -51,15 +45,13 @@ export async function GET(
       state.globalDescription = workspace[0].description || "";
     }
 
-    return NextResponse.json({
-      workspace: {
-        ...workspace[0],
-        state,
-      },
-    });
-  } catch (error) {
-    console.error("Error in GET /api/workspaces/slug/[slug]:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+  return NextResponse.json({
+    workspace: {
+      ...workspace[0],
+      state,
+    },
+  });
 }
+
+export const GET = withErrorHandling(handleGET, "GET /api/workspaces/slug/[slug]");
 

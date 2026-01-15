@@ -1,56 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
 import type { WorkspaceEvent, EventResponse } from "@/lib/workspace/events";
 import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
-import { db, workspaces, workspaceEvents, workspaceSnapshots } from "@/lib/db/client";
-import { eq, gt, desc, asc, sql, and } from "drizzle-orm";
+import { db, workspaceEvents } from "@/lib/db/client";
+import { eq, gt, asc, sql, and } from "drizzle-orm";
+import { requireAuth, verifyWorkspaceOwnership, withErrorHandling } from "@/lib/api/workspace-helpers";
 
 /**
  * GET /api/workspaces/[id]/events
  * Fetch all events for a workspace (owner only)
  */
-export async function GET(
+async function handleGET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const startTime = Date.now();
   const timings: Record<string, number> = {};
-  let id: string | undefined;
+  
+  // Start independent operations in parallel
+  const paramsPromise = params;
+  const authPromise = requireAuth();
+  
+  const paramsResolved = await paramsPromise;
+  const id = paramsResolved.id;
 
-  try {
-    const paramsResolved = await params;
-    id = paramsResolved.id;
+  const authStart = Date.now();
+  const userId = await authPromise;
+  timings.auth = Date.now() - authStart;
 
-    const authStart = Date.now();
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    timings.auth = Date.now() - authStart;
-
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const userId = session.user.id;
-
-    // Check if user is workspace owner
-    const workspaceCheckStart = Date.now();
-    const workspace = await db
-      .select({ userId: workspaces.userId })
-      .from(workspaces)
-      .where(eq(workspaces.id, id))
-      .limit(1);
-    timings.workspaceCheck = Date.now() - workspaceCheckStart;
-
-    if (!workspace[0]) {
-      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
-    }
-
-    // Enforce strict ownership (sharing is fork-based)
-    if (workspace[0].userId !== userId) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 });
-    }
+  // Check if user is workspace owner
+  const workspaceCheckStart = Date.now();
+  await verifyWorkspaceOwnership(id, userId);
+  timings.workspaceCheck = Date.now() - workspaceCheckStart;
 
     // Get only the latest snapshot (not all snapshots - loaded on demand for version history)
     // Use optimized function that bypasses RLS (access already verified above)
@@ -207,71 +187,50 @@ export async function GET(
     const totalTime = Date.now() - startTime;
     timings.total = totalTime;
 
-    return NextResponse.json(response);
-  } catch (error) {
-    const totalTime = Date.now() - startTime;
-    console.error(`[GET /api/workspaces/${id || '[unknown]'}/events] Error after ${totalTime}ms:`, error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+  return NextResponse.json(response);
 }
+
+export const GET = withErrorHandling(handleGET, "GET /api/workspaces/[id]/events");
 
 /**
  * POST /api/workspaces/[id]/events
  * Append new event(s) to workspace event log (owner only)
  */
-export async function POST(
+async function handlePOST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const startTime = Date.now();
   const timings: Record<string, number> = {};
-  let id: string | undefined;
+  
+  // Start independent operations in parallel
+  const paramsPromise = params;
+  const authPromise = requireAuth();
+  const bodyPromise = request.json();
+  
+  const paramsResolved = await paramsPromise;
+  const id = paramsResolved.id;
 
-  try {
-    const paramsResolved = await params;
-    id = paramsResolved.id;
+  const authStart = Date.now();
+  const userId = await authPromise;
+  timings.auth = Date.now() - authStart;
 
-    const authStart = Date.now();
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    timings.auth = Date.now() - authStart;
+  const bodyStart = Date.now();
+  const body = await bodyPromise;
+  timings.bodyParse = Date.now() - bodyStart;
+  const { event, baseVersion } = body;
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!event || baseVersion === undefined || isNaN(baseVersion)) {
+    return NextResponse.json(
+      { error: "Event and valid baseVersion are required" },
+      { status: 400 }
+    );
+  }
 
-    const userId = session.user.id;
-
-    const bodyStart = Date.now();
-    const body = await request.json();
-    timings.bodyParse = Date.now() - bodyStart;
-    const { event, baseVersion } = body;
-
-    if (!event || baseVersion === undefined || isNaN(baseVersion)) {
-      return NextResponse.json(
-        { error: "Event and valid baseVersion are required" },
-        { status: 400 }
-      );
-    }
-
-    // Check if user is workspace owner
-    const workspaceCheckStart = Date.now();
-    const workspace = await db
-      .select({ userId: workspaces.userId })
-      .from(workspaces)
-      .where(eq(workspaces.id, id))
-      .limit(1);
-    timings.workspaceCheck = Date.now() - workspaceCheckStart;
-
-    if (!workspace[0]) {
-      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
-    }
-
-    // Enforce strict ownership (sharing is fork-based)
-    if (workspace[0].userId !== userId) {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 });
-    }
+  // Check if user is workspace owner
+  const workspaceCheckStart = Date.now();
+  await verifyWorkspaceOwnership(id, userId);
+  timings.workspaceCheck = Date.now() - workspaceCheckStart;
 
     // Use the append function to handle versioning and conflicts
     const appendStart = Date.now();
@@ -353,15 +312,12 @@ export async function POST(
     const totalTime = Date.now() - startTime;
     timings.total = totalTime;
 
-    return NextResponse.json({
-      success: true,
-      version: appendResult.version,
-      conflict: false,
-    });
-  } catch (error) {
-    const totalTime = Date.now() - startTime;
-    console.error(`[POST /api/workspaces/${id || '[unknown]'}/events] Error after ${totalTime}ms:`, error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+  return NextResponse.json({
+    success: true,
+    version: appendResult.version,
+    conflict: false,
+  });
 }
+
+export const POST = withErrorHandling(handlePOST, "POST /api/workspaces/[id]/events");
 

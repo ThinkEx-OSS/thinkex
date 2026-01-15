@@ -1,24 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
 import { db, workspaces } from "@/lib/db/client";
 import { eq, inArray, and } from "drizzle-orm";
+import { requireAuth, withErrorHandling } from "@/lib/api/workspace-helpers";
 
 /**
  * POST /api/workspaces/reorder
  * Update the sort_order for multiple workspaces
  */
-export async function POST(request: NextRequest) {
-  try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    
-    const userId = session.user.id;
+async function handlePOST(request: NextRequest) {
+  const userId = await requireAuth();
 
     const body = await request.json();
     const { workspaceIds } = body;
@@ -62,10 +52,7 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error in POST /api/workspaces/reorder:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+  return NextResponse.json({ success: true });
 }
 
+export const POST = withErrorHandling(handlePOST, "POST /api/workspaces/reorder");
