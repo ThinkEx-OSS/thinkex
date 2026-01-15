@@ -5,11 +5,6 @@ const nextConfig: NextConfig = {
   reactStrictMode: false, // BlockNote is not yet compatible with React 19 StrictMode
   // Transpile git-installed packages to ensure proper module resolution
   transpilePackages: ["react-grid-layout"],
-  // Optimize barrel file imports - reduces import cost from 200-800ms to near-zero
-  // Automatically transforms barrel imports to direct imports at build time
-  experimental: {
-    optimizePackageImports: ["lucide-react"],
-  },
   images: {
     remotePatterns: [
       {

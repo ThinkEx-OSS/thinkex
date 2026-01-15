@@ -228,24 +228,13 @@ export async function POST(
   let id: string | undefined;
 
   try {
-    // Start independent operations in parallel (per async-parallel rule)
-    const paramsPromise = params;
-    const headersPromise = headers();
-    const bodyPromise = request.json();
-    
-    const paramsResolved = await paramsPromise;
+    const paramsResolved = await params;
     id = paramsResolved.id;
 
     const authStart = Date.now();
-    const sessionPromise = auth.api.getSession({
-      headers: await headersPromise,
+    const session = await auth.api.getSession({
+      headers: await headers(),
     });
-    
-    const bodyStart = Date.now();
-    const body = await bodyPromise;
-    timings.bodyParse = Date.now() - bodyStart;
-    
-    const session = await sessionPromise;
     timings.auth = Date.now() - authStart;
 
     if (!session) {
@@ -253,6 +242,10 @@ export async function POST(
     }
 
     const userId = session.user.id;
+
+    const bodyStart = Date.now();
+    const body = await request.json();
+    timings.bodyParse = Date.now() - bodyStart;
     const { event, baseVersion } = body;
 
     if (!event || baseVersion === undefined || isNaN(baseVersion)) {

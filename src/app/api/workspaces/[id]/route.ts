@@ -15,24 +15,19 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Start independent operations in parallel (per async-parallel rule)
-    const paramsPromise = params;
-    const headersPromise = headers();
-    
-    const { id } = await paramsPromise;
-    const sessionPromise = auth.api.getSession({
-      headers: await headersPromise,
+    const { id } = await params;
+    const session = await auth.api.getSession({
+      headers: await headers(),
     });
 
     // Allow anonymous users
-    const session = await sessionPromise;
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const userId = session.user.id;
 
-    // Get workspace - can run in parallel with session check since we need both
+    // Get workspace
     const workspace = await db
       .select()
       .from(workspaces)
@@ -78,25 +73,19 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Start independent operations in parallel (per async-parallel rule)
-    const paramsPromise = params;
-    const headersPromise = headers();
-    const bodyPromise = request.json();
-    
-    const { id } = await paramsPromise;
-    const sessionPromise = auth.api.getSession({
-      headers: await headersPromise,
+    const { id } = await params;
+    const session = await auth.api.getSession({
+      headers: await headers(),
     });
 
     // Allow anonymous users
-    const session = await sessionPromise;
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const userId = session.user.id;
 
-    const body = await bodyPromise;
+    const body = await request.json();
     const { name, description, is_public, icon, color } = body;
 
     // Check ownership
@@ -151,17 +140,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Start independent operations in parallel (per async-parallel rule)
-    const paramsPromise = params;
-    const headersPromise = headers();
-    
-    const { id } = await paramsPromise;
-    const sessionPromise = auth.api.getSession({
-      headers: await headersPromise,
+    const { id } = await params;
+    const session = await auth.api.getSession({
+      headers: await headers(),
     });
 
     // Allow anonymous users
-    const session = await sessionPromise;
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
