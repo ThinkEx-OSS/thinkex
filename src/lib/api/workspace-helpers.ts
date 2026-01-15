@@ -81,8 +81,8 @@ export function withErrorHandling<T extends any[]>(
     try {
       return await handler(...args);
     } catch (error) {
-      // If error is already a NextResponse (from verifyWorkspaceOwnership), return it
-      if (error && typeof error === 'object' && 'status' in error && 'json' in error) {
+      // If error is already a Response/NextResponse, return it
+      if (error instanceof Response) {
         return error as NextResponse;
       }
       

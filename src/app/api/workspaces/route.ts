@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 import { getTemplateInitialState } from "@/lib/workspace/templates";
 import type { WorkspaceWithState, WorkspaceTemplate } from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
@@ -124,7 +126,10 @@ async function handlePOST(request: NextRequest) {
       // Better Auth stores name and email in the session
       let userName: string | undefined;
       try {
-        userName = session.user.name || session.user.email || undefined;
+        const session = await auth.api.getSession({
+          headers: await headers(),
+        });
+        userName = session?.user?.name || session?.user?.email || undefined;
       } catch {
         // Could not get user name
         // Continue without userName
