@@ -18,12 +18,12 @@ async function handleGET(
   
   // Start independent operations in parallel
   const paramsPromise = params;
-  const authStart = Date.now();
   const authPromise = requireAuth();
   
   const paramsResolved = await paramsPromise;
   const id = paramsResolved.id;
 
+  const authStart = Date.now();
   const userId = await authPromise;
   timings.auth = Date.now() - authStart;
 
@@ -205,17 +205,17 @@ async function handlePOST(
   
   // Start independent operations in parallel
   const paramsPromise = params;
-  const authStart = Date.now();
   const authPromise = requireAuth();
-  const bodyStart = Date.now();
   const bodyPromise = request.json();
   
   const paramsResolved = await paramsPromise;
   const id = paramsResolved.id;
 
+  const authStart = Date.now();
   const userId = await authPromise;
   timings.auth = Date.now() - authStart;
 
+  const bodyStart = Date.now();
   const body = await bodyPromise;
   timings.bodyParse = Date.now() - bodyStart;
   const { event, baseVersion } = body;
