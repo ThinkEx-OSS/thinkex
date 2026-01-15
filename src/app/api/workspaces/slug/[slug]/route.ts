@@ -15,16 +15,11 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    // Start independent operations in parallel (per async-parallel rule)
-    const paramsPromise = params;
-    const headersPromise = headers();
-    
-    const { slug } = await paramsPromise;
-    const sessionPromise = auth.api.getSession({
-      headers: await headersPromise,
+    const { slug } = await params;
+    const session = await auth.api.getSession({
+      headers: await headers(),
     });
 
-    const session = await sessionPromise;
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
