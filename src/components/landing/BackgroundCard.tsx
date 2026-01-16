@@ -12,10 +12,10 @@ export interface BackgroundCardData {
 
 interface BackgroundCardProps {
     card: BackgroundCardData;
-    isMobileOnly?: boolean;
+    isDesktopOnly?: boolean;
 }
 
-export function BackgroundCard({ card, isMobileOnly = false }: BackgroundCardProps) {
+export function BackgroundCard({ card, isDesktopOnly = false }: BackgroundCardProps) {
     return (
         <div
             style={{
@@ -28,7 +28,7 @@ export function BackgroundCard({ card, isMobileOnly = false }: BackgroundCardPro
                 transform: `rotate(${card.rotation}deg)`,
                 opacity: 0.5,
             }}
-            className={`rounded-md border border-foreground/20 shadow-xl ${isMobileOnly ? 'hidden md:block' : ''}`}
+            className={`rounded-md border border-foreground/20 shadow-xl ${isDesktopOnly ? 'hidden md:block' : ''}`}
         >
             {/* Card content placeholder */}
             <div className="p-3 h-full flex flex-col gap-2">

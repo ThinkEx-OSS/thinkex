@@ -23,12 +23,12 @@ export function FinalCTA() {
       <div className="absolute inset-0 z-0 opacity-40">
         {/* Static Background Cards */}
         {backgroundCards.map((card, index) => {
-          const isMobileOnly = index >= 3;
+          const isDesktopOnly = index >= 3;
           return (
             <BackgroundCard
               key={index}
               card={card}
-              isMobileOnly={isMobileOnly}
+              isDesktopOnly={isDesktopOnly}
             />
           );
         })}
