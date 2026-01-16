@@ -71,6 +71,8 @@ export function ThreeSteps() {
                       src={step.image}
                       alt={step.title}
                       fill
+                      loading="lazy"
+                      sizes="(max-width: 768px) 100vw, 33vw"
                       className="object-cover"
                       style={step.id === "step-2" ? { objectPosition: "left center" } : undefined}
                     />

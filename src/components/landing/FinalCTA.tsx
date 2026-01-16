@@ -2,55 +2,16 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { getCardColorCSS } from "@/lib/workspace-state/colors";
-import type { CardColor } from "@/lib/workspace-state/colors";
-
-// Random card colors for background
-const cardColors: CardColor[] = [
-  "#8B5CF6", "#3B82F6", "#10B981", "#F59E0B", "#EF4444",
-  "#EC4899", "#06B6D4", "#84CC16", "#F97316", "#6366F1",
-];
+import { BackgroundCard, cardColors, type BackgroundCardData } from "./BackgroundCard";
 
 // Random card positions and sizes (static - no parallax)
-const backgroundCards = [
+const backgroundCards: BackgroundCardData[] = [
   { top: "15%", left: "10%", width: "180px", height: "140px", color: cardColors[0], rotation: -3 },
   { top: "30%", left: "75%", width: "200px", height: "160px", color: cardColors[1], rotation: 2 },
   { top: "60%", left: "15%", width: "160px", height: "120px", color: cardColors[2], rotation: -2 },
   { top: "70%", left: "80%", width: "190px", height: "150px", color: cardColors[3], rotation: 3 },
   { top: "20%", left: "50%", width: "170px", height: "130px", color: cardColors[4], rotation: 1 },
 ];
-
-interface BackgroundCardProps {
-  card: typeof backgroundCards[0];
-  isMobileOnly?: boolean;
-}
-
-function BackgroundCard({ card, isMobileOnly = false }: BackgroundCardProps) {
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: card.top,
-        left: card.left,
-        width: card.width,
-        height: card.height,
-        backgroundColor: getCardColorCSS(card.color as CardColor, 0.5),
-        transform: `rotate(${card.rotation}deg)`,
-        opacity: 0.5,
-      }}
-      className={`rounded-md border border-foreground/20 shadow-xl ${isMobileOnly ? 'hidden md:block' : ''}`}
-    >
-      {/* Card content placeholder */}
-      <div className="p-3 h-full flex flex-col gap-2">
-        <div className="h-2 w-3/4 rounded bg-foreground/20" />
-        <div className="h-1.5 w-full rounded bg-foreground/15" />
-        <div className="h-1.5 w-5/6 rounded bg-foreground/15" />
-        <div className="flex-1" />
-        <div className="h-1 w-1/2 rounded bg-foreground/10" />
-      </div>
-    </div>
-  );
-}
 
 export function FinalCTA() {
   return (
@@ -62,12 +23,12 @@ export function FinalCTA() {
       <div className="absolute inset-0 z-0 opacity-40">
         {/* Static Background Cards */}
         {backgroundCards.map((card, index) => {
-          const isMobileOnly = index >= 3;
+          const isDesktopOnly = index >= 3;
           return (
             <BackgroundCard
               key={index}
               card={card}
-              isMobileOnly={isMobileOnly}
+              isDesktopOnly={isDesktopOnly}
             />
           );
         })}
@@ -101,14 +62,15 @@ export function FinalCTA() {
           </p>
 
           <div className="flex justify-center pt-4">
-            <Link href="/guest-setup">
-              <Button
-                size="lg"
-                className="h-12 rounded-md bg-foreground px-8 text-base font-medium text-background transition-all hover:bg-foreground/90"
-              >
+            <Button
+              asChild
+              size="lg"
+              className="h-12 rounded-md bg-foreground px-8 text-base font-medium text-background transition-all hover:bg-foreground/90"
+            >
+              <Link href="/guest-setup" prefetch>
                 Get Started
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </div>
       </div>

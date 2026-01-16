@@ -95,14 +95,9 @@ export function FourWays() {
                     className={`space-y-4 md:space-y-6 ${way.imageSide === "left" ? "md:col-start-2" : ""
                       }`}
                   >
-                    <div className="flex items-center gap-4">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-background text-lg font-semibold">
-                        {index + 1}
-                      </span>
-                      <h3 className="text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
-                        {way.title}
-                      </h3>
-                    </div>
+                    <h3 className="text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
+                      {way.title}
+                    </h3>
                     <ul className="space-y-2 text-base md:text-lg leading-relaxed text-muted-foreground list-disc list-inside pl-1">
                       {way.bullets.map((bullet, bulletIndex) => (
                         <li key={bulletIndex}>{bullet}</li>
@@ -121,6 +116,8 @@ export function FourWays() {
                         src={way.image}
                         alt={way.title}
                         fill
+                        loading="lazy"
+                        sizes="100vw"
                         className="object-cover"
                         style={
                           way.image === "/attachments.png"
@@ -140,6 +137,8 @@ export function FourWays() {
                         alt={way.title}
                         width={800}
                         height={600}
+                        loading="lazy"
+                        sizes="50vw"
                         className="w-full h-full object-cover"
                         style={
                           way.image === "/attachments.png"

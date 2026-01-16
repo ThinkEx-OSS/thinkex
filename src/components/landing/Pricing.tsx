@@ -158,18 +158,19 @@ export function Pricing() {
                   ))}
                 </ul>
 
-                <Link href={tier.ctaLink} className="block">
-                  <Button
-                    className={`w-full ${tier.highlighted
-                      ? "bg-foreground text-background hover:bg-foreground/90"
-                      : "border-foreground/20 hover:bg-foreground/5"
-                      }`}
-                    variant={tier.highlighted ? "default" : "outline"}
-                    size="lg"
-                  >
+                <Button
+                  asChild
+                  className={`w-full ${tier.highlighted
+                    ? "bg-foreground text-background hover:bg-foreground/90"
+                    : "border-foreground/20 hover:bg-foreground/5"
+                    }`}
+                  variant={tier.highlighted ? "default" : "outline"}
+                  size="lg"
+                >
+                  <Link href={tier.ctaLink} className="block" prefetch>
                     {tier.cta}
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
             ))}
           </div>

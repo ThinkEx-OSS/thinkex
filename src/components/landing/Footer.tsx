@@ -17,8 +17,8 @@ export function Footer() {
                 alt="ThinkEx Logo"
                 width={24}
                 height={24}
+                loading="lazy"
                 className="object-contain"
-                priority
               />
             </div>
             <span className="text-xl font-normal text-foreground">ThinkEx</span>
