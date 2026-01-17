@@ -33,6 +33,7 @@ export interface WorkspaceOperations {
   createFolderWithItems: (name: string, itemIds: string[], color?: CardColor) => string;
   updateFolder: (folderId: string, changes: Partial<Item>) => void;
   deleteFolder: (folderId: string) => void;
+  deleteFolderWithContents: (folderId: string) => void;
   moveItemToFolder: (itemId: string, folderId: string | null) => void;
   moveItemsToFolder: (itemIds: string[], folderId: string | null) => void;
   isPending: boolean;
@@ -484,6 +485,35 @@ export function useWorkspaceOperations(
     [deleteItem, currentState.items]
   );
 
+  // deleteFolderWithContents deletes the folder and all items inside it
+  const deleteFolderWithContents = useCallback(
+    async (folderId: string) => {
+      const folder = currentState.items?.find(i => i.id === folderId && i.type === 'folder');
+      logger.debug("📁 [FOLDER-DELETE-WITH-CONTENTS] Deleting folder and contents:", { folderId, folderName: folder?.name });
+      
+      // Find all items in this folder
+      const itemsInFolder = currentState.items.filter(item => item.folderId === folderId);
+      const itemCount = itemsInFolder.length;
+      
+      logger.debug("📁 [FOLDER-DELETE-WITH-CONTENTS] Found items in folder:", { itemCount, itemIds: itemsInFolder.map(i => i.id) });
+      
+      // Delete all items in the folder first
+      for (const item of itemsInFolder) {
+        await deleteItem(item.id);
+      }
+      
+      // Then delete the folder itself
+      await deleteItem(folderId);
+      
+      toast.success(
+        folder 
+          ? `Folder "${folder.name}" and ${itemCount} ${itemCount === 1 ? 'item' : 'items'} deleted`
+          : `Folder and ${itemCount} ${itemCount === 1 ? 'item' : 'items'} deleted`
+      );
+    },
+    [deleteItem, currentState.items]
+  );
+
   const moveItemToFolder = useCallback(
     (itemId: string, folderId: string | null) => {
       logger.debug("📁 [ITEM-MOVE] Moving item to folder:", { itemId, folderId });
@@ -566,6 +596,7 @@ export function useWorkspaceOperations(
     createFolderWithItems,
     updateFolder,
     deleteFolder,
+    deleteFolderWithContents,
     moveItemToFolder,
     moveItemsToFolder,
     isPending: mutation.isPending,
