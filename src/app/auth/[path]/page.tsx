@@ -18,7 +18,7 @@ export default async function AuthPage({
   const { path } = await params;
   const { redirect_url } = await searchParams;
 
-  // Default to /dashboard if no redirect_url is provided
+  // Default to /onboarding if no redirect_url is provided
   // Otherwise use the redirect_url from query params (e.g., from share links)
   const redirectTo = redirect_url || "/onboarding";
 

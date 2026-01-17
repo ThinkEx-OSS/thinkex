@@ -56,15 +56,20 @@ export default function OnboardingPage() {
 
                 // If there's a redirect_url that's NOT a dashboard route (e.g., share links),
                 // prioritize that over the onboarding redirect
-                if (redirectUrl && !redirectUrl.startsWith("/dashboard") && !redirectUrl.startsWith("/onboarding")) {
+                if (
+                    redirectUrl &&
+                    !redirectUrl.startsWith("/dashboard") &&
+                    !redirectUrl.startsWith("/onboarding") &&
+                    !redirectUrl.startsWith("/home")
+                ) {
                     sessionStorage.removeItem("auth_redirect_url");
                     router.replace(redirectUrl);
                 } else if (data.redirectTo) {
                     // Use the onboarding redirect (demo workspace)
                     router.replace(data.redirectTo);
                 } else {
-                    // Existing user, go to dashboard
-                    router.replace("/dashboard");
+                    // Existing user, go to home
+                    router.replace("/home");
                 }
             } catch (error) {
                 if ((error as Error).name !== "AbortError") {
