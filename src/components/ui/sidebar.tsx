@@ -267,7 +267,7 @@ function SidebarTrigger({
       data-slot="sidebar-trigger"
       aria-label="Toggle Sidebar"
       className={cn(
-        "inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer",
+        "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer",
         className
       )}
       onClick={(event) => {
