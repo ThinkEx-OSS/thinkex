@@ -15,7 +15,7 @@ import LazyAppPdfViewer from "@/components/pdf/LazyAppPdfViewer";
 import { LightweightPdfPreview } from "@/components/pdf/LightweightPdfPreview";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import { useUIStore } from "@/lib/stores/ui-store";
+import { useUIStore, selectItemScrollLocked } from "@/lib/stores/ui-store";
 import { Flashcard } from "react-quizlet-flashcard";
 import "react-quizlet-flashcard/dist/index.css";
 import ReactMarkdown from "react-markdown";
@@ -203,7 +203,9 @@ function WorkspaceCard({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [isScrollLocked, setIsScrollLocked] = useState(true); // Locked by default
+  // Get scroll lock state from Zustand store (persists across interactions)
+  const isScrollLocked = useUIStore(selectItemScrollLocked(item.id));
+  const toggleItemScrollLocked = useUIStore((state) => state.toggleItemScrollLocked);
   const [isDragging, setIsDragging] = useState(false);
   const setItemPrompt = useUIStore((state) => state.setItemPrompt);
   const articleRef = useRef<HTMLElement>(null);
@@ -596,7 +598,7 @@ function WorkspaceCard({
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setIsScrollLocked(!isScrollLocked);
+                    toggleItemScrollLocked(item.id);
                   }}
                 >
                   {isScrollLocked ? (
