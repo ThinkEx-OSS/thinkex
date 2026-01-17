@@ -101,9 +101,7 @@ export function Hero() {
                   <span className="relative z-10">Human Interface</span>
                 </span>
               </span>{" "}
-              for
-              <br />
-              Artificial Intelligence
+              for AI
             </h1>
 
             <div className="w-full max-w-2xl mx-auto h-[1.5px] bg-gradient-to-r from-transparent via-muted-foreground/20 to-transparent" />
