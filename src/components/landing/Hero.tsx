@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,6 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { getWeeklyActiveUsers } from "@/app/actions/get-posthog-data";
 
 // Random card positions and sizes (static - no parallax)
 const backgroundCards: BackgroundCardData[] = [
@@ -25,14 +23,6 @@ const backgroundCards: BackgroundCardData[] = [
 ];
 
 export function Hero() {
-  const [activeUsers, setActiveUsers] = useState<string | null>(null);
-
-  useEffect(() => {
-    getWeeklyActiveUsers().then((val) => {
-      if (val) setActiveUsers(val);
-    });
-  }, []);
-
   return (
     <section
       id="hero"
@@ -87,7 +77,7 @@ export function Hero() {
               <HoverCardTrigger asChild>
                 <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 transition-colors cursor-pointer">
                   <Users className="h-4 w-4 md:h-5 md:w-5" />
-                  <span>{activeUsers || "100+"} Weekly Active Users</span>
+                  <span>100+ Weekly Active Users</span>
                 </div>
               </HoverCardTrigger>
               <HoverCardContent className="w-[350px] sm:w-[450px] p-0 overflow-hidden border-none shadow-xl" sideOffset={10}>
