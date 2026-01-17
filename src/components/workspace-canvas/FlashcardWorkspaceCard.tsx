@@ -7,7 +7,7 @@ import type { Item, FlashcardData, FlashcardItem } from "@/lib/workspace-state/t
 import { FlipCard } from "./FlipCard";
 import { SWATCHES_COLOR_GROUPS, getCardColorCSS, getCardAccentColor, type CardColor } from "@/lib/workspace-state/colors";
 import { SwatchesPicker, ColorResult } from "react-color";
-import { useUIStore } from "@/lib/stores/ui-store";
+import { useUIStore, selectItemScrollLocked } from "@/lib/stores/ui-store";
 import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEditor";
 import { BlockNotePreview, PreviewBlock } from "@/components/editor/BlockNotePreview";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
@@ -189,7 +189,8 @@ export function FlashcardWorkspaceCard({
     const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
     const [isFlipped, setIsFlipped] = useState(false);
     const [isFlipping, setIsFlipping] = useState(false);
-    const [isScrollLocked, setIsScrollLocked] = useState(true);
+    // Get scroll lock state from Zustand store (persists across interactions)
+    const isScrollLocked = useUIStore(selectItemScrollLocked(item.id));
     const flashcardData = item.data as FlashcardData;
 
     // Navigation State

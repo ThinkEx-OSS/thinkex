@@ -46,6 +46,9 @@ interface UIState {
   selectedCardIds: Set<string>;
   playingYouTubeCardIds: Set<string>;
 
+  // Scroll lock state per item (itemId -> isScrollLocked)
+  itemScrollLocked: Map<string, boolean>;
+
   // Reply selection state
   replySelections: Array<{ text: string; messageContext?: string; userPrompt?: string }>;
 
@@ -110,6 +113,10 @@ interface UIState {
   selectMultipleCards: (ids: string[]) => void;
   setCardPlaying: (id: string, isPlaying: boolean) => void;
 
+  // Actions - Scroll lock state
+  setItemScrollLocked: (itemId: string, isLocked: boolean) => void;
+  toggleItemScrollLocked: (itemId: string) => void;
+
   // Actions - Reply selection
   addReplySelection: (selection: { text: string; messageContext?: string; userPrompt?: string }) => void;
   removeReplySelection: (index: number) => void;
@@ -161,6 +168,9 @@ const initialState = {
   // Card selection
   selectedCardIds: new Set<string>(),
   playingYouTubeCardIds: new Set<string>(),
+
+  // Scroll lock state
+  itemScrollLocked: new Map<string, boolean>(),
 
   // Reply selection
   replySelections: [],
@@ -425,6 +435,19 @@ export const useUIStore = create<UIState>()(
         return { playingYouTubeCardIds: newSet };
       }),
 
+      // Scroll lock actions
+      setItemScrollLocked: (itemId, isLocked) => set((state) => {
+        const newMap = new Map(state.itemScrollLocked);
+        newMap.set(itemId, isLocked);
+        return { itemScrollLocked: newMap };
+      }),
+      toggleItemScrollLocked: (itemId) => set((state) => {
+        const newMap = new Map(state.itemScrollLocked);
+        const current = newMap.get(itemId) ?? true; // Default to locked (true)
+        newMap.set(itemId, !current);
+        return { itemScrollLocked: newMap };
+      }),
+
       // Reply selection actions
       addReplySelection: (selection) => set((state) => {
         const newSelections = [...state.replySelections, selection];
@@ -533,4 +556,9 @@ export const selectSelectedHighlightColorId = (state: UIState) => state.selected
 
 // Selector for BlockNote selection
 export const selectBlockNoteSelection = (state: UIState) => state.blockNoteSelection;
+
+// Selector for item scroll lock state
+export const selectItemScrollLocked = (itemId: string) => (state: UIState): boolean => {
+  return state.itemScrollLocked.get(itemId) ?? true; // Default to locked (true)
+};
 
