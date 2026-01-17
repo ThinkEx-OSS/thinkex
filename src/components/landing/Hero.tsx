@@ -60,7 +60,7 @@ export function Hero() {
               href="https://www.hatchery.umd.edu/about-mokhtarzadas"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors cursor-pointer"
+              className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition-colors cursor-pointer"
             >
               <Image
                 src="/hatchery.png"
@@ -75,7 +75,7 @@ export function Hero() {
 
             <HoverCard openDelay={200}>
               <HoverCardTrigger asChild>
-                <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 transition-colors cursor-pointer">
+                <div className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 transition-colors cursor-pointer">
                   <Users className="h-4 w-4 md:h-5 md:w-5" />
                   <span>100+ Weekly Active Users</span>
                 </div>
@@ -98,7 +98,7 @@ export function Hero() {
               href="https://github.com/thinkex-oss/thinkex"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 transition-colors cursor-pointer"
+              className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 transition-colors cursor-pointer"
             >
               <Github className="h-4 w-4 md:h-5 md:w-5" />
               <span>Open Source</span>
