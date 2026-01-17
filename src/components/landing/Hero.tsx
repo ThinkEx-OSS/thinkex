@@ -107,7 +107,7 @@ export function Hero() {
           <div className="w-full max-w-2xl mx-auto h-px bg-gradient-to-r from-transparent via-muted-foreground/20 to-transparent my-4" />
 
           <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto">
-            ThinkEx is the visual workspace where your notes, documents, media, and AI chats live—giving you a canvas to think.
+            ThinkEx is the visual thinking environment where you can compound your notes, media, and AI chats into lasting knowledge.
           </p>
 
           {/* Get Started Button - Above Video */}
