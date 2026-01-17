@@ -485,25 +485,45 @@ export function useWorkspaceOperations(
     [deleteItem, currentState.items]
   );
 
-  // deleteFolderWithContents deletes the folder and all items inside it
+  // Helper to recursively find all descendant IDs (items in folder and nested subfolders)
+  const getAllDescendantIds = useCallback(
+    (folderId: string, items: Item[]): string[] => {
+      const directChildren = items.filter(item => item.folderId === folderId);
+      const descendantIds: string[] = [];
+      
+      for (const child of directChildren) {
+        descendantIds.push(child.id);
+        // Recursively get descendants of nested folders
+        if (child.type === 'folder') {
+          descendantIds.push(...getAllDescendantIds(child.id, items));
+        }
+      }
+      
+      return descendantIds;
+    },
+    []
+  );
+
+  // deleteFolderWithContents deletes the folder and all items inside it (including nested)
   const deleteFolderWithContents = useCallback(
-    async (folderId: string) => {
+    (folderId: string) => {
       const folder = currentState.items?.find(i => i.id === folderId && i.type === 'folder');
       logger.debug("📁 [FOLDER-DELETE-WITH-CONTENTS] Deleting folder and contents:", { folderId, folderName: folder?.name });
       
-      // Find all items in this folder
-      const itemsInFolder = currentState.items.filter(item => item.folderId === folderId);
-      const itemCount = itemsInFolder.length;
+      // Find all descendant items recursively (handles nested folders)
+      const allDescendantIds = getAllDescendantIds(folderId, currentState.items);
+      const itemCount = allDescendantIds.length;
       
-      logger.debug("📁 [FOLDER-DELETE-WITH-CONTENTS] Found items in folder:", { itemCount, itemIds: itemsInFolder.map(i => i.id) });
+      logger.debug("📁 [FOLDER-DELETE-WITH-CONTENTS] Found items to delete:", { itemCount, itemIds: allDescendantIds });
       
-      // Delete all items in the folder first
-      for (const item of itemsInFolder) {
-        await deleteItem(item.id);
+      // Delete all descendant items first (fire-and-forget mutations)
+      // Note: deleteItem triggers optimistic updates via mutation.mutate()
+      for (const itemId of allDescendantIds) {
+        deleteItem(itemId);
       }
       
       // Then delete the folder itself
-      await deleteItem(folderId);
+      deleteItem(folderId);
       
       toast.success(
         folder 
@@ -511,7 +531,7 @@ export function useWorkspaceOperations(
           : `Folder and ${itemCount} ${itemCount === 1 ? 'item' : 'items'} deleted`
       );
     },
-    [deleteItem, currentState.items]
+    [deleteItem, currentState.items, getAllDescendantIds]
   );
 
   const moveItemToFolder = useCallback(

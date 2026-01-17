@@ -573,6 +573,7 @@ export function WorkspaceGrid({
     handleOpenModal,
     existingColors,
     onMoveItem,
+    onDeleteFolderWithContents,
     handleOpenFolder,
     folderItemCounts,
     workspaceName,

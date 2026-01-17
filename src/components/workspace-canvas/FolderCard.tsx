@@ -474,14 +474,15 @@ function FolderCardComponent({
                           </div>
                         </div>
                       </label>
-                      <label className="flex items-start space-x-3 cursor-pointer group">
+                      <label className={`flex items-start space-x-3 group ${onDeleteFolderWithContents ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
                         <input
                           type="radio"
                           name="deleteOption"
                           value="delete"
                           checked={deleteOption === 'delete'}
                           onChange={() => setDeleteOption('delete')}
-                          className="mt-1 h-4 w-4 text-destructive focus:ring-destructive border-gray-300"
+                          disabled={!onDeleteFolderWithContents}
+                          className="mt-1 h-4 w-4 text-destructive focus:ring-destructive border-gray-300 disabled:opacity-50"
                           onClick={(e) => e.stopPropagation()}
                         />
                         <div className="flex-1">
