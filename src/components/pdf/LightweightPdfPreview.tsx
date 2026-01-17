@@ -90,7 +90,7 @@ function PdfSnapshotRenderer({
 
                 // Get saved zoom or use default (don't cap to preserve user's view)
                 // Multiply by device pixel ratio for sharp rendering on retina displays
-                const baseScale = savedState?.zoom || 1.0;
+                const baseScale = savedState?.zoom || 0.5;
                 const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
                 const renderDpr = Math.min(dpr, 2); // Cap DPR at 2x to avoid huge renders
                 const scale = baseScale * renderDpr;
