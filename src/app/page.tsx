@@ -72,7 +72,7 @@ export default function LandingPage() {
     >
       {/* Grid Background (static) */}
       <div
-        className="fixed top-0 left-0 right-0 bottom-0 z-0 opacity-55 pointer-events-none"
+        className="fixed top-0 left-0 right-0 bottom-0 z-0 opacity-30 pointer-events-none"
       >
         {/* Grid Pattern */}
         <div

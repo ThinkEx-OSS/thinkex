@@ -50,7 +50,7 @@ export function Hero() {
       <div className="relative z-10 mx-auto w-full max-w-6xl">
         <div className="space-y-8 md:space-y-12 text-center">
           {/* Backed by Section */}
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-base md:text-lg text-muted-foreground mb-2 md:mb-4 font-light">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-base md:text-lg text-muted-foreground mb-0 md:mb-1 font-light">
             <a
               href="https://www.hatchery.umd.edu/about-mokhtarzadas"
               target="_blank"
@@ -85,30 +85,32 @@ export function Hero() {
           </div>
 
           {/* Header - Above Video */}
-          <h1 className="mt-4 md:mt-12 text-5xl font-normal tracking-tight text-foreground sm:text-6xl md:text-7xl lg:text-8xl">
-            The{" "}
-            <span className="relative inline-block">
-              <span className="relative px-3 py-0.5 rounded-sm inline-block">
-                <span
-                  className="absolute inset-0 rounded-sm"
-                  style={{
-                    background: "rgba(252, 211, 77, 0.15)",
-                    left: "2px",
-                  }}
-                />
-                <span className="relative z-10">Human Interface</span>
-              </span>
-            </span>{" "}
-            for
-            <br />
-            Artificial Intelligence
-          </h1>
+          <div className="space-y-6">
+            <h1 className="mt-4 md:mt-12 text-5xl font-normal tracking-tight text-foreground sm:text-6xl md:text-7xl lg:text-8xl">
+              The{" "}
+              <span className="relative inline-block">
+                <span className="relative px-3 py-0.5 rounded-sm inline-block">
+                  <span
+                    className="absolute inset-0 rounded-sm"
+                    style={{
+                      background: "rgba(252, 211, 77, 0.15)",
+                      left: "2px",
+                    }}
+                  />
+                  <span className="relative z-10">Human Interface</span>
+                </span>
+              </span>{" "}
+              for
+              <br />
+              Artificial Intelligence
+            </h1>
 
-          <div className="w-full max-w-2xl mx-auto h-px bg-gradient-to-r from-transparent via-muted-foreground/20 to-transparent my-4" />
+            <div className="w-full max-w-2xl mx-auto h-[1.5px] bg-gradient-to-r from-transparent via-muted-foreground/20 to-transparent" />
 
-          <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto">
-            ThinkEx is the visual thinking environment where you can compound your notes, media, and AI chats into lasting knowledge.
-          </p>
+            <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto">
+              ThinkEx is the visual thinking environment where you can compound your notes, media, and AI chats into lasting knowledge.
+            </p>
+          </div>
 
           {/* Get Started Button - Above Video */}
           <div className="flex justify-center mb-12 md:mb-24">
