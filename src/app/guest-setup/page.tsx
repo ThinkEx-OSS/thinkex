@@ -29,7 +29,7 @@ export default function GuestSetupPage() {
             try {
                 // Step 1: Check if already authenticated (not anonymous)
                 if (session && !session.user.isAnonymous) {
-                    router.replace("/dashboard");
+                    router.replace("/home");
                     return;
                 }
 
@@ -55,7 +55,7 @@ export default function GuestSetupPage() {
                 if (data.slug) {
                     router.replace(`/dashboard/${data.slug}`);
                 } else {
-                    router.replace("/dashboard");
+                    router.replace("/home");
                 }
             } catch (error) {
                 console.error("Guest setup error:", error);

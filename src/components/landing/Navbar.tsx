@@ -138,7 +138,7 @@ export function Navbar() {
                     variant="outline"
                     className="rounded-md font-medium transition-all hover:bg-foreground/5"
                   >
-                    <Link href="/dashboard" prefetch>
+                    <Link href="/home" prefetch>
                       Dashboard
                     </Link>
                   </Button>
@@ -235,7 +235,7 @@ export function Navbar() {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
                         <Link
-                          href="/dashboard"
+                          href="/home"
                           onClick={() => posthog.capture('navbar-dashboard-clicked', { location: 'mobile' })}
                           className="cursor-pointer"
                         >

@@ -149,7 +149,7 @@ export default function SharedWorkspaceModal({
     if (!isCreating) {
       onOpenChange(newOpen);
       if (!newOpen) {
-        router.push("/dashboard");
+        router.push("/home");
       }
     }
   };

@@ -170,7 +170,7 @@ export default function SharePage() {
     const handleModalClose = (open: boolean) => {
       if (!open) {
         // Redirect to dashboard when modal is closed without importing
-        router.push("/dashboard");
+        router.push("/home");
       }
     };
 

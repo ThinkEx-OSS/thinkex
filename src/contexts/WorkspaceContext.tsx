@@ -131,7 +131,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             if (remainingWorkspaces.length > 0) {
               switchWorkspace(remainingWorkspaces[0].slug || remainingWorkspaces[0].id);
             } else {
-              router.push("/dashboard");
+              router.push("/home");
             }
           }
 

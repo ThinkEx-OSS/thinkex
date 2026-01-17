@@ -196,7 +196,7 @@ function WorkspaceSidebar({
             <h2 className="text-lg font-medium whitespace-nowrap -mb-0.5">ThinkEx</h2>
           </Link>
           <Link
-            href="/dashboard"
+            href="/home"
             className={cn(
               "inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer group-data-[collapsible=icon]:hidden"
             )}

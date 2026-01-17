@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { usePostHog } from 'posthog-js/react';
-import { SEO } from "@/components/seo/SEO";
 import type { AgentState } from "@/lib/workspace-state/types";
 import { initialState } from "@/lib/workspace-state/state";
 import { useScrollHeader } from "@/hooks/ui/use-scroll-header";
@@ -364,7 +363,7 @@ function DashboardContent({
 
 // Main page component
 // Main page component
-function DashboardPage() {
+export function DashboardPage() {
   const router = useRouter();
   // Get workspace context
   const {
@@ -431,7 +430,7 @@ function DashboardPage() {
 }
 
 // Wrapper for sidebar provider
-function SidebarCoordinator({ children }: { children: React.ReactNode }) {
+export function SidebarCoordinator({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider defaultOpen={true}>
       {children}
@@ -440,7 +439,7 @@ function SidebarCoordinator({ children }: { children: React.ReactNode }) {
 }
 
 // Component to handle anonymous users - redirect to guest-setup if no session
-function AnonymousSessionHandler({ children }: { children: React.ReactNode }) {
+export function AnonymousSessionHandler({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = useSession();
   const router = useRouter();
 
@@ -483,16 +482,9 @@ function AnonymousSessionHandler({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export default function Page() {
+export function DashboardShell() {
   return (
     <>
-      <SEO
-        title="Dashboard"
-        description="Manage your workspaces, create new projects, and organize knowledge effortlessly in your ThinkEx dashboard."
-        keywords="dashboard, workspace management, AI workspace, productivity tools"
-        url="https://thinkex.app/dashboard"
-        canonical="https://thinkex.app/dashboard"
-      />
       <MobileWarning />
       <AnonymousSessionHandler>
         <WorkspaceProvider>
@@ -505,4 +497,14 @@ export default function Page() {
       </AnonymousSessionHandler>
     </>
   );
+}
+
+export default function Page() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/home");
+  }, [router]);
+
+  return null;
 }

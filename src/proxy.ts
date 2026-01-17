@@ -18,20 +18,20 @@ export async function proxy(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
   const { pathname } = request.nextUrl;
 
-  // Redirect authenticated users from root to dashboard
+  // Redirect authenticated users from root to home
   if (sessionCookie && pathname === "/") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.redirect(new URL("/home", request.url));
   }
 
   // Redirect authenticated users away from auth pages
   if (sessionCookie && ["/sign-in", "/sign-up"].includes(pathname)) {
     // Preserve redirect_url if present
-    const redirectUrl = request.nextUrl.searchParams.get('redirect_url') || '/dashboard';
+    const redirectUrl = request.nextUrl.searchParams.get('redirect_url') || '/home';
     return NextResponse.redirect(new URL(redirectUrl, request.url));
   }
 
-  // Allow anonymous users to access dashboard - they'll get an anonymous session created automatically
-  // NOTE: Dashboard page component handles creating anonymous sessions for unauthenticated users
+  // Allow anonymous users to access home - they'll get an anonymous session created automatically
+  // NOTE: Home page component handles creating anonymous sessions for unauthenticated users
   // Actual auth validation happens in API routes, not in middleware
 
   return NextResponse.next();
