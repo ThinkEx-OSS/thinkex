@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Menu, Github } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -57,25 +56,20 @@ export function Navbar() {
 
   return (
     <>
-      <motion.nav
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="sticky top-0 z-50"
+      <nav
+        className={`sticky top-0 z-50 transition-[padding] duration-500 ease-in-out ${isScrolled ? "pt-2" : "pt-0"
+          }`}
       >
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pt-1">
-          <motion.div
-            className="relative flex h-16 items-center justify-between px-6"
-            animate={{
-              borderRadius: isScrolled ? 6 : 0,
-              borderWidth: isScrolled ? 1 : 0,
-              borderColor: isScrolled ? "rgba(128, 128, 128, 0.3)" : "rgba(128, 128, 128, 0)",
-              backgroundColor: isScrolled ? "hsl(var(--background) / 0.95)" : "transparent",
-              backdropFilter: isScrolled ? "blur(8px)" : "none",
-              marginTop: isScrolled ? "0.25rem" : "0",
-              borderStyle: "solid",
-            }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+          <div
+            className={`
+              relative flex items-center justify-between p-3
+              transition-all duration-300 ease-out
+              ${isScrolled
+                ? "rounded-md border border-gray-500/30 bg-background"
+                : "rounded-none border-0 border-transparent bg-transparent"
+              }
+            `}
           >
             {/* Logo/Brand */}
             <Link href="#hero" className="flex items-center gap-2 group z-10">
@@ -274,14 +268,14 @@ export function Navbar() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-          </motion.div>
+          </div>
         </div>
 
         <AccountModal
           open={showAccountModal}
           onOpenChange={setShowAccountModal}
         />
-      </motion.nav>
+      </nav>
     </>
   );
 }

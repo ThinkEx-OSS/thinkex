@@ -86,7 +86,7 @@ export function Hero() {
 
           {/* Header - Above Video */}
           <div className="space-y-6">
-            <h1 className="mt-4 md:mt-12 text-3xl font-normal tracking-tight text-foreground sm:text-6xl md:text-7xl lg:text-8xl">
+            <h1 className="mt-4 md:mt-12 text-3xl font-normal tracking-tight text-foreground sm:text-6xl md:text-7xl lg:text-7xl">
               The{" "}
               <span className="relative inline-block">
                 <span className="relative px-3 py-0.5 rounded-sm inline-block">
