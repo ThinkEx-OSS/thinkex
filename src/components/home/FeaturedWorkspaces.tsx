@@ -135,7 +135,7 @@ export function FeaturedWorkspaces() {
         }}
       >
         {FEATURED_WORKSPACES.map((workspace) => {
-          const bgColor = getCardColorCSS(workspace.color, 0.4);
+          const bgColor = getCardColorCSS(workspace.color, 0.25);
           const borderColor = getCardAccentColor(workspace.color, 0.5);
           return (
             <div

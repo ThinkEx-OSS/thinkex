@@ -564,7 +564,7 @@ function WorkspaceCard({
               : 'p-4 border shadow-sm hover:border-foreground/30 hover:shadow-md focus-within:border-foreground/50'
               }`}
             style={{
-              backgroundColor: item.type === 'youtube' ? 'transparent' : (item.color ? getCardColorCSS(item.color, 0.4) : 'var(--card)'),
+              backgroundColor: item.type === 'youtube' ? 'transparent' : (item.color ? getCardColorCSS(item.color, 0.25) : 'var(--card)'),
               borderColor: isSelected ? 'rgba(255, 255, 255, 0.8)' : (item.color ? getCardAccentColor(item.color, 0.5) : 'transparent'),
               borderWidth: isSelected ? '2px' : (item.type === 'youtube' || (item.type === 'pdf' && shouldShowPreview) ? '0px' : '1px'),
               transition: 'border-color 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease-out'

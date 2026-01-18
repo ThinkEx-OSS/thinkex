@@ -23,7 +23,7 @@ export const FlipCard = memo(function FlipCard({ front, back, className = "", co
 
     // Memoize colors to prevent recalculation - use same colors as WorkspaceCard
     const cardBgColor = useMemo(() =>
-        color ? getCardColorCSS(color as CardColor, 0.4) : 'var(--card)',
+        color ? getCardColorCSS(color as CardColor, 0.25) : 'var(--card)',
         [color]);
 
     // Handle flip state changes

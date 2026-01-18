@@ -230,8 +230,8 @@ function FolderCardComponent({
   }, [showDeleteConfirm]);
 
   // Calculate colors using the same utilities as WorkspaceCard
-  const bodyBgColor = getCardColorCSS(folderColor, 0.4); // Body is more transparent
-  const tabBgColor = getCardColorCSS(folderColor, 0.5); // Tab is slightly less transparent
+  const bodyBgColor = getCardColorCSS(folderColor, 0.25); // Body is more transparent
+  const tabBgColor = getCardColorCSS(folderColor, 0.35); // Tab is slightly less transparent
   const borderColor = isSelected ? 'rgba(255, 255, 255, 0.8)' : getCardAccentColor(folderColor, 0.5);
 
   return (

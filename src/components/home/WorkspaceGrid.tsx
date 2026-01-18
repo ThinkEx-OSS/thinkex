@@ -59,7 +59,7 @@ export function WorkspaceGrid() {
           {/* Existing Workspaces */}
           {workspaces.map((workspace) => {
             const color = workspace.color as CardColor | undefined;
-            const bgColor = color ? getCardColorCSS(color, 0.4) : 'var(--card)';
+            const bgColor = color ? getCardColorCSS(color, 0.25) : 'var(--card)';
             const borderColor = color ? getCardAccentColor(color, 0.5) : 'var(--sidebar-border)';
             
             return (
