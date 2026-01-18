@@ -91,19 +91,17 @@ export function ItemHeader(props: {
 
   // Update width when localName changes
   useEffect(() => {
-    if (!readOnly && textareaRef.current && !allowWrap) {
+    if (!readOnly && textareaRef.current) {
       updateTextareaWidth();
     }
-  }, [localName, readOnly, allowWrap, updateTextareaWidth]);
+  }, [localName, readOnly, updateTextareaWidth]);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const value = e.target.value;
     setLocalName(value);
     isUserTypingRef.current = true;
-    // Update width as user types (only when not wrapping)
-    if (!allowWrap) {
-      setTimeout(() => updateTextareaWidth(), 0);
-    }
+    // Update width as user types
+    setTimeout(() => updateTextareaWidth(), 0);
     // Don't call onNameChange while typing - only update local state
   };
 
