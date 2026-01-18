@@ -3,7 +3,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 // Featured workspace templates with current topics
@@ -86,6 +86,12 @@ export function FeaturedWorkspaces() {
     });
   };
 
+  const handleWorkspaceClick = useCallback((workspaceName: string) => {
+    toast.info("Coming soon", {
+      description: `Template workspace "${workspaceName}" will be available soon!`,
+    });
+  }, []);
+
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-4">
@@ -127,17 +133,11 @@ export function FeaturedWorkspaces() {
             key={workspace.id}
             role="button"
             tabIndex={0}
-            onClick={() => {
-              toast.info("Coming soon", {
-                description: `Template workspace "${workspace.name}" will be available soon!`,
-              });
-            }}
+            onClick={() => handleWorkspaceClick(workspace.name)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                toast.info("Coming soon", {
-                  description: `Template workspace "${workspace.name}" will be available soon!`,
-                });
+                handleWorkspaceClick(workspace.name);
               }
             }}
             className={cn(
