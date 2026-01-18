@@ -406,6 +406,25 @@ export function DashboardPage() {
     setCurrentWorkspaceId(currentWorkspaceId);
   }, [currentWorkspaceId, setCurrentWorkspaceId]);
 
+  // Track workspace opens for sorting
+  const lastTrackedWorkspaceIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!currentWorkspaceId) return;
+    
+    // Only track if this is a different workspace than last time
+    if (lastTrackedWorkspaceIdRef.current === currentWorkspaceId) return;
+    
+    // Track the open
+    fetch(`/api/workspaces/${currentWorkspaceId}/track-open`, {
+      method: 'POST',
+    }).catch((error) => {
+      // Silently fail - tracking is not critical
+      console.error('Failed to track workspace open:', error);
+    });
+    
+    lastTrackedWorkspaceIdRef.current = currentWorkspaceId;
+  }, [currentWorkspaceId]);
+
   // Reset search query when workspace changes
   const setSearchQuery = useUIStore((state) => state.setSearchQuery);
   useEffect(() => {
