@@ -657,7 +657,7 @@ export function WorkspaceGrid({
           layouts={layouts}
           breakpoints={breakpoints}
           cols={cols}
-          rowHeight={30}
+          rowHeight={25}
           margin={margin}
           containerPadding={containerPadding}
 
