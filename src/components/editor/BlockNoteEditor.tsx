@@ -11,6 +11,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { schema } from "./schema";
 import { uploadFile } from "@/lib/editor/upload-file";
+import { convertMathInBlocks, normalizeMathSyntax } from "@/lib/editor/math-utils";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { extractTextFromSelection } from "@/lib/utils/extract-blocknote-text";
@@ -72,184 +73,8 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
     };
   }, [cardName, readOnly]);
 
-  // Custom paste handler to detect and handle math content and images from clipboard
-  const pasteHandler = ({ event, editor, defaultPasteHandler }: any) => {
-    const clipboardData = event.clipboardData;
-    if (!clipboardData) {
-      return defaultPasteHandler();
-    }
-
-    // Get clipboard text content
-    const textContent = clipboardData.getData('text/plain');
-
-    // Helper function to extract LaTeX from math delimiters
-    // Only matches if the entire content is just math (no surrounding text)
-    const extractMathContent = (text: string): { type: 'block' | 'inline'; latex: string } | null => {
-      const trimmed = text.trim();
-
-      // Check for block math: $$...$$ or \[...\]
-      const blockMathMatch = trimmed.match(/^\$\$([\s\S]*?)\$\$$/) || trimmed.match(/^\\\[([\s\S]*?)\\\]$/);
-      if (blockMathMatch) {
-        return { type: 'block', latex: blockMathMatch[1].trim() };
-      }
-
-      // Check for inline math: $...$ or \(...\)
-      // Only match if the entire content is just the math (no surrounding text)
-      const inlineMathMatch = trimmed.match(/^\$([^$\n]+?)\$$/) || trimmed.match(/^\\\(([\s\S]*?)\\\)$/);
-      if (inlineMathMatch) {
-        return { type: 'inline', latex: inlineMathMatch[1].trim() };
-      }
-
-      return null;
-    };
-
-    // Check if clipboard contains only math content (no surrounding text)
-    // This handles cases where math is selected and pasted directly
-    if (textContent) {
-      const mathContent = extractMathContent(textContent);
-
-      if (mathContent) {
-        const currentBlock = editor.getTextCursorPosition().block;
-
-        if (mathContent.type === 'block') {
-          // Insert block math after current block
-          editor.insertBlocks(
-            [
-              {
-                type: 'math',
-                props: {
-                  latex: mathContent.latex,
-                },
-              },
-            ],
-            currentBlock,
-            'after'
-          );
-          return true;
-        } else if (mathContent.type === 'inline') {
-          // Insert inline math at cursor position
-          editor.insertInlineContent([
-            {
-              type: 'inlineMath',
-              props: {
-                latex: mathContent.latex,
-              },
-            },
-          ]);
-          return true;
-        }
-      }
-    }
-
-    // Check if clipboard contains image files
-    const items = Array.from(clipboardData.items) as DataTransferItem[];
-    const imageItem = items.find((item: DataTransferItem) => item.type.startsWith('image/'));
-
-    if (imageItem) {
-      // Get the image file from clipboard
-      const file = imageItem.getAsFile();
-      if (file) {
-        // Show toast that image was detected
-        const toastId = toast.loading('Uploading image from clipboard...', {
-          style: { color: 'white' },
-        });
-
-        // Handle upload asynchronously
-        uploadFile(file, false, currentWorkspaceId, cardName)
-          .then((imageUrl) => {
-            // Get the current block (where cursor is)
-            const currentBlock = editor.getTextCursorPosition().block;
-
-            // Insert image block after current block
-            editor.insertBlocks(
-              [
-                {
-                  type: 'image',
-                  props: {
-                    url: imageUrl,
-                  },
-                },
-              ],
-              currentBlock,
-              'after'
-            );
-
-            // Show success toast
-            toast.success('Image uploaded successfully!', {
-              id: toastId,
-              style: { color: 'white' },
-            });
-          })
-          .catch((error) => {
-            console.error('Error uploading pasted image:', error);
-            // Show error toast
-            toast.error(error instanceof Error ? error.message : 'Failed to upload image', {
-              id: toastId,
-              style: { color: 'white' },
-            });
-            // If upload fails, fall back to default handler
-            defaultPasteHandler();
-          });
-
-        // We handled the paste, so return true
-        return true;
-      }
-    }
-
-    // Check if clipboard contains files (not just images)
-    const files = Array.from(clipboardData.files) as File[];
-    const imageFile = files.find((file: File) => file.type.startsWith('image/'));
-
-    if (imageFile) {
-      // Show toast that image was detected
-      const toastId = toast.loading('Uploading image from clipboard...', {
-        style: { color: 'white' },
-      });
-
-      // Handle upload asynchronously
-      uploadFile(imageFile, false, currentWorkspaceId, cardName)
-        .then((imageUrl) => {
-          // Get the current block (where cursor is)
-          const currentBlock = editor.getTextCursorPosition().block;
-
-          // Insert image block after current block
-          editor.insertBlocks(
-            [
-              {
-                type: 'image',
-                props: {
-                  url: imageUrl,
-                },
-              },
-            ],
-            currentBlock,
-            'after'
-          );
-
-          // Show success toast
-          toast.success('Image uploaded successfully!', {
-            id: toastId,
-            style: { color: 'white' },
-          });
-        })
-        .catch((error) => {
-          console.error('Error uploading pasted image file:', error);
-          // Show error toast
-          toast.error(error instanceof Error ? error.message : 'Failed to upload image', {
-            id: toastId,
-            style: { color: 'white' },
-          });
-          // If upload fails, fall back to default handler
-          defaultPasteHandler();
-        });
-
-      // We handled the paste, so return true
-      return true;
-    }
-
-    // No image found, use default paste handler
-    return defaultPasteHandler();
-  };
+  // Paste handler is attached via useEffect after editor is fully initialized
+  // to avoid race condition where _exportManager isn't ready yet
 
   // Wrapper for uploadFile that matches BlockNote's expected signature
   // BlockNote expects: (file: File, blockId?: string) => Promise<string | Record<string, any>>
@@ -288,10 +113,191 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
     schema,
     initialContent: initialContent && initialContent.length > 0 ? initialContent : undefined,
     uploadFile: blockNoteUploadFile,
-    pasteHandler,
     dictionary: en,
     autofocus: autofocus ? (typeof autofocus === "boolean" ? "start" : autofocus) : false,
   });
+
+  // Custom paste handler attached after editor initialization to ensure _exportManager is ready
+  // This fixes the race condition where tryParseMarkdownToBlocks would fail on early pastes
+  useEffect(() => {
+    if (!editor) return;
+
+    const domElement = editor.domElement;
+    if (!domElement) return;
+
+    const handlePaste = async (event: ClipboardEvent) => {
+      const clipboardData = event.clipboardData;
+      if (!clipboardData) return;
+
+      // Get clipboard text content
+      const textContent = clipboardData.getData('text/plain');
+      const markdownContent = clipboardData.getData('text/markdown');
+
+      // Detect if content looks like markdown
+      const looksLikeMarkdown = (text: string) => {
+        return (
+          /(^|\n)#{1,6}\s/.test(text) ||      // Headers
+          /(^|\n)\|.+\|/.test(text) ||        // Tables
+          /```/.test(text) ||                  // Code blocks
+          /\[[^\]]+\]\([^)]+\)/.test(text) || // Links
+          /(^|\n)(-|\*)\s/.test(text)         // Lists
+        );
+      };
+
+      const markdownText = markdownContent || (textContent && looksLikeMarkdown(textContent) ? textContent : "");
+
+      // Handle markdown paste - render with proper formatting
+      if (markdownText) {
+        const parseMarkdown = editor?.tryParseMarkdownToBlocks;
+        if (typeof parseMarkdown === "function") {
+          event.preventDefault();
+          event.stopPropagation();
+
+          try {
+            const currentBlock = editor.getTextCursorPosition().block;
+            const normalizedMarkdown = normalizeMathSyntax(markdownText);
+            const blocks = await parseMarkdown(normalizedMarkdown);
+            const processedBlocks = convertMathInBlocks(blocks);
+
+            editor.insertBlocks(processedBlocks, currentBlock, "after");
+          } catch (error) {
+            console.error("[BlockNoteEditor] Markdown paste failed:", error);
+            // Fall back to inserting as plain text
+            editor.insertInlineContent([{ type: "text", text: markdownText, styles: {} }]);
+          }
+          return;
+        }
+      }
+
+      // Helper function to extract LaTeX from math delimiters
+      const extractMathContent = (text: string): { type: 'block' | 'inline'; latex: string } | null => {
+        const trimmed = text.trim();
+
+        // Check for block math: $$...$$ or \[...\]
+        const blockMathMatch = trimmed.match(/^\$\$([\s\S]*?)\$\$$/) || trimmed.match(/^\\\[([\s\S]*?)\\\]$/);
+        if (blockMathMatch) {
+          return { type: 'block', latex: blockMathMatch[1].trim() };
+        }
+
+        // Check for inline math: $...$ or \(...\)
+        const inlineMathMatch = trimmed.match(/^\$([^$\n]+?)\$$/) || trimmed.match(/^\\\(([\s\S]*?)\\\)$/);
+        if (inlineMathMatch) {
+          return { type: 'inline', latex: inlineMathMatch[1].trim() };
+        }
+
+        return null;
+      };
+
+      // Check if clipboard contains only math content
+      if (textContent) {
+        const mathContent = extractMathContent(textContent);
+
+        if (mathContent) {
+          event.preventDefault();
+          event.stopPropagation();
+
+          const currentBlock = editor.getTextCursorPosition().block;
+
+          if (mathContent.type === 'block') {
+            editor.insertBlocks(
+              [{ type: 'math', props: { latex: mathContent.latex } }],
+              currentBlock,
+              'after'
+            );
+          } else {
+            editor.insertInlineContent([
+              { type: 'inlineMath', props: { latex: mathContent.latex } },
+            ]);
+          }
+          return;
+        }
+      }
+
+      // Check if clipboard contains image files
+      const items = Array.from(clipboardData.items) as DataTransferItem[];
+      const imageItem = items.find((item: DataTransferItem) => item.type.startsWith('image/'));
+
+      if (imageItem) {
+        const file = imageItem.getAsFile();
+        if (file) {
+          event.preventDefault();
+          event.stopPropagation();
+
+          const toastId = toast.loading('Uploading image from clipboard...', {
+            style: { color: 'white' },
+          });
+
+          try {
+            const imageUrl = await uploadFile(file, false, currentWorkspaceId, cardName);
+            const currentBlock = editor.getTextCursorPosition().block;
+
+            editor.insertBlocks(
+              [{ type: 'image', props: { url: imageUrl } }],
+              currentBlock,
+              'after'
+            );
+
+            toast.success('Image uploaded successfully!', {
+              id: toastId,
+              style: { color: 'white' },
+            });
+          } catch (error) {
+            console.error('Error uploading pasted image:', error);
+            toast.error(error instanceof Error ? error.message : 'Failed to upload image', {
+              id: toastId,
+              style: { color: 'white' },
+            });
+          }
+          return;
+        }
+      }
+
+      // Check if clipboard contains image files (via files array)
+      const files = Array.from(clipboardData.files) as File[];
+      const imageFile = files.find((file: File) => file.type.startsWith('image/'));
+
+      if (imageFile) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const toastId = toast.loading('Uploading image from clipboard...', {
+          style: { color: 'white' },
+        });
+
+        try {
+          const imageUrl = await uploadFile(imageFile, false, currentWorkspaceId, cardName);
+          const currentBlock = editor.getTextCursorPosition().block;
+
+          editor.insertBlocks(
+            [{ type: 'image', props: { url: imageUrl } }],
+            currentBlock,
+            'after'
+          );
+
+          toast.success('Image uploaded successfully!', {
+            id: toastId,
+            style: { color: 'white' },
+          });
+        } catch (error) {
+          console.error('Error uploading pasted image file:', error);
+          toast.error(error instanceof Error ? error.message : 'Failed to upload image', {
+            id: toastId,
+            style: { color: 'white' },
+          });
+        }
+        return;
+      }
+
+      // If none of our handlers caught it, let BlockNote's default handler take over
+    };
+
+    // Use capture phase to intercept before BlockNote's default handler
+    domElement.addEventListener('paste', handlePaste, true);
+
+    return () => {
+      domElement.removeEventListener('paste', handlePaste, true);
+    };
+  }, [editor, currentWorkspaceId, cardName]);
 
   useEffect(() => {
     const initTime = performance.now() - editorInitStart;
