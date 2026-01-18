@@ -81,7 +81,7 @@ export function Footer() {
                   </a>
                   <div className="flex flex-col md:flex-row md:items-baseline gap-0.5 md:gap-2">
                     <span className="text-sm font-medium text-foreground">Ishaan Chakraborty</span>
-                    <span className="text-xs md:text-sm text-muted-foreground leading-tight">CEO | Prev. Investor Outreach @ Nitrility</span>
+                    <span className="text-xs md:text-sm text-muted-foreground leading-tight">CEO | Prev. MLOps @ Children's National Hospital</span>
                   </div>
                 </div>
               </li>
