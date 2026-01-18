@@ -1,11 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Linkedin } from "lucide-react";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText("hello@thinkex.app");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy email:", err);
+    }
+  };
 
   return (
     <footer className="relative px-6 md:px-4 pt-8 pb-12 md:py-20 overflow-hidden">
@@ -33,12 +45,12 @@ export function Footer() {
               </div>
             </Link>
 
-            <a
-              href="mailto:hello@thinkex.app"
-              className="block text-lg font-medium text-foreground hover:text-muted-foreground transition-colors"
+            <button
+              onClick={handleCopyEmail}
+              className="block text-lg font-medium text-foreground hover:text-muted-foreground transition-colors cursor-pointer text-left"
             >
-              hello@thinkex.app
-            </a>
+              {copied ? "Copied!" : "hello@thinkex.app"}
+            </button>
 
             <div className="space-y-4 pt-6 hidden md:block">
               <div className="text-sm text-muted-foreground/60">
