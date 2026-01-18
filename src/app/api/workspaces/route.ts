@@ -16,13 +16,17 @@ async function handleGET() {
   const userId = await requireAuth();
 
     // Get workspaces owned by user
-    // Order by sort_order ASC, fallback to updated_at DESC for null sort_order values
+    // Order by:
+    // 1. lastOpenedAt DESC (most recently opened first, NULLs last)
+    // 2. sortOrder ASC (user-defined order for workspaces never opened, NULLs last)
+    // 3. updatedAt DESC (fallback for workspaces without sortOrder or lastOpenedAt)
     const ownedWorkspaces = await db
       .select()
       .from(workspaces)
       .where(eq(workspaces.userId, userId))
       .orderBy(
-        asc(workspaces.sortOrder),
+        sql`${workspaces.lastOpenedAt} DESC NULLS LAST`,
+        sql`${workspaces.sortOrder} ASC NULLS LAST`,
         desc(workspaces.updatedAt)
       );
 
@@ -40,6 +44,7 @@ async function handleGET() {
       icon: w.icon,
       sortOrder: w.sortOrder ?? null,
       color: w.color as CardColor | null,
+      lastOpenedAt: w.lastOpenedAt ?? null,
     }));
 
   return NextResponse.json({ workspaces: workspaceList });
