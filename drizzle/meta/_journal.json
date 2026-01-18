@@ -50,6 +50,13 @@
       "when": 1767334329180,
       "tag": "0006_cuddly_proteus",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1768715577229,
+      "tag": "0007_white_gambit",
+      "breakpoints": true
     }
   ]
 }
