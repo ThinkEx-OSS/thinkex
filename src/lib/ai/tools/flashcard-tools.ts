@@ -134,7 +134,10 @@ Math is supported: use $$...$$ for inline and $$...$$ for display math within th
                 return result;
             } catch (error) {
                 logger.error("❌ [CREATE-FLASHCARDS] Error executing worker:", error);
-                throw error;
+                return {
+                    success: false,
+                    message: `Error creating flashcards: ${error instanceof Error ? error.message : String(error)}`,
+                };
             }
         },
     };
