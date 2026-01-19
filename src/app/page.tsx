@@ -16,11 +16,6 @@ const FourWays = dynamic(
   { ssr: true }
 );
 
-const ThreeSteps = dynamic(
-  () => import("@/components/landing/ThreeSteps").then((mod) => mod.ThreeSteps),
-  { ssr: true }
-);
-
 const UseCases = dynamic(
   () => import("@/components/landing/UseCases").then((mod) => mod.UseCases),
   { ssr: true }
@@ -78,7 +73,6 @@ export default function LandingPage() {
         <TheProblem />
         <FourWays />
         <UseCases />
-        <ThreeSteps />
         <Comparison />
         <Pricing />
 

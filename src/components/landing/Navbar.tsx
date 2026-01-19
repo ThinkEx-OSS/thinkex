@@ -135,7 +135,12 @@ export function Navbar() {
                   >
                     Log in
                   </Link>
-                  {!heroCtaVisible && (
+                  <div
+                    className={`transition-all duration-300 ease-out overflow-hidden ${!heroCtaVisible
+                      ? "opacity-100 max-w-[150px]"
+                      : "opacity-0 max-w-0 pointer-events-none"
+                      }`}
+                  >
                     <Button
                       asChild
                       onClick={() => posthog.capture('navbar-get-started-clicked', { location: 'desktop' })}
@@ -146,7 +151,7 @@ export function Navbar() {
                         Get Started
                       </Link>
                     </Button>
-                  )}
+                  </div>
                 </>
               )}
               {!isPending && session && (

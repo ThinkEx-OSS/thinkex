@@ -35,8 +35,8 @@ const pricingTiers: PricingTier[] = [
   },
   {
     name: "Pro",
-    price: "$9/month",
-    period: "",
+    price: "$9",
+    period: "month",
     description: "Power features for everyone",
     features: [
       "Everything in Free",
@@ -66,8 +66,8 @@ export function Pricing() {
             <h2 className="text-3xl font-normal tracking-normal text-foreground sm:text-4xl md:text-5xl">
               Free While We Grow
             </h2>
-            <p className="mt-4 text-lg text-muted-foreground">
-              We&apos;re focused on building the best product.
+            <p className="mt-4 text-lg md:text-xl text-muted-foreground">
+              All we ask in return is your feedback.
             </p>
           </div>
 

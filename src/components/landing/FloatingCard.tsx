@@ -2,10 +2,10 @@
 
 import { cn } from "@/lib/utils";
 import { type CardColor, getCardAccentColor, getCardColorCSS } from "@/lib/workspace-state/colors";
-import { Folder, CheckCircle2, MoreVertical, Play, X, Pencil, FolderInput, Palette, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Folder, CheckCircle2, MoreVertical, Play, X, Pencil, FolderInput, Palette, Trash2, ChevronLeft, ChevronRight, CheckSquare } from "lucide-react";
 import Image from "next/image";
 
-export type BackgroundCardType = 'folder' | 'flashcard' | 'note' | 'pdf' | 'youtube';
+export type BackgroundCardType = 'folder' | 'flashcard' | 'note' | 'pdf' | 'youtube' | 'quiz';
 
 export interface FloatingCardData {
     type: BackgroundCardType;
@@ -74,6 +74,56 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
                     {/* Decorative icons (non-interactive) */}
                     <div className="absolute top-3 right-3 opacity-50">
                         <MoreVertical className="w-4 h-4 text-white" />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (data.type === 'quiz') {
+        return (
+            <div
+                className={cn("relative group mb-4 break-inside-avoid", className)}
+                style={rotationStyle}
+            >
+                <div
+                    className="w-full aspect-[1.2] rounded-md border p-4 flex flex-col overflow-hidden select-none bg-[#1C1C1C] shadow-sm"
+                    style={{
+                        borderColor: borderColor,
+                    }}
+                >
+                    {/* Quiz Header */}
+                    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-white/10">
+                        <CheckSquare className="w-4 h-4" style={{ color: baseColor }} />
+                        <h3 className="text-white/50 font-semibold text-xs md:text-sm truncate">{data.title || "Quiz"}</h3>
+                    </div>
+
+                    {/* Question */}
+                    <p className="text-white/40 text-xs mb-3 line-clamp-2">
+                        {data.content || "What is the correct answer?"}
+                    </p>
+
+                    {/* Answer Options */}
+                    <div className="space-y-1.5 flex-1">
+                        {['A', 'B', 'C', 'D'].map((option, i) => (
+                            <div
+                                key={option}
+                                className={cn(
+                                    "flex items-center gap-2 px-2 py-1 rounded text-[10px] md:text-xs",
+                                    i === 1 ? "bg-green-500/20 border border-green-500/40" : "bg-white/5 border border-white/10"
+                                )}
+                            >
+                                <span className={cn(
+                                    "w-4 h-4 rounded-sm flex items-center justify-center text-[9px] font-medium",
+                                    i === 1 ? "bg-green-500/30 text-green-400" : "bg-white/10 text-white/40"
+                                )}>
+                                    {option}
+                                </span>
+                                <span className={i === 1 ? "text-green-400/70" : "text-white/30"}>
+                                    Option {option}
+                                </span>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>

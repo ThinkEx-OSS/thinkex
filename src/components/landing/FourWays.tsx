@@ -86,7 +86,7 @@ export function FourWays() {
                 className="relative"
               >
                 <div
-                  className={`grid gap-6 md:gap-12 items-center md:grid-cols-2 ${way.imageSide === "left" ? "md:grid-flow-dense" : ""
+                  className={`grid gap-6 md:gap-12 items-center md:grid-cols-[2fr_3fr] ${way.imageSide === "left" ? "md:grid-flow-dense" : ""
                     }`}
                 >
                   {/* Text Content */}
@@ -129,8 +129,8 @@ export function FourWays() {
                         }
                       />
                     </div>
-                    {/* Desktop: Fixed size container */}
-                    <div className="hidden md:flex relative w-full h-[320px] overflow-hidden rounded-md border border-foreground/10 bg-muted/30 backdrop-blur-sm items-center justify-center">
+                    {/* Desktop: Wider container */}
+                    <div className="hidden md:flex relative w-full h-[380px] overflow-hidden rounded-md border border-foreground/10 bg-muted/30 backdrop-blur-sm items-center justify-center">
                       <Image
                         src={way.image}
                         alt={way.title}
@@ -154,6 +154,81 @@ export function FourWays() {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Everything You Need - 3 Column Grid */}
+          <div className="mt-16 md:mt-24">
+            <h3 className="text-2xl font-medium tracking-tight text-foreground sm:text-3xl mb-8 md:mb-12">
+              Everything You Need
+            </h3>
+            <div className="grid gap-8 md:gap-12 md:grid-cols-3">
+              {/* Rich Block-Based Editor */}
+              <div className="space-y-6">
+                <div className="relative aspect-video w-full overflow-hidden rounded-md border border-foreground/10 bg-muted/30 backdrop-blur-sm">
+                  <Image
+                    src="/editor2.png"
+                    alt="Rich Block-Based Editor"
+                    fill
+                    loading="lazy"
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                    className="object-cover"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <h4 className="text-xl font-medium tracking-tight text-foreground">
+                    Rich Block-Based Editor
+                  </h4>
+                  <p className="text-base leading-relaxed text-muted-foreground">
+                    Create and edit content with a powerful block-based editor. Math is a first-class citizen with seamless equation and formula support.
+                  </p>
+                </div>
+              </div>
+
+              {/* Powerful Content Types */}
+              <div className="space-y-6">
+                <div className="relative aspect-video w-full overflow-hidden rounded-md border border-foreground/10 bg-muted/30 backdrop-blur-sm">
+                  <Image
+                    src="/contenttypes.png"
+                    alt="Powerful Content Types"
+                    fill
+                    loading="lazy"
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                    className="object-cover"
+                    style={{ objectPosition: "left center" }}
+                  />
+                </div>
+                <div className="space-y-3">
+                  <h4 className="text-xl font-medium tracking-tight text-foreground">
+                    Powerful Content Types
+                  </h4>
+                  <p className="text-base leading-relaxed text-muted-foreground">
+                    Create folders, embed YouTube videos, build flashcards, use deep research, and more—all in one workspace.
+                  </p>
+                </div>
+              </div>
+
+              {/* Share Workspaces */}
+              <div className="space-y-6">
+                <div className="relative aspect-video w-full overflow-hidden rounded-md border border-foreground/10 bg-muted/30 backdrop-blur-sm">
+                  <Image
+                    src="/share2.png"
+                    alt="Share Workspaces"
+                    fill
+                    loading="lazy"
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                    className="object-cover"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <h4 className="text-xl font-medium tracking-tight text-foreground">
+                    Share Workspaces
+                  </h4>
+                  <p className="text-base leading-relaxed text-muted-foreground">
+                    Share your workspaces with friends. Work together on notes and assignments, exchange ideas, and build knowledge as a group.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -73,7 +73,7 @@ export function UseCases() {
                             Built for Real Impact
                         </h2>
                         <p className="mt-4 text-lg md:text-xl text-muted-foreground max-w-3xl">
-                            See how ThinkEx organizes your work.
+                            See how ThinkEx organizes your information.
                         </p>
                     </div>
 

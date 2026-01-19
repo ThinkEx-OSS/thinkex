@@ -12,7 +12,7 @@ export function FinalCTA() {
     >
       {/* Workspace Background Elements */}
       <div className="absolute inset-0 z-0">
-        <FloatingWorkspaceCards bottomGradientHeight="20%" />
+        <FloatingWorkspaceCards bottomGradientHeight="20%" enableParallax={false} className="mt-[7%]" />
         {/* Extra Top Gradient for Final CTA blending */}
         <div
           className="absolute top-0 left-0 right-0 h-64 z-20 pointer-events-none"
