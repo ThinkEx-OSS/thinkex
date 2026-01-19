@@ -18,7 +18,7 @@ const ways: Way[] = [
     title: "Your sources stay visible",
     bullets: [
       "Import PDFs, URLs, videos, and documents",
-      "Everything remains in view — no hidden black boxes",
+      "Everything remains in view, nothing is hidden from you",
       "Work alongside your sources, not blind to them",
     ],
     imageSide: "right",

@@ -28,7 +28,7 @@ const approaches: Approach[] = [
         icon: Database,
         title: "Document-First Tools",
         description: "NotebookLM",
-        flaw: "Sources disappear into a black box. You can't see or work with them.",
+        flaw: "Sources vanish behind the interface. You can't see or work with them.",
     },
 ];
 
@@ -47,7 +47,7 @@ export function TheProblem() {
                     {/* Section Header */}
                     <div className="mb-8 md:mb-12">
                         <h2 className="text-3xl font-normal tracking-normal text-foreground sm:text-4xl md:text-5xl">
-                            The Hidden Friction in Your Workflow
+                            What Every Platform Gets Wrong
                         </h2>
                         <p className="mt-4 text-lg md:text-xl text-muted-foreground max-w-3xl">
                             Today&apos;s apps and AI split what should be a single, fluid process.
@@ -90,7 +90,7 @@ export function TheProblem() {
                             ThinkEx is different
                         </h3>
                         <p className="text-lg md:text-xl text-muted-foreground max-w-3xl leading-relaxed">
-                            A visual workspace where your sources stay visible, your notes stay alive, and you control exactly what context AI sees. <span className="text-foreground font-medium">And it&apos;s open source—so you get full transparency, no model lock-in, and driven by the community.</span>
+                            Nothing disappears into a black box. You see what AI sees and control what it works with. And it&apos;s open source, so you get full transparency, no model lock-in, and a product driven by the community.
                         </p>
                     </div>
                 </div>
