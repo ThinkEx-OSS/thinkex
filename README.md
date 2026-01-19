@@ -106,15 +106,33 @@ Want to run ThinkEx on your own infrastructure?
     ```bash
     cp .env.example .env.local
     ```
-    Configure your keys:
-    *   `DATABASE_URL` – Your PostgreSQL connection string
-    *   `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` – For authentication
-    *   AI provider keys (e.g., `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`)
+    Configure the required environment variables in `.env.local`:
+    
+    **Required:**
+    *   `DATABASE_URL` – PostgreSQL connection string (from Supabase)
+    *   `NEXT_PUBLIC_SUPABASE_URL` – Your Supabase project URL
+    *   `SUPABASE_SERVICE_ROLE_KEY` – For file uploads (from Supabase dashboard)
+    *   `BETTER_AUTH_SECRET` – Random secret for authentication (generate with `openssl rand -base64 32`)
+    *   `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` – For Google OAuth
+    *   `GOOGLE_GENERATIVE_AI_API_KEY` – For AI features
+    
+    **Optional:**
+    *   `ASSISTANT_API_KEY` – For Assistant UI cloud features
+    *   `NEXT_PUBLIC_POSTHOG_KEY` – For analytics
 
 4.  **Database Setup:**
+    
+    For a fresh database (recommended):
+    ```bash
+    pnpm db:setup
+    ```
+    
+    Or if you prefer to sync schema directly without migrations:
     ```bash
     pnpm db:push
     ```
+    
+    > **Note:** `db:setup` runs migrations which include database functions required for workspace operations. Use `db:push` only if you plan to create the functions manually via Supabase SQL Editor.
 
 5.  **Run the development server:**
     ```bash
