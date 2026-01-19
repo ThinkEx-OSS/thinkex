@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTemplateInitialState } from "@/lib/workspace/templates";
+import { generateSlug } from "@/lib/workspace/slug";
 import type { WorkspaceWithState, WorkspaceTemplate } from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
 import { randomUUID } from "crypto";
@@ -15,37 +16,37 @@ import { requireAuth, requireAuthWithUserInfo, withErrorHandling } from "@/lib/a
 async function handleGET() {
   const userId = await requireAuth();
 
-    // Get workspaces owned by user
-    // Order by:
-    // 1. lastOpenedAt DESC (most recently opened first, NULLs last)
-    // 2. sortOrder ASC (user-defined order for workspaces never opened, NULLs last)
-    // 3. updatedAt DESC (fallback for workspaces without sortOrder or lastOpenedAt)
-    const ownedWorkspaces = await db
-      .select()
-      .from(workspaces)
-      .where(eq(workspaces.userId, userId))
-      .orderBy(
-        sql`${workspaces.lastOpenedAt} DESC NULLS LAST`,
-        sql`${workspaces.sortOrder} ASC NULLS LAST`,
-        desc(workspaces.updatedAt)
-      );
+  // Get workspaces owned by user
+  // Order by:
+  // 1. lastOpenedAt DESC (most recently opened first, NULLs last)
+  // 2. sortOrder ASC (user-defined order for workspaces never opened, NULLs last)
+  // 3. updatedAt DESC (fallback for workspaces without sortOrder or lastOpenedAt)
+  const ownedWorkspaces = await db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.userId, userId))
+    .orderBy(
+      sql`${workspaces.lastOpenedAt} DESC NULLS LAST`,
+      sql`${workspaces.sortOrder} ASC NULLS LAST`,
+      desc(workspaces.updatedAt)
+    );
 
-    // Format results (using camelCase for Drizzle types)
-    const workspaceList: WorkspaceWithState[] = ownedWorkspaces.map((w) => ({
-      id: w.id,
-      userId: w.userId,
-      name: w.name,
-      description: w.description || '',
-      template: (w.template as WorkspaceTemplate) || 'blank',
-      isPublic: w.isPublic || false,
-      createdAt: w.createdAt || '',
-      updatedAt: w.updatedAt || '',
-      slug: w.slug || '',
-      icon: w.icon,
-      sortOrder: w.sortOrder ?? null,
-      color: w.color as CardColor | null,
-      lastOpenedAt: w.lastOpenedAt ?? null,
-    }));
+  // Format results (using camelCase for Drizzle types)
+  const workspaceList: WorkspaceWithState[] = ownedWorkspaces.map((w) => ({
+    id: w.id,
+    userId: w.userId,
+    name: w.name,
+    description: w.description || '',
+    template: (w.template as WorkspaceTemplate) || 'blank',
+    isPublic: w.isPublic || false,
+    createdAt: w.createdAt || '',
+    updatedAt: w.updatedAt || '',
+    slug: w.slug || '',
+    icon: w.icon,
+    sortOrder: w.sortOrder ?? null,
+    color: w.color as CardColor | null,
+    lastOpenedAt: w.lastOpenedAt ?? null,
+  }));
 
   return NextResponse.json({ workspaces: workspaceList });
 }
@@ -61,78 +62,82 @@ async function handlePOST(request: NextRequest) {
   const user = await requireAuthWithUserInfo();
   const userId = user.userId;
 
-    const body = await request.json();
-    const { name, description, template, is_public, icon, color, initialState: customInitialState } = body;
+  const body = await request.json();
+  const { name, description, template, is_public, icon, color, initialState: customInitialState } = body;
 
-    // Server-side safeguard: only allow blank template workspaces
-    // This ensures all new workspaces start from an empty state
-    const effectiveTemplate: WorkspaceTemplate = "blank";
+  // Server-side safeguard: only allow blank template workspaces
+  // This ensures all new workspaces start from an empty state
+  const effectiveTemplate: WorkspaceTemplate = "blank";
 
-    if (!name) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 });
-    }
+  if (!name) {
+    return NextResponse.json({ error: "Name is required" }, { status: 400 });
+  }
 
-    // Get max sort_order for this user to set new workspace at the end
-    const maxSortData = await db
-      .select({ sortOrder: workspaces.sortOrder })
-      .from(workspaces)
-      .where(eq(workspaces.userId, userId))
-      .orderBy(desc(workspaces.sortOrder))
-      .limit(1);
+  // Get max sort_order for this user to set new workspace at the end
+  const maxSortData = await db
+    .select({ sortOrder: workspaces.sortOrder })
+    .from(workspaces)
+    .where(eq(workspaces.userId, userId))
+    .orderBy(desc(workspaces.sortOrder))
+    .limit(1);
 
-    const maxSortOrder = maxSortData[0]?.sortOrder ?? -1;
-    const newSortOrder = maxSortOrder + 1;
+  const maxSortOrder = maxSortData[0]?.sortOrder ?? -1;
+  const newSortOrder = maxSortOrder + 1;
 
-    // Create workspace
-    const [workspace] = await db
-      .insert(workspaces)
-      .values({
-        userId: userId,
-        name,
-        description: description || "",
-        template: effectiveTemplate,
-        isPublic: is_public || false,
-        icon: icon || null,
-        color: color || null,
-        sortOrder: newSortOrder,
-      })
-      .returning();
+  // Generate slug
+  const slug = generateSlug(name);
 
-    // Create initial state - use custom state if provided, otherwise use template
-    let initialState;
-    if (customInitialState) {
-      // Use provided initial state (already validated on client side)
-      initialState = customInitialState;
-      initialState.workspaceId = workspace.id;
-      // Ensure globalTitle and globalDescription are set from workspace metadata
-      if (!initialState.globalTitle) {
-        initialState.globalTitle = name;
-      }
-      if (!initialState.globalDescription && description) {
-        initialState.globalDescription = description;
-      }
-    } else {
-      // Use template-based initial state
-      initialState = getTemplateInitialState(effectiveTemplate);
-      initialState.workspaceId = workspace.id;
+  // Create workspace
+  const [workspace] = await db
+    .insert(workspaces)
+    .values({
+      userId: userId,
+      name,
+      description: description || "",
+      template: effectiveTemplate,
+      isPublic: is_public || false,
+      icon: icon || null,
+      color: color || null,
+      sortOrder: newSortOrder,
+      slug,
+    })
+    .returning();
+
+  // Create initial state - use custom state if provided, otherwise use template
+  let initialState;
+  if (customInitialState) {
+    // Use provided initial state (already validated on client side)
+    initialState = customInitialState;
+    initialState.workspaceId = workspace.id;
+    // Ensure globalTitle and globalDescription are set from workspace metadata
+    if (!initialState.globalTitle) {
       initialState.globalTitle = name;
-      initialState.globalDescription = description || "";
     }
+    if (!initialState.globalDescription && description) {
+      initialState.globalDescription = description;
+    }
+  } else {
+    // Use template-based initial state
+    initialState = getTemplateInitialState(effectiveTemplate);
+    initialState.workspaceId = workspace.id;
+    initialState.globalTitle = name;
+    initialState.globalDescription = description || "";
+  }
 
-    // Note: No need to create workspace_states record - state is now managed via events
+  // Note: No need to create workspace_states record - state is now managed via events
 
-    // For custom initial state (imported workspaces), create WORKSPACE_SNAPSHOT first
-    // This sets the entire state in one event, including title and description
-    if (customInitialState) {
-      const eventId = randomUUID();
-      const timestamp = Date.now();
+  // For custom initial state (imported workspaces), create WORKSPACE_SNAPSHOT first
+  // This sets the entire state in one event, including title and description
+  if (customInitialState) {
+    const eventId = randomUUID();
+    const timestamp = Date.now();
 
-      // Use user info from requireAuthWithUserInfo to avoid duplicate session fetch
-      const userName = user.name || user.email || undefined;
+    // Use user info from requireAuthWithUserInfo to avoid duplicate session fetch
+    const userName = user.name || user.email || undefined;
 
-      // Create snapshot event first (starts at version 0, creates version 1)
-      try {
-        const snapshotResult = await db.execute(sql`
+    // Create snapshot event first (starts at version 0, creates version 1)
+    try {
+      const snapshotResult = await db.execute(sql`
           SELECT append_workspace_event(
             ${workspace.id}::uuid,
             ${eventId}::text,
@@ -145,15 +150,15 @@ async function handlePOST(request: NextRequest) {
           )
         `);
 
-        // If snapshot creation succeeded, we're done (it includes title/description)
-        // No need for separate WORKSPACE_CREATED event
-      } catch (eventError) {
-        console.error("Error creating WORKSPACE_SNAPSHOT event:", eventError);
-        // If snapshot fails, create WORKSPACE_CREATED as fallback
-        try {
-          const createdEventId = randomUUID();
-          const createdTimestamp = Date.now();
-          await db.execute(sql`
+      // If snapshot creation succeeded, we're done (it includes title/description)
+      // No need for separate WORKSPACE_CREATED event
+    } catch (eventError) {
+      console.error("Error creating WORKSPACE_SNAPSHOT event:", eventError);
+      // If snapshot fails, create WORKSPACE_CREATED as fallback
+      try {
+        const createdEventId = randomUUID();
+        const createdTimestamp = Date.now();
+        await db.execute(sql`
             SELECT append_workspace_event(
               ${workspace.id}::uuid,
               ${createdEventId}::text,
@@ -165,17 +170,17 @@ async function handlePOST(request: NextRequest) {
               ${null}::text
             )
           `);
-        } catch (createdError) {
-          console.error("Error creating WORKSPACE_CREATED event:", createdError);
-        }
+      } catch (createdError) {
+        console.error("Error creating WORKSPACE_CREATED event:", createdError);
       }
-    } else {
-      // For template-based workspaces, just create WORKSPACE_CREATED event
-      try {
-        const eventId = randomUUID();
-        const timestamp = Date.now();
+    }
+  } else {
+    // For template-based workspaces, just create WORKSPACE_CREATED event
+    try {
+      const eventId = randomUUID();
+      const timestamp = Date.now();
 
-        await db.execute(sql`
+      await db.execute(sql`
           SELECT append_workspace_event(
             ${workspace.id}::uuid,
             ${eventId}::text,
@@ -187,19 +192,19 @@ async function handlePOST(request: NextRequest) {
             ${null}::text
           )
         `);
-      } catch (eventError) {
-        // If event creation fails, continue – workspace exists in DB,
-        // but event-sourced title/description may be missing
-        console.error("Error creating WORKSPACE_CREATED event:", eventError);
-      }
+    } catch (eventError) {
+      // If event creation fails, continue – workspace exists in DB,
+      // but event-sourced title/description may be missing
+      console.error("Error creating WORKSPACE_CREATED event:", eventError);
     }
+  }
 
-    // Return workspace with full state for immediate use
-    return NextResponse.json({
-      workspace: {
-        ...workspace,
-        state: initialState,
-      }
+  // Return workspace with full state for immediate use
+  return NextResponse.json({
+    workspace: {
+      ...workspace,
+      state: initialState,
+    }
   }, { status: 201 });
 }
 

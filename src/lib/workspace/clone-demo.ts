@@ -3,6 +3,7 @@ import { getTemplateInitialState } from "@/lib/workspace/templates";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import { eq, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { generateSlug } from "@/lib/workspace/slug";
 
 const DEMO_WORKSPACE_ID = '511080ff-429e-4492-a242-1fc8416271d8';
 
@@ -56,6 +57,8 @@ export async function cloneDemoWorkspace(
         initialState = getTemplateInitialState("blank");
     }
 
+    const slug = generateSlug(name);
+
     const [workspace] = await db
         .insert(workspaces)
         .values({
@@ -67,6 +70,7 @@ export async function cloneDemoWorkspace(
             icon,
             color,
             sortOrder: 0,
+            slug,
         })
         .returning();
 
