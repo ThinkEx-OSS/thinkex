@@ -410,21 +410,24 @@ export function WorkspaceGrid({
         // Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=9
         const wasCompact = oldItem.w === 1;
         const widthChanged = oldItem.w !== newItem.w;
-        
+
         // Check for mode transitions triggered by height-only resize
         if (!widthChanged) {
-          if (wasCompact && newItem.h > 4) {
+          if (wasCompact && newItem.h > 6) {
             // Growing a compact card taller → expand to wide mode
+            // Increased threshold from 4 to 6 to make it less sensitive to accidental drags
             newItem.w = 2;
-          } else if (!wasCompact && newItem.h < 9) {
+          } else if (!wasCompact && newItem.h < 6) {
             // Shrinking a wide card shorter → collapse to compact mode
+            // Decreased threshold from 9 to 6 to allow shorter cards without minimizing
             newItem.w = 1;
           }
         }
-        
+
         // Apply constraints based on final width
         if (newItem.w >= 2) {
-          newItem.h = Math.max(newItem.h, 9);
+          // Allow expanded cards to be as short as 6 rows (was 9)
+          newItem.h = Math.max(newItem.h, 6);
         } else {
           newItem.h = 4;
         }
