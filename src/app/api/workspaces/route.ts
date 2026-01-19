@@ -69,8 +69,8 @@ async function handlePOST(request: NextRequest) {
   // This ensures all new workspaces start from an empty state
   const effectiveTemplate: WorkspaceTemplate = "blank";
 
-  if (!name) {
-    return NextResponse.json({ error: "Name is required" }, { status: 400 });
+  if (typeof name !== "string" || name.trim() === "") {
+    return NextResponse.json({ error: "Name is required and must be a string" }, { status: 400 });
   }
 
   // Get max sort_order for this user to set new workspace at the end

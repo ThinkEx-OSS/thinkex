@@ -13,8 +13,8 @@ export function generateSlug(name: string): string {
         .replace(/-+/g, '-')
         .replace(/^-+|-+$/g, ''); // Strip leading/trailing hyphens
 
-    // Enforce max length of 50
-    const truncated = base.substring(0, 50);
+    // Enforce max length of 50 total (45 base + 1 hyphen + 4 suffix)
+    const truncated = base.substring(0, 45);
 
     // Use Web Crypto API for better randomness and guaranteed length
     // (fallback to Math.random if crypto not available, though in Node/modern browsers it is)
