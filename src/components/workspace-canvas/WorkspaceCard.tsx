@@ -755,18 +755,19 @@ function WorkspaceCard({
                   onNameChange={handleNameChange}
                   onNameCommit={handleNameCommit}
                   onSubtitleChange={handleSubtitleChange}
-                  readOnly={(item.type === 'note' || item.type === 'pdf') && !shouldShowPreview}
+                  readOnly={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz') && !shouldShowPreview}
                   noMargin={true}
                   onTitleFocus={handleTitleFocus}
                   onTitleBlur={handleTitleBlur}
-                  allowWrap={(item.type === 'note' || item.type === 'pdf') && !shouldShowPreview}
+                  allowWrap={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz') && !shouldShowPreview}
                 />
               )
               }
               {/* Subtle type label for narrow cards without preview */}
-              {(item.type === 'note' || item.type === 'pdf') && !shouldShowPreview && (
+              {/* Subtle type label for narrow cards without preview */}
+              {(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz') && !shouldShowPreview && (
                 <span className="text-[10px] uppercase tracking-wider text-white/40 mt-auto">
-                  {item.type === 'note' ? 'Note' : 'PDF'}
+                  {item.type === 'note' ? 'Note' : item.type === 'pdf' ? 'PDF' : 'Quiz'}
                 </span>
               )}
             </div>
@@ -805,7 +806,7 @@ function WorkspaceCard({
             })()}
 
             {/* Quiz Content - render interactive quiz */}
-            {item.type === 'quiz' && (
+            {item.type === 'quiz' && shouldShowPreview && (
               <div
                 className="flex-1 min-h-0"
                 onClick={(e) => e.stopPropagation()}
