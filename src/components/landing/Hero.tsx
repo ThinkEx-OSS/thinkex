@@ -122,7 +122,7 @@ export function Hero() {
                   {/* Text */}
                   <div className="flex flex-col items-start">
                     <span className="text-sm font-medium text-foreground group-hover:text-foreground/80 transition-colors">
-                      100+ users every week
+                      100+ weekly active users
                     </span>
                   </div>
                 </div>
