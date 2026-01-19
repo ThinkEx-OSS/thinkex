@@ -53,7 +53,7 @@ export function FinalCTA() {
       {/* Content */}
       <div className="relative z-10 mx-auto w-full max-w-6xl text-center">
         <div className="space-y-6 md:space-y-8">
-          <h2 className="text-4xl font-medium tracking-tight text-foreground sm:text-5xl md:text-6xl lg:text-7xl">
+          <h2 className="text-4xl font-normal tracking-tight text-foreground sm:text-5xl md:text-6xl lg:text-7xl">
             Start today for free
           </h2>
 

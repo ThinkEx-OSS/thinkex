@@ -15,44 +15,44 @@ interface Way {
 const ways: Way[] = [
   {
     id: "way-1",
-    title: "Build Your Context",
+    title: "Your sources stay visible",
     bullets: [
-      "Import PDFs, URLs, and documents",
-      "Create a rich knowledge base",
-      "Give AI the context it needs to help you",
+      "Import PDFs, URLs, videos, and documents",
+      "Everything remains in view — no hidden black boxes",
+      "Work alongside your sources, not blind to them",
     ],
     imageSide: "right",
-    image: "/attachments.png",
+    image: "/sources.png",
   },
   {
     id: "way-2",
-    title: "Highlight & Annotate",
+    title: "Capture what matters",
     bullets: [
-      "Select any AI response to get instant actions",
-      "Highlight multiple selections and create notes",
-      "Reply to multiple messages at once",
+      "Highlight any AI response to extract it",
+      "Turn conversations into structured notes",
+      "Nothing gets buried in endless scroll",
     ],
     imageSide: "right",
     image: "/highlight.png",
   },
   {
     id: "way-3",
-    title: "Control Your Context",
+    title: "You control what AI sees",
     bullets: [
-      "Select what context to use in chat",
-      "Bring in notes or documents as needed",
-      "Work with the right information",
+      "Select exactly which notes and documents to include",
+      "No guessing — you see what the AI sees",
+      "Get grounded, relevant responses every time",
     ],
     imageSide: "right",
     image: "/context.png",
   },
   {
     id: "way-4",
-    title: "Structure Your Knowledge",
+    title: "Knowledge that compounds",
     bullets: [
-      "Turn AI insights into valuable resources",
-      "Organize concepts in a visual canvas",
-      "Adapt it to your preferences",
+      "Your notes update the AI's understanding in real-time",
+      "Build on past thinking instead of starting over",
+      "Organize everything on a flexible visual canvas",
     ],
     imageSide: "right",
     image: "/structure.png",
@@ -74,7 +74,7 @@ export function FourWays() {
           {/* Section Header */}
           <div className="mb-8 md:mb-12">
             <h2 className="text-3xl font-normal tracking-normal text-foreground sm:text-4xl md:text-5xl">
-              A workflow built for how you think
+              A Better Way to Work
             </h2>
           </div>
 
@@ -119,7 +119,7 @@ export function FourWays() {
                         sizes="100vw"
                         className="object-cover"
                         style={
-                          way.image === "/attachments.png"
+                          way.image === "/sources.png"
                             ? { objectPosition: "left center" }
                             : way.image === "/highlight.png"
                               ? { objectPosition: "center 60%" }
@@ -140,7 +140,7 @@ export function FourWays() {
                         sizes="50vw"
                         className="w-full h-full object-cover"
                         style={
-                          way.image === "/attachments.png"
+                          way.image === "/sources.png"
                             ? { objectPosition: "left center" }
                             : way.image === "/highlight.png"
                               ? { objectPosition: "center 60%" }

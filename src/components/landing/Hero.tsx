@@ -3,24 +3,16 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Users, Github, ArrowRight } from "lucide-react";
-import { BackgroundCard, cardColors, type BackgroundCardData } from "./BackgroundCard";
+import { Users, Github, Sparkles } from "lucide-react";
+// import { BackgroundCard, cardColors, type BackgroundCardData } from "./BackgroundCard";
+import { FloatingWorkspaceCards } from "./FloatingWorkspaceCards";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
 
-// Random card positions and sizes (static - no parallax)
-const backgroundCards: BackgroundCardData[] = [
-  { top: "10%", left: "5%", width: "180px", height: "140px", color: cardColors[0], rotation: -3 },
-  { top: "25%", left: "75%", width: "200px", height: "160px", color: cardColors[1], rotation: 2 },
-  { top: "50%", left: "5%", width: "160px", height: "120px", color: cardColors[2], rotation: -2 },
-  { top: "65%", left: "80%", width: "190px", height: "150px", color: cardColors[3], rotation: 3 },
-  { top: "8%", left: "85%", width: "150px", height: "110px", color: cardColors[5], rotation: -1 },
-  { top: "75%", left: "25%", width: "180px", height: "140px", color: cardColors[6], rotation: 2 },
-  { top: "30%", left: "20%", width: "160px", height: "120px", color: cardColors[7], rotation: -2 },
-];
+// Background cards logic moved to FloatingWorkspaceCards
 
 export function Hero() {
   return (
@@ -29,30 +21,14 @@ export function Hero() {
       className="relative flex md:min-h-screen items-center justify-center overflow-hidden px-4 pt-16 pb-10 md:py-12 sm:px-4 lg:px-6"
     >
       {/* Workspace Background Elements */}
-      <div className="absolute inset-0 z-0 opacity-40">
-        {/* Static Background Cards */}
-        {backgroundCards.map((card, index) => {
-          const isDesktopOnly = index >= 3;
-          return (
-            <BackgroundCard
-              key={index}
-              card={card}
-              isDesktopOnly={isDesktopOnly}
-            />
-          );
-        })}
-
-        {/* Gradient fade-out at bottom */}
-        <div
-          className="absolute bottom-0 left-0 right-0 h-64 pointer-events-none"
-          style={{
-            background: `linear-gradient(to bottom, transparent 0%, var(--background) 100%)`,
-          }}
-        />
+      <div className="absolute inset-0 z-0 select-none">
+        <FloatingWorkspaceCards />
       </div>
 
       {/* Content */}
       <div className="relative z-10 mx-auto w-full max-w-6xl">
+
+
         <div className="space-y-8 md:space-y-12 text-center">
           {/* Backed by Section */}
           <div className="flex flex-wrap items-center justify-center gap-3 text-sm md:text-base mb-0 md:mb-1">
@@ -72,27 +48,6 @@ export function Hero() {
               />
               <span>Mokhtarzada Hatchery 2025 Cohort</span>
             </a>
-
-            <HoverCard openDelay={200}>
-              <HoverCardTrigger asChild>
-                <div className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 transition-colors cursor-pointer">
-                  <Users className="h-4 w-4 md:h-5 md:w-5" />
-                  <span>100+ Weekly Active Users</span>
-                </div>
-              </HoverCardTrigger>
-              <HoverCardContent className="w-[350px] sm:w-[450px] p-0 overflow-hidden border-none shadow-xl" sideOffset={10}>
-                <iframe
-                  width="100%"
-                  height="400"
-                  frameBorder="0"
-                  allowFullScreen
-                  src="https://us.posthog.com/embedded/wNOXac2TxOxawVOVKHkUGxe1BA1sJQ"
-                  key="4"
-                  sandbox="allow-scripts allow-same-origin allow-popups"
-                  className="bg-background"
-                />
-              </HoverCardContent>
-            </HoverCard>
 
             <a
               href="https://github.com/thinkex-oss/thinkex"
@@ -132,18 +87,59 @@ export function Hero() {
             </p>
           </div>
 
-          {/* Get Started Button - Above Video */}
-          <div className="flex justify-center mb-12 md:mb-24">
+          {/* CTA + Social Proof */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 mb-12 md:mb-24">
             <Button
               asChild
               size="lg"
               className="h-12 rounded-md bg-foreground px-8 text-base font-medium text-background transition-all hover:bg-foreground/90"
             >
-              <Link href="/guest-setup" prefetch className="flex items-center gap-2">
+              <Link id="hero-cta" href="/guest-setup" prefetch>
                 Try for Free
-                <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
+
+            {/* Social Proof - User Avatars + Count */}
+            <HoverCard openDelay={200}>
+              <HoverCardTrigger asChild>
+                <div className="flex items-center gap-3 cursor-pointer group">
+                  {/* Stacked Avatars */}
+                  <div className="flex -space-x-2">
+                    {[
+                      "bg-gradient-to-br from-blue-400 to-blue-600",
+                      "bg-gradient-to-br from-emerald-400 to-emerald-600",
+                      "bg-gradient-to-br from-amber-400 to-amber-600",
+                      "bg-gradient-to-br from-rose-400 to-rose-600",
+                    ].map((gradient, i) => (
+                      <div
+                        key={i}
+                        className={`w-8 h-8 rounded-full ${gradient} ring-2 ring-background flex items-center justify-center text-white text-xs font-medium shadow-sm`}
+                      >
+                        {["U", "J", "A", "M"][i]}
+                      </div>
+                    ))}
+                  </div>
+                  {/* Text */}
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm font-medium text-foreground group-hover:text-foreground/80 transition-colors">
+                      100+ users every week
+                    </span>
+                  </div>
+                </div>
+              </HoverCardTrigger>
+              <HoverCardContent className="w-[350px] sm:w-[450px] p-0 overflow-hidden border-none shadow-xl" sideOffset={10}>
+                <iframe
+                  width="100%"
+                  height="400"
+                  frameBorder="0"
+                  allowFullScreen
+                  src="https://us.posthog.com/embedded/wNOXac2TxOxawVOVKHkUGxe1BA1sJQ"
+                  key="4"
+                  sandbox="allow-scripts allow-same-origin allow-popups"
+                  className="bg-background"
+                />
+              </HoverCardContent>
+            </HoverCard>
           </div>
 
           {/* Mobile Demo Image - Only visible on mobile */}

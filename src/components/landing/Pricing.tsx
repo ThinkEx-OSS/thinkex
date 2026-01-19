@@ -2,24 +2,20 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Check, X } from "lucide-react";
+import { Check } from "lucide-react";
 import { getCardAccentColor } from "@/lib/workspace-state/colors";
 import type { CardColor } from "@/lib/workspace-state/colors";
-
-interface Feature {
-  name: string;
-  included: boolean;
-}
 
 interface PricingTier {
   name: string;
   price: string;
   period: string;
   description: string;
-  features: Feature[];
+  features: string[];
   cta: string;
   ctaLink: string;
   highlighted?: boolean;
+  badge?: string;
 }
 
 const pricingTiers: PricingTier[] = [
@@ -27,50 +23,30 @@ const pricingTiers: PricingTier[] = [
     name: "Free",
     price: "$0",
     period: "forever",
-    description: "Perfect for getting started",
+    description: "Everything you need to get started",
     features: [
-      { name: "Up to 3 workspaces", included: true },
-
-
-      { name: "Limited AI use", included: true },
-      { name: "Unlimited workspaces", included: false },
-      { name: "Advanced AI features", included: false },
+      "Unlimited workspaces",
+      "Import PDFs, URLs, and videos",
+      "AI chat with context control",
+      "Collaborative sharing",
     ],
     cta: "Get Started",
     ctaLink: "/guest-setup",
   },
   {
     name: "Pro",
-    price: "$9",
-    period: "per month",
-    description: "For power users and teams",
+    price: "$9/month",
+    period: "",
+    description: "Power features for everyone",
     features: [
-      { name: "Unlimited workspaces", included: true },
-      { name: "Advanced AI features", included: true },
-      { name: "Extended AI use", included: true },
-
-
-      { name: "Everything else", included: true },
+      "Everything in Free",
+      "Extended AI usage limits",
+      "Priority support",
+      "Early access to new features",
     ],
     cta: "Start Free",
     ctaLink: "/guest-setup",
     highlighted: true,
-  },
-  {
-    name: "Enterprise",
-    price: "Custom",
-    period: "",
-    description: "For large organizations",
-    features: [
-
-      { name: "Custom integrations", included: true },
-      { name: "Dedicated support", included: true },
-      { name: "Advanced security", included: true },
-      { name: "SLA guarantee", included: true },
-
-    ],
-    cta: "Contact Sales",
-    ctaLink: "/contact",
   },
 ];
 
@@ -86,13 +62,16 @@ export function Pricing() {
         }}
       >
         <div className="relative">
-          <div className="mb-8 md:mb-20">
+          <div className="mb-8 md:mb-12">
             <h2 className="text-3xl font-normal tracking-normal text-foreground sm:text-4xl md:text-5xl">
-              Simple, transparent pricing
+              Free While We Grow
             </h2>
+            <p className="mt-4 text-lg text-muted-foreground">
+              We&apos;re focused on building the best product.
+            </p>
           </div>
 
-          <div className="grid gap-8 md:grid-cols-3">
+          <div className="grid gap-8 md:grid-cols-2">
             {pricingTiers.map((tier) => (
               <div
                 key={tier.name}
@@ -101,10 +80,10 @@ export function Pricing() {
                   : "border-foreground/10 bg-background"
                   }`}
               >
-                {tier.highlighted && (
+                {tier.badge && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <span className="rounded-full bg-foreground px-4 py-1 text-sm font-medium text-background">
-                      Most Popular
+                    <span className="rounded-full bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 px-4 py-1 text-sm font-medium">
+                      {tier.badge}
                     </span>
                   </div>
                 )}
@@ -114,16 +93,13 @@ export function Pricing() {
                     {tier.name}
                   </h3>
                   <div className="flex items-baseline gap-2 mb-2">
-                    {tier.name === "Pro" ? (
+                    {tier.highlighted ? (
                       <>
                         <span className="text-4xl font-medium text-foreground line-through opacity-50">
                           {tier.price}
                         </span>
                         <span className="text-4xl font-medium text-foreground">
                           Free
-                        </span>
-                        <span className="text-sm font-medium text-foreground bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 px-2 py-1 rounded self-center">
-                          in beta
                         </span>
                       </>
                     ) : (
@@ -142,16 +118,12 @@ export function Pricing() {
                   </p>
                 </div>
 
-                <ul className="space-y-4 mb-8">
+                <ul className="space-y-3 mb-8">
                   {tier.features.map((feature, featureIndex) => (
                     <li key={featureIndex} className="flex items-start gap-3">
-                      {feature.included ? (
-                        <Check className="h-5 w-5 text-foreground flex-shrink-0 mt-0.5" />
-                      ) : (
-                        <X className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
-                      )}
-                      <span className={`text-sm ${feature.included ? "text-foreground/90" : "text-muted-foreground"}`}>
-                        {feature.name}
+                      <Check className="h-5 w-5 text-foreground flex-shrink-0 mt-0.5" />
+                      <span className="text-sm text-foreground/90">
+                        {feature}
                       </span>
                     </li>
                   ))}

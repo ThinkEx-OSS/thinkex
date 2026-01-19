@@ -6,6 +6,11 @@ import { Navbar } from "@/components/landing/Navbar";
 import { Hero } from "@/components/landing/Hero";
 
 // Dynamic imports for below-the-fold components
+const TheProblem = dynamic(
+  () => import("@/components/landing/TheProblem").then((mod) => mod.TheProblem),
+  { ssr: true }
+);
+
 const FourWays = dynamic(
   () => import("@/components/landing/FourWays").then((mod) => mod.FourWays),
   { ssr: true }
@@ -13,6 +18,11 @@ const FourWays = dynamic(
 
 const ThreeSteps = dynamic(
   () => import("@/components/landing/ThreeSteps").then((mod) => mod.ThreeSteps),
+  { ssr: true }
+);
+
+const UseCases = dynamic(
+  () => import("@/components/landing/UseCases").then((mod) => mod.UseCases),
   { ssr: true }
 );
 
@@ -26,6 +36,8 @@ const Pricing = dynamic(
   { ssr: true }
 );
 
+
+
 const FinalCTA = dynamic(
   () => import("@/components/landing/FinalCTA").then((mod) => mod.FinalCTA),
   { ssr: true }
@@ -35,34 +47,6 @@ const Footer = dynamic(
   () => import("@/components/landing/Footer").then((mod) => mod.Footer),
   { ssr: true }
 );
-
-// Next.js Metadata API for SEO (replaces client-side SEO component)
-export const metadata: Metadata = {
-  title: "ThinkEx",
-  description: "Study and work with information effortlessly.",
-  keywords: "AI workspace, productivity, collaboration, artificial intelligence, workspace tools, ThinkEx, AI assistant, creative workspace",
-  authors: [{ name: "ThinkEx" }],
-  openGraph: {
-    title: "ThinkEx",
-    description: "Study and work with information effortlessly.",
-    url: "https://thinkex.app",
-    siteName: "ThinkEx",
-    locale: "en_US",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "ThinkEx",
-    description: "Study and work with information effortlessly.",
-  },
-  alternates: {
-    canonical: "https://thinkex.app",
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
 
 export default function LandingPage() {
   return (
@@ -91,10 +75,13 @@ export default function LandingPage() {
       <div className="relative z-10">
         <Navbar />
         <Hero />
+        <TheProblem />
         <FourWays />
+        <UseCases />
         <ThreeSteps />
         <Comparison />
         <Pricing />
+
         <FinalCTA />
         <Footer />
       </div>

@@ -21,6 +21,7 @@ import { AccountModal } from "@/components/auth/AccountModal";
 export function Navbar() {
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [heroCtaVisible, setHeroCtaVisible] = useState(true);
   const posthog = usePostHog();
   const { data: session, isPending } = useSession();
 
@@ -32,6 +33,22 @@ export function Navbar() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll(); // Check on mount
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Observe the hero CTA button visibility
+  useEffect(() => {
+    const heroCta = document.getElementById("hero-cta");
+    if (!heroCta) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setHeroCtaVisible(entry.isIntersecting);
+      },
+      { threshold: 0 }
+    );
+
+    observer.observe(heroCta);
+    return () => observer.disconnect();
   }, []);
 
   const userName = session?.user?.name || session?.user?.email || "User";
@@ -49,7 +66,8 @@ export function Navbar() {
   };
 
   const navLinks = [
-    { href: "#four-ways", label: "Features" },
+    { href: "#four-ways", label: "Product" },
+    { href: "#use-cases", label: "Use Cases" },
     { href: "#comparison", label: "Compare" },
     { href: "#pricing", label: "Pricing" },
   ];
@@ -113,20 +131,22 @@ export function Navbar() {
 
                   <Link
                     href="/auth/sign-in"
-                    className="text-base font-normal text-foreground/70 transition-colors hover:text-foreground cursor-pointer"
+                    className="rounded-md px-4 py-2 text-base font-normal bg-foreground/5 text-foreground/80 transition-colors hover:bg-foreground/10 hover:text-foreground cursor-pointer"
                   >
-                    Login
+                    Log in
                   </Link>
-                  <Button
-                    asChild
-                    onClick={() => posthog.capture('navbar-get-started-clicked', { location: 'desktop' })}
-                    size="default"
-                    className="rounded-md bg-foreground font-medium text-background transition-all hover:bg-foreground/90"
-                  >
-                    <Link href="/guest-setup" prefetch>
-                      Get Started
-                    </Link>
-                  </Button>
+                  {!heroCtaVisible && (
+                    <Button
+                      asChild
+                      onClick={() => posthog.capture('navbar-get-started-clicked', { location: 'desktop' })}
+                      size="default"
+                      className="rounded-md bg-foreground font-medium text-background transition-all hover:bg-foreground/90"
+                    >
+                      <Link href="/guest-setup" prefetch>
+                        Get Started
+                      </Link>
+                    </Button>
+                  )}
                 </>
               )}
               {!isPending && session && (
@@ -216,7 +236,7 @@ export function Navbar() {
                           href="/auth/sign-in"
                           className="cursor-pointer"
                         >
-                          Login
+                          Log in
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>

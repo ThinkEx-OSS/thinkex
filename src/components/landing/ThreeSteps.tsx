@@ -53,7 +53,7 @@ export function ThreeSteps() {
         <div className="relative">
           <div className="mb-8 md:mb-20">
             <h2 className="text-3xl font-normal tracking-normal text-foreground sm:text-4xl md:text-5xl">
-              More features, more power
+              Everything You Need
             </h2>
           </div>
 

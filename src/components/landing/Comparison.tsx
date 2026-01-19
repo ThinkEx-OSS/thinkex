@@ -14,39 +14,45 @@ interface Feature {
 
 const features: Feature[] = [
   {
-    name: "Block-Based Editor with Math Support",
+    name: "Sources visible while you work",
     thinkex: true,
     competitor1: false,
-    competitor2: false,
+    competitor2: "Limited",
     competitor3: false,
   },
   {
-    name: "AI Message Extractions",
-    thinkex: true,
-    competitor1: false,
-    competitor2: false,
-    competitor3: false,
-  },
-  {
-    name: "Visual Canvas with Drag & Drop",
+    name: "Extract & save AI insights",
     thinkex: true,
     competitor1: "Basic",
+    competitor2: false,
+    competitor3: false,
+  },
+  {
+    name: "Choose what context AI sees",
+    thinkex: true,
+    competitor1: "Limited",
+    competitor2: false,
+    competitor3: false,
+  },
+  {
+    name: "Visual workspace",
+    thinkex: true,
+    competitor1: "Mind maps",
     competitor2: "Basic",
     competitor3: false,
   },
   {
-    name: "PDF & URL Import",
+    name: "Dynamic notes & sources",
     thinkex: true,
-    competitor1: true,
-    competitor2: false,
-    competitor3: true,
+    competitor1: false,
+    competitor2: "Limited",
+    competitor3: false,
   },
-
   {
-    name: "Workspace Sharing",
+    name: "Open source",
     thinkex: true,
-    competitor1: true,
-    competitor2: true,
+    competitor1: false,
+    competitor2: false,
     competitor3: false,
   },
 ];
@@ -72,8 +78,11 @@ export function Comparison() {
         <div className="relative">
           <div className="mb-8 md:mb-20">
             <h2 className="text-3xl font-normal tracking-normal text-foreground sm:text-4xl md:text-5xl">
-              How we compare
+              More Than Just Features
             </h2>
+            <p className="mt-4 text-lg text-muted-foreground max-w-2xl">
+              A fundamentally different approach to working with AI.
+            </p>
           </div>
 
           <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -82,7 +91,7 @@ export function Comparison() {
                 <thead>
                   <tr className="border-b border-foreground/10">
                     <th className="text-left py-3 px-2 md:py-4 md:px-4 text-xs md:text-sm font-medium text-foreground/70">
-                      Feature
+                      Capabilities
                     </th>
                     {competitors.map((competitor) => (
                       <th
