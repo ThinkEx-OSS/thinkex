@@ -1,0 +1,273 @@
+import { vertex } from "@ai-sdk/google-vertex/edge";
+import { google } from "@ai-sdk/google";
+import { generateText } from "ai";
+import { logger } from "@/lib/utils/logger";
+import { QuizQuestion, QuizData, QuestionType } from "@/lib/workspace-state/types";
+import { generateItemId } from "@/lib/workspace-state/item-helpers";
+
+export type QuizWorkerParams = {
+    topic?: string;                // Used only if no context provided
+    contextContent?: string;       // Aggregated content from selected cards
+    sourceCardIds?: string[];
+    sourceCardNames?: string[];
+    difficulty: "easy" | "medium" | "hard";
+    questionCount?: number;        // Defaults to 10
+    questionTypes?: ("multiple_choice" | "true_false")[];
+    existingQuestions?: Array<{
+        id: string;
+        questionText: string;
+        correctIndex: number;
+    }>;
+    performanceTelemetry?: {
+        totalAnswered: number;
+        correctCount: number;
+        incorrectCount: number;
+        weakAreas?: Array<{
+            questionText: string;
+            userSelectedOption: string;
+            correctOption: string;
+        }>;
+    };
+};
+
+function buildAdaptiveInstructions(
+    baseDifficulty: "easy" | "medium" | "hard",
+    telemetry?: QuizWorkerParams["performanceTelemetry"]
+): string {
+    if (!telemetry || telemetry.totalAnswered === 0) {
+        return `- Difficulty: ${baseDifficulty.toUpperCase()}`;
+    }
+
+    const successRate = telemetry.totalAnswered > 0
+        ? telemetry.correctCount / telemetry.totalAnswered
+        : 0;
+
+    let adjustedDifficulty: "easy" | "medium" | "hard";
+    let cognitiveLevel: string;
+
+    if (successRate >= 0.8) {
+        adjustedDifficulty = baseDifficulty === "hard" ? "hard" : baseDifficulty === "medium" ? "hard" : "medium";
+        cognitiveLevel = "Analysis and synthesis - test deeper understanding";
+    } else if (successRate >= 0.5) {
+        adjustedDifficulty = baseDifficulty;
+        cognitiveLevel = "Application - focus on practical usage";
+    } else {
+        adjustedDifficulty = baseDifficulty === "easy" ? "easy" : baseDifficulty === "medium" ? "easy" : "medium";
+        cognitiveLevel = "Recall and understanding - reinforce fundamentals";
+    }
+
+    let instructions = `- Adaptive Difficulty: ${adjustedDifficulty.toUpperCase()} (adjusted from ${baseDifficulty})
+- User Performance: ${Math.round(successRate * 100)}% correct (${telemetry.correctCount}/${telemetry.totalAnswered})
+- Cognitive Level: ${cognitiveLevel}`;
+
+    if (telemetry.weakAreas && telemetry.weakAreas.length > 0 && successRate < 0.7) {
+        instructions += `
+LEARNING GAPS DETECTED - Include scaffolding questions for these weak areas:
+${telemetry.weakAreas.slice(0, 3).map((w, i) =>
+            `${i + 1}. Topic: "${w.questionText.substring(0, 50)}..." - User confused "${w.userSelectedOption}" with "${w.correctOption}"`
+        ).join('\n')}
+For weak areas:
+- Include 2-3 foundational questions that build up to the concept
+- Add extra hints for these topics
+- Break complex concepts into smaller parts`;
+    }
+
+    return instructions;
+}
+
+export async function quizWorker(params: QuizWorkerParams): Promise<{ questions: QuizQuestion[]; title: string }> {
+    try {
+        const questionCount = params.questionCount || 10;
+        const questionTypes = params.questionTypes || ["multiple_choice", "true_false"];
+
+        logger.debug("🎯 [QUIZ-WORKER] Starting quiz generation:", {
+            hasContext: !!params.contextContent,
+            hasTopic: !!params.topic,
+            difficulty: params.difficulty,
+            questionCount,
+            questionTypes,
+        });
+
+        // Build the prompt based on whether we have context or topic
+        let prompt: string;
+        const adaptiveInstructions = buildAdaptiveInstructions(params.difficulty, params.performanceTelemetry);
+
+        if (params.contextContent) {
+            // Context-based quiz generation
+            prompt = `You are a quiz generator. Create exactly ${questionCount} quiz questions based EXCLUSIVELY on the following content. Do NOT use any external knowledge.
+
+IMPORTANT: The content below is from workspace cards and includes metadata headers like "CARD 1:", "Card ID:", "METADATA:", "CONTENT:", etc. IGNORE ALL METADATA. Focus ONLY on the actual educational content within each card - the text, concepts, facts, and information being taught. Do NOT create questions about:
+- Card IDs, card types, or card names
+- Metadata like "Type: note" or "Card ID: xyz"
+- System formatting like separators, emojis, or structural markers
+- The number of cards, questions, or any organizational details
+
+CONTENT TO QUIZ ON:
+${params.contextContent}
+
+REQUIREMENTS:
+${adaptiveInstructions}
+- Difficulty guide:
+  - Easy: Basic recall and recognition questions
+  - Medium: Understanding and application questions  
+  - Hard: Analysis, synthesis, and critical thinking questions
+- Question types allowed: ${questionTypes.join(", ")}
+- For multiple_choice: provide exactly 4 options with only 1 correct answer
+- For true_false: provide exactly 2 options (["True", "False"])
+- Each question must have a clear, specific explanation
+- Each question should optionally have a helpful hint
+- Questions must be directly answerable from the provided EDUCATIONAL content (not metadata)
+
+SOURCE: ${params.sourceCardNames?.join(", ") || "Selected content"}`;
+        } else if (params.topic) {
+            // Topic-based quiz generation from LLM knowledge
+            prompt = `You are a quiz generator. Create exactly ${questionCount} quiz questions about: ${params.topic}
+
+REQUIREMENTS:
+${adaptiveInstructions}
+- Difficulty guide:
+  - Easy: Basic facts and definitions
+  - Medium: Understanding concepts and relationships
+  - Hard: Complex analysis and application
+- Question types allowed: ${questionTypes.join(", ")}
+- For multiple_choice: provide exactly 4 options with only 1 correct answer
+- For true_false: provide exactly 2 options (["True", "False"])
+- Each question must have a clear, specific explanation
+- Each question should optionally have a helpful hint
+- Questions should cover diverse aspects of the topic`;
+        } else {
+            throw new Error("Either topic or contextContent must be provided");
+        }
+
+        if (params.existingQuestions && params.existingQuestions.length > 0) {
+            prompt += `
+
+EXISTING QUESTIONS (DO NOT DUPLICATE):
+The following ${params.existingQuestions.length} questions already exist. Generate NEW questions that:
+1. Cover DIFFERENT aspects of the topic
+2. Do NOT ask the same thing with different wording
+3. Do NOT repeat any correct answers
+Existing questions to avoid:
+${params.existingQuestions.map((q, i) => `${i + 1}. ${q.questionText}`).join('\n')}`;
+        }
+
+        prompt += `
+
+OUTPUT FORMAT (strict JSON):
+{
+  "title": "Quiz Title",
+  "questions": [
+    {
+      "id": "q_001",
+      "type": "multiple_choice",
+      "questionText": "Question text here?",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correctIndex": 0,
+      "hint": "Optional hint text",
+      "explanation": "Explanation here",
+      "sourceContext": "Excerpt from source if applicable",
+      "question_text": "Legacy mapping",
+      "correct_index": "Legacy mapping"
+    }
+  ]
+}
+
+For true_false questions, options should be exactly ["True", "False"] and correctIndex 0 for True, 1 for False.`;
+
+        // Check if context contains PDF URLs that Gemini should read directly
+        // PDF URLs are marked with "📖 PDF_CONTENT_URL:" in the context
+        const pdfUrlMatches = params.contextContent?.match(/📖 PDF_CONTENT_URL:\s*(https?:\/\/[^\s]+)/g) || [];
+        const pdfUrls = pdfUrlMatches.map(match => {
+            const urlMatch = match.match(/https?:\/\/[^\s]+/);
+            return urlMatch ? urlMatch[0] : null;
+        }).filter((url): url is string => url !== null);
+
+        logger.debug("🎯 [QUIZ-WORKER] PDF detection:", {
+            foundPdfUrls: pdfUrls.length,
+            urls: pdfUrls
+        });
+
+        let result;
+        if (pdfUrls.length > 0) {
+            // Use multimodal content with PDF file parts
+            // Gemini can read PDFs directly via URL
+            const fileParts = pdfUrls.map(url => ({
+                type: 'file' as const,
+                data: new URL(url),
+                mediaType: 'application/pdf' as const,
+            }));
+
+            logger.debug("🎯 [QUIZ-WORKER] Using multimodal generation with PDFs");
+
+            result = await generateText({
+                model: google("gemini-2.5-flash"),
+                messages: [
+                    {
+                        role: 'user',
+                        content: [
+                            ...fileParts,
+                            { type: 'text', text: prompt },
+                        ],
+                    },
+                ],
+            });
+        } else {
+            // Standard text-only generation
+            result = await generateText({
+                model: google("gemini-2.5-flash"),
+                prompt,
+            });
+        }
+
+        // Parse the JSON response
+        let parsed: { title: string; questions: any[] };
+        try {
+            // Extract JSON from potential markdown code blocks
+            let jsonText = result.text.trim();
+            if (jsonText.startsWith("```json")) {
+                jsonText = jsonText.slice(7);
+            } else if (jsonText.startsWith("```")) {
+                jsonText = jsonText.slice(3);
+            }
+            if (jsonText.endsWith("```")) {
+                jsonText = jsonText.slice(0, -3);
+            }
+            jsonText = jsonText.trim();
+
+            // Sanitize LaTeX escape sequences before parsing
+            // We need to double-escape backslashes that aren't valid JSON escapes
+            jsonText = jsonText.replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
+
+            parsed = JSON.parse(jsonText);
+        } catch (parseError) {
+            logger.error("🎯 [QUIZ-WORKER] Failed to parse JSON:", parseError);
+            logger.error("🎯 [QUIZ-WORKER] Raw response:", result.text);
+            throw new Error("Failed to parse quiz generation response");
+        }
+
+        // Validate and transform questions - ALWAYS generate new unique IDs
+        // to prevent collisions when adding questions to existing quizzes
+        const questions: QuizQuestion[] = parsed.questions.map((q) => ({
+            id: generateItemId(), // Always use unique ID
+            type: q.type as QuestionType,
+            questionText: q.questionText || q.question_text || q.text || "",
+            options: q.options || [],
+            correctIndex: q.correctIndex ?? q.correct_index ?? 0,
+            hint: q.hint,
+            explanation: q.explanation || "No explanation provided.",
+        }));
+
+        logger.debug("🎯 [QUIZ-WORKER] Generated quiz:", {
+            title: parsed.title,
+            questionCount: questions.length,
+        });
+
+        return {
+            title: parsed.title || params.topic || "Generated Quiz",
+            questions,
+        };
+    } catch (error) {
+        logger.error("🎯 [QUIZ-WORKER] Error:", error);
+        throw error;
+    }
+}
