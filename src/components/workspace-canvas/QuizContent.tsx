@@ -27,7 +27,16 @@ export function QuizContent({ item, onUpdateData }: QuizContentProps) {
     const [answeredQuestions, setAnsweredQuestions] = useState<QuizSessionData["answeredQuestions"]>(
         quizData.session?.answeredQuestions || []
     );
-    const [showResults, setShowResults] = useState(false);
+
+    // Initialize showResults based on whether quiz is completed
+    // Quiz is completed if: completedAt exists OR all questions are answered
+    const isInitiallyCompleted = !!(
+        quizData.session?.completedAt ||
+        (quizData.session?.answeredQuestions?.length &&
+            quizData.session.answeredQuestions.length >= questions.length &&
+            questions.length > 0)
+    );
+    const [showResults, setShowResults] = useState(isInitiallyCompleted);
 
     // Track previous question count and IDs to detect when new questions are added
     const prevQuestionCountRef = useRef(questions.length);

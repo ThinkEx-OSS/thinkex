@@ -1075,11 +1075,14 @@ Math is supported: use $$...$$ for inline and $$...$$ for display math within th
       // TOOL 10: Create Quiz
       createQuiz: {
         description: "Create an interactive quiz in the workspace. Generates multiple-choice and true/false questions. If cards are selected in the context drawer, questions are generated EXCLUSIVELY from that content. If no context is selected, generates questions from general knowledge about the provided topic. Creates a quiz card with 10 questions that the user can take interactively.",
-        inputSchema: z.object({
-          topic: z.string().optional().describe("Topic for quiz (only used if no context is selected)"),
-          difficulty: z.enum(["easy", "medium", "hard"]).default("medium").describe("Difficulty level affecting question complexity"),
-        }),
-        execute: async ({ topic, difficulty }: { topic?: string; difficulty: "easy" | "medium" | "hard" }) => {
+        // Use z.any() to avoid streaming validation errors when Gemini sends properties in random order
+        // The error "argsText can only be appended" happens because strict z.object() validates during streaming
+        inputSchema: z.any().describe("Object with optional 'topic' (string) and 'difficulty' ('easy'|'medium'|'hard', default 'medium')"),
+        execute: async (args: unknown) => {
+          // Manually extract and validate args since we're using z.any()
+          const parsedArgs = args as { topic?: string; difficulty?: string } | null;
+          const topic = parsedArgs?.topic;
+          const difficulty = (parsedArgs?.difficulty as "easy" | "medium" | "hard") || "medium";
           logger.debug("🎯 [CREATE-QUIZ] Tool execution started:", { topic, difficulty });
 
           if (!workspaceId) {
@@ -1103,19 +1106,63 @@ Math is supported: use $$...$$ for inline and $$...$$ for display math within th
               const match = text.match(new RegExp(`${marker}([\\s\\S]*?)${marker}`));
               if (!match) return null;
 
-              const context = match[1];
-              const nameMatches = context.matchAll(/CARD\s+\d+:\s+.*"([^"]+)"/g);
-              const idMatches = context.matchAll(/Card ID:\s*([a-zA-Z0-9_-]+)/g);
+              const rawContext = match[1];
+
+              // Extract card names and IDs
+              const nameMatches = rawContext.matchAll(/CARD\s+\d+:\s+.*"([^"]+)"/g);
+              const idMatches = rawContext.matchAll(/Card ID:\s*([a-zA-Z0-9_-]+)/g);
               const names = Array.from(nameMatches).map(m => m[1]);
               const ids = Array.from(idMatches).map(m => m[1]);
 
-              return { context, names, ids };
+              // Extract ONLY the actual content, not metadata
+              // Look for "📄 CONTENT:" sections and extract what follows until the next section
+              const contentSections: string[] = [];
+
+              // Split by card separators and process each card
+              const cardBlocks = rawContext.split(/━+/);
+
+              for (const block of cardBlocks) {
+                // Find content section - it starts after "📄 CONTENT:" and ends at "🔧 METADATA:" or end of block
+                const contentMatch = block.match(/📄 CONTENT:\s*([\s\S]*?)(?=🔧 METADATA:|$)/);
+                if (contentMatch && contentMatch[1]) {
+                  let content = contentMatch[1].trim();
+                  // Remove the "- Content:" prefix if present
+                  content = content.replace(/^\s*-\s*Content:\s*/i, '');
+                  // Remove leading indentation
+                  content = content.replace(/^\s{2,}/gm, '');
+                  if (content && content.length > 10) { // Only add meaningful content
+                    // Also extract the card name for context
+                    const cardNameMatch = block.match(/CARD\s+\d+:\s+[^\[]*\[([^\]]+)\]\s+"([^"]+)"/);
+                    if (cardNameMatch) {
+                      contentSections.push(`## ${cardNameMatch[2]}\n${content}`);
+                    } else {
+                      contentSections.push(content);
+                    }
+                  }
+                }
+              }
+
+              // If no content was extracted using the structured approach, fall back to the raw context
+              // but strip obvious metadata patterns
+              let cleanedContext = contentSections.length > 0
+                ? contentSections.join('\n\n')
+                : rawContext
+                  .replace(/CARD\s+\d+:.*$/gm, '')
+                  .replace(/⚡ Card ID:.*$/gm, '')
+                  .replace(/🔧 METADATA:[\s\S]*?(?=CARD|$)/g, '')
+                  .replace(/📄 CONTENT:/g, '')
+                  .replace(/━+/g, '')
+                  .replace(/Card ID:\s*[a-zA-Z0-9_-]+/g, '')
+                  .replace(/Type:\s*\w+/g, '')
+                  .trim();
+
+              return { context: cleanedContext, names, ids };
             };
 
             for (const msg of convertedMessages) {
               if (typeof msg.content === "string") {
                 const extracted = extractSelectedCardsContext(msg.content);
-                if (extracted) {
+                if (extracted && extracted.context) {
                   contextContent = extracted.context;
                   sourceCardNames = extracted.names;
                   sourceCardIds = extracted.ids;
@@ -1127,7 +1174,7 @@ Math is supported: use $$...$$ for inline and $$...$$ for display math within th
                 for (const part of msg.content) {
                   if (part.type === "text" && typeof part.text === "string") {
                     const extracted = extractSelectedCardsContext(part.text);
-                    if (extracted) {
+                    if (extracted && extracted.context) {
                       contextContent = extracted.context;
                       sourceCardNames = extracted.names;
                       sourceCardIds = extracted.ids;
@@ -1148,8 +1195,10 @@ Math is supported: use $$...$$ for inline and $$...$$ for display math within th
             }
 
             // Generate quiz questions
+            // IMPORTANT: If user provides a topic, use it (context supplements but doesn't override)
+            // If no topic but context exists, generate from context
             const quizResult = await quizWorker({
-              topic: contextContent ? undefined : topic,
+              topic: topic || (contextContent ? undefined : undefined),
               contextContent,
               sourceCardIds,
               sourceCardNames,

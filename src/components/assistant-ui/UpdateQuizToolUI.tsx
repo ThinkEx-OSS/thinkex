@@ -84,13 +84,21 @@ export const UpdateQuizToolUI = makeAssistantToolUI<UpdateQuizArgs, UpdateQuizRe
                 }
                 hasRefetchedRef.current = refetchKey;
 
-                // Refetch to get updated data
-                queryClient.refetchQueries({
-                    queryKey: ["workspace", workspaceId, "events"],
-                    type: 'active'
-                }).catch((err) => {
-                    console.error("❌ [UpdateQuizTool] Refetch failed:", err);
-                });
+                // Small delay to ensure database has processed the event
+                // Then invalidate cache and refetch to get fresh data
+                setTimeout(() => {
+                    // Invalidate the cache to force fresh fetch
+                    queryClient.invalidateQueries({
+                        queryKey: ["workspace", workspaceId, "events"],
+                    });
+                    // Then refetch
+                    queryClient.refetchQueries({
+                        queryKey: ["workspace", workspaceId, "events"],
+                        type: 'active'
+                    }).catch((err) => {
+                        console.error("❌ [UpdateQuizTool] Refetch failed:", err);
+                    });
+                }, 500); // 500ms delay for database processing
             }
         }, [status, result, workspaceId, queryClient]);
 

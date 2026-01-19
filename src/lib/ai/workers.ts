@@ -16,7 +16,7 @@ import { createEvent } from "@/lib/workspace/events";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import { getRandomCardColor } from "@/lib/workspace-state/colors";
 import { logger } from "@/lib/utils/logger";
-import type { Item, NoteData, QuizData, QuizQuestion } from "@/lib/workspace-state/types";
+import type { Item, NoteData, QuizData, QuizQuestion, QuestionType } from "@/lib/workspace-state/types";
 import { markdownToBlocks } from "@/lib/editor/markdown-to-blocks";
 
 /**
@@ -1005,6 +1005,12 @@ export async function quizWorker(params: QuizWorkerParams): Promise<{ questions:
       // Context-based quiz generation
       prompt = `You are a quiz generator. Create exactly ${questionCount} quiz questions based EXCLUSIVELY on the following content. Do NOT use any external knowledge.
 
+IMPORTANT: The content below is from workspace cards and includes metadata headers like "CARD 1:", "Card ID:", "METADATA:", "CONTENT:", etc. IGNORE ALL METADATA. Focus ONLY on the actual educational content within each card - the text, concepts, facts, and information being taught. Do NOT create questions about:
+- Card IDs, card types, or card names
+- Metadata like "Type: note" or "Card ID: xyz"
+- System formatting like separators, emojis, or structural markers
+- The number of cards, questions, or any organizational details
+
 CONTENT TO QUIZ ON:
 ${params.contextContent}
 
@@ -1019,7 +1025,7 @@ ${adaptiveInstructions}
 - For true_false: provide exactly 2 options (["True", "False"])
 - Each question must have a clear, specific explanation
 - Each question should optionally have a helpful hint
-- Questions must be directly answerable from the provided content
+- Questions must be directly answerable from the provided EDUCATIONAL content (not metadata)
 
 SOURCE: ${params.sourceCardNames?.join(", ") || "Selected content"}`;
     } else if (params.topic) {
@@ -1074,10 +1080,50 @@ OUTPUT FORMAT (strict JSON):
 
 Generate the quiz now:`;
 
-    const result = await generateText({
-      model: google("gemini-2.5-flash"),
-      prompt,
+    // Check if context contains PDF URLs that Gemini should read directly
+    // PDF URLs are marked with "📖 PDF_CONTENT_URL:" in the context
+    const pdfUrlMatches = params.contextContent?.match(/📖 PDF_CONTENT_URL:\s*(https?:\/\/[^\s]+)/g) || [];
+    const pdfUrls = pdfUrlMatches.map(match => {
+      const urlMatch = match.match(/https?:\/\/[^\s]+/);
+      return urlMatch ? urlMatch[0] : null;
+    }).filter((url): url is string => url !== null);
+
+    logger.debug("🎯 [QUIZ-WORKER] PDF detection:", {
+      foundPdfUrls: pdfUrls.length,
+      urls: pdfUrls
     });
+
+    let result;
+    if (pdfUrls.length > 0) {
+      // Use multimodal content with PDF file parts
+      // Gemini can read PDFs directly via URL
+      const fileParts = pdfUrls.map(url => ({
+        type: 'file' as const,
+        data: new URL(url),
+        mediaType: 'application/pdf' as const,
+      }));
+
+      logger.debug("🎯 [QUIZ-WORKER] Using multimodal generation with PDFs");
+
+      result = await generateText({
+        model: google("gemini-2.5-flash"),
+        messages: [
+          {
+            role: 'user',
+            content: [
+              ...fileParts,
+              { type: 'text', text: prompt },
+            ],
+          },
+        ],
+      });
+    } else {
+      // Standard text-only generation
+      result = await generateText({
+        model: google("gemini-2.5-flash"),
+        prompt,
+      });
+    }
 
     // Parse the JSON response
     let parsed: { title: string; questions: any[] };
@@ -1093,6 +1139,12 @@ Generate the quiz now:`;
         jsonText = jsonText.slice(0, -3);
       }
       jsonText = jsonText.trim();
+
+      // Sanitize LaTeX escape sequences before parsing
+      // LaTeX uses backslashes (e.g., \frac, \cap, \cup) which are invalid JSON escapes
+      // We need to double-escape them so they become valid JSON strings
+      // This regex finds backslashes NOT followed by valid JSON escape chars (", \, /, b, f, n, r, t, u)
+      jsonText = jsonText.replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
 
       parsed = JSON.parse(jsonText);
     } catch (parseError) {

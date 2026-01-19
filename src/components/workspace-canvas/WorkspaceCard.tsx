@@ -809,7 +809,6 @@ function WorkspaceCard({
               <div
                 className="flex-1 min-h-0 overflow-auto"
                 onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
               >
                 <QuizContent item={item} onUpdateData={(updater) => onUpdateItem(item.id, { data: updater(item.data) as any })} />
               </div>
@@ -1070,6 +1069,16 @@ export const WorkspaceCardMemoized = memo(WorkspaceCard, (prevProps, nextProps) 
     const prevData = prevProps.item.data;
     const nextData = nextProps.item.data;
     if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
+  }
+  if (prevProps.item.type === 'quiz' && nextProps.item.type === 'quiz') {
+    const prevData = prevProps.item.data;
+    const nextData = nextProps.item.data;
+    // For quiz, compare questions length first (fast check), then full data if needed
+    const prevQuestions = (prevData as any)?.questions || [];
+    const nextQuestions = (nextData as any)?.questions || [];
+    if (prevQuestions.length !== nextQuestions.length) return false;
+    // Also check session changes (currentIndex, answeredQuestions)
+    if (JSON.stringify((prevData as any)?.session) !== JSON.stringify((nextData as any)?.session)) return false;
   }
 
   // Compare layout (use lg breakpoint for comparison)

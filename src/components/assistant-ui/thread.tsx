@@ -534,6 +534,13 @@ const Composer: FC<ComposerProps> = ({ items }) => {
   return (
     <ComposerPrimitive.Root
       className="aui-composer-root relative flex w-full flex-col rounded-lg border border-sidebar-border bg-sidebar-accent px-1 pt-1 shadow-[0_9px_9px_0px_rgba(0,0,0,0.01),0_2px_5px_0px_rgba(0,0,0,0.06)] dark:border-sidebar-border/15"
+      onClick={(e) => {
+        // Focus the input when clicking anywhere in the composer area
+        // This allows users to easily return focus after interacting with quizzes or other cards
+        if (inputRef.current && !e.defaultPrevented) {
+          inputRef.current.focus();
+        }
+      }}
       onSubmit={async (e) => {
         e.preventDefault();
 
