@@ -174,50 +174,12 @@ OUTPUT FORMAT (strict JSON):
 
 For true_false questions, options should be exactly ["True", "False"] and correctIndex 0 for True, 1 for False.`;
 
-        // Check if context contains PDF URLs that Gemini should read directly
-        // PDF URLs are marked with "📖 PDF_CONTENT_URL:" in the context
-        const pdfUrlMatches = params.contextContent?.match(/📖 PDF_CONTENT_URL:\s*(https?:\/\/[^\s]+)/g) || [];
-        const pdfUrls = pdfUrlMatches.map(match => {
-            const urlMatch = match.match(/https?:\/\/[^\s]+/);
-            return urlMatch ? urlMatch[0] : null;
-        }).filter((url): url is string => url !== null);
 
-        logger.debug("🎯 [QUIZ-WORKER] PDF detection:", {
-            foundPdfUrls: pdfUrls.length,
-            urls: pdfUrls
+        // Standard text-only generation
+        const result = await generateText({
+            model: google("gemini-2.5-flash"),
+            prompt,
         });
-
-        let result;
-        if (pdfUrls.length > 0) {
-            // Use multimodal content with PDF file parts
-            // Gemini can read PDFs directly via URL
-            const fileParts = pdfUrls.map(url => ({
-                type: 'file' as const,
-                data: new URL(url),
-                mediaType: 'application/pdf' as const,
-            }));
-
-            logger.debug("🎯 [QUIZ-WORKER] Using multimodal generation with PDFs");
-
-            result = await generateText({
-                model: google("gemini-2.5-flash"),
-                messages: [
-                    {
-                        role: 'user',
-                        content: [
-                            ...fileParts,
-                            { type: 'text', text: prompt },
-                        ],
-                    },
-                ],
-            });
-        } else {
-            // Standard text-only generation
-            result = await generateText({
-                model: google("gemini-2.5-flash"),
-                prompt,
-            });
-        }
 
         // Parse the JSON response
         let parsed: { title: string; questions: any[] };
