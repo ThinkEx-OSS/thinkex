@@ -8,9 +8,9 @@ export type MathBlock = any;
 export function normalizeMathSyntax(markdown: string): string {
     return markdown
         // Convert \[...\] to $$...$$ (block math)
-        .replace(/\\\[([\\s\\S]*?)\\\]/g, (_, latex) => `$$${latex.trim()}$$`)
+        .replace(/\\\[([\s\S]*?)\\\]/g, (_, latex) => `$$${latex.trim()}$$`)
         // Convert \(...\) to $$...$$ (inline math) - Streamdown uses $$ for both
-        .replace(/\\\(([\\s\\S]*?)\\\)/g, (_, latex) => `$$${latex.trim()}$$`)
+        .replace(/\\\(([\s\S]*?)\\\)/g, (_, latex) => `$$${latex.trim()}$$`)
         // Keep existing $$...$$ as-is
         ;
 }
