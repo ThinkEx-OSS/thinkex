@@ -62,7 +62,9 @@ function processBlockForMath(block: MathBlock): MathBlock | MathBlock[] {
             .join("");
 
         // Check if the paragraph contains ONLY a single math expression
-        const blockMathMatch = fullText.match(BLOCK_MATH_ONLY_REGEX);
+        // AND does not contain any non-text inline content (links, mentions, etc.)
+        const hasNonTextContent = block.content.some((item: any) => item.type !== "text");
+        const blockMathMatch = !hasNonTextContent && fullText.match(BLOCK_MATH_ONLY_REGEX);
         if (blockMathMatch) {
             // Convert to block math
             const latex = blockMathMatch[1].trim();
@@ -263,30 +265,5 @@ function processInlineMathInContent(
         }
     }
 
-    // Remove periods (and leading spaces before them) that immediately follow inline math
-    const cleaned: any[] = [];
-    for (let i = 0; i < processed.length; i++) {
-        const current = processed[i];
-        const prev = i > 0 ? processed[i - 1] : null;
-
-        // If current is text and previous is inlineMath, remove leading periods and spaces before them
-        if (current.type === "text" && current.text && prev && prev.type === "inlineMath") {
-            // Remove leading spaces followed by periods (e.g., " ." or ".")
-            // But preserve other text like " and " between math expressions
-            const cleanedText = current.text.replace(/^\s*\.+/, '');
-
-            // Only add if there's remaining text after cleaning
-            if (cleanedText) {
-                cleaned.push({
-                    ...current,
-                    text: cleanedText,
-                });
-            }
-            // If text becomes empty after cleaning (was just ". " or "."), skip it entirely
-        } else {
-            cleaned.push(current);
-        }
-    }
-
-    return cleaned;
+    return processed;
 }
