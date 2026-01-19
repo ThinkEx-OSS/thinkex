@@ -159,7 +159,7 @@ async function handlePOST(request: NextRequest) {
 
     // Create snapshot event first (starts at version 0, creates version 1)
     try {
-      const snapshotResult = await db.execute(sql`
+      await db.execute(sql`
           SELECT append_workspace_event(
             ${workspace.id}::uuid,
             ${eventId}::text,
