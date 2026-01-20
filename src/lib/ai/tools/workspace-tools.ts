@@ -1,9 +1,6 @@
 import { z } from "zod";
 import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
-import { loadWorkspaceState } from "@/lib/workspace/state-loader";
-import { db, workspaces } from "@/lib/db/client";
-import { eq } from "drizzle-orm";
 
 export interface WorkspaceToolContext {
     workspaceId: string | null;
@@ -195,19 +192,12 @@ export function createDeleteCardTool(ctx: WorkspaceToolContext) {
 export function createSelectCardsTool(ctx: WorkspaceToolContext) {
     return {
         description:
-            "Select one or more cards by their TITLES and add them to the conversation context. This tool helps you surface specific cards when the user refers to them. The tool will find the best matching cards for the titles you provide and add them to the system context.",
+            "Select one or more cards by their TITLES and add them to the conversation context. This tool helps you surface specific cards when the user refers to them. The client-side UI will perform fuzzy matching to find the best matching cards for the titles you provide.",
         inputSchema: z.object({
             cardTitles: z.array(z.string()).describe("Array of card titles to search for and select"),
         }),
         execute: async (input: { cardTitles: string[] }) => {
             const { cardTitles } = input;
-
-            if (!ctx.workspaceId) {
-                return {
-                    success: false,
-                    message: "No workspace context available",
-                };
-            }
 
             if (!cardTitles || cardTitles.length === 0) {
                 return {
@@ -216,79 +206,13 @@ export function createSelectCardsTool(ctx: WorkspaceToolContext) {
                 };
             }
 
-            try {
-                if (!ctx.userId) {
-                    return { success: false, message: "User not authenticated" };
-                }
-
-                const workspace = await db
-                    .select({ userId: workspaces.userId })
-                    .from(workspaces)
-                    .where(eq(workspaces.id, ctx.workspaceId))
-                    .limit(1);
-
-                if (!workspace[0]) {
-                    return { success: false, message: "Workspace not found" };
-                }
-
-                if (workspace[0].userId !== ctx.userId) {
-                    logger.warn(`🔒 [SELECT-CARDS] Access denied for user ${ctx.userId} to workspace ${ctx.workspaceId}`);
-                    return {
-                        success: false,
-                        message: "Access denied. You do not have permission to view cards in this workspace.",
-                    };
-                }
-
-                const state = await loadWorkspaceState(ctx.workspaceId);
-                const foundCardIds = new Set<string>();
-                const notFoundTitles: string[] = [];
-
-                cardTitles.forEach(title => {
-                    const searchTitle = title.toLowerCase().trim();
-                    let match = state.items.find(item => item.name.toLowerCase().trim() === searchTitle);
-
-                    if (!match) {
-                        match = state.items.find(item => item.name.toLowerCase().includes(searchTitle));
-                    }
-
-                    if (match) {
-                        foundCardIds.add(match.id);
-                    } else {
-                        notFoundTitles.push(title);
-                    }
-                });
-
-                const validCardIds = Array.from(foundCardIds);
-
-                if (validCardIds.length === 0) {
-                    const availableCards = state.items.map(i => `"${i.name}"`).join(", ");
-                    return {
-                        success: false,
-                        message: `No cards found matching your request. ${notFoundTitles.length > 0 ? `Could not find: ${notFoundTitles.join(", ")}. ` : ""}Available cards: ${availableCards}`,
-                        cardContent: "",
-                    };
-                }
-
-                const selectedCards = state.items.filter((item) =>
-                    validCardIds.includes(item.id)
-                );
-
-                const message = `Selected ${selectedCards.length} card${selectedCards.length === 1 ? "" : "s"}. ${notFoundTitles.length > 0 ? `(Could not find: ${notFoundTitles.join(", ")}) ` : ""}NOTE: This selection was made at the time of this tool call. For the current active selection, checking the 'CARDS IN CONTEXT DRAWER' section in your system context is recommended.`;
-
-                return {
-                    success: true,
-                    message,
-                    selectedCount: selectedCards.length,
-                    selectedCardNames: selectedCards.map((c) => c.name),
-                    selectedCardIds: selectedCards.map((c) => c.id),
-                };
-            } catch (error) {
-                logger.error("Error loading cards for selectCards tool:", error);
-                return {
-                    success: false,
-                    message: `Error selecting cards: ${error instanceof Error ? error.message : "Unknown error"}`,
-                };
-            }
+            // No auth check needed - client already has workspace state and handles authorization
+            // Client-side UI handles fuzzy matching and ID resolution
+            return {
+                success: true,
+                message: `Requested selection of ${cardTitles.length} card${cardTitles.length === 1 ? "" : "s"}: ${cardTitles.join(", ")}. The client will perform fuzzy matching to find and select the matching cards.`,
+                cardTitles: cardTitles,
+            };
         },
     };
 }
