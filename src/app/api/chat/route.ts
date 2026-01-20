@@ -22,74 +22,52 @@ function extractWorkspaceId(body: any): string | null {
 }
 
 /**
- * Extract file URLs from FILE_URL markers in messages
+ * Process messages in a single pass: extract file URLs, URL context URLs, and clean markers
+ * This combines 3 separate iterations into 1 for better performance
  */
-function extractFileUrls(messages: any[]): string[] {
+function processMessages(messages: any[]): {
+  fileUrls: string[];
+  urlContextUrls: string[];
+  cleanedMessages: any[];
+} {
   const fileUrls: string[] = [];
+  const urlContextUrlsSet = new Set<string>();
+  const urlContextRegex = /\[URL_CONTEXT:(.+?)\]/g;
+  const directUrlRegex = /https?:\/\/[^\s]+/g;
+  const fileUrlRegex = /\[FILE_URL:([^|]+)\|mediaType:([^|]*)\|filename:([^\]]*)\]/g;
 
-  messages.forEach((message) => {
-    if (message.content && Array.isArray(message.content)) {
-      message.content.forEach((part: any) => {
-        if (part.type === "text" && typeof part.text === "string") {
-          // Create regex inside loop to reset lastIndex state for each iteration
-          const fileUrlRegex = /\[FILE_URL:([^|]+)\|mediaType:([^|]*)\|filename:([^\]]*)\]/g;
-          let match;
-          while ((match = fileUrlRegex.exec(part.text)) !== null) {
-            fileUrls.push(match[1]);
-          }
-        }
-      });
-    }
-  });
-
-  return fileUrls;
-}
-
-/**
- * Extract URLs from URL_CONTEXT markers and direct URLs in messages
- */
-function extractUrlContextUrls(messages: any[]): string[] {
-  const urlContextUrls: string[] = [];
-
-  messages.forEach((message) => {
-    if (message.content && Array.isArray(message.content)) {
-      message.content.forEach((part: any) => {
-        if (part.type === "text" && typeof part.text === "string") {
-          // Look for [URL_CONTEXT:...] markers
-          const urlMatches = part.text.matchAll(/\[URL_CONTEXT:(.+?)\]/g);
-          for (const match of urlMatches) {
-            const url = match[1];
-            if (url && !urlContextUrls.includes(url)) {
-              urlContextUrls.push(url);
-            }
-          }
-          // Also look for direct URLs in text
-          const directUrlMatches = part.text.matchAll(/https?:\/\/[^\s]+/g);
-          for (const match of directUrlMatches) {
-            const url = match[0];
-            if (url && !urlContextUrls.includes(url)) {
-              urlContextUrls.push(url);
-            }
-          }
-        }
-      });
-    }
-  });
-
-  return urlContextUrls;
-}
-
-/**
- * Clean URL_CONTEXT markers from messages
- */
-function cleanMessages(messages: any[]): any[] {
-  return messages.map((message) => {
+  const cleanedMessages = messages.map((message) => {
     if (message.content && Array.isArray(message.content)) {
       const updatedContent = message.content.map((part: any) => {
         if (part.type === "text" && typeof part.text === "string") {
-          const updatedText = part.text.replace(/\[URL_CONTEXT:(.+?)\]/g, (_match: string, url: string) => {
+          const text = part.text;
+
+          // Extract file URLs
+          let match;
+          const fileUrlRegexLocal = /\[FILE_URL:([^|]+)\|mediaType:([^|]*)\|filename:([^\]]*)\]/g;
+          while ((match = fileUrlRegexLocal.exec(text)) !== null) {
+            fileUrls.push(match[1]);
+          }
+
+          // Extract URL context URLs (use Set for O(1) lookups)
+          const urlContextMatches = text.matchAll(urlContextRegex);
+          for (const urlMatch of urlContextMatches) {
+            const url = urlMatch[1];
+            if (url) urlContextUrlsSet.add(url);
+          }
+
+          // Extract direct URLs
+          const directUrlMatches = text.matchAll(directUrlRegex);
+          for (const directMatch of directUrlMatches) {
+            const url = directMatch[0];
+            if (url) urlContextUrlsSet.add(url);
+          }
+
+          // Clean URL_CONTEXT markers
+          const updatedText = text.replace(urlContextRegex, (_match: string, url: string) => {
             return url;
           });
+
           return { ...part, text: updatedText };
         }
         return part;
@@ -98,6 +76,12 @@ function cleanMessages(messages: any[]): any[] {
     }
     return message;
   });
+
+  return {
+    fileUrls,
+    urlContextUrls: Array.from(urlContextUrlsSet),
+    cleanedMessages,
+  };
 }
 
 /**
@@ -112,12 +96,13 @@ function getSelectedCardsContext(body: any): string {
 
 /**
  * Build the enhanced system prompt with guidelines and detection hints
+ * Uses array join for better performance than string concatenation
  */
 function buildSystemPrompt(baseSystem: string, fileUrls: string[], urlContextUrls: string[]): string {
-  let finalSystemPrompt = baseSystem;
+  const parts: string[] = [baseSystem];
 
   // Add web search decision-making guidelines
-  finalSystemPrompt += `
+  parts.push(`
 
 WEB SEARCH DECISION GUIDELINES:
 You have access to the searchWeb tool. Use the following guidelines to decide when to search vs use internal knowledge:
@@ -142,20 +127,19 @@ When a query requires both current data AND conceptual explanation, do both:
 3. Synthesize into a cohesive answer
 
 CONFIDENCE THRESHOLD:
-If you are uncertain about a fact's accuracy or currency, prefer to search rather than risk providing outdated information.
-`;
+If you are uncertain about a fact's accuracy or currency, prefer to search rather than risk providing outdated information.`);
 
   // Add file detection hint if file URLs are present
   if (fileUrls.length > 0) {
-    finalSystemPrompt += `\n\nFILE DETECTION: The user's message contains ${fileUrls.length} file(s). You MUST call the processFiles tool with these URLs to analyze them: ${fileUrls.join(', ')}`;
+    parts.push(`\n\nFILE DETECTION: The user's message contains ${fileUrls.length} file(s). You MUST call the processFiles tool with these URLs to analyze them: ${fileUrls.join(', ')}`);
   }
 
   // Add URL detection hint if URLs are present
   if (urlContextUrls.length > 0) {
-    finalSystemPrompt += `\n\nURL DETECTION: The user's message contains ${urlContextUrls.length} URL(s): ${urlContextUrls.join(', ')}. You should call the processUrls tool with these URLs to analyze them.`;
+    parts.push(`\n\nURL DETECTION: The user's message contains ${urlContextUrls.length} URL(s): ${urlContextUrls.join(', ')}. You should call the processUrls tool with these URLs to analyze them.`);
   }
 
-  return finalSystemPrompt;
+  return parts.join('');
 }
 
 export async function POST(req: Request) {
@@ -190,22 +174,18 @@ export async function POST(req: Request) {
       throw convertError;
     }
 
-    // Extract URLs and files from messages
-    const fileUrls = extractFileUrls(convertedMessages);
-    const urlContextUrls = extractUrlContextUrls(convertedMessages);
-
-    // Clean messages
-    const cleanedMessages = cleanMessages(convertedMessages);
+    // Process messages in single pass: extract URLs/files and clean markers
+    const { fileUrls, urlContextUrls, cleanedMessages } = processMessages(convertedMessages);
 
     // Get pre-formatted selected cards context from client (no DB fetch needed)
     const selectedCardsContext = getSelectedCardsContext(body);
 
-    // Build system prompt
-    let finalSystemPrompt = buildSystemPrompt(system, fileUrls, urlContextUrls);
+    // Build system prompt with all context parts (using array join for efficiency)
+    const systemPromptParts: string[] = [buildSystemPrompt(system, fileUrls, urlContextUrls)];
 
     // Inject selected cards context if available
     if (selectedCardsContext) {
-      finalSystemPrompt = `${finalSystemPrompt}\n\n${selectedCardsContext}`;
+      systemPromptParts.push(`\n\n${selectedCardsContext}`);
     }
 
     // Inject reply context if available
@@ -214,9 +194,10 @@ export async function POST(req: Request) {
       const replyContext = replySelections
         .map((sel: { text: string }) => `> ${sel.text}`)
         .join("\n");
-
-      finalSystemPrompt = `${finalSystemPrompt}\n\nREPLY CONTEXT:\nThe user is replying specifically to these parts of the previous message:\n${replyContext}`;
+      systemPromptParts.push(`\n\nREPLY CONTEXT:\nThe user is replying specifically to these parts of the previous message:\n${replyContext}`);
     }
+
+    const finalSystemPrompt = systemPromptParts.join('');
 
     // Get model
     const modelId = body.modelId || "gemini-2.5-flash";
