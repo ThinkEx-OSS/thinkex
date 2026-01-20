@@ -117,7 +117,7 @@ export function WorkspaceRuntimeProvider({
         },
       });
       return transport;
-    }, [workspaceId, selectedModelId, activeFolderId, selectedCardIdsSet]),
+    }, [workspaceId, selectedModelId, activeFolderId, selectedCardIdsSet, replySelections]),
     onError: handleChatError,
   });
 
