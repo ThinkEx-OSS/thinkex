@@ -629,19 +629,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         // Combine all context: selected cards, reply texts, and user message
         let modifiedText = currentText;
 
-        // Add selected cards context with markers (no UI representation, but sent to LLM)
-        // Always append this so LLM knows the selection state (even when nothing is selected)
-        const cardsContext = formatSelectedCardsContext(selectedItems, items);
-        const cardsMarker = "[[SELECTED_CARDS_MARKER]]";
-        modifiedText = modifiedText + `\n\n${cardsMarker}${cardsContext}${cardsMarker}`;
-
-        // Add reply texts with pipe separator if there are replies
-        if (replySelections.length > 0) {
-          const replyTexts = replySelections.map(sel => sel.text).join('|');
-          const specialMarker = "[[REPLY_MARKER]]";
-          modifiedText = modifiedText + `\n\n${specialMarker}${replyTexts}${specialMarker}`;
-        }
-
         // Set the modified text and send
         api.composer().setText(modifiedText);
         api.composer().send();
