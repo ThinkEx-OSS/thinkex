@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
+import { loadWorkspaceState } from "@/lib/workspace/state-loader";
+import { formatSelectedCardsContext } from "@/lib/utils/format-workspace-context";
+import type { Item } from "@/lib/workspace-state/types";
 
 export interface WorkspaceToolContext {
     workspaceId: string | null;
@@ -192,7 +195,7 @@ export function createDeleteCardTool(ctx: WorkspaceToolContext) {
 export function createSelectCardsTool(ctx: WorkspaceToolContext) {
     return {
         description:
-            "Select one or more cards by their TITLES and add them to the conversation context. This tool helps you surface specific cards when the user refers to them. The client-side UI will perform fuzzy matching to find the best matching cards for the titles you provide.",
+            "Select one or more cards by their TITLES and add them to the conversation context. This tool helps you surface specific cards when the user refers to them. The tool will perform fuzzy matching to find the best matching cards and return their full content immediately.",
         inputSchema: z.object({
             cardTitles: z.array(z.string()).describe("Array of card titles to search for and select"),
         }),
@@ -203,16 +206,85 @@ export function createSelectCardsTool(ctx: WorkspaceToolContext) {
                 return {
                     success: false,
                     message: "cardTitles array must be provided and non-empty.",
+                    context: "",
                 };
             }
 
-            // No auth check needed - client already has workspace state and handles authorization
-            // Client-side UI handles fuzzy matching and ID resolution
-            return {
-                success: true,
-                message: `Requested selection of ${cardTitles.length} card${cardTitles.length === 1 ? "" : "s"}: ${cardTitles.join(", ")}. The client will perform fuzzy matching to find and select the matching cards.`,
-                cardTitles: cardTitles,
-            };
+            if (!ctx.workspaceId) {
+                return {
+                    success: false,
+                    message: "No workspace context available",
+                    context: "",
+                };
+            }
+
+            try {
+                // Load workspace state to access all items
+                const state = await loadWorkspaceState(ctx.workspaceId);
+                
+                if (!state || !state.items || state.items.length === 0) {
+                    return {
+                        success: true,
+                        message: `No cards found in workspace. Requested selection of ${cardTitles.length} card${cardTitles.length === 1 ? "" : "s"}: ${cardTitles.join(", ")}.`,
+                        addedCount: 0,
+                        context: "",
+                    };
+                }
+
+                // Perform fuzzy matching (matching client-side logic)
+                // 1. Exact match first
+                // 2. Contains match if no exact match
+                const selectedItems: Item[] = [];
+                const processedIds = new Set<string>();
+
+                for (const title of cardTitles) {
+                    const searchTitle = title.toLowerCase().trim();
+                    
+                    // Try exact match first
+                    let match = state.items.find(
+                        item => item.name.toLowerCase().trim() === searchTitle && !processedIds.has(item.id)
+                    );
+                    
+                    // If no exact match, try contains match
+                    if (!match) {
+                        match = state.items.find(
+                            item => item.name.toLowerCase().includes(searchTitle) && !processedIds.has(item.id)
+                        );
+                    }
+
+                    if (match) {
+                        selectedItems.push(match);
+                        processedIds.add(match.id);
+                    }
+                }
+
+                // Format the selected cards context
+                const context = formatSelectedCardsContext(selectedItems, state.items);
+
+                const addedCount = selectedItems.length;
+                const notFoundCount = cardTitles.length - addedCount;
+
+                let message = `Selected ${addedCount} card${addedCount === 1 ? "" : "s"}`;
+                if (notFoundCount > 0) {
+                    message += ` (${notFoundCount} not found)`;
+                }
+                message += `: ${selectedItems.map(item => item.name).join(", ")}`;
+
+                return {
+                    success: true,
+                    message,
+                    addedCount,
+                    context, // Return formatted context so AI has immediate access
+                    cardTitles: cardTitles,
+                };
+            } catch (error: any) {
+                logger.error("❌ [SELECT-CARDS] Error loading workspace state:", error);
+                return {
+                    success: false,
+                    message: `Failed to load workspace state: ${error?.message || String(error)}`,
+                    context: "",
+                };
+            }
         },
     };
 }
