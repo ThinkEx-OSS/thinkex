@@ -4,6 +4,12 @@ import { logger } from "@/lib/utils/logger";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { createChatTools } from "@/lib/ai/tools";
+
+// Regex patterns as constants (compiled once, reused for all requests)
+const URL_CONTEXT_REGEX = /\[URL_CONTEXT:(.+?)\]/g;
+const DIRECT_URL_REGEX = /https?:\/\/[^\s]+/g;
+const FILE_URL_REGEX = /\[FILE_URL:([^|]+)\|mediaType:([^|]*)\|filename:([^\]]*)\]/g;
+
 /**
  * Extract workspaceId from system context or request body
  */
@@ -32,9 +38,6 @@ function processMessages(messages: any[]): {
 } {
   const fileUrls: string[] = [];
   const urlContextUrlsSet = new Set<string>();
-  const urlContextRegex = /\[URL_CONTEXT:(.+?)\]/g;
-  const directUrlRegex = /https?:\/\/[^\s]+/g;
-  const fileUrlRegex = /\[FILE_URL:([^|]+)\|mediaType:([^|]*)\|filename:([^\]]*)\]/g;
 
   const cleanedMessages = messages.map((message) => {
     if (message.content && Array.isArray(message.content)) {
@@ -42,29 +45,32 @@ function processMessages(messages: any[]): {
         if (part.type === "text" && typeof part.text === "string") {
           const text = part.text;
 
-          // Extract file URLs
+          // Extract file URLs (create new regex instance to avoid state issues with global flag)
           let match;
-          const fileUrlRegexLocal = /\[FILE_URL:([^|]+)\|mediaType:([^|]*)\|filename:([^\]]*)\]/g;
+          const fileUrlRegexLocal = new RegExp(FILE_URL_REGEX.source, FILE_URL_REGEX.flags);
           while ((match = fileUrlRegexLocal.exec(text)) !== null) {
             fileUrls.push(match[1]);
           }
 
           // Extract URL context URLs (use Set for O(1) lookups)
-          const urlContextMatches = text.matchAll(urlContextRegex);
+          const urlContextRegexLocal = new RegExp(URL_CONTEXT_REGEX.source, URL_CONTEXT_REGEX.flags);
+          const urlContextMatches = text.matchAll(urlContextRegexLocal);
           for (const urlMatch of urlContextMatches) {
             const url = urlMatch[1];
             if (url) urlContextUrlsSet.add(url);
           }
 
           // Extract direct URLs
-          const directUrlMatches = text.matchAll(directUrlRegex);
+          const directUrlRegexLocal = new RegExp(DIRECT_URL_REGEX.source, DIRECT_URL_REGEX.flags);
+          const directUrlMatches = text.matchAll(directUrlRegexLocal);
           for (const directMatch of directUrlMatches) {
             const url = directMatch[0];
             if (url) urlContextUrlsSet.add(url);
           }
 
-          // Clean URL_CONTEXT markers
-          const updatedText = text.replace(urlContextRegex, (_match: string, url: string) => {
+          // Clean URL_CONTEXT markers (create new instance to avoid global regex state issues)
+          const urlContextReplaceRegex = new RegExp(URL_CONTEXT_REGEX.source, URL_CONTEXT_REGEX.flags);
+          const updatedText = text.replace(urlContextReplaceRegex, (_match: string, url: string) => {
             return url;
           });
 
