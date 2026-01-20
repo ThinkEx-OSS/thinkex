@@ -76,6 +76,7 @@ const CreateNoteReceipt = ({
   const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
   const { state: workspaceState } = useWorkspaceState(workspaceId);
   const navigateToItem = useNavigateToItem();
+  const setOpenModalItemId = useUIStore((state) => state.setOpenModalItemId);
 
   // State for MoveToDialog
   const [showMoveDialog, setShowMoveDialog] = useState(false);
@@ -107,6 +108,8 @@ const CreateNoteReceipt = ({
   const handleViewCard = () => {
     if (!result.itemId) return;
     navigateToItem(result.itemId);
+    // Open the panel in addition to scrolling
+    setOpenModalItemId(result.itemId);
   };
 
   const handleMoveToFolder = (folderId: string | null) => {
