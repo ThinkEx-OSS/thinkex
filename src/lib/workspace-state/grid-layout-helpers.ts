@@ -1,4 +1,4 @@
-﻿import type { Layout, LayoutItem } from "react-grid-layout";
+import type { Layout, LayoutItem } from "react-grid-layout";
 import type { Item, CardType, LayoutPosition, ResponsiveLayouts } from "./types";
 
 /**
@@ -90,6 +90,22 @@ export function itemsToLayout(items: Item[], breakpoint: 'lg' | 'xxs' = 'lg'): L
         minH: 5, // Minimum height for controls
         maxW: 4, // Maximum width (full grid)
         maxH: 11, // Constant maximum height
+      };
+    }
+
+    // Folders are anchor items - they act as obstacles but can be dragged/resized
+    if (item.type === 'folder') {
+      return {
+        i: item.id,
+        x: layout?.x ?? 0,
+        y: layout?.y ?? 0,
+        w: layout?.w ?? DEFAULT_CARD_DIMENSIONS[item.type].w,
+        h: layout?.h ?? DEFAULT_CARD_DIMENSIONS[item.type].h,
+        minW: 1,
+        minH: 4,
+        maxW: 4,
+        maxH: 25,
+        anchor: true, // Anchor items act as obstacles but can be moved
       };
     }
 
