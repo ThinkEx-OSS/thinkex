@@ -110,18 +110,22 @@ const FlashcardSideContent = memo(function FlashcardSideContent({
     return (
         <div
             ref={scrollContainerRef}
-            className={`workspace-card-readonly-editor size-full min-h-0 ${isScrollLocked ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'} ${className}`}
+            className={`workspace-card-readonly-editor size-full min-h-0 ${isScrollLocked ? 'overflow-hidden' : 'overflow-auto'} ${className}`}
             style={{
                 // Ensure white text cascades to BlockNote default styles where possible
                 color: 'white',
                 // Explicitly contain scroll chaining
                 overscrollBehaviorY: 'contain',
+                overscrollBehaviorX: 'contain',
                 // Center text within the flashcard
                 textAlign: 'center',
                 // Match ItemHeader note card title styling: text-base (1rem) font-medium (500)
                 fontSize: '1rem',
                 fontWeight: 500,
-                padding: '1rem',
+                paddingTop: '1.5rem',
+                paddingBottom: '1.5rem',
+                paddingLeft: '1.5rem',
+                paddingRight: '1.5rem',
                 // Text rendering optimization - NO transforms here to avoid 3D context conflicts
                 WebkitFontSmoothing: 'antialiased',
                 MozOsxFontSmoothing: 'grayscale' as any,
@@ -137,8 +141,8 @@ const FlashcardSideContent = memo(function FlashcardSideContent({
                 }
             }}
         >
-            <div className="size-full flex flex-col justify-center items-center px-6">
-                <div className="w-full">
+            <div className={`flex flex-col items-center min-w-0 w-full ${isScrollLocked ? 'justify-center min-h-full' : ''}`}>
+                <div className="w-full max-w-full min-w-0">
                     {displayContent.map((block, index) => (
                         <PreviewBlock
                             key={block.id || index}
