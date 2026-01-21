@@ -1,10 +1,10 @@
 "use client";
 
 import { createReactInlineContentSpec } from "@blocknote/react";
-import { memo, useMemo, useCallback } from "react";
+import { memo, useMemo, useCallback, useRef, useEffect, useContext } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import { useMathEdit, useAutoOpenMathDialog } from "../MathEditDialog";
+import { MathEditContext } from "../MathEditDialog";
 import "../blocks/math-block.css";
 
 // Component for rendering inline math - respects read-only state
@@ -13,13 +13,9 @@ const InlineMathContent = memo(function InlineMathContent({ inlineContent, edito
   const latex = inlineContent.props.latex || "";
   const isReadOnly = !editor.isEditable;
 
-  // Try to get the math edit context (may not be available if provider not wrapped)
-  let mathEdit: ReturnType<typeof useMathEdit> | null = null;
-  try {
-    mathEdit = useMathEdit();
-  } catch {
-    // Context not available - will use legacy approach
-  }
+  // Get the math edit context (may be null if provider not wrapped)
+  // Always call useContext unconditionally to follow Rules of Hooks
+  const mathEdit = useContext(MathEditContext);
 
   // Render LaTeX to HTML using KaTeX
   const renderedHtml = useMemo(() => {
@@ -60,8 +56,48 @@ const InlineMathContent = memo(function InlineMathContent({ inlineContent, edito
     }
   }, [isReadOnly, mathEdit, latex, handleSave]);
 
+  // Track if dialog has been opened for this inline math instance
+  const dialogOpenedRef = useRef(false);
+  const handleSaveRef = useRef(handleSave);
+
+  // Keep handleSaveRef up to date
+  useEffect(() => {
+    handleSaveRef.current = handleSave;
+  }, [handleSave]);
+
   // Auto-open dialog when a new empty inline math is created
-  useAutoOpenMathDialog(latex, isReadOnly, handleSave, "Edit Inline Math");
+  useEffect(() => {
+    // Only open if:
+    // 1. Editor is editable (not read-only)
+    // 2. Math edit context is available
+    // 3. LaTeX is empty or just whitespace (newly created inline math)
+    // 4. Dialog hasn't been opened yet for this instance
+    let timeoutId: NodeJS.Timeout | undefined;
+    
+    if (
+      !isReadOnly &&
+      mathEdit &&
+      !latex.trim() &&
+      !dialogOpenedRef.current
+    ) {
+      dialogOpenedRef.current = true;
+      // Use setTimeout to ensure the dialog opens after the component is fully mounted
+      timeoutId = setTimeout(() => {
+        mathEdit.openDialog({
+          initialLatex: "",
+          onSave: handleSaveRef.current,
+          title: "Edit Inline Math",
+        });
+      }, 0);
+    }
+
+    // Cleanup: clear timeout if component unmounts or dependencies change
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [isReadOnly, mathEdit, latex]);
 
   return (
     <span

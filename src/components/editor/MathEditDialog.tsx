@@ -23,7 +23,7 @@ interface MathEditContextValue {
     closeDialog: () => void;
 }
 
-const MathEditContext = createContext<MathEditContextValue | null>(null);
+export const MathEditContext = createContext<MathEditContextValue | null>(null);
 
 // Hook to access the math edit context
 export function useMathEdit() {
