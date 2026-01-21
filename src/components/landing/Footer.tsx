@@ -52,15 +52,20 @@ export function Footer() {
               {copied ? "Copied!" : "hello@thinkex.app"}
             </button>
 
-            <div className="space-y-4 pt-6 hidden md:block">
-              <div className="text-sm text-muted-foreground/60">
-                <p>© {currentYear} ThinkEx Inc. All rights reserved.</p>
-              </div>
-              <div className="flex flex-row flex-wrap gap-4 text-sm text-muted-foreground/60">
-                <Link href="#" className="hover:text-foreground transition-colors cursor-not-allowed opacity-70 w-fit">Privacy Policy</Link>
-                <Link href="#" className="hover:text-foreground transition-colors cursor-not-allowed opacity-70 w-fit">Terms of Service</Link>
-                <Link href="#" className="hover:text-foreground transition-colors cursor-not-allowed opacity-70 w-fit">Cookie Policy</Link>
-              </div>
+            <div className="text-sm text-muted-foreground/60 max-w-md leading-relaxed">
+              <p>
+                Building in the AI productivity market, ThinkEx is a visual thinking environment where notes, media, and AI conversations compound into lasting knowledge.
+              </p>
+              <p className="mt-2 italic">
+                <span className="text-foreground/80">Status:</span> v1.0 publicly available
+              </p>
+            </div>
+
+            <div className="flex flex-row flex-wrap items-center gap-4 text-sm text-muted-foreground/60 pt-6 hidden md:flex">
+              <span className="opacity-70">© {currentYear} ThinkEx Inc. All rights reserved.</span>
+              <Link href="#" className="hover:text-foreground transition-colors cursor-not-allowed opacity-70 w-fit">Privacy Policy</Link>
+              <Link href="#" className="hover:text-foreground transition-colors cursor-not-allowed opacity-70 w-fit">Terms of Service</Link>
+              <Link href="#" className="hover:text-foreground transition-colors cursor-not-allowed opacity-70 w-fit">Cookie Policy</Link>
             </div>
           </div>
 
@@ -150,10 +155,8 @@ export function Footer() {
 
           {/* Mobile Only: Legal/Copyright at Bottom */}
           <div className="col-span-2 md:hidden space-y-4 pt-4 mt-4 border-t border-foreground/5">
-            <div className="text-sm text-muted-foreground/60">
-              <p>© {currentYear} ThinkEx Inc. All rights reserved.</p>
-            </div>
             <div className="flex flex-col gap-2 text-sm text-muted-foreground/60">
+              <span className="opacity-70">© {currentYear} ThinkEx Inc. All rights reserved.</span>
               <Link href="#" className="hover:text-foreground transition-colors cursor-not-allowed opacity-70 w-fit">Privacy Policy</Link>
               <Link href="#" className="hover:text-foreground transition-colors cursor-not-allowed opacity-70 w-fit">Terms of Service</Link>
               <Link href="#" className="hover:text-foreground transition-colors cursor-not-allowed opacity-70 w-fit">Cookie Policy</Link>
