@@ -131,7 +131,7 @@ export function WorkspaceGrid({
   }, []);
 
   // Handle drag start - with RGL v2, this only fires after 3px movement (real drag, not click)
-  const handleDragStart = useCallback((layout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null, placeholder: LayoutItem | null, e: Event, element: HTMLElement | undefined) => {
+  const handleDragStart = useCallback((layout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null, placeholder: LayoutItem | null, e: Event, element: HTMLElement | null) => {
     // Check if the click originated from a dropdown menu - if so, don't start drag
     const target = e.target as HTMLElement;
     if (
@@ -156,7 +156,7 @@ export function WorkspaceGrid({
   }, [onDragStart, onGridDragStateChange]);
 
   // Handle drag to detect folder hover based on cursor position
-  const handleDrag = useCallback((layout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null, placeholder: LayoutItem | null, e: Event, element: HTMLElement | undefined) => {
+  const handleDrag = useCallback((layout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null, placeholder: LayoutItem | null, e: Event, element: HTMLElement | null) => {
     const draggedItemId = draggedItemIdRef.current;
     if (!draggedItemId || !e) return;
 
@@ -245,7 +245,7 @@ export function WorkspaceGrid({
   }, [selectedCardIds]);
 
   // Handle resize start - track which item is being resized
-  const handleResizeStart = useCallback((layout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null, placeholder: LayoutItem | null, e: Event, element: HTMLElement | undefined) => {
+  const handleResizeStart = useCallback((layout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null, placeholder: LayoutItem | null, e: Event, element: HTMLElement | null) => {
     hasUserInteractedRef.current = true;
     // Track which item is being resized (same as drag)
     if (!oldItem) return;
@@ -257,7 +257,7 @@ export function WorkspaceGrid({
 
   // Handle drag stop - with RGL v2, this only fires for actual drags (not clicks)
   // Click handling is now done by individual card components via their onClick handlers
-  const handleDragStop = useCallback((newLayout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null, placeholder: LayoutItem | null, e: Event, element: HTMLElement | undefined) => {
+  const handleDragStop = useCallback((newLayout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null, placeholder: LayoutItem | null, e: Event, element: HTMLElement | null) => {
     const draggedItemId = draggedItemIdRef.current;
 
     // If no drag was started (e.g., click on dropdown), exit early
@@ -393,7 +393,7 @@ export function WorkspaceGrid({
   // Handle resize to enforce constraints
   // Note cards can transition between compact (w=1, h=4) and expanded (w>=2, h>=9) modes
   // based on EITHER width or height changes, allowing vertical-only resizing to trigger mode switches
-  const handleResize = useCallback((layout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null, placeholder: LayoutItem | null, e: Event, element: HTMLElement | undefined) => {
+  const handleResize = useCallback((layout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null, placeholder: LayoutItem | null, e: Event, element: HTMLElement | null) => {
     // Enforce custom constraints for YouTube and single-column items
     if (!newItem || !oldItem) return;
     const itemData = allItemsRef.current.find(i => i.id === newItem.i);
