@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 import { createUrlFile } from "@/lib/attachments/url-utils";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { FaCheck } from "react-icons/fa";
+import { focusComposerInput } from "@/lib/utils/composer-utils";
 
 const useFileSrc = (file: File | undefined) => {
   const [src, setSrc] = useState<string | undefined>(undefined);
@@ -537,6 +538,7 @@ export const ComposerAddAttachment: FC = () => {
         api.composer().addAttachment(urlFile);
         setUrlInput("");
         setShowUrlDialog(false);
+        focusComposerInput();
       } catch (error) {
         console.error("Failed to add URL attachment:", error);
       }
@@ -549,7 +551,12 @@ export const ComposerAddAttachment: FC = () => {
         ref={containerRef}
         className="relative flex items-center gap-2 pt-6 pb-6 pl-6 pr-10 -mt-6 -mb-6 -ml-6 -mr-10 pointer-events-none"
       >
-        <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen} modal={false}>
+        <DropdownMenu open={isDropdownOpen} onOpenChange={(open) => {
+          setIsDropdownOpen(open);
+          if (!open) {
+            focusComposerInput();
+          }
+        }} modal={false}>
           <div className="flex items-center gap-2 pointer-events-auto">
             <DropdownMenuTrigger asChild>
               <button
@@ -594,7 +601,12 @@ export const ComposerAddAttachment: FC = () => {
       </div>
 
       {/* URL Input Dialog */}
-      <Dialog open={showUrlDialog} onOpenChange={setShowUrlDialog}>
+      <Dialog open={showUrlDialog} onOpenChange={(open) => {
+        setShowUrlDialog(open);
+        if (!open) {
+          focusComposerInput();
+        }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogTitle>Add URL</DialogTitle>
           <form onSubmit={handleUrlSubmit} className="space-y-4">

@@ -5,6 +5,7 @@ import { X, FileText, Highlighter, CheckIcon, Plus } from "lucide-react";
 import { FaQuoteRight } from "react-icons/fa6";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { HighlightTooltip, TooltipAction } from "@/components/ui/highlight-tooltip";
 import SelectableText, {
   TextHighlight,
@@ -551,12 +552,7 @@ export default function AssistantTextSelectionManager({
     setTooltipVisible(false);
 
     // Focus the composer input after adding reply
-    setTimeout(() => {
-      const composerInput = document.querySelector('.aui-composer-input') as HTMLTextAreaElement | null;
-      if (composerInput) {
-        composerInput.focus();
-      }
-    }, 100);
+    focusComposerInput();
   }, [currentSelection, inMultiMode, highlights, addReplySelection, extractMessageContext, extractUserPrompt, exitMultiSelectMode, setTooltipVisible, removeMarkerElement]);
 
   // Handle trash/negative feedback action - opens dialog
