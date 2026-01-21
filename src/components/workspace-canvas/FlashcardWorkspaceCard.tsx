@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo, memo } from "react";
 import { toast } from "sonner";
 import { MoreVertical, Trash2, CheckCircle2, Pencil, Palette, ChevronLeft, ChevronRight, X, FolderInput } from "lucide-react";
+import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
 import type { Item, FlashcardData, FlashcardItem } from "@/lib/workspace-state/types";
 import { FlipCard } from "./FlipCard";
 import { SWATCHES_COLOR_GROUPS, getCardColorCSS, getCardAccentColor, type CardColor } from "@/lib/workspace-state/colors";
@@ -191,6 +192,7 @@ export function FlashcardWorkspaceCard({
     const [isFlipping, setIsFlipping] = useState(false);
     // Get scroll lock state from Zustand store (persists across interactions)
     const isScrollLocked = useUIStore(selectItemScrollLocked(item.id));
+    const toggleItemScrollLocked = useUIStore((state) => state.toggleItemScrollLocked);
     const flashcardData = item.data as FlashcardData;
 
     // Navigation State
@@ -328,6 +330,32 @@ export function FlashcardWorkspaceCard({
                 >
                     {/* Floating Controls */}
                     <div className={`absolute top-2 right-2 z-20 flex items-center gap-2 transition-opacity opacity-0 group-hover:opacity-100`}>
+                        {/* Scroll Lock/Unlock Button */}
+                        <button
+                            type="button"
+                            aria-label={isScrollLocked ? 'Click to unlock scroll' : 'Click to lock scroll'}
+                            title={isScrollLocked ? 'Click to unlock scroll' : 'Click to lock scroll'}
+                            className="flashcard-control-button inline-flex h-8 items-center justify-center gap-1.5 pl-2.5 pr-3 rounded-xl text-white/90 hover:text-white hover:scale-105 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                            style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(8px)' }}
+                            onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0, 0, 0, 0.5)'}
+                            onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+                            onMouseDown={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                            }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                toggleItemScrollLocked(item.id);
+                            }}
+                        >
+                            {isScrollLocked ? (
+                                <PiMouseScrollFill className="h-4 w-4 shrink-0" />
+                            ) : (
+                                <PiMouseScrollBold className="h-4 w-4 shrink-0" />
+                            )}
+                            <span className="text-xs font-medium">{isScrollLocked ? 'Scroll' : 'Lock'}</span>
+                        </button>
+
                         <button
                             type="button"
                             aria-label="Edit flashcard"
