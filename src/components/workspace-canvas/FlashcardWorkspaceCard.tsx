@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo, memo } from "react";
 import { toast } from "sonner";
 import { MoreVertical, Trash2, CheckCircle2, Pencil, Palette, ChevronLeft, ChevronRight, X, FolderInput } from "lucide-react";
+import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
 import type { Item, FlashcardData, FlashcardItem } from "@/lib/workspace-state/types";
 import { FlipCard } from "./FlipCard";
 import { SWATCHES_COLOR_GROUPS, getCardColorCSS, getCardAccentColor, type CardColor } from "@/lib/workspace-state/colors";
@@ -109,18 +110,22 @@ const FlashcardSideContent = memo(function FlashcardSideContent({
     return (
         <div
             ref={scrollContainerRef}
-            className={`workspace-card-readonly-editor size-full min-h-0 ${isScrollLocked ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'} ${className}`}
+            className={`workspace-card-readonly-editor size-full min-h-0 ${isScrollLocked ? 'overflow-hidden' : 'overflow-auto'} ${className}`}
             style={{
                 // Ensure white text cascades to BlockNote default styles where possible
                 color: 'white',
                 // Explicitly contain scroll chaining
                 overscrollBehaviorY: 'contain',
+                overscrollBehaviorX: 'contain',
                 // Center text within the flashcard
                 textAlign: 'center',
                 // Match ItemHeader note card title styling: text-base (1rem) font-medium (500)
                 fontSize: '1rem',
                 fontWeight: 500,
-                padding: '1rem',
+                paddingTop: '1.5rem',
+                paddingBottom: '1.5rem',
+                paddingLeft: '1.5rem',
+                paddingRight: '1.5rem',
                 // Text rendering optimization - NO transforms here to avoid 3D context conflicts
                 WebkitFontSmoothing: 'antialiased',
                 MozOsxFontSmoothing: 'grayscale' as any,
@@ -136,8 +141,8 @@ const FlashcardSideContent = memo(function FlashcardSideContent({
                 }
             }}
         >
-            <div className="size-full flex flex-col justify-center items-center px-6">
-                <div className="w-full">
+            <div className={`flex flex-col items-center min-w-0 w-full ${isScrollLocked ? 'justify-center min-h-full' : ''}`}>
+                <div className="w-full max-w-full min-w-0">
                     {displayContent.map((block, index) => (
                         <PreviewBlock
                             key={block.id || index}
@@ -191,6 +196,7 @@ export function FlashcardWorkspaceCard({
     const [isFlipping, setIsFlipping] = useState(false);
     // Get scroll lock state from Zustand store (persists across interactions)
     const isScrollLocked = useUIStore(selectItemScrollLocked(item.id));
+    const toggleItemScrollLocked = useUIStore((state) => state.toggleItemScrollLocked);
     const flashcardData = item.data as FlashcardData;
 
     // Navigation State
@@ -328,6 +334,32 @@ export function FlashcardWorkspaceCard({
                 >
                     {/* Floating Controls */}
                     <div className={`absolute top-2 right-2 z-20 flex items-center gap-2 transition-opacity opacity-0 group-hover:opacity-100`}>
+                        {/* Scroll Lock/Unlock Button */}
+                        <button
+                            type="button"
+                            aria-label={isScrollLocked ? 'Click to unlock scroll' : 'Click to lock scroll'}
+                            title={isScrollLocked ? 'Click to unlock scroll' : 'Click to lock scroll'}
+                            className="flashcard-control-button inline-flex h-8 items-center justify-center gap-1.5 pl-2.5 pr-3 rounded-xl text-white/90 hover:text-white hover:scale-105 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                            style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(8px)' }}
+                            onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0, 0, 0, 0.5)'}
+                            onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+                            onMouseDown={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                            }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                toggleItemScrollLocked(item.id);
+                            }}
+                        >
+                            {isScrollLocked ? (
+                                <PiMouseScrollFill className="h-4 w-4 shrink-0" />
+                            ) : (
+                                <PiMouseScrollBold className="h-4 w-4 shrink-0" />
+                            )}
+                            <span className="text-xs font-medium">{isScrollLocked ? 'Scroll' : 'Lock'}</span>
+                        </button>
+
                         <button
                             type="button"
                             aria-label="Edit flashcard"
