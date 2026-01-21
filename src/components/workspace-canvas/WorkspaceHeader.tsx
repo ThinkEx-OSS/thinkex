@@ -331,17 +331,15 @@ export default function WorkspaceHeader({
     setIsNewMenuOpen(false);
   }, [addItem]);
 
-  // Handle "..." dropdown hover during drag
+  // Handle "..." dropdown hover - open on normal hover
   const handleEllipsisMouseEnter = useCallback(() => {
-    if (isDraggingRef.current) {
-      setEllipsisDropdownOpen(true);
-    }
+    setEllipsisDropdownOpen(true);
   }, []);
 
   const handleEllipsisMouseLeave = useCallback(() => {
-    if (isDraggingRef.current) {
-      // Don't close immediately - let user move to menu items
-      // Close will be handled when drag stops
+    // Close when mouse leaves, unless dragging (then close on drag stop)
+    if (!isDraggingRef.current) {
+      setEllipsisDropdownOpen(false);
     }
   }, []);
 
