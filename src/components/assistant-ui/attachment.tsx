@@ -556,7 +556,7 @@ export const ComposerAddAttachment: FC = () => {
           if (!open) {
             focusComposerInput();
           }
-        }} modal={false}>
+        }}>
           <div className="flex items-center gap-2 pointer-events-auto">
             <DropdownMenuTrigger asChild>
               <button
