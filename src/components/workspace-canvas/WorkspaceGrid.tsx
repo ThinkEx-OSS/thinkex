@@ -68,7 +68,7 @@ export function WorkspaceGrid({
   const layoutChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasUserInteractedRef = useRef<boolean>(false);
   const draggedItemIdRef = useRef<string | null>(null);
-  const hoveredFolderIdRef = useRef<string | null>(null);
+  const hoveredFolderIdRef = useRef<string | null | '__root__'>(null); // '__root__' is sentinel for root drop
   const clearCardSelection = useUIStore((state) => state.clearCardSelection);
   // Get the currently open items to hide them from the grid (when open in panel, not maximized)
   const openPanelIds = useUIStore((state) => state.openPanelIds);
@@ -171,50 +171,123 @@ export function WorkspaceGrid({
       return;
     }
 
-    // Use cursor position to find which folder is under the cursor
-    // Temporarily hide dragged element to get accurate elementFromPoint result
-    const draggedElement = element;
-    if (!draggedElement) return; // Safety check
-    const originalPointerEvents = draggedElement.style.pointerEvents;
-    draggedElement.style.pointerEvents = 'none';
-
     // Cast Event to MouseEvent to access clientX/clientY
     const mouseEvent = e as MouseEvent;
-    const elementUnderCursor = document.elementFromPoint(mouseEvent.clientX, mouseEvent.clientY);
+    const cursorX = mouseEvent.clientX;
+    const cursorY = mouseEvent.clientY;
 
-    // Restore pointer events
-    draggedElement.style.pointerEvents = originalPointerEvents;
-
-    if (!elementUnderCursor) {
-      if (hoveredFolderIdRef.current !== null) {
-        hoveredFolderIdRef.current = null;
-        window.dispatchEvent(new CustomEvent('folder-drag-hover', {
-          detail: { folderId: null, isHovering: false }
-        }));
-      }
-      return;
-    }
-
-    // Walk up the DOM tree to find folder element
-    let current: HTMLElement | null = elementUnderCursor as HTMLElement;
-    let folderElement: HTMLElement | null = null;
-
-    while (current && current !== document.body) {
-      // Check for data-folder-id attribute (we'll add this to FolderCard)
-      if (current.dataset.folderId) {
-        folderElement = current;
-        break;
-      }
-      current = current.parentElement;
-    }
-
+    // Find all folder cards and check if cursor is within any folder's bounding box
+    // Use elementFromPoint first for more accurate detection, then fallback to bounding box
     let hoveredFolder: string | null = null;
-    if (folderElement) {
-      hoveredFolder = folderElement.dataset.folderId || null;
+    
+    // First, try elementFromPoint for more accurate detection
+    const elementAtPoint = document.elementFromPoint(cursorX, cursorY);
+    if (elementAtPoint) {
+      // Check if the element or its parents have data-folder-id
+      const folderElement = elementAtPoint.closest('[data-folder-id]') as HTMLElement;
+      if (folderElement) {
+        const folderId = folderElement.getAttribute('data-folder-id');
+        if (folderId && folderId !== draggedItemId) {
+          const folderItem = allItemsRef.current.find(i => i.id === folderId && i.type === 'folder');
+          if (folderItem) {
+            hoveredFolder = folderId;
+          }
+        }
+      }
+    }
+    
+    // Fallback to bounding box check if elementFromPoint didn't find anything
+    if (!hoveredFolder) {
+      // Get all folder items from all items
+      const folderItems = allItemsRef.current.filter(item => item.type === 'folder');
+      
+      // Check each folder card's bounding box
+      for (const folderItem of folderItems) {
+        // Skip if this is the folder being dragged
+        if (folderItem.id === draggedItemId) continue;
+        
+        // Find the folder card element by its ID
+        const folderCardElement = document.querySelector(`[data-folder-id="${folderItem.id}"]`) as HTMLElement;
+        if (!folderCardElement) continue;
+        
+        // Get bounding box of the folder card
+        const rect = folderCardElement.getBoundingClientRect();
+        
+      // Check if cursor is within the folder card's bounds
+      if (
+        cursorX >= rect.left &&
+        cursorX <= rect.right &&
+        cursorY >= rect.top &&
+        cursorY <= rect.bottom
+      ) {
+        // Validate before setting - check if already in this folder
+        if (draggedItem.folderId !== folderItem.id) {
+          hoveredFolder = folderItem.id;
+          break;
+        }
+      }
+      }
+    }
+
+    // Check breadcrumb elements if no folder card is hovered
+    if (!hoveredFolder) {
+      // Find all breadcrumb target elements
+      const breadcrumbTargets = document.querySelectorAll('[data-breadcrumb-target]');
+      
+      for (const target of breadcrumbTargets) {
+        // Skip if element is not visible
+        const rect = target.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) continue;
+        
+        // Check if cursor is within the breadcrumb element's bounds
+        if (
+          cursorX >= rect.left &&
+          cursorX <= rect.right &&
+          cursorY >= rect.top &&
+          cursorY <= rect.bottom
+        ) {
+          const targetType = target.getAttribute('data-breadcrumb-target');
+          
+          if (targetType === 'root') {
+            // Workspace root drop - only valid if dragged item is in a folder
+            if (draggedItem.folderId) {
+              hoveredFolder = '__root__'; // Special value for root
+              break;
+            }
+          } else if (targetType === 'folder') {
+            const folderId = target.getAttribute('data-folder-id');
+            if (folderId) {
+              // Validate the drop target
+              let isValidTarget = true;
+              
+              // Check if dragging folder onto itself
+              if (draggedItemId === folderId) {
+                isValidTarget = false;
+              } else if (draggedItem.type === 'folder') {
+                // Check for circular references
+                if (isDescendantOf(folderId, draggedItemId, allItemsRef.current)) {
+                  isValidTarget = false;
+                }
+              }
+              
+              // Check if already in target folder
+              if (draggedItem.folderId === folderId) {
+                isValidTarget = false;
+              }
+              
+              if (isValidTarget) {
+                hoveredFolder = folderId;
+                break;
+              }
+            }
+          }
+        }
+      }
     }
 
     // If dragging a folder onto another folder, check for circular references
-    if (draggedItem.type === 'folder' && hoveredFolder) {
+    // (This check is already done in breadcrumb validation, but needed here for folder cards)
+    if (draggedItem.type === 'folder' && hoveredFolder && hoveredFolder !== '__root__') {
       // Prevent dropping folder onto itself
       if (draggedItemId === hoveredFolder) {
         hoveredFolder = null;
@@ -225,6 +298,18 @@ export function WorkspaceGrid({
         }
       }
     }
+    
+    // Check if already in target location (for both folder cards and breadcrumbs)
+    if (hoveredFolder && hoveredFolder !== '__root__') {
+      if (draggedItem.folderId === hoveredFolder) {
+        hoveredFolder = null;
+      }
+    } else if (hoveredFolder === '__root__') {
+      // For root drops, only valid if item is currently in a folder
+      if (!draggedItem.folderId) {
+        hoveredFolder = null;
+      }
+    }
 
     // Calculate selected count - if dragged card is selected, count all selected, otherwise just 1
     const isDraggedCardSelected = selectedCardIds.has(draggedItemId);
@@ -233,13 +318,17 @@ export function WorkspaceGrid({
     // Update hover state if changed
     if (hoveredFolder !== hoveredFolderIdRef.current) {
       hoveredFolderIdRef.current = hoveredFolder;
+      // Convert '__root__' sentinel to null for event (header expects null for root)
+      const eventFolderId = hoveredFolder === '__root__' ? null : hoveredFolder;
       window.dispatchEvent(new CustomEvent('folder-drag-hover', {
-        detail: { folderId: hoveredFolder, isHovering: hoveredFolder !== null, selectedCount }
+        detail: { folderId: eventFolderId, isHovering: hoveredFolder !== null, selectedCount }
       }));
     } else if (hoveredFolder !== null) {
       // Even if folder hasn't changed, update selected count in case selection changed during drag
+      // Convert '__root__' sentinel to null for event (header expects null for root)
+      const eventFolderId = hoveredFolder === '__root__' ? null : hoveredFolder;
       window.dispatchEvent(new CustomEvent('folder-drag-hover', {
-        detail: { folderId: hoveredFolder, isHovering: true, selectedCount }
+        detail: { folderId: eventFolderId, isHovering: true, selectedCount }
       }));
     }
   }, [selectedCardIds]);
@@ -287,14 +376,17 @@ export function WorkspaceGrid({
       return;
     }
 
-    // Handle folder drop - if dropping on a folder, move the item (works for both items and folders)
+    // Handle folder drop - if dropping on a folder or root, move the item (works for both items and folders)
     const hoveredFolderId = hoveredFolderIdRef.current;
-    if (hoveredFolderId && draggedItemId) {
+    if (hoveredFolderId !== null && draggedItemId) {
       // Check if dragged card is part of selection
       const isDraggedCardSelected = selectedCardIds.has(draggedItemId);
       const cardsToMove = isDraggedCardSelected
         ? Array.from(selectedCardIds)
         : [draggedItemId];
+
+      // Convert '__root__' sentinel to null for root drops
+      const targetFolderId = hoveredFolderId === '__root__' ? null : hoveredFolderId;
 
       // Filter out invalid moves (already in folder, circular references, etc.)
       const validCardsToMove: string[] = [];
@@ -302,13 +394,18 @@ export function WorkspaceGrid({
         const card = allItemsRef.current.find(i => i.id === cardId);
         if (!card) continue;
 
-        // Skip if already in target folder
-        if (card.folderId === hoveredFolderId) continue;
+        // Skip if already in target location
+        if (card.folderId === targetFolderId) continue;
+
+        // For root drops, only valid if item is currently in a folder
+        if (targetFolderId === null && !card.folderId) {
+          continue; // Already at root
+        }
 
         // Check circular references for folders
-        if (card.type === 'folder') {
-          if (cardId === hoveredFolderId ||
-            isDescendantOf(hoveredFolderId, cardId, allItemsRef.current)) {
+        if (card.type === 'folder' && targetFolderId !== null) {
+          if (cardId === targetFolderId ||
+            isDescendantOf(targetFolderId, cardId, allItemsRef.current)) {
             continue; // Skip invalid moves
           }
         }
@@ -333,13 +430,13 @@ export function WorkspaceGrid({
 
         if (validCardsToMove.length === 1 && onMoveItem) {
           // Single item move
-          onMoveItem(validCardsToMove[0], hoveredFolderId);
+          onMoveItem(validCardsToMove[0], targetFolderId);
         } else if (validCardsToMove.length > 1 && onMoveItems) {
           // Bulk move
-          onMoveItems(validCardsToMove, hoveredFolderId);
+          onMoveItems(validCardsToMove, targetFolderId);
         } else if (onMoveItem) {
           // Fallback to single move if bulk not available
-          validCardsToMove.forEach(cardId => onMoveItem(cardId, hoveredFolderId));
+          validCardsToMove.forEach(cardId => onMoveItem(cardId, targetFolderId));
         }
 
         // Clear selection after successful move (only if we moved selected cards)

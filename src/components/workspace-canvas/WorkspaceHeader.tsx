@@ -23,6 +23,11 @@ import {
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -113,6 +118,11 @@ export default function WorkspaceHeader({
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  
+  // Track drag hover state for breadcrumb elements
+  const [hoveredBreadcrumbTarget, setHoveredBreadcrumbTarget] = useState<string | null>(null); // 'root' or folderId
+  const isDraggingRef = useRef(false);
+  const [ellipsisDropdownOpen, setEllipsisDropdownOpen] = useState(false);
 
   // Assistant API for Deep Research action
   const api = useAssistantApi();
@@ -175,6 +185,52 @@ export default function WorkspaceHeader({
       searchInputRef.current.focus();
     }
   }, [isSearchExpanded]);
+
+  // Listen for drag hover events on breadcrumb elements
+  useEffect(() => {
+    const handleDragHover = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const { folderId, isHovering } = customEvent.detail || {};
+      
+      // Track drag state - if we get a hover event, dragging is active
+      if (isHovering !== undefined) {
+        isDraggingRef.current = isHovering;
+      }
+      
+      if (isHovering) {
+        // When folderId is null, it means hovering over root (breadcrumb target)
+        // When folderId is a string, it means hovering over a folder (could be breadcrumb or card)
+        // We need to check if it's actually a breadcrumb target by checking data attributes
+        let foundTarget: string | null = null;
+        
+        if (folderId === null) {
+          // Hovering over root - check if there's a root breadcrumb target
+          const rootTargets = document.querySelectorAll('[data-breadcrumb-target="root"]');
+          if (rootTargets.length > 0) {
+            foundTarget = 'root';
+          }
+        } else {
+          // Hovering over a folder - check if it's a breadcrumb target
+          const folderTargets = document.querySelectorAll(`[data-breadcrumb-target="folder"][data-folder-id="${folderId}"]`);
+          if (folderTargets.length > 0) {
+            foundTarget = folderId;
+          }
+        }
+        
+        // Only show visual feedback if it's actually a breadcrumb target
+        // (The validation in WorkspaceGrid already ensures it's a valid drop, so we can show feedback)
+        setHoveredBreadcrumbTarget(foundTarget);
+      } else {
+        setHoveredBreadcrumbTarget(null);
+      }
+    };
+
+    window.addEventListener('folder-drag-hover', handleDragHover);
+    
+    return () => {
+      window.removeEventListener('folder-drag-hover', handleDragHover);
+    };
+  }, []);
 
   // Handle keyboard shortcut Cmd/Ctrl+K to expand search
   useEffect(() => {
@@ -279,6 +335,11 @@ export default function WorkspaceHeader({
     setIsNewMenuOpen(false);
   }, [addItem]);
 
+  // Close popover when folder path changes
+  useEffect(() => {
+    setEllipsisDropdownOpen(false);
+  }, [folderPath]);
+
   return (
     <div className="relative py-2 z-20 bg-sidebar">
       {/* Main container with flex layout */}
@@ -331,7 +392,11 @@ export default function WorkspaceHeader({
             {activeFolderId && !isCompactMode ? (
               <button
                 onClick={clearActiveFolder}
-                className="flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5"
+                data-breadcrumb-target="root"
+                className={cn(
+                  "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5",
+                  hoveredBreadcrumbTarget === 'root' && "border-2 border-blue-500 bg-blue-500/10 rounded"
+                )}
               >
                 <IconRenderer
                   icon={workspaceIcon}
@@ -347,7 +412,13 @@ export default function WorkspaceHeader({
               (onOpenSettings || onOpenShare) ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5">
+                    <button 
+                      data-breadcrumb-target="root"
+                      className={cn(
+                        "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5",
+                        hoveredBreadcrumbTarget === 'root' && "border-2 border-blue-500 bg-blue-500/10 rounded"
+                      )}
+                    >
                       <IconRenderer
                         icon={workspaceIcon}
                         className="h-4 w-4 shrink-0"
@@ -380,7 +451,13 @@ export default function WorkspaceHeader({
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-                <div className="flex items-center gap-1.5 min-w-0">
+                <div 
+                  data-breadcrumb-target="root"
+                  className={cn(
+                    "flex items-center gap-1.5 min-w-0",
+                    hoveredBreadcrumbTarget === 'root' && "border-2 border-blue-500 bg-blue-500/10 rounded px-1 py-0.5 -mx-1 -my-0.5"
+                  )}
+                >
                   <IconRenderer
                     icon={workspaceIcon}
                     className="h-4 w-4 shrink-0"
@@ -402,7 +479,14 @@ export default function WorkspaceHeader({
                     <span className="text-sidebar-foreground/50 mx-1 font-bold">/</span>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button className="flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5">
+                        <button 
+                          data-breadcrumb-target="folder"
+                          data-folder-id={folderPath[folderPath.length - 1].id}
+                          className={cn(
+                            "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5",
+                            hoveredBreadcrumbTarget === folderPath[folderPath.length - 1].id && "border-2 border-blue-500 bg-blue-500/10 rounded"
+                          )}
+                        >
                           <FolderOpen
                             className="h-3.5 w-3.5 shrink-0"
                             style={{ color: folderPath[folderPath.length - 1].color || undefined }}
@@ -416,7 +500,11 @@ export default function WorkspaceHeader({
                       <DropdownMenuContent align="start" className="max-w-[200px]">
                         <DropdownMenuItem
                           onClick={clearActiveFolder}
-                          className="flex items-center gap-1.5 cursor-pointer"
+                          data-breadcrumb-target="root"
+                          className={cn(
+                            "flex items-center gap-1.5 cursor-pointer",
+                            hoveredBreadcrumbTarget === 'root' && "border-2 border-blue-500 bg-blue-500/10 rounded"
+                          )}
                         >
                           <IconRenderer
                             icon={workspaceIcon}
@@ -431,7 +519,12 @@ export default function WorkspaceHeader({
                           <DropdownMenuItem
                             key={folder.id}
                             onClick={() => handleFolderClick(folder.id)}
-                            className="flex items-center gap-1.5 cursor-pointer"
+                            data-breadcrumb-target="folder"
+                            data-folder-id={folder.id}
+                            className={cn(
+                              "flex items-center gap-1.5 cursor-pointer",
+                              hoveredBreadcrumbTarget === folder.id && "border-2 border-blue-500 bg-blue-500/10 rounded"
+                            )}
                           >
                             <FolderOpen
                               className="h-3.5 w-3.5 shrink-0"
@@ -451,7 +544,12 @@ export default function WorkspaceHeader({
                       <span className="text-sidebar-foreground/50 mx-1 font-bold">/</span>
                       <button
                         onClick={() => handleFolderClick(folder.id)}
-                        className="flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5"
+                        data-breadcrumb-target="folder"
+                        data-folder-id={folder.id}
+                        className={cn(
+                          "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5",
+                          hoveredBreadcrumbTarget === folder.id && "border-2 border-blue-500 bg-blue-500/10 rounded"
+                        )}
                       >
                         <FolderOpen
                           className="h-3.5 w-3.5 shrink-0"
@@ -467,34 +565,56 @@ export default function WorkspaceHeader({
                   /* Show root, dropdown with all middle folders, and last for 2+ levels */
                   <>
                     <span className="text-sidebar-foreground/50 mx-1 font-bold">/</span>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="flex items-center gap-1 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5 text-sidebar-foreground/70 hover:text-sidebar-foreground">
+                    <HoverCard 
+                      open={ellipsisDropdownOpen} 
+                      onOpenChange={setEllipsisDropdownOpen}
+                      openDelay={0}
+                      closeDelay={100}
+                    >
+                      <HoverCardTrigger asChild>
+                        <button 
+                          className="flex items-center gap-1 min-w-0 rounded transition-colors hover:bg-sidebar-accent px-1 py-0.5 -mx-1 -my-0.5 text-sidebar-foreground/70 hover:text-sidebar-foreground"
+                        >
                           <span className="truncate font-medium">...</span>
                         </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="max-w-[200px]">
-                        {folderPath.slice(0, -1).map((folder) => (
-                          <DropdownMenuItem
-                            key={folder.id}
-                            onClick={() => handleFolderClick(folder.id)}
-                            className="flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <FolderOpen
-                              className="h-3.5 w-3.5 shrink-0"
-                              style={{ color: folder.color || undefined }}
-                            />
-                            <span className="truncate" title={folder.name}>
-                              {folder.name}
-                            </span>
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                      </HoverCardTrigger>
+                      <HoverCardContent 
+                        align="start" 
+                        className="max-w-[200px] p-1 !animate-none data-[state=open]:!animate-none data-[state=closed]:!animate-none"
+                      >
+                        <div className="flex flex-col">
+                          {folderPath.slice(0, -1).map((folder) => (
+                            <button
+                              key={folder.id}
+                              onClick={() => handleFolderClick(folder.id)}
+                              data-breadcrumb-target="folder"
+                              data-folder-id={folder.id}
+                              className={cn(
+                                "flex items-center gap-1.5 cursor-pointer px-2 py-1.5 rounded-sm text-sm hover:bg-accent hover:text-accent-foreground",
+                                hoveredBreadcrumbTarget === folder.id && "border-2 border-blue-500 bg-blue-500/10 rounded"
+                              )}
+                            >
+                              <FolderOpen
+                                className="h-3.5 w-3.5 shrink-0"
+                                style={{ color: folder.color || undefined }}
+                              />
+                              <span className="truncate" title={folder.name}>
+                                {folder.name}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
                     <span className="text-sidebar-foreground/50 mx-1 font-bold">/</span>
                     <button
                       onClick={() => handleFolderClick(folderPath[folderPath.length - 1].id)}
-                      className="flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5"
+                      data-breadcrumb-target="folder"
+                      data-folder-id={folderPath[folderPath.length - 1].id}
+                      className={cn(
+                        "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5",
+                        hoveredBreadcrumbTarget === folderPath[folderPath.length - 1].id && "border-2 border-blue-500 bg-blue-500/10 rounded"
+                      )}
                     >
                       <FolderOpen
                         className="h-3.5 w-3.5 shrink-0"
