@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     const userId = session.user.id;
 
     const body = await request.json();
-    const { content, workspaceId } = body;
+    const { content, workspaceId, folderId } = body;
 
 
 
@@ -99,7 +99,7 @@ Return ONLY the reformatted note content in markdown format. Do not include any 
       workspaceId,
       title,
       content: cleanedContent,
-
+      folderId,
     });
 
     logger.debug("📝 [CREATE-CARD-FROM-MESSAGE] Card created successfully", {

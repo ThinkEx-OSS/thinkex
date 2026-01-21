@@ -640,15 +640,18 @@ export default function AssistantTextSelectionManager({
         setIsProcessing(true);
 
         // Call the API endpoint that uses the workspace worker (same as createNote tool)
+        // Get the current active folder ID
+        const activeFolderId = useUIStore.getState().activeFolderId;
+
         const response = await fetch("/api/cards/from-message", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-
           },
           body: JSON.stringify({
             content: currentSelection.text,
             workspaceId,
+            folderId: activeFolderId ?? undefined,
           }),
         });
 
@@ -742,15 +745,18 @@ export default function AssistantTextSelectionManager({
       }
 
       // Call the API endpoint that uses the workspace worker (same as createNote tool)
+      // Get the current active folder ID
+      const activeFolderId = useUIStore.getState().activeFolderId;
+
       const response = await fetch("/api/cards/from-message", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-
         },
         body: JSON.stringify({
           content: combinedContent,
           workspaceId,
+          folderId: activeFolderId ?? undefined,
         }),
       });
 

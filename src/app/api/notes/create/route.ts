@@ -8,7 +8,7 @@ const createNoteSchema = z.object({
     workspaceId: z.string().uuid(),
     title: z.string().min(1),
     content: z.string().optional(),
-
+    folderId: z.string().uuid().optional(),
 });
 
 export async function POST(req: Request) {
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
             });
         }
 
-        const { workspaceId, title, content } = result.data;
+        const { workspaceId, title, content, folderId } = result.data;
 
         logger.info("📝 [API] Creating note via manual confirmation:", { workspaceId, title });
 
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
             workspaceId,
             title,
             content,
-
+            folderId,
         });
 
         if (!workerResult.success) {

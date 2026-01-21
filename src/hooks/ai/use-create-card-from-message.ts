@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { useMessage } from "@assistant-ui/react";
 import { toast } from "sonner";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
+import { useUIStore } from "@/lib/stores/ui-store";
 import { useQueryClient } from "@tanstack/react-query";
 import { logger } from "@/lib/utils/logger";
 
@@ -19,7 +20,7 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
   const { debounceMs = 300 } = options; // Reduced from 1000ms to 300ms
   const [isCreating, setIsCreating] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   const message = useMessage();
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
   const queryClient = useQueryClient();
@@ -58,6 +59,9 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
       const toastId = toast.loading("Creating card...");
 
       try {
+        // Get the current active folder ID
+        const activeFolderId = useUIStore.getState().activeFolderId;
+
         const response = await fetch("/api/cards/from-message", {
           method: "POST",
           headers: {
@@ -66,6 +70,7 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
           body: JSON.stringify({
             content,
             workspaceId: currentWorkspaceId,
+            folderId: activeFolderId ?? undefined,
           }),
         });
 
@@ -75,21 +80,21 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
         }
 
         const result = await response.json();
-        
+
         // Invalidate React Query cache to refresh the UI immediately
         if (currentWorkspaceId) {
           logger.debug("🔄 [CREATE-CARD-BUTTON] Invalidating workspace cache", {
             workspaceId: currentWorkspaceId.substring(0, 8),
           });
-          
+
           // Force refetch workspace events to show the new card
           queryClient.invalidateQueries({
             queryKey: ["workspace", currentWorkspaceId, "events"],
           });
         }
-        
+
         toast.success("Card created successfully!", { id: toastId });
-        
+
         return result;
       } catch (error) {
         console.error("Error creating card:", error);
