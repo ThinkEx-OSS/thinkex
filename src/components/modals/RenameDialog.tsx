@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -91,30 +92,37 @@ export default function RenameDialog({
             Enter a new name for this {itemType === "folder" ? "folder" : "item"}.
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4">
-          <Input
-            ref={renameInputRef}
-            autoFocus
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && renameValue.trim()) {
-                handleRename();
-              } else if (e.key === "Escape") {
-                onOpenChange(false);
-              }
-            }}
-            placeholder={getPlaceholder()}
-          />
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleRename} disabled={!renameValue.trim()}>
-            Rename
-          </Button>
-        </DialogFooter>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleRename();
+          }}
+        >
+          <div className="py-4">
+            <Input
+              ref={renameInputRef}
+              autoFocus
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  onOpenChange(false);
+                }
+              }}
+              placeholder={getPlaceholder()}
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button type="submit" disabled={!renameValue.trim()}>
+              Rename
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
