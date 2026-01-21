@@ -998,10 +998,10 @@ function WorkspaceCard({
             />
           )}
         </div>
-      </ContextMenuTrigger >
+      </ContextMenuTrigger>
 
       {/* Right-Click Context Menu */}
-      < ContextMenuContent className="w-48" >
+      <ContextMenuContent className="w-48">
         <ContextMenuItem onSelect={() => setShowRenameDialog(true)}>
           <Pencil className="mr-2 h-4 w-4" />
           <span>Rename</span>
@@ -1039,9 +1039,9 @@ function WorkspaceCard({
           <Trash2 className="mr-2 h-4 w-4" />
           <span>Delete</span>
         </ContextMenuItem>
-      </ContextMenuContent >
+      </ContextMenuContent>
 
-    </ContextMenu >
+    </ContextMenu>
   );
 }
 
