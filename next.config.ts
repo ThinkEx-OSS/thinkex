@@ -46,13 +46,12 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://js.stripe.com https://*.google.com https://*.googleapis.com https://*.gstatic.com https://*.posthog.com https://us.posthog.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com https://js.stripe.com https://*.google.com https://*.googleapis.com https://*.gstatic.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: blob: https: http:",
               "font-src 'self' https://fonts.gstatic.com data:",
-              "connect-src 'self' https://*.thinkex.app https://*.vercel.app https://*.googleapis.com https://*.google.com wss://*.assistant-ui.com https://*.assistant-ui.com https://api.firecrawl.dev https://*.supabase.co https://*.posthog.com https://us.posthog.com",
-              "frame-src 'self' https://challenges.cloudflare.com https://js.stripe.com https://www.youtube.com https://youtube.com https://*.google.com https://*.posthog.com https://us.posthog.com",
-
+              "connect-src 'self' https://*.thinkex.app https://*.vercel.app https://*.googleapis.com https://*.google.com wss://*.assistant-ui.com https://*.assistant-ui.com https://api.firecrawl.dev https://*.supabase.co",
+              "frame-src 'self' https://challenges.cloudflare.com https://js.stripe.com https://www.youtube.com https://youtube.com https://*.google.com",
               "worker-src 'self' blob:",
               "media-src 'self' blob: https:",
               "object-src 'none'",
