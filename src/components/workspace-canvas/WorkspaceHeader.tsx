@@ -23,6 +23,11 @@ import {
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -330,14 +335,10 @@ export default function WorkspaceHeader({
     setIsNewMenuOpen(false);
   }, [addItem]);
 
-  // Handle "..." dropdown hover - open on normal hover
-  const handleEllipsisMouseEnter = useCallback(() => {
-    setEllipsisDropdownOpen(true);
-  }, []);
-
-  const handleEllipsisMouseLeave = useCallback(() => {
+  // Close popover when folder path changes
+  useEffect(() => {
     setEllipsisDropdownOpen(false);
-  }, []);
+  }, [folderPath]);
 
   return (
     <div className="relative py-2 z-20 bg-sidebar">
@@ -564,39 +565,47 @@ export default function WorkspaceHeader({
                   /* Show root, dropdown with all middle folders, and last for 2+ levels */
                   <>
                     <span className="text-sidebar-foreground/50 mx-1 font-bold">/</span>
-                    <DropdownMenu open={ellipsisDropdownOpen} onOpenChange={setEllipsisDropdownOpen}>
-                      <DropdownMenuTrigger asChild>
+                    <HoverCard 
+                      open={ellipsisDropdownOpen} 
+                      onOpenChange={setEllipsisDropdownOpen}
+                      openDelay={0}
+                      closeDelay={100}
+                    >
+                      <HoverCardTrigger asChild>
                         <button 
-                          onMouseEnter={handleEllipsisMouseEnter}
-                          onMouseLeave={handleEllipsisMouseLeave}
-                          className="flex items-center gap-1 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5 text-sidebar-foreground/70 hover:text-sidebar-foreground"
+                          className="flex items-center gap-1 min-w-0 rounded transition-colors hover:bg-sidebar-accent px-1 py-0.5 -mx-1 -my-0.5 text-sidebar-foreground/70 hover:text-sidebar-foreground"
                         >
                           <span className="truncate font-medium">...</span>
                         </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="max-w-[200px]">
-                        {folderPath.slice(0, -1).map((folder) => (
-                          <DropdownMenuItem
-                            key={folder.id}
-                            onClick={() => handleFolderClick(folder.id)}
-                            data-breadcrumb-target="folder"
-                            data-folder-id={folder.id}
-                            className={cn(
-                              "flex items-center gap-1.5 cursor-pointer",
-                              hoveredBreadcrumbTarget === folder.id && "border-2 border-blue-500 bg-blue-500/10 rounded"
-                            )}
-                          >
-                            <FolderOpen
-                              className="h-3.5 w-3.5 shrink-0"
-                              style={{ color: folder.color || undefined }}
-                            />
-                            <span className="truncate" title={folder.name}>
-                              {folder.name}
-                            </span>
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                      </HoverCardTrigger>
+                      <HoverCardContent 
+                        align="start" 
+                        className="max-w-[200px] p-1 !animate-none data-[state=open]:!animate-none data-[state=closed]:!animate-none"
+                      >
+                        <div className="flex flex-col">
+                          {folderPath.slice(0, -1).map((folder) => (
+                            <button
+                              key={folder.id}
+                              onClick={() => handleFolderClick(folder.id)}
+                              data-breadcrumb-target="folder"
+                              data-folder-id={folder.id}
+                              className={cn(
+                                "flex items-center gap-1.5 cursor-pointer px-2 py-1.5 rounded-sm text-sm hover:bg-accent hover:text-accent-foreground",
+                                hoveredBreadcrumbTarget === folder.id && "border-2 border-blue-500 bg-blue-500/10 rounded"
+                              )}
+                            >
+                              <FolderOpen
+                                className="h-3.5 w-3.5 shrink-0"
+                                style={{ color: folder.color || undefined }}
+                              />
+                              <span className="truncate" title={folder.name}>
+                                {folder.name}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
                     <span className="text-sidebar-foreground/50 mx-1 font-bold">/</span>
                     <button
                       onClick={() => handleFolderClick(folderPath[folderPath.length - 1].id)}
