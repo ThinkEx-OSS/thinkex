@@ -246,7 +246,11 @@ export async function POST(req: Request) {
         
         logger.info("📊 [CHAT-API] Final Token Usage:", usageInfo);
       },
-      onStepFinish: ({ stepType, usage, finishReason }) => {
+      onStepFinish: (result) => {
+        // stepType exists in runtime but may not be in type definitions
+        const stepResult = result as typeof result & { stepType?: "initial" | "continue" | "tool-result" };
+        const { stepType, usage, finishReason } = stepResult;
+        
         if (usage) {
           const stepUsageInfo = {
             stepType: stepType || 'unknown',
