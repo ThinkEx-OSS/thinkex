@@ -69,7 +69,7 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
 
         // Quizzes
         createQuiz: createQuizTool(ctx, config.messages || []),
-        updateQuiz: createUpdateQuizTool(ctx),
+        updateQuiz: createUpdateQuizTool(ctx, config.messages || []),
 
         // Deep research
         deepResearch: createDeepResearchTool(ctx),
