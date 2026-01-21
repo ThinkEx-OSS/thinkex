@@ -93,6 +93,7 @@ import { extractUrls, createUrlFile } from "@/lib/attachments/url-utils";
 import { filterItems } from "@/lib/workspace-state/search";
 import { useSession } from "@/lib/auth-client";
 import { formatSelectedCardsContext } from "@/lib/utils/format-workspace-context";
+import { focusComposerInput } from "@/lib/utils/composer-utils";
 import {
   ModelSelector,
   ModelSelectorTrigger,
@@ -781,12 +782,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
     item?.onClick?.();
 
     // Focus the composer input after action selection
-    setTimeout(() => {
-      const composerInput = document.querySelector('.aui-composer-input') as HTMLTextAreaElement | null;
-      if (composerInput) {
-        composerInput.focus();
-      }
-    }, 100);
+    focusComposerInput();
   };
 
   const isActionSelected = (itemId: string) => selectedIds.includes(itemId);
@@ -802,7 +798,11 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
           <ComposerAddAttachment />
         </div>
         {/* Actions Button */}
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={(open) => {
+          if (!open) {
+            focusComposerInput();
+          }
+        }}>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
@@ -843,7 +843,12 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
           </DropdownMenuContent>
         </DropdownMenu>
         {/* Model Selector Button */}
-        <ModelSelector open={isModelSelectorOpen} onOpenChange={setIsModelSelectorOpen}>
+        <ModelSelector open={isModelSelectorOpen} onOpenChange={(open) => {
+          setIsModelSelectorOpen(open);
+          if (!open) {
+            focusComposerInput();
+          }
+        }}>
           <ModelSelectorTrigger asChild>
             <button
               type="button"
@@ -882,7 +887,12 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
         {/* Warning icon for anonymous users */}
         {isAnonymous && (
 
-          <Popover open={isWarningPopoverOpen} onOpenChange={setIsWarningPopoverOpen}>
+          <Popover open={isWarningPopoverOpen} onOpenChange={(open) => {
+            setIsWarningPopoverOpen(open);
+            if (!open) {
+              focusComposerInput();
+            }
+          }}>
             <PopoverTrigger asChild>
               <button
                 type="button"
