@@ -195,10 +195,6 @@ For true_false questions, options should be exactly ["True", "False"] and correc
             }
             jsonText = jsonText.trim();
 
-            // Sanitize LaTeX escape sequences before parsing
-            // We need to double-escape backslashes that aren't valid JSON escapes
-            jsonText = jsonText.replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
-
             parsed = JSON.parse(jsonText);
         } catch (parseError) {
             logger.error("🎯 [QUIZ-WORKER] Failed to parse JSON:", parseError);
