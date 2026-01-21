@@ -25,8 +25,6 @@ export interface ChatToolsConfig {
     userId: string | null;
     activeFolderId?: string;
     clientTools?: Record<string, any>;
-    /** Messages from the conversation - needed for quiz context extraction */
-    messages?: any[];
 }
 
 /**
@@ -68,8 +66,8 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
         updateFlashcards: createUpdateFlashcardsTool(ctx),
 
         // Quizzes
-        createQuiz: createQuizTool(ctx, config.messages || []),
-        updateQuiz: createUpdateQuizTool(ctx, config.messages || []),
+        createQuiz: createQuizTool(ctx),
+        updateQuiz: createUpdateQuizTool(ctx),
 
         // Deep research
         deepResearch: createDeepResearchTool(ctx),
