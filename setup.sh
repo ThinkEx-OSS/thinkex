@@ -80,12 +80,11 @@ setup_env_file() {
 # Main setup function
 print_banner
 
-echo "Welcome to ThinkEx Setup!"
-echo ""
-echo -e "${C3}Local Development Setup${RESET}"
-echo "========================"
+echo "Welcome to ThinkEx!"
 echo ""
 echo -e "${GREEN}This setup uses Docker for PostgreSQL and runs the app locally for hot reload!${RESET}"
+echo ""
+read -p "Press Enter to continue..."
 echo ""
 
 # Check Node.js

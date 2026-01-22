@@ -56,7 +56,7 @@ ThinkEx is that desk, digitalized for the browser.
 
 ## Self-Hosting
 
-ThinkEx can be self hosted for local development. The setup uses Docker for PostgreSQL (recommended) while running the Next.js app locally for hot reload.
+ThinkEx can be self hosted for local development. The setup uses Docker for PostgreSQL (recommended) while running the Next.js app locally.
 
 ### Quick Start
 
