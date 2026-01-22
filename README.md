@@ -20,7 +20,7 @@ ThinkEx solves this by making context explicit, structured, and persistent.
 
 Think of a large desk where you spread out textbooks, notes, and papers to study. You look back and forth, connecting dots and comparing sources.
 
-ThinkEx is that desk, serialized for the browser.
+ThinkEx is that desk, digitalized for the browser.
 
 1.  **See Everything**: Bring PDFs, videos, and notes onto a visual canvas. Organize them spatially to make sense of the information.
 2.  **Compare Sources**: Look across your sources side-by-side. Spot patterns and contradictions that only emerge when everything is visible.
@@ -38,13 +38,13 @@ ThinkEx is that desk, serialized for the browser.
 
 ## Why Existing Tools Fall Short
 
-| Approach | What It Does | What It Loses |
-| :--- | :--- | :--- |
-| **ThinkEx** | **Integrated Reasoning** | -- |
-| Chat-first tools | Powerful reasoning | Memory (context vanishes in logs) |
-| Notes-first tools | Organization | Reasoning (AI is not deeply integrated) |
-| RAG systems | Auto-retrieval | Control (you can't see/adjust selection) |
-| Long-context | More tokens | Understanding (coherence doesn't scale with size) |
+| Approach          | What It Does             | What It Loses                                     |
+| :---------------- | :----------------------- | :------------------------------------------------ |
+| **ThinkEx**       | **Integrated Reasoning** | --                                                |
+| Chat-first tools  | Powerful reasoning       | Memory (context vanishes in logs)                 |
+| Notes-first tools | Organization             | Reasoning (AI is not deeply integrated)           |
+| RAG systems       | Auto-retrieval           | Control (you can't see/adjust selection)          |
+| Long-context      | More tokens              | Understanding (coherence doesn't scale with size) |
 
 ## Tech Stack
 
