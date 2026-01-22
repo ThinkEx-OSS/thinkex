@@ -1,9 +1,14 @@
 "use client";
 
 import { Streamdown } from "streamdown";
-import { code } from "@streamdown/code";
+import { createCodePlugin } from "@streamdown/code";
 import { mermaid } from "@streamdown/mermaid";
 import { math } from "@streamdown/math";
+
+// Create code plugin with one-dark-pro theme
+const code = createCodePlugin({
+  themes: ['one-dark-pro', 'one-dark-pro'],
+});
 import { useMessagePartText } from "@assistant-ui/react";
 import { useAssistantState } from "@assistant-ui/react";
 import { cn } from "@/lib/utils";
@@ -65,7 +70,6 @@ const MarkdownTextImpl = () => {
       <Streamdown
         isAnimating={isRunning}
         caret="block"
-        shikiTheme={['github-light', 'github-dark']}
         className={cn(
           "streamdown-content size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
         )}
