@@ -33,7 +33,7 @@ import {
   ContextMenuSubTrigger,
 } from "@/components/ui/context-menu";
 
-import { FileText, Layers, Folder, Upload, Play, Plus, MoreHorizontal, Globe, Brain } from "lucide-react";
+import { FileText, Folder, Upload, Play, MoreHorizontal, Globe, Brain } from "lucide-react";
 import { LuBook } from "react-icons/lu";
 import { PiCardsThreeFill } from "react-icons/pi";
 import WorkspaceSettingsModal from "@/components/workspace/WorkspaceSettingsModal";
@@ -561,7 +561,7 @@ export function WorkspaceSection({
 
             <ContextMenuSub>
               <ContextMenuSubTrigger className="flex items-center gap-2 cursor-pointer">
-                <LuBook className="size-4" />
+                <LuBook className="size-4 text-muted-foreground" />
                 Learn
               </ContextMenuSubTrigger>
               <ContextMenuSubContent>
@@ -573,7 +573,7 @@ export function WorkspaceSection({
                   }}
                   className="flex items-center gap-2 cursor-pointer"
                 >
-                  <PiCardsThreeFill className="size-4" />
+                  <PiCardsThreeFill className="size-4 text-muted-foreground" />
                   Flashcards
                 </ContextMenuItem>
                 <ContextMenuItem
@@ -597,7 +597,7 @@ export function WorkspaceSection({
             </ContextMenuSub>
             <ContextMenuSub>
               <ContextMenuSubTrigger className="flex items-center gap-2 cursor-pointer">
-                <MoreHorizontal className="size-4" />
+                <MoreHorizontal className="size-4 text-muted-foreground" />
                 Other
               </ContextMenuSubTrigger>
               <ContextMenuSubContent>
