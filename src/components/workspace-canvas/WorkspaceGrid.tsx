@@ -1,4 +1,5 @@
-import { Responsive as ResponsiveGridLayout, type Layout, type LayoutItem, useContainerWidth, verticalCompactor } from "react-grid-layout";
+import { Responsive as ResponsiveGridLayout, type Layout, type LayoutItem, useContainerWidth } from "react-grid-layout";
+import { fastVerticalCompactor } from "react-grid-layout/extras";
 import { useMemo, useCallback, useRef, useEffect } from "react";
 import React from "react";
 import type { Item, CardType } from "@/lib/workspace-state/types";
@@ -775,7 +776,7 @@ export function WorkspaceGrid({
           onResizeStart={handleResizeStart}
           onResizeStop={handleResizeStop}
           onBreakpointChange={handleBreakpointChange}
-          compactor={verticalCompactor}
+          compactor={fastVerticalCompactor}
         >
           {children}
         </ResponsiveGridLayout>
