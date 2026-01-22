@@ -16,9 +16,9 @@ export interface WorkspaceToolContext {
  */
 export function createNoteTool(ctx: WorkspaceToolContext) {
     return {
-        description: "Create a note card. returns success message.\n\nCRITICAL CONSTRAINTS:\n1. 'content' MUST NOT start with the title.\n2. Start directly with body text.\n3. NO Mermaid diagrams.",
+        description: "Create a note card. returns success message.\n\nCRITICAL CONSTRAINTS:\n1. 'content' MUST NOT start with the title.\n2. Start directly with body text.\n3. NO Mermaid diagrams.\n\nCRITICAL - MATHEMATICAL EXPRESSIONS: Use LaTeX with DOUBLE DOLLAR SIGNS ($$) for ALL math:\n- Use $$...$$ for ALL math expressions (both inline and block)\n- Single $ is for CURRENCY only (e.g., $19.99). NEVER use single $ for math\n- For inline math: $$E = mc^2$$ (same line as text)\n- For block math (separate lines): Put $$ delimiters on separate lines\n- Always ensure math blocks are properly closed with matching $$",
         inputSchema: z.any().describe(
-            "JSON {title, content}. 'content': markdown body. DO NOT repeat title in content. Start with subheadings/text. No Mermaid."
+            "JSON {title, content}. 'content': markdown body. DO NOT repeat title in content. Start with subheadings/text. No Mermaid. Use $$...$$ for ALL math (both inline and block). Single $ is for currency only."
         ),
         execute: async ({ title, content }: { title: string; content: string }) => {
             // Validate inputs before use
@@ -59,9 +59,9 @@ export function createNoteTool(ctx: WorkspaceToolContext) {
  */
 export function createUpdateCardTool(ctx: WorkspaceToolContext) {
     return {
-        description: "Update the content of an existing card. This tool COMPLETELY REPLACES the existing content. You must synthesize the FULL new content by combining the existing card content (from your context) with the user's requested changes. Do not just provide the diff; provide the complete new markdown content.",
+        description: "Update the content of an existing card. This tool COMPLETELY REPLACES the existing content. You must synthesize the FULL new content by combining the existing card content (from your context) with the user's requested changes. Do not just provide the diff; provide the complete new markdown content.\n\nCRITICAL - MATHEMATICAL EXPRESSIONS: Use LaTeX with DOUBLE DOLLAR SIGNS ($$) for ALL math:\n- Use $$...$$ for ALL math expressions (both inline and block)\n- Single $ is for CURRENCY only (e.g., $19.99). NEVER use single $ for math\n- For inline math: $$E = mc^2$$ (same line as text)\n- For block math (separate lines): Put $$ delimiters on separate lines\n- Always ensure math blocks are properly closed with matching $$\n- Add spaces around $$ symbols when math appears in lists or tables\n- Do not place punctuation immediately after math expressions.",
         inputSchema: z.any().describe(
-            "A JSON object with 'id' (string) and 'markdown' (string) or 'content' (string) fields. The 'id' uniquely identifies the note to update. The 'markdown' or 'content' field contains the full note body ONLY (do not include the title as a header). Ensure math inside lists and tables has spaces around the $$ symbols. Do not place punctuation immediately after math expressions."
+            "A JSON object with 'id' (string) and 'markdown' (string) or 'content' (string) fields. The 'id' uniquely identifies the note to update. The 'markdown' or 'content' field contains the full note body ONLY (do not include the title as a header). Use $$...$$ for ALL math (both inline and block). Single $ is for currency only. Ensure math inside lists and tables has spaces around the $$ symbols. Do not place punctuation immediately after math expressions."
         ),
         execute: async (input: any) => {
             logger.group("🎯 [UPDATE-CARD] Tool execution started", true);

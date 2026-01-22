@@ -24,9 +24,9 @@ function extractTextFromBlockContent(content: any): string {
       if (node && node.type === "text" && typeof node.text === "string") {
         return node.text;
       }
-      // Handle inline math - extract LaTeX
+      // Handle inline math - extract LaTeX (use $$ for Streamdown compatibility)
       if (node && node.type === "inlineMath" && node.props && typeof node.props.latex === "string") {
-        return `$${node.props.latex}$`;
+        return `$$${node.props.latex}$$`;
       }
       // Handle other inline content types
       if (node && typeof node.text === "string") {
@@ -53,9 +53,9 @@ function extractTextFromBlock(block: BlockNoteBlock): string {
     }
   }
 
-  // Handle block math - extract LaTeX
+  // Handle block math - extract LaTeX (use $$ for Streamdown compatibility)
   if (block.type === "math" && block.props && typeof block.props.latex === "string") {
-    parts.push(`$${block.props.latex}$`);
+    parts.push(`$$${block.props.latex}$$`);
   }
 
   // Recursively extract from children

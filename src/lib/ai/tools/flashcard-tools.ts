@@ -95,7 +95,7 @@ Back: Mitochondria are the powerhouses of the cell. They produce ATP through cel
 Front: Define photosynthesis
 Back: Photosynthesis is the process by which plants convert light energy into chemical energy.
 
-Math is supported within the Front/Back content.`,
+Math is supported within the Front/Back content. Use $$...$$ for ALL math expressions (both inline and block). Single $ is for currency only.`,
         inputSchema: z.any().describe(
             "Plain text in the format: Title: [title]\\n\\nFront: [question]\\nBack: [answer]\\n\\nFront: [question]\\nBack: [answer]\\n... Use this simple text format, NOT JSON."
         ),
@@ -170,7 +170,7 @@ Back: The nucleus is the control center of the cell containing DNA.
 Front: What is the cytoplasm?
 Back: The cytoplasm is the gel-like substance inside the cell membrane.
 
-The deck name will be matched using fuzzy search. Math is supported.`,
+The deck name will be matched using fuzzy search. Math is supported. Use $$...$$ for ALL math expressions (both inline and block). Single $ is for currency only.`,
         inputSchema: z.any().describe(
             "Plain text in the format: Deck: [deck name]\\n\\nFront: [question]\\nBack: [answer]\\n\\nFront: [question]\\nBack: [answer]\\n..."
         ),

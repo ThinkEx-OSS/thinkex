@@ -119,10 +119,10 @@ const InlineMathContent = memo(function InlineMathContent({ inlineContent, edito
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function InlineMathExternalHTML(props: any) {
   const latex = props.inlineContent.props.latex || "";
-  // Render as a span with LaTeX in a data attribute and visible format
+  // Render as a span with LaTeX in a data attribute and visible format (use $$ for Streamdown compatibility)
   return (
     <span data-inline-math-latex={encodeURIComponent(latex)} className="inline-math">
-      ${latex}$
+      $$$${latex}$$$$
     </span>
   );
 }

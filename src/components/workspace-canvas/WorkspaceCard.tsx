@@ -849,7 +849,7 @@ function WorkspaceCard({
                       return block.content
                         .map((item: any) => {
                           if (item.type === "inlineMath" && item.props?.latex) {
-                            return `$${item.props.latex}$`;
+                            return `$$${item.props.latex}$$`;
                           }
                           return item.text || "";
                         })

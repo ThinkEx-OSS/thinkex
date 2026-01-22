@@ -116,10 +116,10 @@ const MathBlockContent = memo(function MathBlockContent(props: any) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function MathBlockExternalHTML(props: any) {
   const latex = props.block.props.latex || "";
-  // Render as a div with LaTeX in a data attribute and visible format
+  // Render as a div with LaTeX in a data attribute and visible format (use $$ for Streamdown compatibility)
   return (
     <div data-math-latex={encodeURIComponent(latex)} className="math-block">
-      $${latex}$$
+      $$$${latex}$$$$
     </div>
   );
 }
