@@ -40,7 +40,6 @@ ThinkEx is that desk on the browser, powered by AI.
 
 | Approach          | Examples                 | What It Loses                                     |
 | :---------------- | :----------------------- | :------------------------------------------------ |
-| **ThinkEx**       | **Integrated Reasoning** | --                                                |
 | Chat-First        | ChatGPT, Gemini, Claude  | Insights vanish into endless scroll and context resets every conversation. |
 | Notes-First       | Notion, Obsidian         | AI is bolted on and isolated from your info.     |
 | Retrieval-First   | NotebookLM              | Sources are trapped behind the interface where you can't see or work with them. |
