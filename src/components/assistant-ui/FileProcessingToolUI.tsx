@@ -279,12 +279,12 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
                                         Files:
                                     </span>
                                     {instruction && (
-                                        <div className="mt-1 mb-2 p-2 bg-muted/50 rounded-md border border-border/50">
+                                        <div className="mt-1 mb-2 p-2 pb-3 bg-muted/50 rounded-md border border-border/50">
                                             <div className="flex items-start gap-2">
                                                 <AlertCircleIcon className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground/60" />
                                                 <div className="flex-1">
                                                     <span className="text-xs font-medium text-muted-foreground/70">Custom instruction:</span>
-                                                    <p className="text-xs text-foreground mt-0.5">{instruction}</p>
+                                                    <p className="text-xs text-foreground mt-0.5 mb-0">{instruction}</p>
                                                 </div>
                                             </div>
                                         </div>

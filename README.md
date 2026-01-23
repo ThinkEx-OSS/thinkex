@@ -1,4 +1,4 @@
-<p align="center">
+w<p align="center">
   <a href="https://thinkex.app">
     <img alt="ThinkEx" src="public/newreadmeimage.svg" width="500" />
   </a>
@@ -56,15 +56,63 @@ ThinkEx is that desk, digitalized for the browser.
 
 ## Self-Hosting
 
-Follow these steps to run ThinkEx on your own infrastructure.
+ThinkEx can be self hosted for local development. The setup uses Docker for PostgreSQL (recommended) while running the Next.js app locally.
 
-### Prerequisites
+### Quick Start
 
-*   Node.js (v20+)
-*   pnpm
-*   PostgreSQL database (local or hosted like Supabase/Neon)
+#### Prerequisites
 
-### Installation
+*   [Node.js](https://nodejs.org/) (v20+)
+*   [pnpm](https://pnpm.io/) (will be installed automatically if missing)
+*   [Docker](https://docs.docker.com/get-docker/) (recommended for PostgreSQL) OR [PostgreSQL](https://www.postgresql.org/download/) (v12+) installed locally
+*   **Required API Keys:**
+    *   **Google AI**: API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
+        *   `GOOGLE_GENERATIVE_AI_API_KEY`
+    *   **Assistant UI**: API key and base URL from [Assistant Cloud](https://cloud.assistant-ui.com/)
+        *   `NEXT_PUBLIC_ASSISTANT_BASE_URL`
+        *   `ASSISTANT_API_KEY`
+*   **Optional API Keys:**
+    *   **Google OAuth**: Get credentials from [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (for OAuth login)
+        *   `GOOGLE_CLIENT_ID`
+        *   `GOOGLE_CLIENT_SECRET`
+    *   **Supabase**: Project URL and keys from [Supabase](https://supabase.com) (for file storage, alternative to local storage)
+        *   `NEXT_PUBLIC_SUPABASE_URL`
+        *   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_OR_ANON_KEY`
+        *   `SUPABASE_SERVICE_ROLE_KEY`
+
+#### Automated Setup
+
+Run the interactive setup script:
+
+```bash
+git clone https://github.com/ThinkEx-OSS/thinkex.git
+cd thinkex
+./setup.sh
+```
+
+The script will:
+- Check prerequisites (Node.js, pnpm, Docker)
+- Create `.env` file from template
+- Generate `BETTER_AUTH_SECRET` automatically
+- Start PostgreSQL in Docker (or use local PostgreSQL if Docker is not available)
+- Configure database connection
+- Install dependencies
+- Initialize the database schema
+
+After setup, start the development server:
+
+```bash
+pnpm dev
+```
+
+Access ThinkEx at [http://localhost:3000](http://localhost:3000)
+
+**PostgreSQL Docker Commands:**
+- Stop PostgreSQL: `docker-compose down`
+- Start PostgreSQL: `docker-compose up -d`
+- View logs: `docker-compose logs -f postgres`
+
+#### Manual Setup
 
 1.  **Clone the repository**
     ```bash
@@ -72,49 +120,71 @@ Follow these steps to run ThinkEx on your own infrastructure.
     cd thinkex
     ```
 
-2.  **Install dependencies**
+2.  **Start PostgreSQL (Docker)**
+    ```bash
+    docker-compose up -d postgres
+    ```
+    
+    Or use your local PostgreSQL installation.
+
+3.  **Install dependencies**
     ```bash
     pnpm install
     ```
 
-3.  **Environment Setup**
-    Create the local environment file:
+4.  **Configure environment variables**
     ```bash
-    cp .env.example .env.local
+    cp .env.example .env
     ```
     
-    Open `.env.local` and configure the following:
+    Edit `.env` and configure:
     
-    *   **Database**:
-        *   `DATABASE_URL`: PostgreSQL connection string.
-        *   `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL.
-        *   `SUPABASE_SERVICE_ROLE_KEY`: Service role key from Supabase dashboard.
-    *   **Auth**:
-        *   `BETTER_AUTH_SECRET`: Generate a random string (e.g., `openssl rand -base64 32`).
-    *   **AI**:
-        *   `GOOGLE_GENERATIVE_AI_API_KEY`: API key for Google Gemini.
-    *   **Google OAuth** (for login):
-        *   `GOOGLE_CLIENT_ID`
-        *   `GOOGLE_CLIENT_SECRET`
+    *   **Database**: Set `DATABASE_URL` to your PostgreSQL connection string
+      ```bash
+      # For Docker PostgreSQL:
+      DATABASE_URL=postgresql://thinkex:thinkex_password_change_me@localhost:5432/thinkex
+      
+      # For local PostgreSQL:
+      DATABASE_URL=postgresql://user:password@localhost:5432/thinkex
+      ```
+    *   **Better Auth**: Generate `BETTER_AUTH_SECRET` with `openssl rand -base64 32`
+    *   **Google OAuth**: Get credentials from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+    *   **Supabase**: Your Supabase project URL and keys (for file storage, if using Supabase storage)
+    *   **Google AI**: API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
 
-4.  **Supabase Storage**
-    Create a storage bucket for file uploads:
-    1.  Go to Supabase Dashboard → Storage.
-    2.  Create a new bucket named `file-upload`.
-    3.  Set the bucket to **Public**.
-
-5.  **Database Setup**
-    Push the schema to your database:
+5.  **Initialize the database**
     ```bash
     pnpm db:push
     ```
-    *Note: Use `db:setup` if you want to run full migrations, but `db:push` is sufficient for syncing the schema.*
 
-6.  **Run Development Server**
+6.  **Start the development server**
     ```bash
     pnpm dev
     ```
-    Access the app at [http://localhost:3000](http://localhost:3000).
+
+7.  **Access the application**
+    Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+#### Storage Configuration
+
+ThinkEx supports two storage backends for file uploads:
+
+**Option 1: Local File Storage** (Recommended for Self-Hosting)
+- Set `STORAGE_TYPE=local` in your `.env` file
+- Files are stored in the `./uploads` directory
+- No external dependencies required
+- Simple setup with full control over your data
+
+**Option 2: Supabase Storage** (Cloud-based)
+- Set `STORAGE_TYPE=supabase` in your `.env` file
+- Configure Supabase credentials:
+  - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
+  - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_OR_ANON_KEY`: Anon key from Supabase
+  - `SUPABASE_SERVICE_ROLE_KEY`: Service role key from Supabase
+- Create a storage bucket named `file-upload` and set it to **Public**
+
+
+
 
 ## Contributing
 

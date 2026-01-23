@@ -17,6 +17,8 @@ const nextConfig: NextConfig = {
   // Note: @blocknote/core and @blocknote/react have CSS imports and can't be externalized
   serverExternalPackages: [
     "@blocknote/server-util",
+    "postgres",
+    "drizzle-orm",
   ],
   skipTrailingSlashRedirect: true,
 

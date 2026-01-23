@@ -1,31 +1,30 @@
+"use client";
+
 /**
  * Dynamic route for workspace slugs: /dashboard/[slug]
  * Renders the dashboard shell for an active workspace.
+ * Client component to enable ssr: false for faster compilation.
  */
-import { SEO } from "@/components/seo/SEO";
-import { seoConfig } from "@/lib/seo-config";
-import { DashboardShell } from "../page";
+import dynamic from "next/dynamic";
+import { Loader2 } from "lucide-react";
+
+// Lazy load the dashboard shell to reduce initial compilation time
+// This splits the heavy dashboard components into a separate chunk
+// ssr: false speeds up compilation by skipping server-side rendering
+const DashboardShell = dynamic(() => import("../page").then(mod => ({ default: mod.DashboardShell })), {
+  loading: () => (
+    <div className="flex items-center justify-center h-screen">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  ),
+  ssr: false, // Disable SSR since this is a client-only component - speeds up compilation
+});
 
 interface WorkspacePageProps {
-  params: Promise<{ slug: string }>;
+  params: { slug: string };
 }
 
-export default async function WorkspacePage({ params }: WorkspacePageProps) {
-  const { slug } = await params;
-  const workspaceUrl = `${seoConfig.siteUrl}/dashboard/${slug}`;
-
-  return (
-    <>
-      <SEO
-        title="Dashboard"
-        description="Manage your workspaces, create new projects, and organize knowledge effortlessly in your ThinkEx dashboard."
-        keywords="dashboard, workspace management, AI workspace, productivity tools"
-        url={workspaceUrl}
-        canonical={workspaceUrl}
-        noindex
-      />
-      <DashboardShell />
-    </>
-  );
+export default function WorkspacePage({ params }: WorkspacePageProps) {
+  return <DashboardShell />;
 }
 

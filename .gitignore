@@ -50,3 +50,7 @@ bun.lockb
 .env
 .env.*
 !.env.example
+
+# Uploads directory (user-uploaded files)
+/uploads
+uploads/

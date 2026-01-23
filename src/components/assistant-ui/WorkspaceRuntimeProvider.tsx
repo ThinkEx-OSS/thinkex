@@ -90,28 +90,35 @@ export function WorkspaceRuntimeProvider({
   const handleChatError = useCallback((error: Error) => {
     console.error("[Chat Error]", error);
 
-    // Provide user-friendly error messages based on error type
+    // Extract error message from various sources (error.message, responseBody, data, etc.)
     const errorMessage = error.message?.toLowerCase() || "";
+    const responseBody = (error as any).responseBody?.toLowerCase() || "";
+    const errorData = (error as any).data?.error?.message?.toLowerCase() || "";
+    const combinedMessage = `${errorMessage} ${responseBody} ${errorData}`.toLowerCase();
 
-    if (errorMessage.includes("timeout") || errorMessage.includes("504") || errorMessage.includes("gateway")) {
+    if (combinedMessage.includes("timeout") || combinedMessage.includes("504") || combinedMessage.includes("gateway")) {
       toast.error("Request timed out", {
         description: "The AI is taking too long to respond. Please try again.",
       });
-    } else if (errorMessage.includes("network") || errorMessage.includes("fetch") || errorMessage.includes("failed to fetch")) {
+    } else if (combinedMessage.includes("network") || combinedMessage.includes("fetch") || combinedMessage.includes("failed to fetch")) {
       toast.error("Connection error", {
         description: "Unable to reach the server. Please check your connection.",
       });
-    } else if (errorMessage.includes("500") || errorMessage.includes("internal server")) {
+    } else if (combinedMessage.includes("500") || combinedMessage.includes("internal server")) {
       toast.error("Server error", {
         description: "Something went wrong on our end. Please try again.",
       });
-    } else if (errorMessage.includes("429") || errorMessage.includes("rate limit")) {
+    } else if (combinedMessage.includes("429") || combinedMessage.includes("rate limit")) {
       toast.error("Rate limited", {
         description: "Too many requests. Please wait a moment and try again.",
       });
-    } else if (errorMessage.includes("401") || errorMessage.includes("unauthorized")) {
+    } else if (combinedMessage.includes("401") || combinedMessage.includes("unauthorized")) {
       toast.error("Authentication error", {
         description: "Your session may have expired. Please refresh the page.",
+      });
+    } else if (combinedMessage.includes("api key not valid") || combinedMessage.includes("api_key_invalid") || combinedMessage.includes("api key not defined") || combinedMessage.includes("api key is not set") || (combinedMessage.includes("api key") && (combinedMessage.includes("not valid") || combinedMessage.includes("invalid")))) {
+      toast.error("API key not valid", {
+        description: "Please check your GOOGLE_GENERATIVE_AI_API_KEY in your environment variables.",
       });
     } else {
       // Generic error fallback

@@ -115,14 +115,14 @@ CREATE INDEX "idx_workspace_events_event_id" ON "workspace_events" USING btree (
 CREATE INDEX "idx_workspace_events_timestamp" ON "workspace_events" USING btree ("workspace_id" uuid_ops,"timestamp" int8_ops);--> statement-breakpoint
 CREATE INDEX "idx_workspace_events_user_name" ON "workspace_events" USING btree ("user_name" text_ops);--> statement-breakpoint
 CREATE INDEX "idx_workspace_events_workspace" ON "workspace_events" USING btree ("workspace_id" uuid_ops,"version" int4_ops);--> statement-breakpoint
-CREATE INDEX "idx_workspace_snapshots_version" ON "workspace_snapshots" USING btree ("workspace_id" uuid_ops,"snapshot_version" int4_ops);--> statement-breakpoint
+CREATE INDEX "idx_workspace_snapshots_version" ON "workspace_snapshots" USING btree ("workspace_id" uuid_ops,"snapshot_version" DESC NULLS FIRST);--> statement-breakpoint
 CREATE INDEX "idx_workspace_snapshots_workspace" ON "workspace_snapshots" USING btree ("workspace_id" uuid_ops);--> statement-breakpoint
-CREATE INDEX "idx_workspaces_created_at" ON "workspaces" USING btree ("created_at" timestamptz_ops);--> statement-breakpoint
+CREATE INDEX "idx_workspaces_created_at" ON "workspaces" USING btree ("created_at" DESC NULLS FIRST);--> statement-breakpoint
 CREATE INDEX "idx_workspaces_slug" ON "workspaces" USING btree ("slug" text_ops);--> statement-breakpoint
 CREATE INDEX "idx_workspaces_user_id" ON "workspaces" USING btree ("user_id" text_ops);--> statement-breakpoint
 CREATE UNIQUE INDEX "idx_workspaces_user_slug" ON "workspaces" USING btree ("user_id" text_ops,"slug" text_ops);--> statement-breakpoint
 CREATE INDEX "idx_workspaces_user_sort_order" ON "workspaces" USING btree ("user_id" text_ops,"sort_order" int4_ops);--> statement-breakpoint
-CREATE INDEX "idx_workspaces_last_opened_at" ON "workspaces" USING btree ("last_opened_at" timestamptz_ops);--> statement-breakpoint
+CREATE INDEX "idx_workspaces_last_opened_at" ON "workspaces" USING btree ("last_opened_at" DESC NULLS FIRST);--> statement-breakpoint
 CREATE POLICY "Users can insert their own profile" ON "user_profiles" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK ((( SELECT (auth.jwt() ->> 'sub'::text)) = user_id));--> statement-breakpoint
 CREATE POLICY "Users can update their own profile" ON "user_profiles" AS PERMISSIVE FOR UPDATE TO "authenticated";--> statement-breakpoint
 CREATE POLICY "Users can view their own profile" ON "user_profiles" AS PERMISSIVE FOR SELECT TO "authenticated";--> statement-breakpoint

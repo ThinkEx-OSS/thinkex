@@ -1,0 +1,19 @@
+# ThinkEx robots.txt
+# Controls search engine crawling behavior
+
+# Allow all public pages
+User-agent: *
+Allow: /
+Allow: /api/share/*
+
+# Disallow private/dashboard areas
+Disallow: /dashboard/
+Disallow: /auth/
+Disallow: /api/
+Disallow: /_next/
+Disallow: /uploads/
+
+# Allow public share links (for forking/sharing workspaces)
+
+# Sitemap (optional - add if you create a sitemap)
+# Sitemap: https://thinkex.app/sitemap.xml

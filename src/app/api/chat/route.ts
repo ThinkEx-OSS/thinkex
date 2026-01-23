@@ -152,6 +152,18 @@ export async function POST(req: Request) {
   let workspaceId: string | null = null;
   let activeFolderId: string | undefined;
 
+  // Check for API key early
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    return new Response(JSON.stringify({
+      error: "API key not defined",
+      message: "GOOGLE_GENERATIVE_AI_API_KEY is not configured. Please set it in your environment variables.",
+      code: "API_KEY_MISSING",
+    }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   try {
     // FIX: Parallelize headers() and req.json() to eliminate waterfall
     const [headersObj, body] = await Promise.all([

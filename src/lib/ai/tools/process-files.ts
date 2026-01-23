@@ -2,6 +2,9 @@ import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
 import { z } from "zod";
 import { logger } from "@/lib/utils/logger";
+import { readFile } from "fs/promises";
+import { join } from "path";
+import { existsSync } from "fs";
 
 type FileInfo = { fileUrl: string; filename: string; mediaType: string };
 
@@ -28,6 +31,95 @@ function getMediaTypeFromUrl(url: string): string {
     if (urlPath.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     if (urlPath.endsWith('.txt')) return 'text/plain';
     return 'application/octet-stream';
+}
+
+/**
+ * Extract filename from local file URL
+ */
+function extractLocalFilename(url: string): string | null {
+    // Match: http://localhost:3000/api/files/filename or /api/files/filename
+    const match = url.match(/\/api\/files\/(.+?)(?:\?|$)/);
+    return match ? decodeURIComponent(match[1]) : null;
+}
+
+/**
+ * Process local files by reading from disk and sending as base64 to Gemini
+ */
+async function processLocalFiles(
+    localUrls: string[],
+    instruction?: string
+): Promise<string> {
+    const uploadsDir = process.env.UPLOADS_DIR || join(process.cwd(), 'uploads');
+    const fileInfos: Array<{ filename: string; mediaType: string; data: string }> = [];
+
+    for (const url of localUrls) {
+        const filename = extractLocalFilename(url);
+        if (!filename) {
+            logger.warn(`📁 [FILE_TOOL] Could not extract filename from local URL: ${url}`);
+            continue;
+        }
+
+        // Security: Prevent directory traversal (slash and backslash for Windows)
+        if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+            logger.warn(`📁 [FILE_TOOL] Invalid filename detected: ${filename}`);
+            continue;
+        }
+
+        const filePath = join(uploadsDir, filename);
+        
+        if (!existsSync(filePath)) {
+            logger.warn(`📁 [FILE_TOOL] File not found: ${filePath}`);
+            continue;
+        }
+
+        try {
+            const fileBuffer = await readFile(filePath);
+            const base64Data = fileBuffer.toString('base64');
+            const mediaType = getMediaTypeFromUrl(url);
+            
+            fileInfos.push({
+                filename,
+                mediaType,
+                data: `data:${mediaType};base64,${base64Data}`,
+            });
+        } catch (error) {
+            logger.error(`📁 [FILE_TOOL] Error reading local file ${filePath}:`, error);
+            continue;
+        }
+    }
+
+    if (fileInfos.length === 0) {
+        return "No local files could be processed";
+    }
+
+    const fileListText = fileInfos.map((f, i) => `${i + 1}. ${f.filename}`).join('\n');
+
+    const batchPrompt = instruction
+        ? `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\n${instruction}\n\nProvide your analysis for each file, clearly labeled with the filename.`
+        : `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\nFor each file, extract and summarize:\n- Main topics, themes, or subject matter\n- Key information, data, or details\n- Important facts or insights\n- Any structured data, lists, or specific information\n\nProvide a clear, comprehensive analysis for each file, clearly labeled with the filename.`;
+
+    const messageContent: Array<{ type: "text"; text: string } | { type: "file"; data: string; mediaType: string; filename?: string }> = [
+        { type: "text", text: batchPrompt },
+        ...fileInfos.map((f) => ({
+            type: "file" as const,
+            data: f.data,
+            mediaType: f.mediaType,
+            filename: f.filename,
+        })),
+    ];
+
+    logger.debug("📁 [FILE_TOOL] Sending batched analysis request for", fileInfos.length, "local files");
+
+    const { text: batchAnalysis } = await generateText({
+        model: google("gemini-2.5-flash"),
+        messages: [{
+            role: "user",
+            content: messageContent,
+        }],
+    });
+
+    logger.debug("📁 [FILE_TOOL] Successfully analyzed", fileInfos.length, "local files in batch");
+    return batchAnalysis;
 }
 
 /**
@@ -115,7 +207,7 @@ Provide a clear, comprehensive analysis of the video content.`;
  */
 export function createProcessFilesTool() {
     return {
-        description: "Process and analyze files including PDFs, images, documents, and videos. Handles Supabase storage URLs (files uploaded to your workspace) and YouTube videos. Files are downloaded and analyzed directly by Gemini. You can provide custom instructions for what to extract or focus on. Use this for file URLs and video URLs, NOT for regular web pages.",
+        description: "Process and analyze files including PDFs, images, documents, and videos. Handles local file URLs (/api/files/...), Supabase storage URLs (files uploaded to your workspace), and YouTube videos. Files are downloaded and analyzed directly by Gemini. You can provide custom instructions for what to extract or focus on. Use this for file URLs and video URLs, NOT for regular web pages.",
         inputSchema: z.object({
             jsonInput: z.string().describe("JSON string containing an object with 'urls' (array of file/video URLs) and optional 'instruction' (string for custom analysis). Example: '{\"urls\": [\"https://...storage.../file.pdf\"], \"instruction\": \"summarize key points\"}'"),
         }),
@@ -148,11 +240,23 @@ export function createProcessFilesTool() {
                 return `Too many files (${urlList.length}). Maximum 20 files allowed.`;
             }
 
-            // Separate Supabase file URLs from YouTube URLs
+            // Separate file URLs by type
             const supabaseUrls = urlList.filter((url: string) => url.includes('supabase.co/storage'));
+            const localUrls = urlList.filter((url: string) => url.includes('/api/files/'));
             const youtubeUrls = urlList.filter((url: string) => url.match(/^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/));
 
             const fileResults: string[] = [];
+
+            // Handle local file URLs (read from disk and send as base64)
+            if (localUrls.length > 0) {
+                try {
+                    const result = await processLocalFiles(localUrls, instruction);
+                    fileResults.push(result);
+                } catch (error) {
+                    logger.error("📁 [FILE_TOOL] Error in local file processing:", error);
+                    fileResults.push(`Error processing local files: ${error instanceof Error ? error.message : String(error)}`);
+                }
+            }
 
             // Handle Supabase file URLs
             if (supabaseUrls.length > 0) {
