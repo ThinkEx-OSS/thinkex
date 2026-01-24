@@ -10,7 +10,7 @@
 
 ## The Problem
 
-Today's apps and AI split what should be a single, fluid process. AI reasoning happens in isolated chat threads, while your information is scattered across tabs and windows.
+Today's apps and AI split what should be a single, fluid process: AI reasoning happens in isolated chat threads, while your information is scattered across tabs and windows.
 
 **This split prevents knowledge from compounding.** Each conversation starts from scratch. Insights don't connect to your existing work. You can't build on past thinking. Valuable insights get buried in chat history, and you find yourself explaining the same context repeatedly. Information disappears into logs you never revisit.
 
