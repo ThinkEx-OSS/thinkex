@@ -65,8 +65,47 @@ const MarkdownTextImpl = () => {
   // Preprocess the text to normalize custom math tags
   const processedText = normalizeCustomMathTags(text);
 
+  // Ensure copied content keeps rich HTML but strips background/highlight styles
+  const handleCopy = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    if (typeof window === "undefined") return;
+
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    const range = selection.getRangeAt(0);
+    const fragment = range.cloneContents();
+
+    // Wrap in a temporary container so we can serialize + sanitize
+    const wrapper = document.createElement("div");
+    wrapper.appendChild(fragment);
+
+    // Strip background-related inline styles so no highlight color is preserved
+    wrapper.querySelectorAll<HTMLElement>("*").forEach((el) => {
+      const style = el.style;
+      if (!style) return;
+
+      // Remove background colors/highlights while leaving other styling intact
+      style.removeProperty("background");
+      style.removeProperty("background-color");
+      // Lines 88-89 already remove background/background-color, so this line can be deleted
+    });
+
+    const html = wrapper.innerHTML;
+    const plainText = wrapper.textContent ?? "";
+
+    if (!html && !plainText) return;
+
+    event.preventDefault();
+    if (html) {
+      event.clipboardData.setData("text/html", html);
+    }
+    if (plainText) {
+      event.clipboardData.setData("text/plain", plainText);
+    }
+  };
+
   return (
-    <div key={key} ref={containerRef} className="aui-md">
+    <div key={key} ref={containerRef} className="aui-md" onCopy={handleCopy}>
       <Streamdown
         isAnimating={isRunning}
         caret="block"
