@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Users, Github, Sparkles } from "lucide-react";
 // import { BackgroundCard, cardColors, type BackgroundCardData } from "./BackgroundCard";
 import { FloatingWorkspaceCards } from "./FloatingWorkspaceCards";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 
 // Background cards logic moved to FloatingWorkspaceCards
 
@@ -94,30 +99,46 @@ export function Hero() {
             </Button>
 
             {/* Social Proof - User Avatars + Count */}
-            <div className="flex items-center gap-3">
-              {/* Stacked Avatars */}
-              <div className="flex -space-x-2">
-                {[
-                  "bg-gradient-to-br from-blue-400 to-blue-600",
-                  "bg-gradient-to-br from-emerald-400 to-emerald-600",
-                  "bg-gradient-to-br from-amber-400 to-amber-600",
-                  "bg-gradient-to-br from-rose-400 to-rose-600",
-                ].map((gradient, i) => (
-                  <div
-                    key={i}
-                    className={`w-8 h-8 rounded-full ${gradient} ring-2 ring-background flex items-center justify-center text-white text-xs font-medium shadow-sm`}
-                  >
-                    {["U", "J", "A", "M"][i]}
+            <HoverCard openDelay={200}>
+              <HoverCardTrigger asChild>
+                <div className="flex items-center gap-3 cursor-pointer group">
+                  {/* Stacked Avatars */}
+                  <div className="flex -space-x-2">
+                    {[
+                      "bg-gradient-to-br from-blue-400 to-blue-600",
+                      "bg-gradient-to-br from-emerald-400 to-emerald-600",
+                      "bg-gradient-to-br from-amber-400 to-amber-600",
+                      "bg-gradient-to-br from-rose-400 to-rose-600",
+                    ].map((gradient, i) => (
+                      <div
+                        key={i}
+                        className={`w-8 h-8 rounded-full ${gradient} ring-2 ring-background flex items-center justify-center text-white text-xs font-medium shadow-sm`}
+                      >
+                        {["U", "J", "A", "M"][i]}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              {/* Text */}
-              <div className="flex flex-col items-start">
-                <span className="text-sm font-medium text-foreground">
-                  100+ weekly active users
-                </span>
-              </div>
-            </div>
+                  {/* Text */}
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm font-medium text-foreground group-hover:text-foreground/80 transition-colors">
+                      100+ weekly active users
+                    </span>
+                  </div>
+                </div>
+              </HoverCardTrigger>
+              <HoverCardContent className="w-[350px] sm:w-[450px] p-0 overflow-hidden border-none shadow-xl" sideOffset={10}>
+                <iframe
+                  width="100%"
+                  height="400"
+                  frameBorder="0"
+                  allowFullScreen
+                  src="https://us.posthog.com/embedded/wNOXac2TxOxawVOVKHkUGxe1BA1sJQ"
+                  key="4"
+                  sandbox="allow-scripts allow-same-origin allow-popups"
+                  className="bg-background"
+                />
+              </HoverCardContent>
+            </HoverCard>
           </div>
 
           {/* Mobile Demo Image - Only visible on mobile */}
