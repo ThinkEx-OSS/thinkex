@@ -62,6 +62,30 @@ const MarkdownTextImpl = () => {
     };
   }, [threadId, messageId]);
 
+  // Handle copy events to strip formatting (fixes black highlight issue when pasting)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleCopy = (e: ClipboardEvent) => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) return;
+
+      // Get plain text from selection and write to clipboard
+      const plainText = selection.toString();
+      if (plainText) {
+        e.preventDefault();
+        e.clipboardData?.setData('text/plain', plainText);
+      }
+    };
+
+    container.addEventListener('copy', handleCopy);
+
+    return () => {
+      container.removeEventListener('copy', handleCopy);
+    };
+  }, []);
+
   // Preprocess the text to normalize custom math tags
   const processedText = normalizeCustomMathTags(text);
 
