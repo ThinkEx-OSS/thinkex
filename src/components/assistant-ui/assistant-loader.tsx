@@ -1,9 +1,9 @@
 "use client";
 
 import { useAuiState } from "@assistant-ui/react";
-import { useState, useEffect } from "react";
-import ShinyText from "@/components/ShinyText";
+import { useEffect, useRef } from "react";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
+import Typewriter, { TypewriterClass } from "typewriter-effect";
 
 const thinkingMessages = [
     "Thinking",
@@ -24,33 +24,24 @@ export const AssistantLoader = () => {
         return !msg?.content || (Array.isArray(msg.content) && msg.content.length === 0);
     });
 
-    const [currentMessage, setCurrentMessage] = useState("Thinking");
-    const [hasStarted, setHasStarted] = useState(false);
+    const typewriterRef = useRef<TypewriterClass | null>(null);
 
     useEffect(() => {
         if (!isRunning || !isMessageEmpty) {
-            setCurrentMessage("Thinking");
-            setHasStarted(false);
+            if (typewriterRef.current) {
+                typewriterRef.current.stop();
+                typewriterRef.current.deleteAll(1);
+            }
             return;
         }
 
-        // Start with "Thinking" for the first 3 seconds
-        if (!hasStarted) {
-            const initialTimer = setTimeout(() => {
-                setHasStarted(true);
-            }, 3000);
-            return () => clearTimeout(initialTimer);
-        }
-
-        // After initial delay, cycle through random messages
-        const interval = setInterval(() => {
-            const randomMessages = thinkingMessages.filter(msg => msg !== "Thinking");
-            const randomIndex = Math.floor(Math.random() * randomMessages.length);
-            setCurrentMessage(randomMessages[randomIndex]);
-        }, 3000);
-
-        return () => clearInterval(interval);
-    }, [isRunning, isMessageEmpty, hasStarted]);
+        // Cleanup on unmount
+        return () => {
+            if (typewriterRef.current) {
+                typewriterRef.current.stop();
+            }
+        };
+    }, [isRunning, isMessageEmpty]);
 
     if (!isRunning || !isMessageEmpty) return null;
 
@@ -63,12 +54,50 @@ export const AssistantLoader = () => {
                 mode="bounce"
                 className="w-4 h-4 self-center"
             />
-            <ShinyText
-                text={currentMessage}
-                disabled={false}
-                speed={1.5}
-                className="text-base text-muted-foreground"
-            />
+            <div className="text-base text-muted-foreground flex items-center">
+                <Typewriter
+                    onInit={(typewriter) => {
+                        typewriterRef.current = typewriter;
+                        
+                        const cycleMessages = () => {
+                            const start = Math.floor(Math.random() * thinkingMessages.length);
+                            const ordered = [
+                                ...thinkingMessages.slice(start),
+                                ...thinkingMessages.slice(0, start),
+                            ];
+                            
+                            ordered.forEach((message, index) => {
+                                if (index === 0) {
+                                    typewriter.typeString(message);
+                                } else {
+                                    const prevLen = ordered[index - 1].length;
+                                    typewriter
+                                        .pauseFor(2000)
+                                        .deleteChars(prevLen)
+                                        .typeString(message);
+                                }
+                            });
+                            
+                            const lastLen = ordered[ordered.length - 1].length;
+                            typewriter
+                                .pauseFor(2000)
+                                .deleteChars(lastLen)
+                                .callFunction(() => {
+                                    cycleMessages();
+                                });
+                        };
+                        
+                        cycleMessages();
+                        typewriter.start();
+                    }}
+                    options={{
+                        delay: 20,
+                        deleteSpeed: 5,
+                        cursor: "",
+                        loop: false,
+                    }}
+                />
+            </div>
         </div>
     );
 };
