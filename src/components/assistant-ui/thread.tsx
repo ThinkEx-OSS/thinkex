@@ -393,7 +393,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
       const newValue = textBefore + textAfter;
 
       // Update the textarea value
-      aui.composer().setText(newValue);
+      aui?.composer()?.setText(newValue);
 
       // Reset mention state
       setMentionQuery("");
@@ -443,7 +443,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
 
       if (fileToUpload) {
         try {
-          await aui.composer().addAttachment(fileToUpload);
+          await aui?.composer()?.addAttachment(fileToUpload);
         } catch (error) {
           console.error("Failed to add file attachment:", error);
         }
@@ -461,7 +461,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
       if (file) {
         try {
           // Add as attachment - will be uploaded when message is sent
-          await aui.composer().addAttachment(file);
+          await aui?.composer()?.addAttachment(file);
         } catch (error) {
           console.error("Failed to add image attachment:", error);
         }
@@ -485,7 +485,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
             // Create a virtual File object from the URL
             const urlFile = createUrlFile(url);
             // Add it as an attachment
-            await aui.composer().addAttachment(urlFile);
+            await aui?.composer()?.addAttachment(urlFile);
           } catch (error) {
             console.error("Failed to add URL attachment:", error);
           }
@@ -540,7 +540,9 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         e.preventDefault();
 
         // Get the current composer state
-        const composerState = aui.composer().getState();
+        const composerState = aui?.composer()?.getState();
+        if (!composerState) return;
+        
         const currentText = composerState.text;
         const attachments = composerState.attachments || [];
 
@@ -636,8 +638,8 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         let modifiedText = currentText;
 
         // Set the modified text and send
-        aui.composer().setText(modifiedText);
-        aui.composer().send();
+        aui?.composer()?.setText(modifiedText);
+        aui?.composer()?.send();
 
         // Clear reply selections immediately (these are added to the message itself)
         clearReplySelections();
@@ -1653,7 +1655,7 @@ const EditComposer: FC = () => {
     hasParsedRef.current = false;
     hasAttachmentsRestoredRef.current = false;
 
-    const composerState = aui.composer().getState();
+    const composerState = aui?.composer()?.getState();
 
     if (!composerState || !composerState.text) return;
 
@@ -1680,7 +1682,7 @@ const EditComposer: FC = () => {
 
     // Update input text to show only clean text (without markers)
     if (cleanText !== composerState.text) {
-      aui.composer().setText(cleanText);
+      aui?.composer()?.setText(cleanText);
     }
 
     hasParsedRef.current = true;
@@ -1720,7 +1722,7 @@ const EditComposer: FC = () => {
                 }
               }
 
-              aui.composer().addAttachment(file);
+              aui?.composer()?.addAttachment(file);
             } catch (error) {
               console.error("Failed to restore file attachment:", error);
             }
@@ -1751,7 +1753,7 @@ const EditComposer: FC = () => {
               if (urlMatch && urlMatch[1]) {
                 try {
                   const urlFile = createUrlFile(urlMatch[1]);
-                  aui.composer().addAttachment(urlFile);
+                  aui?.composer()?.addAttachment(urlFile);
                 } catch (error) {
                   console.error("Failed to restore URL attachment:", error);
                 }
@@ -1771,7 +1773,9 @@ const EditComposer: FC = () => {
           e.preventDefault();
 
           // Get the current composer state
-          const composerState = aui.composer().getState();
+          const composerState = aui?.composer()?.getState();
+          if (!composerState) return;
+          
           const currentText = composerState.text;
 
           // Re-add URL markers from parsed URLs (stored in state)
@@ -1796,8 +1800,8 @@ const EditComposer: FC = () => {
           }
 
           // Set the modified text and send
-          aui.composer().setText(modifiedText);
-          aui.composer().send();
+          aui?.composer()?.setText(modifiedText);
+          aui?.composer()?.send();
         }}
       >
         {/* Attachment Display - shows restored and new attachments */}
