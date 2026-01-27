@@ -10,6 +10,8 @@ import { WorkspaceCard } from "./WorkspaceCard";
 import { FlashcardWorkspaceCard } from "./FlashcardWorkspaceCard";
 import { FolderCard } from "./FolderCard";
 import { useUIStore } from "@/lib/stores/ui-store";
+import { X } from "lucide-react";
+import { LuArrowRight } from "react-icons/lu";
 
 interface WorkspaceGridProps {
   items: Item[]; // Filtered items to display (includes folder-type items)
@@ -74,6 +76,7 @@ export function WorkspaceGrid({
   // Get the currently open items to hide them from the grid (when open in panel, not maximized)
   const openPanelIds = useUIStore((state) => state.openPanelIds);
   const maximizedItemId = useUIStore((state) => state.maximizedItemId);
+  const closePanel = useUIStore((state) => state.closePanel);
 
   // Use container width hook for v2 API
   const { width, containerRef, mounted } = useContainerWidth();
@@ -737,8 +740,41 @@ export function WorkspaceGrid({
     currentBreakpointRef.current = newBreakpoint as 'lg' | 'xxs';
   }, []);
 
+  // Get the open panel item for the ghost card (only show when exactly one panel is open)
+  const openPanelItem = useMemo(() => {
+    if (openPanelIds.length === 1 && !maximizedItemId) {
+      return allItems.find(item => item.id === openPanelIds[0]);
+    }
+    return null;
+  }, [openPanelIds, maximizedItemId, allItems]);
+
   return (
     <div className={`${selectedCardIds.size > 0 ? 'pb-20' : ''} w-full workspace-grid-container`} ref={containerRef}>
+      {/* Ghost card showing currently open panel */}
+      {openPanelItem && (
+        <div className="px-4 mb-4">
+          <div
+            onClick={() => closePanel(openPanelItem.id)}
+            className="group relative rounded-md border border-border/20 bg-muted/10 hover:bg-muted/20 hover:border-red-500/50 transition-all cursor-pointer px-4 py-2.5 flex items-center justify-between backdrop-blur-sm opacity-70 hover:opacity-90"
+          >
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <span className="text-xs text-muted-foreground/70 whitespace-nowrap">Viewing</span>
+              <span className="text-xs font-medium text-foreground/70 truncate">{openPanelItem.name || 'Untitled'}</span>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                closePanel(openPanelItem.id);
+              }}
+              className="ml-4 p-1 rounded-md flex-shrink-0 relative flex items-center justify-center"
+              aria-label="Close panel"
+            >
+              <LuArrowRight className="h-3.5 w-3.5 opacity-40 group-hover:opacity-0 transition-all" />
+              <X className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 group-hover:text-red-500/80 transition-all absolute" />
+            </button>
+          </div>
+        </div>
+      )}
       <style>{`
         .react-grid-item {
           transition: transform 100ms ease-out !important;
