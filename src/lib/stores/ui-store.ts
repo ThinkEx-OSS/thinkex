@@ -57,8 +57,6 @@ interface UIState {
   // BlockNote text selection state
   blockNoteSelection: { cardId: string; cardName: string; text: string } | null;
 
-  // Coordination callbacks (internal)
-  _onBeforeThreadListToggle?: (willBeVisible: boolean) => void;
 
   // Actions - Chat
   setIsChatExpanded: (expanded: boolean) => void;
@@ -69,8 +67,6 @@ interface UIState {
   toggleThreadListVisible: () => void;
   setWorkspacePanelSize: (size: number) => void;
 
-  // Coordination actions
-  setThreadListToggleCoordinator: (callback: (willBeVisible: boolean) => void) => void;
 
   // Actions - Panels
   openPanel: (itemId: string, mode: 'replace' | 'add') => void;
@@ -219,17 +215,8 @@ export const useUIStore = create<UIState>()(
         }
         return { isChatMaximized: maximized };
       }),
-      setIsThreadListVisible: (visible) => set((state) => {
-        // Call coordination callback if provided (e.g., to close sidebar)
-        state._onBeforeThreadListToggle?.(visible);
-        return { isThreadListVisible: visible };
-      }),
-      toggleThreadListVisible: () => set((state) => {
-        const visible = !state.isThreadListVisible;
-        // Call coordination callback if provided (e.g., to close sidebar)
-        state._onBeforeThreadListToggle?.(visible);
-        return { isThreadListVisible: visible };
-      }),
+      setIsThreadListVisible: (visible) => set({ isThreadListVisible: visible }),
+      toggleThreadListVisible: () => set((state) => ({ isThreadListVisible: !state.isThreadListVisible })),
       setWorkspacePanelSize: (size) => set({ workspacePanelSize: size }),
 
       // Panel actions
@@ -312,7 +299,7 @@ export const useUIStore = create<UIState>()(
         // Only remove auto-selected cards from selection
         const newSelectedCardIds = new Set(state.selectedCardIds);
         const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-        
+
         state.openPanelIds.forEach(id => {
           if (newPanelAutoSelectedCardIds.has(id)) {
             newSelectedCardIds.delete(id);
@@ -350,13 +337,13 @@ export const useUIStore = create<UIState>()(
             const primaryPanelId = state.openPanelIds[0];
             const newSelectedCardIds = new Set(state.selectedCardIds);
             const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-            
+
             // Only deselect if it was auto-selected
             if (newPanelAutoSelectedCardIds.has(primaryPanelId)) {
               newSelectedCardIds.delete(primaryPanelId);
               newPanelAutoSelectedCardIds.delete(primaryPanelId);
             }
-            
+
             return {
               openPanelIds: state.openPanelIds.slice(1),
               selectedCardIds: newSelectedCardIds,
@@ -366,13 +353,13 @@ export const useUIStore = create<UIState>()(
             const primaryPanelId = state.openPanelIds[0];
             const newSelectedCardIds = new Set(state.selectedCardIds);
             const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-            
+
             // Only deselect if it was auto-selected
             if (newPanelAutoSelectedCardIds.has(primaryPanelId)) {
               newSelectedCardIds.delete(primaryPanelId);
               newPanelAutoSelectedCardIds.delete(primaryPanelId);
             }
-            
+
             return {
               openPanelIds: [],
               selectedCardIds: newSelectedCardIds,
@@ -384,7 +371,7 @@ export const useUIStore = create<UIState>()(
           // Setting primary - replace first slot
           const newSelectedCardIds = new Set(state.selectedCardIds);
           const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-          
+
           // Remove old primary from selection (only if auto-selected)
           if (state.openPanelIds.length > 0) {
             const oldPrimaryId = state.openPanelIds[0];
@@ -393,14 +380,14 @@ export const useUIStore = create<UIState>()(
               newPanelAutoSelectedCardIds.delete(oldPrimaryId);
             }
           }
-          
+
           // Add new item to selection
           const wasAlreadySelected = state.selectedCardIds.has(id);
           newSelectedCardIds.add(id);
           if (!wasAlreadySelected) {
             newPanelAutoSelectedCardIds.add(id);
           }
-          
+
           return {
             openPanelIds: [id, ...state.openPanelIds.slice(1)],
             maximizedItemId: null,
@@ -481,7 +468,7 @@ export const useUIStore = create<UIState>()(
       toggleCardSelection: (id) => set((state) => {
         const newSet = new Set(state.selectedCardIds);
         const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-        
+
         if (newSet.has(id)) {
           // Deselecting - remove from both sets
           newSet.delete(id);
@@ -491,19 +478,19 @@ export const useUIStore = create<UIState>()(
           newSet.add(id);
           // Don't add to panelAutoSelectedCardIds - this is user action
         }
-        return { 
+        return {
           selectedCardIds: newSet,
           panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
         };
       }),
-      clearCardSelection: () => set({ 
+      clearCardSelection: () => set({
         selectedCardIds: new Set<string>(),
         panelAutoSelectedCardIds: new Set<string>(),
       }),
       selectMultipleCards: (ids) => set((state) => {
         const newSelectedCardIds = new Set(ids);
         const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-        
+
         // Remove from panelAutoSelectedCardIds any cards that are no longer selected
         // (user-initiated selection replaces auto-selections)
         newPanelAutoSelectedCardIds.forEach(id => {
@@ -511,14 +498,14 @@ export const useUIStore = create<UIState>()(
             newPanelAutoSelectedCardIds.delete(id);
           }
         });
-        
+
         // Treat multi-select as user-owned: remove auto flags for all selected IDs
         // (user explicitly selected these, so they're no longer auto-selected)
         newSelectedCardIds.forEach(id => {
           newPanelAutoSelectedCardIds.delete(id);
         });
-        
-        return { 
+
+        return {
           selectedCardIds: newSelectedCardIds,
           panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
         };
@@ -564,8 +551,6 @@ export const useUIStore = create<UIState>()(
         set({ blockNoteSelection: null });
       },
 
-      // Coordination actions
-      setThreadListToggleCoordinator: (callback) => set({ _onBeforeThreadListToggle: callback }),
 
       // Utility actions
       resetChatState: () => set({
@@ -578,7 +563,7 @@ export const useUIStore = create<UIState>()(
         // Only remove auto-selected cards from selection
         const newSelectedCardIds = new Set(state.selectedCardIds);
         const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-        
+
         state.openPanelIds.forEach(id => {
           if (newPanelAutoSelectedCardIds.has(id)) {
             newSelectedCardIds.delete(id);

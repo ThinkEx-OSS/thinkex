@@ -7,7 +7,7 @@ import { WorkspaceRuntimeProvider } from "@/components/assistant-ui/WorkspaceRun
 import { WorkspaceCanvasDropzone } from "@/components/workspace-canvas/WorkspaceCanvasDropzone";
 import { AssistantDropzone } from "@/components/assistant-ui/AssistantDropzone";
 import { PANEL_DEFAULTS } from "@/lib/layout-constants";
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 
 interface DashboardLayoutProps {
   // Workspace sidebar
@@ -57,6 +57,9 @@ export function DashboardLayout({
   workspaceSection,
   panels,
 }: DashboardLayoutProps) {
+  // Get sidebar control to auto-close when panels open
+  const { setOpen } = useSidebar();
+
   // OPTIMIZED: Memoize onLayout callback to prevent ResizablePanelGroup re-renders
   // This prevents cascading re-renders of all ResizablePanel children
   const handlePanelLayout = useCallback((sizes: number[]) => {
@@ -66,6 +69,16 @@ export function DashboardLayout({
 
     // Auto-maximize behavior removed - let users manually control chat size
   }, [onWorkspaceSizeChange]);
+
+  // Auto-close sidebar when opening item panels to maximize screen space
+  const prevPanelCountRef = useRef(panels.length);
+  useEffect(() => {
+    // Only close when panels go from 0 to 1+ (not when adding more panels)
+    if (prevPanelCountRef.current === 0 && panels.length > 0) {
+      setOpen(false);
+    }
+    prevPanelCountRef.current = panels.length;
+  }, [panels.length, setOpen]);
 
   // Render logic
   // Ensure chat is only shown when a workspace is active
