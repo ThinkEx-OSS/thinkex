@@ -177,3 +177,17 @@ export const workspaceEvents = pgTable("workspace_events", {
   WHERE ((workspaces.id = workspace_events.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text)))))`  }),
 	pgPolicy("Users can read workspace events they have access to", { as: "permissive", for: "select", to: ["public"] }),
 ]);
+
+export const deepResearchUsage = pgTable("deep_research_usage", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+	workspaceId: uuid("workspace_id").references(() => workspaces.id, { onDelete: "set null" }),
+	interactionId: text("interaction_id"),
+	prompt: text("prompt"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_deep_research_usage_user_created").using("btree",
+		table.userId.asc().nullsLast().op("text_ops"),
+		table.createdAt.desc().nullsFirst().op("timestamptz_ops")
+	),
+]);

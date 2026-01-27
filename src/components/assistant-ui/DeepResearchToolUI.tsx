@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { makeAssistantToolUI } from "@assistant-ui/react";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
+import { toast } from "sonner";
 
 type DeepResearchArgs = {
     prompt: string;
@@ -15,6 +16,9 @@ type DeepResearchResult = {
     noteId?: string;
     message?: string;
     error?: string;
+    rateLimited?: boolean;
+    resetAt?: string;
+    userMessage?: string;
 };
 
 
@@ -29,12 +33,14 @@ export const DeepResearchToolUI = makeAssistantToolUI<DeepResearchArgs, DeepRese
         const queryClient = useQueryClient();
         const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
 
+        const toastShownRef = useRef(false);
+        const isRateLimited = !!result?.rateLimited;
         const isComplete = status.type === "complete" || !!result?.noteId;
-        const hasError = !!result?.error;
+        const hasError = !!result?.error && !isRateLimited;
 
         // Trigger refetch when result is available
         useEffect(() => {
-            if (status?.type === "complete" && result && result.noteId && !result.error) {
+            if (status?.type === "complete" && result && result.noteId && !result.error && !result.rateLimited) {
                 if (workspaceId) {
                     queryClient.invalidateQueries({ queryKey: ["workspace", workspaceId, "events"] });
                 } else {
@@ -42,6 +48,32 @@ export const DeepResearchToolUI = makeAssistantToolUI<DeepResearchArgs, DeepRese
                 }
             }
         }, [status, result, workspaceId, queryClient]);
+
+        // Show toast when rate limit is exceeded (only once)
+        useEffect(() => {
+            if (result?.rateLimited && !toastShownRef.current) {
+                toastShownRef.current = true;
+
+                let timeStr = "24 hours";
+                if (result.resetAt) {
+                    const resetDate = new Date(result.resetAt);
+                    const diffMs = resetDate.getTime() - Date.now();
+                    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+                    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                    timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+                }
+
+                toast("Daily limit reached", {
+                    description: `Deep research will be available again in ${timeStr}.`,
+                    duration: 5000,
+                });
+            }
+        }, [result]);
+
+        // Don't render anything if rate limited - the toast handles the notification
+        if (isRateLimited) {
+            return null;
+        }
 
         return (
             <div className="rounded-lg border border-border bg-muted/30 p-4 my-2">
