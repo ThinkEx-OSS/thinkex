@@ -15,7 +15,7 @@ import SelectableText, {
 import { useUIStore, selectReplySelections } from "@/lib/stores/ui-store";
 import { getHighlightColorById } from "@/lib/utils/highlight-colors";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import { useAssistantState } from "@assistant-ui/react";
+import { useAuiState } from "@assistant-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -105,8 +105,8 @@ export default function AssistantTextSelectionManager({
   // This component is always rendered within AssistantRuntimeProvider, so the hook is safe to use
   // Use threadListItem.id if available, otherwise fall back to mainThreadId
   // Using safe hooks to handle race condition during thread switching (GitHub issue #2722)
-  const threadListItemId = useAssistantState(({ threadListItem }) => (threadListItem as any)?.id);
-  const mainThreadId = useAssistantState(({ threads }) => (threads as any)?.mainThreadId);
+  const threadListItemId = useAuiState(({ threadListItem }) => (threadListItem as any)?.id);
+  const mainThreadId = useAuiState(({ threads }) => (threads as any)?.mainThreadId);
   const currentThreadId = threadListItemId || mainThreadId;
 
 

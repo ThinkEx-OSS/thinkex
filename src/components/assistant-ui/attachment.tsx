@@ -1,7 +1,6 @@
 "use client";
 
 import React, { PropsWithChildren, useEffect, useState, useRef, type FC } from "react";
-import Image from "next/image";
 import { XIcon, FileText, Link as LinkIcon, Upload, Link2, SearchIcon, Plus, Code as CodeIcon, GalleryHorizontalEnd } from "lucide-react";
 import { LuPaperclip } from "react-icons/lu";
 import { toast } from "sonner";
@@ -9,9 +8,9 @@ import {
   AttachmentPrimitive,
   ComposerPrimitive,
   MessagePrimitive,
-  useAssistantApi,
+  useAui,
 } from "@assistant-ui/react";
-import { useAssistantState } from "@assistant-ui/react";
+import { useAuiState } from "@assistant-ui/react";
 import { useShallow } from "zustand/shallow";
 import {
   Tooltip,
@@ -78,7 +77,7 @@ function getFaviconUrl(url: string): string {
 }
 
 const useAttachmentSrc = () => {
-  const attachmentState = useAssistantState(
+  const attachmentState = useAuiState(
     useShallow(({ attachment }): { file?: File; src?: string; isUrl?: boolean; url?: string } => {
       const att = attachment as {
         type?: string;
@@ -166,18 +165,16 @@ type AttachmentPreviewProps = {
 const AttachmentPreview: FC<AttachmentPreviewProps> = ({ src }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   return (
-    <Image
+    <img
       src={src}
       alt="Image Preview"
-      width={1}
-      height={1}
-      className={
+      className={cn(
+        "block h-auto max-h-[80vh] w-auto max-w-full object-contain",
         isLoaded
-          ? "aui-attachment-preview-image-loaded block h-auto max-h-[80vh] w-auto max-w-full object-contain"
-          : "aui-attachment-preview-image-loading hidden"
-      }
-      onLoadingComplete={() => setIsLoaded(true)}
-      priority={false}
+          ? "aui-attachment-preview-image-loaded"
+          : "aui-attachment-preview-image-loading invisible"
+      )}
+      onLoad={() => setIsLoaded(true)}
     />
   );
 };
@@ -196,7 +193,7 @@ const AttachmentPreviewDialog: FC<PropsWithChildren> = ({ children }) => {
       >
         {children}
       </DialogTrigger>
-      <DialogContent className="aui-attachment-preview-dialog-content p-2 sm:max-w-3xl [&_svg]:text-background [&>button]:rounded-full [&>button]:bg-foreground/60 [&>button]:p-1 [&>button]:opacity-100 [&>button]:!ring-0 [&>button]:hover:[&_svg]:text-destructive">
+      <DialogContent className="aui-attachment-preview-dialog-content p-2 sm:max-w-3xl [&>button]:rounded-full [&>button]:bg-foreground/60 [&>button]:p-1 [&>button]:opacity-100 [&>button]:ring-0! [&_svg]:text-background [&>button]:hover:[&_svg]:text-destructive">
         <DialogTitle className="aui-sr-only sr-only">
           Image Attachment Preview
         </DialogTitle>
@@ -209,7 +206,7 @@ const AttachmentPreviewDialog: FC<PropsWithChildren> = ({ children }) => {
 };
 
 const AttachmentThumb: FC = () => {
-  const isImage = useAssistantState(
+  const isImage = useAuiState(
     ({ attachment }) => (attachment as { type?: string })?.type === "image"
   );
   const attachmentSrc = useAttachmentSrc();
@@ -257,15 +254,15 @@ const AttachmentThumb: FC = () => {
 };
 
 const AttachmentUI: FC = () => {
-  const api = useAssistantApi();
-  const isComposer = api.attachment.source === "composer";
+  const aui = useAui();
+  const isComposer = aui.attachment.source === "composer";
 
-  const isImage = useAssistantState(
+  const isImage = useAuiState(
     ({ attachment }) => (attachment as { type?: string })?.type === "image"
   );
 
   // Split into separate selectors to avoid creating new objects on each render
-  const typeLabel = useAssistantState(({ attachment }) => {
+  const typeLabel = useAuiState(({ attachment }) => {
     const att = attachment as {
       type?: string;
       name?: string;
@@ -324,7 +321,7 @@ const AttachmentUI: FC = () => {
     }
   });
 
-  const isUrl = useAssistantState(({ attachment }) => {
+  const isUrl = useAuiState(({ attachment }) => {
     const att = attachment as {
       type?: string;
       name?: string;
@@ -382,7 +379,7 @@ const AttachmentUI: FC = () => {
           "aui-attachment-root-composer only:[&>#attachment-tile]:size-24",
         )}
       >
-        <div className="relative group/attachment">
+        <div className="relative">
           <AttachmentPreviewDialog>
             <TooltipTrigger asChild>
               <div
@@ -419,10 +416,10 @@ const AttachmentRemove: FC = () => {
     <AttachmentPrimitive.Remove asChild>
       <TooltipIconButton
         tooltip={isUrl ? "Remove URL" : "Remove file"}
-        className="aui-attachment-tile-remove absolute top-1.5 right-1.5 size-4 rounded-full bg-black/50 text-white opacity-0 group-hover/attachment:opacity-100 transition-all shadow-sm hover:!bg-zinc-200 hover:text-red-500 hover:scale-110"
+        className="aui-attachment-tile-remove absolute top-1.5 right-1.5 size-3.5 rounded-full bg-white text-muted-foreground opacity-100 shadow-sm hover:bg-white! [&_svg]:text-black hover:[&_svg]:text-destructive"
         side="top"
       >
-        <XIcon className="aui-attachment-remove-icon size-2.5 dark:stroke-[2.5px]" />
+        <XIcon className="aui-attachment-remove-icon size-3 dark:stroke-[2.5px]" />
       </TooltipIconButton>
     </AttachmentPrimitive.Remove>
   );
@@ -454,7 +451,7 @@ export const ComposerAddAttachment: FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const api = useAssistantApi();
+  const aui = useAui();
 
 
 
@@ -511,7 +508,7 @@ export const ComposerAddAttachment: FC = () => {
     // Add valid files
     if (validFiles.length > 0) {
       validFiles.forEach((file) => {
-        api.composer().addAttachment(file);
+        aui.composer().addAttachment(file);
       });
 
       if (validFiles.length < fileArray.length) {
@@ -535,7 +532,7 @@ export const ComposerAddAttachment: FC = () => {
     if (trimmedUrl) {
       try {
         const urlFile = createUrlFile(trimmedUrl);
-        api.composer().addAttachment(urlFile);
+        aui.composer().addAttachment(urlFile);
         setUrlInput("");
         setShowUrlDialog(false);
         focusComposerInput();

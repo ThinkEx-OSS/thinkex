@@ -129,6 +129,7 @@
     "sonner": "^2.0.7",
     "streamdown": "^2.1.0",
     "tailwind-merge": "^3.4.0",
+    "tw-shimmer": "^0.4.3",
     "typewriter-effect": "^2.22.0",
     "zod": "^4.3.4",
     "zustand": "^5.0.9"

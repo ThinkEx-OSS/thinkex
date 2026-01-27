@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@daveyplate/better-auth-ui/css";
+@import "tw-shimmer";
 
 /* Path to your installed `@blocknote/shadcn` package. */
 @source "../node_modules/@blocknote/shadcn";
@@ -247,8 +248,6 @@
   margin-top: -0.125rem !important;
 }
 
-
-
 .bn-block-content[data-content-type="checkListItem"] input[type="checkbox"] {
   margin-top: 0.25rem !important;
   flex-shrink: 0 !important;
@@ -256,7 +255,6 @@
   height: 1rem !important;
   cursor: pointer !important;
 }
-
 
 .bn-block-content[data-content-type="checkListItem"] .bn-inline-content {
   margin-top: 0 !important;

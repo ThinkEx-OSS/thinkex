@@ -11,7 +11,7 @@ import WorkspaceSaveIndicator from "@/components/workspace/WorkspaceSaveIndicato
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { IconRenderer } from "@/hooks/use-icon-picker";
-import { useAssistantApi } from "@assistant-ui/react";
+import { useAui } from "@assistant-ui/react";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
 import {
   DropdownMenu,
@@ -125,7 +125,7 @@ export default function WorkspaceHeader({
   const [ellipsisDropdownOpen, setEllipsisDropdownOpen] = useState(false);
 
   // Assistant API for Deep Research action
-  const api = useAssistantApi();
+  const aui = useAui();
   const setSelectedActions = useUIStore((state) => state.setSelectedActions);
 
 
@@ -409,65 +409,61 @@ export default function WorkspaceHeader({
               </button>
             ) : !activeFolderId ? (
               // When at root level, show dropdown menu on click
-              (onOpenSettings || onOpenShare) ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button 
-                      data-breadcrumb-target="root"
-                      className={cn(
-                        "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5",
-                        hoveredBreadcrumbTarget === 'root' && "border-2 border-blue-500 bg-blue-500/10 rounded"
-                      )}
+              ((onOpenSettings || onOpenShare) ? (<DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button 
+                    data-breadcrumb-target="root"
+                    className={cn(
+                      "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5",
+                      hoveredBreadcrumbTarget === 'root' && "border-2 border-blue-500 bg-blue-500/10 rounded"
+                    )}
+                  >
+                    <IconRenderer
+                      icon={workspaceIcon}
+                      className="h-4 w-4 shrink-0"
+                      style={{ color: workspaceColor || undefined }}
+                    />
+                    <span className="truncate text-sidebar-foreground font-medium max-w-[200px]" title={workspaceName}>
+                      {workspaceName || "Untitled"}
+                    </span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  {onOpenSettings && (
+                    <DropdownMenuItem
+                      onClick={onOpenSettings}
+                      className="flex items-center gap-2 cursor-pointer"
                     >
-                      <IconRenderer
-                        icon={workspaceIcon}
-                        className="h-4 w-4 shrink-0"
-                        style={{ color: workspaceColor || undefined }}
-                      />
-                      <span className="truncate text-sidebar-foreground font-medium max-w-[200px]" title={workspaceName}>
-                        {workspaceName || "Untitled"}
-                      </span>
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-48">
-                    {onOpenSettings && (
-                      <DropdownMenuItem
-                        onClick={onOpenSettings}
-                        className="flex items-center gap-2 cursor-pointer"
-                      >
-                        <Settings className="h-4 w-4" />
-                        Settings
-                      </DropdownMenuItem>
-                    )}
-                    {onOpenShare && (
-                      <DropdownMenuItem
-                        onClick={onOpenShare}
-                        className="flex items-center gap-2 cursor-pointer"
-                      >
-                        <Share2 className="h-4 w-4" />
-                        Share
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <div 
-                  data-breadcrumb-target="root"
-                  className={cn(
-                    "flex items-center gap-1.5 min-w-0",
-                    hoveredBreadcrumbTarget === 'root' && "border-2 border-blue-500 bg-blue-500/10 rounded px-1 py-0.5 -mx-1 -my-0.5"
+                      <Settings className="h-4 w-4" />
+                      Settings
+                    </DropdownMenuItem>
                   )}
-                >
-                  <IconRenderer
-                    icon={workspaceIcon}
-                    className="h-4 w-4 shrink-0"
-                    style={{ color: workspaceColor || undefined }}
-                  />
-                  <span className="truncate text-sidebar-foreground font-medium max-w-[200px]" title={workspaceName}>
-                    {workspaceName || "Untitled"}
-                  </span>
-                </div>
-              )
+                  {onOpenShare && (
+                    <DropdownMenuItem
+                      onClick={onOpenShare}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <Share2 className="h-4 w-4" />
+                      Share
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>) : (<div 
+                data-breadcrumb-target="root"
+                className={cn(
+                  "flex items-center gap-1.5 min-w-0",
+                  hoveredBreadcrumbTarget === 'root' && "border-2 border-blue-500 bg-blue-500/10 rounded px-1 py-0.5 -mx-1 -my-0.5"
+                )}
+              >
+                <IconRenderer
+                  icon={workspaceIcon}
+                  className="h-4 w-4 shrink-0"
+                  style={{ color: workspaceColor || undefined }}
+                />
+                <span className="truncate text-sidebar-foreground font-medium max-w-[200px]" title={workspaceName}>
+                  {workspaceName || "Untitled"}
+                </span>
+              </div>))
             ) : null}
 
             {/* Folder path breadcrumbs - compact mode shows dropdown only */}
@@ -475,7 +471,7 @@ export default function WorkspaceHeader({
               <>
                 {isCompactMode ? (
                   /* Compact mode: Show dropdown with current folder only, full path in dropdown */
-                  <>
+                  (<>
                     <span className="text-sidebar-foreground/50 mx-1 font-bold">/</span>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -537,7 +533,7 @@ export default function WorkspaceHeader({
                         ))}
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </>
+                  </>)
                 ) : folderPath.length === 1 ? (
                   folderPath.map((folder) => (
                     <span key={folder.id} className="flex items-center gap-1.5">
@@ -563,7 +559,7 @@ export default function WorkspaceHeader({
                   ))
                 ) : (
                   /* Show root, dropdown with all middle folders, and last for 2+ levels */
-                  <>
+                  (<>
                     <span className="text-sidebar-foreground/50 mx-1 font-bold">/</span>
                     <HoverCard 
                       open={ellipsisDropdownOpen} 
@@ -624,7 +620,7 @@ export default function WorkspaceHeader({
                         {folderPath[folderPath.length - 1].name}
                       </span>
                     </button>
-                  </>
+                  </>)
                 )}
               </>
             )}
@@ -799,7 +795,7 @@ export default function WorkspaceHeader({
                           setIsChatExpanded(true);
                         }
                         // Fill composer with quiz creation prompt
-                        api?.composer().setText("Create a quiz about ");
+                        aui?.composer().setText("Create a quiz about ");
                         // Focus the composer input
                         focusComposerInput();
                         toast.success("Quiz creation started");
@@ -830,7 +826,7 @@ export default function WorkspaceHeader({
                       onClick={() => {
                         toast.success("Deep Research action selected");
                         setSelectedActions(["deep-research"]);
-                        api?.composer().setText("I want to do research on ");
+                        aui?.composer().setText("I want to do research on ");
                         if (setIsChatExpanded && !isChatExpanded) {
                           setIsChatExpanded(true);
                         }
@@ -867,7 +863,6 @@ export default function WorkspaceHeader({
           ) : null}
         </div>
       </div>
-
       {/* Rename Folder Dialog */}
       {
         onRenameFolder && (
@@ -906,7 +901,6 @@ export default function WorkspaceHeader({
           </Dialog>
         )
       }
-
       {/* YouTube Dialog */}
       <CreateYouTubeDialog
         open={showYouTubeDialog}

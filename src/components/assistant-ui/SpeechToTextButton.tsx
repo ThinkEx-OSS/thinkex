@@ -2,12 +2,12 @@ import "regenerator-runtime/runtime";
 import { Mic, MicOff } from "lucide-react";
 import { FC, useEffect, useState } from "react";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
-import { useAssistantApi } from "@assistant-ui/react";
+import { useAui } from "@assistant-ui/react";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { cn } from "@/lib/utils";
 
 export const SpeechToTextButton: FC = () => {
-    const api = useAssistantApi();
+    const aui = useAui();
     const {
         transcript,
         listening,
@@ -23,16 +23,16 @@ export const SpeechToTextButton: FC = () => {
             // We append the transcript to the original text
             // Ideally we would insert at cursor, but appending is safer for now
             const separator = originalText && !originalText.endsWith(' ') ? ' ' : '';
-            api.composer().setText(originalText + separator + transcript);
+            aui.composer().setText(originalText + separator + transcript);
         }
-    }, [transcript, listening, originalText, api]);
+    }, [transcript, listening, originalText, aui]);
 
     const handleStartListening = () => {
         // Reset transcript before starting a new session
         resetTranscript();
 
         // Capture current text before starting
-        const currentText = api.composer().getState().text;
+        const currentText = aui.composer().getState().text;
         setOriginalText(currentText);
 
         SpeechRecognition.startListening({ continuous: true });

@@ -10,7 +10,7 @@ const code = createCodePlugin({
   themes: ['one-dark-pro', 'one-dark-pro'],
 });
 import { useMessagePartText } from "@assistant-ui/react";
-import { useAssistantState } from "@assistant-ui/react";
+import { useAuiState } from "@assistant-ui/react";
 import { cn } from "@/lib/utils";
 import React, { memo, useRef, useEffect } from "react";
 
@@ -19,11 +19,11 @@ const MarkdownTextImpl = () => {
   const { text } = useMessagePartText();
 
   // Get thread and message ID for unique key per message
-  const threadId = useAssistantState(({ threads }) => (threads as any)?.mainThreadId);
-  const messageId = useAssistantState(({ message }) => (message as any)?.id);
+  const threadId = useAuiState(({ threads }) => (threads as any)?.mainThreadId);
+  const messageId = useAuiState(({ message }) => (message as any)?.id);
 
   // Check if the message is currently streaming
-  const isRunning = useAssistantState(({ thread }) => (thread as any)?.isRunning ?? false);
+  const isRunning = useAuiState(({ thread }) => (thread as any)?.isRunning ?? false);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -144,11 +144,12 @@ const MarkdownTextImpl = () => {
 export const MarkdownText = memo(MarkdownTextImpl);
 
 function normalizeCustomMathTags(input: string): string {
-  return (
-    input
-      // Convert \( ... \) to $$...$$ (inline math) - streamdown uses $$ for both, inline has no newlines
-      .replace(/\\{1,2}\(([\s\S]*?)\\{1,2}\)/g, (_, content) => `$$${content.trim()}$$`)
-      // Convert \[ ... \] to $$...$$ (block math) - streamdown needs newlines for block triggers
-      .replace(/\\{1,2}\[([\s\S]*?)\\{1,2}\]/g, (_, content) => `$$\n${content.trim()}\n$$`)
-  );
+  return (input
+    // Convert \( ... \) to $$...$$ (inline math) - streamdown uses $$ for both, inline has no newlines
+    .replace(/\\{1,2}\(([\s\S]*?)\\{1,2}\)/g, (_, content) => `$$${content.trim()}$$`)
+    // Convert \[ ... \] to $$...$$ (block math) - streamdown needs newlines for block triggers
+    .replace(
+    /\\{1,2}\[([\s\S]*?)\\{1,2}\]/g,
+    (_, content) => `$$\n${content.trim()}\n$$`
+  ));
 }

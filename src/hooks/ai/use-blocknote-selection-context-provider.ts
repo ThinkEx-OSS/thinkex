@@ -1,4 +1,4 @@
-import { useAssistantApi } from "@assistant-ui/react";
+import { useAui } from "@assistant-ui/react";
 import { useEffect, useMemo } from "react";
 import { useUIStore, selectBlockNoteSelection } from "@/lib/stores/ui-store";
 
@@ -7,7 +7,7 @@ import { useUIStore, selectBlockNoteSelection } from "@/lib/stores/ui-store";
  * Automatically updates when BlockNote selection changes and cleans up on unmount
  */
 export function useBlockNoteSelectionContextProvider() {
-  const api = useAssistantApi();
+  const aui = useAui();
   const blockNoteSelection = useUIStore(selectBlockNoteSelection);
 
   // Format context for BlockNote selection - memoized to avoid recalculation
@@ -43,10 +43,10 @@ export function useBlockNoteSelectionContextProvider() {
       return;
     }
 
-    return api.modelContext().register({
+    return aui.modelContext().register({
       getModelContext: () => ({
         system: contextInstructions,
       }),
     });
-  }, [api, contextInstructions, blockNoteSelection]);
+  }, [aui, contextInstructions, blockNoteSelection]);
 }

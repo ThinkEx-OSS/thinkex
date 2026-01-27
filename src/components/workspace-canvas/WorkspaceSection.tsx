@@ -41,7 +41,7 @@ import ShareWorkspaceDialog from "@/components/workspace/ShareWorkspaceDialog";
 import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
-import { useAssistantApi } from "@assistant-ui/react";
+import { useAui } from "@assistant-ui/react";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
 
 interface WorkspaceSectionProps {
@@ -156,7 +156,7 @@ export function WorkspaceSection({
 
   // Assistant API for Deep Research action
   // Note: WorkspaceSection is inside WorkspaceRuntimeProvider in DashboardLayout, so this hook works
-  const api = useAssistantApi();
+  const aui = useAui();
 
 
   // Get active folder info from UI store
@@ -442,7 +442,6 @@ export function WorkspaceSection({
           isItemPanelOpen={isItemPanelOpen}
         />
       )}
-
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div ref={scrollAreaRef} className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
@@ -476,7 +475,7 @@ export function WorkspaceSection({
                 <WorkspaceSkeleton />
               ) : (
                 /* Workspace content - assumes workspace exists (home route handles no-workspace state) */
-                <WorkspaceContent
+                (<WorkspaceContent
                   key={`workspace-content-${state.workspaceId || 'none'}`}
                   viewState={state}
                   showJsonView={showJsonView}
@@ -498,7 +497,7 @@ export function WorkspaceSection({
                   onMoveItems={operations?.moveItemsToFolder}
                   onDeleteFolderWithContents={operations?.deleteFolderWithContents}
                   onPDFUpload={handlePDFUpload}
-                />
+                />)
               )}
 
               {/* Marquee selector for rectangular card selection - inside scroll container to capture all events */}
@@ -579,7 +578,7 @@ export function WorkspaceSection({
                       setIsChatExpanded(true);
                     }
                     // Fill composer with quiz creation prompt
-                    api.composer().setText("Create a quiz about ");
+                    aui.composer().setText("Create a quiz about ");
                     // Focus the composer input
                     focusComposerInput();
                     toast.success("Quiz creation started");
@@ -608,7 +607,7 @@ export function WorkspaceSection({
                   onSelect={() => {
                     toast.success("Deep Research action selected");
                     setSelectedActions(["deep-research"]);
-                    api.composer().setText("I want to do research on ");
+                    aui.composer().setText("I want to do research on ");
                     if (setIsChatExpanded && !isChatExpanded && isDesktop) {
                       setIsChatExpanded(true);
                     }
@@ -623,7 +622,6 @@ export function WorkspaceSection({
           </ContextMenuContent>
         )}
       </ContextMenu>
-
       {/* Selection Action Bar - show when cards are selected */}
       {(state.items ?? []).length > 0 && !isChatMaximized && selectedCardIds.size > 0 && (
         <SelectionActionBar
@@ -635,12 +633,8 @@ export function WorkspaceSection({
           isCompactMode={isItemPanelOpen && isChatExpanded}
         />
       )}
-
       {/* Modal Manager - scoped to workspace panel only */}
       {modalManager}
-
-
-
       {/* Move To Dialog */}
       {showMoveDialog && selectedCardIdsArray.length > 0 && (
         <MoveToDialog
@@ -655,7 +649,6 @@ export function WorkspaceSection({
           onMoveMultiple={handleMoveConfirm}
         />
       )}
-
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
@@ -679,22 +672,18 @@ export function WorkspaceSection({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
       {/* Workspace Settings Modal */}
       <WorkspaceSettingsModal
         workspace={currentWorkspace}
         open={showSettingsModal}
         onOpenChange={setShowSettingsModal}
       />
-
       {/* Share Workspace Dialog */}
       <ShareWorkspaceDialog
         workspace={currentWorkspace}
         open={showShareDialog}
         onOpenChange={setShowShareDialog}
       />
-
-
       {/* YouTube Dialog */}
       <CreateYouTubeDialog
         open={showYouTubeDialog}

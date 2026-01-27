@@ -3,10 +3,10 @@
 import type { FC } from "react";
 import { useState, useRef, useEffect } from "react";
 import {
-  AssistantIf,
+  AuiIf,
   ThreadListItemPrimitive,
   ThreadListPrimitive,
-  useAssistantApi,
+  useAui,
 } from "@assistant-ui/react";
 import { Trash2Icon, PencilIcon } from "lucide-react";
 import { useThreadListItem } from "@assistant-ui/react";
@@ -59,12 +59,12 @@ export const ThreadListDropdown: FC<ThreadListDropdownProps> = ({ trigger }) => 
           <ThreadListNew onSelect={() => setOpen(false)} />
           <DropdownMenuSeparator className="bg-sidebar-border m-0" />
           <div className="flex-1 overflow-y-auto max-h-[400px] p-1">
-            <AssistantIf condition={({ threads }) => threads.isLoading}>
+            <AuiIf condition={({ threads }) => threads.isLoading}>
               <ThreadListSkeleton />
-            </AssistantIf>
-            <AssistantIf condition={({ threads }) => !threads.isLoading}>
+            </AuiIf>
+            <AuiIf condition={({ threads }) => !threads.isLoading}>
               <ThreadListPrimitive.Items components={{ ThreadListItem: () => <ThreadListItem onSelect={() => setOpen(false)} /> }} />
-            </AssistantIf>
+            </AuiIf>
           </div>
         </ThreadListPrimitive.Root>
       </DropdownMenuContent>
@@ -116,7 +116,7 @@ const ThreadListItemContent: FC<{ onSelect?: () => void }> = ({ onSelect }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const api = useAssistantApi();
+  const aui = useAui();
 
   // Get the current title and thread state - this is now inside the Root context
   // Using safe hook to handle race condition during thread switching (GitHub issue #2722)
@@ -162,7 +162,7 @@ const ThreadListItemContent: FC<{ onSelect?: () => void }> = ({ onSelect }) => {
 
     if (trimmedValue && trimmedValue !== title) {
       try {
-        await api?.threadListItem().rename(trimmedValue);
+        await aui?.threadListItem().rename(trimmedValue);
         toast.success("Title updated");
       } catch (error) {
         console.error("Failed to rename thread:", error);

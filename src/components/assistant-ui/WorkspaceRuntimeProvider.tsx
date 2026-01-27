@@ -1,7 +1,6 @@
 "use client";
 
-import { AssistantCloud } from "@assistant-ui/react";
-import { SafeAssistantRuntimeProvider } from "@/components/assistant-ui/SafeAssistantRuntimeProvider";
+import { AssistantCloud, AssistantRuntimeProvider } from "@assistant-ui/react";
 import { useChatRuntime, AssistantChatTransport } from "@assistant-ui/react-ai-sdk";
 import { useMemo, useCallback } from "react";
 import { AssistantAvailableProvider } from "@/contexts/AssistantAvailabilityContext";
@@ -151,10 +150,10 @@ export function WorkspaceRuntimeProvider({
   });
 
   return (
-    <SafeAssistantRuntimeProvider runtime={runtime}>
+    <AssistantRuntimeProvider runtime={runtime}>
       <AssistantAvailableProvider>
         {children}
       </AssistantAvailableProvider>
-    </SafeAssistantRuntimeProvider>
+    </AssistantRuntimeProvider>
   );
 }

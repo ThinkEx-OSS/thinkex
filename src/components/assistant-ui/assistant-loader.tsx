@@ -1,6 +1,6 @@
 "use client";
 
-import { useAssistantState } from "@assistant-ui/react";
+import { useAuiState } from "@assistant-ui/react";
 import { useState, useEffect } from "react";
 import ShinyText from "@/components/ShinyText";
 
@@ -14,11 +14,11 @@ const thinkingMessages = [
 ];
 
 export const AssistantLoader = () => {
-    const isRunning = useAssistantState(
+    const isRunning = useAuiState(
         ({ message }) => (message as { status?: { type: string } })?.status?.type === "running"
     );
 
-    const isMessageEmpty = useAssistantState(({ message }) => {
+    const isMessageEmpty = useAuiState(({ message }) => {
         const msg = message as any;
         return !msg?.content || (Array.isArray(msg.content) && msg.content.length === 0);
     });

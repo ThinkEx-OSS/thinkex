@@ -9,7 +9,7 @@ import { WorkspaceGrid } from "./WorkspaceGrid";
 import type { LayoutItem } from "react-grid-layout";
 import { useUIStore, selectSelectedCardIdsArray } from "@/lib/stores/ui-store";
 import { useShallow } from "zustand/react/shallow";
-import { useAssistantApi } from "@assistant-ui/react";
+import { useAui } from "@assistant-ui/react";
 import { toast } from "sonner";
 
 interface WorkspaceContentProps {
@@ -93,7 +93,7 @@ export default function WorkspaceContent({
 
   // File upload for empty state
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const api = useAssistantApi();
+  const aui = useAui();
 
   // Handle copy JSON to clipboard
   const handleCopyJson = useCallback(async () => {
@@ -227,7 +227,7 @@ export default function WorkspaceContent({
       // Add all valid files to composer
       for (const file of validFiles) {
         try {
-          await api.composer().addAttachment(file);
+          await aui.composer().addAttachment(file);
         } catch (error) {
           console.error("Failed to add attachment:", error);
         }
@@ -238,7 +238,7 @@ export default function WorkspaceContent({
         fileInputRef.current.value = "";
       }
     },
-    [api]
+    [aui]
   );
 
   // Handle drag start

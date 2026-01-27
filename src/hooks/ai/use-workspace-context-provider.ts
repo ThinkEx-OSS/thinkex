@@ -1,4 +1,4 @@
-import { useAssistantApi } from "@assistant-ui/react";
+import { useAui } from "@assistant-ui/react";
 import { useEffect, useMemo } from "react";
 import type { AgentState } from "@/lib/workspace-state/types";
 import { formatWorkspaceContext } from "@/lib/utils/format-workspace-context";
@@ -12,7 +12,7 @@ export function useWorkspaceContextProvider(
   workspaceId: string | null, 
   state: AgentState
 ) {
-  const api = useAssistantApi();
+  const aui = useAui();
 
   // Format workspace context - memoized to avoid recalculation
   const contextInstructions = useMemo(
@@ -26,10 +26,10 @@ export function useWorkspaceContextProvider(
       return;
     }
 
-    return api.modelContext().register({
+    return aui.modelContext().register({
       getModelContext: () => ({
         system: contextInstructions,
       }),
     });
-  }, [api, contextInstructions, workspaceId]);
+  }, [aui, contextInstructions, workspaceId]);
 }

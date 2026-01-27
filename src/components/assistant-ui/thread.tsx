@@ -24,15 +24,15 @@ import { LuSparkle } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import {
   ActionBarPrimitive,
-  AssistantIf,
+  AuiIf,
   BranchPickerPrimitive,
   ComposerPrimitive,
   ErrorPrimitive,
   MessagePrimitive,
   ThreadPrimitive,
-  useAssistantApi,
+  useAui,
   useMessagePartText,
-  useAssistantState,
+  useAuiState,
 } from "@assistant-ui/react";
 
 
@@ -77,6 +77,10 @@ import {
 } from "@/components/assistant-ui/attachment";
 import { SelectCardsToolUI } from "@/components/assistant-ui/SelectCardsToolUI";
 import { AssistantLoader } from "@/components/assistant-ui/assistant-loader";
+import { File as FileComponent } from "@/components/assistant-ui/file";
+import { Sources } from "@/components/assistant-ui/sources";
+import { Image } from "@/components/assistant-ui/image";
+import { Reasoning, ReasoningGroup } from "@/components/assistant-ui/reasoning";
 
 import type { Item, PdfData } from "@/lib/workspace-state/types";
 import { CardContextDisplay } from "@/components/chat/CardContextDisplay";
@@ -143,9 +147,9 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
             autoScroll={false}
             className="aui-thread-viewport relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll px-4"
           >
-            <AssistantIf condition={({ thread }) => thread.isEmpty}>
+            <AuiIf condition={({ thread }) => thread.isEmpty}>
               <ThreadWelcome />
-            </AssistantIf>
+            </AuiIf>
 
             <ThreadPrimitive.Messages
               components={{
@@ -287,7 +291,7 @@ interface ComposerProps {
 
 const Composer: FC<ComposerProps> = ({ items }) => {
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-  const api = useAssistantApi();
+  const aui = useAui();
   const replySelections = useUIStore(useShallow(selectReplySelections));
   const clearReplySelections = useUIStore((state) => state.clearReplySelections);
   const clearSelectedActions = useUIStore((state) => state.clearSelectedActions);
@@ -389,7 +393,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
       const newValue = textBefore + textAfter;
 
       // Update the textarea value
-      api.composer().setText(newValue);
+      aui.composer().setText(newValue);
 
       // Reset mention state
       setMentionQuery("");
@@ -404,7 +408,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         }
       }, 0);
     }
-  }, [mentionStartIndex, api]);
+  }, [mentionStartIndex, aui]);
 
   // Handle mention selection - select item and close menu
   const handleMentionSelect = useCallback((item: Item) => {
@@ -439,7 +443,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
 
       if (fileToUpload) {
         try {
-          await api.composer().addAttachment(fileToUpload);
+          await aui.composer().addAttachment(fileToUpload);
         } catch (error) {
           console.error("Failed to add file attachment:", error);
         }
@@ -457,7 +461,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
       if (file) {
         try {
           // Add as attachment - will be uploaded when message is sent
-          await api.composer().addAttachment(file);
+          await aui.composer().addAttachment(file);
         } catch (error) {
           console.error("Failed to add image attachment:", error);
         }
@@ -481,7 +485,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
             // Create a virtual File object from the URL
             const urlFile = createUrlFile(url);
             // Add it as an attachment
-            await api.composer().addAttachment(urlFile);
+            await aui.composer().addAttachment(urlFile);
           } catch (error) {
             console.error("Failed to add URL attachment:", error);
           }
@@ -536,7 +540,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         e.preventDefault();
 
         // Get the current composer state
-        const composerState = api.composer().getState();
+        const composerState = aui.composer().getState();
         const currentText = composerState.text;
         const attachments = composerState.attachments || [];
 
@@ -632,8 +636,8 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         let modifiedText = currentText;
 
         // Set the modified text and send
-        api.composer().setText(modifiedText);
-        api.composer().send();
+        aui.composer().setText(modifiedText);
+        aui.composer().send();
 
         // Clear reply selections immediately (these are added to the message itself)
         clearReplySelections();
@@ -687,7 +691,7 @@ interface ComposerActionProps {
 
 const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
   const { data: session } = useSession();
-  const api = useAssistantApi();
+  const aui = useAui();
   const isAnonymous = session?.user?.isAnonymous ?? false;
   const selectedCardIdsArray = useUIStore(
     useShallow(selectSelectedCardIdsArray)
@@ -964,11 +968,10 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
           </Popover>
         )}
       </div>
-
       {/* Right side: speech/send/cancel button */}
       <div className="flex items-center gap-2">
         {!isAnonymous && <SpeechToTextButton />}
-        <AssistantIf condition={({ thread }) => !thread.isRunning}>
+        <AuiIf condition={({ thread }) => !thread.isRunning}>
           <ComposerPrimitive.Send asChild>
             <TooltipIconButton
               tooltip="Send message"
@@ -982,9 +985,9 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
               <ArrowUpIcon className="aui-composer-send-icon size-4 text-gray-900 dark:text-gray-600" />
             </TooltipIconButton>
           </ComposerPrimitive.Send>
-        </AssistantIf>
+        </AuiIf>
 
-        <AssistantIf condition={({ thread }) => thread.isRunning}>
+        <AuiIf condition={({ thread }) => thread.isRunning}>
           <ComposerPrimitive.Cancel asChild>
             <Button
               type="button"
@@ -996,7 +999,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
               <Square className="aui-composer-cancel-icon size-3 text-gray-900 dark:text-gray-600 fill-current" />
             </Button>
           </ComposerPrimitive.Cancel>
-        </AssistantIf>
+        </AuiIf>
       </div>
     </div >
   );
@@ -1024,6 +1027,11 @@ const AssistantMessage: FC = () => {
           <MessagePrimitive.Parts
             components={{
               Text: MarkdownText,
+              File: FileComponent,
+              Source: Sources,
+              Image,
+              Reasoning: Reasoning,
+              ReasoningGroup: ReasoningGroup,
               tools: {
                 Fallback: ToolFallback,
               },
@@ -1407,6 +1415,7 @@ const UserMessage: FC = () => {
             <MessagePrimitive.Parts
               components={{
                 Text: UserMessageText,
+                File: FileComponent,
               }}
             />
           </div>
@@ -1626,8 +1635,8 @@ const truncateText = (text: string, maxLength: number = 30) => {
 };
 
 const EditComposer: FC = () => {
-  const api = useAssistantApi();
-  const messageAttachments = useAssistantState(
+  const aui = useAui();
+  const messageAttachments = useAuiState(
     useShallow(({ message }) => (message as { attachments?: unknown[] })?.attachments || [])
   );
   const hasParsedRef = useRef(false);
@@ -1644,7 +1653,7 @@ const EditComposer: FC = () => {
     hasParsedRef.current = false;
     hasAttachmentsRestoredRef.current = false;
 
-    const composerState = api.composer().getState();
+    const composerState = aui.composer().getState();
 
     if (!composerState || !composerState.text) return;
 
@@ -1671,7 +1680,7 @@ const EditComposer: FC = () => {
 
     // Update input text to show only clean text (without markers)
     if (cleanText !== composerState.text) {
-      api.composer().setText(cleanText);
+      aui.composer().setText(cleanText);
     }
 
     hasParsedRef.current = true;
@@ -1711,7 +1720,7 @@ const EditComposer: FC = () => {
                 }
               }
 
-              api.composer().addAttachment(file);
+              aui.composer().addAttachment(file);
             } catch (error) {
               console.error("Failed to restore file attachment:", error);
             }
@@ -1742,7 +1751,7 @@ const EditComposer: FC = () => {
               if (urlMatch && urlMatch[1]) {
                 try {
                   const urlFile = createUrlFile(urlMatch[1]);
-                  api.composer().addAttachment(urlFile);
+                  aui.composer().addAttachment(urlFile);
                 } catch (error) {
                   console.error("Failed to restore URL attachment:", error);
                 }
@@ -1752,7 +1761,7 @@ const EditComposer: FC = () => {
         });
       }
     }
-  }, [api, messageAttachments]);
+  }, [aui, messageAttachments]);
 
   return (
     <div className="aui-edit-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-col gap-4 px-2 first:mt-4 mb-4">
@@ -1762,7 +1771,7 @@ const EditComposer: FC = () => {
           e.preventDefault();
 
           // Get the current composer state
-          const composerState = api.composer().getState();
+          const composerState = aui.composer().getState();
           const currentText = composerState.text;
 
           // Re-add URL markers from parsed URLs (stored in state)
@@ -1787,8 +1796,8 @@ const EditComposer: FC = () => {
           }
 
           // Set the modified text and send
-          api.composer().setText(modifiedText);
-          api.composer().send();
+          aui.composer().setText(modifiedText);
+          aui.composer().send();
         }}
       >
         {/* Attachment Display - shows restored and new attachments */}

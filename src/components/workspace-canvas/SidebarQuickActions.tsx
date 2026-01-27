@@ -13,7 +13,7 @@ import {
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { useAssistantApi } from "@assistant-ui/react";
+import { useAui } from "@assistant-ui/react";
 import { useRef, useState, useCallback } from "react";
 import { toast } from "sonner";
 import type { PdfData } from "@/lib/workspace-state/types";
@@ -28,7 +28,7 @@ interface SidebarQuickActionsProps {
 
 export function SidebarQuickActions({ currentWorkspaceId, isChatExpanded, setIsChatExpanded }: SidebarQuickActionsProps) {
     // Get assistant API
-    const api = useAssistantApi();
+    const aui = useAui();
     // Get workspace state and operations
     const { state: workspaceState } = useWorkspaceState(currentWorkspaceId);
     const operations = useWorkspaceOperations(currentWorkspaceId, workspaceState);
@@ -89,7 +89,7 @@ export function SidebarQuickActions({ currentWorkspaceId, isChatExpanded, setIsC
         setSelectedActions(['deep-research']);
 
 
-    }, [api, isChatExpanded, setIsChatExpanded, setSelectedActions]);
+    }, [aui, isChatExpanded, setIsChatExpanded, setSelectedActions]);
 
     const handleQuizClick = useCallback(() => {
         // Open chat if closed
@@ -98,13 +98,13 @@ export function SidebarQuickActions({ currentWorkspaceId, isChatExpanded, setIsC
         }
 
         // Fill composer with quiz creation prompt
-        api.composer().setText("Create a quiz about ");
+        aui.composer().setText("Create a quiz about ");
 
         // Focus the composer input
         focusComposerInput();
 
         toast.success("Quiz creation started");
-    }, [api, isChatExpanded, setIsChatExpanded]);
+    }, [aui, isChatExpanded, setIsChatExpanded]);
 
     // PDF Upload Logic (Adapted from WorkspaceSection/BottomActionBar)
     const handlePDFUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {

@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { useAssistantApi } from "@assistant-ui/react";
+import { useAui } from "@assistant-ui/react";
 import { toast } from "sonner";
 
 // PDF Plugin imports
@@ -193,7 +193,7 @@ export function PdfPanelHeader({
     const { provides: searchProvides, state: searchState } = useSearch(documentId);
     const { provides: capture, state: captureState } = useCapture(documentId);
 
-    const api = useAssistantApi();
+    const aui = useAui();
 
     const isChatExpanded = useUIStore((state) => state.isChatExpanded);
     const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
@@ -232,7 +232,7 @@ export function PdfPanelHeader({
                 const file = new File([result.blob], filename, { type: result.imageType });
 
                 // Add attachment to composer
-                await api.composer().addAttachment(file);
+                await aui.composer().addAttachment(file);
                 toast.success("Screenshot added to chat");
 
                 // Turn off capture mode
@@ -249,7 +249,7 @@ export function PdfPanelHeader({
         return () => {
             unsubscribe();
         };
-    }, [capture, api, captureState.isMarqueeCaptureActive]);
+    }, [capture, aui, captureState.isMarqueeCaptureActive]);
 
 
     const zoomPercent = zoomState?.currentZoomLevel

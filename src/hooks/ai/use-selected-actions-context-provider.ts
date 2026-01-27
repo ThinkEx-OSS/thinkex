@@ -1,4 +1,4 @@
-import { useAssistantApi } from "@assistant-ui/react";
+import { useAui } from "@assistant-ui/react";
 import { useEffect, useMemo } from "react";
 import { formatSelectedActionsContext } from "@/lib/utils/format-workspace-context";
 
@@ -9,7 +9,7 @@ import { formatSelectedActionsContext } from "@/lib/utils/format-workspace-conte
 export function useSelectedActionsContextProvider(
   selectedActions: string[]
 ) {
-  const api = useAssistantApi();
+  const aui = useAui();
 
   // Format context for selected actions - memoized to avoid recalculation
   const contextInstructions = useMemo(
@@ -24,11 +24,11 @@ export function useSelectedActionsContextProvider(
       return;
     }
 
-    return api.modelContext().register({
+    return aui.modelContext().register({
       getModelContext: () => ({
         system: contextInstructions,
       }),
     });
-  }, [api, contextInstructions, selectedActions.length]);
+  }, [aui, contextInstructions, selectedActions.length]);
 }
 

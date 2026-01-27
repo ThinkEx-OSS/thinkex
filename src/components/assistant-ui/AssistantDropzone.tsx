@@ -1,7 +1,7 @@
 "use client";
 
 import { useDropzone } from "react-dropzone";
-import { useAssistantApi } from "@assistant-ui/react";
+import { useAui } from "@assistant-ui/react";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Upload } from "lucide-react";
 import { useCallback, useState, useRef } from "react";
@@ -16,7 +16,7 @@ interface AssistantDropzoneProps {
  * Accepts all supported file types and adds them as attachments to the chat composer.
  */
 export function AssistantDropzone({ children }: AssistantDropzoneProps) {
-  const api = useAssistantApi();
+  const aui = useAui();
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -31,7 +31,7 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
-      if (!currentWorkspaceId || !api) return;
+      if (!currentWorkspaceId || !aui) return;
 
       const MAX_FILES = 10;
       const MAX_FILE_SIZE_MB = 10;
@@ -93,7 +93,7 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
         // Add each file to the composer
         const addPromises = validFiles.map(async (file) => {
           try {
-            await api.composer().addAttachment(file);
+            await aui.composer().addAttachment(file);
           } catch (error) {
             console.error("Failed to add attachment:", error);
             // Remove from processing set on error so it can be retried
@@ -124,7 +124,7 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
         }, 200);
       }
     },
-    [api, currentWorkspaceId]
+    [aui, currentWorkspaceId]
   );
 
   // Clear processing state when drag ends (user drags away or cancels)
@@ -139,7 +139,7 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
     onDrop,
     noClick: true, // Don't trigger on click, only drag and drop
     noKeyboard: true, // Don't trigger on keyboard
-    disabled: !currentWorkspaceId || !api, // Disable if no workspace is selected or api is not available
+    disabled: !currentWorkspaceId || !aui, // Disable if no workspace is selected or api is not available
     accept: {
       'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp'],
       'video/*': ['.mp4', '.webm', '.avi', '.mov', '.mkv'],

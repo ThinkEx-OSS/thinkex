@@ -3,7 +3,7 @@
 import { X, ChevronDown, Trash2, Edit2, Check, MessageSquarePlus } from "lucide-react";
 import { RiChatHistoryLine } from "react-icons/ri";
 import { LuMaximize, LuMinimize, LuPanelRightClose } from "react-icons/lu";
-import { useAssistantApi, useThreadListItem } from "@assistant-ui/react";
+import { useAui, useThreadListItem } from "@assistant-ui/react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,7 +59,7 @@ export function AppChatHeader({
   const [isEditingCurrentTitle, setIsEditingCurrentTitle] = useState(false);
   const [currentTitleEditValue, setCurrentTitleEditValue] = useState("");
   const currentTitleTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const api = useAssistantApi();
+  const aui = useAui();
 
   // Get UI store state for sidebar behavior
   const openPanelIds = useUIStore((state) => state.openPanelIds);
@@ -158,7 +158,7 @@ export function AppChatHeader({
 
     if (trimmedValue && trimmedValue !== currentThreadTitle) {
       try {
-        await api?.threadListItem().rename(trimmedValue);
+        await aui?.threadListItem().rename(trimmedValue);
         toast.success("Title updated");
       } catch (error) {
         console.error("Failed to rename thread:", error);
