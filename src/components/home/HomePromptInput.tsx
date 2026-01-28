@@ -172,7 +172,12 @@ export function HomePromptInput() {
                   "pl-2 pr-14",
                   "text-lg text-muted-foreground"
                 )}
-                style={{ willChange: 'transform', fontSize: '1.125rem', lineHeight: '1.75rem' }}
+                style={{ 
+                  willChange: 'transform', 
+                  fontSize: '1.125rem', 
+                  lineHeight: '1.75rem',
+                  transform: 'translateX(-4px)'
+                }}
               >
                 <TypingText
                   key={typingKeyRef.current}

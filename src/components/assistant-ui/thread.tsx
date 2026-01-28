@@ -308,13 +308,25 @@ const Composer: FC<ComposerProps> = ({ items }) => {
 
   const selectedActions = useUIStore((state) => state.selectedActions);
 
+  // Watch for thread changes to auto-focus composer (built-in assistant-ui behavior)
+  const mainThreadId = useAuiState(({ threads }) => (threads as any)?.mainThreadId);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
+  // Auto-focus composer when thread changes
+  useEffect(() => {
+    if (mainThreadId && inputRef.current) {
+      // Small delay to ensure DOM is ready after thread switch
+      const timeoutId = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [mainThreadId]);
 
   // Mention menu state
   const [mentionMenuOpen, setMentionMenuOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionStartIndex, setMentionStartIndex] = useState<number | null>(null);
-  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
 
   // Handle input changes for @ mention detection
