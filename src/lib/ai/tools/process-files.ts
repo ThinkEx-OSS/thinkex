@@ -249,26 +249,31 @@ export function createProcessFilesTool() {
 
             const fileResults: string[] = [];
 
+            // Process different file types in parallel using Promise.all()
+            const processingPromises: Promise<string | null>[] = [];
+
             // Handle local file URLs (read from disk and send as base64)
             if (localUrls.length > 0) {
-                try {
-                    const result = await processLocalFiles(localUrls, instruction);
-                    fileResults.push(result);
-                } catch (error) {
-                    logger.error("📁 [FILE_TOOL] Error in local file processing:", error);
-                    fileResults.push(`Error processing local files: ${error instanceof Error ? error.message : String(error)}`);
-                }
+                processingPromises.push(
+                    processLocalFiles(localUrls, instruction)
+                        .then(result => result)
+                        .catch(error => {
+                            logger.error("📁 [FILE_TOOL] Error in local file processing:", error);
+                            return `Error processing local files: ${error instanceof Error ? error.message : String(error)}`;
+                        })
+                );
             }
 
             // Handle Supabase file URLs
             if (supabaseUrls.length > 0) {
-                try {
-                    const result = await processSupabaseFiles(supabaseUrls, instruction);
-                    fileResults.push(result);
-                } catch (error) {
-                    logger.error("📁 [FILE_TOOL] Error in Supabase file processing:", error);
-                    fileResults.push(`Error processing Supabase files: ${error instanceof Error ? error.message : String(error)}`);
-                }
+                processingPromises.push(
+                    processSupabaseFiles(supabaseUrls, instruction)
+                        .then(result => result)
+                        .catch(error => {
+                            logger.error("📁 [FILE_TOOL] Error in Supabase file processing:", error);
+                            return `Error processing Supabase files: ${error instanceof Error ? error.message : String(error)}`;
+                        })
+                );
             }
 
             // LIMITATION: Gemini only supports one video file per request
@@ -277,17 +282,25 @@ export function createProcessFilesTool() {
                 fileResults.push(`⚠️ Note: Only one video can be processed at a time. Processing the first video, others were ignored.`);
             }
 
+            // Handle YouTube videos
             if (youtubeUrls.length > 0) {
-                try {
-                    const result = await processYouTubeVideo(youtubeUrls[0], instruction);
-                    fileResults.push(result);
-                } catch (videoError) {
-                    logger.error("📁 [FILE_TOOL] Error processing YouTube video:", {
-                        url: youtubeUrls[0],
-                        error: videoError instanceof Error ? videoError.message : String(videoError),
-                    });
-                    fileResults.push(`Error processing video ${youtubeUrls[0]}: ${videoError instanceof Error ? videoError.message : String(videoError)}`);
-                }
+                processingPromises.push(
+                    processYouTubeVideo(youtubeUrls[0], instruction)
+                        .then(result => result)
+                        .catch(videoError => {
+                            logger.error("📁 [FILE_TOOL] Error processing YouTube video:", {
+                                url: youtubeUrls[0],
+                                error: videoError instanceof Error ? videoError.message : String(videoError),
+                            });
+                            return `Error processing video ${youtubeUrls[0]}: ${videoError instanceof Error ? videoError.message : String(videoError)}`;
+                        })
+                );
+            }
+
+            // Execute all file type processing in parallel
+            if (processingPromises.length > 0) {
+                const results = await Promise.all(processingPromises);
+                fileResults.push(...results.filter((r): r is string => r !== null));
             }
 
             if (fileResults.length === 0) {

@@ -60,36 +60,93 @@ export function createProcessUrlsTool() {
             }
 
             try {
-                const tools: any = {
-                    url_context: google.tools.urlContext({}),
-                };
+                // Process multiple URLs in parallel using separate generateText calls
+                const urlProcessingPromises = urlList.map(async (url: string) => {
+                    const tools: any = {
+                        url_context: google.tools.urlContext({}),
+                    };
 
-                const promptText = `Analyze the content from the following URL${urlList.length > 1 ? 's' : ''}:
-${urlList.map((url: string, i: number) => `${i + 1}. ${url}`).join('\n')}
+                    const promptText = `Analyze the content from the following URL:
+${url}
 
 Please provide:
-- What each URL/page is about
+- What this URL/page is about
 - Key information, features, specifications, or data
 - Important details relevant to the user's question
 - Publication dates or last updated information
 
 Provide a clear, accurate answer based on the URL content.`;
 
-                const { text, sources, providerMetadata } = await generateText({
-                    model: google("gemini-2.5-flash"),
-                    tools,
-                    prompt: promptText,
+                    try {
+                        const { text, sources, providerMetadata } = await generateText({
+                            model: google("gemini-2.5-flash"),
+                            tools,
+                            prompt: promptText,
+                        });
+
+                        const urlMetadata = providerMetadata?.urlContext?.urlMetadata || null;
+                        const groundingChunks = providerMetadata?.urlContext?.groundingChunks || null;
+
+                        return {
+                            url,
+                            success: true,
+                            text,
+                            metadata: {
+                                urlMetadata: Array.isArray(urlMetadata) ? (urlMetadata as Array<{ retrievedUrl: string; urlRetrievalStatus: string }>) : null,
+                                groundingChunks: Array.isArray(groundingChunks) ? (groundingChunks as Array<any>) : null,
+                                sources: Array.isArray(sources) ? (sources as Array<any>) : null,
+                            },
+                        };
+                    } catch (urlError) {
+                        logger.error(`🔗 [URL_TOOL] Error processing URL ${url}:`, {
+                            error: urlError instanceof Error ? urlError.message : String(urlError),
+                        });
+                        return {
+                            url,
+                            success: false,
+                            text: `Error processing ${url}: ${urlError instanceof Error ? urlError.message : String(urlError)}`,
+                            metadata: {
+                                urlMetadata: null,
+                                groundingChunks: null,
+                                sources: null,
+                            },
+                        };
+                    }
                 });
 
-                const urlMetadata = providerMetadata?.urlContext?.urlMetadata || null;
-                const groundingChunks = providerMetadata?.urlContext?.groundingChunks || null;
+                // Execute all URL processing in parallel
+                const results = await Promise.all(urlProcessingPromises);
+
+                // Aggregate results
+                const successfulResults = results.filter(r => r.success);
+                const failedResults = results.filter(r => !r.success);
+
+                // Combine text from all successful results
+                const combinedText = results
+                    .map(r => `**${r.url}**\n\n${r.text}`)
+                    .join('\n\n---\n\n');
+
+                // Combine metadata from all results
+                const allUrlMetadata = results
+                    .flatMap(r => r.metadata.urlMetadata || [])
+                    .filter((m): m is { retrievedUrl: string; urlRetrievalStatus: string } => m !== null);
+                const allGroundingChunks = results
+                    .flatMap(r => r.metadata.groundingChunks || [])
+                    .filter((c): c is any => c !== null);
+                const allSources = results
+                    .flatMap(r => r.metadata.sources || [])
+                    .filter((s): s is any => s !== null);
+
+                if (failedResults.length > 0) {
+                    logger.warn(`🔗 [URL_TOOL] ${failedResults.length} URL(s) failed to process:`, failedResults.map(r => r.url));
+                }
 
                 return {
-                    text,
+                    text: combinedText,
                     metadata: {
-                        urlMetadata: Array.isArray(urlMetadata) ? (urlMetadata as Array<{ retrievedUrl: string; urlRetrievalStatus: string }>) : null,
-                        groundingChunks: Array.isArray(groundingChunks) ? (groundingChunks as Array<any>) : null,
-                        sources: Array.isArray(sources) ? (sources as Array<any>) : null,
+                        urlMetadata: allUrlMetadata.length > 0 ? allUrlMetadata : null,
+                        groundingChunks: allGroundingChunks.length > 0 ? allGroundingChunks : null,
+                        sources: allSources.length > 0 ? allSources : null,
                     },
                 };
             } catch (error) {

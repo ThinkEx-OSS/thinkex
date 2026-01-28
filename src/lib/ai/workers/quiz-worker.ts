@@ -10,7 +10,7 @@ export type QuizWorkerParams = {
     sourceCardIds?: string[];
     sourceCardNames?: string[];
     difficulty: "easy" | "medium" | "hard";
-    questionCount?: number;        // Defaults to 10
+    questionCount?: number;        // Defaults to 5
     questionTypes?: ("multiple_choice" | "true_false")[];
     existingQuestions?: Array<{
         id: string;
@@ -76,7 +76,7 @@ For weak areas:
 
 export async function quizWorker(params: QuizWorkerParams): Promise<{ questions: QuizQuestion[]; title: string }> {
     try {
-        const questionCount = params.questionCount || 10;
+        const questionCount = params.questionCount || 5;
         const questionTypes = params.questionTypes || ["multiple_choice", "true_false"];
 
         logger.debug("🎯 [QUIZ-WORKER] Starting quiz generation:", {

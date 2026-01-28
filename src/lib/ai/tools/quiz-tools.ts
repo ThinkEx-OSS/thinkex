@@ -15,7 +15,7 @@ import type { QuizData } from "@/lib/workspace-state/types";
  */
 export function createQuizTool(ctx: WorkspaceToolContext) {
     return {
-        description: "Create an interactive quiz in the workspace. Generates multiple-choice and true/false questions. If cards are selected in the context drawer (visible in the 'CARDS IN CONTEXT DRAWER' section of your system context), extract their content and pass it as 'contextContent'. If no cards are selected, generate questions from general knowledge about the topic. Creates a quiz card with 10 questions. IMPORTANT: Extract the topic from the user's message and pass it as 'topic'. If cards are selected, extract their content from the system context and pass as 'contextContent' along with 'sourceCardIds' and 'sourceCardNames'.",
+        description: "Create an interactive quiz in the workspace. Generates multiple-choice and true/false questions. If cards are selected in the context drawer (visible in the 'CARDS IN CONTEXT DRAWER' section of your system context), extract their content and pass it as 'contextContent'. If no cards are selected, generate questions from general knowledge about the topic. Creates a quiz card with 5 questions. IMPORTANT: Extract the topic from the user's message and pass it as 'topic'. If cards are selected, extract their content from the system context and pass as 'contextContent' along with 'sourceCardIds' and 'sourceCardNames'.",
         // Use z.any() to avoid streaming validation errors when Gemini sends properties in random order
         // The error "argsText can only be appended" happens because strict z.object() validates during streaming
         inputSchema: z.any().describe("Object with 'topic' (string - REQUIRED: extract from user's message), optional 'contextContent' (string - extract from selected cards in system context if available), optional 'sourceCardIds' (string[]), optional 'sourceCardNames' (string[]), and optional 'difficulty' ('easy'|'medium'|'hard', default 'medium')"),
@@ -64,7 +64,7 @@ export function createQuizTool(ctx: WorkspaceToolContext) {
                     topic: topic || undefined,
                     contextContent,
                     difficulty,
-                    questionCount: 10,
+                    questionCount: 5,
                     sourceCardIds,
                     sourceCardNames,
                 });
@@ -223,7 +223,7 @@ export function createUpdateQuizTool(ctx: WorkspaceToolContext) {
                     topic,
                     contextContent,
                     difficulty: currentQuizData.difficulty || "medium",
-                    questionCount: 10,
+                    questionCount: 5,
                     existingQuestions,
                     performanceTelemetry,
                     sourceCardIds,
