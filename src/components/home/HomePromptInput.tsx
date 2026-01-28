@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowUp, Paperclip, Loader2 } from "lucide-react";
+import { ArrowUp, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,6 @@ export function HomePromptInput() {
   const [value, setValue] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const typewriterRef = useRef<TypewriterClass | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -70,23 +69,6 @@ export function HomePromptInput() {
     setIsFocused(false);
     if (value.length === 0 && typewriterRef.current) {
       typewriterRef.current.start();
-    }
-  };
-
-  const handleFileUpload = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    toast.info("Coming soon", {
-      description: "File upload for workspace creation will be available soon!",
-    });
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
     }
   };
 
@@ -141,15 +123,6 @@ export function HomePromptInput() {
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-2xl">
       <div className="relative">
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          onChange={handleFileChange}
-          className="hidden"
-        />
-
         {/* Input container styled to look like one input */}
         <div
           onClick={() => inputRef.current?.focus()}
@@ -161,29 +134,11 @@ export function HomePromptInput() {
             "cursor-text"
           )}
         >
-          {/* File upload button - inside on the left */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleFileUpload();
-            }}
-            className={cn(
-              "h-9 w-9 flex-shrink-0 ml-2",
-              "hover:bg-sidebar-accent",
-              "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Paperclip className="h-5 w-5" />
-          </Button>
-
           {/* Prefix label */}
           <span
             className={cn(
               "text-lg text-foreground whitespace-nowrap flex-shrink-0",
-              "pl-2 pr-0"
+              "pl-4 pr-0"
             )}
             style={{ fontSize: '1.125rem', lineHeight: '1.75rem' }}
           >
