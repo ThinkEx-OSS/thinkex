@@ -18,6 +18,9 @@ interface DashboardLayoutProps {
   showCreateModal: boolean;
   setShowCreateModal: (show: boolean) => void;
 
+  // Workspace header (should span sidebar + workspace area)
+  workspaceHeader?: React.ReactNode;
+
   // Chat state
   isDesktop: boolean;
   isChatExpanded: boolean;
@@ -46,6 +49,7 @@ export function DashboardLayout({
   onWorkspaceSwitch,
   showCreateModal,
   setShowCreateModal,
+  workspaceHeader,
   isDesktop,
   isChatExpanded,
   isChatMaximized,
@@ -87,33 +91,146 @@ export function DashboardLayout({
 
   const content = (
     <div className="h-screen flex w-full">
-      {/* Left Sidebar - Key forces remount on workspace change */}
-      <Sidebar side="left" variant="sidebar" collapsible="offcanvas" key={`sidebar-${currentWorkspaceId || 'none'}`}>
-        <WorkspaceSidebar
-          showJsonView={showJsonView}
-          setShowJsonView={setShowJsonView}
-          onWorkspaceSwitch={onWorkspaceSwitch}
-          showCreateModal={showCreateModal}
-          setShowCreateModal={setShowCreateModal}
-          isChatExpanded={effectiveChatExpanded}
-          setIsChatExpanded={setIsChatExpanded}
-        />
-      </Sidebar>
+      <GridPattern
+        width={30}
+        height={30}
+        className="opacity-10"
+        id="dashboard-grid-pattern"
+      />
 
-      {/* Main Layout */}
-      <SidebarInset className="flex flex-col relative overflow-hidden">
-        <GridPattern
-          width={30}
-          height={30}
-          className="opacity-10"
-          id="dashboard-grid-pattern"
-        />
-        <div className="flex flex-1 overflow-hidden relative z-10">
-          {/* MAXIMIZED MODE: Show only chat (workspace completely hidden) */}
-          {effectiveChatMaximized ? (
-            <div className="relative flex-1 h-full">
-              <AssistantDropzone>
-                <div className="flex-1 h-full">
+      {/* MAXIMIZED MODE: Show only chat (workspace completely hidden) */}
+      {effectiveChatMaximized ? (
+        <div className="relative flex-1 h-full z-10">
+          <AssistantDropzone>
+            <div className="flex-1 h-full">
+              <AssistantPanel
+                key={`assistant-panel-${currentWorkspaceId}`}
+                workspaceId={currentWorkspaceId || ""}
+                setIsChatExpanded={setIsChatExpanded}
+                isChatMaximized={effectiveChatMaximized}
+                setIsChatMaximized={setIsChatMaximized}
+                onSingleSelect={onSingleSelect}
+                onMultiSelect={onMultiSelect}
+              />
+            </div>
+          </AssistantDropzone>
+        </div>
+      ) : (
+        <ResizablePanelGroup
+          key={`layout-${effectiveChatExpanded ? "chat" : "no-chat"}`}
+          id={`layout-${effectiveChatExpanded ? "chat" : "no-chat"}`}
+          direction="horizontal"
+          className="flex-1 z-10"
+          onLayout={handlePanelLayout}
+        >
+          {/* Left Area: Split between workspace area (with header) and item panels */}
+          <ResizablePanel
+            id="left-area-panel"
+            order={1}
+            defaultSize={(() => {
+              if (!effectiveChatExpanded) return 100;
+              return 100 - PANEL_DEFAULTS.CHAT;
+            })()}
+            minSize={effectiveChatExpanded ? PANEL_DEFAULTS.WORKSPACE_MIN : 100}
+          >
+            <ResizablePanelGroup
+              id="left-area-split"
+              direction="horizontal"
+              className="flex-1 h-full"
+            >
+              {/* Workspace area: header + sidebar + workspace canvas */}
+              <ResizablePanel
+                id="workspace-area-panel"
+                order={1}
+                defaultSize={(() => {
+                  if (panels.length === 0) {
+                    return 100;
+                  }
+                  if (panels.length >= 2) {
+                    return 0; // Hide workspace when 2 panels are open
+                  }
+                  return 100 * (1 - PANEL_DEFAULTS.ITEM_PANEL_SPLIT_RATIO);
+                })()}
+                minSize={panels.length >= 2 ? 0 : (panels.length > 0 ? 20 : 100)}
+              >
+                <div className="h-full flex flex-col relative overflow-hidden">
+                  {/* Header spans sidebar + workspace canvas (only render when a workspace exists) */}
+                  {!!currentWorkspaceId && workspaceHeader}
+
+                  {/* Below header: sidebar + workspace content */}
+                  <div className="flex flex-1 overflow-hidden">
+                    <Sidebar
+                      side="left"
+                      variant="sidebar"
+                      collapsible="offcanvas"
+                      key={`sidebar-${currentWorkspaceId || "none"}`}
+                      embedded
+                    >
+                      <WorkspaceSidebar
+                        showJsonView={showJsonView}
+                        setShowJsonView={setShowJsonView}
+                        onWorkspaceSwitch={onWorkspaceSwitch}
+                        showCreateModal={showCreateModal}
+                        setShowCreateModal={setShowCreateModal}
+                        isChatExpanded={effectiveChatExpanded}
+                        setIsChatExpanded={setIsChatExpanded}
+                      />
+                    </Sidebar>
+
+                    <SidebarInset className="flex flex-col relative overflow-hidden">
+                      <WorkspaceCanvasDropzone>{workspaceSection}</WorkspaceCanvasDropzone>
+                    </SidebarInset>
+                  </div>
+                </div>
+              </ResizablePanel>
+
+              {/* Item Panels - full height, start at top */}
+              {panels.length > 0 && (
+                <>
+                  {panels.length < 2 && (
+                    <ResizableHandle
+                      id="workspace-panel-handle"
+                      className="border-r border-sidebar-border"
+                    />
+                  )}
+                  {panels.map((panel, index) => {
+                    const panelKey = React.isValidElement(panel) ? panel.key : `panel-${index}`;
+                    return (
+                      <React.Fragment key={panelKey}>
+                        {panels.length >= 2 && index > 0 && (
+                          <ResizableHandle
+                            id={`panel-handle-${panelKey}`}
+                            className="border-r border-sidebar-border"
+                          />
+                        )}
+                        <ResizablePanel
+                          id={`item-panel-${panelKey}`}
+                          order={panels.length >= 2 ? 1 + index : 2}
+                          defaultSize={panels.length >= 2 ? 50 : 100 * PANEL_DEFAULTS.ITEM_PANEL_SPLIT_RATIO}
+                          minSize={20}
+                        >
+                          {panel}
+                        </ResizablePanel>
+                      </React.Fragment>
+                    );
+                  })}
+                </>
+              )}
+            </ResizablePanelGroup>
+          </ResizablePanel>
+
+          {/* Chat Section - Only when expanded and workspace exists */}
+          {effectiveChatExpanded && (
+            <>
+              <ResizableHandle id="workspace-chat-handle" className="border-r border-sidebar-border" />
+              <ResizablePanel
+                id="chat-panel"
+                order={2}
+                defaultSize={panels.length > 0 ? PANEL_DEFAULTS.CHAT_MIN : PANEL_DEFAULTS.CHAT}
+                minSize={PANEL_DEFAULTS.CHAT_MIN}
+                maxSize={PANEL_DEFAULTS.CHAT_MAX}
+              >
+                <AssistantDropzone>
                   <AssistantPanel
                     key={`assistant-panel-${currentWorkspaceId}`}
                     workspaceId={currentWorkspaceId || ""}
@@ -123,106 +240,12 @@ export function DashboardLayout({
                     onSingleSelect={onSingleSelect}
                     onMultiSelect={onMultiSelect}
                   />
-                </div>
-              </AssistantDropzone>
-            </div>
-          ) : (
-            /* NORMAL MODE: Resizable workspace + chat */
-            <ResizablePanelGroup
-              key={`layout-${effectiveChatExpanded ? 'chat' : 'no-chat'}`}
-              id={`layout-${effectiveChatExpanded ? 'chat' : 'no-chat'}`}
-              direction="horizontal"
-              className="flex-1"
-              onLayout={handlePanelLayout}
-            >
-              {/* Workspace Panel - hidden when 2 item panels are open (split view) */}
-              {panels.length < 2 && (
-                <ResizablePanel
-                  id="workspace-panel"
-                  order={1}
-                  defaultSize={(() => {
-                    if (panels.length === 0) {
-                      return effectiveChatExpanded ? PANEL_DEFAULTS.WORKSPACE_WITH_CHAT : 100;
-                    }
-                    // 1 panel + workspace = split based on ratio (workspace gets the smaller share)
-                    const availableSpace = effectiveChatExpanded ? (100 - PANEL_DEFAULTS.CHAT_MIN) : 100;
-                    return availableSpace * (1 - PANEL_DEFAULTS.ITEM_PANEL_SPLIT_RATIO);
-                  })()}
-                  minSize={panels.length > 0 ? 20 : (effectiveChatExpanded ? PANEL_DEFAULTS.WORKSPACE_MIN : 100)}
-                >
-                  <WorkspaceCanvasDropzone>
-                    {workspaceSection}
-                  </WorkspaceCanvasDropzone>
-                </ResizablePanel>
-              )}
-
-              {/* Item Panels - dynamically rendered from array */}
-              {panels.map((panel, index) => {
-                // Extract key from the panel ReactNode (set by page.tsx as item.id)
-                const panelKey = React.isValidElement(panel) ? panel.key : `panel-${index}`;
-                return (
-                  <React.Fragment key={panelKey}>
-                    {/* Handle only needed when there's something before this panel */}
-                    {(index > 0 || panels.length < 2) && (
-                      <ResizableHandle
-                        id={`panel-handle-${panelKey}`}
-                        className="border-r border-sidebar-border"
-                      />
-                    )}
-                    <ResizablePanel
-                      id={`item-panel-${panelKey}`}
-                      order={panels.length >= 2 ? (1 + index) : (2 + index)}
-                      defaultSize={(() => {
-                        if (panels.length >= 2) {
-                          // 2 panels with chat = chat at min, panels split remaining
-                          return effectiveChatExpanded ? (100 - PANEL_DEFAULTS.CHAT_MIN) / 2 : 50;
-                        }
-                        // 1 panel + workspace with chat = chat at min, split remaining based on ratio
-                        const availableSpace = effectiveChatExpanded ? (100 - PANEL_DEFAULTS.CHAT_MIN) : 100;
-                        return availableSpace * PANEL_DEFAULTS.ITEM_PANEL_SPLIT_RATIO;
-                      })()}
-                      minSize={20}
-                    >
-                      {panel}
-                    </ResizablePanel>
-                  </React.Fragment>
-                );
-              })}
-
-              {/* Chat Section - Only when expanded and workspace exists */}
-              {effectiveChatExpanded && (
-                <>
-                  <ResizableHandle
-                    id="workspace-chat-handle"
-                    className="border-r border-sidebar-border"
-                  />
-
-                  {/* Chat Panel */}
-                  <ResizablePanel
-                    id="chat-panel"
-                    order={panels.length >= 2 ? 3 : (2 + panels.length)}
-                    defaultSize={panels.length > 0 ? PANEL_DEFAULTS.CHAT_MIN : PANEL_DEFAULTS.CHAT}
-                    minSize={PANEL_DEFAULTS.CHAT_MIN}
-                    maxSize={PANEL_DEFAULTS.CHAT_MAX}
-                  >
-                    <AssistantDropzone>
-                      <AssistantPanel
-                        key={`assistant-panel-${currentWorkspaceId}`}
-                        workspaceId={currentWorkspaceId || ""}
-                        setIsChatExpanded={setIsChatExpanded}
-                        isChatMaximized={effectiveChatMaximized}
-                        setIsChatMaximized={setIsChatMaximized}
-                        onSingleSelect={onSingleSelect}
-                        onMultiSelect={onMultiSelect}
-                      />
-                    </AssistantDropzone>
-                  </ResizablePanel>
-                </>
-              )}
-            </ResizablePanelGroup>
+                </AssistantDropzone>
+              </ResizablePanel>
+            </>
           )}
-        </div>
-      </SidebarInset>
+        </ResizablePanelGroup>
+      )}
     </div>
   );
 

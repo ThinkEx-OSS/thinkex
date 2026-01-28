@@ -3,7 +3,6 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { AgentState, Item, CardType, PdfData } from "@/lib/workspace-state/types";
 import type { WorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
-import WorkspaceHeader from "./WorkspaceHeader";
 import WorkspaceContent from "./WorkspaceContent";
 import SelectionActionBar from "./SelectionActionBar";
 import { WorkspaceSkeleton } from "@/components/workspace/WorkspaceSkeleton";
@@ -36,8 +35,6 @@ import {
 import { FileText, Folder, Upload, Play, MoreHorizontal, Globe, Brain } from "lucide-react";
 import { LuBook } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
-import WorkspaceSettingsModal from "@/components/workspace/WorkspaceSettingsModal";
-import ShareWorkspaceDialog from "@/components/workspace/ShareWorkspaceDialog";
 import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
@@ -188,8 +185,6 @@ export function WorkspaceSection({
   const [showMoveDialog, setShowMoveDialog] = useState(false);
 
   // Workspace settings and share modal state
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [showShareDialog, setShowShareDialog] = useState(false);
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
 
   // Get workspace data from context
@@ -198,15 +193,6 @@ export function WorkspaceSection({
     if (!currentWorkspaceId) return null;
     return workspaces.find(w => w.id === currentWorkspaceId) || null;
   }, [currentWorkspaceId, workspaces]);
-
-  // Handlers for opening settings and share modals
-  const handleOpenSettings = useCallback(() => {
-    setShowSettingsModal(true);
-  }, []);
-
-  const handleOpenShare = useCallback(() => {
-    setShowShareDialog(true);
-  }, []);
 
   const handleYouTubeCreate = useCallback((url: string, name: string) => {
     if (addItem) {
@@ -411,37 +397,6 @@ export function WorkspaceSection({
       data-tour="workspace-canvas"
       onMouseDown={handleWorkspaceMouseDown}
     >
-      {/* Search Bar (hidden in JSON view, when chat maximized, no workspace selected, or loading) - outside scrollable container */}
-      {!showJsonView && !isChatMaximized && currentWorkspaceId && !isLoadingWorkspace && (
-        <WorkspaceHeader
-          titleInputRef={titleInputRef}
-          searchQuery={searchQuery}
-          onSearchChange={onSearchChange}
-          isSaving={isSaving}
-          lastSavedAt={lastSavedAt}
-          hasUnsavedChanges={hasUnsavedChanges}
-          onManualSave={onManualSave}
-          currentWorkspaceId={currentWorkspaceId}
-          onShowHistory={onShowHistory}
-          isDesktop={isDesktop}
-          isChatExpanded={isChatExpanded}
-          setIsChatExpanded={setIsChatExpanded}
-          workspaceName={workspaceTitle || state.globalTitle}
-          workspaceIcon={workspaceIcon}
-          workspaceColor={workspaceColor}
-          addItem={addItem}
-          onPDFUpload={handlePDFUpload}
-
-          setOpenModalItemId={setOpenModalItemId}
-          activeFolderName={activeFolderName}
-          activeFolderColor={activeFolderColor}
-          items={state.items || []}
-          onRenameFolder={handleRenameFolder}
-          onOpenSettings={handleOpenSettings}
-          onOpenShare={handleOpenShare}
-          isItemPanelOpen={isItemPanelOpen}
-        />
-      )}
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div ref={scrollAreaRef} className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
@@ -672,18 +627,6 @@ export function WorkspaceSection({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      {/* Workspace Settings Modal */}
-      <WorkspaceSettingsModal
-        workspace={currentWorkspace}
-        open={showSettingsModal}
-        onOpenChange={setShowSettingsModal}
-      />
-      {/* Share Workspace Dialog */}
-      <ShareWorkspaceDialog
-        workspace={currentWorkspace}
-        open={showShareDialog}
-        onOpenChange={setShowShareDialog}
-      />
       {/* YouTube Dialog */}
       <CreateYouTubeDialog
         open={showYouTubeDialog}

@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { usePostHog } from 'posthog-js/react';
-import type { AgentState } from "@/lib/workspace-state/types";
+import type { AgentState, PdfData, WorkspaceWithState } from "@/lib/workspace-state/types";
 import { initialState } from "@/lib/workspace-state/state";
 import { useScrollHeader } from "@/hooks/ui/use-scroll-header";
 import { useKeyboardShortcuts } from "@/hooks/ui/use-keyboard-shortcuts";
@@ -22,6 +22,7 @@ import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useSession } from "@/lib/auth-client";
 import { WorkspaceSection } from "@/components/workspace-canvas/WorkspaceSection";
+import WorkspaceHeader from "@/components/workspace-canvas/WorkspaceHeader";
 import { ModalManager } from "@/components/modals/ModalManager";
 import { AnonymousSignInPrompt } from "@/components/modals/AnonymousSignInPrompt";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -32,6 +33,8 @@ import { AnonymousSessionHandler, SidebarCoordinator } from "@/components/layout
 // import { OnboardingVideoDialog } from "@/components/onboarding/OnboardingVideoDialog";
 // import { useOnboardingStatus } from "@/hooks/user/use-onboarding-status";
 import { PdfEngineWrapper } from "@/components/pdf/PdfEngineWrapper";
+import WorkspaceSettingsModal from "@/components/workspace/WorkspaceSettingsModal";
+import ShareWorkspaceDialog from "@/components/workspace/ShareWorkspaceDialog";
 // Main dashboard content component
 function DashboardContent({
   currentWorkspaceId,
@@ -63,6 +66,7 @@ function DashboardContent({
   const {
     currentSlug,
     switchWorkspace,
+    workspaces,
   } = useWorkspaceContext();
 
   // Get save status from Zustand store
@@ -89,6 +93,15 @@ function DashboardContent({
 
   // Track sign-in prompt for anonymous users
   const [showSignInPrompt, setShowSignInPrompt] = useState(false);
+
+  // Workspace settings/share modals (lifted so header can open them)
+  const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
+  const [showWorkspaceShare, setShowWorkspaceShare] = useState(false);
+
+  const currentWorkspace = useMemo<WorkspaceWithState | null>(() => {
+    if (!currentWorkspaceId) return null;
+    return workspaces.find((w) => w.id === currentWorkspaceId) || null;
+  }, [currentWorkspaceId, workspaces]);
 
   // Show sign-in prompt after 13 events for anonymous users
   useEffect(() => {
@@ -302,6 +315,60 @@ function DashboardContent({
   // Text selection handlers - delegate to agent for intelligent processing
   const { handleCreateInstantNote, handleCreateCardFromSelections } = useTextSelectionAgent(operations);
 
+  const handleWorkspacePdfUpload = useCallback(
+    async (files: File[]) => {
+      if (!currentWorkspaceId) {
+        throw new Error("Workspace not available");
+      }
+
+      const uploadPromises = files.map(async (file) => {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const uploadResponse = await fetch("/api/upload-file", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error(`Failed to upload PDF: ${uploadResponse.statusText}`);
+        }
+
+        const { url: fileUrl, filename } = await uploadResponse.json();
+
+        return {
+          fileUrl,
+          filename: filename || file.name,
+          fileSize: file.size,
+          name: file.name.replace(/\\.pdf$/i, ""),
+        };
+      });
+
+      const uploadResults = await Promise.all(uploadPromises);
+      const pdfCardDefinitions = uploadResults.map((result) => {
+        const pdfData: Partial<PdfData> = {
+          fileUrl: result.fileUrl,
+          filename: result.filename,
+          fileSize: result.fileSize,
+        };
+
+        return {
+          type: "pdf" as const,
+          name: result.name,
+          initialData: pdfData,
+        };
+      });
+
+      operations.createItems(pdfCardDefinitions);
+    },
+    [operations, currentWorkspaceId]
+  );
+
+  const handleShowHistory = useCallback(() => {
+    posthog.capture("version-history-viewed", { workspace_id: currentWorkspaceId });
+    setShowVersionHistory(true);
+  }, [posthog, currentWorkspaceId, setShowVersionHistory]);
+
 
   return (
     <PdfEngineWrapper>
@@ -320,6 +387,39 @@ function DashboardContent({
         onWorkspaceSwitch={switchWorkspace}
         showCreateModal={showCreateWorkspaceModal}
         setShowCreateModal={setShowCreateWorkspaceModal}
+        workspaceHeader={
+          !showJsonView && !isChatMaximized && currentWorkspaceId && !isLoadingWorkspace ? (
+            <WorkspaceHeader
+              titleInputRef={titleInputRef}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              isSaving={isSaving}
+              lastSavedAt={lastSavedAt}
+              hasUnsavedChanges={hasUnsavedChanges}
+              onManualSave={() => {
+                void manualSave();
+              }}
+              currentWorkspaceId={currentWorkspaceId}
+              onShowHistory={handleShowHistory}
+              isDesktop={isDesktop}
+              isChatExpanded={isChatExpanded}
+              setIsChatExpanded={setIsChatExpanded}
+              workspaceName={currentWorkspaceTitle || state.globalTitle}
+              workspaceIcon={currentWorkspaceIcon}
+              workspaceColor={currentWorkspaceColor}
+              addItem={operations.createItem}
+              onPDFUpload={handleWorkspacePdfUpload}
+              setOpenModalItemId={setOpenModalItemId}
+              items={state.items || []}
+              onRenameFolder={(folderId, newName) => {
+                operations.updateItem(folderId, { name: newName });
+              }}
+              onOpenSettings={() => setShowWorkspaceSettings(true)}
+              onOpenShare={() => setShowWorkspaceShare(true)}
+              isItemPanelOpen={panels.length > 0}
+            />
+          ) : null
+        }
         isDesktop={isDesktop}
         isChatExpanded={isChatExpanded}
         isChatMaximized={isChatMaximized}
@@ -356,10 +456,7 @@ function DashboardContent({
             setIsChatExpanded={setIsChatExpanded}
             isItemPanelOpen={panels.length > 0}
             setOpenModalItemId={setOpenModalItemId}
-            onShowHistory={() => {
-              posthog.capture('version-history-viewed', { workspace_id: currentWorkspaceId });
-              setShowVersionHistory(true);
-            }}
+            onShowHistory={handleShowHistory}
             titleInputRef={titleInputRef as React.RefObject<HTMLInputElement>}
             operations={operations}
             scrollAreaRef={scrollAreaRef as React.RefObject<HTMLDivElement>}
@@ -369,6 +466,17 @@ function DashboardContent({
             modalManager={modalManagerElement}
           />
         }
+      />
+
+      <WorkspaceSettingsModal
+        workspace={currentWorkspace}
+        open={showWorkspaceSettings}
+        onOpenChange={setShowWorkspaceSettings}
+      />
+      <ShareWorkspaceDialog
+        workspace={currentWorkspace}
+        open={showWorkspaceShare}
+        onOpenChange={setShowWorkspaceShare}
       />
     </PdfEngineWrapper>
   );
