@@ -125,7 +125,7 @@ export const SelectCardsToolUI = makeAssistantToolUI<SelectCardsArgs, SelectCard
     const validCount = selectedCards.length;
     const invalidIds = args?.cardIds?.filter((id) => !availableIds.has(id)) || [];
 
-    const parsedResult = result != null ? parseSelectCardsResult(result) : null;
+    if (result != null) parseSelectCardsResult(result);
 
     let content: ReactNode = null;
 
