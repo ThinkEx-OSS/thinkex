@@ -3,6 +3,7 @@
 import {
   memo,
   useCallback,
+  useEffect,
   useRef,
   useState,
   type FC,
@@ -10,7 +11,7 @@ import {
 } from "react";
 import { ChevronDownIcon, LoaderIcon } from "lucide-react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { useScrollLock } from "@assistant-ui/react";
+import { useAuiState, useScrollLock } from "@assistant-ui/react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -46,7 +47,7 @@ function ToolGroupRoot({
   variant,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
-  defaultOpen = true,
+  defaultOpen = false,
   children,
   ...props
 }: ToolGroupRootProps) {
@@ -201,15 +202,37 @@ const ToolGroupImpl: FC<
 > = ({ children, startIndex, endIndex }) => {
   const toolCount = endIndex - startIndex + 1;
 
-  // Only group when there are more than 1 consecutive tool call
+  // Match `ReasoningGroup` behavior: mark active while the *current streaming part*
+  // is a tool-call within this group's index range.
+  const isToolGroupStreaming = useAuiState(({ message }) => {
+    if (message.status?.type !== "running") return false;
+    const lastIndex = message.parts.length - 1;
+    if (lastIndex < 0) return false;
+    const lastType = message.parts[lastIndex]?.type;
+    if (lastType !== "tool-call") return false;
+    return lastIndex >= startIndex && lastIndex <= endIndex;
+  });
+
+  // Auto-open while streaming; auto-close when streaming ends.
+  // Still allows manual user toggle when not streaming.
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    setOpen(isToolGroupStreaming);
+  }, [isToolGroupStreaming]);
+
+  // Only group when there are more than 1 consecutive tool call.
+  // IMPORTANT: this check must stay *after* hooks to avoid conditional hook calls.
   if (toolCount <= 1) {
     return <>{children}</>;
   }
 
   return (
-    <ToolGroupRoot variant="ghost">
-      <ToolGroupTrigger count={toolCount} />
-      <ToolGroupContent>{children}</ToolGroupContent>
+    // Auto-expand while streaming, auto-collapse when done
+    <ToolGroupRoot variant="ghost" open={open} onOpenChange={setOpen}>
+      <ToolGroupTrigger count={toolCount} active={isToolGroupStreaming} />
+      <ToolGroupContent aria-busy={isToolGroupStreaming}>
+        {children}
+      </ToolGroupContent>
     </ToolGroupRoot>
   );
 };
