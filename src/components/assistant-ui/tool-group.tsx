@@ -46,7 +46,7 @@ function ToolGroupRoot({
   variant,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
-  defaultOpen = false,
+  defaultOpen = true,
   children,
   ...props
 }: ToolGroupRootProps) {
