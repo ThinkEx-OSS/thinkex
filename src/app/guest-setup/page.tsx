@@ -53,7 +53,7 @@ export default function GuestSetupPage() {
 
                 // Step 4: Redirect to the workspace
                 if (data.slug) {
-                    router.replace(`/dashboard/${data.slug}`);
+                    router.replace(`/workspace/${data.slug}`);
                 } else {
                     router.replace("/home");
                 }

@@ -43,7 +43,7 @@ import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import type { WorkspaceResult } from "@/lib/ai/tool-result-schemas";
 import { parseWorkspaceResult } from "@/lib/ai/tool-result-schemas";
 
-type CreateNoteArgs = { title: string; content: string; tags?: string[] };
+type CreateNoteArgs = { title: string; content: string };
 
 interface CreateNoteReceiptProps {
   args: CreateNoteArgs;

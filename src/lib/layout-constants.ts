@@ -56,6 +56,6 @@ export const PANEL_DEFAULTS = {
   THREAD_LIST_MIN: 12,
   /** Thread list max size */
   THREAD_LIST_MAX: 25,
-  /** Ratio of available space given to item panel vs workspace (default 0.6 = 60%) */
-  ITEM_PANEL_SPLIT_RATIO: 0.6,
+  /** Ratio of available space given to item panel vs workspace (default 0.7 = 70%) */
+  ITEM_PANEL_SPLIT_RATIO: 0.7,
 } as const;

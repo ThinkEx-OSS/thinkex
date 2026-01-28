@@ -32,7 +32,7 @@ export function HomeShell() {
       <MobileWarning />
       <AnonymousSessionHandler>
         <WorkspaceProvider>
-          <SidebarCoordinator>
+          <SidebarCoordinator defaultOpen={true}>
             <HomePageContent />
           </SidebarCoordinator>
         </WorkspaceProvider>

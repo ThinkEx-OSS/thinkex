@@ -6,9 +6,8 @@ import { FloatingCard, type FloatingCardData } from "./FloatingCard";
 import { type CardColor } from "@/lib/workspace-state/colors";
 import { cn } from "@/lib/utils";
 
-// Realistic mock data
-// Using colors from the palette loosely
-const MOCK_CARDS: FloatingCardData[] = [
+// Base cards for landing page
+const BASE_CARDS: FloatingCardData[] = [
     // Column 1ish
     { type: 'note', title: 'Product Vision 2025', color: '#3B82F6' },
     { type: 'note', title: 'Tech Stack Decision Log', color: '#E11D48' },
@@ -34,15 +33,40 @@ const MOCK_CARDS: FloatingCardData[] = [
     { type: 'folder', title: 'Neurology Resources', itemCount: 18, color: '#8B5CF6' },
 ];
 
+// Additional cards for home route only
+const EXTRA_CARDS: FloatingCardData[] = [
+    { type: 'note', title: 'Learning Path: React', color: '#0EA5E9' },
+    { type: 'flashcard', content: 'What is the difference between let and const?', color: '#3B82F6' },
+    { type: 'folder', title: 'Code Snippets', itemCount: 32, color: '#10B981' },
+    { type: 'pdf', title: 'API_Documentation.pdf', color: '#F59E0B', aspectRatio: '1/1.2' },
+    { type: 'quiz', title: 'JavaScript Basics', content: 'What is a closure?', color: '#8B5CF6' },
+    { type: 'note', title: 'Project Roadmap Q1', color: '#EC4899' },
+    { type: 'folder', title: 'Design System', itemCount: 67, color: '#14B8A6' },
+    { type: 'youtube', youtubeUrl: 'https://www.youtube.com/watch?v=aXRTczANuIs', thumbnailUrl: 'https://img.youtube.com/vi/aXRTczANuIs/sddefault.jpg' },
+    { type: 'flashcard', content: 'Explain the concept of recursion', color: '#EF4444' },
+    { type: 'note', title: 'Team Meeting Notes', color: '#F97316' },
+    { type: 'pdf', title: 'System_Architecture.pdf', color: '#6366F1', aspectRatio: '1/1.1' },
+    { type: 'folder', title: 'Documentation', itemCount: 89, color: '#06B6D4' },
+    { type: 'quiz', title: 'Data Structures', content: 'What is a binary tree?', color: '#A855F7' },
+    { type: 'note', title: 'Feature Ideas', color: '#22C55E' },
+    { type: 'folder', title: 'Templates', itemCount: 15, color: '#84CC16' },
+];
+
 interface FloatingWorkspaceCardsProps {
     bottomGradientHeight?: string;
     className?: string;
+    opacity?: string; // Custom opacity class
+    includeExtraCards?: boolean; // Whether to include extra cards
 }
 
-export function FloatingWorkspaceCards({ bottomGradientHeight = '60%', className }: FloatingWorkspaceCardsProps) {
-    // We can randomize the order on mount if we want, or keep it static for consistency
-    // Keeping specific shuffle for now to ensure good distribution if we want
-    const [cards, setCards] = useState<FloatingCardData[]>(MOCK_CARDS);
+export function FloatingWorkspaceCards({ 
+    bottomGradientHeight = '60%', 
+    className,
+    opacity,
+    includeExtraCards = false
+}: FloatingWorkspaceCardsProps) {
+    // Combine base cards with extra cards if requested - compute directly from props
+    const cards = includeExtraCards ? [...BASE_CARDS, ...EXTRA_CARDS] : BASE_CARDS;
 
     // Ref for visibility detection
     const containerRef = useRef<HTMLDivElement>(null);
@@ -59,7 +83,8 @@ export function FloatingWorkspaceCards({ bottomGradientHeight = '60%', className
             <motion.div
 
                 className={cn(
-                    "w-[120%] -ml-[10%] -mt-[5%] columns-2 md:columns-3 lg:columns-6 gap-4 md:gap-6 lg:gap-8 opacity-20 md:opacity-25",
+                    "w-[120%] -ml-[10%] -mt-[5%] columns-2 md:columns-3 lg:columns-6 gap-4 md:gap-6 lg:gap-8",
+                    opacity || "opacity-20 md:opacity-25",
                     className
                 )}
             >

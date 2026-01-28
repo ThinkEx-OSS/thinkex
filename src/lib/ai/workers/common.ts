@@ -9,11 +9,22 @@ export const workspaceOperationQueues = new Map<string, Promise<any>>();
 /**
  * Execute workspace operation with serialization
  * Ensures operations on the same workspace are executed sequentially
+ * For "create" operations, bypasses the queue to allow parallel execution
  */
 export async function executeWorkspaceOperation<T>(
     workspaceId: string,
-    operation: () => Promise<T>
+    operation: () => Promise<T>,
+    options?: { allowParallel?: boolean }
 ): Promise<T> {
+    // If allowParallel is true (for create operations), execute directly without queue
+    if (options?.allowParallel) {
+        logger.debug("⚡ [QUEUE] Executing create operation in parallel (bypassing queue):", {
+            workspaceId: workspaceId.substring(0, 8),
+        });
+        return operation();
+    }
+
+    // For update/delete operations, use the serialization queue
     const queueSize = workspaceOperationQueues.size;
     const hasExistingQueue = workspaceOperationQueues.has(workspaceId);
 

@@ -169,7 +169,7 @@ export default function CreateWorkspaceModal({
       if (onSuccess) {
         onSuccess(workspace.slug, workspace);
       } else {
-        router.push(`/dashboard/${workspace.slug}`);
+        router.push(`/workspace/${workspace.slug}`);
         router.refresh();
       }
     } catch (err) {

@@ -81,6 +81,7 @@ import { File as FileComponent } from "@/components/assistant-ui/file";
 import { Sources } from "@/components/assistant-ui/sources";
 import { Image } from "@/components/assistant-ui/image";
 import { Reasoning, ReasoningGroup } from "@/components/assistant-ui/reasoning";
+import { ToolGroup } from "@/components/assistant-ui/tool-group";
 
 import type { Item, PdfData } from "@/lib/workspace-state/types";
 import { CardContextDisplay } from "@/components/chat/CardContextDisplay";
@@ -1046,6 +1047,7 @@ const AssistantMessage: FC = () => {
               Image,
               Reasoning: Reasoning,
               ReasoningGroup: ReasoningGroup,
+              ToolGroup,
               tools: {
                 Fallback: ToolFallback,
               },

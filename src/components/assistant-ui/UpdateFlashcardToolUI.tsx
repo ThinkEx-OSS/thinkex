@@ -15,12 +15,18 @@ import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-sh
 import type { FlashcardResult } from "@/lib/ai/tool-result-schemas";
 import { parseFlashcardResult } from "@/lib/ai/tool-result-schemas";
 
-// Type definitions for the tool - args is now plain text format
-type UpdateFlashcardArgs = {
+// Tool accepts z.any() (plain text format), so args can be string or object
+type UpdateFlashcardArgs = string | {
     description?: string;  // Text format: "Deck: ...\nFront: ...\nBack: ..."
     id?: string;           // Legacy support
     cardsToAdd?: Array<{ front: string; back: string }>;  // Legacy support
 };
+
+function isUpdateFlashcardArgsObject(
+    args: UpdateFlashcardArgs
+): args is Exclude<UpdateFlashcardArgs, string> {
+    return typeof args === "object" && args !== null;
+}
 
 import { useUIStore } from "@/lib/stores/ui-store";
 
@@ -61,7 +67,8 @@ const UpdateFlashcardReceipt = ({ args, result, status }: UpdateFlashcardReceipt
         return item?.name || "Flashcard Deck";
     }, [result.deckName, result.itemId, workspaceState?.items]);
 
-    const cardsAdded = result.cardsAdded ?? args.cardsToAdd?.length ?? 0;
+    const argsObj = isUpdateFlashcardArgsObject(args) ? args : null;
+    const cardsAdded = result.cardsAdded ?? argsObj?.cardsToAdd?.length ?? 0;
 
     const handleViewCard = () => {
         if (!result.itemId) return;

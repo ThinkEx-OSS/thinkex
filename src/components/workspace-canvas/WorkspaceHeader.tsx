@@ -386,7 +386,7 @@ export default function WorkspaceHeader({
           </div>
 
           {/* Breadcrumbs */}
-          <nav className="flex items-center gap-1.5 text-sm text-sidebar-foreground/70 min-w-0">
+          <nav className="flex items-center gap-1.5 text-xs text-sidebar-foreground/70 min-w-0">
             {/* Workspace icon + name (clickable to go back to root if in a folder) */}
             {/* Hidden in compact mode when inside a folder - the folder dropdown has workspace option */}
             {activeFolderId && !isCompactMode ? (
@@ -403,7 +403,7 @@ export default function WorkspaceHeader({
                   className="h-4 w-4 shrink-0"
                   style={{ color: workspaceColor || undefined }}
                 />
-                <span className="truncate text-sidebar-foreground font-medium max-w-[200px]" title={workspaceName}>
+                <span className="truncate text-sidebar-foreground max-w-[200px]" title={workspaceName}>
                   {workspaceName || "Untitled"}
                 </span>
               </button>
@@ -460,7 +460,7 @@ export default function WorkspaceHeader({
                   className="h-4 w-4 shrink-0"
                   style={{ color: workspaceColor || undefined }}
                 />
-                <span className="truncate text-sidebar-foreground font-medium max-w-[200px]" title={workspaceName}>
+                <span className="truncate text-sidebar-foreground max-w-[200px]" title={workspaceName}>
                   {workspaceName || "Untitled"}
                 </span>
               </div>))
@@ -487,7 +487,7 @@ export default function WorkspaceHeader({
                             className="h-3.5 w-3.5 shrink-0"
                             style={{ color: folderPath[folderPath.length - 1].color || undefined }}
                           />
-                          <span className="truncate text-sidebar-foreground font-medium max-w-[80px]" title={folderPath[folderPath.length - 1].name}>
+                          <span className="truncate text-sidebar-foreground max-w-[80px]" title={folderPath[folderPath.length - 1].name}>
                             {folderPath[folderPath.length - 1].name}
                           </span>
                           <ChevronDown className="h-3 w-3 text-sidebar-foreground/50" />
@@ -551,7 +551,7 @@ export default function WorkspaceHeader({
                           className="h-3.5 w-3.5 shrink-0"
                           style={{ color: folder.color || undefined }}
                         />
-                        <span className="truncate text-sidebar-foreground font-medium max-w-[120px]" title={folder.name}>
+                        <span className="truncate text-sidebar-foreground max-w-[120px]" title={folder.name}>
                           {folder.name}
                         </span>
                       </button>
@@ -616,7 +616,7 @@ export default function WorkspaceHeader({
                         className="h-3.5 w-3.5 shrink-0"
                         style={{ color: folderPath[folderPath.length - 1].color || undefined }}
                       />
-                      <span className="truncate text-sidebar-foreground font-medium max-w-[120px]" title={folderPath[folderPath.length - 1].name}>
+                      <span className="truncate text-sidebar-foreground max-w-[120px]" title={folderPath[folderPath.length - 1].name}>
                         {folderPath[folderPath.length - 1].name}
                       </span>
                     </button>
@@ -726,7 +726,7 @@ export default function WorkspaceHeader({
                   data-tour="add-card-button"
                 >
                   <Plus className="h-4 w-4" />
-                  {!isCompactMode && <span>Create</span>}
+                  {!isCompactMode && <span>New</span>}
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48" sideOffset={8}>

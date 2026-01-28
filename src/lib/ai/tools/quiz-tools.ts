@@ -4,6 +4,7 @@
  */
 
 import { z } from "zod";
+import { zodSchema } from "ai";
 import { logger } from "@/lib/utils/logger";
 import { quizWorker, workspaceWorker } from "@/lib/ai/workers";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
@@ -15,24 +16,34 @@ import type { QuizData } from "@/lib/workspace-state/types";
  */
 export function createQuizTool(ctx: WorkspaceToolContext) {
     return {
-        description: "Create an interactive quiz in the workspace. Generates multiple-choice and true/false questions. If cards are selected in the context drawer (visible in the 'CARDS IN CONTEXT DRAWER' section of your system context), extract their content and pass it as 'contextContent'. If no cards are selected, generate questions from general knowledge about the topic. Creates a quiz card with 10 questions. IMPORTANT: Extract the topic from the user's message and pass it as 'topic'. If cards are selected, extract their content from the system context and pass as 'contextContent' along with 'sourceCardIds' and 'sourceCardNames'.",
-        // Use z.any() to avoid streaming validation errors when Gemini sends properties in random order
-        // The error "argsText can only be appended" happens because strict z.object() validates during streaming
-        inputSchema: z.any().describe("Object with 'topic' (string - REQUIRED: extract from user's message), optional 'contextContent' (string - extract from selected cards in system context if available), optional 'sourceCardIds' (string[]), optional 'sourceCardNames' (string[]), and optional 'difficulty' ('easy'|'medium'|'hard', default 'medium')"),
+        description: "Create an interactive quiz in the workspace. Generates multiple-choice and true/false questions. If cards are selected in the context drawer (visible in the 'CARDS IN CONTEXT DRAWER' section of your system context), extract their content and pass it as 'contextContent'. If no cards are selected, generate questions from general knowledge about the topic. Creates a quiz card with 5 questions. IMPORTANT: Extract the topic from the user's message and pass it as 'topic'. If cards are selected, extract their content from the system context and pass as 'contextContent' along with 'sourceCardIds' and 'sourceCardNames'.",
+        // Use .passthrough() to allow extra properties during streaming without validation errors
+        // This handles cases where Gemini sends properties in random order during streaming
+        inputSchema: zodSchema(
+            z.object({
+                topic: z.string().describe("The topic for the quiz - REQUIRED: extract from user's message"),
+                contextContent: z.string().optional().describe("Content from selected cards in system context if available"),
+                sourceCardIds: z.array(z.string()).optional().describe("IDs of source cards"),
+                sourceCardNames: z.array(z.string()).optional().describe("Names of source cards"),
+                difficulty: z.enum(["easy", "medium", "hard"]).optional().default("medium").describe("Difficulty level"),
+            }).passthrough()
+        ),
         execute: async (args: unknown) => {
-            // Manually extract and validate args since we're using z.any()
-            const parsedArgs = args as { 
-                topic?: string; 
-                contextContent?: string;
-                sourceCardIds?: string[];
-                sourceCardNames?: string[];
-                difficulty?: string;
-            } | null;
-            const topic = parsedArgs?.topic;
-            const contextContent = parsedArgs?.contextContent;
-            const sourceCardIds = parsedArgs?.sourceCardIds;
-            const sourceCardNames = parsedArgs?.sourceCardNames;
-            const difficulty = (parsedArgs?.difficulty as "easy" | "medium" | "hard") || "medium";
+            // Validate args using Zod schema - .passthrough() allows extra properties during streaming
+            const createQuizSchema = z.object({
+                topic: z.string().optional(),
+                contextContent: z.string().optional(),
+                sourceCardIds: z.array(z.string()).optional(),
+                sourceCardNames: z.array(z.string()).optional(),
+                difficulty: z.enum(["easy", "medium", "hard"]).optional().default("medium"),
+            }).passthrough();
+            
+            const parsedArgs = createQuizSchema.parse(args);
+            const topic = parsedArgs.topic;
+            const contextContent = parsedArgs.contextContent;
+            const sourceCardIds = parsedArgs.sourceCardIds;
+            const sourceCardNames = parsedArgs.sourceCardNames;
+            const difficulty = parsedArgs.difficulty || "medium";
             logger.debug("🎯 [CREATE-QUIZ] Tool execution started:", { topic, hasContext: !!contextContent, difficulty });
 
             if (!ctx.workspaceId) {
@@ -64,7 +75,7 @@ export function createQuizTool(ctx: WorkspaceToolContext) {
                     topic: topic || undefined,
                     contextContent,
                     difficulty,
-                    questionCount: 10,
+                    questionCount: 5,
                     sourceCardIds,
                     sourceCardNames,
                 });
@@ -121,20 +132,30 @@ export function createQuizTool(ctx: WorkspaceToolContext) {
 export function createUpdateQuizTool(ctx: WorkspaceToolContext) {
     return {
         description: "Add more questions to an existing quiz. This tool can generate questions based on: 1) The user's performance history (weak areas), 2) A new topic the user specifies, 3) New selected cards (extract from 'CARDS IN CONTEXT DRAWER' in system context), or 4) General knowledge continuation. IMPORTANT: If new cards are selected, extract their content from system context and pass as 'contextContent' with 'sourceCardIds' and 'sourceCardNames'. If user specifies a new topic, pass it as 'topic'.",
-        // Use z.any() to avoid streaming validation errors when Gemini sends properties in random order
-        // The error "argsText can only be appended" happens because strict z.object() validates during streaming
-        inputSchema: z.any().describe("Object with 'quizId' (string - REQUIRED), optional 'topic' (string - new topic for questions), optional 'contextContent' (string - extract from newly selected cards in system context), optional 'sourceCardIds' (string[]), and optional 'sourceCardNames' (string[])"),
+        // Use .passthrough() to allow extra properties during streaming without validation errors
+        // This handles cases where Gemini sends properties in random order during streaming
+        inputSchema: zodSchema(
+            z.object({
+                quizId: z.string().describe("The ID of the quiz to update"),
+                topic: z.string().optional().describe("New topic for questions"),
+                contextContent: z.string().optional().describe("Content from newly selected cards in system context"),
+                sourceCardIds: z.array(z.string()).optional().describe("IDs of source cards"),
+                sourceCardNames: z.array(z.string()).optional().describe("Names of source cards"),
+            }).passthrough()
+        ),
         execute: async (args: unknown) => {
-            // Manually extract and validate args since we're using z.any()
-            const parsedArgs = args as { 
-                quizId?: string; 
-                topic?: string;
-                contextContent?: string;
-                sourceCardIds?: string[];
-                sourceCardNames?: string[];
-            } | null;
-            const quizId = parsedArgs?.quizId;
-            const explicitTopic = parsedArgs?.topic;
+            // Validate args using Zod schema - .passthrough() allows extra properties during streaming
+            const updateQuizSchema = z.object({
+                quizId: z.string(),
+                topic: z.string().optional(),
+                contextContent: z.string().optional(),
+                sourceCardIds: z.array(z.string()).optional(),
+                sourceCardNames: z.array(z.string()).optional(),
+            }).passthrough();
+            
+            const parsedArgs = updateQuizSchema.parse(args);
+            const quizId = parsedArgs.quizId;
+            const explicitTopic = parsedArgs.topic;
 
             logger.debug("🎯 [UPDATE-QUIZ] Tool execution started:", { quizId, explicitTopic });
 
@@ -223,7 +244,7 @@ export function createUpdateQuizTool(ctx: WorkspaceToolContext) {
                     topic,
                     contextContent,
                     difficulty: currentQuizData.difficulty || "medium",
-                    questionCount: 10,
+                    questionCount: 5,
                     existingQuestions,
                     performanceTelemetry,
                     sourceCardIds,

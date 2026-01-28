@@ -109,7 +109,7 @@ export default function SharePage() {
           source_workspace_id: workspaceId,
         });
 
-        window.location.href = `/dashboard/${workspace.slug}`;
+        window.location.href = `/workspace/${workspace.slug}`;
 
       } catch (error) {
         console.error("Auto-import failed:", error);

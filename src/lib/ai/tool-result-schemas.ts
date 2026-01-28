@@ -66,8 +66,25 @@ export const QuizResultSchema = baseWorkspace.extend({
 
 export type QuizResult = z.infer<typeof QuizResultSchema>;
 
-export function parseQuizResult(input: unknown): QuizResult {
+/** Coerce string or other non-object tool results to a safe QuizResult. */
+function coerceToQuizResult(input: unknown): QuizResult {
+  if (input == null) {
+    return { success: false, message: "No result" };
+  }
+  if (typeof input === "string") {
+    return { success: false, message: input };
+  }
+  if (typeof input !== "object" || Array.isArray(input)) {
+    return { success: false, message: "Invalid result format" };
+  }
   return parseWithSchema(QuizResultSchema, input, "QuizResult");
+}
+
+export function parseQuizResult(input: unknown): QuizResult {
+  if (input != null && typeof input === "object" && !Array.isArray(input)) {
+    return parseWithSchema(QuizResultSchema, input, "QuizResult");
+  }
+  return coerceToQuizResult(input);
 }
 
 /** createFlashcards, updateFlashcards */
@@ -81,8 +98,25 @@ export const FlashcardResultSchema = baseWorkspace.extend({
 
 export type FlashcardResult = z.infer<typeof FlashcardResultSchema>;
 
-export function parseFlashcardResult(input: unknown): FlashcardResult {
+/** Coerce string or other non-object tool results to a safe FlashcardResult. */
+function coerceToFlashcardResult(input: unknown): FlashcardResult {
+  if (input == null) {
+    return { success: false, message: "No result" };
+  }
+  if (typeof input === "string") {
+    return { success: false, message: input };
+  }
+  if (typeof input !== "object" || Array.isArray(input)) {
+    return { success: false, message: "Invalid result format" };
+  }
   return parseWithSchema(FlashcardResultSchema, input, "FlashcardResult");
+}
+
+export function parseFlashcardResult(input: unknown): FlashcardResult {
+  if (input != null && typeof input === "object" && !Array.isArray(input)) {
+    return parseWithSchema(FlashcardResultSchema, input, "FlashcardResult");
+  }
+  return coerceToFlashcardResult(input);
 }
 
 /** deepResearch */

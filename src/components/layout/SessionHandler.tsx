@@ -57,9 +57,15 @@ export function AnonymousSessionHandler({ children }: { children: React.ReactNod
 /**
  * Wrapper for sidebar provider with default open state.
  */
-export function SidebarCoordinator({ children }: { children: React.ReactNode }) {
+export function SidebarCoordinator({ 
+  children, 
+  defaultOpen = false 
+}: { 
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
   return (
-    <SidebarProvider defaultOpen={true}>
+    <SidebarProvider defaultOpen={defaultOpen}>
       {children}
     </SidebarProvider>
   );

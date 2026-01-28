@@ -52,12 +52,12 @@ export async function GET() {
 
         if (existingWorkspaces.length > 0) {
           // User already has a workspace, use that
-          redirectTo = `/dashboard/${existingWorkspaces[0].slug}`;
+          redirectTo = `/workspace/${existingWorkspaces[0].slug}`;
         } else {
           // Clone demo workspace using shared utility
           const userName = session.user.name || session.user.email || undefined;
           const result = await cloneDemoWorkspace(userId, userName);
-          redirectTo = `/dashboard/${result.slug}`;
+          redirectTo = `/workspace/${result.slug}`;
         }
 
         // Mark onboarding as completed after successfully creating the workspace

@@ -196,6 +196,7 @@ function WorkspaceCard({
   const maximizedItemId = useUIStore(state => state.maximizedItemId);
   const setOpenModalItemId = useUIStore((state) => state.setOpenModalItemId);
   const openPanel = useUIStore((state) => state.openPanel);
+  const closePanel = useUIStore((state) => state.closePanel);
 
   // Register this card's minimal context (title, id, type) with the assistant
   useCardContextProvider(item);
@@ -538,7 +539,8 @@ function WorkspaceCard({
 
     // If this card is already open in panel mode, close it instead of re-opening
     if (isOpenInPanel) {
-      setOpenModalItemId(null);
+      e.stopPropagation();
+      closePanel(item.id);
       return;
     }
 
@@ -574,7 +576,7 @@ function WorkspaceCard({
             onClick={handleCardClick}
           >
             {/* Floating Controls Container */}
-            <div className={`absolute top-3 right-3 z-10 flex items-center gap-2 ${isEditingTitle || isYouTubePlaying ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
+            <div className={`absolute top-3 right-3 z-10 flex items-center gap-2 ${isOpenInPanel || isEditingTitle || isYouTubePlaying ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
               {/* Scroll Lock/Unlock Button - Hidden for YouTube, quiz, and narrow note/PDF cards */}
               {item.type !== 'youtube' && item.type !== 'quiz' && !(item.type === 'note' && !shouldShowPreview) && !(item.type === 'pdf' && !shouldShowPreview) && (
                 <button
@@ -748,43 +750,55 @@ function WorkspaceCard({
               </DialogContent>
             </Dialog>
 
-            {/* Card Content - show compact layout when preview is hidden */}
-            <div className={(item.type === 'note' || item.type === 'pdf') && !shouldShowPreview ? "flex-1 flex flex-col" : "flex-shrink-0"}>
-              {item.type !== 'youtube' && !(item.type === 'pdf' && shouldShowPreview) && (
-                <ItemHeader
-                  id={item.id}
-                  name={item.name}
-                  subtitle={item.subtitle}
-                  description={""}
-                  onNameChange={handleNameChange}
-                  onNameCommit={handleNameCommit}
-                  onSubtitleChange={handleSubtitleChange}
-                  readOnly={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz') && !shouldShowPreview}
-                  noMargin={true}
-                  onTitleFocus={handleTitleFocus}
-                  onTitleBlur={handleTitleBlur}
-                  allowWrap={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz') && !shouldShowPreview}
-                />
-              )
-              }
-              {/* Subtle type label for narrow cards without preview */}
-              {/* Subtle type label for narrow cards without preview */}
-              {(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz') && !shouldShowPreview && (
-                <span className="text-[10px] uppercase tracking-wider text-white/40 mt-auto">
-                  {item.type === 'note' ? 'Note' : item.type === 'pdf' ? 'PDF' : 'Quiz'}
-                </span>
-              )}
-            </div>
+            {/* Card Content - show "Currently viewing" when panel is open, otherwise show normal content */}
+            {isOpenInPanel ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-2 p-4">
+                <p className="text-xs text-muted-foreground/70">Currently viewing</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-foreground truncate max-w-[200px]">
+                    {item.name || 'Untitled'}
+                  </span>
+                  <X className="h-4 w-4 text-muted-foreground/70 flex-shrink-0" />
+                </div>
+              </div>
+            ) : (
+              <div className={(item.type === 'note' || item.type === 'pdf') && !shouldShowPreview ? "flex-1 flex flex-col" : "flex-shrink-0"}>
+                {item.type !== 'youtube' && !(item.type === 'pdf' && shouldShowPreview) && (
+                  <ItemHeader
+                    id={item.id}
+                    name={item.name}
+                    subtitle={item.subtitle}
+                    description={""}
+                    onNameChange={handleNameChange}
+                    onNameCommit={handleNameCommit}
+                    onSubtitleChange={handleSubtitleChange}
+                    readOnly={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz') && !shouldShowPreview}
+                    noMargin={true}
+                    onTitleFocus={handleTitleFocus}
+                    onTitleBlur={handleTitleBlur}
+                    allowWrap={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz') && !shouldShowPreview}
+                  />
+                )
+                }
+                {/* Subtle type label for narrow cards without preview */}
+                {/* Subtle type label for narrow cards without preview */}
+                {(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz') && !shouldShowPreview && (
+                  <span className="text-[10px] uppercase tracking-wider text-white/40 mt-auto">
+                    {item.type === 'note' ? 'Note' : item.type === 'pdf' ? 'PDF' : 'Quiz'}
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Note Content - render preview if card is wide enough */}
-            {item.type === 'note' && shouldShowPreview && (
+            {!isOpenInPanel && item.type === 'note' && shouldShowPreview && (
               <WorkspaceCardNoteContent item={item} isScrollLocked={isScrollLocked} />
             )}
 
             {/* PDF Content - render embedded PDF viewer if card is wide enough */}
             {/* PERFORMANCE: Only mount PDF content when card is visible (virtualization) */}
             {/* When scroll is locked, render lightweight placeholder instead of full PDF viewer */}
-            {item.type === 'pdf' && shouldShowPreview && (() => {
+            {!isOpenInPanel && item.type === 'pdf' && shouldShowPreview && (() => {
               const pdfData = item.data as PdfData;
 
               return (
@@ -921,7 +935,7 @@ function WorkspaceCard({
             })()}
 
             {/* YouTube Content - render YouTube embed */}
-            {item.type === 'youtube' && (() => {
+            {!isOpenInPanel && item.type === 'youtube' && (() => {
               const youtubeData = item.data as YouTubeData;
               const embedUrl = getYouTubeEmbedUrl(youtubeData.url);
 

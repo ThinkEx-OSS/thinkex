@@ -12,9 +12,11 @@ import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-shell";
 import { parseSelectCardsResult } from "@/lib/ai/tool-result-schemas";
 
+// Note: UI accepts cardIds for client-side selection, but tool only accepts cardTitles
+// The UI handles cardIds client-side and doesn't pass them to the backend tool
 type SelectCardsArgs = {
-  cardIds?: string[];
-  cardTitles?: string[];
+  cardTitles: string[]; // Required by tool - matches backend schema
+  cardIds?: string[]; // Optional - handled client-side only, not sent to backend
 };
 
 type SelectCardsResult = {

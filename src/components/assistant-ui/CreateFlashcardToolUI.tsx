@@ -26,11 +26,18 @@ import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import type { FlashcardResult } from "@/lib/ai/tool-result-schemas";
 import { parseFlashcardResult } from "@/lib/ai/tool-result-schemas";
 
-type CreateFlashcardArgs = {
+// Tool accepts z.any() (plain text format), so args can be string or object
+type CreateFlashcardArgs = string | {
     description?: string;
     title?: string;
     cards?: Array<{ front: string; back: string }>;
 };
+
+function isCreateFlashcardArgsObject(
+    args: CreateFlashcardArgs
+): args is Exclude<CreateFlashcardArgs, string> {
+    return typeof args === "object" && args !== null;
+}
 
 interface CreateFlashcardReceiptProps {
     args: CreateFlashcardArgs;
@@ -72,6 +79,10 @@ const CreateFlashcardReceipt = ({
         const folder = workspaceState.items.find((item: any) => item.id === currentItem.folderId);
         return folder?.name || null;
     }, [currentItem?.folderId, workspaceState?.items]);
+
+    const argsObj = isCreateFlashcardArgsObject(args) ? args : null;
+    const argsTitle = argsObj?.title;
+    const argsCardsLen = argsObj?.cards?.length;
 
     // Debug logging for receipt component
     useEffect(() => {
@@ -120,8 +131,8 @@ const CreateFlashcardReceipt = ({
                             {status?.type === "complete" && (
                                 <span className="text-xs text-muted-foreground">
                                     {folderName
-                                        ? `${result.cardCount || result.cards?.length || args.cards?.length || '?'} cards in ${folderName}`
-                                        : `${result.cardCount || result.cards?.length || args.cards?.length || '?'} cards added`}
+                                        ? `${result.cardCount || result.cards?.length || argsCardsLen || '?'} cards in ${folderName}`
+                                        : `${result.cardCount || result.cards?.length || argsCardsLen || '?'} cards added`}
                                 </span>
                             )}
                         </div>
@@ -143,9 +154,9 @@ const CreateFlashcardReceipt = ({
                     <div className="flex flex-col gap-2 p-4">
                         <div className="flex items-center justify-between">
                             <div>
-                                <h3 className="font-semibold text-base">{result.title || args.title}</h3>
+                                <h3 className="font-semibold text-base">{result.title || argsTitle}</h3>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    {result.cardCount || result.cards?.length || args.cards?.length || '?'} card{(result.cardCount || result.cards?.length || args.cards?.length || 0) !== 1 ? 's' : ''} in deck
+                                    {result.cardCount || result.cards?.length || argsCardsLen || '?'} card{(result.cardCount || result.cards?.length || argsCardsLen || 0) !== 1 ? 's' : ''} in deck
                                 </p>
                             </div>
                             {moveItemToFolder && (

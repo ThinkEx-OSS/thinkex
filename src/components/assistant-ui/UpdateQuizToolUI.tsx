@@ -11,7 +11,13 @@ import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-sh
 import type { QuizResult } from "@/lib/ai/tool-result-schemas";
 import { parseQuizResult } from "@/lib/ai/tool-result-schemas";
 
-type UpdateQuizArgs = { quizId: string };
+type UpdateQuizArgs = {
+  quizId: string;
+  topic?: string;
+  contextContent?: string;
+  sourceCardIds?: string[];
+  sourceCardNames?: string[];
+};
 
 const UpdateQuizReceipt = ({ result, status }: { result: QuizResult; status: any }) => {
     return (

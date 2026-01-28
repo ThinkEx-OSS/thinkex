@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { MoreVertical, LogOut, Layers, User, Mail, Play, Users, Globe, Plus, Upload, Tag, Home } from "lucide-react";
 import { useState, useCallback, memo } from "react";
 import { useSession, signOut } from "@/lib/auth-client";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 // import { useOnboardingStatus } from "@/hooks/user/use-onboarding-status";
 import {
@@ -37,7 +37,6 @@ import WorkspaceList from "@/components/workspace/WorkspaceList";
 import WorkspaceItem from "@/components/workspace/WorkspaceItem";
 import WorkspaceSettingsModal from "@/components/workspace/WorkspaceSettingsModal";
 import ShareWorkspaceDialog from "@/components/workspace/ShareWorkspaceDialog";
-import { SidebarQuickActions } from "./SidebarQuickActions";
 import { AccountModal } from "@/components/auth/AccountModal";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
@@ -69,6 +68,8 @@ function WorkspaceSidebar({
 }: WorkspaceSidebarProps) {
   const { data: session, isPending } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
+  const isHomeRoute = pathname === "/home";
 
   // Get workspace context
   const {
@@ -224,16 +225,8 @@ function WorkspaceSidebar({
 
                   return (
                     <>
-                      {/* Fixed section: Quick actions and active workspace */}
+                      {/* Fixed section: Active workspace */}
                       <div className="flex-shrink-0">
-                        {currentWorkspaceId && (
-                          <SidebarQuickActions
-                            currentWorkspaceId={currentWorkspaceId}
-                            isChatExpanded={isChatExpanded}
-                            setIsChatExpanded={setIsChatExpanded}
-                          />
-                        )}
-
                         <SidebarMenu>
                           <SidebarMenuItem>
                             <SidebarMenuSub className="mr-0 pr-0 border-l-0 px-1 ml-0">
@@ -281,8 +274,8 @@ function WorkspaceSidebar({
       </SidebarContent>
 
       <SidebarFooter className="py-1.5">
-        {session?.user?.isAnonymous ? (
-          // Anonymous user footer - Sign in/Sign up
+        {session?.user?.isAnonymous && !isHomeRoute ? (
+          // Anonymous user footer - Sign in/Sign up (hidden on home route)
           <div className="flex flex-col gap-2 px-2 py-2 w-full">
             <p className="text-sm text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
               Sign in to save your work and use unlimited AI

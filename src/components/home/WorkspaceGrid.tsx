@@ -35,11 +35,7 @@ export function WorkspaceGrid() {
 
   return (
     <>
-      <div className="w-full max-w-6xl">
-        <div className="mb-4">
-          <h2 className="text-lg font-normal text-muted-foreground">Recent workspaces</h2>
-        </div>
-
+      <div className="w-full">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* New Workspace Card */}
           <div
@@ -64,7 +60,7 @@ export function WorkspaceGrid() {
             />
 
             {/* Title */}
-            <h3 className="font-medium text-lg text-foreground group-hover:text-foreground/80 transition-colors text-center">
+            <h3 className="font-normal text-lg text-foreground group-hover:text-foreground/80 transition-colors text-center">
               New workspace
             </h3>
           </div>
@@ -72,7 +68,7 @@ export function WorkspaceGrid() {
           {/* Existing Workspaces */}
           {workspaces.map((workspace) => {
               const color = workspace.color as CardColor | undefined;
-              const bgColor = color ? getCardColorCSS(color, 0.25) : 'var(--card)';
+              const bgColor = color ? getCardColorCSS(color, 0.1) : 'var(--card)';
               const borderColor = color ? getCardAccentColor(color, 0.5) : 'var(--sidebar-border)';
 
               return (
@@ -103,7 +99,7 @@ export function WorkspaceGrid() {
                   }}
                 >
                   {/* Title */}
-                  <h3 className="font-medium text-lg text-foreground truncate group-hover:text-foreground/80 transition-colors w-full relative z-10">
+                  <h3 className="font-normal text-lg text-foreground truncate group-hover:text-foreground/80 transition-colors w-full relative z-10">
                     {workspace.name}
                   </h3>
 

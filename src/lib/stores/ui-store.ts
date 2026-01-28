@@ -110,6 +110,7 @@ interface UIState {
   clearCardSelection: () => void;
   selectMultipleCards: (ids: string[]) => void;
   setCardPlaying: (id: string, isPlaying: boolean) => void;
+  clearPlayingYouTubeCards: () => void;
 
   // Actions - Scroll lock state
   setItemScrollLocked: (itemId: string, isLocked: boolean) => void;
@@ -519,6 +520,7 @@ export const useUIStore = create<UIState>()(
         }
         return { playingYouTubeCardIds: newSet };
       }),
+      clearPlayingYouTubeCards: () => set({ playingYouTubeCardIds: new Set<string>() }),
 
       // Scroll lock actions
       setItemScrollLocked: (itemId, isLocked) => set((state) => {

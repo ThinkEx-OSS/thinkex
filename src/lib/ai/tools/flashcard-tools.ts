@@ -1,73 +1,9 @@
 import { z } from "zod";
+import { zodSchema } from "ai";
 import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import type { WorkspaceToolContext } from "./workspace-tools";
-
-/**
- * Parse flashcard text format into structured data
- */
-function parseFlashcardText(rawInput: any): { title?: string; deckName?: string; cards: Array<{ front: string; back: string }> } {
-    let title: string | undefined;
-    let deckName: string | undefined;
-    const cards: Array<{ front: string; back: string }> = [];
-
-    try {
-        let text = typeof rawInput === 'string'
-            ? rawInput
-            : (rawInput?.description || rawInput?.text || rawInput?.content || JSON.stringify(rawInput));
-
-        // Convert escaped newlines to actual newlines
-        text = text.replace(/\\n/g, '\n');
-
-        // Extract title (for creation)
-        const titleMatch = text.match(/Title:\s*(.+?)(?:\n|$)/i);
-        if (titleMatch) {
-            title = titleMatch[1].trim();
-        }
-
-        // Extract deck name (for updates)
-        const deckMatch = text.match(/Deck:\s*(.+?)(?:\n|$)/i);
-        if (deckMatch) {
-            deckName = deckMatch[1].trim();
-        }
-
-        // Extract Front/Back pairs using a pattern that captures content between markers
-        // Fixed regex: use $ end anchor properly to capture last card
-        const cardPattern = /Front:\s*([\s\S]*?)(?=\nBack:)\nBack:\s*([\s\S]*?)(?=\n\nFront:|$)/gi;
-        let match;
-
-        while ((match = cardPattern.exec(text)) !== null) {
-            const front = match[1].trim();
-            const back = match[2].trim();
-            if (front && back) {
-                cards.push({ front, back });
-            }
-        }
-
-        // Fallback: try a simpler line-by-line pattern if the above didn't match
-        if (cards.length === 0) {
-            const lines = text.split('\n');
-            let currentFront: string | null = null;
-
-            for (const line of lines) {
-                const frontMatch = line.match(/^Front:\s*(.+)/i);
-                const backMatch = line.match(/^Back:\s*(.+)/i);
-
-                if (frontMatch) {
-                    currentFront = frontMatch[1].trim();
-                } else if (backMatch && currentFront) {
-                    cards.push({ front: currentFront, back: backMatch[1].trim() });
-                    currentFront = null;
-                }
-            }
-        }
-    } catch (parseError) {
-        logger.error("Error parsing flashcard input:", parseError);
-    }
-
-    return { title, deckName, cards };
-}
 
 /**
  * Create the createFlashcards tool
@@ -76,39 +12,50 @@ export function createFlashcardsTool(ctx: WorkspaceToolContext) {
     return {
         description: `Create a new flashcard deck in the workspace. Use this when the user asks to generate flashcards or study materials.
 
-IMPORTANT: Use this simple text format (NOT JSON):
-
-Title: [Your Deck Title]
-
-Front: [Question or term for card 1]
-Back: [Answer or definition for card 1]
-
-Front: [Question or term for card 2]
-Back: [Answer or definition for card 2]
+Provide a structured object with:
+- title (optional): The title of the flashcard deck (defaults to "Flashcard Deck")
+- cards (required): An array of flashcard objects, each with:
+  - front: The question or term on the front of the card
+  - back: The answer or definition on the back of the card
 
 EXAMPLE:
-Title: Biology Cell Structure
+{
+  "title": "Biology Cell Structure",
+  "cards": [
+    {
+      "front": "What is the function of mitochondria?",
+      "back": "Mitochondria are the powerhouses of the cell. They produce ATP through cellular respiration."
+    },
+    {
+      "front": "Define photosynthesis",
+      "back": "Photosynthesis is the process by which plants convert light energy into chemical energy."
+    }
+  ]
+}
 
-Front: What is the function of mitochondria?
-Back: Mitochondria are the powerhouses of the cell. They produce ATP through cellular respiration.
-
-Front: Define photosynthesis
-Back: Photosynthesis is the process by which plants convert light energy into chemical energy.
-
-Math is supported within the Front/Back content. Use $$...$$ for ALL math expressions (both inline and block). Single $ is for currency only.`,
-        inputSchema: z.any().describe(
-            "Plain text in the format: Title: [title]\\n\\nFront: [question]\\nBack: [answer]\\n\\nFront: [question]\\nBack: [answer]\\n... Use this simple text format, NOT JSON."
+Math is supported within the front/back content. Use $$...$$ for ALL math expressions (both inline and block). Single $ is for currency only.`,
+        inputSchema: zodSchema(
+            z.object({
+                title: z.string().optional().describe("The title of the flashcard deck (defaults to 'Flashcard Deck' if not provided)"),
+                cards: z.array(
+                    z.object({
+                        front: z.string().describe("The question or term on the front of the card"),
+                        back: z.string().describe("The answer or definition on the back of the card"),
+                    })
+                ).min(1).describe("Array of flashcard objects, each with 'front' and 'back' properties"),
+            }).passthrough()
         ),
-        execute: async (rawInput: any) => {
+        execute: async (input: { title?: string; cards: Array<{ front: string; back: string }> }) => {
             logger.debug("🎴 [CREATE-FLASHCARDS] Tool execution started");
 
-            const { title = "Flashcard Deck", cards } = parseFlashcardText(rawInput);
+            const title = input.title || "Flashcard Deck";
+            const cards = input.cards || [];
 
             if (cards.length === 0) {
                 logger.error("❌ [CREATE-FLASHCARDS] No valid cards found in input");
                 return {
                     success: false,
-                    message: "No valid flashcards found. Please use the format: Front: [question]\\nBack: [answer]",
+                    message: "At least one flashcard is required. Provide an array of cards with 'front' and 'back' properties.",
                 };
             }
 
@@ -151,43 +98,54 @@ export function createUpdateFlashcardsTool(ctx: WorkspaceToolContext) {
     return {
         description: `Add more flashcards to an existing flashcard deck. Use this when the user wants to expand an existing deck with additional cards.
 
-IMPORTANT: Use this simple text format:
-
-Deck: [Name of the existing deck to add cards to]
-
-Front: [Question or term for new card 1]
-Back: [Answer or definition for new card 1]
-
-Front: [Question or term for new card 2]
-Back: [Answer or definition for new card 2]
+Provide a structured object with:
+- deckName (required): The name or ID of the flashcard deck to update (will be matched using fuzzy search)
+- cards (required): An array of flashcard objects to add, each with:
+  - front: The question or term on the front of the card
+  - back: The answer or definition on the back of the card
 
 EXAMPLE:
-Deck: Biology Cell Structure
+{
+  "deckName": "Biology Cell Structure",
+  "cards": [
+    {
+      "front": "What is the nucleus?",
+      "back": "The nucleus is the control center of the cell containing DNA."
+    },
+    {
+      "front": "What is the cytoplasm?",
+      "back": "The cytoplasm is the gel-like substance inside the cell membrane."
+    }
+  ]
+}
 
-Front: What is the nucleus?
-Back: The nucleus is the control center of the cell containing DNA.
-
-Front: What is the cytoplasm?
-Back: The cytoplasm is the gel-like substance inside the cell membrane.
-
-The deck name will be matched using fuzzy search. Math is supported. Use $$...$$ for ALL math expressions (both inline and block). Single $ is for currency only.`,
-        inputSchema: z.any().describe(
-            "Plain text in the format: Deck: [deck name]\\n\\nFront: [question]\\nBack: [answer]\\n\\nFront: [question]\\nBack: [answer]\\n..."
+Math is supported within the front/back content. Use $$...$$ for ALL math expressions (both inline and block). Single $ is for currency only.`,
+        inputSchema: zodSchema(
+            z.object({
+                deckName: z.string().describe("The name or ID of the flashcard deck to update"),
+                cards: z.array(
+                    z.object({
+                        front: z.string().describe("The question or term on the front of the card"),
+                        back: z.string().describe("The answer or definition on the back of the card"),
+                    })
+                ).min(1).describe("Array of flashcard objects to add, each with 'front' and 'back' properties"),
+            }).passthrough()
         ),
-        execute: async (rawInput: any) => {
-            const { deckName, cards: cardsToAdd } = parseFlashcardText(rawInput);
+        execute: async (input: { deckName: string; cards: Array<{ front: string; back: string }> }) => {
+            const deckName = input.deckName;
+            const cardsToAdd = input.cards || [];
 
             if (!deckName) {
                 return {
                     success: false,
-                    message: "Deck name is required. Use 'Deck: [name]' to specify which deck to update.",
+                    message: "Deck name is required to identify which deck to update.",
                 };
             }
 
             if (cardsToAdd.length === 0) {
                 return {
                     success: false,
-                    message: "No valid cards found. Use 'Front: [question]\\nBack: [answer]' format.",
+                    message: "At least one flashcard is required. Provide an array of cards with 'front' and 'back' properties.",
                 };
             }
 

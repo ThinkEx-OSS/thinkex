@@ -21,7 +21,13 @@ import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import type { QuizResult } from "@/lib/ai/tool-result-schemas";
 import { parseQuizResult } from "@/lib/ai/tool-result-schemas";
 
-type CreateQuizArgs = { topic?: string; difficulty: "easy" | "medium" | "hard" };
+type CreateQuizArgs = {
+  topic?: string;
+  difficulty?: "easy" | "medium" | "hard";
+  contextContent?: string;
+  sourceCardIds?: string[];
+  sourceCardNames?: string[];
+};
 
 interface CreateQuizReceiptProps {
     args: CreateQuizArgs;

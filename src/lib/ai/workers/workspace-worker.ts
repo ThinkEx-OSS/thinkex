@@ -88,7 +88,10 @@ export async function workspaceWorker(
         folderId?: string;
     }
 ): Promise<{ success: boolean; message: string; itemId?: string; cardsAdded?: number; cardCount?: number; event?: WorkspaceEvent; version?: number }> {
-    // Serialize operations on the same workspace
+    // For "create" operations, allow parallel execution (bypass queue)
+    // For "update" and "delete" operations, serialize via queue
+    const allowParallel = action === "create";
+    
     return executeWorkspaceOperation(params.workspaceId, async () => {
         try {
             logger.debug("📝 [WORKSPACE-WORKER] Action:", action, params);
@@ -214,30 +217,65 @@ export async function workspaceWorker(
 
                 const event = createEvent("ITEM_CREATED", { id: itemId, item }, userId);
 
+                // For create operations, retry on version conflicts since creates are independent
+                // The database uses FOR UPDATE which serializes, but parallel creates may still
+                // read the same baseVersion before the lock, causing conflicts. Retry with the
+                // conflict version (which the DB returns) to handle this gracefully.
+                let baseVersion = 0;
+                let appendResult: { version: number; conflict: boolean } = { version: 0, conflict: false };
+                const maxRetries = 2; // Conflicts should be rare due to FOR UPDATE lock
+                let retryCount = 0;
+
+                // Get initial version
                 const currentVersionResult = await db.execute(sql`
           SELECT get_workspace_version(${params.workspaceId}::uuid) as version
         `);
+                const baseVersionRaw = currentVersionResult[0]?.version;
+                baseVersion =
+                    typeof baseVersionRaw === "number"
+                        ? baseVersionRaw
+                        : Number(baseVersionRaw) || 0;
+                appendResult = { version: baseVersion, conflict: false };
 
-                const baseVersion = currentVersionResult[0]?.version || 0;
+                while (retryCount <= maxRetries) {
+                    const eventResult = await db.execute(sql`
+            SELECT append_workspace_event(
+              ${params.workspaceId}::uuid,
+              ${event.id}::text,
+              ${event.type}::text,
+              ${JSON.stringify(event.payload)}::jsonb,
+              ${event.timestamp}::bigint,
+              ${event.userId}::text,
+              ${baseVersion}::integer,
+              NULL::text
+            ) as result
+          `);
 
-                const eventResult = await db.execute(sql`
-          SELECT append_workspace_event(
-            ${params.workspaceId}::uuid,
-            ${event.id}::text,
-            ${event.type}::text,
-            ${JSON.stringify(event.payload)}::jsonb,
-            ${event.timestamp}::bigint,
-            ${event.userId}::text,
-            ${baseVersion}::integer,
-            NULL::text
-          ) as result
-        `);
+                    if (!eventResult || eventResult.length === 0) {
+                        throw new Error(`Failed to create ${itemType}`);
+                    }
 
-                if (!eventResult || eventResult.length === 0) {
-                    throw new Error(`Failed to create ${itemType}`);
+                    appendResult = parseAppendResult(eventResult[0].result);
+                    
+                    // If no conflict, we're done
+                    if (!appendResult.conflict) {
+                        break;
+                    }
+
+                    // Conflict occurred - use the version returned by the DB for retry
+                    // This is more efficient than re-reading get_workspace_version
+                    baseVersion = appendResult.version;
+                    retryCount++;
+                    
+                    if (retryCount <= maxRetries) {
+                        logger.debug(`🔄 [WORKSPACE-WORKER] Version conflict on create, retrying (attempt ${retryCount + 1}/${maxRetries + 1}):`, {
+                            expectedVersion: baseVersion - 1,
+                            currentVersion: baseVersion,
+                        });
+                    }
                 }
 
-                const appendResult = parseAppendResult(eventResult[0].result);
+                // If we still have a conflict after retries, throw error
                 if (appendResult.conflict) {
                     throw new Error("Workspace was modified by another user, please try again");
                 }
@@ -658,5 +696,5 @@ export async function workspaceWorker(
                 message: `Failed: ${errorMessage}`,
             };
         }
-    });
+    }, { allowParallel });
 }

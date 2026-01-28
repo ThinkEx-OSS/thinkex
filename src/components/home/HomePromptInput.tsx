@@ -10,26 +10,26 @@ import { Input } from "@/components/ui/input";
 import TypingText from "@/components/ui/typing-text";
 
 const PLACEHOLDER_OPTIONS = [
-  "learning Spanish",
-  "meal planning",
-  "productivity tips",
-  "hiking trails nearby",
-  "interior design ideas",
-  "beginner guitar",
-  "healthy breakfast recipes",
-  "weekend trip ideas",
-  "mindfulness and meditation",
-  "budgeting and saving",
-  "home workout routines",
-  "book recommendations",
-  "gardening basics",
-  "morning routines",
-  "travel photography",
-  "cooking for beginners",
-  "personal finance",
-  "storytelling and writing",
-  "coffee brewing at home",
-  "day trips and getaways",
+  "studying for my calculus exam",
+  "research paper on machine learning",
+  "startup pitch for business class",
+  "analyzing psychology survey data",
+  "writing my history essay",
+  "comparing marketing case studies",
+  "organizing my capstone project",
+  "preparing my climate change presentation",
+  "research on social media behavior",
+  "analyzing financial data",
+  "writing my CS project docs",
+  "comparing literature sources",
+  "organizing my internship notes",
+  "studying for my organic chemistry final",
+  "research on renewable energy",
+  "drafting my grant proposal",
+  "preparing for my biology midterm",
+  "organizing my study abroad research",
+  "comparing historical documents",
+  "writing my Nike case study",
 ];
 
 const baseText = "Create a workspace for ";
@@ -93,7 +93,7 @@ export function HomePromptInput() {
       // Reset typing animation by changing key
       typingKeyRef.current += 1;
       router.push(
-        `/dashboard/${workspace.slug}?createFrom=${encodeURIComponent(prompt)}`
+        `/workspace/${workspace.slug}?createFrom=${encodeURIComponent(prompt)}`
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
@@ -111,8 +111,8 @@ export function HomePromptInput() {
           onClick={() => inputRef.current?.focus()}
           className={cn(
             "relative flex items-center gap-0 min-h-[60px] w-full",
-            "bg-muted/50 border-2 border-sidebar-border/50 rounded-md",
-            "focus-within:border-primary/50 focus-within:bg-muted/80",
+            "bg-sidebar border border-sidebar-border/50 rounded-md",
+            "focus-within:border-sidebar-foreground/20 focus-within:bg-sidebar",
             "transition-all duration-200",
             "cursor-text"
           )}
