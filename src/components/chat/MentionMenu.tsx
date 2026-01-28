@@ -29,7 +29,7 @@ function getCardTypeIcon(type: CardType) {
         case "pdf":
             return <File className="size-3.5 text-red-400" />;
         case "flashcard":
-            return <PiCardsThreeBold className="size-3.5 text-purple-400" />;
+            return <PiCardsThreeBold className="size-3.5 text-purple-400 rotate-180" />;
         case "quiz":
             return <Brain className="size-3.5 text-green-400" />;
         case "youtube":

@@ -785,7 +785,7 @@ export default function WorkspaceHeader({
                       }}
                       className="flex items-center gap-2 cursor-pointer"
                     >
-                      <PiCardsThreeBold className="size-4 text-muted-foreground" />
+                      <PiCardsThreeBold className="size-4 text-muted-foreground rotate-180" />
                       Flashcards
                     </DropdownMenuItem>
                     <DropdownMenuItem

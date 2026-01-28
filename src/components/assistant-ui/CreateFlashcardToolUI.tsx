@@ -114,7 +114,7 @@ const CreateFlashcardReceipt = ({
                             status?.type === "complete" ? "bg-purple-500/10 text-purple-600" : "bg-red-500/10 text-red-600"
                         )}>
                             {status?.type === "complete" ? (
-                                <PiCardsThreeBold className="size-4" />
+                                <PiCardsThreeBold className="size-4 rotate-180" />
                             ) : (
                                 <X className="size-4" />
                             )}

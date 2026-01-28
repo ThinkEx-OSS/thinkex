@@ -250,7 +250,7 @@ export function SidebarQuickActions({ currentWorkspaceId, isChatExpanded, setIsC
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
                             <DropdownMenuItem onClick={handleFlashcardClick} className="cursor-pointer">
-                                <PiCardsThreeBold className="mr-2 h-4 w-4" />
+                                <PiCardsThreeBold className="mr-2 h-4 w-4 rotate-180" />
                                 <span>Flashcards</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={handleQuizClick} className="cursor-pointer">
