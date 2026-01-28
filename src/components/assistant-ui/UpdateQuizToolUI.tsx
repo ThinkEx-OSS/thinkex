@@ -1,34 +1,19 @@
 "use client";
 
-import { useEffect } from "react";
+import type { ReactNode } from "react";
 import { makeAssistantToolUI } from "@assistant-ui/react";
 import { useOptimisticToolUpdate } from "@/hooks/ai/use-optimistic-tool-update";
 import { X, Plus, GraduationCap } from "lucide-react";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { cn } from "@/lib/utils";
-import ShinyText from "@/components/ShinyText";
+import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
+import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-shell";
+import type { QuizResult } from "@/lib/ai/tool-result-schemas";
+import { parseQuizResult } from "@/lib/ai/tool-result-schemas";
 
-// Type definitions for the tool
-type UpdateQuizArgs = {
-    quizId: string;
-};
+type UpdateQuizArgs = { quizId: string };
 
-type UpdateQuizResult = {
-    success: boolean;
-    message: string;
-    itemId?: string;
-    quizId?: string; // Add quizId to match tool output
-    questionsAdded?: number;
-    totalQuestions?: number;
-};
-
-const UpdateQuizReceipt = ({
-    result,
-    status,
-}: {
-    result: UpdateQuizResult;
-    status: any;
-}) => {
+const UpdateQuizReceipt = ({ result, status }: { result: QuizResult; status: any }) => {
     return (
         <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border bg-card/50 text-card-foreground shadow-sm">
             <div className={cn(
@@ -68,53 +53,39 @@ const UpdateQuizReceipt = ({
     );
 };
 
-export const UpdateQuizToolUI = makeAssistantToolUI<UpdateQuizArgs, UpdateQuizResult>({
-    toolName: "updateQuiz",
-    render: function UpdateQuizUI({ args, result, status }) {
-        const queryClient = useQueryClient();
-        const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+export const UpdateQuizToolUI = makeAssistantToolUI<UpdateQuizArgs, QuizResult>({
+  toolName: "updateQuiz",
+  render: function UpdateQuizUI({ args, result, status }) {
+    const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
 
-        // Apply optimistic update
-        useOptimisticToolUpdate(status, result, workspaceId);
+    useOptimisticToolUpdate(status, result, workspaceId);
 
-        // Show receipt when result is available
-        if (result && result.success) {
-            return <UpdateQuizReceipt result={result} status={status} />;
-        }
+    const parsed = result != null ? parseQuizResult(result) : null;
 
-        // Show loading state while tool is executing
-        if (status.type === "running") {
-            return (
-                <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border bg-card/50 text-card-foreground shadow-sm">
-                    <div className="flex items-center gap-2 bg-muted/20 px-4 py-3">
-                        <ShinyText
-                            text="Adding more questions..."
-                            disabled={false}
-                            speed={1.5}
-                            className="text-sm font-semibold"
-                        />
-                    </div>
-                </div>
-            );
-        }
+    let content: ReactNode = null;
 
-        // Show error state
-        if (status.type === "incomplete" && status.reason === "error") {
-            return (
-                <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
-                    <div className="flex items-center gap-2">
-                        <X className="size-4 text-red-600 dark:text-red-400" />
-                        <p className="text-sm font-medium text-red-800 dark:text-red-200">
-                            Failed to add questions
-                        </p>
-                    </div>
-                    {result && !result.success && result.message && (
-                        <p className="mt-2 text-xs text-red-700 dark:text-red-300">{result.message}</p>
-                    )}
-                </div>
-            );
-        }
+    if (parsed?.success) {
+      content = <UpdateQuizReceipt result={parsed} status={status} />;
+    } else if (status.type === "running") {
+      content = <ToolUILoadingShell label="Adding more questions..." />;
+    } else if (status.type === "incomplete" && status.reason === "error") {
+      content = (
+        <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
+          <div className="flex items-center gap-2">
+            <X className="size-4 text-red-600 dark:text-red-400" />
+            <p className="text-sm font-medium text-red-800 dark:text-red-200">Failed to add questions</p>
+          </div>
+          {parsed && !parsed.success && parsed.message && (
+            <p className="mt-2 text-xs text-red-700 dark:text-red-300">{parsed.message}</p>
+          )}
+        </div>
+      );
+    }
 
-        return null;
-    },
+    return (
+      <ToolUIErrorBoundary componentName="UpdateQuiz">
+        {content}
+      </ToolUIErrorBoundary>
+    );
+  },
 });

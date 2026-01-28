@@ -8,8 +8,8 @@ import { logger } from "@/lib/utils/logger";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import ShinyText from "@/components/ShinyText";
 import MoveToDialog from "@/components/modals/MoveToDialog";
+import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-shell";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { toast } from "sonner";
 import { useOptimisticToolUpdate } from "@/hooks/ai/use-optimistic-tool-update";
@@ -34,27 +34,20 @@ const truncateContentForLogging = (obj: any, maxLength: number = 200): any => {
   return truncated;
 };
 
-// Type definitions for the tool
-type CreateNoteArgs = {
-  title: string;
-  content: string;
-  tags?: string[];
-};
-
-type CreateNoteResult = {
-  success: boolean;
-  message: string;
-  itemId?: string;
-};
-
+import type { ReactNode } from "react";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
 import { initialState } from "@/lib/workspace-state/state";
+import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
+import type { WorkspaceResult } from "@/lib/ai/tool-result-schemas";
+import { parseWorkspaceResult } from "@/lib/ai/tool-result-schemas";
+
+type CreateNoteArgs = { title: string; content: string; tags?: string[] };
 
 interface CreateNoteReceiptProps {
   args: CreateNoteArgs;
-  result: CreateNoteResult;
+  result: WorkspaceResult;
   status: any;
   moveItemToFolder?: (itemId: string, folderId: string | null) => void;
   allItems?: any[];
@@ -203,21 +196,19 @@ const CreateNoteReceipt = ({
   );
 };
 
-export const CreateNoteToolUI = makeAssistantToolUI<CreateNoteArgs, CreateNoteResult>({
+export const CreateNoteToolUI = makeAssistantToolUI<CreateNoteArgs, WorkspaceResult>({
   toolName: "createNote",
   render: function CreateNoteCardUI({ args, result, status }) {
     const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
     const { state: workspaceState } = useWorkspaceState(workspaceId);
     const operations = useWorkspaceOperations(workspaceId, workspaceState || initialState);
-
-    // Get workspace metadata from context
     const workspaceContext = useWorkspaceContext();
-    const currentWorkspace = workspaceContext.workspaces.find(w => w.id === workspaceId);
+    const currentWorkspace = workspaceContext.workspaces.find((w) => w.id === workspaceId);
 
-    // Apply optimistic update
     useOptimisticToolUpdate(status, result, workspaceId);
 
-    // Debug logging for render function
+    const parsed = result != null ? parseWorkspaceResult(result) : null;
+
     useEffect(() => {
       logger.group(`🎨 [CreateNoteTool] RENDER CALLED`, true);
       logger.debug("Args:", args ? JSON.stringify(truncateContentForLogging({ args }), null, 2) : "null");
@@ -225,17 +216,18 @@ export const CreateNoteToolUI = makeAssistantToolUI<CreateNoteArgs, CreateNoteRe
       logger.debug("Status:", status ? JSON.stringify(status, null, 2) : "null");
       logger.debug("Status type:", status?.type);
       logger.debug("Workspace ID:", workspaceId);
-      logger.debug("Result itemId:", result?.itemId);
+      logger.debug("Result itemId:", parsed?.itemId);
       logger.groupEnd();
-    }, [args, result, status, workspaceId]);
+    }, [args, result, status, workspaceId, parsed?.itemId]);
 
-    // Show receipt when result is available, or show loading state while creating
-    if (result && result.success) {
+    let content: ReactNode = null;
+
+    if (parsed?.success) {
       logger.debug("✅ [CreateNoteTool] Rendering receipt with result");
-      return (
+      content = (
         <CreateNoteReceipt
           args={args}
-          result={result}
+          result={parsed}
           status={status}
           moveItemToFolder={operations.moveItemToFolder}
           allItems={workspaceState?.items || []}
@@ -244,43 +236,29 @@ export const CreateNoteToolUI = makeAssistantToolUI<CreateNoteArgs, CreateNoteRe
           workspaceColor={currentWorkspace?.color}
         />
       );
-    }
-
-    // Show loading state while tool is executing
-    if (status.type === "running") {
+    } else if (status.type === "running") {
       logger.debug("⏳ [CreateNoteTool] Rendering loading state - status is running");
-      return (
-        <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border bg-card/50 text-card-foreground shadow-sm">
-          <div className="flex items-center gap-2 bg-muted/20 px-4 py-3">
-            <ShinyText
-              text="Creating note..."
-              disabled={false}
-              speed={1.5}
-              className="text-sm font-semibold"
-            />
-          </div>
-        </div>
-      );
-    }
-
-    // Show error state
-    if (status.type === "incomplete" && status.reason === "error") {
-      return (
+      content = <ToolUILoadingShell label="Creating note..." />;
+    } else if (status.type === "incomplete" && status.reason === "error") {
+      content = (
         <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
           <div className="flex items-center gap-2">
             <X className="size-4 text-red-600 dark:text-red-400" />
-            <p className="text-sm font-medium text-red-800 dark:text-red-200">
-              Failed to create note
-            </p>
+            <p className="text-sm font-medium text-red-800 dark:text-red-200">Failed to create note</p>
           </div>
-          {result && !result.success && result.message && (
-            <p className="mt-2 text-xs text-red-700 dark:text-red-300">{result.message}</p>
+          {parsed && !parsed.success && parsed.message && (
+            <p className="mt-2 text-xs text-red-700 dark:text-red-300">{parsed.message}</p>
           )}
         </div>
       );
+    } else {
+      logger.debug("❓ [CreateNoteTool] Rendering null - no result and status is not running");
     }
 
-    logger.debug("❓ [CreateNoteTool] Rendering null - no result and status is not running");
-    return null;
+    return (
+      <ToolUIErrorBoundary componentName="CreateNote">
+        {content}
+      </ToolUIErrorBoundary>
+    );
   },
 });

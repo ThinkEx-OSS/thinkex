@@ -88,14 +88,21 @@ export function createQuizTool(ctx: WorkspaceToolContext) {
                     folderId: ctx.activeFolderId,
                 });
 
+                if (!workerResult.success) {
+                    return workerResult;
+                }
+
                 return {
                     success: true,
+                    itemId: workerResult.itemId,
                     quizId: workerResult.itemId,
                     title: quizResult.title,
                     questionCount: quizResult.questions.length,
                     difficulty,
                     isContextBased: !!contextContent,
                     message: `Created quiz "${quizResult.title}" with ${quizResult.questions.length} questions.`,
+                    event: workerResult.event,
+                    version: workerResult.version,
                 };
             } catch (error) {
                 logger.error("❌ [CREATE-QUIZ] Error:", error);
@@ -224,16 +231,19 @@ export function createUpdateQuizTool(ctx: WorkspaceToolContext) {
                 });
 
                 // Update the quiz with new questions
-                // Cast to any since workspaceWorker internal types use questionsToAdd
-                await workspaceWorker("updateQuiz", {
+                const workerResult = await workspaceWorker("updateQuiz", {
                     workspaceId: ctx.workspaceId,
                     itemId: quizId,
                     itemType: "quiz",
                     questionsToAdd: quizResult.questions,
                 });
 
+                if (!workerResult.success) {
+                    return workerResult;
+                }
+
                 return {
-                    success: true,
+                    ...workerResult,
                     quizId,
                     questionsAdded: quizResult.questions.length,
                     totalQuestions: existingQuestions.length + quizResult.questions.length,

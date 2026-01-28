@@ -16,6 +16,8 @@ import {
 } from "@assistant-ui/react";
 
 import { StandaloneMarkdown } from "@/components/assistant-ui/standalone-markdown";
+import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
+import { parseStringResult } from "@/lib/ai/tool-result-schemas";
 import {
   Collapsible,
   CollapsibleContent,
@@ -203,46 +205,42 @@ export const ExecuteCodeToolUI = makeAssistantToolUI<{
   toolName: "executeCode",
   render: function ExecuteCodeToolUI({ args, status, result }) {
     const isRunning = status.type === "running";
-    const hasResult = result !== undefined && result !== null;
+    const parsed = result != null ? parseStringResult(result) : null;
 
     return (
-      <ToolRoot>
-        <ToolTrigger
-          active={isRunning}
-          label="Calculating"
-          icon={<CodeIcon className="aui-tool-trigger-icon size-4 shrink-0" />}
-        />
+      <ToolUIErrorBoundary componentName="ExecuteCode">
+        <ToolRoot>
+          <ToolTrigger
+            active={isRunning}
+            label="Calculating"
+            icon={<CodeIcon className="aui-tool-trigger-icon size-4 shrink-0" />}
+          />
 
-        <ToolContent aria-busy={isRunning}>
-          <ToolText>
-            <div className="space-y-3">
-              <div>
-                <span className="text-xs font-medium text-muted-foreground/70">
-                  Task:
-                </span>
-                <p className="mt-1 text-foreground">{args.task}</p>
-              </div>
-
-              {isRunning && (
-                <div className="text-xs text-muted-foreground/60">
-                  Executing code...
-                </div>
-              )}
-
-              {hasResult && (
+          <ToolContent aria-busy={isRunning}>
+            <ToolText>
+              <div className="space-y-3">
                 <div>
-                  <span className="text-xs font-medium text-muted-foreground/70">
-                    Result:
-                  </span>
-                  <div className="mt-2">
-                    <StandaloneMarkdown>{result}</StandaloneMarkdown>
-                  </div>
+                  <span className="text-xs font-medium text-muted-foreground/70">Task:</span>
+                  <p className="mt-1 text-foreground">{args.task}</p>
                 </div>
-              )}
-            </div>
-          </ToolText>
-        </ToolContent>
-      </ToolRoot>
+
+                {isRunning && (
+                  <div className="text-xs text-muted-foreground/60">Executing code...</div>
+                )}
+
+                {parsed != null && (
+                  <div>
+                    <span className="text-xs font-medium text-muted-foreground/70">Result:</span>
+                    <div className="mt-2">
+                      <StandaloneMarkdown>{parsed}</StandaloneMarkdown>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </ToolText>
+          </ToolContent>
+        </ToolRoot>
+      </ToolUIErrorBoundary>
     );
   },
 });

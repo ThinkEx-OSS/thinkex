@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useMemo } from "react";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { makeAssistantToolUI } from "@assistant-ui/react";
@@ -9,32 +10,22 @@ import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/lib/stores/ui-store";
-import ShinyText from "@/components/ShinyText";
+import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
+import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-shell";
+import type { WorkspaceResult } from "@/lib/ai/tool-result-schemas";
+import { parseWorkspaceResult } from "@/lib/ai/tool-result-schemas";
 
-
-
-// Type definitions for the tool
-type UpdateCardArgs = {
-  id: string;
-  markdown?: string;
-  content?: string;
-};
-
-type UpdateCardResult = {
-  success: boolean;
-  message: string;
-  itemId?: string;
-};
+type UpdateCardArgs = { id: string; markdown?: string; content?: string };
 
 interface UpdateCardReceiptProps {
   args: UpdateCardArgs;
-  result: UpdateCardResult;
+  result: WorkspaceResult;
   status: any;
 }
 
 const UpdateCardReceipt = ({ args, result, status }: UpdateCardReceiptProps) => {
-  const setOpenModalItemId = useUIStore((state) => state.setOpenModalItemId);
-  const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+  const setOpenModalItemId = useUIStore((s) => s.setOpenModalItemId);
+  const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const { state: workspaceState } = useWorkspaceState(workspaceId);
 
   // Check if the card has appeared in the workspace with updated content
@@ -143,71 +134,47 @@ const UpdateCardReceipt = ({ args, result, status }: UpdateCardReceiptProps) => 
   );
 };
 
-export const UpdateCardToolUI = makeAssistantToolUI<UpdateCardArgs, UpdateCardResult>({
+export const UpdateCardToolUI = makeAssistantToolUI<UpdateCardArgs, WorkspaceResult>({
   toolName: "updateCard",
   render: function UpdateCardUI({ args, result, status }) {
     const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-    const { state: workspaceState } = useWorkspaceState(workspaceId);
 
-    // Apply optimistic update
     useOptimisticToolUpdate(status, result as any, workspaceId);
 
-    // Show receipt when result is available, or show loading state while updating
-    if (result && typeof result === "object" && "success" in result && result.success) {
-      return <UpdateCardReceipt args={args} result={result} status={status} />;
-    }
+    const parsed = result != null ? parseWorkspaceResult(result) : null;
 
-    // Show loading state while tool is executing
-    if (status.type === "running") {
-      return (
-        <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border bg-card/50 text-card-foreground shadow-sm">
-          <div className="flex items-center gap-2 bg-muted/20 px-4 py-3">
-            <ShinyText
-              text="Updating card..."
-              disabled={false}
-              speed={1.5}
-              className="text-sm font-semibold"
-            />
-          </div>
-        </div>
-      );
-    }
+    let content: ReactNode = null;
 
-    // Show error state
-    if (status.type === "complete" && result && typeof result === "object" && "success" in result && !result.success) {
-      const errorMessage = "message" in result && typeof result.message === "string" ? result.message : null;
-      return (
+    if (parsed?.success) {
+      content = <UpdateCardReceipt args={args} result={parsed} status={status} />;
+    } else if (status.type === "running") {
+      content = <ToolUILoadingShell label="Updating card..." />;
+    } else if (status.type === "complete" && parsed && !parsed.success) {
+      content = (
         <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
           <div className="flex items-center gap-2">
             <X className="size-4 text-red-600 dark:text-red-400" />
-            <p className="text-sm font-medium text-red-800 dark:text-red-200">
-              Failed to update card
-            </p>
+            <p className="text-sm font-medium text-red-800 dark:text-red-200">Failed to update card</p>
           </div>
-          {errorMessage && (
-            <p className="mt-2 text-xs text-red-700 dark:text-red-300">{errorMessage}</p>
-          )}
+          {parsed.message && <p className="mt-2 text-xs text-red-700 dark:text-red-300">{parsed.message}</p>}
         </div>
       );
-    }
-
-    // Show error state for incomplete/error status
-    if (status.type === "incomplete" && status.reason === "error") {
-      return (
+    } else if (status.type === "incomplete" && status.reason === "error") {
+      content = (
         <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
           <div className="flex items-center gap-2">
             <X className="size-4 text-red-600 dark:text-red-400" />
-            <p className="text-sm font-medium text-red-800 dark:text-red-200">
-              Failed to update card
-            </p>
+            <p className="text-sm font-medium text-red-800 dark:text-red-200">Failed to update card</p>
           </div>
-          {result && typeof result === "object" && "message" in result && typeof result.message === "string" && (
-            <p className="mt-2 text-xs text-red-700 dark:text-red-300">{result.message}</p>
-          )}
+          {parsed?.message && <p className="mt-2 text-xs text-red-700 dark:text-red-300">{parsed.message}</p>}
         </div>
       );
     }
 
-    return null;
+    return (
+      <ToolUIErrorBoundary componentName="UpdateCard">
+        {content}
+      </ToolUIErrorBoundary>
+    );
   },
 });

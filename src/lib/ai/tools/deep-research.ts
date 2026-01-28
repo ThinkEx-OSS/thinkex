@@ -60,9 +60,13 @@ export function createDeepResearchTool(ctx: WorkspaceToolContext) {
                 logger.debug("🎯 [DEEP-RESEARCH] Research note created:", noteResult.itemId);
 
                 return {
+                    success: true,
+                    itemId: noteResult.itemId,
                     noteId: noteResult.itemId,
                     interactionId: interaction.id,
                     message: "Deep research started. Check the new research card in your workspace to see progress.",
+                    event: noteResult.event,
+                    version: noteResult.version,
                 };
             } catch (error: any) {
                 logger.error("❌ [DEEP-RESEARCH] Error:", error);

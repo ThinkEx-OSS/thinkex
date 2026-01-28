@@ -16,6 +16,8 @@ import {
 } from "@assistant-ui/react";
 
 import { StandaloneMarkdown } from "@/components/assistant-ui/standalone-markdown";
+import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
+import { parseURLContextResult } from "@/lib/ai/tool-result-schemas";
 import {
   Collapsible,
   CollapsibleContent,
@@ -267,7 +269,14 @@ export const URLContextToolUI = makeAssistantToolUI<{
     const isRunning = status.type === "running";
     const isComplete = status.type === "complete";
 
-    // Parse args if they come as jsonInput string (matching server tool definition)
+    const parsedResult = result != null ? parseURLContextResult(result) : null;
+    const resultText = typeof parsedResult === "string" ? parsedResult : (parsedResult as { text?: string })?.text || "";
+    type Meta = { urlMetadata?: Array<{ retrievedUrl?: string; urlRetrievalStatus?: string }>; groundingChunks?: unknown[]; sources?: unknown[] };
+    const metadata = (typeof parsedResult === "object" && parsedResult !== null && "metadata" in parsedResult ? (parsedResult as { metadata?: Meta }).metadata : null) as Meta | null;
+    const urlMetadata = metadata?.urlMetadata ?? null;
+    const groundingChunks = metadata?.groundingChunks ?? null;
+    const sources = metadata?.sources ?? null;
+
     let urls: string[] = [];
     let instruction: string | undefined;
 
@@ -280,21 +289,12 @@ export const URLContextToolUI = makeAssistantToolUI<{
         console.error("Failed to parse jsonInput:", e);
       }
     } else {
-      // Fallback to direct structure if provided (legacy)
-      // @ts-ignore
-      urls = args?.urls?.list || [];
-      // @ts-ignore
-      instruction = args?.urls?.instruction;
+      const a = args as { urls?: { list?: string[]; instruction?: string } };
+      urls = a?.urls?.list || [];
+      instruction = a?.urls?.instruction;
     }
 
     const urlCount = urls.length;
-
-    // Parse result - can be string or object with metadata
-    const resultText = typeof result === "string" ? result : result?.text || "";
-    const metadata = typeof result === "object" && result !== null ? result.metadata : null;
-    const urlMetadata = metadata?.urlMetadata;
-    const groundingChunks = metadata?.groundingChunks;
-    const sources = metadata?.sources;
 
     // Debug parsed data
     if (typeof window !== 'undefined') {
@@ -337,125 +337,115 @@ export const URLContextToolUI = makeAssistantToolUI<{
     };
 
     return (
-      <ToolRoot>
-        <ToolTrigger
-          active={isRunning}
-          label={isRunning ? "Processing URLs" : "URLs processed"}
-          icon={<LinkIcon className="aui-tool-trigger-icon size-4 shrink-0" />}
-        />
+      <ToolUIErrorBoundary componentName="URLContext">
+        <ToolRoot>
+          <ToolTrigger
+            active={isRunning}
+            label={isRunning ? "Processing URLs" : "URLs processed"}
+            icon={<LinkIcon className="aui-tool-trigger-icon size-4 shrink-0" />}
+          />
 
-        <ToolContent aria-busy={isRunning}>
-          <ToolText>
-            <div className="space-y-3">
-              {urlCount > 0 && (
-                <div>
-                  <span className="text-xs font-medium text-muted-foreground/70">
-                    URLs:
-                  </span>
-                  {instruction && (
-                    <div className="mt-1 mb-2 p-2 bg-muted/50 rounded-md border border-border/50">
-                      <div className="flex items-start gap-2">
-                        <AlertCircleIcon className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground/60" />
-                        <div className="flex-1">
-                          <span className="text-xs font-medium text-muted-foreground/70">Custom instruction:</span>
-                          <p className="text-xs text-foreground mt-0.5">{instruction}</p>
+          <ToolContent aria-busy={isRunning}>
+            <ToolText>
+              <div className="space-y-3">
+                {urlCount > 0 && (
+                  <div>
+                    <span className="text-xs font-medium text-muted-foreground/70">URLs:</span>
+                    {instruction && (
+                      <div className="mt-1 mb-2 p-2 bg-muted/50 rounded-md border border-border/50">
+                        <div className="flex items-start gap-2">
+                          <AlertCircleIcon className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground/60" />
+                          <div className="flex-1">
+                            <span className="text-xs font-medium text-muted-foreground/70">Custom instruction:</span>
+                            <p className="text-xs text-foreground mt-0.5">{instruction}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                  <div className="mt-1 space-y-1">
-                    {urls.map((url, index) => {
-                      const urlMeta = urlMetadata?.find((m: any) => m.retrievedUrl === url);
-                      return (
-                        <div key={index} className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            <ExternalLinkIcon className="h-3 w-3 shrink-0 text-muted-foreground/60" />
-                            <a
-                              href={url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-primary hover:underline break-all"
-                            >
-                              {url}
-                            </a>
-                          </div>
-                          {urlMeta && isComplete && (
-                            <div className="ml-5">
-                              <Badge
-                                variant="outline"
-                                className={cn("text-[10px] px-1.5 py-0.5", getStatusColor(urlMeta.urlRetrievalStatus))}
+                    )}
+                    <div className="mt-1 space-y-1">
+                      {urls.map((url, index) => {
+                        const urlMeta = urlMetadata?.find((m: any) => m.retrievedUrl === url);
+                        return (
+                          <div key={index} className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              <ExternalLinkIcon className="h-3 w-3 shrink-0 text-muted-foreground/60" />
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-primary hover:underline break-all"
                               >
-                                {formatStatus(urlMeta.urlRetrievalStatus)}
-                              </Badge>
+                                {url}
+                              </a>
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                            {urlMeta && isComplete && urlMeta.urlRetrievalStatus && (
+                              <div className="ml-5">
+                                <Badge
+                                  variant="outline"
+                                  className={cn("text-[10px] px-1.5 py-0.5", getStatusColor(urlMeta.urlRetrievalStatus))}
+                                >
+                                  {formatStatus(urlMeta.urlRetrievalStatus)}
+                                </Badge>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {isRunning && (
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
-                  <span className="text-xs text-foreground">
-                    Analyzing {urlCount} URL{urlCount !== 1 ? 's' : ''}...
-                  </span>
-                </div>
-              )}
-
-              {isComplete && (
-                <div className="space-y-2">
+                {isRunning && (
                   <div className="flex items-center gap-2">
-                    <CheckIcon className="h-4 w-4 text-green-500" />
+                    <div className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
                     <span className="text-xs text-foreground">
-                      Successfully processed {urlCount} URL{urlCount !== 1 ? 's' : ''}
+                      Analyzing {urlCount} URL{urlCount !== 1 ? "s" : ""}...
                     </span>
                   </div>
+                )}
 
-                  {/* Show metadata if available */}
-                  {metadata && (
-                    <div className="space-y-2 border-t pt-2">
-                      {groundingChunks && groundingChunks.length > 0 && (
-                        <div className="text-xs">
-                          <span className="font-medium text-muted-foreground/70">
-                            Grounding chunks:{" "}
-                          </span>
-                          <span className="text-foreground">{groundingChunks.length}</span>
-                        </div>
-                      )}
-
-                      {sources && sources.length > 0 && (
-                        <div className="text-xs">
-                          <span className="font-medium text-muted-foreground/70">
-                            Sources:{" "}
-                          </span>
-                          <span className="text-foreground">{sources.length}</span>
-                        </div>
-                      )}
-
-                      {urlMetadata && urlMetadata.length > 0 && (
-                        <div className="text-xs">
-                          <span className="font-medium text-muted-foreground/70">
-                            Retrieved:{" "}
-                          </span>
-                          <span className="text-foreground">
-                            {urlMetadata.filter((m: any) =>
-                              m.urlRetrievalStatus === "URL_RETRIEVAL_STATUS_SUCCESS"
-                            ).length} / {urlMetadata.length}
-                          </span>
-                        </div>
-                      )}
+                {isComplete && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <CheckIcon className="h-4 w-4 text-green-500" />
+                      <span className="text-xs text-foreground">
+                        Successfully processed {urlCount} URL{urlCount !== 1 ? "s" : ""}
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
 
-            </div>
-          </ToolText>
-        </ToolContent>
-      </ToolRoot>
+                    {metadata && (
+                      <div className="space-y-2 border-t pt-2">
+                        {groundingChunks && groundingChunks.length > 0 && (
+                          <div className="text-xs">
+                            <span className="font-medium text-muted-foreground/70">Grounding chunks: </span>
+                            <span className="text-foreground">{groundingChunks.length}</span>
+                          </div>
+                        )}
+
+                        {sources && sources.length > 0 && (
+                          <div className="text-xs">
+                            <span className="font-medium text-muted-foreground/70">Sources: </span>
+                            <span className="text-foreground">{sources.length}</span>
+                          </div>
+                        )}
+
+                        {urlMetadata && urlMetadata.length > 0 && (
+                          <div className="text-xs">
+                            <span className="font-medium text-muted-foreground/70">Retrieved: </span>
+                            <span className="text-foreground">
+                              {urlMetadata.filter((m: any) => m.urlRetrievalStatus === "URL_RETRIEVAL_STATUS_SUCCESS").length} / {urlMetadata.length}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </ToolText>
+          </ToolContent>
+        </ToolRoot>
+      </ToolUIErrorBoundary>
     );
   },
 });

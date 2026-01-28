@@ -1,14 +1,16 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { makeAssistantToolUI } from "@assistant-ui/react";
 import { useEffect, useMemo, useRef } from "react";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { CheckIcon, Loader2, X, FileText } from "lucide-react";
+import { CheckIcon, X, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-import ShinyText from "@/components/ShinyText";
+import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
+import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-shell";
+import { parseSelectCardsResult } from "@/lib/ai/tool-result-schemas";
 
 type SelectCardsArgs = {
   cardIds?: string[];
@@ -29,7 +31,7 @@ type SelectCardsResult = {
  */
 export const SelectCardsToolUI = makeAssistantToolUI<SelectCardsArgs, SelectCardsResult>({
   toolName: "selectCards",
-  render: ({ args, status }) => {
+  render: ({ args, status, result }) => {
     const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
     const { state } = useWorkspaceState(workspaceId);
     const selectMultipleCards = useUIStore((ui) => ui.selectMultipleCards);
@@ -121,43 +123,23 @@ export const SelectCardsToolUI = makeAssistantToolUI<SelectCardsArgs, SelectCard
     }, [args?.cardIds, args?.cardTitles, state?.items, availableIds]);
 
     const validCount = selectedCards.length;
-    // We only track invalid IDs for now, hard to track invalid titles effectively in this UI
     const invalidIds = args?.cardIds?.filter((id) => !availableIds.has(id)) || [];
 
+    if (result != null) parseSelectCardsResult(result);
 
+    let content: ReactNode = null;
 
-    // Loading state
     if (status.type === "running") {
-      return (
-        <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border bg-card/50 text-card-foreground shadow-sm">
-          <div className="flex items-center justify-between gap-2 bg-muted/20 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
-                <Loader2 className="size-4 animate-spin" />
-              </div>
-              <div className="flex flex-col">
-                <ShinyText
-                  text="Selecting Cards"
-                  disabled={false}
-                  speed={1.5}
-                  className="text-sm font-semibold"
-                />
-                <span className="text-xs text-muted-foreground">Adding to context...</span>
-              </div>
-            </div>
-          </div>
-        </div>
+      content = (
+        <ToolUILoadingShell
+          label="Selecting Cards"
+          subtitle="Adding to context..."
+        />
       );
-    }
-
-    // Success state with receipt
-    if (status.type === "complete" && validCount > 0) {
-      return (
+    } else if (status.type === "complete" && validCount > 0) {
+      content = (
         <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border bg-card/50 text-card-foreground shadow-sm">
-          <div className={cn(
-            "flex items-center justify-between gap-2 bg-muted/20 px-4 py-3",
-            "border-b"
-          )}>
+          <div className={cn("flex items-center justify-between gap-2 bg-muted/20 px-4 py-3", "border-b")}>
             <div className="flex items-center gap-2">
               <div className="flex size-8 items-center justify-center rounded-lg bg-green-500/10 text-green-600">
                 <CheckIcon className="size-4" />
@@ -166,14 +148,10 @@ export const SelectCardsToolUI = makeAssistantToolUI<SelectCardsArgs, SelectCard
                 <span className="text-sm font-semibold">
                   {validCount} Card{validCount === 1 ? "" : "s"} Selected
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  Added to context drawer
-                </span>
+                <span className="text-xs text-muted-foreground">Added to context drawer</span>
               </div>
             </div>
-
           </div>
-
           <div className="flex flex-col gap-2 p-4">
             <div className="flex flex-col gap-1.5">
               {selectedCards.map((card) => (
@@ -202,11 +180,8 @@ export const SelectCardsToolUI = makeAssistantToolUI<SelectCardsArgs, SelectCard
           </div>
         </div>
       );
-    }
-
-    // No cards found state
-    if (status.type === "complete" && validCount === 0) {
-      return (
+    } else if (status.type === "complete" && validCount === 0) {
+      content = (
         <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border bg-card/50 text-card-foreground shadow-sm">
           <div className="flex items-center justify-between gap-2 bg-muted/20 px-4 py-3 border-b">
             <div className="flex items-center gap-2">
@@ -224,10 +199,7 @@ export const SelectCardsToolUI = makeAssistantToolUI<SelectCardsArgs, SelectCard
               <p className="text-xs text-muted-foreground mb-2">Invalid IDs:</p>
               <div className="flex flex-wrap gap-1">
                 {invalidIds.map((id) => (
-                  <span
-                    key={id}
-                    className="rounded-md border border-border bg-muted/50 px-2 py-1 text-xs font-mono"
-                  >
+                  <span key={id} className="rounded-md border border-border bg-muted/50 px-2 py-1 text-xs font-mono">
                     {id.substring(0, 8)}...
                   </span>
                 ))}
@@ -236,11 +208,8 @@ export const SelectCardsToolUI = makeAssistantToolUI<SelectCardsArgs, SelectCard
           )}
         </div>
       );
-    }
-
-    // Error state
-    if (status.type === "incomplete" && status.reason === "error") {
-      return (
+    } else if (status.type === "incomplete" && status.reason === "error") {
+      content = (
         <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border border-red-200 bg-red-50/50 text-card-foreground shadow-sm dark:border-red-800 dark:bg-red-950/30">
           <div className="flex items-center justify-between gap-2 bg-red-100/50 px-4 py-3 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
             <div className="flex items-center gap-2">
@@ -248,12 +217,8 @@ export const SelectCardsToolUI = makeAssistantToolUI<SelectCardsArgs, SelectCard
                 <X className="size-4" />
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-semibold text-red-800 dark:text-red-200">
-                  Failed to Select Cards
-                </span>
-                <span className="text-xs text-red-700 dark:text-red-300">
-                  An error occurred
-                </span>
+                <span className="text-sm font-semibold text-red-800 dark:text-red-200">Failed to Select Cards</span>
+                <span className="text-xs text-red-700 dark:text-red-300">An error occurred</span>
               </div>
             </div>
           </div>
@@ -276,8 +241,11 @@ export const SelectCardsToolUI = makeAssistantToolUI<SelectCardsArgs, SelectCard
       );
     }
 
-    // Default fallback - hide UI
-    return null;
+    return (
+      <ToolUIErrorBoundary componentName="SelectCards">
+        {content}
+      </ToolUIErrorBoundary>
+    );
   },
 });
 

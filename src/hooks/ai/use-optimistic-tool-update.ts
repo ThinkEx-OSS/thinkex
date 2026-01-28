@@ -29,7 +29,10 @@ export function useOptimisticToolUpdate(
       result.event &&
       workspaceId
     ) {
-      const resultKey = result.itemId || result.event.id;
+      const resultKey = result.event.id ?? result.itemId;
+      if (resultKey == null) {
+        return; // Cannot dedupe or apply without event.id or itemId
+      }
       if (hasAppliedUpdateRef.current === resultKey) {
         return; // Already applied
       }

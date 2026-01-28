@@ -16,6 +16,8 @@ import {
 } from "@assistant-ui/react";
 
 import { StandaloneMarkdown } from "@/components/assistant-ui/standalone-markdown";
+import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
+import { parseStringResult } from "@/lib/ai/tool-result-schemas";
 import {
     Collapsible,
     CollapsibleContent,
@@ -234,6 +236,8 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
         const isRunning = status.type === "running";
         const isComplete = status.type === "complete";
 
+        const parsedResult = result != null ? parseStringResult(result) : null;
+
         // Parse args
         let urls: string[] = [];
         let instruction: string | undefined;
@@ -263,88 +267,90 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
         }
 
         return (
-            <ToolRoot>
-                <ToolTrigger
-                    active={isRunning}
-                    label={isRunning ? "Processing files" : "Files processed"}
-                    icon={<FileIcon className="aui-tool-trigger-icon size-4 shrink-0" />}
-                />
+            <ToolUIErrorBoundary componentName="FileProcessing">
+                <ToolRoot>
+                    <ToolTrigger
+                        active={isRunning}
+                        label={isRunning ? "Processing files" : "Files processed"}
+                        icon={<FileIcon className="aui-tool-trigger-icon size-4 shrink-0" />}
+                    />
 
-                <ToolContent aria-busy={isRunning}>
-                    <ToolText>
-                        <div className="space-y-3">
-                            {fileCount > 0 && (
-                                <div>
-                                    <span className="text-xs font-medium text-muted-foreground/70">
-                                        Files:
-                                    </span>
-                                    {instruction && (
-                                        <div className="mt-1 mb-2 p-2 pb-3 bg-muted/50 rounded-md border border-border/50">
-                                            <div className="flex items-start gap-2">
-                                                <AlertCircleIcon className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground/60" />
-                                                <div className="flex-1">
-                                                    <span className="text-xs font-medium text-muted-foreground/70">Custom instruction:</span>
-                                                    <p className="text-xs text-foreground mt-0.5 mb-0">{instruction}</p>
+                    <ToolContent aria-busy={isRunning}>
+                        <ToolText>
+                            <div className="space-y-3">
+                                {fileCount > 0 && (
+                                    <div>
+                                        <span className="text-xs font-medium text-muted-foreground/70">
+                                            Files:
+                                        </span>
+                                        {instruction && (
+                                            <div className="mt-1 mb-2 p-2 pb-3 bg-muted/50 rounded-md border border-border/50">
+                                                <div className="flex items-start gap-2">
+                                                    <AlertCircleIcon className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground/60" />
+                                                    <div className="flex-1">
+                                                        <span className="text-xs font-medium text-muted-foreground/70">Custom instruction:</span>
+                                                        <p className="text-xs text-foreground mt-0.5 mb-0">{instruction}</p>
+                                                    </div>
                                                 </div>
                                             </div>
+                                        )}
+                                        <div className="mt-1 space-y-1">
+                                            {urls.map((url, index) => {
+                                                const fileInfo = getFileType(url);
+                                                const filename = url.split('/').pop() || url;
+                                                return (
+                                                    <div key={index} className="flex items-center gap-2">
+                                                        {fileInfo.icon}
+                                                        <a
+                                                            href={url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-xs text-primary hover:underline break-all"
+                                                        >
+                                                            {filename}
+                                                        </a>
+                                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
+                                                            {fileInfo.type}
+                                                        </Badge>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
-                                    )}
-                                    <div className="mt-1 space-y-1">
-                                        {urls.map((url, index) => {
-                                            const fileInfo = getFileType(url);
-                                            const filename = url.split('/').pop() || url;
-                                            return (
-                                                <div key={index} className="flex items-center gap-2">
-                                                    {fileInfo.icon}
-                                                    <a
-                                                        href={url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-xs text-primary hover:underline break-all"
-                                                    >
-                                                        {filename}
-                                                    </a>
-                                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
-                                                        {fileInfo.type}
-                                                    </Badge>
-                                                </div>
-                                            );
-                                        })}
                                     </div>
-                                </div>
-                            )}
+                                )}
 
-                            {isRunning && (
-                                <div className="flex items-center gap-2">
-                                    <div className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
-                                    <span className="text-xs text-foreground">
-                                        Analyzing {fileCount} file{fileCount !== 1 ? 's' : ''}...
-                                    </span>
-                                </div>
-                            )}
-
-                            {isComplete && (
-                                <div className="space-y-2">
+                                {isRunning && (
                                     <div className="flex items-center gap-2">
-                                        <CheckIcon className="h-4 w-4 text-green-500" />
+                                        <div className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
                                         <span className="text-xs text-foreground">
-                                            Successfully processed {fileCount} file{fileCount !== 1 ? 's' : ''}
+                                            Analyzing {fileCount} file{fileCount !== 1 ? 's' : ''}...
                                         </span>
                                     </div>
+                                )}
 
-                                    {result && result.trim() && (
-                                        <div className="border-t pt-2">
-                                            <div className="prose prose-sm max-w-none dark:prose-invert">
-                                                <StandaloneMarkdown>{result}</StandaloneMarkdown>
-                                            </div>
+                                {isComplete && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <CheckIcon className="h-4 w-4 text-green-500" />
+                                            <span className="text-xs text-foreground">
+                                                Successfully processed {fileCount} file{fileCount !== 1 ? 's' : ''}
+                                            </span>
                                         </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </ToolText>
-                </ToolContent>
-            </ToolRoot>
+
+                                        {parsedResult != null && parsedResult.trim() && (
+                                            <div className="border-t pt-2">
+                                                <div className="prose prose-sm max-w-none dark:prose-invert">
+                                                    <StandaloneMarkdown>{parsedResult}</StandaloneMarkdown>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </ToolText>
+                    </ToolContent>
+                </ToolRoot>
+            </ToolUIErrorBoundary>
         );
     },
 });

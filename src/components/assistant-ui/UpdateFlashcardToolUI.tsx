@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useMemo } from "react";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { makeAssistantToolUI } from "@assistant-ui/react";
@@ -9,9 +10,10 @@ import { logger } from "@/lib/utils/logger";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import ShinyText from "@/components/ShinyText";
-
-
+import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
+import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-shell";
+import type { FlashcardResult } from "@/lib/ai/tool-result-schemas";
+import { parseFlashcardResult } from "@/lib/ai/tool-result-schemas";
 
 // Type definitions for the tool - args is now plain text format
 type UpdateFlashcardArgs = {
@@ -20,19 +22,11 @@ type UpdateFlashcardArgs = {
     cardsToAdd?: Array<{ front: string; back: string }>;  // Legacy support
 };
 
-type UpdateFlashcardResult = {
-    success: boolean;
-    message: string;
-    itemId?: string;
-    cardsAdded?: number;
-    deckName?: string;  // The matched deck name
-};
-
 import { useUIStore } from "@/lib/stores/ui-store";
 
 interface UpdateFlashcardReceiptProps {
     args: UpdateFlashcardArgs;
-    result: UpdateFlashcardResult;
+    result: FlashcardResult;
     status: any;
 }
 
@@ -168,13 +162,15 @@ const UpdateFlashcardReceipt = ({ args, result, status }: UpdateFlashcardReceipt
     );
 };
 
-export const UpdateFlashcardToolUI = makeAssistantToolUI<UpdateFlashcardArgs, UpdateFlashcardResult>({
+export const UpdateFlashcardToolUI = makeAssistantToolUI<UpdateFlashcardArgs, FlashcardResult>({
     toolName: "updateFlashcards",
     render: function UpdateFlashcardUI({ args, result, status }) {
-        const queryClient = useQueryClient();
         const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
 
-        // Debug logging for render function
+        useOptimisticToolUpdate(status, result, workspaceId);
+
+        const parsed = result != null ? parseFlashcardResult(result) : null;
+
         useEffect(() => {
             logger.group(`🎨 [UpdateFlashcardTool] RENDER CALLED`, true);
             logger.debug("Args:", args ? JSON.stringify({ args }, null, 2) : "null");
@@ -182,39 +178,20 @@ export const UpdateFlashcardToolUI = makeAssistantToolUI<UpdateFlashcardArgs, Up
             logger.debug("Status:", status ? JSON.stringify(status, null, 2) : "null");
             logger.debug("Status type:", status?.type);
             logger.debug("Workspace ID:", workspaceId);
-            logger.debug("Result itemId:", result?.itemId);
+            logger.debug("Result itemId:", parsed?.itemId);
             logger.groupEnd();
-        }, [args, result, status, workspaceId]);
+        }, [args, result, status, workspaceId, parsed?.itemId]);
 
-        // Apply optimistic update
-        useOptimisticToolUpdate(status, result, workspaceId);
+        let content: ReactNode = null;
 
-        // Show receipt when result is available, or show loading state while creating
-        if (result && result.success) {
+        if (parsed?.success) {
             logger.debug("✅ [UpdateFlashcardTool] Rendering receipt with result");
-            return <UpdateFlashcardReceipt args={args} result={result} status={status} />;
-        }
-
-        // Show loading state while tool is executing
-        if (status.type === "running") {
+            content = <UpdateFlashcardReceipt args={args} result={parsed} status={status} />;
+        } else if (status.type === "running") {
             logger.debug("⏳ [UpdateFlashcardTool] Rendering loading state - status is running");
-            return (
-                <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border bg-card/50 text-card-foreground shadow-sm">
-                    <div className="flex items-center gap-2 bg-muted/20 px-4 py-3">
-                        <ShinyText
-                            text="Adding flashcards to deck..."
-                            disabled={false}
-                            speed={1.5}
-                            className="text-sm font-semibold"
-                        />
-                    </div>
-                </div>
-            );
-        }
-
-        // Show error state
-        if (status.type === "incomplete" && status.reason === "error") {
-            return (
+            content = <ToolUILoadingShell label="Adding flashcards to deck..." />;
+        } else if (status.type === "incomplete" && status.reason === "error") {
+            content = (
                 <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
                     <div className="flex items-center gap-2">
                         <X className="size-4 text-red-600 dark:text-red-400" />
@@ -222,14 +199,19 @@ export const UpdateFlashcardToolUI = makeAssistantToolUI<UpdateFlashcardArgs, Up
                             Failed to update flashcard deck
                         </p>
                     </div>
-                    {result && !result.success && result.message && (
-                        <p className="mt-2 text-xs text-red-700 dark:text-red-300">{result.message}</p>
+                    {parsed && !parsed.success && parsed.message && (
+                        <p className="mt-2 text-xs text-red-700 dark:text-red-300">{parsed.message}</p>
                     )}
                 </div>
             );
+        } else {
+            logger.debug("❓ [UpdateFlashcardTool] Rendering null - no result and status is not running");
         }
 
-        logger.debug("❓ [UpdateFlashcardTool] Rendering null - no result and status is not running");
-        return null;
+        return (
+            <ToolUIErrorBoundary componentName="UpdateFlashcard">
+                {content}
+            </ToolUIErrorBoundary>
+        );
     },
 });

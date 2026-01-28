@@ -10,37 +10,31 @@ import { logger } from "@/lib/utils/logger";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import ShinyText from "@/components/ShinyText";
 import MoveToDialog from "@/components/modals/MoveToDialog";
+import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-shell";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { toast } from "sonner";
 
 
 
-// Type definitions for the tool - args is now plain text format
-type CreateFlashcardArgs = {
-    description?: string;  // Text format: "Title: ...\nFront: ...\nBack: ..."
-    title?: string;        // Legacy support
-    cards?: Array<{ front: string; back: string }>;  // Legacy support
-};
-
-type CreateFlashcardResult = {
-    success: boolean;
-    message: string;
-    title?: string;
-    cards?: Array<{ front: string; back: string }>;
-    cardCount?: number;  // Number of cards created
-    itemId?: string;
-};
-
+import type { ReactNode } from "react";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
 import { initialState } from "@/lib/workspace-state/state";
+import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
+import type { FlashcardResult } from "@/lib/ai/tool-result-schemas";
+import { parseFlashcardResult } from "@/lib/ai/tool-result-schemas";
+
+type CreateFlashcardArgs = {
+    description?: string;
+    title?: string;
+    cards?: Array<{ front: string; back: string }>;
+};
 
 interface CreateFlashcardReceiptProps {
     args: CreateFlashcardArgs;
-    result: CreateFlashcardResult;
+    result: FlashcardResult;
     status: any;
     moveItemToFolder?: (itemId: string, folderId: string | null) => void;
     allItems?: any[];
@@ -193,19 +187,20 @@ const CreateFlashcardReceipt = ({
     );
 };
 
-export const CreateFlashcardToolUI = makeAssistantToolUI<CreateFlashcardArgs, CreateFlashcardResult>({
+export const CreateFlashcardToolUI = makeAssistantToolUI<CreateFlashcardArgs, FlashcardResult>({
     toolName: "createFlashcards",
     render: function CreateFlashcardUI({ args, result, status }) {
-        const queryClient = useQueryClient();
         const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
         const { state: workspaceState } = useWorkspaceState(workspaceId);
         const operations = useWorkspaceOperations(workspaceId, workspaceState || initialState);
 
-        // Get workspace metadata from context
         const workspaceContext = useWorkspaceContext();
-        const currentWorkspace = workspaceContext.workspaces.find(w => w.id === workspaceId);
+        const currentWorkspace = workspaceContext.workspaces.find((w) => w.id === workspaceId);
 
-        // Debug logging for render function
+        useOptimisticToolUpdate(status, result, workspaceId);
+
+        const parsed = result != null ? parseFlashcardResult(result) : null;
+
         useEffect(() => {
             logger.group(`🎨 [CreateFlashcardTool] RENDER CALLED`, true);
             logger.debug("Args:", args ? JSON.stringify({ args }, null, 2) : "null");
@@ -213,20 +208,18 @@ export const CreateFlashcardToolUI = makeAssistantToolUI<CreateFlashcardArgs, Cr
             logger.debug("Status:", status ? JSON.stringify(status, null, 2) : "null");
             logger.debug("Status type:", status?.type);
             logger.debug("Workspace ID:", workspaceId);
-            logger.debug("Result itemId:", result?.itemId);
+            logger.debug("Result itemId:", parsed?.itemId);
             logger.groupEnd();
-        }, [args, result, status, workspaceId]);
+        }, [args, result, status, workspaceId, parsed?.itemId]);
 
-        // Apply optimistic update
-        useOptimisticToolUpdate(status, result, workspaceId);
+        let content: ReactNode = null;
 
-        // Show receipt when result is available, or show loading state while creating
-        if (result && result.success) {
+        if (parsed?.success) {
             logger.debug("✅ [CreateFlashcardTool] Rendering receipt with result");
-            return (
+            content = (
                 <CreateFlashcardReceipt
                     args={args}
-                    result={result}
+                    result={parsed}
                     status={status}
                     moveItemToFolder={operations.moveItemToFolder}
                     allItems={workspaceState?.items || []}
@@ -235,28 +228,11 @@ export const CreateFlashcardToolUI = makeAssistantToolUI<CreateFlashcardArgs, Cr
                     workspaceColor={currentWorkspace?.color}
                 />
             );
-        }
-
-        // Show loading state while tool is executing
-        if (status.type === "running") {
+        } else if (status.type === "running") {
             logger.debug("⏳ [CreateFlashcardTool] Rendering loading state - status is running");
-            return (
-                <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border bg-card/50 text-card-foreground shadow-sm">
-                    <div className="flex items-center gap-2 bg-muted/20 px-4 py-3">
-                        <ShinyText
-                            text="Generating flashcards..."
-                            disabled={false}
-                            speed={1.5}
-                            className="text-sm font-semibold"
-                        />
-                    </div>
-                </div>
-            );
-        }
-
-        // Show error state
-        if (status.type === "incomplete" && status.reason === "error") {
-            return (
+            content = <ToolUILoadingShell label="Generating flashcards..." />;
+        } else if (status.type === "incomplete" && status.reason === "error") {
+            content = (
                 <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
                     <div className="flex items-center gap-2">
                         <X className="size-4 text-red-600 dark:text-red-400" />
@@ -264,14 +240,19 @@ export const CreateFlashcardToolUI = makeAssistantToolUI<CreateFlashcardArgs, Cr
                             Failed to create flashcards
                         </p>
                     </div>
-                    {result && !result.success && result.message && (
-                        <p className="mt-2 text-xs text-red-700 dark:text-red-300">{result.message}</p>
+                    {parsed && !parsed.success && parsed.message && (
+                        <p className="mt-2 text-xs text-red-700 dark:text-red-300">{parsed.message}</p>
                     )}
                 </div>
             );
+        } else {
+            logger.debug("❓ [CreateFlashcardTool] Rendering null - no result and status is not running");
         }
 
-        logger.debug("❓ [CreateFlashcardTool] Rendering null - no result and status is not running");
-        return null;
+        return (
+            <ToolUIErrorBoundary componentName="CreateFlashcard">
+                {content}
+            </ToolUIErrorBoundary>
+        );
     },
 });
