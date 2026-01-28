@@ -9,6 +9,7 @@ import type { Item } from "@/lib/workspace-state/types";
 export interface WorkspaceToolContext {
     workspaceId: string | null;
     userId: string | null;
+    isAnonymous?: boolean;
     activeFolderId?: string;
 }
 

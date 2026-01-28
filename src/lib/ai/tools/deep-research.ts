@@ -4,6 +4,18 @@ import { z } from "zod";
 import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
+import { checkAndRecordDeepResearchUsage } from "@/lib/services/rate-limit";
+
+/**
+ * Format reset time for user-friendly display
+ */
+function formatResetTime(resetAt: Date | null): string {
+    if (!resetAt) return "24 hours";
+    const diffMs = Math.max(0, resetAt.getTime() - Date.now());
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    return hours > 0 ? `${hours}h ${minutes}m` : `${minutes} minutes`;
+}
 
 /**
  * Create the deepResearch tool
@@ -20,6 +32,20 @@ export function createDeepResearchTool(ctx: WorkspaceToolContext) {
             logger.debug("🎯 [DEEP-RESEARCH] Starting deep research for:", prompt);
 
             try {
+                // Auth check
+                if (!ctx.userId) {
+                    return { error: "Authentication required for deep research" };
+                }
+
+                // Anonymous user check
+                if (ctx.isAnonymous) {
+                    return {
+                        rateLimited: true,
+                        userMessage: "Deep research requires a registered account. Please sign up to use this feature.",
+                    };
+                }
+
+                // Validate prerequisites before rate limit check
                 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
                 if (!apiKey) {
                     throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
@@ -27,6 +53,24 @@ export function createDeepResearchTool(ctx: WorkspaceToolContext) {
 
                 if (!ctx.workspaceId) {
                     throw new Error("No workspace context available");
+                }
+
+                // Atomic rate limit check + record (prevents race condition bypass)
+                // Using a placeholder interactionId that will be updated after creation
+                const tempInteractionId = `pending-${Date.now()}`;
+                const rateLimit = await checkAndRecordDeepResearchUsage(
+                    ctx.userId,
+                    ctx.workspaceId,
+                    tempInteractionId
+                );
+
+                if (!rateLimit.allowed) {
+                    const timeStr = formatResetTime(rateLimit.resetAt);
+                    return {
+                        rateLimited: true,
+                        resetAt: rateLimit.resetAt?.toISOString(),
+                        userMessage: rateLimit.error || `You've reached your daily deep research limit (2 per 24 hours). Available again in ${timeStr}.`,
+                    };
                 }
 
                 const client = new GoogleGenAI({

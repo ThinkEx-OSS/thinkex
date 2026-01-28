@@ -23,6 +23,7 @@ import { logger } from "@/lib/utils/logger";
 export interface ChatToolsConfig {
     workspaceId: string | null;
     userId: string | null;
+    isAnonymous?: boolean;
     activeFolderId?: string;
     clientTools?: Record<string, any>;
 }
@@ -34,6 +35,7 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
     const ctx: WorkspaceToolContext = {
         workspaceId: config.workspaceId,
         userId: config.userId,
+        isAnonymous: config.isAnonymous,
         activeFolderId: config.activeFolderId,
     };
 

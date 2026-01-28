@@ -226,6 +226,7 @@ export async function POST(req: Request) {
     const tools = createChatTools({
       workspaceId,
       userId,
+      isAnonymous: session?.user?.isAnonymous ?? false,
       activeFolderId,
       clientTools: body.tools,
     });
