@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowUp, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import Typewriter, { TypewriterClass } from "typewriter-effect";
+import TypingText from "@/components/ui/typing-text";
 
 const PLACEHOLDER_OPTIONS = [
   "learning Spanish",
@@ -38,16 +38,16 @@ export function HomePromptInput() {
   const router = useRouter();
   const [value, setValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const typewriterRef = useRef<TypewriterClass | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const typingKeyRef = useRef(0);
 
-  // Cleanup typewriter on unmount to prevent memory leaks
-  useEffect(() => {
-    return () => {
-      if (typewriterRef.current) {
-        typewriterRef.current.stop();
-      }
-    };
+  // Shuffle options with random start for variety
+  const shuffledOptions = useMemo(() => {
+    const start = Math.floor(Math.random() * PLACEHOLDER_OPTIONS.length);
+    return [
+      ...PLACEHOLDER_OPTIONS.slice(start),
+      ...PLACEHOLDER_OPTIONS.slice(0, start),
+    ];
   }, []);
 
   // Handle user typing - stop animation
@@ -90,9 +90,8 @@ export function HomePromptInput() {
       const { workspace } = (await createRes.json()) as { workspace: { slug: string } };
 
       setValue("");
-      if (typewriterRef.current) {
-        typewriterRef.current.start();
-      }
+      // Reset typing animation by changing key
+      typingKeyRef.current += 1;
       router.push(
         `/dashboard/${workspace.slug}?createFrom=${encodeURIComponent(prompt)}`
       );
@@ -165,7 +164,7 @@ export function HomePromptInput() {
               }}
             />
 
-            {/* Typewriter placeholder - only shows option text */}
+            {/* Typing placeholder - only shows option text */}
             {!value && (
               <div
                 className={cn(
@@ -175,45 +174,15 @@ export function HomePromptInput() {
                 )}
                 style={{ willChange: 'transform', fontSize: '1.125rem', lineHeight: '1.75rem' }}
               >
-                <Typewriter
-                  onInit={(typewriter) => {
-                    typewriterRef.current = typewriter;
-                    
-                    const cycleOptions = () => {
-                      const start = Math.floor(Math.random() * PLACEHOLDER_OPTIONS.length);
-                      const ordered = [
-                        ...PLACEHOLDER_OPTIONS.slice(start),
-                        ...PLACEHOLDER_OPTIONS.slice(0, start),
-                      ];
-                      ordered.forEach((option, index) => {
-                        if (index === 0) {
-                          typewriter.typeString(option);
-                        } else {
-                          const prevLen = ordered[index - 1].length;
-                          typewriter
-                            .pauseFor(2000)
-                            .deleteChars(prevLen)
-                            .typeString(option);
-                        }
-                      });
-                      const lastLen = ordered[ordered.length - 1].length;
-                      typewriter
-                        .pauseFor(2000)
-                        .deleteChars(lastLen)
-                        .callFunction(() => {
-                          cycleOptions();
-                        });
-                    };
-                    
-                    cycleOptions();
-                    typewriter.start();
-                  }}
-                  options={{
-                    delay: 20,
-                    deleteSpeed: 8,
-                    cursor: "",
-                    loop: false,
-                  }}
+                <TypingText
+                  key={typingKeyRef.current}
+                  text={shuffledOptions}
+                  typingSpeed={30}
+                  deletingSpeed={30}
+                  pauseDuration={2000}
+                  loop={true}
+                  showCursor={false}
+                  className=""
                 />
               </div>
             )}
