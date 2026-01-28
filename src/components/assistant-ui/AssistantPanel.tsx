@@ -119,7 +119,8 @@ function CreateFromPromptHandler({
 
     setIsChatExpanded?.(true);
 
-    const wrapped = `Create a workspace about: ${createFrom}. Please create notes, flashcards, and a quiz on this topic.`;
+    const wrapped = `Create a workspace about: ${createFrom}. Before creating any content, please ask me 2-3 clarifying questions to better understand what I need. Once I've answered, then please create notes, flashcards, and a quiz on this topic if relevant.`;
+
 
     let attempts = 0;
     const maxAttempts = 12;
