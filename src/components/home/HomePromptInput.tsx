@@ -37,7 +37,6 @@ const baseText = "Create a workspace for ";
 export function HomePromptInput() {
   const router = useRouter();
   const [value, setValue] = useState("");
-  const [isFocused, setIsFocused] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const typewriterRef = useRef<TypewriterClass | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -55,21 +54,6 @@ export function HomePromptInput() {
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setValue(newValue);
-  };
-
-  const handleFocus = () => {
-    setIsFocused(true);
-    if (typewriterRef.current) {
-      typewriterRef.current.stop();
-      typewriterRef.current.deleteAll(1);
-    }
-  };
-
-  const handleBlur = () => {
-    setIsFocused(false);
-    if (value.length === 0 && typewriterRef.current) {
-      typewriterRef.current.start();
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -152,8 +136,6 @@ export function HomePromptInput() {
               ref={inputRef}
               value={value}
               onChange={handleInput}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
               placeholder=""
               maxLength={300}
               autoFocus
@@ -184,7 +166,7 @@ export function HomePromptInput() {
             />
 
             {/* Typewriter placeholder - only shows option text */}
-            {!value && !isFocused && (
+            {!value && (
               <div
                 className={cn(
                   "absolute inset-0 flex items-center pointer-events-none",
@@ -229,7 +211,7 @@ export function HomePromptInput() {
                   options={{
                     delay: 20,
                     deleteSpeed: 8,
-                    cursor: "|",
+                    cursor: "",
                     loop: false,
                   }}
                 />
