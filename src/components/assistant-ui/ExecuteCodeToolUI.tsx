@@ -255,7 +255,7 @@ export const ExecuteCodeToolUI = makeAssistantToolUI<{
   render: function ExecuteCodeToolUI({ args, status, result }) {
     return (
       <ToolUIErrorBoundary componentName="ExecuteCode">
-        <ExecuteCodeContent args={args} status={status} result={result} />
+        <ExecuteCodeContent args={args} status={status} result={result ?? null} />
       </ToolUIErrorBoundary>
     );
   },

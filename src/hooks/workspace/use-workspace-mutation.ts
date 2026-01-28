@@ -79,9 +79,10 @@ export function useWorkspaceMutation(workspaceId: string | null) {
       // CRITICAL FIX: Account for optimistic events when calculating baseVersion
       // If there are optimistic events (pending mutations), they will increment the server version
       // So we need to use a baseVersion that accounts for those pending increments
-      // Note: optimisticEventsCount includes our own optimistic event (added in onMutate)
-      // So we subtract 1 to get the count of mutations that will complete before this one
-      // Example: If currentVersion=169 and optimisticEventsCount=2 (including ours), 
+      // Note: onMutate runs before mutationFn, so optimisticEventsCount includes our own
+      // optimistic event plus any other pending mutations. We subtract 1 to exclude our
+      // own event and only account for other mutations that will complete before this one.
+      // Example: If currentVersion=169 and optimisticEventsCount=2 (ours + 1 other), 
       // then 1 other mutation will complete first, making server version 170
       // So we should use baseVersion = 169 + (2-1) = 170
       const adjustedBaseVersion = currentVersion + Math.max(0, optimisticEventsCount - 1);

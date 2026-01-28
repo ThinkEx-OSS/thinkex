@@ -255,7 +255,7 @@ export const SearchWebToolUI = makeAssistantToolUI<{
   render: function SearchWebToolUI({ args, status, result }) {
     return (
       <ToolUIErrorBoundary componentName="SearchWeb">
-        <SearchWebContent args={args} status={status} result={result} />
+        <SearchWebContent args={args} status={status} result={result ?? null} />
       </ToolUIErrorBoundary>
     );
   },
