@@ -15,28 +15,48 @@ import type { WorkspaceEvent } from "@/lib/workspace/events";
 /**
  * Parse the PostgreSQL result from append_workspace_event
  * Returns { version: number, conflict: boolean }
+ * Defensively handles various formats and falls back to safe defaults on parse failure.
  */
 function parseAppendResult(rawResult: string | any): { version: number; conflict: boolean } {
-  // If it's already an object with version and conflict, return it
-  if (typeof rawResult === 'object' && rawResult !== null && typeof rawResult.version === 'number') {
-    return {
-      version: rawResult.version,
-      conflict: rawResult.conflict === true,
-    };
+  // If it's already an object, try to extract version and conflict
+  if (typeof rawResult === 'object' && rawResult !== null) {
+    // Coerce version to number, handling string-typed fields
+    const versionNum = typeof rawResult.version === 'number' 
+      ? rawResult.version 
+      : Number(rawResult.version);
+    const version = isNaN(versionNum) ? 0 : versionNum;
+
+    // Normalize conflict from boolean or string ('t'/'f'/'true'/'false')
+    let conflict = false;
+    if (typeof rawResult.conflict === 'boolean') {
+      conflict = rawResult.conflict;
+    } else if (typeof rawResult.conflict === 'string') {
+      const conflictStr = rawResult.conflict.toLowerCase().trim();
+      conflict = conflictStr === 't' || conflictStr === 'true';
+    }
+
+    return { version, conflict };
   }
 
   // PostgreSQL returns result as string like "(6,t)" - need to parse it
+  // Make regex more lenient: allow whitespace, case-insensitive, accept 'true'/'false'
   const resultString = typeof rawResult === 'string' ? rawResult : String(rawResult);
-  const match = resultString.match(/\((\d+),(t|f)\)/);
+  // Match: (number, t|f|true|false) with optional whitespace
+  const match = resultString.match(/\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i);
   
   if (!match) {
     logger.error(`[WORKSPACE-WORKER] Failed to parse PostgreSQL result:`, rawResult);
-    throw new Error(`Invalid database response: ${resultString}`);
+    // Fall back to safe defaults instead of throwing
+    return { version: 0, conflict: false };
   }
 
+  const versionNum = parseInt(match[1], 10);
+  const conflictStr = match[2].toLowerCase();
+  const conflict = conflictStr === 't' || conflictStr === 'true';
+
   return {
-    version: parseInt(match[1], 10),
-    conflict: match[2] === 't',
+    version: isNaN(versionNum) ? 0 : versionNum,
+    conflict,
   };
 }
 
@@ -67,7 +87,7 @@ export async function workspaceWorker(
         };
         folderId?: string;
     }
-): Promise<{ success: boolean; message: string; itemId?: string; cardsAdded?: number; event?: WorkspaceEvent; version?: number }> {
+): Promise<{ success: boolean; message: string; itemId?: string; cardsAdded?: number; cardCount?: number; event?: WorkspaceEvent; version?: number }> {
     // Serialize operations on the same workspace
     return executeWorkspaceOperation(params.workspaceId, async () => {
         try {
