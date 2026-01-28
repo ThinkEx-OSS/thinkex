@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { usePostHog } from 'posthog-js/react';
@@ -83,7 +84,7 @@ function DashboardContent({
   // Track sign-in prompt for anonymous users
   const [showSignInPrompt, setShowSignInPrompt] = useState(false);
 
-  // Show sign-in prompt after 6 events for anonymous users
+  // Show sign-in prompt after 13 events for anonymous users
   useEffect(() => {
     // Only show for anonymous users
     if (!session?.user?.isAnonymous) {
@@ -105,8 +106,8 @@ function DashboardContent({
 
     const eventCount = eventLog.events?.length || 0;
 
-    // Show prompt after 6 events
-    if (eventCount >= 6) {
+    // Show prompt after 13 events
+    if (eventCount >= 13) {
       setShowSignInPrompt(true);
       localStorage.setItem(promptKey, 'true');
     }
@@ -218,6 +219,13 @@ function DashboardContent({
     }
   );
 
+  // Expand chat when landing with ?createFrom=... (create workspace from home prompt)
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("createFrom")) {
+      setIsChatExpanded(true);
+    }
+  }, [searchParams, setIsChatExpanded]);
 
   // Reset JSON view when there are no items
   useEffect(() => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { DevToolsModal } from "@assistant-ui/react-devtools";
+import { useAui } from "@assistant-ui/react";
 import { Thread } from "./thread";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceContextProvider } from "@/hooks/ai/use-workspace-context-provider";
@@ -11,7 +12,8 @@ import { cn } from "@/lib/utils";
 import AssistantTextSelectionManager from "@/components/assistant-ui/AssistantTextSelectionManager";
 import { useUIStore, selectSelectedCardIdsArray } from "@/lib/stores/ui-store";
 import { useShallow } from "zustand/react/shallow";
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 
 interface AssistantPanelProps {
   workspaceId?: string | null;
@@ -73,6 +75,115 @@ function WorkspaceContextWrapper({
   // Fetch current workspace state (includes loading state)
   const { state, isLoading } = useWorkspaceState(workspaceId || null);
 
+  return (
+    <>
+      <CreateFromPromptHandler
+        workspaceId={workspaceId ?? null}
+        isLoading={isLoading}
+        setIsChatExpanded={setIsChatExpanded}
+      />
+      <WorkspaceContextWrapperContent
+        workspaceId={workspaceId}
+        setIsChatExpanded={setIsChatExpanded}
+        isChatMaximized={isChatMaximized}
+        setIsChatMaximized={setIsChatMaximized}
+        onSingleSelect={onSingleSelect}
+        onMultiSelect={onMultiSelect}
+        onReady={onReady}
+        state={state}
+        isLoading={isLoading}
+      />
+    </>
+  );
+}
+
+function CreateFromPromptHandler({
+  workspaceId,
+  isLoading,
+  setIsChatExpanded,
+}: {
+  workspaceId: string | null;
+  isLoading: boolean;
+  setIsChatExpanded?: (expanded: boolean) => void;
+}) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const aui = useAui();
+  const hasAutoSentRef = useRef(false);
+  const timeoutIdsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const createFrom = searchParams.get("createFrom");
+
+  useEffect(() => {
+    if (!createFrom || !workspaceId || isLoading || hasAutoSentRef.current) return;
+
+    setIsChatExpanded?.(true);
+
+    const wrapped = `Create a workspace about: ${createFrom}. Please create notes, flashcards, and a quiz on this topic.`;
+
+    let attempts = 0;
+    const maxAttempts = 12;
+    const intervalMs = 200;
+    const ids = timeoutIdsRef.current;
+
+    const clearAll = () => {
+      ids.forEach((tid) => clearTimeout(tid));
+      ids.length = 0;
+    };
+
+    const trySend = () => {
+      attempts += 1;
+      const composer = aui?.composer?.();
+      if (composer) {
+        try {
+          composer.setText(wrapped);
+          composer.send();
+          hasAutoSentRef.current = true;
+          clearAll();
+          const url = new URL(window.location.href);
+          url.searchParams.delete("createFrom");
+          router.replace(url.pathname + url.search);
+          return;
+        } catch {
+          // fall through to retry
+        }
+      }
+      if (attempts < maxAttempts) {
+        const id = setTimeout(trySend, intervalMs);
+        ids.push(id);
+      }
+    };
+
+    const id = setTimeout(trySend, 100);
+    ids.push(id);
+
+    return () => clearAll();
+  }, [createFrom, workspaceId, isLoading, aui, router, setIsChatExpanded]);
+
+  return null;
+}
+
+function WorkspaceContextWrapperContent({
+  workspaceId,
+  setIsChatExpanded,
+  isChatMaximized,
+  setIsChatMaximized,
+  onSingleSelect,
+  onMultiSelect,
+  onReady,
+  state,
+  isLoading,
+}: {
+  workspaceId?: string | null;
+  setIsChatExpanded?: (expanded: boolean) => void;
+  isChatMaximized?: boolean;
+  setIsChatMaximized?: (maximized: boolean) => void;
+  onSingleSelect?: (text: string, range?: Range) => void | Promise<void>;
+  onMultiSelect?: (selections: Array<{ text: string; id: string; range?: Range }>) => void | Promise<void>;
+  onReady?: () => void;
+  state: ReturnType<typeof useWorkspaceState>["state"];
+  isLoading: boolean;
+}) {
   // Notify parent when content is ready
   useEffect(() => {
     if (!isLoading && state && onReady) {

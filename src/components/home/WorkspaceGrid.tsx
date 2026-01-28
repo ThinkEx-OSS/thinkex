@@ -36,26 +36,39 @@ export function WorkspaceGrid() {
   return (
     <>
       <div className="w-full max-w-6xl">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4">
           <h2 className="text-lg font-normal text-muted-foreground">Recent workspaces</h2>
-          <button
-            type="button"
-            onClick={handleCreateNew}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium mt-2",
-              "bg-primary text-primary-foreground",
-              "hover:bg-primary/90",
-              "transition-colors duration-200",
-              "cursor-pointer",
-              "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2"
-            )}
-          >
-            <FolderPlus className="h-4 w-4" />
-            <span>Create new</span>
-          </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* New Workspace Card */}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={handleCreateNew}
+            onKeyDown={(e) => handleKeyDown(e, handleCreateNew)}
+            className={cn(
+              "group relative p-4 rounded-md shadow-sm min-h-[180px]",
+              "hover:shadow-lg",
+              "transition-all duration-200 cursor-pointer",
+              "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background",
+              "flex flex-col items-center justify-center gap-3",
+              "bg-background/30 border-2 border-dashed border-sidebar-border/60",
+              "hover:border-solid hover:border-primary/50 hover:bg-background/50"
+            )}
+          >
+            {/* Centered Icon */}
+            <FolderPlus
+              className="h-12 w-12 opacity-50 group-hover:opacity-70 group-hover:scale-110 transition-all duration-200"
+              style={{ color: "hsl(var(--primary))" }}
+            />
+
+            {/* Title */}
+            <h3 className="font-medium text-lg text-foreground group-hover:text-foreground/80 transition-colors text-center">
+              New workspace
+            </h3>
+          </div>
+
           {/* Existing Workspaces */}
           {workspaces.map((workspace) => {
             const color = workspace.color as CardColor | undefined;

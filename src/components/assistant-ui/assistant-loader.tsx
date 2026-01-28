@@ -24,7 +24,7 @@ export const AssistantLoader = () => {
                 mode="bounce"
                 className="w-4 h-4 self-center"
             />
-            <span className="text-base text-muted-foreground">Thinking</span>
+            <span className="text-base text-muted-foreground">Thinking...</span>
         </div>
     );
 };

@@ -23,7 +23,8 @@
     "deps:update": "pnpm update --interactive",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "preview": "pnpm build && pnpm start"
+    "preview": "pnpm build && pnpm start",
+    "postinstall": "node scripts/apply-patch.js"
   },
   "packageManager": "pnpm@10.14.0",
   "dependencies": {
@@ -153,6 +154,8 @@
     "eslint-config-next": "16.1.1",
     "geist": "^1.4.2",
     "knip": "^5.78.0",
+    "patch-package": "^8.0.1",
+    "postinstall-postinstall": "^2.1.0",
     "prettier": "^3.7.4",
     "tailwindcss": "^4.1.18",
     "tsx": "^4.21.0",

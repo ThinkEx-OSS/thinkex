@@ -10,7 +10,7 @@ export const DEFAULT_CARD_DIMENSIONS: Record<CardType, { w: number; h: number }>
   flashcard: { w: 2, h: 5 },
   folder: { w: 1, h: 4 },
   youtube: { w: 2, h: 5 },
-  quiz: { w: 2, h: 5 },
+  quiz: { w: 2, h: 13 },
 };
 
 /**
@@ -134,7 +134,8 @@ export function findNextAvailablePosition(
   const validType = (newItemType in DEFAULT_CARD_DIMENSIONS) ? newItemType : 'note';
   const dimensions = DEFAULT_CARD_DIMENSIONS[validType];
   const w = Math.min(dimensions.w, cols);
-  const h = calculateCardHeight(newItemName, newItemSubtitle);
+  // Use default dimensions height instead of calculateCardHeight to ensure quiz cards get height 13
+  const h = dimensions.h;
 
   if (existingItems.length === 0) {
     return { x: 0, y: 0, w, h };
@@ -146,7 +147,8 @@ export function findNextAvailablePosition(
     const layout = getLayoutForBreakpoint(item, 'lg');
     const x = layout?.x ?? 0;
     const y = layout?.y ?? 0;
-    const itemH = layout?.h ?? calculateCardHeight(item.name, item.subtitle);
+    // Use default dimensions height as fallback instead of calculateCardHeight
+    const itemH = layout?.h ?? DEFAULT_CARD_DIMENSIONS[item.type]?.h ?? 4;
 
     const itemW = layout?.w ?? DEFAULT_CARD_DIMENSIONS[item.type]?.w ?? 1;
 
@@ -237,10 +239,11 @@ export function recompactLayout(items: Item[], cols: number): Item[] {
 
   return sortedItems.map((item) => {
     const existingLayout = getLayoutForBreakpoint(item, 'lg');
-    const h = existingLayout?.h ?? calculateCardHeight(item.name, item.subtitle);
+    // Use default dimensions height as fallback instead of calculateCardHeight to ensure quiz cards get height 13
+    const h = existingLayout?.h ?? DEFAULT_CARD_DIMENSIONS[item.type]?.h ?? 4;
     const dimensions = existingLayout
       ? { w: Math.min(existingLayout.w, cols), h }
-      : { w: DEFAULT_CARD_DIMENSIONS[item.type].w, h };
+      : { w: DEFAULT_CARD_DIMENSIONS[item.type].w, h: DEFAULT_CARD_DIMENSIONS[item.type].h };
 
     const w = Math.min(dimensions.w, cols);
 

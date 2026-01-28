@@ -1,0 +1,60 @@
+diff --git a/node_modules/@assistant-ui/react/dist/legacy-runtime/runtime-cores/assistant-transport/useToolInvocations.js b/node_modules/@assistant-ui/react/dist/legacy-runtime/runtime-cores/assistant-transport/useToolInvocations.js
+index 0000000..1111111 100644
+--- a/node_modules/@assistant-ui/react/dist/legacy-runtime/runtime-cores/assistant-transport/useToolInvocations.js
++++ b/node_modules/@assistant-ui/react/dist/legacy-runtime/runtime-cores/assistant-transport/useToolInvocations.js
+@@ -117,18 +117,42 @@ export function useToolInvocations({ state, getTools, onResult, setToolStatuses
+                                 else {
+                                     if (!content.argsText.startsWith(lastState.argsText)) {
+-                                        // Check if this is key reordering (both are complete JSON)
++                                        // Check if new argsText is complete JSON (handles key reordering)
+                                         // This happens when transitioning from streaming to complete state
+                                         // and the provider returns keys in a different order
+-                                        if (isArgsTextComplete(lastState.argsText) &&
+-                                            isArgsTextComplete(content.argsText)) {
+-                                            lastState.controller.argsText.close();
+-                                            lastToolStates.current[content.toolCallId] = {
+-                                                argsText: content.argsText,
+-                                                hasResult: lastState.hasResult,
+-                                                argsComplete: true,
+-                                                controller: lastState.controller,
+-                                            };
+-                                            return; // Continue to next content part
++                                        if (isArgsTextComplete(content.argsText)) {
++                                            try {
++                                                const newArgs = JSON.parse(content.argsText);
++                                                
++                                                // If old is also complete, verify they're equivalent (just reordered)
++                                                if (isArgsTextComplete(lastState.argsText)) {
++                                                    const oldArgs = JSON.parse(lastState.argsText);
++                                                    // Normalize both by sorting keys and compare
++                                                    const oldNormalized = JSON.stringify(oldArgs, Object.keys(oldArgs).sort());
++                                                    const newNormalized = JSON.stringify(newArgs, Object.keys(newArgs).sort());
++                                                    
++                                                    if (oldNormalized === newNormalized) {
++                                                        // Same data, just reordered - accept it
++                                                        lastState.controller.argsText.close();
++                                                        lastToolStates.current[content.toolCallId] = {
++                                                            argsText: content.argsText,
++                                                            hasResult: lastState.hasResult,
++                                                            argsComplete: true,
++                                                            controller: lastState.controller,
++                                                        };
++                                                        return; // Continue to next content part
++                                                    }
++                                                } else {
++                                                    // Old is incomplete, but new is complete
++                                                    // Accept the new complete version (it's the final state)
++                                                    lastState.controller.argsText.close();
++                                                    lastToolStates.current[content.toolCallId] = {
++                                                        argsText: content.argsText,
++                                                        hasResult: lastState.hasResult,
++                                                        argsComplete: true,
++                                                        controller: lastState.controller,
++                                                    };
++                                                    return; // Continue to next content part
++                                                }
++                                            } catch (e) {
++                                                // Not valid JSON, fall through to error
++                                            }
+                                         }
+                                         throw new Error(`Tool call argsText can only be appended, not updated: ${content.argsText} does not start with ${lastState.argsText}`);

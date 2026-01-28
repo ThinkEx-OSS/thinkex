@@ -252,45 +252,13 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
 
     return (
         <div className="flex flex-col h-full">
-            {/* Header */}
-            <div className="flex-shrink-0 p-4 border-b border-white/10">
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                        {quizData.title && (
-                            <span className="text-sm font-medium text-white/80 truncate max-w-[150px]">
-                                {quizData.title}
-                            </span>
-                        )}
-                        <span className={cn(
-                            "text-xs px-2 py-0.5 rounded-full border capitalize",
-                            difficultyColors[quizData.difficulty]
-                        )}>
-                            {quizData.difficulty}
-                        </span>
-                    </div>
-                    <span className="text-sm text-white/50">
-                        {currentIndex + 1} / {totalQuestions}
-                    </span>
-                </div>
-                {/* Progress bar */}
-                <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <div
-                        className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300"
-                        style={{ width: `${((currentIndex + (isSubmitted ? 1 : 0)) / totalQuestions) * 100}%` }}
-                    />
-                </div>
-            </div>
-
             {/* Question */}
             <div className={cn(
-                "flex-1 p-4",
+                "flex-1 p-2",
                 isScrollLocked ? "overflow-hidden" : "overflow-y-auto"
             )}>
                 <div className="mb-6">
-                    <span className="text-xs uppercase tracking-wider text-white/40 mb-2 block">
-                        {currentQuestion.type === "true_false" ? "True or False" : "Multiple Choice"}
-                    </span>
-                    <div className="text-lg text-white prose prose-invert prose-sm max-w-none">
+                    <div className="text-sm text-white prose prose-invert prose-sm max-w-none">
                         <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
                             {currentQuestion.questionText}
                         </ReactMarkdown>
@@ -330,7 +298,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                                     )}>
                                         {String.fromCharCode(65 + index)}
                                     </span>
-                                    <span className="text-white/90 flex-1">{option}</span>
+                                    <span className="text-sm text-white/90 flex-1">{option}</span>
                                     {showCorrectness && isCorrect && <CheckCircle2 className="w-5 h-5 text-green-400" />}
                                     {showCorrectness && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-400" />}
                                 </div>
@@ -340,21 +308,44 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                 </div>
 
                 {/* Hint */}
-                {currentQuestion.hint && !isSubmitted && (
-                    <button
-                        onMouseDown={preventFocusSteal}
-                        onClick={() => setShowHint(!showHint)}
-                        className="mt-4 flex items-center gap-2 text-sm text-yellow-400/80 hover:text-yellow-400 transition-colors cursor-pointer"
-                    >
-                        <Lightbulb className="w-4 h-4" />
-                        {showHint ? "Hide hint" : "Show hint"}
-                    </button>
-                )}
                 {showHint && currentQuestion.hint && (
-                    <div className="mt-2 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-sm text-yellow-200/90">
+                    <div className="mt-4 mb-2 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-sm text-yellow-200/90">
                         {currentQuestion.hint}
                     </div>
                 )}
+                <div className="mt-4 flex items-center justify-between">
+                    {/* Left: Hint */}
+                    <div>
+                        {currentQuestion.hint && !isSubmitted && (
+                            <button
+                                onMouseDown={preventFocusSteal}
+                                onClick={() => setShowHint(!showHint)}
+                                className="flex items-center gap-2 text-sm text-yellow-400/80 hover:text-yellow-400 transition-colors cursor-pointer"
+                            >
+                                <Lightbulb className="w-4 h-4" />
+                                {showHint ? "Hide hint" : "Hint"}
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Center: Progress bar */}
+                    <div className="flex-1 mx-4">
+                        <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-white transition-all duration-300"
+                                style={{ width: `${((currentIndex + (isSubmitted ? 1 : 0)) / totalQuestions) * 100}%` }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Right: Difficulty */}
+                    <span className={cn(
+                        "text-xs px-2 py-0.5 rounded-full border capitalize",
+                        difficultyColors[quizData.difficulty]
+                    )}>
+                        {quizData.difficulty}
+                    </span>
+                </div>
 
                 {/* Explanation */}
                 {isSubmitted && (
@@ -387,25 +378,55 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
             </div>
 
             {/* Footer */}
-            <div className="flex-shrink-0 p-4 border-t border-white/10">
-                <div className="flex items-center justify-between">
-                    <button
-                        onMouseDown={preventFocusSteal}
-                        onClick={handlePrevious}
-                        disabled={currentIndex === 0}
-                        className={cn(
-                            "flex items-center gap-1 px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer",
-                            currentIndex === 0
-                                ? "text-white/30 cursor-not-allowed"
-                                : "text-white/70 hover:text-white hover:bg-white/10"
-                        )}
-                    >
-                        <ChevronLeft className="w-4 h-4" />
-                        Previous
-                    </button>
+            <div className="flex-shrink-0">
+                <div className="flex items-center w-full px-2">
+                    {/* Left: Restart */}
+                    <div className="flex-1 flex items-center justify-start">
+                        <button
+                            onMouseDown={preventFocusSteal}
+                            onClick={handleRestart}
+                            className="flex items-center justify-center w-8 h-8 rounded-lg text-sm text-white/40 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                        >
+                            <RotateCcw className="w-4 h-4 rotate-180" />
+                        </button>
+                    </div>
 
-                    <div className="flex items-center gap-2">
-                        {!isSubmitted ? (
+                    {/* Center: Navigation arrows with progress dots */}
+                    <div className="flex items-center gap-1 justify-center">
+                        <button
+                            onMouseDown={preventFocusSteal}
+                            onClick={handlePrevious}
+                            disabled={currentIndex === 0}
+                            className={cn(
+                                "flex items-center justify-center w-8 h-8 rounded-lg text-sm transition-colors cursor-pointer",
+                                currentIndex === 0
+                                    ? "text-white/30 cursor-not-allowed"
+                                    : "text-white/70 hover:text-white hover:bg-white/10"
+                            )}
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <span className="text-xs text-white/50 px-1">
+                            {currentIndex + 1} / {totalQuestions}
+                        </span>
+                        <button
+                            onMouseDown={preventFocusSteal}
+                            onClick={isSubmitted ? handleNext : undefined}
+                            disabled={!isSubmitted}
+                            className={cn(
+                                "flex items-center justify-center w-8 h-8 rounded-lg text-sm transition-colors cursor-pointer",
+                                !isSubmitted
+                                    ? "text-white/30 cursor-not-allowed"
+                                    : "text-white/70 hover:text-white hover:bg-white/10"
+                            )}
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    {/* Right: Check */}
+                    <div className="flex-1 flex items-center justify-end">
+                        {!isSubmitted && (
                             <button
                                 onMouseDown={preventFocusSteal}
                                 onClick={handleSubmit}
@@ -417,28 +438,10 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                                         : "bg-blue-500 hover:bg-blue-600 text-white"
                                 )}
                             >
-                                Submit
-                            </button>
-                        ) : (
-                            <button
-                                onMouseDown={preventFocusSteal}
-                                onClick={handleNext}
-                                className="flex items-center gap-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors cursor-pointer"
-                            >
-                                {currentIndex === totalQuestions - 1 ? "See Results" : "Next"}
-                                <ChevronRight className="w-4 h-4" />
+                                Check
                             </button>
                         )}
                     </div>
-
-                    <button
-                        onMouseDown={preventFocusSteal}
-                        onClick={handleRestart}
-                        className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                    >
-                        <RotateCcw className="w-4 h-4" />
-                        Restart
-                    </button>
                 </div>
             </div>
         </div>
