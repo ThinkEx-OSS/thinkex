@@ -109,7 +109,7 @@
     "next": "16.1.5",
     "next-themes": "^0.4.6",
     "postgres": "^3.4.7",
-    "posthog-js": "^1.327.0",
+    "posthog-js": "^1.335.5",
     "posthog-node": "^5.21.1",
     "react": "19.2.1",
     "react-color": "^2.19.3",
