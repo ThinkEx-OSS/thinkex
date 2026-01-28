@@ -74,6 +74,12 @@ function DashboardContent({
   // State is derived from events, mutations are optimistic
   const { state, isLoading: isLoadingWorkspace, version } = useWorkspaceState(currentWorkspaceId);
 
+  // Clear playing YouTube videos when workspace view mounts (e.g., navigating back from home)
+  const clearPlayingYouTubeCards = useUIStore((state) => state.clearPlayingYouTubeCards);
+  useEffect(() => {
+    clearPlayingYouTubeCards();
+  }, [clearPlayingYouTubeCards]);
+
   // Workspace operations (emits events with optimistic updates)
   const operations = useWorkspaceOperations(currentWorkspaceId, state);
 
@@ -444,6 +450,12 @@ export function DashboardPage() {
   useEffect(() => {
     clearActiveFolder();
   }, [currentWorkspaceId, clearActiveFolder]);
+
+  // Clear playing YouTube videos when workspace changes
+  const clearPlayingYouTubeCards = useUIStore((state) => state.clearPlayingYouTubeCards);
+  useEffect(() => {
+    clearPlayingYouTubeCards();
+  }, [currentWorkspaceId, clearPlayingYouTubeCards]);
 
   return (
     <DashboardContent
