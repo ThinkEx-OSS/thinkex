@@ -255,7 +255,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
             {/* Question */}
             <div className={cn(
                 "flex-1 p-2",
-                isScrollLocked ? "overflow-hidden" : "overflow-y-auto"
+                "overflow-y-auto"
             )}>
                 <div className="mb-6">
                     <div className="text-sm text-white prose prose-invert prose-sm max-w-none">

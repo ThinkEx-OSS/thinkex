@@ -575,8 +575,8 @@ function WorkspaceCard({
           >
             {/* Floating Controls Container */}
             <div className={`absolute top-3 right-3 z-10 flex items-center gap-2 ${isEditingTitle || isYouTubePlaying ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
-              {/* Scroll Lock/Unlock Button - Hidden for YouTube and narrow note/PDF cards */}
-              {item.type !== 'youtube' && !(item.type === 'note' && !shouldShowPreview) && !(item.type === 'pdf' && !shouldShowPreview) && (
+              {/* Scroll Lock/Unlock Button - Hidden for YouTube, quiz, and narrow note/PDF cards */}
+              {item.type !== 'youtube' && item.type !== 'quiz' && !(item.type === 'note' && !shouldShowPreview) && !(item.type === 'pdf' && !shouldShowPreview) && (
                 <button
                   type="button"
                   aria-label={isScrollLocked ? 'Click to unlock scroll' : 'Click to lock scroll'}
