@@ -1,5 +1,8 @@
 import type React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Search, X, ChevronRight, ChevronDown, FolderOpen, ChevronLeft, Plus, Upload, FileText, Folder, Settings, Share2, Play, MoreHorizontal, Globe, Brain } from "lucide-react";
 import { LuBook } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
@@ -118,6 +121,8 @@ export default function WorkspaceHeader({
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const pathname = usePathname();
+  const isWorkspaceRoute = pathname.startsWith("/workspace");
   
   // Track drag hover state for breadcrumb elements
   const [hoveredBreadcrumbTarget, setHoveredBreadcrumbTarget] = useState<string | null>(null); // 'root' or folderId
@@ -346,6 +351,24 @@ export default function WorkspaceHeader({
       <div className="flex items-center justify-between w-full px-3">
         {/* Left Side: Sidebar Toggle + Navigation Arrows + Breadcrumbs */}
         <div className="flex items-center gap-2 pointer-events-auto min-w-0">
+          {isWorkspaceRoute && (
+            <Link
+              href="/home"
+              className="group flex items-center mr-1 shrink-0 rounded-md p-1 cursor-pointer"
+              aria-label="ThinkEx"
+            >
+              <div className="transition-transform duration-200 group-hover:scale-110">
+                <Image
+                  src="/newlogothinkex.svg"
+                  alt="ThinkEx Logo"
+                  width={24}
+                  height={24}
+                  className="object-contain"
+                  priority
+                />
+              </div>
+            </Link>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <SidebarTrigger />
