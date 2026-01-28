@@ -313,48 +313,32 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                         {currentQuestion.hint}
                     </div>
                 )}
-                <div className="mt-4 flex items-center justify-center gap-4">
-                    {currentQuestion.hint && !isSubmitted && (
-                        <button
-                            onMouseDown={preventFocusSteal}
-                            onClick={() => setShowHint(!showHint)}
-                            className="flex items-center gap-2 text-sm text-yellow-400/80 hover:text-yellow-400 transition-colors cursor-pointer"
-                        >
-                            <Lightbulb className="w-4 h-4" />
-                            {showHint ? "Hide hint" : "Hint"}
-                        </button>
-                    )}
-                    <div className="flex items-center gap-1">
-                        <button
-                            onMouseDown={preventFocusSteal}
-                            onClick={handlePrevious}
-                            disabled={currentIndex === 0}
-                            className={cn(
-                                "flex items-center justify-center w-8 h-8 rounded-lg text-sm transition-colors cursor-pointer",
-                                currentIndex === 0
-                                    ? "text-white/30 cursor-not-allowed"
-                                    : "text-white/70 hover:text-white hover:bg-white/10"
-                            )}
-                        >
-                            <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <span className="text-xs text-white/50 px-1">
-                            {currentIndex + 1} / {totalQuestions}
-                        </span>
-                        <button
-                            onMouseDown={preventFocusSteal}
-                            onClick={isSubmitted ? handleNext : undefined}
-                            disabled={!isSubmitted}
-                            className={cn(
-                                "flex items-center justify-center w-8 h-8 rounded-lg text-sm transition-colors cursor-pointer",
-                                !isSubmitted
-                                    ? "text-white/30 cursor-not-allowed"
-                                    : "text-white/70 hover:text-white hover:bg-white/10"
-                            )}
-                        >
-                            <ChevronRight className="w-4 h-4" />
-                        </button>
+                <div className="mt-4 flex items-center justify-between">
+                    {/* Left: Hint */}
+                    <div>
+                        {currentQuestion.hint && !isSubmitted && (
+                            <button
+                                onMouseDown={preventFocusSteal}
+                                onClick={() => setShowHint(!showHint)}
+                                className="flex items-center gap-2 text-sm text-yellow-400/80 hover:text-yellow-400 transition-colors cursor-pointer"
+                            >
+                                <Lightbulb className="w-4 h-4" />
+                                {showHint ? "Hide hint" : "Hint"}
+                            </button>
+                        )}
                     </div>
+
+                    {/* Center: Progress bar */}
+                    <div className="flex-1 mx-4">
+                        <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-white transition-all duration-300"
+                                style={{ width: `${((currentIndex + (isSubmitted ? 1 : 0)) / totalQuestions) * 100}%` }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Right: Difficulty */}
                     <span className={cn(
                         "text-xs px-2 py-0.5 rounded-full border capitalize",
                         difficultyColors[quizData.difficulty]
@@ -395,41 +379,53 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
 
             {/* Footer */}
             <div className="flex-shrink-0">
-                <div className="flex items-center justify-between w-full px-2">
+                <div className="flex items-center w-full px-2">
                     {/* Left: Restart */}
-                    <button
-                        onMouseDown={preventFocusSteal}
-                        onClick={handleRestart}
-                        className="flex items-center justify-center w-8 h-8 rounded-lg text-sm text-white/40 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                    >
-                        <RotateCcw className="w-4 h-4 rotate-180" />
-                    </button>
+                    <div className="flex-1 flex items-center justify-start">
+                        <button
+                            onMouseDown={preventFocusSteal}
+                            onClick={handleRestart}
+                            className="flex items-center justify-center w-8 h-8 rounded-lg text-sm text-white/40 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                        >
+                            <RotateCcw className="w-4 h-4 rotate-180" />
+                        </button>
+                    </div>
 
-                    {/* Center: Progress squares */}
-                    <div className="flex items-center justify-between flex-1 mx-4">
-                        {questions.map((question, index) => {
-                            const answer = answeredQuestions.find(a => a.questionId === question.id);
-                            const isCurrent = index === currentIndex;
-                            const isAnswered = !!answer;
-                            const isCorrect = answer?.isCorrect;
-
-                            return (
-                                <div
-                                    key={question.id}
-                                    className={cn(
-                                        "w-2 h-2 rounded-sm transition-all",
-                                        isCurrent && "ring-2 ring-blue-400 ring-offset-1 ring-offset-[#1a1a1a]",
-                                        isAnswered && isCorrect && "bg-green-500",
-                                        isAnswered && !isCorrect && "bg-red-500",
-                                        !isAnswered && "bg-white/20"
-                                    )}
-                                />
-                            );
-                        })}
+                    {/* Center: Navigation arrows with progress dots */}
+                    <div className="flex items-center gap-1 justify-center">
+                        <button
+                            onMouseDown={preventFocusSteal}
+                            onClick={handlePrevious}
+                            disabled={currentIndex === 0}
+                            className={cn(
+                                "flex items-center justify-center w-8 h-8 rounded-lg text-sm transition-colors cursor-pointer",
+                                currentIndex === 0
+                                    ? "text-white/30 cursor-not-allowed"
+                                    : "text-white/70 hover:text-white hover:bg-white/10"
+                            )}
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <span className="text-xs text-white/50 px-1">
+                            {currentIndex + 1} / {totalQuestions}
+                        </span>
+                        <button
+                            onMouseDown={preventFocusSteal}
+                            onClick={isSubmitted ? handleNext : undefined}
+                            disabled={!isSubmitted}
+                            className={cn(
+                                "flex items-center justify-center w-8 h-8 rounded-lg text-sm transition-colors cursor-pointer",
+                                !isSubmitted
+                                    ? "text-white/30 cursor-not-allowed"
+                                    : "text-white/70 hover:text-white hover:bg-white/10"
+                            )}
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
                     </div>
 
                     {/* Right: Check */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center justify-end">
                         {!isSubmitted && (
                             <button
                                 onMouseDown={preventFocusSteal}
