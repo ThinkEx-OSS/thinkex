@@ -13,6 +13,34 @@ import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 
 /**
+ * Parse the PostgreSQL result from append_workspace_event
+ * Returns { version: number, conflict: boolean }
+ */
+function parseAppendResult(rawResult: string | any): { version: number; conflict: boolean } {
+  // If it's already an object with version and conflict, return it
+  if (typeof rawResult === 'object' && rawResult !== null && typeof rawResult.version === 'number') {
+    return {
+      version: rawResult.version,
+      conflict: rawResult.conflict === true,
+    };
+  }
+
+  // PostgreSQL returns result as string like "(6,t)" - need to parse it
+  const resultString = typeof rawResult === 'string' ? rawResult : String(rawResult);
+  const match = resultString.match(/\((\d+),(t|f)\)/);
+  
+  if (!match) {
+    logger.error(`[WORKSPACE-WORKER] Failed to parse PostgreSQL result:`, rawResult);
+    throw new Error(`Invalid database response: ${resultString}`);
+  }
+
+  return {
+    version: parseInt(match[1], 10),
+    conflict: match[2] === 't',
+  };
+}
+
+/**
  * WORKER 3: Workspace Management Agent
  * Manages workspace items (create, update, delete notes)
  * Operations are serialized per workspace to prevent version conflicts
@@ -189,8 +217,8 @@ export async function workspaceWorker(
                     throw new Error(`Failed to create ${itemType}`);
                 }
 
-                const result = eventResult[0].result as any;
-                if (result && result.conflict) {
+                const appendResult = parseAppendResult(eventResult[0].result);
+                if (appendResult.conflict) {
                     throw new Error("Workspace was modified by another user, please try again");
                 }
 
@@ -207,7 +235,7 @@ export async function workspaceWorker(
                     message: `Created ${itemType} "${item.name}" successfully`,
                     cardCount,
                     event,
-                    version: result?.version,
+                    version: appendResult.version,
                 };
             }
 
@@ -321,9 +349,9 @@ export async function workspaceWorker(
                         throw new Error("Failed to update note");
                     }
 
-                    const result = eventResult[0].result as any;
+                    const appendResult = parseAppendResult(eventResult[0].result);
 
-                    if (result && result.conflict) {
+                    if (appendResult.conflict) {
                         logger.error("❌ [UPDATE-NOTE] Conflict detected - workspace was modified by another user");
                         throw new Error("Workspace was modified by another user, please try again");
                     }
@@ -336,7 +364,7 @@ export async function workspaceWorker(
                         itemId: params.itemId,
                         message: `Updated note successfully`,
                         event,
-                        version: result?.version,
+                        version: appendResult.version,
                     };
                 } catch (error: any) {
                     logger.group("❌ [UPDATE-NOTE] Error during update operation", false);
@@ -420,9 +448,9 @@ export async function workspaceWorker(
                     throw new Error("Failed to update flashcard deck: database returned no result");
                 }
 
-                const result = eventResult[0].result as any;
+                const appendResult = parseAppendResult(eventResult[0].result);
 
-                if (result && result.conflict) {
+                if (appendResult.conflict) {
                     throw new Error("Workspace was modified by another user, please try again");
                 }
 
@@ -438,7 +466,7 @@ export async function workspaceWorker(
                     cardsAdded: newCards.length,
                     message: `Added ${newCards.length} card${newCards.length !== 1 ? 's' : ''} to flashcard deck`,
                     event,
-                    version: result?.version,
+                    version: appendResult.version,
                 };
             }
 
@@ -522,14 +550,13 @@ export async function workspaceWorker(
                     throw new Error("Failed to update quiz: database returned no result");
                 }
 
-                const result = eventResult[0].result as any;
+                const appendResult = parseAppendResult(eventResult[0].result);
                 logger.info("📝 [UPDATE-QUIZ-DB] Parsed result:", {
-                    result: JSON.stringify(result),
-                    hasConflict: !!result?.conflict,
-                    resultVersion: result?.version,
+                    version: appendResult.version,
+                    conflict: appendResult.conflict,
                 });
 
-                if (result && result.conflict) {
+                if (appendResult.conflict) {
                     logger.error("❌ [UPDATE-QUIZ-DB] Version conflict detected");
                     throw new Error("Workspace was modified by another user, please try again");
                 }
@@ -547,7 +574,7 @@ export async function workspaceWorker(
                     totalQuestions: updatedData.questions.length,
                     message: `Added ${questionsToAdd.length} question${questionsToAdd.length !== 1 ? 's' : ''} to quiz`,
                     event,
-                    version: result?.version,
+                    version: appendResult.version,
                 };
             }
 
@@ -581,8 +608,8 @@ export async function workspaceWorker(
                     throw new Error("Failed to delete note");
                 }
 
-                const result = eventResult[0].result as any;
-                if (result && result.conflict) {
+                const appendResult = parseAppendResult(eventResult[0].result);
+                if (appendResult.conflict) {
                     throw new Error("Workspace was modified by another user, please try again");
                 }
 
@@ -593,7 +620,7 @@ export async function workspaceWorker(
                     itemId: params.itemId,
                     message: `Deleted note successfully`,
                     event,
-                    version: result?.version,
+                    version: appendResult.version,
                 };
             }
 

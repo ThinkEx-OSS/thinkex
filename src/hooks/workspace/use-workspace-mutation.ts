@@ -59,11 +59,22 @@ export function useWorkspaceMutation(workspaceId: string | null) {
         "events",
       ]);
 
-      // Use the cache's version field directly - this is the authoritative server version
-      // This is more reliable than calculating from events, especially during cache updates
-      const currentVersion = currentData?.version ?? 0;
-      const eventsCount = currentData?.events?.length ?? 0;
-      const optimisticEventsCount = currentData?.events?.filter(e => typeof e.version !== 'number').length ?? 0;
+      // Calculate the actual max version from all events in cache
+      // This is critical because after tool completions, events may have versions
+      // that are higher than the cache's version field
+      const events = currentData?.events ?? [];
+      const optimisticEventsCount = events.filter(e => typeof e.version !== 'number').length;
+      
+      // Find the max version from all events that have versions
+      // This accounts for tool events that were added with versions
+      const maxEventVersion = events
+        .filter(e => typeof e.version === 'number')
+        .reduce((max, e) => Math.max(max, e.version!), currentData?.version ?? 0);
+      
+      // Use the higher of: cache version or max event version
+      // This ensures we account for tool events that updated individual event versions
+      // but might not have updated the cache version field
+      const currentVersion = Math.max(currentData?.version ?? 0, maxEventVersion);
 
       // CRITICAL FIX: Account for optimistic events when calculating baseVersion
       // If there are optimistic events (pending mutations), they will increment the server version
@@ -77,6 +88,8 @@ export function useWorkspaceMutation(workspaceId: string | null) {
 
       logger.debug("🚀 [MUTATION] Starting mutation:", {
         workspaceId,
+        cacheVersion: currentData?.version ?? 0,
+        maxEventVersion,
         currentVersion,
         adjustedBaseVersion,
         optimisticEventsCount,
