@@ -11,7 +11,7 @@ export function HomeContent() {
       <div className="flex-1 flex flex-col items-center justify-start px-6 pt-12 md:pt-16 pb-8 overflow-y-auto">
         {/* Hero Section */}
         <div className="text-center mb-12 w-full">
-          <h1 className="text-3xl md:text-4xl font-medium text-foreground mb-6">
+          <h1 className="text-2xl md:text-3xl font-normal text-foreground mb-6">
             What's on your mind?
           </h1>
           <div className="flex justify-center">
