@@ -36,21 +36,22 @@ import { PdfEngineWrapper } from "@/components/pdf/PdfEngineWrapper";
 import WorkspaceSettingsModal from "@/components/workspace/WorkspaceSettingsModal";
 import ShareWorkspaceDialog from "@/components/workspace/ShareWorkspaceDialog";
 // Main dashboard content component
-function DashboardContent({
-  currentWorkspaceId,
-  loadingWorkspaces,
-  currentWorkspaceTitle,
-  currentWorkspaceIcon,
-  currentWorkspaceColor,
-}: {
-  currentWorkspaceId: string | null;
+interface DashboardContentProps {
+  currentWorkspace: WorkspaceWithState | null;
   loadingWorkspaces: boolean;
-  currentWorkspaceTitle?: string;
-  currentWorkspaceIcon?: string | null;
-  currentWorkspaceColor?: string | null;
-}) {
+}
+
+function DashboardContent({
+  currentWorkspace,
+  loadingWorkspaces,
+}: DashboardContentProps) {
   const posthog = usePostHog();
   const { data: session } = useSession();
+
+  const currentWorkspaceId = currentWorkspace?.id || null;
+  const currentWorkspaceTitle = currentWorkspace?.name;
+  const currentWorkspaceIcon = currentWorkspace?.icon;
+  const currentWorkspaceColor = currentWorkspace?.color;
 
   // Check onboarding status
   // const { shouldShowOnboarding, isLoading: isLoadingOnboarding } = useOnboardingStatus();
@@ -66,7 +67,6 @@ function DashboardContent({
   const {
     currentSlug,
     switchWorkspace,
-    workspaces,
   } = useWorkspaceContext();
 
   // Get save status from Zustand store
@@ -97,11 +97,6 @@ function DashboardContent({
   // Workspace settings/share modals (lifted so header can open them)
   const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
   const [showWorkspaceShare, setShowWorkspaceShare] = useState(false);
-
-  const currentWorkspace = useMemo<WorkspaceWithState | null>(() => {
-    if (!currentWorkspaceId) return null;
-    return workspaces.find((w) => w.id === currentWorkspaceId) || null;
-  }, [currentWorkspaceId, workspaces]);
 
   // Show sign-in prompt after 13 events for anonymous users
   useEffect(() => {
@@ -141,7 +136,7 @@ function DashboardContent({
   const manualSave = useCallback(async () => {
     posthog.capture('manual-save-clicked', { workspace_id: currentWorkspaceId });
     updateLastSaved(new Date());
-  }, [updateLastSaved, currentWorkspaceId]);
+  }, [updateLastSaved, currentWorkspaceId, posthog]);
 
   // Update save status based on mutation status
   useEffect(() => {
@@ -340,7 +335,7 @@ function DashboardContent({
           fileUrl,
           filename: filename || file.name,
           fileSize: file.size,
-          name: file.name.replace(/\\.pdf$/i, ""),
+          name: file.name.replace(/\.pdf$/i, ""),
         };
       });
 
@@ -494,33 +489,13 @@ export function DashboardPage() {
     loadingWorkspaces,
   } = useWorkspaceContext();
 
-  // Derive workspace ID directly from slug and sync to store
-  const currentWorkspaceId = useMemo(() => {
+  // Find current workspace from slug
+  const currentWorkspace = useMemo(() => {
     if (!currentSlug) return null;
-    const workspace = workspaces.find(w => w.slug === currentSlug);
-    return workspace?.id || null;
+    return workspaces.find(w => w.slug === currentSlug) || null;
   }, [currentSlug, workspaces]);
 
-  // Get current workspace title for JSON download filename
-  const currentWorkspaceTitle = useMemo(() => {
-    if (!currentSlug) return undefined;
-    const workspace = workspaces.find(w => w.slug === currentSlug);
-    return workspace?.name || undefined;
-  }, [currentSlug, workspaces]);
-
-  // Get current workspace icon for header breadcrumbs
-  const currentWorkspaceIcon = useMemo(() => {
-    if (!currentSlug) return null;
-    const workspace = workspaces.find(w => w.slug === currentSlug);
-    return workspace?.icon || null;
-  }, [currentSlug, workspaces]);
-
-  // Get current workspace color for header breadcrumbs
-  const currentWorkspaceColor = useMemo(() => {
-    if (!currentSlug) return null;
-    const workspace = workspaces.find(w => w.slug === currentSlug);
-    return workspace?.color || null;
-  }, [currentSlug, workspaces]);
+  const currentWorkspaceId = currentWorkspace?.id || null;
 
   // Sync workspace ID to store
   const setCurrentWorkspaceId = useWorkspaceStore((state) => state.setCurrentWorkspaceId);
@@ -532,10 +507,10 @@ export function DashboardPage() {
   const lastTrackedWorkspaceIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!currentWorkspaceId) return;
-    
+
     // Only track if this is a different workspace than last time
     if (lastTrackedWorkspaceIdRef.current === currentWorkspaceId) return;
-    
+
     // Track the open
     fetch(`/api/workspaces/${currentWorkspaceId}/track-open`, {
       method: 'POST',
@@ -543,7 +518,7 @@ export function DashboardPage() {
       // Silently fail - tracking is not critical
       console.error('Failed to track workspace open:', error);
     });
-    
+
     lastTrackedWorkspaceIdRef.current = currentWorkspaceId;
   }, [currentWorkspaceId]);
 
@@ -567,11 +542,8 @@ export function DashboardPage() {
 
   return (
     <DashboardContent
-      currentWorkspaceId={currentWorkspaceId}
+      currentWorkspace={currentWorkspace}
       loadingWorkspaces={loadingWorkspaces}
-      currentWorkspaceTitle={currentWorkspaceTitle}
-      currentWorkspaceIcon={currentWorkspaceIcon}
-      currentWorkspaceColor={currentWorkspaceColor}
     />
   );
 }

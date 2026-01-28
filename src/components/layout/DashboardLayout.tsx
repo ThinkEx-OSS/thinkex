@@ -134,14 +134,17 @@ export function DashboardLayout({
             minSize={effectiveChatExpanded ? PANEL_DEFAULTS.WORKSPACE_MIN : 100}
           >
             <ResizablePanelGroup
-              id="left-area-split"
+              id={`left-area-split-${panels.length}`}
+              // Force re-mount when panel count changes to ensure defaultSize is respected
+              // and to prevent "Panel data not found" errors from react-resizable-panels
+              key={`left-area-split-${panels.length}`}
               direction="horizontal"
               className="flex-1 h-full"
             >
               {/* Workspace area: header + sidebar + workspace canvas */}
               <ResizablePanel
                 id="workspace-area-panel"
-                order={1}
+                order={0}
                 defaultSize={(() => {
                   if (panels.length === 0) {
                     return 100;
@@ -205,7 +208,7 @@ export function DashboardLayout({
                         )}
                         <ResizablePanel
                           id={`item-panel-${panelKey}`}
-                          order={panels.length >= 2 ? 1 + index : 2}
+                          order={index + 1}
                           defaultSize={panels.length >= 2 ? 50 : 100 * PANEL_DEFAULTS.ITEM_PANEL_SPLIT_RATIO}
                           minSize={20}
                         >
