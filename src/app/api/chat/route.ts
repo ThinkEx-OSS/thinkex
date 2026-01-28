@@ -102,31 +102,6 @@ function getSelectedCardsContext(body: any): string {
 }
 
 /**
- * Check if a message contains the workspace creation pattern
- */
-function isWorkspaceCreationMessage(message: any): boolean {
-  if (!message || !message.content) return false;
-  
-  // Handle array content (UIMessage format)
-  if (Array.isArray(message.content)) {
-    const textContent = message.content
-      .filter((part: any) => part.type === "text")
-      .map((part: any) => part.text)
-      .join(" ");
-    return textContent.includes("Create a workspace about:") || 
-           textContent.toLowerCase().includes("create a workspace");
-  }
-  
-  // Handle string content
-  if (typeof message.content === "string") {
-    return message.content.includes("Create a workspace about:") || 
-           message.content.toLowerCase().includes("create a workspace");
-  }
-  
-  return false;
-}
-
-/**
  * Build the enhanced system prompt with guidelines and detection hints
  * Uses array join for better performance than string concatenation
  */
@@ -224,36 +199,8 @@ export async function POST(req: Request) {
     // Get pre-formatted selected cards context from client (no DB fetch needed)
     const selectedCardsContext = getSelectedCardsContext(body);
 
-    // Check if the latest user message is a workspace creation message
-    const isWorkspaceCreation = convertedMessages.length > 0 && 
-      convertedMessages[convertedMessages.length - 1].role === "user" &&
-      isWorkspaceCreationMessage(convertedMessages[convertedMessages.length - 1]);
-
     // Build system prompt with all context parts (using array join for efficiency)
     const systemPromptParts: string[] = [buildSystemPrompt(system, fileUrls, urlContextUrls)];
-
-    // Add workspace creation welcome instructions if detected
-    if (isWorkspaceCreation) {
-      systemPromptParts.push(`
-
-WORKSPACE CREATION WELCOME:
-The user has just created a new workspace. Follow this flow:
-
-INITIAL MESSAGE (when you first detect the workspace creation):
-1. First, acknowledge their request and listen to their prompt
-2. Welcome them to ThinkEx with a friendly greeting
-3. Provide a brief overview: "ThinkEx is your AI-powered workspace for organizing notes, flashcards, and quizzes. It helps you study, research, and organize information efficiently."
-4. Suggest next steps: "Once you answer my clarifying questions, I'll help you create notes, flashcards, and quizzes tailored to your needs. You can also ask me to search the web, process files, or analyze URLs to gather information for your workspace."
-5. Then proceed with asking your clarifying questions as instructed in the user's message
-
-AFTER USER ANSWERS CLARIFYING QUESTIONS:
-Before you start creating content, explain:
-- Workspace selection: "You can select items in your workspace by clicking on them. Selected items will be highlighted, and I can work with them - analyze, summarize, create flashcards from them, or help you organize them."
-- Agentic capabilities: "I can also automatically select relevant items based on your requests to help you work more efficiently."
-Then proceed with creating the notes, flashcards, and quiz as requested.
-
-Keep the welcome warm and concise, then move into the clarifying questions.`);
-    }
 
     // Inject selected cards context if available
     if (selectedCardsContext) {
