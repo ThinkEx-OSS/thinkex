@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { MoreVertical, LogOut, Layers, User, Mail, Play, Users, Globe, Plus, Upload, Tag, Home } from "lucide-react";
+import { MoreVertical, LogOut, Layers, User, Mail, Play, Users, Globe, Plus, Upload, Tag } from "lucide-react";
 import { useState, useCallback, memo } from "react";
 import { useSession, signOut } from "@/lib/auth-client";
 import { useRouter, usePathname } from "next/navigation";
@@ -70,6 +70,7 @@ function WorkspaceSidebar({
   const router = useRouter();
   const pathname = usePathname();
   const isHomeRoute = pathname === "/home";
+  const isWorkspaceRoute = pathname.startsWith("/workspace");
 
   // Get workspace context
   const {
@@ -176,38 +177,30 @@ function WorkspaceSidebar({
 
   return (
     <>
-      <SidebarHeader className="bg-sidebar" data-tour="sidebar">
-        <div className="flex items-center justify-between py-2 px-3 min-h-[3rem] group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center">
-          <Link
-            href="/"
-            className="flex items-center gap-2 group-data-[collapsible=icon]:hidden transition-all duration-[400ms] group/logo cursor-pointer"
-            style={{
-              transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)'
-            }}
-          >
-            <div className="relative h-6 w-6 flex items-center justify-center transition-transform group-hover/logo:scale-105">
-              <Image
-                src="/newlogothinkex.svg"
-                alt="ThinkEx Logo"
-                width={24}
-                height={24}
-                className="object-contain"
-              />
-            </div>
-            <h2 className="text-lg font-medium whitespace-nowrap -mb-0.5">ThinkEx</h2>
-          </Link>
-          <Link
-            href="/home"
-            className={cn(
-              "inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer group-data-[collapsible=icon]:hidden"
-            )}
-            aria-label="Home"
-          >
-            <Home className="h-4 w-4" />
-            <span className="sr-only">Home</span>
-          </Link>
-        </div>
-      </SidebarHeader>
+      {!isWorkspaceRoute && (
+        <SidebarHeader className="bg-sidebar" data-tour="sidebar">
+          <div className="flex items-center justify-between py-2 px-3 min-h-[3rem] group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center">
+            <Link
+              href={isHomeRoute ? "/home" : "/"}
+              className="flex items-center gap-2 group-data-[collapsible=icon]:hidden transition-all duration-[400ms] group/logo cursor-pointer"
+              style={{
+                transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+              }}
+            >
+              <div className="relative h-6 w-6 flex items-center justify-center transition-transform group-hover/logo:scale-105">
+                <Image
+                  src="/newlogothinkex.svg"
+                  alt="ThinkEx Logo"
+                  width={24}
+                  height={24}
+                  className="object-contain"
+                />
+              </div>
+              <h2 className="text-lg font-medium whitespace-nowrap -mb-0.5">ThinkEx</h2>
+            </Link>
+          </div>
+        </SidebarHeader>
+      )}
 
       <SidebarContent className="overflow-hidden flex flex-col">
         {/* Workspaces Section */}

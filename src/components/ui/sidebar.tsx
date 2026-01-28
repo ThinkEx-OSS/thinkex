@@ -149,6 +149,7 @@ function Sidebar({
   side = "left",
   variant = "sidebar",
   collapsible = "offcanvas",
+  embedded = false,
   className,
   children,
   ...props
@@ -156,6 +157,12 @@ function Sidebar({
   side?: "left" | "right"
   variant?: "sidebar" | "floating" | "inset"
   collapsible?: "offcanvas" | "icon" | "none"
+  /**
+   * When true, renders the sidebar container within normal layout flow
+   * (absolute inside its reserved "gap" column) instead of `fixed` to viewport.
+   * Useful when you want the sidebar to sit under a page header.
+   */
+  embedded?: boolean
 }) {
   const { isMobile, state, openMobile, setOpenMobile, open, setOpen } = useSidebar()
 
@@ -201,7 +208,10 @@ function Sidebar({
 
   return (
     <div
-      className="group peer text-sidebar-foreground hidden md:block"
+      className={cn(
+        "group peer text-sidebar-foreground hidden md:block",
+        embedded && "relative h-full"
+      )}
       data-state={state}
       data-collapsible={state === "collapsed" ? collapsible : ""}
       data-variant={variant}
@@ -212,7 +222,7 @@ function Sidebar({
       <div
         data-slot="sidebar-gap"
         className={cn(
-          "relative w-(--sidebar-width) bg-transparent",
+          "relative h-full w-(--sidebar-width) bg-transparent",
           "group-data-[collapsible=offcanvas]:w-0",
           "group-data-[side=right]:rotate-180",
           variant === "floating" || variant === "inset"
@@ -223,7 +233,9 @@ function Sidebar({
       <div
         data-slot="sidebar-container"
         className={cn(
-          "fixed inset-y-0 z-[60] hidden h-svh w-(--sidebar-width) md:flex",
+          embedded
+            ? "absolute inset-y-0 z-[60] hidden w-(--sidebar-width) md:flex"
+            : "fixed inset-y-0 z-[60] hidden h-svh w-(--sidebar-width) md:flex",
           side === "left"
             ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
             : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
