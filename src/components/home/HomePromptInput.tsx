@@ -93,7 +93,7 @@ export function HomePromptInput() {
       // Reset typing animation by changing key
       typingKeyRef.current += 1;
       router.push(
-        `/dashboard/${workspace.slug}?createFrom=${encodeURIComponent(prompt)}`
+        `/workspace/${workspace.slug}?createFrom=${encodeURIComponent(prompt)}`
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";

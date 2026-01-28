@@ -135,7 +135,7 @@ export default function SharedWorkspaceModal({
       
       // Use full page navigation to ensure workspace context and state are properly loaded
       // This ensures a clean reload where the workspace will be found by slug
-      window.location.href = `/dashboard/${workspace.slug}`;
+      window.location.href = `/workspace/${workspace.slug}`;
     } catch (err) {
       console.error("Error creating workspace:", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to create workspace";

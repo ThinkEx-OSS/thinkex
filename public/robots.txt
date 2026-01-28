@@ -6,8 +6,9 @@ User-agent: *
 Allow: /
 Allow: /api/share/*
 
-# Disallow private/dashboard areas
-Disallow: /dashboard/
+# Disallow private/workspace areas
+Disallow: /workspace/
+Disallow: /dashboard/  # Legacy route, redirects to /workspace
 Disallow: /auth/
 Disallow: /api/
 Disallow: /_next/

@@ -47,6 +47,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   // Derive current slug synchronously from pathname (no useEffect delay)
   const currentSlug = useMemo(() => {
+    if (pathname.startsWith("/workspace/") && pathname !== "/workspace") {
+      return pathname.replace("/workspace/", "");
+    }
+    // Backwards compatibility: also check /dashboard/
     if (pathname.startsWith("/dashboard/") && pathname !== "/dashboard") {
       return pathname.replace("/dashboard/", "");
     }
@@ -85,7 +89,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         await loadWorkspaces();
         // Redirect to the new workspace
         if (data.slug) {
-          router.push(`/dashboard/${data.slug}`);
+          router.push(`/workspace/${data.slug}`);
         }
       } else {
         console.error("[WORKSPACE CONTEXT] Failed to create welcome workspace");
@@ -108,7 +112,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   // Switch workspace
   const switchWorkspace = useCallback(
     (slug: string) => {
-      router.push(`/dashboard/${slug}`);
+      router.push(`/workspace/${slug}`);
     },
     [router]
   );

@@ -477,7 +477,7 @@ export default function Page() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/home");
+    router.replace("/workspace");
   }, [router]);
 
   return null;
