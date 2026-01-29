@@ -678,16 +678,7 @@ function WorkspaceCard({
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
-                  {/* Split View option - only for Note/PDF when another panel is already open */}
-                  {(item.type === 'note' || item.type === 'pdf') && openPanelIds.length > 0 && !openPanelIds.includes(item.id) && !maximizedItemId && (
-                    <>
-                      <DropdownMenuItem onSelect={() => openPanel(item.id, 'add')}>
-                        <Columns className="mr-2 h-4 w-4" />
-                        <span>Split View</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
-                  )}
+
                   <DropdownMenuItem onSelect={() => setShowRenameDialog(true)}>
                     <Pencil className="mr-2 h-4 w-4" />
                     <span>Rename</span>
@@ -750,45 +741,32 @@ function WorkspaceCard({
               </DialogContent>
             </Dialog>
 
-            {/* Card Content - show "Currently viewing" when panel is open, otherwise show normal content */}
-            {isOpenInPanel ? (
-              <div className="flex-1 flex flex-col items-center justify-center gap-2 p-4">
-                <p className="text-xs text-muted-foreground/70">Currently viewing</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-foreground truncate max-w-[200px]">
-                    {item.name || 'Untitled'}
-                  </span>
-                  <X className="h-4 w-4 text-muted-foreground/70 flex-shrink-0" />
-                </div>
-              </div>
-            ) : (
-              <div className={(item.type === 'note' || item.type === 'pdf') && !shouldShowPreview ? "flex-1 flex flex-col" : "flex-shrink-0"}>
-                {item.type !== 'youtube' && !(item.type === 'pdf' && shouldShowPreview) && (
-                  <ItemHeader
-                    id={item.id}
-                    name={item.name}
-                    subtitle={item.subtitle}
-                    description={""}
-                    onNameChange={handleNameChange}
-                    onNameCommit={handleNameCommit}
-                    onSubtitleChange={handleSubtitleChange}
-                    readOnly={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz') && !shouldShowPreview}
-                    noMargin={true}
-                    onTitleFocus={handleTitleFocus}
-                    onTitleBlur={handleTitleBlur}
-                    allowWrap={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz') && !shouldShowPreview}
-                  />
-                )
-                }
-                {/* Subtle type label for narrow cards without preview */}
-                {/* Subtle type label for narrow cards without preview */}
-                {(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz') && !shouldShowPreview && (
-                  <span className="text-[10px] uppercase tracking-wider text-white/40 mt-auto">
-                    {item.type === 'note' ? 'Note' : item.type === 'pdf' ? 'PDF' : 'Quiz'}
-                  </span>
-                )}
-              </div>
-            )}
+            <div className={(item.type === 'note' || item.type === 'pdf') && !shouldShowPreview ? "flex-1 flex flex-col" : "flex-shrink-0"}>
+              {item.type !== 'youtube' && !(item.type === 'pdf' && shouldShowPreview) && (
+                <ItemHeader
+                  id={item.id}
+                  name={item.name}
+                  subtitle={item.subtitle}
+                  description={""}
+                  onNameChange={handleNameChange}
+                  onNameCommit={handleNameCommit}
+                  onSubtitleChange={handleSubtitleChange}
+                  readOnly={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz') && !shouldShowPreview}
+                  noMargin={true}
+                  onTitleFocus={handleTitleFocus}
+                  onTitleBlur={handleTitleBlur}
+                  allowWrap={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz') && !shouldShowPreview}
+                />
+              )
+              }
+              {/* Subtle type label for narrow cards without preview */}
+              {/* Subtle type label for narrow cards without preview */}
+              {(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz') && !shouldShowPreview && (
+                <span className="text-[10px] uppercase tracking-wider text-white/40 mt-auto">
+                  {item.type === 'note' ? 'Note' : item.type === 'pdf' ? 'PDF' : 'Quiz'}
+                </span>
+              )}
+            </div>
 
             {/* Note Content - render preview if card is wide enough */}
             {!isOpenInPanel && item.type === 'note' && shouldShowPreview && (
@@ -1033,16 +1011,7 @@ function WorkspaceCard({
 
       {/* Right-Click Context Menu */}
       <ContextMenuContent className="w-48">
-        {/* Split View option - only for Note/PDF when another panel is already open */}
-        {(item.type === 'note' || item.type === 'pdf') && openPanelIds.length > 0 && !openPanelIds.includes(item.id) && !maximizedItemId && (
-          <>
-            <ContextMenuItem onSelect={() => openPanel(item.id, 'add')}>
-              <Columns className="mr-2 h-4 w-4" />
-              <span>Split View</span>
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-          </>
-        )}
+
         <ContextMenuItem onSelect={() => setShowRenameDialog(true)}>
           <Pencil className="mr-2 h-4 w-4" />
           <span>Rename</span>

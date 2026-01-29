@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, X, ChevronRight, ChevronDown, FolderOpen, ChevronLeft, Plus, Upload, FileText, Folder as FolderIcon, Settings, Share2, Play, MoreHorizontal, Globe, Brain, Maximize, Minimize, File } from "lucide-react";
+import { Search, X, ChevronRight, ChevronDown, FolderOpen, ChevronLeft, Plus, Upload, FileText, Folder as FolderIcon, Settings, Share2, Play, MoreHorizontal, Globe, Brain, Maximize, File } from "lucide-react";
 import { LuBook } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
@@ -150,7 +150,7 @@ export default function WorkspaceHeader({
   const setSelectedActions = useUIStore((state) => state.setSelectedActions);
 
   // Consistent breadcrumb item styling
-  const breadcrumbItemClass = "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5";
+  const breadcrumbItemClass = "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-2 py-1.5 -mx-2 -my-1.5";
 
 
 
@@ -310,7 +310,7 @@ export default function WorkspaceHeader({
   const navigateFolderForward = useUIStore((state) => state.navigateFolderForward);
 
   const canNavigateBack = folderHistoryBack.length > 0;
-  const canNavigateForward = folderHistoryForward !== null;
+  const canNavigateForward = folderHistoryForward.length > 0;
 
   // Handle PDF upload
   const handlePDFUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -519,7 +519,7 @@ export default function WorkspaceHeader({
                 data-breadcrumb-target="root"
                 className={cn(
                   "flex items-center gap-1.5 min-w-0",
-                  hoveredBreadcrumbTarget === 'root' && "border-2 border-blue-500 bg-blue-500/10 rounded px-1 py-0.5 -mx-1 -my-0.5"
+                  hoveredBreadcrumbTarget === 'root' && "border-2 border-blue-500 bg-blue-500/10 rounded px-2 py-1.5 -mx-2 -my-1.5"
                 )}
               >
                 <IconRenderer
@@ -539,7 +539,7 @@ export default function WorkspaceHeader({
                 {isCompactMode ? (
                   /* Compact mode: Show dropdown with current folder only, full path in dropdown */
                   (<>
-                    <span className="text-sidebar-foreground/50 mx-1 font-bold">/</span>
+                    <span className="text-sidebar-foreground/50 mx-1 font-bold text-sm">/</span>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
@@ -604,7 +604,7 @@ export default function WorkspaceHeader({
                 ) : folderPath.length === 1 ? (
                   folderPath.map((folder) => (
                     <span key={folder.id} className="flex items-center gap-1.5">
-                      <span className="text-sidebar-foreground/50 mx-1 font-bold">/</span>
+                      <span className="text-sidebar-foreground/50 mx-1 font-bold text-sm">/</span>
                       <button
                         onClick={() => handleFolderClick(folder.id)}
                         data-breadcrumb-target="folder"
@@ -627,7 +627,7 @@ export default function WorkspaceHeader({
                 ) : (
                   /* Show root, dropdown with all middle folders, and last for 2+ levels */
                   (<>
-                    <span className="text-sidebar-foreground/50 mx-1 font-bold">/</span>
+                    <span className="text-sidebar-foreground/50 mx-1 font-bold text-sm">/</span>
                     <HoverCard
                       open={ellipsisDropdownOpen}
                       onOpenChange={setEllipsisDropdownOpen}
@@ -672,7 +672,7 @@ export default function WorkspaceHeader({
                         </div>
                       </HoverCardContent>
                     </HoverCard>
-                    <span className="text-sidebar-foreground/50 mx-1 font-bold">/</span>
+                    <span className="text-sidebar-foreground/50 mx-1 font-bold text-sm">/</span>
                     <button
                       onClick={() => handleFolderClick(folderPath[folderPath.length - 1].id)}
                       data-breadcrumb-target="folder"
@@ -700,7 +700,7 @@ export default function WorkspaceHeader({
 
             {activeItems.length > 0 && (
               <div className="flex items-center gap-1.5 text-xs text-sidebar-foreground/70 min-w-0">
-                <span className="text-sidebar-foreground/50 mx-1 font-bold">/</span>
+                <span className="text-sidebar-foreground/50 mx-1 font-bold text-sm">/</span>
 
                 {activeItems.length === 1 ? (
                   // Single Active Item (Maximized or Single Panel) - Editable
@@ -748,18 +748,7 @@ export default function WorkspaceHeader({
           // Maximized Mode: Show Item Controls
           <div className="flex items-center gap-2 pointer-events-auto">
             <div id="workspace-header-portal" className="flex items-center gap-2" />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => onMinimizeActiveItem?.(activeItems[0].id)}
-                  className="h-8 w-8 flex items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
-                  aria-label="Restore"
-                >
-                  <Minimize className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>Restore to Panel</TooltipContent>
-            </Tooltip>
+
 
             <Tooltip>
               <TooltipTrigger asChild>
