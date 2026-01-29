@@ -260,26 +260,6 @@ export async function POST(req: Request) {
     // Prepare provider options
     let providerOptions: any = {};
 
-    if (modelId.includes("gemini-3")) {
-      providerOptions = {
-        google: {
-          thinkingConfig: {
-            thinkingLevel: 'high',
-            includeThoughts: true,
-          },
-        },
-      };
-    } else if (modelId.includes("gemini-2.5")) {
-      providerOptions = {
-        google: {
-          thinkingConfig: {
-            thinkingBudget: 8192,
-            includeThoughts: true,
-          },
-        },
-      };
-    }
-
     const result = streamText({
       model: model,
       system: finalSystemPrompt,
