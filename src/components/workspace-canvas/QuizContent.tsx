@@ -299,11 +299,11 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                                     )}>
                                         {String.fromCharCode(65 + index)}
                                     </span>
-                                    <span className="text-sm text-white/90 flex-1 prose prose-invert prose-sm max-w-none">
+                                    <div className="text-sm text-white/90 flex-1 prose prose-invert prose-sm max-w-none">
                                         <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
                                             {option}
                                         </ReactMarkdown>
-                                    </span>
+                                    </div>
                                     {showCorrectness && isCorrect && <CheckCircle2 className="w-5 h-5 text-green-400" />}
                                     {showCorrectness && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-400" />}
                                 </div>

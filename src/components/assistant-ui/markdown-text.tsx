@@ -153,15 +153,14 @@ function normalizeCustomMathTags(input: string): string {
       (_, content) => `$$\n${content.trim()}\n$$`
     )
     // Convert single $ ... $ to $$...$$ (inline math), but avoid currency like $10 or $5.50
-    // We use (^|[^\$]) to ensure it's not preceded by match (ignoring $$)
-    // and (?!\$) to ensure it's not followed by $ (ignoring $$)
-    .replace(/(^|[^\$])\$([^\$\n]+?)\$(?!\$)/g, (match, prefix, content) => {
-      // If content is purely numeric (with optional commas/periods), treat as currency
-      if (/^[\d,\.]+$/.test(content.trim())) {
+    // Use lookbehind to avoid consuming characters and handle consecutive expressions
+    // Exclude escaped dollar signs (prefixed with \)
+    .replace(/(?<!\\)(?<!\$)\$(?!\$)([^$\n]+?)(?<!\\)(?<!\$)\$(?!\$)/g, (match, content) => {
+      // More precise currency pattern: matches numbers like 10, 1,000, 10.50, 1,000.50
+      if (/^\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?$/.test(content.trim())) {
         return match; // Keep as-is (currency)
       }
-      // Otherwise, convert to math.
-      // prefix is the character before the first $ (or empty string)
-      return `${prefix}$$${content.trim()}$$`;
+      // Otherwise, convert to math
+      return `$$${content.trim()}$$`;
     }));
 }
