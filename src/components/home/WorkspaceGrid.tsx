@@ -44,7 +44,7 @@ export function WorkspaceGrid() {
     };
 
     createWelcomeWorkspace();
-  }, [session, workspaces.length, isCreatingWorkspace, loadWorkspaces]);
+  }, [session, workspaces.length, loadWorkspaces]);
 
   // Format date helper
   const formatDate = (dateString: string | null | undefined) => {
