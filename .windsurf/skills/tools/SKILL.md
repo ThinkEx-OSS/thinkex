@@ -58,7 +58,7 @@ const WeatherToolUI = makeAssistantToolUI({
   toolName: "get_weather",
   render: ({ args, result, status }) => {
     if (status === "running") return <div>Loading weather...</div>;
-    return <div>{result?.city}: {result?.temp}C</div>;
+    return <div>{result?.city}: {result?.temp}°C</div>;
   },
 });
 

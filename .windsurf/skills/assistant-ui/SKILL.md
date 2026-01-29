@@ -115,3 +115,4 @@ const isRunning = useAssistantState(s => s.thread.isRunning);
 - `/streaming` - Streaming protocols
 - `/cloud` - Persistence and auth
 - `/thread-list` - Multi-thread management
+- `/update` - Version updates and migrations
