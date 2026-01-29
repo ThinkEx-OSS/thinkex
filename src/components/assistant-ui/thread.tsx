@@ -62,6 +62,7 @@ import { CreateNoteToolUI } from "@/components/assistant-ui/CreateNoteToolUI";
 import { CreateFlashcardToolUI } from "@/components/assistant-ui/CreateFlashcardToolUI";
 import { UpdateFlashcardToolUI } from "@/components/assistant-ui/UpdateFlashcardToolUI";
 import { SearchWebToolUI } from "@/components/assistant-ui/SearchWebToolUI";
+import { YouTubeSearchToolUI } from "@/components/assistant-ui/YouTubeSearchToolUI";
 import { ExecuteCodeToolUI } from "@/components/assistant-ui/ExecuteCodeToolUI";
 import { FileProcessingToolUI } from "@/components/assistant-ui/FileProcessingToolUI";
 import { URLContextToolUI } from "@/components/assistant-ui/URLContextToolUI";
@@ -107,6 +108,7 @@ import { SpeechToTextButton } from "@/components/assistant-ui/SpeechToTextButton
 const AI_MODELS = [
   { id: "gemini-3-pro-preview", name: "Gemini 3 Pro", description: "Latest preview model" },
   { id: "gemini-3-flash-preview", name: "Gemini 3 Flash", description: "Latest fast preview model" },
+  { id: "gemini-2.5-flash-lite", name: "Gemini 3.0 Fast", description: "Fastest & cost-efficient" },
   { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", description: "Powerful & reliable" },
   { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", description: "Fast & efficient" },
 ];
@@ -132,6 +134,7 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
         <DeleteCardToolUI />
         <SelectCardsToolUI />
         <SearchWebToolUI />
+        <YouTubeSearchToolUI />
         <ExecuteCodeToolUI />
         <FileProcessingToolUI />
         <URLContextToolUI />
@@ -555,7 +558,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         // Get the current composer state
         const composerState = aui?.composer()?.getState();
         if (!composerState) return;
-        
+
         const currentText = composerState.text;
         const attachments = composerState.attachments || [];
 
@@ -1789,7 +1792,7 @@ const EditComposer: FC = () => {
           // Get the current composer state
           const composerState = aui?.composer()?.getState();
           if (!composerState) return;
-          
+
           const currentText = composerState.text;
 
           // Re-add URL markers from parsed URLs (stored in state)

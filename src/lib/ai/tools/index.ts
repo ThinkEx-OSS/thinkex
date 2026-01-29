@@ -18,6 +18,7 @@ import {
 import { createFlashcardsTool, createUpdateFlashcardsTool } from "./flashcard-tools";
 import { createQuizTool, createUpdateQuizTool } from "./quiz-tools";
 import { createDeepResearchTool } from "./deep-research";
+import { createSearchYoutubeTool, createAddYoutubeVideoTool } from "./youtube-tools";
 import { logger } from "@/lib/utils/logger";
 
 export interface ChatToolsConfig {
@@ -71,6 +72,10 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
 
         // Deep research
         deepResearch: createDeepResearchTool(ctx),
+
+        // YouTube
+        searchYoutube: createSearchYoutubeTool(),
+        addYoutubeVideo: createAddYoutubeVideoTool(ctx),
 
         // Client tools from frontend
         ...frontendClientTools,

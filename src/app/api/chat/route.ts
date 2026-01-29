@@ -219,7 +219,7 @@ export async function POST(req: Request) {
     const finalSystemPrompt = systemPromptParts.join('');
 
     // Get model
-    const modelId = body.modelId || "gemini-3-flash-preview";
+    const modelId = body.modelId || "gemini-2.5-flash-lite";
     const model = google(modelId);
 
     // Create tools using the modular factory
@@ -256,14 +256,14 @@ export async function POST(req: Request) {
           } : undefined,
           finishReason,
         };
-        
+
         logger.info("📊 [CHAT-API] Final Token Usage:", usageInfo);
       },
       onStepFinish: (result) => {
         // stepType exists in runtime but may not be in type definitions
         const stepResult = result as typeof result & { stepType?: "initial" | "continue" | "tool-result" };
         const { stepType, usage, finishReason } = stepResult;
-        
+
         if (usage) {
           const stepUsageInfo = {
             stepType: stepType || 'unknown',
@@ -280,7 +280,7 @@ export async function POST(req: Request) {
               noCacheTokens: (usage as any).inputTokenDetails?.noCacheTokens,
             } : undefined,
           };
-          
+
           logger.debug(`📊 [CHAT-API] Step Usage (${stepType || 'unknown'}):`, stepUsageInfo);
         }
       },
