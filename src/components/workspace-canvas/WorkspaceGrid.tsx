@@ -491,10 +491,31 @@ export function WorkspaceGrid({
 
     if (itemData) {
       if (itemData.type === 'youtube') {
-        // Enforce height based on width for Youtube
-        if (newItem.w === 4) newItem.h = 10;
-        else if (newItem.w === 3) newItem.h = 8;
-        else if (newItem.w === 2) newItem.h = 5;
+        const defaultHeightMap: Record<number, number> = { 2: 5, 3: 8, 4: 10 };
+        const reverseHeightMap: Record<number, number> = { 5: 2, 8: 3, 10: 4 };
+
+        // Check if width changed
+        if (oldItem.w !== newItem.w) {
+          // Width-driven resize (standard): Snap height to match width
+          if (newItem.w === 4) newItem.h = 10;
+          else if (newItem.w === 3) newItem.h = 8;
+          else if (newItem.w === 2) newItem.h = 5;
+          else if (newItem.w > 4) newItem.h = 10; // Cap at max
+          else newItem.h = 5; // Min size
+        }
+        // Height-driven resize: Snap width to match height (User dragging bottom handle)
+        else if (oldItem.h !== newItem.h) {
+          // Find the closest standard height
+          const heights = [5, 8, 10];
+          const closestHeight = heights.reduce((prev, curr) =>
+            Math.abs(curr - newItem.h) < Math.abs(prev - newItem.h) ? curr : prev
+          );
+
+          // Set the new height and corresponding width
+          newItem.h = closestHeight;
+          const newWidth = reverseHeightMap[closestHeight];
+          if (newWidth) newItem.w = newWidth;
+        }
       } else if (itemData.type === 'folder' || itemData.type === 'flashcard') {
         // Folders and flashcards don't need minimum height enforcement - skip
       } else if (currentBreakpointRef.current !== 'xxs' && (itemData.type === 'note' || itemData.type === 'pdf')) {
