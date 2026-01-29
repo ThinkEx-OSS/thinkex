@@ -267,8 +267,8 @@ function WorkspaceSidebar({
       </SidebarContent>
 
       <SidebarFooter className="py-1.5">
-        {session?.user?.isAnonymous && !isHomeRoute ? (
-          // Anonymous user footer - Sign in/Sign up (hidden on home route)
+        {session?.user?.isAnonymous ? (
+          // Anonymous user footer - Sign in/Sign up (shown on all routes including home)
           <div className="flex flex-col gap-2 px-2 py-2 w-full">
             <p className="text-sm text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
               Sign in to save your work and use unlimited AI

@@ -46,50 +46,6 @@ export function HomeContent() {
           <div className="flex justify-center w-full relative z-10">
             <HomePromptInput />
           </div>
-          
-          {/* Sign in message for anonymous users */}
-          {session?.user?.isAnonymous && (
-            <div className="relative w-full flex justify-center mt-6">
-              {/* Border blur overlay */}
-              <div 
-                className="absolute -inset-3 rounded-full pointer-events-none"
-                style={{
-                  background: 'radial-gradient(circle, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.2) 40%, transparent 60%)',
-                  filter: 'blur(12px)',
-                  zIndex: 0,
-                  width: 'calc(100% + 1.5rem)',
-                  height: '100px',
-                  left: '50%',
-                  top: '50%',
-                  transform: 'translate(-50%, -50%)',
-                }}
-              />
-              <div className="flex flex-col items-center gap-3 relative z-10">
-                <p className="text-sm text-muted-foreground">
-                  Sign in to save your work and use unlimited AI
-                </p>
-                <div className="flex items-center gap-2">
-                  <Link href="/auth/sign-in">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs"
-                    >
-                      Sign in
-                    </Button>
-                  </Link>
-                  <Link href="/auth/sign-up">
-                    <Button
-                      size="sm"
-                      className="h-8 text-xs"
-                    >
-                      Sign up
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
