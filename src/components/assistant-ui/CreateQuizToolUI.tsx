@@ -22,11 +22,11 @@ import type { QuizResult } from "@/lib/ai/tool-result-schemas";
 import { parseQuizResult } from "@/lib/ai/tool-result-schemas";
 
 type CreateQuizArgs = {
-  topic?: string;
-  difficulty?: "easy" | "medium" | "hard";
-  contextContent?: string;
-  sourceCardIds?: string[];
-  sourceCardNames?: string[];
+    topic?: string;
+    difficulty?: "easy" | "medium" | "hard";
+    contextContent?: string;
+    sourceCardIds?: string[];
+    sourceCardNames?: string[];
 };
 
 interface CreateQuizReceiptProps {
@@ -188,60 +188,68 @@ const CreateQuizReceipt = ({ args, result, status, moveItemToFolder, allItems = 
 };
 
 export const CreateQuizToolUI = makeAssistantToolUI<CreateQuizArgs, QuizResult>({
-  toolName: "createQuiz",
-  render: function CreateQuizUI({ args, result, status }) {
-    const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-    const { state: workspaceState } = useWorkspaceState(workspaceId);
-    const operations = useWorkspaceOperations(workspaceId, workspaceState || initialState);
-    const workspaceContext = useWorkspaceContext();
-    const currentWorkspace = workspaceContext.workspaces.find((w) => w.id === workspaceId);
+    toolName: "createQuiz",
+    render: function CreateQuizUI({ args, result, status }) {
+        const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+        const { state: workspaceState } = useWorkspaceState(workspaceId);
+        const operations = useWorkspaceOperations(workspaceId, workspaceState || initialState);
+        const workspaceContext = useWorkspaceContext();
+        const currentWorkspace = workspaceContext.workspaces.find((w) => w.id === workspaceId);
 
-    useEffect(() => {
-      logger.debug("🎯 [CreateQuizTool] Render:", { args, result, status: status?.type });
-    }, [args, result, status]);
+        useEffect(() => {
+            logger.debug("🎯 [CreateQuizTool] Render:", { args, result, status: status?.type });
+        }, [args, result, status]);
 
-    useOptimisticToolUpdate(status, result, workspaceId);
+        useOptimisticToolUpdate(status, result, workspaceId);
 
-    const parsed = result != null ? parseQuizResult(result) : null;
+        let parsed: QuizResult | null = null;
+        try {
+            parsed = result != null ? parseQuizResult(result) : null;
+        } catch (err) {
+            // If we're still running, ignore parsing errors (likely partial data)
+            if (status.type !== "running") {
+                throw err;
+            }
+        }
 
-    let content: ReactNode = null;
+        let content: ReactNode = null;
 
-    if (parsed?.success) {
-      content = (
-        <CreateQuizReceipt
-          args={args}
-          result={parsed}
-          status={status}
-          moveItemToFolder={operations.moveItemToFolder}
-          allItems={workspaceState?.items || []}
-          workspaceName={currentWorkspace?.name || workspaceState?.globalTitle || "Workspace"}
-          workspaceIcon={currentWorkspace?.icon}
-          workspaceColor={currentWorkspace?.color}
-        />
-      );
-    } else if (status.type === "running") {
-      content = <ToolUILoadingShell label="Generating quiz..." />;
-    } else if (
-      (status.type === "incomplete" && status.reason === "error") ||
-      (status.type === "complete" && parsed && !parsed.success)
-    ) {
-      content = (
-        <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
-          <div className="flex items-center gap-2">
-            <X className="size-4 text-red-600 dark:text-red-400" />
-            <p className="text-sm font-medium text-red-800 dark:text-red-200">Failed to create quiz</p>
-          </div>
-          {parsed && !parsed.success && parsed.message && (
-            <p className="mt-2 text-xs text-red-700 dark:text-red-300">{parsed.message}</p>
-          )}
-        </div>
-      );
-    }
+        if (parsed?.success) {
+            content = (
+                <CreateQuizReceipt
+                    args={args}
+                    result={parsed}
+                    status={status}
+                    moveItemToFolder={operations.moveItemToFolder}
+                    allItems={workspaceState?.items || []}
+                    workspaceName={currentWorkspace?.name || workspaceState?.globalTitle || "Workspace"}
+                    workspaceIcon={currentWorkspace?.icon}
+                    workspaceColor={currentWorkspace?.color}
+                />
+            );
+        } else if (status.type === "running") {
+            content = <ToolUILoadingShell label="Generating quiz..." />;
+        } else if (
+            (status.type === "incomplete" && status.reason === "error") ||
+            (status.type === "complete" && parsed && !parsed.success)
+        ) {
+            content = (
+                <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
+                    <div className="flex items-center gap-2">
+                        <X className="size-4 text-red-600 dark:text-red-400" />
+                        <p className="text-sm font-medium text-red-800 dark:text-red-200">Failed to create quiz</p>
+                    </div>
+                    {parsed && !parsed.success && parsed.message && (
+                        <p className="mt-2 text-xs text-red-700 dark:text-red-300">{parsed.message}</p>
+                    )}
+                </div>
+            );
+        }
 
-    return (
-      <ToolUIErrorBoundary componentName="CreateQuiz">
-        {content}
-      </ToolUIErrorBoundary>
-    );
-  },
+        return (
+            <ToolUIErrorBoundary componentName="CreateQuiz">
+                {content}
+            </ToolUIErrorBoundary>
+        );
+    },
 });

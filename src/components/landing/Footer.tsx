@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Linkedin } from "lucide-react";
+
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -32,7 +32,7 @@ export function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-12 gap-8 md:gap-8">
 
           {/* Brand Column */}
-          <div className="col-span-2 md:col-span-5 space-y-6">
+          <div className="col-span-2 md:col-span-6 space-y-6">
             <Link href="#hero" className="flex items-center group w-fit">
               <div className="relative h-8 w-8 flex items-center justify-center transition-transform group-hover:scale-105">
                 <Image
@@ -70,7 +70,7 @@ export function Footer() {
           </div>
 
           {/* Product Column */}
-          <div className="col-span-1 md:col-span-2 space-y-6">
+          <div className="col-span-1 md:col-span-3 space-y-6">
             <h3 className="font-semibold text-foreground">Product</h3>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li><Link href="#hero" className="hover:text-foreground transition-colors">Home</Link></li>
@@ -82,7 +82,7 @@ export function Footer() {
           </div>
 
           {/* Community Column */}
-          <div className="col-span-1 md:col-span-2 space-y-6">
+          <div className="col-span-1 md:col-span-3 space-y-6">
             <h3 className="font-semibold text-foreground">Community</h3>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li>
@@ -112,46 +112,7 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Team Column - Adjusted col-span */}
-          <div className="col-span-2 md:col-span-3 space-y-6">
-            <h3 className="font-semibold text-foreground">Team</h3>
-            <ul className="space-y-4">
-              <li>
-                <div className="flex items-start gap-2">
-                  <a
-                    href="https://www.linkedin.com/in/ishaan-chakraborty-7993b524a/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-muted-foreground hover:text-[#0077b5] transition-colors mt-0.5"
-                    aria-label="Ishaan Chakraborty LinkedIn"
-                  >
-                    <Linkedin className="h-4 w-4" />
-                  </a>
-                  <div className="flex flex-col md:flex-row md:items-baseline gap-0.5 md:gap-2">
-                    <span className="text-sm font-medium text-foreground">Ishaan Chakraborty</span>
-                    <span className="text-xs md:text-sm text-muted-foreground leading-tight">CEO | Prev. MLOps @ Children's National Hospital</span>
-                  </div>
-                </div>
-              </li>
-              <li>
-                <div className="flex items-start gap-2">
-                  <a
-                    href="https://www.linkedin.com/in/urjit-chakraborty-6b855b260/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-muted-foreground hover:text-[#0077b5] transition-colors mt-0.5"
-                    aria-label="Urjit Chakraborty LinkedIn"
-                  >
-                    <Linkedin className="h-4 w-4" />
-                  </a>
-                  <div className="flex flex-col md:flex-row md:items-baseline gap-0.5 md:gap-2">
-                    <span className="text-sm font-medium text-foreground">Urjit Chakraborty</span>
-                    <span className="text-xs md:text-sm text-muted-foreground leading-tight">CTO | Prev. Backend @ Exiger</span>
-                  </div>
-                </div>
-              </li>
-            </ul>
-          </div>
+
 
           {/* Mobile Only: Legal/Copyright at Bottom */}
           <div className="col-span-2 md:hidden space-y-4 pt-4 mt-4 border-t border-foreground/5">

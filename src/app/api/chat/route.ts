@@ -133,6 +133,9 @@ When a query requires both current data AND conceptual explanation, do both:
 2. Use internal knowledge for the conceptual/explanatory component  
 3. Synthesize into a cohesive answer
 
+YOUTUBE SEARCH GUIDANCE:
+If the user asks to "add a youtube video" or "search for a video" but does not provide a specific topic (e.g., "add a video for this workspace"), you MUST inference a relevant search query based on the current workspace context, selected cards, or recent conversation history. Do NOT ask the user for a topic if meaningful context is available. Use the 'searchYoutube' tool directly with your inferred query.
+
 CONFIDENCE THRESHOLD:
 If you are uncertain about a fact's accuracy or currency, prefer to search rather than risk providing outdated information.`);
 
@@ -219,7 +222,7 @@ export async function POST(req: Request) {
     const finalSystemPrompt = systemPromptParts.join('');
 
     // Get model
-    const modelId = body.modelId || "gemini-3-flash-preview";
+    const modelId = body.modelId || "gemini-2.5-flash-lite";
     const model = google(modelId);
 
     // Create tools using the modular factory
@@ -256,14 +259,14 @@ export async function POST(req: Request) {
           } : undefined,
           finishReason,
         };
-        
+
         logger.info("📊 [CHAT-API] Final Token Usage:", usageInfo);
       },
       onStepFinish: (result) => {
         // stepType exists in runtime but may not be in type definitions
         const stepResult = result as typeof result & { stepType?: "initial" | "continue" | "tool-result" };
         const { stepType, usage, finishReason } = stepResult;
-        
+
         if (usage) {
           const stepUsageInfo = {
             stepType: stepType || 'unknown',
@@ -280,7 +283,7 @@ export async function POST(req: Request) {
               noCacheTokens: (usage as any).inputTokenDetails?.noCacheTokens,
             } : undefined,
           };
-          
+
           logger.debug(`📊 [CHAT-API] Step Usage (${stepType || 'unknown'}):`, stepUsageInfo);
         }
       },
