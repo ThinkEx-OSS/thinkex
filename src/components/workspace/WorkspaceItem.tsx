@@ -175,6 +175,7 @@ function WorkspaceItem({
     >
       <div className="relative w-full">
         <SidebarMenuButton
+          asChild
           onClick={handleClick}
           size="sm"
           className={cn(

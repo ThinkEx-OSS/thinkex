@@ -3,12 +3,13 @@
 import { makeAssistantToolUI, useAui, useScrollLock } from "@assistant-ui/react";
 import { Loader2, Plus, Youtube, Check, ChevronDownIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState, useRef, useCallback, type FC, type PropsWithChildren } from "react";
+import { useState, useRef, useCallback, useEffect, type FC, type PropsWithChildren } from "react";
 import { toast } from "sonner";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import { initialState } from "@/lib/workspace-state/state";
+import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
 import {
     Collapsible,
     CollapsibleContent,
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import ShinyText from "@/components/ShinyText";
+import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 
 const ANIMATION_DURATION = 200;
 const SHIMMER_DURATION = 1000;
@@ -26,10 +28,11 @@ const SHIMMER_DURATION = 1000;
 const ToolRoot: FC<
     PropsWithChildren<{
         className?: string;
+        defaultOpen?: boolean;
     }>
-> = ({ className, children }) => {
+> = ({ className, children, defaultOpen = false }) => {
     const collapsibleRef = useRef<HTMLDivElement>(null);
-    const [isOpen, setIsOpen] = useState(false);
+    const [isOpen, setIsOpen] = useState(defaultOpen);
     const lockScroll = useScrollLock(collapsibleRef, ANIMATION_DURATION);
 
     const handleOpenChange = useCallback(
@@ -176,128 +179,155 @@ interface SearchYoutubeResult {
     message?: string;
 }
 
+const YouTubeSearchContent: FC<{
+    args: SearchYoutubeArgs;
+    status: { type: string };
+    result: SearchYoutubeResult | null;
+}> = ({ args, status, result }) => {
+    const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+    const { state: workspaceState } = useWorkspaceState(workspaceId);
+    const operations = useWorkspaceOperations(workspaceId, workspaceState || initialState);
+
+    const [addedVideos, setAddedVideos] = useState<Set<string>>(new Set());
+    const [addingVideos, setAddingVideos] = useState<Set<string>>(new Set());
+
+    const isRunning = status.type === "running";
+
+    const navigateToItem = useNavigateToItem();
+    const [scrollToId, setScrollToId] = useState<string | null>(null);
+
+    // Effect to handle scrolling to new items once they exist in state
+    useEffect(() => {
+        if (scrollToId && workspaceState?.items) {
+            const item = workspaceState.items.find(i => i.id === scrollToId);
+            if (item) {
+                navigateToItem(scrollToId);
+                setScrollToId(null);
+            }
+        }
+    }, [scrollToId, workspaceState?.items, navigateToItem]);
+
+    const handleAddVideo = async (video: VideoResult) => {
+        if (addedVideos.has(video.id) || addingVideos.has(video.id)) return;
+
+        try {
+            setAddingVideos(prev => new Set(prev).add(video.id));
+
+            const id = operations.createItem("youtube", video.title, {
+                url: `https://www.youtube.com/watch?v=${video.id}`
+            });
+
+            setAddedVideos(prev => new Set(prev).add(video.id));
+            toast.success("Video added to workspace");
+
+            // Queue scroll to position once item exists in state
+            setScrollToId(id);
+        } catch (error) {
+            console.error("Failed to add video:", error);
+            toast.error("Failed to add video");
+        } finally {
+            setAddingVideos(prev => {
+                const next = new Set(prev);
+                next.delete(video.id);
+                return next;
+            });
+        }
+    };
+
+    return (
+        <ToolRoot defaultOpen={true}>
+            <ToolTrigger
+                active={isRunning}
+                label={isRunning ? "Searching YouTube" : "YouTube Results"}
+                icon={isRunning
+                    ? <Loader2 className="aui-tool-trigger-icon size-4 shrink-0 animate-spin" />
+                    : <Youtube className="aui-tool-trigger-icon size-4 shrink-0" />
+                }
+            />
+
+            <ToolContent aria-busy={isRunning}>
+                <div className="pt-4 pl-4 space-y-3">
+                    {/* Query Info */}
+                    <div>
+                        <span className="text-xs font-medium text-muted-foreground/70">Query:</span>
+                        <p className="mt-1 text-foreground">{args.query}</p>
+                    </div>
+
+                    {/* Results */}
+                    {status.type === "complete" && result && (
+                        <div className="mt-2">
+                            {!result.success || !result.videos || result.videos.length === 0 ? (
+                                <div className="flex items-center gap-2 text-muted-foreground p-2 border rounded-md">
+                                    <span className="text-sm">No videos found.</span>
+                                    {result.message && <p className="text-xs text-red-500">{result.message}</p>}
+                                </div>
+                            ) : (
+                                <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto pr-1">
+                                    <div className="text-xs text-muted-foreground mb-1">
+                                        {result.videos.length} videos found
+                                    </div>
+                                    {result.videos.map((video) => (
+                                        <div
+                                            key={video.id}
+                                            className="flex gap-3 group p-2 rounded-md hover:bg-muted/50 transition-colors border border-transparent hover:border-border"
+                                        >
+                                            {/* Thumbnail */}
+                                            <div className="relative shrink-0 w-32 aspect-video rounded-md overflow-hidden bg-muted">
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img
+                                                    src={video.thumbnailUrl}
+                                                    alt={video.title}
+                                                    className="object-cover w-full h-full"
+                                                />
+                                            </div>
+
+                                            {/* Content */}
+                                            <div className="flex flex-col flex-1 min-w-0 gap-1">
+                                                <h4 className="font-medium text-sm line-clamp-2 leading-tight" title={video.title}>
+                                                    {video.title}
+                                                </h4>
+                                                <p className="text-xs text-muted-foreground line-clamp-1">
+                                                    {video.channelTitle} • {new Date(video.publishedAt).toLocaleDateString()}
+                                                </p>
+                                            </div>
+
+                                            {/* Action */}
+                                            <div className="shrink-0 flex items-center">
+                                                <Button
+                                                    variant={addedVideos.has(video.id) ? "secondary" : "default"}
+                                                    size="sm"
+                                                    className="h-8 px-3"
+                                                    onClick={() => handleAddVideo(video)}
+                                                    disabled={addedVideos.has(video.id) || addingVideos.has(video.id)}
+                                                >
+                                                    {addedVideos.has(video.id) ? (
+                                                        <Check className="h-3 w-3" />
+                                                    ) : addingVideos.has(video.id) ? (
+                                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                                    ) : (
+                                                        <Plus className="h-3 w-3" />
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </ToolContent>
+        </ToolRoot>
+    );
+};
+
 export const YouTubeSearchToolUI = makeAssistantToolUI<SearchYoutubeArgs, SearchYoutubeResult>({
     toolName: "searchYoutube",
     render: function YouTubeSearchToolUI({ args, status, result }) {
-        const aui = useAui();
-        const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-        const { state: workspaceState } = useWorkspaceState(workspaceId);
-        const operations = useWorkspaceOperations(workspaceId, workspaceState || initialState);
-
-        const [addedVideos, setAddedVideos] = useState<Set<string>>(new Set());
-        const [addingVideos, setAddingVideos] = useState<Set<string>>(new Set());
-
-        const isRunning = status.type === "running";
-
-        const handleAddVideo = async (video: VideoResult) => {
-            if (addedVideos.has(video.id) || addingVideos.has(video.id)) return;
-
-            try {
-                setAddingVideos(prev => new Set(prev).add(video.id));
-
-                // Direct creation using workspace operations
-                operations.createItem("youtube", video.title, {
-                    url: `https://www.youtube.com/watch?v=${video.id}`
-                });
-
-                setAddedVideos(prev => new Set(prev).add(video.id));
-                toast.success("Video added to workspace");
-            } catch (error) {
-                console.error("Failed to add video:", error);
-                toast.error("Failed to add video");
-            } finally {
-                setAddingVideos(prev => {
-                    const next = new Set(prev);
-                    next.delete(video.id);
-                    return next;
-                });
-            }
-        };
-
         return (
-            <ToolRoot>
-                <ToolTrigger
-                    active={isRunning}
-                    label={isRunning ? "Searching YouTube" : "YouTube Results"}
-                    icon={isRunning
-                        ? <Loader2 className="aui-tool-trigger-icon size-4 shrink-0 animate-spin" />
-                        : <Youtube className="aui-tool-trigger-icon size-4 shrink-0" />
-                    }
-                />
-
-                <ToolContent aria-busy={isRunning}>
-                    <div className="pt-4 pl-4 space-y-3">
-                        {/* Query Info */}
-                        <div>
-                            <span className="text-xs font-medium text-muted-foreground/70">Query:</span>
-                            <p className="mt-1 text-foreground">{args.query}</p>
-                        </div>
-
-                        {/* Results */}
-                        {status.type === "complete" && result && (
-                            <div className="mt-2">
-                                {!result.success || !result.videos || result.videos.length === 0 ? (
-                                    <div className="flex items-center gap-2 text-muted-foreground p-2 border rounded-md">
-                                        <span className="text-sm">No videos found.</span>
-                                        {result.message && <p className="text-xs text-red-500">{result.message}</p>}
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto pr-1">
-                                        <div className="text-xs text-muted-foreground mb-1">
-                                            {result.videos.length} videos found
-                                        </div>
-                                        {result.videos.map((video) => (
-                                            <div
-                                                key={video.id}
-                                                className="flex gap-3 group p-2 rounded-md hover:bg-muted/50 transition-colors border border-transparent hover:border-border"
-                                            >
-                                                {/* Thumbnail */}
-                                                <div className="relative shrink-0 w-32 aspect-video rounded-md overflow-hidden bg-muted">
-                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                    <img
-                                                        src={video.thumbnailUrl}
-                                                        alt={video.title}
-                                                        className="object-cover w-full h-full"
-                                                    />
-                                                </div>
-
-                                                {/* Content */}
-                                                <div className="flex flex-col flex-1 min-w-0 gap-1">
-                                                    <h4 className="font-medium text-sm line-clamp-2 leading-tight" title={video.title}>
-                                                        {video.title}
-                                                    </h4>
-                                                    <p className="text-xs text-muted-foreground line-clamp-1">
-                                                        {video.channelTitle} • {new Date(video.publishedAt).toLocaleDateString()}
-                                                    </p>
-                                                </div>
-
-                                                {/* Action */}
-                                                <div className="shrink-0 flex items-center">
-                                                    <Button
-                                                        variant={addedVideos.has(video.id) ? "secondary" : "default"}
-                                                        size="sm"
-                                                        className="h-8 px-3"
-                                                        onClick={() => handleAddVideo(video)}
-                                                        disabled={addedVideos.has(video.id) || addingVideos.has(video.id)}
-                                                    >
-                                                        {addedVideos.has(video.id) ? (
-                                                            <Check className="h-3 w-3" />
-                                                        ) : addingVideos.has(video.id) ? (
-                                                            <Loader2 className="h-3 w-3 animate-spin" />
-                                                        ) : (
-                                                            <Plus className="h-3 w-3" />
-                                                        )}
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </ToolContent>
-            </ToolRoot>
+            <ToolUIErrorBoundary componentName="YouTubeSearch">
+                <YouTubeSearchContent args={args} status={status} result={result ?? null} />
+            </ToolUIErrorBoundary>
         );
     },
 });

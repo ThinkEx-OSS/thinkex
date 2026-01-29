@@ -133,6 +133,9 @@ When a query requires both current data AND conceptual explanation, do both:
 2. Use internal knowledge for the conceptual/explanatory component  
 3. Synthesize into a cohesive answer
 
+YOUTUBE SEARCH GUIDANCE:
+If the user asks to "add a youtube video" or "search for a video" but does not provide a specific topic (e.g., "add a video for this workspace"), you MUST inference a relevant search query based on the current workspace context, selected cards, or recent conversation history. Do NOT ask the user for a topic if meaningful context is available. Use the 'searchYoutube' tool directly with your inferred query.
+
 CONFIDENCE THRESHOLD:
 If you are uncertain about a fact's accuracy or currency, prefer to search rather than risk providing outdated information.`);
 
