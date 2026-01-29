@@ -87,7 +87,7 @@ interface WorkspaceHeaderProps {
   activeItemMode?: 'maximized' | 'split' | null;
   onCloseActiveItem?: (itemId: string) => void;
   onMinimizeActiveItem?: (itemId: string) => void;
-  onMaximizeActiveItem?: (itemId: string) => void;
+  onMaximizeActiveItem?: (itemId: string | null) => void;
   onUpdateActiveItem?: (itemId: string, updates: Partial<Item>) => void;
 }
 
