@@ -24,8 +24,14 @@ export function extractYouTubeVideoId(url: string): string | null {
       return videoId || null;
     }
 
-    // Handle youtube.com URLs
-    if (urlObj.hostname.includes('youtube.com')) {
+    // Handle youtube.com URLs with an explicit hostname whitelist
+    const allowedYouTubeHosts = new Set<string>([
+      'youtube.com',
+      'www.youtube.com',
+      'm.youtube.com',
+    ]);
+
+    if (allowedYouTubeHosts.has(urlObj.hostname)) {
       // Watch URLs: /watch?v=VIDEO_ID
       if (urlObj.pathname === '/watch') {
         return urlObj.searchParams.get('v');
@@ -59,8 +65,14 @@ export function extractYouTubePlaylistId(url: string): string | null {
   try {
     const urlObj = new URL(url);
 
-    // Handle youtube.com URLs
-    if (urlObj.hostname.includes('youtube.com')) {
+    // Handle youtube.com URLs with an explicit hostname whitelist
+    const allowedYouTubeHosts = new Set<string>([
+      'youtube.com',
+      'www.youtube.com',
+      'm.youtube.com',
+    ]);
+
+    if (allowedYouTubeHosts.has(urlObj.hostname)) {
       // Check for list parameter
       const playlistId = urlObj.searchParams.get('list');
       return playlistId || null;
