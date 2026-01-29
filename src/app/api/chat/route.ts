@@ -241,7 +241,7 @@ export async function POST(req: Request) {
           modelId,
         },
       }),
-      middleware: devToolsMiddleware(),
+      middleware: process.env.NODE_ENV === 'development' ? devToolsMiddleware() : [],
     });
 
     // Create tools using the modular factory
