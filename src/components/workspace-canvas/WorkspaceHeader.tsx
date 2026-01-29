@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, X, ChevronRight, ChevronDown, FolderOpen, ChevronLeft, Plus, Upload, FileText, Folder as FolderIcon, Settings, Share2, Play, MoreHorizontal, Globe, Brain, Maximize, Minimize, File } from "lucide-react";
+import { Search, X, ChevronRight, ChevronDown, FolderOpen, ChevronLeft, Plus, Upload, FileText, Folder as FolderIcon, Settings, Share2, Play, MoreHorizontal, Globe, Brain, Maximize, File } from "lucide-react";
 import { LuBook } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
@@ -748,18 +748,7 @@ export default function WorkspaceHeader({
           // Maximized Mode: Show Item Controls
           <div className="flex items-center gap-2 pointer-events-auto">
             <div id="workspace-header-portal" className="flex items-center gap-2" />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => onMinimizeActiveItem?.(activeItems[0].id)}
-                  className="h-8 w-8 flex items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
-                  aria-label="Restore"
-                >
-                  <Minimize className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>Restore to Panel</TooltipContent>
-            </Tooltip>
+
 
             <Tooltip>
               <TooltipTrigger asChild>

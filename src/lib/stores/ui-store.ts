@@ -222,109 +222,43 @@ export const useUIStore = create<UIState>()(
 
       // Panel actions
       openPanel: (itemId, mode) => set((state) => {
-        const MAX_PANELS = 2;
-        let newPanelIds: string[];
-        let newSelectedCardIds = new Set(state.selectedCardIds);
-        let newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-
-        if (mode === 'replace') {
-          // Replace the last panel (or add if empty)
-          if (state.openPanelIds.length === 0) {
-            newPanelIds = [itemId];
-          } else {
-            // Remove the last panel from selection (only if it was auto-selected)
-            const lastPanelId = state.openPanelIds[state.openPanelIds.length - 1];
-            if (newPanelAutoSelectedCardIds.has(lastPanelId)) {
-              newSelectedCardIds.delete(lastPanelId);
-              newPanelAutoSelectedCardIds.delete(lastPanelId);
-            }
-            // Replace last with new
-            newPanelIds = [...state.openPanelIds.slice(0, -1), itemId];
-          }
-        } else {
-          // Add mode - prepend (new item on left) if under limit
-          if (state.openPanelIds.includes(itemId)) {
-            // Already open, do nothing
-            return state;
-          }
-          if (state.openPanelIds.length >= MAX_PANELS) {
-            // At limit, replace first (leftmost) with new item, shifting others left
-            const firstPanelId = state.openPanelIds[0];
-            if (newPanelAutoSelectedCardIds.has(firstPanelId)) {
-              newSelectedCardIds.delete(firstPanelId);
-              newPanelAutoSelectedCardIds.delete(firstPanelId);
-            }
-            newPanelIds = [itemId, ...state.openPanelIds.slice(1)];
-          } else {
-            // Under limit, prepend (new item appears on left)
-            newPanelIds = [itemId, ...state.openPanelIds];
-          }
-        }
+        // Enforce single maximized item view
+        const newSelectedCardIds = new Set(state.selectedCardIds);
 
         // Add new item to selection
-        // Track if it was auto-selected (not already selected before opening panel)
-        const wasAlreadySelected = state.selectedCardIds.has(itemId);
         newSelectedCardIds.add(itemId);
-        if (!wasAlreadySelected) {
-          newPanelAutoSelectedCardIds.add(itemId);
-        }
 
         return {
-          openPanelIds: newPanelIds,
-          maximizedItemId: itemId, // Maximize by default when opening panels
+          openPanelIds: [itemId],
+          maximizedItemId: itemId, // Always maximized
           selectedCardIds: newSelectedCardIds,
-          panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
+          // Clear auto-selected tracking as we don't need it for single view
+          panelAutoSelectedCardIds: new Set(),
         };
       }),
 
       closePanel: (itemId) => set((state) => {
-        const newPanelIds = state.openPanelIds.filter(id => id !== itemId);
-        const newSelectedCardIds = new Set(state.selectedCardIds);
-        const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-
-        // Only deselect if this card was auto-selected by panel opening
-        if (newPanelAutoSelectedCardIds.has(itemId)) {
-          newSelectedCardIds.delete(itemId);
-          newPanelAutoSelectedCardIds.delete(itemId);
-        }
-
+        // Just clear everything since we only have one item
         return {
-          openPanelIds: newPanelIds,
-          selectedCardIds: newSelectedCardIds,
-          panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-          maximizedItemId: state.maximizedItemId === itemId ? null : state.maximizedItemId,
+          openPanelIds: [],
+          maximizedItemId: null,
+          // We could optionally deselect the card here, but keeping it selected is often better UX
+          // for single view workflows. Let's keep existing behavior of NOT clearing selection on close
+          // unless we want to be strict. For now, let's just close the panel.
         };
       }),
 
       closeAllPanels: () => set((state) => {
-        // Only remove auto-selected cards from selection
-        const newSelectedCardIds = new Set(state.selectedCardIds);
-        const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-
-        state.openPanelIds.forEach(id => {
-          if (newPanelAutoSelectedCardIds.has(id)) {
-            newSelectedCardIds.delete(id);
-            newPanelAutoSelectedCardIds.delete(id);
-          }
-        });
-
         return {
           openPanelIds: [],
-          selectedCardIds: newSelectedCardIds,
-          panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
           maximizedItemId: null,
+          panelAutoSelectedCardIds: new Set(),
         };
       }),
 
       reorderPanels: (fromIndex, toIndex) => set((state) => {
-        if (fromIndex < 0 || fromIndex >= state.openPanelIds.length ||
-          toIndex < 0 || toIndex >= state.openPanelIds.length) {
-          return state;
-        }
-        const newPanelIds = [...state.openPanelIds];
-        const [removed] = newPanelIds.splice(fromIndex, 1);
-        newPanelIds.splice(toIndex, 0, removed);
-        return { openPanelIds: newPanelIds };
+        // No reordering in single view
+        return state;
       }),
 
       setItemPrompt: (prompt) => set({ itemPrompt: prompt }),
@@ -333,67 +267,24 @@ export const useUIStore = create<UIState>()(
       // Legacy compatibility - maps to new panel actions
       setOpenModalItemId: (id) => set((state) => {
         if (id === null) {
-          // Closing primary - if secondary exists, promote it
-          if (state.openPanelIds.length > 1) {
-            const primaryPanelId = state.openPanelIds[0];
-            const newSelectedCardIds = new Set(state.selectedCardIds);
-            const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-
-            // Only deselect if it was auto-selected
-            if (newPanelAutoSelectedCardIds.has(primaryPanelId)) {
-              newSelectedCardIds.delete(primaryPanelId);
-              newPanelAutoSelectedCardIds.delete(primaryPanelId);
-            }
-
-            return {
-              openPanelIds: state.openPanelIds.slice(1),
-              selectedCardIds: newSelectedCardIds,
-              panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-            };
-          } else if (state.openPanelIds.length === 1) {
-            const primaryPanelId = state.openPanelIds[0];
-            const newSelectedCardIds = new Set(state.selectedCardIds);
-            const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-
-            // Only deselect if it was auto-selected
-            if (newPanelAutoSelectedCardIds.has(primaryPanelId)) {
-              newSelectedCardIds.delete(primaryPanelId);
-              newPanelAutoSelectedCardIds.delete(primaryPanelId);
-            }
-
-            return {
-              openPanelIds: [],
-              selectedCardIds: newSelectedCardIds,
-              panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-            };
-          }
-          return state;
+          return {
+            openPanelIds: [],
+            maximizedItemId: null,
+            // Clear auto selections
+            panelAutoSelectedCardIds: new Set(),
+          };
         } else {
-          // Setting primary - replace first slot
+          // Setting primary - same as openPanel
           const newSelectedCardIds = new Set(state.selectedCardIds);
-          const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-
-          // Remove old primary from selection (only if auto-selected)
-          if (state.openPanelIds.length > 0) {
-            const oldPrimaryId = state.openPanelIds[0];
-            if (newPanelAutoSelectedCardIds.has(oldPrimaryId)) {
-              newSelectedCardIds.delete(oldPrimaryId);
-              newPanelAutoSelectedCardIds.delete(oldPrimaryId);
-            }
-          }
 
           // Add new item to selection
-          const wasAlreadySelected = state.selectedCardIds.has(id);
           newSelectedCardIds.add(id);
-          if (!wasAlreadySelected) {
-            newPanelAutoSelectedCardIds.add(id);
-          }
 
           return {
-            openPanelIds: [id, ...state.openPanelIds.slice(1)],
+            openPanelIds: [id],
             maximizedItemId: id, // Maximize by default
             selectedCardIds: newSelectedCardIds,
-            panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
+            panelAutoSelectedCardIds: new Set(),
           };
         }
       }),

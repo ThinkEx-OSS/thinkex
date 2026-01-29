@@ -260,33 +260,13 @@ function DashboardContent({
   };
 
   // Derive item panels from openPanelIds array
+  // NOTE: With split view removed, we always use maximizedItemId (ModalManager)
+  // But we keep the panels calculation for now in case we want to re-enable split view later
+  // or for the "transition" state. However, openPanel in ui-store now enforces maximizedItemId.
   const panels = useMemo(() => {
-    // If ANY item is maximized, we hide the panels (ModalManager takes over)
-    if (maximizedItemId || !state.items) return [];
-
-    const validItems = openPanelIds
-      .map(id => state.items.find(i => i.id === id))
-      .filter((item): item is NonNullable<typeof item> =>
-        item != null && (item.type === 'note' || item.type === 'pdf')
-      );
-
-    return validItems.map((item, index) => (
-      <ItemPanelContent
-        key={item.id}
-        item={item}
-        onClose={() => {
-          operations.flushPendingChanges(item.id);
-          closePanel(item.id);
-        }}
-        onMaximize={() => setMaximizedItemId(item.id)}
-        isMaximized={false}
-        onUpdateItem={(updates) => operations.updateItem(item.id, updates)}
-        onUpdateItemData={(updater) => operations.updateItemData(item.id, updater)}
-        isRightmostPanel={index === validItems.length - 1}
-        isLeftPanel={validItems.length === 2 && index === 0}
-      />
-    ));
-  }, [openPanelIds, maximizedItemId, state.items, operations, closePanel, setMaximizedItemId]);
+    // We don't render side-by-side panels anymore
+    return [];
+  }, []);
 
   // CopilotKit actions removed - now using Assistant-UI directly
 
