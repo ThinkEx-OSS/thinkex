@@ -69,6 +69,7 @@ import { FileProcessingToolUI } from "@/components/assistant-ui/FileProcessingTo
 import { URLContextToolUI } from "@/components/assistant-ui/URLContextToolUI";
 import { DeepResearchToolUI } from "@/components/assistant-ui/DeepResearchToolUI";
 import { UpdateCardToolUI } from "@/components/assistant-ui/UpdateCardToolUI";
+import { WebSearchToolUI } from "@/components/assistant-ui/WebSearchToolUI";
 
 import { DeleteCardToolUI } from "@/components/assistant-ui/DeleteCardToolUI";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
@@ -141,6 +142,7 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
         <FileProcessingToolUI />
         <URLContextToolUI />
         <DeepResearchToolUI />
+        <WebSearchToolUI />
         <ThreadPrimitive.Root
           className="aui-root aui-thread-root @container flex h-full flex-col bg-sidebar"
           style={{

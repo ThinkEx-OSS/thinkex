@@ -114,8 +114,9 @@ function buildSystemPrompt(baseSystem: string, fileUrls: string[], urlContextUrl
   // Add web search decision-making guidelines
   parts.push(`
 
+
 WEB SEARCH DECISION GUIDELINES:
-You have access to the googleSearch tool. Use the following guidelines to decide when to search vs use internal knowledge:
+You have access to the webSearch tool. Use the following guidelines to decide when to search vs use internal knowledge:
 
 WHEN TO USE INTERNAL KNOWLEDGE (do NOT search):
 - Creative Writing: Writing stories, poems, scripts, or creative content
