@@ -794,73 +794,57 @@ export default function WorkspaceHeader({
                   {isUploading ? 'Uploading...' : 'Upload PDFs'}
                 </DropdownMenuItem>
 
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger className="flex items-center gap-2 cursor-pointer">
-                    <LuBook className="size-4 text-muted-foreground" />
-                    Learn
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        if (addItem) {
-                          addItem("flashcard");
-                        }
-                      }}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <PiCardsThreeBold className="size-4 text-muted-foreground rotate-180" />
-                      Flashcards
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        // Open chat if closed
-                        if (setIsChatExpanded && !isChatExpanded) {
-                          setIsChatExpanded(true);
-                        }
-                        // Fill composer with quiz creation prompt
-                        aui?.composer().setText("Create a quiz about ");
-                        // Focus the composer input
-                        focusComposerInput();
-                        toast.success("Quiz creation started");
-                      }}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <Brain className="size-4" />
-                      Quiz
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger className="flex items-center gap-2 cursor-pointer">
-                    <MoreHorizontal className="size-4 text-muted-foreground" />
-                    Other
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setShowYouTubeDialog(true);
-                      }}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <Play className="size-4" />
-                      YouTube
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        toast.success("Deep Research action selected");
-                        setSelectedActions(["deep-research"]);
-                        aui?.composer().setText("I want to do research on ");
-                        if (setIsChatExpanded && !isChatExpanded) {
-                          setIsChatExpanded(true);
-                        }
-                      }}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <Globe className="size-4" />
-                      Deep Research
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
+                <DropdownMenuItem
+                  onClick={() => {
+                    if (addItem) {
+                      addItem("flashcard");
+                    }
+                  }}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <PiCardsThreeBold className="size-4 text-muted-foreground rotate-180" />
+                  Flashcards
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    // Open chat if closed
+                    if (setIsChatExpanded && !isChatExpanded) {
+                      setIsChatExpanded(true);
+                    }
+                    // Fill composer with quiz creation prompt
+                    aui?.composer().setText("Create a quiz about ");
+                    // Focus the composer input
+                    focusComposerInput();
+                    toast.success("Quiz creation started");
+                  }}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Brain className="size-4" />
+                  Quiz
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setShowYouTubeDialog(true);
+                  }}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Play className="size-4" />
+                  YouTube
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    toast.success("Deep Research action selected");
+                    setSelectedActions(["deep-research"]);
+                    aui?.composer().setText("I want to do research on ");
+                    if (setIsChatExpanded && !isChatExpanded) {
+                      setIsChatExpanded(true);
+                    }
+                  }}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Globe className="size-4" />
+                  Deep Research
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
