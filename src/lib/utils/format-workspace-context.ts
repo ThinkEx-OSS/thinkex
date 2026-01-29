@@ -99,6 +99,7 @@ MERMAID DIAGRAMS: When users request diagrams, use Mermaid syntax in \`\`\`merma
 <instructions>
 
 When users ask about workspace content, reference cards by their names and types.
+The items in the current workspace view are marked by the <workspace-item> tag.
 
 If information is missing or uncertain, state this explicitly rather than guessing.
 
@@ -422,15 +423,8 @@ ${singleSourceOfTruthWarning}
  * Formats a single selected card with FULL content (no truncation)
  */
 function formatSelectedCardFull(item: Item, index: number): string {
-
-
-    const separator = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
-
     const lines = [
-        separator,
-        `CARD ${index}: [${item.type.charAt(0).toUpperCase() + item.type.slice(1)}] "${item.name}"`,
-        `Card ID: ${item.id}  ← USE THIS ID FOR ANY UPDATES TO THIS CARD`,
-        ""
+        `<workspace-item id="${item.id}" type="${item.type}" title="${item.name}">`
     ];
 
     // Add subtitle if present
@@ -465,6 +459,7 @@ function formatSelectedCardFull(item: Item, index: number): string {
     lines.push(`   Card ID: ${item.id}`);
     lines.push(`   Type: ${item.type}`);
 
+    lines.push(`</workspace-item>`);
 
     return lines.join("\n");
 }

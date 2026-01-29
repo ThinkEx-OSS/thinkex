@@ -63,13 +63,13 @@ export function createNoteTool(ctx: WorkspaceToolContext) {
  */
 export function createUpdateCardTool(ctx: WorkspaceToolContext) {
     return tool({
-        description: "Update the content of an existing card. This tool COMPLETELY REPLACES the existing content. You must synthesize the FULL new content by combining the existing card content (from your context) with the user's requested changes. Do not just provide the diff; provide the complete new markdown content.\n\nCRITICAL - MATHEMATICAL EXPRESSIONS: Use LaTeX with DOUBLE DOLLAR SIGNS ($$) for ALL math:\n- Use $$...$$ for ALL math expressions (both inline and block)\n- Single $ is for CURRENCY only (e.g., $19.99). NEVER use single $ for math\n- For inline math: $$E = mc^2$$ (same line as text)\n- For block math (separate lines): Put $$ delimiters on separate lines\n- Always ensure math blocks are properly closed with matching $$\n- Add spaces around $$ symbols when math appears in lists or tables\n- Do not place punctuation immediately after math expressions.",
+        description: "Update the content of an existing card. This tool COMPLETELY REPLACES the existing content. You must synthesize the FULL new content by combining the existing card content (from your context) with the user's requested changes. Do not just provide the diff; provide the complete new markdown content.\n\nTO CLEAR A CARD: Pass an empty string ('') as the content to clear/delete all content from the card while preserving the title.\n\nCRITICAL - MATHEMATICAL EXPRESSIONS: Use LaTeX with DOUBLE DOLLAR SIGNS ($$) for ALL math:\n- Use $$...$$ for ALL math expressions (both inline and block)\n- Single $ is for CURRENCY only (e.g., $19.99). NEVER use single $ for math\n- For inline math: $$E = mc^2$$ (same line as text)\n- For block math (separate lines): Put $$ delimiters on separate lines\n- Always ensure math blocks are properly closed with matching $$\n- Add spaces around $$ symbols when math appears in lists or tables\n- Do not place punctuation immediately after math expressions.",
         inputSchema: zodSchema(
             z.object({
                 id: z.string().describe("The ID of the card to update"),
-                markdown: z.string().optional().describe("The full note body ONLY (do not include the title as a header). Use $$...$$ for ALL math (both inline and block). Single $ is for currency only."),
-                content: z.string().optional().describe("Alternative to 'markdown' - the full note body ONLY (do not include the title as a header). Use $$...$$ for ALL math (both inline and block). Single $ is for currency only."),
-            }).refine((data) => data.markdown !== undefined || data.content !== undefined, {
+                markdown: z.string().nullable().describe("The full note body ONLY (do not include the title as a header). Use $$...$$ for ALL math (both inline and block). Single $ is for currency only."),
+                content: z.string().nullable().describe("Alternative to 'markdown' - the full note body ONLY (do not include the title as a header). Use $$...$$ for ALL math (both inline and block). Single $ is for currency only."),
+            }).refine((data) => data.markdown !== null || data.content !== null, {
                 message: "Either 'markdown' or 'content' must be provided",
             })
         ),
@@ -144,35 +144,7 @@ export function createUpdateCardTool(ctx: WorkspaceToolContext) {
     });
 }
 
-/**
- * Create the clearCardContent tool
- */
-export function createClearCardContentTool(ctx: WorkspaceToolContext) {
-    return tool({
-        description: "Clear/delete the content of a card while preserving its title. Use this when the user wants to delete the contents of a card.",
-        inputSchema: zodSchema(
-            z.object({
-                id: z.string().describe("The ID of the card to clear"),
-            })
-        ),
-        execute: async ({ id }) => {
-            logger.debug("🎯 [ORCHESTRATOR] Delegating to Workspace Worker (clear):", { id });
 
-            if (!ctx.workspaceId) {
-                return {
-                    success: false,
-                    message: "No workspace context available",
-                };
-            }
-
-            return await workspaceWorker("update", {
-                workspaceId: ctx.workspaceId,
-                itemId: id,
-                content: "",
-            });
-        },
-    });
-}
 
 /**
  * Create the deleteCard tool
@@ -236,7 +208,7 @@ export function createSelectCardsTool(ctx: WorkspaceToolContext) {
             try {
                 // Load workspace state to access all items
                 const state = await loadWorkspaceState(ctx.workspaceId);
-                
+
                 if (!state || !state.items || state.items.length === 0) {
                     return {
                         success: true,
@@ -254,12 +226,12 @@ export function createSelectCardsTool(ctx: WorkspaceToolContext) {
 
                 for (const title of cardTitles) {
                     const searchTitle = title.toLowerCase().trim();
-                    
+
                     // Try exact match first
                     let match = state.items.find(
                         item => item.name.toLowerCase().trim() === searchTitle && !processedIds.has(item.id)
                     );
-                    
+
                     // If no exact match, try contains match
                     if (!match) {
                         match = state.items.find(

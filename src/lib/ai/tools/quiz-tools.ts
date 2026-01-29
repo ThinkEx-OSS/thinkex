@@ -22,27 +22,27 @@ export function createQuizTool(ctx: WorkspaceToolContext) {
         inputSchema: zodSchema(
             z.object({
                 topic: z.string().describe("The topic for the quiz - REQUIRED: extract from user's message"),
-                contextContent: z.string().optional().describe("Content from selected cards in system context if available"),
-                sourceCardIds: z.array(z.string()).optional().describe("IDs of source cards"),
-                sourceCardNames: z.array(z.string()).optional().describe("Names of source cards"),
-                difficulty: z.enum(["easy", "medium", "hard"]).optional().default("medium").describe("Difficulty level"),
+                contextContent: z.string().nullable().describe("Content from selected cards in system context if available"),
+                sourceCardIds: z.array(z.string()).nullable().describe("IDs of source cards"),
+                sourceCardNames: z.array(z.string()).nullable().describe("Names of source cards"),
+                difficulty: z.enum(["easy", "medium", "hard"]).optional().default("medium").describe("Difficulty level"), // enum optional with default is fine
             }).passthrough()
         ),
         execute: async (args: unknown) => {
             // Validate args using Zod schema - .passthrough() allows extra properties during streaming
             const createQuizSchema = z.object({
                 topic: z.string().optional(),
-                contextContent: z.string().optional(),
-                sourceCardIds: z.array(z.string()).optional(),
-                sourceCardNames: z.array(z.string()).optional(),
+                contextContent: z.string().nullable().optional(),
+                sourceCardIds: z.array(z.string()).nullable().optional(),
+                sourceCardNames: z.array(z.string()).nullable().optional(),
                 difficulty: z.enum(["easy", "medium", "hard"]).optional().default("medium"),
             }).passthrough();
-            
+
             const parsedArgs = createQuizSchema.parse(args);
             const topic = parsedArgs.topic;
-            const contextContent = parsedArgs.contextContent;
-            const sourceCardIds = parsedArgs.sourceCardIds;
-            const sourceCardNames = parsedArgs.sourceCardNames;
+            const contextContent = parsedArgs.contextContent ?? undefined;
+            const sourceCardIds = parsedArgs.sourceCardIds ?? undefined;
+            const sourceCardNames = parsedArgs.sourceCardNames ?? undefined;
             const difficulty = parsedArgs.difficulty || "medium";
             logger.debug("🎯 [CREATE-QUIZ] Tool execution started:", { topic, hasContext: !!contextContent, difficulty });
 
@@ -137,25 +137,25 @@ export function createUpdateQuizTool(ctx: WorkspaceToolContext) {
         inputSchema: zodSchema(
             z.object({
                 quizId: z.string().describe("The ID of the quiz to update"),
-                topic: z.string().optional().describe("New topic for questions"),
-                contextContent: z.string().optional().describe("Content from newly selected cards in system context"),
-                sourceCardIds: z.array(z.string()).optional().describe("IDs of source cards"),
-                sourceCardNames: z.array(z.string()).optional().describe("Names of source cards"),
+                topic: z.string().nullable().describe("New topic for questions"),
+                contextContent: z.string().nullable().describe("Content from newly selected cards in system context"),
+                sourceCardIds: z.array(z.string()).nullable().describe("IDs of source cards"),
+                sourceCardNames: z.array(z.string()).nullable().describe("Names of source cards"),
             }).passthrough()
         ),
         execute: async (args: unknown) => {
             // Validate args using Zod schema - .passthrough() allows extra properties during streaming
             const updateQuizSchema = z.object({
                 quizId: z.string(),
-                topic: z.string().optional(),
-                contextContent: z.string().optional(),
-                sourceCardIds: z.array(z.string()).optional(),
-                sourceCardNames: z.array(z.string()).optional(),
+                topic: z.string().nullable().optional(),
+                contextContent: z.string().nullable().optional(),
+                sourceCardIds: z.array(z.string()).nullable().optional(),
+                sourceCardNames: z.array(z.string()).nullable().optional(),
             }).passthrough();
-            
+
             const parsedArgs = updateQuizSchema.parse(args);
             const quizId = parsedArgs.quizId;
-            const explicitTopic = parsedArgs.topic;
+            const explicitTopic = parsedArgs.topic ?? undefined;
 
             logger.debug("🎯 [UPDATE-QUIZ] Tool execution started:", { quizId, explicitTopic });
 
@@ -228,9 +228,9 @@ export function createUpdateQuizTool(ctx: WorkspaceToolContext) {
                 }
 
                 // Use context/topic provided by LLM, or default to quiz name for continuation
-                const contextContent = parsedArgs?.contextContent;
-                const sourceCardIds = parsedArgs?.sourceCardIds;
-                const sourceCardNames = parsedArgs?.sourceCardNames;
+                const contextContent = parsedArgs?.contextContent ?? undefined;
+                const sourceCardIds = parsedArgs?.sourceCardIds ?? undefined;
+                const sourceCardNames = parsedArgs?.sourceCardNames ?? undefined;
                 const topic = explicitTopic || quizItem.name;
 
                 logger.debug("🎯 [UPDATE-QUIZ] Configuration:", {

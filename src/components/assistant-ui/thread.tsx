@@ -69,7 +69,7 @@ import { FileProcessingToolUI } from "@/components/assistant-ui/FileProcessingTo
 import { URLContextToolUI } from "@/components/assistant-ui/URLContextToolUI";
 import { DeepResearchToolUI } from "@/components/assistant-ui/DeepResearchToolUI";
 import { UpdateCardToolUI } from "@/components/assistant-ui/UpdateCardToolUI";
-import { ClearCardContentToolUI } from "@/components/assistant-ui/ClearCardContentToolUI";
+
 import { DeleteCardToolUI } from "@/components/assistant-ui/DeleteCardToolUI";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import {
@@ -131,7 +131,7 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
         <CreateFlashcardToolUI />
         <UpdateFlashcardToolUI />
         <UpdateCardToolUI />
-        <ClearCardContentToolUI />
+
         <DeleteCardToolUI />
         <SelectCardsToolUI />
         <SearchWebToolUI />

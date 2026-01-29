@@ -10,7 +10,6 @@ import { createSearchWebTool, createExecuteCodeTool } from "./search-code";
 import {
     createNoteTool,
     createUpdateCardTool,
-    createClearCardContentTool,
     createDeleteCardTool,
     createSelectCardsTool,
     type WorkspaceToolContext,
@@ -58,7 +57,7 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
         // Workspace operations
         createNote: createNoteTool(ctx),
         updateCard: createUpdateCardTool(ctx),
-        clearCardContent: createClearCardContentTool(ctx),
+
         deleteCard: createDeleteCardTool(ctx),
         selectCards: createSelectCardsTool(ctx),
 
