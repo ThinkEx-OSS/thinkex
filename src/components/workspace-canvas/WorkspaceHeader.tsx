@@ -333,9 +333,9 @@ export default function WorkspaceHeader({
     fileInputRef.current?.click();
   };
 
-  const handleYouTubeCreate = useCallback((url: string, name: string) => {
+  const handleYouTubeCreate = useCallback((url: string, name: string, thumbnail?: string) => {
     if (addItem) {
-      addItem("youtube", name, { url });
+      addItem("youtube", name, { url, thumbnail });
     }
     setIsNewMenuOpen(false);
   }, [addItem]);

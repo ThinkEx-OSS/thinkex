@@ -59,8 +59,8 @@ export function SidebarQuickActions({ currentWorkspaceId, isChatExpanded, setIsC
         }
     }, [operations]);
 
-    const handleYouTubeCreate = useCallback((url: string, name: string) => {
-        operations.createItem("youtube", name, { url });
+    const handleYouTubeCreate = useCallback((url: string, name: string, thumbnail?: string) => {
+        operations.createItem("youtube", name, { url, thumbnail });
         toast.success("YouTube video added");
     }, [operations]);
 

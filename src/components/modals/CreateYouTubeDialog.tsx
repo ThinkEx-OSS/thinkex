@@ -18,7 +18,7 @@ import { toast } from "sonner";
 interface CreateYouTubeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreate: (url: string, name: string) => void;
+  onCreate: (url: string, name: string, thumbnail?: string) => void;
 }
 
 export function CreateYouTubeDialog({
@@ -28,6 +28,7 @@ export function CreateYouTubeDialog({
 }: CreateYouTubeDialogProps) {
   const [url, setUrl] = useState("");
   const [name, setName] = useState("");
+  const [thumbnail, setThumbnail] = useState<string | undefined>(undefined);
   const [isValid, setIsValid] = useState(false);
   const [isLoadingTitle, setIsLoadingTitle] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -37,17 +38,17 @@ export function CreateYouTubeDialog({
     setIsValid(isValidYouTubeUrl(url));
   }, [url]);
 
-  // Fetch YouTube video title when a valid URL is entered
+  // Fetch YouTube metadata when a valid URL is entered
   useEffect(() => {
     // Clear any existing timer
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
 
-    // Only fetch if URL is valid and name is empty (to avoid overwriting user input)
-    if (isValid && url.trim() && !name.trim()) {
+    // Always fetch metadata if URL is valid (we need thumbnail even if name is provided)
+    if (isValid && url.trim()) {
       setIsLoadingTitle(true);
-      
+
       // Debounce the API call to avoid making requests on every keystroke
       debounceTimerRef.current = setTimeout(async () => {
         try {
@@ -57,15 +58,19 @@ export function CreateYouTubeDialog({
 
           if (response.ok) {
             const data = await response.json();
-            if (data.title) {
-              // Only set name if it's still empty (user might have typed while loading)
-              setName((currentName) => currentName.trim() || data.title);
+            // Only auto-fill name if it's still empty (user might have typed while loading)
+            if (data.title && !name.trim()) {
+              setName(data.title);
+            }
+            // Always store thumbnail (needed for playlists)
+            if (data.thumbnail) {
+              setThumbnail(data.thumbnail);
             }
           }
           // Silently fail if metadata fetch fails - user can still enter name manually
         } catch (error) {
           // Silently fail - user can still enter name manually
-          console.error("Failed to fetch YouTube video title:", error);
+          console.error("Failed to fetch YouTube metadata:", error);
         } finally {
           setIsLoadingTitle(false);
         }
@@ -80,7 +85,7 @@ export function CreateYouTubeDialog({
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [url, isValid, name]);
+  }, [url, isValid]);
 
   const handleSubmit = useCallback(() => {
     if (!isValid || !url.trim()) {
@@ -89,11 +94,12 @@ export function CreateYouTubeDialog({
     }
 
     const cardName = name.trim() || "YouTube Video";
-    onCreate(url.trim(), cardName);
+    onCreate(url.trim(), cardName, thumbnail);
 
     // Reset form
     setUrl("");
     setName("");
+    setThumbnail(undefined);
     onOpenChange(false);
   }, [url, name, isValid, onCreate, onOpenChange]);
 
@@ -111,6 +117,7 @@ export function CreateYouTubeDialog({
     if (open) {
       setUrl("");
       setName("");
+      setThumbnail(undefined);
       setIsValid(false);
       setIsLoadingTitle(false);
       if (debounceTimerRef.current) {
@@ -158,8 +165,8 @@ export function CreateYouTubeDialog({
               disabled={isLoadingTitle}
             />
             <p className="text-xs text-muted-foreground">
-              {isLoadingTitle 
-                ? "Fetching video title..." 
+              {isLoadingTitle
+                ? "Fetching video title..."
                 : "The video title will be automatically filled in, or leave empty to use \"YouTube Video\""}
             </p>
           </div>
@@ -171,7 +178,7 @@ export function CreateYouTubeDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!isValid}
+            disabled={!isValid || isLoadingTitle}
           >
             Add Video
           </Button>

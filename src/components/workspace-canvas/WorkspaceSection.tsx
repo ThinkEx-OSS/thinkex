@@ -194,9 +194,9 @@ export function WorkspaceSection({
     return workspaces.find(w => w.id === currentWorkspaceId) || null;
   }, [currentWorkspaceId, workspaces]);
 
-  const handleYouTubeCreate = useCallback((url: string, name: string) => {
+  const handleYouTubeCreate = useCallback((url: string, name: string, thumbnail?: string) => {
     if (addItem) {
-      addItem("youtube", name, { url });
+      addItem("youtube", name, { url, thumbnail });
     }
   }, [addItem]);
 
