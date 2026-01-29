@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { extractYouTubeVideoId } from "@/lib/utils/youtube-url";
+import { extractYouTubeVideoId, extractYouTubePlaylistId } from "@/lib/utils/youtube-url";
 
 /**
  * GET /api/youtube/metadata
@@ -20,9 +20,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Extract video ID to validate URL
+    // Extract video ID or playlist ID to validate URL
     const videoId = extractYouTubeVideoId(url);
-    if (!videoId) {
+    const playlistId = extractYouTubePlaylistId(url);
+
+    if (!videoId && !playlistId) {
       return NextResponse.json(
         { error: "Invalid YouTube URL" },
         { status: 400 }

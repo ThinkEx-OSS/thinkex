@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import type { Item, YouTubeData } from "@/lib/workspace-state/types";
-import { getYouTubeEmbedUrl, getYouTubeThumbnailUrl } from "@/lib/utils/youtube-url";
-import { Play, Move } from "lucide-react";
+import { getYouTubeEmbedUrl, getYouTubeThumbnailUrl, extractYouTubePlaylistId } from "@/lib/utils/youtube-url";
+import { Play, Move, List, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface YouTubeCardContentProps {
@@ -17,9 +17,12 @@ export function YouTubeCardContent({ item, isPlaying, onTogglePlay }: YouTubeCar
 
   const youtubeData = item.data as YouTubeData;
   const embedUrl = getYouTubeEmbedUrl(youtubeData.url);
-  const thumbnailUrl = getYouTubeThumbnailUrl(youtubeData.url);
+  // Prioritize stored thumbnail (from oEmbed API) over calculated thumbnail
+  const thumbnailUrl = youtubeData.thumbnail || getYouTubeThumbnailUrl(youtubeData.url);
+  // Check if this is a playlist
+  const isPlaylist = extractYouTubePlaylistId(youtubeData.url) !== null;
 
-  if (!embedUrl || !thumbnailUrl) {
+  if (!embedUrl) {
     // Invalid URL - show error state
     return (
       <div className="p-1 min-h-0">
@@ -53,7 +56,7 @@ export function YouTubeCardContent({ item, isPlaying, onTogglePlay }: YouTubeCar
         <>
           <div className="w-full h-full">
             <iframe
-              src={`${embedUrl}?autoplay=1`}
+              src={`${embedUrl}${embedUrl.includes('?') ? '&' : '?'}autoplay=1`}
               title={item.name || "YouTube Video"}
               className="w-full h-full rounded-lg"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -75,24 +78,51 @@ export function YouTubeCardContent({ item, isPlaying, onTogglePlay }: YouTubeCar
           )}
         </>
       ) : (
-        // Thumbnail view with play button
+        // Thumbnail view with play button (or playlist fallback)
         <div
           className="relative w-full h-full cursor-pointer group"
         // onClick is handled by parent WorkspaceCard
         >
-          <img
-            src={thumbnailUrl}
-            alt={item.name || "YouTube Video"}
-            className="w-full h-full object-cover rounded-lg"
-          />
-          {/* Dark overlay */}
-          <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors rounded-lg" />
-          {/* Play button */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center shadow-lg transition-all group-hover:scale-110">
-              <Play className="h-7 w-7 text-white fill-white ml-1" />
+          {thumbnailUrl ? (
+            <>
+              <img
+                src={thumbnailUrl}
+                alt={item.name || "YouTube Video"}
+                className="w-full h-full object-cover rounded-lg"
+              />
+              {/* Dark overlay */}
+              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors rounded-lg" />
+              {/* Type badge in bottom-right corner */}
+              <div className="absolute bottom-2 right-2 flex items-center gap-1 px-2 py-1 rounded-md bg-black/80 backdrop-blur-sm">
+                {isPlaylist ? (
+                  <>
+                    <List className="h-3 w-3 text-white" />
+                    <span className="text-xs font-medium text-white">Playlist</span>
+                  </>
+                ) : (
+                  <>
+                    <Video className="h-3 w-3 text-white" />
+                    <span className="text-xs font-medium text-white">Video</span>
+                  </>
+                )}
+              </div>
+              {/* Play button */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center shadow-lg transition-all group-hover:scale-110">
+                  <Play className="h-7 w-7 text-white fill-white ml-1" />
+                </div>
+              </div>
+            </>
+          ) : (
+            // Fallback for playlists without thumbnails
+            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-red-500/10 to-red-600/10 rounded-lg border border-red-500/20">
+              <div className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center shadow-lg transition-all group-hover:scale-110 mb-3">
+                <Play className="h-8 w-8 text-white fill-white ml-1" />
+              </div>
+              <p className="text-sm font-medium text-foreground">YouTube Playlist</p>
+              <p className="text-xs text-muted-foreground mt-1">Click to play</p>
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>
