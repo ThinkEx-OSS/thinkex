@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import type { Item, YouTubeData } from "@/lib/workspace-state/types";
-import { getYouTubeEmbedUrl, getYouTubeThumbnailUrl } from "@/lib/utils/youtube-url";
-import { Play, Move } from "lucide-react";
+import { getYouTubeEmbedUrl, getYouTubeThumbnailUrl, extractYouTubePlaylistId } from "@/lib/utils/youtube-url";
+import { Play, Move, List, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface YouTubeCardContentProps {
@@ -19,6 +19,8 @@ export function YouTubeCardContent({ item, isPlaying, onTogglePlay }: YouTubeCar
   const embedUrl = getYouTubeEmbedUrl(youtubeData.url);
   // Prioritize stored thumbnail (from oEmbed API) over calculated thumbnail
   const thumbnailUrl = youtubeData.thumbnail || getYouTubeThumbnailUrl(youtubeData.url);
+  // Check if this is a playlist
+  const isPlaylist = extractYouTubePlaylistId(youtubeData.url) !== null;
 
   if (!embedUrl) {
     // Invalid URL - show error state
@@ -90,6 +92,20 @@ export function YouTubeCardContent({ item, isPlaying, onTogglePlay }: YouTubeCar
               />
               {/* Dark overlay */}
               <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors rounded-lg" />
+              {/* Type badge in bottom-right corner */}
+              <div className="absolute bottom-2 right-2 flex items-center gap-1 px-2 py-1 rounded-md bg-black/80 backdrop-blur-sm">
+                {isPlaylist ? (
+                  <>
+                    <List className="h-3 w-3 text-white" />
+                    <span className="text-xs font-medium text-white">Playlist</span>
+                  </>
+                ) : (
+                  <>
+                    <Video className="h-3 w-3 text-white" />
+                    <span className="text-xs font-medium text-white">Video</span>
+                  </>
+                )}
+              </div>
               {/* Play button */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center shadow-lg transition-all group-hover:scale-110">
