@@ -196,7 +196,7 @@ function WorkspaceSidebar({
                   className="object-contain"
                 />
               </div>
-              <h2 className="text-sm font-medium whitespace-nowrap -mb-0.5">ThinkEx</h2>
+              <h2 className="text-lg font-medium whitespace-nowrap -mb-0.5">ThinkEx</h2>
             </Link>
           </div>
         </SidebarHeader>
