@@ -53,7 +53,7 @@ export function YouTubeCardContent({ item, isPlaying, onTogglePlay }: YouTubeCar
         <>
           <div className="w-full h-full">
             <iframe
-              src={`${embedUrl}?autoplay=1`}
+              src={embedUrl}
               title={item.name || "YouTube Video"}
               className="w-full h-full rounded-lg"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
