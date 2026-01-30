@@ -490,7 +490,7 @@ export default function WorkspaceHeader({
                       className="h-4 w-4 shrink-0"
                       style={{ color: workspaceColor || undefined }}
                     />
-                    <span className="truncate text-sidebar-foreground font-medium max-w-[300px]" title={workspaceName}>
+                    <span className="truncate text-sidebar-foreground max-w-[300px]" title={workspaceName}>
                       {workspaceName || "Untitled"}
                     </span>
                   </button>
