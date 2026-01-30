@@ -7,9 +7,37 @@ import { WorkspaceGrid } from "./WorkspaceGrid";
 import { FloatingWorkspaceCards } from "@/components/landing/FloatingWorkspaceCards";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { FolderPlus } from "lucide-react";
 
 export function HomeContent() {
   const { data: session } = useSession();
+  const router = useRouter();
+
+  const handleCreateBlankWorkspace = async () => {
+    try {
+      const createRes = await fetch("/api/workspaces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          name: "Blank Workspace",
+          icon: null,
+          color: null,
+        }),
+      });
+      if (!createRes.ok) {
+        const err = await createRes.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to create workspace");
+      }
+      const { workspace } = (await createRes.json()) as { workspace: { slug: string } };
+      
+      router.push(`/workspace/${workspace.slug}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Something went wrong";
+      toast.error("Could not create workspace", { description: msg });
+    }
+  };
 
   return (
     <div className="relative h-full w-full overflow-y-auto">
@@ -45,6 +73,19 @@ export function HomeContent() {
           </h1>
           <div className="flex justify-center w-full relative z-10">
             <HomePromptInput />
+          </div>
+          
+          {/* Start from scratch button */}
+          <div className="flex justify-center w-full relative z-10 mt-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCreateBlankWorkspace}
+              className="text-sm text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 transition-all duration-200 gap-2"
+            >
+              <FolderPlus className="h-4 w-4" />
+              Or, start from scratch
+            </Button>
           </div>
         </div>
       </div>
