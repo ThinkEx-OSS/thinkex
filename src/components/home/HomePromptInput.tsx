@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -48,7 +48,11 @@ const PLACEHOLDER_OPTIONS = [
 
 const baseText = "Create a workspace for ";
 
-export function HomePromptInput() {
+interface HomePromptInputProps {
+  shouldFocus?: boolean;
+}
+
+export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [value, setValue] = useState("");
@@ -64,6 +68,16 @@ export function HomePromptInput() {
       ...PLACEHOLDER_OPTIONS.slice(0, start),
     ];
   }, []);
+
+  // Focus input when hero section becomes visible
+  useEffect(() => {
+    if (shouldFocus && inputRef.current) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus({ preventScroll: true });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldFocus]);
 
   // Handle user typing - stop animation
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react";
 import { HomePromptInput } from "./HomePromptInput";
 import { DynamicTagline } from "./DynamicTagline";
 import { WorkspaceGrid } from "./WorkspaceGrid";
@@ -12,6 +12,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { FolderPlus } from "lucide-react";
 
+// Context for section visibility - allows child components to know when to focus
+const SectionVisibilityContext = createContext<{
+  heroVisible: boolean;
+  workspacesVisible: boolean;
+}>({ heroVisible: true, workspacesVisible: false });
+
+export const useSectionVisibility = () => useContext(SectionVisibilityContext);
+
 export function HomeContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -20,7 +28,11 @@ export function HomeContent() {
   const [mousePosition, setMousePosition] = useState({ x: 0.5, y: 0.5 });
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
   const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
+  const [heroVisible, setHeroVisible] = useState(true);
+  const [workspacesVisible, setWorkspacesVisible] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const workspacesRef = useRef<HTMLDivElement>(null);
   const rippleIdRef = useRef(0);
   const rippleTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
 
@@ -77,6 +89,34 @@ export function HomeContent() {
     };
   }, []);
 
+  // IntersectionObserver for section visibility and focus management
+  useEffect(() => {
+    const heroEl = heroRef.current;
+    const workspacesEl = workspacesRef.current;
+    if (!heroEl || !workspacesEl) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.target === heroEl) {
+            setHeroVisible(entry.isIntersecting && entry.intersectionRatio > 0.5);
+          } else if (entry.target === workspacesEl) {
+            setWorkspacesVisible(entry.isIntersecting && entry.intersectionRatio > 0.3);
+          }
+        });
+      },
+      {
+        root: scrollRef.current,
+        threshold: [0.3, 0.5],
+      }
+    );
+
+    observer.observe(heroEl);
+    observer.observe(workspacesEl);
+
+    return () => observer.disconnect();
+  }, []);
+
   // Calculate glow intensity based on distance from hero center
   const centerX = 0.5;
   const centerY = 0.45; // Hero is slightly above center
@@ -127,12 +167,13 @@ export function HomeContent() {
         scrollY={scrollY}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        shouldFocusSearch={workspacesVisible}
       />
 
       {/* Scrollable Content - scroll-pt-20 creates 80px hero peek when snapped to workspaces */}
       <div ref={scrollRef} className="relative h-full w-full overflow-y-auto snap-y snap-mandatory scroll-pt-20" onClick={handleClick}>
         {/* Floating Card Background with spotlight reveal effect */}
-        <div className="absolute inset-x-0 top-0 min-h-[250vh] z-0 select-none pointer-events-none overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-[185vh] z-0 select-none pointer-events-none overflow-hidden">
           <FloatingWorkspaceCards
             bottomGradientHeight="40%"
             includeExtraCards={true}
@@ -153,7 +194,7 @@ export function HomeContent() {
         />
 
         {/* Hero Section - Reduced height so "Recent workspaces" text peeks at bottom */}
-        <div className="relative z-10 h-[85vh] flex flex-col items-center justify-center text-center px-6 snap-start">
+        <div ref={heroRef} className="relative z-10 h-[85vh] flex flex-col items-center justify-center text-center px-6 snap-start">
           <div className="w-full max-w-2xl relative">
             {/* Hero glow - intensifies on mouse approach, slight purple hue */}
             <div
@@ -184,7 +225,7 @@ export function HomeContent() {
               <DynamicTagline />
             </div>
             <div className="flex justify-center w-full relative z-10">
-              <HomePromptInput />
+              <HomePromptInput shouldFocus={heroVisible} />
             </div>
 
             {/* Start from scratch button */}
@@ -203,9 +244,9 @@ export function HomeContent() {
           </div>
         </div>
 
-        {/* Workspaces Section - Full screen, fades to dark */}
-        <div className="relative z-10 px-6 pb-8 pt-8 min-h-screen snap-start snap-always scroll-mt-0 bg-gradient-to-b from-transparent via-background to-black">
-          <div className="w-full max-w-6xl mx-auto space-y-12">
+        {/* Workspaces Section - Exactly viewport height, no overscroll */}
+        <div ref={workspacesRef} className="relative z-10 px-6 pb-8 pt-8 h-screen snap-start snap-always scroll-mt-0 bg-gradient-to-b from-transparent via-background to-black overflow-hidden">
+          <div className="w-full max-w-6xl mx-auto h-full overflow-y-auto">
             {/* Your Workspaces */}
             <div className="bg-sidebar rounded-md p-6">
               <h2 className="text-lg font-normal text-muted-foreground mb-4">Recent workspaces</h2>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Search } from "lucide-react";
@@ -11,9 +12,22 @@ interface HomeTopBarProps {
   scrollY: number;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  shouldFocusSearch?: boolean;
 }
 
-export function HomeTopBar({ scrollY, searchQuery, onSearchChange }: HomeTopBarProps) {
+export function HomeTopBar({ scrollY, searchQuery, onSearchChange, shouldFocusSearch }: HomeTopBarProps) {
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus search input when workspaces section becomes visible
+  useEffect(() => {
+    if (shouldFocusSearch && searchInputRef.current) {
+      // Small delay to ensure the input is visible before focusing
+      const timer = setTimeout(() => {
+        searchInputRef.current?.focus({ preventScroll: true });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldFocusSearch]);
   // Show search bar after scrolling past hero content (300px)
   const showSearch = scrollY > 300;
   // Background: starts fading at 200px, fully opaque at 500px
@@ -27,7 +41,7 @@ export function HomeTopBar({ scrollY, searchQuery, onSearchChange }: HomeTopBarP
         "transition-all duration-300"
       )}
       style={{
-        backgroundColor: `hsl(240 5.9% 10% / ${bgOpacity})`,
+        backgroundColor: `hsl(240 5.9% 10% / 0)`,
       }}
     >
       {/* Left: Logo */}
@@ -57,6 +71,7 @@ export function HomeTopBar({ scrollY, searchQuery, onSearchChange }: HomeTopBarP
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" aria-hidden="true" />
           <Input
+            ref={searchInputRef}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search workspaces..."
@@ -64,10 +79,10 @@ export function HomeTopBar({ scrollY, searchQuery, onSearchChange }: HomeTopBarP
             className={cn(
               "w-96 pl-9 h-10",
               "bg-background/80 backdrop-blur-xl",
-              "border border-white/10 rounded-lg",
-              "shadow-[0_0_30px_-10px_rgba(255,255,255,0.1)]",
-              "focus:shadow-[0_0_40px_-8px_rgba(255,255,255,0.15)]",
-              "focus:border-white/20",
+              "border border-white/10 rounded-xl",
+              "shadow-[0_0_60px_-15px_rgba(255,255,255,0.1)]",
+              "focus:shadow-[0_0_80px_-10px_rgba(255,255,255,0.15)]",
+              "focus:border-white/60",
               "placeholder:text-muted-foreground/50",
               "transition-all duration-300"
             )}
