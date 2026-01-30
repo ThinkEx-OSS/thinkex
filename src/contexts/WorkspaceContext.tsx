@@ -24,6 +24,10 @@ interface WorkspaceContextType {
   loadWorkspaces: () => Promise<void>;
   updateWorkspaceLocal: (workspaceId: string, updates: Partial<WorkspaceWithState>) => void;
 
+  // Current workspace (loaded by slug for direct access)
+  currentWorkspace: WorkspaceWithState | null;
+  loadingCurrentWorkspace: boolean;
+
   // Current slug (derived from URL)
   currentSlug: string | null;
 
@@ -55,7 +59,32 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     return null;
   }, [pathname]);
 
-  // Fetch workspaces with TanStack Query
+  // Fetch current workspace by slug (fast path for direct workspace access)
+  // This loads only the workspace metadata needed, not the entire list or state
+  // State is loaded separately by useWorkspaceState hook
+  const { data: currentWorkspaceData, isLoading: loadingCurrentWorkspace } = useQuery({
+    queryKey: ['workspace-by-slug', currentSlug],
+    queryFn: async () => {
+      if (!currentSlug) return null;
+      // Use metadata=true for faster loading - skip state replay
+      const response = await fetch(`/api/workspaces/slug/${currentSlug}?metadata=true`);
+      if (!response.ok) {
+        if (response.status === 404) return null;
+        throw new Error('Failed to fetch workspace');
+      }
+      const data = await response.json();
+      return data.workspace || null;
+    },
+    enabled: !!currentSlug, // Only fetch when we have a slug
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    retry: 1, // Don't retry much for single workspace
+  });
+
+  const currentWorkspace = currentWorkspaceData || null;
+
+  // Fetch full workspace list lazily (for sidebar, workspace switching)
+  // This is deferred - not needed for initial workspace render
   const { data: workspacesData, isLoading: loadingWorkspaces } = useQuery({
     queryKey: ['workspaces'],
     queryFn: async () => {
@@ -71,7 +100,16 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     retry: 3,
   });
 
-  const workspaces = workspacesData || [];
+  // Merge current workspace into list if not already present
+  const workspaces = useMemo(() => {
+    const list = workspacesData || [];
+    // If we have a current workspace loaded by slug but it's not in the list yet,
+    // add it so the UI can display it immediately
+    if (currentWorkspace && !list.some((w: WorkspaceWithState) => w.id === currentWorkspace.id)) {
+      return [currentWorkspace, ...list];
+    }
+    return list;
+  }, [workspacesData, currentWorkspace]);
 
   // Load workspaces function for compatibility
   const loadWorkspaces = useCallback(async () => {
@@ -175,6 +213,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     loadingWorkspaces,
     loadWorkspaces,
     updateWorkspaceLocal,
+    currentWorkspace,
+    loadingCurrentWorkspace,
     currentSlug,
     switchWorkspace,
     deleteWorkspace,

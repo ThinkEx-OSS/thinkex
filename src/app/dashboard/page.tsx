@@ -39,11 +39,13 @@ import ShareWorkspaceDialog from "@/components/workspace/ShareWorkspaceDialog";
 interface DashboardContentProps {
   currentWorkspace: WorkspaceWithState | null;
   loadingWorkspaces: boolean;
+  loadingCurrentWorkspace: boolean;
 }
 
 function DashboardContent({
   currentWorkspace,
   loadingWorkspaces,
+  loadingCurrentWorkspace,
 }: DashboardContentProps) {
   const posthog = usePostHog();
   const { data: session } = useSession();
@@ -430,7 +432,7 @@ function DashboardContent({
         panels={panels}
         workspaceSection={
           <WorkspaceSection
-            loadingWorkspaces={loadingWorkspaces}
+            loadingWorkspaces={loadingCurrentWorkspace}
             isLoadingWorkspace={isLoadingWorkspace}
             currentWorkspaceId={currentWorkspaceId}
             currentSlug={currentSlug}
@@ -487,18 +489,13 @@ function DashboardContent({
 // Main page component
 export function DashboardPage() {
   const router = useRouter();
-  // Get workspace context
+  // Get workspace context - currentWorkspace is loaded directly by slug (fast path)
   const {
     currentSlug,
-    workspaces,
+    currentWorkspace,
+    loadingCurrentWorkspace,
     loadingWorkspaces,
   } = useWorkspaceContext();
-
-  // Find current workspace from slug
-  const currentWorkspace = useMemo(() => {
-    if (!currentSlug) return null;
-    return workspaces.find(w => w.slug === currentSlug) || null;
-  }, [currentSlug, workspaces]);
 
   const currentWorkspaceId = currentWorkspace?.id || null;
 
@@ -549,6 +546,7 @@ export function DashboardPage() {
     <DashboardContent
       currentWorkspace={currentWorkspace}
       loadingWorkspaces={loadingWorkspaces}
+      loadingCurrentWorkspace={loadingCurrentWorkspace}
     />
   );
 }
