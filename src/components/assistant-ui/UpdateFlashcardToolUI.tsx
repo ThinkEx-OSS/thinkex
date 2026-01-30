@@ -71,7 +71,7 @@ const UpdateFlashcardReceipt = ({ args, result, status }: UpdateFlashcardReceipt
     };
 
     return (
-        <div 
+        <div
             className={cn(
                 "my-1 flex w-full items-center justify-between overflow-hidden rounded-md border border-border/50 bg-card/50 text-card-foreground shadow-sm px-2 py-2",
                 status?.type === "complete" && result.itemId && "cursor-pointer hover:bg-accent transition-colors"
@@ -128,7 +128,7 @@ export const UpdateFlashcardToolUI = makeAssistantToolUI<UpdateFlashcardArgs, Fl
 
         // Don't try to parse while still running - wait for completion
         let parsed: FlashcardResult | null = null;
-        if (status.type !== "running" && result != null) {
+        if (status.type === "complete" && result != null) {
             try {
                 parsed = parseFlashcardResult(result);
             } catch (err) {

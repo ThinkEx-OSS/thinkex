@@ -128,7 +128,16 @@ export const SelectCardsToolUI = makeAssistantToolUI<SelectCardsArgs, SelectCard
     const validCount = selectedCards.length;
     const invalidIds = args?.cardIds?.filter((id) => !availableIds.has(id)) || [];
 
-    if (result != null) parseSelectCardsResult(result);
+    // Don't try to parse while still running - wait for completion
+    let parsedResult: SelectCardsResult | null = null;
+
+    if (status.type === "complete" && result != null) {
+      try {
+        parsedResult = parseSelectCardsResult(result);
+      } catch (e) {
+        // Ignore parse errors, let error boundary or error shell handle it if needed
+      }
+    }
 
     let content: ReactNode = null;
 

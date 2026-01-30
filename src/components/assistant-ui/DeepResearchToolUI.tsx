@@ -21,47 +21,57 @@ export const DeepResearchToolUI = makeAssistantToolUI<DeepResearchArgs, { noteId
     const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
     useOptimisticToolUpdate(status, result as any, workspaceId);
 
-    const parsed = result != null ? parseDeepResearchResult(result) : null;
+    // Don't try to parse while still running - wait for completion
+    let parsed: { noteId?: string; error?: string } | null = null;
     const isComplete = status.type === "complete";
+
+    if (isComplete && result != null) {
+      try {
+        parsed = parseDeepResearchResult(result);
+      } catch (err) {
+        parsed = null;
+      }
+    }
+
     const hasError = !!parsed?.error;
 
     return (
       <ToolUIErrorBoundary componentName="DeepResearch">
         <div className="rounded-lg border border-border bg-muted/30 p-4 my-2">
-                <div className="flex items-center gap-3">
-                    {!isComplete && !hasError && (
-                        <Loader2 className="size-5 animate-spin text-blue-500" />
-                    )}
-                    {isComplete && !hasError && (
-                        <CheckCircle2 className="size-5 text-green-500" />
-                    )}
-                    <div className="flex-1">
-                        <p className="font-medium text-sm">
-                            {hasError
-                                ? "Research Failed"
-                                : isComplete
-                                    ? "Research Started"
-                                    : "Starting Deep Research..."}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                            {(args?.prompt?.length ?? 0) > 80
-                                ? args.prompt.slice(0, 80) + "..."
-                                : args?.prompt || "Starting research..."}
-                        </p>
-                    </div>
-                </div>
+          <div className="flex items-center gap-3">
+            {!isComplete && !hasError && (
+              <Loader2 className="size-5 animate-spin text-blue-500" />
+            )}
+            {isComplete && !hasError && (
+              <CheckCircle2 className="size-5 text-green-500" />
+            )}
+            <div className="flex-1">
+              <p className="font-medium text-sm">
+                {hasError
+                  ? "Research Failed"
+                  : isComplete
+                    ? "Research Started"
+                    : "Starting Deep Research..."}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {(args?.prompt?.length ?? 0) > 80
+                  ? args.prompt.slice(0, 80) + "..."
+                  : args?.prompt || "Starting research..."}
+              </p>
+            </div>
+          </div>
 
-                {hasError && parsed && (
-                    <p className="text-xs text-red-500 mt-2">{parsed.error}</p>
-                )}
+          {hasError && parsed && (
+            <p className="text-xs text-red-500 mt-2">{parsed.error}</p>
+          )}
 
-                {isComplete && !hasError && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    📋 Check your workspace for the research card with live progress.
-                  </p>
-                )}
-              </div>
-            </ToolUIErrorBoundary>
+          {isComplete && !hasError && (
+            <p className="text-xs text-muted-foreground mt-2">
+              📋 Check your workspace for the research card with live progress.
+            </p>
+          )}
+        </div>
+      </ToolUIErrorBoundary>
     );
   },
 });
