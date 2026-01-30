@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { useSession, signOut } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LogOut, User, Layers } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -15,14 +15,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AccountModal } from "@/components/auth/AccountModal";
-import { useUIStore } from "@/lib/stores/ui-store";
+
 
 export function UserProfileDropdown() {
   const { data: session } = useSession();
   const router = useRouter();
   const [showAccountModal, setShowAccountModal] = useState(false);
-  const showJsonView = useUIStore((state) => state.showJsonView);
-  const setShowJsonView = useUIStore((state) => state.setShowJsonView);
+
 
   const userName = session?.user?.name || session?.user?.email || "User";
   const userImage = session?.user?.image || undefined;
@@ -76,11 +75,7 @@ export function UserProfileDropdown() {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" sideOffset={8}>
-          <DropdownMenuItem onClick={() => setShowJsonView(!showJsonView)} className="cursor-pointer">
-            <Layers className="mr-2 h-4 w-4" />
-            {showJsonView ? "Card View" : "JSON View"}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
+
           <DropdownMenuItem onClick={() => setShowAccountModal(true)} className="cursor-pointer">
             <User className="mr-2 h-4 w-4" />
             Account
