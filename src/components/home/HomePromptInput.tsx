@@ -103,7 +103,6 @@ export function HomePromptInput() {
       }
       const { workspace } = (await createRes.json()) as { workspace: { slug: string } };
 
-      setValue("");
       // Reset typing animation by changing key
       typingKeyRef.current += 1;
       router.push(
