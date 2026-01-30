@@ -1,10 +1,12 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
 import { motion, useInView } from "motion/react";
 import { FloatingCard, type FloatingCardData } from "./FloatingCard";
 import { type CardColor } from "@/lib/workspace-state/colors";
 import { cn } from "@/lib/utils";
+import { useSmokeSimulation } from "./smoke-effect/useSmokeSimulation";
+import { SMOKE_CONFIG } from "./smoke-effect/smokeConfig";
 
 // Base cards for landing page
 const BASE_CARDS: FloatingCardData[] = [
@@ -83,6 +85,7 @@ interface FloatingWorkspaceCardsProps {
     mousePosition?: { x: number; y: number };
     ripples?: Ripple[];
     scrollY?: number;
+    heroGlowIntensity?: number;
 }
 
 export function FloatingWorkspaceCards({
@@ -93,6 +96,7 @@ export function FloatingWorkspaceCards({
     mousePosition: externalMousePosition,
     ripples = [],
     scrollY = 0,
+    heroGlowIntensity = 0.5,
 }: FloatingWorkspaceCardsProps) {
     const cards = includeExtraCards ? [...BASE_CARDS, ...EXTRA_CARDS] : BASE_CARDS;
 
@@ -102,6 +106,8 @@ export function FloatingWorkspaceCards({
     // Use external mouse position if provided, otherwise track internally
     const [internalMousePosition, setInternalMousePosition] = useState({ x: 0.5, y: 0.5 });
     const [isMobile, setIsMobile] = useState(false);
+    const [containerSize, setContainerSize] = useState({ width: 800, height: 500 });
+    const [smokeMaskUrl, setSmokeMaskUrl] = useState<string | null>(null);
     const rafRef = useRef<number | undefined>(undefined);
 
     const mousePosition = externalMousePosition || internalMousePosition;
@@ -112,6 +118,58 @@ export function FloatingWorkspaceCards({
         window.addEventListener("resize", checkMobile);
         return () => window.removeEventListener("resize", checkMobile);
     }, []);
+
+    // Track container size for smoke simulation
+    useEffect(() => {
+        const updateSize = () => {
+            if (containerRef.current) {
+                const rect = containerRef.current.getBoundingClientRect();
+                setContainerSize({ width: rect.width || 800, height: rect.height || 500 });
+            }
+        };
+        updateSize();
+        window.addEventListener("resize", updateSize);
+        return () => window.removeEventListener("resize", updateSize);
+    }, []);
+
+    // Hero center position (normalized 0-1)
+    const heroCenter = useMemo(() => ({ x: 0.5, y: 0.18 }), []); // 18% from top in 250vh container
+
+    // Smoke simulation (desktop only)
+    const { canvasRef: smokeCanvasRefFromHook } = useSmokeSimulation({
+        mousePosition,
+        heroCenter,
+        heroGlowIntensity,
+        isActive: !isMobile && isInView,
+        containerAspect: containerSize.width / containerSize.height,
+    });
+
+    // Generate smoke mask URL from canvas (throttled)
+    useEffect(() => {
+        if (isMobile || !isInView) return;
+
+        const canvas = smokeCanvasRefFromHook.current;
+        if (!canvas) return;
+
+        let frameCount = 0;
+        let animationId: number;
+
+        const updateMask = () => {
+            frameCount++;
+            if (frameCount % SMOKE_CONFIG.MASK_UPDATE_INTERVAL === 0 && canvas.width > 0) {
+                try {
+                    const url = canvas.toDataURL("image/png", 0.7);
+                    setSmokeMaskUrl(url);
+                } catch {
+                    // Canvas not ready
+                }
+            }
+            animationId = requestAnimationFrame(updateMask);
+        };
+
+        animationId = requestAnimationFrame(updateMask);
+        return () => cancelAnimationFrame(animationId);
+    }, [isMobile, isInView, smokeCanvasRefFromHook]);
 
     useEffect(() => {
         // Skip internal tracking if external position is provided
@@ -163,14 +221,15 @@ export function FloatingWorkspaceCards({
     const tendrilX = heroX + (mouseX - heroX) * 0.4;
     const tendrilY = heroY + (mouseY - heroY) * 0.4;
 
-    // Combine mouse spotlight + hero glow + tendril connection
-    // Mouse is smaller but stronger, hero extends towards mouse with pronounced tendril
-    // Spotlight fades as user scrolls down
-    const spotlightMask = isMobile
+    // CSS fallback mask for mobile or when smoke mask not ready
+    const cssFallbackMask = isMobile
         ? `radial-gradient(ellipse 50% 40% at 50% 45%, rgba(0,0,0,${0.5 * fadeFactor}) 0%, rgba(0,0,0,${0.15 * fadeFactor}) 60%, rgba(0,0,0,0) 100%)`
         : `radial-gradient(circle 98px at ${mouseX}% ${mouseY}%, rgba(0,0,0,${0.325 * fadeFactor}) 0%, rgba(0,0,0,${0.25 * fadeFactor}) 75%, rgba(0,0,0,0) 85%),
            radial-gradient(ellipse 30% 24% at ${tendrilX}% ${tendrilY}%, rgba(0,0,0,${0.25 * fadeFactor}) 0%, rgba(0,0,0,${0.125 * fadeFactor}) 60%, rgba(0,0,0,0) 100%),
            radial-gradient(ellipse 32% 26% at ${heroX}% ${heroY}%, rgba(0,0,0,${0.85 * fadeFactor}) 0%, rgba(0,0,0,${0.4 * fadeFactor}) 50%, rgba(0,0,0,0) 100%)`;
+
+    // Use smoke mask on desktop when available, otherwise use CSS fallback
+    const activeMask = !isMobile && smokeMaskUrl ? `url(${smokeMaskUrl})` : cssFallbackMask;
 
     return (
         <div ref={containerRef} className="absolute inset-0 w-full h-full pointer-events-none select-none z-0">
@@ -192,38 +251,49 @@ export function FloatingWorkspaceCards({
                 }
             `}</style>
 
-            {/* Spotlight container - reveals cards where mouse/hero glow is */}
-            <div
-                className="absolute inset-0 transition-[mask-image] duration-300 ease-out"
+            {/* Hidden canvas for smoke simulation (desktop only) */}
+            {!isMobile && (
+                <canvas
+                    ref={smokeCanvasRefFromHook}
+                    width={SMOKE_CONFIG.GRID_WIDTH * 10}
+                    height={SMOKE_CONFIG.GRID_HEIGHT * 10}
+                    className="absolute opacity-0 pointer-events-none"
+                    style={{ filter: `blur(${SMOKE_CONFIG.BLUR_AMOUNT}px)` }}
+                />
+            )}
+
+            {/* Cards layer - always visible (no mask) */}
+            <motion.div
+                className={cn(
+                    "absolute inset-0 w-[120%] -ml-[10%] -mt-[5%] columns-2 md:columns-3 lg:columns-6 gap-4 md:gap-6 lg:gap-8 transition-transform duration-150 ease-out",
+                    opacity || "opacity-50 md:opacity-70",
+                    className
+                )}
                 style={{
-                    maskImage: spotlightMask,
-                    WebkitMaskImage: spotlightMask,
-                    maskComposite: 'add',
-                    WebkitMaskComposite: 'source-over',
+                    transform: `translate(${offsetX}px, ${offsetY}px)`,
+                    willChange: isMobile ? undefined : "transform",
                 }}
             >
-                {/* Single masonry container with parallax */}
-                <motion.div
-                    className={cn(
-                        "w-[120%] -ml-[10%] -mt-[5%] columns-2 md:columns-3 lg:columns-6 gap-4 md:gap-6 lg:gap-8 transition-transform duration-150 ease-out",
-                        opacity || "opacity-50 md:opacity-70",
-                        className
-                    )}
-                    style={{
-                        transform: `translate(${offsetX}px, ${offsetY}px)`,
-                        willChange: isMobile ? undefined : "transform",
-                    }}
-                >
-                    {cards.map((card, index) => (
-                        <FloatingCard
-                            key={index}
-                            data={card}
-                            className="w-full mb-6 md:mb-8"
-                            breatheDelay={index * 0.3}
-                        />
-                    ))}
-                </motion.div>
-            </div>
+                {cards.map((card, index) => (
+                    <FloatingCard
+                        key={index}
+                        data={card}
+                        className="w-full mb-6 md:mb-8"
+                        breatheDelay={index * 0.3}
+                    />
+                ))}
+            </motion.div>
+
+            {/* Dark overlay - smoke mask cuts through to reveal bright cards */}
+            <div
+                className="absolute inset-0 bg-background/85 transition-[mask-image] duration-300 ease-out"
+                style={{
+                    maskImage: activeMask,
+                    WebkitMaskImage: activeMask,
+                    maskComposite: 'exclude',
+                    WebkitMaskComposite: 'xor',
+                }}
+            />
 
             {/* Click ripples - expanding circles that reveal cards */}
             {ripples.map((ripple) => (

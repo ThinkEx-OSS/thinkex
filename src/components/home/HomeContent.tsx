@@ -117,25 +117,9 @@ export function HomeContent() {
             mousePosition={mousePosition}
             ripples={ripples}
             scrollY={scrollY}
+            heroGlowIntensity={glowIntensity}
           />
         </div>
-
-        {/* Mouse-following purple glow - matches hero hue */}
-        <div
-          className="fixed pointer-events-none z-[2] hidden md:block"
-          style={{
-            left: `${mousePosition.x * 100}%`,
-            top: `${mousePosition.y * 100}%`,
-            width: '400px',
-            height: '400px',
-            transform: 'translate(-50%, -50%)',
-            background: `radial-gradient(ellipse at center,
-              rgba(156, 146, 250, 0.25) 0%,
-              rgba(167, 139, 250, 0.15) 40%,
-              transparent 70%)`,
-            filter: 'blur(30px)',
-          }}
-        />
 
         {/* Gradient fade from hero to workspaces section */}
         <div
@@ -145,8 +129,8 @@ export function HomeContent() {
           }}
         />
 
-        {/* Hero Section - Full screen height, vertically centered */}
-        <div className="relative z-10 h-screen flex flex-col items-center justify-center text-center px-6 snap-start">
+        {/* Hero Section - Reduced height so "Recent workspaces" text peeks at bottom */}
+        <div className="relative z-10 h-[85vh] flex flex-col items-center justify-center text-center px-6 snap-start">
           <div className="w-full max-w-2xl relative">
             {/* Hero glow - intensifies on mouse approach, slight purple hue */}
             <div
@@ -186,7 +170,7 @@ export function HomeContent() {
                 variant="ghost"
                 size="sm"
                 onClick={handleCreateBlankWorkspace}
-                className="text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all duration-200 gap-2"
+                className="text-sm text-white/70 hover:text-white hover:bg-white/5 transition-all duration-200 gap-2"
               >
                 <FolderPlus className="h-4 w-4" />
                 Or, start from scratch
@@ -195,8 +179,8 @@ export function HomeContent() {
           </div>
         </div>
 
-        {/* Workspaces Section - Full screen, padding for top bar */}
-        <div className="relative z-10 px-6 pb-8 pt-24 min-h-screen snap-start">
+        {/* Workspaces Section - Full screen, fades to dark */}
+        <div className="relative z-10 px-6 pb-8 pt-8 min-h-screen snap-start snap-always scroll-mt-0 bg-gradient-to-b from-transparent via-background to-black">
           <div className="w-full max-w-6xl mx-auto space-y-12">
             {/* Your Workspaces */}
             <div className="bg-sidebar rounded-md p-6">
