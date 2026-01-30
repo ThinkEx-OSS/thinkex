@@ -385,7 +385,7 @@ export default function WorkspaceHeader({
   return (
     <div className="relative py-2 z-20 bg-sidebar">
       {/* Main container with flex layout */}
-      <div className="flex items-center justify-between w-full px-3">
+      <div className="flex items-center justify-between w-full px-4">
         {/* Left Side: Sidebar Toggle + Navigation Arrows + Breadcrumbs */}
         <div className="flex items-center gap-2 pointer-events-auto min-w-0">
           {isWorkspaceRoute && (
