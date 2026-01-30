@@ -19,6 +19,7 @@ export function HomeContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [mousePosition, setMousePosition] = useState({ x: 0.5, y: 0.5 });
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
+  const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const rippleIdRef = useRef(0);
 
@@ -72,6 +73,10 @@ export function HomeContent() {
   const glowIntensity = Math.max(0, 1 - distance * 2);
 
   const handleCreateBlankWorkspace = async () => {
+    // Guard against multiple rapid clicks
+    if (isCreatingWorkspace) return;
+
+    setIsCreatingWorkspace(true);
     try {
       const createRes = await fetch("/api/workspaces", {
         method: "POST",
@@ -95,6 +100,8 @@ export function HomeContent() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
       toast.error("Could not create workspace", { description: msg });
+    } finally {
+      setIsCreatingWorkspace(false);
     }
   };
 
@@ -170,7 +177,8 @@ export function HomeContent() {
                 variant="ghost"
                 size="sm"
                 onClick={handleCreateBlankWorkspace}
-                className="text-sm text-white/70 hover:text-white hover:bg-white/5 transition-all duration-200 gap-2"
+                disabled={isCreatingWorkspace}
+                className="text-sm text-white/70 hover:text-white hover:bg-white/5 transition-all duration-200 gap-2 disabled:opacity-50"
               >
                 <FolderPlus className="h-4 w-4" />
                 Or, start from scratch

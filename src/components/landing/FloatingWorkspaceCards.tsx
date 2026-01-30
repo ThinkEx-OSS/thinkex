@@ -108,15 +108,19 @@ export function FloatingWorkspaceCards({
     const [isMobile, setIsMobile] = useState(false);
     const [containerSize, setContainerSize] = useState({ width: 800, height: 500 });
     const [smokeMaskUrl, setSmokeMaskUrl] = useState<string | null>(null);
+    const [viewportHeight, setViewportHeight] = useState(1000); // Safe SSR default
     const rafRef = useRef<number | undefined>(undefined);
 
     const mousePosition = externalMousePosition || internalMousePosition;
 
     useEffect(() => {
-        const checkMobile = () => setIsMobile(window.innerWidth < 768);
-        checkMobile();
-        window.addEventListener("resize", checkMobile);
-        return () => window.removeEventListener("resize", checkMobile);
+        const updateViewportInfo = () => {
+            setIsMobile(window.innerWidth < 768);
+            setViewportHeight(window.innerHeight);
+        };
+        updateViewportInfo();
+        window.addEventListener("resize", updateViewportInfo);
+        return () => window.removeEventListener("resize", updateViewportInfo);
     }, []);
 
     // Track container size for smoke simulation
@@ -200,7 +204,7 @@ export function FloatingWorkspaceCards({
     // Spotlight mask - mouse position reveals cards, hero center always slightly visible
     // Adjust Y position to account for scroll in the 250vh container
     const containerHeightVh = 250;
-    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1000;
+    // viewportHeight is now managed in state for SSR safety
     const mouseX = mousePosition.x * 100;
     // Convert viewport-relative mouse Y to container-relative Y
     const mouseYAbsolute = scrollY + (mousePosition.y * viewportHeight);

@@ -217,6 +217,7 @@ export function HomePromptInput() {
               type="submit"
               disabled={!value.trim() || isLoading}
               onClick={(e) => e.stopPropagation()}
+              aria-label={isLoading ? "Creating workspace..." : "Create workspace"}
               className={cn(
                 "absolute right-3 top-1/2 -translate-y-1/2 z-20",
                 "p-1 transition-opacity duration-200",

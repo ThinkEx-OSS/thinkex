@@ -37,8 +37,8 @@ export function UserProfileDropdown() {
       .slice(0, 2);
   };
 
-  const handleSignOut = useCallback(() => {
-    signOut();
+  const handleSignOut = useCallback(async () => {
+    await signOut();
     router.push("/");
   }, [router]);
 
@@ -62,7 +62,11 @@ export function UserProfileDropdown() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="p-1 rounded-md hover:bg-white/10 transition-colors cursor-pointer">
+          <button
+            className="p-1 rounded-md hover:bg-white/10 transition-colors cursor-pointer"
+            aria-label={`Open menu for ${userName}`}
+            aria-haspopup="menu"
+          >
             <Avatar className="h-8 w-8 rounded-md">
               {userImage && <AvatarImage src={userImage} alt={userName} />}
               <AvatarFallback className="rounded-md bg-primary/10 text-sm">

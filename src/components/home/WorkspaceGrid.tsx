@@ -23,8 +23,9 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
 
   // Filter workspaces based on search query
   const filteredWorkspaces = useMemo(() => {
-    if (!searchQuery.trim()) return workspaces;
-    const query = searchQuery.toLowerCase();
+    const trimmedQuery = searchQuery.trim();
+    if (!trimmedQuery) return workspaces;
+    const query = trimmedQuery.toLowerCase();
     return workspaces.filter((w) =>
       w.name.toLowerCase().includes(query)
     );

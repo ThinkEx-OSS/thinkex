@@ -55,11 +55,12 @@ export function HomeTopBar({ scrollY, searchQuery, onSearchChange }: HomeTopBarP
         )}
       >
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" aria-hidden="true" />
           <Input
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search workspaces..."
+            aria-label="Search workspaces"
             className={cn(
               "w-96 pl-9 h-9",
               "bg-background/80 backdrop-blur-xl",

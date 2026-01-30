@@ -35,6 +35,24 @@ export function useSmokeSimulation({
   const frameCountRef = useRef(0);
   const [grid, setGrid] = useState<SmokeCell[][]>([]);
 
+  // Store frequently-changing values in refs to avoid restarting RAF loop
+  const mousePositionRef = useRef(mousePosition);
+  const heroCenterRef = useRef(heroCenter);
+  const heroGlowIntensityRef = useRef(heroGlowIntensity);
+
+  // Keep refs in sync with props
+  useEffect(() => {
+    mousePositionRef.current = mousePosition;
+  }, [mousePosition]);
+
+  useEffect(() => {
+    heroCenterRef.current = heroCenter;
+  }, [heroCenter]);
+
+  useEffect(() => {
+    heroGlowIntensityRef.current = heroGlowIntensity;
+  }, [heroGlowIntensity]);
+
   // Initialize grid
   useEffect(() => {
     const newGrid: SmokeCell[][] = [];
@@ -200,19 +218,24 @@ export function useSmokeSimulation({
     const animate = () => {
       frameCountRef.current++;
 
+      // Read from refs for latest values without restarting the loop
+      const currentMousePos = mousePositionRef.current;
+      const currentHeroCenter = heroCenterRef.current;
+      const currentHeroGlow = heroGlowIntensityRef.current;
+
       // Clear smoke around mouse cursor
       clearSmokeAroundPoint(
-        mousePosition.x,
-        mousePosition.y,
+        currentMousePos.x,
+        currentMousePos.y,
         SMOKE_CONFIG.CLEAR_RADIUS,
         SMOKE_CONFIG.CLEAR_STRENGTH
       );
 
       // Clear smoke around hero (permanent clear zone)
       clearSmokeAroundPoint(
-        heroCenter.x,
-        heroCenter.y,
-        SMOKE_CONFIG.HERO_CLEAR_RADIUS * (0.5 + heroGlowIntensity * 0.5),
+        currentHeroCenter.x,
+        currentHeroCenter.y,
+        SMOKE_CONFIG.HERO_CLEAR_RADIUS * (0.5 + currentHeroGlow * 0.5),
         SMOKE_CONFIG.CLEAR_STRENGTH * 0.5,
         true // permanent
       );
@@ -241,9 +264,6 @@ export function useSmokeSimulation({
     };
   }, [
     isActive,
-    mousePosition,
-    heroCenter,
-    heroGlowIntensity,
     clearSmokeAroundPoint,
     applyDiffusion,
     refillSmoke,

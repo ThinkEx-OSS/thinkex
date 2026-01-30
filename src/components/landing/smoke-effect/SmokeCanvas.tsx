@@ -101,6 +101,8 @@ export function useSmokeCanvasMask({
 }: Omit<SmokeCanvasProps, "onMaskReady">) {
   const [maskUrl, setMaskUrl] = useState<string | null>(null);
   const frameCountRef = useRef(0);
+  const rafIdRef = useRef<number | null>(null);
+  const isMountedRef = useRef(true);
 
   const containerAspect = width / height || 1.6;
 
@@ -122,11 +124,22 @@ export function useSmokeCanvasMask({
     }
   }, [width, height, canvasRef]);
 
+  // Track mounted state for cleanup
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // Generate mask URL periodically
   useEffect(() => {
     if (!isActive) return;
 
     const updateMask = () => {
+      // Stop if unmounted or inactive
+      if (!isMountedRef.current) return;
+
       frameCountRef.current++;
 
       // Only update every N frames for performance
@@ -142,11 +155,17 @@ export function useSmokeCanvasMask({
         }
       }
 
-      requestAnimationFrame(updateMask);
+      // Store the latest RAF id for proper cleanup
+      rafIdRef.current = requestAnimationFrame(updateMask);
     };
 
-    const rafId = requestAnimationFrame(updateMask);
-    return () => cancelAnimationFrame(rafId);
+    rafIdRef.current = requestAnimationFrame(updateMask);
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+    };
   }, [isActive, canvasRef]);
 
   return { maskUrl, canvasRef };
