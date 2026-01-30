@@ -69,7 +69,7 @@ export function HomeContent() {
           />
           
           <h1 className="text-2xl md:text-3xl font-light text-foreground mb-10 relative z-10">
-            What's on your mind?
+            What we think, we become.
           </h1>
           <div className="flex justify-center w-full relative z-10">
             <HomePromptInput />
