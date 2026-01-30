@@ -24,12 +24,15 @@ export interface FloatingCardData {
 interface FloatingCardProps {
     data: FloatingCardData;
     className?: string;
+    breatheDelay?: number;
 }
 
-export function FloatingCard({ data, className }: FloatingCardProps) {
-    // Rotation removed forcefully
-    // const rotationStyle = data.rotation ? { transform: `rotate(${data.rotation}deg)` } : {};
-    const rotationStyle = {};
+export function FloatingCard({ data, className, breatheDelay = 0 }: FloatingCardProps) {
+    // Animation style for breathing effect
+    const animationStyle: React.CSSProperties = {
+        animation: 'floatingCardBreathe 8s ease-in-out infinite',
+        animationDelay: `${breatheDelay}s`,
+    };
 
     // Base card styles using the color utilities
     const baseColor = data.color || '#3B82F6'; // Default blue
@@ -41,7 +44,7 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
         return (
             <div
                 className={cn("relative group mb-4 break-inside-avoid", className)}
-                style={rotationStyle}
+                style={animationStyle}
             >
                 <div
                     className="relative w-full aspect-[1.3] rounded-md overflow-hidden select-none"
@@ -84,12 +87,13 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
         return (
             <div
                 className={cn("relative group mb-4 break-inside-avoid", className)}
-                style={rotationStyle}
+                style={animationStyle}
             >
                 <div
-                    className="w-full aspect-[1.2] rounded-md border p-4 flex flex-col overflow-hidden select-none bg-[#1C1C1C] shadow-sm"
+                    className="w-full aspect-[1.2] rounded-md border p-4 flex flex-col overflow-hidden select-none shadow-sm"
                     style={{
                         borderColor: borderColor,
+                        backgroundColor: bodyBgColor,
                     }}
                 >
                     {/* Quiz Header */}
@@ -131,13 +135,10 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
     }
 
     if (data.type === 'flashcard') {
-        const flashcardBg = data.color ? getCardColorCSS(data.color, 0.9) : '#1e1e1e'; // Higher opacity for flashcard front
-        const textColor = data.color ? 'white' : 'white';
-
         return (
             <div
                 className={cn("relative group mb-4 break-inside-avoid", className)}
-                style={rotationStyle}
+                style={animationStyle}
             >
                 <div className="relative w-full aspect-[1.4] select-none">
                     {/* Stack Tabs - behind */}
@@ -154,7 +155,7 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
                     <div
                         className="absolute inset-0 rounded-md border flex items-center justify-center p-6 text-center shadow-sm"
                         style={{
-                            backgroundColor: '#1e1e1e', // Dark background for flashcard mimics real app typically
+                            backgroundColor: bodyBgColor,
                             borderColor: borderColor,
                         }}
                     >
@@ -180,14 +181,13 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
         return (
             <div
                 className={cn("relative group mb-4 break-inside-avoid", className)}
-                style={rotationStyle}
+                style={animationStyle}
             >
                 <div
-                    className="w-full aspect-[0.8] rounded-md border p-4 flex flex-col overflow-hidden select-none bg-[#1e1e1e] shadow-sm"
+                    className="w-full aspect-[0.8] rounded-md border p-4 flex flex-col overflow-hidden select-none shadow-sm"
                     style={{
                         borderColor: borderColor,
-                        // backgroundColor: bodyBgColor // Notes usually have their own bg or use the color tint
-                        backgroundColor: '#1C1C1C', // Dark note background
+                        backgroundColor: bodyBgColor,
                         ...(data.aspectRatio ? { aspectRatio: data.aspectRatio } : {})
                     }}
                 >
@@ -215,23 +215,24 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
         return (
             <div
                 className={cn("relative group mb-4 break-inside-avoid", className)}
-                style={rotationStyle}
+                style={animationStyle}
             >
                 <div
-                    className="w-full aspect-[0.75] rounded-md border p-0 flex flex-col overflow-hidden select-none bg-[#2A2A2A] shadow-sm"
+                    className="w-full aspect-[0.75] rounded-md border p-0 flex flex-col overflow-hidden select-none shadow-sm"
                     style={{
                         borderColor: borderColor,
+                        backgroundColor: bodyBgColor,
                         ...(data.aspectRatio ? { aspectRatio: data.aspectRatio } : {})
                     }}
                 >
                     {/* Header */}
-                    <div className="p-3 border-b border-white/10 bg-[#525659] flex items-center gap-2">
+                    <div className="p-3 border-b border-white/10 flex items-center gap-2" style={{ backgroundColor: getCardColorCSS(baseColor, 0.5) }}>
                         <div className="w-3 h-3 rounded-full bg-red-500/50" />
                         <h3 className="text-white/40 font-medium text-xs truncate flex-1">{data.title || "Document.pdf"}</h3>
                     </div>
 
                     {/* PDF Preview Mimic */}
-                    <div className="flex-1 p-4 bg-[#525659] flex items-center justify-center relative">
+                    <div className="flex-1 p-4 flex items-center justify-center relative" style={{ backgroundColor: getCardColorCSS(baseColor, 0.5) }}>
                         <div className="w-full h-full bg-white/10 rounded-sm shadow-lg transform scale-95 origin-top backdrop-blur-sm p-2 flex flex-col gap-2">
                             <div className="w-3/4 h-2 bg-white/20 rounded-sm" />
                             <div className="w-full h-2 bg-white/10 rounded-sm" />
@@ -250,9 +251,9 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
         return (
             <div
                 className={cn("relative group mb-4 break-inside-avoid", className)}
-                style={rotationStyle}
+                style={animationStyle}
             >
-                <div className="relative w-full aspect-video rounded-md overflow-hidden border border-white/10 shadow-sm select-none bg-black">
+                <div className="relative w-full aspect-video rounded-md overflow-hidden border shadow-sm select-none" style={{ borderColor: borderColor, backgroundColor: bodyBgColor }}>
                     {data.thumbnailUrl ? (
                         <Image
                             src={data.thumbnailUrl}
@@ -262,7 +263,7 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
                             sizes="(max-width: 768px) 50vw, 33vw"
                         />
                     ) : (
-                        <div className="w-full h-full bg-red-900/20 flex items-center justify-center">
+                        <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: bodyBgColor }}>
                             <Play className="w-8 h-8 text-white/50" />
                         </div>
                     )}
