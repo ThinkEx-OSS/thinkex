@@ -157,7 +157,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   // Delete workspace
   const deleteWorkspace = useCallback(
     async (workspaceId: string) => {
-      deleteWorkspaceMutation.mutate(workspaceId);
+      await deleteWorkspaceMutation.mutateAsync(workspaceId);
     },
     [deleteWorkspaceMutation]
   );
