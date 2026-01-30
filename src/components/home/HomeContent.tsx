@@ -26,7 +26,7 @@ export function HomeContent() {
   const [scrollY, setScrollY] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [mousePosition, setMousePosition] = useState({ x: 0.5, y: 0.5 });
-    const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
+  const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
   const [heroVisible, setHeroVisible] = useState(true);
   const [workspacesVisible, setWorkspacesVisible] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -139,8 +139,8 @@ export function HomeContent() {
         shouldFocusSearch={workspacesVisible}
       />
 
-      {/* Scrollable Content - scroll-pt-20 creates 80px hero peek when snapped to workspaces */}
-      <div ref={scrollRef} className="relative h-full w-full overflow-y-auto snap-y snap-mandatory scroll-pt-20">
+      {/* Scrollable Content */}
+      <div ref={scrollRef} className="relative h-full w-full overflow-y-auto">
         {/* Floating Card Background with spotlight reveal effect */}
         <div className="absolute inset-x-0 top-0 h-[185vh] z-0 select-none overflow-hidden">
           <FloatingWorkspaceCards
@@ -158,7 +158,7 @@ export function HomeContent() {
         />
 
         {/* Hero Section - Reduced height so "Recent workspaces" text peeks at bottom */}
-        <div ref={heroRef} className="relative z-10 h-[85vh] flex flex-col items-center justify-center text-center px-6 snap-start">
+        <div ref={heroRef} className="relative z-10 h-[85vh] flex flex-col items-center justify-center text-center px-6">
           <div className="w-full max-w-2xl relative">
             {/* Hero glow - intensifies on mouse approach, slight purple hue */}
             <div
@@ -209,7 +209,7 @@ export function HomeContent() {
         </div>
 
         {/* Workspaces Section - Allow scrolling within */}
-        <div ref={workspacesRef} className="relative z-10 px-6 pb-8 pt-8 min-h-screen snap-start snap-always scroll-mt-0 bg-gradient-to-b from-transparent via-background to-black">
+        <div ref={workspacesRef} className="relative z-10 px-6 pb-8 pt-8 min-h-screen bg-gradient-to-b from-transparent via-background to-black">
           <div className="w-full max-w-6xl mx-auto h-full">
             {/* Your Workspaces */}
             <div className="bg-sidebar rounded-md p-6">

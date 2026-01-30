@@ -495,6 +495,7 @@ export function DashboardPage() {
     currentWorkspace,
     loadingCurrentWorkspace,
     loadingWorkspaces,
+    markWorkspaceOpened,
   } = useWorkspaceContext();
 
   const currentWorkspaceId = currentWorkspace?.id || null;
@@ -513,16 +514,11 @@ export function DashboardPage() {
     // Only track if this is a different workspace than last time
     if (lastTrackedWorkspaceIdRef.current === currentWorkspaceId) return;
 
-    // Track the open
-    fetch(`/api/workspaces/${currentWorkspaceId}/track-open`, {
-      method: 'POST',
-    }).catch((error) => {
-      // Silently fail - tracking is not critical
-      console.error('Failed to track workspace open:', error);
-    });
+    // Track the open via context (optimistically updates cache)
+    markWorkspaceOpened(currentWorkspaceId);
 
     lastTrackedWorkspaceIdRef.current = currentWorkspaceId;
-  }, [currentWorkspaceId]);
+  }, [currentWorkspaceId, markWorkspaceOpened]);
 
   // Reset search query when workspace changes
   const setSearchQuery = useUIStore((state) => state.setSearchQuery);

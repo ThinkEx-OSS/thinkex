@@ -34,6 +34,7 @@ interface WorkspaceContextType {
   // Actions
   switchWorkspace: (slug: string) => void;
   deleteWorkspace: (workspaceId: string) => Promise<void>;
+  markWorkspaceOpened: (workspaceId: string) => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextType | null>(null);
@@ -172,7 +173,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       queryClient.setQueryData(['workspaces'], (old: WorkspaceWithState[] | undefined) => {
         if (!old) return [];
         const remainingWorkspaces = old.filter((w) => w.id !== deletedWorkspaceId);
-        
+
         // If we deleted the current workspace, switch to first available
         if (deletedWorkspaceId === currentWorkspaceId) {
           if (remainingWorkspaces.length > 0) {
@@ -181,10 +182,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
             router.push("/home");
           }
         }
-        
+
         return remainingWorkspaces;
       });
-      
+
       toast.success("Workspace deleted successfully");
     },
     onError: () => {
@@ -208,6 +209,39 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     });
   }, [queryClient]);
 
+  // Track workspace open with optimistic update
+  const markWorkspaceOpened = useCallback((workspaceId: string) => {
+    // 1. Optimistic update: Move to top and update lastOpenedAt
+    queryClient.setQueryData(['workspaces'], (old: WorkspaceWithState[] | undefined) => {
+      if (!old) return [];
+
+      const now = new Date().toISOString();
+      const workspaceIndex = old.findIndex(w => w.id === workspaceId);
+
+      if (workspaceIndex === -1) return old;
+
+      const workspace = { ...old[workspaceIndex], lastOpenedAt: now };
+      const newWorkspaces = [...old];
+
+      // Remove from current position
+      newWorkspaces.splice(workspaceIndex, 1);
+
+      // Add to front (assuming recent first sort)
+      newWorkspaces.unshift(workspace);
+
+      return newWorkspaces;
+    });
+
+    // 2. Fire and forget API call
+    fetch(`/api/workspaces/${workspaceId}/track-open`, {
+      method: "POST",
+    }).catch((error) => {
+      console.error("Failed to track workspace open:", error);
+      // We could revert the optimistic update here if strict consistency is needed,
+      // but for "recent workspaces" it's acceptable to keep it until next refetch.
+    });
+  }, [queryClient]);
+
   const value: WorkspaceContextType = {
     workspaces,
     loadingWorkspaces,
@@ -218,6 +252,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     currentSlug,
     switchWorkspace,
     deleteWorkspace,
+    markWorkspaceOpened,
   };
 
   return (
