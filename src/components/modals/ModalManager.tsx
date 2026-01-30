@@ -1,7 +1,6 @@
 import type { Item, ItemData } from "@/lib/workspace-state/types";
 import CardDetailModal from "./CardDetailModal";
 import PDFViewerModal from "./PDFViewerModal";
-import FlashcardModal from "./FlashcardModal";
 import { VersionHistoryModal } from "@/components/workspace/VersionHistoryModal";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 import { useUIStore } from "@/lib/stores/ui-store";
@@ -47,11 +46,7 @@ export function ModalManager({
   const setMaximizedItemId = useUIStore((state) => state.setMaximizedItemId);
 
   // Find the current item from the items array using live data
-  // Logic: 
-  // 1. If maximizedItemId is set, show that item (fullscreen).
-  // 2. If no maximized item, check openPanelIds[0] (primary panel).
-  //    - If it's a Flashcard or PDF, show it (as modal/fullscreen unless PDF viewer logic differs).
-  //    - If standard CardDetailModal, ONLY show if maximized.
+  // All item types (notes, flashcards, etc.) are shown only when maximized
 
   const primaryPanelId = openPanelIds[0] ?? null;
   const activeItemId = maximizedItemId || primaryPanelId;
@@ -71,34 +66,17 @@ export function ModalManager({
 
   return (
     <>
-      {/* Card Detail Modal, PDF Viewer Modal, or Flashcard Modal */}
-      {/* 
-          Modal Logic:
-          - PDF: Show if maximized (or dedicated modal mode?) -> Assuming previously isItemMaximized logic applied
-          - Flashcard: Always show modal (it doesn't have a panel mode?)
-          - CardDetail: Show ONLY if maximized
-       */}
-      {activeItemId && currentItem && (
+      {/* Card Detail Modal or PDF Viewer Modal - only shown when item is maximized */}
+      {activeItemId && currentItem && maximizedItemId === currentItem.id && (
         currentItem.type === 'pdf' ? (
-          maximizedItemId === currentItem.id ? (
-            <PDFViewerModal
-              key={currentItem.id}
-              item={currentItem}
-              isOpen={true}
-              onClose={() => handleClose(currentItem.id)}
-              onUpdateItem={(updates) => onUpdateItem(currentItem.id, updates)}
-            />
-          ) : null
-        ) : currentItem.type === 'flashcard' ? (
-          <FlashcardModal
+          <PDFViewerModal
             key={currentItem.id}
             item={currentItem}
             isOpen={true}
             onClose={() => handleClose(currentItem.id)}
             onUpdateItem={(updates) => onUpdateItem(currentItem.id, updates)}
-            onUpdateItemData={(updater) => onUpdateItemData(currentItem.id, updater)}
           />
-        ) : maximizedItemId === currentItem.id ? (
+        ) : (
           <CardDetailModal
             key={currentItem.id}
             item={currentItem}
@@ -108,7 +86,7 @@ export function ModalManager({
             onUpdateItemData={(updater) => onUpdateItemData(currentItem.id, updater)}
             onFlushPendingChanges={onFlushPendingChanges}
           />
-        ) : null
+        )
       )}
 
       {/* Version History Modal */}
