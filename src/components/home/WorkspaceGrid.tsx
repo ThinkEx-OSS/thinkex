@@ -31,14 +31,15 @@ export function WorkspaceGrid() {
       setIsCreatingWorkspace(true);
       hasAttemptedWelcomeWorkspace.current = true;
       try {
-        const res = await fetch("/api/guest/create-welcome-workspace", {
-          method: "POST",
-        });
+        console.log("Welcome workspace creation disabled");
+        // const res = await fetch("/api/guest/create-welcome-workspace", {
+        //   method: "POST",
+        // });
 
-        if (res.ok) {
-          // Reload workspaces to show the newly created one
-          await loadWorkspaces();
-        }
+        // if (res.ok) {
+        //   // Reload workspaces to show the newly created one
+        //   await loadWorkspaces();
+        // }
       } catch (error) {
         console.error("Failed to create welcome workspace:", error);
       } finally {

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useSession } from "@/lib/auth-client";
@@ -39,10 +40,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
 
-  // Workspace list state
-  const [workspaces, setWorkspaces] = useState<WorkspaceWithState[]>([]);
-  const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
   const [isCreatingWelcomeWorkspace, setIsCreatingWelcomeWorkspace] = useState(false);
 
   // Derive current slug synchronously from pathname (no useEffect delay)
@@ -57,21 +56,28 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     return null;
   }, [pathname]);
 
-  // Load workspaces from API
-  const loadWorkspaces = useCallback(async () => {
-    setLoadingWorkspaces(true);
-    try {
+  // Fetch workspaces with TanStack Query
+  const { data: workspacesData, isLoading: loadingWorkspaces } = useQuery({
+    queryKey: ['workspaces'],
+    queryFn: async () => {
       const response = await fetch("/api/workspaces");
-      if (response.ok) {
-        const data = await response.json();
-        setWorkspaces(data.workspaces || []);
+      if (!response.ok) {
+        throw new Error('Failed to fetch workspaces');
       }
-    } catch (error) {
-      console.error("[WORKSPACE CONTEXT] Error loading workspaces:", error);
-    } finally {
-      setLoadingWorkspaces(false);
-    }
-  }, []);
+      const data = await response.json();
+      return data.workspaces || [];
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    retry: 3,
+  });
+
+  const workspaces = workspacesData || [];
+
+  // Load workspaces function for compatibility
+  const loadWorkspaces = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+  }, [queryClient]);
 
   // Create welcome workspace for anonymous users
   const createWelcomeWorkspace = useCallback(async () => {
@@ -79,19 +85,20 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
     setIsCreatingWelcomeWorkspace(true);
     try {
-      const response = await fetch("/api/guest/create-welcome-workspace", {
-        method: "POST",
-      });
+      console.log("Welcome workspace creation disabled");
+      // const response = await fetch("/api/guest/create-welcome-workspace", {
+      //   method: "POST",
+      // });
 
-      if (response.ok) {
-        const data = await response.json();
-        // Reload workspaces to get the new one
-        await loadWorkspaces();
-        // Redirect to home (workspace is created but user goes to home)
-        router.push("/home");
-      } else {
-        console.error("[WORKSPACE CONTEXT] Failed to create welcome workspace");
-      }
+      // if (response.ok) {
+      //   const data = await response.json();
+      //   // Reload workspaces to get the new one
+      //   await loadWorkspaces();
+      //   // Redirect to home (workspace is created but user goes to home)
+      //   router.push("/home");
+      // } else {
+      //   console.error("[WORKSPACE CONTEXT] Failed to create welcome workspace");
+      // }
     } catch (error) {
       console.error("[WORKSPACE CONTEXT] Error creating welcome workspace:", error);
     } finally {
@@ -99,10 +106,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isCreatingWelcomeWorkspace, loadWorkspaces, router]);
 
-  // Load workspaces on mount
-  useEffect(() => {
-    loadWorkspaces();
-  }, [loadWorkspaces]);
+  // TanStack Query automatically fetches on mount, no need for manual trigger
 
   // Note: Welcome workspace creation is now handled lazily in WorkspaceGrid
   // This prevents jarring dashboard flash and provides better UX
@@ -115,82 +119,114 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     [router]
   );
 
+  // Delete workspace mutation
+  const deleteWorkspaceMutation = useMutation({
+    mutationFn: async (workspaceId: string) => {
+      const response = await fetch(`/api/workspaces/${workspaceId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete workspace');
+      }
+      return workspaceId;
+    },
+    onSuccess: (deletedWorkspaceId) => {
+      // Update cache immediately
+      queryClient.setQueryData(['workspaces'], (old: WorkspaceWithState[] | undefined) => {
+        if (!old) return [];
+        const remainingWorkspaces = old.filter((w) => w.id !== deletedWorkspaceId);
+        
+        // If we deleted the current workspace, switch to first available
+        if (deletedWorkspaceId === currentWorkspaceId) {
+          if (remainingWorkspaces.length > 0) {
+            switchWorkspace(remainingWorkspaces[0].slug || remainingWorkspaces[0].id);
+          } else {
+            router.push("/home");
+          }
+        }
+        
+        return remainingWorkspaces;
+      });
+      
+      toast.success("Workspace deleted successfully");
+    },
+    onError: () => {
+      toast.error("Failed to delete workspace");
+    },
+  });
+
   // Delete workspace
   const deleteWorkspace = useCallback(
     async (workspaceId: string) => {
-      try {
-        const response = await fetch(`/api/workspaces/${workspaceId}`, {
-          method: "DELETE",
-        });
-
-        if (response.ok) {
-          // Update local state immediately
-          const remainingWorkspaces = workspaces.filter((w) => w.id !== workspaceId);
-          setWorkspaces(remainingWorkspaces);
-
-          // If we deleted the current workspace, switch to first available
-          if (workspaceId === currentWorkspaceId) {
-            if (remainingWorkspaces.length > 0) {
-              switchWorkspace(remainingWorkspaces[0].slug || remainingWorkspaces[0].id);
-            } else {
-              router.push("/home");
-            }
-          }
-
-          toast.success("Workspace deleted successfully");
-        } else {
-          toast.error("Failed to delete workspace");
-        }
-      } catch (error) {
-        console.error("[WORKSPACE CONTEXT] Error deleting workspace:", error);
-        toast.error("Failed to delete workspace");
-      }
+      await deleteWorkspaceMutation.mutateAsync(workspaceId);
     },
-    [workspaces, switchWorkspace, router, currentWorkspaceId]
+    [deleteWorkspaceMutation]
   );
 
   // Optimistically update a single workspace locally without refetching
   const updateWorkspaceLocal = useCallback((workspaceId: string, updates: Partial<WorkspaceWithState>) => {
-    setWorkspaces((prev) => prev.map((w) => (w.id === workspaceId ? { ...w, ...updates } : w)));
-  }, []);
+    queryClient.setQueryData(['workspaces'], (old: WorkspaceWithState[] | undefined) => {
+      if (!old) return [];
+      return old.map((w) => (w.id === workspaceId ? { ...w, ...updates } : w));
+    });
+  }, [queryClient]);
+
+  // Reorder workspaces mutation
+  const reorderWorkspacesMutation = useMutation({
+    mutationFn: async (workspaceIds: string[]) => {
+      const response = await fetch("/api/workspaces/reorder", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ workspaceIds }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to reorder workspaces');
+      }
+      return workspaceIds;
+    },
+    onMutate: async (workspaceIds) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['workspaces'] });
+      
+      // Snapshot the previous value
+      const previousWorkspaces = queryClient.getQueryData(['workspaces']) as WorkspaceWithState[] | undefined;
+      
+      // Optimistically update
+      queryClient.setQueryData(['workspaces'], (old: WorkspaceWithState[] | undefined) => {
+        if (!old) return [];
+        // Reorder workspaces based on new order
+        const reordered = workspaceIds
+          .map((id) => old.find((w) => w.id === id))
+          .filter((w): w is WorkspaceWithState => w !== undefined);
+
+        // Add any workspaces not in the reorder list (shouldn't happen, but safety)
+        const missing = old.filter((w) => !workspaceIds.includes(w.id));
+
+        return [...reordered, ...missing];
+      });
+      
+      return { previousWorkspaces };
+    },
+    onError: (err, workspaceIds, context) => {
+      // Revert on error
+      if (context?.previousWorkspaces) {
+        queryClient.setQueryData(['workspaces'], context.previousWorkspaces);
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+    },
+  });
 
   // Reorder workspaces
   const reorderWorkspaces = useCallback(
     async (workspaceIds: string[]) => {
-      try {
-        // Optimistically update local state
-        setWorkspaces((prev) => {
-          // Reorder workspaces based on new order
-          const reordered = workspaceIds
-            .map((id) => prev.find((w) => w.id === id))
-            .filter((w): w is WorkspaceWithState => w !== undefined);
-
-          // Add any workspaces not in the reorder list (shouldn't happen, but safety)
-          const missing = prev.filter((w) => !workspaceIds.includes(w.id));
-
-          return [...reordered, ...missing];
-        });
-
-        // Persist to backend
-        const response = await fetch("/api/workspaces/reorder", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ workspaceIds }),
-        });
-
-        if (!response.ok) {
-          // Revert on error by reloading
-          loadWorkspaces();
-        }
-      } catch (error) {
-        console.error("[WORKSPACE CONTEXT] Error reordering workspaces:", error);
-        // Revert on error by reloading
-        loadWorkspaces();
-      }
+      reorderWorkspacesMutation.mutate(workspaceIds);
     },
-    [loadWorkspaces, workspaces]
+    [reorderWorkspacesMutation]
   );
 
   const value: WorkspaceContextType = {
