@@ -118,7 +118,7 @@ export function FloatingWorkspaceCards({
             {/* Cards layer - darkened */}
             <div
                 className={cn(
-                    "absolute inset-0 w-[120%] -ml-[10%] -mt-[5%] columns-2 md:columns-3 lg:columns-6 gap-4 md:gap-6 lg:gap-8 opacity-30 transition-transform duration-200 ease-out pointer-events-none",
+                    "absolute inset-0 w-[120%] -ml-[10%] -mt-[5%] columns-2 md:columns-3 lg:columns-6 gap-4 md:gap-6 lg:gap-8 opacity-30 transition-transform duration-800 ease-out pointer-events-none",
                     className
                 )}
                 style={{

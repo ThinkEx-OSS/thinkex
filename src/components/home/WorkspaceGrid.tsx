@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { FolderPlus, MoreVertical } from "lucide-react";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import CreateWorkspaceModal from "@/components/workspace/CreateWorkspaceModal";
 import { useSession } from "@/lib/auth-client";
 import { IconRenderer } from "@/hooks/use-icon-picker";
 import { cn } from "@/lib/utils";
@@ -16,7 +17,7 @@ interface WorkspaceGridProps {
 }
 
 export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
-  const { setShowCreateWorkspaceModal } = useUIStore();
+  const { showCreateWorkspaceModal, setShowCreateWorkspaceModal } = useUIStore();
   const { workspaces, switchWorkspace, loadWorkspaces } = useWorkspaceContext();
   const { data: session } = useSession();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -227,6 +228,12 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
         open={showSettingsModal}
         onOpenChange={setShowSettingsModal}
         onUpdate={loadWorkspaces}
+      />
+
+      {/* Create Workspace Modal */}
+      <CreateWorkspaceModal
+        open={showCreateWorkspaceModal}
+        onOpenChange={setShowCreateWorkspaceModal}
       />
     </>
   );
