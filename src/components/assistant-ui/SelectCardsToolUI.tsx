@@ -140,32 +140,32 @@ export const SelectCardsToolUI = makeAssistantToolUI<SelectCardsArgs, SelectCard
       );
     } else if (status.type === "complete" && validCount > 0) {
       content = (
-        <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border bg-card/50 text-card-foreground shadow-sm">
-          <div className={cn("flex items-center justify-between gap-2 bg-muted/20 px-4 py-3", "border-b")}>
-            <div className="flex items-center gap-2">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-green-500/10 text-green-600">
+        <div className="my-1 flex w-full flex-col overflow-hidden rounded-md border bg-card/50 text-card-foreground shadow-sm">
+          <div className={cn("flex items-center justify-between gap-2 bg-muted/20 px-2 py-2", "border-b")}>
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <div className="text-blue-400">
                 <CheckIcon className="size-4" />
               </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold">
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-xs font-medium">
                   {validCount} Card{validCount === 1 ? "" : "s"} Selected
                 </span>
-                <span className="text-xs text-muted-foreground">Added to context drawer</span>
+                <span className="text-[10px] text-muted-foreground">Added to context</span>
               </div>
             </div>
           </div>
-          <div className="flex flex-col gap-2 p-4">
-            <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1 p-2">
+            <div className="flex flex-col gap-1">
               {selectedCards.map((card) => (
                 <div
                   key={card.id}
-                  className="flex items-center gap-2 rounded-md border border-border/50 bg-muted/30 px-3 py-2"
+                  className="flex items-center gap-2 rounded-md border border-border/50 bg-muted/30 px-2 py-1"
                 >
-                  <FileText className="size-4 text-muted-foreground" />
+                  <FileText className="size-3 text-muted-foreground" />
                   <div className="flex flex-col flex-1 min-w-0">
-                    <span className="text-sm font-medium truncate">{card.name}</span>
+                    <span className="text-xs font-medium truncate">{card.name}</span>
                     {card.subtitle && (
-                      <span className="text-xs text-muted-foreground truncate">{card.subtitle}</span>
+                      <span className="text-[10px] text-muted-foreground truncate">{card.subtitle}</span>
                     )}
                   </div>
                 </div>

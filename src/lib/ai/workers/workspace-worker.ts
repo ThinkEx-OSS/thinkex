@@ -18,46 +18,46 @@ import type { WorkspaceEvent } from "@/lib/workspace/events";
  * Defensively handles various formats and falls back to safe defaults on parse failure.
  */
 function parseAppendResult(rawResult: string | any): { version: number; conflict: boolean } {
-  // If it's already an object, try to extract version and conflict
-  if (typeof rawResult === 'object' && rawResult !== null) {
-    // Coerce version to number, handling string-typed fields
-    const versionNum = typeof rawResult.version === 'number' 
-      ? rawResult.version 
-      : Number(rawResult.version);
-    const version = isNaN(versionNum) ? 0 : versionNum;
+    // If it's already an object, try to extract version and conflict
+    if (typeof rawResult === 'object' && rawResult !== null) {
+        // Coerce version to number, handling string-typed fields
+        const versionNum = typeof rawResult.version === 'number'
+            ? rawResult.version
+            : Number(rawResult.version);
+        const version = isNaN(versionNum) ? 0 : versionNum;
 
-    // Normalize conflict from boolean or string ('t'/'f'/'true'/'false')
-    let conflict = false;
-    if (typeof rawResult.conflict === 'boolean') {
-      conflict = rawResult.conflict;
-    } else if (typeof rawResult.conflict === 'string') {
-      const conflictStr = rawResult.conflict.toLowerCase().trim();
-      conflict = conflictStr === 't' || conflictStr === 'true';
+        // Normalize conflict from boolean or string ('t'/'f'/'true'/'false')
+        let conflict = false;
+        if (typeof rawResult.conflict === 'boolean') {
+            conflict = rawResult.conflict;
+        } else if (typeof rawResult.conflict === 'string') {
+            const conflictStr = rawResult.conflict.toLowerCase().trim();
+            conflict = conflictStr === 't' || conflictStr === 'true';
+        }
+
+        return { version, conflict };
     }
 
-    return { version, conflict };
-  }
+    // PostgreSQL returns result as string like "(6,t)" - need to parse it
+    // Make regex more lenient: allow whitespace, case-insensitive, accept 'true'/'false'
+    const resultString = typeof rawResult === 'string' ? rawResult : String(rawResult);
+    // Match: (number, t|f|true|false) with optional whitespace
+    const match = resultString.match(/\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i);
 
-  // PostgreSQL returns result as string like "(6,t)" - need to parse it
-  // Make regex more lenient: allow whitespace, case-insensitive, accept 'true'/'false'
-  const resultString = typeof rawResult === 'string' ? rawResult : String(rawResult);
-  // Match: (number, t|f|true|false) with optional whitespace
-  const match = resultString.match(/\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i);
-  
-  if (!match) {
-    logger.error(`[WORKSPACE-WORKER] Failed to parse PostgreSQL result:`, rawResult);
-    // Fall back to safe defaults instead of throwing
-    return { version: 0, conflict: false };
-  }
+    if (!match) {
+        logger.error(`[WORKSPACE-WORKER] Failed to parse PostgreSQL result:`, rawResult);
+        // Fall back to safe defaults instead of throwing
+        return { version: 0, conflict: false };
+    }
 
-  const versionNum = parseInt(match[1], 10);
-  const conflictStr = match[2].toLowerCase();
-  const conflict = conflictStr === 't' || conflictStr === 'true';
+    const versionNum = parseInt(match[1], 10);
+    const conflictStr = match[2].toLowerCase();
+    const conflict = conflictStr === 't' || conflictStr === 'true';
 
-  return {
-    version: isNaN(versionNum) ? 0 : versionNum,
-    conflict,
-  };
+    return {
+        version: isNaN(versionNum) ? 0 : versionNum,
+        conflict,
+    };
 }
 
 /**
@@ -73,13 +73,16 @@ export async function workspaceWorker(
         content?: string; // For notes
         itemId?: string;
 
-        itemType?: "note" | "flashcard" | "quiz"; // Defaults to "note" if undefined
+        itemType?: "note" | "flashcard" | "quiz" | "youtube"; // Defaults to "note" if undefined
         flashcardData?: {
             cards?: { front: string; back: string }[]; // For creating flashcards
             cardsToAdd?: { front: string; back: string }[]; // For updating flashcards (appending)
         };
         quizData?: QuizData; // For creating quizzes
         questionsToAdd?: QuizQuestion[]; // For updating quizzes (appending questions)
+        youtubeData?: {
+            url: string; // For creating youtube cards
+        };
         // Optional: deep research metadata to attach to a note
         deepResearchData?: {
             prompt: string;
@@ -91,7 +94,7 @@ export async function workspaceWorker(
     // For "create" operations, allow parallel execution (bypass queue)
     // For "update" and "delete" operations, serialize via queue
     const allowParallel = action === "create";
-    
+
     return executeWorkspaceOperation(params.workspaceId, async () => {
         try {
             logger.debug("📝 [WORKSPACE-WORKER] Action:", action, params);
@@ -169,6 +172,14 @@ export async function workspaceWorker(
                     itemData = {
                         cards: cardsWithIds
                     };
+                } else if (itemType === "youtube") {
+                    // YouTube type
+                    if (!params.youtubeData || !params.youtubeData.url) {
+                        throw new Error("YouTube data required for youtube card creation");
+                    }
+                    itemData = {
+                        url: params.youtubeData.url
+                    };
                 } else if (itemType === "quiz") {
                     // Quiz type
                     if (!params.quizData) {
@@ -208,7 +219,7 @@ export async function workspaceWorker(
                 const item: Item = {
                     id: itemId,
                     type: itemType,
-                    name: params.title || (itemType === "quiz" ? "New Quiz" : itemType === "flashcard" ? "New Flashcard Deck" : "New Note"),
+                    name: params.title || (itemType === "youtube" ? "YouTube Video" : itemType === "quiz" ? "New Quiz" : itemType === "flashcard" ? "New Flashcard Deck" : "New Note"),
                     subtitle: "",
                     data: itemData,
                     color: getRandomCardColor(),
@@ -256,7 +267,7 @@ export async function workspaceWorker(
                     }
 
                     appendResult = parseAppendResult(eventResult[0].result);
-                    
+
                     // If no conflict, we're done
                     if (!appendResult.conflict) {
                         break;
@@ -266,7 +277,7 @@ export async function workspaceWorker(
                     // This is more efficient than re-reading get_workspace_version
                     baseVersion = appendResult.version;
                     retryCount++;
-                    
+
                     if (retryCount <= maxRetries) {
                         logger.debug(`🔄 [WORKSPACE-WORKER] Version conflict on create, retrying (attempt ${retryCount + 1}/${maxRetries + 1}):`, {
                             expectedVersion: baseVersion - 1,

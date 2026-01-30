@@ -147,7 +147,7 @@ export function Navbar() {
                       size="default"
                       className="rounded-md bg-foreground font-medium text-background transition-all hover:bg-foreground/90"
                     >
-                      <Link href="/guest-setup" prefetch>
+                      <Link href="/home" prefetch>
                         Get Started
                       </Link>
                     </Button>
@@ -246,7 +246,7 @@ export function Navbar() {
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
                         <Link
-                          href="/guest-setup"
+                          href="/home"
                           onClick={() => posthog.capture('navbar-get-started-clicked', { location: 'mobile' })}
                           className="cursor-pointer"
                         >

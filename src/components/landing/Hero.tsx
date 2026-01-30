@@ -93,7 +93,7 @@ export function Hero() {
               size="lg"
               className="h-12 rounded-md bg-foreground px-8 text-base font-medium text-background transition-all hover:bg-foreground/90"
             >
-              <Link id="hero-cta" href="/guest-setup" prefetch>
+              <Link id="hero-cta" href="/home" prefetch>
                 Try for Free
               </Link>
             </Button>

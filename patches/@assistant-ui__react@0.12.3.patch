@@ -1,8 +1,48 @@
-diff --git a/node_modules/@assistant-ui/react/dist/legacy-runtime/runtime-cores/assistant-transport/useToolInvocations.js b/node_modules/@assistant-ui/react/dist/legacy-runtime/runtime-cores/assistant-transport/useToolInvocations.js
-index 0000000..1111111 100644
---- a/node_modules/@assistant-ui/react/dist/legacy-runtime/runtime-cores/assistant-transport/useToolInvocations.js
-+++ b/node_modules/@assistant-ui/react/dist/legacy-runtime/runtime-cores/assistant-transport/useToolInvocations.js
-@@ -117,18 +117,42 @@ export function useToolInvocations({ state, getTools, onResult, setToolStatuses
+diff --git a/dist/legacy-runtime/runtime-cores/assistant-transport/useToolInvocations.js b/dist/legacy-runtime/runtime-cores/assistant-transport/useToolInvocations.js
+index 8a6a9c91f6ae5437977f9b9d2057bdc35dd1228a..4680b8d0149476489b94f462dac93d83f46251d6 100644
+--- a/dist/legacy-runtime/runtime-cores/assistant-transport/useToolInvocations.js
++++ b/dist/legacy-runtime/runtime-cores/assistant-transport/useToolInvocations.js
+@@ -60,22 +60,22 @@ export function useToolInvocations({ state, getTools, onResult, setToolStatuses,
+             .pipeThrough(transform)
+             .pipeThrough(new AssistantMetaTransformStream())
+             .pipeTo(new WritableStream({
+-            write(chunk) {
+-                if (chunk.type === "result") {
+-                    // the tool call result was already set by the backend
+-                    if (lastToolStates.current[chunk.meta.toolCallId]?.hasResult)
+-                        return;
+-                    onResult({
+-                        type: "add-tool-result",
+-                        toolCallId: chunk.meta.toolCallId,
+-                        toolName: chunk.meta.toolName,
+-                        result: chunk.result,
+-                        isError: chunk.isError,
+-                        ...(chunk.artifact && { artifact: chunk.artifact }),
+-                    });
+-                }
+-            },
+-        }));
++                write(chunk) {
++                    if (chunk.type === "result") {
++                        // the tool call result was already set by the backend
++                        if (lastToolStates.current[chunk.meta.toolCallId]?.hasResult)
++                            return;
++                        onResult({
++                            type: "add-tool-result",
++                            toolCallId: chunk.meta.toolCallId,
++                            toolName: chunk.meta.toolName,
++                            result: chunk.result,
++                            isError: chunk.isError,
++                            ...(chunk.artifact && { artifact: chunk.artifact }),
++                        });
++                    }
++                },
++            }));
+         return controller;
+     });
+     const ignoredToolIds = useRef(new Set());
+@@ -117,21 +117,49 @@ export function useToolInvocations({ state, getTools, onResult, setToolStatuses,
+                                 }
                                  else {
                                      if (!content.argsText.startsWith(lastState.argsText)) {
 -                                        // Check if this is key reordering (both are complete JSON)
@@ -22,14 +62,14 @@ index 0000000..1111111 100644
 +                                        if (isArgsTextComplete(content.argsText)) {
 +                                            try {
 +                                                const newArgs = JSON.parse(content.argsText);
-+                                                
++
 +                                                // If old is also complete, verify they're equivalent (just reordered)
 +                                                if (isArgsTextComplete(lastState.argsText)) {
 +                                                    const oldArgs = JSON.parse(lastState.argsText);
 +                                                    // Normalize both by sorting keys and compare
 +                                                    const oldNormalized = JSON.stringify(oldArgs, Object.keys(oldArgs).sort());
 +                                                    const newNormalized = JSON.stringify(newArgs, Object.keys(newArgs).sort());
-+                                                    
++
 +                                                    if (oldNormalized === newNormalized) {
 +                                                        // Same data, just reordered - accept it
 +                                                        lastState.controller.argsText.close();
@@ -57,4 +97,9 @@ index 0000000..1111111 100644
 +                                                // Not valid JSON, fall through to error
 +                                            }
                                          }
-                                         throw new Error(`Tool call argsText can only be appended, not updated: ${content.argsText} does not start with ${lastState.argsText}`);
+-                                        throw new Error(`Tool call argsText can only be appended, not updated: ${content.argsText} does not start with ${lastState.argsText}`);
++                                        throw new Error(`
++Tool call argsText can only be appended, not updated: ${content.argsText} does not start with ${lastState.argsText}`);
+                                     }
+                                     const argsTextDelta = content.argsText.slice(lastState.argsText.length);
+                                     lastState.controller.argsText.append(argsTextDelta);

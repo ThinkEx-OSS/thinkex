@@ -36,7 +36,7 @@ EXAMPLE:
 Math is supported within the front/back content. Use $$...$$ for ALL math expressions (both inline and block). Single $ is for currency only.`,
         inputSchema: zodSchema(
             z.object({
-                title: z.string().optional().describe("The title of the flashcard deck (defaults to 'Flashcard Deck' if not provided)"),
+                title: z.string().nullable().describe("The title of the flashcard deck (defaults to 'Flashcard Deck' if not provided)"),
                 cards: z.array(
                     z.object({
                         front: z.string().describe("The question or term on the front of the card"),
@@ -45,7 +45,7 @@ Math is supported within the front/back content. Use $$...$$ for ALL math expres
                 ).min(1).describe("Array of flashcard objects, each with 'front' and 'back' properties"),
             }).passthrough()
         ),
-        execute: async (input: { title?: string; cards: Array<{ front: string; back: string }> }) => {
+        execute: async (input: { title?: string | null; cards: Array<{ front: string; back: string }> }) => {
             logger.debug("🎴 [CREATE-FLASHCARDS] Tool execution started");
 
             const title = input.title || "Flashcard Deck";

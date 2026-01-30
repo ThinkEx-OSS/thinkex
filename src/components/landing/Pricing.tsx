@@ -31,7 +31,7 @@ const pricingTiers: PricingTier[] = [
       "Collaborative sharing",
     ],
     cta: "Get Started",
-    ctaLink: "/guest-setup",
+    ctaLink: "/home",
   },
   {
     name: "Pro",
@@ -45,7 +45,7 @@ const pricingTiers: PricingTier[] = [
       "Early access to new features",
     ],
     cta: "Start Free",
-    ctaLink: "/guest-setup",
+    ctaLink: "/home",
     highlighted: true,
   },
 ];

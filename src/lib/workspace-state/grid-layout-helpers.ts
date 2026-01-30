@@ -9,7 +9,7 @@ export const DEFAULT_CARD_DIMENSIONS: Record<CardType, { w: number; h: number }>
   pdf: { w: 1, h: 4 },
   flashcard: { w: 2, h: 5 },
   folder: { w: 1, h: 4 },
-  youtube: { w: 2, h: 5 },
+  youtube: { w: 4, h: 10 },
   quiz: { w: 2, h: 13 },
 };
 

@@ -1,5 +1,8 @@
 import { google } from "@ai-sdk/google";
-import { streamText, convertToModelMessages, stepCountIs, tool, zodSchema } from "ai";
+import { streamText, convertToModelMessages, stepCountIs, tool, zodSchema, wrapLanguageModel } from "ai";
+import { devToolsMiddleware } from "@ai-sdk/devtools";
+import { PostHog } from "posthog-node";
+import { withTracing } from "@posthog/ai";
 import type { UIMessage } from "ai";
 import { logger } from "@/lib/utils/logger";
 import { auth } from "@/lib/auth";
@@ -111,8 +114,9 @@ function buildSystemPrompt(baseSystem: string, fileUrls: string[], urlContextUrl
   // Add web search decision-making guidelines
   parts.push(`
 
+
 WEB SEARCH DECISION GUIDELINES:
-You have access to the searchWeb tool. Use the following guidelines to decide when to search vs use internal knowledge:
+You have access to the webSearch tool. Use the following guidelines to decide when to search vs use internal knowledge:
 
 WHEN TO USE INTERNAL KNOWLEDGE (do NOT search):
 - Creative Writing: Writing stories, poems, scripts, or creative content
@@ -133,8 +137,14 @@ When a query requires both current data AND conceptual explanation, do both:
 2. Use internal knowledge for the conceptual/explanatory component  
 3. Synthesize into a cohesive answer
 
+YOUTUBE SEARCH GUIDANCE:
+If the user asks to "add a youtube video" or "search for a video" but does not provide a specific topic (e.g., "add a video for this workspace"), you MUST inference a relevant search query based on the current workspace context, selected cards, or recent conversation history. Do NOT ask the user for a topic if meaningful context is available. Use the 'searchYoutube' tool directly with your inferred query.
+
 CONFIDENCE THRESHOLD:
-If you are uncertain about a fact's accuracy or currency, prefer to search rather than risk providing outdated information.`);
+If you are uncertain about a fact's accuracy or currency, prefer to search rather than risk providing outdated information.
+
+CITATION REQUIREMENT:
+When using search results (grounding), you must include the date of each article/source if available.`);
 
   // Add file detection hint if file URLs are present
   if (fileUrls.length > 0) {
@@ -219,8 +229,24 @@ export async function POST(req: Request) {
     const finalSystemPrompt = systemPromptParts.join('');
 
     // Get model
-    const modelId = body.modelId || "gemini-3-flash-preview";
-    const model = google(modelId);
+    const modelId = body.modelId || "gemini-2.5-flash-lite";
+    // Initialize PostHog client
+    const posthogClient = new PostHog(process.env.POSTHOG_API_KEY || "disabled", {
+      host: process.env.POSTHOG_HOST || "https://us.i.posthog.com",
+      disabled: !process.env.POSTHOG_API_KEY,
+    });
+
+    const model = wrapLanguageModel({
+      model: withTracing(google(modelId), posthogClient, {
+        posthogDistinctId: userId || "anonymous",
+        posthogProperties: {
+          workspaceId,
+          activeFolderId,
+          modelId,
+        },
+      }),
+      middleware: process.env.NODE_ENV === 'development' ? devToolsMiddleware() : [],
+    });
 
     // Create tools using the modular factory
     const tools = createChatTools({
@@ -235,12 +261,27 @@ export async function POST(req: Request) {
       count: cleanedMessages.length,
     });
 
+    // Prepare provider options
+    let providerOptions: any = {
+      google: {
+        grounding: {
+          googleSearchRetrieval: {
+            dynamicRetrievalConfig: {
+              mode: 'MODE_DYNAMIC',
+            },
+          },
+        },
+      },
+    };
+
     const result = streamText({
       model: model,
+      temperature: 0,
       system: finalSystemPrompt,
       messages: cleanedMessages,
       stopWhen: stepCountIs(25),
       tools,
+      providerOptions,
       onFinish: ({ usage, finishReason }) => {
         const usageInfo = {
           inputTokens: usage?.inputTokens,
@@ -256,14 +297,14 @@ export async function POST(req: Request) {
           } : undefined,
           finishReason,
         };
-        
+
         logger.info("📊 [CHAT-API] Final Token Usage:", usageInfo);
       },
       onStepFinish: (result) => {
         // stepType exists in runtime but may not be in type definitions
         const stepResult = result as typeof result & { stepType?: "initial" | "continue" | "tool-result" };
         const { stepType, usage, finishReason } = stepResult;
-        
+
         if (usage) {
           const stepUsageInfo = {
             stepType: stepType || 'unknown',
@@ -280,7 +321,7 @@ export async function POST(req: Request) {
               noCacheTokens: (usage as any).inputTokenDetails?.noCacheTokens,
             } : undefined,
           };
-          
+
           logger.debug(`📊 [CHAT-API] Step Usage (${stepType || 'unknown'}):`, stepUsageInfo);
         }
       },

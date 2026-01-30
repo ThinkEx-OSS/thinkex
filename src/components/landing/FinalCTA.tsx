@@ -39,7 +39,7 @@ export function FinalCTA() {
               size="lg"
               className="h-12 rounded-md bg-foreground px-8 text-base font-medium text-background transition-all hover:bg-foreground/90"
             >
-              <Link href="/guest-setup" prefetch>
+              <Link href="/home" prefetch>
                 Get Started
               </Link>
             </Button>

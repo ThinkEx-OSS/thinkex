@@ -93,9 +93,6 @@ interface WorkspaceSectionProps {
   titleInputRef: RefObject<HTMLInputElement>;
   scrollAreaRef: RefObject<HTMLDivElement>;
 
-  // Modal
-  modalManager?: React.ReactNode;
-
   // Workspace metadata
   workspaceTitle?: string;
   workspaceIcon?: string | null;
@@ -134,7 +131,6 @@ export function WorkspaceSection({
   onShowHistory,
   titleInputRef,
   scrollAreaRef,
-  modalManager,
   workspaceTitle,
   workspaceIcon,
   workspaceColor,
@@ -425,8 +421,8 @@ export function WorkspaceSection({
               "relative min-h-full flex flex-col",
               showJsonView ? "h-full" : "",
             )}>
-              {/* Show skeleton when loading workspaces, resolving workspace ID, or loading workspace events */}
-              {loadingWorkspaces || (!currentWorkspaceId && currentSlug) || isLoadingWorkspace ? (
+              {/* Show skeleton until workspace content is loaded */}
+              {(!currentWorkspaceId && currentSlug) || (currentWorkspaceId && isLoadingWorkspace) ? (
                 <WorkspaceSkeleton />
               ) : (
                 /* Workspace content - assumes workspace exists (home route handles no-workspace state) */
@@ -509,71 +505,55 @@ export function WorkspaceSection({
               </ContextMenuItem>
             )}
 
-            <ContextMenuSub>
-              <ContextMenuSubTrigger className="flex items-center gap-2 cursor-pointer">
-                <LuBook className="size-4 text-muted-foreground" />
-                Learn
-              </ContextMenuSubTrigger>
-              <ContextMenuSubContent>
-                <ContextMenuItem
-                  onSelect={() => {
-                    if (addItem) {
-                      addItem("flashcard");
-                    }
-                  }}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <PiCardsThreeBold className="size-4 text-muted-foreground rotate-180" />
-                  Flashcards
-                </ContextMenuItem>
-                <ContextMenuItem
-                  onSelect={() => {
-                    // Open chat if closed
-                    if (setIsChatExpanded && !isChatExpanded && isDesktop) {
-                      setIsChatExpanded(true);
-                    }
-                    // Fill composer with quiz creation prompt
-                    aui.composer().setText("Create a quiz about ");
-                    // Focus the composer input
-                    focusComposerInput();
-                    toast.success("Quiz creation started");
-                  }}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <Brain className="size-4" />
-                  Quiz
-                </ContextMenuItem>
-              </ContextMenuSubContent>
-            </ContextMenuSub>
-            <ContextMenuSub>
-              <ContextMenuSubTrigger className="flex items-center gap-2 cursor-pointer">
-                <MoreHorizontal className="size-4 text-muted-foreground" />
-                Other
-              </ContextMenuSubTrigger>
-              <ContextMenuSubContent>
-                <ContextMenuItem
-                  onSelect={() => setShowYouTubeDialog(true)}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <Play className="size-4" />
-                  YouTube
-                </ContextMenuItem>
-                <ContextMenuItem
-                  onSelect={() => {
-                    toast.success("Deep Research action selected");
-                    setSelectedActions(["deep-research"]);
-                    aui.composer().setText("I want to do research on ");
-                    if (setIsChatExpanded && !isChatExpanded && isDesktop) {
-                      setIsChatExpanded(true);
-                    }
-                  }}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <Globe className="size-4" />
-                  Deep Research
-                </ContextMenuItem>
-              </ContextMenuSubContent>
-            </ContextMenuSub>
+            <ContextMenuItem
+              onSelect={() => {
+                if (addItem) {
+                  addItem("flashcard");
+                }
+              }}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <PiCardsThreeBold className="size-4 text-muted-foreground rotate-180" />
+              Flashcards
+            </ContextMenuItem>
+            <ContextMenuItem
+              onSelect={() => {
+                // Open chat if closed
+                if (setIsChatExpanded && !isChatExpanded && isDesktop) {
+                  setIsChatExpanded(true);
+                }
+                // Fill composer with quiz creation prompt
+                aui.composer().setText("Create a quiz about ");
+                // Focus the composer input
+                focusComposerInput();
+                toast.success("Quiz creation started");
+              }}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <Brain className="size-4" />
+              Quiz
+            </ContextMenuItem>
+            <ContextMenuItem
+              onSelect={() => setShowYouTubeDialog(true)}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <Play className="size-4" />
+              YouTube
+            </ContextMenuItem>
+            <ContextMenuItem
+              onSelect={() => {
+                toast.success("Deep Research action selected");
+                setSelectedActions(["deep-research"]);
+                aui.composer().setText("I want to do research on ");
+                if (setIsChatExpanded && !isChatExpanded && isDesktop) {
+                  setIsChatExpanded(true);
+                }
+              }}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <Globe className="size-4" />
+              Deep Research
+            </ContextMenuItem>
           </ContextMenuContent>
         )}
       </ContextMenu>
@@ -588,8 +568,6 @@ export function WorkspaceSection({
           isCompactMode={isItemPanelOpen && isChatExpanded}
         />
       )}
-      {/* Modal Manager - scoped to workspace panel only */}
-      {modalManager}
       {/* Move To Dialog */}
       {showMoveDialog && selectedCardIdsArray.length > 0 && (
         <MoveToDialog

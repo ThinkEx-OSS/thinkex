@@ -16,12 +16,13 @@ export function ItemHeader(props: {
   noMargin?: boolean;
   onTitleFocus?: () => void;
   onTitleBlur?: () => void;
-  textSize?: "lg" | "2xl";
+  textSize?: "xs" | "lg" | "2xl";
+  fontWeight?: "normal" | "medium" | "semibold" | "bold";
   fullWidth?: boolean;
   allowWrap?: boolean; // Allow text to wrap and fill height
   autoFocus?: boolean; // Auto-focus the title input when true
 }) {
-  const { name, onNameChange, onNameCommit, readOnly = false, noMargin = false, onTitleFocus, onTitleBlur, textSize = "lg", fullWidth = false, allowWrap = false, autoFocus = false } = props;
+  const { name, onNameChange, onNameCommit, readOnly = false, noMargin = false, onTitleFocus, onTitleBlur, textSize = "lg", fontWeight = "medium", fullWidth = false, allowWrap = false, autoFocus = false } = props;
 
   // Use local state to prevent cursor jumping
   const [localName, setLocalName] = useState(name);
@@ -148,14 +149,15 @@ export function ItemHeader(props: {
     }
   }, [autoFocus, readOnly]);
 
-  const textSizeClass = textSize === "lg" ? "text-base" : "text-2xl";
+  const textSizeClass = textSize === "xs" ? "text-xs" : (textSize === "lg" ? "text-base" : "text-2xl");
+  const fontWeightClass = `font-${fontWeight}`;
 
   if (readOnly) {
     return (
       <div className={`${noMargin ? "" : "mb-4"} select-none ${allowWrap ? "flex-1 flex flex-col" : ""}`}>
         <div
           style={{ color: '#ffffff' }}
-          className={`w-full ${textSizeClass} font-medium ${allowWrap ? "flex-1" : ""}`}
+          className={`w-full ${textSizeClass} ${fontWeightClass} ${allowWrap ? "flex-1" : ""}`}
         >
           {name || <span className="text-gray-400">Item title</span>}
         </div>
@@ -169,7 +171,7 @@ export function ItemHeader(props: {
       {!allowWrap && (
         <span
           ref={measureRef}
-          className={`absolute invisible whitespace-pre ${textSizeClass} font-medium pointer-events-none leading-tight`}
+          className={`absolute invisible whitespace-pre ${textSizeClass} ${fontWeightClass} pointer-events-none leading-tight`}
           style={{ color: '#ffffff', top: 0, left: 0 }}
           aria-hidden="true"
         />
@@ -225,7 +227,7 @@ export function ItemHeader(props: {
           color: '#ffffff',
           width: (fullWidth || allowWrap) ? '100%' : undefined
         }}
-        className={`appearance-none ${textSizeClass} font-medium outline-none placeholder:text-gray-400 transition-all focus:text-accent focus:placeholder:text-accent/65 bg-transparent resize-none ${allowWrap ? "flex-1 w-full overflow-auto whitespace-normal leading-normal" : "inline-block overflow-hidden leading-tight whitespace-nowrap"} ${fullWidth ? 'w-full' : ''}`}
+        className={`appearance-none ${textSizeClass} ${fontWeightClass} outline-none placeholder:text-gray-400 transition-all focus:text-accent focus:placeholder:text-accent/65 bg-transparent resize-none ${allowWrap ? "flex-1 w-full overflow-auto whitespace-normal leading-normal" : "inline-block overflow-hidden leading-tight whitespace-nowrap"} ${fullWidth ? 'w-full' : ''}`}
         rows={allowWrap ? undefined : 1}
       />
     </div>

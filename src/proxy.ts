@@ -18,8 +18,8 @@ export async function proxy(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
   const { pathname } = request.nextUrl;
 
-  // Redirect authenticated users from root to home
-  if (sessionCookie && pathname === "/") {
+  // Send all users from root to home - session handling happens there
+  if (pathname === "/") {
     return NextResponse.redirect(new URL("/home", request.url));
   }
 

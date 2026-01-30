@@ -116,7 +116,7 @@ function SidebarItemButton({ item, allItems, workspaceName, workspaceIcon, works
                 <SidebarMenuButton
                     size="sm"
                     className="w-full cursor-pointer p-0"
-                    onClick={(e) => {
+                    onClick={(e: React.MouseEvent) => {
                         // Don't trigger item click if clicking the menu button
                         if ((e.target as HTMLElement).closest('[data-menu-button]')) {
                             e.stopPropagation();
@@ -125,9 +125,9 @@ function SidebarItemButton({ item, allItems, workspaceName, workspaceIcon, works
                         onItemClick(item);
                     }}
                 >
-                    <div className="flex items-center gap-2 px-2 py-2 w-full">
+                    <div className="flex items-center gap-2 px-1 py-1 w-full">
                         {getCardTypeIcon(item.type)}
-                        <span className={cn("flex-1", (isHovered || isDropdownOpen) ? "truncate pr-6" : "truncate")}>
+                        <span className={cn("flex-1 text-xs", (isHovered || isDropdownOpen) ? "truncate pr-6" : "truncate")}>
                             {item.name || "Untitled"}
                         </span>
                     </div>
@@ -296,7 +296,7 @@ function SidebarRootItem({ item, allItems, workspaceName, workspaceIcon, workspa
             >
                 <SidebarMenuButton
                     className="w-full cursor-pointer p-0"
-                    onClick={(e) => {
+                    onClick={(e: React.MouseEvent) => {
                         // Don't trigger item click if clicking the menu button
                         if ((e.target as HTMLElement).closest('[data-menu-button]')) {
                             e.stopPropagation();
@@ -312,10 +312,9 @@ function SidebarRootItem({ item, allItems, workspaceName, workspaceIcon, workspa
                         </div>
                         {/* Item name area - matches folder name area structure */}
                         <div className={cn(
-                            "flex-1 flex items-center px-2 py-2 rounded cursor-pointer min-w-0",
-                            (isHovered || isDropdownOpen) && "pr-8"
+                            "flex-1 flex items-center px-1 py-1 rounded cursor-pointer min-w-0"
                         )}>
-                            <span className={cn("flex-1", (isHovered || isDropdownOpen) ? "truncate pr-6" : "truncate")}>
+                            <span className={cn("flex-1 text-xs", (isHovered || isDropdownOpen) ? "truncate pr-6" : "truncate")}>
                                 {item.name || "Untitled"}
                             </span>
                         </div>
@@ -544,7 +543,7 @@ function SidebarFolderItem({
                         isNested && "ml-1",
                         isActive && "bg-blue-600/30 hover:bg-blue-500/40"
                     )}
-                    onClick={(e) => {
+                    onClick={(e: React.MouseEvent) => {
                         // Don't trigger folder click if clicking the menu button
                         if ((e.target as HTMLElement).closest('[data-menu-button]')) {
                             e.stopPropagation();
@@ -590,12 +589,11 @@ function SidebarFolderItem({
                         <div
                             onClick={handleFolderClick}
                             className={cn(
-                                "flex-1 flex items-center gap-2 px-2 py-2 rounded cursor-pointer min-w-0",
-                                !isActive && "hover:bg-sidebar-accent hover:bg-opacity-50",
-                                (isHovered || isDropdownOpen) && "pr-8"
+                                "flex-1 flex items-center gap-2 px-1 py-1 rounded cursor-pointer min-w-0",
+                                !isActive && "hover:bg-sidebar-accent hover:bg-opacity-50"
                             )}
                         >
-                            <span className={cn("flex-1", isHovered ? "truncate" : "truncate")}>{folder.name}</span>
+                            <span className={cn("flex-1 text-xs", (isHovered || isDropdownOpen) ? "truncate pr-6" : "truncate")}>{folder.name}</span>
                         </div>
                     </div>
                 </SidebarMenuButton>

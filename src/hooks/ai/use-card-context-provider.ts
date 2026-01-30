@@ -17,7 +17,7 @@ export function useCardContextProvider(item: Item) {
   // Format minimal card context - memoized to avoid recalculation
   // Only include type and title, not ID (tools will handle ID lookup by title)
   const cardContext = useMemo(() => {
-    return `<card type="${item.type}">${item.name}</card>`;
+    return `<workspace-item type="${item.type}" name="${item.name}" />`;
   }, [item.name, item.type]);
 
   // Use the high-level hook to register instructions

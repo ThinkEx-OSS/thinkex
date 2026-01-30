@@ -104,9 +104,9 @@ function CustomThread() {
 ```tsx
 <MessagePrimitive.If hasBranches>
   <BranchPickerPrimitive.Root className="flex items-center gap-1">
-    <BranchPickerPrimitive.Previous></BranchPickerPrimitive.Previous>
+    <BranchPickerPrimitive.Previous>←</BranchPickerPrimitive.Previous>
     <span><BranchPickerPrimitive.Number /> / <BranchPickerPrimitive.Count /></span>
-    <BranchPickerPrimitive.Next></BranchPickerPrimitive.Next>
+    <BranchPickerPrimitive.Next>→</BranchPickerPrimitive.Next>
   </BranchPickerPrimitive.Root>
 </MessagePrimitive.If>
 ```

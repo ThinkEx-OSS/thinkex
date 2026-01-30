@@ -179,7 +179,7 @@ function WorkspaceSidebar({
     <>
       {!isWorkspaceRoute && (
         <SidebarHeader className="bg-sidebar" data-tour="sidebar">
-          <div className="flex items-center justify-between py-2 px-3 min-h-[3rem] group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center">
+          <div className="flex items-center justify-between py-2 px-4 min-h-[3rem] group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center">
             <Link
               href={isHomeRoute ? "/home" : "/"}
               className="flex items-center gap-2 group-data-[collapsible=icon]:hidden transition-all duration-[400ms] group/logo cursor-pointer"
@@ -227,7 +227,6 @@ function WorkspaceSidebar({
                                 <WorkspaceItem
                                   workspace={currentWorkspace}
                                   isActive={false} // Don't highlight as "selected" context
-                                  index={undefined} // Disable drag-and-drop
                                   onWorkspaceClick={() => {
                                     // Navigate to root level of workspace (similar to breadcrumb)
                                     clearActiveFolder();
@@ -267,8 +266,8 @@ function WorkspaceSidebar({
       </SidebarContent>
 
       <SidebarFooter className="py-1.5">
-        {session?.user?.isAnonymous && !isHomeRoute ? (
-          // Anonymous user footer - Sign in/Sign up (hidden on home route)
+        {session?.user?.isAnonymous ? (
+          // Anonymous user footer - Sign in/Sign up (shown on all routes including home)
           <div className="flex flex-col gap-2 px-2 py-2 w-full">
             <p className="text-sm text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
               Sign in to save your work and use unlimited AI

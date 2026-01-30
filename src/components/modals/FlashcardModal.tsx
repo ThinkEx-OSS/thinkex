@@ -108,9 +108,9 @@ export function FlashcardModal({
         <AnimatePresence mode="wait">
             {isOpen && (
                 <div
-                    className="absolute inset-0 z-40 flex items-center justify-center overflow-hidden flashcard-modal"
+                    className="absolute inset-0 z-30 flex items-center justify-center overflow-hidden flashcard-modal"
                 >
-                    {/* Backdrop with blur - scoped to workspace panel only */}
+                    {/* Backdrop with blur */}
                     <motion.div
                         className="absolute inset-0 bg-black/60 backdrop-blur-xl"
                         initial={{ opacity: 0 }}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { usePostHog } from 'posthog-js/react';
 import {
@@ -56,6 +57,7 @@ export default function CreateWorkspaceModal({
   initialData,
 }: CreateWorkspaceModalProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const posthog = usePostHog();
   const [name, setName] = useState(initialData?.name || "");
   const [selectedIcon, setSelectedIcon] = useState<string | null>(initialData?.icon || null);
@@ -163,6 +165,9 @@ export default function CreateWorkspaceModal({
       setValidationResult(null);
       onOpenChange(false);
 
+      // Invalidate workspaces cache so the new workspace is available immediately
+      await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+
       toast.success("Workspace created successfully");
 
       // Call success callback or navigate (use slug, not ID)
@@ -170,7 +175,6 @@ export default function CreateWorkspaceModal({
         onSuccess(workspace.slug, workspace);
       } else {
         router.push(`/workspace/${workspace.slug}`);
-        router.refresh();
       }
     } catch (err) {
       console.error("Error creating workspace:", err);

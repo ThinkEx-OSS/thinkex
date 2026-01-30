@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, X, ChevronRight, ChevronDown, FolderOpen, ChevronLeft, Plus, Upload, FileText, Folder, Settings, Share2, Play, MoreHorizontal, Globe, Brain } from "lucide-react";
+import { Search, X, ChevronRight, ChevronDown, FolderOpen, ChevronLeft, Plus, Upload, FileText, Folder as FolderIcon, Settings, Share2, Play, MoreHorizontal, Globe, Brain, Maximize, File } from "lucide-react";
 import { LuBook } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ import { useUIStore } from "@/lib/stores/ui-store";
 import { IconRenderer } from "@/hooks/use-icon-picker";
 import { useAui } from "@assistant-ui/react";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
+import ItemHeader from "@/components/workspace-canvas/ItemHeader"; // Import ItemHeader
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,6 +81,14 @@ interface WorkspaceHeaderProps {
   onOpenSettings?: () => void;
   onOpenShare?: () => void;
   isItemPanelOpen?: boolean;
+
+  // Active Item Props
+  activeItems?: Item[];
+  activeItemMode?: 'maximized' | 'split' | null;
+  onCloseActiveItem?: (itemId: string) => void;
+  onMinimizeActiveItem?: (itemId: string) => void;
+  onMaximizeActiveItem?: (itemId: string | null) => void;
+  onUpdateActiveItem?: (itemId: string, updates: Partial<Item>) => void;
 }
 
 export default function WorkspaceHeader({
@@ -109,6 +118,13 @@ export default function WorkspaceHeader({
   onOpenSettings,
   onOpenShare,
   isItemPanelOpen = false,
+
+  activeItems = [],
+  activeItemMode = null,
+  onCloseActiveItem,
+  onMinimizeActiveItem,
+  onMaximizeActiveItem,
+  onUpdateActiveItem,
 }: WorkspaceHeaderProps) {
   const [isFocused, setIsFocused] = useState(false);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
@@ -116,7 +132,7 @@ export default function WorkspaceHeader({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
-  const [renameFolderId, setRenameFolderId] = useState<string | null>(null);
+  const [renamingTarget, setRenamingTarget] = useState<{ id: string, type: 'folder' | 'item' } | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
@@ -132,6 +148,9 @@ export default function WorkspaceHeader({
   // Assistant API for Deep Research action
   const aui = useAui();
   const setSelectedActions = useUIStore((state) => state.setSelectedActions);
+
+  // Consistent breadcrumb item styling
+  const breadcrumbItemClass = "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-2 py-1.5 -mx-2 -my-1.5";
 
 
 
@@ -152,11 +171,23 @@ export default function WorkspaceHeader({
 
   // Handle folder click - navigate or rename if already active
   const handleFolderClick = useCallback((folderId: string) => {
+    // If we have active items, close them to "navigate back" to the folder view
+    if (activeItems.length > 0) {
+      onMaximizeActiveItem?.(null);
+      activeItems.forEach(item => onCloseActiveItem?.(item.id));
+
+      // Ensure we are in the correct folder
+      if (activeFolderId !== folderId) {
+        setActiveFolderId(folderId);
+      }
+      return;
+    }
+
     if (activeFolderId === folderId && onRenameFolder) {
       // Folder is already active, open rename dialog
       const folder = items.find(i => i.id === folderId && i.type === 'folder');
       if (folder) {
-        setRenameFolderId(folderId);
+        setRenamingTarget({ id: folderId, type: 'folder' });
         setRenameValue(folder.name);
         setShowRenameDialog(true);
       }
@@ -164,17 +195,23 @@ export default function WorkspaceHeader({
       // Navigate to folder
       setActiveFolderId(folderId);
     }
-  }, [activeFolderId, items, onRenameFolder, setActiveFolderId]);
+  }, [activeFolderId, items, onRenameFolder, setActiveFolderId, activeItems, onMaximizeActiveItem, onCloseActiveItem]);
 
   // Handle rename
   const handleRename = useCallback(() => {
-    if (onRenameFolder && renameFolderId && renameValue.trim()) {
-      onRenameFolder(renameFolderId, renameValue.trim());
-      setShowRenameDialog(false);
-      setRenameFolderId(null);
+    if (!renamingTarget || !renameValue.trim()) return;
+
+    if (renamingTarget.type === 'folder' && onRenameFolder) {
+      onRenameFolder(renamingTarget.id, renameValue.trim());
       toast.success('Folder renamed');
+    } else if (renamingTarget.type === 'item' && onUpdateActiveItem) {
+      onUpdateActiveItem(renamingTarget.id, { name: renameValue.trim() });
+      toast.success('Item renamed');
     }
-  }, [onRenameFolder, renameFolderId, renameValue]);
+
+    setShowRenameDialog(false);
+    setRenamingTarget(null);
+  }, [onRenameFolder, onUpdateActiveItem, renamingTarget, renameValue]);
 
   // Auto-focus and select all text when dialog opens
   useEffect(() => {
@@ -273,7 +310,7 @@ export default function WorkspaceHeader({
   const navigateFolderForward = useUIStore((state) => state.navigateFolderForward);
 
   const canNavigateBack = folderHistoryBack.length > 0;
-  const canNavigateForward = folderHistoryForward !== null;
+  const canNavigateForward = folderHistoryForward.length > 0;
 
   // Handle PDF upload
   const handlePDFUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -348,7 +385,7 @@ export default function WorkspaceHeader({
   return (
     <div className="relative py-2 z-20 bg-sidebar">
       {/* Main container with flex layout */}
-      <div className="flex items-center justify-between w-full px-3">
+      <div className="flex items-center justify-between w-full px-4">
         {/* Left Side: Sidebar Toggle + Navigation Arrows + Breadcrumbs */}
         <div className="flex items-center gap-2 pointer-events-auto min-w-0">
           {isWorkspaceRoute && (
@@ -411,13 +448,20 @@ export default function WorkspaceHeader({
           {/* Breadcrumbs */}
           <nav className="flex items-center gap-1.5 text-xs text-sidebar-foreground/70 min-w-0">
             {/* Workspace icon + name (clickable to go back to root if in a folder) */}
-            {/* Hidden in compact mode when inside a folder - the folder dropdown has workspace option */}
-            {activeFolderId && !isCompactMode ? (
+            {/* Workspace icon + name (clickable to go back to root if in a folder or has active items) */}
+            {/* Hidden in compact mode when inside a folder/item - the logic handles this */}
+            {(activeFolderId || activeItems.length > 0) && !isCompactMode ? (
               <button
-                onClick={clearActiveFolder}
+                onClick={() => {
+                  if (activeFolderId) clearActiveFolder();
+                  if (activeItems.length > 0) {
+                    onMaximizeActiveItem?.(null);
+                    activeItems.forEach(item => onCloseActiveItem?.(item.id));
+                  }
+                }}
                 data-breadcrumb-target="root"
                 className={cn(
-                  "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5",
+                  breadcrumbItemClass,
                   hoveredBreadcrumbTarget === 'root' && "border-2 border-blue-500 bg-blue-500/10 rounded"
                 )}
               >
@@ -426,18 +470,18 @@ export default function WorkspaceHeader({
                   className="h-4 w-4 shrink-0"
                   style={{ color: workspaceColor || undefined }}
                 />
-                <span className="truncate text-sidebar-foreground max-w-[200px]" title={workspaceName}>
+                <span className="truncate text-sidebar-foreground max-w-[300px]" title={workspaceName}>
                   {workspaceName || "Untitled"}
                 </span>
               </button>
-            ) : !activeFolderId ? (
+            ) : (!activeFolderId && activeItems.length === 0) ? (
               // When at root level, show dropdown menu on click
               ((onOpenSettings || onOpenShare) ? (<DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
                     data-breadcrumb-target="root"
                     className={cn(
-                      "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5",
+                      breadcrumbItemClass,
                       hoveredBreadcrumbTarget === 'root' && "border-2 border-blue-500 bg-blue-500/10 rounded"
                     )}
                   >
@@ -446,7 +490,7 @@ export default function WorkspaceHeader({
                       className="h-4 w-4 shrink-0"
                       style={{ color: workspaceColor || undefined }}
                     />
-                    <span className="truncate text-sidebar-foreground font-medium max-w-[200px]" title={workspaceName}>
+                    <span className="truncate text-sidebar-foreground max-w-[300px]" title={workspaceName}>
                       {workspaceName || "Untitled"}
                     </span>
                   </button>
@@ -475,7 +519,7 @@ export default function WorkspaceHeader({
                 data-breadcrumb-target="root"
                 className={cn(
                   "flex items-center gap-1.5 min-w-0",
-                  hoveredBreadcrumbTarget === 'root' && "border-2 border-blue-500 bg-blue-500/10 rounded px-1 py-0.5 -mx-1 -my-0.5"
+                  hoveredBreadcrumbTarget === 'root' && "border-2 border-blue-500 bg-blue-500/10 rounded px-2 py-1.5 -mx-2 -my-1.5"
                 )}
               >
                 <IconRenderer
@@ -483,7 +527,7 @@ export default function WorkspaceHeader({
                   className="h-4 w-4 shrink-0"
                   style={{ color: workspaceColor || undefined }}
                 />
-                <span className="truncate text-sidebar-foreground max-w-[200px]" title={workspaceName}>
+                <span className="truncate text-sidebar-foreground max-w-[300px]" title={workspaceName}>
                   {workspaceName || "Untitled"}
                 </span>
               </div>))
@@ -495,14 +539,14 @@ export default function WorkspaceHeader({
                 {isCompactMode ? (
                   /* Compact mode: Show dropdown with current folder only, full path in dropdown */
                   (<>
-                    <span className="text-sidebar-foreground/50 mx-1 font-bold">/</span>
+                    <span className="text-sidebar-foreground/50 mx-1 font-bold text-sm">/</span>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
                           data-breadcrumb-target="folder"
                           data-folder-id={folderPath[folderPath.length - 1].id}
                           className={cn(
-                            "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5",
+                            breadcrumbItemClass,
                             hoveredBreadcrumbTarget === folderPath[folderPath.length - 1].id && "border-2 border-blue-500 bg-blue-500/10 rounded"
                           )}
                         >
@@ -510,7 +554,7 @@ export default function WorkspaceHeader({
                             className="h-3.5 w-3.5 shrink-0"
                             style={{ color: folderPath[folderPath.length - 1].color || undefined }}
                           />
-                          <span className="truncate text-sidebar-foreground max-w-[80px]" title={folderPath[folderPath.length - 1].name}>
+                          <span className="truncate text-sidebar-foreground max-w-[150px]" title={folderPath[folderPath.length - 1].name}>
                             {folderPath[folderPath.length - 1].name}
                           </span>
                           <ChevronDown className="h-3 w-3 text-sidebar-foreground/50" />
@@ -560,13 +604,13 @@ export default function WorkspaceHeader({
                 ) : folderPath.length === 1 ? (
                   folderPath.map((folder) => (
                     <span key={folder.id} className="flex items-center gap-1.5">
-                      <span className="text-sidebar-foreground/50 mx-1 font-bold">/</span>
+                      <span className="text-sidebar-foreground/50 mx-1 font-bold text-sm">/</span>
                       <button
                         onClick={() => handleFolderClick(folder.id)}
                         data-breadcrumb-target="folder"
                         data-folder-id={folder.id}
                         className={cn(
-                          "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5",
+                          breadcrumbItemClass,
                           hoveredBreadcrumbTarget === folder.id && "border-2 border-blue-500 bg-blue-500/10 rounded"
                         )}
                       >
@@ -574,7 +618,7 @@ export default function WorkspaceHeader({
                           className="h-3.5 w-3.5 shrink-0"
                           style={{ color: folder.color || undefined }}
                         />
-                        <span className="truncate text-sidebar-foreground max-w-[120px]" title={folder.name}>
+                        <span className="truncate text-sidebar-foreground max-w-[200px]" title={folder.name}>
                           {folder.name}
                         </span>
                       </button>
@@ -583,7 +627,7 @@ export default function WorkspaceHeader({
                 ) : (
                   /* Show root, dropdown with all middle folders, and last for 2+ levels */
                   (<>
-                    <span className="text-sidebar-foreground/50 mx-1 font-bold">/</span>
+                    <span className="text-sidebar-foreground/50 mx-1 font-bold text-sm">/</span>
                     <HoverCard
                       open={ellipsisDropdownOpen}
                       onOpenChange={setEllipsisDropdownOpen}
@@ -592,7 +636,10 @@ export default function WorkspaceHeader({
                     >
                       <HoverCardTrigger asChild>
                         <button
-                          className="flex items-center gap-1 min-w-0 rounded transition-colors hover:bg-sidebar-accent px-1 py-0.5 -mx-1 -my-0.5 text-sidebar-foreground/70 hover:text-sidebar-foreground"
+                          className={cn(
+                            breadcrumbItemClass,
+                            "text-sidebar-foreground/70 hover:text-sidebar-foreground"
+                          )}
                         >
                           <span className="truncate font-medium">...</span>
                         </button>
@@ -625,13 +672,13 @@ export default function WorkspaceHeader({
                         </div>
                       </HoverCardContent>
                     </HoverCard>
-                    <span className="text-sidebar-foreground/50 mx-1 font-bold">/</span>
+                    <span className="text-sidebar-foreground/50 mx-1 font-bold text-sm">/</span>
                     <button
                       onClick={() => handleFolderClick(folderPath[folderPath.length - 1].id)}
                       data-breadcrumb-target="folder"
                       data-folder-id={folderPath[folderPath.length - 1].id}
                       className={cn(
-                        "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-1 py-0.5 -mx-1 -my-0.5",
+                        breadcrumbItemClass,
                         hoveredBreadcrumbTarget === folderPath[folderPath.length - 1].id && "border-2 border-blue-500 bg-blue-500/10 rounded"
                       )}
                     >
@@ -639,7 +686,7 @@ export default function WorkspaceHeader({
                         className="h-3.5 w-3.5 shrink-0"
                         style={{ color: folderPath[folderPath.length - 1].color || undefined }}
                       />
-                      <span className="truncate text-sidebar-foreground max-w-[120px]" title={folderPath[folderPath.length - 1].name}>
+                      <span className="truncate text-sidebar-foreground max-w-[200px]" title={folderPath[folderPath.length - 1].name}>
                         {folderPath[folderPath.length - 1].name}
                       </span>
                     </button>
@@ -649,252 +696,302 @@ export default function WorkspaceHeader({
             )}
 
 
+
+
+            {activeItems.length > 0 && (
+              <div className="flex items-center gap-1.5 text-xs text-sidebar-foreground/70 min-w-0">
+                <span className="text-sidebar-foreground/50 mx-1 font-bold text-sm">/</span>
+
+                {activeItems.length === 1 ? (
+                  // Single Active Item (Maximized or Single Panel) - Editable
+                  // Single Active Item (Maximized or Single Panel) - Click to Rename (Folder style)
+                  <button
+                    onClick={() => {
+                      setRenamingTarget({ id: activeItems[0].id, type: 'item' });
+                      setRenameValue(activeItems[0].name);
+                      setShowRenameDialog(true);
+                    }}
+                    className={breadcrumbItemClass}
+                  >
+                    {/* Icon based on type */}
+                    {activeItems[0].type === 'note' && <FileText className="h-3.5 w-3.5 shrink-0 text-blue-400" />}
+                    {activeItems[0].type === 'pdf' && <File className="h-3.5 w-3.5 shrink-0 text-red-400" />}
+                    {activeItems[0].type === 'flashcard' && <PiCardsThreeBold className="h-3.5 w-3.5 shrink-0 text-purple-400 rotate-180" />}
+                    {activeItems[0].type === 'youtube' && <Play className="h-3.5 w-3.5 shrink-0 text-red-500" />}
+                    {activeItems[0].type === 'quiz' && <Brain className="h-3.5 w-3.5 shrink-0 text-green-400" />}
+                    {activeItems[0].type === 'folder' && <FolderIcon className="h-3.5 w-3.5 shrink-0 text-amber-400" />}
+
+                    <span className="truncate text-sidebar-foreground max-w-[300px]" title={activeItems[0].name}>
+                      {activeItems[0].name}
+                    </span>
+                  </button>
+                ) : (
+                  // Multiple Active Items (Split View)
+                  <span className="flex items-center gap-1 min-w-0">
+                    <span className="truncate font-medium flex items-center gap-1">
+                      {activeItems.map((item, idx) => (
+                        <span key={item.id} className="flex items-center gap-1">
+                          {idx > 0 && <span className="text-sidebar-foreground/30">|</span>}
+                          <span className="truncate max-w-[200px]" title={item.name}>{item.name}</span>
+                        </span>
+                      ))}
+                    </span>
+                  </span>
+                )}
+              </div>
+            )}
           </nav>
         </div>
 
         {/* Right Side: Save Indicator + Search + Chat Button */}
-        <div className="flex items-center gap-2 pointer-events-auto">
-          {/* Save Indicator - hidden in compact mode */}
-          {!isCompactMode && (
-            <WorkspaceSaveIndicator
-              isSaving={isSaving || false}
-              lastSavedAt={lastSavedAt || null}
-              hasUnsavedChanges={hasUnsavedChanges}
-              onManualSave={onManualSave}
-              currentWorkspaceId={currentWorkspaceId}
-              onShowHistory={onShowHistory}
-            />
-          )}
+        {activeItemMode === 'maximized' && activeItems.length === 1 ? (
+          // Maximized Mode: Show Item Controls
+          <div className="flex items-center gap-2 pointer-events-auto">
+            <div id="workspace-header-portal" className="flex items-center gap-2" />
 
-          {/* Search Input */}
-          {isSearchExpanded ? (
-            <div className="relative w-24" data-tour="search-bar">
-              <Search
-                className={cn(
-                  "absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 pointer-events-none z-10",
-                  isFocused ? "text-sidebar-foreground" : "text-sidebar-foreground/70"
-                )}
-              />
-              <input
-                ref={(node) => {
-                  searchInputRef.current = node;
-                  if (titleInputRef) {
-                    (titleInputRef as React.MutableRefObject<HTMLInputElement | null>).current = node;
-                  }
-                }}
-                value={searchQuery}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  onSearchChange(e.target.value);
-                }}
-                onFocus={() => setIsFocused(true)}
-                onBlur={handleSearchBlur}
-                placeholder="Search..."
-                className={cn(
-                  "w-full h-8 pl-9 outline-none rounded-md text-sm pointer-events-auto box-border",
-                  searchQuery ? "pr-8" : "pr-3",
-                  "border border-sidebar-border text-sidebar-foreground/70 placeholder:text-sidebar-foreground/50 transition-colors",
-                  isFocused
-                    ? "text-sidebar-foreground bg-sidebar-accent"
-                    : "hover:text-sidebar-foreground hover:bg-sidebar-accent"
-                )}
-              />
-              {/* Clear button - only show when there's text */}
-              {searchQuery && (
-                <button
-                  onClick={() => {
-                    onSearchChange('');
-                  }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:scale-110 transition-all duration-200 pointer-events-auto z-10 cursor-pointer"
-                  aria-label="Clear search"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          ) : (
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  onClick={handleSearchIconClick}
-                  className={cn(
-                    "h-8 w-8 flex items-center justify-center rounded-md transition-colors pointer-events-auto cursor-pointer",
-                    "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
-                  )}
-                  data-tour="search-bar"
-                  aria-label="Search workspace"
+                  onClick={() => onCloseActiveItem?.(activeItems[0].id)}
+                  className="h-8 w-8 flex items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+                  aria-label="Close"
                 >
-                  <Search className="h-4 w-4" />
+                  <X className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">
-                Search workspace <kbd className="ml-1 pointer-events-none inline-flex h-5 select-none items-center gap-1 font-mono text-sm font-medium text-muted-foreground opacity-100">{formatKeyboardShortcut('K')}</kbd>
-              </TooltipContent>
+              <TooltipContent>Close</TooltipContent>
             </Tooltip>
-          )}
+          </div>
+        ) : (
+          // Default Mode: Standard Workspace Controls
+          <div className="flex items-center gap-2 pointer-events-auto">
+            {/* Save Indicator - hidden in compact mode */}
+            {!isCompactMode && (
+              <WorkspaceSaveIndicator
+                isSaving={isSaving || false}
+                lastSavedAt={lastSavedAt || null}
+                hasUnsavedChanges={hasUnsavedChanges}
+                onManualSave={onManualSave}
+                currentWorkspaceId={currentWorkspaceId}
+                onShowHistory={onShowHistory}
+              />
+            )}
 
-          {/* New Button */}
-          {addItem && (
-            <DropdownMenu open={isNewMenuOpen} onOpenChange={setIsNewMenuOpen}>
-              <DropdownMenuTrigger asChild>
-                <button
+            {/* Search Input */}
+            {isSearchExpanded ? (
+              <div className="relative w-24" data-tour="search-bar">
+                <Search
                   className={cn(
-                    "h-8 outline-none rounded-md text-sm pointer-events-auto whitespace-nowrap relative cursor-pointer box-border",
-                    "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors",
-                    isCompactMode
-                      ? "w-8 flex items-center justify-center px-0"
-                      : "inline-flex items-center gap-2 px-2",
-                    isNewMenuOpen && "text-sidebar-foreground bg-sidebar-accent"
+                    "absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 pointer-events-none z-10",
+                    isFocused ? "text-sidebar-foreground" : "text-sidebar-foreground/70"
                   )}
-                  disabled={isUploading}
-                  data-tour="add-card-button"
-                >
-                  <Plus className="h-4 w-4" />
-                  {!isCompactMode && <span>New</span>}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48" sideOffset={8}>
-                <DropdownMenuItem
-                  onClick={() => {
-                    if (addItem) {
-                      const itemId = addItem("note");
-                      // Automatically open the modal for the newly created note
-                      if (setOpenModalItemId && itemId) {
-                        setOpenModalItemId(itemId);
-                      }
+                />
+                <input
+                  ref={(node) => {
+                    searchInputRef.current = node;
+                    if (titleInputRef) {
+                      (titleInputRef as React.MutableRefObject<HTMLInputElement | null>).current = node;
                     }
                   }}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <FileText className="size-4" />
-                  Note
-                </DropdownMenuItem>
+                  value={searchQuery}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    onSearchChange(e.target.value);
+                  }}
+                  onFocus={() => setIsFocused(true)}
+                  onBlur={handleSearchBlur}
+                  placeholder="Search..."
+                  className={cn(
+                    "w-full h-8 pl-9 outline-none rounded-md text-sm pointer-events-auto box-border",
+                    searchQuery ? "pr-8" : "pr-3",
+                    "border border-sidebar-border text-sidebar-foreground/70 placeholder:text-sidebar-foreground/50 transition-colors",
+                    isFocused
+                      ? "text-sidebar-foreground bg-sidebar-accent"
+                      : "hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                  )}
+                />
+                {/* Clear button - only show when there's text */}
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      onSearchChange('');
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:scale-110 transition-all duration-200 pointer-events-auto z-10 cursor-pointer"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleSearchIconClick}
+                    className={cn(
+                      "h-8 w-8 flex items-center justify-center rounded-md transition-colors pointer-events-auto cursor-pointer",
+                      "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                    )}
+                    data-tour="search-bar"
+                    aria-label="Search workspace"
+                  >
+                    <Search className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  Search workspace <kbd className="ml-1 pointer-events-none inline-flex h-5 select-none items-center gap-1 font-mono text-sm font-medium text-muted-foreground opacity-100">{formatKeyboardShortcut('K')}</kbd>
+                </TooltipContent>
+              </Tooltip>
+            )}
 
-                {addItem && (
+            {/* New Button */}
+            {addItem && (
+              <DropdownMenu open={isNewMenuOpen} onOpenChange={setIsNewMenuOpen}>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className={cn(
+                      "h-8 outline-none rounded-md text-sm pointer-events-auto whitespace-nowrap relative cursor-pointer box-border",
+                      "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors",
+                      isCompactMode
+                        ? "w-8 flex items-center justify-center px-0"
+                        : "inline-flex items-center gap-2 px-2",
+                      isNewMenuOpen && "text-sidebar-foreground bg-sidebar-accent"
+                    )}
+                    disabled={isUploading}
+                    data-tour="add-card-button"
+                  >
+                    <Plus className="h-4 w-4" />
+                    {!isCompactMode && <span>New</span>}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48" sideOffset={8}>
                   <DropdownMenuItem
                     onClick={() => {
                       if (addItem) {
-                        addItem("folder");
+                        const itemId = addItem("note");
+                        // Automatically open the modal for the newly created note
+                        if (setOpenModalItemId && itemId) {
+                          setOpenModalItemId(itemId);
+                        }
                       }
                     }}
                     className="flex items-center gap-2 cursor-pointer"
                   >
-                    <Folder className="size-4" />
-                    Folder
+                    <FileText className="size-4" />
+                    Note
                   </DropdownMenuItem>
-                )}
 
-                <DropdownMenuItem
-                  onClick={() => {
-                    triggerFileSelect();
-                  }}
-                  disabled={isUploading}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <Upload className="size-4" />
-                  {isUploading ? 'Uploading...' : 'Upload PDFs'}
-                </DropdownMenuItem>
-
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger className="flex items-center gap-2 cursor-pointer">
-                    <LuBook className="size-4 text-muted-foreground" />
-                    Learn
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
+                  {addItem && (
                     <DropdownMenuItem
                       onClick={() => {
                         if (addItem) {
-                          addItem("flashcard");
+                          addItem("folder");
                         }
                       }}
                       className="flex items-center gap-2 cursor-pointer"
                     >
-                      <PiCardsThreeBold className="size-4 text-muted-foreground rotate-180" />
-                      Flashcards
+                      <FolderIcon className="size-4" />
+                      Folder
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        // Open chat if closed
-                        if (setIsChatExpanded && !isChatExpanded) {
-                          setIsChatExpanded(true);
-                        }
-                        // Fill composer with quiz creation prompt
-                        aui?.composer().setText("Create a quiz about ");
-                        // Focus the composer input
-                        focusComposerInput();
-                        toast.success("Quiz creation started");
-                      }}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <Brain className="size-4" />
-                      Quiz
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger className="flex items-center gap-2 cursor-pointer">
-                    <MoreHorizontal className="size-4 text-muted-foreground" />
-                    Other
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setShowYouTubeDialog(true);
-                      }}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <Play className="size-4" />
-                      YouTube
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        toast.success("Deep Research action selected");
-                        setSelectedActions(["deep-research"]);
-                        aui?.composer().setText("I want to do research on ");
-                        if (setIsChatExpanded && !isChatExpanded) {
-                          setIsChatExpanded(true);
-                        }
-                      }}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <Globe className="size-4" />
-                      Deep Research
-                    </DropdownMenuItem>
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+                  )}
 
-          {/* Hidden file input for PDF upload */}
-          {onPDFUpload && (
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,application/pdf"
-              multiple
-              onChange={handlePDFUpload}
-              className="hidden"
-            />
-          )}
+                  <DropdownMenuItem
+                    onClick={() => {
+                      triggerFileSelect();
+                    }}
+                    disabled={isUploading}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Upload className="size-4" />
+                    {isUploading ? 'Uploading...' : 'Upload PDFs'}
+                  </DropdownMenuItem>
 
-          {!isItemPanelOpen && setIsChatExpanded ? (
-            <ChatFloatingButton
-              isDesktop={isDesktop}
-              isChatExpanded={isChatExpanded}
-              setIsChatExpanded={setIsChatExpanded}
-            />
-          ) : null}
-        </div>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (addItem) {
+                        addItem("flashcard");
+                      }
+                    }}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <PiCardsThreeBold className="size-4 text-muted-foreground rotate-180" />
+                    Flashcards
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      // Open chat if closed
+                      if (setIsChatExpanded && !isChatExpanded) {
+                        setIsChatExpanded(true);
+                      }
+                      // Fill composer with quiz creation prompt
+                      aui?.composer().setText("Create a quiz about ");
+                      // Focus the composer input
+                      focusComposerInput();
+                      toast.success("Quiz creation started");
+                    }}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Brain className="size-4" />
+                    Quiz
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setShowYouTubeDialog(true);
+                    }}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Play className="size-4" />
+                    YouTube
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      toast.success("Deep Research action selected");
+                      setSelectedActions(["deep-research"]);
+                      aui?.composer().setText("I want to do research on ");
+                      if (setIsChatExpanded && !isChatExpanded) {
+                        setIsChatExpanded(true);
+                      }
+                    }}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Globe className="size-4" />
+                    Deep Research
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {/* Hidden file input for PDF upload */}
+            {onPDFUpload && (
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,application/pdf"
+                multiple
+                onChange={handlePDFUpload}
+                className="hidden"
+              />
+            )}
+
+            {!isItemPanelOpen && setIsChatExpanded ? (
+              <ChatFloatingButton
+                isDesktop={isDesktop}
+                isChatExpanded={isChatExpanded}
+                setIsChatExpanded={setIsChatExpanded}
+              />
+            ) : null}
+          </div>
+        )}
       </div>
-      {/* Rename Folder Dialog */}
+      {/* Rename Dialog */}
       {
-        onRenameFolder && (
+        (onRenameFolder || onUpdateActiveItem) && (
           <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
             <DialogContent onClick={(e) => e.stopPropagation()}>
               <DialogHeader>
-                <DialogTitle>Rename Folder</DialogTitle>
+                <DialogTitle>Rename {renamingTarget?.type === 'folder' ? 'Folder' : 'Item'}</DialogTitle>
                 <DialogDescription>
-                  Enter a new name for this folder.
+                  Enter a new name for this {renamingTarget?.type === 'folder' ? 'folder' : 'item'}.
                 </DialogDescription>
               </DialogHeader>
               <div className="py-4">
@@ -909,7 +1006,7 @@ export default function WorkspaceHeader({
                       setShowRenameDialog(false);
                     }
                   }}
-                  placeholder="Folder name"
+                  placeholder={renamingTarget?.type === 'folder' ? 'Folder name' : 'Item name'}
                 />
               </div>
               <DialogFooter>

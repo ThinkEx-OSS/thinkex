@@ -58,17 +58,6 @@ export function ItemPanelContent({
         <div>
             <div className="flex items-center justify-between py-2 px-3">
                 <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden mr-2">
-                    {(isMaximized || isLeftPanel) && (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <SidebarTrigger />
-                            </TooltipTrigger>
-                            <TooltipContent side="right">
-                                Toggle Sidebar <kbd className="ml-1 pointer-events-none inline-flex h-5 select-none items-center gap-1 font-mono text-sm font-medium text-muted-foreground opacity-100">{formatKeyboardShortcut('S', true)}</kbd>
-                            </TooltipContent>
-                        </Tooltip>
-                    )}
-
                     <ItemHeader
                         id={item.id}
                         name={item.name}
@@ -132,14 +121,16 @@ export function ItemPanelContent({
                 backgroundColor,
                 backdropFilter: "blur(24px)",
                 WebkitBackdropFilter: "blur(24px)",
+                transformOrigin: 'center',
             }}
         >
-            {/* Header - PDF has integrated controls, others use standard header */}
-            {!isPdf && renderStandardHeader()}
+            {/* Header - PDF has integrated controls, others use standard header.
+                When maximized, the header is integrated into the WorkspaceHeader, so we hide it here. */}
+            {!isPdf && !isMaximized && renderStandardHeader()}
 
             {/* Content */}
             <div
-                className={isPdf ? "flex-1 flex flex-col min-h-0" : "flex-1 overflow-y-auto modal-scrollable flex flex-col"}
+                className={`${isPdf ? "flex-1 flex flex-col min-h-0" : "flex-1 overflow-y-auto modal-scrollable flex flex-col"}`}
                 style={!isPdf ? {
                     ['--scrollbar-color' as string]: item.color
                         ? getWhiteTintedColor(item.color, 0.7, 0.2)
@@ -163,10 +154,10 @@ export function ItemPanelContent({
                                         onMaximize={onMaximize}
                                         showThumbnails={showThumbnails}
                                         onToggleThumbnails={() => setShowThumbnails(!showThumbnails)}
-                                        showAnnotations={annotationControls?.showAnnotations}
-                                        onToggleAnnotations={annotationControls?.toggleAnnotations}
+
                                         isRightmostPanel={isRightmostPanel}
                                         isLeftPanel={isLeftPanel}
+                                        renderInPortal={isMaximized}
                                     />
                                 </div>
                             )}

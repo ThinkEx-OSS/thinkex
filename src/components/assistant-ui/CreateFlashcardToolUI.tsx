@@ -108,77 +108,68 @@ const CreateFlashcardReceipt = ({
 
     return (
         <>
-            <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border bg-card/50 text-card-foreground shadow-sm">
-                <div className={cn(
-                    "flex items-center justify-between gap-2 bg-muted/20 px-4 py-3",
-                    status?.type === "complete" && "border-b"
-                )}>
-                    <div className="flex items-center gap-2">
-                        <div className={cn(
-                            "flex size-8 items-center justify-center rounded-lg",
-                            status?.type === "complete" ? "bg-purple-500/10 text-purple-600" : "bg-red-500/10 text-red-600"
-                        )}>
-                            {status?.type === "complete" ? (
-                                <PiCardsThreeBold className="size-4 rotate-180" />
-                            ) : (
-                                <X className="size-4" />
-                            )}
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-sm font-semibold">
-                                {status?.type === "complete" ? "Flashcards Created" : "Creation Cancelled"}
-                            </span>
-                            {status?.type === "complete" && (
-                                <span className="text-xs text-muted-foreground">
-                                    {folderName
-                                        ? `${result.cardCount || result.cards?.length || argsCardsLen || '?'} cards in ${folderName}`
-                                        : `${result.cardCount || result.cards?.length || argsCardsLen || '?'} cards added`}
-                                </span>
-                            )}
-                        </div>
+            <div 
+                className={cn(
+                    "my-1 flex w-full items-center justify-between overflow-hidden rounded-md border border-border/25 bg-card/50 text-card-foreground shadow-sm px-2 py-2",
+                    status?.type === "complete" && result.itemId && "cursor-pointer hover:bg-accent transition-colors"
+                )}
+                onClick={status?.type === "complete" && result.itemId ? handleViewCard : undefined}
+            >
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className={cn(
+                        status?.type === "complete" ? "text-purple-400" : "text-red-400"
+                    )}>
+                        {status?.type === "complete" ? (
+                            <PiCardsThreeBold className="size-4 rotate-180" />
+                        ) : (
+                            <X className="size-4" />
+                        )}
                     </div>
+                    <div className="flex flex-col min-w-0 flex-1">
+                        <span className="text-xs font-medium truncate">
+                            {status?.type === "complete" ? (result.title || argsTitle || "Flashcards Created") : "Creation Cancelled"}
+                        </span>
+                        {status?.type === "complete" && (
+                            <span className="text-[10px] text-muted-foreground">
+                                {result.cardCount || result.cards?.length || argsCardsLen || '?'} flashcard{(result.cardCount || result.cards?.length || argsCardsLen || 0) !== 1 ? 's' : ''} {folderName ? `in ${folderName}` : "created"}
+                            </span>
+                        )}
+                    </div>
+                </div>
+                
+                <div className="flex items-center gap-1">
                     {status?.type === "complete" && result.itemId && (
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 gap-1.5 text-xs"
-                            onClick={handleViewCard}
+                            className="h-6 gap-1 text-[10px] px-2"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewCard();
+                            }}
                         >
-                            <Eye className="size-3.5" />
+                            <Eye className="size-3" />
                             View
                         </Button>
                     )}
+                    {status?.type === "complete" && moveItemToFolder && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 gap-1 text-[10px] px-2"
+                            onClick={() => {
+                                if (!currentItem) {
+                                    toast.error("Item no longer exists");
+                                    return;
+                                }
+                                setShowMoveDialog(true);
+                            }}
+                        >
+                            <FolderInput className="size-3" />
+                            Move
+                        </Button>
+                    )}
                 </div>
-
-                {status?.type === "complete" && (
-                    <div className="flex flex-col gap-2 p-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h3 className="font-semibold text-base">{result.title || argsTitle}</h3>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    {result.cardCount || result.cards?.length || argsCardsLen || '?'} card{(result.cardCount || result.cards?.length || argsCardsLen || 0) !== 1 ? 's' : ''} in deck
-                                </p>
-                            </div>
-                            {moveItemToFolder && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 gap-1.5 text-xs"
-                                    onClick={() => {
-                                        if (!currentItem) {
-                                            toast.error("Item no longer exists");
-                                            return;
-                                        }
-                                        setShowMoveDialog(true);
-                                    }}
-                                >
-                                    <FolderInput className="size-3.5" />
-                                    Move to
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* Move To Dialog */}
@@ -210,7 +201,17 @@ export const CreateFlashcardToolUI = makeAssistantToolUI<CreateFlashcardArgs, Fl
 
         useOptimisticToolUpdate(status, result, workspaceId);
 
-        const parsed = result != null ? parseFlashcardResult(result) : null;
+        // Don't try to parse while still running - wait for completion
+        let parsed: FlashcardResult | null = null;
+        if (status.type !== "running" && result != null) {
+            try {
+                parsed = parseFlashcardResult(result);
+            } catch (err) {
+                // Log the error but don't throw - we'll show error state below
+                logger.error("🎨 [CreateFlashcardTool] Failed to parse result:", err);
+                parsed = null;
+            }
+        }
 
         useEffect(() => {
             logger.group(`🎨 [CreateFlashcardTool] RENDER CALLED`, true);

@@ -81,7 +81,7 @@ export function PDFViewerModal({
 
   return (
     <div
-      className="absolute inset-0 z-[70] flex items-center justify-center overflow-hidden pdf-viewer-modal"
+      className="absolute inset-0 z-30 flex items-center justify-center overflow-hidden pdf-viewer-modal"
     >
       {/* Backdrop with blur */}
       <div

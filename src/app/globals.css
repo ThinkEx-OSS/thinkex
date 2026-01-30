@@ -461,7 +461,6 @@
 
   html {
     scroll-behavior: smooth;
-    overscroll-behavior: none;
   }
 
   body {
@@ -1286,4 +1285,26 @@ body:has(.card-detail-modal) .workspace-grid-container {
 .prose h3 {
   margin-top: 1em;
   margin-bottom: 0.5em;
+}
+
+/* Item panel breath-in animation */
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Fade in animation for content */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

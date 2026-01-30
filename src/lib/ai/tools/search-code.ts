@@ -1,23 +1,15 @@
+import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { tool, zodSchema } from "ai";
 import { logger } from "@/lib/utils/logger";
-import { searchWorker, codeExecutionWorker } from "@/lib/ai/workers";
+import { codeExecutionWorker } from "@/lib/ai/workers";
 
 /**
- * Create the searchWeb tool
+ * Create the googleSearch tool
+ * Uses standard Google Search tool.
  */
-export function createSearchWebTool() {
-    return tool({
-        description: "Search the web for current information, facts, news, or research. Use this when you need up-to-date information from the internet.",
-        inputSchema: zodSchema(
-            z.object({
-                query: z.string().describe("The search query"),
-            })
-        ),
-        execute: async ({ query }) => {
-            return await searchWorker(query);
-        },
-    });
+export function createGoogleSearchTool() {
+    return google.tools.googleSearch({});
 }
 
 /**

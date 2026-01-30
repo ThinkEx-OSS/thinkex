@@ -61,12 +61,14 @@ function normalizeCustomMathTags(input: string): string {
     input
       // Convert [/math]...[/math] to $$...$$ (legacy block math format)
       .replace(/\[\/math\]([\s\S]*?)\[\/math\]/g, (_, content) => `$$${content.trim()}$$`)
-      // Convert [/inline]...[/inline] to $$...$$ (legacy inline format - Streamdown uses $$ for all)
-      .replace(/\[\/inline\]([\s\S]*?)\[\/inline\]/g, (_, content) => `$$${content.trim()}$$`)
-      // Convert \( ... \) to $$...$$ (LaTeX inline math - Streamdown uses $$ for all)
-      .replace(/\\{1,2}\(([\s\S]*?)\\{1,2}\)/g, (_, content) => `$$${content.trim()}$$`)
+      // Convert [/inline]...[/inline] to $...$ (legacy inline format - ReactMarkdown uses $ for inline)
+      .replace(/\[\/inline\]([\s\S]*?)\[\/inline\]/g, (_, content) => `$${content.trim()}$`)
+      // Convert \( ... \) to $...$ (LaTeX inline math - ReactMarkdown uses $ for inline)
+      .replace(/\\{1,2}\(([\s\S]*?)\\{1,2}\)/g, (_, content) => `$${content.trim()}$`)
       // Convert \[ ... \] to $$...$$ (LaTeX block math)
       .replace(/\\{1,2}\[([\s\S]*?)\\{1,2}\]/g, (_, content) => `$$${content.trim()}$$`)
+      // Note: We DON'T convert $...$ to $$ here because ReactMarkdown with remark-math expects
+      // single dollar signs for inline math and double dollar signs for block math
   );
 }
 

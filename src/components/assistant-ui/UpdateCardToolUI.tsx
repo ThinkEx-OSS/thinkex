@@ -5,7 +5,7 @@ import { useEffect, useMemo } from "react";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { makeAssistantToolUI } from "@assistant-ui/react";
 import { useOptimisticToolUpdate } from "@/hooks/ai/use-optimistic-tool-update";
-import { CheckIcon, Loader2, X, Eye } from "lucide-react";
+import { CheckIcon, Loader2, X, Eye, FileText } from "lucide-react";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -79,57 +79,55 @@ const UpdateCardReceipt = ({ args, result, status }: UpdateCardReceiptProps) => 
   };
 
   return (
-    <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border bg-card/50 text-card-foreground shadow-sm">
-      <div className={cn(
-        "flex items-center justify-between gap-2 bg-muted/20 px-4 py-3",
-        status?.type === "complete" && "border-b"
-      )}>
-        <div className="flex items-center gap-2">
-          <div className={cn(
-            "flex size-8 items-center justify-center rounded-lg",
-            status?.type === "complete" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
-          )}>
-            {status?.type === "complete" ? (
-              isCardInWorkspace ? (
-                <CheckIcon className="size-4" />
-              ) : (
-                <Loader2 className="size-4 animate-spin" />
-              )
+    <div 
+      className={cn(
+        "my-1 flex w-full items-center justify-between overflow-hidden rounded-md border border-border/50 bg-card/50 text-card-foreground shadow-sm px-2 py-2",
+        status?.type === "complete" && isCardInWorkspace && "cursor-pointer hover:bg-accent transition-colors"
+      )}
+      onClick={status?.type === "complete" && isCardInWorkspace ? handleViewCard : undefined}
+    >
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <div className={cn(
+          status?.type === "complete" ? "text-blue-400" : "text-red-400"
+        )}>
+          {status?.type === "complete" ? (
+            isCardInWorkspace ? (
+              <FileText className="size-4" />
             ) : (
-              <X className="size-4" />
-            )}
-          </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold">
-              {status?.type === "complete" ? "Card Updated" : "Update Cancelled"}
-            </span>
-            {status?.type === "complete" && (
-              <span className="text-xs text-muted-foreground">
-                {isCardInWorkspace ? "Changes saved to workspace" : "Saving changes..."}
-              </span>
-            )}
-          </div>
+              <Loader2 className="size-4 animate-spin" />
+            )
+          ) : (
+            <X className="size-4" />
+          )}
         </div>
+        <div className="flex flex-col min-w-0 flex-1">
+          <span className="text-xs font-medium truncate">
+            {status?.type === "complete" ? (card?.name || "Card Updated") : "Update Cancelled"}
+          </span>
+          {status?.type === "complete" && (
+            <span className="text-[10px] text-muted-foreground">
+              {isCardInWorkspace ? "Card updated" : "Saving changes..."}
+            </span>
+          )}
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-1">
         {status?.type === "complete" && result.itemId && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 gap-1.5 text-xs"
-            onClick={handleViewCard}
+            className="h-6 gap-1 text-[10px] px-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleViewCard();
+            }}
           >
-            <Eye className="size-3.5" />
+            <Eye className="size-3" />
             View
           </Button>
         )}
       </div>
-
-      {status?.type === "complete" && card && (
-        <div className="flex flex-col gap-2 p-4">
-          <div>
-            <h3 className="font-semibold text-base">{card.name}</h3>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -141,7 +139,17 @@ export const UpdateCardToolUI = makeAssistantToolUI<UpdateCardArgs, WorkspaceRes
 
     useOptimisticToolUpdate(status, result as any, workspaceId);
 
-    const parsed = result != null ? parseWorkspaceResult(result) : null;
+    // Don't try to parse while still running - wait for completion
+    let parsed: WorkspaceResult | null = null;
+    if (status.type !== "running" && result != null) {
+        try {
+            parsed = parseWorkspaceResult(result);
+        } catch (err) {
+            // Log the error but don't throw - we'll show error state below
+            console.error("📝 [UpdateCardTool] Failed to parse result:", err);
+            parsed = null;
+        }
+    }
 
     let content: ReactNode = null;
 

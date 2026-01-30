@@ -24,9 +24,9 @@ const ANIMATION_DURATION = 200;
 const toolGroupVariants = cva("aui-tool-group-root group/tool-group w-full", {
   variants: {
     variant: {
-      outline: "rounded-lg border py-3",
+      outline: "rounded-lg border border-border/50 p-0 mb-4 overflow-hidden",
       ghost: "",
-      muted: "rounded-lg border border-muted-foreground/30 bg-muted/30 py-3",
+      muted: "rounded-lg border border-muted-foreground/30 bg-muted/30 p-0 mb-4 overflow-hidden",
     },
   },
   defaultVariants: { variant: "outline" },
@@ -104,13 +104,13 @@ function ToolGroupTrigger({
   count: number;
   active?: boolean;
 }) {
-  const label = `${count} tool ${count === 1 ? "call" : "calls"}`;
+  const label = `${count} ${count === 1 ? "action" : "actions"}${active ? "" : " done"}`;
 
   return (
     <CollapsibleTrigger
       data-slot="tool-group-trigger"
       className={cn(
-        "aui-tool-group-trigger group/trigger flex items-center gap-2 text-sm transition-colors mb-2",
+        "aui-tool-group-trigger group/trigger flex items-center gap-2 text-sm transition-colors p-3 cursor-pointer hover:bg-accent",
         "group-data-[variant=outline]/tool-group-root:w-full group-data-[variant=outline]/tool-group-root:px-4",
         "group-data-[variant=muted]/tool-group-root:w-full group-data-[variant=muted]/tool-group-root:px-4",
         className,
@@ -178,9 +178,9 @@ function ToolGroupContent({
     >
       <div
         className={cn(
-          "mt-2 flex flex-col gap-2",
-          "group-data-[variant=outline]/tool-group-root:mt-3 group-data-[variant=outline]/tool-group-root:border-t group-data-[variant=outline]/tool-group-root:px-4 group-data-[variant=outline]/tool-group-root:pt-3",
-          "group-data-[variant=muted]/tool-group-root:mt-3 group-data-[variant=muted]/tool-group-root:border-t group-data-[variant=muted]/tool-group-root:px-4 group-data-[variant=muted]/tool-group-root:pt-3",
+          "flex flex-col gap-2 p-2",
+          "group-data-[variant=outline]/tool-group-root:border-t group-data-[variant=outline]/tool-group-root:border-border/50",
+          "group-data-[variant=muted]/tool-group-root:border-t",
         )}
       >
         {children}
@@ -213,22 +213,12 @@ const ToolGroupImpl: FC<
     return lastIndex >= startIndex && lastIndex <= endIndex;
   });
 
-  // Auto-open while streaming; auto-close when streaming ends.
-  // Still allows manual user toggle when not streaming.
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    setOpen(isToolGroupStreaming);
-  }, [isToolGroupStreaming]);
-
-  // Only group when there are more than 1 consecutive tool call.
-  // IMPORTANT: this check must stay *after* hooks to avoid conditional hook calls.
-  if (toolCount <= 1) {
-    return <>{children}</>;
-  }
+  // Default to open, user can manually toggle
+  const [open, setOpen] = useState(true);
 
   return (
     // Auto-expand while streaming, auto-collapse when done
-    <ToolGroupRoot variant="ghost" open={open} onOpenChange={setOpen}>
+    <ToolGroupRoot variant="outline" open={open} onOpenChange={setOpen}>
       <ToolGroupTrigger count={toolCount} active={isToolGroupStreaming} />
       <ToolGroupContent aria-busy={isToolGroupStreaming}>
         {children}

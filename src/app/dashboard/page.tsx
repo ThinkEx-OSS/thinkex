@@ -39,11 +39,13 @@ import ShareWorkspaceDialog from "@/components/workspace/ShareWorkspaceDialog";
 interface DashboardContentProps {
   currentWorkspace: WorkspaceWithState | null;
   loadingWorkspaces: boolean;
+  loadingCurrentWorkspace: boolean;
 }
 
 function DashboardContent({
   currentWorkspace,
   loadingWorkspaces,
+  loadingCurrentWorkspace,
 }: DashboardContentProps) {
   const posthog = usePostHog();
   const { data: session } = useSession();
@@ -260,33 +262,13 @@ function DashboardContent({
   };
 
   // Derive item panels from openPanelIds array
+  // NOTE: With split view removed, we always use maximizedItemId (ModalManager)
+  // But we keep the panels calculation for now in case we want to re-enable split view later
+  // or for the "transition" state. However, openPanel in ui-store now enforces maximizedItemId.
   const panels = useMemo(() => {
-    // If ANY item is maximized, we hide the panels (ModalManager takes over)
-    if (maximizedItemId || !state.items) return [];
-
-    const validItems = openPanelIds
-      .map(id => state.items.find(i => i.id === id))
-      .filter((item): item is NonNullable<typeof item> =>
-        item != null && (item.type === 'note' || item.type === 'pdf')
-      );
-
-    return validItems.map((item, index) => (
-      <ItemPanelContent
-        key={item.id}
-        item={item}
-        onClose={() => {
-          operations.flushPendingChanges(item.id);
-          closePanel(item.id);
-        }}
-        onMaximize={() => setMaximizedItemId(item.id)}
-        isMaximized={false}
-        onUpdateItem={(updates) => operations.updateItem(item.id, updates)}
-        onUpdateItemData={(updater) => operations.updateItemData(item.id, updater)}
-        isRightmostPanel={index === validItems.length - 1}
-        isLeftPanel={validItems.length === 2 && index === 0}
-      />
-    ));
-  }, [openPanelIds, maximizedItemId, state.items, operations, closePanel, setMaximizedItemId]);
+    // We don't render side-by-side panels anymore
+    return [];
+  }, []);
 
   // CopilotKit actions removed - now using Assistant-UI directly
 
@@ -412,6 +394,30 @@ function DashboardContent({
               onOpenSettings={() => setShowWorkspaceSettings(true)}
               onOpenShare={() => setShowWorkspaceShare(true)}
               isItemPanelOpen={panels.length > 0}
+
+              // Active Item Props
+              activeItems={(() => {
+                if (maximizedItemId) {
+                  const item = state.items?.find(i => i.id === maximizedItemId);
+                  return item ? [item] : [];
+                }
+                // If not maximized, show open panels (split view) in breadcrumb too
+                if (openPanelIds.length > 0) {
+                  return openPanelIds
+                    .map(id => state.items?.find(i => i.id === id))
+                    .filter((i): i is NonNullable<typeof i> => !!i);
+                }
+                return [];
+              })()}
+              activeItemMode={maximizedItemId ? 'maximized' : (panels.length > 0 ? 'split' : null)}
+              onCloseActiveItem={(id) => {
+                operations.flushPendingChanges(id);
+                closePanel(id);
+                if (maximizedItemId === id) setMaximizedItemId(null);
+              }}
+              onMinimizeActiveItem={() => setMaximizedItemId(null)}
+              onMaximizeActiveItem={(id) => setMaximizedItemId(id)}
+              onUpdateActiveItem={operations.updateItem}
             />
           ) : null
         }
@@ -426,7 +432,7 @@ function DashboardContent({
         panels={panels}
         workspaceSection={
           <WorkspaceSection
-            loadingWorkspaces={loadingWorkspaces}
+            loadingWorkspaces={loadingCurrentWorkspace}
             isLoadingWorkspace={isLoadingWorkspace}
             currentWorkspaceId={currentWorkspaceId}
             currentSlug={currentSlug}
@@ -458,9 +464,10 @@ function DashboardContent({
             workspaceTitle={currentWorkspaceTitle}
             workspaceIcon={currentWorkspaceIcon}
             workspaceColor={currentWorkspaceColor}
-            modalManager={modalManagerElement}
           />
         }
+        modalManager={modalManagerElement}
+        maximizedItemId={maximizedItemId}
       />
 
       <WorkspaceSettingsModal
@@ -482,18 +489,13 @@ function DashboardContent({
 // Main page component
 export function DashboardPage() {
   const router = useRouter();
-  // Get workspace context
+  // Get workspace context - currentWorkspace is loaded directly by slug (fast path)
   const {
     currentSlug,
-    workspaces,
+    currentWorkspace,
+    loadingCurrentWorkspace,
     loadingWorkspaces,
   } = useWorkspaceContext();
-
-  // Find current workspace from slug
-  const currentWorkspace = useMemo(() => {
-    if (!currentSlug) return null;
-    return workspaces.find(w => w.slug === currentSlug) || null;
-  }, [currentSlug, workspaces]);
 
   const currentWorkspaceId = currentWorkspace?.id || null;
 
@@ -544,6 +546,7 @@ export function DashboardPage() {
     <DashboardContent
       currentWorkspace={currentWorkspace}
       loadingWorkspaces={loadingWorkspaces}
+      loadingCurrentWorkspace={loadingCurrentWorkspace}
     />
   );
 }

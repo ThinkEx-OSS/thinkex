@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { makeAssistantToolUI } from "@assistant-ui/react";
 import { useOptimisticToolUpdate } from "@/hooks/ai/use-optimistic-tool-update";
-import { X, Eye, GraduationCap, FolderInput } from "lucide-react";
+import { X, Eye, FolderInput, Brain } from "lucide-react";
 import { logger } from "@/lib/utils/logger";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Button } from "@/components/ui/button";
@@ -22,11 +22,11 @@ import type { QuizResult } from "@/lib/ai/tool-result-schemas";
 import { parseQuizResult } from "@/lib/ai/tool-result-schemas";
 
 type CreateQuizArgs = {
-  topic?: string;
-  difficulty?: "easy" | "medium" | "hard";
-  contextContent?: string;
-  sourceCardIds?: string[];
-  sourceCardNames?: string[];
+    topic?: string;
+    difficulty?: "easy" | "medium" | "hard";
+    contextContent?: string;
+    sourceCardIds?: string[];
+    sourceCardNames?: string[];
 };
 
 interface CreateQuizReceiptProps {
@@ -85,89 +85,68 @@ const CreateQuizReceipt = ({ args, result, status, moveItemToFolder, allItems = 
 
     return (
         <>
-            <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border bg-card/50 text-card-foreground shadow-sm">
-                <div className={cn(
-                    "flex items-center justify-between gap-2 bg-muted/20 px-4 py-3",
-                    status?.type === "complete" && "border-b"
-                )}>
-                    <div className="flex items-center gap-2">
-                        <div className={cn(
-                            "flex size-8 items-center justify-center rounded-lg",
-                            status?.type === "complete" ? "bg-purple-500/10 text-purple-600" : "bg-red-500/10 text-red-600"
-                        )}>
-                            {status?.type === "complete" ? (
-                                <GraduationCap className="size-4" />
-                            ) : (
-                                <X className="size-4" />
-                            )}
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-sm font-semibold">
-                                {status?.type === "complete" ? "Quiz Created" : "Creation Cancelled"}
-                            </span>
-                            {status?.type === "complete" && (
-                                <span className="text-xs text-muted-foreground">
-                                    {folderName
-                                        ? `${result.questionCount} questions in ${folderName}`
-                                        : `${result.questionCount} questions`}
-                                </span>
-                            )}
-                        </div>
+            <div 
+                className={cn(
+                    "my-1 flex w-full items-center justify-between overflow-hidden rounded-md border border-border/50 bg-card/50 text-card-foreground shadow-sm px-2 py-2",
+                    status?.type === "complete" && (result.itemId || result.quizId) && "cursor-pointer hover:bg-accent transition-colors"
+                )}
+                onClick={status?.type === "complete" && (result.itemId || result.quizId) ? handleViewCard : undefined}
+            >
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className={cn(
+                        status?.type === "complete" ? "text-green-400" : "text-red-400"
+                    )}>
+                        {status?.type === "complete" ? (
+                            <Brain className="size-4" />
+                        ) : (
+                            <X className="size-4" />
+                        )}
                     </div>
+                    <div className="flex flex-col min-w-0 flex-1">
+                        <span className="text-xs font-medium truncate">
+                            {status?.type === "complete" ? result.title : "Creation Cancelled"}
+                        </span>
+                        {status?.type === "complete" && (
+                            <span className="text-[10px] text-muted-foreground">
+                                {result.questionCount} question{result.questionCount !== 1 ? 's' : ''} {folderName ? `in ${folderName}` : "created"}
+                            </span>
+                        )}
+                    </div>
+                </div>
+                
+                <div className="flex items-center gap-1">
                     {status?.type === "complete" && (result.itemId || result.quizId) && (
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 gap-1.5 text-xs"
-                            onClick={handleViewCard}
+                            className="h-6 gap-1 text-[10px] px-2"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleViewCard();
+                            }}
                         >
-                            <Eye className="size-3.5" />
+                            <Eye className="size-3" />
                             Take Quiz
                         </Button>
                     )}
+                    {status?.type === "complete" && moveItemToFolder && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 gap-1 text-[10px] px-2"
+                            onClick={() => {
+                                if (!currentItem) {
+                                    toast.error("Item no longer exists");
+                                    return;
+                                }
+                                setShowMoveDialog(true);
+                            }}
+                        >
+                            <FolderInput className="size-3" />
+                            Move
+                        </Button>
+                    )}
                 </div>
-
-                {status?.type === "complete" && (
-                    <div className="flex flex-col gap-2 p-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h3 className="font-semibold text-base">{result.title}</h3>
-                                <div className="flex items-center gap-2 mt-1">
-                                    {(() => {
-                                        const difficultyClass =
-                                            difficultyColors[difficulty as keyof typeof difficultyColors] ||
-                                            difficultyColors.medium;
-                                        return (
-                                            <span className={cn(
-                                                "text-xs px-2 py-0.5 rounded-full capitalize",
-                                                difficultyClass
-                                            )}>
-                                                {difficulty}
-                                            </span>
-                                        );
-                                    })()}
-                                </div>
-                            </div>
-                            {moveItemToFolder && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 gap-1.5 text-xs"
-                                    onClick={() => {
-                                        if (!currentItem) {
-                                            toast.error("Item no longer exists");
-                                            return;
-                                        }
-                                        setShowMoveDialog(true);
-                                    }}
-                                >
-                                    <FolderInput className="size-3.5" />
-                                    Move to
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* Move To Dialog */}
@@ -188,60 +167,72 @@ const CreateQuizReceipt = ({ args, result, status, moveItemToFolder, allItems = 
 };
 
 export const CreateQuizToolUI = makeAssistantToolUI<CreateQuizArgs, QuizResult>({
-  toolName: "createQuiz",
-  render: function CreateQuizUI({ args, result, status }) {
-    const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-    const { state: workspaceState } = useWorkspaceState(workspaceId);
-    const operations = useWorkspaceOperations(workspaceId, workspaceState || initialState);
-    const workspaceContext = useWorkspaceContext();
-    const currentWorkspace = workspaceContext.workspaces.find((w) => w.id === workspaceId);
+    toolName: "createQuiz",
+    render: function CreateQuizUI({ args, result, status }) {
+        const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+        const { state: workspaceState } = useWorkspaceState(workspaceId);
+        const operations = useWorkspaceOperations(workspaceId, workspaceState || initialState);
+        const workspaceContext = useWorkspaceContext();
+        const currentWorkspace = workspaceContext.workspaces.find((w) => w.id === workspaceId);
 
-    useEffect(() => {
-      logger.debug("🎯 [CreateQuizTool] Render:", { args, result, status: status?.type });
-    }, [args, result, status]);
+        useEffect(() => {
+            logger.debug("🎯 [CreateQuizTool] Render:", { args, result, status: status?.type });
+        }, [args, result, status]);
 
-    useOptimisticToolUpdate(status, result, workspaceId);
+        useOptimisticToolUpdate(status, result, workspaceId);
 
-    const parsed = result != null ? parseQuizResult(result) : null;
+        // Don't try to parse while still running - wait for completion
+        let parsed: QuizResult | null = null;
+        if (status.type !== "running" && result != null) {
+            try {
+                // With the new Output.object() approach, the quiz worker returns clean structured data
+                // so we can parse normally without special streaming handling
+                parsed = parseQuizResult(result);
+            } catch (err) {
+                // Log the error but don't throw - we'll show error state below
+                logger.error("🎯 [CreateQuizTool] Failed to parse result:", err);
+                parsed = null;
+            }
+        }
 
-    let content: ReactNode = null;
+        let content: ReactNode = null;
 
-    if (parsed?.success) {
-      content = (
-        <CreateQuizReceipt
-          args={args}
-          result={parsed}
-          status={status}
-          moveItemToFolder={operations.moveItemToFolder}
-          allItems={workspaceState?.items || []}
-          workspaceName={currentWorkspace?.name || workspaceState?.globalTitle || "Workspace"}
-          workspaceIcon={currentWorkspace?.icon}
-          workspaceColor={currentWorkspace?.color}
-        />
-      );
-    } else if (status.type === "running") {
-      content = <ToolUILoadingShell label="Generating quiz..." />;
-    } else if (
-      (status.type === "incomplete" && status.reason === "error") ||
-      (status.type === "complete" && parsed && !parsed.success)
-    ) {
-      content = (
-        <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
-          <div className="flex items-center gap-2">
-            <X className="size-4 text-red-600 dark:text-red-400" />
-            <p className="text-sm font-medium text-red-800 dark:text-red-200">Failed to create quiz</p>
-          </div>
-          {parsed && !parsed.success && parsed.message && (
-            <p className="mt-2 text-xs text-red-700 dark:text-red-300">{parsed.message}</p>
-          )}
-        </div>
-      );
-    }
+        if (parsed?.success) {
+            content = (
+                <CreateQuizReceipt
+                    args={args}
+                    result={parsed}
+                    status={status}
+                    moveItemToFolder={operations.moveItemToFolder}
+                    allItems={workspaceState?.items || []}
+                    workspaceName={currentWorkspace?.name || workspaceState?.globalTitle || "Workspace"}
+                    workspaceIcon={currentWorkspace?.icon}
+                    workspaceColor={currentWorkspace?.color}
+                />
+            );
+        } else if (status.type === "running") {
+            content = <ToolUILoadingShell label="Generating quiz..." />;
+        } else if (
+            (status.type === "incomplete" && status.reason === "error") ||
+            (status.type === "complete" && parsed && !parsed.success)
+        ) {
+            content = (
+                <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
+                    <div className="flex items-center gap-2">
+                        <X className="size-4 text-red-600 dark:text-red-400" />
+                        <p className="text-sm font-medium text-red-800 dark:text-red-200">Failed to create quiz</p>
+                    </div>
+                    {parsed && !parsed.success && parsed.message && (
+                        <p className="mt-2 text-xs text-red-700 dark:text-red-300">{parsed.message}</p>
+                    )}
+                </div>
+            );
+        }
 
-    return (
-      <ToolUIErrorBoundary componentName="CreateQuiz">
-        {content}
-      </ToolUIErrorBoundary>
-    );
-  },
+        return (
+            <ToolUIErrorBoundary componentName="CreateQuiz">
+                {content}
+            </ToolUIErrorBoundary>
+        );
+    },
 });

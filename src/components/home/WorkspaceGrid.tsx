@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { FolderPlus, MoreVertical } from "lucide-react";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { useSession } from "@/lib/auth-client";
 import { IconRenderer } from "@/hooks/use-icon-picker";
 import { cn } from "@/lib/utils";
 import WorkspaceSettingsModal from "@/components/workspace/WorkspaceSettingsModal";
@@ -13,8 +14,41 @@ import { getCardColorCSS, getCardAccentColor, type CardColor } from "@/lib/works
 export function WorkspaceGrid() {
   const { setShowCreateWorkspaceModal } = useUIStore();
   const { workspaces, switchWorkspace, loadWorkspaces } = useWorkspaceContext();
+  const { data: session } = useSession();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [settingsWorkspace, setSettingsWorkspace] = useState<WorkspaceWithState | null>(null);
+  const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
+  const hasAttemptedWelcomeWorkspace = useRef(false);
+
+  // Lazy workspace creation for anonymous users
+  useEffect(() => {
+    const createWelcomeWorkspace = async () => {
+      if (!session?.user?.isAnonymous) return;
+      if (workspaces.length > 0) return; // Already has workspaces
+      if (isCreatingWorkspace) return; // Already creating
+      if (hasAttemptedWelcomeWorkspace.current) return; // Avoid retry loop
+
+      setIsCreatingWorkspace(true);
+      hasAttemptedWelcomeWorkspace.current = true;
+      try {
+        console.log("Welcome workspace creation disabled");
+        // const res = await fetch("/api/guest/create-welcome-workspace", {
+        //   method: "POST",
+        // });
+
+        // if (res.ok) {
+        //   // Reload workspaces to show the newly created one
+        //   await loadWorkspaces();
+        // }
+      } catch (error) {
+        console.error("Failed to create welcome workspace:", error);
+      } finally {
+        setIsCreatingWorkspace(false);
+      }
+    };
+
+    createWelcomeWorkspace();
+  }, [session, workspaces.length, loadWorkspaces]);
 
   // Format date helper
   const formatDate = (dateString: string | null | undefined) => {
@@ -86,6 +120,14 @@ export function WorkspaceGrid() {
               New workspace
             </h3>
           </div>
+
+          {/* Loading state for anonymous users creating first workspace */}
+          {session?.user?.isAnonymous && workspaces.length === 0 && isCreatingWorkspace && (
+            <div className="relative rounded-md shadow-sm min-h-[180px] overflow-hidden flex flex-col items-center justify-center gap-3 bg-muted/40 border border-muted-foreground/20">
+              <div className="w-8 h-8 border-2 border-primary/30 border-t-primary animate-spin rounded-full" />
+              <p className="text-sm text-muted-foreground">Setting up your workspace...</p>
+            </div>
+          )}
 
           {/* Existing Workspaces */}
           {workspaces.map((workspace) => {

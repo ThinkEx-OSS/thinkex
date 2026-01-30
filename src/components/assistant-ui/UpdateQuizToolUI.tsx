@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { makeAssistantToolUI } from "@assistant-ui/react";
 import { useOptimisticToolUpdate } from "@/hooks/ai/use-optimistic-tool-update";
-import { X, Plus, GraduationCap } from "lucide-react";
+import { X, Plus, Brain } from "lucide-react";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { cn } from "@/lib/utils";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
@@ -21,41 +21,38 @@ type UpdateQuizArgs = {
 
 const UpdateQuizReceipt = ({ result, status }: { result: QuizResult; status: any }) => {
     return (
-        <div className="my-2 flex w-full flex-col overflow-hidden rounded-xl border bg-card/50 text-card-foreground shadow-sm">
-            <div className={cn(
-                "flex items-center justify-between gap-2 bg-muted/20 px-4 py-3",
-                status?.type === "complete" && "border-b"
-            )}>
-                <div className="flex items-center gap-2">
-                    <div className={cn(
-                        "flex size-8 items-center justify-center rounded-lg",
-                        status?.type === "complete" ? "bg-purple-500/10 text-purple-600" : "bg-red-500/10 text-red-600"
-                    )}>
-                        {status?.type === "complete" ? (
-                            <Plus className="size-4" />
-                        ) : (
-                            <X className="size-4" />
-                        )}
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="text-sm font-semibold">
-                            {status?.type === "complete" ? "Quiz Expanded" : "Update Cancelled"}
-                        </span>
-                        {status?.type === "complete" && (
-                            <span className="text-xs text-muted-foreground">
-                                Added {result.questionsAdded} question{result.questionsAdded !== 1 ? 's' : ''}
-                            </span>
-                        )}
-                    </div>
-                </div>
-                {status?.type === "complete" && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <GraduationCap className="size-3.5" />
-                        <span>{result.totalQuestions} total</span>
-                    </div>
-                )}
-            </div>
+    <div className="my-1 flex w-full items-center justify-between overflow-hidden rounded-md border border-border/50 bg-card/50 text-card-foreground shadow-sm px-2 py-2">
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <div className={cn(
+          status?.type === "complete" ? "text-green-400" : "text-red-400"
+        )}>
+          {status?.type === "complete" ? (
+            <Plus className="size-4" />
+          ) : (
+            <X className="size-4" />
+          )}
         </div>
+        <div className="flex flex-col min-w-0 flex-1">
+          <span className="text-xs font-medium truncate">
+            {status?.type === "complete" ? "Quiz Expanded" : "Update Cancelled"}
+          </span>
+          {status?.type === "complete" && (
+            <span className="text-[10px] text-muted-foreground">
+              Added {result.questionsAdded} question{result.questionsAdded !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-1">
+        {status?.type === "complete" && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Brain className="size-3" />
+            <span>{result.totalQuestions} total</span>
+          </div>
+        )}
+      </div>
+    </div>
     );
 };
 
@@ -66,7 +63,19 @@ export const UpdateQuizToolUI = makeAssistantToolUI<UpdateQuizArgs, QuizResult>(
 
     useOptimisticToolUpdate(status, result, workspaceId);
 
-    const parsed = result != null ? parseQuizResult(result) : null;
+    // Don't try to parse while still running - wait for completion
+    let parsed: QuizResult | null = null;
+    if (status.type !== "running" && result != null) {
+        try {
+            // With the new Output.object() approach, the quiz worker returns clean structured data
+            // so we can parse normally without special streaming handling
+            parsed = parseQuizResult(result);
+        } catch (err) {
+            // Log the error but don't throw - we'll show error state below
+            console.error("🎯 [UpdateQuizTool] Failed to parse result:", err);
+            parsed = null;
+        }
+    }
 
     let content: ReactNode = null;
 

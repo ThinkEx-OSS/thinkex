@@ -36,6 +36,8 @@ interface DashboardLayoutProps {
   // Component slots
   workspaceSection: React.ReactNode;
   panels: React.ReactNode[];  // Array of panel elements to render (max 2)
+  modalManager?: React.ReactNode; // Add modalManager as a separate prop
+  maximizedItemId?: string | null; // Add maximized item ID
 }
 
 /**
@@ -60,6 +62,8 @@ export function DashboardLayout({
   onMultiSelect,
   workspaceSection,
   panels,
+  modalManager,
+  maximizedItemId,
 }: DashboardLayoutProps) {
   // Get sidebar control to auto-close when panels open
   const { setOpen } = useSidebar();
@@ -74,15 +78,7 @@ export function DashboardLayout({
     // Auto-maximize behavior removed - let users manually control chat size
   }, [onWorkspaceSizeChange]);
 
-  // Auto-close sidebar when opening item panels to maximize screen space
-  const prevPanelCountRef = useRef(panels.length);
-  useEffect(() => {
-    // Only close when panels go from 0 to 1+ (not when adding more panels)
-    if (prevPanelCountRef.current === 0 && panels.length > 0) {
-      setOpen(false);
-    }
-    prevPanelCountRef.current = panels.length;
-  }, [panels.length, setOpen]);
+
 
   // Render logic
   // Ensure chat is only shown when a workspace is active
@@ -123,7 +119,7 @@ export function DashboardLayout({
           className="flex-1 z-10"
           onLayout={handlePanelLayout}
         >
-          {/* Left Area: Split between workspace area (with header) and item panels */}
+          {/* Left Area: Workspace area (header + sidebar + workspace canvas) */}
           <ResizablePanel
             id="left-area-panel"
             order={1}
@@ -133,93 +129,43 @@ export function DashboardLayout({
             })()}
             minSize={effectiveChatExpanded ? PANEL_DEFAULTS.WORKSPACE_MIN : 100}
           >
-            <ResizablePanelGroup
-              id={`left-area-split-${panels.length}`}
-              // Force re-mount when panel count changes to ensure defaultSize is respected
-              // and to prevent "Panel data not found" errors from react-resizable-panels
-              key={`left-area-split-${panels.length}`}
-              direction="horizontal"
-              className="flex-1 h-full"
-            >
-              {/* Workspace area: header + sidebar + workspace canvas */}
-              <ResizablePanel
-                id="workspace-area-panel"
-                order={0}
-                defaultSize={(() => {
-                  if (panels.length === 0) {
-                    return 100;
-                  }
-                  if (panels.length >= 2) {
-                    return 0; // Hide workspace when 2 panels are open
-                  }
-                  return 100 * (1 - PANEL_DEFAULTS.ITEM_PANEL_SPLIT_RATIO);
-                })()}
-                minSize={panels.length >= 2 ? 0 : (panels.length > 0 ? 20 : 100)}
-              >
-                <div className="h-full flex flex-col relative overflow-hidden">
-                  {/* Header spans sidebar + workspace canvas (only render when a workspace exists) */}
-                  {!!currentWorkspaceId && workspaceHeader}
+            <div className="h-full flex flex-col relative overflow-hidden">
+              {/* Header spans sidebar + workspace canvas (only render when a workspace exists) */}
+              {!!currentWorkspaceId && workspaceHeader}
 
-                  {/* Below header: sidebar + workspace content */}
-                  <div className="flex flex-1 overflow-hidden">
-                    <Sidebar
-                      side="left"
-                      variant="sidebar"
-                      collapsible="offcanvas"
-                      key={`sidebar-${currentWorkspaceId || "none"}`}
-                      embedded
-                    >
-                      <WorkspaceSidebar
-                        showJsonView={showJsonView}
-                        setShowJsonView={setShowJsonView}
-                        onWorkspaceSwitch={onWorkspaceSwitch}
-                        showCreateModal={showCreateModal}
-                        setShowCreateModal={setShowCreateModal}
-                        isChatExpanded={effectiveChatExpanded}
-                        setIsChatExpanded={setIsChatExpanded}
-                      />
-                    </Sidebar>
+              {/* Below header: sidebar + workspace content */}
+              <div className="flex flex-1 overflow-hidden relative">
+                <Sidebar
+                  side="left"
+                  variant="sidebar"
+                  collapsible="offcanvas"
+                  key={`sidebar-${currentWorkspaceId || "none"}`}
+                  embedded
+                >
+                  <WorkspaceSidebar
+                    showJsonView={showJsonView}
+                    setShowJsonView={setShowJsonView}
+                    onWorkspaceSwitch={onWorkspaceSwitch}
+                    showCreateModal={showCreateModal}
+                    setShowCreateModal={setShowCreateModal}
+                    isChatExpanded={effectiveChatExpanded}
+                    setIsChatExpanded={setIsChatExpanded}
+                  />
+                </Sidebar>
 
-                    <SidebarInset className="flex flex-col relative overflow-hidden">
-                      <WorkspaceCanvasDropzone>{workspaceSection}</WorkspaceCanvasDropzone>
-                    </SidebarInset>
-                  </div>
-                </div>
-              </ResizablePanel>
+                <SidebarInset className="flex flex-col relative overflow-hidden">
+                  <WorkspaceCanvasDropzone>{workspaceSection}</WorkspaceCanvasDropzone>
 
-              {/* Item Panels - full height, start at top */}
-              {panels.length > 0 && (
-                <>
-                  {panels.length < 2 && (
-                    <ResizableHandle
-                      id="workspace-panel-handle"
-                      className="border-r border-sidebar-border"
-                    />
+                  {/* Hide workspace content when item is maximized for better performance */}
+                  {maximizedItemId && (
+                    <div className="absolute inset-0 bg-background pointer-events-none" />
                   )}
-                  {panels.map((panel, index) => {
-                    const panelKey = React.isValidElement(panel) ? panel.key : `panel-${index}`;
-                    return (
-                      <React.Fragment key={panelKey}>
-                        {panels.length >= 2 && index > 0 && (
-                          <ResizableHandle
-                            id={`panel-handle-${panelKey}`}
-                            className="border-r border-sidebar-border"
-                          />
-                        )}
-                        <ResizablePanel
-                          id={`item-panel-${panelKey}`}
-                          order={index + 1}
-                          defaultSize={panels.length >= 2 ? 50 : 100 * PANEL_DEFAULTS.ITEM_PANEL_SPLIT_RATIO}
-                          minSize={20}
-                        >
-                          {panel}
-                        </ResizablePanel>
-                      </React.Fragment>
-                    );
-                  })}
-                </>
-              )}
-            </ResizablePanelGroup>
+
+                  {/* Modal Manager - positioned here to cover strictly the workspace content area (below header) */}
+                  {modalManager}
+                </SidebarInset>
+              </div>
+            </div>
           </ResizablePanel>
 
           {/* Chat Section - Only when expanded and workspace exists */}

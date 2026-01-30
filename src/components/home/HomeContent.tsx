@@ -7,9 +7,42 @@ import { WorkspaceGrid } from "./WorkspaceGrid";
 import { FloatingWorkspaceCards } from "@/components/landing/FloatingWorkspaceCards";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { FolderPlus } from "lucide-react";
 
 export function HomeContent() {
   const { data: session } = useSession();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+
+  const handleCreateBlankWorkspace = async () => {
+    try {
+      const createRes = await fetch("/api/workspaces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          name: "Blank Workspace",
+          icon: null,
+          color: null,
+        }),
+      });
+      if (!createRes.ok) {
+        const err = await createRes.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to create workspace");
+      }
+      const { workspace } = (await createRes.json()) as { workspace: { slug: string } };
+      
+      // Invalidate workspaces cache so the new workspace is available immediately
+      await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+      
+      router.push(`/workspace/${workspace.slug}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Something went wrong";
+      toast.error("Could not create workspace", { description: msg });
+    }
+  };
 
   return (
     <div className="relative h-full w-full overflow-y-auto">
@@ -41,55 +74,24 @@ export function HomeContent() {
           />
           
           <h1 className="text-2xl md:text-3xl font-light text-foreground mb-10 relative z-10">
-            What's on your mind?
+            What we think, we become.
           </h1>
           <div className="flex justify-center w-full relative z-10">
             <HomePromptInput />
           </div>
           
-          {/* Sign in message for anonymous users */}
-          {session?.user?.isAnonymous && (
-            <div className="relative w-full flex justify-center mt-6">
-              {/* Border blur overlay */}
-              <div 
-                className="absolute -inset-3 rounded-full pointer-events-none"
-                style={{
-                  background: 'radial-gradient(circle, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.2) 40%, transparent 60%)',
-                  filter: 'blur(12px)',
-                  zIndex: 0,
-                  width: 'calc(100% + 1.5rem)',
-                  height: '100px',
-                  left: '50%',
-                  top: '50%',
-                  transform: 'translate(-50%, -50%)',
-                }}
-              />
-              <div className="flex flex-col items-center gap-3 relative z-10">
-                <p className="text-sm text-muted-foreground">
-                  Sign in to save your work and use unlimited AI
-                </p>
-                <div className="flex items-center gap-2">
-                  <Link href="/auth/sign-in">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs"
-                    >
-                      Sign in
-                    </Button>
-                  </Link>
-                  <Link href="/auth/sign-up">
-                    <Button
-                      size="sm"
-                      className="h-8 text-xs"
-                    >
-                      Sign up
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Start from scratch button */}
+          <div className="flex justify-center w-full relative z-10 mt-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCreateBlankWorkspace}
+              className="text-sm text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50 transition-all duration-200 gap-2"
+            >
+              <FolderPlus className="h-4 w-4" />
+              Or, start from scratch
+            </Button>
+          </div>
         </div>
       </div>
 

@@ -16,8 +16,17 @@ const DeleteCardInner: FC<{
   result: any;
   status: { type: string; reason?: string };
 }> = ({ result, status }) => {
-  // Parse inside the boundary so errors are caught
-  const parsed = result != null ? parseWorkspaceResult(result) : null;
+  // Don't try to parse while still running - wait for completion
+  let parsed: any = null;
+  if (status.type !== "running" && result != null) {
+    try {
+      parsed = parseWorkspaceResult(result);
+    } catch (err) {
+      // Log the error but don't throw - we'll show error state below
+      console.error("🗑️ [DeleteCardTool] Failed to parse result:", err);
+      parsed = null;
+    }
+  }
 
   let content: ReactNode = null;
 
