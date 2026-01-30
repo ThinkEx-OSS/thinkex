@@ -69,24 +69,37 @@ export function HomeTopBar({ scrollY, searchQuery, onSearchChange, shouldFocusSe
         )}
       >
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" aria-hidden="true" />
-          <Input
-            ref={searchInputRef}
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search workspaces..."
-            aria-label="Search workspaces"
+          <div
+            onClick={() => searchInputRef.current?.focus()}
             className={cn(
-              "w-96 pl-9 h-10",
+              "relative flex items-center gap-0 h-10 w-96",
               "bg-background/80 backdrop-blur-xl",
               "border border-white/10 rounded-xl",
               "shadow-[0_0_60px_-15px_rgba(255,255,255,0.1)]",
-              "focus:shadow-[0_0_80px_-10px_rgba(255,255,255,0.15)]",
-              "focus:border-white/60",
-              "placeholder:text-muted-foreground/50",
-              "transition-all duration-300"
+              "focus-within:shadow-[0_0_80px_-10px_rgba(255,255,255,0.15)]",
+              "focus-within:border-white/30",
+              "transition-all duration-300",
+              "cursor-text"
             )}
-          />
+          >
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" aria-hidden="true" />
+            <Input
+              ref={searchInputRef}
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Search workspaces..."
+              aria-label="Search workspaces"
+              className={cn(
+                "w-full border-0 pl-9",
+                "focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0",
+                "text-sm",
+                "bg-transparent dark:bg-transparent",
+                "h-auto",
+                "placeholder:text-muted-foreground/50",
+                "transition-all duration-300"
+              )}
+            />
+          </div>
         </div>
       </div>
 

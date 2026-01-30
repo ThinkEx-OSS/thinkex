@@ -26,15 +26,12 @@ export function HomeContent() {
   const [scrollY, setScrollY] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [mousePosition, setMousePosition] = useState({ x: 0.5, y: 0.5 });
-  const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
-  const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
+    const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
   const [heroVisible, setHeroVisible] = useState(true);
   const [workspacesVisible, setWorkspacesVisible] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
   const workspacesRef = useRef<HTMLDivElement>(null);
-  const rippleIdRef = useRef(0);
-  const rippleTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
 
   // Scroll tracking
   useEffect(() => {
@@ -59,34 +56,6 @@ export function HomeContent() {
     };
     window.addEventListener("mousemove", handleMouseMove);
     return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
-
-  // Click ripple effect
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    // Skip ripple if clicking on interactive elements
-    const target = e.target as HTMLElement;
-    if (target.closest('button, a, input, textarea, [role="button"]')) return;
-
-    const x = e.clientX / window.innerWidth;
-    const y = e.clientY / window.innerHeight;
-    const id = rippleIdRef.current++;
-
-    setRipples(prev => [...prev, { id, x, y }]);
-
-    // Remove ripple after animation completes (1.2s)
-    const timeoutId = setTimeout(() => {
-      setRipples(prev => prev.filter(r => r.id !== id));
-      rippleTimeoutsRef.current.delete(timeoutId);
-    }, 1200);
-    rippleTimeoutsRef.current.add(timeoutId);
-  }, []);
-
-  // Cleanup ripple timeouts on unmount
-  useEffect(() => {
-    const timeouts = rippleTimeoutsRef.current;
-    return () => {
-      timeouts.forEach(clearTimeout);
-    };
   }, []);
 
   // IntersectionObserver for section visibility and focus management
@@ -171,14 +140,13 @@ export function HomeContent() {
       />
 
       {/* Scrollable Content - scroll-pt-20 creates 80px hero peek when snapped to workspaces */}
-      <div ref={scrollRef} className="relative h-full w-full overflow-y-auto snap-y snap-mandatory scroll-pt-20" onClick={handleClick}>
+      <div ref={scrollRef} className="relative h-full w-full overflow-y-auto snap-y snap-mandatory scroll-pt-20">
         {/* Floating Card Background with spotlight reveal effect */}
         <div className="absolute inset-x-0 top-0 h-[185vh] z-0 select-none pointer-events-none overflow-hidden">
           <FloatingWorkspaceCards
             bottomGradientHeight="40%"
             includeExtraCards={true}
             mousePosition={mousePosition}
-            ripples={ripples}
             scrollY={scrollY}
             heroGlowIntensity={glowIntensity}
             heroYPosition={centerY}
