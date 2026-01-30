@@ -24,26 +24,26 @@ export function ToolUILoadingShell({
   return (
     <div
       className={cn(
-        "my-2 flex w-full flex-col overflow-hidden rounded-xl border bg-card/50 text-card-foreground shadow-sm",
+        "my-1 flex w-full items-center justify-between overflow-hidden rounded-md border border-border/50 bg-card/50 text-card-foreground shadow-sm px-2 py-2",
         className
       )}
     >
-      <div className="flex items-center justify-between gap-2 bg-muted/20 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
-            <Loader2 className="size-4 animate-spin" />
-          </div>
-          <div className="flex flex-col">
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <div className="flex size-4 items-center justify-center text-blue-400">
+          <Loader2 className="size-4 animate-spin" />
+        </div>
+        <div className="flex flex-col min-w-0 flex-1">
+          <span className="text-xs font-medium truncate">
             <ShinyText
               text={label}
               disabled={false}
               speed={1.5}
-              className="text-sm font-semibold"
+              className="font-medium"
             />
-            {subtitle && (
-              <span className="text-xs text-muted-foreground">{subtitle}</span>
-            )}
-          </div>
+          </span>
+          {subtitle && (
+            <span className="text-[10px] text-muted-foreground">{subtitle}</span>
+          )}
         </div>
       </div>
     </div>
