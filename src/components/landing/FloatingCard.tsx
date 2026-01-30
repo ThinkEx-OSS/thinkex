@@ -36,7 +36,7 @@ export function FloatingCard({ data, className, breatheDelay = 0 }: FloatingCard
 
     // Base card styles using the color utilities
     const baseColor = data.color || '#3B82F6'; // Default blue
-    const bodyBgColor = getCardColorCSS(baseColor, 0.6); // Vibrant background
+    const bodyBgColor = getCardColorCSS(baseColor, 0.3); // More transparent background
     const borderColor = getCardAccentColor(baseColor, 0.8); // Bright borders
 
     // Render specific card types
@@ -54,7 +54,7 @@ export function FloatingCard({ data, className, breatheDelay = 0 }: FloatingCard
                     <div
                         className="absolute top-0 left-0 h-[10%] w-[35%] rounded-t-md border border-b-0"
                         style={{
-                            backgroundColor: getCardColorCSS(baseColor, 0.7),
+                            backgroundColor: getCardColorCSS(baseColor, 0.4),
                             borderColor: borderColor,
                             borderWidth: '1px',
                         }}
@@ -226,14 +226,14 @@ export function FloatingCard({ data, className, breatheDelay = 0 }: FloatingCard
                     }}
                 >
                     {/* Header */}
-                    <div className="p-3 border-b border-white/20 flex items-center gap-2" style={{ backgroundColor: getCardColorCSS(baseColor, 0.7) }}>
+                    <div className="p-3 border-b border-white/20 flex items-center gap-2" style={{ backgroundColor: getCardColorCSS(baseColor, 0.2) }}>
                         <div className="w-3 h-3 rounded-full bg-red-500/70" />
                         <h3 className="text-white/70 font-medium text-xs truncate flex-1">{data.title || "Document.pdf"}</h3>
                     </div>
 
                     {/* PDF Preview Mimic */}
-                    <div className="flex-1 p-4 flex items-center justify-center relative" style={{ backgroundColor: getCardColorCSS(baseColor, 0.6) }}>
-                        <div className="w-full h-full bg-white/15 rounded-sm shadow-lg transform scale-95 origin-top backdrop-blur-sm p-2 flex flex-col gap-2">
+                    <div className="flex-1 p-4 flex items-center justify-center relative">
+                        <div className="w-full h-full rounded-sm shadow-lg transform scale-95 origin-top backdrop-blur-sm p-2 flex flex-col gap-2">
                             <div className="w-3/4 h-2 bg-white/35 rounded-sm" />
                             <div className="w-full h-2 bg-white/35 rounded-sm" />
                             <div className="w-full h-2 bg-white/35 rounded-sm" />

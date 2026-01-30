@@ -142,14 +142,10 @@ export function HomeContent() {
       {/* Scrollable Content - scroll-pt-20 creates 80px hero peek when snapped to workspaces */}
       <div ref={scrollRef} className="relative h-full w-full overflow-y-auto snap-y snap-mandatory scroll-pt-20">
         {/* Floating Card Background with spotlight reveal effect */}
-        <div className="absolute inset-x-0 top-0 h-[185vh] z-0 select-none pointer-events-none overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-[185vh] z-0 select-none overflow-hidden">
           <FloatingWorkspaceCards
             bottomGradientHeight="40%"
             includeExtraCards={true}
-            mousePosition={mousePosition}
-            scrollY={scrollY}
-            heroGlowIntensity={glowIntensity}
-            heroYPosition={centerY}
           />
         </div>
 
@@ -214,7 +210,7 @@ export function HomeContent() {
 
         {/* Workspaces Section - Exactly viewport height, no overscroll */}
         <div ref={workspacesRef} className="relative z-10 px-6 pb-8 pt-8 h-screen snap-start snap-always scroll-mt-0 bg-gradient-to-b from-transparent via-background to-black overflow-hidden">
-          <div className="w-full max-w-6xl mx-auto h-full overflow-y-auto">
+          <div className="w-full max-w-6xl mx-auto h-full">
             {/* Your Workspaces */}
             <div className="bg-sidebar rounded-md p-6">
               <h2 className="text-lg font-normal text-muted-foreground mb-4">Recent workspaces</h2>
