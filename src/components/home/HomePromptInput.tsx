@@ -6,7 +6,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowUp, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import TypingText from "@/components/ui/typing-text";
 
@@ -128,10 +127,13 @@ export function HomePromptInput() {
         <div
           onClick={() => inputRef.current?.focus()}
           className={cn(
-            "relative flex items-center gap-0 min-h-[60px] w-full",
-            "bg-sidebar border border-sidebar-border/50 rounded-md",
-            "focus-within:border-sidebar-foreground/20 focus-within:bg-sidebar",
-            "transition-all duration-200",
+            "relative flex items-center gap-0 min-h-[56px] w-full",
+            "bg-background/80 backdrop-blur-xl",
+            "border border-white/10 rounded-xl",
+            "shadow-[0_0_60px_-15px_rgba(255,255,255,0.1)]",
+            "focus-within:shadow-[0_0_80px_-10px_rgba(255,255,255,0.15)]",
+            "focus-within:border-white/20",
+            "transition-all duration-300",
             "cursor-text"
           )}
         >
@@ -182,17 +184,17 @@ export function HomePromptInput() {
               }}
             />
 
-            {/* Typing placeholder - only shows option text */}
+            {/* Typing placeholder - dimmer for contrast with white prefix */}
             {!value && (
               <div
                 className={cn(
                   "absolute inset-0 flex items-center pointer-events-none",
                   "pl-2 pr-14",
-                  "text-lg text-muted-foreground"
+                  "text-lg text-muted-foreground/50"
                 )}
-                style={{ 
-                  willChange: 'transform', 
-                  fontSize: '1.125rem', 
+                style={{
+                  willChange: 'transform',
+                  fontSize: '1.125rem',
                   lineHeight: '1.75rem',
                   transform: 'translateX(-4px)'
                 }}
@@ -200,9 +202,9 @@ export function HomePromptInput() {
                 <TypingText
                   key={typingKeyRef.current}
                   text={shuffledOptions}
-                  typingSpeed={30}
-                  deletingSpeed={30}
-                  pauseDuration={2000}
+                  typingSpeed={35}
+                  deletingSpeed={25}
+                  pauseDuration={2500}
                   loop={true}
                   showCursor={false}
                   className=""
@@ -210,25 +212,24 @@ export function HomePromptInput() {
               </div>
             )}
 
-            {/* Submit button - inside on the right */}
-            <Button
+            {/* Submit arrow */}
+            <button
               type="submit"
-              size="icon"
               disabled={!value.trim() || isLoading}
               onClick={(e) => e.stopPropagation()}
               className={cn(
-                "absolute right-2 top-1/2 -translate-y-1/2 z-20",
-                "h-9 w-9 rounded-full",
-                "bg-primary hover:bg-primary/90",
-                "disabled:opacity-50 disabled:cursor-not-allowed"
+                "absolute right-3 top-1/2 -translate-y-1/2 z-20",
+                "p-1 transition-opacity duration-200",
+                "disabled:opacity-30 disabled:cursor-not-allowed",
+                "hover:opacity-80"
               )}
             >
               {isLoading ? (
-                <Loader2 className="h-4 w-4 text-gray-900 dark:text-gray-600 animate-spin" />
+                <Loader2 className="h-6 w-6 text-white animate-spin" />
               ) : (
-                <ArrowUp className="h-4 w-4 text-gray-900 dark:text-gray-600" />
+                <ArrowUp className="h-6 w-6 text-white" />
               )}
-            </Button>
+            </button>
           </div>
         </div>
       </div>
