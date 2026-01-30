@@ -47,7 +47,7 @@ export default function WorkspaceSettingsModal({
   onOpenChange,
   onUpdate,
 }: WorkspaceSettingsModalProps) {
-  const { deleteWorkspace } = useWorkspaceContext();
+  const { deleteWorkspace, updateWorkspaceLocal } = useWorkspaceContext();
   const [name, setName] = useState("");
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<CardColor | null>(null);
@@ -99,6 +99,13 @@ export default function WorkspaceSettingsModal({
         const data = await response.json();
         throw new Error(data.error || "Failed to update workspace");
       }
+
+      // Update the TanStack Query cache with the new values
+      updateWorkspaceLocal(workspace.id, {
+        name: name.trim(),
+        icon: selectedIcon,
+        color: selectedColor,
+      });
 
       toast.success("Workspace updated successfully");
       onOpenChange(false);
