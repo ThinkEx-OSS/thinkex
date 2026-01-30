@@ -57,7 +57,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   // Fetch workspaces with TanStack Query
-  const { data: workspacesData, isLoading: loadingWorkspaces, error } = useQuery({
+  const { data: workspacesData, isLoading: loadingWorkspaces } = useQuery({
     queryKey: ['workspaces'],
     queryFn: async () => {
       const response = await fetch("/api/workspaces");
@@ -105,10 +105,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isCreatingWelcomeWorkspace, loadWorkspaces, router]);
 
-  // Load workspaces on mount
-  useEffect(() => {
-    loadWorkspaces();
-  }, [loadWorkspaces]);
+  // TanStack Query automatically fetches on mount, no need for manual trigger
 
   // Note: Welcome workspace creation is now handled lazily in WorkspaceGrid
   // This prevents jarring dashboard flash and provides better UX
@@ -162,7 +159,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     async (workspaceId: string) => {
       deleteWorkspaceMutation.mutate(workspaceId);
     },
-    [deleteWorkspaceMutation, workspaces, switchWorkspace, router, currentWorkspaceId]
+    [deleteWorkspaceMutation]
   );
 
   // Optimistically update a single workspace locally without refetching
