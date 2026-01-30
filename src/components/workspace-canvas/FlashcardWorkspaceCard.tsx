@@ -115,10 +115,7 @@ const FlashcardSideContent = memo(function FlashcardSideContent({
             style={{
                 // Ensure white text cascades to BlockNote default styles where possible
                 color: 'white',
-                // Explicitly contain scroll chaining
-                overscrollBehaviorY: 'contain',
-                overscrollBehaviorX: 'contain',
-                // Center text within the flashcard
+                // Allow natural overscroll behavior like normal cards
                 textAlign: 'center',
                 // Match ItemHeader note card title styling: text-base (1rem) font-medium (500)
                 fontSize: '1rem',
@@ -131,17 +128,7 @@ const FlashcardSideContent = memo(function FlashcardSideContent({
                 WebkitFontSmoothing: 'antialiased',
                 MozOsxFontSmoothing: 'grayscale' as any,
             }}
-            onMouseDown={(e) => {
-                if (!isScrollLocked) {
-                    e.stopPropagation();
-                }
-            }}
-            onWheel={(e) => {
-                if (!isScrollLocked) {
-                    e.stopPropagation();
-                }
-            }}
-        >
+            >
             <div className={`flex flex-col items-center min-w-0 w-full ${isScrollLocked ? 'justify-center min-h-full' : ''}`}>
                 <div className="w-full max-w-full min-w-0">
                     {displayContent.map((block, index) => (
