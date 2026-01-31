@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { usePostHog } from 'posthog-js/react';
+import { useCreateWorkspace } from "@/hooks/workspace/use-create-workspace";
 import {
   Dialog,
   DialogContent,
@@ -57,14 +57,13 @@ export default function CreateWorkspaceModal({
   initialData,
 }: CreateWorkspaceModalProps) {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const posthog = usePostHog();
+  const createWorkspace = useCreateWorkspace();
   const [name, setName] = useState(initialData?.name || "");
   const [selectedIcon, setSelectedIcon] = useState<string | null>(initialData?.icon || null);
   const [selectedColor, setSelectedColor] = useState<CardColor | null>(initialData?.color || null);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<WorkspaceTemplate>("blank");
-  const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState("");
   const [importMode, setImportMode] = useState<"template" | "json">(initialData?.initialState ? "json" : "template");
   const [jsonInput, setJsonInput] = useState(initialData?.initialState ? JSON.stringify(initialData.initialState, null, 2) : "");
@@ -107,7 +106,7 @@ export default function CreateWorkspaceModal({
     }
   };
 
-  const handleCreate = async () => {
+  const handleCreate = () => {
     if (!name.trim()) {
       setError("Workspace name is required");
       return;
@@ -118,76 +117,61 @@ export default function CreateWorkspaceModal({
       return;
     }
 
-    setIsCreating(true);
     setError("");
 
-    try {
-      const response = await fetch("/api/workspaces", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: name.trim(),
-          template: importMode === "template" ? selectedTemplate : "blank",
-          is_public: false,
-          icon: selectedIcon,
-          color: selectedColor,
-          initialState: importMode === "json" && validationResult?.data ? validationResult.data : undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to create workspace");
-      }
-
-      const { workspace } = await response.json() as { workspace: Workspace };
-
-      posthog.capture('workspace-created', {
-        workspace_id: workspace.id,
-        workspace_slug: workspace.slug,
-        template: importMode === "template" ? selectedTemplate : "imported",
-        import_mode: importMode,
-        has_icon: !!selectedIcon,
-        has_color: !!selectedColor,
+    createWorkspace.mutate(
+      {
+        name: name.trim(),
+        template: importMode === "template" ? selectedTemplate : "blank",
+        is_public: false,
+        icon: selectedIcon,
         color: selectedColor,
-        imported_items_count: importMode === "json" && validationResult?.data ? validationResult.data.items.length : 0,
-      });
+        initialState: importMode === "json" && validationResult?.data ? validationResult.data : undefined,
+      },
+      {
+        onSuccess: ({ workspace }) => {
+          posthog.capture('workspace-created', {
+            workspace_id: workspace.id,
+            workspace_slug: workspace.slug,
+            template: importMode === "template" ? selectedTemplate : "imported",
+            import_mode: importMode,
+            has_icon: !!selectedIcon,
+            has_color: !!selectedColor,
+            color: selectedColor,
+            imported_items_count: importMode === "json" && validationResult?.data ? validationResult.data.items.length : 0,
+          });
 
-      // Reset form
-      setName("");
-      setSelectedIcon(null);
-      setSelectedColor(null);
-      setSelectedTemplate("blank");
-      setImportMode("template");
-      setJsonInput("");
-      setValidationResult(null);
-      onOpenChange(false);
+          // Reset form
+          setName("");
+          setSelectedIcon(null);
+          setSelectedColor(null);
+          setSelectedTemplate("blank");
+          setImportMode("template");
+          setJsonInput("");
+          setValidationResult(null);
+          onOpenChange(false);
 
-      // Invalidate workspaces cache so the new workspace is available immediately
-      await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+          toast.success("Workspace created successfully");
 
-      toast.success("Workspace created successfully");
-
-      // Call success callback or navigate (use slug, not ID)
-      if (onSuccess) {
-        onSuccess(workspace.slug, workspace);
-      } else {
-        router.push(`/workspace/${workspace.slug}`);
+          // Call success callback or navigate (use slug, not ID)
+          if (onSuccess) {
+            onSuccess(workspace.slug, workspace);
+          } else {
+            router.push(`/workspace/${workspace.slug}`);
+          }
+        },
+        onError: (err) => {
+          console.error("Error creating workspace:", err);
+          const errorMessage = err instanceof Error ? err.message : "Failed to create workspace";
+          setError(errorMessage);
+          toast.error(errorMessage);
+        },
       }
-    } catch (err) {
-      console.error("Error creating workspace:", err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to create workspace";
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setIsCreating(false);
-    }
+    );
   };
 
   const handleOpenChange = (newOpen: boolean) => {
-    if (!isCreating) {
+    if (!createWorkspace.isPending) {
       onOpenChange(newOpen);
       if (!newOpen) {
         // Reset form when closing (unless we have initialData from share)
@@ -246,7 +230,7 @@ export default function CreateWorkspaceModal({
               placeholder="My Workspace"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              disabled={isCreating}
+              disabled={createWorkspace.isPending}
               autoFocus
             />
           </div>
@@ -260,7 +244,7 @@ export default function CreateWorkspaceModal({
                   type="button"
                   variant="outline"
                   className="w-full justify-start"
-                  disabled={isCreating}
+                  disabled={createWorkspace.isPending}
                 >
                   <IconRenderer 
                     icon={selectedIcon} 
@@ -281,7 +265,7 @@ export default function CreateWorkspaceModal({
                   type="button"
                   variant="outline"
                   className="w-full justify-start"
-                  disabled={isCreating}
+                  disabled={createWorkspace.isPending}
                   onClick={() => setIsColorPickerOpen(true)}
                 >
                   <div
@@ -330,19 +314,19 @@ export default function CreateWorkspaceModal({
           <Button
             variant="outline"
             onClick={() => handleOpenChange(false)}
-            disabled={isCreating}
+            disabled={createWorkspace.isPending}
           >
             Cancel
           </Button>
           <Button 
             onClick={handleCreate} 
             disabled={
-              isCreating || 
+              createWorkspace.isPending || 
               !name.trim() || 
               (importMode === "json" && (!validationResult?.isValid || !validationResult.data))
             }
           >
-            {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {createWorkspace.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create Workspace
           </Button>
         </DialogFooter>

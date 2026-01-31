@@ -2,8 +2,8 @@
 
 import { useState, useRef, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useCreateWorkspaceFromPrompt } from "@/hooks/workspace/use-create-workspace";
 import { ArrowUp, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -54,11 +54,11 @@ interface HomePromptInputProps {
 
 export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [value, setValue] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const typingKeyRef = useRef(0);
+  
+  const createFromPrompt = useCreateWorkspaceFromPrompt();
 
   // Shuffle options with random start for variety
   const shuffledOptions = useMemo(() => {
@@ -88,51 +88,21 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const prompt = value.trim();
-    if (!prompt || isLoading) return;
+    if (!prompt || createFromPrompt.isLoading) return;
 
-    setIsLoading(true);
-    try {
-      const titleRes = await fetch("/api/workspaces/generate-title", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
-      });
-      if (!titleRes.ok) {
-        const err = await titleRes.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to generate title");
-      }
-      const { title, icon, color } = (await titleRes.json()) as { title: string; icon?: string; color?: string };
-
-      const createRes = await fetch("/api/workspaces", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: title,
-          icon: icon || null,
-          color: color || null,
-          template: "getting_started", // Auto-include sample content (quiz/flashcards) for home prompt (magic feeling)
-        }),
-      });
-      if (!createRes.ok) {
-        const err = await createRes.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to create workspace");
-      }
-      const { workspace } = (await createRes.json()) as { workspace: { slug: string } };
-
-      // Invalidate workspaces cache so the new workspace is available immediately
-      await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
-
-      // Reset typing animation by changing key
-      typingKeyRef.current += 1;
-      router.push(
-        `/workspace/${workspace.slug}?createFrom=${encodeURIComponent(prompt)}`
-      );
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Something went wrong";
-      toast.error("Could not create workspace", { description: msg });
-    } finally {
-      setIsLoading(false);
-    }
+    createFromPrompt.mutate(prompt, {
+      template: "getting_started", // Auto-include sample content (quiz/flashcards) for home prompt (magic feeling)
+      onSuccess: (workspace) => {
+        // Reset typing animation by changing key
+        typingKeyRef.current += 1;
+        router.push(
+          `/workspace/${workspace.slug}?createFrom=${encodeURIComponent(prompt)}`
+        );
+      },
+      onError: (err) => {
+        toast.error("Could not create workspace", { description: err.message });
+      },
+    });
   };
 
   return (
@@ -230,7 +200,7 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
             {/* Submit arrow */}
             <button
               type="submit"
-              disabled={!value.trim() || isLoading}
+              disabled={!value.trim() || createFromPrompt.isLoading}
               onClick={(e) => e.stopPropagation()}
               className={cn(
                 "absolute right-3 top-1/2 -translate-y-1/2 z-20",
@@ -239,7 +209,7 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
                 "hover:opacity-80"
               )}
             >
-              {isLoading ? (
+              {createFromPrompt.isLoading ? (
                 <Loader2 className="h-6 w-6 text-white animate-spin" />
               ) : (
                 <ArrowUp className="h-6 w-6 text-white" />

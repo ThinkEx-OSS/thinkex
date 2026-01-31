@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react";
+import { useState, useRef, useEffect, createContext, useContext } from "react";
 import { HomePromptInput } from "./HomePromptInput";
 import { DynamicTagline } from "./DynamicTagline";
 import { WorkspaceGrid } from "./WorkspaceGrid";
@@ -9,9 +9,9 @@ import { FloatingWorkspaceCards } from "@/components/landing/FloatingWorkspaceCa
 import { HeroGlow } from "./HeroGlow";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { FolderPlus } from "lucide-react";
+import { useCreateWorkspace } from "@/hooks/workspace/use-create-workspace";
 
 // Context for section visibility - allows child components to know when to focus
 const SectionVisibilityContext = createContext<{
@@ -23,11 +23,11 @@ export const useSectionVisibility = () => useContext(SectionVisibilityContext);
 
 export function HomeContent() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [scrollY, setScrollY] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
   const [heroVisible, setHeroVisible] = useState(true);
+  
+  const createWorkspace = useCreateWorkspace();
   const [workspacesVisible, setWorkspacesVisible] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -74,37 +74,26 @@ export function HomeContent() {
     return () => observer.disconnect();
   }, []);
 
-  const handleCreateBlankWorkspace = async () => {
+  const handleCreateBlankWorkspace = () => {
     // Guard against multiple rapid clicks
-    if (isCreatingWorkspace) return;
+    if (createWorkspace.isPending) return;
 
-    setIsCreatingWorkspace(true);
-    try {
-      const createRes = await fetch("/api/workspaces", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "Blank Workspace",
-          icon: null,
-          color: null,
-        }),
-      });
-      if (!createRes.ok) {
-        const err = await createRes.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to create workspace");
+    createWorkspace.mutate(
+      {
+        name: "Blank Workspace",
+        icon: null,
+        color: null,
+      },
+      {
+        onSuccess: ({ workspace }) => {
+          router.push(`/workspace/${workspace.slug}`);
+        },
+        onError: (err) => {
+          const msg = err instanceof Error ? err.message : "Something went wrong";
+          toast.error("Could not create workspace", { description: msg });
+        },
       }
-      const { workspace } = (await createRes.json()) as { workspace: { slug: string } };
-
-      // Invalidate workspaces cache so the new workspace is available immediately
-      await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
-
-      router.push(`/workspace/${workspace.slug}`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Something went wrong";
-      toast.error("Could not create workspace", { description: msg });
-    } finally {
-      setIsCreatingWorkspace(false);
-    }
+    );
   };
 
   return (
@@ -155,7 +144,7 @@ export function HomeContent() {
                 variant="ghost"
                 size="sm"
                 onClick={handleCreateBlankWorkspace}
-                disabled={isCreatingWorkspace}
+                disabled={createWorkspace.isPending}
                 className="text-sm text-white/70 hover:text-white hover:bg-white/5 transition-all duration-200 gap-2 disabled:opacity-50"
               >
                 <FolderPlus className="h-4 w-4" />
