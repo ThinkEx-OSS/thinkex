@@ -140,15 +140,23 @@ export function FloatingCard({ data, className, breatheDelay = 0 }: FloatingCard
                 className={cn("relative group mb-4 break-inside-avoid", className)}
                 style={animationStyle}
             >
-                <div className="relative w-full aspect-[1.4] select-none">
+                <div className="relative w-full aspect-[1.4] select-none" style={{ marginBottom: '6px' }}>
                     {/* Stack Tabs - behind */}
                     <div
-                        className="absolute left-[3%] right-[3%] bottom-[-4px] h-[10px] rounded-b-md z-0"
-                        style={{ backgroundColor: getCardColorCSS(baseColor, 0.5) }}
+                        className="absolute left-1 right-1 rounded-b-md z-0"
+                        style={{
+                            top: '100%',
+                            height: '6px',
+                            backgroundColor: getCardColorCSS(baseColor, 0.25)
+                        }}
                     />
                     <div
-                        className="absolute left-[6%] right-[6%] bottom-[-8px] h-[10px] rounded-b-md z-[-1]"
-                        style={{ backgroundColor: getCardColorCSS(baseColor, 0.3) }}
+                        className="absolute left-2 right-2 rounded-b-md z-[-1]"
+                        style={{
+                            top: 'calc(100% + 4px)',
+                            height: '6px',
+                            backgroundColor: getCardColorCSS(baseColor, 0.15)
+                        }}
                     />
 
                     {/* Main Card */}

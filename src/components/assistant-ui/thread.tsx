@@ -111,7 +111,7 @@ import { SpeechToTextButton } from "@/components/assistant-ui/SpeechToTextButton
 const AI_MODELS = [
   { id: "gemini-3-pro-preview", name: "Gemini 3 Pro", description: "Latest preview model" },
   { id: "gemini-3-flash-preview", name: "Gemini 3 Flash", description: "Latest fast preview model" },
-  { id: "gemini-2.5-flash-lite", name: "Gemini 3.0 Fast", description: "Fastest & cost-efficient" },
+  { id: "gemini-flash-lite-latest", name: "Gemini Flash Lite", description: "Fastest & cost-efficient" },
   { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", description: "Powerful & reliable" },
   { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", description: "Fast & efficient" },
 ];

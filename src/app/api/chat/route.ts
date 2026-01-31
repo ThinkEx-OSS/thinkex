@@ -229,7 +229,7 @@ export async function POST(req: Request) {
     const finalSystemPrompt = systemPromptParts.join('');
 
     // Get model
-    const modelId = body.modelId || "gemini-2.5-flash-lite";
+    const modelId = body.modelId || "gemini-flash-lite-latest";
     // Initialize PostHog client
     const posthogClient = new PostHog(process.env.POSTHOG_API_KEY || "disabled", {
       host: process.env.POSTHOG_HOST || "https://us.i.posthog.com",

@@ -66,7 +66,7 @@ async function processLocalFiles(
         }
 
         const filePath = join(uploadsDir, filename);
-        
+
         if (!existsSync(filePath)) {
             logger.warn(`📁 [FILE_TOOL] File not found: ${filePath}`);
             continue;
@@ -76,7 +76,7 @@ async function processLocalFiles(
             const fileBuffer = await readFile(filePath);
             const base64Data = fileBuffer.toString('base64');
             const mediaType = getMediaTypeFromUrl(url);
-            
+
             fileInfos.push({
                 filename,
                 mediaType,
@@ -111,7 +111,7 @@ async function processLocalFiles(
     logger.debug("📁 [FILE_TOOL] Sending batched analysis request for", fileInfos.length, "local files");
 
     const { text: batchAnalysis } = await generateText({
-        model: google("gemini-2.5-flash"),
+        model: google("gemini-flash-lite-latest"),
         messages: [{
             role: "user",
             content: messageContent,
@@ -154,7 +154,7 @@ async function processSupabaseFiles(
     logger.debug("📁 [FILE_TOOL] Sending batched analysis request for", fileInfos.length, "files with URLs");
 
     const { text: batchAnalysis } = await generateText({
-        model: google("gemini-2.5-flash"),
+        model: google("gemini-flash-lite-latest"),
         messages: [{
             role: "user",
             content: messageContent,
@@ -184,7 +184,7 @@ async function processYouTubeVideo(
 Provide a clear, comprehensive analysis of the video content.`;
 
     const { text: videoAnalysis } = await generateText({
-        model: google("gemini-2.5-flash"),
+        model: google("gemini-flash-lite-latest"),
         messages: [{
             role: "user",
             content: [

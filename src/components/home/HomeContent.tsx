@@ -1,16 +1,17 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react";
+import { useState, useRef, useEffect, createContext, useContext } from "react";
 import { HomePromptInput } from "./HomePromptInput";
 import { DynamicTagline } from "./DynamicTagline";
 import { WorkspaceGrid } from "./WorkspaceGrid";
 import { HomeTopBar } from "./HomeTopBar";
 import { FloatingWorkspaceCards } from "@/components/landing/FloatingWorkspaceCards";
+import { HeroGlow } from "./HeroGlow";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { FolderPlus } from "lucide-react";
+import { useCreateWorkspace } from "@/hooks/workspace/use-create-workspace";
 
 // Context for section visibility - allows child components to know when to focus
 const SectionVisibilityContext = createContext<{
@@ -22,12 +23,11 @@ export const useSectionVisibility = () => useContext(SectionVisibilityContext);
 
 export function HomeContent() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [scrollY, setScrollY] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
-  const [mousePosition, setMousePosition] = useState({ x: 0.5, y: 0.5 });
-  const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
   const [heroVisible, setHeroVisible] = useState(true);
+  
+  const createWorkspace = useCreateWorkspace();
   const [workspacesVisible, setWorkspacesVisible] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -44,18 +44,6 @@ export function HomeContent() {
     const el = scrollRef.current;
     el?.addEventListener("scroll", handleScroll);
     return () => el?.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  // Mouse tracking for hero glow intensity
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({
-        x: e.clientX / window.innerWidth,
-        y: e.clientY / window.innerHeight,
-      });
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
 
   // IntersectionObserver for section visibility and focus management
@@ -86,47 +74,26 @@ export function HomeContent() {
     return () => observer.disconnect();
   }, []);
 
-  // Calculate glow intensity based on distance from hero center
-  const centerX = 0.5;
-  const centerY = 0.45; // Hero is slightly above center
-  const distance = Math.sqrt(
-    Math.pow(mousePosition.x - centerX, 2) +
-    Math.pow(mousePosition.y - centerY, 2)
-  );
-  // Glow is strongest at center (distance=0), fades as you move away
-  const glowIntensity = Math.max(0, 1 - distance * 2);
-
-  const handleCreateBlankWorkspace = async () => {
+  const handleCreateBlankWorkspace = () => {
     // Guard against multiple rapid clicks
-    if (isCreatingWorkspace) return;
+    if (createWorkspace.isPending) return;
 
-    setIsCreatingWorkspace(true);
-    try {
-      const createRes = await fetch("/api/workspaces", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: "Blank Workspace",
-          icon: null,
-          color: null,
-        }),
-      });
-      if (!createRes.ok) {
-        const err = await createRes.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to create workspace");
+    createWorkspace.mutate(
+      {
+        name: "Blank Workspace",
+        icon: null,
+        color: null,
+      },
+      {
+        onSuccess: ({ workspace }) => {
+          router.push(`/workspace/${workspace.slug}`);
+        },
+        onError: (err) => {
+          const msg = err instanceof Error ? err.message : "Something went wrong";
+          toast.error("Could not create workspace", { description: msg });
+        },
       }
-      const { workspace } = (await createRes.json()) as { workspace: { slug: string } };
-
-      // Invalidate workspaces cache so the new workspace is available immediately
-      await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
-
-      router.push(`/workspace/${workspace.slug}`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Something went wrong";
-      toast.error("Could not create workspace", { description: msg });
-    } finally {
-      setIsCreatingWorkspace(false);
-    }
+    );
   };
 
   return (
@@ -160,29 +127,8 @@ export function HomeContent() {
         {/* Hero Section - Reduced height so "Recent workspaces" text peeks at bottom */}
         <div ref={heroRef} className="relative z-10 h-[85vh] flex flex-col items-center justify-center text-center px-6">
           <div className="w-full max-w-2xl relative">
-            {/* Hero glow - intensifies on mouse approach, slight purple hue */}
-            <div
-              className="absolute -inset-20 rounded-3xl pointer-events-none transition-opacity duration-300"
-              style={{
-                background: `radial-gradient(ellipse at center,
-                  rgba(156, 146, 250, ${0.95 + glowIntensity * 0.05}) 0%,
-                  rgba(167, 139, 250, ${0.8 + glowIntensity * 0.1}) 35%,
-                  rgba(140, 130, 220, 0.12) 80%,
-                  rgba(130, 120, 200, 0.05) 100%)`,
-                filter: `blur(${35 + glowIntensity * 25}px)`,
-                opacity: 1,
-                zIndex: 0,
-              }}
-            />
-            {/* Dark ambient blur for text readability */}
-            <div
-              className="absolute -inset-8 rounded-3xl pointer-events-none"
-              style={{
-                background: 'radial-gradient(ellipse at center, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0.25) 40%, transparent 70%)',
-                filter: 'blur(20px)',
-                zIndex: 1,
-              }}
-            />
+            {/* Hero Glow Effect */}
+            <HeroGlow />
 
             {/* Dynamic tagline with mask wipe animation */}
             <div className="mb-6 relative z-10">
@@ -198,7 +144,7 @@ export function HomeContent() {
                 variant="ghost"
                 size="sm"
                 onClick={handleCreateBlankWorkspace}
-                disabled={isCreatingWorkspace}
+                disabled={createWorkspace.isPending}
                 className="text-sm text-white/70 hover:text-white hover:bg-white/5 transition-all duration-200 gap-2 disabled:opacity-50"
               >
                 <FolderPlus className="h-4 w-4" />

@@ -194,10 +194,10 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
                     )}
                   </div>
 
-                  {/* Bottom third - beige section with title, date, menu, and avatar */}
-                  <div className="h-1/3 flex flex-col justify-end px-4 pb-3 relative">
+                  {/* Bottom section with title, date, menu, and avatar */}
+                  <div className="flex flex-col justify-end px-4 pb-3 pt-2 relative" style={{ minHeight: '70px' }}>
                     {/* Title */}
-                    <h3 className="font-normal text-base text-foreground truncate mb-1">
+                    <h3 className="font-normal text-base text-foreground truncate mb-1 leading-6">
                       {workspace.name}
                     </h3>
 
