@@ -46,7 +46,7 @@ const PLACEHOLDER_OPTIONS = [
   "physics kinematics problems",
 ];
 
-const baseText = "Create a workspace for ";
+const baseText = "Create a workspace on ";
 
 interface HomePromptInputProps {
   shouldFocus?: boolean;
@@ -57,7 +57,7 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const typingKeyRef = useRef(0);
-  
+
   const createFromPrompt = useCreateWorkspaceFromPrompt();
 
   // Shuffle options with random start for variety
