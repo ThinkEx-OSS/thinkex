@@ -11,6 +11,7 @@ export const DEFAULT_CARD_DIMENSIONS: Record<CardType, { w: number; h: number }>
   folder: { w: 1, h: 4 },
   youtube: { w: 4, h: 10 },
   quiz: { w: 2, h: 13 },
+  image: { w: 4, h: 10 },
 };
 
 /**
@@ -93,6 +94,21 @@ export function itemsToLayout(items: Item[], breakpoint: 'lg' | 'xxs' = 'lg'): L
       };
     }
 
+    // Apply exact same resize constraints for images as YouTube cards
+    if (item.type === 'image') {
+      return {
+        i: item.id,
+        x: layout?.x ?? 0,
+        y: layout?.y ?? 0,
+        w: layout?.w ?? DEFAULT_CARD_DIMENSIONS[item.type].w,
+        h: layout?.h ?? DEFAULT_CARD_DIMENSIONS[item.type].h,
+        minW: 1, // Allow narrow 1-column images
+        minH: 3, // Minimum height for 1-col images (fits 4:3 and 3:2 roughly)
+        maxW: 4,
+        maxH: 20, // Increased to support tall/square images
+      };
+    }
+
     // Folders are anchor items - they act as obstacles but can be dragged/resized
     if (item.type === 'folder') {
       return {
@@ -129,13 +145,15 @@ export function findNextAvailablePosition(
   newItemType: CardType,
   cols: number = DEFAULT_COLS,
   newItemName: string = "",
-  newItemSubtitle: string = ""
+  newItemSubtitle: string = "",
+  customW?: number,
+  customH?: number
 ): { x: number; y: number; w: number; h: number } {
   const validType = (newItemType in DEFAULT_CARD_DIMENSIONS) ? newItemType : 'note';
   const dimensions = DEFAULT_CARD_DIMENSIONS[validType];
-  const w = Math.min(dimensions.w, cols);
+  const w = customW ?? Math.min(dimensions.w, cols);
   // Use default dimensions height instead of calculateCardHeight to ensure quiz cards get height 13
-  const h = dimensions.h;
+  const h = customH ?? dimensions.h;
 
   if (existingItems.length === 0) {
     return { x: 0, y: 0, w, h };

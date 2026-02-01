@@ -3,6 +3,7 @@ import { fastVerticalCompactor } from "react-grid-layout/extras";
 import { useMemo, useCallback, useRef, useEffect } from "react";
 import React from "react";
 import type { Item, CardType } from "@/lib/workspace-state/types";
+import { GRID_FRAMES } from "@/lib/workspace-state/aspect-ratios";
 import type { CardColor } from "@/lib/workspace-state/colors";
 import { itemsToLayout, generateMissingLayouts, updateItemsWithLayout, hasLayoutChanged } from "@/lib/workspace-state/grid-layout-helpers";
 import { isDescendantOf } from "@/lib/workspace-state/search";
@@ -490,31 +491,34 @@ export function WorkspaceGrid({
     const itemData = allItemsRef.current.find(i => i.id === newItem.i);
 
     if (itemData) {
-      if (itemData.type === 'youtube') {
+      if (itemData.type === 'youtube' || itemData.type === 'image') {
         const defaultHeightMap: Record<number, number> = { 2: 5, 3: 8, 4: 10 };
         const reverseHeightMap: Record<number, number> = { 5: 2, 8: 3, 10: 4 };
 
         // Check if width changed
         if (oldItem.w !== newItem.w) {
-          // Width-driven resize (standard): Snap height to match width
-          if (newItem.w === 4) newItem.h = 10;
-          else if (newItem.w === 3) newItem.h = 8;
-          else if (newItem.w === 2) newItem.h = 5;
-          else if (newItem.w > 4) newItem.h = 10; // Cap at max
-          else newItem.h = 5; // Min size
+          // Width-driven resize: Snap height to match closest frame for this width
+          // Default to video ratio (16:9) if no exact match found
+          const targetFrame = GRID_FRAMES.find(f => f.w === newItem.w && Math.abs(f.ratio - 1.77) < 0.1)
+            || GRID_FRAMES.find(f => f.w === newItem.w);
+
+          if (targetFrame) {
+            newItem.h = targetFrame.h;
+          } else {
+            // Fallback for non-standard widths (e.g. 3): maintain approx 16:9
+            newItem.h = Math.round(newItem.w * 2.5); // Rough approximation
+          }
         }
         // Height-driven resize: Snap width to match height (User dragging bottom handle)
         else if (oldItem.h !== newItem.h) {
-          // Find the closest standard height
-          const heights = [5, 8, 10];
-          const closestHeight = heights.reduce((prev, curr) =>
-            Math.abs(curr - newItem.h) < Math.abs(prev - newItem.h) ? curr : prev
+          // Find the frame with the closest height to the new height
+          // This allows snapping to different aspect ratios (Square, 4:3, 16:9, etc)
+          const closestFrame = GRID_FRAMES.reduce((prev, curr) =>
+            Math.abs(curr.h - newItem.h) < Math.abs(prev.h - newItem.h) ? curr : prev
           );
 
-          // Set the new height and corresponding width
-          newItem.h = closestHeight;
-          const newWidth = reverseHeightMap[closestHeight];
-          if (newWidth) newItem.w = newWidth;
+          newItem.h = closestFrame.h;
+          newItem.w = closestFrame.w;
         }
       } else if (itemData.type === 'folder' || itemData.type === 'flashcard') {
         // Folders and flashcards don't need minimum height enforcement - skip

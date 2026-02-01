@@ -17,7 +17,7 @@ const getStorageType = (): 'supabase' | 'local' => {
 // Local file storage helper
 async function saveFileLocally(file: File, filename: string): Promise<string> {
   const uploadsDir = process.env.UPLOADS_DIR || join(process.cwd(), 'uploads');
-  
+
   // Ensure uploads directory exists
   if (!existsSync(uploadsDir)) {
     await mkdir(uploadsDir, { recursive: true });
@@ -28,7 +28,7 @@ async function saveFileLocally(file: File, filename: string): Promise<string> {
   const buffer = Buffer.from(bytes);
 
   await writeFile(filePath, buffer);
-  
+
   // Return public URL path
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   return `${baseUrl}/api/files/${filename}`;
@@ -40,14 +40,14 @@ export async function POST(request: NextRequest) {
     const session = await auth.api.getSession({
       headers: await headers(),
     });
-    
+
     if (!session) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
-    
+
     const userId = session.user.id;
 
     // Get file from form data
@@ -77,7 +77,9 @@ export async function POST(request: NextRequest) {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 15);
     const originalName = file.name;
-    const filename = `${timestamp}-${random}-${originalName}`;
+    // Sanitize filename: remove spaces and special chars, keep only alphanumeric, dots, hyphens, underscores
+    const sanitizedName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const filename = `${timestamp}-${random}-${sanitizedName}`;
 
     const storageType = getStorageType();
     let publicUrl: string;
@@ -146,7 +148,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error in upload-file API route:', error);
     return NextResponse.json(
-      { 
+      {
         error: "Failed to upload file",
         details: error instanceof Error ? error.message : String(error)
       },

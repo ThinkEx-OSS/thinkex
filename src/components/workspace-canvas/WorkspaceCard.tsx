@@ -1,4 +1,5 @@
 import { QuizContent } from "./QuizContent";
+import { ImageCardContent } from "./ImageCardContent";
 import { MoreVertical, Trash2, Palette, CheckCircle2, FolderInput, FileText, Copy, X, Pencil, Columns } from "lucide-react";
 import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
 import { useCallback, useState, memo, useRef, useEffect, useMemo } from "react";
@@ -6,7 +7,7 @@ import { toast } from "sonner";
 import { usePostHog } from 'posthog-js/react';
 import ItemHeader from "@/components/workspace-canvas/ItemHeader";
 import { getCardColorCSS, getCardAccentColor, getDistinctCardColor, SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
-import type { Item, NoteData, PdfData, FlashcardData, YouTubeData } from "@/lib/workspace-state/types";
+import type { Item, NoteData, PdfData, FlashcardData, YouTubeData, ImageData } from "@/lib/workspace-state/types";
 import { SwatchesPicker, ColorResult } from "react-color";
 import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEditor";
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
@@ -560,14 +561,14 @@ function WorkspaceCard({
             data-youtube-playing={isYouTubePlaying}
             data-item-type={item.type}
             data-has-preview={shouldShowPreview}
-            className={`relative rounded-md scroll-mt-4 size-full flex flex-col overflow-hidden transition-all duration-200 cursor-pointer ${item.type === 'youtube' || (item.type === 'pdf' && shouldShowPreview)
+            className={`relative rounded-md scroll-mt-4 size-full flex flex-col overflow-hidden transition-all duration-200 cursor-pointer ${item.type === 'youtube' || item.type === 'image' || (item.type === 'pdf' && shouldShowPreview)
               ? 'p-0'
               : 'p-4 border shadow-sm hover:border-foreground/30 hover:shadow-md focus-within:border-foreground/50'
               }`}
             style={{
-              backgroundColor: item.type === 'youtube' ? 'transparent' : (item.color ? getCardColorCSS(item.color, 0.25) : 'var(--card)'),
+              backgroundColor: (item.type === 'youtube' || item.type === 'image') ? 'transparent' : (item.color ? getCardColorCSS(item.color, 0.25) : 'var(--card)'),
               borderColor: isSelected ? 'rgba(255, 255, 255, 0.8)' : (item.color ? getCardAccentColor(item.color, 0.5) : 'transparent'),
-              borderWidth: isSelected ? '2px' : (item.type === 'youtube' || (item.type === 'pdf' && shouldShowPreview) ? '0px' : '1px'),
+              borderWidth: isSelected ? '2px' : ((item.type === 'youtube' || item.type === 'image' || (item.type === 'pdf' && shouldShowPreview)) ? '0px' : '1px'),
               transition: 'border-color 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease-out'
             } as React.CSSProperties}
             onMouseDown={handleMouseDown}
@@ -577,8 +578,8 @@ function WorkspaceCard({
           >
             {/* Floating Controls Container */}
             <div className={`absolute top-3 right-3 z-10 flex items-center gap-2 ${isOpenInPanel || isEditingTitle || isYouTubePlaying ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
-              {/* Scroll Lock/Unlock Button - Hidden for YouTube, quiz, and narrow note/PDF cards */}
-              {item.type !== 'youtube' && item.type !== 'quiz' && !(item.type === 'note' && !shouldShowPreview) && !(item.type === 'pdf' && !shouldShowPreview) && (
+              {/* Scroll Lock/Unlock Button - Hidden for YouTube, image, quiz, and narrow note/PDF cards */}
+              {item.type !== 'youtube' && item.type !== 'image' && item.type !== 'quiz' && !(item.type === 'note' && !shouldShowPreview) && !(item.type === 'pdf' && !shouldShowPreview) && (
                 <button
                   type="button"
                   aria-label={isScrollLocked ? 'Click to unlock scroll' : 'Click to lock scroll'}
@@ -742,7 +743,7 @@ function WorkspaceCard({
             </Dialog>
 
             <div className={(item.type === 'note' || item.type === 'pdf') && !shouldShowPreview ? "flex-1 flex flex-col" : "flex-shrink-0"}>
-              {item.type !== 'youtube' && !(item.type === 'pdf' && shouldShowPreview) && (
+              {item.type !== 'youtube' && item.type !== 'image' && !(item.type === 'pdf' && shouldShowPreview) && (
                 <ItemHeader
                   id={item.id}
                   name={item.name}
@@ -941,6 +942,11 @@ function WorkspaceCard({
               />;
             })()}
 
+            {/* Image Content - render frameless image */}
+            {!isOpenInPanel && item.type === 'image' && (
+              <ImageCardContent item={item} />
+            )}
+
             {/* Deep Research Note - render streaming UI when research is in progress */}
             {item.type === 'note' && (() => {
               const noteData = item.data as NoteData;
@@ -1086,6 +1092,11 @@ export const WorkspaceCardMemoized = memo(WorkspaceCard, (prevProps, nextProps) 
     if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
   }
   if (prevProps.item.type === 'quiz' && nextProps.item.type === 'quiz') {
+    const prevData = prevProps.item.data;
+    const nextData = nextProps.item.data;
+    if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
+  }
+  if (prevProps.item.type === 'image' && nextProps.item.type === 'image') {
     const prevData = prevProps.item.data;
     const nextData = nextProps.item.data;
     if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;

@@ -7,7 +7,8 @@ import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operatio
 import { FileText } from "lucide-react";
 import { useCallback, useState, useRef } from "react";
 import { toast } from "sonner";
-import type { PdfData } from "@/lib/workspace-state/types";
+import type { PdfData, ImageData } from "@/lib/workspace-state/types";
+import { getBestFrameForRatio, type GridFrame } from "@/lib/workspace-state/aspect-ratios";
 
 interface WorkspaceCanvasDropzoneProps {
   children: React.ReactNode;
@@ -15,7 +16,7 @@ interface WorkspaceCanvasDropzoneProps {
 
 /**
  * Dropzone component specifically for the workspace canvas area.
- * Only accepts PDFs and creates PDF cards in the workspace when dropped.
+ * Accepts PDFs and images and creates corresponding cards in the workspace when dropped.
  */
 export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzoneProps) {
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
@@ -65,7 +66,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
 
       // Check file count limit
       if (acceptedFiles.length > MAX_FILES) {
-        toast.error(`You can only upload up to ${MAX_FILES} PDFs at once. You dropped ${acceptedFiles.length} files.`, {
+        toast.error(`You can only upload up to ${MAX_FILES} files at once. You dropped ${acceptedFiles.length} files.`, {
           style: { color: '#fff' },
           duration: 5000,
         });
@@ -117,7 +118,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
 
       // Show loading toast
       const loadingToastId = toast.loading(
-        `Uploading ${validFiles.length} PDF${validFiles.length > 1 ? 's' : ''}...`,
+        `Uploading ${validFiles.length} file${validFiles.length > 1 ? 's' : ''}...`,
         {
           style: { color: '#fff' },
         }
@@ -152,27 +153,133 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
         toast.dismiss(loadingToastId);
 
         if (validResults.length > 0) {
-          // Collect all PDF card data and create in a single batch event
-          const pdfCardDefinitions = validResults.map((result) => {
-            const pdfData: Partial<PdfData> = {
-              fileUrl: result.fileUrl,
-              filename: result.filename,
-              fileSize: result.fileSize,
-            };
+          // Separate files by type
+          const pdfResults: typeof validResults = [];
+          const imageResults: typeof validResults = [];
 
-            return {
-              type: 'pdf' as const,
-              name: result.name,
-              initialData: pdfData,
-            };
+          validResults.forEach((result, index) => {
+            const file = validFiles[index];
+            if (file.type === 'application/pdf') {
+              pdfResults.push(result);
+            } else {
+              imageResults.push(result);
+            }
           });
 
-          // Create all PDF cards atomically in a single event
-          operations.createItems(pdfCardDefinitions);
+          // Create PDF cards
+          if (pdfResults.length > 0) {
+            const pdfCardDefinitions = pdfResults.map((result) => {
+              const pdfData: Partial<PdfData> = {
+                fileUrl: result.fileUrl,
+                filename: result.filename,
+                fileSize: result.fileSize,
+              };
+
+              return {
+                type: 'pdf' as const,
+                name: result.name,
+                initialData: pdfData,
+              };
+            });
+
+            operations.createItems(pdfCardDefinitions);
+          }
+
+          // Create image cards with aspect ratio detection
+          if (imageResults.length > 0) {
+            // Helper to get image dimensions
+            const getImageDimensions = (url: string): Promise<{ width: number; height: number }> => {
+              return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+                img.onerror = reject;
+                img.src = url;
+              });
+            };
+
+            // Process images to get dimensions before creating cards
+            const imageDefinitionsPromises = imageResults.map(async (result) => {
+              const imageData: Partial<ImageData> = {
+                url: result.fileUrl,
+                altText: result.name,
+              };
+
+              let layout = undefined;
+
+              try {
+                // Get dimensions to determine aspect ratio
+                const { width, height } = await getImageDimensions(result.fileUrl);
+                // Use the small frame (w:2) for initial drops, relying on resize logic to scale up if needed
+                const bestFrame = getBestFrameForRatio(width, height);
+
+                // Construct layout object
+                if (bestFrame) {
+                  // Create standard RGL layout object
+                  // Note: We only set the 'lg' breakpoint here. 
+                  // The system will handle the responsive mapping.
+                  // However, createItems/createItem doesn't accept a layout object directly in its simplified signature.
+                  // We might need to rely on the default size if we can't pass layout.
+
+                  // Actually, createItems takes `initialData`. 
+                  // The `useWorkspaceOperations.createItems` implementation might need adjustment to accept `layout`.
+                  // But wait, the `Item` type has a `layout` property.
+
+                  // Let's modify the return type here to match what createItems expects.
+                  // createItems takes `Partial<Item>[]` effectively (name, type, initialData).
+                  // If we need to pass layout, we'll need to check if createItems supports it.
+
+                  // Looking at `use-workspace-operations.ts` (from memory):
+                  // createItems(items: { type: CardType; name?: string; initialData?: any }[])
+                  // It doesn't seem to support passing layout directly in the current definition.
+
+                  // Workaround: We can't easily pass layout without modifying `createItems`.
+                  // BUT, we defined default dimensions in `grid-layout-helpers.ts`.
+                  // To do "adaptive" sizing per item, we really need custom layout support.
+
+                  // Let's assume for now we will modify createItems or use a workaround.
+                  // Or actually, `createItems` might accept extra properties.
+                  // Let's check `use-workspace-operations.ts` content later if this fails.
+                  // For now, I will assume we can pass `layout` or `w`/`h` if I modify the type def there.
+
+                  // Actually, a safer bet is to just let them be created with defaults (4x10) 
+                  // and then immediately update them? That's glitchy.
+
+                  // Wait, I can't modify `createItems` easily right now without checking it.
+                  // Let's look at `use-workspace-operations` again.
+
+                  // WAIT! I already checked `use-workspace-operations.ts` earlier. 
+                  // It takes `definitions: { type: CardType; name?: string; initialData?: Partial<Item['data']> }[]`.
+                  // It constructs the item using `createItem` logic usually.
+
+                  // I will pass `initialLayout` property in the definition and update `use-workspace-operations` to use it.
+                  return {
+                    type: 'image' as const,
+                    name: result.name,
+                    initialData: imageData,
+                    initialLayout: { w: bestFrame.w, h: bestFrame.h } // Passing custom property
+                  };
+                }
+              } catch (e) {
+                console.error("Failed to load image for dimensions:", e);
+              }
+
+              return {
+                type: 'image' as const,
+                name: result.name,
+                initialData: imageData,
+              };
+            });
+
+            const imageCardDefinitions = await Promise.all(imageDefinitionsPromises);
+
+            // @ts-ignore - We are passing extra 'initialLayout' that we'll handle in createItems
+            operations.createItems(imageCardDefinitions);
+          }
 
           // Show success toast
+          const totalCreated = validResults.length;
           toast.success(
-            `${validResults.length} PDF card${validResults.length > 1 ? 's' : ''} created successfully`,
+            `${totalCreated} card${totalCreated > 1 ? 's' : ''} created successfully`,
             {
               style: { color: '#fff' },
             }
@@ -182,7 +289,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
         // Show error if some files failed to upload
         const failedCount = validFiles.length - validResults.length;
         if (failedCount > 0) {
-          toast.error(`Failed to upload ${failedCount} PDF${failedCount > 1 ? 's' : ''}`, {
+          toast.error(`Failed to upload ${failedCount} file${failedCount > 1 ? 's' : ''}`, {
             style: { color: '#fff' },
             duration: 5000,
           });
@@ -215,7 +322,11 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
     noKeyboard: true, // Don't trigger on keyboard
     disabled: !currentWorkspaceId, // Disable if no workspace is selected
     accept: {
-      'application/pdf': ['.pdf'], // Only accept PDFs
+      'application/pdf': ['.pdf'],
+      'image/png': ['.png'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/gif': ['.gif'],
+      'image/webp': ['.webp'],
     },
     onDragEnter: () => setIsDragging(true),
     onDragLeave: () => {
@@ -233,7 +344,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
       if (fileRejections.length > 0) {
         const rejectedFileNames = fileRejections.map(rejection => rejection.file.name);
         toast.error(
-          `Only PDF files can be dropped into the workspace.\nRejected: ${rejectedFileNames.join(', ')}`,
+          `Only PDF and image files (PNG, JPG, GIF, WebP) can be dropped.\nRejected: ${rejectedFileNames.join(', ')}`,
           {
             style: { color: '#fff' },
             duration: 5000,
@@ -256,10 +367,10 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
             </div>
             <div className="space-y-2">
               <h3 className="text-lg font-semibold text-foreground">
-                Create PDF Card
+                Create Card
               </h3>
               <p className="text-sm text-muted-foreground">
-                Drop PDF files here to create cards in your workspace
+                Drop PDF or image files here to create cards
               </p>
             </div>
           </div>

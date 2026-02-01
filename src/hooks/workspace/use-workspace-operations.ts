@@ -12,14 +12,14 @@ import { defaultDataFor } from "@/lib/workspace-state/item-helpers";
 import { getRandomCardColor } from "@/lib/workspace-state/colors";
 import { logger } from "@/lib/utils/logger";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { getLayoutForBreakpoint } from "@/lib/workspace-state/grid-layout-helpers";
+import { getLayoutForBreakpoint, findNextAvailablePosition } from "@/lib/workspace-state/grid-layout-helpers";
 
 /**
  * Return type for workspace operations
  */
 export interface WorkspaceOperations {
   createItem: (type: CardType, name?: string, initialData?: Partial<Item['data']>) => string;
-  createItems: (items: Array<{ type: CardType; name?: string; initialData?: Partial<Item['data']> }>) => string[];
+  createItems: (items: Array<{ type: CardType; name?: string; initialData?: Partial<Item['data']>; initialLayout?: { w: number; h: number } }>) => string[];
   updateItem: (id: string, changes: Partial<Item>, source?: 'user' | 'agent') => void;
   updateItemData: (itemId: string, updater: (prev: Item['data']) => Item['data'], source?: 'user' | 'agent') => void;
   deleteItem: (id: string) => void;
@@ -83,7 +83,7 @@ export function useWorkspaceOperations(
       // Validate type is a valid CardType
       logger.debug("🔧 [CREATE-ITEM] Received type:", type, "typeof:", typeof type, "value:", JSON.stringify(type));
 
-      const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube"];
+      const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube", "image"];
       const validType = validTypes.includes(type) ? type : "note";
 
       if (validType !== type) {
@@ -126,7 +126,7 @@ export function useWorkspaceOperations(
   );
 
   const createItems = useCallback(
-    (items: Array<{ type: CardType; name?: string; initialData?: Partial<Item['data']> }>): string[] => {
+    (items: Array<{ type: CardType; name?: string; initialData?: Partial<Item['data']>; initialLayout?: { w: number; h: number } }>): string[] => {
       if (items.length === 0) {
         return [];
       }
@@ -138,10 +138,19 @@ export function useWorkspaceOperations(
       // Get active folder - auto-assign new items to the currently viewed folder
       const activeFolderId = useUIStore.getState().activeFolderId;
 
+      // Get items in current view for layout calculation
+      // We need to maintain a running list including newly created items to prevent stacking
+      const currentItems = currentState.items.filter(item =>
+        activeFolderId ? item.folderId === activeFolderId : !item.folderId
+      );
+
+      // Mutable array to track items for position calculation as we generate them
+      const itemsForLayout = [...currentItems];
+
       // Create all items
-      const createdItems: Item[] = items.map(({ type, name, initialData }) => {
+      const createdItems: Item[] = items.map(({ type, name, initialData, initialLayout }) => {
         // Validate type is a valid CardType
-        const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube"];
+        const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube", "image"];
         const validType = validTypes.includes(type) ? type : "note";
 
         if (validType !== type) {
@@ -154,7 +163,32 @@ export function useWorkspaceOperations(
         const baseData = defaultDataFor(validType);
         const mergedData = initialData ? { ...baseData, ...initialData } : baseData;
 
+        // Calculate layout if initial dimensions provided
+        let layout = undefined;
+        if (initialLayout) {
+          const position = findNextAvailablePosition(
+            itemsForLayout,
+            validType,
+            4, // Default cols
+            name,
+            "",
+            initialLayout.w,
+            initialLayout.h
+          );
 
+          layout = { lg: position };
+
+          // Add placeholder item to layout tracking array so next item doesn't overlap
+          // We only need the layout properties for findNextAvailablePosition
+          itemsForLayout.push({
+            id,
+            type: validType,
+            name: name || "",
+            subtitle: "",
+            data: baseData as any,
+            layout: { lg: position }
+          });
+        }
 
         return {
           id,
@@ -164,6 +198,7 @@ export function useWorkspaceOperations(
           data: mergedData as ItemData,
           color: getRandomCardColor(), // Assign random color to new cards
           folderId: activeFolderId ?? undefined, // Auto-assign to active folder
+          layout,
         };
       });
 
@@ -490,7 +525,7 @@ export function useWorkspaceOperations(
     (folderId: string, items: Item[]): string[] => {
       const directChildren = items.filter(item => item.folderId === folderId);
       const descendantIds: string[] = [];
-      
+
       for (const child of directChildren) {
         descendantIds.push(child.id);
         // Recursively get descendants of nested folders
@@ -498,7 +533,7 @@ export function useWorkspaceOperations(
           descendantIds.push(...getAllDescendantIds(child.id, items));
         }
       }
-      
+
       return descendantIds;
     },
     []
@@ -526,19 +561,19 @@ export function useWorkspaceOperations(
       } else {
         latestItems = currentState.items;
       }
-      
+
       const folder = latestItems.find(i => i.id === folderId && i.type === 'folder');
       logger.debug("📁 [FOLDER-DELETE-WITH-CONTENTS] Deleting folder and contents:", { folderId, folderName: folder?.name });
-      
+
       // Find all descendant items recursively (handles nested folders)
       const allDescendantIds = getAllDescendantIds(folderId, latestItems);
-      
+
       // Create set of all IDs to delete (descendants + folder itself)
       const idsToDelete = new Set([...allDescendantIds, folderId]);
       const itemCount = allDescendantIds.length;
-      
+
       logger.debug("📁 [FOLDER-DELETE-WITH-CONTENTS] Found items to delete:", { itemCount, itemIds: [...idsToDelete] });
-      
+
       // Delete PDF files from storage (fire-and-forget, non-blocking)
       // This is best-effort cleanup - files may become orphaned if this fails
       const itemsToDelete = latestItems.filter(item => idsToDelete.has(item.id));
@@ -552,13 +587,13 @@ export function useWorkspaceOperations(
           }
         }
       }
-      
+
       // Atomic bulk delete using updateAllItems pattern (single BULK_ITEMS_UPDATED event)
       const remainingItems = latestItems.filter(item => !idsToDelete.has(item.id));
       updateAllItems(remainingItems);
-      
+
       toast.success(
-        folder 
+        folder
           ? `Folder "${folder.name}" and ${itemCount} ${itemCount === 1 ? 'item' : 'items'} deleted`
           : `Folder and ${itemCount} ${itemCount === 1 ? 'item' : 'items'} deleted`
       );
