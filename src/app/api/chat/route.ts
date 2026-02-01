@@ -148,11 +148,14 @@ CITATION REQUIREMENT:
 When using search results (grounding), you must include the date of each article/source if available.
 
 SOURCE EXTRACTION REQUIREMENT:
-When creating a note that uses information from web search or grounding results, you MUST extract the sources and pass them to the createNote tool using the 'sources' parameter. Each source should include:
+When creating OR updating a note, you MUST extract and pass sources using the 'sources' parameter in these scenarios:
+1. **Web Search/Grounding**: If you used web search or grounding results to generate note content
+2. **User-Provided URLs**: If the user provided a URL that you read/analyzed (via processUrls tool) to create or update the note
+Each source should include:
 - title: The title of the source article/page
 - url: The full URL of the source
 Format: Pass an array of source objects like [{ title: "Article Title", url: "https://..." }, ...]
-This is MANDATORY whenever you use search results to generate note content.`);
+This is MANDATORY for both createNote AND updateNote tools when using web search results or user-provided URLs.`);
 
   // Add file detection hint if file URLs are present
   if (fileUrls.length > 0) {

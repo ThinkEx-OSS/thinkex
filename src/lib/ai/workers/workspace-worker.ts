@@ -390,6 +390,18 @@ export async function workspaceWorker(
                         } as NoteData;
                     }
 
+                    // Update sources if provided
+                    if (params.sources !== undefined) {
+                        if (!changes.data) {
+                            changes.data = {} as NoteData;
+                        }
+                        (changes.data as NoteData).sources = params.sources;
+                        logger.debug("📚 [UPDATE-NOTE] Updating sources:", {
+                            count: params.sources.length,
+                            sources: params.sources,
+                        });
+                    }
+
                     // If no changes, return early
                     if (Object.keys(changes).length === 0) {
                         logger.warn("⚠️ [UPDATE-NOTE] No changes detected, returning early");

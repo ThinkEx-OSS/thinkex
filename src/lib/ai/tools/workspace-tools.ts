@@ -78,9 +78,16 @@ export function createUpdateNoteTool(ctx: WorkspaceToolContext) {
                 noteName: z.string().describe("The name of the note to update (will be matched using fuzzy search)"),
                 content: z.string().describe("The full note body ONLY (do not include the title as a header). Use $$...$$ for ALL math."),
                 title: z.string().optional().describe("New title for the note. If not provided, the existing title will be preserved."),
+                sources: z.array(
+                    z.object({
+                        title: z.string().describe("Title of the source page"),
+                        url: z.string().describe("URL of the source"),
+                        favicon: z.string().optional().describe("Optional favicon URL"),
+                    })
+                ).optional().describe("Optional sources from web search or user-provided URLs"),
             }).passthrough()
         ),
-        execute: async (input: { noteName: string; content: string; title?: string }) => {
+        execute: async (input: { noteName: string; content: string; title?: string; sources?: Array<{ title: string; url: string; favicon?: string }> }) => {
             const noteName = input.noteName;
             const content = input.content;
             const title = input.title;
@@ -137,6 +144,7 @@ export function createUpdateNoteTool(ctx: WorkspaceToolContext) {
                     itemId: matchedNote.id,
                     content: content,
                     title: title,
+                    sources: input.sources,
                 });
 
                 if (workerResult.success) {
