@@ -125,7 +125,7 @@ export function Navbar() {
             </div>
 
             {/* Desktop CTA */}
-            <div className="hidden md:flex md:items-center md:gap-4 z-10">
+            <div className="hidden md:flex md:items-center md:gap-4 z-10 py-1 flex items-center gap-2">
               {!isPending && !session && (
                 <>
 

@@ -44,7 +44,7 @@ export function UserProfileDropdown() {
   // Anonymous user: show sign in/up buttons
   if (session?.user?.isAnonymous) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 py-1">
         <Link href="/auth/sign-in">
           <Button variant="ghost" size="sm" className="text-foreground">
             Sign in

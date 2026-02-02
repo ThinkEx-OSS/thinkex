@@ -70,7 +70,7 @@ export function createUpdateNoteTool(ctx: WorkspaceToolContext) {
                 noteName: z.string().describe("The name of the note to update (will be matched using fuzzy search)"),
                 content: z.string().describe("The full note body ONLY (do not include the title as a header). Use $$...$$ for ALL math."),
                 title: z.string().optional().describe("New title for the note. If not provided, the existing title will be preserved."),
-            }).passthrough()
+            })
         ),
         execute: async (input: { noteName: string; content: string; title?: string }) => {
             const noteName = input.noteName;

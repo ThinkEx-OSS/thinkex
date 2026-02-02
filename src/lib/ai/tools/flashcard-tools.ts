@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { zodSchema } from "ai";
+import { tool, zodSchema } from "ai";
 import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
@@ -9,7 +9,7 @@ import { loadStateForTool, fuzzyMatchItem, getAvailableItemsList } from "./tool-
  * Create the createFlashcards tool
  */
 export function createFlashcardsTool(ctx: WorkspaceToolContext) {
-    return {
+    return tool({
         description: "Create a new flashcard deck. Use $$...$$ for ALL math expressions.",
         inputSchema: zodSchema(
             z.object({
@@ -20,7 +20,7 @@ export function createFlashcardsTool(ctx: WorkspaceToolContext) {
                         back: z.string().describe("The answer or definition on the back of the card"),
                     })
                 ).min(1).describe("Array of flashcard objects, each with 'front' and 'back' properties"),
-            }).passthrough()
+            })
         ),
         execute: async (input: { title?: string | null; cards: Array<{ front: string; back: string }> }) => {
             logger.debug("🎴 [CREATE-FLASHCARDS] Tool execution started");
@@ -65,14 +65,14 @@ export function createFlashcardsTool(ctx: WorkspaceToolContext) {
                 };
             }
         },
-    };
+    });
 }
 
 /**
  * Create the updateFlashcards tool
  */
 export function createUpdateFlashcardsTool(ctx: WorkspaceToolContext) {
-    return {
+    return tool({
         description: "Add more flashcards to an existing flashcard deck. Use $$...$$ for ALL math expressions.",
         inputSchema: zodSchema(
             z.object({
@@ -83,7 +83,7 @@ export function createUpdateFlashcardsTool(ctx: WorkspaceToolContext) {
                         back: z.string().describe("The answer or definition on the back of the card"),
                     })
                 ).min(1).describe("Array of flashcard objects to add, each with 'front' and 'back' properties"),
-            }).passthrough()
+            })
         ),
         execute: async (input: { deckName: string; cards: Array<{ front: string; back: string }> }) => {
             const deckName = input.deckName;
@@ -154,5 +154,5 @@ export function createUpdateFlashcardsTool(ctx: WorkspaceToolContext) {
                 };
             }
         },
-    };
+    });
 }
