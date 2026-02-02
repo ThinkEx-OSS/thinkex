@@ -78,7 +78,7 @@ Make sure to:
         let sources: Array<{ title: string; url: string }> = [];
 
         try {
-            const titleMatch = text.match(/===TITLE===\s*\n(.*?)(?:\n|$)/s);
+            const titleMatch = text.match(/===TITLE===\s*\n([\s\S]*?)(?:\n|$)/);
             if (titleMatch) {
                 title = titleMatch[1].trim();
             }
