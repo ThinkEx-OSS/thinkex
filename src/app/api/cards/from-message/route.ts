@@ -26,6 +26,24 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { content, workspaceId, folderId, sources } = body;
 
+    if (sources !== undefined) {
+      const hasInvalidSource =
+        !Array.isArray(sources) ||
+        sources.some(
+          (source) =>
+            !source ||
+            typeof source.title !== "string" ||
+            typeof source.url !== "string"
+        );
+
+      if (hasInvalidSource) {
+        return NextResponse.json(
+          { error: "Sources must be an array of { title, url } objects" },
+          { status: 400 }
+        );
+      }
+    }
+
 
 
     // Validate input
