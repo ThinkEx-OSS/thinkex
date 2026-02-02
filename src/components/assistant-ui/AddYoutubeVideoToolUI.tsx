@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-shell";
 import { ToolUIErrorShell } from "@/components/assistant-ui/tool-ui-error-shell";
+import { useOptimisticToolUpdate } from "@/hooks/ai/use-optimistic-tool-update";
 import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import type { WorkspaceResult } from "@/lib/ai/tool-result-schemas";
@@ -87,6 +88,8 @@ export const AddYoutubeVideoToolUI = makeAssistantToolUI<AddYoutubeVideoArgs, Wo
   toolName: "addYoutubeVideo",
   render: function AddYoutubeVideoToolUI({ args, result, status }) {
     const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+
+    useOptimisticToolUpdate(status, result, workspaceId);
 
     // Don't try to parse while still running - wait for completion
     let parsed: WorkspaceResult | null = null;
