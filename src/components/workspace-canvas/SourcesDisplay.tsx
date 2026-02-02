@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import type { Source } from "@/lib/workspace-state/types";
 import { ExternalLink, ChevronDown } from "lucide-react";
 import {
