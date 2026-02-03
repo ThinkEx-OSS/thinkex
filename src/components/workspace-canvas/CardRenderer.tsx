@@ -69,7 +69,7 @@ export function CardRenderer(props: {
         />
         {/* Sources section - only shown if sources exist */}
         {noteData.sources && noteData.sources.length > 0 && (
-          <div className="px-4 pb-4 mt-4">
+          <div className="px-4 pb-3 mt-2">
             <SourcesDisplay sources={noteData.sources} />
           </div>
         )}

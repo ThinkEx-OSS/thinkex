@@ -42,21 +42,21 @@ export function SourcesDisplay({ sources }: SourcesDisplayProps) {
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <button
-                        className="group flex items-center gap-2 px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-200 text-sm"
+                        className="group flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-200 text-xs"
                         onClick={(e) => e.stopPropagation()}
                         onMouseDown={(e) => e.stopPropagation()}
                         onPointerDown={(e) => e.stopPropagation()}
                     >
-                        <ExternalLink className="h-3.5 w-3.5 text-white/50 group-hover:text-white/70" />
+                        <ExternalLink className="h-3 w-3 text-white/50 group-hover:text-white/70" />
                         <span className="text-white/70 group-hover:text-white/90 font-medium">
                             {visibleSources.length} {visibleSources.length === 1 ? "source" : "sources"}
                         </span>
-                        <ChevronDown className="h-3.5 w-3.5 text-white/40 group-hover:text-white/60" />
+                        <ChevronDown className="h-3 w-3 text-white/40 group-hover:text-white/60" />
                     </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                     align="start"
-                    className="w-80 max-h-[400px] overflow-y-auto"
+                    className="w-64 max-h-[300px] overflow-y-auto"
                     sideOffset={4}
                 >
                     {visibleSources.map((source, index) => {
@@ -73,14 +73,14 @@ export function SourcesDisplay({ sources }: SourcesDisplayProps) {
                                     href={source.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-start gap-2 p-2 cursor-pointer"
+                                    className="flex items-start gap-1.5 p-1.5 cursor-pointer"
                                 >
-                                    <ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
                                     <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-medium line-clamp-2 mb-0.5">
+                                        <div className="text-xs font-medium line-clamp-2 mb-0.5">
                                             {source.title}
                                         </div>
-                                        <div className="text-xs text-muted-foreground truncate">
+                                        <div className="text-[10px] text-muted-foreground truncate">
                                             {hostname}
                                         </div>
                                     </div>
