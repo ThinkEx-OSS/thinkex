@@ -126,6 +126,8 @@ export const auth = betterAuth({
                   .update(workspaces)
                   .set({ slug: newSlug })
                   .where(eq(workspaces.id, workspace.id));
+
+                existingSlugs.add(newSlug);
               }
             }
 
