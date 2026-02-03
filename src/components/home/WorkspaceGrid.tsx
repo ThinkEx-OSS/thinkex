@@ -200,7 +200,7 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
                       {previewText}
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center h-full">
+                    <div className="flex items-center justify-center h-full pt-8">
                       <IconRenderer
                         icon={workspace.icon}
                         className="h-12 w-12 opacity-30 group-hover:opacity-40 group-hover:scale-110 transition-all duration-200"
