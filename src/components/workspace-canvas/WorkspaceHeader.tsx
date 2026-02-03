@@ -778,16 +778,21 @@ export default function WorkspaceHeader({
             {/* Collaborator Avatars - show who's in the workspace */}
             <CollaboratorAvatars />
 
-            {/* Save Indicator - hidden in compact mode */}
-            {!isCompactMode && (
-              <WorkspaceSaveIndicator
-                isSaving={isSaving || false}
-                lastSavedAt={lastSavedAt || null}
-                hasUnsavedChanges={hasUnsavedChanges}
-                onManualSave={onManualSave}
-                currentWorkspaceId={currentWorkspaceId}
-                onShowHistory={onShowHistory}
-              />
+            {/* Share Button - hidden in compact mode */}
+            {!isCompactMode && onOpenShare && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onOpenShare}
+                    className="h-8 px-2 text-muted-foreground hover:text-foreground font-normal"
+                  >
+                    Share
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Share workspace</TooltipContent>
+              </Tooltip>
             )}
 
             {/* Search Input */}

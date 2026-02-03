@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Copy, Check, Mail, UserPlus, Users, Trash2, Loader2 } from "lucide-react";
+import { Copy, Check, Mail, UserPlus, Users, Trash2, Loader2, Clock, History } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +23,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
+import type { WorkspaceEvent } from "@/lib/workspace/events";
 import { useSession } from "@/lib/auth-client";
+import { VersionHistoryContent } from "@/components/workspace/VersionHistoryModal";
 
 interface Collaborator {
   id: string;
@@ -37,14 +39,25 @@ interface Collaborator {
 
 interface ShareWorkspaceDialogProps {
   workspace: WorkspaceWithState | null;
+  workspaceIds?: string[]; // For bulk selection
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  // Version history props (optional, only for workspace routes)
+  showHistoryTab?: boolean;
+  events?: WorkspaceEvent[];
+  currentVersion?: number;
+  onRevertToVersion?: (version: number) => Promise<void>;
 }
 
 export default function ShareWorkspaceDialog({
   workspace,
+  workspaceIds,
   open,
   onOpenChange,
+  showHistoryTab = false,
+  events = [],
+  currentVersion = 0,
+  onRevertToVersion,
 }: ShareWorkspaceDialogProps) {
   const { data: session } = useSession();
   const [copied, setCopied] = useState(false);
@@ -55,29 +68,33 @@ export default function ShareWorkspaceDialog({
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [isLoadingCollaborators, setIsLoadingCollaborators] = useState(false);
 
-  // Determine permissions
+  // Bulk mode check
+  const isBulk = !!workspaceIds && workspaceIds.length > 1;
+  const targetIds = isBulk ? workspaceIds! : (workspace ? [workspace.id] : []);
+
+  // Determine permissions (simplified for bulk: assume logic handled in loop or backend returns error)
   const isOwner = workspace?.userId === session?.user?.id;
 
   // Find current user in collaborators list (if not owner)
   const currentUserCollaborator = collaborators.find(c => c.userId === session?.user?.id);
 
-  // Can invite: Owner OR Editor
-  const canInvite = isOwner || currentUserCollaborator?.permissionLevel === 'editor';
+  // Can invite: Owner OR Editor (In bulk mode, we assume user can try, and API will reject if not allowed)
+  const canInvite = isBulk || isOwner || currentUserCollaborator?.permissionLevel === 'editor';
 
   // Can manage (remove/change permission): Only Owner
   const canManage = isOwner;
 
   useEffect(() => {
-    if (workspace && open) {
+    if (workspace && open && !isBulk) {
       const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
       const url = `${baseUrl}/share/${workspace.id}`;
       setShareUrl(url);
       loadCollaborators();
     }
-  }, [workspace, open]);
+  }, [workspace, open, isBulk]);
 
   const loadCollaborators = async () => {
-    if (!workspace) return;
+    if (!workspace || isBulk) return;
 
     setIsLoadingCollaborators(true);
     try {
@@ -114,27 +131,44 @@ export default function ShareWorkspaceDialog({
   };
 
   const handleInvite = async () => {
-    if (!workspace || !inviteEmail.trim()) return;
+    if ((!workspace && !isBulk) || !inviteEmail.trim()) return;
 
     setIsInviting(true);
-    try {
-      const response = await fetch(`/api/workspaces/${workspace.id}/collaborators`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: inviteEmail.trim(),
-          permissionLevel: invitePermission,
-        }),
-      });
+    const email = inviteEmail.trim();
+    let successCount = 0;
 
-      if (response.ok) {
-        toast.success(`Invited ${inviteEmail} as ${invitePermission}`);
-        setInviteEmail("");
-        loadCollaborators();
-      } else {
-        const error = await response.json();
-        toast.error(error.message || "Failed to send invite");
+    try {
+      for (const id of targetIds) {
+        try {
+          const response = await fetch(`/api/workspaces/${id}/collaborators`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: email,
+              permissionLevel: invitePermission,
+            }),
+          });
+
+          if (response.ok) {
+            successCount++;
+          }
+        } catch (err) {
+          console.error(`Failed to invite to ${id}`, err);
+        }
       }
+
+      const total = targetIds.length;
+      if (successCount === total) {
+        toast.success(`Invited ${email} to ${isBulk ? 'all workspaces' : 'workspace'}`);
+        setInviteEmail("");
+        if (!isBulk) loadCollaborators();
+      } else if (successCount > 0) {
+        toast.warning(`Invited ${email} to ${successCount}/${total} workspaces (some failed due to permissions)`);
+        setInviteEmail("");
+      } else {
+        toast.error("Failed to send invites. Check if user is already a collaborator or your permissions.");
+      }
+
     } catch (error) {
       console.error("Failed to invite:", error);
       toast.error("Failed to send invite");
@@ -209,25 +243,42 @@ export default function ShareWorkspaceDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>Share Workspace</DialogTitle>
+          <DialogTitle>{isBulk ? `Share ${workspaceIds?.length} Workspaces` : "Share Workspace"}</DialogTitle>
           <DialogDescription>
-            Invite collaborators to work together in real-time or share a link for others to fork.
+            {isBulk
+              ? "Invite collaborators to all selected workspaces at once."
+              : "Invite collaborators to work together in real-time or share a link for others to fork."}
           </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="invite" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className={`grid w-full ${isBulk ? 'grid-cols-1' : showHistoryTab ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <TabsTrigger value="invite" className="flex items-center gap-2">
               <UserPlus className="h-4 w-4" />
-              Invite
+              Collaborate
             </TabsTrigger>
-            <TabsTrigger value="link" className="flex items-center gap-2">
-              <Copy className="h-4 w-4" />
-              Share Link
-            </TabsTrigger>
+            {!isBulk && (
+              <TabsTrigger value="link" className="flex items-center gap-2">
+                <Copy className="h-4 w-4" />
+                Share Copy
+              </TabsTrigger>
+            )}
+            {!isBulk && showHistoryTab && (
+              <TabsTrigger value="history" className="flex items-center gap-2">
+                <History className="h-4 w-4" />
+                History
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="invite" className="space-y-4 mt-4">
+            <div className="space-y-1">
+              <h3 className="font-medium">Real-time Collaboration</h3>
+              <p className="text-xs text-muted-foreground">
+                Invite team members to work on this workspace with you in real-time.
+              </p>
+            </div>
+
             {/* Invite Form */}
             <div className="space-y-3">
               <Label htmlFor="invite-email">Invite by email</Label>
@@ -269,77 +320,83 @@ export default function ShareWorkspaceDialog({
               </p>
             </div>
 
-            {/* Collaborators List */}
-            <div className="space-y-2 pt-2">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Users className="h-4 w-4" />
-                <span>People with access ({collaborators.length})</span>
-              </div>
-
-              {isLoadingCollaborators ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            {/* Collaborators List - Only show for single workspace */}
+            {!isBulk && (
+              <div className="space-y-2 pt-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Users className="h-4 w-4" />
+                  <span>People with access ({collaborators.length})</span>
                 </div>
-              ) : collaborators.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">
-                  No collaborators yet. Invite someone above!
-                </p>
-              ) : (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {collaborators.map((collab) => (
-                    <div
-                      key={collab.id}
-                      className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={collab.image} />
-                          <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                            {getInitials(collab.name, collab.email)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">
-                            {collab.name || collab.email || "Unknown"}
-                          </p>
-                          {collab.name && collab.email && (
-                            <p className="text-xs text-muted-foreground truncate">
-                              {collab.email}
+
+                {isLoadingCollaborators ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : collaborators.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    No collaborators yet. Invite someone above!
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {collaborators.map((collab) => (
+                      <div
+                        key={collab.id}
+                        className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={collab.image} />
+                            <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                              {getInitials(collab.name, collab.email)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {collab.name || collab.email || "Unknown"}
                             </p>
+                            {collab.name && collab.email && (
+                              <p className="text-xs text-muted-foreground truncate">
+                                {collab.email}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {collab.permissionLevel === "owner" ? (
+                            <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded border border-primary/20">
+                              Owner
+                            </span>
+                          ) : (
+                            canManage && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                onClick={() => handleRemoveCollaborator(collab.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {collab.permissionLevel === "owner" ? (
-                          <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded border border-primary/20">
-                            Owner
-                          </span>
-                        ) : (
-                          canManage && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                              onClick={() => handleRemoveCollaborator(collab.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="link" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="share-url">Share Link (Fork)</Label>
+            <div className="space-y-1">
+              <h3 className="font-medium">Share a Copy</h3>
               <p className="text-xs text-muted-foreground">
-                Anyone with this link can fork your workspace. They'll get their own copy—changes won't affect your original.
+                Anyone with this link can create their own personal copy of this workspace. Their changes will not affect your original workspace.
               </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="share-url">Share Link (Copy)</Label>
               <div className="flex gap-2">
                 <Input
                   id="share-url"
@@ -378,6 +435,30 @@ export default function ShareWorkspaceDialog({
               </Button>
             </div>
           </TabsContent>
+
+          {/* History Tab - only shown on workspace routes */}
+          {!isBulk && showHistoryTab && (
+            <TabsContent value="history" className="space-y-4 mt-4">
+              <div className="space-y-1">
+                <h3 className="font-medium">Version History</h3>
+                <p className="text-xs text-muted-foreground">
+                  View and manage versions of this workspace.
+                </p>
+              </div>
+
+              {/* Embed the version history content inline */}
+              <div className="max-h-[400px] overflow-y-auto pr-2">
+                <VersionHistoryContent
+                  events={events}
+                  currentVersion={currentVersion || 0}
+                  onRevertToVersion={onRevertToVersion || (() => { })}
+                  items={workspace?.state?.items || []}
+                  workspaceId={workspace?.id || null}
+                  isOpen={open}
+                />
+              </div>
+            </TabsContent>
+          )}
         </Tabs>
       </DialogContent>
     </Dialog>

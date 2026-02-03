@@ -148,15 +148,24 @@ function formatTime(timestamp: number): string {
   });
 }
 
-export function VersionHistoryModal({
-  isOpen,
-  onClose,
+// Reusable version history content component
+interface VersionHistoryContentProps {
+  events: WorkspaceEvent[];
+  currentVersion: number;
+  onRevertToVersion: (version: number) => void;
+  items?: any[];
+  workspaceId: string | null;
+  isOpen: boolean;
+}
+
+export function VersionHistoryContent({
   events,
   currentVersion,
   onRevertToVersion,
   items,
   workspaceId,
-}: VersionHistoryModalProps) {
+  isOpen,
+}: VersionHistoryContentProps) {
   const { data: session } = useSession();
   const user = session?.user;
   const [showNotSupportedDialog, setShowNotSupportedDialog] = useState(false);
@@ -164,7 +173,7 @@ export function VersionHistoryModal({
   // Fetch all snapshots when modal is open (lazy loading for version history)
   const { data: snapshots = [], isLoading: isLoadingSnapshots } = useWorkspaceSnapshots(
     workspaceId,
-    isOpen // Only fetch when modal is open
+    isOpen // Only fetch when open
   );
 
   // Function to get display name - uses stored userName from event, or falls back to userId
@@ -198,6 +207,178 @@ export function VersionHistoryModal({
 
   return (
     <>
+      <div className="space-y-6">
+        {/* Snapshots Section */}
+        {isLoadingSnapshots ? (
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Camera className="h-4 w-4" />
+              Snapshots
+            </h3>
+            <div className="text-sm text-muted-foreground">Loading snapshots...</div>
+          </div>
+        ) : snapshots.length > 0 ? (
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Camera className="h-4 w-4" />
+              Snapshots
+            </h3>
+            <div className="space-y-2">
+              {snapshots.map((snapshot, index) => (
+                <div
+                  key={snapshot.id}
+                  className={cn(
+                    "group relative rounded-lg border p-4 transition-colors",
+                    index === 0
+                      ? "bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/20 ring-1 ring-blue-500/20"
+                      : "border-border bg-accent/10 hover:bg-accent/20"
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="text-2xl mt-0.5">📸</div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-sm">
+                          Snapshot v{snapshot.version}
+                        </span>
+                        {index === 0 && (
+                          <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded">
+                            Latest
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {formatTime(new Date(snapshot.createdAt).getTime())}
+                        </span>
+                        <span>
+                          {snapshot.eventCount} events captured
+                        </span>
+                      </div>
+                    </div>
+
+                    {index !== 0 && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => {
+                          setShowNotSupportedDialog(true);
+                        }}
+                      >
+                        <Undo2 className="h-4 w-4 mr-1" />
+                        Restore
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {/* Recent Events Section */}
+        <div className="space-y-2">
+          {snapshots.length > 0 && (
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Recent Changes (since v{snapshots[0]?.version || 0})
+            </h3>
+          )}
+
+          {reversedEvents.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <Clock className="h-12 w-12 mb-3 opacity-20" />
+              <p>No history yet</p>
+              <p className="text-sm">Events will appear as you make changes</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {reversedEvents.map((event) => {
+                const eventVersion = event.version ?? 0;
+
+                return (
+                  <div
+                    key={event.id}
+                    className={cn(
+                      "group relative rounded-lg border p-4 hover:bg-accent/50 transition-colors",
+                      eventVersion === currentVersion && "bg-blue-500/10 border-blue-500/30 ring-1 ring-blue-500/20"
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="text-2xl mt-0.5">{getEventIcon(event)}</div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-sm">
+                            {getEventDescription(event, items)}
+                          </span>
+                          {eventVersion === currentVersion && (
+                            <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded">
+                              Current
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {formatTime(event.timestamp)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <User className="h-3 w-3" />
+                            {getUserDisplayName(event)}
+                          </span>
+                          <span className="text-muted-foreground/60">
+                            v{eventVersion}
+                          </span>
+                        </div>
+                      </div>
+
+                      {eventVersion < currentVersion && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => {
+                            setShowNotSupportedDialog(true);
+                          }}
+                        >
+                          <Undo2 className="h-4 w-4 mr-1" />
+                          Revert
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+      <RevertNotSupportedDialog
+        isOpen={showNotSupportedDialog}
+        onClose={() => setShowNotSupportedDialog(false)}
+      />
+    </>
+  );
+}
+
+export function VersionHistoryModal({
+  isOpen,
+  onClose,
+  events,
+  currentVersion,
+  onRevertToVersion,
+  items,
+  workspaceId,
+}: VersionHistoryModalProps) {
+  const { data: snapshots = [] } = useWorkspaceSnapshots(workspaceId, isOpen);
+
+  return (
+    <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent
           className="max-w-2xl max-h-[80vh] border-white/20 bg-black/40 backdrop-blur-2xl shadow-2xl"
@@ -217,163 +398,18 @@ export function VersionHistoryModal({
             </DialogTitle>
           </DialogHeader>
 
-          <div className="h-[500px] overflow-y-auto pr-4 space-y-6">
-            {/* Snapshots Section */}
-            {isLoadingSnapshots ? (
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Camera className="h-4 w-4" />
-                  Snapshots
-                </h3>
-                <div className="text-sm text-muted-foreground">Loading snapshots...</div>
-              </div>
-            ) : snapshots.length > 0 ? (
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Camera className="h-4 w-4" />
-                  Snapshots
-                </h3>
-                <div className="space-y-2">
-                  {snapshots.map((snapshot, index) => (
-                    <div
-                      key={snapshot.id}
-                      className={cn(
-                        "group relative rounded-lg border p-4 transition-colors",
-                        index === 0
-                          ? "bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/20 ring-1 ring-blue-500/20"
-                          : "border-border bg-accent/10 hover:bg-accent/20"
-                      )}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="text-2xl mt-0.5">📸</div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium text-sm">
-                              Snapshot v{snapshot.version}
-                            </span>
-                            {index === 0 && (
-                              <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded">
-                                Latest
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {formatTime(new Date(snapshot.createdAt).getTime())}
-                            </span>
-                            <span>
-                              {snapshot.eventCount} events captured
-                            </span>
-                          </div>
-                        </div>
-
-                        {index !== 0 && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => {
-                              setShowNotSupportedDialog(true);
-                            }}
-                          >
-                            <Undo2 className="h-4 w-4 mr-1" />
-                            Restore
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            {/* Recent Events Section */}
-            <div className="space-y-2">
-              {snapshots.length > 0 && (
-                <h3 className="text-sm font-medium text-muted-foreground">
-                  Recent Changes (since v{snapshots[0]?.version || 0})
-                </h3>
-              )}
-
-              {reversedEvents.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                  <Clock className="h-12 w-12 mb-3 opacity-20" />
-                  <p>No history yet</p>
-                  <p className="text-sm">Events will appear as you make changes</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {reversedEvents.map((event) => {
-                    const eventVersion = event.version ?? 0;
-
-                    return (
-                      <div
-                        key={event.id}
-                        className={cn(
-                          "group relative rounded-lg border p-4 hover:bg-accent/50 transition-colors",
-                          eventVersion === currentVersion && "bg-blue-500/10 border-blue-500/30 ring-1 ring-blue-500/20"
-                        )}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="text-2xl mt-0.5">{getEventIcon(event)}</div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium text-sm">
-                                {getEventDescription(event, items)}
-                              </span>
-                              {eventVersion === currentVersion && (
-                                <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded">
-                                  Current
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                {formatTime(event.timestamp)}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <User className="h-3 w-3" />
-                                {getUserDisplayName(event)}
-                              </span>
-                              <span className="text-muted-foreground/60">
-                                v{eventVersion}
-                              </span>
-                            </div>
-                          </div>
-
-                          {eventVersion < currentVersion && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => {
-                                setShowNotSupportedDialog(true);
-                              }}
-                            >
-                              <Undo2 className="h-4 w-4 mr-1" />
-                              Revert
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+          <div className="h-[500px] overflow-y-auto pr-4">
+            <VersionHistoryContent
+              events={events}
+              currentVersion={currentVersion}
+              onRevertToVersion={onRevertToVersion}
+              items={items}
+              workspaceId={workspaceId}
+              isOpen={isOpen}
+            />
           </div>
         </DialogContent>
       </Dialog>
-      <RevertNotSupportedDialog
-        isOpen={showNotSupportedDialog}
-        onClose={() => setShowNotSupportedDialog(false)}
-      />
     </>
   );
 }
