@@ -146,6 +146,20 @@ async function handlePOST(
         );
     }
 
+    // Get workspace to check if invitee is the owner
+    const [ws] = await db
+        .select({ userId: workspaces.userId })
+        .from(workspaces)
+        .where(eq(workspaces.id, workspaceId))
+        .limit(1);
+
+    if (ws && invitedUser.id === ws.userId) {
+        return NextResponse.json(
+            { message: "Cannot invite workspace owner as collaborator" },
+            { status: 400 }
+        );
+    }
+
     // Add collaborator
     const [newCollaborator] = await db
         .insert(workspaceCollaborators)

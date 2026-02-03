@@ -102,7 +102,7 @@ export function useWorkspacePresence(
         });
 
         return cleanup;
-    }, [workspaceId, currentUser?.id, currentUser?.name, currentUser?.image, cleanup]);
+    }, [workspaceId, currentUser?.id, cleanup]);
 
     // Update presence when user info changes
     useEffect(() => {
