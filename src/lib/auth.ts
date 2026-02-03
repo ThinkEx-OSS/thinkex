@@ -18,6 +18,9 @@ const getBaseURL = () => {
   return "http://localhost:3000";
 };
 
+import { eq } from "drizzle-orm";
+import { workspaces, workspaceEvents } from "@/lib/db/schema";
+
 const baseURL = getBaseURL();
 
 export const auth = betterAuth({
@@ -87,9 +90,65 @@ export const auth = betterAuth({
   plugins: [
     anonymous({
       onLinkAccount: async ({ anonymousUser, newUser }) => {
-        // When anonymous user signs up, their workspaces are automatically preserved
-        // since they're linked to the same user ID (anonymousUser.id === newUser.id)
-        // No additional action needed - workspaces persist automatically
+        // If the IDs are different (linking to existing account), we need to migrate the workspaces
+        if (anonymousUser.user.id !== newUser.user.id) {
+          try {
+            // 1. Handle Slug Conflicts
+            // Get potential conflicting slugs from the target user
+            const existingUserWorkspaces = await db
+              .select({ slug: workspaces.slug })
+              .from(workspaces)
+              .where(eq(workspaces.userId, newUser.user.id));
+
+            const existingSlugs = new Set(
+              existingUserWorkspaces
+                .map((w) => w.slug)
+                .filter((slug): slug is string => !!slug)
+            );
+
+            // Get anonymous user's workspaces
+            const anonWorkspaces = await db
+              .select({ id: workspaces.id, slug: workspaces.slug })
+              .from(workspaces)
+              .where(eq(workspaces.userId, anonymousUser.user.id));
+
+            // Check for conflicts and rename if necessary
+            for (const workspace of anonWorkspaces) {
+              if (workspace.slug && existingSlugs.has(workspace.slug)) {
+                let counter = 1;
+                let newSlug = `${workspace.slug}-${counter}`;
+                while (existingSlugs.has(newSlug)) {
+                  counter++;
+                  newSlug = `${workspace.slug}-${counter}`;
+                }
+
+                await db
+                  .update(workspaces)
+                  .set({ slug: newSlug })
+                  .where(eq(workspaces.id, workspace.id));
+
+                existingSlugs.add(newSlug);
+              }
+            }
+
+            // 2. Migrate Workspaces
+            await db
+              .update(workspaces)
+              .set({ userId: newUser.user.id })
+              .where(eq(workspaces.userId, anonymousUser.user.id));
+
+            // 3. Migrate Workspace Events
+            // Also move the history/events to the new user so they don't get orphaned
+            await db
+              .update(workspaceEvents)
+              .set({ userId: newUser.user.id })
+              .where(eq(workspaceEvents.userId, anonymousUser.user.id));
+          } catch (error) {
+            console.error("Failed to migrate anonymous user data:", error);
+            // We log but don't throw to allow the account linking to complete
+            // even if data migration has issues
+          }
+        }
       },
     }),
     // Automatically set cookies in server actions
