@@ -84,8 +84,10 @@ async function handleGET() {
     };
   });
 
-  // Merge lists
-  const workspaceList = [...ownedList, ...sharedList];
+  // Merge lists (filtering out shared workspaces that are also owned)
+  const ownedIds = new Set(ownedList.map(w => w.id));
+  const uniqueSharedList = sharedList.filter(w => !ownedIds.has(w.id));
+  const workspaceList = [...ownedList, ...uniqueSharedList];
 
   // Sort by lastOpenedAt DESC, then sortOrder ASC, then updatedAt DESC
   workspaceList.sort((a, b) => {
