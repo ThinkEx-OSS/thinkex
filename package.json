@@ -111,6 +111,7 @@
     "postgres": "^3.4.7",
     "posthog-js": "^1.335.5",
     "posthog-node": "^5.21.1",
+    "radix-ui": "^1.4.3",
     "react": "19.2.1",
     "react-color": "^2.19.3",
     "react-dom": "19.2.1",

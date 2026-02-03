@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { db, workspaces } from "@/lib/db/client";
-import { eq } from "drizzle-orm";
+import { workspaceCollaborators } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 
 /**
  * Get authenticated user from session
@@ -50,6 +51,57 @@ export async function verifyWorkspaceOwnership(
 }
 
 /**
+ * Verify workspace access (owner OR collaborator)
+ * Returns access info including permission level
+ * Throws NextResponse errors for unauthorized/not found cases
+ */
+export async function verifyWorkspaceAccess(
+  workspaceId: string,
+  userId: string,
+  requiredPermission: 'viewer' | 'editor' = 'viewer'
+): Promise<{ isOwner: boolean; permissionLevel: 'owner' | 'editor' | 'viewer' }> {
+  // Check if workspace exists and get owner
+  const workspace = await db
+    .select({ userId: workspaces.userId })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1);
+
+  if (!workspace[0]) {
+    throw NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+  }
+
+  // Owner has full access
+  if (workspace[0].userId === userId) {
+    return { isOwner: true, permissionLevel: 'owner' };
+  }
+
+  // Check if user is a collaborator
+  const [collaborator] = await db
+    .select({ permissionLevel: workspaceCollaborators.permissionLevel })
+    .from(workspaceCollaborators)
+    .where(
+      and(
+        eq(workspaceCollaborators.workspaceId, workspaceId),
+        eq(workspaceCollaborators.userId, userId)
+      )
+    )
+    .limit(1);
+
+  if (!collaborator) {
+    throw NextResponse.json({ error: "Access denied" }, { status: 403 });
+  }
+
+  // Check if user has required permission level
+  const permLevel = collaborator.permissionLevel as 'editor' | 'viewer';
+  if (requiredPermission === 'editor' && permLevel !== 'editor') {
+    throw NextResponse.json({ error: "Editor access required" }, { status: 403 });
+  }
+
+  return { isOwner: false, permissionLevel: permLevel };
+}
+
+/**
  * Verify workspace ownership and return full workspace data
  * Throws NextResponse errors for unauthorized/not found cases
  */
@@ -89,7 +141,7 @@ export function withErrorHandling<T extends any[]>(
       if (error instanceof Response) {
         return error as NextResponse;
       }
-      
+
       console.error(`Error in ${routeName}:`, error);
       return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }

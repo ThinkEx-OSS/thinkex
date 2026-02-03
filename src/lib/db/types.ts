@@ -8,7 +8,8 @@ import {
   workspaces,
   workspaceEvents,
   workspaceSnapshots,
-  userProfiles
+  userProfiles,
+  workspaceCollaborators
 } from './schema';
 import type { AgentState } from '@/lib/workspace-state/types';
 
@@ -27,6 +28,11 @@ export type WorkspaceSnapshotInsert = InferInsertModel<typeof workspaceSnapshots
 
 export type UserProfile = InferSelectModel<typeof userProfiles>;
 export type UserProfileInsert = InferInsertModel<typeof userProfiles>;
+
+export type WorkspaceCollaborator = InferSelectModel<typeof workspaceCollaborators>;
+export type WorkspaceCollaboratorInsert = InferInsertModel<typeof workspaceCollaborators>;
+
+export type PermissionLevel = 'viewer' | 'editor';
 
 
 // Extended types for frontend use

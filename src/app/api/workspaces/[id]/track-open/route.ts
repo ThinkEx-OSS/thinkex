@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, workspaces } from "@/lib/db/client";
-import { eq } from "drizzle-orm";
-import { requireAuth, verifyWorkspaceOwnership, withErrorHandling } from "@/lib/api/workspace-helpers";
+import { workspaceCollaborators } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
+import { requireAuthWithUserInfo, verifyWorkspaceAccess, withErrorHandling } from "@/lib/api/workspace-helpers";
 
 /**
  * POST /api/workspaces/[id]/track-open
@@ -14,32 +15,54 @@ async function handlePOST(
 ) {
   // Start independent operations in parallel
   const paramsPromise = params;
-  const authPromise = requireAuth();
-  
+  // Get user info
+  const user = await requireAuthWithUserInfo();
+
   const { id } = await paramsPromise;
-  const userId = await authPromise;
+  const userId = user.userId;
 
-  // Check ownership
-  await verifyWorkspaceOwnership(id, userId);
+  // Check access (owner or collaborator)
+  // We need to know IF they are owner to decide which table to update
+  const { isOwner } = await verifyWorkspaceAccess(id, userId, 'viewer');
 
-  // Update lastOpenedAt to current timestamp
-  const [updatedWorkspace] = await db
-    .update(workspaces)
-    .set({ lastOpenedAt: new Date().toISOString() })
-    .where(eq(workspaces.id, id))
-    .returning();
+  const now = new Date().toISOString();
+  let lastOpenedAt = now;
 
-  // Guard against empty update result (workspace deleted between ownership check and update)
-  if (!updatedWorkspace) {
-    return NextResponse.json(
-      { error: "Workspace not found" },
-      { status: 404 }
-    );
+  if (isOwner) {
+    // Update owner's lastOpenedAt on the workspace itself
+    const [updatedWorkspace] = await db
+      .update(workspaces)
+      .set({ lastOpenedAt: now })
+      .where(eq(workspaces.id, id))
+      .returning();
+
+    if (!updatedWorkspace) {
+      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+    }
+    lastOpenedAt = updatedWorkspace.lastOpenedAt || now;
+  } else {
+    // Update collaborator's lastOpenedAt on the junction table
+    const [updatedCollaborator] = await db
+      .update(workspaceCollaborators)
+      .set({ lastOpenedAt: now })
+      .where(
+        and(
+          eq(workspaceCollaborators.workspaceId, id),
+          eq(workspaceCollaborators.userId, userId)
+        )
+      )
+      .returning();
+
+    if (!updatedCollaborator) {
+      // Should not happen if verifyWorkspaceAccess passed, but good safeguard
+      return NextResponse.json({ error: "Collaborator record not found" }, { status: 404 });
+    }
+    lastOpenedAt = updatedCollaborator.lastOpenedAt || now;
   }
 
-  return NextResponse.json({ 
+  return NextResponse.json({
     success: true,
-    lastOpenedAt: updatedWorkspace.lastOpenedAt 
+    lastOpenedAt
   });
 }
 

@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, workspaces } from "@/lib/db/client";
 import { eq } from "drizzle-orm";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
-import { requireAuth, verifyWorkspaceOwnership, verifyWorkspaceOwnershipWithData, withErrorHandling } from "@/lib/api/workspace-helpers";
+import { requireAuth, verifyWorkspaceOwnership, verifyWorkspaceAccess, withErrorHandling } from "@/lib/api/workspace-helpers";
 
 /**
  * GET /api/workspaces/[id]
  * Get a specific workspace with its state
- * Note: Only owners can access (sharing is fork-based - users import copies)
+ * Supports owner and collaborators
  */
 async function handleGET(
   request: NextRequest,
@@ -16,15 +16,26 @@ async function handleGET(
   // Start independent operations in parallel
   const paramsPromise = params;
   const authPromise = requireAuth();
-  
+
   const { id } = await paramsPromise;
   const userId = await authPromise;
 
-  // Get workspace and verify ownership
-  const workspace = await verifyWorkspaceOwnershipWithData(id, userId);
+  // Check access (owner or collaborator)
+  const accessInfo = await verifyWorkspaceAccess(id, userId, 'viewer');
 
-    // Get workspace state by replaying events
-    const state = await loadWorkspaceState(id);
+  // Get workspace data
+  const [workspace] = await db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, id))
+    .limit(1);
+
+  if (!workspace) {
+    return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+  }
+
+  // Get workspace state by replaying events
+  const state = await loadWorkspaceState(id);
 
   // Ensure state has workspace metadata if empty
   if (!state.globalTitle && !state.globalDescription) {
@@ -36,6 +47,8 @@ async function handleGET(
     workspace: {
       ...workspace,
       state,
+      isShared: !accessInfo.isOwner,
+      permissionLevel: accessInfo.permissionLevel,
     },
   });
 }
@@ -54,7 +67,7 @@ async function handlePATCH(
   const paramsPromise = params;
   const authPromise = requireAuth();
   const bodyPromise = request.json();
-  
+
   const { id } = await paramsPromise;
   const userId = await authPromise;
   const body = await bodyPromise;
@@ -63,25 +76,25 @@ async function handlePATCH(
   // Check ownership
   await verifyWorkspaceOwnership(id, userId);
 
-    // Update workspace
-    const updateData: {
-      name?: string;
-      description?: string;
-      isPublic?: boolean;
-      icon?: string | null;
-      color?: string | null;
-    } = {};
-    if (name !== undefined) updateData.name = name;
-    if (description !== undefined) updateData.description = description;
-    if (is_public !== undefined) updateData.isPublic = is_public;
-    if (icon !== undefined) updateData.icon = icon;
-    if (color !== undefined) updateData.color = color;
+  // Update workspace
+  const updateData: {
+    name?: string;
+    description?: string;
+    isPublic?: boolean;
+    icon?: string | null;
+    color?: string | null;
+  } = {};
+  if (name !== undefined) updateData.name = name;
+  if (description !== undefined) updateData.description = description;
+  if (is_public !== undefined) updateData.isPublic = is_public;
+  if (icon !== undefined) updateData.icon = icon;
+  if (color !== undefined) updateData.color = color;
 
-    const [updatedWorkspace] = await db
-      .update(workspaces)
-      .set(updateData)
-      .where(eq(workspaces.id, id))
-      .returning();
+  const [updatedWorkspace] = await db
+    .update(workspaces)
+    .set(updateData)
+    .where(eq(workspaces.id, id))
+    .returning();
 
   return NextResponse.json({ workspace: updatedWorkspace });
 }
@@ -99,17 +112,17 @@ async function handleDELETE(
   // Start independent operations in parallel
   const paramsPromise = params;
   const authPromise = requireAuth();
-  
+
   const { id } = await paramsPromise;
   const userId = await authPromise;
 
   // Check ownership
   await verifyWorkspaceOwnership(id, userId);
 
-    // Delete workspace (cascade will delete events and snapshots)
-    await db
-      .delete(workspaces)
-      .where(eq(workspaces.id, id));
+  // Delete workspace (cascade will delete events and snapshots)
+  await db
+    .delete(workspaces)
+    .where(eq(workspaces.id, id));
 
   return NextResponse.json({ success: true });
 }

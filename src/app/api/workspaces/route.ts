@@ -5,34 +5,47 @@ import type { WorkspaceWithState, WorkspaceTemplate } from "@/lib/workspace-stat
 import type { CardColor } from "@/lib/workspace-state/colors";
 import { randomUUID } from "crypto";
 import { db, workspaces } from "@/lib/db/client";
-import { eq, desc, asc, sql } from "drizzle-orm";
+import { workspaceCollaborators } from "@/lib/db/schema";
+import { eq, desc, asc, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireAuthWithUserInfo, withErrorHandling } from "@/lib/api/workspace-helpers";
 
 /**
  * GET /api/workspaces
- * List all workspaces for the authenticated user
- * Note: Sharing is fork-based - users import copies, not access the original
+ * List all workspaces for the authenticated user (owned + shared)
  */
 async function handleGET() {
   const userId = await requireAuth();
 
   // Get workspaces owned by user
-  // Order by:
-  // 1. lastOpenedAt DESC (most recently opened first, NULLs last)
-  // 2. sortOrder ASC (user-defined order for workspaces never opened, NULLs last)
-  // 3. updatedAt DESC (fallback for workspaces without sortOrder or lastOpenedAt)
   const ownedWorkspaces = await db
     .select()
     .from(workspaces)
-    .where(eq(workspaces.userId, userId))
-    .orderBy(
-      sql`${workspaces.lastOpenedAt} DESC NULLS LAST`,
-      sql`${workspaces.sortOrder} ASC NULLS LAST`,
-      desc(workspaces.updatedAt)
-    );
+    .where(eq(workspaces.userId, userId));
 
-  // Format results (using camelCase for Drizzle types)
-  const workspaceList: WorkspaceWithState[] = ownedWorkspaces.map((w) => ({
+  // Get workspaces user is a collaborator on
+  const collaborations = await db
+    .select({
+      workspaceId: workspaceCollaborators.workspaceId,
+      permissionLevel: workspaceCollaborators.permissionLevel,
+      lastOpenedAt: workspaceCollaborators.lastOpenedAt
+    })
+    .from(workspaceCollaborators)
+    .where(eq(workspaceCollaborators.userId, userId));
+
+  let sharedWorkspaces: typeof ownedWorkspaces = [];
+  if (collaborations.length > 0) {
+    const sharedWorkspaceIds = collaborations.map(c => c.workspaceId);
+    sharedWorkspaces = await db
+      .select()
+      .from(workspaces)
+      .where(inArray(workspaces.id, sharedWorkspaceIds)); // No sort here, we sort in JS
+  }
+
+  // Create a map of permission levels and lastOpened for shared workspaces
+  const collaborationMap = new Map(collaborations.map(c => [c.workspaceId, c]));
+
+  // Format owned workspaces
+  const ownedList = ownedWorkspaces.map((w) => ({
     id: w.id,
     userId: w.userId,
     name: w.name,
@@ -45,13 +58,64 @@ async function handleGET() {
     icon: w.icon,
     sortOrder: w.sortOrder ?? null,
     color: w.color as CardColor | null,
-    lastOpenedAt: w.lastOpenedAt ?? null,
+    lastOpenedAt: w.lastOpenedAt ?? null, // Owner uses workspace field
+    isShared: false,
   }));
+
+  // Format shared workspaces
+  const sharedList = sharedWorkspaces.map((w) => {
+    const collaboration = collaborationMap.get(w.id);
+    return {
+      id: w.id,
+      userId: w.userId,
+      name: w.name,
+      description: w.description || '',
+      template: (w.template as WorkspaceTemplate) || 'blank',
+      isPublic: w.isPublic || false,
+      createdAt: w.createdAt || '',
+      updatedAt: w.updatedAt || '',
+      slug: w.slug || '',
+      icon: w.icon,
+      sortOrder: w.sortOrder ?? null,
+      color: w.color as CardColor | null,
+      lastOpenedAt: collaboration?.lastOpenedAt ?? null, // Collaborator uses junction field
+      isShared: true,
+      permissionLevel: collaboration?.permissionLevel || 'viewer',
+    };
+  });
+
+  // Merge lists (filtering out shared workspaces that are also owned)
+  const ownedIds = new Set(ownedList.map(w => w.id));
+  const uniqueSharedList = sharedList.filter(w => !ownedIds.has(w.id));
+  const workspaceList = [...ownedList, ...uniqueSharedList];
+
+  // Sort by lastOpenedAt DESC, then sortOrder ASC, then updatedAt DESC
+  workspaceList.sort((a, b) => {
+    // 1. lastOpenedAt DESC (most recent first)
+    if (a.lastOpenedAt && b.lastOpenedAt) {
+      return new Date(b.lastOpenedAt).getTime() - new Date(a.lastOpenedAt).getTime();
+    }
+    if (a.lastOpenedAt) return -1; // a has date, goes first
+    if (b.lastOpenedAt) return 1;  // b has date, goes first
+
+    // 2. sortOrder ASC (nulls last)
+    if (a.sortOrder !== null && b.sortOrder !== null) {
+      return a.sortOrder - b.sortOrder;
+    }
+    if (a.sortOrder !== null) return -1; // a has order, goes first
+    if (b.sortOrder !== null) return 1;
+
+    // 3. updatedAt DESC (fallback)
+    const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+    const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+    return dateB - dateA;
+  });
 
   return NextResponse.json({ workspaces: workspaceList });
 }
 
 export const GET = withErrorHandling(handleGET, "GET /api/workspaces");
+
 
 /**
  * POST /api/workspaces

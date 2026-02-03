@@ -174,6 +174,39 @@ export const workspaceEvents = pgTable("workspace_events", {
 	pgPolicy("Users can insert workspace events they have write access to", {
 		as: "permissive", for: "insert", to: ["public"], withCheck: sql`(EXISTS ( SELECT 1
    FROM workspaces
-  WHERE ((workspaces.id = workspace_events.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text)))))`  }),
-	pgPolicy("Users can read workspace events they have access to", { as: "permissive", for: "select", to: ["public"] }),
+  WHERE ((workspaces.id = workspace_events.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
+   FROM workspace_collaborators c
+  WHERE ((c.workspace_id = workspace_events.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))`  }),
+	pgPolicy("Users can read workspace events they have access to", {
+		as: "permissive", for: "select", to: ["public"], using: sql`(EXISTS ( SELECT 1
+   FROM workspaces
+  WHERE ((workspaces.id = workspace_events.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
+   FROM workspace_collaborators c
+  WHERE ((c.workspace_id = workspace_events.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))`  }),
+]);
+
+export const workspaceCollaborators = pgTable("workspace_collaborators", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	workspaceId: uuid("workspace_id").notNull(),
+	userId: text("user_id").notNull(),
+	permissionLevel: text("permission_level").default('editor').notNull(),
+	inviteToken: text("invite_token"),
+	lastOpenedAt: timestamp("last_opened_at", { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_workspace_collaborators_lookup").using("btree", table.userId.asc().nullsLast().op("text_ops"), table.workspaceId.asc().nullsLast().op("uuid_ops")),
+	index("idx_workspace_collaborators_workspace").using("btree", table.workspaceId.asc().nullsLast().op("uuid_ops")),
+	index("idx_workspace_collaborators_last_opened_at").using("btree", table.userId.asc().nullsLast().op("text_ops"), table.lastOpenedAt.desc().nullsFirst().op("timestamptz_ops")),
+	foreignKey({
+		columns: [table.workspaceId],
+		foreignColumns: [workspaces.id],
+		name: "workspace_collaborators_workspace_id_fkey"
+	}).onDelete("cascade"),
+	unique("workspace_collaborators_invite_token_unique").on(table.inviteToken),
+	unique("workspace_collaborators_workspace_user_unique").on(table.workspaceId, table.userId),
+	pgPolicy("Owners can manage collaborators", {
+		as: "permissive", for: "all", to: ["authenticated"], using: sql`(EXISTS ( SELECT 1
+   FROM workspaces w
+  WHERE ((w.id = workspace_collaborators.workspace_id) AND (w.user_id = (auth.jwt() ->> 'sub'::text)))))`  }),
+	pgPolicy("Collaborators can view their access", { as: "permissive", for: "select", to: ["authenticated"], using: sql`(user_id = (auth.jwt() ->> 'sub'::text))` }),
 ]);

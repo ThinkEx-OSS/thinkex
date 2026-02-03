@@ -8,6 +8,11 @@ interface AppendEventParams {
   baseVersion: number;
 }
 
+interface WorkspaceMutationOptions {
+  /** Called after event is successfully saved (for realtime broadcast) */
+  onEventSaved?: (event: WorkspaceEvent) => void;
+}
+
 /**
  * Append event to workspace event log
  */
@@ -42,8 +47,9 @@ async function appendWorkspaceEvent(
  * Hook to mutate workspace by appending events
  * Implements optimistic updates with automatic rollback on error
  */
-export function useWorkspaceMutation(workspaceId: string | null) {
+export function useWorkspaceMutation(workspaceId: string | null, options: WorkspaceMutationOptions = {}) {
   const queryClient = useQueryClient();
+  const { onEventSaved } = options;
 
   return useMutation({
     mutationFn: (event: WorkspaceEvent) => {
@@ -64,13 +70,13 @@ export function useWorkspaceMutation(workspaceId: string | null) {
       // that are higher than the cache's version field
       const events = currentData?.events ?? [];
       const optimisticEventsCount = events.filter(e => typeof e.version !== 'number').length;
-      
+
       // Find the max version from all events that have versions
       // This accounts for tool events that were added with versions
       const maxEventVersion = events
         .filter(e => typeof e.version === 'number')
         .reduce((max, e) => Math.max(max, e.version!), currentData?.version ?? 0);
-      
+
       // Use the higher of: cache version or max event version
       // This ensures we account for tool events that updated individual event versions
       // but might not have updated the cache version field
@@ -168,7 +174,7 @@ export function useWorkspaceMutation(workspaceId: string | null) {
     },
 
     // Refetch to ensure consistency on success
-    onSuccess: (data) => {
+    onSuccess: (data, event) => {
       if (!workspaceId) return;
 
       logger.debug("✅ [SUCCESS] Mutation succeeded:", {
@@ -229,6 +235,15 @@ export function useWorkspaceMutation(workspaceId: string | null) {
         );
 
         logger.debug("✅ [SUCCESS] Version updated to:", data.version);
+
+        // Broadcast the event to other clients for realtime sync
+        if (onEventSaved) {
+          const eventWithVersion: WorkspaceEvent = {
+            ...event,
+            version: data.version,
+          };
+          onEventSaved(eventWithVersion);
+        }
       }
     },
   });
