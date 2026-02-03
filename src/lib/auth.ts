@@ -18,6 +18,9 @@ const getBaseURL = () => {
   return "http://localhost:3000";
 };
 
+import { eq } from "drizzle-orm";
+import { workspaces } from "@/lib/db/schema";
+
 const baseURL = getBaseURL();
 
 export const auth = betterAuth({
@@ -87,9 +90,13 @@ export const auth = betterAuth({
   plugins: [
     anonymous({
       onLinkAccount: async ({ anonymousUser, newUser }) => {
-        // When anonymous user signs up, their workspaces are automatically preserved
-        // since they're linked to the same user ID (anonymousUser.id === newUser.id)
-        // No additional action needed - workspaces persist automatically
+        // If the IDs are different (linking to existing account), we need to migrate the workspaces
+        if (anonymousUser.user.id !== newUser.user.id) {
+          await db
+            .update(workspaces)
+            .set({ userId: newUser.user.id })
+            .where(eq(workspaces.userId, anonymousUser.user.id));
+        }
       },
     }),
     // Automatically set cookies in server actions
