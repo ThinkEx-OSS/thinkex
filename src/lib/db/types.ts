@@ -38,6 +38,8 @@ export type PermissionLevel = 'viewer' | 'editor';
 // Extended types for frontend use
 export interface WorkspaceWithState extends Workspace {
   state?: AgentState;
+  isShared?: boolean;
+  permissionLevel?: 'viewer' | 'editor' | 'admin'; // admin is implied for owner but good to have in types
 }
 
 // API response types

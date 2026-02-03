@@ -81,6 +81,7 @@ async function handleGET() {
       lastOpenedAt: collaboration?.lastOpenedAt ?? null, // Collaborator uses junction field
       isShared: true,
       permissionLevel: collaboration?.permissionLevel || 'viewer',
+      sharedAt: (collaboration as any)?.createdAt || null, // Use createdAt from collaborator record if available
     };
   });
 
@@ -89,8 +90,26 @@ async function handleGET() {
   const uniqueSharedList = sharedList.filter(w => !ownedIds.has(w.id));
   const workspaceList = [...ownedList, ...uniqueSharedList];
 
-  // Sort by lastOpenedAt DESC, then sortOrder ASC, then updatedAt DESC
+  // Sort by unseen shared first, then lastOpenedAt DESC, then sortOrder ASC, then updatedAt DESC
   workspaceList.sort((a, b) => {
+    // 0. Unseen shared workspaces (isShared=true, lastOpenedAt=null) go to TOP
+    // Sort these by sharedAt DESC (newest shared first)
+    const aIsUnseenShared = a.isShared && !a.lastOpenedAt;
+    const bIsUnseenShared = b.isShared && !b.lastOpenedAt;
+
+    if (aIsUnseenShared && bIsUnseenShared) {
+      // Both unseen: sort by sharedAt if available, otherwise fallback to updatedAt
+      const sharedA = (a as any).sharedAt ? new Date((a as any).sharedAt).getTime() : 0;
+      const sharedB = (b as any).sharedAt ? new Date((b as any).sharedAt).getTime() : 0;
+      if (sharedA !== sharedB) return sharedB - sharedA;
+      // Fallback to update time if sharedAt is missing/same
+      const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return dateB - dateA;
+    }
+    if (aIsUnseenShared) return -1; // a goes first
+    if (bIsUnseenShared) return 1;  // b goes first
+
     // 1. lastOpenedAt DESC (most recent first)
     if (a.lastOpenedAt && b.lastOpenedAt) {
       return new Date(b.lastOpenedAt).getTime() - new Date(a.lastOpenedAt).getTime();

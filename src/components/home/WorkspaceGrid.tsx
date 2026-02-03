@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { FolderPlus, MoreVertical } from "lucide-react";
+import { FolderPlus, MoreVertical, Users } from "lucide-react";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import CreateWorkspaceModal from "@/components/workspace/CreateWorkspaceModal";
@@ -146,79 +146,95 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
 
           {/* Existing Workspaces */}
           {filteredWorkspaces.map((workspace) => {
-              const color = workspace.color as CardColor | undefined;
-              const borderColor = color ? getCardAccentColor(color, 0.5) : 'var(--sidebar-border)';
-              const previewText = getPreviewText(workspace);
+            const color = workspace.color as CardColor | undefined;
+            const borderColor = color ? getCardAccentColor(color, 0.5) : 'var(--sidebar-border)';
+            const previewText = getPreviewText(workspace);
 
-              return (
-                <div
-                  key={workspace.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => switchWorkspace(workspace.slug || workspace.id)}
-                  onKeyDown={(e) => handleKeyDown(e, () => switchWorkspace(workspace.slug || workspace.id))}
-                  className={cn(
-                    "group relative rounded-md shadow-sm min-h-[180px] overflow-hidden",
-                    "hover:shadow-lg",
-                    "transition-all duration-200 text-left cursor-pointer",
-                    "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background",
-                    "flex flex-col"
-                  )}
-                  style={{
-                    backgroundColor: 'hsl(var(--muted) / 0.4)',
-                    borderWidth: '1px',
-                    borderStyle: 'solid',
-                    borderColor: borderColor,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'white';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = borderColor;
-                  }}
-                >
-                  {/* Top section - content area */}
-                  <div className="flex-1 p-3 relative">
-                    {previewText ? (
-                      <div className="text-sm text-foreground whitespace-pre-wrap line-clamp-3">
-                        {previewText}
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center h-full">
-                        <IconRenderer
-                          icon={workspace.icon}
-                          className="h-12 w-12 opacity-30 group-hover:opacity-40 group-hover:scale-110 transition-all duration-200"
-                          style={{ color: workspace.color || "hsl(var(--primary))" }}
-                        />
+            return (
+              <div
+                key={workspace.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => switchWorkspace(workspace.slug || workspace.id)}
+                onKeyDown={(e) => handleKeyDown(e, () => switchWorkspace(workspace.slug || workspace.id))}
+                className={cn(
+                  "group relative rounded-md shadow-sm min-h-[180px] overflow-hidden",
+                  "hover:shadow-lg",
+                  "transition-all duration-200 text-left cursor-pointer",
+                  "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background",
+                  "flex flex-col"
+                )}
+                style={{
+                  backgroundColor: 'hsl(var(--muted) / 0.4)',
+                  borderWidth: '1px',
+                  borderStyle: 'solid',
+                  borderColor: borderColor,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'white';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = borderColor;
+                }}
+              >
+                {/* Shared Badge */}
+                {workspace.isShared && (
+                  <div className="absolute top-2 right-2 z-10 flex gap-1.5">
+                    {/* New Badge for unseen shared workspaces */}
+                    {!workspace.lastOpenedAt && (
+                      <div className="bg-blue-600/90 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center shadow-lg border border-blue-400 font-semibold animate-pulse">
+                        NEW
                       </div>
                     )}
-                  </div>
-
-                  {/* Bottom section with title, date, menu, and avatar */}
-                  <div className="flex flex-col justify-end px-4 pb-3 pt-2 relative" style={{ minHeight: '70px' }}>
-                    {/* Title */}
-                    <h3 className="font-normal text-base text-foreground truncate mb-1 leading-6">
-                      {workspace.name}
-                    </h3>
-
-                    {/* Date and Avatar Row */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(workspace.createdAt)}
-                      </span>
-                      {/* Settings Toggle */}
-                      <button
-                        type="button"
-                        onClick={(e) => handleSettingsClick(e, workspace)}
-                        className="p-1 rounded-md hover:bg-sidebar-accent opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-20"
-                      >
-                        <MoreVertical className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                      </button>
+                    <div className="bg-background/80 text-foreground text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 backdrop-blur-sm border border-border shadow-sm">
+                      <Users className="h-3 w-3" />
+                      <span className="font-medium">Shared</span>
                     </div>
                   </div>
+                )}
+
+                {/* Top section - content area */}
+                <div className="flex-1 p-3 relative">
+                  {previewText ? (
+                    <div className="text-sm text-foreground whitespace-pre-wrap line-clamp-3">
+                      {previewText}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <IconRenderer
+                        icon={workspace.icon}
+                        className="h-12 w-12 opacity-30 group-hover:opacity-40 group-hover:scale-110 transition-all duration-200"
+                        style={{ color: workspace.color || "hsl(var(--primary))" }}
+                      />
+                    </div>
+                  )}
                 </div>
-              );
-            })}
+
+                {/* Bottom section with title, date, menu, and avatar */}
+                <div className="flex flex-col justify-end px-4 pb-3 pt-2 relative" style={{ minHeight: '70px' }}>
+                  {/* Title */}
+                  <h3 className="font-normal text-base text-foreground truncate mb-1 leading-6">
+                    {workspace.name}
+                  </h3>
+
+                  {/* Date and Avatar Row */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(workspace.createdAt)}
+                    </span>
+                    {/* Settings Toggle */}
+                    <button
+                      type="button"
+                      onClick={(e) => handleSettingsClick(e, workspace)}
+                      className="p-1 rounded-md hover:bg-sidebar-accent opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-20"
+                    >
+                      <MoreVertical className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
