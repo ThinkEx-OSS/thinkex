@@ -34,7 +34,8 @@ export async function PATCH(
         // Verify ownership
         try {
             await verifyWorkspaceOwnership(workspaceId, session.user.id);
-        } catch {
+        } catch (error) {
+            if (error instanceof Response) return error;
             return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
         }
 
@@ -76,7 +77,8 @@ export async function DELETE(
         // Verify ownership
         try {
             await verifyWorkspaceOwnership(workspaceId, session.user.id);
-        } catch {
+        } catch (error) {
+            if (error instanceof Response) return error;
             return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
         }
 

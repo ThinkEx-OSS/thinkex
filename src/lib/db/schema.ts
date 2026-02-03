@@ -191,10 +191,12 @@ export const workspaceCollaborators = pgTable("workspace_collaborators", {
 	userId: text("user_id").notNull(),
 	permissionLevel: text("permission_level").default('editor').notNull(),
 	inviteToken: text("invite_token"),
+	lastOpenedAt: timestamp("last_opened_at", { withTimezone: true, mode: 'string' }),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
 	index("idx_workspace_collaborators_lookup").using("btree", table.userId.asc().nullsLast().op("text_ops"), table.workspaceId.asc().nullsLast().op("uuid_ops")),
 	index("idx_workspace_collaborators_workspace").using("btree", table.workspaceId.asc().nullsLast().op("uuid_ops")),
+	index("idx_workspace_collaborators_last_opened_at").using("btree", table.userId.asc().nullsLast().op("text_ops"), table.lastOpenedAt.desc().nullsFirst().op("timestamptz_ops")),
 	foreignKey({
 		columns: [table.workspaceId],
 		foreignColumns: [workspaces.id],

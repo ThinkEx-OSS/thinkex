@@ -64,7 +64,8 @@ export function useWorkspaceRealtime(
         }
 
         const supabase = getSupabaseClient();
-        const channelName = `workspace-${workspaceId}`;
+        // Use colon format to match RLS policies in database
+        const channelName = `workspace:${workspaceId}:events`;
 
         console.log('[REALTIME] Subscribing to channel:', channelName);
 

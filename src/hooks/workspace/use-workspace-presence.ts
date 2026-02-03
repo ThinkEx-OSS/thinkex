@@ -41,6 +41,8 @@ export function useWorkspacePresence(
     const { currentUser } = options;
     const [collaborators, setCollaborators] = useState<CollaboratorPresence[]>([]);
     const channelRef = useRef<RealtimeChannel | null>(null);
+    // Keep joinedAt stable across re-renders
+    const joinedAtRef = useRef(new Date().toISOString());
 
     // Clean up channel
     const cleanup = useCallback(() => {
@@ -94,13 +96,13 @@ export function useWorkspacePresence(
                     userId: currentUser.id,
                     userName: currentUser.name,
                     userImage: currentUser.image,
-                    joinedAt: new Date().toISOString(),
+                    joinedAt: joinedAtRef.current,
                 });
             }
         });
 
         return cleanup;
-    }, [workspaceId, currentUser?.id, cleanup]);
+    }, [workspaceId, currentUser?.id, currentUser?.name, currentUser?.image, cleanup]);
 
     // Update presence when user info changes
     useEffect(() => {
@@ -111,7 +113,7 @@ export function useWorkspacePresence(
             userId: currentUser.id,
             userName: currentUser.name,
             userImage: currentUser.image,
-            joinedAt: new Date().toISOString(),
+            joinedAt: joinedAtRef.current,
         });
     }, [currentUser]);
 
