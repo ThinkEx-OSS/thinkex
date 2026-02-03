@@ -35,6 +35,7 @@ import { AnonymousSessionHandler, SidebarCoordinator } from "@/components/layout
 import { PdfEngineWrapper } from "@/components/pdf/PdfEngineWrapper";
 import WorkspaceSettingsModal from "@/components/workspace/WorkspaceSettingsModal";
 import ShareWorkspaceDialog from "@/components/workspace/ShareWorkspaceDialog";
+import { RealtimeProvider } from "@/contexts/RealtimeContext";
 // Main dashboard content component
 interface DashboardContentProps {
   currentWorkspace: WorkspaceWithState | null;
@@ -539,11 +540,13 @@ export function DashboardPage() {
   }, [currentWorkspaceId, clearPlayingYouTubeCards]);
 
   return (
-    <DashboardContent
-      currentWorkspace={currentWorkspace}
-      loadingWorkspaces={loadingWorkspaces}
-      loadingCurrentWorkspace={loadingCurrentWorkspace}
-    />
+    <RealtimeProvider workspaceId={currentWorkspaceId}>
+      <DashboardContent
+        currentWorkspace={currentWorkspace}
+        loadingWorkspaces={loadingWorkspaces}
+        loadingCurrentWorkspace={loadingCurrentWorkspace}
+      />
+    </RealtimeProvider>
   );
 }
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, workspaces } from "@/lib/db/client";
 import { eq } from "drizzle-orm";
-import { requireAuth, verifyWorkspaceOwnership, withErrorHandling } from "@/lib/api/workspace-helpers";
+import { requireAuth, verifyWorkspaceAccess, withErrorHandling } from "@/lib/api/workspace-helpers";
 
 /**
  * POST /api/workspaces/[id]/track-open
@@ -15,12 +15,12 @@ async function handlePOST(
   // Start independent operations in parallel
   const paramsPromise = params;
   const authPromise = requireAuth();
-  
+
   const { id } = await paramsPromise;
   const userId = await authPromise;
 
-  // Check ownership
-  await verifyWorkspaceOwnership(id, userId);
+  // Check access (owner or collaborator)
+  await verifyWorkspaceAccess(id, userId, 'viewer');
 
   // Update lastOpenedAt to current timestamp
   const [updatedWorkspace] = await db
@@ -37,9 +37,9 @@ async function handlePOST(
     );
   }
 
-  return NextResponse.json({ 
+  return NextResponse.json({
     success: true,
-    lastOpenedAt: updatedWorkspace.lastOpenedAt 
+    lastOpenedAt: updatedWorkspace.lastOpenedAt
   });
 }
 

@@ -13,6 +13,7 @@ import { getRandomCardColor } from "@/lib/workspace-state/colors";
 import { logger } from "@/lib/utils/logger";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { getLayoutForBreakpoint } from "@/lib/workspace-state/grid-layout-helpers";
+import { useRealtimeContextOptional } from "@/contexts/RealtimeContext";
 
 /**
  * Return type for workspace operations
@@ -53,7 +54,16 @@ export function useWorkspaceOperations(
   const { data: session } = useSession();
   const user = session?.user;
   const queryClient = useQueryClient();
-  const mutation = useWorkspaceMutation(workspaceId);
+
+  // Get broadcast function from realtime context (if available)
+  const realtimeContext = useRealtimeContextOptional();
+  const broadcastEvent = realtimeContext?.broadcastEvent;
+
+  // Pass broadcast callback to mutation hook for realtime sync
+  const mutation = useWorkspaceMutation(workspaceId, {
+    onEventSaved: broadcastEvent,
+  });
+
   const userId = user?.id || "anonymous";
   const userName = user?.name || user?.email || undefined;
 
@@ -490,7 +500,7 @@ export function useWorkspaceOperations(
     (folderId: string, items: Item[]): string[] => {
       const directChildren = items.filter(item => item.folderId === folderId);
       const descendantIds: string[] = [];
-      
+
       for (const child of directChildren) {
         descendantIds.push(child.id);
         // Recursively get descendants of nested folders
@@ -498,7 +508,7 @@ export function useWorkspaceOperations(
           descendantIds.push(...getAllDescendantIds(child.id, items));
         }
       }
-      
+
       return descendantIds;
     },
     []
@@ -526,19 +536,19 @@ export function useWorkspaceOperations(
       } else {
         latestItems = currentState.items;
       }
-      
+
       const folder = latestItems.find(i => i.id === folderId && i.type === 'folder');
       logger.debug("📁 [FOLDER-DELETE-WITH-CONTENTS] Deleting folder and contents:", { folderId, folderName: folder?.name });
-      
+
       // Find all descendant items recursively (handles nested folders)
       const allDescendantIds = getAllDescendantIds(folderId, latestItems);
-      
+
       // Create set of all IDs to delete (descendants + folder itself)
       const idsToDelete = new Set([...allDescendantIds, folderId]);
       const itemCount = allDescendantIds.length;
-      
+
       logger.debug("📁 [FOLDER-DELETE-WITH-CONTENTS] Found items to delete:", { itemCount, itemIds: [...idsToDelete] });
-      
+
       // Delete PDF files from storage (fire-and-forget, non-blocking)
       // This is best-effort cleanup - files may become orphaned if this fails
       const itemsToDelete = latestItems.filter(item => idsToDelete.has(item.id));
@@ -552,13 +562,13 @@ export function useWorkspaceOperations(
           }
         }
       }
-      
+
       // Atomic bulk delete using updateAllItems pattern (single BULK_ITEMS_UPDATED event)
       const remainingItems = latestItems.filter(item => !idsToDelete.has(item.id));
       updateAllItems(remainingItems);
-      
+
       toast.success(
-        folder 
+        folder
           ? `Folder "${folder.name}" and ${itemCount} ${itemCount === 1 ? 'item' : 'items'} deleted`
           : `Folder and ${itemCount} ${itemCount === 1 ? 'item' : 'items'} deleted`
       );

@@ -6,7 +6,7 @@ import {
 } from "@/lib/workspace/snapshot-manager";
 import { db, workspaces } from "@/lib/db/client";
 import { eq, sql } from "drizzle-orm";
-import { requireAuth, verifyWorkspaceOwnership, verifyWorkspaceOwnershipWithData, withErrorHandling } from "@/lib/api/workspace-helpers";
+import { requireAuth, verifyWorkspaceAccess, withErrorHandling } from "@/lib/api/workspace-helpers";
 
 /**
  * GET /api/workspaces/[id]/snapshot
@@ -19,18 +19,28 @@ async function handleGET(
   // Start independent operations in parallel
   const paramsPromise = params;
   const authPromise = requireAuth();
-  
+
   const { id } = await paramsPromise;
   const userId = await authPromise;
 
-  // Check if user is workspace owner
-  const workspace = await verifyWorkspaceOwnershipWithData(id, userId);
+  // Check if user has access (owner or collaborator)
+  const [workspace] = await db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, id))
+    .limit(1);
 
-    // Check snapshot status using utility functions
-    const snapshotStatus = await checkNeedsSnapshot(id);
+  if (!workspace) {
+    return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+  }
 
-    // Get latest snapshot info
-    const latestSnapshot = await db.execute(sql`
+  await verifyWorkspaceAccess(id, userId, 'viewer');
+
+  // Check snapshot status using utility functions
+  const snapshotStatus = await checkNeedsSnapshot(id);
+
+  // Get latest snapshot info
+  const latestSnapshot = await db.execute(sql`
       SELECT * FROM get_latest_snapshot(${id}::uuid)
     `);
 
@@ -57,22 +67,22 @@ async function handlePOST(
   // Start independent operations in parallel
   const paramsPromise = params;
   const authPromise = requireAuth();
-  
+
   const { id } = await paramsPromise;
   const userId = await authPromise;
 
-  // Check if user is workspace owner
-  await verifyWorkspaceOwnership(id, userId);
+  // Check if user has editor access (owner or editor collaborator)
+  await verifyWorkspaceAccess(id, userId, 'editor');
 
-    // Create snapshot using utility function
-    const result = await createSnapshot(id);
+  // Create snapshot using utility function
+  const result = await createSnapshot(id);
 
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error || "Failed to create snapshot" },
-        { status: 500 }
-      );
-    }
+  if (!result.success) {
+    return NextResponse.json(
+      { error: result.error || "Failed to create snapshot" },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({
     success: true,
@@ -94,27 +104,27 @@ async function handlePUT(
   // Start independent operations in parallel
   const paramsPromise = params;
   const authPromise = requireAuth();
-  
+
   const { id } = await paramsPromise;
   const userId = await authPromise;
 
-  // Check if user is workspace owner
-  await verifyWorkspaceOwnership(id, userId);
+  // Check if user has editor access (owner or editor collaborator)
+  await verifyWorkspaceAccess(id, userId, 'editor');
 
-    // Check and create snapshot if needed
-    const statusBefore = await checkNeedsSnapshot(id);
+  // Check and create snapshot if needed
+  const statusBefore = await checkNeedsSnapshot(id);
 
-    if (!statusBefore.needsSnapshot) {
-      return NextResponse.json({
-        message: "Snapshot not needed yet",
-        status: statusBefore,
-      });
-    }
+  if (!statusBefore.needsSnapshot) {
+    return NextResponse.json({
+      message: "Snapshot not needed yet",
+      status: statusBefore,
+    });
+  }
 
-    // Create snapshot if needed
-    await checkAndCreateSnapshot(id);
+  // Create snapshot if needed
+  await checkAndCreateSnapshot(id);
 
-    const statusAfter = await checkNeedsSnapshot(id);
+  const statusAfter = await checkNeedsSnapshot(id);
 
   return NextResponse.json({
     message: "Snapshot check complete",

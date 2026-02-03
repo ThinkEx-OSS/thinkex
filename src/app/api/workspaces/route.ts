@@ -5,13 +5,13 @@ import type { WorkspaceWithState, WorkspaceTemplate } from "@/lib/workspace-stat
 import type { CardColor } from "@/lib/workspace-state/colors";
 import { randomUUID } from "crypto";
 import { db, workspaces } from "@/lib/db/client";
-import { eq, desc, asc, sql } from "drizzle-orm";
+import { workspaceCollaborators } from "@/lib/db/schema";
+import { eq, desc, asc, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireAuthWithUserInfo, withErrorHandling } from "@/lib/api/workspace-helpers";
 
 /**
  * GET /api/workspaces
- * List all workspaces for the authenticated user
- * Note: Sharing is fork-based - users import copies, not access the original
+ * List all workspaces for the authenticated user (owned + shared)
  */
 async function handleGET() {
   const userId = await requireAuth();
@@ -31,8 +31,30 @@ async function handleGET() {
       desc(workspaces.updatedAt)
     );
 
-  // Format results (using camelCase for Drizzle types)
-  const workspaceList: WorkspaceWithState[] = ownedWorkspaces.map((w) => ({
+  // Get workspaces user is a collaborator on
+  const collaborations = await db
+    .select({ workspaceId: workspaceCollaborators.workspaceId, permissionLevel: workspaceCollaborators.permissionLevel })
+    .from(workspaceCollaborators)
+    .where(eq(workspaceCollaborators.userId, userId));
+
+  let sharedWorkspaces: typeof ownedWorkspaces = [];
+  if (collaborations.length > 0) {
+    const sharedWorkspaceIds = collaborations.map(c => c.workspaceId);
+    sharedWorkspaces = await db
+      .select()
+      .from(workspaces)
+      .where(inArray(workspaces.id, sharedWorkspaceIds))
+      .orderBy(
+        sql`${workspaces.lastOpenedAt} DESC NULLS LAST`,
+        desc(workspaces.updatedAt)
+      );
+  }
+
+  // Create a map of permission levels for shared workspaces
+  const permissionMap = new Map(collaborations.map(c => [c.workspaceId, c.permissionLevel]));
+
+  // Format owned workspaces
+  const ownedList: (WorkspaceWithState & { isShared?: boolean; permissionLevel?: string })[] = ownedWorkspaces.map((w) => ({
     id: w.id,
     userId: w.userId,
     name: w.name,
@@ -46,12 +68,36 @@ async function handleGET() {
     sortOrder: w.sortOrder ?? null,
     color: w.color as CardColor | null,
     lastOpenedAt: w.lastOpenedAt ?? null,
+    isShared: false,
   }));
+
+  // Format shared workspaces
+  const sharedList: (WorkspaceWithState & { isShared?: boolean; permissionLevel?: string })[] = sharedWorkspaces.map((w) => ({
+    id: w.id,
+    userId: w.userId,
+    name: w.name,
+    description: w.description || '',
+    template: (w.template as WorkspaceTemplate) || 'blank',
+    isPublic: w.isPublic || false,
+    createdAt: w.createdAt || '',
+    updatedAt: w.updatedAt || '',
+    slug: w.slug || '',
+    icon: w.icon,
+    sortOrder: w.sortOrder ?? null,
+    color: w.color as CardColor | null,
+    lastOpenedAt: w.lastOpenedAt ?? null,
+    isShared: true,
+    permissionLevel: permissionMap.get(w.id) || 'viewer',
+  }));
+
+  // Merge lists - owned first, then shared
+  const workspaceList = [...ownedList, ...sharedList];
 
   return NextResponse.json({ workspaces: workspaceList });
 }
 
 export const GET = withErrorHandling(handleGET, "GET /api/workspaces");
+
 
 /**
  * POST /api/workspaces

@@ -50,6 +50,7 @@ import { useMemo } from "react";
 import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";
 import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
 import { useQueryClient } from "@tanstack/react-query";
+import { CollaboratorAvatars } from "@/components/workspace/CollaboratorAvatars";
 interface WorkspaceHeaderProps {
   titleInputRef: React.RefObject<HTMLInputElement | null>;
   searchQuery: string;
@@ -774,6 +775,9 @@ export default function WorkspaceHeader({
         ) : (
           // Default Mode: Standard Workspace Controls
           <div className="flex items-center gap-2 pointer-events-auto">
+            {/* Collaborator Avatars - show who's in the workspace */}
+            <CollaboratorAvatars />
+
             {/* Save Indicator - hidden in compact mode */}
             {!isCompactMode && (
               <WorkspaceSaveIndicator

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { SnapshotInfo } from "@/lib/workspace/events";
 import { db, workspaceSnapshots } from "@/lib/db/client";
 import { eq, desc } from "drizzle-orm";
-import { requireAuth, verifyWorkspaceOwnership, withErrorHandling } from "@/lib/api/workspace-helpers";
+import { requireAuth, verifyWorkspaceAccess, withErrorHandling } from "@/lib/api/workspace-helpers";
 
 /**
  * GET /api/workspaces/[id]/snapshots
@@ -16,28 +16,28 @@ async function handleGET(
   // Start independent operations in parallel
   const paramsPromise = params;
   const authPromise = requireAuth();
-  
+
   const { id } = await paramsPromise;
   const userId = await authPromise;
 
-  // Check if user is workspace owner
-  await verifyWorkspaceOwnership(id, userId);
+  // Check if user has access (owner or collaborator)
+  await verifyWorkspaceAccess(id, userId, 'viewer');
 
-    // Get ALL snapshots for version history
-    const allSnapshotsData = await db
-      .select()
-      .from(workspaceSnapshots)
-      .where(eq(workspaceSnapshots.workspaceId, id))
-      .orderBy(desc(workspaceSnapshots.snapshotVersion));
+  // Get ALL snapshots for version history
+  const allSnapshotsData = await db
+    .select()
+    .from(workspaceSnapshots)
+    .where(eq(workspaceSnapshots.workspaceId, id))
+    .orderBy(desc(workspaceSnapshots.snapshotVersion));
 
-    const snapshots: SnapshotInfo[] = allSnapshotsData.map(s => ({
-      id: s.id,
-      version: s.snapshotVersion,
-      eventCount: s.eventCount,
-      createdAt: s.createdAt || '',
-      // Include state for restoration
-      state: s.state as any,
-    }));
+  const snapshots: SnapshotInfo[] = allSnapshotsData.map(s => ({
+    id: s.id,
+    version: s.snapshotVersion,
+    eventCount: s.eventCount,
+    createdAt: s.createdAt || '',
+    // Include state for restoration
+    state: s.state as any,
+  }));
 
   return NextResponse.json({ snapshots });
 }

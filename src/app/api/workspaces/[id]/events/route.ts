@@ -3,11 +3,11 @@ import type { WorkspaceEvent, EventResponse } from "@/lib/workspace/events";
 import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
 import { db, workspaceEvents } from "@/lib/db/client";
 import { eq, gt, asc, sql, and } from "drizzle-orm";
-import { requireAuth, verifyWorkspaceOwnership, withErrorHandling } from "@/lib/api/workspace-helpers";
+import { requireAuth, verifyWorkspaceAccess, withErrorHandling } from "@/lib/api/workspace-helpers";
 
 /**
  * GET /api/workspaces/[id]/events
- * Fetch all events for a workspace (owner only)
+ * Fetch all events for a workspace (owner or collaborator)
  */
 async function handleGET(
   request: NextRequest,
@@ -15,11 +15,11 @@ async function handleGET(
 ) {
   const startTime = Date.now();
   const timings: Record<string, number> = {};
-  
+
   // Start independent operations in parallel
   const paramsPromise = params;
   const authPromise = requireAuth();
-  
+
   const paramsResolved = await paramsPromise;
   const id = paramsResolved.id;
 
@@ -27,15 +27,15 @@ async function handleGET(
   const userId = await authPromise;
   timings.auth = Date.now() - authStart;
 
-  // Check if user is workspace owner
+  // Check if user has access (owner or collaborator)
   const workspaceCheckStart = Date.now();
-  await verifyWorkspaceOwnership(id, userId);
+  await verifyWorkspaceAccess(id, userId, 'viewer');
   timings.workspaceCheck = Date.now() - workspaceCheckStart;
 
-    // Get only the latest snapshot (not all snapshots - loaded on demand for version history)
-    // Use optimized function that bypasses RLS (access already verified above)
-    const snapshotStart = Date.now();
-    const latestSnapshotData = await db.execute(sql`
+  // Get only the latest snapshot (not all snapshots - loaded on demand for version history)
+  // Use optimized function that bypasses RLS (access already verified above)
+  const snapshotStart = Date.now();
+  const latestSnapshotData = await db.execute(sql`
       SELECT 
         id,
         snapshot_version as "snapshotVersion",
@@ -44,46 +44,46 @@ async function handleGET(
         created_at as "createdAt"
       FROM get_latest_snapshot_fast(${id}::uuid)
     `);
-    timings.snapshotFetch = Date.now() - snapshotStart;
+  timings.snapshotFetch = Date.now() - snapshotStart;
 
-    const latestSnapshot = latestSnapshotData[0] as {
-      id?: string;
-      snapshotVersion?: number;
-      state?: any;
-      eventCount?: number;
-      createdAt?: string;
-    } | undefined;
-    const snapshotVersion = typeof latestSnapshot?.snapshotVersion === 'number'
-      ? latestSnapshot.snapshotVersion
-      : 0;
+  const latestSnapshot = latestSnapshotData[0] as {
+    id?: string;
+    snapshotVersion?: number;
+    state?: any;
+    eventCount?: number;
+    createdAt?: string;
+  } | undefined;
+  const snapshotVersion = typeof latestSnapshot?.snapshotVersion === 'number'
+    ? latestSnapshot.snapshotVersion
+    : 0;
 
-    // Check how many events we need to fetch
-    const countStart = Date.now();
-    const eventCountResult = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(workspaceEvents)
-      .where(
-        and(
-          eq(workspaceEvents.workspaceId, id),
-          gt(workspaceEvents.version, snapshotVersion)
-        )
-      );
-    const eventCount = eventCountResult[0]?.count ?? 0;
-    timings.countQuery = Date.now() - countStart;
+  // Check how many events we need to fetch
+  const countStart = Date.now();
+  const eventCountResult = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(workspaceEvents)
+    .where(
+      and(
+        eq(workspaceEvents.workspaceId, id),
+        gt(workspaceEvents.version, snapshotVersion)
+      )
+    );
+  const eventCount = eventCountResult[0]?.count ?? 0;
+  timings.countQuery = Date.now() - countStart;
 
-    // Only fetch events AFTER the snapshot version
-    const PAGE_SIZE = 1000;
-    let eventsData: any[] = [];
+  // Only fetch events AFTER the snapshot version
+  const PAGE_SIZE = 1000;
+  let eventsData: any[] = [];
 
-    if (eventCount === 0) {
-      timings.eventsFetch = 0;
-    } else if (eventCount <= PAGE_SIZE) {
-      // If we have fewer events than PAGE_SIZE, fetch all at once (no pagination needed)
-      const eventsFetchStart = Date.now();
+  if (eventCount === 0) {
+    timings.eventsFetch = 0;
+  } else if (eventCount <= PAGE_SIZE) {
+    // If we have fewer events than PAGE_SIZE, fetch all at once (no pagination needed)
+    const eventsFetchStart = Date.now();
 
-      // Use optimized function that bypasses RLS (access already verified above)
-      const queryStart = Date.now();
-      const fastQueryResult = await db.execute(sql`
+    // Use optimized function that bypasses RLS (access already verified above)
+    const queryStart = Date.now();
+    const fastQueryResult = await db.execute(sql`
         SELECT 
           event_id as "eventId",
           event_type as "eventType",
@@ -98,30 +98,30 @@ async function handleGET(
           ${PAGE_SIZE}::integer
         )
       `);
-      const queryTime = Date.now() - queryStart;
+    const queryTime = Date.now() - queryStart;
 
-      // Transform result to match expected format
-      eventsData = fastQueryResult.map((row: any) => ({
-        eventId: row.eventId,
-        eventType: row.eventType,
-        payload: row.payload,
-        timestamp: row.timestamp,
-        userId: row.userId,
-        userName: row.userName,
-        version: row.version,
-      }));
-      timings.eventsFetch = Date.now() - eventsFetchStart;
-      timings.eventsQuery = queryTime;
-      timings.eventsDataProcessing = timings.eventsFetch - queryTime;
-    } else {
-      // Only paginate if we have more than PAGE_SIZE events
-      const eventsFetchStart = Date.now();
-      let allEvents: any[] = [];
-      let page = 0;
-      let hasMore = true;
+    // Transform result to match expected format
+    eventsData = fastQueryResult.map((row: any) => ({
+      eventId: row.eventId,
+      eventType: row.eventType,
+      payload: row.payload,
+      timestamp: row.timestamp,
+      userId: row.userId,
+      userName: row.userName,
+      version: row.version,
+    }));
+    timings.eventsFetch = Date.now() - eventsFetchStart;
+    timings.eventsQuery = queryTime;
+    timings.eventsDataProcessing = timings.eventsFetch - queryTime;
+  } else {
+    // Only paginate if we have more than PAGE_SIZE events
+    const eventsFetchStart = Date.now();
+    let allEvents: any[] = [];
+    let page = 0;
+    let hasMore = true;
 
-      while (hasMore) {
-        const pageDataResult = await db.execute(sql`
+    while (hasMore) {
+      const pageDataResult = await db.execute(sql`
           SELECT 
             event_id as "eventId",
             event_type as "eventType",
@@ -138,54 +138,54 @@ async function handleGET(
           OFFSET ${page * PAGE_SIZE}
         `);
 
-        const pageData = pageDataResult.map((row: any) => ({
-          eventId: row.eventId,
-          eventType: row.eventType,
-          payload: row.payload,
-          timestamp: row.timestamp,
-          userId: row.userId,
-          userName: row.userName,
-          version: row.version,
-        }));
+      const pageData = pageDataResult.map((row: any) => ({
+        eventId: row.eventId,
+        eventType: row.eventType,
+        payload: row.payload,
+        timestamp: row.timestamp,
+        userId: row.userId,
+        userName: row.userName,
+        version: row.version,
+      }));
 
-        allEvents = allEvents.concat(pageData);
-        hasMore = pageData.length === PAGE_SIZE;
-        page++;
-      }
-
-      eventsData = allEvents;
-      timings.eventsFetch = Date.now() - eventsFetchStart;
+      allEvents = allEvents.concat(pageData);
+      hasMore = pageData.length === PAGE_SIZE;
+      page++;
     }
 
-    // Transform database events to WorkspaceEvent format
-    const transformStart = Date.now();
-    const events: WorkspaceEvent[] = eventsData.map((e) => ({
-      type: e.eventType,
-      payload: e.payload,
-      timestamp: e.timestamp,
-      userId: e.userId,
-      userName: e.userName || undefined,
-      id: e.eventId,
-      version: e.version,  // Include version from database
-    } as WorkspaceEvent));
-    timings.transform = Date.now() - transformStart;
+    eventsData = allEvents;
+    timings.eventsFetch = Date.now() - eventsFetchStart;
+  }
 
-    // Version should be the max version from database, not events.length
-    const maxVersion = eventsData && eventsData.length > 0
-      ? Math.max(...eventsData.map(e => e.version))
-      : (snapshotVersion || 0);
+  // Transform database events to WorkspaceEvent format
+  const transformStart = Date.now();
+  const events: WorkspaceEvent[] = eventsData.map((e) => ({
+    type: e.eventType,
+    payload: e.payload,
+    timestamp: e.timestamp,
+    userId: e.userId,
+    userName: e.userName || undefined,
+    id: e.eventId,
+    version: e.version,  // Include version from database
+  } as WorkspaceEvent));
+  timings.transform = Date.now() - transformStart;
 
-    const response: EventResponse = {
-      events,
-      version: maxVersion,
-      snapshot: latestSnapshot && typeof latestSnapshot.snapshotVersion === 'number' ? {
-        version: latestSnapshot.snapshotVersion,
-        state: latestSnapshot.state as any,
-      } : undefined,
-    };
+  // Version should be the max version from database, not events.length
+  const maxVersion = eventsData && eventsData.length > 0
+    ? Math.max(...eventsData.map(e => e.version))
+    : (snapshotVersion || 0);
 
-    const totalTime = Date.now() - startTime;
-    timings.total = totalTime;
+  const response: EventResponse = {
+    events,
+    version: maxVersion,
+    snapshot: latestSnapshot && typeof latestSnapshot.snapshotVersion === 'number' ? {
+      version: latestSnapshot.snapshotVersion,
+      state: latestSnapshot.state as any,
+    } : undefined,
+  };
+
+  const totalTime = Date.now() - startTime;
+  timings.total = totalTime;
 
   return NextResponse.json(response);
 }
@@ -202,12 +202,12 @@ async function handlePOST(
 ) {
   const startTime = Date.now();
   const timings: Record<string, number> = {};
-  
+
   // Start independent operations in parallel
   const paramsPromise = params;
   const authPromise = requireAuth();
   const bodyPromise = request.json();
-  
+
   const paramsResolved = await paramsPromise;
   const id = paramsResolved.id;
 
@@ -227,14 +227,14 @@ async function handlePOST(
     );
   }
 
-  // Check if user is workspace owner
+  // Check if user has editor access (owner or editor collaborator)
   const workspaceCheckStart = Date.now();
-  await verifyWorkspaceOwnership(id, userId);
+  await verifyWorkspaceAccess(id, userId, 'editor');
   timings.workspaceCheck = Date.now() - workspaceCheckStart;
 
-    // Use the append function to handle versioning and conflicts
-    const appendStart = Date.now();
-    const result = await db.execute(sql`
+  // Use the append function to handle versioning and conflicts
+  const appendStart = Date.now();
+  const result = await db.execute(sql`
       SELECT append_workspace_event(
         ${id}::uuid,
         ${event.id}::text,
@@ -246,71 +246,71 @@ async function handlePOST(
         ${event.userName || null}::text
       ) as result
     `);
-    timings.appendFunction = Date.now() - appendStart;
+  timings.appendFunction = Date.now() - appendStart;
 
-    if (!result || result.length === 0 || !result[0]) {
-      return NextResponse.json({ error: "Failed to append event" }, { status: 500 });
-    }
+  if (!result || result.length === 0 || !result[0]) {
+    return NextResponse.json({ error: "Failed to append event" }, { status: 500 });
+  }
 
-    // PostgreSQL returns result as string like "(6,t)" - need to parse it
-    const rawResult = result[0].result as string;
+  // PostgreSQL returns result as string like "(6,t)" - need to parse it
+  const rawResult = result[0].result as string;
 
-    // Parse the PostgreSQL tuple format "(version,conflict)"
-    const match = rawResult.match(/\((\d+),(t|f)\)/);
-    if (!match) {
-      console.error(`[POST /api/workspaces/${id}/events] Failed to parse PostgreSQL result:`, rawResult);
-      return NextResponse.json({ error: "Invalid database response" }, { status: 500 });
-    }
+  // Parse the PostgreSQL tuple format "(version,conflict)"
+  const match = rawResult.match(/\((\d+),(t|f)\)/);
+  if (!match) {
+    console.error(`[POST /api/workspaces/${id}/events] Failed to parse PostgreSQL result:`, rawResult);
+    return NextResponse.json({ error: "Invalid database response" }, { status: 500 });
+  }
 
-    const appendResult = {
-      version: parseInt(match[1], 10),
-      conflict: match[2] === 't'
-    };
+  const appendResult = {
+    version: parseInt(match[1], 10),
+    conflict: match[2] === 't'
+  };
 
-    // Check for conflict
-    if (appendResult.conflict) {
-      // Fetch current events for client to merge
-      const conflictFetchStart = Date.now();
-      const currentEvents = await db
-        .select()
-        .from(workspaceEvents)
-        .where(
-          and(
-            eq(workspaceEvents.workspaceId, id),
-            gt(workspaceEvents.version, baseVersion)
-          )
+  // Check for conflict
+  if (appendResult.conflict) {
+    // Fetch current events for client to merge
+    const conflictFetchStart = Date.now();
+    const currentEvents = await db
+      .select()
+      .from(workspaceEvents)
+      .where(
+        and(
+          eq(workspaceEvents.workspaceId, id),
+          gt(workspaceEvents.version, baseVersion)
         )
-        .orderBy(asc(workspaceEvents.version));
-      timings.conflictFetch = Date.now() - conflictFetchStart;
+      )
+      .orderBy(asc(workspaceEvents.version));
+    timings.conflictFetch = Date.now() - conflictFetchStart;
 
-      const events: WorkspaceEvent[] = currentEvents.map((e) => ({
-        type: e.eventType,
-        payload: e.payload,
-        timestamp: e.timestamp,
-        userId: e.userId,
-        userName: e.userName || undefined,
-        id: e.eventId,
-      } as WorkspaceEvent));
-
-      const totalTime = Date.now() - startTime;
-      timings.total = totalTime;
-
-      return NextResponse.json({
-        conflict: true,
-        version: appendResult.version,
-        currentEvents: events,
-      });
-    }
-
-    // Success - no conflict
-    // Check if we need to create a snapshot (async, non-blocking)
-    checkAndCreateSnapshot(id).catch((err) => {
-      console.error(`[POST /api/workspaces/${id}/events] Failed to create snapshot:`, err);
-      // Don't fail the request if snapshot creation fails
-    });
+    const events: WorkspaceEvent[] = currentEvents.map((e) => ({
+      type: e.eventType,
+      payload: e.payload,
+      timestamp: e.timestamp,
+      userId: e.userId,
+      userName: e.userName || undefined,
+      id: e.eventId,
+    } as WorkspaceEvent));
 
     const totalTime = Date.now() - startTime;
     timings.total = totalTime;
+
+    return NextResponse.json({
+      conflict: true,
+      version: appendResult.version,
+      currentEvents: events,
+    });
+  }
+
+  // Success - no conflict
+  // Check if we need to create a snapshot (async, non-blocking)
+  checkAndCreateSnapshot(id).catch((err) => {
+    console.error(`[POST /api/workspaces/${id}/events] Failed to create snapshot:`, err);
+    // Don't fail the request if snapshot creation fails
+  });
+
+  const totalTime = Date.now() - startTime;
+  timings.total = totalTime;
 
   return NextResponse.json({
     success: true,
