@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, workspaces } from "@/lib/db/client";
 import { workspaceCollaborators } from "@/lib/db/schema";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, inArray } from "drizzle-orm";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import { requireAuth, withErrorHandling } from "@/lib/api/workspace-helpers";
 
@@ -43,32 +43,39 @@ async function handleGET(
   let isShared = false;
   let permissionLevel: string | null = null;
 
-  // If not owned, check if user is a collaborator
+  // If not owned, check if user is a collaborator on ANY workspace with this slug
+  // Legacy workspaces might have non-unique slugs (e.g. "my-workspace" created by multiple users)
   if (!workspace) {
-    // First find the workspace by slug
-    const [anyWorkspace] = await db
+    // Find all workspaces with this slug
+    const candidateWorkspaces = await db
       .select()
       .from(workspaces)
-      .where(eq(workspaces.slug, slug))
-      .limit(1);
+      .where(eq(workspaces.slug, slug));
 
-    if (anyWorkspace) {
-      // Check if user is a collaborator on this workspace
-      const [collab] = await db
-        .select({ permissionLevel: workspaceCollaborators.permissionLevel })
+    if (candidateWorkspaces.length > 0) {
+      // Check if user is a collaborator on any of these workspaces
+      // We can do this efficiently by querying for valid collaborations
+      const candidateIds = candidateWorkspaces.map(w => w.id);
+
+      const [validCollab] = await db
+        .select({
+          permissionLevel: workspaceCollaborators.permissionLevel,
+          workspaceId: workspaceCollaborators.workspaceId
+        })
         .from(workspaceCollaborators)
         .where(
           and(
-            eq(workspaceCollaborators.workspaceId, anyWorkspace.id),
+            inArray(workspaceCollaborators.workspaceId, candidateIds),
             eq(workspaceCollaborators.userId, userId)
           )
         )
         .limit(1);
 
-      if (collab) {
-        workspace = anyWorkspace;
+      if (validCollab) {
+        // Found the specific workspace instance this user has access to
+        workspace = candidateWorkspaces.find(w => w.id === validCollab.workspaceId);
         isShared = true;
-        permissionLevel = collab.permissionLevel;
+        permissionLevel = validCollab.permissionLevel;
       }
     }
   }
