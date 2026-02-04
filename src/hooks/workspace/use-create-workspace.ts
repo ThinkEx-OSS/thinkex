@@ -69,7 +69,7 @@ export function useCreateWorkspace() {
       // Optimistically add the new workspace to the list
       queryClient.setQueryData<WorkspaceWithState[]>(["workspaces"], (old) => {
         if (!old) return old;
-        
+
         const optimisticWorkspace: WorkspaceWithState = {
           id: `temp-${Date.now()}`,
           slug: `temp-${Date.now()}`,
@@ -99,9 +99,9 @@ export function useCreateWorkspace() {
       }
     },
 
-    onSuccess: () => {
+    onSuccess: async () => {
       // Invalidate to get the real data from server
-      queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+      await queryClient.invalidateQueries({ queryKey: ["workspaces"] });
     },
   });
 }

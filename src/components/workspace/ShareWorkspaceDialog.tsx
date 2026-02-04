@@ -424,9 +424,7 @@ export default function ShareWorkspaceDialog({
                   You must be an editor or owner to invite others.
                 </p>
               )}
-              <p className="text-xs text-muted-foreground">
-                Editors can add and edit cards. Viewers can only view.
-              </p>
+
             </div>
 
             {/* Collaborators List - Only show for single workspace */}
