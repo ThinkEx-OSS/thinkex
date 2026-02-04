@@ -429,7 +429,7 @@ export function WorkspaceSection({
               {(!currentWorkspaceId && currentSlug) || (currentWorkspaceId && isLoadingWorkspace) ? (
                 // If it's taking too long or we have no workspace ID but have a slug,
                 // check if we're anonymous to show login gate, or authenticated to show access denied
-                !isLoadingWorkspace && !currentWorkspaceId ? (
+                !isLoadingWorkspace && !loadingWorkspaces && !currentWorkspaceId ? (
                   session?.user?.isAnonymous ? (
                     <LoginGate />
                   ) : (
