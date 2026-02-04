@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "@daveyplate/better-auth-ui/css";
+
 @import "tw-shimmer";
 
 /* Path to your installed `@blocknote/shadcn` package. */
@@ -1293,6 +1293,7 @@ body:has(.card-detail-modal) .workspace-grid-container {
     transform: scale(0.95);
     opacity: 0;
   }
+
   to {
     transform: scale(1);
     opacity: 1;
@@ -1304,6 +1305,7 @@ body:has(.card-detail-modal) .workspace-grid-container {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
