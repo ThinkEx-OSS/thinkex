@@ -27,13 +27,7 @@ import { validateImportedJSON, generateImportPreview, type ValidationResult } fr
 import { Textarea } from "@/components/ui/textarea";
 import { Upload, FileText } from "lucide-react";
 import type { AgentState } from "@/lib/workspace-state/types";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 
 interface Workspace {
   id: string;
@@ -78,7 +72,6 @@ export default function CreateWorkspaceModal({
 
   // Collaboration state
   const [inviteEmail, setInviteEmail] = useState("");
-  const [invitePermission, setInvitePermission] = useState<"viewer" | "editor">("editor");
   const [pendingInvites, setPendingInvites] = useState<Array<{ email: string; permission: "viewer" | "editor" }>>([]);
 
   // Initialize form when initialData changes or modal opens
@@ -134,7 +127,7 @@ export default function CreateWorkspaceModal({
       return;
     }
 
-    setPendingInvites([...pendingInvites, { email, permission: invitePermission }]);
+    setPendingInvites([...pendingInvites, { email, permission: "editor" }]);
     setInviteEmail("");
     setError("");
   };
@@ -224,7 +217,6 @@ export default function CreateWorkspaceModal({
           setValidationResult(null);
           setPendingInvites([]);
           setInviteEmail("");
-          setInvitePermission("editor");
           onOpenChange(false);
 
           // Call success callback or navigate (use slug, not ID)
@@ -259,7 +251,6 @@ export default function CreateWorkspaceModal({
           setValidationResult(null);
           setPendingInvites([]);
           setInviteEmail("");
-          setInvitePermission("editor");
           setError("");
         } else {
           // Reset to initialData values when closing share modal
@@ -401,19 +392,6 @@ export default function CreateWorkspaceModal({
                 className="flex-1"
                 disabled={createWorkspace.isPending}
               />
-              <Select
-                value={invitePermission}
-                onValueChange={(v: string) => setInvitePermission(v as "viewer" | "editor")}
-                disabled={createWorkspace.isPending}
-              >
-                <SelectTrigger className="w-28">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="editor">Editor</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
-                </SelectContent>
-              </Select>
               <Button
                 type="button"
                 onClick={handleAddInvite}
@@ -438,9 +416,6 @@ export default function CreateWorkspaceModal({
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="truncate">{invite.email}</span>
-                        <span className="text-xs text-muted-foreground px-2 py-0.5 rounded bg-white/5">
-                          {invite.permission}
-                        </span>
                       </div>
                       <Button
                         type="button"
