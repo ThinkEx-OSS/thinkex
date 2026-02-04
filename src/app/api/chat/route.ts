@@ -148,7 +148,7 @@ QUALITY GUIDELINES FOR CONTENT:
 - Start with a clear introduction/overview of the topic
 - Include key concepts, definitions, or components
 - Add practical examples or use cases if relevant
-- For flashcards: create meaningful question/answer pairs covering key concepts
+- For flashcards: create exactly 5 meaningful question/answer pairs covering key concepts
 - For quizzes: create challenging but fair questions that test understanding
 
 QUALITY GUIDELINES FOR THE YOUTUBE VIDEO:
