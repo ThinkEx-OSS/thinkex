@@ -17,7 +17,7 @@ const getStorageType = (): 'supabase' | 'local' => {
 // Local file storage helper
 async function saveFileLocally(file: File, filename: string): Promise<string> {
   const uploadsDir = process.env.UPLOADS_DIR || join(process.cwd(), 'uploads');
-  
+
   // Ensure uploads directory exists
   if (!existsSync(uploadsDir)) {
     await mkdir(uploadsDir, { recursive: true });
@@ -28,7 +28,7 @@ async function saveFileLocally(file: File, filename: string): Promise<string> {
   const buffer = Buffer.from(bytes);
 
   await writeFile(filePath, buffer);
-  
+
   // Return public URL path
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   return `${baseUrl}/api/files/${filename}`;
@@ -40,14 +40,14 @@ export async function POST(request: NextRequest) {
     const session = await auth.api.getSession({
       headers: await headers(),
     });
-    
+
     if (!session) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
-    
+
     const userId = session.user.id;
 
     // Get file from form data
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     // File type validation can be done client-side if needed
 
     // Validate file size (10MB limit)
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 50 * 1024 * 1024; // 50MB
     if (file.size > maxSize) {
       return NextResponse.json(
         { error: "File size exceeds 10MB limit" },
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error in upload-file API route:', error);
     return NextResponse.json(
-      { 
+      {
         error: "Failed to upload file",
         details: error instanceof Error ? error.message : String(error)
       },
