@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { FolderPlus, MoreVertical, Users, Trash2, Share2, X, CheckSquare } from "lucide-react";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
@@ -22,6 +23,7 @@ interface WorkspaceGridProps {
 }
 
 export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
+  const router = useRouter();
   const { showCreateWorkspaceModal, setShowCreateWorkspaceModal } = useUIStore();
   const { workspaces, switchWorkspace, loadWorkspaces, deleteWorkspace } = useWorkspaceContext();
   const { data: session } = useSession();
@@ -229,6 +231,7 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
                   borderColor: borderColor,
                 }}
                 onMouseEnter={(e) => {
+                  router.prefetch(`/workspace/${workspace.slug || workspace.id}`);
                   if (!selectedIds.has(workspace.id)) {
                     e.currentTarget.style.borderColor = 'white';
                   }

@@ -60,6 +60,29 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     return null;
   }, [pathname]);
 
+  // Fetch full workspace list lazily (for sidebar, workspace switching)
+  // This is deferred - not needed for initial workspace render
+  const { data: workspacesData, isLoading: loadingWorkspaces } = useQuery({
+    queryKey: ['workspaces'],
+    queryFn: async () => {
+      const response = await fetch("/api/workspaces");
+      if (!response.ok) {
+        throw new Error('Failed to fetch workspaces');
+      }
+      const data = await response.json();
+      return data.workspaces || [];
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    retry: 3,
+  });
+
+  // Find cached workspace in list to use as initial data for instant loading
+  const cachedWorkspace = useMemo(() => {
+    if (!currentSlug || !workspacesData) return undefined;
+    return workspacesData.find((w: WorkspaceWithState) => w.slug === currentSlug);
+  }, [currentSlug, workspacesData]);
+
   // Fetch current workspace by slug (fast path for direct workspace access)
   // This loads only the workspace metadata needed, not the entire list or state
   // State is loaded separately by useWorkspaceState hook
@@ -77,29 +100,14 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       return data.workspace || null;
     },
     enabled: !!currentSlug, // Only fetch when we have a slug
+    initialData: cachedWorkspace, // Use cached data from list if available
+    initialDataUpdatedAt: cachedWorkspace ? Date.now() : undefined, // Treat as fresh
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
     retry: 1, // Don't retry much for single workspace
   });
 
   const currentWorkspace = currentWorkspaceData || null;
-
-  // Fetch full workspace list lazily (for sidebar, workspace switching)
-  // This is deferred - not needed for initial workspace render
-  const { data: workspacesData, isLoading: loadingWorkspaces } = useQuery({
-    queryKey: ['workspaces'],
-    queryFn: async () => {
-      const response = await fetch("/api/workspaces");
-      if (!response.ok) {
-        throw new Error('Failed to fetch workspaces');
-      }
-      const data = await response.json();
-      return data.workspaces || [];
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
-    retry: 3,
-  });
 
   // Merge current workspace into list if not already present
   const workspaces = useMemo(() => {
