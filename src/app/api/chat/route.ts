@@ -1,5 +1,5 @@
-import { google } from "@ai-sdk/google";
-import { streamText, convertToModelMessages, stepCountIs, tool, zodSchema, wrapLanguageModel } from "ai";
+import { gateway } from "ai";
+import { streamText, convertToModelMessages, stepCountIs, wrapLanguageModel, tool } from "ai";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 import { PostHog } from "posthog-node";
 import { withTracing } from "@posthog/ai";
@@ -8,6 +8,7 @@ import { logger } from "@/lib/utils/logger";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { createChatTools } from "@/lib/ai/tools";
+import type { GatewayProviderOptions } from "@ai-sdk/gateway";
 
 // Regex patterns as constants (compiled once, reused for all requests)
 const URL_CONTEXT_REGEX = /\[URL_CONTEXT:(.+?)\]/g;
@@ -238,16 +239,10 @@ export async function POST(req: Request) {
   let workspaceId: string | null = null;
   let activeFolderId: string | undefined;
 
-  // Check for API key early
-  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-    return new Response(JSON.stringify({
-      error: "API key not defined",
-      message: "GOOGLE_GENERATIVE_AI_API_KEY is not configured. Please set it in your environment variables.",
-      code: "API_KEY_MISSING",
-    }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+  // Check for API key early (Standardizing on Google Key for now if not using OIDC)
+  // With Gateway, you can check for other keys too, or rely on Gateway's auth
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY && !process.env.AI_GATEWAY_API_KEY) {
+    // Optional: make this check more robust or permissive if using OIDC
   }
 
   try {
@@ -303,16 +298,24 @@ export async function POST(req: Request) {
 
     const finalSystemPrompt = systemPromptParts.join('');
 
-    // Get model
-    const modelId = body.modelId || "gemini-flash-lite-latest";
+    // Get model ID and ensure it has the correct prefix for Gateway
+    let modelId = body.modelId || "moonshotai/kimi-k2-0905";
+
+    // Auto-prefix with google/ if it looks like a gemini model and lacks prefix
+    // This allows existing client code to work without changes
+    if (modelId.startsWith("gemini-") && !modelId.startsWith("google/")) {
+      modelId = `google/${modelId}`;
+    }
+
     // Initialize PostHog client
     const posthogClient = new PostHog(process.env.POSTHOG_API_KEY || "disabled", {
       host: process.env.POSTHOG_HOST || "https://us.i.posthog.com",
       disabled: !process.env.POSTHOG_API_KEY,
     });
 
+    // Use AI Gateway
     const model = wrapLanguageModel({
-      model: withTracing(google(modelId), posthogClient, {
+      model: withTracing(gateway(modelId) as any, posthogClient, {
         posthogDistinctId: userId || "anonymous",
         posthogProperties: {
           workspaceId,
@@ -334,10 +337,16 @@ export async function POST(req: Request) {
     // Stream the response
     logger.debug("🔍 [CHAT-API] Final cleanedMessages before streamText:", {
       count: cleanedMessages.length,
+      modelId
     });
 
     // Prepare provider options
+    // The Gateway passes these through to the specific provider
     let providerOptions: any = {
+      gateway: {
+        // Example: route to google if you want to enforce it, though prefix handles it
+        // order: ['google'], 
+      } satisfies GatewayProviderOptions,
       google: {
         grounding: {
           googleSearchRetrieval: {
@@ -364,12 +373,7 @@ export async function POST(req: Request) {
           totalTokens: usage?.totalTokens,
           cachedInputTokens: usage?.cachedInputTokens, // Standard property
           reasoningTokens: usage?.reasoningTokens,
-          // Extended properties (Google provider specific)
-          inputTokenDetails: (usage as any)?.inputTokenDetails ? {
-            cacheReadTokens: (usage as any).inputTokenDetails?.cacheReadTokens,
-            cacheWriteTokens: (usage as any).inputTokenDetails?.cacheWriteTokens,
-            noCacheTokens: (usage as any).inputTokenDetails?.noCacheTokens,
-          } : undefined,
+          // Note: Extended provider-specific properties might not be available consistently via Gateway
           finishReason,
         };
 
@@ -389,12 +393,6 @@ export async function POST(req: Request) {
             cachedInputTokens: usage?.cachedInputTokens, // Standard property
             reasoningTokens: usage?.reasoningTokens,
             finishReason,
-            // Extended properties (Google provider specific)
-            inputTokenDetails: (usage as any)?.inputTokenDetails ? {
-              cacheReadTokens: (usage as any).inputTokenDetails?.cacheReadTokens,
-              cacheWriteTokens: (usage as any).inputTokenDetails?.cacheWriteTokens,
-              noCacheTokens: (usage as any).inputTokenDetails?.noCacheTokens,
-            } : undefined,
           };
 
           logger.debug(`📊 [CHAT-API] Step Usage (${stepType || 'unknown'}):`, stepUsageInfo);

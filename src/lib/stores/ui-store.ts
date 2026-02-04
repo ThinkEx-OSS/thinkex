@@ -164,7 +164,7 @@ const initialState = {
 
   activeFolderId: null,
   selectedActions: [],
-  selectedModelId: 'gemini-3-flash-preview',
+  selectedModelId: 'moonshotai/kimi-k2-0905',
   folderHistoryBack: [],
   folderHistoryForward: [],
 

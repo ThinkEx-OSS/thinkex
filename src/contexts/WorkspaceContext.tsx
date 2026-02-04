@@ -175,7 +175,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         const remainingWorkspaces = old.filter((w) => w.id !== deletedWorkspaceId);
 
         // If we deleted the current workspace, switch to first available
-        if (deletedWorkspaceId === currentWorkspaceId) {
+        // Only switch if we are actively in that workspace (checked via currentSlug)
+        if (deletedWorkspaceId === currentWorkspaceId && currentSlug) {
           if (remainingWorkspaces.length > 0) {
             switchWorkspace(remainingWorkspaces[0].slug || remainingWorkspaces[0].id);
           } else {

@@ -114,6 +114,7 @@ const AI_MODELS = [
   { id: "gemini-flash-lite-latest", name: "Gemini Flash Lite", description: "Fastest & cost-efficient" },
   { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", description: "Powerful & reliable" },
   { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", description: "Fast & efficient" },
+  { id: "moonshotai/kimi-k2-0905", name: "Auto", description: "Moonshot AI Kimi model" },
 ];
 
 interface ThreadProps {
