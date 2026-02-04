@@ -174,19 +174,9 @@ export function createUpdateQuizTool(ctx: WorkspaceToolContext) {
                     matchedId: quizId,
                 });
 
-                // Handle title update if provided
+                // Title update is now handled in the main workspaceWorker("updateQuiz") call below
                 if (title) {
-                    const titleUpdateResult = await workspaceWorker("update", {
-                        workspaceId: ctx.workspaceId,
-                        itemId: quizId,
-                        title: title,
-                    });
-
-                    if (!titleUpdateResult.success) {
-                        return titleUpdateResult;
-                    }
-
-                    logger.debug("🎯 [UPDATE-QUIZ] Title updated successfully:", { newTitle: title });
+                    logger.debug("🎯 [UPDATE-QUIZ] Will update title to:", title);
                 }
 
                 const currentQuizData = quizItem.data as QuizData;
@@ -266,11 +256,12 @@ export function createUpdateQuizTool(ctx: WorkspaceToolContext) {
                     sourceCardNames
                 });
 
-                // Update the quiz with new questions
+                // Update the quiz with new questions and optional title rename
                 const workerResult = await workspaceWorker("updateQuiz", {
                     workspaceId: ctx.workspaceId,
                     itemId: quizId,
                     itemType: "quiz",
+                    title: title, // Pass title to rename
                     questionsToAdd: quizResult.questions,
                 });
 

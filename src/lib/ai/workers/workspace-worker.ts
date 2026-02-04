@@ -535,7 +535,14 @@ export async function workspaceWorker(
                     cards: [...existingCards, ...newCards],
                 };
 
-                const changes = { data: updatedData };
+                const changes: any = { data: updatedData };
+
+                // Handle title update if provided
+                if (params.title) {
+                    logger.debug("🎴 [UPDATE-FLASHCARD] Updating title:", params.title);
+                    changes.name = params.title;
+                }
+
                 const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: 'agent' }, userId);
 
                 const currentVersionResult = await db.execute(sql`
@@ -571,13 +578,14 @@ export async function workspaceWorker(
                     itemId: params.itemId,
                     cardsAdded: newCards.length,
                     totalCards: updatedData.cards.length,
+                    newTitle: params.title
                 });
 
                 return {
                     success: true,
                     itemId: params.itemId,
                     cardsAdded: newCards.length,
-                    message: `Added ${newCards.length} card${newCards.length !== 1 ? 's' : ''} to flashcard deck`,
+                    message: `Added ${newCards.length} card${newCards.length !== 1 ? 's' : ''} to flashcard deck${params.title ? ` and renamed to "${params.title}"` : ''}`,
                     event,
                     version: appendResult.version,
                 };
@@ -621,7 +629,14 @@ export async function workspaceWorker(
                     questions: [...existingQuestions, ...questionsToAdd],
                 };
 
-                const changes = { data: updatedData };
+                const changes: any = { data: updatedData };
+
+                // Handle title update if provided
+                if (params.title) {
+                    logger.debug("🎯 [UPDATE-QUIZ] Updating title:", params.title);
+                    changes.name = params.title;
+                }
+
                 const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: 'agent' }, userId);
 
                 logger.debug("📝 [UPDATE-QUIZ-DB] Created event:", {

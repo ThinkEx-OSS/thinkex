@@ -132,29 +132,14 @@ export function createUpdateFlashcardsTool(ctx: WorkspaceToolContext) {
                     };
                 }
 
-                // Handle title update first if provided
-                if (newTitle) {
-                    const titleUpdateResult = await workspaceWorker("update", {
-                        workspaceId: ctx.workspaceId,
-                        itemId: matchedDeck.id,
-                        title: newTitle,
-                    });
-
-                    if (!titleUpdateResult.success) {
-                        return titleUpdateResult;
-                    }
-                }
-
-                // If adding cards, run that update
-                let workerResult = { success: true, message: "Deck updated successfully" };
-                if (cardsToAdd.length > 0) {
-                    workerResult = await workspaceWorker("updateFlashcard", {
-                        workspaceId: ctx.workspaceId,
-                        itemId: matchedDeck.id,
-                        itemType: "flashcard",
-                        flashcardData: { cardsToAdd },
-                    });
-                }
+                // Optimized: Update both title and cards in a single worker call
+                const workerResult = await workspaceWorker("updateFlashcard", {
+                    workspaceId: ctx.workspaceId,
+                    itemId: matchedDeck.id,
+                    itemType: "flashcard",
+                    title: newTitle, // Pass title to rename
+                    flashcardData: { cardsToAdd },
+                });
 
                 if (workerResult.success) {
                     return {
