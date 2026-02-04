@@ -279,8 +279,20 @@ export async function POST(req: Request) {
     // Get pre-formatted selected cards context from client (no DB fetch needed)
     const selectedCardsContext = getSelectedCardsContext(body);
 
+    // Get model ID and ensure it has the correct prefix for Gateway
+    let modelId = body.modelId || "moonshotai/kimi-k2-0905";
+
+    // Auto-prefix with google/ if it looks like a gemini model and lacks prefix
+    // This allows existing client code to work without changes
+    if (modelId.startsWith("gemini-") && !modelId.startsWith("google/")) {
+      modelId = `google/${modelId}`;
+    }
+
     // Build system prompt with all context parts (using array join for efficiency)
-    const systemPromptParts: string[] = [buildSystemPrompt(system, fileUrls, urlContextUrls)];
+    const systemPromptParts: string[] = [
+      `You are ${modelId}.\n\n`,
+      buildSystemPrompt(system, fileUrls, urlContextUrls)
+    ];
 
     // Inject selected cards context if available
     if (selectedCardsContext) {
@@ -297,15 +309,6 @@ export async function POST(req: Request) {
     }
 
     const finalSystemPrompt = systemPromptParts.join('');
-
-    // Get model ID and ensure it has the correct prefix for Gateway
-    let modelId = body.modelId || "moonshotai/kimi-k2-0905";
-
-    // Auto-prefix with google/ if it looks like a gemini model and lacks prefix
-    // This allows existing client code to work without changes
-    if (modelId.startsWith("gemini-") && !modelId.startsWith("google/")) {
-      modelId = `google/${modelId}`;
-    }
 
     // Initialize PostHog client
     const posthogClient = new PostHog(process.env.POSTHOG_API_KEY || "disabled", {
