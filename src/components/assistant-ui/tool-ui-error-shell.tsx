@@ -33,10 +33,11 @@ export function ToolUIErrorShell({
           <Loader2 className="size-4 animate-spin" />
         </div>
         <div className="flex flex-col min-w-0 flex-1">
-          {label}
-        </span>
+          <span className="text-xs font-medium truncate">
+            {label}
+          </span>
+        </div>
       </div>
     </div>
-    </div >
   );
 }
