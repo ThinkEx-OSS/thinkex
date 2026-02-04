@@ -408,7 +408,7 @@ export default function ShareWorkspaceDialog({
                 <Input
                   id="invite-email"
                   type="email"
-                  placeholder="colleague@example.com"
+                  placeholder="name@example.com"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleInvite()}
