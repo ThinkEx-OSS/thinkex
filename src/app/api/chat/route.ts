@@ -343,6 +343,25 @@ export async function POST(req: Request) {
       modelId
     });
 
+    // Configure Google Thinking capabilities
+    const googleConfig: any = {
+      grounding: {
+        googleSearchRetrieval: {
+          dynamicRetrievalConfig: {
+            mode: 'MODE_DYNAMIC',
+          },
+        },
+      },
+      thinkingConfig: {
+        includeThoughts: false,
+      },
+    };
+
+    // Explicitly disable thinking tokens for Gemini 2.5
+    if (modelId.includes("gemini-2.5")) {
+      googleConfig.thinkingConfig.thinkingBudget = 0;
+    }
+
     // Prepare provider options
     // The Gateway passes these through to the specific provider
     let providerOptions: any = {
@@ -350,20 +369,12 @@ export async function POST(req: Request) {
         // Example: route to google if you want to enforce it, though prefix handles it
         // order: ['google'], 
       } satisfies GatewayProviderOptions,
-      google: {
-        grounding: {
-          googleSearchRetrieval: {
-            dynamicRetrievalConfig: {
-              mode: 'MODE_DYNAMIC',
-            },
-          },
-        },
-      },
+      google: googleConfig,
     };
 
     const result = streamText({
       model: model,
-      temperature: 0,
+      temperature: 1.0,
       system: finalSystemPrompt,
       messages: cleanedMessages,
       stopWhen: stepCountIs(25),
