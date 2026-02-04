@@ -245,7 +245,7 @@ export async function POST(req: Request) {
     const selectedCardsContext = getSelectedCardsContext(body);
 
     // Get model ID and ensure it has the correct prefix for Gateway
-    let modelId = body.modelId || "moonshotai/kimi-k2-0905";
+    let modelId = body.modelId || "gemini-3-flash-preview";
 
     // Auto-prefix with google/ if it looks like a gemini model and lacks prefix
     // This allows existing client code to work without changes
