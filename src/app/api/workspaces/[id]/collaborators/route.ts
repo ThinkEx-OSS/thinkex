@@ -179,7 +179,8 @@ async function handlePOST(
 
     // Send invitation email
     try {
-        const workspaceUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceId}`;
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://thinkex.app';
+        const workspaceUrl = `https://thinkex.app/workspace/${workspaceId}`;
         const { data, error } = await resend.emails.send({
             from: 'ThinkEx <hello@thinkex.app>', // Update this with your verified domain if available
             to: [email],
