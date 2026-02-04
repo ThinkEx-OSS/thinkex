@@ -105,6 +105,59 @@ function getSelectedCardsContext(body: any): string {
   return body.selectedCardsContext || "";
 }
 
+// Regex to detect createFrom auto-generated prompts
+const CREATE_FROM_REGEX = /^Update the preexisting contents of this workspace to be about (.+)\. Only add one quality YouTube video\.$/;
+
+/**
+ * Detect if the first user message is a createFrom auto-generated prompt
+ * and return additional system instructions for better workspace curation
+ */
+function getCreateFromSystemPrompt(messages: any[]): string | null {
+  // Find the first user message
+  const firstUserMessage = messages.find((m) => m.role === "user");
+  if (!firstUserMessage) return null;
+
+  // Extract text content from the message
+  let textContent = "";
+  if (typeof firstUserMessage.content === "string") {
+    textContent = firstUserMessage.content;
+  } else if (Array.isArray(firstUserMessage.content)) {
+    const textPart = firstUserMessage.content.find((p: any) => p.type === "text");
+    if (textPart?.text) textContent = textPart.text;
+  }
+
+  // Check if it matches the createFrom pattern
+  const match = textContent.match(CREATE_FROM_REGEX);
+  if (!match) return null;
+
+  const topic = match[1];
+
+  return `
+CREATE-FROM WORKSPACE INITIALIZATION MODE:
+This is an automatic workspace initialization request. The user wants to transform this workspace into a curated learning/research space about: "${topic}"
+
+CRITICAL INSTRUCTIONS FOR WORKSPACE CURATION:
+1. **Update ALL existing workspace items** with comprehensive, well-structured content about the topic. The workspace template may contain multiple item types:
+   - Use \`updateNote\` tool for notes
+   - Use \`updateFlashcards\` tool for flashcard sets
+   - Use \`updateQuiz\` tool for quizzes
+2. **Be thorough but focused** - Provide a solid foundation for understanding the topic without being overwhelming.
+3. **Do NOT ask the user questions** - This is an automated initialization, proceed directly with updating the workspace.
+
+QUALITY GUIDELINES FOR CONTENT:
+- Start with a clear introduction/overview of the topic
+- Include key concepts, definitions, or components
+- Add practical examples or use cases if relevant
+- For flashcards: create meaningful question/answer pairs covering key concepts
+- For quizzes: create challenging but fair questions that test understanding
+
+QUALITY GUIDELINES FOR THE YOUTUBE VIDEO:
+- Search with specific, relevant terms for the topic
+- Prefer videos that are educational/explanatory
+- Look for high view counts and reputable channels as quality signals
+`;
+}
+
 /**
  * Build the enhanced system prompt with guidelines and detection hints
  * Uses array join for better performance than string concatenation
@@ -115,112 +168,24 @@ function buildSystemPrompt(baseSystem: string, fileUrls: string[], urlContextUrl
   // Add web search decision-making guidelines
   parts.push(`
 
+WEB SEARCH GUIDELINES:
+Use webSearch when: temporal cues ("today", "latest", "current"), real-time data (scores, stocks, weather), fact verification, niche/recent info.
+Use internal knowledge for: creative writing, coding, general concepts, summarizing provided content.
+If uncertain about accuracy, prefer to search.
 
-WEB SEARCH DECISION GUIDELINES:
-You have access to the webSearch tool. Use the following guidelines to decide when to search vs use internal knowledge:
+YOUTUBE: If user says "add a video" without a topic, infer from workspace context. Don't ask - just search.
 
-WHEN TO USE INTERNAL KNOWLEDGE (do NOT search):
-- Creative Writing: Writing stories, poems, scripts, or creative content
-- Coding & Logic: Explaining programming concepts, writing code, or solving math problems
-- General Concepts: Explaining historical events, scientific principles, or established theories
-- Analysis & Synthesis: Summarizing provided text, changing tone of drafts, or reorganizing content
+SOURCE EXTRACTION (CRITICAL):
+When creating/updating notes with research:
+1. Call webSearch first
+2. Extract sources from groundingMetadata.groundingChunks[].web.{uri, title}
+3. Pass sources to createNote/updateNote - NEVER put citations in note content itself
 
-WHEN TO USE WEB SEARCH:
-- Temporal Cues: User mentions "today", "yesterday", "latest", "current", "recent", or specific dates
-- Breaking News: Anything that happened after your training cutoff
-- Real-Time Data: Sports scores, stock prices, weather, currency exchange rates
-- Fact Verification: When asked for specific statistics, citations, or recent studies
-- Niche Information: Details about small local businesses, new software versions, or very specific current events
+Rules:
+- Use chunk.web.uri exactly as provided (even redirect URLs)
+- Never make up or hallucinate URLs
+- Include article dates in responses when available`);
 
-COMBINED APPROACH (search + internal knowledge):
-When a query requires both current data AND conceptual explanation, do both:
-1. Search for the real-time/factual component
-2. Use internal knowledge for the conceptual/explanatory component  
-3. Synthesize into a cohesive answer
-
-YOUTUBE SEARCH GUIDANCE:
-If the user asks to "add a youtube video" or "search for a video" but does not provide a specific topic (e.g., "add a video for this workspace"), you MUST inference a relevant search query based on the current workspace context, selected cards, or recent conversation history. Do NOT ask the user for a topic if meaningful context is available. Use the 'searchYoutube' tool directly with your inferred query.
-
-CONFIDENCE THRESHOLD:
-If you are uncertain about a fact's accuracy or currency, prefer to search rather than risk providing outdated information.
-
-
-CITATION REQUIREMENT:
-When using search results (grounding), you must include the date of each article/source if available.
-
-CRITICAL: USE WEB SEARCH TOOL FOR RESEARCH-BASED NOTES:
-When the user asks you to create or update a note about a topic that requires current information or research (e.g., "India China relations", "latest AI trends", "recent developments in..."), you MUST:
-1. FIRST call the webSearch tool to gather information
-2. THEN create/update the note using that information
-3. Extract sources from the webSearch tool result
-
-This is MANDATORY because automatic grounding does not provide source URLs for attribution.
-
-SOURCE EXTRACTION REQUIREMENT - CRITICAL:
-When creating OR updating a note, you MUST ALWAYS extract and pass sources using the 'sources' parameter.
-
-WHEN TO EXTRACT SOURCES:
-1. **Web Search Tool Results**: When you call webSearch, extract sources from the grounding metadata in the response
-   - Example prompts that REQUIRE webSearch: "latest AI trends", "India China relations", "recent developments in...", any topic-based research
-   - The webSearch tool returns groundingMetadata with sources - YOU MUST EXTRACT THESE
-   
-2. **User-Provided URLs**: If the user provided a URL that you read/analyzed (via processUrls tool)
-   - Example: "Summarize https://example.com" → MUST include example.com as a source
-
-HOW TO EXTRACT SOURCES FROM WEBSEARCH:
-The webSearch tool returns a JSON string. You MUST parse it correctly to extract REAL URLs, not make them up!
-
-Structure of the response:
-{
-  "text": "...",
-  "groundingMetadata": {
-    "groundingChunks": [
-      {
-        "web": {
-          "uri": "https://actual-real-url.com/article",  // ← EXTRACT THIS
-          "title": "Actual Page Title"  // ← EXTRACT THIS
-        }
-      }
-    ]
-  }
-}
-
-PARSING CODE EXAMPLE:
-  const result = await webSearch("India China relations");
-  const parsed = JSON.parse(result);
-  const chunks = parsed.groundingMetadata?.groundingChunks || [];
-  const sources = chunks.map(chunk => ({
-    title: chunk.web?.title || "Untitled",
-    url: chunk.web?.uri || ""
-  })).filter(s => s.url);
-
-CRITICAL: You MUST extract chunk.web.uri for the URL. DO NOT make up URLs. DO NOT hallucinate URLs.
-If groundingChunks is missing or empty, skip source extraction for that query.
-
-HANDLING REDIRECT URLs:
-⚠️ IMPORTANT: Some chunk.web.uri values may contain temporary redirect URLs like "https://vertexaisearch.cloud.google.com/grounding-api-redirect/..."
-
-Do NOT construct URLs from titles or domains. Do NOT guess. Use chunk.web.uri as provided.
-If a redirect URL is the only available source, include it rather than dropping all sources.
-
-NOTE CONTENT RULES:
-🚫 DO NOT include sources, references, or citations in the note content itself.
-🚫 DO NOT add "Sources:", "References:", or "Citations:" sections to the markdown.
-The sources parameter will be displayed separately by the UI. Keep note content clean and focused on the topic.
-
-EXAMPLES:
-✅ CORRECT - Creating note about "India China relations":
-  1. Call webSearch("India China relations current border dispute")
-  2. Extract sources from groundingMetadata
-  3. createNote/updateNote with sources: [
-    { title: "India-China Border Dispute Explained", url: "https://bbc.com/news/india-china..." },
-    { title: "Galwan Valley Clash 2020", url: "https://reuters.com/world/india..." }
-  ]
-
-❌ WRONG - Creating note without calling webSearch or providing sources:
-  sources: undefined  // This is NOT ACCEPTABLE
-
-This is ABSOLUTELY MANDATORY for both createNote AND updateNote tools. NO EXCEPTIONS.`);
 
   // Add file detection hint if file URLs are present
   if (fileUrls.length > 0) {
@@ -289,10 +254,16 @@ export async function POST(req: Request) {
     }
 
     // Build system prompt with all context parts (using array join for efficiency)
+    // Note: The base `system` from client already includes AI assistant identity from formatWorkspaceContext
     const systemPromptParts: string[] = [
-      `You are ${modelId}.\n\n`,
       buildSystemPrompt(system, fileUrls, urlContextUrls)
     ];
+
+    // Inject createFrom workspace initialization prompt if detected
+    const createFromPrompt = getCreateFromSystemPrompt(cleanedMessages);
+    if (createFromPrompt) {
+      systemPromptParts.push(`\n\n${createFromPrompt}`);
+    }
 
     // Inject selected cards context if available
     if (selectedCardsContext) {
