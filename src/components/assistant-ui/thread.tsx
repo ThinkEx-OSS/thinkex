@@ -733,7 +733,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
 
   const selectedModel = useMemo(
-    () => AI_MODELS.find((m) => m.id === selectedModelId) || AI_MODELS[1],
+    () => AI_MODELS.find((m) => m.id === selectedModelId) || AI_MODELS[4],
     [selectedModelId]
   );
 
