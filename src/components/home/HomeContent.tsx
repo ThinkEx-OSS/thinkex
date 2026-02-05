@@ -132,7 +132,7 @@ export function HomeContent() {
 
         {/* Hero Section - Reduced height so "Recent workspaces" text peeks at bottom */}
         <div ref={heroRef} className="relative z-10 h-[85vh] flex flex-col items-center justify-center text-center px-6">
-          <div className="w-full max-w-2xl relative">
+          <div className="w-full max-w-[760px] relative">
             {/* Hero Glow Effect */}
             <HeroGlow />
 

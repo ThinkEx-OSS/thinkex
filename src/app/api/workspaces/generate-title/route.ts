@@ -67,7 +67,7 @@ async function handlePOST(request: NextRequest) {
   }
 
   const result = await generateObject({
-    model: google("gemini-2.5-flash-lite"),
+    model: google("gemini-flash-lite-latest"),
     schema: z.object({
       title: z.string().describe("A short, concise workspace title (max 5-6 words)"),
       icon: z.string().describe("A HeroIcon name that represents the topic (must be one of the available icons)"),

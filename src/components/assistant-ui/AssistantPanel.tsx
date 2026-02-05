@@ -82,6 +82,11 @@ function WorkspaceContextWrapper({
         isLoading={isLoading}
         setIsChatExpanded={setIsChatExpanded}
       />
+      <GenerateStudyMaterialsHandler
+        workspaceId={workspaceId ?? null}
+        isLoading={isLoading}
+        setIsChatExpanded={setIsChatExpanded}
+      />
       <WorkspaceContextWrapperContent
         workspaceId={workspaceId}
         setIsChatExpanded={setIsChatExpanded}
@@ -159,6 +164,79 @@ function CreateFromPromptHandler({
 
     return () => clearAll();
   }, [createFrom, workspaceId, isLoading, aui, router, setIsChatExpanded]);
+
+  return null;
+}
+
+function GenerateStudyMaterialsHandler({
+  workspaceId,
+  isLoading,
+  setIsChatExpanded,
+}: {
+  workspaceId: string | null;
+  isLoading: boolean;
+  setIsChatExpanded?: (expanded: boolean) => void;
+}) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const aui = useAui();
+  const hasAutoSentRef = useRef(false);
+  const timeoutIdsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const action = searchParams.get("action");
+
+  useEffect(() => {
+    if (action !== "generate_study_materials" || !workspaceId || isLoading || hasAutoSentRef.current) return;
+
+    setIsChatExpanded?.(true);
+
+    const prompt = `First, process the PDF file in this workspace to read its content.
+
+Then, using that PDF content, update all three study cards:
+1. Update "Summary Notes" with a comprehensive summary
+2. Update "Quiz" with 5-10 relevant questions
+3. Update "Flashcards" with key terms and concepts
+
+Process the PDF once, then use that same content for all three updates.`;
+
+    let attempts = 0;
+    const maxAttempts = 12;
+    const intervalMs = 200;
+    const ids = timeoutIdsRef.current;
+
+    const clearAll = () => {
+      ids.forEach((tid) => clearTimeout(tid));
+      ids.length = 0;
+    };
+
+    const trySend = () => {
+      attempts += 1;
+      const composer = aui?.composer?.();
+      if (composer) {
+        try {
+          composer.setText(prompt);
+          composer.send();
+          hasAutoSentRef.current = true;
+          clearAll();
+          const url = new URL(window.location.href);
+          url.searchParams.delete("action");
+          router.replace(url.pathname + url.search);
+          return;
+        } catch {
+          // fall through to retry
+        }
+      }
+      if (attempts < maxAttempts) {
+        const id = setTimeout(trySend, intervalMs);
+        ids.push(id);
+      }
+    };
+
+    const id = setTimeout(trySend, 100);
+    ids.push(id);
+
+    return () => clearAll();
+  }, [action, workspaceId, isLoading, aui, router, setIsChatExpanded]);
 
   return null;
 }

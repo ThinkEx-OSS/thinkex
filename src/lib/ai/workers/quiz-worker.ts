@@ -5,7 +5,7 @@ import { logger } from "@/lib/utils/logger";
 import { QuizQuestion, QuestionType } from "@/lib/workspace-state/types";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 
-const DEFAULT_CHAT_MODEL_ID = "gemini-2.5-flash-lite";
+const DEFAULT_CHAT_MODEL_ID = "gemini-flash-lite-latest";
 
 export type QuizWorkerParams = {
     topic?: string;                // Used only if no context provided
