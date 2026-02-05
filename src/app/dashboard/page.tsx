@@ -497,7 +497,7 @@ export function DashboardPage() {
   // Handle invitation auto-claiming
   useEffect(() => {
     async function claimInvite() {
-      if (!inviteToken || !session?.user || isSessionLoading) return;
+      if (!inviteToken || !session?.user || session.user.isAnonymous || isSessionLoading) return;
 
       try {
         const res = await fetch('/api/invites/claim', {
@@ -592,7 +592,7 @@ export function DashboardPage() {
   }, [currentWorkspaceId, clearPlayingYouTubeCards]);
 
   // Show InviteLandingPage if we have a token and NO session (and not loading)
-  if (inviteToken && !isSessionLoading && !session) {
+  if (inviteToken && !isSessionLoading && (!session || session.user?.isAnonymous)) {
     return <InviteLandingPage token={inviteToken} />;
   }
 
