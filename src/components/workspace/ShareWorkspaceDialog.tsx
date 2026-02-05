@@ -382,314 +382,317 @@ export default function ShareWorkspaceDialog({
           WebkitBackdropFilter: "blur(24px)",
         }}
       >
-        <DialogHeader>
-          <DialogTitle>{currentHeader.title}</DialogTitle>
-          <DialogDescription>{currentHeader.description}</DialogDescription>
-        </DialogHeader>
-
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className={`grid w-full ${isBulk ? 'grid-cols-1' : showHistoryTab ? 'grid-cols-3' : 'grid-cols-2'}`}>
-            <TabsTrigger value="invite" className="flex items-center gap-2">
-              <UserPlus className="h-4 w-4" />
-              Collaborate
-            </TabsTrigger>
-            {!isBulk && (
-              <TabsTrigger value="link" className="flex items-center gap-2">
-                <Copy className="h-4 w-4" />
-                Share Copy
+          <DialogHeader className="pr-10">
+            <TabsList className={`grid w-full ${isBulk ? 'grid-cols-1' : showHistoryTab ? 'grid-cols-3' : 'grid-cols-2'}`}>
+              <TabsTrigger value="invite" className="flex items-center gap-2">
+                <UserPlus className="h-4 w-4" />
+                Collaborate
               </TabsTrigger>
-            )}
-            {!isBulk && showHistoryTab && (
-              <TabsTrigger value="history" className="flex items-center gap-2">
-                <History className="h-4 w-4" />
-                History
-              </TabsTrigger>
-            )}
-          </TabsList>
-
-          <TabsContent value="invite" className="space-y-4 mt-4">
-
-            {/* Frequent Collaborators Section */}
-            {frequentCollaborators.length > 0 && (
-              <div className="space-y-2 pb-2 border-b border-white/10">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="h-4 w-4" />
-                  <span>Frequent Collaborators</span>
-                </div>
-                {isLoadingFrequent ? (
-                  <div className="flex items-center justify-center py-3">
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2">
-                    {frequentCollaborators.slice(0, 6).map((collab) => (
-                      <div
-                        key={collab.userId}
-                        className="group flex items-center justify-between p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
-                        onClick={() => handleQuickAddCollaborator(collab)}
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Avatar className="h-6 w-6">
-                            <AvatarImage src={collab.image} />
-                            <AvatarFallback className="text-[10px] bg-primary/20 text-primary-foreground">
-                              {getInitials(collab.name, collab.email)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium truncate group-hover:text-primary transition-colors">
-                              {collab.name || collab.email}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="h-6 px-2 text-[10px] opacity-0 group-hover:opacity-100 transition-all duration-200"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleQuickAddCollaborator(collab);
-                          }}
-                          disabled={isInviting || !canInvite}
-                        >
-                          Add
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Invite Form */}
-            <div className="space-y-3">
-
-              <div className="flex gap-2">
-                <Input
-                  id="invite-email"
-                  type="email"
-                  placeholder="name@example.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleInvite()}
-                  className="flex-1"
-                  disabled={!canInvite}
-                />
-                <div>
-                  <Select
-                    value={invitePermission}
-                    onValueChange={(val: "viewer" | "editor") => setInvitePermission(val)}
-                    disabled={!canInvite || isInviting}
-                  >
-                    <SelectTrigger className="h-10">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="z-[9999]">
-                      <SelectItem value="viewer">Viewer</SelectItem>
-                      <SelectItem value="editor">Editor</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button onClick={handleInvite} disabled={isInviting || !inviteEmail.trim() || !canInvite}>
-                  {isInviting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Invite"}
-                </Button>
-              </div>
-              {!canInvite && (
-                <p className="text-xs text-red-400">
-                  You must be an editor or owner to invite others.
-                </p>
+              {!isBulk && (
+                <TabsTrigger value="link" className="flex items-center gap-2">
+                  <Copy className="h-4 w-4" />
+                  Share Copy
+                </TabsTrigger>
               )}
+              {!isBulk && showHistoryTab && (
+                <TabsTrigger value="history" className="flex items-center gap-2">
+                  <History className="h-4 w-4" />
+                  History
+                </TabsTrigger>
+              )}
+            </TabsList>
+          </DialogHeader>
 
+          <div className="space-y-4">
+            <div className="px-0.5 pt-4">
+              <DialogDescription className="text-white">{currentHeader.description}</DialogDescription>
             </div>
 
-            {/* Collaborators List - Only show for single workspace */}
-            {!isBulk && (
-              <div className="space-y-4 pt-2">
+            <TabsContent value="invite" className="space-y-4">
 
-                {/* Active Collaborators */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Users className="h-4 w-4" />
-                    <span>People with access ({collaborators.length})</span>
+              {/* Invite Form */}
+              <div className="space-y-3 pb-2 border-b border-white/10">
+
+                <div className="flex gap-2">
+                  <Input
+                    id="invite-email"
+                    type="email"
+                    placeholder="name@example.com"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleInvite()}
+                    className="flex-1"
+                    disabled={!canInvite}
+                  />
+                  <div>
+                    <Select
+                      value={invitePermission}
+                      onValueChange={(val: "viewer" | "editor") => setInvitePermission(val)}
+                      disabled={!canInvite || isInviting}
+                    >
+                      <SelectTrigger className="h-10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="z-[9999]">
+                        <SelectItem value="viewer">Viewer</SelectItem>
+                        <SelectItem value="editor">Editor</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button onClick={handleInvite} disabled={isInviting || !inviteEmail.trim() || !canInvite}>
+                    {isInviting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Invite"}
+                  </Button>
+                </div>
+                {!canInvite && (
+                  <p className="text-xs text-red-400">
+                    You must be an editor or owner to invite others.
+                  </p>
+                )}
+
+              </div>
+
+              {/* Collaborators List - Only show for single workspace */}
+              {!isBulk && (
+                <div className="space-y-4 pt-2">
+
+                  {/* Active Collaborators */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Users className="h-4 w-4" />
+                      <span>People with access ({collaborators.length})</span>
+                    </div>
+
+                    {isLoadingCollaborators ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : collaborators.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-4 text-center">
+                        No collaborators yet. Invite someone above!
+                      </p>
+                    ) : (
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {collaborators.map((collab) => (
+                          <div
+                            key={collab.id}
+                            className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={collab.image} />
+                                <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                                  {getInitials(collab.name, collab.email)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium truncate">
+                                  {collab.name || collab.email || "Unknown"}
+                                </p>
+                                {collab.name && collab.email && (
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {collab.email}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {collab.permissionLevel === "owner" ? (
+                                <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded border border-primary/20 h-8 flex items-center">
+                                  Owner
+                                </span>
+                              ) : (
+                                <>
+                                  <div className="w-[90px]">
+                                    <Select
+                                      value={collab.permissionLevel}
+                                      onValueChange={(val: "viewer" | "editor") => handleUpdatePermission(collab.id, val)}
+                                      disabled={!canManage}
+                                    >
+                                      <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent className="z-[9999]">
+                                        <SelectItem value="viewer">Viewer</SelectItem>
+                                        <SelectItem value="editor">Editor</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  {canManage && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                      onClick={() => handleRemoveCollaborator(collab.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  {isLoadingCollaborators ? (
-                    <div className="flex items-center justify-center py-4">
-                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  {/* Pending Invites */}
+                  {!isLoadingCollaborators && invites.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Mail className="h-4 w-4" />
+                        <span>Pending Invites ({invites.length})</span>
+                      </div>
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        {invites.map((invite) => (
+                          <div key={invite.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-dashed border-white/10">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="h-8 w-8 rounded-full bg-white/5 flex items-center justify-center">
+                                <Mail className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium truncate opacity-80">{invite.email}</p>
+                                <p className="text-xs text-muted-foreground">Invited as {invite.permissionLevel}</p>
+                              </div>
+                            </div>
+                            {canManage && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs text-muted-foreground hover:text-red-400"
+                                onClick={() => handleRevokeInvite(invite.id)}
+                                disabled={isRevoking === invite.id}
+                              >
+                                {isRevoking === invite.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  "Revoke"
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ) : collaborators.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-4 text-center">
-                      No collaborators yet. Invite someone above!
-                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Frequent Collaborators Section */}
+              {frequentCollaborators.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span>Frequent Collaborators</span>
+                  </div>
+                  {isLoadingFrequent ? (
+                    <div className="flex items-center justify-center py-3">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
                   ) : (
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {collaborators.map((collab) => (
+                    <div className="grid grid-cols-2 gap-2">
+                      {frequentCollaborators.slice(0, 6).map((collab) => (
                         <div
-                          key={collab.id}
-                          className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                          key={collab.userId}
+                          className="group flex items-center justify-between p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                          onClick={() => handleQuickAddCollaborator(collab)}
                         >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <Avatar className="h-8 w-8">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Avatar className="h-6 w-6">
                               <AvatarImage src={collab.image} />
-                              <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                              <AvatarFallback className="text-[10px] bg-primary/20 text-primary-foreground">
                                 {getInitials(collab.name, collab.email)}
                               </AvatarFallback>
                             </Avatar>
                             <div className="min-w-0">
-                              <p className="text-sm font-medium truncate">
-                                {collab.name || collab.email || "Unknown"}
+                              <p className="text-xs font-medium truncate group-hover:text-primary transition-colors">
+                                {collab.name || collab.email}
                               </p>
-                              {collab.name && collab.email && (
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {collab.email}
-                                </p>
-                              )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {collab.permissionLevel === "owner" ? (
-                              <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded border border-primary/20 h-8 flex items-center">
-                                Owner
-                              </span>
-                            ) : (
-                              <>
-                                <div className="w-[90px]">
-                                  <Select
-                                    value={collab.permissionLevel}
-                                    onValueChange={(val: "viewer" | "editor") => handleUpdatePermission(collab.id, val)}
-                                    disabled={!canManage}
-                                  >
-                                    <SelectTrigger className="h-8 text-xs">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="z-[9999]">
-                                      <SelectItem value="viewer">Viewer</SelectItem>
-                                      <SelectItem value="editor">Editor</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                {canManage && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                    onClick={() => handleRemoveCollaborator(collab.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </>
-                            )}
-                          </div>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-6 px-2 text-[10px] opacity-0 group-hover:opacity-100 transition-all duration-200"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleQuickAddCollaborator(collab);
+                            }}
+                            disabled={isInviting || !canInvite}
+                          >
+                            Add
+                          </Button>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
+              )}
+            </TabsContent>
 
-                {/* Pending Invites */}
-                {!isLoadingCollaborators && invites.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Mail className="h-4 w-4" />
-                      <span>Pending Invites ({invites.length})</span>
-                    </div>
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
-                      {invites.map((invite) => (
-                        <div key={invite.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-dashed border-white/10">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="h-8 w-8 rounded-full bg-white/5 flex items-center justify-center">
-                              <Mail className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium truncate opacity-80">{invite.email}</p>
-                              <p className="text-xs text-muted-foreground">Invited as {invite.permissionLevel}</p>
-                            </div>
-                          </div>
-                          {canManage && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs text-muted-foreground hover:text-red-400"
-                              onClick={() => handleRevokeInvite(invite.id)}
-                              disabled={isRevoking === invite.id}
-                            >
-                              {isRevoking === invite.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                "Revoke"
-                              )}
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+            <TabsContent value="link" className="space-y-4">
+
+              <div className="space-y-2">
+                <Label htmlFor="share-url">Share Link (Copy)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="share-url"
+                    value={shareUrl}
+                    readOnly
+                    className="font-mono text-sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={handleCopy}
+                    className="flex-shrink-0"
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                {copied && (
+                  <p className="text-sm text-muted-foreground">Copied to clipboard!</p>
                 )}
               </div>
-            )}
-          </TabsContent>
 
-          <TabsContent value="link" className="space-y-4 mt-4">
-
-            <div className="space-y-2">
-              <Label htmlFor="share-url">Share Link (Copy)</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="share-url"
-                  value={shareUrl}
-                  readOnly
-                  className="font-mono text-sm"
-                />
+              <div className="space-y-2">
                 <Button
                   type="button"
                   variant="outline"
-                  size="icon"
-                  onClick={handleCopy}
-                  className="flex-shrink-0"
+                  onClick={handleEmailShare}
+                  className="w-full flex items-center gap-2"
                 >
-                  {copied ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
+                  <Mail className="h-4 w-4" />
+                  <span>Share via Email</span>
                 </Button>
               </div>
-              {copied && (
-                <p className="text-sm text-muted-foreground">Copied to clipboard!</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleEmailShare}
-                className="w-full flex items-center gap-2"
-              >
-                <Mail className="h-4 w-4" />
-                <span>Share via Email</span>
-              </Button>
-            </div>
-          </TabsContent>
-
-          {/* History Tab - only shown on workspace routes */}
-          {!isBulk && showHistoryTab && (
-            <TabsContent value="history" className="space-y-4 mt-4">
-
-
-              {/* Embed the version history content inline */}
-              <div className="max-h-[400px] overflow-y-auto pr-2">
-                <VersionHistoryContent
-                  events={events}
-                  currentVersion={currentVersion || 0}
-                  onRevertToVersion={onRevertToVersion || (() => { })}
-                  items={workspace?.state?.items || []}
-                  workspaceId={workspace?.id || null}
-                  isOpen={open}
-                />
-              </div>
             </TabsContent>
-          )}
+
+            {/* History Tab - only shown on workspace routes */}
+            {!isBulk && showHistoryTab && (
+              <TabsContent value="history" className="space-y-4">
+
+
+                {/* Embed the version history content inline */}
+                <div className="max-h-[400px] overflow-y-auto pr-2">
+                  <VersionHistoryContent
+                    events={events}
+                    currentVersion={currentVersion || 0}
+                    onRevertToVersion={onRevertToVersion || (() => { })}
+                    items={workspace?.state?.items || []}
+                    workspaceId={workspace?.id || null}
+                    isOpen={open}
+                  />
+                </div>
+              </TabsContent>
+            )}
+          </div>
         </Tabs>
       </DialogContent>
     </Dialog>
