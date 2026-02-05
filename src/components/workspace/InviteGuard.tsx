@@ -6,7 +6,6 @@ import { useSession } from "@/lib/auth-client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { AuthPageBackground } from "@/components/auth/AuthPageBackground";
-import { InviteLandingPage } from "@/components/workspace/InviteLandingPage";
 
 interface InviteGuardProps {
     children: React.ReactNode;
@@ -75,9 +74,14 @@ export function InviteGuard({ children }: InviteGuardProps) {
 
     // 2. Invite Token Present: Handle Invite Flow
     if (inviteToken) {
-        // If not logged in (or anonymous), show landing page
+        // If not logged in (or anonymous), redirect to auth with invite context
         if (!session || session.user?.isAnonymous) {
-            return <InviteLandingPage token={inviteToken} />;
+            const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+            // Determine if we should send to sign-in or sign-up (default to sign-up for new invites)
+            // We pass the invite token so the auth page can show the custom header
+            // We pass redirect_url so they come back here to claim the invite after auth
+            router.replace(`/auth/sign-up?invite=${inviteToken}&redirect_url=${encodeURIComponent(currentUrl)}`);
+            return null; // Don't render anything while redirecting
         }
 
         // If logged in, we are "claiming" the invite. Show loading state.

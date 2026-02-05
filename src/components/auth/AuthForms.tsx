@@ -14,9 +14,11 @@ import { toast } from "sonner";
 interface AuthFormProps extends React.HTMLAttributes<HTMLDivElement> {
     redirectTo?: string;
     onSuccess?: () => void;
+    title?: string;
+    description?: string;
 }
 
-export function SignInForm({ className, redirectTo, ...props }: AuthFormProps) {
+export function SignInForm({ className, redirectTo, title, description, ...props }: AuthFormProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -57,9 +59,9 @@ export function SignInForm({ className, redirectTo, ...props }: AuthFormProps) {
     return (
         <div className={cn("flex flex-col gap-6", className)} {...props}>
             <div className="flex flex-col items-center gap-2 text-center">
-                <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
+                <h1 className="text-2xl font-semibold tracking-tight">{title || "Welcome back"}</h1>
                 <p className="text-balance text-sm text-muted-foreground">
-                    Enter your email below to login to your account
+                    {description || "Enter your email below to login to your account"}
                 </p>
             </div>
             <div className="grid gap-6">
@@ -116,7 +118,7 @@ export function SignInForm({ className, redirectTo, ...props }: AuthFormProps) {
     );
 }
 
-export function SignUpForm({ className, redirectTo, ...props }: AuthFormProps) {
+export function SignUpForm({ className, redirectTo, title, description, ...props }: AuthFormProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
@@ -159,9 +161,9 @@ export function SignUpForm({ className, redirectTo, ...props }: AuthFormProps) {
     return (
         <div className={cn("flex flex-col gap-6", className)} {...props}>
             <div className="flex flex-col items-center gap-2 text-center">
-                <h1 className="text-2xl font-semibold tracking-tight">Create an account</h1>
+                <h1 className="text-2xl font-semibold tracking-tight">{title || "Create an account"}</h1>
                 <p className="text-balance text-sm text-muted-foreground">
-                    Enter your information to get started
+                    {description || "Enter your information to get started"}
                 </p>
             </div>
             <div className="grid gap-6">

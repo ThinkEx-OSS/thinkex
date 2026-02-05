@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { WorkspaceEvent, EventResponse } from "@/lib/workspace/events";
 import { logger } from "@/lib/utils/logger";
 import { useRef } from "react";
+import { toast } from "sonner";
 
 /**
  * Maximum number of automatic retries for version conflicts
@@ -40,6 +41,9 @@ async function appendWorkspaceEvent(
   });
 
   if (!response.ok) {
+    if (response.status === 403) {
+      throw new Error("PERMISSION_DENIED");
+    }
     const errorText = await response.text();
     logger.error("❌ [API] Response error:", response.status, errorText);
     throw new Error(`Failed to append event: ${response.statusText} - ${errorText}`);
@@ -175,6 +179,14 @@ export function useWorkspaceMutation(workspaceId: string | null, options: Worksp
       });
 
       if (!workspaceId || !context?.previous) return;
+
+      // Show toast for permission errors
+      if (err.message === "PERMISSION_DENIED") {
+        toast.error("You don't have permission to edit this workspace");
+      } else {
+        // Only show generic error for non-permission issues to avoid noise
+        // toast.error("Failed to save changes");
+      }
 
       // Rollback to previous state
       queryClient.setQueryData(

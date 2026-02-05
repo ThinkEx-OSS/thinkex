@@ -9,6 +9,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -73,6 +80,7 @@ export default function ShareWorkspaceDialog({
   const { data: session } = useSession();
   const [copied, setCopied] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
+  const [activeTab, setActiveTab] = useState("invite");
   const [inviteEmail, setInviteEmail] = useState("");
   const [invitePermission, setInvitePermission] = useState<"viewer" | "editor">("editor");
   const [isInviting, setIsInviting] = useState(false);
@@ -109,6 +117,7 @@ export default function ShareWorkspaceDialog({
       loadCollaborators();
     }
     if (open) {
+      setActiveTab("invite");
       loadFrequentCollaborators();
     }
   }, [workspace, open, isBulk]);
@@ -303,6 +312,34 @@ export default function ShareWorkspaceDialog({
     }
   };
 
+  const handleUpdatePermission = async (collaboratorId: string, newPermission: "viewer" | "editor") => {
+    if (!workspace) return;
+
+    // Optimistic update
+    setCollaborators(prev => prev.map(c =>
+      c.id === collaboratorId ? { ...c, permissionLevel: newPermission } : c
+    ));
+
+    try {
+      const response = await fetch(`/api/workspaces/${workspace.id}/collaborators/${collaboratorId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ permissionLevel: newPermission })
+      });
+
+      if (response.ok) {
+        toast.success("Permission updated");
+      } else {
+        throw new Error("Failed to update");
+      }
+    } catch (error) {
+      console.error("Failed to update permission:", error);
+      toast.error("Failed to update permission");
+      // Revert on failure
+      loadCollaborators();
+    }
+  };
+
   const getInitials = (name?: string, email?: string) => {
     if (name) {
       const parts = name.trim().split(/\s+/);
@@ -317,6 +354,25 @@ export default function ShareWorkspaceDialog({
     return "??";
   };
 
+  const headerContent = {
+    invite: {
+      title: "Share Workspace",
+      description: "Invite collaborators to work together in real-time."
+    },
+    link: {
+      title: "Share Copy",
+      description: "Share a link for others to fork this workspace."
+    },
+    history: {
+      title: "Version History",
+      description: "View and revert to previous versions."
+    }
+  };
+
+  const currentHeader = isBulk
+    ? { title: `Share ${workspaceIds?.length} Workspaces`, description: "Invite collaborators to all selected workspaces at once." }
+    : headerContent[activeTab as keyof typeof headerContent] || headerContent.invite;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -327,15 +383,11 @@ export default function ShareWorkspaceDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>{isBulk ? `Share ${workspaceIds?.length} Workspaces` : "Share Workspace"}</DialogTitle>
-          <DialogDescription>
-            {isBulk
-              ? "Invite collaborators to all selected workspaces at once."
-              : "Invite collaborators to work together in real-time or share a link for others to fork."}
-          </DialogDescription>
+          <DialogTitle>{currentHeader.title}</DialogTitle>
+          <DialogDescription>{currentHeader.description}</DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="invite" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className={`grid w-full ${isBulk ? 'grid-cols-1' : showHistoryTab ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <TabsTrigger value="invite" className="flex items-center gap-2">
               <UserPlus className="h-4 w-4" />
@@ -410,7 +462,7 @@ export default function ShareWorkspaceDialog({
 
             {/* Invite Form */}
             <div className="space-y-3">
-              <Label htmlFor="invite-email">Invite by email</Label>
+
               <div className="flex gap-2">
                 <Input
                   id="invite-email"
@@ -425,6 +477,21 @@ export default function ShareWorkspaceDialog({
                 <Button onClick={handleInvite} disabled={isInviting || !inviteEmail.trim() || !canInvite}>
                   {isInviting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Invite"}
                 </Button>
+                <div className="w-[110px]">
+                  <Select
+                    value={invitePermission}
+                    onValueChange={(val: "viewer" | "editor") => setInvitePermission(val)}
+                    disabled={!canInvite || isInviting}
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="z-[9999]">
+                      <SelectItem value="viewer">Viewer</SelectItem>
+                      <SelectItem value="editor">Editor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               {!canInvite && (
                 <p className="text-xs text-red-400">
@@ -480,20 +547,37 @@ export default function ShareWorkspaceDialog({
                           </div>
                           <div className="flex items-center gap-2">
                             {collab.permissionLevel === "owner" ? (
-                              <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded border border-primary/20">
+                              <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded border border-primary/20 h-8 flex items-center">
                                 Owner
                               </span>
                             ) : (
-                              canManage && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                  onClick={() => handleRemoveCollaborator(collab.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )
+                              <>
+                                <div className="w-[90px]">
+                                  <Select
+                                    value={collab.permissionLevel}
+                                    onValueChange={(val: "viewer" | "editor") => handleUpdatePermission(collab.id, val)}
+                                    disabled={!canManage}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="z-[9999]">
+                                      <SelectItem value="viewer">Viewer</SelectItem>
+                                      <SelectItem value="editor">Editor</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                {canManage && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                    onClick={() => handleRemoveCollaborator(collab.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>
