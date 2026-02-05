@@ -163,7 +163,7 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const prompt = value.trim();
-    if (!prompt || createFromPrompt.isLoading) return;
+    if (!prompt || createFromPrompt.isLoading || isUploading) return;
 
     // Construct initial state with PDF cards AND empty placeholder cards if files were uploaded
     let initialState = undefined;
@@ -196,21 +196,13 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
       const emptyNote = {
         id: noteId,
         type: 'note' as const,
-        name: 'Summary Notes',
-        subtitle: 'AI will fill this from your PDFs',
+        name: 'Update me',
+        subtitle: '',
         color: '#10B981' as const, // Emerald for Note
         layout: { x: 0, y: totalPdfY, w: 4, h: 13 },
         lastSource: 'user' as const,
         data: {
-          blockContent: [
-            {
-              id: 'placeholder-block',
-              type: 'paragraph',
-              props: { backgroundColor: 'default', textColor: 'default', textAlignment: 'left' },
-              content: [],
-              children: [],
-            },
-          ],
+          blockContent: [],
           field1: '',
         },
       };
@@ -218,8 +210,8 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
       const emptyQuiz = {
         id: quizId,
         type: 'quiz' as const,
-        name: 'Quiz',
-        subtitle: 'AI will generate questions from your PDFs',
+        name: 'Update me',
+        subtitle: '',
         color: '#F59E0B' as const, // Amber for Quiz
         layout: { x: 0, y: totalPdfY + 13, w: 2, h: 13 },
         lastSource: 'user' as const,
@@ -231,8 +223,8 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
       const emptyFlashcard = {
         id: flashcardId,
         type: 'flashcard' as const,
-        name: 'Flashcards',
-        subtitle: 'AI will create study cards from your PDFs',
+        name: 'Update me',
+        subtitle: '',
         color: '#EC4899' as const, // Pink for Flashcards
         layout: { x: 2, y: totalPdfY + 13, w: 2, h: 8 },
         lastSource: 'user' as const,
@@ -464,7 +456,7 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
 
               <button
                 type="submit"
-                disabled={!value.trim() || createFromPrompt.isLoading}
+                disabled={!value.trim() || createFromPrompt.isLoading || isUploading}
                 onClick={(e) => e.stopPropagation()}
                 className={cn(
                   "h-8 w-8 md:h-9 md:w-9 rounded-full",
@@ -476,7 +468,7 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
                 )}
                 aria-label="Submit prompt"
               >
-                {createFromPrompt.isLoading ? (
+                {createFromPrompt.isLoading || isUploading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
                   <ArrowUp className="h-5 w-5" />
