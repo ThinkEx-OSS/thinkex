@@ -22,7 +22,7 @@ export function createNoteTool(ctx: WorkspaceToolContext) {
         inputSchema: zodSchema(
             z.object({
                 title: z.string().describe("The title of the note card"),
-                content: z.string().describe("The markdown body content. DO NOT repeat title in content. Start with subheadings/text. No Mermaid. Use $$...$$ for ALL math (both inline and block). Single $ is for currency only."),
+                content: z.string().describe("The markdown body content. Must be detailed, comprehensive, and long-form. **Structure with H2/H3 headers, bullet points, and bold key terms**. Use block math $$...$$ for equations (do not use $$$$). Minimum 3-4 paragraphs."),
                 sources: z.array(
                     z.object({
                         title: z.string().describe("Title of the source page"),
@@ -76,7 +76,7 @@ export function createUpdateNoteTool(ctx: WorkspaceToolContext) {
         inputSchema: zodSchema(
             z.object({
                 noteName: z.string().describe("The name of the note to update (will be matched using fuzzy search)"),
-                content: z.string().describe("The full note body ONLY (do not include the title as a header). Use $$...$$ for ALL math."),
+                content: z.string().describe("The full note body ONLY (do not include the title as a header). Must be detailed, comprehensive, and long-form. **Structure with H2/H3 headers, bullet points, and bold key terms**. Use block math $$...$$ for equations (do not use $$$$)."),
                 title: z.string().optional().describe("New title for the note. If not provided, the existing title will be preserved."),
                 sources: z.array(
                     z.object({

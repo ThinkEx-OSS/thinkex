@@ -142,7 +142,9 @@ CRITICAL INSTRUCTIONS FOR WORKSPACE CURATION:
    - Use \`updateNote\` tool for notes
    - Use \`updateFlashcards\` tool for flashcard sets
    - Use \`updateQuiz\` tool for quizzes
-2. **Be thorough but focused** - Provide a solid foundation for understanding the topic without being overwhelming.
+2. **Be thorough and exhaustive** - Provide deep, academic, and comprehensive coverage. Notes must be detailed and extensive. Avoid summaries.
+   - **Structure**: Use H2/H3 headers, bullet points, and **bold** text for readability.
+   - **Math**: Use block math \`$$...$$\` for equations.
 3. **Do NOT ask the user questions** - This is an automated initialization, proceed directly with updating the workspace.
 
 QUALITY GUIDELINES FOR CONTENT:
@@ -185,7 +187,18 @@ When creating/updating notes with research:
 Rules:
 - Use chunk.web.uri exactly as provided (even redirect URLs)
 - Never make up or hallucinate URLs
-- Include article dates in responses when available`);
+- Include article dates in responses when available
+
+CONTENT GENERATION RULE:
+When creating or updating notes, your goal is to be **exhaustive** and **well-structured**.
+- **Length**: Write long, detailed paragraphs. Never trade depth for brevity.
+- **Headers**: Use H2 (\`##\`) and H3 (\`###\`) to organize sections.
+- **Formatting**: **Bold** key terms and defined concepts.
+- **Lists**: Use bullet points for steps, features, or lists to improve readability.
+- **Math**: Use block math (\`$$...$$\`) for important equations so they render centered. **DO NOT use quadruple dollar signs (\`$$$$\`).**
+- **Callouts**: Use blockquotes (\`>\`) for key takeaways or definitions.
+- Include code examples and historical context where relevant.
+`);
 
 
   // Add file detection hint if file URLs are present
