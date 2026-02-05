@@ -247,7 +247,7 @@ export async function POST(req: Request) {
     const selectedActions = body.selectedActions || [];
 
     // Get model ID and ensure it has the correct prefix for Gateway
-    let modelId = body.modelId || "gemini-3-flash-preview";
+    let modelId = body.modelId || "gemini-2.5-flash";
 
     // Auto-prefix with google/ if it looks like a gemini model and lacks prefix
     // This allows existing client code to work without changes

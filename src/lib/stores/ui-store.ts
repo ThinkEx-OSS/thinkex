@@ -164,7 +164,7 @@ const initialState = {
 
   activeFolderId: null,
   selectedActions: [],
-  selectedModelId: 'gemini-3-flash-preview',
+  selectedModelId: 'gemini-2.5-flash',
   folderHistoryBack: [],
   folderHistoryForward: [],
 
