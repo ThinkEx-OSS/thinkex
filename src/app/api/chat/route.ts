@@ -328,12 +328,7 @@ export async function POST(req: Request) {
     // Configure Google Thinking capabilities
     const googleConfig: any = {
       grounding: {
-        googleSearchRetrieval: {
-          dynamicRetrievalConfig: {
-            mode: 'MODE_DYNAMIC',
-            dynamicThreshold: 1.0,
-          },
-        },
+        // googleSearchRetrieval removed to force usage of explicit webSearch tool
       },
       thinkingConfig: {
         includeThoughts: false,
