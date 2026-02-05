@@ -30,6 +30,7 @@ export function WorkspaceRuntimeProvider({
     triggering an infinite update loop. The Set reference is stable until changed.
   */
   const selectedCardIdsSet = useUIStore((state) => state.selectedCardIds);
+  const selectedActions = useUIStore((state) => state.selectedActions);
   const replySelections = useUIStore(useShallow((state) => state.replySelections));
   const { data: session } = useSession();
 
@@ -139,13 +140,14 @@ export function WorkspaceRuntimeProvider({
           activeFolderId,
           selectedCardsContext, // Pre-formatted context (client-side) instead of IDs
           replySelections,
+          selectedActions,
         },
         headers: {
           // Headers for static context if needed
         },
       });
       return transport;
-    }, [workspaceId, selectedModelId, activeFolderId, selectedCardsContext, replySelections]),
+    }, [workspaceId, selectedModelId, activeFolderId, selectedCardsContext, replySelections, selectedActions]),
     onError: handleChatError,
   });
 

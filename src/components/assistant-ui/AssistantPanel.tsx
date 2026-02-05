@@ -5,7 +5,6 @@ import { useAui } from "@assistant-ui/react";
 import { Thread } from "./thread";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceContextProvider } from "@/hooks/ai/use-workspace-context-provider";
-import { useSelectedActionsContextProvider } from "@/hooks/ai/use-selected-actions-context-provider";
 import { useBlockNoteSelectionContextProvider } from "@/hooks/ai/use-blocknote-selection-context-provider";
 import AppChatHeader from "@/components/chat/AppChatHeader";
 import { cn } from "@/lib/utils";
@@ -292,8 +291,6 @@ function WorkspaceContextWrapperContent({
   useWorkspaceContextProvider(workspaceId || null, state);
 
 
-  // Inject selected actions context as system instructions
-  useSelectedActionsContextProvider(selectedActions);
 
   // Inject BlockNote selection context as system instructions
   useBlockNoteSelectionContextProvider();
