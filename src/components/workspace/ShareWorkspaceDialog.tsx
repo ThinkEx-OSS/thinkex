@@ -474,10 +474,7 @@ export default function ShareWorkspaceDialog({
                   className="flex-1"
                   disabled={!canInvite}
                 />
-                <Button onClick={handleInvite} disabled={isInviting || !inviteEmail.trim() || !canInvite}>
-                  {isInviting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Invite"}
-                </Button>
-                <div className="w-[110px]">
+                <div>
                   <Select
                     value={invitePermission}
                     onValueChange={(val: "viewer" | "editor") => setInvitePermission(val)}
@@ -492,6 +489,9 @@ export default function ShareWorkspaceDialog({
                     </SelectContent>
                   </Select>
                 </div>
+                <Button onClick={handleInvite} disabled={isInviting || !inviteEmail.trim() || !canInvite}>
+                  {isInviting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Invite"}
+                </Button>
               </div>
               {!canInvite && (
                 <p className="text-xs text-red-400">
