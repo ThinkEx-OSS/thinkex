@@ -167,13 +167,10 @@ function SecurityForm() {
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
-      const res = await fetch("/api/user/delete", {
-        method: "DELETE",
-      });
+      const res = await authClient.deleteUser();
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to delete account");
+      if (res.error) {
+        throw new Error(res.error.message || "Failed to delete account");
       }
 
       toast.success("Account deleted successfully");
