@@ -138,40 +138,24 @@ export function HomeContent() {
 
             {/* Social proof */}
             <div className="mb-6 flex flex-wrap items-center justify-center gap-3 text-xs sm:text-sm relative z-10">
-              <HoverCard openDelay={200}>
-                <HoverCardTrigger asChild>
-                  <div className="flex items-center gap-2 px-2.5 py-1 rounded-md text-gray-100 cursor-pointer">
-                    <div className="flex -space-x-2">
-                      {[
-                        "bg-gradient-to-br from-blue-400 to-blue-600",
-                        "bg-gradient-to-br from-emerald-400 to-emerald-600",
-                        "bg-gradient-to-br from-amber-400 to-amber-600",
-                        "bg-gradient-to-br from-rose-400 to-rose-600",
-                      ].map((gradient, i) => (
-                        <div
-                          key={gradient}
-                          className={`w-6 h-6 rounded-full ${gradient} flex items-center justify-center text-white text-[10px] font-medium shadow-sm`}
-                        >
-                          {["T", "J", "A", "M"][i]}
-                        </div>
-                      ))}
+              <div className="flex items-center gap-2 px-2.5 py-1 rounded-md text-gray-100">
+                <div className="flex -space-x-2">
+                  {[
+                    "bg-gradient-to-br from-blue-400 to-blue-600",
+                    "bg-gradient-to-br from-emerald-400 to-emerald-600",
+                    "bg-gradient-to-br from-amber-400 to-amber-600",
+                    "bg-gradient-to-br from-rose-400 to-rose-600",
+                  ].map((gradient, i) => (
+                    <div
+                      key={gradient}
+                      className={`w-6 h-6 rounded-full ${gradient} flex items-center justify-center text-white text-[10px] font-medium shadow-sm`}
+                    >
+                      {["T", "J", "A", "M"][i]}
                     </div>
-                    <span className="text-xs sm:text-sm font-normal">200+ weekly active users</span>
-                  </div>
-                </HoverCardTrigger>
-                <HoverCardContent className="w-[350px] sm:w-[450px] p-0 overflow-hidden border-none shadow-xl" sideOffset={10}>
-                  <iframe
-                    width="100%"
-                    height="400"
-                    frameBorder="0"
-                    allowFullScreen
-                    src="https://us.posthog.com/embedded/wNOXac2TxOxawVOVKHkUGxe1BA1sJQ"
-                    key="4"
-                    sandbox="allow-scripts allow-same-origin allow-popups"
-                    className="bg-background"
-                  />
-                </HoverCardContent>
-              </HoverCard>
+                  ))}
+                </div>
+                <span className="text-xs sm:text-sm font-normal">100+ daily active users</span>
+              </div>
             </div>
 
             {/* Dynamic tagline with mask wipe animation */}
