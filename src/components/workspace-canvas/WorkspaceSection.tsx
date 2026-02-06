@@ -667,7 +667,7 @@ export function WorkspaceSection({
               <ImageIcon className="size-4" />
               Image
             </ContextMenuItem>
-            <ContextMenuItem
+            {/* <ContextMenuItem
               onSelect={() => {
                 toast.success("Deep Research action selected");
                 setSelectedActions(["deep-research"]);
@@ -680,7 +680,7 @@ export function WorkspaceSection({
             >
               <Globe className="size-4" />
               Deep Research
-            </ContextMenuItem>
+            </ContextMenuItem> */}
           </ContextMenuContent>
         )}
       </ContextMenu>

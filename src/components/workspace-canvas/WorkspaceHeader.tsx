@@ -1019,7 +1019,7 @@ export default function WorkspaceHeader({
                     <ImageIcon className="size-4" />
                     Image
                   </DropdownMenuItem>
-                  <DropdownMenuItem
+                  {/* <DropdownMenuItem
                     onClick={() => {
                       toast.success("Deep Research action selected");
                       setSelectedActions(["deep-research"]);
@@ -1032,7 +1032,7 @@ export default function WorkspaceHeader({
                   >
                     <Globe className="size-4" />
                     Deep Research
-                  </DropdownMenuItem>
+                  </DropdownMenuItem> */}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}

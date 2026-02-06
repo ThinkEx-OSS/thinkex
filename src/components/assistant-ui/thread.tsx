@@ -68,7 +68,7 @@ import { AddYoutubeVideoToolUI } from "@/components/assistant-ui/AddYoutubeVideo
 import { ExecuteCodeToolUI } from "@/components/assistant-ui/ExecuteCodeToolUI";
 import { FileProcessingToolUI } from "@/components/assistant-ui/FileProcessingToolUI";
 import { URLContextToolUI } from "@/components/assistant-ui/URLContextToolUI";
-import { DeepResearchToolUI } from "@/components/assistant-ui/DeepResearchToolUI";
+// import { DeepResearchToolUI } from "@/components/assistant-ui/DeepResearchToolUI";
 import { UpdateNoteToolUI } from "@/components/assistant-ui/UpdateNoteToolUI";
 import { WebSearchToolUI } from "@/components/assistant-ui/WebSearchToolUI";
 
@@ -142,7 +142,7 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
         <ExecuteCodeToolUI />
         <FileProcessingToolUI />
         <URLContextToolUI />
-        <DeepResearchToolUI />
+        {/* <DeepResearchToolUI /> */}
         <WebSearchToolUI />
         <ThreadPrimitive.Root
           className="aui-root aui-thread-root @container flex h-full flex-col bg-sidebar"

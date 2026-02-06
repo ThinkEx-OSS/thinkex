@@ -72,9 +72,8 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
         createQuiz: createQuizTool(ctx),
         updateQuiz: createUpdateQuizTool(ctx),
 
-        // Deep research
-
-        ...(config.enableDeepResearch ? { deepResearch: createDeepResearchTool(ctx) } : {}),
+        // Deep research - commented out
+        // ...(config.enableDeepResearch ? { deepResearch: createDeepResearchTool(ctx) } : {}),
 
         // YouTube
         searchYoutube: createSearchYoutubeTool(),
