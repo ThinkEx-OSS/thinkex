@@ -63,15 +63,6 @@ export function InviteGuard({ children }: InviteGuardProps) {
         claimInvite();
     }, [inviteToken, session, isSessionLoading, router]);
 
-    // 1. Loading Session: Show Loader
-    if (isSessionLoading) {
-        return (
-            <div className="flex h-screen w-full items-center justify-center bg-black/95">
-                <Loader2 className="h-8 w-8 animate-spin text-white/50" />
-            </div>
-        );
-    }
-
     // 2. Invite Token Present: Handle Invite Flow
     // Handle redirect for unauthenticated users in an effect to avoid "Cannot update a component while rendering"
     useEffect(() => {
@@ -80,6 +71,15 @@ export function InviteGuard({ children }: InviteGuardProps) {
             router.replace(`/auth/sign-up?invite=${inviteToken}&redirect_url=${encodeURIComponent(currentUrl)}`);
         }
     }, [inviteToken, session, isSessionLoading, router]);
+
+    // 1. Loading Session: Show Loader
+    if (isSessionLoading) {
+        return (
+            <div className="flex h-screen w-full items-center justify-center bg-black/95">
+                <Loader2 className="h-8 w-8 animate-spin text-white/50" />
+            </div>
+        );
+    }
 
     if (inviteToken) {
         // If not logged in (or anonymous), show loader (or null) while redirecting

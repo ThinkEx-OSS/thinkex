@@ -26,15 +26,15 @@ export function useNavigateToItem() {
     const clearActiveFolder = useUIStore((state) => state.clearActiveFolder);
 
     const navigateToItem = useCallback(
-        (itemId: string): boolean => {
+        (itemId: string, options?: { silent?: boolean }): boolean => {
             if (!workspaceState?.items) {
-                toast.error("Workspace not loaded");
+                if (!options?.silent) toast.error("Workspace not loaded");
                 return false;
             }
 
             const item = workspaceState.items.find((i) => i.id === itemId);
             if (!item) {
-                toast.error("Item no longer exists");
+                if (!options?.silent) toast.error("Item no longer exists");
                 return false;
             }
 

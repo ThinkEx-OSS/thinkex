@@ -44,6 +44,7 @@ import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
 import { useAui } from "@assistant-ui/react";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
+import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 
 interface WorkspaceSectionProps {
   // Loading states
@@ -387,10 +388,16 @@ export function WorkspaceSection({
       });
 
       // Create all PDF cards atomically in a single event
-      operations.createItems(pdfCardDefinitions);
+      const createdIds = operations.createItems(pdfCardDefinitions);
+
+      // Auto-navigate to first created item
+      handleCreatedItems(createdIds);
     }
   };
 
+
+  // Use reactive navigation hook for auto-scroll/selection
+  const { handleCreatedItems } = useReactiveNavigation(state);
 
   // Get search params for invite check
   const searchParams = useSearchParams();
@@ -471,6 +478,7 @@ export function WorkspaceSection({
                   onMoveItems={operations?.moveItemsToFolder}
                   onDeleteFolderWithContents={operations?.deleteFolderWithContents}
                   onPDFUpload={handlePDFUpload}
+                  onItemCreated={handleCreatedItems}
                 />)
               )}
 
@@ -494,9 +502,9 @@ export function WorkspaceSection({
               onSelect={() => {
                 if (addItem) {
                   const itemId = addItem("note");
-                  // Automatically open the modal for the newly created note
-                  if (setOpenModalItemId && itemId) {
-                    setOpenModalItemId(itemId);
+                  // Auto-navigate to the newly created note instead of opening modal
+                  if (handleCreatedItems && itemId) {
+                    handleCreatedItems([itemId]);
                   }
                 }
               }}
@@ -531,7 +539,10 @@ export function WorkspaceSection({
             <ContextMenuItem
               onSelect={() => {
                 if (addItem) {
-                  addItem("flashcard");
+                  const itemId = addItem("flashcard");
+                  if (handleCreatedItems && itemId) {
+                    handleCreatedItems([itemId]);
+                  }
                 }
               }}
               className="flex items-center gap-2 cursor-pointer"

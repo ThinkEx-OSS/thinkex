@@ -39,6 +39,7 @@ import { RealtimeProvider } from "@/contexts/RealtimeContext";
 import { toast } from "sonner";
 
 import { InviteGuard } from "@/components/workspace/InviteGuard";
+import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 
 // Main dashboard content component
 interface DashboardContentProps {
@@ -297,6 +298,9 @@ function DashboardContent({
   // Text selection handlers - delegate to agent for intelligent processing
   const { handleCreateInstantNote, handleCreateCardFromSelections } = useTextSelectionAgent(operations);
 
+  // Handle reactive navigation for new items
+  const { handleCreatedItems } = useReactiveNavigation(state);
+
   const handleWorkspacePdfUpload = useCallback(
     async (files: File[]) => {
       if (!currentWorkspaceId) {
@@ -341,9 +345,11 @@ function DashboardContent({
         };
       });
 
-      operations.createItems(pdfCardDefinitions);
+      // Create all PDF cards and navigate to the first one
+      const createdIds = operations.createItems(pdfCardDefinitions);
+      handleCreatedItems(createdIds);
     },
-    [operations, currentWorkspaceId]
+    [operations, currentWorkspaceId, handleCreatedItems]
   );
 
   const handleShowHistory = useCallback(() => {
@@ -384,6 +390,7 @@ function DashboardContent({
               workspaceColor={currentWorkspaceColor}
               addItem={operations.createItem}
               onPDFUpload={handleWorkspacePdfUpload}
+              onItemCreated={handleCreatedItems}
               setOpenModalItemId={setOpenModalItemId}
               items={state.items || []}
               onRenameFolder={(folderId, newName) => {
