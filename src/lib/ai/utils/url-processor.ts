@@ -29,8 +29,9 @@ export class UrlProcessor {
       const { text } = await generateText({
         model: google("gemini-2.5-flash-lite"), // Use lite model for speed
         tools: {
-          urlContext: google.tools.urlContext({}),
+          urlContext: google.tools.urlContext({}) as any,
         },
+        // @ts-ignore
         maxSteps: 2,
         prompt: `Please read the content of the following URL: ${url}
         
