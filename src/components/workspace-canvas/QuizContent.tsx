@@ -4,10 +4,7 @@ import { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import type { Item, ItemData, QuizData, QuizQuestion, QuizSessionData } from "@/lib/workspace-state/types";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, XCircle, Lightbulb, ChevronLeft, ChevronRight, RotateCcw, Trophy } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
-import "katex/dist/katex.min.css";
+import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { toast } from "sonner";
 
 interface QuizContentProps {
@@ -351,9 +348,9 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
             )}>
                 <div className="mb-6">
                     <div className="text-sm text-white prose prose-invert prose-sm max-w-none">
-                        <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                        <MarkdownText className="text-sm text-white prose prose-invert prose-sm max-w-none">
                             {currentQuestion.questionText}
-                        </ReactMarkdown>
+                        </MarkdownText>
                     </div>
                 </div>
 
@@ -391,9 +388,9 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                                         {String.fromCharCode(65 + index)}
                                     </span>
                                     <div className="text-sm text-white/90 flex-1 prose prose-invert prose-sm max-w-none">
-                                        <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                                        <MarkdownText>
                                             {option}
-                                        </ReactMarkdown>
+                                        </MarkdownText>
                                     </div>
                                     {showCorrectness && isCorrect && <CheckCircle2 className="w-5 h-5 text-green-400" />}
                                     {showCorrectness && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-400" />}
@@ -457,9 +454,9 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                             )}
                         </div>
                         <div className="text-sm text-white/80 prose prose-invert prose-sm max-w-none">
-                            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                            <MarkdownText>
                                 {currentQuestion.explanation}
-                            </ReactMarkdown>
+                            </MarkdownText>
                         </div>
                     </div>
                 )}

@@ -52,7 +52,13 @@ Rules:
 
 FORMATTING:
 - Use Markdown (GFM) with proper structure
-- Math: Use $$...$$ for ALL math (e.g., $$E = mc^2$$). Single $ is for currency only
+- Math: Use $$...$$ for ALL math. Single $ is for currency only.
+  - Inline math: $$E = mc^2$$ (same line as text)
+  - Block math: $$...$$ on separate lines (centered display)
+    Example:
+    $$
+    \int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
+    $$
 - Diagrams: Use \`\`\`mermaid blocks for when a diagram would be helpful
 </system>`;
 }
