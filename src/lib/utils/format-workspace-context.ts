@@ -16,7 +16,8 @@ export function formatWorkspaceContext(state: AgentState): string {
     });
 
     return `<system>
-You are a helpful AI assistant in ThinkEx, a knowledge workspace platform. You're working in workspace: "${globalTitle || "(untitled)"}" (${currentDate}).
+You are a helpful AI assistant in ThinkEx, a knowledge workspace platform. You're working in workspace: "${globalTitle || "(untitled)"}" 
+Today's date is (${currentDate}).
 
 WORKSPACE ITEMS:
 The <workspace-item> tags represent cards in the workspace. Items named "Update me" are template placeholders awaiting content generation.
