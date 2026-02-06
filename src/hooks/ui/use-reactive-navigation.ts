@@ -33,7 +33,7 @@ export function useReactiveNavigation(workspaceState: AgentState) {
                 setTimeout(() => {
                     navigateToItem(pendingNavigationId);
                     setPendingNavigationId(null);
-                }, 300);
+                }, 50);
             }
         }
     }, [workspaceState?.items, pendingNavigationId, navigateToItem]);

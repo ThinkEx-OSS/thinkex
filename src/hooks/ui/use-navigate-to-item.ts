@@ -145,7 +145,7 @@ export function useNavigateToItem() {
                 } else {
                     element.scrollIntoView({ behavior: "smooth", block: "center" });
                 }
-            }, 150); // Slightly longer delay to ensure folder filter is applied
+            }, 50); // Small delay to let the DOM update (folder filter and scroll)
 
             return true;
         },
