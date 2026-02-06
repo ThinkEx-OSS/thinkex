@@ -178,6 +178,15 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
         }
     };
 
+    // Arrow navigation - only moves between questions, never shows results
+    const handleArrowNext = () => {
+        if (currentIndex < totalQuestions - 1) {
+            const nextIndex = currentIndex + 1;
+            setCurrentIndex(nextIndex);
+            persistSession({ currentIndex: nextIndex });
+        }
+    };
+
     const handlePrevious = () => {
         if (currentIndex > 0) {
             const prevIndex = currentIndex - 1;
@@ -464,9 +473,10 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                         <button
                             onMouseDown={preventFocusSteal}
                             onClick={handleRestart}
-                            className="flex items-center justify-center w-8 h-8 rounded-lg text-sm text-white/40 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-white/40 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                         >
                             <RotateCcw className="w-4 h-4 rotate-180" />
+                            <span>Restart</span>
                         </button>
                     </div>
 
@@ -490,11 +500,11 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                         </span>
                         <button
                             onMouseDown={preventFocusSteal}
-                            onClick={isSubmitted ? handleNext : undefined}
-                            disabled={!isSubmitted}
+                            onClick={handleArrowNext}
+                            disabled={currentIndex >= totalQuestions - 1}
                             className={cn(
                                 "flex items-center justify-center w-8 h-8 rounded-lg text-sm transition-colors cursor-pointer",
-                                !isSubmitted
+                                currentIndex >= totalQuestions - 1
                                     ? "text-white/30 cursor-not-allowed"
                                     : "text-white/70 hover:text-white hover:bg-white/10"
                             )}
@@ -503,9 +513,9 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                         </button>
                     </div>
 
-                    {/* Right: Check */}
+                    {/* Right: Check/Next Button */}
                     <div className="flex-1 flex items-center justify-end">
-                        {!isSubmitted && (
+                        {!isSubmitted ? (
                             <button
                                 onMouseDown={preventFocusSteal}
                                 onClick={handleSubmit}
@@ -518,6 +528,14 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                                 )}
                             >
                                 Check
+                            </button>
+                        ) : (
+                            <button
+                                onMouseDown={preventFocusSteal}
+                                onClick={handleNext}
+                                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer bg-blue-500 hover:bg-blue-600 text-white"
+                            >
+                                {currentIndex < totalQuestions - 1 ? "Next" : "Finish"}
                             </button>
                         )}
                     </div>
