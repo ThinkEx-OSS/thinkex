@@ -5,9 +5,10 @@ import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import { FileText } from "lucide-react";
-import { useCallback, useState, useRef } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import type { PdfData } from "@/lib/workspace-state/types";
+import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 
 interface WorkspaceCanvasDropzoneProps {
   children: React.ReactNode;
@@ -22,6 +23,9 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
   const { state: workspaceState } = useWorkspaceState(currentWorkspaceId);
   const operations = useWorkspaceOperations(currentWorkspaceId, workspaceState);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Use reactive navigation hook for auto-scroll/selection
+  const { handleCreatedItems } = useReactiveNavigation(workspaceState);
 
   // Track files currently being processed to prevent duplicates
   const processingFilesRef = useRef<Set<string>>(new Set());
@@ -168,7 +172,10 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
           });
 
           // Create all PDF cards atomically in a single event
-          operations.createItems(pdfCardDefinitions);
+          const createdIds = operations.createItems(pdfCardDefinitions);
+
+          // Use shared hook to handle navigation/selection
+          handleCreatedItems(createdIds);
 
           // Show success toast
           toast.success(
@@ -198,7 +205,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
         isProcessingRef.current = false;
       }
     },
-    [currentWorkspaceId, operations]
+    [currentWorkspaceId, operations, handleCreatedItems]
   );
 
   // Clear processing state when drag ends (user drags away or cancels)

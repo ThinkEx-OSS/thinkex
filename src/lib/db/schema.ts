@@ -210,3 +210,31 @@ export const workspaceCollaborators = pgTable("workspace_collaborators", {
   WHERE ((w.id = workspace_collaborators.workspace_id) AND (w.user_id = (auth.jwt() ->> 'sub'::text)))))`  }),
 	pgPolicy("Collaborators can view their access", { as: "permissive", for: "select", to: ["authenticated"], using: sql`(user_id = (auth.jwt() ->> 'sub'::text))` }),
 ]);
+
+export const workspaceInvites = pgTable("workspace_invites", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	workspaceId: uuid("workspace_id").notNull(),
+	email: text("email").notNull(),
+	token: text("token").notNull(),
+	inviterId: text("inviter_id").notNull(),
+	permissionLevel: text("permission_level").default('editor').notNull(),
+	expiresAt: timestamp("expires_at", { withTimezone: true, mode: 'string' }).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+	index("idx_workspace_invites_token").using("btree", table.token.asc().nullsLast().op("text_ops")),
+	index("idx_workspace_invites_email").using("btree", table.email.asc().nullsLast().op("text_ops")),
+	index("idx_workspace_invites_workspace").using("btree", table.workspaceId.asc().nullsLast().op("uuid_ops")),
+	foreignKey({
+		columns: [table.workspaceId],
+		foreignColumns: [workspaces.id],
+		name: "workspace_invites_workspace_id_fkey"
+	}).onDelete("cascade"),
+	unique("workspace_invites_token_key").on(table.token),
+	pgPolicy("Public can view invite by token", { as: "permissive", for: "select", to: ["public"], using: sql`true` }),
+	pgPolicy("Users can insert invites for workspaces they own/edit", {
+		as: "permissive", for: "insert", to: ["authenticated"], withCheck: sql`(EXISTS ( SELECT 1
+   FROM workspaces w
+  WHERE ((w.id = workspace_invites.workspace_id) AND (w.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
+   FROM workspace_collaborators c
+  WHERE ((c.workspace_id = workspace_invites.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))`  }),
+]);

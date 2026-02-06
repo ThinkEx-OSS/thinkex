@@ -34,6 +34,7 @@ interface WorkspaceContentProps {
   onOpenFolder?: (folderId: string) => void; // Callback when folder is clicked
   onDeleteFolderWithContents?: (folderId: string) => void; // Callback to delete folder and all items inside
   onPDFUpload?: (files: File[]) => Promise<void>; // Function to handle PDF upload
+  onItemCreated?: (itemIds: string[]) => void; // Callback for when items are created (for auto-scroll/selection)
 }
 
 export default function WorkspaceContent({
@@ -58,6 +59,7 @@ export default function WorkspaceContent({
   onOpenFolder,
   onDeleteFolderWithContents,
   onPDFUpload,
+  onItemCreated,
 }: WorkspaceContentProps) {
   // Use external ref if provided (from dashboard page), otherwise create local one
   const localScrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -308,6 +310,9 @@ export default function WorkspaceContent({
                     const itemId = addItem("note");
                     if (itemId) {
                       toast.success("New note created");
+                      if (onItemCreated) {
+                        onItemCreated([itemId]);
+                      }
                     }
                   }}
                   className="inline-flex items-center gap-2 px-6 py-3 text-base font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 hover:scale-105 transition-all duration-200 active:scale-95 cursor-pointer"

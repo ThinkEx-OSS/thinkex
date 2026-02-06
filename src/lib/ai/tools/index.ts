@@ -26,6 +26,7 @@ export interface ChatToolsConfig {
     userId: string | null;
     activeFolderId?: string;
     clientTools?: Record<string, any>;
+    enableDeepResearch?: boolean;
 }
 
 /**
@@ -71,7 +72,8 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
         updateQuiz: createUpdateQuizTool(ctx),
 
         // Deep research
-        deepResearch: createDeepResearchTool(ctx),
+
+        ...(config.enableDeepResearch ? { deepResearch: createDeepResearchTool(ctx) } : {}),
 
         // YouTube
         searchYoutube: createSearchYoutubeTool(),

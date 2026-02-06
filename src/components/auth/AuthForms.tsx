@@ -11,12 +11,26 @@ import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
+function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 48 48"
+            {...props}
+        >
+            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917" /><path fill="#FF3D00" d="m6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691" /><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.9 11.9 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44" /><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917" />
+        </svg>
+    );
+}
+
 interface AuthFormProps extends React.HTMLAttributes<HTMLDivElement> {
     redirectTo?: string;
     onSuccess?: () => void;
+    title?: string;
+    description?: string;
 }
 
-export function SignInForm({ className, redirectTo, ...props }: AuthFormProps) {
+export function SignInForm({ className, redirectTo, title, description, ...props }: AuthFormProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -57,16 +71,14 @@ export function SignInForm({ className, redirectTo, ...props }: AuthFormProps) {
     return (
         <div className={cn("flex flex-col gap-6", className)} {...props}>
             <div className="flex flex-col items-center gap-2 text-center">
-                <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
+                <h1 className="text-2xl font-semibold tracking-tight">{title || "Welcome back"}</h1>
                 <p className="text-balance text-sm text-muted-foreground">
-                    Enter your email below to login to your account
+                    {description || "Enter your email below to login to your account"}
                 </p>
             </div>
             <div className="grid gap-6">
                 <Button variant="outline" type="button" className="w-full" onClick={handleGoogleSignIn} disabled={isLoading}>
-                    <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
-                        <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
-                    </svg>
+                    <GoogleIcon className="mr-1 h-4 w-4" />
                     Login with Google
                 </Button>
                 <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
@@ -81,7 +93,7 @@ export function SignInForm({ className, redirectTo, ...props }: AuthFormProps) {
                             <Input
                                 id="email"
                                 type="email"
-                                placeholder="m@example.com"
+                                placeholder="name@example.com"
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
@@ -97,6 +109,7 @@ export function SignInForm({ className, redirectTo, ...props }: AuthFormProps) {
                                 required
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
+                                placeholder="••••••••"
                             />
                         </div>
                         <Button type="submit" className="w-full" disabled={isLoading}>
@@ -116,9 +129,8 @@ export function SignInForm({ className, redirectTo, ...props }: AuthFormProps) {
     );
 }
 
-export function SignUpForm({ className, redirectTo, ...props }: AuthFormProps) {
+export function SignUpForm({ className, redirectTo, title, description, ...props }: AuthFormProps) {
     const [isLoading, setIsLoading] = useState(false);
-    const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
 
@@ -129,7 +141,7 @@ export function SignUpForm({ className, redirectTo, ...props }: AuthFormProps) {
             await signUp.email({
                 email,
                 password,
-                name,
+                name: "",
                 callbackURL: redirectTo || "/onboarding",
             }, {
                 onError: (ctx) => {
@@ -159,16 +171,14 @@ export function SignUpForm({ className, redirectTo, ...props }: AuthFormProps) {
     return (
         <div className={cn("flex flex-col gap-6", className)} {...props}>
             <div className="flex flex-col items-center gap-2 text-center">
-                <h1 className="text-2xl font-semibold tracking-tight">Create an account</h1>
+                <h1 className="text-2xl font-semibold tracking-tight">{title || "Create an account"}</h1>
                 <p className="text-balance text-sm text-muted-foreground">
-                    Enter your information to get started
+                    {description || "Enter your information to get started"}
                 </p>
             </div>
             <div className="grid gap-6">
                 <Button variant="outline" type="button" className="w-full" onClick={handleGoogleSignIn} disabled={isLoading}>
-                    <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
-                        <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
-                    </svg>
+                    <GoogleIcon className="mr-1 h-4 w-4" />
                     Sign up with Google
                 </Button>
                 <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
@@ -178,23 +188,13 @@ export function SignUpForm({ className, redirectTo, ...props }: AuthFormProps) {
                 </div>
                 <form onSubmit={handleSignUp}>
                     <div className="grid gap-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="name">Name</Label>
-                            <Input
-                                id="name"
-                                type="text"
-                                placeholder="John Doe"
-                                required
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                            />
-                        </div>
+
                         <div className="grid gap-2">
                             <Label htmlFor="email">Email</Label>
                             <Input
                                 id="email"
                                 type="email"
-                                placeholder="m@example.com"
+                                placeholder="name@example.com"
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
@@ -208,6 +208,7 @@ export function SignUpForm({ className, redirectTo, ...props }: AuthFormProps) {
                                 required
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
+                                placeholder="••••••••"
                             />
                         </div>
                         <Button type="submit" className="w-full" disabled={isLoading}>
@@ -281,7 +282,7 @@ export function ForgotPasswordForm({ className, ...props }: AuthFormProps) {
                         <Input
                             id="email"
                             type="email"
-                            placeholder="m@example.com"
+                            placeholder="name@example.com"
                             required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
@@ -83,6 +83,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     return workspacesData.find((w: WorkspaceWithState) => w.slug === currentSlug);
   }, [currentSlug, workspacesData]);
 
+  const searchParams = useSearchParams();
+  const inviteToken = searchParams.get("invite");
+
   // Fetch current workspace by slug (fast path for direct workspace access)
   // This loads only the workspace metadata needed, not the entire list or state
   // State is loaded separately by useWorkspaceState hook
@@ -99,7 +102,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json();
       return data.workspace || null;
     },
-    enabled: !!currentSlug, // Only fetch when we have a slug
+    enabled: !!currentSlug && !inviteToken, // Only fetch when we have a slug AND no pending invite (pause query while claiming)
     initialData: cachedWorkspace, // Use cached data from list if available
     initialDataUpdatedAt: cachedWorkspace ? Date.now() : undefined, // Treat as fresh
     staleTime: 5 * 60 * 1000, // 5 minutes

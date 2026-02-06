@@ -5,7 +5,6 @@ import { useAui } from "@assistant-ui/react";
 import { Thread } from "./thread";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceContextProvider } from "@/hooks/ai/use-workspace-context-provider";
-import { useSelectedActionsContextProvider } from "@/hooks/ai/use-selected-actions-context-provider";
 import { useBlockNoteSelectionContextProvider } from "@/hooks/ai/use-blocknote-selection-context-provider";
 import AppChatHeader from "@/components/chat/AppChatHeader";
 import { cn } from "@/lib/utils";
@@ -190,14 +189,13 @@ function GenerateStudyMaterialsHandler({
 
     setIsChatExpanded?.(true);
 
-    const prompt = `First, process the PDF file in this workspace to read its content.
-
-Then, using that PDF content, update all three study cards:
-1. Update "Summary Notes" with a comprehensive summary
-2. Update "Quiz" with 5-10 relevant questions
-3. Update "Flashcards" with key terms and concepts
-
-Process the PDF once, then use that same content for all three updates.`;
+    const prompt = `First, process any PDF files in this workspace.
+    
+Then, using the content:
+1. Update the note with a comprehensive summary
+2. Update the quiz with 5-10 relevant questions
+3. Update the flashcards with key terms and concepts
+4. Search and add one relevant YouTube video if possible`;
 
     let attempts = 0;
     const maxAttempts = 12;
@@ -293,8 +291,6 @@ function WorkspaceContextWrapperContent({
   useWorkspaceContextProvider(workspaceId || null, state);
 
 
-  // Inject selected actions context as system instructions
-  useSelectedActionsContextProvider(selectedActions);
 
   // Inject BlockNote selection context as system instructions
   useBlockNoteSelectionContextProvider();

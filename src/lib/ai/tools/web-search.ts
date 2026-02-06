@@ -77,7 +77,9 @@ export function createWebSearchTool() {
             const { text, providerMetadata } = await generateText({
                 model: google('gemini-flash-lite-latest'),
                 tools: {
-                    googleSearch: google.tools.googleSearch({}),
+                    googleSearch: google.tools.googleSearch({
+                        mode: 'MODE_UNSPECIFIED',
+                    }),
                 },
                 prompt: `Search the web and provide comprehensive information about: ${query}
 

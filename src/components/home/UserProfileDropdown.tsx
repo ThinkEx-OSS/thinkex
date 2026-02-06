@@ -16,12 +16,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AccountModal } from "@/components/auth/AccountModal";
 
+import { toast } from "sonner";
 
 export function UserProfileDropdown() {
   const { data: session } = useSession();
   const router = useRouter();
   const [showAccountModal, setShowAccountModal] = useState(false);
-
 
   const userName = session?.user?.name || session?.user?.email || "User";
   const userImage = session?.user?.image || undefined;

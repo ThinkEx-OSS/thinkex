@@ -18,6 +18,8 @@ import { Button } from "@/components/ui/button";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 
+import { WorkspaceGridSkeleton } from "@/components/home/WorkspaceGridSkeleton";
+
 interface WorkspaceGridProps {
   searchQuery?: string;
 }
@@ -25,10 +27,12 @@ interface WorkspaceGridProps {
 export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
   const router = useRouter();
   const { showCreateWorkspaceModal, setShowCreateWorkspaceModal } = useUIStore();
-  const { workspaces, switchWorkspace, loadWorkspaces, deleteWorkspace } = useWorkspaceContext();
+  const { workspaces, switchWorkspace, loadWorkspaces, deleteWorkspace, loadingWorkspaces } = useWorkspaceContext();
   const { data: session } = useSession();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
+
+
 
   // Filter workspaces based on search query
   const filteredWorkspaces = useMemo(() => {
@@ -163,6 +167,11 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
   const handleCreateNew = () => {
     setShowCreateWorkspaceModal(true);
   };
+
+  // Show skeleton if loading and no workspaces (initial load)
+  if (loadingWorkspaces && workspaces.length === 0) {
+    return <WorkspaceGridSkeleton />;
+  }
 
   return (
     <>

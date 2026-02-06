@@ -1,6 +1,6 @@
 "use client";
 
-import { Streamdown } from "streamdown";
+import { Streamdown, defaultRehypePlugins } from "streamdown";
 import { createCodePlugin } from "@streamdown/code";
 import { mermaid } from "@streamdown/mermaid";
 import { math } from "@streamdown/math";
@@ -117,6 +117,20 @@ const MarkdownTextImpl = () => {
           mermaid: mermaid,
           math: math,
         }}
+        rehypePlugins={[
+          defaultRehypePlugins.raw,
+          defaultRehypePlugins.sanitize,
+          [
+            // @ts-ignore - accessing internal harden plugin
+            defaultRehypePlugins.harden[0],
+            {
+              allowedLinkPrefixes: ["*"],
+              allowedImagePrefixes: ["*"],
+              allowedProtocols: ["*"],
+              allowDataImages: true,
+            }
+          ]
+        ]}
         components={{
           ol: ({ children }) => (
             <ol className="ml-4 list-outside list-decimal whitespace-normal">

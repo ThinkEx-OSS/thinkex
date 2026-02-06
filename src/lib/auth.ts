@@ -63,6 +63,19 @@ export const auth = betterAuth({
       maxAge: 5 * 60, // Cache duration in seconds (5 minutes)
     },
   },
+  user: {
+    deleteUser: {
+      enabled: true,
+      afterDelete: async (user) => {
+        // Cleanup workspaces since there is no cascade constraint in the DB
+        try {
+          await db.delete(workspaces).where(eq(workspaces.userId, user.id));
+        } catch (error) {
+          console.error("Failed to cleanup user workspaces:", error);
+        }
+      },
+    },
+  },
   // Advanced cookie security configuration
   advanced: {
     // Force secure cookies (HTTPS only) - critical for preventing session hijacking

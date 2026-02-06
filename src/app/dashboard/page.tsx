@@ -36,6 +36,11 @@ import { PdfEngineWrapper } from "@/components/pdf/PdfEngineWrapper";
 import WorkspaceSettingsModal from "@/components/workspace/WorkspaceSettingsModal";
 import ShareWorkspaceDialog from "@/components/workspace/ShareWorkspaceDialog";
 import { RealtimeProvider } from "@/contexts/RealtimeContext";
+import { toast } from "sonner";
+
+import { InviteGuard } from "@/components/workspace/InviteGuard";
+import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
+
 // Main dashboard content component
 interface DashboardContentProps {
   currentWorkspace: WorkspaceWithState | null;
@@ -293,6 +298,9 @@ function DashboardContent({
   // Text selection handlers - delegate to agent for intelligent processing
   const { handleCreateInstantNote, handleCreateCardFromSelections } = useTextSelectionAgent(operations);
 
+  // Handle reactive navigation for new items
+  const { handleCreatedItems } = useReactiveNavigation(state);
+
   const handleWorkspacePdfUpload = useCallback(
     async (files: File[]) => {
       if (!currentWorkspaceId) {
@@ -337,9 +345,11 @@ function DashboardContent({
         };
       });
 
-      operations.createItems(pdfCardDefinitions);
+      // Create all PDF cards and navigate to the first one
+      const createdIds = operations.createItems(pdfCardDefinitions);
+      handleCreatedItems(createdIds);
     },
-    [operations, currentWorkspaceId]
+    [operations, currentWorkspaceId, handleCreatedItems]
   );
 
   const handleShowHistory = useCallback(() => {
@@ -380,6 +390,7 @@ function DashboardContent({
               workspaceColor={currentWorkspaceColor}
               addItem={operations.createItem}
               onPDFUpload={handleWorkspacePdfUpload}
+              onItemCreated={handleCreatedItems}
               setOpenModalItemId={setOpenModalItemId}
               items={state.items || []}
               onRenameFolder={(folderId, newName) => {
@@ -485,8 +496,18 @@ function DashboardContent({
 
 // Main page component
 // Main page component
+// Main page component (wrapper)
 export function DashboardPage() {
-  const router = useRouter();
+  return (
+    <InviteGuard>
+      <DashboardView />
+    </InviteGuard>
+  );
+}
+
+// Inner component with all the dashboard hooks
+// Only rendered when InviteGuard allows (authenticated + invite processed)
+function DashboardView() {
   // Get workspace context - currentWorkspace is loaded directly by slug (fast path)
   const {
     currentSlug,

@@ -58,7 +58,6 @@ export default function OnboardingPage() {
                 // prioritize that over the onboarding redirect
                 if (
                     redirectUrl &&
-                    !redirectUrl.startsWith("/workspace") &&
                     !redirectUrl.startsWith("/dashboard") &&
                     !redirectUrl.startsWith("/onboarding") &&
                     !redirectUrl.startsWith("/home")

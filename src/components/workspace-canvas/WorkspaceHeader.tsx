@@ -74,6 +74,8 @@ interface WorkspaceHeaderProps {
   // New button props
   addItem?: (type: CardType, name?: string, initialData?: Partial<Item['data']>) => string;
   onPDFUpload?: (files: File[]) => Promise<void>;
+  // Callback for when items are created (for auto-scroll/selection)
+  onItemCreated?: (itemIds: string[]) => void;
 
   setOpenModalItemId?: (id: string | null) => void;
   // Folder props
@@ -114,6 +116,7 @@ export default function WorkspaceHeader({
   workspaceColor,
   addItem,
   onPDFUpload,
+  onItemCreated,
 
   setOpenModalItemId,
   activeFolderName,
@@ -884,9 +887,9 @@ export default function WorkspaceHeader({
                     onClick={() => {
                       if (addItem) {
                         const itemId = addItem("note");
-                        // Automatically open the modal for the newly created note
-                        if (setOpenModalItemId && itemId) {
-                          setOpenModalItemId(itemId);
+                        // Auto-navigate to the newly created note instead of opening modal
+                        if (onItemCreated && itemId) {
+                          onItemCreated([itemId]);
                         }
                       }
                     }}
@@ -924,7 +927,10 @@ export default function WorkspaceHeader({
                   <DropdownMenuItem
                     onClick={() => {
                       if (addItem) {
-                        addItem("flashcard");
+                        const itemId = addItem("flashcard");
+                        if (onItemCreated && itemId) {
+                          onItemCreated([itemId]);
+                        }
                       }
                     }}
                     className="flex items-center gap-2 cursor-pointer"

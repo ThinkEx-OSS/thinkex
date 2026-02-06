@@ -37,7 +37,7 @@ export function InviteEmailTemplate({
             </div>
             <p style={{ fontSize: '14px', color: '#666' }}>
                 or copy and paste this link into your browser: <br />
-                <a href={workspaceUrl} style={{ color: '#0070f3' }}>
+                <a href={workspaceUrl} style={{ color: '#0070f3', wordBreak: 'break-all' }}>
                     {workspaceUrl}
                 </a>
             </p>
