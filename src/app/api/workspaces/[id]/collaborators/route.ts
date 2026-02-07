@@ -202,7 +202,9 @@ async function handlePOST(
                     inviterName: currentUser.name || 'A user',
                     workspaceName: ws.name || 'Workspace',
                     workspaceUrl,
+                    permissionLevel,
                 }),
+
             });
             if (error) console.error("Failed to send invitation email:", error);
         } catch (emailError) {
