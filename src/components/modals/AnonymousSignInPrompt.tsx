@@ -42,17 +42,10 @@ export function AnonymousSignInPrompt({
             Sign in to save your work and access it from anywhere. Your workspace will be automatically synced across all your devices.
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="w-full sm:w-auto"
-          >
-            Maybe later
-          </Button>
+        <DialogFooter>
           <Button
             onClick={handleSignIn}
-            className="w-full sm:w-auto"
+            className="w-full"
           >
             Sign in to save
           </Button>
