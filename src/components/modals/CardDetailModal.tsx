@@ -91,7 +91,6 @@ export function CardDetailModal({
       <div
         className="absolute inset-0 backdrop-blur-xl backdrop-dark"
         style={{
-          backgroundColor: 'var(--backdrop-bg, rgba(0, 0, 0, 0.6))',
           animation: 'fadeIn 0.25s ease-out both',
         }}
         onClick={onClose}
