@@ -25,7 +25,7 @@ export function AnonymousSignInPrompt({
 
   const handleSignIn = async () => {
     onOpenChange(false);
-    router.push("/sign-in");
+    router.push("/sign-up");
   };
 
   return (
@@ -39,7 +39,7 @@ export function AnonymousSignInPrompt({
         <DialogHeader>
           <DialogTitle className="text-2xl">We hope you're enjoying ThinkEx</DialogTitle>
           <DialogDescription className="text-base pt-2">
-            Sign in to save your work and access it from anywhere. Your workspace will be automatically synced across all your devices.
+            Sign up to save your work and access it from anywhere. Your workspace will be automatically synced across all your devices.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -47,7 +47,7 @@ export function AnonymousSignInPrompt({
             onClick={handleSignIn}
             className="w-full"
           >
-            Sign in to save
+            Sign up to save
           </Button>
         </DialogFooter>
       </DialogContent>
