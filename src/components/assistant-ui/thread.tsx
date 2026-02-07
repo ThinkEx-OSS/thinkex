@@ -1027,7 +1027,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
               className="aui-composer-send size-[34px] rounded-full p-1"
               aria-label="Send message"
             >
-              <ArrowUpIcon className="aui-composer-send-icon size-4 text-gray-900 dark:text-gray-600" />
+              <ArrowUpIcon className="aui-composer-send-icon size-4 text-white dark:text-black" />
             </TooltipIconButton>
           </ComposerPrimitive.Send>
         </AuiIf>
