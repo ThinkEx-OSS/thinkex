@@ -96,20 +96,20 @@ export function YouTubeCardContent({ item, isPlaying, onTogglePlay }: YouTubeCar
               <div className="absolute bottom-2 right-2 flex items-center gap-1 px-2 py-1 rounded-md bg-black/80 backdrop-blur-sm">
                 {isPlaylist ? (
                   <>
-                    <List className="h-3 w-3 text-white" />
-                    <span className="text-xs font-medium text-white">Playlist</span>
+                    <List className="h-3 w-3 text-foreground dark:text-white" />
+                    <span className="text-xs font-medium text-foreground dark:text-white">Playlist</span>
                   </>
                 ) : (
                   <>
-                    <Video className="h-3 w-3 text-white" />
-                    <span className="text-xs font-medium text-white">Video</span>
+                    <Video className="h-3 w-3 text-foreground dark:text-white" />
+                    <span className="text-xs font-medium text-foreground dark:text-white">Video</span>
                   </>
                 )}
               </div>
               {/* Play button */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center shadow-lg transition-all group-hover:scale-110">
-                  <Play className="h-7 w-7 text-white fill-white ml-1" />
+                  <Play className="h-7 w-7 text-foreground fill-foreground ml-1 dark:text-white dark:fill-white" />
                 </div>
               </div>
             </>
@@ -117,7 +117,7 @@ export function YouTubeCardContent({ item, isPlaying, onTogglePlay }: YouTubeCar
             // Fallback for playlists without thumbnails
             <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-red-500/10 to-red-600/10 rounded-lg border border-red-500/20">
               <div className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center shadow-lg transition-all group-hover:scale-110 mb-3">
-                <Play className="h-8 w-8 text-white fill-white ml-1" />
+                <Play className="h-8 w-8 text-foreground fill-foreground ml-1 dark:text-white dark:fill-white" />
               </div>
               <p className="text-sm font-medium text-foreground">YouTube Playlist</p>
               <p className="text-xs text-muted-foreground mt-1">Click to play</p>

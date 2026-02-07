@@ -163,11 +163,7 @@ export default function WorkspaceSettingsModal({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
-          className="sm:max-w-[600px] max-h-[80vh] flex flex-col border-white/20 bg-black/40 backdrop-blur-2xl shadow-2xl"
-          style={{
-            backdropFilter: "blur(24px)",
-            WebkitBackdropFilter: "blur(24px)",
-          }}
+          className="sm:max-w-[600px] max-h-[80vh] flex flex-col"
         >
           <DialogHeader>
             <DialogTitle>Workspace Settings</DialogTitle>
@@ -240,7 +236,7 @@ export default function WorkspaceSettingsModal({
                       {/* Color Picker Dialog */}
                       <Dialog open={isColorPickerOpen} onOpenChange={setIsColorPickerOpen}>
                         <DialogContent
-                          className="w-auto max-w-fit p-6 border-white/20 bg-black/40 backdrop-blur-2xl shadow-2xl"
+                          className="w-auto max-w-fit p-6"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <DialogHeader>
@@ -348,11 +344,7 @@ export default function WorkspaceSettingsModal({
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent
-          className="border-white/20 bg-black/40 backdrop-blur-2xl shadow-2xl"
-          style={{
-            backdropFilter: "blur(24px)",
-            WebkitBackdropFilter: "blur(24px)",
-          }}
+          className=""
         >
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Workspace</AlertDialogTitle>

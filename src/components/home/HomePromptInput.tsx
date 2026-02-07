@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useMemo, useEffect } from "react";
+import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useCreateWorkspaceFromPrompt } from "@/hooks/workspace/use-create-workspace";
@@ -72,6 +73,7 @@ interface HomePromptInputProps {
 
 export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
   const router = useRouter();
+  const { resolvedTheme } = useTheme();
   const [value, setValue] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
   const [isUrlDialogOpen, setIsUrlDialogOpen] = useState(false);
@@ -293,8 +295,8 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
 
         {/* Drag overlay */}
         {isDragActive && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center rounded-xl border-2 border-dashed border-white/40 bg-background/90 backdrop-blur-sm">
-            <div className="flex flex-col items-center gap-2 text-white/80">
+          <div className="absolute inset-0 z-50 flex items-center justify-center rounded-xl border-2 border-dashed border-foreground/40 bg-background/90 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-2 text-foreground">
               <Upload className="h-8 w-8" />
               <p className="text-sm font-medium">Drop PDFs here</p>
             </div>
@@ -309,8 +311,8 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
                 key={file.fileUrl}
                 className={cn(
                   "flex items-center gap-2 rounded-lg px-3 py-1.5",
-                  "bg-white/5 border border-white/10",
-                  "text-sm text-white/80"
+                  "bg-muted border",
+                  "text-sm"
                 )}
               >
                 <FileText className="h-3.5 w-3.5 flex-shrink-0" />
@@ -321,7 +323,7 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
                     e.stopPropagation();
                     removeFile(file.fileUrl);
                   }}
-                  className="ml-1 hover:text-white transition-colors"
+                  className="ml-1 hover:text-foreground transition-colors"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -336,11 +338,11 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
           className={cn(
             "relative w-full min-h-[96px]",
             isExpanded ? "rounded-[24px]" : "rounded-[32px]",
-            "border border-white/25",
+            "border",
             "bg-sidebar backdrop-blur-xl",
             "px-4 py-2 md:px-6 md:py-3",
             "shadow-[0_24px_90px_-40px_rgba(0,0,0,0.85)]",
-            "focus-within:border-white/40",
+            "focus-within:border-foreground/40",
             "transition-[border-radius,height] duration-300 ease-in-out",
             "cursor-text"
           )}
@@ -352,7 +354,7 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
               ref={prefixRef}
               className={cn(
                 "absolute left-0 top-0 select-none",
-                "!text-base text-white !font-normal !tracking-normal", // Match textarea exactly
+                "!text-base !font-normal !tracking-normal text-foreground", // Match textarea exactly
                 "pt-[0.5rem]" // Matches textarea padding-top
               )}
               style={{
@@ -387,7 +389,7 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
                 "focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none",
                 "!text-base !font-normal !tracking-normal",
                 "bg-transparent",
-                "text-white placeholder:text-transparent"
+                "text-foreground placeholder:text-transparent"
               )}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
@@ -403,7 +405,7 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
               <div
                 className={cn(
                   "absolute inset-0 flex items-start pt-[0.5rem] pointer-events-none",
-                  "text-base text-white/60 tracking-normal"
+                  "text-base text-muted-foreground tracking-normal"
                 )}
                 style={{
                   willChange: 'transform',
@@ -430,9 +432,9 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
                 <button
                   type="button"
                   className={cn(
-                    "h-8 w-8 md:h-9 md:w-9 rounded-full border border-white/35",
-                    "flex items-center justify-center text-white/85",
-                    "hover:bg-white/10 transition-colors"
+                    "h-8 w-8 md:h-9 md:w-9 rounded-full border",
+                    "flex items-center justify-center",
+                    "hover:bg-muted transition-colors"
                   )}
                   aria-label="Add attachment"
                 >
@@ -463,9 +465,9 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
                 className={cn(
                   "h-8 w-8 md:h-9 md:w-9 rounded-full",
                   "flex items-center justify-center",
-                  "bg-white text-[#1F1F1F]",
+                  "bg-foreground text-background",
                   "transition-colors",
-                  "hover:bg-white/90",
+                  "hover:bg-foreground/90",
                   "disabled:opacity-40 disabled:cursor-not-allowed"
                 )}
                 aria-label="Submit prompt"

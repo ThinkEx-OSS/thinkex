@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef, useMemo, memo } from "react";
 import { toast } from "sonner";
 import { MoreVertical, Trash2, CheckCircle2, Pencil, Palette, ChevronLeft, ChevronRight, X, FolderInput } from "lucide-react";
 import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
+import { useTheme } from "next-themes";
 import type { Item, FlashcardData, FlashcardItem } from "@/lib/workspace-state/types";
 import { FlipCard } from "./FlipCard";
 import { SWATCHES_COLOR_GROUPS, getCardColorCSS, getCardAccentColor, type CardColor } from "@/lib/workspace-state/colors";
@@ -176,6 +177,7 @@ export function FlashcardWorkspaceCard({
         (state) => state.selectedCardIds.has(item.id)
     );
     const onToggleSelection = useUIStore((state) => state.toggleCardSelection);
+    const { resolvedTheme } = useTheme();
 
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showMoveDialog, setShowMoveDialog] = useState(false);
@@ -436,9 +438,9 @@ export function FlashcardWorkspaceCard({
                             aria-label={isScrollLocked ? 'Click to unlock scroll' : 'Click to lock scroll'}
                             title={isScrollLocked ? 'Click to unlock scroll' : 'Click to lock scroll'}
                             className="flashcard-control-button inline-flex h-8 items-center justify-center gap-1.5 pl-2.5 pr-3 rounded-xl text-white/90 hover:text-white hover:scale-105 hover:shadow-lg transition-all duration-200 cursor-pointer"
-                            style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(8px)' }}
+                            style={{ backgroundColor: resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)', backdropFilter: 'blur(8px)' }}
                             onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0, 0, 0, 0.5)'}
-                            onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+                            onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}
                             onMouseDown={(e) => {
                                 e.stopPropagation();
                                 e.preventDefault();
@@ -461,9 +463,9 @@ export function FlashcardWorkspaceCard({
                             aria-label="Edit flashcard"
                             title="Edit flashcard"
                             className="flashcard-control-button inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer"
-                            style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(8px)' }}
+                            style={{ backgroundColor: resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)', backdropFilter: 'blur(8px)' }}
                             onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0, 0, 0, 0.5)'}
-                            onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+                            onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}
                             onMouseDown={(e) => e.stopPropagation()}
                             onClick={(e) => { e.stopPropagation(); onOpenModal(item.id); }}
                         >
@@ -475,9 +477,9 @@ export function FlashcardWorkspaceCard({
                             aria-label={isSelected ? 'Deselect card' : 'Select card'}
                             title={isSelected ? 'Deselect card' : 'Select card'}
                             className="flashcard-control-button inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer"
-                            style={{ backgroundColor: isSelected ? 'rgba(239, 68, 68, 0.3)' : 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(8px)' }}
+                            style={{ backgroundColor: isSelected ? 'rgba(239, 68, 68, 0.3)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'), backdropFilter: 'blur(8px)' }}
                             onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = isSelected ? 'rgba(239, 68, 68, 0.5)' : 'rgba(0, 0, 0, 0.5)'}
-                            onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = isSelected ? 'rgba(239, 68, 68, 0.3)' : 'rgba(255, 255, 255, 0.1)'}
+                            onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = isSelected ? 'rgba(239, 68, 68, 0.3)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)')}
                             onMouseDown={(e) => e.stopPropagation()}
                             onClick={(e) => { e.stopPropagation(); onToggleSelection(item.id); }}
                         >
@@ -495,9 +497,9 @@ export function FlashcardWorkspaceCard({
                                     aria-label="Card settings"
                                     title="Card settings"
                                     className="flashcard-control-button inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer"
-                                    style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(8px)' }}
+                                    style={{ backgroundColor: resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)', backdropFilter: 'blur(8px)' }}
                                     onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0, 0, 0, 0.5)'}
-                                    onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+                                    onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.backgroundColor = resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'}
                                     onMouseDown={(e) => e.stopPropagation()}
                                     onClick={(e) => e.stopPropagation()}
                                 >

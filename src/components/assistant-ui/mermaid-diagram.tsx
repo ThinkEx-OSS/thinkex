@@ -4,6 +4,7 @@ import { useMessagePart } from "@assistant-ui/react";
 import type { SyntaxHighlighterProps } from "@assistant-ui/react-markdown";
 import mermaid from "mermaid";
 import { FC, useEffect, useRef } from "react";
+import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
 /**
@@ -13,8 +14,7 @@ export type MermaidDiagramProps = SyntaxHighlighterProps & {
   className?: string;
 };
 
-// Configure mermaid options here
-mermaid.initialize({ theme: "dark", startOnLoad: false });
+// Mermaid is initialized dynamically per-render based on system theme
 
 /**
  * MermaidDiagram component for rendering Mermaid diagrams
@@ -47,6 +47,7 @@ export const MermaidDiagram: FC<MermaidDiagramProps> = ({
   language: _language,
 }) => {
   const ref = useRef<HTMLPreElement>(null);
+  const { resolvedTheme } = useTheme();
 
   // Detect when this code block is complete
   const isComplete = useMessagePart((part) => {
@@ -67,6 +68,8 @@ export const MermaidDiagram: FC<MermaidDiagramProps> = ({
   useEffect(() => {
     if (!isComplete) return;
 
+    mermaid.initialize({ theme: resolvedTheme === "dark" ? "dark" : "default", startOnLoad: false });
+
     (async () => {
       try {
         const id = `mermaid-${Math.random().toString(36).slice(2)}`;
@@ -79,7 +82,7 @@ export const MermaidDiagram: FC<MermaidDiagramProps> = ({
         // Silently ignore mermaid rendering failures
       }
     })();
-  }, [isComplete, code]);
+  }, [isComplete, code, resolvedTheme]);
 
   return (
     <pre

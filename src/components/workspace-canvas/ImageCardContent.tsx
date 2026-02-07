@@ -26,7 +26,7 @@ export function ImageCardContent({ item }: ImageCardContentProps) {
 
             {/* Optional: Caption overlay on hover */}
             {imageData.caption && isHovering && (
-                <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-2 text-white text-sm backdrop-blur-sm rounded-b-lg">
+                <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-2 text-foreground text-sm backdrop-blur-sm rounded-b-lg dark:text-white">
                     {imageData.caption}
                 </div>
             )}

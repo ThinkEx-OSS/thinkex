@@ -67,7 +67,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`dark ${inter.variable} ${outfit.variable} ${GeistMono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${outfit.variable} ${GeistMono.variable}`}>
       <body className="subpixel-antialiased bg-background text-foreground">
         <LazyAppProviders>
           <HelmetProviderWrapper>

@@ -46,15 +46,32 @@
   background: transparent !important;
 }
 
-/* Make links lighter blue in BlockNote editor */
+/* Ensure BlockNote editor text is theme-aware */
+.bn-editor,
+.bn-container,
+.bn-editor .ProseMirror {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Make links blue in BlockNote editor */
 .bn-editor a,
 .bn-container a,
 .bn-editor .ProseMirror a {
+  color: #1a73e8 !important;
+}
+
+.dark .bn-editor a,
+.dark .bn-container a,
+.dark .bn-editor .ProseMirror a {
   color: #aecbfa !important;
 }
 
-/* Make links light blue in BlockNote preview (workspace read-only cards) */
+/* Make links blue in BlockNote preview (workspace read-only cards) */
 .blocknote-preview a {
+  color: #1a73e8 !important;
+}
+
+.dark .blocknote-preview a {
   color: #aecbfa !important;
 }
 
@@ -90,40 +107,44 @@
 /* This targets the Floating UI element that contains the Upload/Embed tabs */
 /* You can add custom offset styling here if needed */
 
-/* Dark mode styling for BlockNote "Add image" button */
+/* Styling for BlockNote "Add image" button */
 .bn-file-block-content-wrapper {
   background: transparent !important;
 }
 
 .bn-add-file-button {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
   border-radius: 8px !important;
-  color: rgba(255, 255, 255, 0.9) !important;
+  color: rgba(0, 0, 0, 0.7) !important;
   transition: all 0.2s ease !important;
   padding: 12px 16px !important;
 }
 
 .bn-add-file-button:hover {
+  background: rgba(0, 0, 0, 0.08) !important;
+  border-color: rgba(0, 0, 0, 0.2) !important;
+  color: rgba(0, 0, 0, 0.9) !important;
+}
+
+.dark .bn-add-file-button {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.dark .bn-add-file-button:hover {
   background: rgba(255, 255, 255, 0.08) !important;
   border-color: rgba(255, 255, 255, 0.2) !important;
   color: rgba(255, 255, 255, 1) !important;
 }
 
 .bn-add-file-button-icon {
-  color: rgba(255, 255, 255, 0.9) !important;
-}
-
-.bn-add-file-button:hover .bn-add-file-button-icon {
-  color: rgba(255, 255, 255, 1) !important;
+  color: inherit !important;
 }
 
 .bn-add-file-button-text {
-  color: rgba(255, 255, 255, 0.9) !important;
-}
-
-.bn-add-file-button:hover .bn-add-file-button-text {
-  color: rgba(255, 255, 255, 1) !important;
+  color: inherit !important;
 }
 
 /* Make code blocks in BlockNote editor wrap instead of horizontal scroll */
@@ -267,6 +288,29 @@
   color: hsl(var(--foreground)) !important;
 }
 
+/* Ensure BlockNote slash menu and dropdowns are theme-aware */
+.bn-suggestion-menu,
+.bn-dropdown-menu {
+  background: hsl(var(--popover)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+}
+
+.bn-suggestion-menu-item,
+.bn-dropdown-menu-item {
+  color: hsl(var(--foreground)) !important;
+}
+
+.bn-suggestion-menu-item:hover,
+.bn-dropdown-menu-item:hover {
+  background: hsl(var(--accent)) !important;
+}
+
+.bn-suggestion-menu-item.selected,
+.bn-dropdown-menu-item.selected {
+  background: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -328,43 +372,13 @@
   --font-geist: "Geist", sans-serif;
   --font-inter: "Inter", sans-serif;
   --font-outfit: "Outfit", sans-serif;
-  --background: oklch(1 0 0);
+  --background: oklch(0.95 0 0);
   --foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
+  --popover: oklch(0.98 0 0);
   --popover-foreground: oklch(0.129 0.042 264.695);
 }
 
-/* Remove light mode entirely - always use dark theme */
-.light {
-  /* Inherit dark theme values */
-  --background: #202124;
-  --foreground: #ffffff;
-  --card: #303134;
-  --card-foreground: #ffffff;
-  --primary: #ffffff;
-  --primary-foreground: #202124;
-  --secondary: #404040;
-  --secondary-foreground: #ffffff;
-  --muted: #404040;
-  --muted-foreground: #a0a0a0;
-  --accent: #8ab4f8;
-  --accent-foreground: #ffffff;
-  --destructive: #ea4335;
-  --destructive-foreground: #ffffff;
-  --border: #3c4043;
-  --input: #303134;
-  --ring: rgba(138, 180, 248, 0.3);
-  --sidebar: #2d2e30;
-  --sidebar-foreground: #ffffff;
-  --sidebar-primary: #3c4043;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #8ab4f8;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #3c4043;
-  --sidebar-ring: rgba(138, 180, 248, 0.3);
-}
-
-/* Ensure dark mode is always applied */
+/* Dark mode variables - applied when system prefers dark */
 .dark {
   --background: oklch(0.18 0 0);
   --foreground: oklch(0.984 0.003 247.858);
@@ -634,9 +648,13 @@ body.marquee-selecting iframe {
   overflow: hidden;
 }
 
-/* Custom scrollbar styling for dark theme */
+/* Custom scrollbar styling - theme-aware */
 * {
   scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.dark * {
   scrollbar-color: #3c4043 transparent;
 }
 
@@ -651,18 +669,44 @@ body.marquee-selecting iframe {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #3c4043;
+  background: rgba(0, 0, 0, 0.2);
   border-radius: 6px;
   border: 2px solid transparent;
   transition: background-color 0.2s ease;
 }
 
+.dark *::-webkit-scrollbar-thumb {
+  background: #3c4043;
+}
+
 *::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.dark *::-webkit-scrollbar-thumb:hover {
   background: #5f6368;
 }
 
 *::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+/* Note panel background - theme aware */
+.note-panel-background {
+  background-color: var(--note-bg-light);
+}
+
+.dark .note-panel-background {
+  background-color: var(--note-bg-dark);
+}
+
+/* Modal backdrop - theme aware */
+.backdrop-dark {
+  --backdrop-bg: rgba(0, 0, 0, 0.15); /* Light backdrop for light mode */
+}
+
+.dark .backdrop-dark {
+  --backdrop-bg: rgba(0, 0, 0, 0.6); /* Darker backdrop for dark mode */
 }
 
 /* Custom scrollbar styling for modal */
@@ -827,12 +871,17 @@ body.marquee-selecting iframe {
   bottom: 0px;
   width: 14px;
   height: 14px;
-  border-right: 3px solid rgba(255, 255, 255, 1);
-  border-bottom: 3px solid rgba(255, 255, 255, 1);
+  border-right: 3px solid rgba(0, 0, 0, 0.6);
+  border-bottom: 3px solid rgba(0, 0, 0, 0.6);
   border-radius: 0 0 10px 0;
   opacity: 0;
   transition: opacity 0.2s ease, border-color 0.2s ease;
-  /* Use drop-shadow to create contrast on any background */
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.4));
+}
+
+.dark .react-grid-item>.react-resizable-handle::after {
+  border-right-color: rgba(255, 255, 255, 1);
+  border-bottom-color: rgba(255, 255, 255, 1);
   filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));
 }
 
@@ -906,14 +955,14 @@ body.marquee-selecting iframe {
   transform: translateX(-50%);
   width: 20px;
   height: 3px;
-  background: rgba(255, 255, 255, 1);
+  background: rgba(0, 0, 0, 0.6);
   border: none;
   border-radius: 0;
   top: 0;
   bottom: auto;
   right: auto;
   margin-top: 0;
-  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.4));
 }
 
 .react-grid-item>.react-resizable-handle-s::after {
@@ -923,14 +972,14 @@ body.marquee-selecting iframe {
   transform: translateX(-50%);
   width: 20px;
   height: 3px;
-  background: rgba(255, 255, 255, 1);
+  background: rgba(0, 0, 0, 0.6);
   border: none;
   border-radius: 0;
   bottom: 0;
   top: auto;
   right: auto;
   margin-top: 0;
-  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.4));
 }
 
 .react-grid-item>.react-resizable-handle-e::after {
@@ -940,14 +989,14 @@ body.marquee-selecting iframe {
   transform: translateY(-50%);
   width: 3px;
   height: 20px;
-  background: rgba(255, 255, 255, 1);
+  background: rgba(0, 0, 0, 0.6);
   border: none;
   border-radius: 0;
   right: 0;
   left: auto;
   bottom: auto;
   margin-left: 0;
-  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.4));
 }
 
 .react-grid-item>.react-resizable-handle-w::after {
@@ -957,13 +1006,25 @@ body.marquee-selecting iframe {
   transform: translateY(-50%);
   width: 3px;
   height: 20px;
-  background: rgba(255, 255, 255, 1);
+  background: rgba(0, 0, 0, 0.6);
   border: none;
   border-radius: 0;
   left: 0;
   right: auto;
   bottom: auto;
   margin-left: 0;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.4));
+}
+
+.dark .react-grid-item>.react-resizable-handle-n::after,
+.dark .react-grid-item>.react-resizable-handle-s::after {
+  background: rgba(255, 255, 255, 1);
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));
+}
+
+.dark .react-grid-item>.react-resizable-handle-e::after,
+.dark .react-grid-item>.react-resizable-handle-w::after {
+  background: rgba(255, 255, 255, 1);
   filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));
 }
 
@@ -1082,11 +1143,19 @@ body.marquee-selecting iframe {
 }
 
 .react-grid-item article::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.15);
   border-radius: 3px;
 }
 
+.dark .react-grid-item article::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 .react-grid-item article::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.dark .react-grid-item article::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
 }
 
@@ -1153,18 +1222,31 @@ body.marquee-selecting iframe {
 
 /* Glassmorphic toast styling */
 .toast-glass {
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255, 255, 255, 0.7) !important;
   backdrop-filter: blur(24px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
   border-radius: 16px !important;
   box-shadow:
-    0 8px 32px 0 rgba(0, 0, 0, 0.37),
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.15) !important;
+    0 8px 32px 0 rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.5) !important;
   padding: 12px 16px !important;
 }
 
 .toast-glass:hover {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+.dark .toast-glass {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  box-shadow:
+    0 8px 32px 0 rgba(0, 0, 0, 0.37),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+.dark .toast-glass:hover {
   background: rgba(255, 255, 255, 0.12) !important;
   border-color: rgba(255, 255, 255, 0.25) !important;
 }
@@ -1187,11 +1269,15 @@ body.marquee-selecting iframe {
   padding-right: 0.5rem !important;
 }
 
-/* White scrollbar for workspace card readonly editor */
+/* Scrollbar for workspace card readonly editor */
 .workspace-card-readonly-editor {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.5) transparent;
+  scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
   scrollbar-gutter: stable both-edges;
+}
+
+.dark .workspace-card-readonly-editor {
+  scrollbar-color: rgba(255, 255, 255, 0.5) transparent;
 }
 
 .workspace-card-readonly-editor::-webkit-scrollbar {
@@ -1205,13 +1291,21 @@ body.marquee-selecting iframe {
 }
 
 .workspace-card-readonly-editor::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(0, 0, 0, 0.3);
   border-radius: 4px;
   border: 1px solid transparent;
   transition: background-color 0.2s ease;
 }
 
+.dark .workspace-card-readonly-editor::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.5);
+}
+
 .workspace-card-readonly-editor::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.dark .workspace-card-readonly-editor::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.7);
 }
 

@@ -156,10 +156,9 @@ export function ItemHeader(props: {
     return (
       <div className={`${noMargin ? "" : "mb-4"} select-none ${allowWrap ? "flex-1 flex flex-col" : ""}`}>
         <div
-          style={{ color: '#ffffff' }}
-          className={`w-full ${textSizeClass} ${fontWeightClass} ${allowWrap ? "flex-1" : ""}`}
+          className={`w-full ${textSizeClass} ${fontWeightClass} ${allowWrap ? "flex-1" : ""} text-foreground`}
         >
-          {name || <span className="text-gray-400">Item title</span>}
+          {name || <span className="text-muted-foreground">Item title</span>}
         </div>
       </div>
     );
@@ -172,7 +171,7 @@ export function ItemHeader(props: {
         <span
           ref={measureRef}
           className={`absolute invisible whitespace-pre ${textSizeClass} ${fontWeightClass} pointer-events-none leading-tight`}
-          style={{ color: '#ffffff', top: 0, left: 0 }}
+          style={{ top: 0, left: 0 }}
           aria-hidden="true"
         />
       )}
@@ -224,10 +223,10 @@ export function ItemHeader(props: {
         }}
         placeholder="Item title"
         style={{
-          color: '#ffffff',
-          width: (fullWidth || allowWrap) ? '100%' : undefined
+          width: (fullWidth || allowWrap) ? '100%' : undefined,
+          color: 'inherit'
         }}
-        className={`appearance-none ${textSizeClass} ${fontWeightClass} outline-none placeholder:text-gray-400 transition-all focus:text-accent focus:placeholder:text-accent/65 bg-transparent resize-none ${allowWrap ? "flex-1 w-full overflow-auto whitespace-normal leading-normal" : "inline-block overflow-hidden leading-tight whitespace-nowrap"} ${fullWidth ? 'w-full' : ''}`}
+        className={`appearance-none ${textSizeClass} ${fontWeightClass} outline-none text-foreground placeholder:text-muted-foreground transition-all focus:text-accent focus:placeholder:text-accent/65 bg-transparent resize-none ${allowWrap ? "flex-1 w-full overflow-auto whitespace-normal leading-normal" : "inline-block overflow-hidden leading-tight whitespace-nowrap"} ${fullWidth ? 'w-full' : ''}`}
         rows={allowWrap ? undefined : 1}
       />
     </div>

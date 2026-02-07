@@ -243,7 +243,7 @@ function StaticPreviewCard({ type, color, breatheDuration, breatheDelay }: Stati
           {/* Play button - matches YouTubeCardContent exactly */}
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
-              <Play className="h-5 w-5 text-white fill-white ml-0.5" />
+              <Play className="h-5 w-5 text-foreground fill-foreground ml-0.5 dark:text-white dark:fill-white" />
             </div>
           </div>
 
@@ -266,7 +266,7 @@ function StaticPreviewCard({ type, color, breatheDuration, breatheDelay }: Stati
           {/* Header like LightweightPdfPreview */}
           <div className="h-8 bg-[#525659] flex items-center px-3 gap-2">
             <div className="w-3 h-3 rounded-full bg-red-500/60" />
-            <span className="text-xs text-white/50 truncate">Document.pdf</span>
+            <span className="text-xs text-foreground/50 truncate dark:text-white/50">Document.pdf</span>
           </div>
 
           {/* PDF preview area */}

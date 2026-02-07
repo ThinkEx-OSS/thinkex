@@ -407,7 +407,7 @@ export default function ShareWorkspaceDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-lg border-white/20 bg-black/40 backdrop-blur-2xl shadow-2xl"
+        className="sm:max-w-lg border backdrop-blur-2xl shadow-2xl"
         style={{
           backdropFilter: "blur(24px)",
           WebkitBackdropFilter: "blur(24px)",
@@ -437,13 +437,13 @@ export default function ShareWorkspaceDialog({
 
           <div className="space-y-4">
             <div className="px-0.5 pt-4">
-              <DialogDescription className="text-white">{currentHeader.description}</DialogDescription>
+              <DialogDescription>{currentHeader.description}</DialogDescription>
             </div>
 
             <TabsContent value="invite" className="space-y-4">
               {isAnonymous && (
-                <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                  <p className="text-sm text-white/80">
+                <div className="rounded-lg border bg-muted/50 p-3">
+                  <p className="text-sm">
                     Sign in to invite collaborators and manage access.
                   </p>
                   <div className="mt-2 flex gap-2">
@@ -462,7 +462,7 @@ export default function ShareWorkspaceDialog({
               )}
 
               {/* Invite Form */}
-              <div className="space-y-3 pb-2 border-b border-white/10">
+              <div className="space-y-3 pb-2 border-b">
 
                 <div className="flex gap-2">
                   <Input
@@ -526,7 +526,7 @@ export default function ShareWorkspaceDialog({
                         {collaborators.map((collab) => (
                           <div
                             key={collab.id}
-                            className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                            className="flex items-center justify-between p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                           >
                             <div className="flex items-center gap-3 min-w-0">
                               <Avatar className="h-8 w-8">
@@ -596,9 +596,9 @@ export default function ShareWorkspaceDialog({
                       </div>
                       <div className="space-y-2 max-h-32 overflow-y-auto">
                         {invites.map((invite) => (
-                          <div key={invite.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-dashed border-white/10">
+                          <div key={invite.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50 border border-dashed">
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="h-8 w-8 rounded-full bg-white/5 flex items-center justify-center">
+                              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
                                 <Mail className="h-4 w-4 text-muted-foreground" />
                               </div>
                               <div className="min-w-0">
@@ -645,7 +645,7 @@ export default function ShareWorkspaceDialog({
                       {frequentCollaborators.slice(0, 6).map((collab) => (
                         <div
                           key={collab.userId}
-                          className="group flex items-center justify-between p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                          className="group flex items-center justify-between p-1.5 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
                           onClick={() => handleQuickAddCollaborator(collab)}
                         >
                           <div className="flex items-center gap-2 min-w-0">

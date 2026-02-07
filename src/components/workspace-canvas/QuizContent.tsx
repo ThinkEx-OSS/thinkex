@@ -230,7 +230,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                         "cursor-default"
                     )}>
                         <div className="mb-6">
-                            <div className="text-sm text-white/60 prose prose-invert prose-sm max-w-none">
+                            <div className="text-sm text-foreground/60 prose prose-invert prose-sm max-w-none dark:text-white/60">
                                 <div className="flex items-center gap-2">
                                     <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
                                     Generating quiz questions...
@@ -246,10 +246,10 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                                     className="w-full p-3 text-left rounded-lg border bg-white/5 border-white/10"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium border bg-white/10 border-white/20 text-white/60">
+                                        <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium border bg-white/10 border-white/20 text-foreground/60 dark:text-white/60">
                                             {String.fromCharCode(65 + index)}
                                         </span>
-                                        <div className="text-sm text-white/40 flex-1">
+                                        <div className="text-sm text-foreground/40 flex-1 dark:text-white/40">
                                             <div className="w-3/4 h-3 bg-white/10 rounded animate-pulse"></div>
                                         </div>
                                     </div>
@@ -272,27 +272,27 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                         <div className="flex items-center w-full px-2">
                             {/* Left: Restart Button Skeleton */}
                             <div className="flex-1 flex items-center justify-start">
-                                <div className="flex items-center justify-center w-8 h-8 rounded-lg text-sm text-white/20">
+                                <div className="flex items-center justify-center w-8 h-8 rounded-lg text-sm text-foreground/20 dark:text-white/20">
                                     <RotateCcw className="w-4 h-4 rotate-180" />
                                 </div>
                             </div>
 
                             {/* Center: Navigation Skeleton */}
                             <div className="flex items-center gap-1 justify-center">
-                                <div className="flex items-center justify-center w-8 h-8 rounded-lg text-sm text-white/20">
+                                <div className="flex items-center justify-center w-8 h-8 rounded-lg text-sm text-foreground/20 dark:text-white/20">
                                     <ChevronLeft className="w-4 h-4" />
                                 </div>
-                                <span className="text-xs text-white/40 px-2">
+                                <span className="text-xs text-foreground/40 px-2 dark:text-white/40">
                                     <div className="w-8 h-3 bg-white/10 rounded animate-pulse"></div>
                                 </span>
-                                <div className="flex items-center justify-center w-8 h-8 rounded-lg text-sm text-white/20">
+                                <div className="flex items-center justify-center w-8 h-8 rounded-lg text-sm text-foreground/20 dark:text-white/20">
                                     <ChevronRight className="w-4 h-4" />
                                 </div>
                             </div>
 
                             {/* Right: Check Button Skeleton */}
                             <div className="flex-1 flex items-center justify-end">
-                                <div className="px-4 py-2 rounded-lg text-sm font-medium bg-white/10 text-white/40">
+                                <div className="px-4 py-2 rounded-lg text-sm font-medium bg-white/10 text-foreground/40 dark:text-white/40">
                                     <div className="w-8 h-3 bg-white/10 rounded animate-pulse"></div>
                                 </div>
                             </div>
@@ -305,8 +305,8 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
         // User-created quiz with no questions - show empty state
         return (
             <div className="flex flex-col h-full items-center justify-center p-4 text-center">
-                <p className="text-white/60 text-sm">No questions yet</p>
-                <p className="text-white/40 text-xs mt-1">Ask the AI to generate quiz questions</p>
+                <p className="text-foreground/60 text-sm dark:text-white/60">No questions yet</p>
+                <p className="text-foreground/40 text-xs mt-1 dark:text-white/40">Ask the AI to generate quiz questions</p>
             </div>
         );
     }
@@ -320,15 +320,15 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                     "w-16 h-16 mb-4",
                     percentage >= 80 ? "text-yellow-400" : percentage >= 50 ? "text-blue-400" : "text-white/50"
                 )} />
-                <h2 className="text-2xl font-bold text-white mb-2">Quiz Complete!</h2>
-                <p className="text-4xl font-bold text-white mb-1">
+                <h2 className="text-2xl font-bold text-foreground mb-2 dark:text-white">Quiz Complete!</h2>
+                <p className="text-4xl font-bold text-foreground mb-1 dark:text-white">
                     {score} / {totalQuestions}
                 </p>
-                <p className="text-lg text-white/60 mb-6">{percentage}% correct</p>
+                <p className="text-lg text-foreground/60 mb-6 dark:text-white/60">{percentage}% correct</p>
                 <button
                     onMouseDown={preventFocusSteal}
                     onClick={handleRestart}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors cursor-pointer"
+                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-foreground transition-colors cursor-pointer dark:text-white"
                 >
                     <RotateCcw className="w-4 h-4" />
                     Restart Quiz
@@ -347,8 +347,8 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                 "cursor-default"
             )}>
                 <div className="mb-6">
-                    <div className="text-sm text-white prose prose-invert prose-sm max-w-none">
-                        <StreamdownMarkdown className="text-sm text-white prose prose-invert prose-sm max-w-none">
+                        <div className="text-sm text-foreground prose prose-invert prose-sm max-w-none dark:text-white">
+                            <StreamdownMarkdown className="text-sm text-foreground prose prose-invert prose-sm max-w-none dark:text-white">
                             {currentQuestion.questionText}
                         </StreamdownMarkdown>
                     </div>
@@ -387,7 +387,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                                     )}>
                                         {String.fromCharCode(65 + index)}
                                     </span>
-                        <div className="text-sm text-white/90 flex-1 prose prose-invert prose-sm max-w-none">
+                        <div className="text-sm text-foreground/90 flex-1 prose prose-invert prose-sm max-w-none dark:text-white/90">
                             <StreamdownMarkdown>
                                 {option}
                             </StreamdownMarkdown>
@@ -423,9 +423,9 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
 
                     {/* Center: Progress bar */}
                     <div className="flex-1 mx-4">
-                        <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <div className="w-full h-1.5 bg-foreground/10 rounded-full overflow-hidden dark:bg-white/10">
                             <div
-                                className="h-full bg-white transition-all duration-300"
+                                className="h-full bg-foreground transition-all duration-300 dark:bg-white"
                                 style={{ width: `${((currentIndex + (isSubmitted ? 1 : 0)) / totalQuestions) * 100}%` }}
                             />
                         </div>
@@ -453,7 +453,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                                 </>
                             )}
                         </div>
-                        <div className="text-sm text-white/80 prose prose-invert prose-sm max-w-none">
+                        <div className="text-sm text-foreground/80 prose prose-invert prose-sm max-w-none dark:text-white/80">
                             <StreamdownMarkdown>
                                 {currentQuestion.explanation}
                             </StreamdownMarkdown>
@@ -470,7 +470,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                         <button
                             onMouseDown={preventFocusSteal}
                             onClick={handleRestart}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-white/40 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-foreground/40 hover:text-foreground hover:bg-white/10 transition-colors cursor-pointer dark:text-white/40 dark:hover:text-white"
                         >
                             <RotateCcw className="w-4 h-4 rotate-180" />
                             <span>Restart</span>
@@ -486,13 +486,13 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                             className={cn(
                                 "flex items-center justify-center w-8 h-8 rounded-lg text-sm transition-colors cursor-pointer",
                                 currentIndex === 0
-                                    ? "text-white/30 cursor-not-allowed"
-                                    : "text-white/70 hover:text-white hover:bg-white/10"
+                                    ? "text-foreground/30 cursor-not-allowed dark:text-white/30"
+                                    : "text-foreground/70 hover:text-foreground hover:bg-white/10 dark:text-white/70 dark:hover:text-white"
                             )}
                         >
                             <ChevronLeft className="w-4 h-4" />
                         </button>
-                        <span className="text-xs text-white/50 px-1">
+                        <span className="text-xs text-foreground/50 px-1 dark:text-white/50">
                             {currentIndex + 1} / {totalQuestions}
                         </span>
                         <button
@@ -502,8 +502,8 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                             className={cn(
                                 "flex items-center justify-center w-8 h-8 rounded-lg text-sm transition-colors cursor-pointer",
                                 currentIndex >= totalQuestions - 1
-                                    ? "text-white/30 cursor-not-allowed"
-                                    : "text-white/70 hover:text-white hover:bg-white/10"
+                                    ? "text-foreground/30 cursor-not-allowed dark:text-white/30"
+                                    : "text-foreground/70 hover:text-foreground hover:bg-white/10 dark:text-white/70 dark:hover:text-white"
                             )}
                         >
                             <ChevronRight className="w-4 h-4" />
@@ -520,8 +520,8 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                                 className={cn(
                                     "px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
                                     selectedAnswer === null
-                                        ? "bg-white/10 text-white/30 cursor-not-allowed"
-                                        : "bg-blue-500 hover:bg-blue-600 text-white"
+                                        ? "bg-white/10 text-foreground/30 cursor-not-allowed dark:text-white/30"
+                                        : "bg-blue-500 hover:bg-blue-600 text-foreground dark:text-white"
                                 )}
                             >
                                 Check
@@ -530,7 +530,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                             <button
                                 onMouseDown={preventFocusSteal}
                                 onClick={handleNext}
-                                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer bg-blue-500 hover:bg-blue-600 text-white"
+                                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer bg-blue-500 hover:bg-blue-600 text-foreground dark:text-white"
                             >
                                 {currentIndex < totalQuestions - 1 ? "Next" : "Finish"}
                             </button>

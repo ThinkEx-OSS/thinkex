@@ -29,7 +29,7 @@ export default function GlobalError({
     }, [error]);
 
     return (
-        <html lang="en" className={`dark ${inter.variable} ${outfit.variable}`}>
+        <html lang="en" suppressHydrationWarning className={`${inter.variable} ${outfit.variable}`}>
             <body className="subpixel-antialiased bg-background text-foreground font-sans">
                 <div className="flex h-screen flex-col items-center justify-center space-y-4 text-center">
                     <div className="space-y-2">

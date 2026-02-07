@@ -3,6 +3,7 @@
 import { FloatingCard, type FloatingCardData } from "./FloatingCard";
 import { cn } from "@/lib/utils";
 import { useRef, useState, useEffect } from "react";
+import { useTheme } from "next-themes";
 
 // Base cards for landing page
 const BASE_CARDS: FloatingCardData[] = [
@@ -78,6 +79,7 @@ export function FloatingWorkspaceCards({
     className,
     includeExtraCards = false,
 }: FloatingWorkspaceCardsProps) {
+    const { resolvedTheme } = useTheme();
     const cards = includeExtraCards ? [...BASE_CARDS, ...EXTRA_CARDS] : BASE_CARDS;
     const [transform, setTransform] = useState({ x: 0, y: 0 });
     const rafRef = useRef<number | null>(null);
@@ -118,7 +120,8 @@ export function FloatingWorkspaceCards({
             {/* Cards layer - darkened */}
             <div
                 className={cn(
-                    "absolute inset-0 w-[120%] -ml-[10%] -mt-[5%] columns-2 md:columns-3 lg:columns-6 gap-4 md:gap-6 lg:gap-8 opacity-30 transition-transform duration-800 ease-out pointer-events-none",
+                    "absolute inset-0 w-[120%] -ml-[10%] -mt-[5%] columns-2 md:columns-3 lg:columns-6 gap-4 md:gap-6 lg:gap-8 transition-transform duration-800 ease-out pointer-events-none",
+                    resolvedTheme === 'dark' ? "opacity-30" : "opacity-50",
                     className
                 )}
                 style={{

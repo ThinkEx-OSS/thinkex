@@ -42,16 +42,16 @@ export function SourcesDisplay({ sources }: SourcesDisplayProps) {
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <button
-                        className="group flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-200 text-xs"
+                        className="group flex items-center gap-1.5 px-2 py-1 rounded-md bg-foreground/5 hover:bg-foreground/10 border border-foreground/10 hover:border-foreground/20 transition-all duration-200 text-xs"
                         onClick={(e) => e.stopPropagation()}
                         onMouseDown={(e) => e.stopPropagation()}
                         onPointerDown={(e) => e.stopPropagation()}
                     >
-                        <ExternalLink className="h-3 w-3 text-white/50 group-hover:text-white/70" />
-                        <span className="text-white/70 group-hover:text-white/90 font-medium">
+                        <ExternalLink className="h-3 w-3 text-foreground/50 group-hover:text-foreground/70" />
+                        <span className="text-foreground/70 group-hover:text-foreground/90 font-medium">
                             {visibleSources.length} {visibleSources.length === 1 ? "source" : "sources"}
                         </span>
-                        <ChevronDown className="h-3 w-3 text-white/40 group-hover:text-white/60" />
+                        <ChevronDown className="h-3 w-3 text-foreground/40 group-hover:text-foreground/60" />
                     </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent

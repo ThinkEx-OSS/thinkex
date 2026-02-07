@@ -13,7 +13,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       {children}
       <SonnerToaster
         position="top-right"
-        theme="dark"
+        theme="system"
         richColors
         closeButton
         className="aui-screenshot-ignore"

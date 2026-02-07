@@ -89,7 +89,10 @@ export function CardDetailModal({
     >
       {/* Backdrop with blur */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-xl"
+        className="absolute inset-0 backdrop-blur-xl backdrop-dark"
+        style={{
+          backgroundColor: 'var(--backdrop-bg, rgba(0, 0, 0, 0.6))'
+        }}
         onClick={onClose}
       />
 

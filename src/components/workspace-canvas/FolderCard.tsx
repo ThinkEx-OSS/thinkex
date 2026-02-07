@@ -415,7 +415,7 @@ function FolderCardComponent({
                   autoFocus={shouldAutoFocus}
                 />
                 {/* Item count as subtext */}
-                <p className="text-sm text-white/60 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   {itemCount} {itemCount === 1 ? "item" : "items"}
                 </p>
               </div>
