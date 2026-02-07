@@ -230,7 +230,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                         "cursor-default"
                     )}>
                         <div className="mb-6">
-                            <div className="text-sm text-foreground/60 prose prose-invert prose-sm max-w-none dark:text-white/60">
+                            <div className="text-sm text-gray-500/60 prose prose-sm max-w-none dark:text-foreground/60 dark:prose-invert">
                                 <div className="flex items-center gap-2">
                                     <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
                                     Generating quiz questions...
@@ -369,31 +369,31 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                                 disabled={isSubmitted}
                                 className={cn(
                                     "w-full p-3 text-left rounded-lg border transition-all duration-200 cursor-pointer",
-                                    !isSubmitted && !isSelected && "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20",
-                                    !isSubmitted && isSelected && "bg-blue-500/20 border-blue-400/50",
-                                    showCorrectness && isCorrect && "bg-green-500/20 border-green-400/50",
-                                    showCorrectness && isSelected && !isCorrect && "bg-red-500/20 border-red-400/50",
-                                    showCorrectness && !isSelected && !isCorrect && "bg-white/5 border-white/10 opacity-50",
+                                    !isSubmitted && !isSelected && "bg-gray-100/50 border-gray-200/50 hover:bg-gray-200/50 hover:border-gray-300/50 dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10 dark:hover:border-white/20",
+                                    !isSubmitted && isSelected && "bg-blue-100/50 border-blue-300/50 dark:bg-blue-500/20 dark:border-blue-400/50",
+                                    showCorrectness && isCorrect && "bg-green-100/50 border-green-300/50 dark:bg-green-500/20 dark:border-green-400/50",
+                                    showCorrectness && isSelected && !isCorrect && "bg-red-100/50 border-red-300/50 dark:bg-red-500/20 dark:border-red-400/50",
+                                    showCorrectness && !isSelected && !isCorrect && "bg-gray-100/30 border-gray-200/30 opacity-50 dark:bg-white/5 dark:border-white/10 dark:opacity-50",
                                     isSubmitted && "cursor-default"
                                 )}
                             >
                                 <div className="flex items-center gap-3">
                                     <span className={cn(
                                         "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium border",
-                                        showCorrectness && isCorrect ? "bg-green-500/30 border-green-400/50 text-green-300" :
-                                            showCorrectness && isSelected && !isCorrect ? "bg-red-500/30 border-red-400/50 text-red-300" :
-                                                isSelected ? "bg-blue-500/30 border-blue-400/50 text-blue-300" :
-                                                    "bg-white/10 border-white/20 text-white/60"
+                                        showCorrectness && isCorrect ? "bg-green-100/50 border-green-300/50 text-green-600 dark:bg-green-500/30 dark:border-green-400/50 dark:text-green-300" :
+                                            showCorrectness && isSelected && !isCorrect ? "bg-red-100/50 border-red-300/50 text-red-600 dark:bg-red-500/30 dark:border-red-400/50 dark:text-red-300" :
+                                                isSelected ? "bg-blue-100/50 border-blue-300/50 text-blue-600 dark:bg-blue-500/30 dark:border-blue-400/50 dark:text-blue-300" :
+                                                    "bg-gray-100/50 border-gray-300/50 text-gray-600 dark:bg-white/10 dark:border-white/20 dark:text-white/60"
                                     )}>
                                         {String.fromCharCode(65 + index)}
                                     </span>
-                        <div className="text-sm text-foreground/90 flex-1 prose prose-invert prose-sm max-w-none dark:text-white/90">
+                        <div className="text-sm text-gray-700/90 flex-1 prose prose-sm max-w-none dark:text-foreground/90 dark:prose-invert">
                             <StreamdownMarkdown>
                                 {option}
                             </StreamdownMarkdown>
                         </div>
-                                    {showCorrectness && isCorrect && <CheckCircle2 className="w-5 h-5 text-green-400" />}
-                                    {showCorrectness && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-400" />}
+                                    {showCorrectness && isCorrect && <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />}
+                                    {showCorrectness && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />}
                                 </div>
                             </button>
                         );
@@ -402,7 +402,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
 
                 {/* Hint */}
                 {showHint && currentQuestion.hint && (
-                    <div className="mt-4 mb-2 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-sm text-yellow-200/90">
+                    <div className="mt-4 mb-2 p-3 bg-yellow-100/50 border border-yellow-300/50 rounded-lg text-sm text-yellow-800/90 dark:bg-yellow-500/10 dark:border-yellow-500/20 dark:text-yellow-200/90">
                         {currentQuestion.hint}
                     </div>
                 )}
@@ -413,7 +413,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                             <button
                                 onMouseDown={preventFocusSteal}
                                 onClick={() => setShowHint(!showHint)}
-                                className="flex items-center gap-2 text-sm text-yellow-400/80 hover:text-yellow-400 transition-colors cursor-pointer"
+                                className="flex items-center gap-2 text-sm text-yellow-600/80 hover:text-yellow-600 transition-colors cursor-pointer dark:text-yellow-400/80 dark:hover:text-yellow-400"
                             >
                                 <Lightbulb className="w-4 h-4" />
                                 {showHint ? "Hide hint" : "Hint"}
@@ -423,9 +423,9 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
 
                     {/* Center: Progress bar */}
                     <div className="flex-1 mx-4">
-                        <div className="w-full h-1.5 bg-foreground/10 rounded-full overflow-hidden dark:bg-white/10">
+                        <div className="w-full h-1.5 bg-gray-200/50 rounded-full overflow-hidden dark:bg-foreground/10 dark:dark:bg-white/10">
                             <div
-                                className="h-full bg-foreground transition-all duration-300 dark:bg-white"
+                                className="h-full bg-gray-600 transition-all duration-300 dark:bg-foreground dark:dark:bg-white"
                                 style={{ width: `${((currentIndex + (isSubmitted ? 1 : 0)) / totalQuestions) * 100}%` }}
                             />
                         </div>
@@ -437,23 +437,23 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                     <div className={cn(
                         "mt-4 p-4 rounded-lg border",
                         selectedAnswer === currentQuestion.correctIndex
-                            ? "bg-green-500/10 border-green-500/20"
-                            : "bg-red-500/10 border-red-500/20"
+                            ? "bg-green-100/50 border-green-300/50 dark:bg-green-500/10 dark:border-green-500/20"
+                            : "bg-red-100/50 border-red-300/50 dark:bg-red-500/10 dark:border-red-500/20"
                     )}>
                         <div className="flex items-center gap-2 mb-2">
                             {selectedAnswer === currentQuestion.correctIndex ? (
                                 <>
-                                    <CheckCircle2 className="w-5 h-5 text-green-400" />
-                                    <span className="font-medium text-green-400">Correct!</span>
+                                    <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                                    <span className="font-medium text-green-600 dark:text-green-400">Correct!</span>
                                 </>
                             ) : (
                                 <>
-                                    <XCircle className="w-5 h-5 text-red-400" />
-                                    <span className="font-medium text-red-400">Incorrect</span>
+                                    <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                                    <span className="font-medium text-red-600 dark:text-red-400">Incorrect</span>
                                 </>
                             )}
                         </div>
-                        <div className="text-sm text-foreground prose prose-sm max-w-none">
+                        <div className="text-sm text-gray-700 prose prose-sm max-w-none dark:text-foreground dark:prose-invert">
                             <StreamdownMarkdown>
                                 {currentQuestion.explanation}
                             </StreamdownMarkdown>
@@ -470,7 +470,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                         <button
                             onMouseDown={preventFocusSteal}
                             onClick={handleRestart}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-foreground/40 hover:text-foreground hover:bg-white/10 transition-colors cursor-pointer dark:text-white/40 dark:hover:text-white"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-500/70 hover:text-gray-700 hover:bg-gray-100/50 transition-colors cursor-pointer dark:text-foreground/40 dark:hover:text-foreground dark:hover:bg-white/10"
                         >
                             <RotateCcw className="w-4 h-4 rotate-180" />
                             <span>Restart</span>
@@ -486,13 +486,13 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                             className={cn(
                                 "flex items-center justify-center w-8 h-8 rounded-lg text-sm transition-colors cursor-pointer",
                                 currentIndex === 0
-                                    ? "text-foreground/30 cursor-not-allowed dark:text-white/30"
-                                    : "text-foreground/70 hover:text-foreground hover:bg-white/10 dark:text-white/70 dark:hover:text-white"
+                                    ? "text-gray-300 cursor-not-allowed dark:text-foreground/30"
+                                    : "text-gray-600 hover:text-gray-700 hover:bg-gray-100/50 dark:text-foreground/70 dark:hover:text-foreground dark:hover:bg-white/10"
                             )}
                         >
                             <ChevronLeft className="w-4 h-4" />
                         </button>
-                        <span className="text-xs text-foreground/50 px-1 dark:text-white/50">
+                        <span className="text-xs text-gray-500 px-1 dark:text-foreground/50">
                             {currentIndex + 1} / {totalQuestions}
                         </span>
                         <button
@@ -502,8 +502,8 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                             className={cn(
                                 "flex items-center justify-center w-8 h-8 rounded-lg text-sm transition-colors cursor-pointer",
                                 currentIndex >= totalQuestions - 1
-                                    ? "text-foreground/30 cursor-not-allowed dark:text-white/30"
-                                    : "text-foreground/70 hover:text-foreground hover:bg-white/10 dark:text-white/70 dark:hover:text-white"
+                                    ? "text-gray-300 cursor-not-allowed dark:text-foreground/30"
+                                    : "text-gray-600 hover:text-gray-700 hover:bg-gray-100/50 dark:text-foreground/70 dark:hover:text-foreground dark:hover:bg-white/10"
                             )}
                         >
                             <ChevronRight className="w-4 h-4" />
@@ -520,8 +520,8 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                                 className={cn(
                                     "px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
                                     selectedAnswer === null
-                                        ? "bg-white/10 text-foreground/30 cursor-not-allowed dark:text-white/30"
-                                        : "bg-blue-500 hover:bg-blue-600 text-foreground dark:text-white"
+                                        ? "bg-gray-200/50 text-gray-400 cursor-not-allowed dark:bg-white/10 dark:text-foreground/30"
+                                        : "bg-blue-500 hover:bg-blue-600 text-white dark:text-white"
                                 )}
                             >
                                 Check
@@ -530,7 +530,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                             <button
                                 onMouseDown={preventFocusSteal}
                                 onClick={handleNext}
-                                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer bg-blue-500 hover:bg-blue-600 text-foreground dark:text-white"
+                                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer bg-blue-500 hover:bg-blue-600 text-white dark:text-white"
                             >
                                 {currentIndex < totalQuestions - 1 ? "Next" : "Finish"}
                             </button>
