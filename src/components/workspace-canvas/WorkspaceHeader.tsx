@@ -770,6 +770,14 @@ export default function WorkspaceHeader({
               </TooltipTrigger>
               <TooltipContent>Close</TooltipContent>
             </Tooltip>
+
+            {setIsChatExpanded ? (
+              <ChatFloatingButton
+                isDesktop={isDesktop}
+                isChatExpanded={isChatExpanded}
+                setIsChatExpanded={setIsChatExpanded}
+              />
+            ) : null}
           </div>
         ) : (
           // Default Mode: Standard Workspace Controls
