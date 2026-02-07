@@ -156,8 +156,7 @@ async function handlePOST(
         .select({
             userId: workspaces.userId,
             name: workspaces.name,
-            slug: workspaces.slug,
-            color: workspaces.color
+            slug: workspaces.slug
         })
         .from(workspaces)
         .where(eq(workspaces.id, workspaceId))
@@ -203,7 +202,6 @@ async function handlePOST(
                     inviterName: currentUser.name || 'A user',
                     workspaceName: ws.name || 'Workspace',
                     workspaceUrl,
-                    workspaceColor: ws.color || undefined,
                     permissionLevel,
                 }),
 
@@ -273,10 +271,7 @@ async function handlePOST(
                 inviterName: currentUser.name || 'A user',
                 workspaceName: ws.name || 'Workspace',
                 workspaceUrl,
-                workspaceColor: ws.color || undefined,
-                permissionLevel,
             }),
-            attachments: [logoAttachment],
         });
     } catch (emailError) {
         console.error("Error sending pending invitation email:", emailError);

@@ -10,7 +10,6 @@ interface InviteEmailTemplateProps {
     inviterName?: string;
     workspaceName: string;
     workspaceUrl: string;
-    workspaceColor?: string;
     permissionLevel?: string;
 }
 
@@ -20,7 +19,7 @@ export function InviteEmailTemplate({
     workspaceUrl,
     permissionLevel,
 }: Readonly<InviteEmailTemplateProps>): React.ReactElement {
-    const roleText = permissionLevel === 'viewer' ? 'a viewer' : 'an editor';
+    const roleText = permissionLevel === 'viewer' ? 'a Viewer' : 'an Editor';
 
     return (
         <div style={{ backgroundColor: BG, margin: 0, padding: 0, width: '100%' }}>
