@@ -35,8 +35,10 @@ import { AnonymousSessionHandler, SidebarCoordinator } from "@/components/layout
 import { PdfEngineWrapper } from "@/components/pdf/PdfEngineWrapper";
 import WorkspaceSettingsModal from "@/components/workspace/WorkspaceSettingsModal";
 import ShareWorkspaceDialog from "@/components/workspace/ShareWorkspaceDialog";
+import { WorkspaceInstructionModal } from "@/components/onboarding/WorkspaceInstructionModal";
 import { RealtimeProvider } from "@/contexts/RealtimeContext";
 import { toast } from "sonner";
+import { useWorkspaceInstructionModal } from "@/hooks/workspace/use-workspace-instruction-modal";
 
 import { InviteGuard } from "@/components/workspace/InviteGuard";
 
@@ -104,6 +106,14 @@ function DashboardContent({
   // Workspace settings/share modals (lifted so header can open them)
   const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
   const [showWorkspaceShare, setShowWorkspaceShare] = useState(false);
+  const [assistantThreadRunning, setAssistantThreadRunning] = useState<boolean | null>(null);
+
+  const instructionModal = useWorkspaceInstructionModal({
+    workspaceId: currentWorkspaceId,
+    userId: session?.user?.id ?? null,
+    assistantIsRunning: assistantThreadRunning,
+    analytics: posthog ?? null,
+  });
 
   // Show sign-in prompt after 13 events for anonymous users
   useEffect(() => {
@@ -427,6 +437,7 @@ function DashboardContent({
         onWorkspaceSizeChange={setWorkspacePanelSize}
         onSingleSelect={handleCreateInstantNote}
         onMultiSelect={handleCreateCardFromSelections}
+        onAssistantThreadRunningChange={setAssistantThreadRunning}
         panels={panels}
         workspaceSection={
           <WorkspaceSection
@@ -467,6 +478,17 @@ function DashboardContent({
         modalManager={modalManagerElement}
         maximizedItemId={maximizedItemId}
       />
+      {instructionModal.open && instructionModal.mode && (
+        <WorkspaceInstructionModal
+          mode={instructionModal.mode}
+          open={instructionModal.open}
+          canClose={instructionModal.canClose}
+          showFallback={instructionModal.showFallback}
+          onRequestClose={instructionModal.close}
+          onFallbackContinue={instructionModal.continueFromFallback}
+          useStaticFallback={true}
+        />
+      )}
 
       <WorkspaceSettingsModal
         workspace={currentWorkspace}
