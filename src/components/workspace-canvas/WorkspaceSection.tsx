@@ -44,8 +44,7 @@ import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
 import { useAui } from "@assistant-ui/react";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
-import { CreateImageDialog } from "@/components/modals/CreateImageDialog";
-import { ImageIcon } from "lucide-react";
+import { UploadDialog } from "@/components/modals/UploadDialog";
 import { getBestFrameForRatio } from "@/lib/workspace-state/aspect-ratios";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 
@@ -191,7 +190,7 @@ export function WorkspaceSection({
 
   // Workspace settings and share modal state
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
-  const [showImageDialog, setShowImageDialog] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
 
   // Get workspace data from context
   const { workspaces } = useWorkspaceContext();
@@ -243,8 +242,8 @@ export function WorkspaceSection({
     toast.success("Image added to workspace");
   }, [operations]);
 
-  // Handle smart image selection from menu
-  const handleImageMenuItemClick = useCallback(async () => {
+  // Handle smart upload from context menu: try clipboard paste first, then open dialog
+  const handleUploadMenuItemClick = useCallback(async () => {
     try {
       // Check for clipboard permissions/content
       const clipboardItems = await navigator.clipboard.read();
@@ -284,8 +283,8 @@ export function WorkspaceSection({
       console.debug("Clipboard read failed or empty, falling back to dialog", e);
     }
 
-    // If no image found or error, open the manual dialog
-    setShowImageDialog(true);
+    // If no image found or error, open the upload dialog
+    setShowUploadDialog(true);
   }, [handleImageCreate]);
 
   // Handle delete request (from button or keyboard)
@@ -413,14 +412,6 @@ export function WorkspaceSection({
     // Note: FolderCard auto-focuses the title when name is "New Folder"
   };
 
-  // File input ref for PDF upload from context menu
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  // Handle PDF upload trigger from context menu
-  const triggerFileSelect = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
-
   // Handle PDF upload from BottomActionBar
   const handlePDFUpload = async (files: File[]) => {
     if (!operations || !currentWorkspaceId) {
@@ -498,27 +489,6 @@ export function WorkspaceSection({
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div ref={scrollAreaRef} className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
-            {/* Hidden file input for PDF upload from context menu */}
-            {operations && currentWorkspaceId && (
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,application/pdf"
-                multiple
-                onChange={async (e) => {
-                  const files = Array.from(e.target.files || []);
-                  if (files.length > 0) {
-                    await handlePDFUpload(files);
-                  }
-                  // Reset input
-                  if (fileInputRef.current) {
-                    fileInputRef.current.value = '';
-                  }
-                }}
-                className="hidden"
-              />
-            )}
-
             <div className={cn(
               "relative min-h-full flex flex-col",
               showJsonView ? "h-full" : "",
@@ -614,11 +584,11 @@ export function WorkspaceSection({
 
             {operations && currentWorkspaceId && (
               <ContextMenuItem
-                onSelect={triggerFileSelect}
+                onSelect={handleUploadMenuItemClick}
                 className="flex items-center gap-2 cursor-pointer"
               >
                 <Upload className="size-4" />
-                Upload PDFs
+                Upload (PDF, Image)
               </ContextMenuItem>
             )}
 
@@ -659,13 +629,6 @@ export function WorkspaceSection({
             >
               <Play className="size-4" />
               YouTube
-            </ContextMenuItem>
-            <ContextMenuItem
-              onSelect={handleImageMenuItemClick}
-              className="flex items-center gap-2 cursor-pointer"
-            >
-              <ImageIcon className="size-4" />
-              Image
             </ContextMenuItem>
             {/* <ContextMenuItem
               onSelect={() => {
@@ -739,12 +702,15 @@ export function WorkspaceSection({
         onCreate={handleYouTubeCreate}
       />
 
-      {/* Image Dialog */}
-      <CreateImageDialog
-        open={showImageDialog}
-        onOpenChange={setShowImageDialog}
-        onCreate={handleImageCreate}
-      />
+      {/* Upload Dialog (PDF + Image) */}
+      {operations && currentWorkspaceId && (
+        <UploadDialog
+          open={showUploadDialog}
+          onOpenChange={setShowUploadDialog}
+          onImageCreate={handleImageCreate}
+          onPDFUpload={handlePDFUpload}
+        />
+      )}
     </div>
   );
 }
