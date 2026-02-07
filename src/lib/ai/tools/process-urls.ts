@@ -6,49 +6,7 @@ import { logger } from "@/lib/utils/logger";
 /**
  * Create the processUrls tool for analyzing web pages
  */
-// Helper to extract text from HTML using Cheerio
-async function extractTextFromUrl(url: string): Promise<string> {
-    const { load } = await import("cheerio");
 
-    // Use a browser-like User-Agent to bypass basic bot blockers
-    const response = await fetch(url, {
-        headers: {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-        }
-    });
-
-    if (!response.ok) {
-        throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
-    }
-
-    const html = await response.text();
-    const $ = load(html);
-
-    // Remove scripts, styles, and other non-content elements
-    $('script').remove();
-    $('style').remove();
-    $('nav').remove();
-    $('footer').remove();
-    $('iframe').remove();
-    $('noscript').remove();
-
-    // specific cleanup for documentation sites often helps
-    $('.navigation').remove();
-    $('.sidebar').remove();
-
-    // Extract text from body
-    // collapsing whitespace to single spaces
-    const text = $('body').text().replace(/\s+/g, ' ').trim();
-
-    // If body text is too short, it might be a JS-only site or failed extraction
-    if (text.length < 50) {
-        throw new Error("Extracted text is too short, possibly a JavaScript-required site");
-    }
-
-    return text.substring(0, 20000); // Limit context window usage
-}
 
 /**
  * Create the processUrls tool for analyzing web pages
