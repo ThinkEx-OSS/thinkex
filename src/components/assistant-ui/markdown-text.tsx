@@ -13,6 +13,7 @@ import { useMessagePartText } from "@assistant-ui/react";
 import { useAuiState } from "@assistant-ui/react";
 import { cn } from "@/lib/utils";
 import React, { memo, useRef, useEffect } from "react";
+import { MarkdownLink } from "@/components/ui/markdown-link";
 
 /**
  * Normalize various LaTeX delimiter formats to $$...$$ which is what
@@ -128,6 +129,7 @@ const MarkdownTextImpl = () => {
         className={cn(
           "streamdown-content size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
         )}
+        linkSafety={{ enabled: false }}
         plugins={{
           code: code,
           mermaid: mermaid,
@@ -148,6 +150,7 @@ const MarkdownTextImpl = () => {
           ]
         ]}
         components={{
+          a: MarkdownLink,
           ol: ({ children }) => (
             <ol className="ml-4 list-outside list-decimal whitespace-normal">
               {children}

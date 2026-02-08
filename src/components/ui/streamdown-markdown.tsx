@@ -6,6 +6,7 @@ import { mermaid } from "@streamdown/mermaid";
 import { math } from "@streamdown/math";
 import { cn } from "@/lib/utils";
 import React, { memo } from "react";
+import { MarkdownLink } from "@/components/ui/markdown-link";
 
 // Create code plugin with one-dark-pro theme
 const code = createCodePlugin({
@@ -45,6 +46,7 @@ const StreamdownMarkdownImpl: React.FC<StreamdownMarkdownProps> = ({
       <Streamdown
         caret="block"
         className="streamdown-content size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+        linkSafety={{ enabled: false }}
         plugins={{
           code: code,
           mermaid: mermaid,
@@ -65,6 +67,7 @@ const StreamdownMarkdownImpl: React.FC<StreamdownMarkdownProps> = ({
           ]
         ]}
         components={{
+          a: MarkdownLink,
           ol: ({ children }) => (
             <ol className="ml-4 list-outside list-decimal whitespace-normal">
               {children}
