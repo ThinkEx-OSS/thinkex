@@ -11,9 +11,10 @@ interface AnalyticsClient {
   capture: (event: string, properties?: Record<string, unknown>) => void;
 }
 
+const INTRO_SEEN_KEY = "thinkex:intro-modal-seen";
+
 interface UseWorkspaceInstructionModalParams {
   workspaceId: string | null;
-  isFirstWorkspace: boolean;
   assistantIsRunning: boolean | null;
   analytics?: AnalyticsClient | null;
 }
@@ -34,7 +35,6 @@ const AUTOGEN_FALLBACK_MS = 45000;
 
 export function useWorkspaceInstructionModal({
   workspaceId,
-  isFirstWorkspace,
   assistantIsRunning,
   analytics,
 }: UseWorkspaceInstructionModalParams): UseWorkspaceInstructionModalResult {
@@ -54,7 +54,6 @@ export function useWorkspaceInstructionModal({
   const seenRunningInCurrentAutogenRef = useRef(false);
   const userInteractedRef = useRef(false);
   const dismissedAutogenSignaturesRef = useRef<Set<string>>(new Set());
-  const hasShownFirstOpenRef = useRef(false);
 
   const autogenSignature = `${workspaceId ?? "none"}|${createFrom ?? ""}|${action ?? ""}`;
 
@@ -144,16 +143,20 @@ export function useWorkspaceInstructionModal({
       return;
     }
 
-    // First workspace ever — show intro modal (once per session)
-    if (isFirstWorkspace && !hasShownFirstOpenRef.current) {
-      hasShownFirstOpenRef.current = true;
-      setOpen(true);
-      setMode("first-open");
-      setCanClose(false);
-      setShowFallback(false);
+    // First workspace ever — show intro modal (once, persisted via localStorage)
+    try {
+      if (!localStorage.getItem(INTRO_SEEN_KEY)) {
+        localStorage.setItem(INTRO_SEEN_KEY, "1");
+        setOpen(true);
+        setMode("first-open");
+        setCanClose(false);
+        setShowFallback(false);
+      }
+    } catch {
+      // localStorage unavailable (SSR, private browsing quota) — skip
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autogenSignature, isAutogenRoute, isFirstWorkspace, workspaceId]);
+  }, [autogenSignature, isAutogenRoute, workspaceId]);
 
   useEffect(() => {
     if (!open || !mode) return;

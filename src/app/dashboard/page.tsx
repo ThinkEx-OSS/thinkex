@@ -115,7 +115,6 @@ function DashboardContent({
 
   const instructionModal = useWorkspaceInstructionModal({
     workspaceId: currentWorkspaceId,
-    isFirstWorkspace: !loadingAllWorkspaces && (allWorkspaces.length === 0 || (allWorkspaces.length === 1 && allWorkspaces[0]?.id === currentWorkspaceId)),
     assistantIsRunning: assistantThreadRunning,
     analytics: posthog ?? null,
   });
