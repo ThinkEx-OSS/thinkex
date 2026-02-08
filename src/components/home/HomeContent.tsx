@@ -15,6 +15,7 @@ import { FolderPlus, Github } from "lucide-react";
 import { useCreateWorkspace } from "@/hooks/workspace/use-create-workspace";
 import { useSession } from "@/lib/auth-client";
 import { markNewWorkspaceInstruction } from "@/lib/workspace/instruction-modal";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import {
   HoverCard,
   HoverCardContent,
@@ -37,6 +38,7 @@ export function HomeContent() {
   const [heroVisible, setHeroVisible] = useState(true);
 
   const createWorkspace = useCreateWorkspace();
+  const { workspaces, loadingWorkspaces } = useWorkspaceContext();
   const [workspacesVisible, setWorkspacesVisible] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -181,6 +183,9 @@ export function HomeContent() {
             {/* Dynamic tagline with mask wipe animation */}
             <div className="mb-6 relative z-10">
               <DynamicTagline />
+              <p className="text-sm text-white/50 mt-2 text-center">
+                Built for students, research, and creative work
+              </p>
             </div>
             <div className="flex justify-center w-full relative z-10">
               <HomePromptInput shouldFocus={heroVisible} />
@@ -205,6 +210,16 @@ export function HomeContent() {
         {/* Workspaces Section - Allow scrolling within */}
         <div ref={workspacesRef} className="relative z-10 px-6 pb-8 pt-8 min-h-screen bg-gradient-to-b from-transparent via-background to-black">
           <div className="w-full max-w-6xl mx-auto h-full">
+            {/* First-visit explainer for new users */}
+            {!loadingWorkspaces && workspaces.length === 0 && (
+              <div className="mb-6 rounded-md border border-white/10 bg-sidebar p-6 text-center">
+                <p className="text-sm text-muted-foreground leading-relaxed max-w-lg mx-auto">
+                  ThinkEx is like spreading everything out on your desk, except the desk can answer questions.
+                  Drop in your study materials, research papers, or project files &mdash; then think through them with AI.
+                </p>
+              </div>
+            )}
+
             {/* Your Workspaces */}
             <div className="bg-sidebar rounded-md p-6">
               <h2 className="text-lg font-normal text-muted-foreground mb-4">Recent workspaces</h2>
