@@ -1,13 +1,14 @@
 "use client";
 
 import { useUIStore } from "@/lib/stores/ui-store";
-import type { Item, ItemData, NoteData, PdfData, FlashcardData, YouTubeData } from "@/lib/workspace-state/types";
+import type { Item, ItemData, NoteData, PdfData, FlashcardData, YouTubeData, ImageData } from "@/lib/workspace-state/types";
 import { useMemo, useState } from "react";
 import { DynamicBlockNoteEditor } from "@/components/editor/DynamicBlockNoteEditor";
 import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEditor";
 import FlashcardContent from "./FlashcardContent";
 import YouTubeCardContent from "./YouTubeCardContent";
 import { SourcesDisplay } from "./SourcesDisplay";
+import ImageCardContent from "./ImageCardContent";
 
 import { QuizContent } from "./QuizContent";
 
@@ -107,6 +108,10 @@ export function CardRenderer(props: {
         onTogglePlay={(playing) => setCardPlaying(item.id, playing)}
       />
     );
+  }
+
+  if (item.type === "image") {
+    return <ImageCardContent item={item} />;
   }
 
   return (

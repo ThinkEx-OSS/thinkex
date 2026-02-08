@@ -64,11 +64,11 @@ export async function POST(request: NextRequest) {
     // Accept all file types (removed image-only restriction)
     // File type validation can be done client-side if needed
 
-    // Validate file size (10MB limit)
+    // Validate file size (50MB limit)
     const maxSize = 50 * 1024 * 1024; // 50MB
     if (file.size > maxSize) {
       return NextResponse.json(
-        { error: "File size exceeds 10MB limit" },
+        { error: "File size exceeds 50MB limit" },
         { status: 400 }
       );
     }
@@ -77,7 +77,9 @@ export async function POST(request: NextRequest) {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 15);
     const originalName = file.name;
-    const filename = `${timestamp}-${random}-${originalName}`;
+    // Sanitize filename: remove spaces and special chars, keep only alphanumeric, dots, hyphens, underscores
+    const sanitizedName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const filename = `${timestamp}-${random}-${sanitizedName}`;
 
     const storageType = getStorageType();
     let publicUrl: string;

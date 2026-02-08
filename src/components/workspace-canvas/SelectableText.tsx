@@ -205,6 +205,20 @@ export const SelectableText = React.forwardRef<SelectableTextRef, SelectableText
         return;
       }
 
+      // Only show tooltip if the selection starts from within an assistant message content element
+      const startElement = startContainer.nodeType === Node.TEXT_NODE
+        ? startContainer.parentElement
+        : startContainer as Element;
+      if (!startElement?.closest('.aui-assistant-message-content')) {
+        if (currentSelectionRef.current) {
+          setCurrentSelection(null);
+          onSelectionChange?.(null);
+        }
+        mouseUpPositionRef.current = null;
+        isMouseUpTriggeredRef.current = false;
+        return;
+      }
+
       // Only show tooltip if triggered by mouse up
       if (!fromMouseUp && !isMouseUpTriggeredRef.current) {
         return;

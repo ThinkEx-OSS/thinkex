@@ -1,6 +1,6 @@
 import type { CardColor } from './colors';
 
-export type CardType = "note" | "pdf" | "flashcard" | "folder" | "youtube" | "quiz";
+export type CardType = "note" | "pdf" | "flashcard" | "folder" | "youtube" | "quiz" | "image";
 
 /**
  * Source attribution for notes created from web search or deep research
@@ -59,6 +59,12 @@ export interface YouTubeData {
   thumbnail?: string; // Optional thumbnail URL from oEmbed API
 }
 
+export interface ImageData {
+  url: string;      // The source URL of the image
+  altText?: string; // Optional accessibility text
+  caption?: string; // Optional caption
+}
+
 // Quiz Types
 export type QuestionType = "multiple_choice" | "true_false";
 
@@ -93,7 +99,7 @@ export interface QuizData {
   session?: QuizSessionData;    // Session state for resuming
 }
 
-export type ItemData = NoteData | PdfData | FlashcardData | FolderData | YouTubeData | QuizData;
+export type ItemData = NoteData | PdfData | FlashcardData | FolderData | YouTubeData | QuizData | ImageData;
 
 // =====================================================
 // FOLDER TYPES (DEPRECATED)

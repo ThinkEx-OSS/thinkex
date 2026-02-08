@@ -37,15 +37,35 @@ export async function POST(req: Request) {
 
         logger.info("📝 [API] Creating note from URLs:", { workspaceId, urlCount: urls.length });
 
-        // Use Google's URL Context API to analyze the content
-        const tools: any = {
-            url_context: google.tools.urlContext({}),
-        };
+        // Dynamically import UrlProcessor to avoid circular dependencies
+        const { UrlProcessor } = await import("@/lib/ai/utils/url-processor");
 
-        const promptText = `Analyze the content from the following website URL(s) and create a comprehensive study note.
+        // 1. Fetch content using the shared processor (handles blocking/fallbacks)
+        const processingResults = await UrlProcessor.processUrls(urls);
 
-URLs to analyze:
-${urls.map((url, i) => `${i + 1}. ${url}`).join('\n')}
+        // Filter out failed fetches (but log them)
+        const validResults = processingResults.filter(r => r.success);
+        const failedResults = processingResults.filter(r => !r.success);
+
+        if (validResults.length === 0) {
+            const errors = processingResults.map(r => `${r.url}: ${r.error}`).join('; ');
+            return new Response(JSON.stringify({
+                error: "Failed to fetch content from any of the provided URLs. They may be blocked or inaccessible.",
+                details: errors
+            }), {
+                status: 400,
+                headers: { "Content-Type": "application/json" },
+            });
+        }
+
+        // 2. Synthesize content structure for the LLM
+        const contentToAnalyze = validResults
+            .map((r, i) => `URL ${i + 1}: ${r.url}\nTitle: ${r.title}\nContent:\n${r.content}\n---`)
+            .join("\n\n");
+
+        const promptText = `Analyze the content from the following website content and create a comprehensive study note.
+
+${contentToAnalyze}
 
 Provide your response in this exact format with clear delimiters:
 
@@ -66,7 +86,6 @@ Make sure to:
 
         const { text } = await generateText({
             model: google("gemini-2.5-flash"),
-            tools,
             prompt: promptText,
         });
 
@@ -108,14 +127,7 @@ Make sure to:
 
         // Ensure sources are populated with the original URLs if missing
         if (sources.length === 0) {
-            sources = urls.map(url => {
-                try {
-                    const hostname = new URL(url).hostname;
-                    return { title: hostname, url };
-                } catch {
-                    return { title: url, url };
-                }
-            });
+            sources = validResults.map(r => ({ title: r.title, url: r.url }));
         }
 
         // Create the note using workspace worker
@@ -136,7 +148,14 @@ Make sure to:
 
         logger.info("📝 [API] Note created from URLs successfully:", { itemId: workerResult.itemId });
 
-        return new Response(JSON.stringify(workerResult), {
+        // Include warning about failed URLs in the success response
+        const responseData: any = { ...workerResult };
+        if (failedResults.length > 0) {
+            responseData.warning = `Failed to process ${failedResults.length} URL(s): ${failedResults.map(r => r.url).join(', ')}`;
+            responseData.failedUrls = failedResults.map(r => ({ url: r.url, error: r.error }));
+        }
+
+        return new Response(JSON.stringify(responseData), {
             status: 200,
             headers: { "Content-Type": "application/json" },
         });

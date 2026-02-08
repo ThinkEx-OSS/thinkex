@@ -23,9 +23,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/home", request.url));
   }
 
-  // Redirect authenticated users away from auth pages
-  if (sessionCookie && ["/sign-in", "/sign-up"].includes(pathname)) {
-    // Preserve redirect_url if present
+  // Redirect authenticated users away from sign-in page only
+  // Note: /sign-up is NOT blocked because anonymous users (who have a session cookie)
+  // need to be able to reach the sign-up page to create a real account
+  if (sessionCookie && pathname === "/sign-in") {
     const redirectUrl = request.nextUrl.searchParams.get('redirect_url') || '/home';
     return NextResponse.redirect(new URL(redirectUrl, request.url));
   }

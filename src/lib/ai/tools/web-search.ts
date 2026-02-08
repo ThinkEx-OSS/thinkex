@@ -75,7 +75,7 @@ export function createWebSearchTool() {
         execute: async ({ query }) => {
             // Use a lightweight model for the internal search loop
             const { text, providerMetadata } = await generateText({
-                model: google('gemini-flash-lite-latest'),
+                model: google('gemini-2.5-flash-lite'),
                 tools: {
                     googleSearch: google.tools.googleSearch({
                         mode: 'MODE_UNSPECIFIED',

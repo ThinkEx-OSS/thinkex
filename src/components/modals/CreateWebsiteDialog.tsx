@@ -103,10 +103,18 @@ export function CreateWebsiteDialog({
             const result = await response.json();
 
             if (result.success && result.itemId) {
-                toast.success("Website note created!", {
-                    id: toastId,
-                    description: "Your note is ready",
-                });
+                if (result.warning) {
+                    toast.warning("Note created with issues", {
+                        id: toastId,
+                        description: result.warning,
+                        duration: 6000,
+                    });
+                } else {
+                    toast.success("Website note created!", {
+                        id: toastId,
+                        description: "Your note is ready",
+                    });
+                }
                 onNoteCreated?.(result.itemId);
             } else {
                 throw new Error(result.message || "Failed to create note");
@@ -145,9 +153,63 @@ export function CreateWebsiteDialog({
         }
     }, [open]);
 
+    const handlePaste = useCallback((e: React.ClipboardEvent) => {
+        // Prevent default paste to handle it manually
+        e.preventDefault();
+
+        // Get pasted text
+        let text = e.clipboardData.getData("text");
+
+        // 1. Pre-process to separate mashed URLs (e.g. "http://a.comhttp://b.com")
+        // This adds a space before any http protocol that isn't at the very start
+        text = text.replace(/(?<!^)(https?:\/\/)/g, " $1");
+
+        // 2. Split by whitespace or commas
+        // Filter out empty strings
+        const urls = text.split(/[\s,]+/).filter(Boolean);
+
+        if (urls.length === 0) return;
+
+        // 3. Prepare content to insert
+        let formattedText = urls.join("\n");
+
+        // 4. Handle insertion context
+        const textarea = e.currentTarget as HTMLTextAreaElement;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+
+        const currentValue = urlsText;
+
+        // If we are appending to a line that has content, prepend a newline
+        // We look at the character before the cursor
+        if (start > 0 && currentValue[start - 1] !== "\n") {
+            formattedText = "\n" + formattedText;
+        }
+
+        const newValue =
+            currentValue.substring(0, start) +
+            formattedText +
+            currentValue.substring(end);
+
+        setUrlsText(newValue);
+
+        // Update cursor position (async to let render happen, though React state update might contest this)
+        // With standard React controlled inputs, we usually just set state. 
+        // We can create a synthetic change event or just let the effect handle it, 
+        // but explicit state setting is cleanest here.
+
+        // Fix cursor position after update
+        setTimeout(() => {
+            if (textareaRef.current) {
+                const newCursorPos = start + formattedText.length;
+                textareaRef.current.selectionStart = textareaRef.current.selectionEnd = newCursorPos;
+            }
+        }, 0);
+    }, [urlsText]);
+
     return (
         <Dialog open={open} onOpenChange={isCreating ? undefined : onOpenChange}>
-            <DialogContent onKeyDown={handleKeyDown} className="sm:max-w-md">
+            <DialogContent onKeyDown={handleKeyDown} className="sm:max-w-md max-h-[85vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Create Note from Websites</DialogTitle>
                     <DialogDescription>
@@ -155,7 +217,7 @@ export function CreateWebsiteDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-4 py-4">
+                <div className="space-y-4 py-4 overflow-y-auto flex-1 min-h-0">
                     <div className="space-y-2">
                         <Label htmlFor="website-urls">Website URLs</Label>
                         <Textarea
@@ -164,9 +226,10 @@ export function CreateWebsiteDialog({
                             placeholder="https://example.com/page-1&#10;https://example.com/page-2"
                             value={urlsText}
                             onChange={(e) => setUrlsText(e.target.value)}
+                            onPaste={handlePaste}
                             rows={5}
                             disabled={isCreating}
-                            className="resize-none"
+                            className="resize-none max-h-[40vh] overflow-y-auto"
                         />
                         {urlsText && (
                             <p className="text-xs text-muted-foreground">

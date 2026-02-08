@@ -114,7 +114,7 @@ async function processLocalFiles(
     logger.debug("📁 [FILE_TOOL] Sending batched analysis request for", fileInfos.length, "local files");
 
     const { text: batchAnalysis } = await generateText({
-        model: google("gemini-flash-lite-latest"),
+        model: google("gemini-2.5-flash-lite"),
         messages: [{
             role: "user",
             content: messageContent,
@@ -157,7 +157,7 @@ async function processSupabaseFiles(
     logger.debug("📁 [FILE_TOOL] Sending batched analysis request for", fileInfos.length, "files with URLs");
 
     const { text: batchAnalysis } = await generateText({
-        model: google("gemini-flash-lite-latest"),
+        model: google("gemini-2.5-flash-lite"),
         messages: [{
             role: "user",
             content: messageContent,
@@ -187,7 +187,7 @@ async function processYouTubeVideo(
 Provide a clear, comprehensive analysis of the video content.`;
 
     const { text: videoAnalysis } = await generateText({
-        model: google("gemini-flash-lite-latest"),
+        model: google("gemini-2.5-flash-lite"),
         messages: [{
             role: "user",
             content: [

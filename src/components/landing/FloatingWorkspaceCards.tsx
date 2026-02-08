@@ -3,11 +3,12 @@
 import { FloatingCard, type FloatingCardData } from "./FloatingCard";
 import { cn } from "@/lib/utils";
 import { useRef, useState, useEffect } from "react";
+import { useTheme } from "next-themes";
 
 // Base cards for landing page
 const BASE_CARDS: FloatingCardData[] = [
     // Column 1ish - The Origins of Light at top for visibility
-    { type: 'youtube', youtubeUrl: 'https://www.youtube.com/watch?v=aXRTczANuIs', thumbnailUrl: 'https://img.youtube.com/vi/aXRTczANuIs/sddefault.jpg' }, // The Origins of Light
+    { type: 'youtube', youtubeUrl: 'https://youtu.be/tGVnBAHLApA', thumbnailUrl: 'https://img.youtube.com/vi/tGVnBAHLApA/sddefault.jpg' }, // New video
     { type: 'note', title: 'Product Vision 2025', color: '#3B82F6' },
     { type: 'note', title: 'Tech Stack Decision Log', color: '#E11D48' },
     { type: 'flashcard', content: 'What is the primary function of the hippocampus?', color: '#EF4444' },
@@ -26,7 +27,7 @@ const BASE_CARDS: FloatingCardData[] = [
 
     // Column 4ish
     { type: 'youtube', youtubeUrl: 'https://www.youtube.com/watch?v=WUvTyaaNkzM', thumbnailUrl: 'https://img.youtube.com/vi/WUvTyaaNkzM/sddefault.jpg' },
-    { type: 'folder', title: 'Archive 2024', itemCount: 156, color: '#64748B' },
+    { type: 'folder', title: 'Archive 2024', itemCount: 156, color: '#6366F1' },
     { type: 'pdf', title: 'User_Interview_Script_v2.pdf', color: '#6366F1' },
     { type: 'folder', title: 'Neurology Resources', itemCount: 18, color: '#8B5CF6' },
 ];
@@ -57,7 +58,7 @@ const EXTRA_CARDS: FloatingCardData[] = [
     { type: 'note', title: 'Backend Architecture', color: '#8B5CF6' },
     { type: 'folder', title: 'UI Components', itemCount: 45, color: '#EF4444' },
     { type: 'flashcard', content: 'Explain event bubbling vs capturing', color: '#F97316' },
-    { type: 'pdf', title: 'Security_Audit_Report.pdf', color: '#64748B' },
+    { type: 'pdf', title: 'Security_Audit_Report.pdf', color: '#6366F1' },
     { type: 'note', title: 'Database Schema', color: '#14B8A6' },
     { type: 'folder', title: 'Test Suites', itemCount: 78, color: '#A855F7' },
     { type: 'quiz', title: 'React Hooks', content: 'When should you use useMemo?', color: '#3B82F6' },
@@ -78,6 +79,7 @@ export function FloatingWorkspaceCards({
     className,
     includeExtraCards = false,
 }: FloatingWorkspaceCardsProps) {
+    const { resolvedTheme } = useTheme();
     const cards = includeExtraCards ? [...BASE_CARDS, ...EXTRA_CARDS] : BASE_CARDS;
     const [transform, setTransform] = useState({ x: 0, y: 0 });
     const rafRef = useRef<number | null>(null);
@@ -118,7 +120,8 @@ export function FloatingWorkspaceCards({
             {/* Cards layer - darkened */}
             <div
                 className={cn(
-                    "absolute inset-0 w-[120%] -ml-[10%] -mt-[5%] columns-2 md:columns-3 lg:columns-6 gap-4 md:gap-6 lg:gap-8 opacity-30 transition-transform duration-800 ease-out pointer-events-none",
+                    "absolute inset-0 w-[120%] -ml-[10%] -mt-[5%] columns-2 md:columns-3 lg:columns-6 gap-4 md:gap-6 lg:gap-8 transition-transform duration-800 ease-out pointer-events-none",
+                    resolvedTheme === 'dark' ? "opacity-30" : "opacity-50",
                     className
                 )}
                 style={{

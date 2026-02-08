@@ -32,10 +32,10 @@ export default function SelectionActionBar({
       )}
     >
       {/* Selection count */}
-      <span className="text-sm font-medium text-white/90 whitespace-nowrap">
+      <span className="text-sm font-medium text-foreground/90 whitespace-nowrap dark:text-white/90">
         {isCompactMode ? (
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-white/90" />
+            <CheckCircle2 className="h-4 w-4 text-foreground/90 dark:text-white/90" />
             <span>{selectedCount}</span>
           </div>
         ) : (
@@ -44,7 +44,7 @@ export default function SelectionActionBar({
       </span>
 
       {/* Separator */}
-      <div className="h-5 w-px bg-white/20" />
+      <div className="h-5 w-px bg-foreground/20 dark:bg-white/20" />
 
       {/* New Folder Button */}
       <Tooltip>
@@ -113,7 +113,7 @@ export default function SelectionActionBar({
       </Tooltip>
 
       {/* Separator before Clear */}
-      <div className="h-5 w-px bg-white/20" />
+      <div className="h-5 w-px bg-foreground/20 dark:bg-white/20" />
 
       {/* Clear Selection Button */}
       <Tooltip>
@@ -123,8 +123,8 @@ export default function SelectionActionBar({
             onClick={onClearSelection}
             className={cn(
               "inline-flex items-center justify-center p-2 rounded-md",
-              "text-white/60",
-              "hover:text-white/90 hover:bg-white/5",
+              "text-foreground/60 dark:text-white/60",
+              "hover:text-foreground/90 hover:bg-foreground/5 dark:hover:text-white/90 dark:hover:bg-white/5",
               "transition-all duration-200"
             )}
             aria-label="Clear selection"

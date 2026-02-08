@@ -34,6 +34,7 @@ interface WorkspaceContentProps {
   onOpenFolder?: (folderId: string) => void; // Callback when folder is clicked
   onDeleteFolderWithContents?: (folderId: string) => void; // Callback to delete folder and all items inside
   onPDFUpload?: (files: File[]) => Promise<void>; // Function to handle PDF upload
+  onItemCreated?: (itemIds: string[]) => void; // Callback for when items are created (for auto-scroll/selection)
 }
 
 export default function WorkspaceContent({
@@ -58,6 +59,7 @@ export default function WorkspaceContent({
   onOpenFolder,
   onDeleteFolderWithContents,
   onPDFUpload,
+  onItemCreated,
 }: WorkspaceContentProps) {
   // Use external ref if provided (from dashboard page), otherwise create local one
   const localScrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -177,7 +179,7 @@ export default function WorkspaceContent({
       }
 
       const MAX_FILES = 5;
-      const MAX_FILE_SIZE_MB = 10;
+      const MAX_FILE_SIZE_MB = 50;
       const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
       // Check file count limit
@@ -224,13 +226,17 @@ export default function WorkspaceContent({
         return;
       }
 
-      // Add all valid files to composer
-      for (const file of validFiles) {
+      // Use existing upload handler from parent component
+      if (onPDFUpload) {
         try {
-          await aui.composer().addAttachment(file);
+          await onPDFUpload(validFiles);
         } catch (error) {
-          console.error("Failed to add attachment:", error);
+          console.error("Failed to upload PDFs:", error);
+          toast.error("Failed to upload PDFs");
         }
+      } else {
+        console.error("onPDFUpload handler not available");
+        toast.error("PDF upload not available");
       }
 
       // Reset input
@@ -238,7 +244,7 @@ export default function WorkspaceContent({
         fileInputRef.current.value = "";
       }
     },
-    [aui]
+    [onPDFUpload]
   );
 
   // Handle drag start
@@ -308,6 +314,9 @@ export default function WorkspaceContent({
                     const itemId = addItem("note");
                     if (itemId) {
                       toast.success("New note created");
+                      if (onItemCreated) {
+                        onItemCreated([itemId]);
+                      }
                     }
                   }}
                   className="inline-flex items-center gap-2 px-6 py-3 text-base font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 hover:scale-105 transition-all duration-200 active:scale-95 cursor-pointer"

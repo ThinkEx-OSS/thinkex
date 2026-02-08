@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { ChevronRight, Folder as FolderIcon, FolderOpen, Check, FileText, File, Play, Brain } from "lucide-react";
+import { ChevronRight, Folder as FolderIcon, FolderOpen, Check, FileText, File, Play, Brain, ImageIcon } from "lucide-react";
 import { PiCardsThreeBold } from "react-icons/pi";
 import {
   Dialog,
@@ -34,6 +34,8 @@ function getCardTypeIcon(type: CardType) {
       return <Brain className="size-3.5 text-green-400" />;
     case "youtube":
       return <Play className="size-3.5 text-red-500" />;
+    case "image":
+      return <ImageIcon className="size-3.5 text-emerald-500" />;
     default:
       return <FileText className="size-3.5 text-muted-foreground" />;
   }

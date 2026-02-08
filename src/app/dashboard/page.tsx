@@ -41,6 +41,9 @@ import { toast } from "sonner";
 import { useWorkspaceInstructionModal } from "@/hooks/workspace/use-workspace-instruction-modal";
 
 import { InviteGuard } from "@/components/workspace/InviteGuard";
+import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
+import { uploadFileDirect } from "@/lib/uploads/client-upload";
+import { useFolderUrl } from "@/hooks/ui/use-folder-url";
 
 // Main dashboard content component
 interface DashboardContentProps {
@@ -115,7 +118,7 @@ function DashboardContent({
     analytics: posthog ?? null,
   });
 
-  // Show sign-in prompt after 13 events for anonymous users
+  // Show sign-in prompt after 25 events for anonymous users
   useEffect(() => {
     // Only show for anonymous users
     if (!session?.user?.isAnonymous) {
@@ -127,20 +130,11 @@ function DashboardContent({
       return;
     }
 
-    // Check if we've already shown the prompt for this workspace
-    const promptKey = `sign-in-prompt-shown-${currentWorkspaceId}`;
-    const hasShownPrompt = localStorage.getItem(promptKey) === 'true';
-
-    if (hasShownPrompt) {
-      return;
-    }
-
     const eventCount = eventLog.events?.length || 0;
 
-    // Show prompt after 13 events
-    if (eventCount >= 13) {
+    // Show prompt after 15 events
+    if (eventCount >= 15) {
       setShowSignInPrompt(true);
-      localStorage.setItem(promptKey, 'true');
     }
   }, [session?.user?.isAnonymous, eventLog, isLoadingWorkspace, currentWorkspaceId]);
 
@@ -307,6 +301,9 @@ function DashboardContent({
   // Text selection handlers - delegate to agent for intelligent processing
   const { handleCreateInstantNote, handleCreateCardFromSelections } = useTextSelectionAgent(operations);
 
+  // Handle reactive navigation for new items
+  const { handleCreatedItems } = useReactiveNavigation(state);
+
   const handleWorkspacePdfUpload = useCallback(
     async (files: File[]) => {
       if (!currentWorkspaceId) {
@@ -314,19 +311,7 @@ function DashboardContent({
       }
 
       const uploadPromises = files.map(async (file) => {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        const uploadResponse = await fetch("/api/upload-file", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!uploadResponse.ok) {
-          throw new Error(`Failed to upload PDF: ${uploadResponse.statusText}`);
-        }
-
-        const { url: fileUrl, filename } = await uploadResponse.json();
+        const { url: fileUrl, filename } = await uploadFileDirect(file);
 
         return {
           fileUrl,
@@ -351,9 +336,11 @@ function DashboardContent({
         };
       });
 
-      operations.createItems(pdfCardDefinitions);
+      // Create all PDF cards and navigate to the first one
+      const createdIds = operations.createItems(pdfCardDefinitions);
+      handleCreatedItems(createdIds);
     },
-    [operations, currentWorkspaceId]
+    [operations, currentWorkspaceId, handleCreatedItems]
   );
 
   const handleShowHistory = useCallback(() => {
@@ -394,6 +381,7 @@ function DashboardContent({
               workspaceColor={currentWorkspaceColor}
               addItem={operations.createItem}
               onPDFUpload={handleWorkspacePdfUpload}
+              onItemCreated={handleCreatedItems}
               setOpenModalItemId={setOpenModalItemId}
               items={state.items || []}
               onRenameFolder={(folderId, newName) => {
@@ -560,11 +548,10 @@ function DashboardView() {
     setSearchQuery('');
   }, [currentWorkspaceId, setSearchQuery]);
 
-  // Reset active folder when workspace changes
-  const clearActiveFolder = useUIStore((state) => state.clearActiveFolder);
-  useEffect(() => {
-    clearActiveFolder();
-  }, [currentWorkspaceId, clearActiveFolder]);
+  // Sync active folder with URL query param (?folder=<id>)
+  // This replaces the old clearActiveFolder on workspace change
+  // and enables browser-native back/forward for folder navigation
+  useFolderUrl();
 
   // Clear playing YouTube videos when workspace changes
   const clearPlayingYouTubeCards = useUIStore((state) => state.clearPlayingYouTubeCards);

@@ -1,10 +1,14 @@
 'use client';
 
 import { type PropsWithChildren } from "react";
+import { ThemeProvider } from "next-themes";
 
 function AppProviders({ children }: PropsWithChildren) {
-  // Placeholder for future global providers; currently just renders children
-  return <>{children}</>;
+  return (
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      {children}
+    </ThemeProvider>
+  );
 }
 
 export default AppProviders;

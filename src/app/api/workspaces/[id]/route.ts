@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, workspaces } from "@/lib/db/client";
-import { eq } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import { requireAuth, verifyWorkspaceOwnership, verifyWorkspaceAccess, withErrorHandling } from "@/lib/api/workspace-helpers";
+import { generateSlug } from "@/lib/workspace/slug";
 
 /**
  * GET /api/workspaces/[id]
@@ -83,12 +84,42 @@ async function handlePATCH(
     isPublic?: boolean;
     icon?: string | null;
     color?: string | null;
+    slug?: string;
   } = {};
   if (name !== undefined) updateData.name = name;
   if (description !== undefined) updateData.description = description;
   if (is_public !== undefined) updateData.isPublic = is_public;
   if (icon !== undefined) updateData.icon = icon;
   if (color !== undefined) updateData.color = color;
+
+  // If name is being updated, regenerate slug
+  if (name !== undefined) {
+    let newSlug = generateSlug(name);
+    
+    // Check for slug conflicts and resolve them
+    let counter = 1;
+    while (true) {
+      const [existingWorkspace] = await db
+        .select()
+        .from(workspaces)
+        .where(
+          and(
+            eq(workspaces.slug, newSlug),
+            ne(workspaces.id, id)
+          )
+        )
+        .limit(1);
+      
+      if (!existingWorkspace) break;
+      
+      // If conflict exists, append counter
+      const baseSlug = generateSlug(name).replace(/-\d+$/, ''); // Remove existing counter if any
+      newSlug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+    
+    updateData.slug = newSlug;
+  }
 
   const [updatedWorkspace] = await db
     .update(workspaces)

@@ -9,6 +9,7 @@ import { useSession } from "@/lib/auth-client";
 import { toast } from "sonner";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { formatSelectedCardsContext } from "@/lib/utils/format-workspace-context";
+import { SupabaseAttachmentAdapter } from "@/lib/attachments/supabase-attachment-adapter";
 
 interface WorkspaceRuntimeProviderProps {
   workspaceId: string;
@@ -17,10 +18,15 @@ interface WorkspaceRuntimeProviderProps {
 
 import { useShallow } from "zustand/react/shallow";
 
+import { ImageSearchToolUI } from "@/components/assistant-ui/ImageSearchToolUI";
+import { AddImageToolUI } from "@/components/assistant-ui/AddImageToolUI";
+
 export function WorkspaceRuntimeProvider({
   workspaceId,
   children
 }: WorkspaceRuntimeProviderProps) {
+  // ... existing hooks
+
 
   const selectedModelId = useUIStore((state) => state.selectedModelId);
   const activeFolderId = useUIStore((state) => state.activeFolderId);
@@ -148,6 +154,9 @@ export function WorkspaceRuntimeProvider({
       });
       return transport;
     }, [workspaceId, selectedModelId, activeFolderId, selectedCardsContext, replySelections, selectedActions]),
+    adapters: {
+      attachments: new SupabaseAttachmentAdapter(),
+    },
     onError: handleChatError,
   });
 
@@ -155,6 +164,8 @@ export function WorkspaceRuntimeProvider({
     <AssistantRuntimeProvider runtime={runtime}>
       <AssistantAvailableProvider>
         {children}
+        <ImageSearchToolUI />
+        <AddImageToolUI />
       </AssistantAvailableProvider>
     </AssistantRuntimeProvider>
   );

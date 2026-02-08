@@ -135,7 +135,8 @@ function getCreateFromSystemPrompt(messages: any[]): string | null {
 
   return `
 CREATE-FROM WORKSPACE INITIALIZATION MODE:
-This is an automatic workspace initialization request. The user wants to transform this workspace into a curated learning/research space about: "${topic}"
+This is an automatic workspace initialization request. The user wants to transform this workspace into a curated learning/research space
+ace about: "${topic}"
 
 CRITICAL INSTRUCTIONS FOR WORKSPACE CURATION:
 1. **For each of the existing workspace items** update the title and content to be about the topic:
@@ -146,9 +147,7 @@ CRITICAL INSTRUCTIONS FOR WORKSPACE CURATION:
 3. **Do NOT ask the user questions** - This is an automated initialization, proceed directly with updating the workspace.
 
 QUALITY GUIDELINES FOR CONTENT:
-- Start with a clear introduction/overview of the topic
-- Include key concepts, definitions, or components
-- Add practical examples or use cases if relevant
+- For notes: add a comprehensive summary of the topic
 - For flashcards: create exactly 5 meaningful question/answer pairs covering key concepts
 - For quizzes: create challenging but fair questions that test understanding
 
@@ -167,25 +166,6 @@ function buildSystemPrompt(baseSystem: string, fileUrls: string[], urlContextUrl
   const parts: string[] = [baseSystem];
 
   // Add web search decision-making guidelines
-  parts.push(`
-
-WEB SEARCH GUIDELINES:
-Use webSearch when: temporal cues ("today", "latest", "current"), real-time data (scores, stocks, weather), fact verification, niche/recent info.
-Use internal knowledge for: creative writing, coding, general concepts, summarizing provided content.
-If uncertain about accuracy, prefer to search.
-
-YOUTUBE: If user says "add a video" without a topic, infer from workspace context. Don't ask - just search.
-
-SOURCE EXTRACTION (CRITICAL):
-When creating/updating notes with research:
-1. Call webSearch first
-2. Extract sources from groundingMetadata.groundingChunks[].web.{uri, title}
-3. Pass sources to createNote/updateNote - NEVER put citations in note content itself
-
-Rules:
-- Use chunk.web.uri exactly as provided (even redirect URLs)
-- Never make up or hallucinate URLs
-- Include article dates in responses when available`);
 
 
   // Add file detection hint if file URLs are present

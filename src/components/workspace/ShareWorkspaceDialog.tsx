@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Copy, Check, Mail, UserPlus, Users, Trash2, Loader2, Clock, History } from "lucide-react";
 import {
   Dialog,
@@ -78,6 +79,7 @@ export default function ShareWorkspaceDialog({
   onRevertToVersion,
 }: ShareWorkspaceDialogProps) {
   const { data: session } = useSession();
+  const isAnonymous = session?.user?.isAnonymous ?? false;
   const [copied, setCopied] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [activeTab, setActiveTab] = useState("invite");
@@ -104,23 +106,32 @@ export default function ShareWorkspaceDialog({
   const currentUserCollaborator = collaborators.find(c => c.userId === session?.user?.id);
 
   // Can invite: Owner OR Editor (In bulk mode, we assume user can try, and API will reject if not allowed)
-  const canInvite = isBulk || isOwner || currentUserCollaborator?.permissionLevel === 'editor';
+  const canInvite = !isAnonymous && (isBulk || isOwner || currentUserCollaborator?.permissionLevel === 'editor');
 
   // Can manage (remove/change permission): Only Owner
-  const canManage = isOwner;
+  const canManage = !isAnonymous && isOwner;
 
   useEffect(() => {
     if (workspace && open && !isBulk) {
       const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
       const url = `${baseUrl}/share-copy/${workspace.id}`;
       setShareUrl(url);
-      loadCollaborators();
+      if (!isAnonymous) {
+        loadCollaborators();
+      } else {
+        setCollaborators([]);
+        setInvites([]);
+      }
     }
     if (open) {
       setActiveTab("invite");
-      loadFrequentCollaborators();
+      if (!isAnonymous) {
+        loadFrequentCollaborators();
+      } else {
+        setFrequentCollaborators([]);
+      }
     }
-  }, [workspace, open, isBulk]);
+  }, [workspace, open, isBulk, isAnonymous]);
 
   const loadCollaborators = async () => {
     if (!workspace || isBulk) return;
@@ -177,6 +188,10 @@ export default function ShareWorkspaceDialog({
   };
 
   const handleQuickAddCollaborator = async (collaborator: FrequentCollaborator) => {
+    if (isAnonymous) {
+      toast.error("Sign in to collaborate");
+      return;
+    }
     if (!collaborator.email) {
       toast.error("Collaborator email not found");
       return;
@@ -225,6 +240,10 @@ export default function ShareWorkspaceDialog({
   };
 
   const handleInvite = async () => {
+    if (isAnonymous) {
+      toast.error("Sign in to collaborate");
+      return;
+    }
     if ((!workspace && !isBulk) || !inviteEmail.trim()) return;
 
     setIsInviting(true);
@@ -272,6 +291,10 @@ export default function ShareWorkspaceDialog({
   };
 
   const handleRemoveCollaborator = async (collaboratorId: string) => {
+    if (isAnonymous) {
+      toast.error("Sign in to collaborate");
+      return;
+    }
     if (!workspace) return;
 
     try {
@@ -292,6 +315,10 @@ export default function ShareWorkspaceDialog({
   };
 
   const handleRevokeInvite = async (inviteId: string) => {
+    if (isAnonymous) {
+      toast.error("Sign in to collaborate");
+      return;
+    }
     if (!workspace) return;
     setIsRevoking(inviteId);
     try {
@@ -313,6 +340,10 @@ export default function ShareWorkspaceDialog({
   };
 
   const handleUpdatePermission = async (collaboratorId: string, newPermission: "viewer" | "editor") => {
+    if (isAnonymous) {
+      toast.error("Sign in to collaborate");
+      return;
+    }
     if (!workspace) return;
 
     // Optimistic update
@@ -376,7 +407,7 @@ export default function ShareWorkspaceDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="sm:max-w-lg border-white/20 bg-black/40 backdrop-blur-2xl shadow-2xl"
+        className="sm:max-w-lg border backdrop-blur-2xl shadow-2xl"
         style={{
           backdropFilter: "blur(24px)",
           WebkitBackdropFilter: "blur(24px)",
@@ -406,13 +437,32 @@ export default function ShareWorkspaceDialog({
 
           <div className="space-y-4">
             <div className="px-0.5 pt-4">
-              <DialogDescription className="text-white">{currentHeader.description}</DialogDescription>
+              <DialogDescription>{currentHeader.description}</DialogDescription>
             </div>
 
             <TabsContent value="invite" className="space-y-4">
+              {isAnonymous && (
+                <div className="rounded-lg border bg-muted/50 p-3">
+                  <p className="text-sm">
+                    Sign in to invite collaborators and manage access.
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <Link href="/auth/sign-in" className="flex-1">
+                      <Button variant="outline" size="sm" className="w-full">
+                        Sign in
+                      </Button>
+                    </Link>
+                    <Link href="/auth/sign-up" className="flex-1">
+                      <Button size="sm" className="w-full">
+                        Sign up
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              )}
 
               {/* Invite Form */}
-              <div className="space-y-3 pb-2 border-b border-white/10">
+              <div className="space-y-3 pb-2 border-b">
 
                 <div className="flex gap-2">
                   <Input
@@ -453,7 +503,7 @@ export default function ShareWorkspaceDialog({
               </div>
 
               {/* Collaborators List - Only show for single workspace */}
-              {!isBulk && (
+              {!isBulk && !isAnonymous && (
                 <div className="space-y-4 pt-2">
 
                   {/* Active Collaborators */}
@@ -476,7 +526,7 @@ export default function ShareWorkspaceDialog({
                         {collaborators.map((collab) => (
                           <div
                             key={collab.id}
-                            className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                            className="flex items-center justify-between p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                           >
                             <div className="flex items-center gap-3 min-w-0">
                               <Avatar className="h-8 w-8">
@@ -546,9 +596,9 @@ export default function ShareWorkspaceDialog({
                       </div>
                       <div className="space-y-2 max-h-32 overflow-y-auto">
                         {invites.map((invite) => (
-                          <div key={invite.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-dashed border-white/10">
+                          <div key={invite.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50 border border-dashed">
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="h-8 w-8 rounded-full bg-white/5 flex items-center justify-center">
+                              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
                                 <Mail className="h-4 w-4 text-muted-foreground" />
                               </div>
                               <div className="min-w-0">
@@ -580,7 +630,7 @@ export default function ShareWorkspaceDialog({
               )}
 
               {/* Frequent Collaborators Section */}
-              {frequentCollaborators.length > 0 && (
+              {!isAnonymous && frequentCollaborators.length > 0 && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Clock className="h-4 w-4" />
@@ -595,7 +645,7 @@ export default function ShareWorkspaceDialog({
                       {frequentCollaborators.slice(0, 6).map((collab) => (
                         <div
                           key={collab.userId}
-                          className="group flex items-center justify-between p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                          className="group flex items-center justify-between p-1.5 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
                           onClick={() => handleQuickAddCollaborator(collab)}
                         >
                           <div className="flex items-center gap-2 min-w-0">

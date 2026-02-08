@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, X, ChevronRight, ChevronDown, FolderOpen, ChevronLeft, Plus, Upload, FileText, Folder as FolderIcon, Settings, Share2, Play, MoreHorizontal, Globe, Brain, Maximize, File, Newspaper } from "lucide-react";
+import { Search, X, ChevronRight, ChevronDown, FolderOpen, Plus, Upload, FileText, Folder as FolderIcon, Settings, Share2, Play, MoreHorizontal, Globe, Brain, Maximize, File, Newspaper, ImageIcon } from "lucide-react";
 import { LuBook } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
@@ -51,6 +51,8 @@ import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";
 import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { CollaboratorAvatars } from "@/components/workspace/CollaboratorAvatars";
+import { UploadDialog } from "@/components/modals/UploadDialog";
+import { getBestFrameForRatio } from "@/lib/workspace-state/aspect-ratios";
 interface WorkspaceHeaderProps {
   titleInputRef: React.RefObject<HTMLInputElement | null>;
   searchQuery: string;
@@ -72,8 +74,10 @@ interface WorkspaceHeaderProps {
   workspaceIcon?: string | null;
   workspaceColor?: string | null;
   // New button props
-  addItem?: (type: CardType, name?: string, initialData?: Partial<Item['data']>) => string;
+  addItem?: (type: CardType, name?: string, initialData?: Partial<Item['data']>, initialLayout?: any) => string;
   onPDFUpload?: (files: File[]) => Promise<void>;
+  // Callback for when items are created (for auto-scroll/selection)
+  onItemCreated?: (itemIds: string[]) => void;
 
   setOpenModalItemId?: (id: string | null) => void;
   // Folder props
@@ -114,6 +118,7 @@ export default function WorkspaceHeader({
   workspaceColor,
   addItem,
   onPDFUpload,
+  onItemCreated,
 
   setOpenModalItemId,
   activeFolderName,
@@ -134,13 +139,12 @@ export default function WorkspaceHeader({
   const [isFocused, setIsFocused] = useState(false);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [isNewMenuOpen, setIsNewMenuOpen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [renamingTarget, setRenamingTarget] = useState<{ id: string, type: 'folder' | 'item' } | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
   const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const pathname = usePathname();
@@ -312,77 +316,42 @@ export default function WorkspaceHeader({
     setIsSearchExpanded(true);
   };
 
-  // Navigation history
-  const folderHistoryBack = useUIStore((state) => state.folderHistoryBack);
-  const folderHistoryForward = useUIStore((state) => state.folderHistoryForward);
-  const navigateFolderBack = useUIStore((state) => state.navigateFolderBack);
-  const navigateFolderForward = useUIStore((state) => state.navigateFolderForward);
-
-  const canNavigateBack = folderHistoryBack.length > 0;
-  const canNavigateForward = folderHistoryForward.length > 0;
-
-  // Handle PDF upload
-  const handlePDFUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    if (files.length === 0) return;
-
-    // Filter for PDF files only
-    const pdfFiles = files.filter(file =>
-      file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-    );
-
-    if (pdfFiles.length === 0) {
-      toast.error('Please select PDF files only');
-      return;
-    }
-
-    if (pdfFiles.length !== files.length) {
-      toast.error('Some files were skipped - only PDF files are supported');
-    }
-
-    // Check individual file size limit (10MB per file)
-    const maxIndividualSize = 10 * 1024 * 1024; // 10MB
-    const oversizedFiles = pdfFiles.filter(file => file.size > maxIndividualSize);
-    if (oversizedFiles.length > 0) {
-      toast.error(`${oversizedFiles.length} file(s) exceed the 10MB individual limit`);
-      return;
-    }
-
-    // Check combined size limit (100MB total)
-    const totalSize = pdfFiles.reduce((sum, file) => sum + file.size, 0);
-    const maxCombinedSize = 100 * 1024 * 1024; // 100MB
-    if (totalSize > maxCombinedSize) {
-      const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(1);
-      toast.error(`Total file size (${totalSizeMB}MB) exceeds the 100MB combined limit`);
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      if (onPDFUpload) {
-        await onPDFUpload(pdfFiles);
-        toast.success(`${pdfFiles.length} PDF${pdfFiles.length > 1 ? 's' : ''} uploaded successfully`);
-      }
-    } catch (error) {
-      console.error('Error uploading PDFs:', error);
-      toast.error('Failed to upload PDF files');
-    } finally {
-      setIsUploading(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  const triggerFileSelect = () => {
-    fileInputRef.current?.click();
-  };
-
   const handleYouTubeCreate = useCallback((url: string, name: string, thumbnail?: string) => {
     if (addItem) {
       addItem("youtube", name, { url, thumbnail });
     }
+    setIsNewMenuOpen(false);
+  }, [addItem]);
+
+  const handleImageCreate = useCallback(async (url: string, name: string) => {
+    if (!addItem) return;
+
+    // Attempt to load image to get dimensions for adaptive layout
+    let initialLayout = undefined;
+    try {
+      const img = new window.Image();
+      const dimensionsPromise = new Promise<{ width: number, height: number }>((resolve, reject) => {
+        img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        img.onerror = reject;
+        // Handle duplicate image load
+        if (img.complete) {
+          resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        }
+        img.src = url;
+      });
+
+      // Timeout after 2 seconds to avoid hanging
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject("Timeout"), 2000));
+
+      const { width, height } = await Promise.race([dimensionsPromise, timeoutPromise]) as { width: number, height: number };
+      const bestFrame = getBestFrameForRatio(width, height);
+      initialLayout = { w: bestFrame.w, h: bestFrame.h };
+    } catch (e) {
+      console.warn("Could not detect image dimensions, using defaults", e);
+    }
+
+    addItem('image', name, { url, altText: name }, initialLayout);
+    toast.success("Image added to workspace");
     setIsNewMenuOpen(false);
   }, [addItem]);
 
@@ -424,38 +393,8 @@ export default function WorkspaceHeader({
             </TooltipContent>
           </Tooltip>
 
-          {/* Navigation Arrows */}
-          <div className="flex items-center gap-0.5">
-            <button
-              onClick={navigateFolderBack}
-              disabled={!canNavigateBack}
-              className={cn(
-                "h-7 w-6 flex items-center justify-center rounded-md transition-colors",
-                canNavigateBack
-                  ? "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent cursor-pointer"
-                  : "text-sidebar-foreground/30 cursor-not-allowed"
-              )}
-              aria-label="Navigate back"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              onClick={navigateFolderForward}
-              disabled={!canNavigateForward}
-              className={cn(
-                "h-7 w-6 flex items-center justify-center rounded-md transition-colors",
-                canNavigateForward
-                  ? "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent cursor-pointer"
-                  : "text-sidebar-foreground/30 cursor-not-allowed"
-              )}
-              aria-label="Navigate forward"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-
           {/* Breadcrumbs */}
-          <nav className="flex items-center gap-1.5 text-xs text-sidebar-foreground/70 min-w-0">
+          <nav className="flex items-center gap-1.5 text-xs text-sidebar-foreground/70 min-w-0 ml-1">
             {/* Workspace icon + name (clickable to go back to root if in a folder) */}
             {/* Workspace icon + name (clickable to go back to root if in a folder or has active items) */}
             {/* Hidden in compact mode when inside a folder/item - the logic handles this */}
@@ -728,6 +667,7 @@ export default function WorkspaceHeader({
                     {activeItems[0].type === 'flashcard' && <PiCardsThreeBold className="h-3.5 w-3.5 shrink-0 text-purple-400 rotate-180" />}
                     {activeItems[0].type === 'youtube' && <Play className="h-3.5 w-3.5 shrink-0 text-red-500" />}
                     {activeItems[0].type === 'quiz' && <Brain className="h-3.5 w-3.5 shrink-0 text-green-400" />}
+                    {activeItems[0].type === 'image' && <ImageIcon className="h-3.5 w-3.5 shrink-0 text-emerald-500" />}
                     {activeItems[0].type === 'folder' && <FolderIcon className="h-3.5 w-3.5 shrink-0 text-amber-400" />}
 
                     <span className="truncate text-sidebar-foreground max-w-[300px]" title={activeItems[0].name}>
@@ -771,6 +711,14 @@ export default function WorkspaceHeader({
               </TooltipTrigger>
               <TooltipContent>Close</TooltipContent>
             </Tooltip>
+
+            {setIsChatExpanded ? (
+              <ChatFloatingButton
+                isDesktop={isDesktop}
+                isChatExpanded={isChatExpanded}
+                setIsChatExpanded={setIsChatExpanded}
+              />
+            ) : null}
           </div>
         ) : (
           // Default Mode: Standard Workspace Controls
@@ -872,7 +820,6 @@ export default function WorkspaceHeader({
                         : "inline-flex items-center gap-2 px-2",
                       isNewMenuOpen && "text-sidebar-foreground bg-sidebar-accent"
                     )}
-                    disabled={isUploading}
                     data-tour="add-card-button"
                   >
                     <Plus className="h-4 w-4" />
@@ -884,9 +831,9 @@ export default function WorkspaceHeader({
                     onClick={() => {
                       if (addItem) {
                         const itemId = addItem("note");
-                        // Automatically open the modal for the newly created note
-                        if (setOpenModalItemId && itemId) {
-                          setOpenModalItemId(itemId);
+                        // Auto-navigate to the newly created note instead of opening modal
+                        if (onItemCreated && itemId) {
+                          onItemCreated([itemId]);
                         }
                       }
                     }}
@@ -912,19 +859,22 @@ export default function WorkspaceHeader({
 
                   <DropdownMenuItem
                     onClick={() => {
-                      triggerFileSelect();
+                      setShowUploadDialog(true);
+                      setIsNewMenuOpen(false);
                     }}
-                    disabled={isUploading}
                     className="flex items-center gap-2 cursor-pointer"
                   >
                     <Upload className="size-4" />
-                    {isUploading ? 'Uploading...' : 'Upload PDFs'}
+                    Upload (PDF, Image)
                   </DropdownMenuItem>
 
                   <DropdownMenuItem
                     onClick={() => {
                       if (addItem) {
-                        addItem("flashcard");
+                        const itemId = addItem("flashcard");
+                        if (onItemCreated && itemId) {
+                          onItemCreated([itemId]);
+                        }
                       }
                     }}
                     className="flex items-center gap-2 cursor-pointer"
@@ -968,7 +918,7 @@ export default function WorkspaceHeader({
                     <Newspaper className="size-4" />
                     Website
                   </DropdownMenuItem>
-                  <DropdownMenuItem
+                  {/* <DropdownMenuItem
                     onClick={() => {
                       toast.success("Deep Research action selected");
                       setSelectedActions(["deep-research"]);
@@ -981,21 +931,9 @@ export default function WorkspaceHeader({
                   >
                     <Globe className="size-4" />
                     Deep Research
-                  </DropdownMenuItem>
+                  </DropdownMenuItem> */}
                 </DropdownMenuContent>
               </DropdownMenu>
-            )}
-
-            {/* Hidden file input for PDF upload */}
-            {onPDFUpload && (
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,application/pdf"
-                multiple
-                onChange={handlePDFUpload}
-                className="hidden"
-              />
             )}
 
             {!isItemPanelOpen && setIsChatExpanded ? (
@@ -1053,25 +991,32 @@ export default function WorkspaceHeader({
         onCreate={handleYouTubeCreate}
       />
       {/* Website Dialog */}
-      {currentWorkspaceId && (
-        <CreateWebsiteDialog
-          open={showWebsiteDialog}
-          onOpenChange={setShowWebsiteDialog}
-          workspaceId={currentWorkspaceId}
-          folderId={activeFolderId || undefined}
-          onNoteCreated={(noteId) => {
-            // Invalidate workspace events cache to trigger refetch
-            void queryClient.invalidateQueries({
-              queryKey: ["workspace", currentWorkspaceId, "events"],
-            });
-            // Open the new note in the modal
-            if (setOpenModalItemId) {
-              setOpenModalItemId(noteId);
-            }
-          }}
+      {
+        currentWorkspaceId && (
+          <CreateWebsiteDialog
+            open={showWebsiteDialog}
+            onOpenChange={setShowWebsiteDialog}
+            workspaceId={currentWorkspaceId}
+            folderId={activeFolderId || undefined}
+            onNoteCreated={(noteId) => {
+              // Invalidate workspace events cache to trigger refetch
+              void queryClient.invalidateQueries({
+                queryKey: ["workspace", currentWorkspaceId, "events"],
+              });
+            }}
+          />
+        )
+      }
+      {/* Upload Dialog (PDF + Image) */}
+      {onPDFUpload && (
+        <UploadDialog
+          open={showUploadDialog}
+          onOpenChange={setShowUploadDialog}
+          onImageCreate={handleImageCreate}
+          onPDFUpload={onPDFUpload}
         />
       )}
-    </div >
+    </div>
   );
 }
 

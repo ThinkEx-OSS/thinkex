@@ -64,7 +64,7 @@ function StepIndicator({ status }: StepIndicatorProps) {
   if (status === "failed") {
     return (
       <span
-        className="bg-destructive dark:bg-red-600 text-white flex size-6 shrink-0 items-center justify-center rounded-full border border-destructive dark:border-red-600 shadow-sm motion-safe:animate-[spring-bounce_500ms_cubic-bezier(0.34,1.56,0.64,1)]"
+        className="bg-destructive dark:bg-red-600 text-foreground flex size-6 shrink-0 items-center justify-center rounded-full border border-destructive dark:border-red-600 shadow-sm motion-safe:animate-[spring-bounce_500ms_cubic-bezier(0.34,1.56,0.64,1)] dark:text-white"
         aria-hidden="true"
       >
         <X

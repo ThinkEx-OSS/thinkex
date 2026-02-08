@@ -12,7 +12,7 @@ import { defaultDataFor } from "@/lib/workspace-state/item-helpers";
 import { getRandomCardColor } from "@/lib/workspace-state/colors";
 import { logger } from "@/lib/utils/logger";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { getLayoutForBreakpoint } from "@/lib/workspace-state/grid-layout-helpers";
+import { getLayoutForBreakpoint, findNextAvailablePosition } from "@/lib/workspace-state/grid-layout-helpers";
 import { useRealtimeContextOptional } from "@/contexts/RealtimeContext";
 
 /**
@@ -20,7 +20,7 @@ import { useRealtimeContextOptional } from "@/contexts/RealtimeContext";
  */
 export interface WorkspaceOperations {
   createItem: (type: CardType, name?: string, initialData?: Partial<Item['data']>) => string;
-  createItems: (items: Array<{ type: CardType; name?: string; initialData?: Partial<Item['data']> }>) => string[];
+  createItems: (items: Array<{ type: CardType; name?: string; initialData?: Partial<Item['data']>; initialLayout?: { w: number; h: number } }>) => string[];
   updateItem: (id: string, changes: Partial<Item>, source?: 'user' | 'agent') => void;
   updateItemData: (itemId: string, updater: (prev: Item['data']) => Item['data'], source?: 'user' | 'agent') => void;
   deleteItem: (id: string) => void;
@@ -93,7 +93,7 @@ export function useWorkspaceOperations(
       // Validate type is a valid CardType
       logger.debug("🔧 [CREATE-ITEM] Received type:", type, "typeof:", typeof type, "value:", JSON.stringify(type));
 
-      const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube"];
+      const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube", "image"];
       const validType = validTypes.includes(type) ? type : "note";
 
       if (validType !== type) {
@@ -136,7 +136,7 @@ export function useWorkspaceOperations(
   );
 
   const createItems = useCallback(
-    (items: Array<{ type: CardType; name?: string; initialData?: Partial<Item['data']> }>): string[] => {
+    (items: Array<{ type: CardType; name?: string; initialData?: Partial<Item['data']>; initialLayout?: { w: number; h: number } }>): string[] => {
       if (items.length === 0) {
         return [];
       }
@@ -148,10 +148,19 @@ export function useWorkspaceOperations(
       // Get active folder - auto-assign new items to the currently viewed folder
       const activeFolderId = useUIStore.getState().activeFolderId;
 
+      // Get items in current view for layout calculation
+      // We need to maintain a running list including newly created items to prevent stacking
+      const currentItems = currentState.items.filter(item =>
+        activeFolderId ? item.folderId === activeFolderId : !item.folderId
+      );
+
+      // Mutable array to track items for position calculation as we generate them
+      const itemsForLayout = [...currentItems];
+
       // Create all items
-      const createdItems: Item[] = items.map(({ type, name, initialData }) => {
+      const createdItems: Item[] = items.map(({ type, name, initialData, initialLayout }) => {
         // Validate type is a valid CardType
-        const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube"];
+        const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube", "image"];
         const validType = validTypes.includes(type) ? type : "note";
 
         if (validType !== type) {
@@ -164,7 +173,32 @@ export function useWorkspaceOperations(
         const baseData = defaultDataFor(validType);
         const mergedData = initialData ? { ...baseData, ...initialData } : baseData;
 
+        // Calculate layout if initial dimensions provided
+        let layout = undefined;
+        if (initialLayout) {
+          const position = findNextAvailablePosition(
+            itemsForLayout,
+            validType,
+            4, // Default cols
+            name,
+            "",
+            initialLayout.w,
+            initialLayout.h
+          );
 
+          layout = { lg: position };
+
+          // Add placeholder item to layout tracking array so next item doesn't overlap
+          // We only need the layout properties for findNextAvailablePosition
+          itemsForLayout.push({
+            id,
+            type: validType,
+            name: name || "",
+            subtitle: "",
+            data: baseData as any,
+            layout: { lg: position }
+          });
+        }
 
         return {
           id,
@@ -174,6 +208,7 @@ export function useWorkspaceOperations(
           data: mergedData as ItemData,
           color: getRandomCardColor(), // Assign random color to new cards
           folderId: activeFolderId ?? undefined, // Auto-assign to active folder
+          layout,
         };
       });
 

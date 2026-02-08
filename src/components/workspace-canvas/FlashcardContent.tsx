@@ -141,11 +141,11 @@ export function FlashcardContent({ item, onUpdateData }: FlashcardContentProps) 
                     {cards.map((card, index) => (
                         <div
                             key={card.id}
-                            className="relative group rounded-2xl border border-white/10 bg-white/5/50 p-5 shadow-inner"
+                            className="relative group rounded-2xl border border-foreground/10 bg-foreground/5/50 p-5 shadow-inner dark:border-white/10 dark:bg-white/5/50"
                             style={{ backdropFilter: 'blur(8px)' }}
                         >
                             <div className="absolute -top-3 -left-3">
-                                <div className="flex h-8 min-w-[2.2rem] items-center justify-center rounded-full bg-black/70 px-2 text-xs font-semibold text-white shadow-md">
+                                <div className="flex h-8 min-w-[2.2rem] items-center justify-center rounded-full bg-black/70 px-2 text-xs font-semibold text-foreground shadow-md dark:text-white">
                                     #{index + 1}
                                 </div>
                             </div>
@@ -154,7 +154,7 @@ export function FlashcardContent({ item, onUpdateData }: FlashcardContentProps) 
                                 <div className="absolute -top-3 -right-3">
                                     <button
                                         onClick={() => removeCard(card.id)}
-                                        className="p-2 rounded-full bg-black/60 text-white/80 hover:text-white hover:bg-red-500/80 transition-colors shadow-md cursor-pointer"
+                                        className="p-2 rounded-full bg-black/60 text-foreground/80 hover:text-foreground hover:bg-red-500/80 transition-colors shadow-md cursor-pointer dark:text-white/80 dark:hover:text-white"
                                         title="Delete this card"
                                     >
                                         <Trash2 className="w-4 h-4" />
@@ -172,11 +172,11 @@ export function FlashcardContent({ item, onUpdateData }: FlashcardContentProps) 
                                     onClick={() => setActiveSection({ cardId: card.id, side: 'front' })}
                                     onFocus={() => setActiveSection({ cardId: card.id, side: 'front' })}
                                 >
-                                    <label className="block text-sm font-medium text-white/70 mb-2">Front</label>
+                                    <label className="block text-sm font-medium text-foreground/70 mb-2 dark:text-white/70">Front</label>
                                     {activeSection?.cardId === card.id && activeSection?.side === 'front' ? (
                                         <div
                                             data-editing-key={`editor-${card.id}-front`}
-                                            className="rounded-lg border border-white/15 bg-white/5 min-h-[150px] shadow-inner"
+                                            className="rounded-lg border border-foreground/15 bg-foreground/5 min-h-[150px] shadow-inner dark:border-white/15 dark:bg-white/5"
                                             style={{ backdropFilter: 'blur(8px)' }}
                                         >
                                             <DynamicBlockNoteEditor
@@ -192,13 +192,13 @@ export function FlashcardContent({ item, onUpdateData }: FlashcardContentProps) 
                                     ) : (
                                         <button
                                             type="button"
-                                            className="group/editor relative w-full text-left rounded-lg border border-white/10 bg-white/5 min-h-[150px] overflow-hidden transition hover:border-white/20 hover:bg-white/10 cursor-pointer"
+                                            className="group/editor relative w-full text-left rounded-lg border border-foreground/10 bg-foreground/5 min-h-[150px] overflow-hidden transition hover:border-foreground/20 hover:bg-foreground/10 cursor-pointer dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10"
                                             style={{ backdropFilter: 'blur(8px)' }}
                                             onClick={() => setActiveSection({ cardId: card.id, side: 'front' })}
                                             aria-label="Click to edit front"
                                         >
                                             <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 pointer-events-none opacity-0 group-hover/editor:opacity-100 transition">
-                                                <span className="rounded-md bg-black/80 px-3 py-1.5 text-xs font-medium text-white shadow-md">
+                                                <span className="rounded-md bg-black/80 px-3 py-1.5 text-xs font-medium text-foreground shadow-md dark:text-white">
                                                     Click to edit
                                                 </span>
                                             </div>
@@ -216,7 +216,7 @@ export function FlashcardContent({ item, onUpdateData }: FlashcardContentProps) 
                                                         ))}
                                                     </div>
                                                 ) : (
-                                                    <div className="text-sm text-white/40">Click to edit</div>
+                                                    <div className="text-sm text-foreground/40 dark:text-white/40">Click to edit</div>
                                                 )}
                                             </div>
                                         </button>
@@ -232,11 +232,11 @@ export function FlashcardContent({ item, onUpdateData }: FlashcardContentProps) 
                                     onClick={() => setActiveSection({ cardId: card.id, side: 'back' })}
                                     onFocus={() => setActiveSection({ cardId: card.id, side: 'back' })}
                                 >
-                                    <label className="block text-sm font-medium text-white/70 mb-2">Back</label>
+                                    <label className="block text-sm font-medium text-foreground/70 mb-2 dark:text-white/70">Back</label>
                                     {activeSection?.cardId === card.id && activeSection?.side === 'back' ? (
                                         <div
                                             data-editing-key={`editor-${card.id}-back`}
-                                            className="rounded-lg border border-white/15 bg-white/5 min-h-[150px] shadow-inner"
+                                            className="rounded-lg border border-foreground/15 bg-foreground/5 min-h-[150px] shadow-inner dark:border-white/15 dark:bg-white/5"
                                             style={{ backdropFilter: 'blur(8px)' }}
                                         >
                                             <DynamicBlockNoteEditor
@@ -252,13 +252,13 @@ export function FlashcardContent({ item, onUpdateData }: FlashcardContentProps) 
                                     ) : (
                                         <button
                                             type="button"
-                                            className="group/editor relative w-full text-left rounded-lg border border-white/10 bg-white/5 min-h-[150px] overflow-hidden transition hover:border-white/20 hover:bg-white/10 cursor-pointer"
+                                            className="group/editor relative w-full text-left rounded-lg border border-foreground/10 bg-foreground/5 min-h-[150px] overflow-hidden transition hover:border-foreground/20 hover:bg-foreground/10 cursor-pointer dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10"
                                             style={{ backdropFilter: 'blur(8px)' }}
                                             onClick={() => setActiveSection({ cardId: card.id, side: 'back' })}
                                             aria-label="Click to edit back"
                                         >
                                             <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 pointer-events-none opacity-0 group-hover/editor:opacity-100 transition">
-                                                <span className="rounded-md bg-black/80 px-3 py-1.5 text-xs font-medium text-white shadow-md">
+                                                <span className="rounded-md bg-black/80 px-3 py-1.5 text-xs font-medium text-foreground shadow-md dark:text-white">
                                                     Click to edit
                                                 </span>
                                             </div>
@@ -276,7 +276,7 @@ export function FlashcardContent({ item, onUpdateData }: FlashcardContentProps) 
                                                         ))}
                                                     </div>
                                                 ) : (
-                                                    <div className="text-sm text-white/40">Click to edit</div>
+                                                    <div className="text-sm text-foreground/40 dark:text-white/40">Click to edit</div>
                                                 )}
                                             </div>
                                         </button>
@@ -290,9 +290,9 @@ export function FlashcardContent({ item, onUpdateData }: FlashcardContentProps) 
                     {/* Add Card Button */}
                     <button
                         onClick={addCard}
-                        className="w-full py-4 border-2 border-dashed border-white/10 hover:border-white/20 rounded-xl flex items-center justify-center gap-2 text-white/50 hover:text-white/80 transition-all group cursor-pointer"
+                        className="w-full py-4 border-2 border-dashed border-foreground/10 hover:border-foreground/20 rounded-xl flex items-center justify-center gap-2 text-foreground/50 hover:text-foreground/80 transition-all group cursor-pointer dark:border-white/10 dark:hover:border-white/20 dark:text-white/50 dark:hover:text-white/80"
                     >
-                        <div className="p-1 rounded-full bg-white/5 group-hover:bg-white/10">
+                        <div className="p-1 rounded-full bg-foreground/5 group-hover:bg-foreground/10 dark:bg-white/5 dark:group-hover:bg-white/10">
                             <Plus className="w-5 h-5" />
                         </div>
                         <span className="font-medium">Add Flashcard</span>

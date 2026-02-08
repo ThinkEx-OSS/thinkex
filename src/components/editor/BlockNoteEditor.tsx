@@ -15,6 +15,7 @@ import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { extractTextFromSelection } from "@/lib/utils/extract-blocknote-text";
 import { MathEditProvider } from "./MathEditDialog";
+import { useTheme } from "next-themes";
 
 // Get the Block type from our custom schema
 type Block = (typeof schema)["Block"];
@@ -78,7 +79,7 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
   const blockNoteUploadFile = useCallback(async (file: File, blockId?: string) => {
     // Show loading toast
     const toastId = toast.loading('Uploading image...', {
-      style: { color: 'white' },
+      style: { color: 'var(--foreground)' },
     });
 
     try {
@@ -89,7 +90,7 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
       // Show success toast
       toast.success('Image uploaded successfully!', {
         id: toastId,
-        style: { color: 'white' },
+        style: { color: 'var(--foreground)' },
       });
 
       return url;
@@ -98,7 +99,7 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
       const errorMessage = error instanceof Error ? error.message : 'Failed to upload image';
       toast.error(errorMessage, {
         id: toastId,
-        style: { color: 'white' },
+        style: { color: 'var(--foreground)' },
       });
       throw error;
     }
@@ -346,12 +347,13 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
 
   // Renders the editor instance using a React component
   const isEditable = readOnly !== undefined ? !readOnly : true;
+  const { resolvedTheme } = useTheme();
 
   return (
     <MathEditProvider>
       <BlockNoteView
         editor={editor}
-        theme="dark"
+        theme={resolvedTheme === "dark" ? "dark" : "light"}
         editable={isEditable}
         slashMenu={false}
         formattingToolbar={!isEditable || readOnly ? undefined : false}

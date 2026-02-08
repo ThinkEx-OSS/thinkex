@@ -50,8 +50,8 @@ export function ItemPanelContent({
         : "rgba(255, 255, 255, 0.15)";
 
     const backgroundColor = item.color
-        ? getCardColorCSS(item.color, 0.1)
-        : "rgba(0, 0, 0, 0.1)";
+        ? getCardColorCSS(item.color, 0.05) // Lighter opacity for better light mode appearance
+        : "rgba(0, 0, 0, 0.05)"; // Lighter default background
 
     // Standard header for non-PDF items
     const renderStandardHeader = () => (
@@ -116,9 +116,15 @@ export function ItemPanelContent({
 
     return (
         <div
-            className="w-full h-full flex flex-col overflow-hidden relative"
+            className="w-full h-full flex flex-col overflow-hidden relative note-panel-background"
             style={{
-                backgroundColor,
+                ['--note-bg-light' as string]: item.color
+                    ? getCardColorCSS(item.color, 0.08) // More visible but still light for light mode
+                    : "rgba(0, 0, 0, 0.08)",
+                ['--note-bg-dark' as string]: item.color
+                    ? getCardColorCSS(item.color, 0.1) // Darker opacity for dark mode
+                    : "rgba(0, 0, 0, 0.1)",
+                backgroundColor: 'var(--note-bg-light)',
                 backdropFilter: "blur(24px)",
                 WebkitBackdropFilter: "blur(24px)",
                 transformOrigin: 'center',

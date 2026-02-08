@@ -40,7 +40,7 @@ export function createSearchYoutubeTool() {
  */
 export function createAddYoutubeVideoTool(ctx: WorkspaceToolContext) {
     return tool({
-        description: "Add a YouTube video to the workspace.",
+        description: "Add a YouTube video to the workspace. Prefer videos under 1 hour for better engagement.",
         inputSchema: zodSchema(
             z.object({
                 videoId: z.string().describe("The YouTube Video ID (not the full URL)"),

@@ -1,12 +1,15 @@
 import { QuizContent } from "./QuizContent";
+import { ImageCardContent } from "./ImageCardContent";
 import { MoreVertical, Trash2, Palette, CheckCircle2, FolderInput, FileText, Copy, X, Pencil, Columns, Link2 } from "lucide-react";
 import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
 import { useCallback, useState, memo, useRef, useEffect, useMemo } from "react";
+import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { usePostHog } from 'posthog-js/react';
+import { cn } from "@/lib/utils";
 import ItemHeader from "@/components/workspace-canvas/ItemHeader";
 import { getCardColorCSS, getCardAccentColor, getDistinctCardColor, SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
-import type { Item, NoteData, PdfData, FlashcardData, YouTubeData } from "@/lib/workspace-state/types";
+import type { Item, NoteData, PdfData, FlashcardData, YouTubeData, ImageData } from "@/lib/workspace-state/types";
 import { SwatchesPicker, ColorResult } from "react-color";
 import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEditor";
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
@@ -25,7 +28,7 @@ import rehypeKatex from "rehype-katex";
 import { useCardContextProvider } from "@/hooks/ai/use-card-context-provider";
 import { useElementWidth } from "@/hooks/use-element-width";
 import { useIsVisible } from "@/hooks/use-is-visible";
-import { getYouTubeEmbedUrl } from "@/lib/utils/youtube-url";
+import { extractYouTubeVideoId, extractYouTubePlaylistId } from "@/lib/utils/youtube-url";
 import { YouTubeCardContent } from "./YouTubeCardContent";
 import { getLayoutForBreakpoint } from "@/lib/workspace-state/grid-layout-helpers";
 import { SourcesDisplay } from "./SourcesDisplay";
@@ -149,15 +152,15 @@ function WorkspaceCardNoteContent({ item, isScrollLocked }: { item: Item, isScro
   if (isAwaitingGeneration) {
     return (
       <div className="flex-1 min-h-0 p-4 flex flex-col gap-3">
-        <div className="flex items-center gap-2 text-white/60 text-sm">
+        <div className="flex items-center gap-2 text-muted-foreground text-sm">
           <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
           Generating note...
         </div>
-        <Skeleton className="h-4 w-full bg-white/10" />
-        <Skeleton className="h-4 w-3/4 bg-white/10" />
-        <Skeleton className="h-4 w-5/6 bg-white/10" />
-        <Skeleton className="h-4 w-2/3 bg-white/10" />
-        <Skeleton className="h-4 w-4/5 bg-white/10" />
+        <Skeleton className="h-4 w-full bg-foreground/10" />
+        <Skeleton className="h-4 w-3/4 bg-foreground/10" />
+        <Skeleton className="h-4 w-5/6 bg-foreground/10" />
+        <Skeleton className="h-4 w-2/3 bg-foreground/10" />
+        <Skeleton className="h-4 w-4/5 bg-foreground/10" />
       </div>
     );
   }
@@ -201,6 +204,7 @@ function WorkspaceCard({
   onMoveItem,
 }: WorkspaceCardProps) {
   const posthog = usePostHog();
+  const { resolvedTheme } = useTheme();
 
   // Subscribe directly to this card's selection state from the store
   // This prevents full grid re-renders when selection changes
@@ -581,14 +585,14 @@ function WorkspaceCard({
             data-youtube-playing={isYouTubePlaying}
             data-item-type={item.type}
             data-has-preview={shouldShowPreview}
-            className={`relative rounded-md scroll-mt-4 size-full flex flex-col overflow-hidden transition-all duration-200 cursor-pointer ${item.type === 'youtube' || (item.type === 'pdf' && shouldShowPreview)
+            className={`relative rounded-md scroll-mt-4 size-full flex flex-col overflow-hidden transition-all duration-200 cursor-pointer ${item.type === 'youtube' || item.type === 'image' || (item.type === 'pdf' && shouldShowPreview)
               ? 'p-0'
               : 'p-4 border shadow-sm hover:border-foreground/30 hover:shadow-md focus-within:border-foreground/50'
               }`}
             style={{
-              backgroundColor: item.type === 'youtube' ? 'transparent' : (item.color ? getCardColorCSS(item.color, 0.25) : 'var(--card)'),
-              borderColor: isSelected ? 'rgba(255, 255, 255, 0.8)' : (item.color ? getCardAccentColor(item.color, 0.5) : 'transparent'),
-              borderWidth: isSelected ? '2px' : (item.type === 'youtube' || (item.type === 'pdf' && shouldShowPreview) ? '0px' : '1px'),
+              backgroundColor: (item.type === 'youtube' || item.type === 'image') ? 'transparent' : (item.color ? getCardColorCSS(item.color, resolvedTheme === 'dark' ? 0.25 : 0.4) : 'var(--card)'),
+              borderColor: isSelected ? 'rgba(255, 255, 255, 0.8)' : (item.color ? getCardAccentColor(item.color, resolvedTheme === 'dark' ? 0.5 : 0.3) : 'transparent'),
+              borderWidth: isSelected ? '2px' : ((item.type === 'youtube' || item.type === 'image' || (item.type === 'pdf' && shouldShowPreview)) ? '0px' : '1px'),
               transition: 'border-color 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease-out'
             } as React.CSSProperties}
             onMouseDown={handleMouseDown}
@@ -597,16 +601,16 @@ function WorkspaceCard({
             onClick={handleCardClick}
           >
             {/* Floating Controls Container */}
-            <div className={`absolute top-3 right-3 z-10 flex items-center gap-2 ${isOpenInPanel || isEditingTitle || isYouTubePlaying ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
-              {/* Scroll Lock/Unlock Button - Hidden for YouTube, quiz, and narrow note/PDF cards */}
-              {item.type !== 'youtube' && item.type !== 'quiz' && !(item.type === 'note' && !shouldShowPreview) && !(item.type === 'pdf' && !shouldShowPreview) && (
+            <div className={`absolute top-3 right-3 z-20 flex items-center gap-2 ${isOpenInPanel || isEditingTitle ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
+              {/* Scroll Lock/Unlock Button - Hidden for YouTube, image, quiz, and narrow note/PDF cards */}
+              {item.type !== 'youtube' && item.type !== 'image' && item.type !== 'quiz' && !(item.type === 'note' && !shouldShowPreview) && !(item.type === 'pdf' && !shouldShowPreview) && (
                 <button
                   type="button"
                   aria-label={isScrollLocked ? 'Click to unlock scroll' : 'Click to lock scroll'}
                   title={isScrollLocked ? 'Click to unlock scroll' : 'Click to lock scroll'}
                   className="inline-flex h-8 items-center justify-center gap-1.5 pl-2.5 pr-3 rounded-xl text-white/90 hover:text-white hover:scale-105 hover:shadow-lg transition-all duration-200 cursor-pointer"
                   style={{
-                    backgroundColor: (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.1)',
+                    backgroundColor: (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)'),
                     backdropFilter: 'blur(8px)'
                   }}
                   onMouseDown={(e) => {
@@ -614,10 +618,10 @@ function WorkspaceCard({
                     e.preventDefault();
                   }}
                   onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.5)';
+                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.8)' : (resolvedTheme === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.3)');
                   }}
                   onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.1)';
+                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)');
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -629,7 +633,7 @@ function WorkspaceCard({
                   ) : (
                     <PiMouseScrollBold className="h-4 w-4 shrink-0" />
                   )}
-                  <span className="text-xs font-medium">{isScrollLocked ? 'Scroll' : 'Lock'}</span>
+                  <span className={cn("text-xs font-medium", resolvedTheme === 'dark' ? "text-white/90" : "text-white/80")}>{isScrollLocked ? 'Scroll' : 'Lock'}</span>
                 </button>
               )}
 
@@ -642,7 +646,7 @@ function WorkspaceCard({
                 style={{
                   backgroundColor: isSelected
                     ? ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.3)')
-                    : ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.1)'),
+                    : ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)')),
                   backdropFilter: 'blur(8px)'
                 }}
                 onMouseDown={(e) => {
@@ -652,12 +656,12 @@ function WorkspaceCard({
                 onMouseEnter={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.backgroundColor = isSelected
                     ? ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(239, 68, 68, 0.6)' : 'rgba(239, 68, 68, 0.5)')
-                    : ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.5)');
+                    : ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.8)' : (resolvedTheme === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.3)'));
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.backgroundColor = isSelected
                     ? ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.3)')
-                    : ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.1)');
+                    : ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)'));
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -680,7 +684,7 @@ function WorkspaceCard({
                     title="Card settings"
                     className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer"
                     style={{
-                      backgroundColor: (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.1)',
+                      backgroundColor: (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)'),
                       backdropFilter: 'blur(8px)'
                     }}
                     onMouseDown={(e) => {
@@ -688,10 +692,10 @@ function WorkspaceCard({
                       e.preventDefault();
                     }}
                     onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.5)';
+                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.8)' : (resolvedTheme === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.3)');
                     }}
                     onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.1)';
+                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)');
                     }}
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -764,7 +768,7 @@ function WorkspaceCard({
 
             <div className={(item.type === 'note' || item.type === 'pdf') && !shouldShowPreview ? "flex-1 flex flex-col" : "flex-shrink-0"}>
               {/* Hide header for template items awaiting generation */}
-              {item.type !== 'youtube' && !(item.type === 'pdf' && shouldShowPreview) && item.name !== "Update me" && (
+              {item.type !== 'youtube' && item.type !== 'image' && !(item.type === 'pdf' && shouldShowPreview) && item.name !== "Update me" && (
                 <>
                   <ItemHeader
                     id={item.id}
@@ -794,7 +798,7 @@ function WorkspaceCard({
               {/* Subtle type label for narrow cards without preview */}
               {/* Subtle type label for narrow cards without preview */}
               {(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz') && !shouldShowPreview && (
-                <span className="text-[10px] uppercase tracking-wider text-white/40 mt-auto">
+                <span className={cn(item.type === 'note' ? 'Note' : item.type === 'pdf' ? 'PDF' : 'Quiz', "text-[10px] uppercase tracking-wider mt-auto", resolvedTheme === 'dark' ? "text-muted-foreground/60" : "text-muted-foreground/40")}>
                   {item.type === 'note' ? 'Note' : item.type === 'pdf' ? 'PDF' : 'Quiz'}
                 </span>
               )}
@@ -818,7 +822,7 @@ function WorkspaceCard({
                 >
                   {!isCardVisible ? (
                     // Placeholder when card is not visible - very lightweight
-                    <div className="w-full h-full flex items-center justify-center bg-[#1a1a1a] text-white/30 text-xs">
+                    <div className="w-full h-full flex items-center justify-center bg-muted text-xs" style={{ color: resolvedTheme === 'dark' ? 'rgba(163, 175, 191, 0.5)' : 'rgba(107, 114, 128, 0.6)' }}>
                       PDF
                     </div>
                   ) : isScrollLocked ? (
@@ -910,7 +914,7 @@ function WorkspaceCard({
                     <Flashcard
                       front={{
                         html: (
-                          <div className="p-8 flex items-center justify-center h-full text-center text-lg font-medium text-gray-900 overflow-y-auto">
+                          <div className="p-8 flex items-center justify-center h-full text-center text-lg font-medium overflow-y-auto" style={{ color: resolvedTheme === 'dark' ? '#f3f4f6' : '#111827' }}>
                             <div className="w-full">
                               <ReactMarkdown
                                 remarkPlugins={[remarkMath]}
@@ -925,7 +929,7 @@ function WorkspaceCard({
                       }}
                       back={{
                         html: (
-                          <div className="p-8 flex items-center justify-center h-full text-center text-lg font-medium text-gray-900 overflow-y-auto">
+                          <div className="p-8 flex items-center justify-center h-full text-center text-lg font-medium overflow-y-auto" style={{ color: resolvedTheme === 'dark' ? '#f3f4f6' : '#111827' }}>
                             <div className="w-full">
                               <ReactMarkdown
                                 remarkPlugins={[remarkMath]}
@@ -947,17 +951,17 @@ function WorkspaceCard({
             {/* YouTube Content - render YouTube embed */}
             {!isOpenInPanel && item.type === 'youtube' && (() => {
               const youtubeData = item.data as YouTubeData;
-              const embedUrl = getYouTubeEmbedUrl(youtubeData.url);
+              const hasValidUrl = extractYouTubeVideoId(youtubeData.url) !== null || extractYouTubePlaylistId(youtubeData.url) !== null;
 
-              if (!embedUrl) {
+              if (!hasValidUrl) {
                 // Invalid URL - show error state
                 return (
                   <div className="p-0 min-h-0">
                     <div className="flex flex-col items-center justify-center gap-3 text-center h-full p-4">
                       <div className="rounded-lg p-4 bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-                        <span className="text-red-400 font-medium">Invalid YouTube URL</span>
+                        <span className={cn("font-medium", resolvedTheme === 'dark' ? "text-red-400" : "text-red-600")}>Invalid YouTube URL</span>
                       </div>
-                      <p className="text-xs text-muted-foreground/70">
+                      <p className={cn("text-xs", resolvedTheme === 'dark' ? "text-muted-foreground/70" : "text-muted-foreground/50")}>
                         Please check the URL and try again
                       </p>
                     </div>
@@ -972,6 +976,11 @@ function WorkspaceCard({
                 onTogglePlay={(playing) => setCardPlaying(item.id, playing)}
               />;
             })()}
+
+            {/* Image Content - render frameless image */}
+            {!isOpenInPanel && item.type === 'image' && (
+              <ImageCardContent item={item} />
+            )}
 
             {/* Deep Research Note - render streaming UI when research is in progress */}
             {item.type === 'note' && (() => {
@@ -1118,6 +1127,11 @@ export const WorkspaceCardMemoized = memo(WorkspaceCard, (prevProps, nextProps) 
     if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
   }
   if (prevProps.item.type === 'quiz' && nextProps.item.type === 'quiz') {
+    const prevData = prevProps.item.data;
+    const nextData = nextProps.item.data;
+    if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
+  }
+  if (prevProps.item.type === 'image' && nextProps.item.type === 'image') {
     const prevData = prevProps.item.data;
     const nextData = nextProps.item.data;
     if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;

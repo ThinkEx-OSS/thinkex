@@ -308,7 +308,7 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
                   <div className="absolute top-2 right-2 z-10 flex gap-1.5">
                     {/* New Badge for unseen shared workspaces */}
                     {!workspace.lastOpenedAt && (
-                      <div className="bg-blue-600/90 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center shadow-lg border border-blue-400 font-semibold animate-pulse">
+                      <div className="bg-blue-600/90 text-foreground text-[10px] px-2 py-0.5 rounded-full flex items-center shadow-lg border border-blue-400 font-semibold animate-pulse dark:text-white">
                         NEW
                       </div>
                     )}

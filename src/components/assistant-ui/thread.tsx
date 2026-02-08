@@ -68,7 +68,7 @@ import { AddYoutubeVideoToolUI } from "@/components/assistant-ui/AddYoutubeVideo
 import { ExecuteCodeToolUI } from "@/components/assistant-ui/ExecuteCodeToolUI";
 import { FileProcessingToolUI } from "@/components/assistant-ui/FileProcessingToolUI";
 import { URLContextToolUI } from "@/components/assistant-ui/URLContextToolUI";
-import { DeepResearchToolUI } from "@/components/assistant-ui/DeepResearchToolUI";
+// import { DeepResearchToolUI } from "@/components/assistant-ui/DeepResearchToolUI";
 import { UpdateNoteToolUI } from "@/components/assistant-ui/UpdateNoteToolUI";
 import { WebSearchToolUI } from "@/components/assistant-ui/WebSearchToolUI";
 
@@ -82,6 +82,7 @@ import {
 import { SelectCardsToolUI } from "@/components/assistant-ui/SelectCardsToolUI";
 import { AssistantLoader } from "@/components/assistant-ui/assistant-loader";
 import { File as FileComponent } from "@/components/assistant-ui/file";
+import { uploadFileDirect } from "@/lib/uploads/client-upload";
 import { Sources } from "@/components/assistant-ui/sources";
 import { Image } from "@/components/assistant-ui/image";
 import { Reasoning, ReasoningGroup } from "@/components/assistant-ui/reasoning";
@@ -111,7 +112,7 @@ import { SpeechToTextButton } from "@/components/assistant-ui/SpeechToTextButton
 const AI_MODELS = [
   { id: "gemini-3-pro-preview", name: "Gemini 3.0 Pro", description: "Latest preview model" },
   { id: "gemini-3-flash-preview", name: "Gemini 3.0 Flash", description: "Latest fast preview model" },
-  { id: "gemini-flash-lite-latest", name: "Gemini Flash Lite", description: "Fastest & cost-efficient" },
+  { id: "gemini-2.5-flash-lite", name: "Gemini Flash Lite", description: "Fastest & cost-efficient" },
   { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", description: "Powerful & reliable" },
   { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", description: "Fast & efficient" },
 ];
@@ -142,7 +143,7 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
         <ExecuteCodeToolUI />
         <FileProcessingToolUI />
         <URLContextToolUI />
-        <DeepResearchToolUI />
+        {/* <DeepResearchToolUI /> */}
         <WebSearchToolUI />
         <ThreadPrimitive.Root
           className="aui-root aui-thread-root @container flex h-full flex-col bg-sidebar"
@@ -490,60 +491,72 @@ const Composer: FC<ComposerProps> = ({ items }) => {
       return;
     }
 
-    // Check if clipboard contains a URL
-    const pastedText = clipboardData.getData('text/plain');
-    if (pastedText) {
-      // Extract URLs from the pasted text
-      const urls = extractUrls(pastedText);
+    // Check if clipboard contains a URL (logic removed)
 
-      if (urls.length > 0) {
-        // Always prevent default paste behavior when URLs are detected
-        e.preventDefault();
+  };
 
-        // Add each valid URL as an attachment
-        for (const url of urls) {
-          try {
-            // Create a virtual File object from the URL
-            const urlFile = createUrlFile(url);
-            // Add it as an attachment
-            await aui?.composer()?.addAttachment(urlFile);
-          } catch (error) {
-            console.error("Failed to add URL attachment:", error);
-          }
-        }
+  /**
+   * Process PDF attachments in the background without blocking message sending
+   */
+  const processPdfAttachmentsInBackground = async (
+    pdfAttachments: any[],
+    workspaceId: string,
+    operations: any,
+    queryClient: any
+  ) => {
+    try {
+      // Upload all PDFs
+      const uploadPromises = pdfAttachments.map(async (attachment) => {
+        const file = attachment.file;
+        if (!file) return null;
 
-        // Remove URLs from the text and insert the cleaned text
-        let cleanedText = pastedText;
-        for (const url of urls) {
-          cleanedText = cleanedText.replace(url, '').trim();
-        }
+        const { url: fileUrl, filename } = await uploadFileDirect(file);
 
-        // Clean up extra whitespace
-        cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
+        return {
+          fileUrl,
+          filename: filename || file.name,
+          fileSize: file.size,
+          name: file.name.replace(/\.pdf$/i, ''),
+        };
+      });
 
-        // If there's remaining text after removing URLs, insert it
-        if (cleanedText) {
-          // Get the current composer input element
-          const composerInput = e.target as HTMLTextAreaElement;
-          const start = composerInput.selectionStart || 0;
-          const end = composerInput.selectionEnd || 0;
-          const currentValue = composerInput.value;
+      const uploadResults = await Promise.all(uploadPromises);
 
-          // Insert the cleaned text at the cursor position
-          const newValue = currentValue.slice(0, start) + cleanedText + currentValue.slice(end);
-          composerInput.value = newValue;
+      // Filter out any null results (files that couldn't be processed)
+      const validResults = uploadResults.filter((result): result is NonNullable<typeof result> => result !== null);
 
-          // Set cursor position after the inserted text
-          const newCursorPos = start + cleanedText.length;
-          composerInput.setSelectionRange(newCursorPos, newCursorPos);
+      if (validResults.length > 0) {
+        // Collect all PDF card data and create in a single batch event
+        const pdfCardDefinitions = validResults.map((result) => {
+          const pdfData: Partial<PdfData> = {
+            fileUrl: result.fileUrl,
+            filename: result.filename,
+            fileSize: result.fileSize,
+          };
 
-          // Trigger input event to update the composer state
-          const inputEvent = new Event('input', { bubbles: true });
-          composerInput.dispatchEvent(inputEvent);
-        }
+          return {
+            type: 'pdf' as const,
+            name: result.name,
+            initialData: pdfData,
+          };
+        });
 
-        return;
+        // Create all PDF cards atomically in a single event
+        operations.createItems(pdfCardDefinitions);
+
+        // Debounced refetch of workspace events
+        setTimeout(() => {
+          queryClient.refetchQueries({
+            queryKey: ["workspace", workspaceId, "events"],
+          });
+        }, 100);
+
+        // Show success toast
+        toast.success(`${validResults.length} PDF card${validResults.length === 1 ? '' : 's'} created`);
       }
+    } catch (error) {
+      console.error('Error creating PDF cards in background:', error);
+      toast.error('Failed to create PDF cards');
     }
   };
 
@@ -572,84 +585,15 @@ const Composer: FC<ComposerProps> = ({ items }) => {
           return;
         }
 
-        // Detect PDF attachments and create cards before sending message
+        // Detect PDF attachments for background processing
         const pdfAttachments = attachments.filter((att) => {
           const file = att.file;
           return file && (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'));
         });
 
+        // Process PDFs in background - don't block message sending
         if (pdfAttachments.length > 0 && currentWorkspaceId) {
-          try {
-            // Upload all PDFs first (can still use Promise.all for uploads)
-            const uploadPromises = pdfAttachments.map(async (attachment) => {
-              const file = attachment.file;
-              if (!file) return null;
-
-              // Upload file to Supabase
-              const formData = new FormData();
-              formData.append('file', file);
-
-              const uploadResponse = await fetch('/api/upload-file', {
-                method: 'POST',
-                body: formData,
-              });
-
-              if (!uploadResponse.ok) {
-                throw new Error(`Failed to upload PDF: ${uploadResponse.statusText}`);
-              }
-
-              const { url: fileUrl, filename } = await uploadResponse.json();
-
-              return {
-                fileUrl,
-                filename: filename || file.name,
-                fileSize: file.size,
-                name: file.name.replace(/\.pdf$/i, ''),
-              };
-            });
-
-            const uploadResults = await Promise.all(uploadPromises);
-
-            // Filter out any null results (files that couldn't be processed)
-            const validResults = uploadResults.filter((result): result is NonNullable<typeof result> => result !== null);
-
-            if (validResults.length > 0) {
-              // Collect all PDF card data and create in a single batch event
-              const pdfCardDefinitions = validResults.map((result) => {
-                const pdfData: Partial<PdfData> = {
-                  fileUrl: result.fileUrl,
-                  filename: result.filename,
-                  fileSize: result.fileSize,
-                };
-
-                return {
-                  type: 'pdf' as const,
-                  name: result.name,
-                  initialData: pdfData,
-                };
-              });
-
-              // Create all PDF cards atomically in a single event
-              operations.createItems(pdfCardDefinitions);
-
-              // Debounced refetch of workspace events (same pattern as CreateNoteToolUI)
-              if (refetchTimeoutRef.current) {
-                clearTimeout(refetchTimeoutRef.current);
-              }
-
-              refetchTimeoutRef.current = setTimeout(() => {
-                if (currentWorkspaceId) {
-                  queryClient.refetchQueries({
-                    queryKey: ["workspace", currentWorkspaceId, "events"],
-                  });
-                }
-                refetchTimeoutRef.current = null;
-              }, 100);
-            }
-          } catch (error) {
-            console.error('Error creating PDF cards:', error);
-            toast.error('Failed to create PDF cards');
-          }
+          processPdfAttachmentsInBackground(pdfAttachments, currentWorkspaceId, operations, queryClient);
         }
 
         // Get selected cards for context
@@ -684,7 +628,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         <ComposerPrimitive.Input
           ref={inputRef}
           placeholder="Ask anything or @mention context"
-          className="aui-composer-input max-h-32 w-full resize-none bg-transparent px-3.5 py-1.5 text-base text-sidebar-foreground outline-none placeholder:text-sidebar-foreground/60 focus:outline-sidebar-border focus:ring-2 focus:ring-sidebar-border/50"
+          className="aui-composer-input max-h-32 w-full resize-none bg-transparent px-3.5 py-1.5 text-base text-sidebar-foreground outline-none placeholder:text-sidebar-foreground/60 focus:outline-none"
           rows={1}
           autoFocus
           aria-label="Message input"
@@ -1018,7 +962,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
               className="aui-composer-send size-[34px] rounded-full p-1"
               aria-label="Send message"
             >
-              <ArrowUpIcon className="aui-composer-send-icon size-4 text-gray-900 dark:text-gray-600" />
+              <ArrowUpIcon className="aui-composer-send-icon size-4 text-background" />
             </TooltipIconButton>
           </ComposerPrimitive.Send>
         </AuiIf>
@@ -1032,7 +976,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
               className="aui-composer-cancel size-[34px] rounded-full border border-muted-foreground/60 hover:bg-primary/75 dark:border-muted-foreground/90"
               aria-label="Stop generating"
             >
-              <Square className="aui-composer-cancel-icon size-3 text-gray-900 dark:text-gray-600 fill-current" />
+              <Square className="aui-composer-cancel-icon size-3 text-background fill-current" />
             </Button>
           </ComposerPrimitive.Cancel>
         </AuiIf>

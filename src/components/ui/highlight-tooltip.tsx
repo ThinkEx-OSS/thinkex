@@ -823,7 +823,7 @@ export function HighlightTooltip({
                           "text-xs font-medium text-white",
                           "focus:outline-none focus:ring-1 focus:ring-inset focus:ring-white/50",
                           "active:scale-95",
-                          action.colorClass || "bg-accent",
+                          action.colorClass || "bg-accent text-foreground dark:text-white",
                           index > 0 && isExpanded && "border-l border-white/20",
                           index === 0 && "rounded-l-md",
                           index === displayActions.length - 1 && "rounded-r-md",

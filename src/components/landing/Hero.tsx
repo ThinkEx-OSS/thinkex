@@ -31,7 +31,7 @@ export function Hero() {
 
         <div className="space-y-8 md:space-y-12 text-center">
           {/* Backed by Section */}
-          <div className="flex flex-wrap items-center justify-center gap-3 text-sm md:text-base mb-0 md:mb-1">
+          <div className="flex flex-wrap items-center justify-center gap-2 text-sm md:text-base mb-0 md:mb-1">
             <a
               href="https://www.hatchery.umd.edu/about-mokhtarzadas"
               target="_blank"
@@ -56,7 +56,6 @@ export function Hero() {
               className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 transition-colors cursor-pointer"
             >
               <Github className="h-4 w-4 md:h-5 md:w-5" />
-              <span>Open Source</span>
             </a>
           </div>
 
@@ -112,7 +111,7 @@ export function Hero() {
                     ].map((gradient, i) => (
                       <div
                         key={i}
-                        className={`w-8 h-8 rounded-full ${gradient} ring-2 ring-background flex items-center justify-center text-white text-xs font-medium shadow-sm`}
+                        className={`w-6 h-6 rounded-full ${gradient} ring-2 ring-background flex items-center justify-center text-white text-[10px] font-medium shadow-sm`}
                       >
                         {["U", "J", "A", "M"][i]}
                       </div>
