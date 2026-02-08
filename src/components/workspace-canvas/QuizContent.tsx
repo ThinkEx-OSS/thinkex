@@ -3,9 +3,11 @@
 import { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import type { Item, ItemData, QuizData, QuizQuestion, QuizSessionData } from "@/lib/workspace-state/types";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, XCircle, Lightbulb, ChevronLeft, ChevronRight, RotateCcw, Trophy } from "lucide-react";
+import { CheckCircle2, XCircle, Lightbulb, ChevronLeft, ChevronRight, RotateCcw, Trophy, Plus } from "lucide-react";
 import { StreamdownMarkdown } from "@/components/ui/streamdown-markdown";
 import { toast } from "sonner";
+import { useAui } from "@assistant-ui/react";
+import { useUIStore } from "@/lib/stores/ui-store";
 
 interface QuizContentProps {
     item: Item;
@@ -16,6 +18,11 @@ interface QuizContentProps {
 export function QuizContent({ item, onUpdateData, isScrollLocked = false }: QuizContentProps) {
     const quizData = item.data as QuizData;
     const questions = quizData.questions || [];
+    const aui = useAui();
+
+    // UI store for card selection
+    const selectedCardIds = useUIStore((state) => state.selectedCardIds);
+    const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
 
     // Session state
     const [currentIndex, setCurrentIndex] = useState(quizData.session?.currentIndex || 0);
@@ -205,6 +212,28 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
         }));
     };
 
+    // Handle Update Quiz - programmatically send message to add more questions
+    const handleUpdateQuiz = () => {
+        // First, ensure this card is selected for context
+        if (!selectedCardIds.has(item.id)) {
+            toggleCardSelection(item.id);
+        }
+
+        // Then send the message via composer
+        const composer = aui?.composer?.();
+        if (composer) {
+            try {
+                composer.setText("Add 5 more questions to this quiz");
+                composer.send();
+                toast.success("Requesting more questions...");
+            } catch (error) {
+                toast.error("Failed to send request. Please try again.");
+            }
+        } else {
+            toast.error("Chat not available. Please try again.");
+        }
+    };
+
     // Calculate score
     const score = useMemo(() => {
         return answeredQuestions.filter(a => a.isCorrect).length;
@@ -325,14 +354,24 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                     {score} / {totalQuestions}
                 </p>
                 <p className="text-lg text-foreground/60 mb-6 dark:text-white/60">{percentage}% correct</p>
-                <button
-                    onMouseDown={preventFocusSteal}
-                    onClick={handleRestart}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-foreground transition-colors cursor-pointer dark:text-white"
-                >
-                    <RotateCcw className="w-4 h-4" />
-                    Restart Quiz
-                </button>
+                <div className="flex gap-3">
+                    <button
+                        onMouseDown={preventFocusSteal}
+                        onClick={handleRestart}
+                        className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-foreground transition-colors cursor-pointer dark:text-white"
+                    >
+                        <RotateCcw className="w-4 h-4" />
+                        Restart Quiz
+                    </button>
+                    <button
+                        onMouseDown={preventFocusSteal}
+                        onClick={handleUpdateQuiz}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors cursor-pointer"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Update Quiz
+                    </button>
+                </div>
             </div>
         );
     }
@@ -347,8 +386,8 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                 "cursor-default"
             )}>
                 <div className="mb-6">
-                        <div className="text-sm text-foreground prose prose-invert prose-sm max-w-none dark:text-white">
-                            <StreamdownMarkdown className="text-sm text-foreground prose prose-invert prose-sm max-w-none dark:text-white">
+                    <div className="text-sm text-foreground prose prose-invert prose-sm max-w-none dark:text-white">
+                        <StreamdownMarkdown className="text-sm text-foreground prose prose-invert prose-sm max-w-none dark:text-white">
                             {currentQuestion.questionText}
                         </StreamdownMarkdown>
                     </div>
@@ -387,11 +426,11 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                                     )}>
                                         {String.fromCharCode(65 + index)}
                                     </span>
-                        <div className="text-sm text-gray-700/90 flex-1 prose prose-sm max-w-none dark:text-foreground/90 dark:prose-invert">
-                            <StreamdownMarkdown>
-                                {option}
-                            </StreamdownMarkdown>
-                        </div>
+                                    <div className="text-sm text-gray-700/90 flex-1 prose prose-sm max-w-none dark:text-foreground/90 dark:prose-invert">
+                                        <StreamdownMarkdown>
+                                            {option}
+                                        </StreamdownMarkdown>
+                                    </div>
                                     {showCorrectness && isCorrect && <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />}
                                     {showCorrectness && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />}
                                 </div>
