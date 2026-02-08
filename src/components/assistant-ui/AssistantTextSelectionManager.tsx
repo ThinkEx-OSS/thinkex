@@ -967,7 +967,7 @@ export default function AssistantTextSelectionManager({
         }
       }}>
         <DialogContent
-          className="max-w-2xl border-white/20 bg-black/40 backdrop-blur-2xl shadow-2xl"
+          className="max-w-2xl border-border/20 bg-card/95 backdrop-blur-2xl shadow-2xl"
           style={{
             backdropFilter: "blur(24px)",
             WebkitBackdropFilter: "blur(24px)",
@@ -1044,7 +1044,7 @@ export default function AssistantTextSelectionManager({
       {/* Negative Feedback Dialog */}
       <Dialog open={showNegativeFeedbackDialog} onOpenChange={setShowNegativeFeedbackDialog}>
         <DialogContent
-          className="border-white/20 bg-black/40 backdrop-blur-2xl shadow-2xl"
+          className="border-border/20 bg-card/95 backdrop-blur-2xl shadow-2xl"
           style={{
             backdropFilter: "blur(24px)",
             WebkitBackdropFilter: "blur(24px)",

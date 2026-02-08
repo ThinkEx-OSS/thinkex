@@ -1,6 +1,6 @@
 import { Responsive as ResponsiveGridLayout, type Layout, type LayoutItem, useContainerWidth } from "react-grid-layout";
 import { fastVerticalCompactor } from "react-grid-layout/extras";
-import { useMemo, useCallback, useRef, useEffect } from "react";
+import { useMemo, useCallback, useRef, useEffect, useState } from "react";
 import React from "react";
 import type { Item, CardType } from "@/lib/workspace-state/types";
 import { GRID_FRAMES } from "@/lib/workspace-state/aspect-ratios";
@@ -75,6 +75,16 @@ export function WorkspaceGrid({
 
   // Use container width hook for v2 API
   const { width, containerRef, mounted } = useContainerWidth();
+
+  // Track post-mount state to enable transform transitions only after initial layout
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => {
+    if (!mounted) return;
+    const raf = requestAnimationFrame(() => {
+      setHasMounted(true);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [mounted]);
 
   // Track current breakpoint for saving layouts
   // Note: We use RGL's onBreakpointChange to update this, so we initialize to 'lg'
@@ -757,7 +767,7 @@ export function WorkspaceGrid({
   }, []);
 
   return (
-    <div className={`${selectedCardIds.size > 0 ? 'pb-20' : ''} w-full workspace-grid-container`} ref={containerRef}>
+    <div className={`${selectedCardIds.size > 0 ? 'pb-20' : ''} w-full workspace-grid-container${hasMounted ? ' workspace-grid-mounted' : ''}`} ref={containerRef}>
       <style>{`
         .react-grid-item.react-grid-placeholder {
           transition: transform 100ms ease-out !important;

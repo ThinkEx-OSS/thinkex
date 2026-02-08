@@ -394,7 +394,7 @@ export default function WorkspaceHeader({
           </Tooltip>
 
           {/* Breadcrumbs */}
-          <nav className="flex items-center gap-1.5 text-xs text-sidebar-foreground/70 min-w-0">
+          <nav className="flex items-center gap-1.5 text-xs text-sidebar-foreground/70 min-w-0 ml-1">
             {/* Workspace icon + name (clickable to go back to root if in a folder) */}
             {/* Workspace icon + name (clickable to go back to root if in a folder or has active items) */}
             {/* Hidden in compact mode when inside a folder/item - the logic handles this */}
