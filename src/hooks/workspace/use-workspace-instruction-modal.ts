@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { getNewWorkspaceInstructionKeys } from "@/lib/workspace/instruction-modal";
 
 export type WorkspaceInstructionMode = "first-open" | "autogen";
 
@@ -14,7 +13,7 @@ interface AnalyticsClient {
 
 interface UseWorkspaceInstructionModalParams {
   workspaceId: string | null;
-  userId: string | null;
+  isFirstWorkspace: boolean;
   assistantIsRunning: boolean | null;
   analytics?: AnalyticsClient | null;
 }
@@ -35,7 +34,7 @@ const AUTOGEN_FALLBACK_MS = 45000;
 
 export function useWorkspaceInstructionModal({
   workspaceId,
-  userId,
+  isFirstWorkspace,
   assistantIsRunning,
   analytics,
 }: UseWorkspaceInstructionModalParams): UseWorkspaceInstructionModalResult {
@@ -55,17 +54,9 @@ export function useWorkspaceInstructionModal({
   const seenRunningInCurrentAutogenRef = useRef(false);
   const userInteractedRef = useRef(false);
   const dismissedAutogenSignaturesRef = useRef<Set<string>>(new Set());
+  const hasShownFirstOpenRef = useRef(false);
 
-  const safeUserId = userId ?? "anonymous";
-  const firstOpenStorageKey = `workspace-instruction-first-open:${safeUserId}`;
-  const newWorkspaceStorageKeys = useMemo(() => {
-    if (!workspaceId) return [] as string[];
-    return getNewWorkspaceInstructionKeys(userId, workspaceId);
-  }, [userId, workspaceId]);
-
-  const autogenSignature = useMemo(() => {
-    return `${workspaceId ?? "none"}|${createFrom ?? ""}|${action ?? ""}`;
-  }, [workspaceId, createFrom, action]);
+  const autogenSignature = `${workspaceId ?? "none"}|${createFrom ?? ""}|${action ?? ""}`;
 
   const track = useCallback(
     (event: string, properties: Record<string, unknown>) => {
@@ -139,12 +130,6 @@ export function useWorkspaceInstructionModal({
     }
 
     if (isAutogenRoute) {
-      try {
-        window.localStorage.setItem(firstOpenStorageKey, "true");
-      } catch {
-        // no-op: storage unavailable
-      }
-
       if (!dismissedAutogenSignaturesRef.current.has(autogenSignature)) {
         setOpen(true);
         setMode("autogen");
@@ -159,53 +144,16 @@ export function useWorkspaceInstructionModal({
       return;
     }
 
-    let isNewWorkspaceTrigger = false;
-    try {
-      isNewWorkspaceTrigger = newWorkspaceStorageKeys.some(
-        (storageKey) => window.localStorage.getItem(storageKey) === "true"
-      );
-    } catch {
-      isNewWorkspaceTrigger = false;
-    }
-
-    if (isNewWorkspaceTrigger) {
-      try {
-        newWorkspaceStorageKeys.forEach((storageKey) => window.localStorage.removeItem(storageKey));
-      } catch {
-        // no-op: storage unavailable
-      }
+    // First workspace ever — show intro modal (once per session)
+    if (isFirstWorkspace && !hasShownFirstOpenRef.current) {
+      hasShownFirstOpenRef.current = true;
       setOpen(true);
       setMode("first-open");
       setCanClose(false);
       setShowFallback(false);
-      return;
     }
-
-    let hasSeenFirstOpen = false;
-    try {
-      hasSeenFirstOpen = window.localStorage.getItem(firstOpenStorageKey) === "true";
-    } catch {
-      hasSeenFirstOpen = false;
-    }
-
-    if (!hasSeenFirstOpen) {
-      try {
-        window.localStorage.setItem(firstOpenStorageKey, "true");
-      } catch {
-        // no-op: storage unavailable
-      }
-      setOpen(true);
-      setMode("first-open");
-      setCanClose(false);
-      setShowFallback(false);
-      return;
-    }
-
-    // "first-open" modal only closes via explicit user action (Close button).
-    // No catch-all auto-close needed — workspaceId change is handled by the
-    // guard at the top of this effect, and autogen has its own close logic.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autogenSignature, firstOpenStorageKey, isAutogenRoute, newWorkspaceStorageKeys, workspaceId]);
+  }, [autogenSignature, isAutogenRoute, isFirstWorkspace, workspaceId]);
 
   useEffect(() => {
     if (!open || !mode) return;

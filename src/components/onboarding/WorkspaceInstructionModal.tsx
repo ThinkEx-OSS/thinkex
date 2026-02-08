@@ -15,8 +15,6 @@ export interface WorkspaceInstructionModalProps {
   onFallbackContinue?: () => void;
   onUserInteracted?: () => void;
   isGenerating?: boolean;
-  mediaSrc?: string;
-  useStaticFallback?: boolean;
 }
 
 interface Step {
@@ -196,7 +194,7 @@ function useCarousel(open: boolean) {
     };
   }, [open, nextVideoSrc]);
 
-  return { activeIndex, step, videoSrc, nextVideoSrc, fading, videoLoaded, goTo, goPrev, goNext, handleVideoEnded, handleVideoCanPlay, pause };
+  return { activeIndex, step, videoSrc, fading, videoLoaded, goTo, goPrev, goNext, handleVideoEnded, handleVideoCanPlay, pause };
 }
 
 export function WorkspaceInstructionModal({
@@ -267,10 +265,6 @@ export function WorkspaceInstructionModal({
           isClosing ? "opacity-0 scale-[0.97]" : "opacity-100 scale-100"
         )}
       >
-        {/* Shimmer sweep — slow light traveling across the glass */}
-        <div className="pointer-events-none absolute inset-0 rounded-[28px] overflow-hidden z-[1]">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.07] to-transparent translate-x-[-100%] animate-[glass-shimmer_6s_ease-in-out_infinite]" />
-        </div>
 
         <div className="relative z-[2] flex h-[620px] flex-col rounded-[24px] border border-white/[0.1] dark:border-white/[0.06] bg-transparent overflow-hidden">
           {/* Generation status banner (autogen only) */}
