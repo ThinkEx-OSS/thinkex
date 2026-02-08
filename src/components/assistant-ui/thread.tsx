@@ -117,7 +117,6 @@ const MODEL_PROVIDERS = [
     models: [
       { id: "gemini-3-pro-preview", name: "3.0 Pro", description: "Latest preview model" },
       { id: "gemini-3-flash-preview", name: "3.0 Flash", description: "Latest fast preview model" },
-      { id: "gemini-2.5-flash-lite", name: "Flash Lite", description: "Fastest & cost-efficient" },
       { id: "gemini-2.5-pro", name: "2.5 Pro", description: "Powerful & reliable" },
       { id: "gemini-2.5-flash", name: "2.5 Flash", description: "Fast & efficient" },
     ],
@@ -134,7 +133,6 @@ const MODEL_PROVIDERS = [
     icon: <SiOpenai className="size-3.5" />,
     models: [
       { id: "openai/gpt-5-chat", name: "GPT-5", description: "Latest OpenAI model" },
-      { id: "openai/gpt-5-mini", name: "GPT-5 Mini", description: "Efficient OpenAI model" },
     ],
   },
 ];
