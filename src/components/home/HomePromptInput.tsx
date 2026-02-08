@@ -467,7 +467,7 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
                   style={{ willChange: 'transform' }}
                 >
                   {!introComplete ? (
-                    <span className="text-white/60">
+                    <span className="text-muted-foreground">
                       <TypingText
                         key={`intro-${typingKeyRef.current}`}
                         text={["Describe what you're working on", ""]}
@@ -481,11 +481,11 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
                       />
                     </span>
                   ) : !prefixTyped ? (
-                    <span className="text-white/60 font-normal">{typedPrefix}</span>
+                    <span className="text-muted-foreground font-normal">{typedPrefix}</span>
                   ) : (
                     <>
-                      <span className="text-white/60 font-normal shrink-0">Ask ThinkEx to&nbsp;</span>
-                      <span className="text-white/60">
+                      <span className="text-muted-foreground font-normal shrink-0">Ask ThinkEx to&nbsp;</span>
+                      <span className="text-muted-foreground">
                         <TypingText
                           key={typingKeyRef.current}
                           text={shuffledOptions}
@@ -504,7 +504,7 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
             </div>
           </div>
 
-          <div className="mx-0 my-1 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+          <div className="mx-0 my-1 h-px bg-gradient-to-r from-transparent via-foreground/20 to-transparent" />
 
           <div className="mt-0 flex items-center gap-0.5">
             <button
@@ -512,8 +512,8 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
               onClick={() => open()}
               className={cn(
                 "flex items-center gap-1 px-1.5 py-0.5 rounded-md",
-                "text-[11px] text-white/50",
-                "hover:bg-white/10 hover:text-white/70 transition-colors"
+                "text-[11px] text-sidebar-foreground/70",
+                "hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
               )}
             >
               <FileText className="h-3 w-3" />
@@ -524,8 +524,8 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
               onClick={() => setIsUrlDialogOpen(true)}
               className={cn(
                 "flex items-center gap-1 px-1.5 py-0.5 rounded-md",
-                "text-[11px] text-white/50",
-                "hover:bg-white/10 hover:text-white/70 transition-colors"
+                "text-[11px] text-sidebar-foreground/70",
+                "hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
               )}
             >
               <LinkIcon className="h-3 w-3" />
@@ -536,8 +536,8 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
               onClick={() => openImagePicker()}
               className={cn(
                 "flex items-center gap-1 px-1.5 py-0.5 rounded-md",
-                "text-[11px] text-white/50",
-                "hover:bg-white/10 hover:text-white/70 transition-colors"
+                "text-[11px] text-sidebar-foreground/70",
+                "hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
               )}
             >
               <ImageIcon className="h-3 w-3" />
@@ -553,9 +553,9 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
               "absolute right-3 md:right-4 top-1/2 -translate-y-1/2",
               "h-7 w-7 md:h-8 md:w-8 rounded-full",
               "flex items-center justify-center",
-              "bg-white text-[#1F1F1F]",
+              "bg-background text-foreground border border-border",
               "transition-colors",
-              "hover:bg-white/90",
+              "hover:bg-muted hover:border-border/80",
               "disabled:opacity-40 disabled:cursor-not-allowed"
             )}
             aria-label="Submit prompt"
