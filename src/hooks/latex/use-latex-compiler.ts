@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 /**
  * Mock mode for development - returns a static PDF without loading WASM
@@ -25,6 +25,13 @@ export function useLatexCompiler(): UseLatexCompilerReturn {
     const [logs, setLogs] = useState('');
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!pdfUrl || !pdfUrl.startsWith('blob:')) return;
+        return () => {
+            URL.revokeObjectURL(pdfUrl);
+        };
+    }, [pdfUrl]);
 
     const compile = useCallback(async (source: string) => {
         setIsCompiling(true);
