@@ -11,7 +11,7 @@ import { HeroGlow } from "./HeroGlow";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FolderPlus, ChevronDown } from "lucide-react";
+import { FolderPlus, ChevronDown, Upload } from "lucide-react";
 import { useCreateWorkspace } from "@/hooks/workspace/use-create-workspace";
 import {
   HoverCard,
@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { useDropzone } from "react-dropzone";
+import { usePdfUpload } from "@/hooks/workspace/use-pdf-upload";
 
 // Context for section visibility - allows child components to know when to focus
 const SectionVisibilityContext = createContext<{
@@ -38,6 +40,28 @@ export function HomeContent() {
   const { workspaces, loadingWorkspaces } = useWorkspaceContext();
   const hasWorkspaces = !loadingWorkspaces && workspaces.length > 0;
   const createWorkspace = useCreateWorkspace();
+  const { uploadFiles, uploadedFiles, isUploading, removeFile, clearFiles } = usePdfUpload();
+
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
+    accept: {
+      'application/pdf': ['.pdf'],
+    },
+    multiple: true,
+    noClick: true,
+    onDrop: async (acceptedFiles) => {
+      if (acceptedFiles.length > 0) {
+        try {
+          const uploaded = await uploadFiles(acceptedFiles);
+          if (uploaded.length > 0) {
+            toast.success(`Uploaded ${uploaded.length} PDF${uploaded.length > 1 ? 's' : ''}`);
+          }
+        } catch {
+          toast.error("Failed to upload PDFs");
+        }
+      }
+    },
+  });
+
   const [workspacesVisible, setWorkspacesVisible] = useState(false);
   const [showScrollHint, setShowScrollHint] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -181,8 +205,27 @@ export function HomeContent() {
           </button>
         </div>
 
-        {/* Hero Section - Reduced height so "Recent workspaces" text peeks at bottom */}
-        <div ref={heroRef} className="relative z-10 h-[85vh] flex flex-col items-center justify-center text-center px-6">
+        {/* Hero Section - Full dropzone */}
+        <div
+          ref={heroRef}
+          {...getRootProps()}
+          className="relative z-10 h-[85vh] flex flex-col items-center justify-center text-center px-6"
+        >
+          <input {...getInputProps()} />
+
+          {/* Full-page drag overlay */}
+          {isDragActive && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+              <div className="flex flex-col items-center gap-3 text-foreground">
+                <div className="flex items-center justify-center w-16 h-16 rounded-2xl border-2 border-dashed border-foreground/40 bg-muted/50">
+                  <Upload className="h-8 w-8" />
+                </div>
+                <p className="text-lg font-medium">Drop PDFs here</p>
+                <p className="text-sm text-muted-foreground">Files will be added to your new workspace</p>
+              </div>
+            </div>
+          )}
+
           <div className="w-full max-w-[760px] relative">
             {/* Hero Glow Effect */}
             <HeroGlow />
@@ -214,7 +257,15 @@ export function HomeContent() {
               <DynamicTagline />
             </div>
             <div className="flex justify-center w-full relative z-10">
-              <HomePromptInput shouldFocus={heroVisible} />
+              <HomePromptInput
+                shouldFocus={heroVisible}
+                uploadedFiles={uploadedFiles}
+                isUploading={isUploading}
+                removeFile={removeFile}
+                clearFiles={clearFiles}
+                openFilePicker={open}
+                uploadFiles={uploadFiles}
+              />
             </div>
 
             {/* Start from scratch button */}

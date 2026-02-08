@@ -5,15 +5,14 @@ import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useCreateWorkspaceFromPrompt } from "@/hooks/workspace/use-create-workspace";
-import { usePdfUpload } from "@/hooks/workspace/use-pdf-upload";
+import type { UploadedPdfMetadata } from "@/hooks/workspace/use-pdf-upload";
 // import { useImageUpload } from "@/hooks/workspace/use-image-upload";
-import { ArrowUp, FileText, Loader2, Upload, X, Link as LinkIcon } from "lucide-react";
+import { ArrowUp, FileText, Loader2, X, Link as LinkIcon } from "lucide-react";
 // import { ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import TypingText from "@/components/ui/typing-text";
-import { useDropzone } from "react-dropzone";
 import {
   Dialog,
   DialogContent,
@@ -52,9 +51,15 @@ const baseText = "Create a workspace on ";
 
 interface HomePromptInputProps {
   shouldFocus?: boolean;
+  uploadedFiles: UploadedPdfMetadata[];
+  isUploading: boolean;
+  removeFile: (fileUrl: string) => void;
+  clearFiles: () => void;
+  openFilePicker: () => void;
+  uploadFiles: (files: File[]) => Promise<UploadedPdfMetadata[]>;
 }
 
-export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
+export function HomePromptInput({ shouldFocus, uploadedFiles, isUploading, removeFile, clearFiles, openFilePicker, uploadFiles }: HomePromptInputProps) {
   const router = useRouter();
   const { resolvedTheme } = useTheme();
   const [value, setValue] = useState("");
@@ -68,7 +73,6 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
   const typingKeyRef = useRef(0);
 
   const createFromPrompt = useCreateWorkspaceFromPrompt();
-  const { uploadFiles, uploadedFiles, isUploading, removeFile, clearFiles } = usePdfUpload();
   // const {
   //   uploadFiles: uploadImages,
   //   uploadedFiles: uploadedImages,
@@ -76,34 +80,6 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
   //   removeFile: removeImage,
   //   clearFiles: clearImages,
   // } = useImageUpload();
-
-  // Setup drop zone for PDF files
-  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
-    accept: {
-      'application/pdf': ['.pdf'],
-    },
-    multiple: true,
-    noClick: true, // Don't open file dialog on click (only on drag)
-    onDrop: async (acceptedFiles) => {
-      if (acceptedFiles.length > 0) {
-        try {
-          const uploaded = await uploadFiles(acceptedFiles);
-          if (uploaded.length > 0) {
-            // Auto-populate input based on total uploads
-            const totalPdfs = uploadedFiles.length + uploaded.length;
-            if (totalPdfs === 1) {
-              setValue("this pdf");
-            } else {
-              setValue("these pdfs");
-            }
-            toast.success(`Uploaded ${uploaded.length} PDF${uploaded.length > 1 ? 's' : ''}`);
-          }
-        } catch (error) {
-          toast.error("Failed to upload PDFs");
-        }
-      }
-    },
-  });
 
   // // Setup file picker for images (button-click only, no drag)
   // const { open: openImagePicker, getInputProps: getImageInputProps } = useDropzone({
@@ -328,20 +304,7 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
 
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-[760px]">
-      <div className="relative" {...getRootProps()}>
-        <input {...getInputProps()} />
-        {/* <input {...getImageInputProps()} /> */}
-
-        {/* Drag overlay */}
-        {isDragActive && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center rounded-xl border-2 border-dashed border-foreground/40 bg-background/90 backdrop-blur-sm">
-            <div className="flex flex-col items-center gap-2 text-foreground">
-              <Upload className="h-8 w-8" />
-              <p className="text-sm font-medium">Drop PDFs here</p>
-            </div>
-          </div>
-        )}
-
+      <div className="relative">
         {/* Uploaded files display */}
         {uploadedFiles.length > 0 && (
           <div className="mb-3 flex flex-wrap gap-2">
@@ -503,7 +466,7 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
           <div className="mt-0 flex items-center gap-0.5">
             <button
               type="button"
-              onClick={() => open()}
+              onClick={() => openFilePicker()}
               className={cn(
                 "flex items-center gap-1 px-1.5 py-0.5 rounded-md",
                 "text-[11px] text-sidebar-foreground/70",
