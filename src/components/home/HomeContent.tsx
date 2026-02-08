@@ -11,7 +11,7 @@ import { HeroGlow } from "./HeroGlow";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FolderPlus, Github, ChevronDown } from "lucide-react";
+import { FolderPlus, ChevronDown } from "lucide-react";
 import { useCreateWorkspace } from "@/hooks/workspace/use-create-workspace";
 import {
   HoverCard,
