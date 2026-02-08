@@ -14,7 +14,6 @@ import { formatSelectedActionsContext } from "@/lib/utils/format-workspace-conte
 // Regex patterns as constants (compiled once, reused for all requests)
 const URL_CONTEXT_REGEX = /\[URL_CONTEXT:(.+?)\]/g;
 const DIRECT_URL_REGEX = /https?:\/\/[^\s]+/g;
-const FILE_URL_REGEX = /\[FILE_URL:([^|]+)\|mediaType:([^|]*)\|filename:([^\]]*)\]/g;
 
 /**
  * Extract workspaceId from system context or request body
@@ -34,15 +33,13 @@ function extractWorkspaceId(body: any): string | null {
 }
 
 /**
- * Process messages in a single pass: extract file URLs, URL context URLs, and clean markers
- * This combines 3 separate iterations into 1 for better performance
+ * Process messages in a single pass: extract URL context URLs and clean markers
+ * File attachments are handled natively as file parts via the SupabaseAttachmentAdapter.
  */
 function processMessages(messages: any[]): {
-  fileUrls: string[];
   urlContextUrls: string[];
   cleanedMessages: any[];
 } {
-  const fileUrls: string[] = [];
   const urlContextUrlsSet = new Set<string>();
 
   const cleanedMessages = messages.map((message) => {
@@ -50,13 +47,6 @@ function processMessages(messages: any[]): {
       const updatedContent = message.content.map((part: any) => {
         if (part.type === "text" && typeof part.text === "string") {
           const text = part.text;
-
-          // Extract file URLs (create new regex instance to avoid state issues with global flag)
-          let match;
-          const fileUrlRegexLocal = new RegExp(FILE_URL_REGEX.source, FILE_URL_REGEX.flags);
-          while ((match = fileUrlRegexLocal.exec(text)) !== null) {
-            fileUrls.push(match[1]);
-          }
 
           // Extract URL context URLs (use Set for O(1) lookups)
           const urlContextRegexLocal = new RegExp(URL_CONTEXT_REGEX.source, URL_CONTEXT_REGEX.flags);
@@ -90,7 +80,6 @@ function processMessages(messages: any[]): {
   });
 
   return {
-    fileUrls,
     urlContextUrls: Array.from(urlContextUrlsSet),
     cleanedMessages,
   };
@@ -162,16 +151,8 @@ QUALITY GUIDELINES FOR THE YOUTUBE VIDEO:
  * Build the enhanced system prompt with guidelines and detection hints
  * Uses array join for better performance than string concatenation
  */
-function buildSystemPrompt(baseSystem: string, fileUrls: string[], urlContextUrls: string[]): string {
+function buildSystemPrompt(baseSystem: string, urlContextUrls: string[]): string {
   const parts: string[] = [baseSystem];
-
-  // Add web search decision-making guidelines
-
-
-  // Add file detection hint if file URLs are present
-  if (fileUrls.length > 0) {
-    parts.push(`\n\nFILE DETECTION: The user's message contains ${fileUrls.length} file(s). You MUST call the processFiles tool with these URLs to analyze them: ${fileUrls.join(', ')}`);
-  }
 
   // Add URL detection hint if URLs are present
   if (urlContextUrls.length > 0) {
@@ -219,8 +200,8 @@ export async function POST(req: Request) {
       throw convertError;
     }
 
-    // Process messages in single pass: extract URLs/files and clean markers
-    const { fileUrls, urlContextUrls, cleanedMessages } = processMessages(convertedMessages);
+    // Process messages in single pass: extract URLs and clean markers
+    const { urlContextUrls, cleanedMessages } = processMessages(convertedMessages);
 
     // Get pre-formatted selected cards context from client (no DB fetch needed)
     const selectedCardsContext = getSelectedCardsContext(body);
@@ -238,7 +219,7 @@ export async function POST(req: Request) {
     // Build system prompt with all context parts (using array join for efficiency)
     // Note: The base `system` from client already includes AI assistant identity from formatWorkspaceContext
     const systemPromptParts: string[] = [
-      buildSystemPrompt(system, fileUrls, urlContextUrls),
+      buildSystemPrompt(system, urlContextUrls),
       `\n\nMODEL IDENTITY: You are currently running as "${modelId}". If the user asks what model you are, tell them this model ID.`,
     ];
 

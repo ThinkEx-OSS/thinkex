@@ -7,7 +7,8 @@ import { join } from "path";
 import { existsSync } from "fs";
 import { loadStateForTool, fuzzyMatchItem } from "./tool-utils";
 import type { WorkspaceToolContext } from "./workspace-tools";
-import type { PdfData } from "@/lib/workspace-state/types";
+import type { Item, PdfData } from "@/lib/workspace-state/types";
+import { workspaceWorker } from "@/lib/ai/workers";
 
 type FileInfo = { fileUrl: string; filename: string; mediaType: string };
 
@@ -234,6 +235,10 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
             const fileNames = parsed.fileNames || [];
             const instruction = parsed.instruction;
 
+            // Track matched PDF items for auto-caching after extraction
+            const matchedPdfItems: Map<string, Item> = new Map(); // fileUrl -> Item
+            const cachedResults: string[] = [];
+
             // Resolve file names to URLs using fuzzy matching if context is available
             if (fileNames && Array.isArray(fileNames) && fileNames.length > 0) {
                 if (ctx && ctx.workspaceId) {
@@ -250,8 +255,17 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
                                 if (matchedItem) {
                                     if (matchedItem.type === 'pdf') {
                                         const pdfData = matchedItem.data as PdfData;
+
+                                        // Check for cached text content first
+                                        if (pdfData.textContent) {
+                                            logger.debug(`📁 [FILE_TOOL] Using cached text content for "${name}" (${pdfData.textContent.length} chars)`);
+                                            cachedResults.push(`**${matchedItem.name}** (cached):\n\n${pdfData.textContent}`);
+                                            continue; // Skip adding to urlList — no reprocessing needed
+                                        }
+
                                         if (pdfData.fileUrl) {
                                             urlList.push(pdfData.fileUrl);
+                                            matchedPdfItems.set(pdfData.fileUrl, matchedItem);
                                             logger.debug(`📁 [FILE_TOOL] Resolved file name "${name}" to URL: ${pdfData.fileUrl}`);
                                         } else {
                                             notFoundData.push(`Item "${name}" found but has no file URL.`);
@@ -272,12 +286,7 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
                             }
 
                             if (notFoundData.length > 0) {
-                                // If we failed to find some files, we should probably inform the model/user
-                                // Append this to the result later or return partial error?
-                                // For now, let's log it. We continue with whatever URLs we found.
                                 logger.warn("📁 [FILE_TOOL] Some file names could not be resolved:", notFoundData);
-                                // Is it better to fail fast or best effort?
-                                // Best effort seems appropriate here, but maybe return a note in the result.
                             }
                         }
                     } catch (error) {
@@ -286,6 +295,11 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
                 } else {
                     logger.warn("📁 [FILE_TOOL] fileNames provided but no workspace context available for resolution.");
                 }
+            }
+
+            // If all requested files had cached content, return early
+            if (cachedResults.length > 0 && urlList.length === 0) {
+                return cachedResults.join('\n\n---\n\n');
             }
 
             if (!Array.isArray(urlList)) {
@@ -359,6 +373,29 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
             if (processingPromises.length > 0) {
                 const results = await Promise.all(processingPromises);
                 fileResults.push(...results.filter((r): r is string => r !== null));
+            }
+
+            // Auto-persist extracted content to matched PDF items (fire-and-forget)
+            if (matchedPdfItems.size > 0 && ctx?.workspaceId && fileResults.length > 0) {
+                const combinedResult = fileResults.join('\n\n---\n\n');
+                for (const [fileUrl, item] of matchedPdfItems) {
+                    try {
+                        await workspaceWorker("updatePdfContent", {
+                            workspaceId: ctx.workspaceId,
+                            itemId: item.id,
+                            pdfTextContent: combinedResult,
+                        });
+                        logger.debug(`📁 [FILE_TOOL] Auto-cached extracted content for PDF "${item.name}" (${combinedResult.length} chars)`);
+                    } catch (cacheError) {
+                        // Non-fatal: log but don't fail the tool call
+                        logger.warn(`📁 [FILE_TOOL] Failed to auto-cache content for PDF "${item.name}":`, cacheError);
+                    }
+                }
+            }
+
+            // Prepend cached results if we had a mix of cached + freshly processed
+            if (cachedResults.length > 0) {
+                fileResults.unshift(...cachedResults);
             }
 
             if (fileResults.length === 0) {

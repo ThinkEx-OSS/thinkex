@@ -37,6 +37,8 @@ Use webSearch when: temporal cues ("today", "latest", "current"), real-time data
 Use internal knowledge for: creative writing, coding, general concepts, summarizing provided content.
 If uncertain about accuracy, prefer to search.
 
+PDF ATTACHMENTS: When the user uploads a PDF as a file attachment and there's a matching PDF item in the workspace, call updatePdfContent with a comprehensive summary of the PDF's content to cache it. This avoids reprocessing the file later.
+
 YOUTUBE: If user says "add a video" without a topic, infer from workspace context. Don't ask - just search.
 
 SOURCE EXTRACTION (CRITICAL):
@@ -407,7 +409,8 @@ function formatNoteDetailsFull(data: NoteData): string[] {
 
 /**
  * Formats PDF details with FULL content
- * Note: PDFs include a marker for Gemini to read the content directly via URL
+ * If cached textContent is available, include it so the agent can reason about the PDF
+ * without needing to call processFiles.
  */
 function formatPdfDetailsFull(data: PdfData): string[] {
     const lines: string[] = [];
@@ -418,12 +421,17 @@ function formatPdfDetailsFull(data: PdfData): string[] {
 
     if (data.fileUrl) {
         lines.push(`   - URL: ${data.fileUrl}`);
-
     }
 
     if (data.fileSize) {
         const sizeMB = (data.fileSize / (1024 * 1024)).toFixed(2);
         lines.push(`   - Size: ${sizeMB} MB`);
+    }
+
+    if (data.textContent) {
+        lines.push(`   - Extracted Content:\n${data.textContent}`);
+    } else {
+        lines.push(`   - (Content not yet extracted — use processFiles or upload the PDF to extract)`);
     }
 
     return lines;

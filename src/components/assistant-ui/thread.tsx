@@ -72,6 +72,7 @@ import { URLContextToolUI } from "@/components/assistant-ui/URLContextToolUI";
 // import { DeepResearchToolUI } from "@/components/assistant-ui/DeepResearchToolUI";
 import { UpdateNoteToolUI } from "@/components/assistant-ui/UpdateNoteToolUI";
 import { WebSearchToolUI } from "@/components/assistant-ui/WebSearchToolUI";
+import { UpdatePdfContentToolUI } from "@/components/assistant-ui/UpdatePdfContentToolUI";
 
 import { DeleteCardToolUI } from "@/components/assistant-ui/DeleteCardToolUI";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
@@ -188,6 +189,7 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
         <URLContextToolUI />
         {/* <DeepResearchToolUI /> */}
         <WebSearchToolUI />
+        <UpdatePdfContentToolUI />
         <ThreadPrimitive.Root
           className="aui-root aui-thread-root @container flex h-full flex-col bg-sidebar"
           style={{

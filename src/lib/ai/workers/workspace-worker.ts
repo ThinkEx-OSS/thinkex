@@ -7,7 +7,7 @@ import { createEvent } from "@/lib/workspace/events";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import { getRandomCardColor } from "@/lib/workspace-state/colors";
 import { logger } from "@/lib/utils/logger";
-import type { Item, NoteData, QuizData, QuizQuestion } from "@/lib/workspace-state/types";
+import type { Item, NoteData, PdfData, QuizData, QuizQuestion } from "@/lib/workspace-state/types";
 import { markdownToBlocks } from "@/lib/editor/markdown-to-blocks";
 import { executeWorkspaceOperation } from "./common";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
@@ -67,7 +67,7 @@ function parseAppendResult(rawResult: string | any): { version: number; conflict
  * Operations are serialized per workspace to prevent version conflicts
  */
 export async function workspaceWorker(
-    action: "create" | "update" | "delete" | "updateFlashcard" | "updateQuiz",
+    action: "create" | "update" | "delete" | "updateFlashcard" | "updateQuiz" | "updatePdfContent",
     params: {
         workspaceId: string;
         title?: string;
@@ -75,6 +75,7 @@ export async function workspaceWorker(
         itemId?: string;
 
         itemType?: "note" | "flashcard" | "quiz" | "youtube" | "image"; // Defaults to "note" if undefined
+        pdfTextContent?: string; // For caching extracted PDF text content
         flashcardData?: {
             cards?: { front: string; back: string }[]; // For creating flashcards
             cardsToAdd?: { front: string; back: string }[]; // For updating flashcards (appending)
@@ -719,6 +720,78 @@ export async function workspaceWorker(
                     questionsAdded: questionsToAdd.length,
                     totalQuestions: updatedData.questions.length,
                     message: `Added ${questionsToAdd.length} question${questionsToAdd.length !== 1 ? 's' : ''} to quiz`,
+                    event,
+                    version: appendResult.version,
+                };
+            }
+
+            if (action === "updatePdfContent") {
+                if (!params.itemId) {
+                    throw new Error("Item ID required for PDF content update");
+                }
+                if (!params.pdfTextContent) {
+                    throw new Error("Text content required for PDF content update");
+                }
+
+                const currentState = await loadWorkspaceState(params.workspaceId);
+                const existingItem = currentState.items.find((i: any) => i.id === params.itemId);
+                if (!existingItem) {
+                    throw new Error(`PDF not found with ID: ${params.itemId}`);
+                }
+                if (existingItem.type !== "pdf") {
+                    throw new Error(`Item "${existingItem.name}" is not a PDF (type: ${existingItem.type})`);
+                }
+
+                const existingData = existingItem.data as PdfData;
+                const updatedData: PdfData = {
+                    ...existingData,
+                    textContent: params.pdfTextContent,
+                };
+
+                const changes: Partial<Item> = { data: updatedData };
+
+                if (params.title) {
+                    changes.name = params.title;
+                }
+
+                const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: 'agent' }, userId);
+
+                const currentVersionResult = await db.execute(sql`
+          SELECT get_workspace_version(${params.workspaceId}::uuid) as version
+        `);
+                const baseVersion = currentVersionResult[0]?.version || 0;
+
+                const eventResult = await db.execute(sql`
+          SELECT append_workspace_event(
+            ${params.workspaceId}::uuid,
+            ${event.id}::text,
+            ${event.type}::text,
+            ${JSON.stringify(event.payload)}::jsonb,
+            ${event.timestamp}::bigint,
+            ${event.userId}::text,
+            ${baseVersion}::integer,
+            NULL::text
+          ) as result
+        `);
+
+                if (!eventResult || eventResult.length === 0) {
+                    throw new Error("Failed to update PDF content: database returned no result");
+                }
+
+                const appendResult = parseAppendResult(eventResult[0].result);
+                if (appendResult.conflict) {
+                    throw new Error("Workspace was modified by another user, please try again");
+                }
+
+                logger.info("📄 [WORKSPACE-WORKER] Updated PDF text content:", {
+                    itemId: params.itemId,
+                    contentLength: params.pdfTextContent.length,
+                });
+
+                return {
+                    success: true,
+                    itemId: params.itemId,
+                    message: `Cached text content for PDF "${existingItem.name}" (${params.pdfTextContent.length} chars)`,
                     event,
                     version: appendResult.version,
                 };
