@@ -79,6 +79,8 @@ function DashboardContent({
   const {
     currentSlug,
     switchWorkspace,
+    workspaces: allWorkspaces,
+    loadingWorkspaces: loadingAllWorkspaces,
   } = useWorkspaceContext();
 
   // Get save status from Zustand store
@@ -113,7 +115,7 @@ function DashboardContent({
 
   const instructionModal = useWorkspaceInstructionModal({
     workspaceId: currentWorkspaceId,
-    userId: session?.user?.id ?? null,
+    isFirstWorkspace: !loadingAllWorkspaces && (allWorkspaces.length === 0 || (allWorkspaces.length === 1 && allWorkspaces[0]?.id === currentWorkspaceId)),
     assistantIsRunning: assistantThreadRunning,
     analytics: posthog ?? null,
   });
@@ -475,7 +477,6 @@ function DashboardContent({
         onRequestClose={instructionModal.close}
         onFallbackContinue={instructionModal.continueFromFallback}
         onUserInteracted={instructionModal.markInteracted}
-        useStaticFallback={true}
       />
 
       <WorkspaceSettingsModal
