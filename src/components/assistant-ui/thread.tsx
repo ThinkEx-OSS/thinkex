@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { FaQuoteLeft, FaWandMagicSparkles, FaCheck } from "react-icons/fa6";
 import { LuSparkle } from "react-icons/lu";
+import { SiClaude, SiOpenai } from "react-icons/si";
 import { cn } from "@/lib/utils";
 import {
   ActionBarPrimitive,
@@ -94,7 +95,7 @@ import { ReplyContextDisplay } from "@/components/chat/ReplyContextDisplay";
 import { MentionMenu } from "@/components/chat/MentionMenu";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useUIStore, selectReplySelections, selectSelectedCardIdsArray } from "@/lib/stores/ui-store";
-import { DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
+import { DropdownMenuSeparator, DropdownMenuLabel, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { useShallow } from "zustand/react/shallow";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
@@ -108,14 +109,58 @@ import { formatSelectedCardsContext } from "@/lib/utils/format-workspace-context
 import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { SpeechToTextButton } from "@/components/assistant-ui/SpeechToTextButton";
 
-// Available AI models
-const AI_MODELS = [
-  { id: "gemini-3-pro-preview", name: "Gemini 3.0 Pro", description: "Latest preview model" },
-  { id: "gemini-3-flash-preview", name: "Gemini 3.0 Flash", description: "Latest fast preview model" },
-  { id: "gemini-2.5-flash-lite", name: "Gemini Flash Lite", description: "Fastest & cost-efficient" },
-  { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", description: "Powerful & reliable" },
-  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", description: "Fast & efficient" },
+// Available AI models grouped by provider
+const MODEL_PROVIDERS = [
+  {
+    provider: "Gemini",
+    icon: <LuSparkle className="size-3.5" />,
+    models: [
+      { id: "gemini-3-pro-preview", name: "3.0 Pro", description: "Latest preview model" },
+      { id: "gemini-3-flash-preview", name: "3.0 Flash", description: "Latest fast preview model" },
+      { id: "gemini-2.5-flash-lite", name: "Flash Lite", description: "Fastest & cost-efficient" },
+      { id: "gemini-2.5-pro", name: "2.5 Pro", description: "Powerful & reliable" },
+      { id: "gemini-2.5-flash", name: "2.5 Flash", description: "Fast & efficient" },
+    ],
+  },
+  {
+    provider: "Claude",
+    icon: <SiClaude className="size-3.5" />,
+    models: [
+      { id: "anthropic/claude-sonnet-4.5", name: "Sonnet 4.5", description: "Latest Claude model" },
+    ],
+  },
+  {
+    provider: "ChatGPT",
+    icon: <SiOpenai className="size-3.5" />,
+    models: [
+      { id: "openai/gpt-5-chat", name: "GPT-5", description: "Latest OpenAI model" },
+      { id: "openai/gpt-5-mini", name: "GPT-5 Mini", description: "Efficient OpenAI model" },
+    ],
+  },
 ];
+
+// Flat list for lookups
+const ALL_MODELS = MODEL_PROVIDERS.flatMap((p) =>
+  p.models.map((m) => ({ ...m, provider: p.provider, providerIcon: p.icon }))
+);
+
+// Helper function to get the appropriate icon for a model
+function getModelIcon(modelId: string) {
+  if (modelId.includes("claude")) {
+    return <SiClaude className="size-3.5" />;
+  }
+  if (modelId.includes("openai") || modelId.includes("gpt")) {
+    return <SiOpenai className="size-3.5" />;
+  }
+  return <LuSparkle className="size-3.5" />;
+}
+
+// Get display name for selected model (provider + short name)
+function getModelDisplayName(modelId: string): string {
+  const model = ALL_MODELS.find((m) => m.id === modelId);
+  if (!model) return modelId;
+  return `${model.provider} ${model.name}`;
+}
 
 interface ThreadProps {
   items?: Item[];
@@ -677,7 +722,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
 
   const selectedModel = useMemo(
-    () => AI_MODELS.find((m) => m.id === selectedModelId) || AI_MODELS[4],
+    () => ALL_MODELS.find((m) => m.id === selectedModelId) || ALL_MODELS[4],
     [selectedModelId]
   );
 
@@ -826,37 +871,45 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
               type="button"
               className="flex items-center gap-1.5 px-1.5 py-1 rounded-md bg-sidebar-accent hover:bg-accent transition-colors flex-shrink-0 text-xs font-normal text-muted-foreground hover:text-foreground cursor-pointer"
             >
-              <LuSparkle className="w-3.5 h-3.5" />
-              <span>{selectedModel.name}</span>
+              {getModelIcon(selectedModel.id)}
+              <span>{getModelDisplayName(selectedModel.id)}</span>
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="top" className="w-48 max-h-80 overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()}>
-            {AI_MODELS.map((model) => {
-              const isSelected = selectedModelId === model.id;
-              return (
-                <DropdownMenuItem
-                  key={model.id}
-                  onClick={() => {
-                    setSelectedModelId(model.id);
-                    setIsModelSelectorOpen(false);
-                    focusComposerInput();
-                  }}
-                  title={model.description}
-                  aria-label={model.description ?? model.name}
-                  className={cn(
-                    "cursor-pointer",
-                    isSelected && "bg-accent/50"
-                  )}
-                >
-                  {isSelected ? (
-                    <FaCheck className="size-3.5 text-sidebar-foreground/80" />
-                  ) : (
-                    <LuSparkle className="size-3.5" />
-                  )}
-                  <span>{model.name}</span>
-                </DropdownMenuItem>
-              );
-            })}
+          <DropdownMenuContent align="start" side="top" className="w-44" onCloseAutoFocus={(e) => e.preventDefault()}>
+            {MODEL_PROVIDERS.map((group) => (
+              <DropdownMenuSub key={group.provider}>
+                <DropdownMenuSubTrigger className="cursor-pointer gap-2">
+                  {group.icon}
+                  <span>{group.provider}</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-44">
+                  {group.models.map((model) => {
+                    const isSelected = selectedModelId === model.id;
+                    return (
+                      <DropdownMenuItem
+                        key={model.id}
+                        onClick={() => {
+                          setSelectedModelId(model.id);
+                          setIsModelSelectorOpen(false);
+                          focusComposerInput();
+                        }}
+                        title={model.description}
+                        aria-label={model.description ?? model.name}
+                        className={cn(
+                          "cursor-pointer",
+                          isSelected && "bg-accent/50"
+                        )}
+                      >
+                        {isSelected && (
+                          <FaCheck className="size-3 text-sidebar-foreground/80" />
+                        )}
+                        <span>{model.name}</span>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            ))}
           </DropdownMenuContent>
         </DropdownMenu>
         {/* AI Debug Button - only in development */}

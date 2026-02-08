@@ -238,7 +238,8 @@ export async function POST(req: Request) {
     // Build system prompt with all context parts (using array join for efficiency)
     // Note: The base `system` from client already includes AI assistant identity from formatWorkspaceContext
     const systemPromptParts: string[] = [
-      buildSystemPrompt(system, fileUrls, urlContextUrls)
+      buildSystemPrompt(system, fileUrls, urlContextUrls),
+      `\n\nMODEL IDENTITY: You are currently running as "${modelId}". If the user asks what model you are, tell them this model ID.`,
     ];
 
     // Inject createFrom workspace initialization prompt if detected
