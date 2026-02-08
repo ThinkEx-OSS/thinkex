@@ -91,6 +91,7 @@ export function HomeContent() {
     if (!el) return;
 
     function handleMouseMove(e: MouseEvent) {
+      if (!el) return;
       const rect = el.getBoundingClientRect();
       const relativeY = e.clientY - rect.top;
       setShowScrollHint(relativeY > rect.height * 0.8);
