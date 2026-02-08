@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { usePostHog } from 'posthog-js/react';
 import { useCreateWorkspace } from "@/hooks/workspace/use-create-workspace";
+import { useSession } from "@/lib/auth-client";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +60,7 @@ export default function CreateWorkspaceModal({
 }: CreateWorkspaceModalProps) {
   const router = useRouter();
   const posthog = usePostHog();
+  const { data: session } = useSession();
   const createWorkspace = useCreateWorkspace();
   const [name, setName] = useState(initialData?.name || "");
   const [selectedIcon, setSelectedIcon] = useState<string | null>(initialData?.icon || null);
@@ -160,6 +162,7 @@ export default function CreateWorkspaceModal({
       },
       {
         onSuccess: async ({ workspace }) => {
+
           posthog.capture('workspace-created', {
             workspace_id: workspace.id,
             workspace_slug: workspace.slug,
@@ -465,4 +468,3 @@ export default function CreateWorkspaceModal({
     </Dialog>
   );
 }
-

@@ -32,6 +32,7 @@ interface DashboardLayoutProps {
   // Text selection handlers
   onSingleSelect?: (text: string) => void | Promise<void>;
   onMultiSelect?: (selections: Array<{ text: string; id: string }>) => void | Promise<void>;
+  onAssistantThreadRunningChange?: (isRunning: boolean) => void;
 
   // Component slots
   workspaceSection: React.ReactNode;
@@ -60,6 +61,7 @@ export function DashboardLayout({
   onWorkspaceSizeChange,
   onSingleSelect,
   onMultiSelect,
+  onAssistantThreadRunningChange,
   workspaceSection,
   panels,
   modalManager,
@@ -107,6 +109,7 @@ export function DashboardLayout({
                 setIsChatMaximized={setIsChatMaximized}
                 onSingleSelect={onSingleSelect}
                 onMultiSelect={onMultiSelect}
+                onThreadRunningChange={onAssistantThreadRunningChange}
               />
             </div>
           </AssistantDropzone>
@@ -188,6 +191,7 @@ export function DashboardLayout({
                     setIsChatMaximized={setIsChatMaximized}
                     onSingleSelect={onSingleSelect}
                     onMultiSelect={onMultiSelect}
+                    onThreadRunningChange={onAssistantThreadRunningChange}
                   />
                 </AssistantDropzone>
               </ResizablePanel>
@@ -208,4 +212,3 @@ export function DashboardLayout({
 
   return content;
 }
-

@@ -35,8 +35,10 @@ import { AnonymousSessionHandler, SidebarCoordinator } from "@/components/layout
 import { PdfEngineWrapper } from "@/components/pdf/PdfEngineWrapper";
 import WorkspaceSettingsModal from "@/components/workspace/WorkspaceSettingsModal";
 import ShareWorkspaceDialog from "@/components/workspace/ShareWorkspaceDialog";
+import { WorkspaceInstructionModal } from "@/components/onboarding/WorkspaceInstructionModal";
 import { RealtimeProvider } from "@/contexts/RealtimeContext";
 import { toast } from "sonner";
+import { useWorkspaceInstructionModal } from "@/hooks/workspace/use-workspace-instruction-modal";
 
 import { InviteGuard } from "@/components/workspace/InviteGuard";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
@@ -77,6 +79,8 @@ function DashboardContent({
   const {
     currentSlug,
     switchWorkspace,
+    workspaces: allWorkspaces,
+    loadingWorkspaces: loadingAllWorkspaces,
   } = useWorkspaceContext();
 
   // Get save status from Zustand store
@@ -107,6 +111,14 @@ function DashboardContent({
   // Workspace settings/share modals (lifted so header can open them)
   const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
   const [showWorkspaceShare, setShowWorkspaceShare] = useState(false);
+  const [assistantThreadRunning, setAssistantThreadRunning] = useState<boolean | null>(null);
+
+  const instructionModal = useWorkspaceInstructionModal({
+    workspaceId: currentWorkspaceId,
+    isFirstWorkspace: !loadingAllWorkspaces && (allWorkspaces.length === 0 || (allWorkspaces.length === 1 && allWorkspaces[0]?.id === currentWorkspaceId)),
+    assistantIsRunning: assistantThreadRunning,
+    analytics: posthog ?? null,
+  });
 
   // Show sign-in prompt after 25 events for anonymous users
   useEffect(() => {
@@ -415,6 +427,7 @@ function DashboardContent({
         onWorkspaceSizeChange={setWorkspacePanelSize}
         onSingleSelect={handleCreateInstantNote}
         onMultiSelect={handleCreateCardFromSelections}
+        onAssistantThreadRunningChange={setAssistantThreadRunning}
         panels={panels}
         workspaceSection={
           <WorkspaceSection
@@ -454,6 +467,16 @@ function DashboardContent({
         }
         modalManager={modalManagerElement}
         maximizedItemId={maximizedItemId}
+      />
+      <WorkspaceInstructionModal
+        mode={instructionModal.mode ?? "first-open"}
+        open={instructionModal.open}
+        canClose={instructionModal.canClose}
+        showFallback={instructionModal.showFallback}
+        isGenerating={instructionModal.isGenerating}
+        onRequestClose={instructionModal.close}
+        onFallbackContinue={instructionModal.continueFromFallback}
+        onUserInteracted={instructionModal.markInteracted}
       />
 
       <WorkspaceSettingsModal
