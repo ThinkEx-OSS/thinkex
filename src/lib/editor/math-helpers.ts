@@ -1,19 +1,6 @@
 // Type definition to avoid dependency on server-util
 export type MathBlock = any;
 
-/**
- * Normalizes various LaTeX math syntaxes to standard $$ format (Streamdown compatible)
- * This ensures math is preserved in the BlockNote document
- */
-export function normalizeMathSyntax(markdown: string): string {
-    return markdown
-        // Convert \[...\] to $$...$$ (block math)
-        .replace(/\\\[([\s\S]*?)\\\]/g, (_, latex) => `$$${latex.trim()}$$`)
-        // Convert \(...\) to $$...$$ (inline math) - Streamdown uses $$ for both
-        .replace(/\\\(([\s\S]*?)\\\)/g, (_, latex) => `$$${latex.trim()}$$`)
-        // Keep existing $$...$$ as-is
-        ;
-}
 
 /**
  * Regex pattern for matching Streamdown math: $$...$$

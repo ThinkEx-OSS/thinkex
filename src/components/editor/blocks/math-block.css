@@ -26,7 +26,7 @@
 
 /* Math block rendered content */
 .math-block-rendered {
-  color: white;
+  color: var(--foreground);
   text-align: center;
 }
 
@@ -41,7 +41,7 @@
 
 /* KaTeX styling overrides for dark theme */
 .katex {
-  color: white;
+  color: var(--foreground);
   font-size: 1.05em !important;
   /* Override KaTeX default 1.21em */
 }
@@ -59,7 +59,7 @@
 .katex .mpunct,
 .katex .minner,
 .katex .mop {
-  color: white;
+  color: var(--foreground);
 }
 
 /* Scrollbar for long equations */

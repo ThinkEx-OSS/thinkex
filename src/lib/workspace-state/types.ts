@@ -33,9 +33,12 @@ export interface PdfData {
 }
 
 export interface ImageData {
-  fileUrl: string; // Supabase storage URL
-  filename: string; // original filename
-  fileSize?: number; // optional file size in bytes
+  fileUrl?: string; // Supabase storage URL (user uploads)
+  filename?: string; // original filename (user uploads)
+  fileSize?: number; // optional file size in bytes (user uploads)
+  url?: string; // source URL (AI-generated/searched images)
+  altText?: string; // optional accessibility text
+  caption?: string; // optional caption
 }
 
 export interface FlashcardItem {

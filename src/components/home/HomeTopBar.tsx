@@ -7,6 +7,7 @@ import { Github, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { UserProfileDropdown } from "./UserProfileDropdown";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface HomeTopBarProps {
   scrollY: number;
@@ -103,16 +104,16 @@ export function HomeTopBar({ scrollY, searchQuery, onSearchChange, shouldFocusSe
         </div>
       </div>
 
-      {/* Right: Open source + User profile */}
-      <div className="flex items-center gap-3">
+      {/* Right: Theme toggle + Open source + User profile */}
+      <div className="flex items-center gap-2">
+        <ThemeToggle />
         <a
           href="https://github.com/thinkex-oss/thinkex"
           target="_blank"
           rel="noopener noreferrer"
-          className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-md text-violet-100 hover:text-violet-50 transition-colors"
+          className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-md text-foreground hover:text-muted-foreground transition-colors"
         >
           <Github className="h-4 w-4" />
-          <span className="text-xs font-medium">Open Source</span>
         </a>
         <UserProfileDropdown />
       </div>

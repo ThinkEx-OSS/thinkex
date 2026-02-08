@@ -173,7 +173,7 @@ export const PreviewBlock = memo(function PreviewBlock({ block, index, blocks, i
                 return null;
             }
             return (
-                <div className="mb-2 min-h-[1.5em] break-words">
+                <div className="mb-2 min-h-[1.5em] break-words text-foreground dark:text-white">
                     <InlineContent content={content} />
                     {renderChildren}
                 </div>
@@ -533,7 +533,7 @@ const StyledText = memo(function StyledText({ text, styles }: { text: string; st
             el = <s>{el}</s>;
         }
         if (styles?.code) {
-            el = <code className="bg-white/10 px-1 py-0.5 rounded font-mono text-foreground">{el}</code>;
+            el = <code className="bg-foreground/10 px-1 py-0.5 rounded font-mono text-foreground dark:bg-white/10 dark:text-white">{el}</code>;
         }
         if (styles?.textColor) {
             el = <span style={{ color: styles.textColor }}>{el}</span>;

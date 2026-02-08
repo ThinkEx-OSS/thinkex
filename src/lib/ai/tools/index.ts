@@ -18,6 +18,7 @@ import { createFlashcardsTool, createUpdateFlashcardsTool } from "./flashcard-to
 import { createQuizTool, createUpdateQuizTool } from "./quiz-tools";
 import { createDeepResearchTool } from "./deep-research";
 import { createSearchYoutubeTool, createAddYoutubeVideoTool } from "./youtube-tools";
+import { createSearchImagesTool, createAddImageTool } from "./image-tools";
 import { createWebSearchTool } from "./web-search";
 import { logger } from "@/lib/utils/logger";
 
@@ -71,13 +72,16 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
         createQuiz: createQuizTool(ctx),
         updateQuiz: createUpdateQuizTool(ctx),
 
-        // Deep research
-
-        ...(config.enableDeepResearch ? { deepResearch: createDeepResearchTool(ctx) } : {}),
+        // Deep research - commented out
+        // ...(config.enableDeepResearch ? { deepResearch: createDeepResearchTool(ctx) } : {}),
 
         // YouTube
         searchYoutube: createSearchYoutubeTool(),
         addYoutubeVideo: createAddYoutubeVideoTool(ctx),
+
+        // Google Images
+        searchImages: createSearchImagesTool(),
+        addImage: createAddImageTool(ctx),
 
         // Client tools from frontend
         ...frontendClientTools,

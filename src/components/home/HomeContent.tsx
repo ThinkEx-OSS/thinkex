@@ -144,40 +144,24 @@ export function HomeContent() {
 
             {/* Social proof */}
             <div className="mb-6 flex flex-wrap items-center justify-center gap-3 text-xs sm:text-sm relative z-10">
-              <HoverCard openDelay={200}>
-                <HoverCardTrigger asChild>
-                  <div className="flex items-center gap-2 px-2.5 py-1 rounded-md text-gray-100 cursor-pointer">
-                    <div className="flex -space-x-2">
-                      {[
-                        "bg-gradient-to-br from-blue-400 to-blue-600",
-                        "bg-gradient-to-br from-emerald-400 to-emerald-600",
-                        "bg-gradient-to-br from-amber-400 to-amber-600",
-                        "bg-gradient-to-br from-rose-400 to-rose-600",
-                      ].map((gradient, i) => (
-                        <div
-                          key={gradient}
-                          className={`w-6 h-6 rounded-full ${gradient} flex items-center justify-center text-white text-[10px] font-medium shadow-sm`}
-                        >
-                          {["T", "J", "A", "M"][i]}
-                        </div>
-                      ))}
+              <div className="flex items-center gap-2 px-2.5 py-1 text-sidebar-foreground">
+                <div className="flex -space-x-2">
+                  {[
+                    "bg-gradient-to-br from-blue-400 to-blue-600",
+                    "bg-gradient-to-br from-emerald-400 to-emerald-600",
+                    "bg-gradient-to-br from-amber-400 to-amber-600",
+                    "bg-gradient-to-br from-rose-400 to-rose-600",
+                  ].map((gradient, i) => (
+                    <div
+                      key={gradient}
+                      className={`w-6 h-6 rounded-full ${gradient} flex items-center justify-center text-white text-[10px] font-medium shadow-sm`}
+                    >
+                      {["T", "J", "A", "M"][i]}
                     </div>
-                    <span className="text-xs sm:text-sm font-normal">200+ weekly active users</span>
-                  </div>
-                </HoverCardTrigger>
-                <HoverCardContent className="w-[350px] sm:w-[450px] p-0 overflow-hidden border-none shadow-xl" sideOffset={10}>
-                  <iframe
-                    width="100%"
-                    height="400"
-                    frameBorder="0"
-                    allowFullScreen
-                    src="https://us.posthog.com/embedded/wNOXac2TxOxawVOVKHkUGxe1BA1sJQ"
-                    key="4"
-                    sandbox="allow-scripts allow-same-origin allow-popups"
-                    className="bg-background"
-                  />
-                </HoverCardContent>
-              </HoverCard>
+                  ))}
+                </div>
+                <span className="text-xs sm:text-sm font-normal">100+ daily active users</span>
+              </div>
             </div>
 
             {/* Dynamic tagline with mask wipe animation */}
@@ -198,7 +182,7 @@ export function HomeContent() {
                 size="sm"
                 onClick={handleCreateBlankWorkspace}
                 disabled={createWorkspace.isPending}
-                className="text-sm text-white/70 hover:text-white hover:bg-white/5 transition-all duration-200 gap-2 disabled:opacity-50"
+                className="text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200 gap-2 disabled:opacity-50"
               >
                 <FolderPlus className="h-4 w-4" />
                 Or, start from scratch
@@ -208,7 +192,7 @@ export function HomeContent() {
         </div>
 
         {/* Workspaces Section - Allow scrolling within */}
-        <div ref={workspacesRef} className="relative z-10 px-6 pb-8 pt-8 min-h-screen bg-gradient-to-b from-transparent via-background to-black">
+        <div ref={workspacesRef} className="relative z-10 px-6 pb-8 pt-8 min-h-screen bg-gradient-to-b from-transparent via-background to-background">
           <div className="w-full max-w-6xl mx-auto h-full">
             {/* First-visit explainer for new users */}
             {!loadingWorkspaces && workspaces.length === 0 && (

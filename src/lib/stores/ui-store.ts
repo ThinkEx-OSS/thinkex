@@ -7,13 +7,6 @@ import { WORKSPACE_PANEL_SIZES } from '@/lib/layout-constants';
  * This replaces scattered useState hooks in dashboard
  */
 
-interface NavigationState {
-  folderId: string | null;
-  openPanelIds: string[];
-  maximizedItemId: string | null;
-  selectedCardIds: Set<string>;
-}
-
 interface UIState {
   // Chat state
   isChatExpanded: boolean;
@@ -38,10 +31,6 @@ interface UIState {
   activeFolderId: string | null; // Active folder for filtering
   selectedActions: string[]; // Action IDs selected in the actions menu
   selectedModelId: string; // Selected AI model ID
-
-  // Navigation history
-  folderHistoryBack: NavigationState[]; // Stack of states we can navigate back to
-  folderHistoryForward: NavigationState[]; // Stack of states we can navigate forward to
 
   // Text selection state
   inMultiSelectMode: boolean;
@@ -96,14 +85,15 @@ interface UIState {
 
   setActiveFolderId: (folderId: string | null) => void;
   clearActiveFolder: () => void;
-  navigateFolderBack: () => void;
-  navigateFolderForward: () => void;
+  /** Direct setter used by useFolderUrl hook — does not clear panels (URL sync only) */
+  _setActiveFolderIdDirect: (folderId: string | null) => void;
+  /** Direct panel open used by useFolderUrl hook — URL sync only */
+  _openPanelDirect: (itemId: string) => void;
+  /** Direct panel close used by useFolderUrl hook — URL sync only */
+  _closePanelDirect: () => void;
   setSelectedActions: (actions: string[]) => void;
   clearSelectedActions: () => void;
   setSelectedModelId: (modelId: string) => void;
-
-  // Private helper
-  _pushToHistory: () => void;
 
   // Actions - Text selection
   setInMultiSelectMode: (inMultiMode: boolean) => void;
@@ -165,8 +155,6 @@ const initialState = {
   activeFolderId: null,
   selectedActions: [],
   selectedModelId: 'gemini-2.5-flash',
-  folderHistoryBack: [],
-  folderHistoryForward: [],
 
   // Text selection
   inMultiSelectMode: false,
@@ -194,37 +182,20 @@ export const useUIStore = create<UIState>()(
     (set) => ({
       ...initialState,
 
-      // Navigation helpers
-      _pushToHistory: () => set((state) => {
-        // Create current state snapshot
-        const currentState: NavigationState = {
-          folderId: state.activeFolderId,
-          openPanelIds: [...state.openPanelIds],
-          maximizedItemId: state.maximizedItemId,
-          selectedCardIds: new Set(state.selectedCardIds),
-        };
-
-        return {
-          folderHistoryBack: [...state.folderHistoryBack, currentState],
-          folderHistoryForward: [], // Clear forward history on new action
-        };
-      }),
-
-      // Modified Actions using history
+      // Folder navigation — preserve manual user selections
       setActiveFolderId: (folderId) => {
         set((state) => {
-          // If just changing folders (and we weren't just in the same state)
           if (state.activeFolderId === folderId && state.openPanelIds.length === 0) {
             return {};
           }
-
-          state._pushToHistory();
-
+          // Remove only auto-selected cards, preserve manual selections
+          const newSelectedCardIds = new Set(state.selectedCardIds);
+          state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
           return {
             activeFolderId: folderId,
-            openPanelIds: [], // Changing folder closes items by default
+            openPanelIds: [],
             maximizedItemId: null,
-            selectedCardIds: new Set(),
+            selectedCardIds: newSelectedCardIds,
             panelAutoSelectedCardIds: new Set(),
           };
         });
@@ -233,102 +204,69 @@ export const useUIStore = create<UIState>()(
       clearActiveFolder: () => {
         set((state) => {
           if (state.activeFolderId === null && state.openPanelIds.length === 0) return {};
-
-          state._pushToHistory();
+          // Remove only auto-selected cards, preserve manual selections
+          const newSelectedCardIds = new Set(state.selectedCardIds);
+          state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
           return {
             activeFolderId: null,
             openPanelIds: [],
             maximizedItemId: null,
-            folderHistoryForward: [],
-            selectedCardIds: new Set(),
+            selectedCardIds: newSelectedCardIds,
             panelAutoSelectedCardIds: new Set(),
           };
         });
       },
 
-      navigateFolderBack: () => set((state) => {
-        if (state.folderHistoryBack.length === 0) return {};
+      // Direct setter used by useFolderUrl hook for URL → store sync
+      // Does NOT clear panels — only updates the folder ID
+      _setActiveFolderIdDirect: (folderId) => set({ activeFolderId: folderId }),
 
-        const previousState = state.folderHistoryBack[state.folderHistoryBack.length - 1];
-        const newBackHistory = state.folderHistoryBack.slice(0, -1);
-
-        // Capture current state to push to forward history
-        const currentState: NavigationState = {
-          folderId: state.activeFolderId,
-          openPanelIds: [...state.openPanelIds],
-          maximizedItemId: state.maximizedItemId,
-          selectedCardIds: new Set(state.selectedCardIds),
-        };
-
+      // Direct panel open/close used by useFolderUrl hook for URL → store sync
+      _openPanelDirect: (itemId) => set({ openPanelIds: [itemId], maximizedItemId: itemId }),
+      _closePanelDirect: () => set((state) => {
+        // Remove only auto-selected cards, preserve manual selections
+        const newSelectedCardIds = new Set(state.selectedCardIds);
+        state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
         return {
-          activeFolderId: previousState.folderId,
-          openPanelIds: previousState.openPanelIds,
-          maximizedItemId: previousState.maximizedItemId,
-          selectedCardIds: previousState.selectedCardIds,
-          // Since we are restoring selection state, this handles "adding item to context" correctly
-          folderHistoryBack: newBackHistory,
-          folderHistoryForward: [currentState, ...state.folderHistoryForward],
+          openPanelIds: [],
+          maximizedItemId: null,
+          selectedCardIds: newSelectedCardIds,
+          panelAutoSelectedCardIds: new Set(),
         };
       }),
 
-      navigateFolderForward: () => set((state) => {
-        if (state.folderHistoryForward.length === 0) return {};
-
-        const nextState = state.folderHistoryForward[0];
-        const newForwardHistory = state.folderHistoryForward.slice(1);
-
-        // Capture current state to push to back history
-        const currentState: NavigationState = {
-          folderId: state.activeFolderId,
-          openPanelIds: [...state.openPanelIds],
-          maximizedItemId: state.maximizedItemId,
-          selectedCardIds: new Set(state.selectedCardIds),
-        };
-
-        return {
-          activeFolderId: nextState.folderId,
-          openPanelIds: nextState.openPanelIds,
-          maximizedItemId: nextState.maximizedItemId,
-          selectedCardIds: nextState.selectedCardIds,
-          folderHistoryBack: [...state.folderHistoryBack, currentState],
-          folderHistoryForward: newForwardHistory,
-        };
-      }),
-
-      // Panel actions with history
+      // Panel actions
       openPanel: (itemId, mode) => {
         set((state) => {
-          // Check if we are already in this state to avoid duplicate history
           const isAlreadyOpen = state.openPanelIds.length === 1 && state.openPanelIds[0] === itemId;
           if (isAlreadyOpen) return {};
 
-          state._pushToHistory();
-
-          // Enforce single maximized item view
           const newSelectedCardIds = new Set(state.selectedCardIds);
+          const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
+          
+          // Add to selections and track as auto-selected
           newSelectedCardIds.add(itemId);
+          newPanelAutoSelectedCardIds.add(itemId);
 
           return {
             openPanelIds: [itemId],
-            maximizedItemId: itemId, // Always maximized
+            maximizedItemId: itemId,
             selectedCardIds: newSelectedCardIds,
-            // Clear auto-selected tracking as we don't need it for single view
-            panelAutoSelectedCardIds: new Set(),
+            panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
           };
         });
       },
 
       closePanel: (itemId) => {
         set((state) => {
-          // Only push to history if something is actually open
           if (state.openPanelIds.length === 0) return {};
-
-          state._pushToHistory();
-
+          // Remove only auto-selected cards, preserve manual selections
+          const newSelectedCardIds = new Set(state.selectedCardIds);
+          state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
           return {
             openPanelIds: [],
             maximizedItemId: null,
-            selectedCardIds: new Set(),
+            selectedCardIds: newSelectedCardIds,
             panelAutoSelectedCardIds: new Set(),
           };
         });
@@ -337,13 +275,13 @@ export const useUIStore = create<UIState>()(
       closeAllPanels: () => {
         set((state) => {
           if (state.openPanelIds.length === 0) return {};
-
-          state._pushToHistory();
-
+          // Remove only auto-selected cards, preserve manual selections
+          const newSelectedCardIds = new Set(state.selectedCardIds);
+          state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
           return {
             openPanelIds: [],
             maximizedItemId: null,
-            selectedCardIds: new Set(),
+            selectedCardIds: newSelectedCardIds,
             panelAutoSelectedCardIds: new Set(),
           };
         });
@@ -359,14 +297,9 @@ export const useUIStore = create<UIState>()(
 
       // Legacy compatibility
       setOpenModalItemId: (id) => {
-        // This maps to openPanel or closePanel, so we delegate or replicate logic
-        // But since this is a store action calling other store actions isn't direct in zustand without get().
-        // So we replicate logic.
-
         set((state) => {
           if (id === null) {
             if (state.openPanelIds.length === 0) return {};
-            state._pushToHistory();
             return {
               openPanelIds: [],
               maximizedItemId: null,
@@ -376,16 +309,18 @@ export const useUIStore = create<UIState>()(
             const isAlreadyOpen = state.openPanelIds.length === 1 && state.openPanelIds[0] === id;
             if (isAlreadyOpen) return {};
 
-            state._pushToHistory();
-
             const newSelectedCardIds = new Set(state.selectedCardIds);
+            const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
+            
+            // Add to selections and track as auto-selected
             newSelectedCardIds.add(id);
+            newPanelAutoSelectedCardIds.add(id);
 
             return {
               openPanelIds: [id],
               maximizedItemId: id,
               selectedCardIds: newSelectedCardIds,
-              panelAutoSelectedCardIds: new Set(),
+              panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
             };
           }
         });

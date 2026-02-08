@@ -77,7 +77,9 @@ export async function POST(request: NextRequest) {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 15);
     const originalName = file.name;
-    const filename = `${timestamp}-${random}-${originalName}`;
+    // Sanitize filename: remove spaces and special chars, keep only alphanumeric, dots, hyphens, underscores
+    const sanitizedName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const filename = `${timestamp}-${random}-${sanitizedName}`;
 
     const storageType = getStorageType();
     let publicUrl: string;

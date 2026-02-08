@@ -10,7 +10,7 @@ import { loadStateForTool, fuzzyMatchItem, getAvailableItemsList } from "./tool-
  */
 export function createFlashcardsTool(ctx: WorkspaceToolContext) {
     return tool({
-        description: "Create a new flashcard deck. Use $$...$$ for ALL math expressions.",
+        description: "Create a new flashcard deck.",
         inputSchema: zodSchema(
             z.object({
                 title: z.string().nullable().describe("The title of the flashcard deck (defaults to 'Flashcard Deck' if not provided)"),
@@ -73,7 +73,7 @@ export function createFlashcardsTool(ctx: WorkspaceToolContext) {
  */
 export function createUpdateFlashcardsTool(ctx: WorkspaceToolContext) {
     return tool({
-        description: "Add more flashcards to an existing flashcard deck and/or update its title. Use $$...$$ for ALL math expressions.",
+        description: "Add more flashcards to an existing flashcard deck and/or update its title.",
         inputSchema: zodSchema(
             z.object({
                 deckName: z.string().describe("The name or ID of the flashcard deck to update"),

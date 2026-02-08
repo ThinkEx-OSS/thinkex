@@ -8,6 +8,7 @@ import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEdit
 import FlashcardContent from "./FlashcardContent";
 import YouTubeCardContent from "./YouTubeCardContent";
 import { SourcesDisplay } from "./SourcesDisplay";
+import ImageCardContent from "./ImageCardContent";
 
 import { QuizContent } from "./QuizContent";
 
@@ -91,23 +92,6 @@ export function CardRenderer(props: {
     );
   }
 
-  if (item.type === "image") {
-    const imageData = item.data as ImageData;
-    return (
-      <div className="flex-1 flex items-center justify-center p-4 min-h-0">
-        {imageData.fileUrl ? (
-          <img
-            src={imageData.fileUrl}
-            alt={item.name || imageData.filename || 'Image'}
-            className="max-w-full max-h-full object-contain rounded-md"
-          />
-        ) : (
-          <p className="text-sm text-muted-foreground">No image loaded</p>
-        )}
-      </div>
-    );
-  }
-
   if (item.type === "flashcard") {
     return <FlashcardContent item={item} onUpdateData={onUpdateData} />;
   }
@@ -124,6 +108,10 @@ export function CardRenderer(props: {
         onTogglePlay={(playing) => setCardPlaying(item.id, playing)}
       />
     );
+  }
+
+  if (item.type === "image") {
+    return <ImageCardContent item={item} />;
   }
 
   return (

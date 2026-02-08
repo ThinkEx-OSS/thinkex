@@ -4,10 +4,7 @@ import { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import type { Item, ItemData, QuizData, QuizQuestion, QuizSessionData } from "@/lib/workspace-state/types";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, XCircle, Lightbulb, ChevronLeft, ChevronRight, RotateCcw, Trophy } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
-import "katex/dist/katex.min.css";
+import { StreamdownMarkdown } from "@/components/ui/streamdown-markdown";
 import { toast } from "sonner";
 
 interface QuizContentProps {
@@ -178,6 +175,15 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
         }
     };
 
+    // Arrow navigation - only moves between questions, never shows results
+    const handleArrowNext = () => {
+        if (currentIndex < totalQuestions - 1) {
+            const nextIndex = currentIndex + 1;
+            setCurrentIndex(nextIndex);
+            persistSession({ currentIndex: nextIndex });
+        }
+    };
+
     const handlePrevious = () => {
         if (currentIndex > 0) {
             const prevIndex = currentIndex - 1;
@@ -224,7 +230,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                         "cursor-default"
                     )}>
                         <div className="mb-6">
-                            <div className="text-sm text-white/60 prose prose-invert prose-sm max-w-none">
+                            <div className="text-sm text-gray-500/60 prose prose-sm max-w-none dark:text-foreground/60 dark:prose-invert">
                                 <div className="flex items-center gap-2">
                                     <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
                                     Generating quiz questions...
@@ -240,10 +246,10 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                                     className="w-full p-3 text-left rounded-lg border bg-white/5 border-white/10"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium border bg-white/10 border-white/20 text-white/60">
+                                        <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium border bg-white/10 border-white/20 text-foreground/60 dark:text-white/60">
                                             {String.fromCharCode(65 + index)}
                                         </span>
-                                        <div className="text-sm text-white/40 flex-1">
+                                        <div className="text-sm text-foreground/40 flex-1 dark:text-white/40">
                                             <div className="w-3/4 h-3 bg-white/10 rounded animate-pulse"></div>
                                         </div>
                                     </div>
@@ -266,27 +272,27 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                         <div className="flex items-center w-full px-2">
                             {/* Left: Restart Button Skeleton */}
                             <div className="flex-1 flex items-center justify-start">
-                                <div className="flex items-center justify-center w-8 h-8 rounded-lg text-sm text-white/20">
+                                <div className="flex items-center justify-center w-8 h-8 rounded-lg text-sm text-foreground/20 dark:text-white/20">
                                     <RotateCcw className="w-4 h-4 rotate-180" />
                                 </div>
                             </div>
 
                             {/* Center: Navigation Skeleton */}
                             <div className="flex items-center gap-1 justify-center">
-                                <div className="flex items-center justify-center w-8 h-8 rounded-lg text-sm text-white/20">
+                                <div className="flex items-center justify-center w-8 h-8 rounded-lg text-sm text-foreground/20 dark:text-white/20">
                                     <ChevronLeft className="w-4 h-4" />
                                 </div>
-                                <span className="text-xs text-white/40 px-2">
+                                <span className="text-xs text-foreground/40 px-2 dark:text-white/40">
                                     <div className="w-8 h-3 bg-white/10 rounded animate-pulse"></div>
                                 </span>
-                                <div className="flex items-center justify-center w-8 h-8 rounded-lg text-sm text-white/20">
+                                <div className="flex items-center justify-center w-8 h-8 rounded-lg text-sm text-foreground/20 dark:text-white/20">
                                     <ChevronRight className="w-4 h-4" />
                                 </div>
                             </div>
 
                             {/* Right: Check Button Skeleton */}
                             <div className="flex-1 flex items-center justify-end">
-                                <div className="px-4 py-2 rounded-lg text-sm font-medium bg-white/10 text-white/40">
+                                <div className="px-4 py-2 rounded-lg text-sm font-medium bg-white/10 text-foreground/40 dark:text-white/40">
                                     <div className="w-8 h-3 bg-white/10 rounded animate-pulse"></div>
                                 </div>
                             </div>
@@ -299,8 +305,8 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
         // User-created quiz with no questions - show empty state
         return (
             <div className="flex flex-col h-full items-center justify-center p-4 text-center">
-                <p className="text-white/60 text-sm">No questions yet</p>
-                <p className="text-white/40 text-xs mt-1">Ask the AI to generate quiz questions</p>
+                <p className="text-foreground/60 text-sm dark:text-white/60">No questions yet</p>
+                <p className="text-foreground/40 text-xs mt-1 dark:text-white/40">Ask the AI to generate quiz questions</p>
             </div>
         );
     }
@@ -314,15 +320,15 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                     "w-16 h-16 mb-4",
                     percentage >= 80 ? "text-yellow-400" : percentage >= 50 ? "text-blue-400" : "text-white/50"
                 )} />
-                <h2 className="text-2xl font-bold text-white mb-2">Quiz Complete!</h2>
-                <p className="text-4xl font-bold text-white mb-1">
+                <h2 className="text-2xl font-bold text-foreground mb-2 dark:text-white">Quiz Complete!</h2>
+                <p className="text-4xl font-bold text-foreground mb-1 dark:text-white">
                     {score} / {totalQuestions}
                 </p>
-                <p className="text-lg text-white/60 mb-6">{percentage}% correct</p>
+                <p className="text-lg text-foreground/60 mb-6 dark:text-white/60">{percentage}% correct</p>
                 <button
                     onMouseDown={preventFocusSteal}
                     onClick={handleRestart}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors cursor-pointer"
+                    className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-foreground transition-colors cursor-pointer dark:text-white"
                 >
                     <RotateCcw className="w-4 h-4" />
                     Restart Quiz
@@ -341,10 +347,10 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                 "cursor-default"
             )}>
                 <div className="mb-6">
-                    <div className="text-sm text-white prose prose-invert prose-sm max-w-none">
-                        <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                        <div className="text-sm text-foreground prose prose-invert prose-sm max-w-none dark:text-white">
+                            <StreamdownMarkdown className="text-sm text-foreground prose prose-invert prose-sm max-w-none dark:text-white">
                             {currentQuestion.questionText}
-                        </ReactMarkdown>
+                        </StreamdownMarkdown>
                     </div>
                 </div>
 
@@ -363,31 +369,31 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                                 disabled={isSubmitted}
                                 className={cn(
                                     "w-full p-3 text-left rounded-lg border transition-all duration-200 cursor-pointer",
-                                    !isSubmitted && !isSelected && "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20",
-                                    !isSubmitted && isSelected && "bg-blue-500/20 border-blue-400/50",
-                                    showCorrectness && isCorrect && "bg-green-500/20 border-green-400/50",
-                                    showCorrectness && isSelected && !isCorrect && "bg-red-500/20 border-red-400/50",
-                                    showCorrectness && !isSelected && !isCorrect && "bg-white/5 border-white/10 opacity-50",
+                                    !isSubmitted && !isSelected && "bg-gray-100/50 border-gray-200/50 hover:bg-gray-200/50 hover:border-gray-300/50 dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10 dark:hover:border-white/20",
+                                    !isSubmitted && isSelected && "bg-blue-100/50 border-blue-300/50 dark:bg-blue-500/20 dark:border-blue-400/50",
+                                    showCorrectness && isCorrect && "bg-green-100/50 border-green-300/50 dark:bg-green-500/20 dark:border-green-400/50",
+                                    showCorrectness && isSelected && !isCorrect && "bg-red-100/50 border-red-300/50 dark:bg-red-500/20 dark:border-red-400/50",
+                                    showCorrectness && !isSelected && !isCorrect && "bg-gray-100/30 border-gray-200/30 opacity-50 dark:bg-white/5 dark:border-white/10 dark:opacity-50",
                                     isSubmitted && "cursor-default"
                                 )}
                             >
                                 <div className="flex items-center gap-3">
                                     <span className={cn(
                                         "flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium border",
-                                        showCorrectness && isCorrect ? "bg-green-500/30 border-green-400/50 text-green-300" :
-                                            showCorrectness && isSelected && !isCorrect ? "bg-red-500/30 border-red-400/50 text-red-300" :
-                                                isSelected ? "bg-blue-500/30 border-blue-400/50 text-blue-300" :
-                                                    "bg-white/10 border-white/20 text-white/60"
+                                        showCorrectness && isCorrect ? "bg-green-100/50 border-green-300/50 text-green-600 dark:bg-green-500/30 dark:border-green-400/50 dark:text-green-300" :
+                                            showCorrectness && isSelected && !isCorrect ? "bg-red-100/50 border-red-300/50 text-red-600 dark:bg-red-500/30 dark:border-red-400/50 dark:text-red-300" :
+                                                isSelected ? "bg-blue-100/50 border-blue-300/50 text-blue-600 dark:bg-blue-500/30 dark:border-blue-400/50 dark:text-blue-300" :
+                                                    "bg-gray-100/50 border-gray-300/50 text-gray-600 dark:bg-white/10 dark:border-white/20 dark:text-white/60"
                                     )}>
                                         {String.fromCharCode(65 + index)}
                                     </span>
-                                    <div className="text-sm text-white/90 flex-1 prose prose-invert prose-sm max-w-none">
-                                        <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
-                                            {option}
-                                        </ReactMarkdown>
-                                    </div>
-                                    {showCorrectness && isCorrect && <CheckCircle2 className="w-5 h-5 text-green-400" />}
-                                    {showCorrectness && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-400" />}
+                        <div className="text-sm text-gray-700/90 flex-1 prose prose-sm max-w-none dark:text-foreground/90 dark:prose-invert">
+                            <StreamdownMarkdown>
+                                {option}
+                            </StreamdownMarkdown>
+                        </div>
+                                    {showCorrectness && isCorrect && <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />}
+                                    {showCorrectness && isSelected && !isCorrect && <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />}
                                 </div>
                             </button>
                         );
@@ -396,7 +402,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
 
                 {/* Hint */}
                 {showHint && currentQuestion.hint && (
-                    <div className="mt-4 mb-2 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-sm text-yellow-200/90">
+                    <div className="mt-4 mb-2 p-3 bg-yellow-100/50 border border-yellow-300/50 rounded-lg text-sm text-yellow-800/90 dark:bg-yellow-500/10 dark:border-yellow-500/20 dark:text-yellow-200/90">
                         {currentQuestion.hint}
                     </div>
                 )}
@@ -407,7 +413,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                             <button
                                 onMouseDown={preventFocusSteal}
                                 onClick={() => setShowHint(!showHint)}
-                                className="flex items-center gap-2 text-sm text-yellow-400/80 hover:text-yellow-400 transition-colors cursor-pointer"
+                                className="flex items-center gap-2 text-sm text-yellow-600/80 hover:text-yellow-600 transition-colors cursor-pointer dark:text-yellow-400/80 dark:hover:text-yellow-400"
                             >
                                 <Lightbulb className="w-4 h-4" />
                                 {showHint ? "Hide hint" : "Hint"}
@@ -417,9 +423,9 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
 
                     {/* Center: Progress bar */}
                     <div className="flex-1 mx-4">
-                        <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <div className="w-full h-1.5 bg-gray-200/50 rounded-full overflow-hidden dark:bg-foreground/10 dark:dark:bg-white/10">
                             <div
-                                className="h-full bg-white transition-all duration-300"
+                                className="h-full bg-gray-600 transition-all duration-300 dark:bg-foreground dark:dark:bg-white"
                                 style={{ width: `${((currentIndex + (isSubmitted ? 1 : 0)) / totalQuestions) * 100}%` }}
                             />
                         </div>
@@ -431,26 +437,26 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                     <div className={cn(
                         "mt-4 p-4 rounded-lg border",
                         selectedAnswer === currentQuestion.correctIndex
-                            ? "bg-green-500/10 border-green-500/20"
-                            : "bg-red-500/10 border-red-500/20"
+                            ? "bg-green-100/50 border-green-300/50 dark:bg-green-500/10 dark:border-green-500/20"
+                            : "bg-red-100/50 border-red-300/50 dark:bg-red-500/10 dark:border-red-500/20"
                     )}>
                         <div className="flex items-center gap-2 mb-2">
                             {selectedAnswer === currentQuestion.correctIndex ? (
                                 <>
-                                    <CheckCircle2 className="w-5 h-5 text-green-400" />
-                                    <span className="font-medium text-green-400">Correct!</span>
+                                    <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                                    <span className="font-medium text-green-600 dark:text-green-400">Correct!</span>
                                 </>
                             ) : (
                                 <>
-                                    <XCircle className="w-5 h-5 text-red-400" />
-                                    <span className="font-medium text-red-400">Incorrect</span>
+                                    <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                                    <span className="font-medium text-red-600 dark:text-red-400">Incorrect</span>
                                 </>
                             )}
                         </div>
-                        <div className="text-sm text-white/80 prose prose-invert prose-sm max-w-none">
-                            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                        <div className="text-sm text-gray-700 prose prose-sm max-w-none dark:text-foreground dark:prose-invert">
+                            <StreamdownMarkdown>
                                 {currentQuestion.explanation}
-                            </ReactMarkdown>
+                            </StreamdownMarkdown>
                         </div>
                     </div>
                 )}
@@ -464,9 +470,10 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                         <button
                             onMouseDown={preventFocusSteal}
                             onClick={handleRestart}
-                            className="flex items-center justify-center w-8 h-8 rounded-lg text-sm text-white/40 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-500/70 hover:text-gray-700 hover:bg-gray-100/50 transition-colors cursor-pointer dark:text-foreground/40 dark:hover:text-foreground dark:hover:bg-white/10"
                         >
                             <RotateCcw className="w-4 h-4 rotate-180" />
+                            <span>Restart</span>
                         </button>
                     </div>
 
@@ -479,33 +486,33 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                             className={cn(
                                 "flex items-center justify-center w-8 h-8 rounded-lg text-sm transition-colors cursor-pointer",
                                 currentIndex === 0
-                                    ? "text-white/30 cursor-not-allowed"
-                                    : "text-white/70 hover:text-white hover:bg-white/10"
+                                    ? "text-gray-300 cursor-not-allowed dark:text-foreground/30"
+                                    : "text-gray-600 hover:text-gray-700 hover:bg-gray-100/50 dark:text-foreground/70 dark:hover:text-foreground dark:hover:bg-white/10"
                             )}
                         >
                             <ChevronLeft className="w-4 h-4" />
                         </button>
-                        <span className="text-xs text-white/50 px-1">
+                        <span className="text-xs text-gray-500 px-1 dark:text-foreground/50">
                             {currentIndex + 1} / {totalQuestions}
                         </span>
                         <button
                             onMouseDown={preventFocusSteal}
-                            onClick={isSubmitted ? handleNext : undefined}
-                            disabled={!isSubmitted}
+                            onClick={handleArrowNext}
+                            disabled={currentIndex >= totalQuestions - 1}
                             className={cn(
                                 "flex items-center justify-center w-8 h-8 rounded-lg text-sm transition-colors cursor-pointer",
-                                !isSubmitted
-                                    ? "text-white/30 cursor-not-allowed"
-                                    : "text-white/70 hover:text-white hover:bg-white/10"
+                                currentIndex >= totalQuestions - 1
+                                    ? "text-gray-300 cursor-not-allowed dark:text-foreground/30"
+                                    : "text-gray-600 hover:text-gray-700 hover:bg-gray-100/50 dark:text-foreground/70 dark:hover:text-foreground dark:hover:bg-white/10"
                             )}
                         >
                             <ChevronRight className="w-4 h-4" />
                         </button>
                     </div>
 
-                    {/* Right: Check */}
+                    {/* Right: Check/Next Button */}
                     <div className="flex-1 flex items-center justify-end">
-                        {!isSubmitted && (
+                        {!isSubmitted ? (
                             <button
                                 onMouseDown={preventFocusSteal}
                                 onClick={handleSubmit}
@@ -513,11 +520,19 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                                 className={cn(
                                     "px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
                                     selectedAnswer === null
-                                        ? "bg-white/10 text-white/30 cursor-not-allowed"
-                                        : "bg-blue-500 hover:bg-blue-600 text-white"
+                                        ? "bg-gray-200/50 text-gray-400 cursor-not-allowed dark:bg-white/10 dark:text-foreground/30"
+                                        : "bg-blue-500 hover:bg-blue-600 text-white dark:text-white"
                                 )}
                             >
                                 Check
+                            </button>
+                        ) : (
+                            <button
+                                onMouseDown={preventFocusSteal}
+                                onClick={handleNext}
+                                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer bg-blue-500 hover:bg-blue-600 text-white dark:text-white"
+                            >
+                                {currentIndex < totalQuestions - 1 ? "Next" : "Finish"}
                             </button>
                         )}
                     </div>

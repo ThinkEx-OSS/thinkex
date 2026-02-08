@@ -44,6 +44,9 @@ import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
 import { useAui } from "@assistant-ui/react";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
+import { UploadDialog } from "@/components/modals/UploadDialog";
+import { getBestFrameForRatio } from "@/lib/workspace-state/aspect-ratios";
+import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 
 interface WorkspaceSectionProps {
   // Loading states
@@ -187,6 +190,7 @@ export function WorkspaceSection({
 
   // Workspace settings and share modal state
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
 
   // Get workspace data from context
   const { workspaces } = useWorkspaceContext();
@@ -200,6 +204,88 @@ export function WorkspaceSection({
       addItem("youtube", name, { url, thumbnail });
     }
   }, [addItem]);
+
+  const handleImageCreate = useCallback(async (url: string, name: string) => {
+    if (!operations) return;
+
+    // Attempt to load image to get dimensions for adaptive layout
+    let initialLayout = undefined;
+    try {
+      const img = new Image();
+      const dimensionsPromise = new Promise<{ width: number, height: number }>((resolve, reject) => {
+        img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        img.onerror = reject;
+        // Handle duplicate image load
+        if (img.complete) {
+          resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        }
+        img.src = url;
+      });
+
+      // Timeout after 2 seconds to avoid hanging
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject("Timeout"), 2000));
+
+      const { width, height } = await Promise.race([dimensionsPromise, timeoutPromise]) as { width: number, height: number };
+      const bestFrame = getBestFrameForRatio(width, height);
+      initialLayout = { w: bestFrame.w, h: bestFrame.h };
+    } catch (e) {
+      console.warn("Could not detect image dimensions, using defaults", e);
+    }
+
+    operations.createItems([{
+      type: 'image',
+      name,
+      initialData: { url, altText: name },
+      initialLayout
+    }]);
+
+    toast.success("Image added to workspace");
+  }, [operations]);
+
+  // Handle smart upload from context menu: try clipboard paste first, then open dialog
+  const handleUploadMenuItemClick = useCallback(async () => {
+    try {
+      // Check for clipboard permissions/content
+      const clipboardItems = await navigator.clipboard.read();
+      let imageBlob: Blob | null = null;
+
+      for (const item of clipboardItems) {
+        const imageType = item.types.find(t => t.startsWith('image/'));
+        if (imageType) {
+          imageBlob = await item.getType(imageType);
+          break;
+        }
+      }
+
+      if (imageBlob) {
+        // Found an image! Upload it directly.
+        const toastId = toast.loading("Pasting image from clipboard...");
+
+        const formData = new FormData();
+        formData.append('file', imageBlob, "pasted-image.png"); // Default name
+
+        const response = await fetch('/api/upload-file', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) throw new Error("Upload failed");
+
+        const data = await response.json();
+        toast.dismiss(toastId);
+
+        // Create the card using the new URL
+        await handleImageCreate(data.url, "Pasted Image");
+        return;
+      }
+    } catch (e) {
+      // Fallback to dialog if clipboard access fails or no image found
+      console.debug("Clipboard read failed or empty, falling back to dialog", e);
+    }
+
+    // If no image found or error, open the upload dialog
+    setShowUploadDialog(true);
+  }, [handleImageCreate]);
 
   // Handle delete request (from button or keyboard)
   const handleDeleteRequest = () => {
@@ -326,14 +412,6 @@ export function WorkspaceSection({
     // Note: FolderCard auto-focuses the title when name is "New Folder"
   };
 
-  // File input ref for PDF upload from context menu
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  // Handle PDF upload trigger from context menu
-  const triggerFileSelect = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
-
   // Handle PDF upload from BottomActionBar
   const handlePDFUpload = async (files: File[]) => {
     if (!operations || !currentWorkspaceId) {
@@ -387,10 +465,16 @@ export function WorkspaceSection({
       });
 
       // Create all PDF cards atomically in a single event
-      operations.createItems(pdfCardDefinitions);
+      const createdIds = operations.createItems(pdfCardDefinitions);
+
+      // Auto-navigate to first created item
+      handleCreatedItems(createdIds);
     }
   };
 
+
+  // Use reactive navigation hook for auto-scroll/selection
+  const { handleCreatedItems } = useReactiveNavigation(state);
 
   // Get search params for invite check
   const searchParams = useSearchParams();
@@ -405,27 +489,6 @@ export function WorkspaceSection({
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div ref={scrollAreaRef} className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
-            {/* Hidden file input for PDF upload from context menu */}
-            {operations && currentWorkspaceId && (
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,application/pdf"
-                multiple
-                onChange={async (e) => {
-                  const files = Array.from(e.target.files || []);
-                  if (files.length > 0) {
-                    await handlePDFUpload(files);
-                  }
-                  // Reset input
-                  if (fileInputRef.current) {
-                    fileInputRef.current.value = '';
-                  }
-                }}
-                className="hidden"
-              />
-            )}
-
             <div className={cn(
               "relative min-h-full flex flex-col",
               showJsonView ? "h-full" : "",
@@ -471,6 +534,7 @@ export function WorkspaceSection({
                   onMoveItems={operations?.moveItemsToFolder}
                   onDeleteFolderWithContents={operations?.deleteFolderWithContents}
                   onPDFUpload={handlePDFUpload}
+                  onItemCreated={handleCreatedItems}
                 />)
               )}
 
@@ -494,9 +558,9 @@ export function WorkspaceSection({
               onSelect={() => {
                 if (addItem) {
                   const itemId = addItem("note");
-                  // Automatically open the modal for the newly created note
-                  if (setOpenModalItemId && itemId) {
-                    setOpenModalItemId(itemId);
+                  // Auto-navigate to the newly created note instead of opening modal
+                  if (handleCreatedItems && itemId) {
+                    handleCreatedItems([itemId]);
                   }
                 }
               }}
@@ -520,18 +584,21 @@ export function WorkspaceSection({
 
             {operations && currentWorkspaceId && (
               <ContextMenuItem
-                onSelect={triggerFileSelect}
+                onSelect={handleUploadMenuItemClick}
                 className="flex items-center gap-2 cursor-pointer"
               >
                 <Upload className="size-4" />
-                Upload PDFs
+                Upload (PDF, Image)
               </ContextMenuItem>
             )}
 
             <ContextMenuItem
               onSelect={() => {
                 if (addItem) {
-                  addItem("flashcard");
+                  const itemId = addItem("flashcard");
+                  if (handleCreatedItems && itemId) {
+                    handleCreatedItems([itemId]);
+                  }
                 }
               }}
               className="flex items-center gap-2 cursor-pointer"
@@ -563,7 +630,7 @@ export function WorkspaceSection({
               <Play className="size-4" />
               YouTube
             </ContextMenuItem>
-            <ContextMenuItem
+            {/* <ContextMenuItem
               onSelect={() => {
                 toast.success("Deep Research action selected");
                 setSelectedActions(["deep-research"]);
@@ -576,7 +643,7 @@ export function WorkspaceSection({
             >
               <Globe className="size-4" />
               Deep Research
-            </ContextMenuItem>
+            </ContextMenuItem> */}
           </ContextMenuContent>
         )}
       </ContextMenu>
@@ -634,6 +701,16 @@ export function WorkspaceSection({
         onOpenChange={setShowYouTubeDialog}
         onCreate={handleYouTubeCreate}
       />
+
+      {/* Upload Dialog (PDF + Image) */}
+      {operations && currentWorkspaceId && (
+        <UploadDialog
+          open={showUploadDialog}
+          onOpenChange={setShowUploadDialog}
+          onImageCreate={handleImageCreate}
+          onPDFUpload={handlePDFUpload}
+        />
+      )}
     </div>
   );
 }

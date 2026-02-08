@@ -89,7 +89,10 @@ export function CardDetailModal({
     >
       {/* Backdrop with blur */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-xl"
+        className="absolute inset-0 backdrop-blur-xl backdrop-dark"
+        style={{
+          animation: 'fadeIn 0.25s ease-out both',
+        }}
         onClick={onClose}
       />
 
@@ -97,6 +100,9 @@ export function CardDetailModal({
       <SpotlightModal
         className="relative z-10 w-full h-full"
         spotlightColor="rgba(135, 206, 235, 0.15)"
+        style={{
+          animation: 'scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both',
+        }}
       >
         <ItemPanelContent
           item={item}

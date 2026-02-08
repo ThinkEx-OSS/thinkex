@@ -1,5 +1,5 @@
 import { ServerBlockNoteEditor } from "@blocknote/server-util";
-import { normalizeMathSyntax, convertMathInBlocks } from "./math-helpers";
+import { convertMathInBlocks } from "./math-helpers";
 
 // Block type from server-util (no custom schema needed)
 type ServerBlock = any;
@@ -8,9 +8,8 @@ type ServerBlock = any;
  * Converts markdown content to BlockNote blocks, with comprehensive LaTeX math conversion.
  * 
  * Process:
- * 1. Normalize math syntax (e.g., \[...\] to $$...$$, \(...\) to $$...$$)
- * 2. Parse markdown to BlockNote blocks
- * 3. Post-process blocks to:
+ * 1. Parse markdown to BlockNote blocks
+ * 2. Post-process blocks to:
  *    - Convert paragraphs that contain ONLY $$...$$ to block math
  *    - Convert $$...$$ within text to inlineMath elements
  * 
@@ -20,12 +19,9 @@ type ServerBlock = any;
  * - Single $ is ONLY for currency, never for math
  */
 export async function markdownToBlocks(markdown: string): Promise<ServerBlock[]> {
-  // Normalize LaTeX syntax to standard $$ delimiters (Streamdown format)
-  const normalizedMarkdown = normalizeMathSyntax(markdown);
-
   // Parse markdown to blocks using BlockNote (use defaults to avoid ProseMirror duplication)
   const editor = ServerBlockNoteEditor.create();
-  const blocks = await editor.tryParseMarkdownToBlocks(normalizedMarkdown);
+  const blocks = await editor.tryParseMarkdownToBlocks(markdown);
 
   // Post-process blocks to convert $$...$$ to math elements
   const processedBlocks = convertMathInBlocks(blocks);
@@ -34,4 +30,4 @@ export async function markdownToBlocks(markdown: string): Promise<ServerBlock[]>
 }
 
 // Re-export for convenience if needed, though mostly used internally or by BlockNoteEditor
-export { normalizeMathSyntax, convertMathInBlocks };
+export { convertMathInBlocks };

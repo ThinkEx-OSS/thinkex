@@ -328,22 +328,11 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
                                     </div>
                                 )}
 
-                                {isComplete && (
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-2">
-                                            <CheckIcon className="h-4 w-4 text-green-500" />
-                                            <span className="text-xs text-foreground">
-                                                Successfully processed {fileCount} file{fileCount !== 1 ? 's' : ''}
-                                            </span>
+                                {isComplete && parsedResult != null && parsedResult.trim() && (
+                                    <div className="border-t pt-2">
+                                        <div className="prose prose-sm max-w-none dark:prose-invert">
+                                            <StandaloneMarkdown>{parsedResult}</StandaloneMarkdown>
                                         </div>
-
-                                        {parsedResult != null && parsedResult.trim() && (
-                                            <div className="border-t pt-2">
-                                                <div className="prose prose-sm max-w-none dark:prose-invert">
-                                                    <StandaloneMarkdown>{parsedResult}</StandaloneMarkdown>
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                 )}
                             </div>
