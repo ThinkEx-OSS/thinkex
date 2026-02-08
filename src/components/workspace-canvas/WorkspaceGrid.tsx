@@ -532,13 +532,14 @@ export function WorkspaceGrid({
         }
       } else if (itemData.type === 'folder' || itemData.type === 'flashcard') {
         // Folders and flashcards don't need minimum height enforcement - skip
-      } else if (currentBreakpointRef.current !== 'xxs' && (itemData.type === 'note' || itemData.type === 'pdf')) {
-        // Note and PDF cards: handle transitions between compact and expanded modes
+      } else if (currentBreakpointRef.current !== 'xxs' && (itemData.type === 'note' || itemData.type === 'pdf' || itemData.type === 'quiz')) {
+        // Note, PDF, and Quiz cards: handle transitions between compact and expanded modes
         // Note cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=9
         // PDF cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=6
+        // Quiz cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=13
         const wasCompact = oldItem.w === 1;
         const widthChanged = oldItem.w !== newItem.w;
-        const minExpandedHeight = itemData.type === 'pdf' ? 6 : 9;
+        const minExpandedHeight = itemData.type === 'pdf' ? 6 : itemData.type === 'quiz' ? 13 : 9;
 
         // Check for mode transitions triggered by height-only resize
         if (!widthChanged) {

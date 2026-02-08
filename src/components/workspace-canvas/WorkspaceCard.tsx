@@ -633,7 +633,7 @@ function WorkspaceCard({
                   ) : (
                     <PiMouseScrollBold className="h-4 w-4 shrink-0" />
                   )}
-                        <span className={cn("text-xs font-medium", resolvedTheme === 'dark' ? "text-white/90" : "text-white/80")}>{isScrollLocked ? 'Scroll' : 'Lock'}</span>
+                  <span className={cn("text-xs font-medium", resolvedTheme === 'dark' ? "text-white/90" : "text-white/80")}>{isScrollLocked ? 'Scroll' : 'Lock'}</span>
                 </button>
               )}
 
