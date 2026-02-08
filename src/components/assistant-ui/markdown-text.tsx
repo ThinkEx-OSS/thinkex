@@ -14,6 +14,25 @@ import { useAuiState } from "@assistant-ui/react";
 import { cn } from "@/lib/utils";
 import React, { memo, useRef, useEffect } from "react";
 
+/**
+ * Normalize various LaTeX delimiter formats to $$...$$ which is what
+ * @streamdown/math (remark-math with singleDollarTextMath: false) expects.
+ * LLMs often emit \(...\) or \[...\] despite system prompt instructions.
+ */
+function normalizeLatexDelimiters(input: string): string {
+  return (
+    input
+      // Convert [/math]...[/math] to $$...$$ (block math)
+      .replace(/\[\/math\]([\s\S]*?)\[\/math\]/g, (_, content) => `$$${content.trim()}$$`)
+      // Convert [/inline]...[/inline] to $$...$$ (inline math)
+      .replace(/\[\/inline\]([\s\S]*?)\[\/inline\]/g, (_, content) => `$$${content.trim()}$$`)
+      // Convert \( ... \) to $$...$$ (inline math) - handles both single and double backslashes
+      .replace(/\\{1,2}\(([\s\S]*?)\\{1,2}\)/g, (_, content) => `$$${content.trim()}$$`)
+      // Convert \[ ... \] to $$...$$ (block math) - handles both single and double backslashes
+      .replace(/\\{1,2}\[([\s\S]*?)\\{1,2}\]/g, (_, content) => `\n$$${content.trim()}$$\n`)
+  );
+}
+
 const MarkdownTextImpl = () => {
   // Get the text content from assistant-ui context
   const { text } = useMessagePartText();
@@ -146,10 +165,11 @@ const MarkdownTextImpl = () => {
           },
         }}
       >
-        {text}
+        {normalizeLatexDelimiters(text)}
       </Streamdown>
     </div>
   );
 };
+
 
 export const MarkdownText = memo(MarkdownTextImpl);
