@@ -490,61 +490,8 @@ const Composer: FC<ComposerProps> = ({ items }) => {
       return;
     }
 
-    // Check if clipboard contains a URL
-    const pastedText = clipboardData.getData('text/plain');
-    if (pastedText) {
-      // Extract URLs from the pasted text
-      const urls = extractUrls(pastedText);
+    // Check if clipboard contains a URL (logic removed)
 
-      if (urls.length > 0) {
-        // Always prevent default paste behavior when URLs are detected
-        e.preventDefault();
-
-        // Add each valid URL as an attachment
-        for (const url of urls) {
-          try {
-            // Create a virtual File object from the URL
-            const urlFile = createUrlFile(url);
-            // Add it as an attachment
-            await aui?.composer()?.addAttachment(urlFile);
-          } catch (error) {
-            console.error("Failed to add URL attachment:", error);
-          }
-        }
-
-        // Remove URLs from the text and insert the cleaned text
-        let cleanedText = pastedText;
-        for (const url of urls) {
-          cleanedText = cleanedText.replace(url, '').trim();
-        }
-
-        // Clean up extra whitespace
-        cleanedText = cleanedText.replace(/\s+/g, ' ').trim();
-
-        // If there's remaining text after removing URLs, insert it
-        if (cleanedText) {
-          // Get the current composer input element
-          const composerInput = e.target as HTMLTextAreaElement;
-          const start = composerInput.selectionStart || 0;
-          const end = composerInput.selectionEnd || 0;
-          const currentValue = composerInput.value;
-
-          // Insert the cleaned text at the cursor position
-          const newValue = currentValue.slice(0, start) + cleanedText + currentValue.slice(end);
-          composerInput.value = newValue;
-
-          // Set cursor position after the inserted text
-          const newCursorPos = start + cleanedText.length;
-          composerInput.setSelectionRange(newCursorPos, newCursorPos);
-
-          // Trigger input event to update the composer state
-          const inputEvent = new Event('input', { bubbles: true });
-          composerInput.dispatchEvent(inputEvent);
-        }
-
-        return;
-      }
-    }
   };
 
   /**
