@@ -18,11 +18,11 @@ export interface WorkspaceInstructionModalProps {
 }
 
 const STEP_COPY = [
-  { icon: Move, label: "Drag cards" },
-  { icon: SquarePen, label: "Create a note" },
-  { icon: FileSearch, label: "PDF text/image to chat" },
-  { icon: Youtube, label: "Add YouTube from chat" },
-  { icon: Share2, label: "Share workspace" },
+  { icon: Move, label: "Arrange your materials" },
+  { icon: SquarePen, label: "Take notes as you go" },
+  { icon: FileSearch, label: "Ask AI about your documents" },
+  { icon: Youtube, label: "Drop in lecture videos" },
+  { icon: Share2, label: "Collaborate with others" },
 ];
 
 function InstructionVisual({ mediaSrc, useStaticFallback = true }: { mediaSrc?: string; useStaticFallback?: boolean }) {
@@ -97,7 +97,7 @@ export function WorkspaceInstructionModal({
   useStaticFallback = true,
 }: WorkspaceInstructionModalProps) {
   const copy = useMemo(() => {
-    return mode === "autogen" ? "Your workspace is being generated" : "Welcome to Thinkex";
+    return mode === "autogen" ? "Your workspace is being generated" : "Your workspace is ready \u2014 here\u2019s how to use it";
   }, [mode]);
 
   if (!open) return null;
