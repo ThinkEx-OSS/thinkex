@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { usePostHog } from 'posthog-js/react';
 import { useCreateWorkspace } from "@/hooks/workspace/use-create-workspace";
+import { useSession } from "@/lib/auth-client";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,7 @@ import { IconRenderer } from "@/hooks/use-icon-picker";
 import { SwatchesPicker, ColorResult } from "react-color";
 import { SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
 import { validateImportedJSON, generateImportPreview, type ValidationResult } from "@/lib/workspace/import-validation";
+import { markNewWorkspaceInstruction } from "@/lib/workspace/instruction-modal";
 import { Textarea } from "@/components/ui/textarea";
 import { Upload, FileText } from "lucide-react";
 import type { AgentState } from "@/lib/workspace-state/types";
@@ -59,6 +61,7 @@ export default function CreateWorkspaceModal({
 }: CreateWorkspaceModalProps) {
   const router = useRouter();
   const posthog = usePostHog();
+  const { data: session } = useSession();
   const createWorkspace = useCreateWorkspace();
   const [name, setName] = useState(initialData?.name || "");
   const [selectedIcon, setSelectedIcon] = useState<string | null>(initialData?.icon || null);
@@ -160,6 +163,9 @@ export default function CreateWorkspaceModal({
       },
       {
         onSuccess: async ({ workspace }) => {
+          // Mark this newly created workspace so workspace route can show the instruction modal.
+          markNewWorkspaceInstruction(session?.user?.id, workspace.id);
+
           posthog.capture('workspace-created', {
             workspace_id: workspace.id,
             workspace_slug: workspace.slug,
@@ -465,4 +471,3 @@ export default function CreateWorkspaceModal({
     </Dialog>
   );
 }
-

@@ -1,7 +1,7 @@
 "use client";
 
 import { DevToolsModal } from "@assistant-ui/react-devtools";
-import { useAui } from "@assistant-ui/react";
+import { useAui, useAuiState } from "@assistant-ui/react";
 import { Thread } from "./thread";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceContextProvider } from "@/hooks/ai/use-workspace-context-provider";
@@ -22,6 +22,7 @@ interface AssistantPanelProps {
   onSingleSelect?: (text: string, range?: Range) => void | Promise<void>;
   onMultiSelect?: (selections: Array<{ text: string; id: string; range?: Range }>) => void | Promise<void>;
   onReady?: () => void;
+  onThreadRunningChange?: (isRunning: boolean) => void;
 }
 
 export function AssistantPanel({
@@ -31,7 +32,8 @@ export function AssistantPanel({
   setIsChatMaximized,
   onSingleSelect,
   onMultiSelect,
-  onReady
+  onReady,
+  onThreadRunningChange,
 }: AssistantPanelProps) {
   // Don't render if no workspaceId
   if (!workspaceId) {
@@ -49,6 +51,7 @@ export function AssistantPanel({
         onSingleSelect={onSingleSelect}
         onMultiSelect={onMultiSelect}
         onReady={onReady}
+        onThreadRunningChange={onThreadRunningChange}
       />
     </>
   );
@@ -61,7 +64,8 @@ function WorkspaceContextWrapper({
   setIsChatMaximized,
   onSingleSelect,
   onMultiSelect,
-  onReady
+  onReady,
+  onThreadRunningChange,
 }: {
   workspaceId?: string | null;
   setIsChatExpanded?: (expanded: boolean) => void;
@@ -70,6 +74,7 @@ function WorkspaceContextWrapper({
   onSingleSelect?: (text: string, range?: Range) => void | Promise<void>;
   onMultiSelect?: (selections: Array<{ text: string; id: string; range?: Range }>) => void | Promise<void>;
   onReady?: () => void;
+  onThreadRunningChange?: (isRunning: boolean) => void;
 }) {
   // Fetch current workspace state (includes loading state)
   const { state, isLoading } = useWorkspaceState(workspaceId || null);
@@ -96,6 +101,7 @@ function WorkspaceContextWrapper({
         onReady={onReady}
         state={state}
         isLoading={isLoading}
+        onThreadRunningChange={onThreadRunningChange}
       />
     </>
   );
@@ -249,6 +255,7 @@ function WorkspaceContextWrapperContent({
   onReady,
   state,
   isLoading,
+  onThreadRunningChange,
 }: {
   workspaceId?: string | null;
   setIsChatExpanded?: (expanded: boolean) => void;
@@ -259,6 +266,7 @@ function WorkspaceContextWrapperContent({
   onReady?: () => void;
   state: ReturnType<typeof useWorkspaceState>["state"];
   isLoading: boolean;
+  onThreadRunningChange?: (isRunning: boolean) => void;
 }) {
   // Notify parent when content is ready
   useEffect(() => {
@@ -308,6 +316,8 @@ function WorkspaceContextWrapperContent({
       )}
       data-tour="chat-panel"
     >
+      <ThreadRunningObserver onRunningChange={onThreadRunningChange} />
+
       {/* Chat Header */}
       <AppChatHeader
         onCollapse={() => setIsChatExpanded?.(false)}
@@ -328,4 +338,14 @@ function WorkspaceContextWrapperContent({
       />
     </div>
   );
+}
+
+function ThreadRunningObserver({ onRunningChange }: { onRunningChange?: (isRunning: boolean) => void }) {
+  const isRunning = useAuiState(({ thread }) => (thread as any)?.isRunning ?? false);
+
+  useEffect(() => {
+    onRunningChange?.(isRunning);
+  }, [isRunning, onRunningChange]);
+
+  return null;
 }

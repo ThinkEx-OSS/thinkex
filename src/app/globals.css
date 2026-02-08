@@ -1450,3 +1450,18 @@ body:has(.card-detail-modal) .workspace-grid-container {
     opacity: 1;
   }
 }
+
+/* Liquid glass shimmer sweep */
+@keyframes glass-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  50% {
+    transform: translateX(100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}

@@ -13,6 +13,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { FolderPlus, Github } from "lucide-react";
 import { useCreateWorkspace } from "@/hooks/workspace/use-create-workspace";
+import { useSession } from "@/lib/auth-client";
+import { markNewWorkspaceInstruction } from "@/lib/workspace/instruction-modal";
 import {
   HoverCard,
   HoverCardContent,
@@ -29,6 +31,7 @@ export const useSectionVisibility = () => useContext(SectionVisibilityContext);
 
 export function HomeContent() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [scrollY, setScrollY] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [heroVisible, setHeroVisible] = useState(true);
@@ -92,6 +95,7 @@ export function HomeContent() {
       },
       {
         onSuccess: ({ workspace }) => {
+          markNewWorkspaceInstruction(session?.user?.id, workspace.id);
           router.push(`/workspace/${workspace.slug}`);
         },
         onError: (err) => {
