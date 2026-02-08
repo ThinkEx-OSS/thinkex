@@ -28,7 +28,7 @@ import rehypeKatex from "rehype-katex";
 import { useCardContextProvider } from "@/hooks/ai/use-card-context-provider";
 import { useElementWidth } from "@/hooks/use-element-width";
 import { useIsVisible } from "@/hooks/use-is-visible";
-import { getYouTubeEmbedUrl } from "@/lib/utils/youtube-url";
+import { extractYouTubeVideoId, extractYouTubePlaylistId } from "@/lib/utils/youtube-url";
 import { YouTubeCardContent } from "./YouTubeCardContent";
 import { getLayoutForBreakpoint } from "@/lib/workspace-state/grid-layout-helpers";
 import { SourcesDisplay } from "./SourcesDisplay";
@@ -601,7 +601,7 @@ function WorkspaceCard({
             onClick={handleCardClick}
           >
             {/* Floating Controls Container */}
-            <div className={`absolute top-3 right-3 z-10 flex items-center gap-2 ${isOpenInPanel || isEditingTitle || isYouTubePlaying ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
+            <div className={`absolute top-3 right-3 z-20 flex items-center gap-2 ${isOpenInPanel || isEditingTitle ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
               {/* Scroll Lock/Unlock Button - Hidden for YouTube, image, quiz, and narrow note/PDF cards */}
               {item.type !== 'youtube' && item.type !== 'image' && item.type !== 'quiz' && !(item.type === 'note' && !shouldShowPreview) && !(item.type === 'pdf' && !shouldShowPreview) && (
                 <button
@@ -951,9 +951,9 @@ function WorkspaceCard({
             {/* YouTube Content - render YouTube embed */}
             {!isOpenInPanel && item.type === 'youtube' && (() => {
               const youtubeData = item.data as YouTubeData;
-              const embedUrl = getYouTubeEmbedUrl(youtubeData.url);
+              const hasValidUrl = extractYouTubeVideoId(youtubeData.url) !== null || extractYouTubePlaylistId(youtubeData.url) !== null;
 
-              if (!embedUrl) {
+              if (!hasValidUrl) {
                 // Invalid URL - show error state
                 return (
                   <div className="p-0 min-h-0">

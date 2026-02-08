@@ -5,7 +5,7 @@
  */
 
 // Predefined color palette with good contrast against dark grey (#202124)
-// 95 colors organized for SwatchesPicker (19 groups × 5 colors)
+// 90 colors organized for SwatchesPicker (18 groups × 5 colors)
 // Arranged in rainbow/color wheel order for intuitive selection
 export const CANVAS_CARD_COLORS = [
   // Group 1: Reds
@@ -44,16 +44,14 @@ export const CANVAS_CARD_COLORS = [
   '#D8B4FE', '#C084FC', '#A855F7', '#9333EA', '#7E22CE',
   // Group 18: Deep Purples
   '#5B21B6', '#4C1D95', '#3E1A75', '#311560', '#271050',
-  // Group 19: Slates (Neutrals)
-  '#94A3B8', '#64748B', '#475569', '#334155', '#1E293B',
 ] as const;
 
 export type CardColor = typeof CANVAS_CARD_COLORS[number];
 
 /**
  * Color groups organized for SwatchesPicker
- * 19 groups with exactly 5 colors each for a clean grid layout
- * Arranged in rainbow/color wheel order: Red → Orange → Yellow → Green → Cyan → Blue → Purple → Pink → Gray
+ * 18 groups with exactly 5 colors each for a clean grid layout
+ * Arranged in rainbow/color wheel order: Red → Orange → Yellow → Green → Cyan → Blue → Purple → Pink
  */
 export const SWATCHES_COLOR_GROUPS = [
   ['#FCA5A5', '#F87171', '#EF4444', '#DC2626', '#B91C1C'],
@@ -74,7 +72,6 @@ export const SWATCHES_COLOR_GROUPS = [
   ['#C4B5FD', '#A78BFA', '#8B5CF6', '#7C3AED', '#6D28D9'],
   ['#D8B4FE', '#C084FC', '#A855F7', '#9333EA', '#7E22CE'],
   ['#5B21B6', '#4C1D95', '#3E1A75', '#311560', '#271050'],
-  ['#94A3B8', '#64748B', '#475569', '#334155', '#1E293B'],
 ];
 
 /**

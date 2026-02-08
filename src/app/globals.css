@@ -288,6 +288,18 @@
   color: hsl(var(--foreground)) !important;
 }
 
+/* Improve BlockNote placeholder text visibility in light mode */
+.bn-block-content[data-is-empty-and-focused="true"] .bn-inline-content::before {
+  color: hsl(var(--muted-foreground)) !important;
+  opacity: 0.8 !important;
+}
+
+/* Ensure placeholder is visible in light mode */
+.bn-block-content[data-is-empty="true"] .bn-inline-content::before {
+  color: hsl(var(--muted-foreground)) !important;
+  opacity: 0.6 !important;
+}
+
 /* Ensure BlockNote slash menu and dropdowns are theme-aware */
 .bn-suggestion-menu,
 .bn-dropdown-menu {
@@ -787,8 +799,13 @@ body.marquee-selecting iframe {
   position: relative;
 }
 
+/* No transition by default — prevents fly-in animation on mount */
 .react-grid-item {
-  /* Smooth transitions for grid item movements */
+  transition: none !important;
+}
+
+/* Enable smooth transitions only after initial layout is complete */
+.workspace-grid-mounted .react-grid-item {
   transition: transform 250ms ease-out,
     width 250ms ease-out,
     height 250ms ease-out !important;
@@ -871,12 +888,12 @@ body.marquee-selecting iframe {
   bottom: 0px;
   width: 14px;
   height: 14px;
-  border-right: 3px solid rgba(0, 0, 0, 0.6);
-  border-bottom: 3px solid rgba(0, 0, 0, 0.6);
+  border-right: 3px solid rgba(255, 255, 255, 1);
+  border-bottom: 3px solid rgba(255, 255, 255, 1);
   border-radius: 0 0 10px 0;
   opacity: 0;
   transition: opacity 0.2s ease, border-color 0.2s ease;
-  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.4));
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 1)) drop-shadow(0 0 3px rgba(0, 0, 0, 0.8));
 }
 
 .dark .react-grid-item>.react-resizable-handle::after {
@@ -955,14 +972,14 @@ body.marquee-selecting iframe {
   transform: translateX(-50%);
   width: 20px;
   height: 3px;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(255, 255, 255, 1);
   border: none;
   border-radius: 0;
   top: 0;
   bottom: auto;
   right: auto;
   margin-top: 0;
-  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.4));
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 1)) drop-shadow(0 0 3px rgba(0, 0, 0, 0.8));
 }
 
 .react-grid-item>.react-resizable-handle-s::after {
@@ -972,14 +989,14 @@ body.marquee-selecting iframe {
   transform: translateX(-50%);
   width: 20px;
   height: 3px;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(255, 255, 255, 1);
   border: none;
   border-radius: 0;
   bottom: 0;
   top: auto;
   right: auto;
   margin-top: 0;
-  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.4));
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 1)) drop-shadow(0 0 3px rgba(0, 0, 0, 0.8));
 }
 
 .react-grid-item>.react-resizable-handle-e::after {
@@ -989,14 +1006,14 @@ body.marquee-selecting iframe {
   transform: translateY(-50%);
   width: 3px;
   height: 20px;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(255, 255, 255, 1);
   border: none;
   border-radius: 0;
   right: 0;
   left: auto;
   bottom: auto;
   margin-left: 0;
-  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.4));
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 1)) drop-shadow(0 0 3px rgba(0, 0, 0, 0.8));
 }
 
 .react-grid-item>.react-resizable-handle-w::after {
@@ -1006,14 +1023,14 @@ body.marquee-selecting iframe {
   transform: translateY(-50%);
   width: 3px;
   height: 20px;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(255, 255, 255, 1);
   border: none;
   border-radius: 0;
   left: 0;
   right: auto;
   bottom: auto;
   margin-left: 0;
-  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.4));
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 1)) drop-shadow(0 0 3px rgba(0, 0, 0, 0.8));
 }
 
 .dark .react-grid-item>.react-resizable-handle-n::after,
@@ -1169,6 +1186,35 @@ body.marquee-selecting iframe {
 .react-grid-item article textarea {
   max-height: 400px;
   overflow-y: auto;
+}
+
+/* Word breaking with character fallback for workspace card item headers only */
+.workspace-card-text {
+  /* Try to break at word boundaries first */
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  /* Fallback to character breaking if needed */
+  word-break: break-word;
+  /* Ensure text doesn't overflow container */
+  hyphens: auto;
+  /* Prevent orphaned characters at line start */
+  text-indent: 0;
+  hanging-punctuation: allow-last;
+}
+
+/* More aggressive breaking for very long unbreakable content */
+.workspace-card-text.break-all {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+/* Apply to card headers specifically */
+.workspace-card-header .workspace-card-text {
+  /* Headers should prefer word breaks but can fall back */
+  overflow-wrap: break-word;
+  word-break: break-word;
+  min-width: 0; /* Allow shrinking */
+  max-width: 100%; /* Don't overflow parent */
 }
 
 /* Dark theme styling for react-color SwatchesPicker */

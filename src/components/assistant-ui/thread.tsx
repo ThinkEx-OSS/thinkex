@@ -640,7 +640,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         <ComposerPrimitive.Input
           ref={inputRef}
           placeholder="Ask anything or @mention context"
-          className="aui-composer-input max-h-32 w-full resize-none bg-transparent px-3.5 py-1.5 text-base text-sidebar-foreground outline-none placeholder:text-sidebar-foreground/60 focus:outline-sidebar-border focus:ring-2 focus:ring-sidebar-border/50"
+          className="aui-composer-input max-h-32 w-full resize-none bg-transparent px-3.5 py-1.5 text-base text-sidebar-foreground outline-none placeholder:text-sidebar-foreground/60 focus:outline-none"
           rows={1}
           autoFocus
           aria-label="Message input"
@@ -974,7 +974,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
               className="aui-composer-send size-[34px] rounded-full p-1"
               aria-label="Send message"
             >
-              <ArrowUpIcon className="aui-composer-send-icon size-4 text-gray-900 dark:text-gray-600" />
+              <ArrowUpIcon className="aui-composer-send-icon size-4 text-white dark:text-black" />
             </TooltipIconButton>
           </ComposerPrimitive.Send>
         </AuiIf>

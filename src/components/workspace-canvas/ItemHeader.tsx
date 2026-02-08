@@ -156,7 +156,7 @@ export function ItemHeader(props: {
     return (
       <div className={`${noMargin ? "" : "mb-4"} select-none ${allowWrap ? "flex-1 flex flex-col" : ""}`}>
         <div
-          className={`w-full ${textSizeClass} ${fontWeightClass} ${allowWrap ? "flex-1" : ""} text-foreground`}
+          className={`w-full ${textSizeClass} ${fontWeightClass} ${allowWrap ? "flex-1" : ""} text-foreground workspace-card-text`}
         >
           {name || <span className="text-muted-foreground">Item title</span>}
         </div>
@@ -226,7 +226,7 @@ export function ItemHeader(props: {
           width: (fullWidth || allowWrap) ? '100%' : undefined,
           color: 'inherit'
         }}
-        className={`appearance-none ${textSizeClass} ${fontWeightClass} outline-none text-foreground placeholder:text-muted-foreground transition-all focus:text-accent focus:placeholder:text-accent/65 bg-transparent resize-none ${allowWrap ? "flex-1 w-full overflow-auto whitespace-normal leading-normal" : "inline-block overflow-hidden leading-tight whitespace-nowrap"} ${fullWidth ? 'w-full' : ''}`}
+        className={`appearance-none ${textSizeClass} ${fontWeightClass} outline-none text-foreground placeholder:text-muted-foreground transition-all focus:text-accent focus:placeholder:text-accent/65 bg-transparent resize-none workspace-card-text ${allowWrap ? "flex-1 w-full overflow-auto whitespace-normal leading-normal" : "inline-block overflow-hidden leading-tight whitespace-nowrap"} ${fullWidth ? 'w-full' : ''}`}
         rows={allowWrap ? undefined : 1}
       />
     </div>

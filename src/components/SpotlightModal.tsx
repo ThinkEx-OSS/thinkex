@@ -4,14 +4,16 @@ import './SpotlightModal.css';
 interface SpotlightModalProps extends React.PropsWithChildren {
   className?: string;
   spotlightColor?: string;
+  style?: React.CSSProperties;
 }
 
 const SpotlightModal: React.FC<SpotlightModalProps> = ({
   children,
-  className = ''
+  className = '',
+  style,
 }) => {
   return (
-    <div className={`modal-spotlight ${className}`}>
+    <div className={`modal-spotlight ${className}`} style={style}>
       {children}
     </div>
   );

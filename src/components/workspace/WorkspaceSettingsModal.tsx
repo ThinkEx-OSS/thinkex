@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -14,9 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContents, TabsContent } from "@/components/ui/shadcn-io/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Copy, Check, Trash2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
 import { IconPicker } from "@/components/workspace/IconPicker";
 import { IconRenderer } from "@/hooks/use-icon-picker";
@@ -48,6 +47,7 @@ export default function WorkspaceSettingsModal({
   onUpdate,
 }: WorkspaceSettingsModalProps) {
   const { deleteWorkspace, updateWorkspaceLocal } = useWorkspaceContext();
+  const router = useRouter();
   const [name, setName] = useState("");
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<CardColor | null>(null);
@@ -57,19 +57,11 @@ export default function WorkspaceSettingsModal({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Share link state (for fork-based sharing)
-  const [shareUrl, setShareUrl] = useState("");
-  const [copiedShareUrl, setCopiedShareUrl] = useState(false);
-
   useEffect(() => {
     if (workspace && open) {
       setName(workspace.name);
       setSelectedIcon(workspace.icon ?? null);
       setSelectedColor(workspace.color as CardColor | null);
-
-      // Generate share URL for fork-based sharing
-      const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-      setShareUrl(`${baseUrl}/share-copy/${workspace.id}`);
     }
   }, [workspace, open]);
 
@@ -100,6 +92,8 @@ export default function WorkspaceSettingsModal({
         throw new Error(data.error || "Failed to update workspace");
       }
 
+      const updatedWorkspace = await response.json();
+
       // Update the TanStack Query cache with the new values
       updateWorkspaceLocal(workspace.id, {
         name: name.trim(),
@@ -112,6 +106,23 @@ export default function WorkspaceSettingsModal({
       if (onUpdate) {
         onUpdate();
       }
+
+      // Check if slug changed and redirect if needed
+      if (updatedWorkspace.workspace?.slug && workspace.slug !== updatedWorkspace.workspace.slug) {
+        const newSlug = updatedWorkspace.workspace.slug;
+        // Check if we're currently on a slug-based URL that needs updating
+        const currentPath = window.location.pathname;
+        const isWorkspaceRoute = currentPath.startsWith('/workspace/');
+        
+        if (isWorkspaceRoute) {
+          // Redirect to the new slug-based URL
+          router.push(`/workspace/${newSlug}`);
+          toast.info("Redirecting to new workspace URL...");
+        } else {
+          // If not on workspace route, just show success
+          toast.success("Workspace URL updated - it will be reflected when you navigate to the workspace");
+        }
+      }
     } catch (err) {
       console.error("Error updating workspace:", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to update workspace";
@@ -119,18 +130,6 @@ export default function WorkspaceSettingsModal({
       toast.error(errorMessage);
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleCopyShareUrl = async () => {
-    if (!shareUrl) return;
-
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopiedShareUrl(true);
-      setTimeout(() => setCopiedShareUrl(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy:", err);
     }
   };
 
@@ -168,18 +167,11 @@ export default function WorkspaceSettingsModal({
           <DialogHeader>
             <DialogTitle>Workspace Settings</DialogTitle>
             <DialogDescription>
-              Manage workspace details and sharing
+              Manage workspace details
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs defaultValue="general" className="flex-1 flex flex-col min-h-0">
-            <TabsList className="w-full">
-              <TabsTrigger value="general">General</TabsTrigger>
-              <TabsTrigger value="sharing">Sharing</TabsTrigger>
-            </TabsList>
-
-            <TabsContents>
-              <TabsContent value="general" className="space-y-4 py-4">
+          <div className="flex-1 flex flex-col min-h-0 space-y-4 py-4">
                 {/* Name */}
                 <div className="space-y-2">
                   <Label htmlFor="edit-name">Name *</Label>
@@ -288,46 +280,7 @@ export default function WorkspaceSettingsModal({
                     </Button>
                   </div>
                 </div>
-              </TabsContent>
-
-              <TabsContent value="sharing" className="space-y-4 py-4">
-                <div className="space-y-4">
-                  {/* Share Workspace Link */}
-                  <div className="space-y-2">
-                    <div>
-                      <Label>Share Link</Label>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Share this link to allow others to fork your workspace. They'll get their own copy—changes to their copy won't affect your original.
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Input
-                        value={shareUrl}
-                        readOnly
-                        className="flex-1 font-mono text-sm"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={handleCopyShareUrl}
-                        className="flex-shrink-0"
-                      >
-                        {copiedShareUrl ? (
-                          <Check className="h-4 w-4" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                    {copiedShareUrl && (
-                      <p className="text-sm text-muted-foreground">Copied to clipboard!</p>
-                    )}
-                  </div>
-                </div>
-              </TabsContent>
-            </TabsContents>
-          </Tabs>
+          </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving || isDeleting}>

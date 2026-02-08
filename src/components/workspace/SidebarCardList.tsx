@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useMemo, useCallback, useState, useEffect, useRef } from "react";
-import { ChevronRight, FileText, File, FolderOpen, Folder as FolderIcon, MoreVertical, Trash2, Pencil, FolderInput, Play, Brain } from "lucide-react";
+import { ChevronRight, FileText, File, FolderOpen, Folder as FolderIcon, MoreVertical, Trash2, Pencil, FolderInput, Play, Brain, ImageIcon } from "lucide-react";
 import { PiCardsThreeBold } from "react-icons/pi";
 import {
     SidebarMenu,
@@ -59,6 +59,8 @@ function getCardTypeIcon(type: CardType) {
             return <Play className="size-3.5 text-red-500" />;
         case "folder":
             return <FolderIcon className="size-3.5 text-amber-400" />;
+        case "image":
+            return <ImageIcon className="size-3.5 text-emerald-500" />;
         default:
             return <FileText className="size-3.5 text-muted-foreground" />;
     }

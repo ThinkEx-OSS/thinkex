@@ -59,6 +59,7 @@ FORMATTING:
     $$
     \int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
     $$
+  - Apply these same math formatting rules to all tool calls and responses
 - Diagrams: Use \`\`\`mermaid blocks for when a diagram would be helpful
 </system>`;
 }

@@ -34,22 +34,26 @@ export function HeroGlow() {
 
     return (
         <>
-            {/* Hero glow - intensifies on mouse approach, subtle purple hue - only in dark mode */}
-            {resolvedTheme === 'dark' && (
-                <div
-                    className="absolute -inset-20 rounded-3xl pointer-events-none transition-opacity duration-300"
-                    style={{
-                        background: `radial-gradient(ellipse at center,
-            rgba(156, 146, 250, ${0.65 + glowIntensity * 0.10}) 0%,
-            rgba(167, 139, 250, ${0.55 + glowIntensity * 0.10}) 35%,
-            rgba(140, 130, 220, 0.14) 80%,
-            rgba(130, 120, 200, 0.06) 100%)`,
-                        filter: `blur(${32 + glowIntensity * 18}px)`,
-                        opacity: 1,
-                        zIndex: 0,
-                    }}
-                />
-            )}
+            {/* Hero glow - intensifies on mouse approach, subtle purple hue - works in both light and dark mode */}
+            <div
+                className="absolute -inset-20 rounded-3xl pointer-events-none transition-opacity duration-300"
+                style={{
+                    background: resolvedTheme === 'dark' ? 
+                        `radial-gradient(ellipse at center,
+                rgba(156, 146, 250, ${0.65 + glowIntensity * 0.10}) 0%,
+                rgba(167, 139, 250, ${0.55 + glowIntensity * 0.10}) 35%,
+                rgba(140, 130, 220, 0.14) 80%,
+                rgba(130, 120, 200, 0.06) 100%)` :
+                        `radial-gradient(ellipse at center,
+                rgba(156, 146, 250, ${0.25 + glowIntensity * 0.08}) 0%,
+                rgba(167, 139, 250, ${0.20 + glowIntensity * 0.08}) 35%,
+                rgba(140, 130, 220, 0.08) 80%,
+                rgba(130, 120, 200, 0.04) 100%)`,
+                    filter: `blur(${32 + glowIntensity * 18}px)`,
+                    opacity: 1,
+                    zIndex: 0,
+                }}
+            />
             {/* Dark ambient blur for text readability - only in dark mode */}
             {resolvedTheme === 'dark' && (
                 <div

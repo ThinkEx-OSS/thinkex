@@ -423,10 +423,8 @@ export function FlashcardWorkspaceCard({
             <ContextMenuTrigger asChild>
                 <div
                     id={`item-${item.id}`}
-                    className="group size-full relative rounded-md shadow-sm hover:shadow-md"
-                    style={{
-                        transition: 'box-shadow 150ms ease-out',
-                    }}
+                    className="group size-full relative rounded-md"
+                    style={{}}
                     onMouseDown={handleMouseDown}
                     onClick={handleClick}
                 >

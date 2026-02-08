@@ -148,7 +148,7 @@ export function HomeContent() {
                   ].map((gradient, i) => (
                     <div
                       key={gradient}
-                      className={`w-6 h-6 rounded-full ${gradient} flex items-center justify-center text-foreground text-[10px] font-medium shadow-sm dark:text-white`}
+                      className={`w-6 h-6 rounded-full ${gradient} flex items-center justify-center text-white text-[10px] font-medium shadow-sm`}
                     >
                       {["T", "J", "A", "M"][i]}
                     </div>

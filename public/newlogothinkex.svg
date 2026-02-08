@@ -24,25 +24,25 @@
   /* Light mode colors */
   @media (prefers-color-scheme: light) {
     .dark-rect {
-      fill: #2D2E30;
+      fill: #000000;
     }
     .colored-green {
-      fill: #73BF7A;
+      fill: #ACF5B3;
       stroke: #73BF7A;
       stroke-width: 16;
     }
     .colored-red {
-      fill: #DA4944;
+      fill: #FBA9A7;
       stroke: #DA4944;
       stroke-width: 16;
     }
     .colored-blue {
-      fill: #5C8BD6;
+      fill: #97BFFF;
       stroke: #5C8BD6;
       stroke-width: 16;
     }
     .colored-yellow {
-      fill: #F7B53B;
+      fill: #FCE0AA;
       stroke: #F7B53B;
       stroke-width: 16;
     }

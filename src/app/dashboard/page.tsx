@@ -107,7 +107,7 @@ function DashboardContent({
   const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
   const [showWorkspaceShare, setShowWorkspaceShare] = useState(false);
 
-  // Show sign-in prompt after 13 events for anonymous users
+  // Show sign-in prompt after 25 events for anonymous users
   useEffect(() => {
     // Only show for anonymous users
     if (!session?.user?.isAnonymous) {
@@ -119,20 +119,11 @@ function DashboardContent({
       return;
     }
 
-    // Check if we've already shown the prompt for this workspace
-    const promptKey = `sign-in-prompt-shown-${currentWorkspaceId}`;
-    const hasShownPrompt = localStorage.getItem(promptKey) === 'true';
-
-    if (hasShownPrompt) {
-      return;
-    }
-
     const eventCount = eventLog.events?.length || 0;
 
-    // Show prompt after 13 events
-    if (eventCount >= 13) {
+    // Show prompt after 15 events
+    if (eventCount >= 15) {
       setShowSignInPrompt(true);
-      localStorage.setItem(promptKey, 'true');
     }
   }, [session?.user?.isAnonymous, eventLog, isLoadingWorkspace, currentWorkspaceId]);
 
