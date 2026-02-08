@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Toaster as SonnerToaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 import { PostHogIdentify } from "./providers/PostHogIdentify";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -11,9 +11,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <>
       <PostHogIdentify />
       {children}
-      <SonnerToaster
+      <Toaster
         position="top-right"
-        theme="system"
         richColors
         closeButton
         className="aui-screenshot-ignore"

@@ -962,7 +962,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
               className="aui-composer-send size-[34px] rounded-full p-1"
               aria-label="Send message"
             >
-              <ArrowUpIcon className="aui-composer-send-icon size-4 text-white dark:text-black" />
+              <ArrowUpIcon className="aui-composer-send-icon size-4 text-background" />
             </TooltipIconButton>
           </ComposerPrimitive.Send>
         </AuiIf>
@@ -976,7 +976,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
               className="aui-composer-cancel size-[34px] rounded-full border border-muted-foreground/60 hover:bg-primary/75 dark:border-muted-foreground/90"
               aria-label="Stop generating"
             >
-              <Square className="aui-composer-cancel-icon size-3 text-gray-900 dark:text-gray-600 fill-current" />
+              <Square className="aui-composer-cancel-icon size-3 text-background fill-current" />
             </Button>
           </ComposerPrimitive.Cancel>
         </AuiIf>
