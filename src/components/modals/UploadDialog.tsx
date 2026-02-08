@@ -115,11 +115,11 @@ export function UploadDialog({
             return;
         }
 
-        // Check individual file size limit (10MB per file)
-        const maxIndividualSize = 10 * 1024 * 1024;
+        // Check individual file size limit (50MB per file)
+        const maxIndividualSize = 50 * 1024 * 1024;
         const oversizedFiles = pdfFiles.filter(file => file.size > maxIndividualSize);
         if (oversizedFiles.length > 0) {
-            toast.error(`${oversizedFiles.length} file(s) exceed the 10MB individual limit`);
+            toast.error(`${oversizedFiles.length} file(s) exceed the 50MB individual limit`);
             return;
         }
 
