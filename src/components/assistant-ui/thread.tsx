@@ -1378,7 +1378,7 @@ const UserMessageText: FC = () => {
                   </a>
                 );
               }
-              return <span key={index}>{part.content}</span>;
+              return <span key={index} className="whitespace-pre-wrap">{part.content}</span>;
             })}
           </div>
         )}
@@ -1389,7 +1389,7 @@ const UserMessageText: FC = () => {
   // No reply marker, but may have file or URL markers
   if (allMarkers.length > 0) {
     return (
-      <div className="inline-flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {contentParts.map((part, index) => {
           if (part.type === "file" && part.fileInfo) {
             const isImage = part.fileInfo.mediaType.startsWith("image/");
@@ -1427,14 +1427,14 @@ const UserMessageText: FC = () => {
               </a>
             );
           }
-          return <span key={index}>{part.content}</span>;
+          return <span key={index} className="whitespace-pre-wrap">{part.content}</span>;
         })}
       </div>
     );
   }
 
   // No special structure, render normally
-  return <div>{text}</div>;
+  return <div className="whitespace-pre-wrap">{text}</div>;
 };
 
 const UserMessage: FC = () => {
