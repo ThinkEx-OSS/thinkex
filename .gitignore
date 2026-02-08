@@ -53,7 +53,6 @@ bun.lockb
 
 # Uploads directory (user-uploaded files)
 /uploads
-uploads/
 
 # AI SDK DevTools
 .devtools
