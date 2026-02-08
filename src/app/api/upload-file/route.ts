@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     // Accept all file types (removed image-only restriction)
     // File type validation can be done client-side if needed
 
-    // Validate file size (10MB limit)
+    // Validate file size (50MB limit)
     const maxSize = 50 * 1024 * 1024; // 50MB
     if (file.size > maxSize) {
       return NextResponse.json(

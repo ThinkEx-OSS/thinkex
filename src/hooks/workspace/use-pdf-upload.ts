@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import type { PdfData } from "@/lib/workspace-state/types";
+import { uploadFileDirect } from "@/lib/uploads/client-upload";
 
 export interface UploadedPdfMetadata {
     fileUrl: string;
@@ -30,19 +31,7 @@ export function usePdfUpload() {
 
         try {
             const uploadPromises = files.map(async (file) => {
-                const formData = new FormData();
-                formData.append("file", file);
-
-                const uploadResponse = await fetch("/api/upload-file", {
-                    method: "POST",
-                    body: formData,
-                });
-
-                if (!uploadResponse.ok) {
-                    throw new Error(`Failed to upload PDF: ${uploadResponse.statusText}`);
-                }
-
-                const { url: fileUrl, filename } = await uploadResponse.json();
+                const { url: fileUrl, filename } = await uploadFileDirect(file);
 
                 return {
                     fileUrl,

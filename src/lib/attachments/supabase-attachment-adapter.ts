@@ -3,32 +3,9 @@ import type {
   PendingAttachment,
   CompleteAttachment,
 } from "@assistant-ui/react";
+import { uploadFileDirect } from "@/lib/uploads/client-upload";
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB to match server limit
-
-/**
- * Upload a file to our own storage via /api/upload-file.
- * Returns the public URL of the uploaded file.
- */
-async function uploadFile(file: File): Promise<string> {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const response = await fetch("/api/upload-file", {
-    method: "POST",
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.error || `Upload failed: ${response.statusText}`
-    );
-  }
-
-  const { url } = await response.json();
-  return url;
-}
 
 /**
  * Custom attachment adapter that uploads files to our own Supabase storage
@@ -67,7 +44,7 @@ export class SupabaseAttachmentAdapter implements AttachmentAdapter {
     const id = crypto.randomUUID();
 
     // Start upload immediately in background (optimistic)
-    this.pendingUploads.set(id, uploadFile(file));
+    this.pendingUploads.set(id, uploadFileDirect(file).then((r) => r.url));
 
     return {
       id,
@@ -86,7 +63,7 @@ export class SupabaseAttachmentAdapter implements AttachmentAdapter {
     // If it wasn't started (shouldn't happen), start it now as fallback
     let uploadPromise = this.pendingUploads.get(attachment.id);
     if (!uploadPromise) {
-      uploadPromise = uploadFile(file);
+      uploadPromise = uploadFileDirect(file).then((r) => r.url);
     }
 
     const url = await uploadPromise;

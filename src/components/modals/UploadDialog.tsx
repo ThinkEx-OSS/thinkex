@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Loader2, UploadCloud } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { cn } from "@/lib/utils";
+import { uploadFileDirect } from "@/lib/uploads/client-upload";
 
 interface UploadDialogProps {
     open: boolean;
@@ -75,21 +76,9 @@ export function UploadDialog({
 
         try {
             for (const file of files) {
-                const formData = new FormData();
-                formData.append('file', file);
-
-                const response = await fetch('/api/upload-file', {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Failed to upload image: ${file.name}`);
-                }
-
-                const data = await response.json();
+                const result = await uploadFileDirect(file);
                 const simpleName = file.name.split('.').slice(0, -1).join('.') || "Image";
-                onImageCreate(data.url, simpleName);
+                onImageCreate(result.url, simpleName);
             }
 
             toast.dismiss(toastId);

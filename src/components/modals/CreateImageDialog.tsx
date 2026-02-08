@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { uploadFileDirect } from "@/lib/uploads/client-upload";
 import { ImageIcon, Loader2, UploadCloud } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { cn } from "@/lib/utils";
@@ -86,21 +87,9 @@ export function CreateImageDialog({
         const toastId = toast.loading("Uploading image...");
 
         try {
-            const formData = new FormData();
-            formData.append('file', file);
+            const result = await uploadFileDirect(file);
 
-            const response = await fetch('/api/upload-file', {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to upload image');
-            }
-
-            const data = await response.json();
-
-            setUrl(data.url);
+            setUrl(result.url);
             if (!name) {
                 // Use filename without extension as default name
                 const simpleName = file.name.split('.').slice(0, -1).join('.') || "Image";

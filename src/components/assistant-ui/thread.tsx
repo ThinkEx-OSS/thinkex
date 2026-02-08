@@ -82,6 +82,7 @@ import {
 import { SelectCardsToolUI } from "@/components/assistant-ui/SelectCardsToolUI";
 import { AssistantLoader } from "@/components/assistant-ui/assistant-loader";
 import { File as FileComponent } from "@/components/assistant-ui/file";
+import { uploadFileDirect } from "@/lib/uploads/client-upload";
 import { Sources } from "@/components/assistant-ui/sources";
 import { Image } from "@/components/assistant-ui/image";
 import { Reasoning, ReasoningGroup } from "@/components/assistant-ui/reasoning";
@@ -509,20 +510,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         const file = attachment.file;
         if (!file) return null;
 
-        // Upload file to Supabase
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const uploadResponse = await fetch('/api/upload-file', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!uploadResponse.ok) {
-          throw new Error(`Failed to upload PDF: ${uploadResponse.statusText}`);
-        }
-
-        const { url: fileUrl, filename } = await uploadResponse.json();
+        const { url: fileUrl, filename } = await uploadFileDirect(file);
 
         return {
           fileUrl,

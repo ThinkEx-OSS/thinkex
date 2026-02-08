@@ -40,6 +40,7 @@ import { toast } from "sonner";
 
 import { InviteGuard } from "@/components/workspace/InviteGuard";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
+import { uploadFileDirect } from "@/lib/uploads/client-upload";
 import { useFolderUrl } from "@/hooks/ui/use-folder-url";
 
 // Main dashboard content component
@@ -300,19 +301,7 @@ function DashboardContent({
       }
 
       const uploadPromises = files.map(async (file) => {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        const uploadResponse = await fetch("/api/upload-file", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!uploadResponse.ok) {
-          throw new Error(`Failed to upload PDF: ${uploadResponse.statusText}`);
-        }
-
-        const { url: fileUrl, filename } = await uploadResponse.json();
+        const { url: fileUrl, filename } = await uploadFileDirect(file);
 
         return {
           fileUrl,

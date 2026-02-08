@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import type { PdfData, ImageData } from "@/lib/workspace-state/types";
 import { getBestFrameForRatio, type GridFrame } from "@/lib/workspace-state/aspect-ratios";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
+import { uploadFileDirect } from "@/lib/uploads/client-upload";
 
 interface WorkspaceCanvasDropzoneProps {
   children: React.ReactNode;
@@ -38,21 +39,8 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
   };
 
   const uploadFileToStorage = async (file: File): Promise<{ url: string; filename: string }> => {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const response = await fetch('/api/upload-file', {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to upload file');
-    }
-
-    const data = await response.json();
-    return { url: data.url, filename: data.filename };
+    const result = await uploadFileDirect(file);
+    return { url: result.url, filename: result.filename };
   };
 
   const onDrop = useCallback(

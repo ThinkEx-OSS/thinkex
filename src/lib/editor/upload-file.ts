@@ -1,9 +1,10 @@
 import { toast } from "sonner";
+import { uploadFileDirect } from "@/lib/uploads/client-upload";
 
 /**
- * Uploads a file to Supabase storage via API route and returns the public URL.
+ * Uploads a file to Supabase storage and returns the public URL.
  * This function is used by BlockNote editor for file/image uploads.
- * Uses server-side API route for proper Better Auth authentication.
+ * Uses direct client-to-Supabase upload to bypass Vercel's 4.5MB body limit.
  * 
  * @param file - The file to upload
  * @param showToast - Whether to show toast notifications (default: true)
@@ -21,64 +22,25 @@ export async function uploadFile(
   // Show loading toast if not already shown (for paste handler)
   const toastId = showToast ? toast.loading('Uploading image...') : undefined;
 
-  // Create FormData to send file
-  const formData = new FormData();
-  formData.append('file', file);
-
   try {
-    // Upload via API route (uses Better Auth server-side)
-    const response = await fetch('/api/upload-file', {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      const errorMessage = errorData.error || `Failed to upload file: ${response.statusText}`;
-
-      console.error('Error uploading file:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorData.error,
-      });
-
-      // Show error toast
-      if (showToast && toastId) {
-        toast.error(errorMessage, { id: toastId });
-      }
-
-      throw new Error(errorMessage);
-    }
-
-    const data = await response.json();
-
-    if (!data.success || !data.url) {
-      const errorMessage = data.error || 'Failed to get upload URL';
-
-      // Show error toast
-      if (showToast && toastId) {
-        toast.error(errorMessage, { id: toastId });
-      }
-
-      throw new Error(errorMessage);
-    }
+    const result = await uploadFileDirect(file);
 
     // Show success toast
     if (showToast && toastId) {
       toast.success('Image uploaded successfully!', { id: toastId });
     }
 
-    return data.url;
+    return result.url;
   } catch (error) {
-    // Re-throw error if it's already been handled
-    if (error instanceof Error) {
-      throw error;
-    }
-    // Handle unexpected errors
-    const errorMessage = 'Failed to upload image';
+    const errorMessage = error instanceof Error ? error.message : 'Failed to upload image';
+
+    console.error('Error uploading file:', errorMessage);
+
+    // Show error toast
     if (showToast && toastId) {
       toast.error(errorMessage, { id: toastId });
     }
-    throw new Error(errorMessage);
+
+    throw error instanceof Error ? error : new Error(errorMessage);
   }
 }

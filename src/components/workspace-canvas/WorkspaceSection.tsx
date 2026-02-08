@@ -13,6 +13,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useSession } from "@/lib/auth-client";
 import { LoginGate } from "@/components/workspace/LoginGate";
 import { AccessDenied } from "@/components/workspace/AccessDenied";
+import { uploadFileDirect } from "@/lib/uploads/client-upload";
 
 import MoveToDialog from "@/components/modals/MoveToDialog";
 import {
@@ -261,21 +262,12 @@ export function WorkspaceSection({
         // Found an image! Upload it directly.
         const toastId = toast.loading("Pasting image from clipboard...");
 
-        const formData = new FormData();
-        formData.append('file', imageBlob, "pasted-image.png"); // Default name
-
-        const response = await fetch('/api/upload-file', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!response.ok) throw new Error("Upload failed");
-
-        const data = await response.json();
+        const file = new File([imageBlob], "pasted-image.png", { type: imageBlob.type });
+        const result = await uploadFileDirect(file);
         toast.dismiss(toastId);
 
         // Create the card using the new URL
-        await handleImageCreate(data.url, "Pasted Image");
+        await handleImageCreate(result.url, "Pasted Image");
         return;
       }
     } catch (e) {
@@ -418,22 +410,9 @@ export function WorkspaceSection({
       throw new Error('Workspace operations not available');
     }
 
-    // Upload all PDFs first (reusing logic from thread.tsx)
+    // Upload all PDFs first
     const uploadPromises = files.map(async (file) => {
-      // Upload file to Supabase
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const uploadResponse = await fetch('/api/upload-file', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error(`Failed to upload PDF: ${uploadResponse.statusText}`);
-      }
-
-      const { url: fileUrl, filename } = await uploadResponse.json();
+      const { url: fileUrl, filename } = await uploadFileDirect(file);
 
       return {
         fileUrl,
