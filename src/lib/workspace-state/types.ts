@@ -1,6 +1,6 @@
 import type { CardColor } from './colors';
 
-export type CardType = "note" | "pdf" | "flashcard" | "folder" | "youtube" | "quiz";
+export type CardType = "note" | "pdf" | "image" | "flashcard" | "folder" | "youtube" | "quiz";
 
 /**
  * Source attribution for notes created from web search or deep research
@@ -27,6 +27,12 @@ export interface NoteData {
 }
 
 export interface PdfData {
+  fileUrl: string; // Supabase storage URL
+  filename: string; // original filename
+  fileSize?: number; // optional file size in bytes
+}
+
+export interface ImageData {
   fileUrl: string; // Supabase storage URL
   filename: string; // original filename
   fileSize?: number; // optional file size in bytes
@@ -93,7 +99,7 @@ export interface QuizData {
   session?: QuizSessionData;    // Session state for resuming
 }
 
-export type ItemData = NoteData | PdfData | FlashcardData | FolderData | YouTubeData | QuizData;
+export type ItemData = NoteData | PdfData | ImageData | FlashcardData | FolderData | YouTubeData | QuizData;
 
 // =====================================================
 // FOLDER TYPES (DEPRECATED)

@@ -6,7 +6,7 @@ export interface ValidationResult {
   data?: AgentState;
 }
 
-const VALID_CARD_TYPES: CardType[] = ["note", "pdf", "flashcard"];
+const VALID_CARD_TYPES: CardType[] = ["note", "pdf", "image", "flashcard"];
 
 export function validateImportedJSON(jsonString: string): ValidationResult {
   try {

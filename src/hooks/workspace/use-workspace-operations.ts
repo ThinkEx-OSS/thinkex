@@ -93,7 +93,7 @@ export function useWorkspaceOperations(
       // Validate type is a valid CardType
       logger.debug("🔧 [CREATE-ITEM] Received type:", type, "typeof:", typeof type, "value:", JSON.stringify(type));
 
-      const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube"];
+      const validTypes: CardType[] = ["note", "pdf", "image", "flashcard", "folder", "youtube"];
       const validType = validTypes.includes(type) ? type : "note";
 
       if (validType !== type) {
@@ -151,7 +151,7 @@ export function useWorkspaceOperations(
       // Create all items
       const createdItems: Item[] = items.map(({ type, name, initialData }) => {
         // Validate type is a valid CardType
-        const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube"];
+        const validTypes: CardType[] = ["note", "pdf", "image", "flashcard", "folder", "youtube"];
         const validType = validTypes.includes(type) ? type : "note";
 
         if (validType !== type) {
@@ -229,7 +229,7 @@ export function useWorkspaceOperations(
 
       // If this is a PDF card, delete the file from Supabase storage first
       const itemToDelete = currentState.items.find(item => item.id === id);
-      if (itemToDelete && itemToDelete.type === 'pdf') {
+      if (itemToDelete && (itemToDelete.type === 'pdf' || itemToDelete.type === 'image')) {
         const pdfData = itemToDelete.data as { fileUrl?: string; filename?: string };
         if (pdfData?.fileUrl) {
           try {
@@ -553,7 +553,7 @@ export function useWorkspaceOperations(
       // This is best-effort cleanup - files may become orphaned if this fails
       const itemsToDelete = latestItems.filter(item => idsToDelete.has(item.id));
       for (const item of itemsToDelete) {
-        if (item.type === 'pdf') {
+        if (item.type === 'pdf' || item.type === 'image') {
           const pdfData = item.data as { fileUrl?: string };
           if (pdfData?.fileUrl) {
             fetch(`/api/delete-file?url=${encodeURIComponent(pdfData.fileUrl)}`, {
