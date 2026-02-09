@@ -59,7 +59,7 @@ export function PDFViewerModal({
 
     // If it was already selected, don't change anything on cleanup
     return undefined;
-  }, [isOpen, item?.id]); // Removed selectedCardIds and toggleCardSelection from deps
+  }, [isOpen, item?.id, selectedCardIds, toggleCardSelection]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -90,7 +90,7 @@ export function PDFViewerModal({
           onMaximize={() => useUIStore.getState().setMaximizedItemId(null)}
           isMaximized={true}
           onUpdateItem={onUpdateItem}
-          onUpdateItemData={() => { }} // PDF doesn't use onUpdateItemData in its modal typically
+          onUpdateItemData={(data) => onUpdateItem({ data })}
         />
       </div>
     );
