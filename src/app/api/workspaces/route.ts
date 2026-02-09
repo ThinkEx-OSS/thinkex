@@ -152,9 +152,6 @@ async function handlePOST(request: NextRequest) {
   const effectiveTemplate: WorkspaceTemplate = (template && [
     "blank",
     "getting_started",
-    "project_management",
-    "knowledge_base",
-    "team_planning"
   ].includes(template))
     ? template
     : "blank";

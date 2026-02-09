@@ -170,7 +170,7 @@ export interface AgentState {
 // WORKSPACE TYPES
 // =====================================================
 
-export type WorkspaceTemplate = "blank" | "getting_started" | "project_management" | "knowledge_base" | "team_planning";
+export type WorkspaceTemplate = "blank" | "getting_started";
 
 export type PermissionLevel = "viewer" | "editor" | "admin";
 

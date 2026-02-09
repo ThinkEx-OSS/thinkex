@@ -152,45 +152,56 @@ export function findNextAvailablePosition(
   const validType = (newItemType in DEFAULT_CARD_DIMENSIONS) ? newItemType : 'note';
   const dimensions = DEFAULT_CARD_DIMENSIONS[validType];
   const w = customW ?? Math.min(dimensions.w, cols);
-  // Use default dimensions height instead of calculateCardHeight to ensure quiz cards get height 13
   const h = customH ?? dimensions.h;
 
   if (existingItems.length === 0) {
     return { x: 0, y: 0, w, h };
   }
 
-  const columnHeights = new Array(cols).fill(0);
+  // Build an occupancy grid so we can detect gaps between items, not just column bottoms.
+  // Find the maximum Y (bottom edge) across all existing items.
+  let maxY = 0;
+  const occupiedRects: { x: number; y: number; w: number; h: number }[] = [];
 
   existingItems.forEach((item) => {
     const layout = getLayoutForBreakpoint(item, 'lg');
-    const x = layout?.x ?? 0;
-    const y = layout?.y ?? 0;
-    // Use default dimensions height as fallback instead of calculateCardHeight
-    const itemH = layout?.h ?? DEFAULT_CARD_DIMENSIONS[item.type]?.h ?? 4;
-
-    const itemW = layout?.w ?? DEFAULT_CARD_DIMENSIONS[item.type]?.w ?? 1;
-
-    // Update heights for all columns this item spans
-    for (let i = 0; i < itemW; i++) {
-      const currentX = x + i;
-      if (currentX < cols) {
-        const bottomOfItem = y + itemH;
-        columnHeights[currentX] = Math.max(columnHeights[currentX], bottomOfItem);
-      }
-    }
+    const ix = layout?.x ?? 0;
+    const iy = layout?.y ?? 0;
+    const iw = layout?.w ?? DEFAULT_CARD_DIMENSIONS[item.type]?.w ?? 1;
+    const ih = layout?.h ?? DEFAULT_CARD_DIMENSIONS[item.type]?.h ?? 4;
+    occupiedRects.push({ x: ix, y: iy, w: iw, h: ih });
+    maxY = Math.max(maxY, iy + ih);
   });
 
-  let shortestColumn = 0;
-  let shortestHeight = columnHeights[0];
+  // Check if a w×h block at (startX, startY) overlaps any occupied rect
+  function isPositionFree(startX: number, startY: number): boolean {
+    for (const rect of occupiedRects) {
+      // Two rectangles overlap if they overlap on both axes
+      if (
+        startX < rect.x + rect.w &&
+        startX + w > rect.x &&
+        startY < rect.y + rect.h &&
+        startY + h > rect.y
+      ) {
+        return false;
+      }
+    }
+    return true;
+  }
 
-  for (let col = 1; col < cols; col++) {
-    if (columnHeights[col] < shortestHeight) {
-      shortestHeight = columnHeights[col];
-      shortestColumn = col;
+  // Scan row-by-row, column-by-column for the first position that fits.
+  // This naturally fills gaps left by deleted or moved items.
+  // We scan up to maxY (to find gaps) and then one row beyond (guaranteed empty).
+  for (let y = 0; y <= maxY; y++) {
+    for (let x = 0; x <= cols - w; x++) {
+      if (isPositionFree(x, y)) {
+        return { x, y, w, h };
+      }
     }
   }
 
-  return { x: shortestColumn, y: shortestHeight, w, h };
+  // Fallback: place below everything (should always be reached by the loop above at y=maxY)
+  return { x: 0, y: maxY, w, h };
 }
 
 /**
@@ -204,15 +215,13 @@ export function generateMissingLayouts(items: Item[], cols: number = DEFAULT_COL
     const existingLayout = getLayoutForBreakpoint(item, breakpoint);
 
     if (existingLayout) {
+      // Clamp width first, then compute x based on the clamped width
+      const clampedW = Math.min(existingLayout.w, cols);
       const adjustedLayout = {
         ...existingLayout,
-        x: Math.min(existingLayout.x, cols - existingLayout.w),
-        w: Math.min(existingLayout.w, cols),
+        w: clampedW,
+        x: Math.max(0, Math.min(existingLayout.x, cols - clampedW)),
       };
-
-      if (adjustedLayout.x < 0) {
-        adjustedLayout.x = 0;
-      }
 
       // Preserve the responsive structure
       const newLayouts: ResponsiveLayouts = isLegacyLayout(item.layout)
