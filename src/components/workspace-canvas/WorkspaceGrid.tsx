@@ -348,7 +348,7 @@ export function WorkspaceGrid({
         detail: { folderId: eventFolderId, isHovering: true, selectedCount }
       }));
     }
-  }, [selectedCardIds]);
+  }, [selectedCardIds, singleColumnMode]);
 
   // Handle resize start - track which item is being resized
   const handleResizeStart = useCallback((layout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null, placeholder: LayoutItem | null, e: Event, element: HTMLElement | null) => {

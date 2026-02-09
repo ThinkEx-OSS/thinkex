@@ -321,10 +321,18 @@ export const useUIStore = create<UIState>()(
       }),
 
       // Workspace Split View actions
-      toggleWorkspaceSplitView: () => set((state) => ({
-        workspaceSplitViewActive: !state.workspaceSplitViewActive
-      })),
-      enableWorkspaceSplitView: () => set({ workspaceSplitViewActive: true }),
+      // Workspace Split View actions
+      toggleWorkspaceSplitView: () => set((state) => {
+        // Only allow enabling split view if an item is maximized
+        if (!state.workspaceSplitViewActive && !state.maximizedItemId) {
+          return { workspaceSplitViewActive: false };
+        }
+        return { workspaceSplitViewActive: !state.workspaceSplitViewActive };
+      }),
+      enableWorkspaceSplitView: () => set((state) => {
+        if (!state.maximizedItemId) return { workspaceSplitViewActive: false };
+        return { workspaceSplitViewActive: true };
+      }),
       disableWorkspaceSplitView: () => set({ workspaceSplitViewActive: false }),
 
       // Legacy compatibility

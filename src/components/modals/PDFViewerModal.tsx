@@ -61,21 +61,20 @@ export function PDFViewerModal({
     return undefined;
   }, [isOpen, item?.id]); // Removed selectedCardIds and toggleCardSelection from deps
 
-  // Handle escape key
-  const handleEscape = (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
-      onClose();
-    }
-  };
-
   useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+
     if (isOpen) {
       document.addEventListener("keydown", handleEscape);
     }
     return () => {
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [isOpen]);
+  }, [isOpen, onClose]);
 
   if (!pdfData?.fileUrl || !isOpen) {
     return null;
