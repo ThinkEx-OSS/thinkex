@@ -508,19 +508,22 @@ export function WorkspaceGrid({
   // Note cards can transition between compact (w=1, h=4) and expanded (w>=2, h>=9) modes
   // based on EITHER width or height changes, allowing vertical-only resizing to trigger mode switches
   const handleResize = useCallback((layout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null, placeholder: LayoutItem | null, e: Event, element: HTMLElement | null) => {
-    // Single-column mode: lock horizontal resizing
+    // Single-column mode: lock horizontal resizing, free vertical resizing with min height
     if (singleColumnMode && newItem) {
       newItem.x = 0;
       newItem.w = 1;
+      // Enforce minimum height of 5 rows, but no snapping behavior
+      newItem.h = Math.max(newItem.h, 5);
       if (placeholder) {
         placeholder.x = 0;
         placeholder.w = 1;
+        placeholder.h = newItem.h;
       }
-      // Allow vertical resizing only
+      // Skip all other constraint logic for single-column mode
       return;
     }
 
-    // Enforce custom constraints for YouTube and single-column items
+    // Normal workspace mode: enforce custom constraints
     if (!newItem || !oldItem) return;
     const itemData = allItemsRef.current.find(i => i.id === newItem.i);
 

@@ -85,6 +85,7 @@ export default function WorkspaceContent({
 
   // Get workspace split view state from UI store
   const workspaceSplitViewActive = useUIStore((state) => state.workspaceSplitViewActive);
+  const maximizedItemId = useUIStore((state) => state.maximizedItemId);
 
 
 
@@ -140,8 +141,15 @@ export default function WorkspaceContent({
   // Filter items based on search query and active folder
   const filteredItems = useMemo(() => {
     const filtered = filterItems(viewState.items, searchQuery, activeFolderId);
+
+    // In workspace split view mode, exclude the currently maximized item from the grid
+    // so it only appears in the editor panel, not in both places
+    if (workspaceSplitViewActive && maximizedItemId) {
+      return filtered.filter(item => item.id !== maximizedItemId);
+    }
+
     return filtered;
-  }, [viewState.items, searchQuery, activeFolderId]);
+  }, [viewState.items, searchQuery, activeFolderId, workspaceSplitViewActive, maximizedItemId]);
 
   // Handle opening a folder (folders are now items with type: 'folder')
   const handleOpenFolder = useCallback((folderId: string) => {
