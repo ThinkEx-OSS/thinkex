@@ -304,6 +304,19 @@ export const useUIStore = create<UIState>()(
         if (id === null && state.workspaceSplitViewActive) {
           return { maximizedItemId: id, workspaceSplitViewActive: false };
         }
+
+        // In workspace split view, deselect the previously maximized card when switching to a new one
+        if (state.workspaceSplitViewActive && id !== null && state.maximizedItemId !== id) {
+          const newSelectedCardIds = new Set(state.selectedCardIds);
+          if (state.maximizedItemId) {
+            newSelectedCardIds.delete(state.maximizedItemId);
+          }
+          return {
+            maximizedItemId: id,
+            selectedCardIds: newSelectedCardIds
+          };
+        }
+
         return { maximizedItemId: id };
       }),
 
@@ -330,6 +343,12 @@ export const useUIStore = create<UIState>()(
 
             const newSelectedCardIds = new Set(state.selectedCardIds);
             const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
+
+            // In workspace split view, deselect the previously maximized card when opening a new one
+            if (state.workspaceSplitViewActive && state.maximizedItemId && state.maximizedItemId !== id) {
+              newSelectedCardIds.delete(state.maximizedItemId);
+              newPanelAutoSelectedCardIds.delete(state.maximizedItemId);
+            }
 
             // Add to selections and track as auto-selected
             newSelectedCardIds.add(id);
