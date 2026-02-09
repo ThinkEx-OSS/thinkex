@@ -95,14 +95,15 @@ function getSelectedCardsContext(body: any): string {
   return body.selectedCardsContext || "";
 }
 
-// Regex to detect createFrom auto-generated prompts
-const CREATE_FROM_REGEX = /^Update the preexisting contents of this workspace to be about (.+)\. Only add one quality YouTube video\.$/;
+// Regex to detect createFrom auto-generated prompts (YouTube suffix is optional for custom type selections)
+const CREATE_FROM_REGEX = /^Update the preexisting contents of this workspace to be about (.+?)\.(?:\s*Only add one quality YouTube video\.)?$/;
 
 /**
  * Detect if the first user message is a createFrom auto-generated prompt
- * and return additional system instructions for better workspace curation
+ * and return additional system instructions for better workspace curation.
+ * When genTypes is provided, only instructions for those types are included.
  */
-function getCreateFromSystemPrompt(messages: any[]): string | null {
+function getCreateFromSystemPrompt(messages: any[], genTypes: string[] | null): string | null {
   // Find the first user message
   const firstUserMessage = messages.find((m) => m.role === "user");
   if (!firstUserMessage) return null;
@@ -121,29 +122,48 @@ function getCreateFromSystemPrompt(messages: any[]): string | null {
   if (!match) return null;
 
   const topic = match[1];
+  const types = genTypes ? new Set(genTypes) : new Set(['note', 'quiz', 'flashcard', 'youtube']);
+
+  // Build type-specific update instructions — always include title param
+  const updateInstructions: string[] = [];
+  if (types.has('note'))      updateInstructions.push('   - Use `updateNote` with noteName "Update me" and a descriptive `title` (e.g. "${topic} Notes")');
+  if (types.has('flashcard')) updateInstructions.push('   - Use `updateFlashcards` with deckName "Update me" and a descriptive `title` (e.g. "${topic} Flashcards")');
+  if (types.has('quiz'))      updateInstructions.push('   - Use `updateQuiz` with quizName "Update me" and a descriptive `title` (e.g. "${topic} Quiz")');
+
+  // Build type-specific quality guidelines
+  const qualityGuidelines: string[] = [];
+  if (types.has('note'))      qualityGuidelines.push('- For notes: add a comprehensive summary of the topic');
+  if (types.has('flashcard')) qualityGuidelines.push('- For flashcards: create exactly 5 meaningful question/answer pairs covering key concepts');
+  if (types.has('quiz'))      qualityGuidelines.push('- For quizzes: create challenging but fair questions that test understanding');
+
+  // YouTube section only if selected
+  let youtubeSection = '';
+  if (types.has('youtube')) {
+    youtubeSection = `
+YOUTUBE VIDEO:
+- Search with specific, relevant terms for the topic
+- Prefer videos that are educational/explanatory
+- Look for high view counts and reputable channels as quality signals`;
+  }
+
+  // Type restriction only when custom types are specified
+  const restriction = genTypes
+    ? '\n3. **Do NOT create or update any other item types** beyond what is listed above.'
+    : '';
 
   return `
 CREATE-FROM WORKSPACE INITIALIZATION MODE:
-This is an automatic workspace initialization request. The user wants to transform this workspace into a curated learning/research space
-ace about: "${topic}"
+This is an automatic workspace initialization request. The user wants to transform this workspace into a curated learning/research space about: "${topic}"
 
 CRITICAL INSTRUCTIONS FOR WORKSPACE CURATION:
-1. **For each of the existing workspace items** update the title and content to be about the topic:
-   - Use \`updateNote\` tool for notes
-   - Use \`updateFlashcards\` tool for flashcard sets
-   - Use \`updateQuiz\` tool for quizzes
-2. **Be thorough but focused** - Provide a solid foundation for understanding the topic without being overwhelming.
-3. **Do NOT ask the user questions** - This is an automated initialization, proceed directly with updating the workspace.
+1. **Update ONLY these workspace items** about the topic:
+${updateInstructions.join('\n')}
+2. **Be thorough but focused** - Provide a solid foundation for understanding the topic without being overwhelming.${restriction}
+4. **Do NOT ask the user questions** - This is an automated initialization, proceed directly with updating the workspace.
 
 QUALITY GUIDELINES FOR CONTENT:
-- For notes: add a comprehensive summary of the topic
-- For flashcards: create exactly 5 meaningful question/answer pairs covering key concepts
-- For quizzes: create challenging but fair questions that test understanding
-
-QUALITY GUIDELINES FOR THE YOUTUBE VIDEO:
-- Search with specific, relevant terms for the topic
-- Prefer videos that are educational/explanatory
-- Look for high view counts and reputable channels as quality signals
+${qualityGuidelines.join('\n')}
+${youtubeSection}
 `;
 }
 
@@ -224,7 +244,8 @@ export async function POST(req: Request) {
     ];
 
     // Inject createFrom workspace initialization prompt if detected
-    const createFromPrompt = getCreateFromSystemPrompt(cleanedMessages);
+    const genTypes: string[] | null = body.genTypes ? body.genTypes.split(',') : null;
+    const createFromPrompt = getCreateFromSystemPrompt(cleanedMessages, genTypes);
     if (createFromPrompt) {
       systemPromptParts.push(`\n\n${createFromPrompt}`);
     }
