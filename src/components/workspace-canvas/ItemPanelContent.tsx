@@ -93,38 +93,55 @@ export function ItemPanelContent({
                         </TooltipContent>
                     </Tooltip>
 
-                    {/* Split View Button */}
+                    {/* Split View / Focus Button */}
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <button
                                 type="button"
-                                aria-label="Split View"
-                                title="Split View"
+                                aria-label={useUIStore.getState().workspaceSplitViewActive ? "Focus" : "Split View"}
+                                title={useUIStore.getState().workspaceSplitViewActive ? "Focus" : "Split View"}
                                 className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer px-3"
                                 onClick={() => {
                                     const { toggleWorkspaceSplitView } = useUIStore.getState();
                                     toggleWorkspaceSplitView();
                                 }}
                             >
-                                <svg
-                                    className="h-4 w-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                >
-                                    <path
+                                {useUIStore.getState().workspaceSplitViewActive ? (
+                                    // Focus icon - eye
+                                    <svg
+                                        viewBox="0 0 24 24"
+                                        className="w-4 h-4"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M9 4H5a2 2 0 00-2 2v14a2 2 0 002 2h4M15 4h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M9 4v16M15 4v16"
-                                    />
-                                </svg>
-                                <span className="text-sm">Split View</span>
+                                    >
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                        <circle cx="12" cy="12" r="3" />
+                                    </svg>
+                                ) : (
+                                    // Split View icon
+                                    <svg
+                                        viewBox="0 0 24 24"
+                                        className="w-4 h-4"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                    >
+                                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                                        <line x1="12" y1="3" x2="12" y2="21" />
+                                    </svg>
+                                )}
+                                <span className="text-xs font-medium">
+                                    {useUIStore.getState().workspaceSplitViewActive ? "Focus" : "Split View"}
+                                </span>
                             </button>
                         </TooltipTrigger>
                         <TooltipContent>
-                            Split View
+                            {useUIStore.getState().workspaceSplitViewActive ? "Focus on this item" : "Split View"}
                         </TooltipContent>
                     </Tooltip>
 
