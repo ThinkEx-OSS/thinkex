@@ -13,6 +13,7 @@ import { useMessagePartText } from "@assistant-ui/react";
 import { useAuiState } from "@assistant-ui/react";
 import { cn } from "@/lib/utils";
 import React, { memo, useRef, useEffect } from "react";
+import type { AnchorHTMLAttributes, HTMLAttributes } from "react";
 import { MarkdownLink } from "@/components/ui/markdown-link";
 
 /**
@@ -150,14 +151,16 @@ const MarkdownTextImpl = () => {
           ]
         ]}
         components={{
-          a: MarkdownLink,
-          ol: ({ children }) => (
-            <ol className="ml-4 list-outside list-decimal whitespace-normal">
+          a: (props: AnchorHTMLAttributes<HTMLAnchorElement> & { node?: any }) => (
+            <MarkdownLink {...props} />
+          ),
+          ol: ({ children, node, ...props }: HTMLAttributes<HTMLOListElement> & { node?: any }) => (
+            <ol className="ml-4 list-outside list-decimal whitespace-normal" {...props}>
               {children}
             </ol>
           ),
-          ul: ({ children }) => (
-            <ul className="ml-4 list-outside list-disc whitespace-normal">
+          ul: ({ children, node, ...props }: HTMLAttributes<HTMLUListElement> & { node?: any }) => (
+            <ul className="ml-4 list-outside list-disc whitespace-normal" {...props}>
               {children}
             </ul>
           ),

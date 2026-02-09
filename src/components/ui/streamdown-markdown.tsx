@@ -6,6 +6,7 @@ import { mermaid } from "@streamdown/mermaid";
 import { math } from "@streamdown/math";
 import { cn } from "@/lib/utils";
 import React, { memo } from "react";
+import type { AnchorHTMLAttributes, HTMLAttributes } from "react";
 import { MarkdownLink } from "@/components/ui/markdown-link";
 
 // Create code plugin with one-dark-pro theme
@@ -67,14 +68,16 @@ const StreamdownMarkdownImpl: React.FC<StreamdownMarkdownProps> = ({
           ]
         ]}
         components={{
-          a: MarkdownLink,
-          ol: ({ children }) => (
-            <ol className="ml-4 list-outside list-decimal whitespace-normal">
+          a: (props: AnchorHTMLAttributes<HTMLAnchorElement> & { node?: any }) => (
+            <MarkdownLink {...props} />
+          ),
+          ol: ({ children, node, ...props }: HTMLAttributes<HTMLOListElement> & { node?: any }) => (
+            <ol className="ml-4 list-outside list-decimal whitespace-normal" {...props}>
               {children}
             </ol>
           ),
-          ul: ({ children }) => (
-            <ul className="ml-4 list-outside list-disc whitespace-normal">
+          ul: ({ children, node, ...props }: HTMLAttributes<HTMLUListElement> & { node?: any }) => (
+            <ul className="ml-4 list-outside list-disc whitespace-normal" {...props}>
               {children}
             </ul>
           ),

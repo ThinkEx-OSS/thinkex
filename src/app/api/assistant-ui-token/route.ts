@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     
     const userId = session.user.id;
 
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { workspaceId } = body;
 
     if (!workspaceId) {
