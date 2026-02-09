@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import type { PdfData } from "@/lib/workspace-state/types";
+import { defaultDataFor } from "@/lib/workspace-state/item-helpers";
 
 // --- Generation Settings ---
 type GenContentType = 'note' | 'quiz' | 'flashcard' | 'youtube';
@@ -88,7 +89,7 @@ function buildPlaceholderItems(
       subtitle: '',
       color: '#EC4899',
       layout: { x: effectiveTypes.has('quiz') ? 2 : 0, y: currentY, w: 2, h: heights.flashcard },
-      data: { cards: [] },
+      data: defaultDataFor('flashcard'),
     });
   }
 
