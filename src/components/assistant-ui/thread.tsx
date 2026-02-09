@@ -158,6 +158,10 @@ function getModelIcon(modelId: string) {
 function getModelDisplayName(modelId: string): string {
   const model = ALL_MODELS.find((m) => m.id === modelId);
   if (!model) return modelId;
+  // For ChatGPT models, just show the model name (e.g., "GPT-5" instead of "ChatGPT GPT-5")
+  if (model.provider === "ChatGPT") {
+    return model.name;
+  }
   return `${model.provider} ${model.name}`;
 }
 
