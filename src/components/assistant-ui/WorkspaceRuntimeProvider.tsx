@@ -40,7 +40,10 @@ export function WorkspaceRuntimeProvider({
   const selectedActions = useUIStore((state) => state.selectedActions);
   const replySelections = useUIStore(useShallow((state) => state.replySelections));
   const searchParams = useSearchParams();
-  const genTypes = searchParams.get("genTypes");
+  // Only pass genTypes during auto-init flows (createFrom / generate_study_materials)
+  // to avoid leaking it into every subsequent chat request
+  const hasAutoInit = searchParams.has("createFrom") || searchParams.get("action") === "generate_study_materials";
+  const genTypes = hasAutoInit ? searchParams.get("genTypes") : null;
   const { data: session } = useSession();
 
   // Get workspace state to format selected cards context on client
