@@ -122,7 +122,9 @@ function getCreateFromSystemPrompt(messages: any[], genTypes: string[] | null): 
   if (!match) return null;
 
   const topic = match[1];
-  const types = genTypes ? new Set(genTypes) : new Set(['note', 'quiz', 'flashcard', 'youtube']);
+  const allTypes = ['note', 'quiz', 'flashcard', 'youtube'] as const;
+  const validTypes = genTypes ? genTypes.filter(t => allTypes.includes(t as any)) : null;
+  const types = new Set(validTypes && validTypes.length > 0 ? validTypes : allTypes);
 
   // Build type-specific update instructions — always include title param
   const updateInstructions: string[] = [];
@@ -153,7 +155,7 @@ YOUTUBE VIDEO:
     instructions.push(`${instrNum++}. **Update ONLY these workspace items** about the topic:\n${updateInstructions.join('\n')}`);
   }
   instructions.push(`${instrNum++}. **Be thorough but focused** - Provide a solid foundation for understanding the topic without being overwhelming.`);
-  if (genTypes) {
+  if (validTypes && validTypes.length > 0) {
     instructions.push(`${instrNum++}. **Do NOT create or update any other item types** beyond what is listed above.`);
   }
   instructions.push(`${instrNum++}. **Do NOT ask the user questions** - This is an automated initialization, proceed directly with updating the workspace.`);
@@ -165,9 +167,7 @@ This is an automatic workspace initialization request. The user wants to transfo
 CRITICAL INSTRUCTIONS FOR WORKSPACE CURATION:
 ${instructions.join('\n')}
 
-QUALITY GUIDELINES FOR CONTENT:
-${qualityGuidelines.join('\n')}
-${youtubeSection}
+${qualityGuidelines.length > 0 ? `QUALITY GUIDELINES FOR CONTENT:\n${qualityGuidelines.join('\n')}` : ''}${youtubeSection}
 `;
 }
 
