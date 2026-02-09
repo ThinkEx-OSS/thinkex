@@ -37,6 +37,7 @@ export function ItemPanelContent({
 }: ItemPanelContentProps) {
     const isChatExpanded = useUIStore((state) => state.isChatExpanded);
     const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
+    const workspaceSplitViewActive = useUIStore((state) => state.workspaceSplitViewActive);
     const isDesktop = true;
 
     const isPdf = item.type === 'pdf';
@@ -98,15 +99,15 @@ export function ItemPanelContent({
                         <TooltipTrigger asChild>
                             <button
                                 type="button"
-                                aria-label={useUIStore.getState().workspaceSplitViewActive ? "Focus" : "Split View"}
-                                title={useUIStore.getState().workspaceSplitViewActive ? "Focus" : "Split View"}
+                                aria-label={workspaceSplitViewActive ? "Focus" : "Split View"}
+                                title={workspaceSplitViewActive ? "Focus" : "Split View"}
                                 className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer px-3"
                                 onClick={() => {
                                     const { toggleWorkspaceSplitView } = useUIStore.getState();
                                     toggleWorkspaceSplitView();
                                 }}
                             >
-                                {useUIStore.getState().workspaceSplitViewActive ? (
+                                {workspaceSplitViewActive ? (
                                     // Focus icon - eye
                                     <svg
                                         viewBox="0 0 24 24"
@@ -136,12 +137,12 @@ export function ItemPanelContent({
                                     </svg>
                                 )}
                                 <span className="text-xs font-medium">
-                                    {useUIStore.getState().workspaceSplitViewActive ? "Focus" : "Split View"}
+                                    {workspaceSplitViewActive ? "Focus" : "Split View"}
                                 </span>
                             </button>
                         </TooltipTrigger>
                         <TooltipContent>
-                            {useUIStore.getState().workspaceSplitViewActive ? "Focus on this item" : "Split View"}
+                            {workspaceSplitViewActive ? "Focus on this item" : "Split View"}
                         </TooltipContent>
                     </Tooltip>
 

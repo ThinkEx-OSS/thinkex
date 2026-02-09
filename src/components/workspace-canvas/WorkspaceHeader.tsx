@@ -158,6 +158,7 @@ export default function WorkspaceHeader({
   // Assistant API for Deep Research action
   const aui = useAui();
   const setSelectedActions = useUIStore((state) => state.setSelectedActions);
+  const workspaceSplitViewActive = useUIStore((state) => state.workspaceSplitViewActive);
 
   // React Query client for cache invalidation
   const queryClient = useQueryClient();
@@ -707,9 +708,9 @@ export default function WorkspaceHeader({
                     toggleWorkspaceSplitView();
                   }}
                   className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer px-3"
-                  aria-label={useUIStore.getState().workspaceSplitViewActive ? "Focus" : "Split View"}
+                  aria-label={workspaceSplitViewActive ? "Focus" : "Split View"}
                 >
-                  {useUIStore.getState().workspaceSplitViewActive ? (
+                  {workspaceSplitViewActive ? (
                     // Focus icon - eye
                     <svg
                       viewBox="0 0 24 24"
@@ -735,16 +736,16 @@ export default function WorkspaceHeader({
                       strokeLinejoin="round"
                     >
                       <rect x="3" y="3" width="18" height="18" rx="2" />
-                      <line x1="12" y1="3" x2="12" y2="21" />
+                      <line x="12" y1="3" x2="12" y2="21" />
                     </svg>
                   )}
                   <span className="text-xs font-medium">
-                    {useUIStore.getState().workspaceSplitViewActive ? "Focus" : "Split View"}
+                    {workspaceSplitViewActive ? "Focus" : "Split View"}
                   </span>
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                {useUIStore.getState().workspaceSplitViewActive ? "Focus on this item" : "Split View"}
+                {workspaceSplitViewActive ? "Focus on this item" : "Split View"}
               </TooltipContent>
             </Tooltip>
 
