@@ -48,6 +48,7 @@ import type { WorkspaceWithState } from "@/lib/workspace-state/types";
 import { useAui } from "@assistant-ui/react";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { UploadDialog } from "@/components/modals/UploadDialog";
+import { AudioRecordingIndicator } from "./AudioRecordingIndicator";
 import { getBestFrameForRatio } from "@/lib/workspace-state/aspect-ratios";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 
@@ -709,6 +710,9 @@ export function WorkspaceSection({
           onPDFUpload={handlePDFUpload}
         />
       )}
+
+      {/* Floating recording indicator (visible when dialog is closed but recording is active) */}
+      <AudioRecordingIndicator />
     </div>
   );
 }

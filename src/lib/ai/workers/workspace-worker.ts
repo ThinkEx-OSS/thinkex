@@ -74,7 +74,7 @@ export async function workspaceWorker(
         content?: string; // For notes
         itemId?: string;
 
-        itemType?: "note" | "flashcard" | "quiz" | "youtube" | "image"; // Defaults to "note" if undefined
+        itemType?: "note" | "flashcard" | "quiz" | "youtube" | "image" | "audio"; // Defaults to "note" if undefined
         pdfTextContent?: string; // For caching extracted PDF text content
         flashcardData?: {
             cards?: { front: string; back: string }[]; // For creating flashcards
@@ -89,6 +89,13 @@ export async function workspaceWorker(
             url: string;
             altText?: string;
             caption?: string;
+        };
+        audioData?: {
+            fileUrl: string;
+            filename: string;
+            fileSize?: number;
+            mimeType?: string;
+            duration?: number;
         };
         // Optional: deep research metadata to attach to a note
         deepResearchData?: {
@@ -222,6 +229,19 @@ export async function workspaceWorker(
                         altText: params.imageData.altText,
                         caption: params.imageData.caption
                     };
+                } else if (itemType === "audio") {
+                    // Audio type
+                    if (!params.audioData || !params.audioData.fileUrl) {
+                        throw new Error("Audio data required for audio card creation");
+                    }
+                    itemData = {
+                        fileUrl: params.audioData.fileUrl,
+                        filename: params.audioData.filename || "Recording",
+                        fileSize: params.audioData.fileSize,
+                        mimeType: params.audioData.mimeType,
+                        duration: params.audioData.duration,
+                        processingStatus: "processing",
+                    };
                 } else if (itemType === "quiz") {
                     // Quiz type
                     if (!params.quizData) {
@@ -270,7 +290,7 @@ export async function workspaceWorker(
                 const item: Item = {
                     id: itemId,
                     type: itemType,
-                    name: params.title || (itemType === "youtube" ? "YouTube Video" : itemType === "image" ? "Image" : itemType === "quiz" ? "New Quiz" : itemType === "flashcard" ? "New Flashcard Deck" : "New Note"),
+                    name: params.title || (itemType === "youtube" ? "YouTube Video" : itemType === "image" ? "Image" : itemType === "quiz" ? "New Quiz" : itemType === "flashcard" ? "New Flashcard Deck" : itemType === "audio" ? "Audio Recording" : "New Note"),
                     subtitle: "",
                     data: itemData,
                     color: getRandomCardColor(),

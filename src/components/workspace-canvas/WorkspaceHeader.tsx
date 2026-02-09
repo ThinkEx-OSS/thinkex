@@ -5,7 +5,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, X, ChevronRight, ChevronDown, FolderOpen, Plus, Upload, FileText, Folder as FolderIcon, Settings, Share2, Play, MoreHorizontal, Globe, Brain, Maximize, File, Newspaper, ImageIcon } from "lucide-react";
+import { Search, X, ChevronRight, ChevronDown, FolderOpen, Plus, Upload, FileText, Folder as FolderIcon, Settings, Share2, Play, MoreHorizontal, Globe, Brain, Maximize, File, Newspaper, ImageIcon, Mic } from "lucide-react";
 import { LuBook, LuPanelLeftOpen } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
@@ -52,6 +52,8 @@ import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { CollaboratorAvatars } from "@/components/workspace/CollaboratorAvatars";
 import { UploadDialog } from "@/components/modals/UploadDialog";
+import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
+import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { getBestFrameForRatio } from "@/lib/workspace-state/aspect-ratios";
 interface WorkspaceHeaderProps {
   titleInputRef: React.RefObject<HTMLInputElement | null>;
@@ -145,6 +147,9 @@ export default function WorkspaceHeader({
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
   const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const showAudioDialog = useAudioRecordingStore((s) => s.isDialogOpen);
+  const openAudioDialog = useAudioRecordingStore((s) => s.openDialog);
+  const closeAudioDialog = useAudioRecordingStore((s) => s.closeDialog);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const pathname = usePathname();
@@ -323,6 +328,85 @@ export default function WorkspaceHeader({
     }
     setIsNewMenuOpen(false);
   }, [addItem]);
+
+  const handleAudioReady = useCallback(async (file: File) => {
+    if (!addItem) return;
+
+    // Import uploadFileDirect dynamically to avoid top-level client import issues
+    const { uploadFileDirect } = await import("@/lib/uploads/client-upload");
+
+    const loadingToastId = toast.loading("Uploading audio...");
+
+    try {
+      // Upload the audio file to storage
+      const { url: fileUrl } = await uploadFileDirect(file);
+
+      // Create the audio card immediately (shows "processing" state)
+      const itemId = addItem("audio", file.name.replace(/\.[^/.]+$/, ""), {
+        fileUrl,
+        filename: file.name,
+        fileSize: file.size,
+        mimeType: file.type || "audio/webm",
+        processingStatus: "processing",
+      } as any);
+
+      if (onItemCreated && itemId) {
+        onItemCreated([itemId]);
+      }
+
+      toast.dismiss(loadingToastId);
+      toast.success("Audio uploaded — analyzing with Gemini...");
+
+      // Kick off Gemini processing in the background
+      fetch("/api/audio/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileUrl,
+          filename: file.name,
+          mimeType: file.type || "audio/webm",
+        }),
+      })
+        .then((res) => res.json())
+        .then((result) => {
+          if (result.success) {
+            // Dispatch a custom event to update the audio card data
+            window.dispatchEvent(
+              new CustomEvent("audio-processing-complete", {
+                detail: {
+                  itemId,
+                  summary: result.summary,
+                  transcript: result.transcript,
+                  segments: result.segments,
+                },
+              })
+            );
+          } else {
+            window.dispatchEvent(
+              new CustomEvent("audio-processing-complete", {
+                detail: {
+                  itemId,
+                  error: result.error || "Processing failed",
+                },
+              })
+            );
+          }
+        })
+        .catch((err) => {
+          window.dispatchEvent(
+            new CustomEvent("audio-processing-complete", {
+              detail: {
+                itemId,
+                error: err.message || "Processing failed",
+              },
+            })
+          );
+        });
+    } catch (error: any) {
+      toast.dismiss(loadingToastId);
+      toast.error(error.message || "Failed to upload audio");
+    }
+  }, [addItem, onItemCreated]);
 
   const handleImageCreate = useCallback(async (url: string, name: string) => {
     if (!addItem) return;
@@ -948,6 +1032,16 @@ export default function WorkspaceHeader({
                   </DropdownMenuSub>
                   <DropdownMenuItem
                     onClick={() => {
+                      openAudioDialog();
+                      setIsNewMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Mic className="size-4" />
+                    Audio
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
                       setShowYouTubeDialog(true);
                     }}
                     className="flex items-center gap-2 cursor-pointer"
@@ -1063,6 +1157,12 @@ export default function WorkspaceHeader({
           onPDFUpload={onPDFUpload}
         />
       )}
+      {/* Audio Recorder Dialog */}
+      <AudioRecorderDialog
+        open={showAudioDialog}
+        onOpenChange={(open) => { if (open) openAudioDialog(); else closeAudioDialog(); }}
+        onAudioReady={handleAudioReady}
+      />
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operatio
 import { FileText } from "lucide-react";
 import { useCallback, useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
-import type { PdfData, ImageData } from "@/lib/workspace-state/types";
+import type { PdfData, ImageData, AudioData } from "@/lib/workspace-state/types";
 import { getBestFrameForRatio, type GridFrame } from "@/lib/workspace-state/aspect-ratios";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
@@ -170,11 +170,14 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
           // Separate files by type
           const pdfResults: typeof validResults = [];
           const imageResults: typeof validResults = [];
+          const audioResults: typeof validResults = [];
 
           validResults.forEach((result, index) => {
             const file = filteredFiles[index];
             if (file.type === 'application/pdf') {
               pdfResults.push(result);
+            } else if (file.type.startsWith('audio/')) {
+              audioResults.push(result);
             } else {
               imageResults.push(result);
             }
@@ -294,6 +297,60 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
             handleCreatedItems(imageCreatedIds);
           }
 
+          // Create audio cards and trigger Gemini processing
+          if (audioResults.length > 0) {
+            const audioCardDefinitions = audioResults.map((result, index) => {
+              const file = filteredFiles.find(f => f.name === result.filename) || filteredFiles[validResults.indexOf(result)];
+              const audioData: Partial<AudioData> = {
+                fileUrl: result.fileUrl,
+                filename: result.filename,
+                fileSize: result.fileSize,
+                mimeType: file?.type || 'audio/mpeg',
+                processingStatus: 'processing',
+              };
+              return {
+                type: 'audio' as const,
+                name: result.name.replace(/\.[^/.]+$/, ''),
+                initialData: audioData,
+              };
+            });
+
+            const audioCreatedIds = operations.createItems(audioCardDefinitions);
+            handleCreatedItems(audioCreatedIds);
+
+            // Trigger Gemini processing for each audio file
+            audioResults.forEach((result, index) => {
+              const itemId = audioCreatedIds[index];
+              const file = filteredFiles.find(f => f.name === result.filename) || filteredFiles[validResults.indexOf(result)];
+              fetch('/api/audio/process', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  fileUrl: result.fileUrl,
+                  filename: result.filename,
+                  mimeType: file?.type || 'audio/mpeg',
+                }),
+              })
+                .then(res => res.json())
+                .then(data => {
+                  window.dispatchEvent(
+                    new CustomEvent('audio-processing-complete', {
+                      detail: data.success
+                        ? { itemId, summary: data.summary, transcript: data.transcript, segments: data.segments }
+                        : { itemId, error: data.error || 'Processing failed' },
+                    })
+                  );
+                })
+                .catch(err => {
+                  window.dispatchEvent(
+                    new CustomEvent('audio-processing-complete', {
+                      detail: { itemId, error: err.message || 'Processing failed' },
+                    })
+                  );
+                });
+            });
+          }
+
           // Show success toast
           const totalCreated = validResults.length;
           toast.success(
@@ -345,6 +402,14 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
       'image/jpeg': ['.jpg', '.jpeg'],
       'image/gif': ['.gif'],
       'image/webp': ['.webp'],
+      'audio/mpeg': ['.mp3'],
+      'audio/wav': ['.wav'],
+      'audio/ogg': ['.ogg'],
+      'audio/aac': ['.aac'],
+      'audio/flac': ['.flac'],
+      'audio/aiff': ['.aiff'],
+      'audio/webm': ['.webm'],
+      'audio/mp4': ['.m4a'],
     },
     onDragEnter: () => setIsDragging(true),
     onDragLeave: () => {
@@ -362,7 +427,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
       if (fileRejections.length > 0) {
         const rejectedFileNames = fileRejections.map(rejection => rejection.file.name);
         toast.error(
-          `Only PDF and image files (PNG, JPG, GIF, WebP) can be dropped.\nRejected: ${rejectedFileNames.join(', ')}`,
+          `Only PDF, image, and audio files can be dropped.\nRejected: ${rejectedFileNames.join(', ')}`,
           {
             style: { color: '#fff' },
             duration: 5000,
@@ -388,7 +453,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
                 Create Card
               </h3>
               <p className="text-sm text-muted-foreground">
-                Drop PDF or image files here to create cards
+                Drop PDF, image, or audio files here to create cards
               </p>
             </div>
           </div>

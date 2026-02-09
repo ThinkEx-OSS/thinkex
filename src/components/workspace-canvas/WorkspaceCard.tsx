@@ -15,6 +15,7 @@ import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEdit
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
 import { BlockNotePreview } from "@/components/editor/BlockNotePreview";
 import { DeepResearchCardContent } from "./DeepResearchCardContent";
+import { AudioCardContent } from "./AudioCardContent";
 import LazyAppPdfViewer from "@/components/pdf/LazyAppPdfViewer";
 import { LightweightPdfPreview } from "@/components/pdf/LightweightPdfPreview";
 
@@ -983,6 +984,13 @@ function WorkspaceCard({
               <ImageCardContent item={item} />
             )}
 
+            {/* Audio Content - render audio player and transcript */}
+            {!isOpenInPanel && item.type === 'audio' && shouldShowPreview && (
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <AudioCardContent item={item} isCompact />
+              </div>
+            )}
+
             {/* Deep Research Note - render streaming UI when research is in progress */}
             {item.type === 'note' && (() => {
               const noteData = item.data as NoteData;
@@ -1133,6 +1141,11 @@ export const WorkspaceCardMemoized = memo(WorkspaceCard, (prevProps, nextProps) 
     if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
   }
   if (prevProps.item.type === 'image' && nextProps.item.type === 'image') {
+    const prevData = prevProps.item.data;
+    const nextData = nextProps.item.data;
+    if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
+  }
+  if (prevProps.item.type === 'audio' && nextProps.item.type === 'audio') {
     const prevData = prevProps.item.data;
     const nextData = nextProps.item.data;
     if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
