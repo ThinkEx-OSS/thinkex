@@ -1,6 +1,7 @@
 "use client";
 
 import { Streamdown, defaultRehypePlugins } from "streamdown";
+import "streamdown/styles.css";
 import { createCodePlugin } from "@streamdown/code";
 import { mermaid } from "@streamdown/mermaid";
 import { math } from "@streamdown/math";
@@ -124,6 +125,7 @@ const MarkdownTextImpl = () => {
   return (
     <div key={key} ref={containerRef} className="aui-md" onCopy={handleCopy}>
       <Streamdown
+        animated={{ animation: "fadeIn", duration: 200, easing: "ease-out" }}
         isAnimating={isRunning}
         caret="block"
         className={cn(
