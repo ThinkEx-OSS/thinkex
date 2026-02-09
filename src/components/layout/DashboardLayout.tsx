@@ -166,7 +166,7 @@ export function DashboardLayout({
                       <ResizablePanel
                         id="split-workspace-panel"
                         order={1}
-                        defaultSize={40}
+                        defaultSize={50}
                         minSize={25}
                         maxSize={60}
                       >
@@ -179,7 +179,7 @@ export function DashboardLayout({
                       <ResizablePanel
                         id="split-item-panel"
                         order={2}
-                        defaultSize={60}
+                        defaultSize={50}
                         minSize={40}
                       >
                         {modalManager}

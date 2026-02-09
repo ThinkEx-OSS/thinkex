@@ -43,7 +43,7 @@ export const PANEL_DEFAULTS = {
   /** Default workspace panel size when chat is expanded */
   WORKSPACE_WITH_CHAT: 60,
   /** Default chat panel size */
-  CHAT: 40,
+  CHAT: 30.5,
   /** Default thread list panel size */
   THREAD_LIST: 15,
   /** Minimum workspace panel size */
