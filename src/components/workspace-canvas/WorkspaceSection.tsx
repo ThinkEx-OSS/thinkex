@@ -582,37 +582,45 @@ export function WorkspaceSection({
               </ContextMenuItem>
             )}
 
-            <ContextMenuItem
-              onSelect={() => {
-                if (addItem) {
-                  const itemId = addItem("flashcard");
-                  if (handleCreatedItems && itemId) {
-                    handleCreatedItems([itemId]);
-                  }
-                }
-              }}
-              className="flex items-center gap-2 cursor-pointer"
-            >
-              <PiCardsThreeBold className="size-4 text-muted-foreground rotate-180" />
-              Flashcards
-            </ContextMenuItem>
-            <ContextMenuItem
-              onSelect={() => {
-                // Open chat if closed
-                if (setIsChatExpanded && !isChatExpanded && isDesktop) {
-                  setIsChatExpanded(true);
-                }
-                // Fill composer with quiz creation prompt
-                aui.composer().setText("Create a quiz about ");
-                // Focus the composer input
-                focusComposerInput();
-                toast.success("Quiz creation started");
-              }}
-              className="flex items-center gap-2 cursor-pointer"
-            >
-              <Brain className="size-4" />
-              Quiz
-            </ContextMenuItem>
+            <ContextMenuSub>
+              <ContextMenuSubTrigger className="flex items-center gap-2 cursor-pointer">
+                <LuBook className="size-4 text-muted-foreground" />
+                Learn
+              </ContextMenuSubTrigger>
+              <ContextMenuSubContent>
+                <ContextMenuItem
+                  onSelect={() => {
+                    if (addItem) {
+                      const itemId = addItem("flashcard");
+                      if (handleCreatedItems && itemId) {
+                        handleCreatedItems([itemId]);
+                      }
+                    }
+                  }}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <PiCardsThreeBold className="size-4 text-muted-foreground rotate-180" />
+                  Flashcards
+                </ContextMenuItem>
+                <ContextMenuItem
+                  onSelect={() => {
+                    // Open chat if closed
+                    if (setIsChatExpanded && !isChatExpanded && isDesktop) {
+                      setIsChatExpanded(true);
+                    }
+                    // Fill composer with quiz creation prompt
+                    aui.composer().setText("Create a quiz about ");
+                    // Focus the composer input
+                    focusComposerInput();
+                    toast.success("Quiz creation started");
+                  }}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Brain className="size-4" />
+                  Quiz
+                </ContextMenuItem>
+              </ContextMenuSubContent>
+            </ContextMenuSub>
             <ContextMenuItem
               onSelect={() => setShowYouTubeDialog(true)}
               className="flex items-center gap-2 cursor-pointer"

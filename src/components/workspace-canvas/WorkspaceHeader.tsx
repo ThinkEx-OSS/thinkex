@@ -868,37 +868,45 @@ export default function WorkspaceHeader({
                     Upload (PDF, Image)
                   </DropdownMenuItem>
 
-                  <DropdownMenuItem
-                    onClick={() => {
-                      if (addItem) {
-                        const itemId = addItem("flashcard");
-                        if (onItemCreated && itemId) {
-                          onItemCreated([itemId]);
-                        }
-                      }
-                    }}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <PiCardsThreeBold className="size-4 text-muted-foreground rotate-180" />
-                    Flashcards
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      // Open chat if closed
-                      if (setIsChatExpanded && !isChatExpanded) {
-                        setIsChatExpanded(true);
-                      }
-                      // Fill composer with quiz creation prompt
-                      aui?.composer().setText("Create a quiz about ");
-                      // Focus the composer input
-                      focusComposerInput();
-                      toast.success("Quiz creation started");
-                    }}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Brain className="size-4" />
-                    Quiz
-                  </DropdownMenuItem>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="flex items-center gap-2 cursor-pointer">
+                      <LuBook className="size-4 text-muted-foreground" />
+                      Learn
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          if (addItem) {
+                            const itemId = addItem("flashcard");
+                            if (onItemCreated && itemId) {
+                              onItemCreated([itemId]);
+                            }
+                          }
+                        }}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <PiCardsThreeBold className="size-4 text-muted-foreground rotate-180" />
+                        Flashcards
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          // Open chat if closed
+                          if (setIsChatExpanded && !isChatExpanded) {
+                            setIsChatExpanded(true);
+                          }
+                          // Fill composer with quiz creation prompt
+                          aui?.composer().setText("Create a quiz about ");
+                          // Focus the composer input
+                          focusComposerInput();
+                          toast.success("Quiz creation started");
+                        }}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <Brain className="size-4" />
+                        Quiz
+                      </DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
                   <DropdownMenuItem
                     onClick={() => {
                       setShowYouTubeDialog(true);
