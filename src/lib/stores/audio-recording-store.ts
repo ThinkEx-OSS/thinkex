@@ -15,6 +15,7 @@ export interface AudioRecordingState {
   _timerId: ReturnType<typeof setInterval> | null;
   _audioContext: AudioContext | null;
   _analyser: AnalyserNode | null;
+  _resetting: boolean;
 
   // Dialog visibility (recording continues regardless)
   isDialogOpen: boolean;
@@ -58,6 +59,7 @@ export const useAudioRecordingStore = create<AudioRecordingState>((set, get) => 
   _timerId: null,
   _audioContext: null,
   _analyser: null,
+  _resetting: false,
   isDialogOpen: false,
 
   openDialog: () => set({ isDialogOpen: true }),
@@ -73,7 +75,7 @@ export const useAudioRecordingStore = create<AudioRecordingState>((set, get) => 
       state._mediaRecorder.stop();
     }
     if (state._stream) {
-      state._stream.getTracks().forEach((t) => t.stop());
+      state._stream.getTracks().forEach((t) => { t.stop(); });
     }
 
     try {
@@ -94,15 +96,17 @@ export const useAudioRecordingStore = create<AudioRecordingState>((set, get) => 
       };
 
       recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: mimeType });
         const s = get();
+        // If resetRecording triggered this stop, skip — reset already cleaned up
+        if (s._resetting) return;
+
+        const blob = new Blob(chunks, { type: mimeType });
         if (s._timerId) clearInterval(s._timerId);
         if (s._stream) {
-          s._stream.getTracks().forEach((t) => t.stop());
+          s._stream.getTracks().forEach((t) => { t.stop(); });
         }
-        const currentState = get();
-        if (currentState._audioContext) {
-          currentState._audioContext.close().catch(() => {});
+        if (s._audioContext) {
+          s._audioContext.close().catch(() => {});
         }
         set({
           audioBlob: blob,
@@ -120,9 +124,25 @@ export const useAudioRecordingStore = create<AudioRecordingState>((set, get) => 
       };
 
       recorder.onerror = () => {
-        set({ error: "Recording failed. Please try again.", isRecording: false });
         const s = get();
         if (s._timerId) clearInterval(s._timerId);
+        if (s._stream) {
+          s._stream.getTracks().forEach((t) => { t.stop(); });
+        }
+        if (s._audioContext) {
+          s._audioContext.close().catch(() => {});
+        }
+        set({
+          error: "Recording failed. Please try again.",
+          isRecording: false,
+          isPaused: false,
+          _mediaRecorder: null,
+          _stream: null,
+          _chunks: [],
+          _timerId: null,
+          _audioContext: null,
+          _analyser: null,
+        });
       };
 
       recorder.start(1000);
@@ -185,11 +205,13 @@ export const useAudioRecordingStore = create<AudioRecordingState>((set, get) => 
   resetRecording: () => {
     const state = get();
     if (state._timerId) clearInterval(state._timerId);
+    // Set _resetting flag so onstop handler knows to skip its state update
+    set({ _resetting: true });
     if (state._mediaRecorder && state._mediaRecorder.state !== "inactive") {
       state._mediaRecorder.stop();
     }
     if (state._stream) {
-      state._stream.getTracks().forEach((t) => t.stop());
+      state._stream.getTracks().forEach((t) => { t.stop(); });
     }
     if (state._audioContext) {
       state._audioContext.close().catch(() => {});
@@ -206,6 +228,7 @@ export const useAudioRecordingStore = create<AudioRecordingState>((set, get) => 
       _timerId: null,
       _audioContext: null,
       _analyser: null,
+      _resetting: false,
     });
   },
 }));

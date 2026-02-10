@@ -39,6 +39,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate URL origin to prevent SSRF
+    const allowedHosts = [
+      process.env.NEXT_PUBLIC_SUPABASE_URL
+        ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
+        : null,
+    ].filter(Boolean) as string[];
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(fileUrl);
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid fileUrl" },
+        { status: 400 }
+      );
+    }
+
+    if (
+      !allowedHosts.some((host) => parsedUrl.hostname === host || parsedUrl.hostname.endsWith(`.${host}`))
+    ) {
+      return NextResponse.json(
+        { error: "fileUrl origin is not allowed" },
+        { status: 400 }
+      );
+    }
+
     // Determine MIME type
     const audioMimeType = mimeType || guessMimeType(filename || fileUrl);
 
@@ -46,12 +72,28 @@ export async function POST(req: NextRequest) {
     const audioResponse = await fetch(fileUrl);
     if (!audioResponse.ok) {
       return NextResponse.json(
-        { error: `Failed to download audio: ${audioResponse.statusText}` },
+        { error: "Failed to download audio" },
         { status: 500 }
       );
     }
 
+    // Enforce a 50 MB size limit before buffering into memory
+    const MAX_AUDIO_SIZE = 50 * 1024 * 1024;
+    const contentLength = Number(audioResponse.headers.get("content-length") || "0");
+    if (contentLength > MAX_AUDIO_SIZE) {
+      return NextResponse.json(
+        { error: "Audio file exceeds the 50 MB size limit" },
+        { status: 400 }
+      );
+    }
+
     const audioBuffer = await audioResponse.arrayBuffer();
+    if (audioBuffer.byteLength > MAX_AUDIO_SIZE) {
+      return NextResponse.json(
+        { error: "Audio file exceeds the 50 MB size limit" },
+        { status: 400 }
+      );
+    }
     const base64Audio = Buffer.from(audioBuffer).toString("base64");
 
     const client = new GoogleGenAI({ apiKey });
@@ -134,10 +176,10 @@ Requirements:
       transcript: result.transcript,
       segments: result.segments,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[AUDIO_PROCESS] Error:", error);
     return NextResponse.json(
-      { error: error?.message || "Failed to process audio" },
+      { error: "Failed to process audio" },
       { status: 500 }
     );
   }

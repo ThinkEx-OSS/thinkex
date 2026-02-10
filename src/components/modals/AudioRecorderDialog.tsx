@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Mic, Square, Upload, Loader2, Pause, Play } from "lucide-react";
 import {
   Dialog,
@@ -72,10 +72,18 @@ export function AudioRecorderDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
 
-  // Stable blob URL for audio preview (avoids creating new URLs on every render)
-  const audioBlobUrl = useMemo(() => {
-    if (audioBlob) return URL.createObjectURL(audioBlob);
-    return null;
+  // Stable blob URL for audio preview — revoked on cleanup to avoid memory leaks
+  const [audioBlobUrl, setAudioBlobUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!audioBlob) {
+      setAudioBlobUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(audioBlob);
+    setAudioBlobUrl(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
   }, [audioBlob]);
 
   // Close dialog — if recording, just hide; if ready, confirm; if idle, fully close
@@ -151,7 +159,7 @@ export function AudioRecorderDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={handleClose}>
+      <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) handleClose(); }}>
         <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
           <DialogHeader>
             <DialogTitle>

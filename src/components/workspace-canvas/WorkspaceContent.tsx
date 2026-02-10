@@ -163,10 +163,12 @@ export default function WorkspaceContent({
       const { itemId, summary, transcript, segments, error } = (e as CustomEvent).detail;
       if (!itemId) return;
 
+      const existingData = viewState.items.find((i) => i.id === itemId)?.data ?? {};
+
       if (error) {
         updateItem(itemId, {
           data: {
-            ...viewState.items.find((i) => i.id === itemId)?.data,
+            ...existingData,
             processingStatus: "failed",
             error,
           } as any,
@@ -174,7 +176,7 @@ export default function WorkspaceContent({
       } else {
         updateItem(itemId, {
           data: {
-            ...viewState.items.find((i) => i.id === itemId)?.data,
+            ...existingData,
             summary,
             transcript,
             segments,

@@ -9,11 +9,9 @@ import {
   Loader2,
   Play,
   Pause,
-  Volume2,
-  VolumeX,
   FileText,
-  User,
   Globe,
+  RotateCcw,
 } from "lucide-react";
 import type { Item, AudioData, AudioSegment } from "@/lib/workspace-state/types";
 import { cn } from "@/lib/utils";
@@ -57,9 +55,10 @@ interface AudioCardContentProps {
   item: Item;
   isCompact?: boolean;
   isScrollLocked?: boolean;
+  onRetryProcessing?: (itemId: string) => void;
 }
 
-export function AudioCardContent({ item, isCompact = false, isScrollLocked = false }: AudioCardContentProps) {
+export function AudioCardContent({ item, isCompact = false, isScrollLocked = false, onRetryProcessing }: AudioCardContentProps) {
   const audioData = item.data as AudioData;
 
   // ── Loading / Error states ──────────────────────────────────────────────
@@ -100,6 +99,16 @@ export function AudioCardContent({ item, isCompact = false, isScrollLocked = fal
             {audioData.error || "An error occurred while processing the audio."}
           </p>
         </div>
+        {onRetryProcessing && audioData.fileUrl && (
+          <button
+            type="button"
+            onClick={() => onRetryProcessing(item.id)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer"
+          >
+            <RotateCcw className="h-3 w-3" />
+            Retry
+          </button>
+        )}
       </div>
     );
   }
@@ -126,7 +135,7 @@ function AudioCardComplete({
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(audioData.duration ?? 0);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [showTranscript, setShowTranscript] = useState(false);
   const [activeSegmentIdx, setActiveSegmentIdx] = useState(-1);

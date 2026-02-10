@@ -84,7 +84,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
 
         // Stop all tracks
         if (streamRef.current) {
-          streamRef.current.getTracks().forEach((track) => track.stop());
+          streamRef.current.getTracks().forEach((track) => { track.stop(); });
           streamRef.current = null;
         }
       };
@@ -100,6 +100,11 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       setIsPaused(false);
       startTimer();
     } catch (err: any) {
+      // Clean up any acquired stream on failure
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => { track.stop(); });
+        streamRef.current = null;
+      }
       if (err.name === "NotAllowedError") {
         setError("Microphone access denied. Please allow microphone access.");
       } else if (err.name === "NotFoundError") {
@@ -151,7 +156,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
         mediaRecorderRef.current.stop();
       }
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current.getTracks().forEach((track) => { track.stop(); });
       }
     };
   }, [clearTimer]);

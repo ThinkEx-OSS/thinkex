@@ -139,7 +139,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
       );
 
       try {
-        // Upload all files in parallel
+        // Upload all files in parallel, keeping the original File reference
         const uploadPromises = filteredFiles.map(async (file) => {
           try {
             const { url, filename } = await uploadFileToStorage(file);
@@ -148,6 +148,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
               filename: file.name,
               fileSize: file.size,
               name: file.name.replace(/\.pdf$/i, ''), // Remove .pdf extension for card name
+              originalFile: file,
             };
           } catch (error) {
             console.error("Failed to upload file:", error);
@@ -167,16 +168,16 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
         toast.dismiss(loadingToastId);
 
         if (validResults.length > 0) {
-          // Separate files by type
+          // Separate files by type using the original file reference (avoids index misalignment)
           const pdfResults: typeof validResults = [];
           const imageResults: typeof validResults = [];
           const audioResults: typeof validResults = [];
 
-          validResults.forEach((result, index) => {
-            const file = filteredFiles[index];
-            if (file.type === 'application/pdf') {
+          validResults.forEach((result) => {
+            const fileType = result.originalFile.type;
+            if (fileType === 'application/pdf') {
               pdfResults.push(result);
-            } else if (file.type.startsWith('audio/')) {
+            } else if (fileType.startsWith('audio/')) {
               audioResults.push(result);
             } else {
               imageResults.push(result);
@@ -299,13 +300,12 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
 
           // Create audio cards and trigger Gemini processing
           if (audioResults.length > 0) {
-            const audioCardDefinitions = audioResults.map((result, index) => {
-              const file = filteredFiles.find(f => f.name === result.filename) || filteredFiles[validResults.indexOf(result)];
+            const audioCardDefinitions = audioResults.map((result) => {
               const audioData: Partial<AudioData> = {
                 fileUrl: result.fileUrl,
                 filename: result.filename,
                 fileSize: result.fileSize,
-                mimeType: file?.type || 'audio/mpeg',
+                mimeType: result.originalFile.type || 'audio/mpeg',
                 processingStatus: 'processing',
               };
               return {
@@ -321,14 +321,13 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
             // Trigger Gemini processing for each audio file
             audioResults.forEach((result, index) => {
               const itemId = audioCreatedIds[index];
-              const file = filteredFiles.find(f => f.name === result.filename) || filteredFiles[validResults.indexOf(result)];
               fetch('/api/audio/process', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   fileUrl: result.fileUrl,
                   filename: result.filename,
-                  mimeType: file?.type || 'audio/mpeg',
+                  mimeType: result.originalFile.type || 'audio/mpeg',
                 }),
               })
                 .then(res => res.json())

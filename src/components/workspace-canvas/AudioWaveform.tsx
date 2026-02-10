@@ -73,7 +73,7 @@ export function AudioWaveform({
 
       const barWidth = canvas.width / barCount;
       const gap = 2;
-      const samplesPerBar = Math.floor(bufferLength / barCount);
+      const samplesPerBar = Math.max(1, Math.floor(bufferLength / barCount));
 
       ctx.fillStyle = barColor;
 
