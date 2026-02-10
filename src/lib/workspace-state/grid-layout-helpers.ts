@@ -12,7 +12,7 @@ export const DEFAULT_CARD_DIMENSIONS: Record<CardType, { w: number; h: number }>
   youtube: { w: 4, h: 10 },
   quiz: { w: 1, h: 4 },
   image: { w: 4, h: 10 },
-  audio: { w: 2, h: 8 },
+  audio: { w: 2, h: 10 },
 };
 
 /**

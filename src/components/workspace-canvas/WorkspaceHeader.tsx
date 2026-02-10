@@ -342,7 +342,20 @@ export default function WorkspaceHeader({
       const { url: fileUrl } = await uploadFileDirect(file);
 
       // Create the audio card immediately (shows "processing" state)
-      const itemId = addItem("audio", file.name.replace(/\.[^/.]+$/, ""), {
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: now.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined 
+      });
+      const timeStr = now.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      });
+      const title = `${dateStr} ${timeStr} Recording`;
+      
+      const itemId = addItem("audio", title, {
         fileUrl,
         filename: file.name,
         fileSize: file.size,
@@ -753,6 +766,7 @@ export default function WorkspaceHeader({
                     {activeItems[0].type === 'youtube' && <Play className="h-3.5 w-3.5 shrink-0 text-red-500" />}
                     {activeItems[0].type === 'quiz' && <Brain className="h-3.5 w-3.5 shrink-0 text-green-400" />}
                     {activeItems[0].type === 'image' && <ImageIcon className="h-3.5 w-3.5 shrink-0 text-emerald-500" />}
+                    {activeItems[0].type === 'audio' && <Mic className="h-3.5 w-3.5 shrink-0 text-orange-400" />}
                     {activeItems[0].type === 'folder' && <FolderIcon className="h-3.5 w-3.5 shrink-0 text-amber-400" />}
 
                     <span className="truncate text-sidebar-foreground max-w-[300px]" title={activeItems[0].name}>
@@ -949,7 +963,7 @@ export default function WorkspaceHeader({
                     {!isCompactMode && <span>New</span>}
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48" sideOffset={8}>
+                <DropdownMenuContent align="end" className="w-56" sideOffset={8}>
                   <DropdownMenuItem
                     onClick={() => {
                       if (addItem) {
@@ -985,10 +999,46 @@ export default function WorkspaceHeader({
                       setShowUploadDialog(true);
                       setIsNewMenuOpen(false);
                     }}
-                    className="flex items-center gap-2 cursor-pointer"
+                    className="flex items-center gap-2 cursor-pointer p-2"
                   >
                     <Upload className="size-4" />
-                    Upload (PDF, Image)
+                    <div className="flex items-center justify-between w-full">
+                      <span>Upload</span>
+                      <span className="text-xs text-muted-foreground">PDF/Image</span>
+                    </div>
+                  </DropdownMenuItem>
+
+                                    <DropdownMenuItem
+                    onClick={() => {
+                      openAudioDialog();
+                      setIsNewMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2 cursor-pointer p-2"
+                  >
+                    <Mic className="size-4" />
+                    <div className="flex items-center justify-between w-full">
+                      <span>Audio</span>
+                      <span className="text-xs text-muted-foreground">Lecture/Meeting</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setShowYouTubeDialog(true);
+                    }}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Play className="size-4" />
+                    YouTube
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setShowWebsiteDialog(true);
+                      setIsNewMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Newspaper className="size-4" />
+                    Website
                   </DropdownMenuItem>
 
                   <DropdownMenuSub>
@@ -1030,35 +1080,6 @@ export default function WorkspaceHeader({
                       </DropdownMenuItem>
                     </DropdownMenuSubContent>
                   </DropdownMenuSub>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      openAudioDialog();
-                      setIsNewMenuOpen(false);
-                    }}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Mic className="size-4" />
-                    Audio
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setShowYouTubeDialog(true);
-                    }}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Play className="size-4" />
-                    YouTube
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setShowWebsiteDialog(true);
-                      setIsNewMenuOpen(false);
-                    }}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Newspaper className="size-4" />
-                    Website
-                  </DropdownMenuItem>
                   {/* <DropdownMenuItem
                     onClick={() => {
                       toast.success("Deep Research action selected");

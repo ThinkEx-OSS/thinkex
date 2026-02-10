@@ -13,6 +13,8 @@ export interface AudioRecordingState {
   _stream: MediaStream | null;
   _chunks: Blob[];
   _timerId: ReturnType<typeof setInterval> | null;
+  _audioContext: AudioContext | null;
+  _analyser: AnalyserNode | null;
 
   // Dialog visibility (recording continues regardless)
   isDialogOpen: boolean;
@@ -54,6 +56,8 @@ export const useAudioRecordingStore = create<AudioRecordingState>((set, get) => 
   _stream: null,
   _chunks: [],
   _timerId: null,
+  _audioContext: null,
+  _analyser: null,
   isDialogOpen: false,
 
   openDialog: () => set({ isDialogOpen: true }),
@@ -76,6 +80,13 @@ export const useAudioRecordingStore = create<AudioRecordingState>((set, get) => 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = getSupportedMimeType();
       const recorder = new MediaRecorder(stream, { mimeType });
+
+      // Set up Web Audio API analyser for waveform visualisation
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
       const chunks: Blob[] = [];
 
       recorder.ondataavailable = (e) => {
@@ -89,6 +100,10 @@ export const useAudioRecordingStore = create<AudioRecordingState>((set, get) => 
         if (s._stream) {
           s._stream.getTracks().forEach((t) => t.stop());
         }
+        const currentState = get();
+        if (currentState._audioContext) {
+          currentState._audioContext.close().catch(() => {});
+        }
         set({
           audioBlob: blob,
           isRecording: false,
@@ -97,6 +112,8 @@ export const useAudioRecordingStore = create<AudioRecordingState>((set, get) => 
           _stream: null,
           _chunks: [],
           _timerId: null,
+          _audioContext: null,
+          _analyser: null,
           // Auto-open dialog when recording stops so user can review
           isDialogOpen: true,
         });
@@ -124,6 +141,8 @@ export const useAudioRecordingStore = create<AudioRecordingState>((set, get) => 
         _stream: stream,
         _chunks: chunks,
         _timerId: timerId,
+        _audioContext: audioContext,
+        _analyser: analyser,
       });
     } catch (err: any) {
       if (err.name === "NotAllowedError") {
@@ -172,6 +191,9 @@ export const useAudioRecordingStore = create<AudioRecordingState>((set, get) => 
     if (state._stream) {
       state._stream.getTracks().forEach((t) => t.stop());
     }
+    if (state._audioContext) {
+      state._audioContext.close().catch(() => {});
+    }
     set({
       isRecording: false,
       isPaused: false,
@@ -182,6 +204,8 @@ export const useAudioRecordingStore = create<AudioRecordingState>((set, get) => 
       _stream: null,
       _chunks: [],
       _timerId: null,
+      _audioContext: null,
+      _analyser: null,
     });
   },
 }));

@@ -987,7 +987,7 @@ function WorkspaceCard({
             {/* Audio Content - render audio player and transcript */}
             {!isOpenInPanel && item.type === 'audio' && shouldShowPreview && (
               <div className="flex-1 min-h-0 overflow-hidden">
-                <AudioCardContent item={item} isCompact />
+                <AudioCardContent item={item} isCompact isScrollLocked={isScrollLocked} />
               </div>
             )}
 

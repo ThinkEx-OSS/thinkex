@@ -3,6 +3,7 @@
 import { Mic, Square, Pause, Play } from "lucide-react";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { cn } from "@/lib/utils";
+import { AudioWaveform } from "@/components/workspace-canvas/AudioWaveform";
 
 function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -29,7 +30,7 @@ export function AudioRecordingIndicator() {
   if (!isRecording || isDialogOpen) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-4 fade-in duration-300">
+    <div className="fixed bottom-6 left-6 z-[100] animate-in slide-in-from-bottom-4 fade-in duration-300">
       <div
         className={cn(
           "flex items-center gap-3 px-4 py-2.5 rounded-full shadow-lg border backdrop-blur-md",
@@ -48,6 +49,14 @@ export function AudioRecordingIndicator() {
             )}
           />
         </span>
+
+        {/* Mini Waveform */}
+        <AudioWaveform
+          width={60}
+          height={24}
+          barCount={12}
+          barColor={isPaused ? "rgba(156,163,175,0.5)" : "rgba(239,68,68,0.7)"}
+        />
 
         {/* Timer */}
         <span className="text-sm font-mono font-semibold text-foreground tabular-nums">

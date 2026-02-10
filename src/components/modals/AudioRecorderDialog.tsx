@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { cn } from "@/lib/utils";
+import { AudioWaveform } from "@/components/workspace-canvas/AudioWaveform";
 
 const ACCEPTED_AUDIO_TYPES = [
   "audio/mp3",
@@ -127,31 +128,25 @@ export function AudioRecorderDialog({
           <DialogDescription>
             {isRecording
               ? "Recording in progress. You can close this dialog — recording continues in the background."
-              : "Record audio or upload an existing audio file."}
+              : "Process audio like meetings and lectures"}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col items-center gap-6 py-4">
           {/* Recording Visualizer */}
-          <div
-            className={cn(
-              "relative flex items-center justify-center w-32 h-32 rounded-full transition-all duration-300",
-              isRecording && !isPaused
-                ? "bg-red-100 dark:bg-red-900/30"
-                : audioBlob
-                  ? "bg-green-100 dark:bg-green-900/30"
-                  : "bg-muted"
-            )}
-          >
-            {isRecording && !isPaused && (
-              <div className="absolute inset-0 rounded-full bg-red-400/20 dark:bg-red-500/20 animate-ping" />
-            )}
-
-            {isRecording ? (
-              <div className="flex flex-col items-center gap-1 z-10">
+          {isRecording ? (
+            <div className="flex flex-col items-center gap-3">
+              <AudioWaveform
+                width={280}
+                height={80}
+                barCount={40}
+                barColor={isPaused ? "rgba(156,163,175,0.5)" : "rgba(239,68,68,0.7)"}
+                className="rounded-lg"
+              />
+              <div className="flex items-center gap-2">
                 <Mic
                   className={cn(
-                    "h-10 w-10",
+                    "h-5 w-5",
                     isPaused
                       ? "text-muted-foreground"
                       : "text-red-500 dark:text-red-400"
@@ -168,17 +163,28 @@ export function AudioRecorderDialog({
                   {formatDuration(duration)}
                 </span>
               </div>
-            ) : audioBlob ? (
-              <div className="flex flex-col items-center gap-1 z-10">
-                <Mic className="h-10 w-10 text-green-600 dark:text-green-400" />
-                <span className="text-lg font-mono font-semibold text-green-600 dark:text-green-400">
-                  {formatDuration(duration)}
-                </span>
-              </div>
-            ) : (
-              <Mic className="h-10 w-10 text-muted-foreground" />
-            )}
-          </div>
+            </div>
+          ) : (
+            <div
+              className={cn(
+                "relative flex items-center justify-center w-32 h-32 rounded-full transition-all duration-300",
+                audioBlob
+                  ? "bg-green-100 dark:bg-green-900/30"
+                  : "bg-muted"
+              )}
+            >
+              {audioBlob ? (
+                <div className="flex flex-col items-center gap-1 z-10">
+                  <Mic className="h-10 w-10 text-green-600 dark:text-green-400" />
+                  <span className="text-lg font-mono font-semibold text-green-600 dark:text-green-400">
+                    {formatDuration(duration)}
+                  </span>
+                </div>
+              ) : (
+                <Mic className="h-10 w-10 text-muted-foreground" />
+              )}
+            </div>
+          )}
 
           {/* Controls */}
           <div className="flex items-center gap-3">
