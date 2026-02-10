@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { GeistMono } from "geist/font/mono";
+// Using system fonts instead of custom fonts
 import { Providers } from "@/components/providers";
 import { QueryProvider } from "@/components/query-provider";
 import { PostHogProvider } from "@/components/providers/PostHogProvider";
@@ -53,7 +53,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${GeistMono.variable}`}>
+    <html lang="en" suppressHydrationWarning>
       <body className="subpixel-antialiased bg-background text-foreground">
         <LazyAppProviders>
           <HelmetProviderWrapper>

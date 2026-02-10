@@ -2,20 +2,7 @@
 
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Inter, Outfit } from "next/font/google";
-import "./globals.css";
-
-const inter = Inter({
-    subsets: ["latin"],
-    display: "swap",
-    variable: "--font-inter",
-});
-
-const outfit = Outfit({
-    subsets: ["latin"],
-    display: "swap",
-    variable: "--font-outfit",
-});
+// Using system fonts instead of custom fonts
 
 export default function GlobalError({
     error,
@@ -29,7 +16,7 @@ export default function GlobalError({
     }, [error]);
 
     return (
-        <html lang="en" suppressHydrationWarning className={`${inter.variable} ${outfit.variable}`}>
+        <html lang="en" suppressHydrationWarning>
             <body className="subpixel-antialiased bg-background text-foreground font-sans">
                 <div className="flex h-screen flex-col items-center justify-center space-y-4 text-center">
                     <div className="space-y-2">

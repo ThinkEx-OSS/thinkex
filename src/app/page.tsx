@@ -47,8 +47,7 @@ export default function LandingPage() {
   return (
     <div
       className="relative min-h-screen bg-background"
-      style={{ fontFamily: 'var(--font-outfit)' }}
-    >
+          >
       {/* Grid Background (static) */}
       <div
         className="fixed top-0 left-0 right-0 bottom-0 z-0 opacity-30 pointer-events-none"

@@ -1,9 +1,9 @@
 import * as React from 'react';
 
 const FONT =
-    'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 const BRAND_FONT =
-    'Outfit, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 const BG = '#111113';
 
 interface InviteEmailTemplateProps {
