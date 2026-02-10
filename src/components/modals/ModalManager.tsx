@@ -4,7 +4,7 @@ import PDFViewerModal from "./PDFViewerModal";
 import { VersionHistoryModal } from "@/components/workspace/VersionHistoryModal";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { ResizablePanel, ResizableHandle, ResizablePanelGroup } from "@/components/ui/resizable";
 
 interface ModalManagerProps {
   // Card Detail Modal
@@ -70,7 +70,7 @@ export function ModalManager({
     <>
       {/* Dual-Panel Mode: Render both panels when openPanelIds.length === 2 and split view is active */}
       {workspaceSplitViewActive && openPanelIds.length === 2 ? (
-        <>
+        <ResizablePanelGroup orientation="horizontal" className="h-full w-full">
           {/* First Panel (Left) */}
           <ResizablePanel id="dual-panel-left" defaultSize={50} minSize={30}>
             {openPanelIds[0] && (() => {
@@ -132,7 +132,7 @@ export function ModalManager({
               );
             })()}
           </ResizablePanel>
-        </>
+        </ResizablePanelGroup>
       ) : (
         /* Single Panel Mode: Card Detail Modal or PDF Viewer Modal - only shown when item is maximized */
         activeItemId && currentItem && maximizedItemId === currentItem.id && (

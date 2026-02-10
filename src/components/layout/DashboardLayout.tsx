@@ -165,9 +165,10 @@ export function DashboardLayout({
                 <SidebarInset className="flex flex-col relative overflow-hidden">
                   {/* DUAL-PANEL MODE: Show two item panels side-by-side */}
                   {isDualPanel ? (
-                    <ResizablePanelGroup orientation="horizontal" className="flex-1">
+                    /* ModalManager handles the ResizablePanelGroup internally for dual mode */
+                    <div className="flex-1 flex flex-col overflow-hidden">
                       {modalManager}
-                    </ResizablePanelGroup>
+                    </div>
                   ) : workspaceSplitViewActive && maximizedItemId ? (
                     /* WORKSPACE SPLIT VIEW MODE: Show workspace + item side-by-side */
                     <ResizablePanelGroup orientation="horizontal" className="flex-1">
