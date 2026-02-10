@@ -160,7 +160,7 @@ export default function WorkspaceContent({
   // Listen for audio processing completion events
   useEffect(() => {
     const handleAudioComplete = (e: Event) => {
-      const { itemId, summary, transcript, segments, error, retrying } = (e as CustomEvent).detail;
+      const { itemId, summary, segments, error, retrying } = (e as CustomEvent).detail;
       if (!itemId) return;
 
       const existingData = viewState.items.find((i) => i.id === itemId)?.data ?? {};
@@ -190,7 +190,6 @@ export default function WorkspaceContent({
           data: {
             ...existingData,
             summary,
-            transcript,
             segments,
             processingStatus: "complete",
           } as any,

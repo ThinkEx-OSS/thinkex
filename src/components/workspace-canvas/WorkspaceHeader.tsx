@@ -391,7 +391,6 @@ export default function WorkspaceHeader({
                 detail: {
                   itemId,
                   summary: result.summary,
-                  transcript: result.transcript,
                   segments: result.segments,
                 },
               })

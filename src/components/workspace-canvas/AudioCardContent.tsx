@@ -9,9 +9,10 @@ import {
   Loader2,
   Play,
   Pause,
-  FileText,
   Globe,
   RotateCcw,
+  Copy,
+  Check,
 } from "lucide-react";
 import type { Item, AudioData, AudioSegment } from "@/lib/workspace-state/types";
 import { cn } from "@/lib/utils";
@@ -89,7 +90,6 @@ export function AudioCardContent({ item, isCompact = false, isScrollLocked = fal
               ? {
                   itemId: item.id,
                   summary: result.summary,
-                  transcript: result.transcript,
                   segments: result.segments,
                 }
               : { itemId: item.id, error: result.error || "Processing failed" },
@@ -187,8 +187,8 @@ function AudioCardComplete({
   const [duration, setDuration] = useState(audioData.duration ?? 0);
   const [isMuted] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
-  const [showTranscript, setShowTranscript] = useState(false);
   const [activeSegmentIdx, setActiveSegmentIdx] = useState(-1);
+  const [copied, setCopied] = useState(false);
   const [showSummary, setShowSummary] = useState(true);
   const [showTimeline, setShowTimeline] = useState(true);
 
@@ -497,41 +497,29 @@ function AudioCardComplete({
           </div>
         )}
 
-        {/* Transcript */}
-        {audioData.transcript && (
-          <div className="space-y-1.5">
-            {isCompact ? (
-              <>
-                <h4 className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  <FileText className="h-3 w-3" />
-                  Full Transcript
-                </h4>
-                <div className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap bg-muted/30 rounded-lg p-3">
-                  {audioData.transcript}
-                </div>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setShowTranscript(!showTranscript)}
-                  className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors cursor-pointer"
-                >
-                  <FileText className="h-3 w-3" />
-                  Full Transcript
-                  {showTranscript ? (
-                    <ChevronUp className="h-3 w-3" />
-                  ) : (
-                    <ChevronDown className="h-3 w-3" />
-                  )}
-                </button>
-                {showTranscript && (
-                  <div className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap bg-muted/30 rounded-lg p-3 max-h-60 overflow-y-auto">
-                    {audioData.transcript}
-                  </div>
-                )}
-              </>
-            )}
+        {/* Copy Timeline as Transcript */}
+        {audioData.segments && audioData.segments.length > 0 && !isCompact && (
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                const text = audioData.segments!
+                  .map((s) => `[${s.timestamp}] ${s.speaker}: ${s.content}`)
+                  .join("\n");
+                navigator.clipboard.writeText(text).then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                });
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            >
+              {copied ? (
+                <Check className="h-3 w-3 text-green-500" />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
+              {copied ? "Copied!" : "Copy Transcript"}
+            </button>
           </div>
         )}
       </div>

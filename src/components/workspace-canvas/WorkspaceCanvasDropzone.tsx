@@ -335,7 +335,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
                   window.dispatchEvent(
                     new CustomEvent('audio-processing-complete', {
                       detail: data.success
-                        ? { itemId, summary: data.summary, transcript: data.transcript, segments: data.segments }
+                        ? { itemId, summary: data.summary, segments: data.segments }
                         : { itemId, error: data.error || 'Processing failed' },
                     })
                   );

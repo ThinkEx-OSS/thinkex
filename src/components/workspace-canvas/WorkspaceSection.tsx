@@ -532,7 +532,6 @@ export function WorkspaceSection({
                 detail: {
                   itemId,
                   summary: result.summary,
-                  transcript: result.transcript,
                   segments: result.segments,
                 },
               })

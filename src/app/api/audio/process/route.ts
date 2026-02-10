@@ -103,8 +103,7 @@ export async function POST(req: NextRequest) {
 Requirements:
 1. Provide a comprehensive summary of the entire audio content.
 2. Identify distinct speakers (e.g., Speaker 1, Speaker 2, or names if context allows).
-3. Provide accurate timestamps for each segment (Format: MM:SS).
-4. Provide the full plain-text transcript combining all segments.`;
+3. Provide accurate timestamps for each segment (Format: MM:SS).`;
 
     const response = await client.models.generateContent({
       model: "gemini-2.5-flash",
@@ -131,11 +130,6 @@ Requirements:
               type: Type.STRING,
               description: "A concise summary of the audio content.",
             },
-            transcript: {
-              type: Type.STRING,
-              description:
-                "Full plain-text transcript of the audio, combining all segments.",
-            },
             segments: {
               type: Type.ARRAY,
               description:
@@ -155,7 +149,7 @@ Requirements:
               },
             },
           },
-          required: ["summary", "transcript", "segments"],
+          required: ["summary", "segments"],
         },
       },
     });
@@ -173,7 +167,6 @@ Requirements:
     return NextResponse.json({
       success: true,
       summary: result.summary,
-      transcript: result.transcript,
       segments: result.segments,
     });
   } catch (error: unknown) {
