@@ -239,7 +239,7 @@ export function HomeContent() {
 
             {/* Social proof */}
             <div className="mb-12 flex flex-wrap items-center justify-center gap-3 text-xs sm:text-sm relative z-10">
-              <div className="flex items-center gap-2 px-2.5 py-1 text-sidebar-foreground">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/30 text-sidebar-foreground">
                 <div className="flex -space-x-2">
                   {[
                     "bg-gradient-to-br from-blue-400 to-blue-600",
@@ -249,7 +249,7 @@ export function HomeContent() {
                   ].map((gradient, i) => (
                     <div
                       key={gradient}
-                      className={`w-6 h-6 rounded-full ${gradient} flex items-center justify-center text-white text-[10px] font-medium shadow-sm`}
+                      className={`w-5 h-5 rounded-full ${gradient} flex items-center justify-center text-white text-[9px] font-medium shadow-sm`}
                     >
                       {["T", "J", "A", "M"][i]}
                     </div>
