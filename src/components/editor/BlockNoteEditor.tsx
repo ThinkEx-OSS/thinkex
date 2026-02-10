@@ -4,7 +4,7 @@ import { usePostHog } from 'posthog-js/react';
 // Using system fonts instead of custom fonts
 import { filterSuggestionItems } from "@blocknote/core/extensions";
 import { en } from "@blocknote/core/locales";
-import { useCreateBlockNote, useEditorChange, getDefaultReactSlashMenuItems, SuggestionMenuController, DefaultReactSuggestionItem, FormattingToolbarController, FormattingToolbar, getFormattingToolbarItems } from "@blocknote/react";
+import { useCreateBlockNote, useEditorChange, getDefaultReactSlashMenuItems, SuggestionMenuController, DefaultReactSuggestionItem, FormattingToolbar } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/shadcn";
 import "@blocknote/shadcn/style.css";
 import { useEffect, useRef, useCallback } from "react";
@@ -16,6 +16,7 @@ import { useUIStore } from "@/lib/stores/ui-store";
 import { extractTextFromSelection } from "@/lib/utils/extract-blocknote-text";
 import { MathEditProvider } from "./MathEditDialog";
 import { useTheme } from "next-themes";
+import * as Tooltip from "@/components/ui/tooltip";
 
 // Get the Block type from our custom schema
 type Block = (typeof schema)["Block"];
@@ -357,23 +358,17 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
         editable={isEditable}
         slashMenu={false}
         formattingToolbar={!isEditable || readOnly ? undefined : false}
-        className={readOnly ? "" : "mt-3 mb-3"}
-        shadCNComponents={
-          {
-            // Pass modified ShadCN components from your project here.
-            // Otherwise, the default ShadCN components will be used.
-          }
-        }
+        className={readOnly ? "" : "blocknote-with-static-toolbar"}
+        shadCNComponents={{
+          // Use project's portal-based Tooltip so tooltips escape overflow containers
+          Tooltip: Tooltip as any,
+        }}
       >
-        {/* Formatting toolbar - only show for editable editors */}
+        {/* Static formatting toolbar - always visible for editable editors */}
         {isEditable && !readOnly && (
-          <FormattingToolbarController
-            formattingToolbar={() => (
-              <FormattingToolbar>
-                {...getFormattingToolbarItems()}
-              </FormattingToolbar>
-            )}
-          />
+          <div className="blocknote-toolbar-wrapper">
+            <FormattingToolbar />
+          </div>
         )}
         {/* Slash menu with math items */}
         <SuggestionMenuController

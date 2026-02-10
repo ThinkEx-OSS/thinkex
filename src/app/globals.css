@@ -94,6 +94,51 @@
   overflow: visible !important;
 }
 
+/* Static formatting toolbar: flex column on container so order works */
+.blocknote-with-static-toolbar.bn-container {
+  display: flex !important;
+  flex-direction: column !important;
+  --bn-ui-base-z-index: 30;
+}
+
+/* Toolbar wrapper: row layout, forced to top via order, z-index above workspace header (z-20) */
+.blocknote-toolbar-wrapper {
+  display: flex;
+  align-items: center;
+  border-bottom: none;
+  background: transparent;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  order: -1;
+  width: 100%;
+  overflow: visible;
+  padding-block: 2px;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+.blocknote-toolbar-wrapper:hover {
+  opacity: 1;
+}
+
+/* Hide toolbar completely when not hovering over the editor area */
+.blocknote-with-static-toolbar.bn-container:not(:has(.bn-editor:hover)) .blocknote-toolbar-wrapper:not(:hover) {
+  opacity: 0;
+}
+
+/* Center the toolbar items and remove default styling */
+.blocknote-toolbar-wrapper .bn-toolbar,
+.blocknote-toolbar-wrapper .bn-formatting-toolbar {
+  margin-inline: auto;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: var(--radius-md) !important;
+  background: var(--sidebar) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
 /* Allow BlockNote container to show overflowing menus */
 .bn-container {
   overflow: visible !important;
@@ -301,26 +346,38 @@
 }
 
 /* Ensure BlockNote slash menu and dropdowns are theme-aware */
+[data-floating-ui-focusable]:has(.bn-suggestion-menu),
+[data-floating-ui-focusable]:has(.bn-dropdown-menu) {
+  background: var(--popover) !important;
+  border-radius: var(--radius-md);
+}
+
 .bn-suggestion-menu,
 .bn-dropdown-menu {
-  background: hsl(var(--popover)) !important;
-  border: 1px solid hsl(var(--border)) !important;
+  background: var(--popover) !important;
+  border: 1px solid var(--border) !important;
 }
 
 .bn-suggestion-menu-item,
 .bn-dropdown-menu-item {
-  color: hsl(var(--foreground)) !important;
+  color: var(--foreground) !important;
 }
 
 .bn-suggestion-menu-item:hover,
 .bn-dropdown-menu-item:hover {
-  background: hsl(var(--accent)) !important;
+  background: var(--accent) !important;
 }
 
 .bn-suggestion-menu-item.selected,
 .bn-dropdown-menu-item.selected {
-  background: hsl(var(--accent)) !important;
-  color: hsl(var(--accent-foreground)) !important;
+  background: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+}
+
+/* Make keyboard-selected item visibly distinct from the popover background */
+.bn-suggestion-menu > .bn-suggestion-menu-item[aria-selected="true"],
+.bn-dropdown-menu > .bn-dropdown-menu-item[aria-selected="true"] {
+  background: color-mix(in oklch, var(--foreground) 12%, var(--popover)) !important;
 }
 
 @custom-variant dark (&:is(.dark *));
