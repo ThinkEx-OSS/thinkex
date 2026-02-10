@@ -5,7 +5,7 @@ export function DynamicTagline() {
         Your docs, media, and AI in one place
       </h1>
       <p className="text-base md:text-lg font-normal text-muted-foreground text-center max-w-2xl mx-auto leading-relaxed">
-        Study and research without losing focus in endless windows and chats.
+        Study and research without losing focus in endless windows and chats
       </p>
     </div>
   );
