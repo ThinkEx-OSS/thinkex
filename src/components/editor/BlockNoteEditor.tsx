@@ -1,7 +1,7 @@
 "use client"; // this registers <BlockNoteEditor> as a Client Component
 
 import { usePostHog } from 'posthog-js/react';
-import "@blocknote/core/fonts/inter.css";
+// Using system fonts instead of custom fonts
 import { filterSuggestionItems } from "@blocknote/core/extensions";
 import { en } from "@blocknote/core/locales";
 import { useCreateBlockNote, useEditorChange, getDefaultReactSlashMenuItems, SuggestionMenuController, DefaultReactSuggestionItem, FormattingToolbarController, FormattingToolbar, getFormattingToolbarItems } from "@blocknote/react";

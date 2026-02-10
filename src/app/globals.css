@@ -384,9 +384,9 @@
   /* Sidebar border */
   --sidebar-ring: hsl(217.2 91.2% 59.8%);
   /* Sidebar focus ring */
-  --font-geist: "Geist", sans-serif;
-  --font-inter: "Inter", sans-serif;
-  --font-outfit: "Outfit", sans-serif;
+  --font-geist: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-inter: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-outfit: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --background: oklch(0.95 0 0);
   --foreground: oklch(0.129 0.042 264.695);
   --popover: oklch(0.98 0 0);
@@ -430,8 +430,8 @@
 }
 
 @theme inline {
-  /* Default to Inter as app-wide sans font */
-  --font-sans: var(--font-inter);
+  /* Use system fonts as app-wide sans font */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --color-background: var(--background);
