@@ -6,7 +6,7 @@ import { LuBook } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { toast } from "sonner";
-import { NewFeatureBadge } from "@/components/ui/new-feature-badge";
+
 
 export interface WorkspaceMenuCallbacks {
   onCreateNote: () => void;
@@ -88,19 +88,17 @@ export function renderWorkspaceMenuItems({
         </MenuItem>
       )}
 
-      <NewFeatureBadge featureKey="audio-menu-badge" variant="icon">
-        <MenuItem
-          onSelect={handleAudioClick}
-          onClick={handleAudioClick}
-          className="flex items-center gap-2 cursor-pointer p-2"
-        >
-          <Mic className="size-4" />
-          <div className="flex items-center justify-between w-full">
-            <span>Audio</span>
-            <span className="text-xs text-muted-foreground">Lecture/Meeting</span>
-          </div>
-        </MenuItem>
-      </NewFeatureBadge>
+      <MenuItem
+        onSelect={handleAudioClick}
+        onClick={handleAudioClick}
+        className="flex items-center gap-2 cursor-pointer p-2"
+      >
+        <Mic className="size-4" />
+        <div className="flex items-center justify-between w-full">
+          <span>Audio</span>
+          <span className="text-xs text-muted-foreground">Lecture/Meeting</span>
+        </div>
+      </MenuItem>
 
       <MenuItem
         onSelect={callbacks.onYouTube}

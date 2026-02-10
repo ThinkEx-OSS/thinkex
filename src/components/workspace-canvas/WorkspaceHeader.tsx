@@ -11,7 +11,7 @@ import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { NewFeatureBadge } from "@/components/ui/new-feature-badge";
+
 import { formatKeyboardShortcut } from "@/lib/utils/keyboard-shortcut";
 import WorkspaceSaveIndicator from "@/components/workspace/WorkspaceSaveIndicator";
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
@@ -946,8 +946,7 @@ export default function WorkspaceHeader({
             {/* New Button */}
             {addItem && (
               <DropdownMenu open={isNewMenuOpen} onOpenChange={setIsNewMenuOpen}>
-                <DropdownMenuTrigger asChild>
-                  <NewFeatureBadge featureKey="new-button-badge" variant="icon">
+                  <DropdownMenuTrigger asChild>
                     <button
                       className={cn(
                         "h-8 outline-none rounded-md text-sm pointer-events-auto whitespace-nowrap relative cursor-pointer box-border",
@@ -964,8 +963,7 @@ export default function WorkspaceHeader({
                         <span>New</span>
                       )}
                     </button>
-                  </NewFeatureBadge>
-                </DropdownMenuTrigger>
+                  </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56" sideOffset={8}>
                   {renderWorkspaceMenuItems({
                     callbacks: {
@@ -1005,7 +1003,7 @@ export default function WorkspaceHeader({
                     MenuSubContent: DropdownMenuSubContent,
                   })}
                 </DropdownMenuContent>
-              </DropdownMenu>
+                </DropdownMenu>
             )}
 
             {!isItemPanelOpen && setIsChatExpanded ? (
