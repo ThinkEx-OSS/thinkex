@@ -11,6 +11,7 @@ import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { NewFeatureBadge } from "@/components/ui/new-feature-badge";
 import { formatKeyboardShortcut } from "@/lib/utils/keyboard-shortcut";
 import WorkspaceSaveIndicator from "@/components/workspace/WorkspaceSaveIndicator";
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
@@ -958,7 +959,11 @@ export default function WorkspaceHeader({
                     data-tour="add-card-button"
                   >
                     <Plus className="h-4 w-4" />
-                    {!isCompactMode && <span>New</span>}
+                    {!isCompactMode && (
+                      <NewFeatureBadge featureKey="new-button-badge" variant="badge">
+                        <span>New</span>
+                      </NewFeatureBadge>
+                    )}
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56" sideOffset={8}>

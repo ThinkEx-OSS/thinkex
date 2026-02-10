@@ -6,6 +6,7 @@ import { LuBook } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { toast } from "sonner";
+import { NewFeatureBadge } from "@/components/ui/new-feature-badge";
 
 export interface WorkspaceMenuCallbacks {
   onCreateNote: () => void;
@@ -94,7 +95,9 @@ export function renderWorkspaceMenuItems({
       >
         <Mic className="size-4" />
         <div className="flex items-center justify-between w-full">
-          <span>Audio</span>
+          <NewFeatureBadge featureKey="audio-menu-badge" variant="badge">
+            <span>Audio</span>
+          </NewFeatureBadge>
           <span className="text-xs text-muted-foreground">Lecture/Meeting</span>
         </div>
       </MenuItem>
