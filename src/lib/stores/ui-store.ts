@@ -338,6 +338,7 @@ export const useUIStore = create<UIState>()(
             return {
               openPanelIds: [],
               maximizedItemId: null,
+              workspaceSplitViewActive: false,
               selectedCardIds: newSelectedCardIds,
               panelAutoSelectedCardIds: new Set(),
             };
@@ -391,9 +392,16 @@ export const useUIStore = create<UIState>()(
           set((state) => {
             if (id === null) {
               if (state.openPanelIds.length === 0) return {};
+
+              // Correctly clear auto-selected cards
+              const newSelectedCardIds = new Set(state.selectedCardIds);
+              state.panelAutoSelectedCardIds.forEach(item => newSelectedCardIds.delete(item));
+
               return {
                 openPanelIds: [],
                 maximizedItemId: null,
+                workspaceSplitViewActive: false,
+                selectedCardIds: newSelectedCardIds,
                 panelAutoSelectedCardIds: new Set(),
               };
             } else {
