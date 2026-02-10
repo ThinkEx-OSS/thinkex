@@ -893,9 +893,6 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
             >
               {getModelIcon(selectedModel.id)}
               <span>{getModelDisplayName(selectedModel.id)}</span>
-              <span className="ml-1 bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-semibold">
-                NEW
-              </span>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" side="top" className="w-44" onCloseAutoFocus={(e) => e.preventDefault()}>

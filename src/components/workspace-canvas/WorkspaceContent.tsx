@@ -1,5 +1,5 @@
 import ShikiHighlighter from "react-shiki/web";
-import { useMemo, useCallback, useRef, useState } from "react";
+import { useMemo, useCallback, useRef, useState, useEffect } from "react";
 import { Plus, Copy, Check, Download, Upload } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import type { AgentState, Item, CardType } from "@/lib/workspace-state/types";
@@ -156,6 +156,53 @@ export default function WorkspaceContent({
     setActiveFolderId(folderId);
     onOpenFolder?.(folderId);
   }, [setActiveFolderId, onOpenFolder]);
+
+  // Listen for audio processing completion events
+  useEffect(() => {
+    const handleAudioComplete = (e: Event) => {
+      const { itemId, summary, transcript, segments, error, retrying } = (e as CustomEvent).detail;
+      if (!itemId) return;
+
+      const existingData = viewState.items.find((i) => i.id === itemId)?.data ?? {};
+
+      // Retry: transition back to "processing" state
+      if (retrying) {
+        updateItem(itemId, {
+          data: {
+            ...existingData,
+            processingStatus: "processing",
+            error: undefined,
+          } as any,
+        });
+        return;
+      }
+
+      if (error) {
+        updateItem(itemId, {
+          data: {
+            ...existingData,
+            processingStatus: "failed",
+            error,
+          } as any,
+        });
+      } else {
+        updateItem(itemId, {
+          data: {
+            ...existingData,
+            summary,
+            transcript,
+            segments,
+            processingStatus: "complete",
+          } as any,
+        });
+      }
+    };
+
+    window.addEventListener("audio-processing-complete", handleAudioComplete);
+    return () => {
+      window.removeEventListener("audio-processing-complete", handleAudioComplete);
+    };
+  }, [updateItem, viewState.items]);
 
   // OPTIMIZED: Wrap callbacks to ensure stable references
   const handleUpdateItem = useCallback((itemId: string, updates: Partial<Item>) => {

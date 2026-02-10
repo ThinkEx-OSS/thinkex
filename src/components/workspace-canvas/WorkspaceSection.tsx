@@ -48,8 +48,14 @@ import type { WorkspaceWithState } from "@/lib/workspace-state/types";
 import { useAui } from "@assistant-ui/react";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { UploadDialog } from "@/components/modals/UploadDialog";
+import { AudioRecordingIndicator } from "./AudioRecordingIndicator";
 import { getBestFrameForRatio } from "@/lib/workspace-state/aspect-ratios";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
+import { renderWorkspaceMenuItems } from "./workspace-menu-items";
+import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
+import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
+import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface WorkspaceSectionProps {
   // Loading states
@@ -194,6 +200,13 @@ export function WorkspaceSection({
   // Workspace settings and share modal state
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
+  const showAudioDialog = useAudioRecordingStore((s) => s.isDialogOpen);
+  const openAudioDialog = useAudioRecordingStore((s) => s.openDialog);
+  const closeAudioDialog = useAudioRecordingStore((s) => s.closeDialog);
+
+  // React Query client for cache invalidation
+  const queryClient = useQueryClient();
 
   // Get workspace data from context
   const { workspaces } = useWorkspaceContext();
@@ -466,6 +479,91 @@ export function WorkspaceSection({
   // Use reactive navigation hook for auto-scroll/selection
   const { handleCreatedItems } = useReactiveNavigation(state);
 
+  const handleAudioReady = useCallback(async (file: File) => {
+    if (!addItem) return;
+
+    const loadingToastId = toast.loading("Uploading audio...");
+
+    try {
+      const { url: fileUrl } = await uploadFileDirect(file);
+
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: now.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+      });
+      const timeStr = now.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      const title = `${dateStr} ${timeStr} Recording`;
+
+      const itemId = addItem("audio", title, {
+        fileUrl,
+        filename: file.name,
+        fileSize: file.size,
+        mimeType: file.type || "audio/webm",
+        processingStatus: "processing",
+      } as any);
+
+      if (handleCreatedItems && itemId) {
+        handleCreatedItems([itemId]);
+      }
+
+      toast.dismiss(loadingToastId);
+      toast.success("Audio uploaded \u2014 analyzing with Gemini...");
+
+      fetch("/api/audio/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileUrl,
+          filename: file.name,
+          mimeType: file.type || "audio/webm",
+        }),
+      })
+        .then((res) => res.json())
+        .then((result) => {
+          if (result.success) {
+            window.dispatchEvent(
+              new CustomEvent("audio-processing-complete", {
+                detail: {
+                  itemId,
+                  summary: result.summary,
+                  transcript: result.transcript,
+                  segments: result.segments,
+                },
+              })
+            );
+          } else {
+            window.dispatchEvent(
+              new CustomEvent("audio-processing-complete", {
+                detail: {
+                  itemId,
+                  error: result.error || "Processing failed",
+                },
+              })
+            );
+          }
+        })
+        .catch((err) => {
+          window.dispatchEvent(
+            new CustomEvent("audio-processing-complete", {
+              detail: {
+                itemId,
+                error: err.message || "Processing failed",
+              },
+            })
+          );
+        });
+    } catch (error: any) {
+      toast.dismiss(loadingToastId);
+      toast.error(error.message || "Failed to upload audio");
+    }
+  }, [addItem, handleCreatedItems]);
+
   // Get search params for invite check
   const searchParams = useSearchParams();
   const hasInviteParam = searchParams.get('invite');
@@ -542,106 +640,46 @@ export function WorkspaceSection({
 
         {/* Right-Click Context Menu */}
         {addItem && (
-          <ContextMenuContent className="w-48">
-            <ContextMenuLabel className="text-xs text-muted-foreground px-2">Create</ContextMenuLabel>
-            <ContextMenuItem
-              onSelect={() => {
-                if (addItem) {
-                  const itemId = addItem("note");
-                  // Auto-navigate to the newly created note instead of opening modal
-                  if (handleCreatedItems && itemId) {
-                    handleCreatedItems([itemId]);
+          <ContextMenuContent className="w-56">
+            {renderWorkspaceMenuItems({
+              callbacks: {
+                onCreateNote: () => {
+                  if (addItem) {
+                    const itemId = addItem("note");
+                    if (handleCreatedItems && itemId) {
+                      handleCreatedItems([itemId]);
+                    }
                   }
-                }
-              }}
-              className="flex items-center gap-2 cursor-pointer"
-            >
-              <FileText className="size-4" />
-              Note
-            </ContextMenuItem>
-
-            <ContextMenuItem
-              onSelect={() => {
-                if (addItem) {
-                  addItem("folder");
-                }
-              }}
-              className="flex items-center gap-2 cursor-pointer"
-            >
-              <Folder className="size-4" />
-              Folder
-            </ContextMenuItem>
-
-            {operations && currentWorkspaceId && (
-              <ContextMenuItem
-                onSelect={handleUploadMenuItemClick}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Upload className="size-4" />
-                Upload (PDF, Image)
-              </ContextMenuItem>
-            )}
-
-            <ContextMenuSub>
-              <ContextMenuSubTrigger className="flex items-center gap-2 cursor-pointer">
-                <LuBook className="size-4 text-muted-foreground" />
-                Learn
-              </ContextMenuSubTrigger>
-              <ContextMenuSubContent>
-                <ContextMenuItem
-                  onSelect={() => {
-                    if (addItem) {
-                      const itemId = addItem("flashcard");
-                      if (handleCreatedItems && itemId) {
-                        handleCreatedItems([itemId]);
-                      }
+                },
+                onCreateFolder: () => { if (addItem) addItem("folder"); },
+                onUpload: () => handleUploadMenuItemClick(),
+                onAudio: () => openAudioDialog(),
+                onYouTube: () => setShowYouTubeDialog(true),
+                onWebsite: () => setShowWebsiteDialog(true),
+                onFlashcards: () => {
+                  if (addItem) {
+                    const itemId = addItem("flashcard");
+                    if (handleCreatedItems && itemId) {
+                      handleCreatedItems([itemId]);
                     }
-                  }}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <PiCardsThreeBold className="size-4 text-muted-foreground rotate-180" />
-                  Flashcards
-                </ContextMenuItem>
-                <ContextMenuItem
-                  onSelect={() => {
-                    // Open chat if closed
-                    if (setIsChatExpanded && !isChatExpanded && isDesktop) {
-                      setIsChatExpanded(true);
-                    }
-                    // Fill composer with quiz creation prompt
-                    aui.composer().setText("Create a quiz about ");
-                    // Focus the composer input
-                    focusComposerInput();
-                    toast.success("Quiz creation started");
-                  }}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <Brain className="size-4" />
-                  Quiz
-                </ContextMenuItem>
-              </ContextMenuSubContent>
-            </ContextMenuSub>
-            <ContextMenuItem
-              onSelect={() => setShowYouTubeDialog(true)}
-              className="flex items-center gap-2 cursor-pointer"
-            >
-              <Play className="size-4" />
-              YouTube
-            </ContextMenuItem>
-            {/* <ContextMenuItem
-              onSelect={() => {
-                toast.success("Deep Research action selected");
-                setSelectedActions(["deep-research"]);
-                aui.composer().setText("I want to do research on ");
-                if (setIsChatExpanded && !isChatExpanded && isDesktop) {
-                  setIsChatExpanded(true);
-                }
-              }}
-              className="flex items-center gap-2 cursor-pointer"
-            >
-              <Globe className="size-4" />
-              Deep Research
-            </ContextMenuItem> */}
+                  }
+                },
+                onQuiz: () => {
+                  if (setIsChatExpanded && !isChatExpanded && isDesktop) {
+                    setIsChatExpanded(true);
+                  }
+                  aui.composer().setText("Create a quiz about ");
+                  focusComposerInput();
+                  toast.success("Quiz creation started");
+                },
+              },
+              MenuItem: ContextMenuItem,
+              MenuSub: ContextMenuSub,
+              MenuSubTrigger: ContextMenuSubTrigger,
+              MenuSubContent: ContextMenuSubContent,
+              MenuLabel: ContextMenuLabel,
+              showUpload: !!(operations && currentWorkspaceId),
+            })}
           </ContextMenuContent>
         )}
       </ContextMenu>
@@ -709,6 +747,29 @@ export function WorkspaceSection({
           onPDFUpload={handlePDFUpload}
         />
       )}
+
+      {/* Website Dialog */}
+      {currentWorkspaceId && (
+        <CreateWebsiteDialog
+          open={showWebsiteDialog}
+          onOpenChange={setShowWebsiteDialog}
+          workspaceId={currentWorkspaceId}
+          folderId={activeFolderId || undefined}
+          onNoteCreated={(noteId) => {
+            void queryClient.invalidateQueries({
+              queryKey: ["workspace", currentWorkspaceId, "events"],
+            });
+          }}
+        />
+      )}
+      {/* Audio Recorder Dialog */}
+      <AudioRecorderDialog
+        open={showAudioDialog}
+        onOpenChange={(open) => { if (open) openAudioDialog(); else closeAudioDialog(); }}
+        onAudioReady={handleAudioReady}
+      />
+      {/* Floating recording indicator (visible when dialog is closed but recording is active) */}
+      <AudioRecordingIndicator />
     </div>
   );
 }

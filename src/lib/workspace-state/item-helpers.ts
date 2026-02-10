@@ -1,4 +1,4 @@
-import type { CardType, ItemData, NoteData, PdfData, FlashcardData, FolderData, YouTubeData, ImageData } from "./types";
+import type { CardType, ItemData, NoteData, PdfData, FlashcardData, FolderData, YouTubeData, ImageData, AudioData } from "./types";
 
 /**
  * Generate a unique item ID
@@ -32,6 +32,8 @@ export function defaultDataFor(type: CardType): ItemData {
       return { url: "" } as YouTubeData;
     case "image":
       return { url: "" } as ImageData;
+    case "audio":
+      return { fileUrl: "", filename: "", processingStatus: "uploading" } as AudioData;
     default:
       return { field1: "" } as NoteData;
   }

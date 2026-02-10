@@ -9,6 +9,7 @@ import FlashcardContent from "./FlashcardContent";
 import YouTubeCardContent from "./YouTubeCardContent";
 import { SourcesDisplay } from "./SourcesDisplay";
 import ImageCardContent from "./ImageCardContent";
+import { AudioCardContent } from "./AudioCardContent";
 
 import { QuizContent } from "./QuizContent";
 
@@ -112,6 +113,10 @@ export function CardRenderer(props: {
 
   if (item.type === "image") {
     return <ImageCardContent item={item} />;
+  }
+
+  if (item.type === "audio") {
+    return <AudioCardContent item={item} />;
   }
 
   return (

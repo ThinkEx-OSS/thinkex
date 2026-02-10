@@ -1,6 +1,6 @@
 import type { CardColor } from './colors';
 
-export type CardType = "note" | "pdf" | "flashcard" | "folder" | "youtube" | "quiz" | "image";
+export type CardType = "note" | "pdf" | "flashcard" | "folder" | "youtube" | "quiz" | "image" | "audio";
 
 /**
  * Source attribution for notes created from web search or deep research
@@ -100,7 +100,31 @@ export interface QuizData {
   session?: QuizSessionData;    // Session state for resuming
 }
 
-export type ItemData = NoteData | PdfData | FlashcardData | FolderData | YouTubeData | QuizData | ImageData;
+// Audio Types
+export interface AudioSegment {
+  speaker: string;
+  timestamp: string;
+  content: string;
+  language?: string;
+  language_code?: string;
+  translation?: string;
+  emotion?: "happy" | "sad" | "angry" | "neutral";
+}
+
+export interface AudioData {
+  fileUrl: string;          // Supabase/local storage URL
+  filename: string;         // Original filename
+  fileSize?: number;        // File size in bytes
+  duration?: number;        // Duration in seconds
+  mimeType?: string;        // MIME type of the audio file
+  summary?: string;         // Gemini-generated summary
+  transcript?: string;      // Full plain-text transcript
+  segments?: AudioSegment[];// Timestamped speaker segments
+  processingStatus: "uploading" | "processing" | "complete" | "failed";
+  error?: string;           // Error message if processing failed
+}
+
+export type ItemData = NoteData | PdfData | FlashcardData | FolderData | YouTubeData | QuizData | ImageData | AudioData;
 
 // =====================================================
 // FOLDER TYPES (DEPRECATED)

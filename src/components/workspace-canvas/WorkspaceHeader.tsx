@@ -5,12 +5,13 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, X, ChevronRight, ChevronDown, FolderOpen, Plus, Upload, FileText, Folder as FolderIcon, Settings, Share2, Play, MoreHorizontal, Globe, Brain, Maximize, File, Newspaper, ImageIcon } from "lucide-react";
+import { Search, X, ChevronDown, FolderOpen, Plus, Upload, FileText, Folder as FolderIcon, Settings, Share2, Play, Brain, File, Newspaper, ImageIcon, Mic } from "lucide-react";
 import { LuBook, LuPanelLeftOpen } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { NewFeatureBadge } from "@/components/ui/new-feature-badge";
 import { formatKeyboardShortcut } from "@/lib/utils/keyboard-shortcut";
 import WorkspaceSaveIndicator from "@/components/workspace/WorkspaceSaveIndicator";
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
@@ -52,7 +53,10 @@ import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { CollaboratorAvatars } from "@/components/workspace/CollaboratorAvatars";
 import { UploadDialog } from "@/components/modals/UploadDialog";
+import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
+import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { getBestFrameForRatio } from "@/lib/workspace-state/aspect-ratios";
+import { renderWorkspaceMenuItems } from "./workspace-menu-items";
 interface WorkspaceHeaderProps {
   titleInputRef: React.RefObject<HTMLInputElement | null>;
   searchQuery: string;
@@ -145,6 +149,9 @@ export default function WorkspaceHeader({
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
   const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const showAudioDialog = useAudioRecordingStore((s) => s.isDialogOpen);
+  const openAudioDialog = useAudioRecordingStore((s) => s.openDialog);
+  const closeAudioDialog = useAudioRecordingStore((s) => s.closeDialog);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const pathname = usePathname();
@@ -323,6 +330,98 @@ export default function WorkspaceHeader({
     }
     setIsNewMenuOpen(false);
   }, [addItem]);
+
+  const handleAudioReady = useCallback(async (file: File) => {
+    if (!addItem) return;
+
+    // Import uploadFileDirect dynamically to avoid top-level client import issues
+    const { uploadFileDirect } = await import("@/lib/uploads/client-upload");
+
+    const loadingToastId = toast.loading("Uploading audio...");
+
+    try {
+      // Upload the audio file to storage
+      const { url: fileUrl } = await uploadFileDirect(file);
+
+      // Create the audio card immediately (shows "processing" state)
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: now.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined 
+      });
+      const timeStr = now.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      });
+      const title = `${dateStr} ${timeStr} Recording`;
+      
+      const itemId = addItem("audio", title, {
+        fileUrl,
+        filename: file.name,
+        fileSize: file.size,
+        mimeType: file.type || "audio/webm",
+        processingStatus: "processing",
+      } as any);
+
+      if (onItemCreated && itemId) {
+        onItemCreated([itemId]);
+      }
+
+      toast.dismiss(loadingToastId);
+      toast.success("Audio uploaded — analyzing with Gemini...");
+
+      // Kick off Gemini processing in the background
+      fetch("/api/audio/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileUrl,
+          filename: file.name,
+          mimeType: file.type || "audio/webm",
+        }),
+      })
+        .then((res) => res.json())
+        .then((result) => {
+          if (result.success) {
+            // Dispatch a custom event to update the audio card data
+            window.dispatchEvent(
+              new CustomEvent("audio-processing-complete", {
+                detail: {
+                  itemId,
+                  summary: result.summary,
+                  transcript: result.transcript,
+                  segments: result.segments,
+                },
+              })
+            );
+          } else {
+            window.dispatchEvent(
+              new CustomEvent("audio-processing-complete", {
+                detail: {
+                  itemId,
+                  error: result.error || "Processing failed",
+                },
+              })
+            );
+          }
+        })
+        .catch((err) => {
+          window.dispatchEvent(
+            new CustomEvent("audio-processing-complete", {
+              detail: {
+                itemId,
+                error: err.message || "Processing failed",
+              },
+            })
+          );
+        });
+    } catch (error: any) {
+      toast.dismiss(loadingToastId);
+      toast.error(error.message || "Failed to upload audio");
+    }
+  }, [addItem, onItemCreated]);
 
   const handleImageCreate = useCallback(async (url: string, name: string) => {
     if (!addItem) return;
@@ -669,6 +768,7 @@ export default function WorkspaceHeader({
                     {activeItems[0].type === 'youtube' && <Play className="h-3.5 w-3.5 shrink-0 text-red-500" />}
                     {activeItems[0].type === 'quiz' && <Brain className="h-3.5 w-3.5 shrink-0 text-green-400" />}
                     {activeItems[0].type === 'image' && <ImageIcon className="h-3.5 w-3.5 shrink-0 text-emerald-500" />}
+                    {activeItems[0].type === 'audio' && <Mic className="h-3.5 w-3.5 shrink-0 text-orange-400" />}
                     {activeItems[0].type === 'folder' && <FolderIcon className="h-3.5 w-3.5 shrink-0 text-amber-400" />}
 
                     <span className="truncate text-sidebar-foreground max-w-[300px]" title={activeItems[0].name}>
@@ -774,9 +874,6 @@ export default function WorkspaceHeader({
                 className="h-8 px-2 text-muted-foreground hover:text-foreground font-normal relative"
               >
                 Share
-                <span className="ml-1.5 bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-semibold">
-                  NEW
-                </span>
               </Button>
             )}
 
@@ -862,123 +959,51 @@ export default function WorkspaceHeader({
                     data-tour="add-card-button"
                   >
                     <Plus className="h-4 w-4" />
-                    {!isCompactMode && <span>New</span>}
+                    {!isCompactMode && (
+                      <NewFeatureBadge featureKey="new-button-badge" variant="badge">
+                        <span>New</span>
+                      </NewFeatureBadge>
+                    )}
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48" sideOffset={8}>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      if (addItem) {
-                        const itemId = addItem("note");
-                        // Auto-navigate to the newly created note instead of opening modal
-                        if (onItemCreated && itemId) {
-                          onItemCreated([itemId]);
-                        }
-                      }
-                    }}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <FileText className="size-4" />
-                    Note
-                  </DropdownMenuItem>
-
-                  {addItem && (
-                    <DropdownMenuItem
-                      onClick={() => {
+                <DropdownMenuContent align="end" className="w-56" sideOffset={8}>
+                  {renderWorkspaceMenuItems({
+                    callbacks: {
+                      onCreateNote: () => {
                         if (addItem) {
-                          addItem("folder");
+                          const itemId = addItem("note");
+                          if (onItemCreated && itemId) {
+                            onItemCreated([itemId]);
+                          }
                         }
-                      }}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <FolderIcon className="size-4" />
-                      Folder
-                    </DropdownMenuItem>
-                  )}
-
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setShowUploadDialog(true);
-                      setIsNewMenuOpen(false);
-                    }}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Upload className="size-4" />
-                    Upload (PDF, Image)
-                  </DropdownMenuItem>
-
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger className="flex items-center gap-2 cursor-pointer">
-                      <LuBook className="size-4 text-muted-foreground" />
-                      Learn
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          if (addItem) {
-                            const itemId = addItem("flashcard");
-                            if (onItemCreated && itemId) {
-                              onItemCreated([itemId]);
-                            }
+                      },
+                      onCreateFolder: () => { if (addItem) addItem("folder"); },
+                      onUpload: () => { setShowUploadDialog(true); setIsNewMenuOpen(false); },
+                      onAudio: () => { openAudioDialog(); setIsNewMenuOpen(false); },
+                      onYouTube: () => { setShowYouTubeDialog(true); setIsNewMenuOpen(false); },
+                      onWebsite: () => { setShowWebsiteDialog(true); setIsNewMenuOpen(false); },
+                      onFlashcards: () => {
+                        if (addItem) {
+                          const itemId = addItem("flashcard");
+                          if (onItemCreated && itemId) {
+                            onItemCreated([itemId]);
                           }
-                        }}
-                        className="flex items-center gap-2 cursor-pointer"
-                      >
-                        <PiCardsThreeBold className="size-4 text-muted-foreground rotate-180" />
-                        Flashcards
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          // Open chat if closed
-                          if (setIsChatExpanded && !isChatExpanded) {
-                            setIsChatExpanded(true);
-                          }
-                          // Fill composer with quiz creation prompt
-                          aui?.composer().setText("Create a quiz about ");
-                          // Focus the composer input
-                          focusComposerInput();
-                          toast.success("Quiz creation started");
-                        }}
-                        className="flex items-center gap-2 cursor-pointer"
-                      >
-                        <Brain className="size-4" />
-                        Quiz
-                      </DropdownMenuItem>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setShowYouTubeDialog(true);
-                    }}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Play className="size-4" />
-                    YouTube
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setShowWebsiteDialog(true);
-                      setIsNewMenuOpen(false);
-                    }}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Newspaper className="size-4" />
-                    Website
-                  </DropdownMenuItem>
-                  {/* <DropdownMenuItem
-                    onClick={() => {
-                      toast.success("Deep Research action selected");
-                      setSelectedActions(["deep-research"]);
-                      aui?.composer().setText("I want to do research on ");
-                      if (setIsChatExpanded && !isChatExpanded) {
-                        setIsChatExpanded(true);
-                      }
-                    }}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Globe className="size-4" />
-                    Deep Research
-                  </DropdownMenuItem> */}
+                        }
+                      },
+                      onQuiz: () => {
+                        if (setIsChatExpanded && !isChatExpanded) {
+                          setIsChatExpanded(true);
+                        }
+                        aui?.composer().setText("Create a quiz about ");
+                        focusComposerInput();
+                        toast.success("Quiz creation started");
+                      },
+                    },
+                    MenuItem: DropdownMenuItem,
+                    MenuSub: DropdownMenuSub,
+                    MenuSubTrigger: DropdownMenuSubTrigger,
+                    MenuSubContent: DropdownMenuSubContent,
+                  })}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
@@ -1063,6 +1088,12 @@ export default function WorkspaceHeader({
           onPDFUpload={onPDFUpload}
         />
       )}
+      {/* Audio Recorder Dialog */}
+      <AudioRecorderDialog
+        open={showAudioDialog}
+        onOpenChange={(open) => { if (open) openAudioDialog(); else closeAudioDialog(); }}
+        onAudioReady={handleAudioReady}
+      />
     </div>
   );
 }

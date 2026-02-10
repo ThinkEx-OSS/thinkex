@@ -12,6 +12,7 @@ import {
     LayoutGrid,
     Brain,
     ImageIcon,
+    Mic,
 } from "lucide-react";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
@@ -39,6 +40,8 @@ function getCardTypeIcon(type: CardType) {
             return <FolderIcon className="size-3.5 text-amber-500" />;
         case "image":
             return <ImageIcon className="size-3.5 text-emerald-500" />;
+        case "audio":
+            return <Mic className="size-3.5 text-orange-400" />;
         default:
             return <FileText className="size-3.5 text-muted-foreground" />;
     }

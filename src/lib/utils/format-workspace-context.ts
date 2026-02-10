@@ -1,4 +1,4 @@
-import type { AgentState, Item, NoteData, PdfData, FlashcardData, FlashcardItem, YouTubeData, QuizData, QuizQuestion, ImageData } from "@/lib/workspace-state/types";
+import type { AgentState, Item, NoteData, PdfData, FlashcardData, FlashcardItem, YouTubeData, QuizData, QuizQuestion, ImageData, AudioData } from "@/lib/workspace-state/types";
 import { serializeBlockNote } from "./serialize-blocknote";
 import { type Block } from "@/components/editor/BlockNoteEditor";
 
@@ -389,6 +389,9 @@ function formatSelectedCardFull(item: Item, index: number): string {
         case "image":
             lines.push(...formatImageDetailsFull(item.data as ImageData));
             break;
+        case "audio":
+            lines.push(...formatAudioDetailsFull(item.data as AudioData));
+            break;
     }
 
     lines.push(`</card>`);
@@ -666,6 +669,39 @@ function formatQuizDetailsFull(data: QuizData): string[] {
                 lines.push(`      ${String.fromCharCode(65 + i)}) ${opt}`);
             });
         }
+    }
+
+    return lines;
+}
+
+/**
+ * Formats audio details — timeline segments only
+ */
+function formatAudioDetailsFull(data: AudioData): string[] {
+    const lines: string[] = [];
+
+    if (data.filename) {
+        lines.push(`   - Filename: ${data.filename}`);
+    }
+
+    if (data.duration) {
+        const mins = Math.floor(data.duration / 60);
+        const secs = Math.floor(data.duration % 60);
+        lines.push(`   - Duration: ${mins}:${secs.toString().padStart(2, "0")}`);
+    }
+
+    if (data.segments && data.segments.length > 0) {
+        lines.push(`   - Timeline (${data.segments.length} segments):`);
+        for (const seg of data.segments) {
+            const lang = seg.language && seg.language !== "English" ? ` [${seg.language}]` : "";
+            const emotion = seg.emotion && seg.emotion !== "neutral" ? ` (${seg.emotion})` : "";
+            lines.push(`     [${seg.timestamp}] ${seg.speaker}${lang}${emotion}: ${seg.content}`);
+            if (seg.translation) {
+                lines.push(`       Translation: ${seg.translation}`);
+            }
+        }
+    } else {
+        lines.push(`   - (No timeline segments available)`);
     }
 
     return lines;
