@@ -873,9 +873,6 @@ export default function WorkspaceHeader({
                 className="h-8 px-2 text-muted-foreground hover:text-foreground font-normal relative"
               >
                 Share
-                <span className="ml-1.5 bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-semibold">
-                  NEW
-                </span>
               </Button>
             )}
 
