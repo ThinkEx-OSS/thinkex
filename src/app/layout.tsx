@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 
-import { Inter } from "next/font/google";
-import { Outfit } from "next/font/google";
 import { GeistMono } from "geist/font/mono";
 import { Providers } from "@/components/providers";
 import { QueryProvider } from "@/components/query-provider";
@@ -11,18 +9,6 @@ import LazyAppProviders from "@/components/providers/LazyAppProviders";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { SpeedInsights } from "@vercel/speed-insights/next"
-
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-inter",
-});
-
-const outfit = Outfit({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-outfit",
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://thinkex.app"),
@@ -67,7 +53,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${outfit.variable} ${GeistMono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${GeistMono.variable}`}>
       <body className="subpixel-antialiased bg-background text-foreground">
         <LazyAppProviders>
           <HelmetProviderWrapper>

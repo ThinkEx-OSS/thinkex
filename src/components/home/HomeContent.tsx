@@ -238,7 +238,7 @@ export function HomeContent() {
             <HeroGlow />
 
             {/* Social proof */}
-            <div className="mb-6 flex flex-wrap items-center justify-center gap-3 text-xs sm:text-sm relative z-10">
+            <div className="mb-12 flex flex-wrap items-center justify-center gap-3 text-xs sm:text-sm relative z-10">
               <div className="flex items-center gap-2 px-2.5 py-1 text-sidebar-foreground">
                 <div className="flex -space-x-2">
                   {[
@@ -255,7 +255,7 @@ export function HomeContent() {
                     </div>
                   ))}
                 </div>
-                <span className="text-xs sm:text-sm font-normal">100+ daily active users</span>
+                <span className="text-xs sm:text-sm font-medium text-muted-foreground">100+ daily active users</span>
               </div>
             </div>
 

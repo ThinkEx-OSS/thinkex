@@ -1,7 +1,12 @@
 export function DynamicTagline() {
   return (
-    <h1 className="text-2xl md:text-3xl font-light text-foreground text-center tracking-tight">
-      Docs, videos, and AI in one workspace
-    </h1>
+    <div className="space-y-3">
+      <h1 className="text-2xl md:text-3xl font-medium text-foreground text-center tracking-tight leading-tight">
+        Your docs, media, and AI in one place
+      </h1>
+      <p className="text-base md:text-lg font-normal text-muted-foreground text-center max-w-2xl mx-auto leading-relaxed">
+        Study and research without losing focus in endless windows and chats.
+      </p>
+    </div>
   );
 }
