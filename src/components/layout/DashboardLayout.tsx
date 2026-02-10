@@ -8,6 +8,7 @@ import { WorkspaceCanvasDropzone } from "@/components/workspace-canvas/Workspace
 import { AssistantDropzone } from "@/components/assistant-ui/AssistantDropzone";
 import { PANEL_DEFAULTS } from "@/lib/layout-constants";
 import React, { useCallback, useEffect, useRef } from "react";
+import { useUIStore } from "@/lib/stores/ui-store";
 
 interface DashboardLayoutProps {
   // Workspace sidebar
@@ -69,6 +70,10 @@ export function DashboardLayout({
   maximizedItemId,
   workspaceSplitViewActive = false,
 }: DashboardLayoutProps) {
+  // Subscribe to openPanelIds for dual-panel mode detection
+  const openPanelIds = useUIStore((state) => state.openPanelIds);
+  const isDualPanel = workspaceSplitViewActive && openPanelIds.length === 2;
+
   // Get sidebar control to auto-close when panels open
   const { setOpen } = useSidebar();
 
@@ -158,8 +163,13 @@ export function DashboardLayout({
                 </Sidebar>
 
                 <SidebarInset className="flex flex-col relative overflow-hidden">
-                  {/* WORKSPACE SPLIT VIEW MODE: Show workspace + item side-by-side */}
-                  {workspaceSplitViewActive && maximizedItemId ? (
+                  {/* DUAL-PANEL MODE: Show two item panels side-by-side */}
+                  {isDualPanel ? (
+                    <ResizablePanelGroup orientation="horizontal" className="flex-1">
+                      {modalManager}
+                    </ResizablePanelGroup>
+                  ) : workspaceSplitViewActive && maximizedItemId ? (
+                    /* WORKSPACE SPLIT VIEW MODE: Show workspace + item side-by-side */
                     <ResizablePanelGroup orientation="horizontal" className="flex-1">
                       {/* Workspace Panel - Single Column Mode */}
                       <ResizablePanel

@@ -4,6 +4,7 @@ import PDFViewerModal from "./PDFViewerModal";
 import { VersionHistoryModal } from "@/components/workspace/VersionHistoryModal";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 import { useUIStore } from "@/lib/stores/ui-store";
+import { ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 
 interface ModalManagerProps {
   // Card Detail Modal
@@ -67,28 +68,95 @@ export function ModalManager({
 
   return (
     <>
-      {/* Card Detail Modal or PDF Viewer Modal - only shown when item is maximized */}
-      {activeItemId && currentItem && maximizedItemId === currentItem.id && (
-        currentItem.type === 'pdf' ? (
-          <PDFViewerModal
-            key={currentItem.id}
-            item={currentItem}
-            isOpen={true}
-            onClose={() => handleClose(currentItem.id)}
-            onUpdateItem={(updates) => onUpdateItem(currentItem.id, updates)}
-            renderInline={workspaceSplitViewActive}
-          />
-        ) : (
-          <CardDetailModal
-            key={currentItem.id}
-            item={currentItem}
-            isOpen={true}
-            onClose={() => handleClose(currentItem.id)}
-            onUpdateItem={(updates) => onUpdateItem(currentItem.id, updates)}
-            onUpdateItemData={(updater) => onUpdateItemData(currentItem.id, updater)}
-            onFlushPendingChanges={onFlushPendingChanges}
-            renderInline={workspaceSplitViewActive}
-          />
+      {/* Dual-Panel Mode: Render both panels when openPanelIds.length === 2 and split view is active */}
+      {workspaceSplitViewActive && openPanelIds.length === 2 ? (
+        <>
+          {/* First Panel (Left) */}
+          <ResizablePanel id="dual-panel-left" defaultSize={50} minSize={30}>
+            {openPanelIds[0] && (() => {
+              const item1 = items.find(i => i.id === openPanelIds[0]);
+              if (!item1) return null;
+
+              return item1.type === 'pdf' ? (
+                <PDFViewerModal
+                  key={item1.id}
+                  item={item1}
+                  isOpen={true}
+                  onClose={() => handleClose(item1.id)}
+                  onUpdateItem={(updates) => onUpdateItem(item1.id, updates)}
+                  renderInline={true}
+                />
+              ) : (
+                <CardDetailModal
+                  key={item1.id}
+                  item={item1}
+                  isOpen={true}
+                  onClose={() => handleClose(item1.id)}
+                  onUpdateItem={(updates) => onUpdateItem(item1.id, updates)}
+                  onUpdateItemData={(updater) => onUpdateItemData(item1.id, updater)}
+                  onFlushPendingChanges={onFlushPendingChanges}
+                  renderInline={true}
+                />
+              );
+            })()}
+          </ResizablePanel>
+
+          <ResizableHandle className="border-r border-sidebar-border" />
+
+          {/* Second Panel (Right) */}
+          <ResizablePanel id="dual-panel-right" defaultSize={50} minSize={30}>
+            {openPanelIds[1] && (() => {
+              const item2 = items.find(i => i.id === openPanelIds[1]);
+              if (!item2) return null;
+
+              return item2.type === 'pdf' ? (
+                <PDFViewerModal
+                  key={item2.id}
+                  item={item2}
+                  isOpen={true}
+                  onClose={() => handleClose(item2.id)}
+                  onUpdateItem={(updates) => onUpdateItem(item2.id, updates)}
+                  renderInline={true}
+                />
+              ) : (
+                <CardDetailModal
+                  key={item2.id}
+                  item={item2}
+                  isOpen={true}
+                  onClose={() => handleClose(item2.id)}
+                  onUpdateItem={(updates) => onUpdateItem(item2.id, updates)}
+                  onUpdateItemData={(updater) => onUpdateItemData(item2.id, updater)}
+                  onFlushPendingChanges={onFlushPendingChanges}
+                  renderInline={true}
+                />
+              );
+            })()}
+          </ResizablePanel>
+        </>
+      ) : (
+        /* Single Panel Mode: Card Detail Modal or PDF Viewer Modal - only shown when item is maximized */
+        activeItemId && currentItem && maximizedItemId === currentItem.id && (
+          currentItem.type === 'pdf' ? (
+            <PDFViewerModal
+              key={currentItem.id}
+              item={currentItem}
+              isOpen={true}
+              onClose={() => handleClose(currentItem.id)}
+              onUpdateItem={(updates) => onUpdateItem(currentItem.id, updates)}
+              renderInline={workspaceSplitViewActive}
+            />
+          ) : (
+            <CardDetailModal
+              key={currentItem.id}
+              item={currentItem}
+              isOpen={true}
+              onClose={() => handleClose(currentItem.id)}
+              onUpdateItem={(updates) => onUpdateItem(currentItem.id, updates)}
+              onUpdateItemData={(updater) => onUpdateItemData(currentItem.id, updater)}
+              onFlushPendingChanges={onFlushPendingChanges}
+              renderInline={workspaceSplitViewActive}
+            />
+          )
         )
       )}
 
@@ -105,4 +173,3 @@ export function ModalManager({
     </>
   );
 }
-

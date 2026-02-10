@@ -86,6 +86,8 @@ export default function WorkspaceContent({
   // Get workspace split view state from UI store
   const workspaceSplitViewActive = useUIStore((state) => state.workspaceSplitViewActive);
   const maximizedItemId = useUIStore((state) => state.maximizedItemId);
+  const openPanelIds = useUIStore((state) => state.openPanelIds);
+
 
 
 
@@ -144,12 +146,14 @@ export default function WorkspaceContent({
 
     // In workspace split view mode, exclude the currently maximized item from the grid
     // so it only appears in the editor panel, not in both places
-    if (workspaceSplitViewActive && maximizedItemId) {
-      return filtered.filter(item => item.id !== maximizedItemId);
+    // In workspace split view mode, exclude open panels from the grid
+    // so they only appear in the panel area, not in both places
+    if (workspaceSplitViewActive && openPanelIds.length > 0) {
+      return filtered.filter(item => !openPanelIds.includes(item.id));
     }
 
     return filtered;
-  }, [viewState.items, searchQuery, activeFolderId, workspaceSplitViewActive, maximizedItemId]);
+  }, [viewState.items, searchQuery, activeFolderId, workspaceSplitViewActive, openPanelIds]);
 
   // Handle opening a folder (folders are now items with type: 'folder')
   const handleOpenFolder = useCallback((folderId: string) => {

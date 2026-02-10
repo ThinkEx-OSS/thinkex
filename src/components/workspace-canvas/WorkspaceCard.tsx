@@ -222,6 +222,7 @@ function WorkspaceCard({
   const setOpenModalItemId = useUIStore((state) => state.setOpenModalItemId);
   const openPanel = useUIStore((state) => state.openPanel);
   const closePanel = useUIStore((state) => state.closePanel);
+  const workspaceSplitViewActive = useUIStore((state) => state.workspaceSplitViewActive);
 
   // Register this card's minimal context (title, id, type) with the assistant
   useCardContextProvider(item);
@@ -1083,6 +1084,16 @@ function WorkspaceCard({
           <Palette className="mr-2 h-4 w-4" />
           <span>Change Color</span>
         </ContextMenuItem>
+        {/* Double Panel Option - only show when in split view with exactly 1 panel open */}
+        {workspaceSplitViewActive && openPanelIds.length === 1 && !openPanelIds.includes(item.id) && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem onSelect={() => openPanel(item.id, 'dual')}>
+              <Columns className="mr-2 h-4 w-4" />
+              <span>Double Panel</span>
+            </ContextMenuItem>
+          </>
+        )}
         <ContextMenuSeparator />
         <ContextMenuItem
           onSelect={handleDelete}

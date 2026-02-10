@@ -66,7 +66,7 @@ interface UIState {
 
 
   // Actions - Panels
-  openPanel: (itemId: string, mode: 'replace' | 'add') => void;
+  openPanel: (itemId: string, mode: 'replace' | 'add' | 'dual') => void;
   closePanel: (itemId: string) => void;
   closeAllPanels: () => void;
   reorderPanels: (fromIndex: number, toIndex: number) => void;
@@ -185,346 +185,396 @@ const initialState = {
 export const useUIStore = create<UIState>()(
   devtools(
     persist(
-    (set) => ({
-      ...initialState,
+      (set) => ({
+        ...initialState,
 
-      // Folder navigation — preserve manual user selections
-      setActiveFolderId: (folderId) => {
-        set((state) => {
-          if (state.activeFolderId === folderId && state.openPanelIds.length === 0) {
-            return {};
-          }
-          // Remove only auto-selected cards, preserve manual selections
-          const newSelectedCardIds = new Set(state.selectedCardIds);
-          state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
-          return {
-            activeFolderId: folderId,
-            openPanelIds: [],
-            maximizedItemId: null,
-            selectedCardIds: newSelectedCardIds,
-            panelAutoSelectedCardIds: new Set(),
-          };
-        });
-      },
-
-      clearActiveFolder: () => {
-        set((state) => {
-          if (state.activeFolderId === null && state.openPanelIds.length === 0) return {};
-          // Remove only auto-selected cards, preserve manual selections
-          const newSelectedCardIds = new Set(state.selectedCardIds);
-          state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
-          return {
-            activeFolderId: null,
-            openPanelIds: [],
-            maximizedItemId: null,
-            selectedCardIds: newSelectedCardIds,
-            panelAutoSelectedCardIds: new Set(),
-          };
-        });
-      },
-
-      // Direct setter used by useFolderUrl hook for URL → store sync
-      // Does NOT clear panels — only updates the folder ID
-      _setActiveFolderIdDirect: (folderId) => set({ activeFolderId: folderId }),
-
-      // Direct panel open/close used by useFolderUrl hook for URL → store sync
-      _openPanelDirect: (itemId) => set({ openPanelIds: [itemId], maximizedItemId: itemId }),
-      _closePanelDirect: () => set((state) => {
-        // Remove only auto-selected cards, preserve manual selections
-        const newSelectedCardIds = new Set(state.selectedCardIds);
-        state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
-        return {
-          openPanelIds: [],
-          maximizedItemId: null,
-          selectedCardIds: newSelectedCardIds,
-          panelAutoSelectedCardIds: new Set(),
-        };
-      }),
-
-      // Panel actions
-      openPanel: (itemId, mode) => {
-        set((state) => {
-          const isAlreadyOpen = state.openPanelIds.length === 1 && state.openPanelIds[0] === itemId;
-          if (isAlreadyOpen) return {};
-
-          const newSelectedCardIds = new Set(state.selectedCardIds);
-          const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-
-          // Add to selections and track as auto-selected
-          newSelectedCardIds.add(itemId);
-          newPanelAutoSelectedCardIds.add(itemId);
-
-          return {
-            openPanelIds: [itemId],
-            maximizedItemId: itemId,
-            selectedCardIds: newSelectedCardIds,
-            panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-          };
-        });
-      },
-
-      closePanel: (itemId) => {
-        set((state) => {
-          if (state.openPanelIds.length === 0) return {};
-          // Remove only auto-selected cards, preserve manual selections
-          const newSelectedCardIds = new Set(state.selectedCardIds);
-          state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
-          return {
-            openPanelIds: [],
-            maximizedItemId: null,
-            workspaceSplitViewActive: false, // Disable split view when closing
-            selectedCardIds: newSelectedCardIds,
-            panelAutoSelectedCardIds: new Set(),
-          };
-        });
-      },
-
-      closeAllPanels: () => {
-        set((state) => {
-          if (state.openPanelIds.length === 0) return {};
-          // Remove only auto-selected cards, preserve manual selections
-          const newSelectedCardIds = new Set(state.selectedCardIds);
-          state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
-          return {
-            openPanelIds: [],
-            maximizedItemId: null,
-            selectedCardIds: newSelectedCardIds,
-            panelAutoSelectedCardIds: new Set(),
-          };
-        });
-      },
-
-      reorderPanels: (fromIndex, toIndex) => set((state) => {
-        // No reordering in single view
-        return state;
-      }),
-
-      setItemPrompt: (prompt) => set({ itemPrompt: prompt }),
-      setMaximizedItemId: (id) => set((state) => {
-        // Disable workspace split view when item is un-maximized
-        if (id === null && state.workspaceSplitViewActive) {
-          return { maximizedItemId: id, workspaceSplitViewActive: false };
-        }
-
-        // In workspace split view, deselect the previously maximized card when switching to a new one
-        if (state.workspaceSplitViewActive && id !== null && state.maximizedItemId !== id) {
-          const newSelectedCardIds = new Set(state.selectedCardIds);
-          if (state.maximizedItemId) {
-            newSelectedCardIds.delete(state.maximizedItemId);
-          }
-          return {
-            maximizedItemId: id,
-            selectedCardIds: newSelectedCardIds
-          };
-        }
-
-        return { maximizedItemId: id };
-      }),
-
-      // Workspace Split View actions
-      // Workspace Split View actions
-      toggleWorkspaceSplitView: () => set((state) => {
-        // Only allow enabling split view if an item is maximized
-        if (!state.workspaceSplitViewActive && !state.maximizedItemId) {
-          return { workspaceSplitViewActive: false };
-        }
-        return { workspaceSplitViewActive: !state.workspaceSplitViewActive };
-      }),
-      enableWorkspaceSplitView: () => set((state) => {
-        if (!state.maximizedItemId) return { workspaceSplitViewActive: false };
-        return { workspaceSplitViewActive: true };
-      }),
-      disableWorkspaceSplitView: () => set({ workspaceSplitViewActive: false }),
-
-      // Legacy compatibility
-      setOpenModalItemId: (id) => {
-        set((state) => {
-          if (id === null) {
-            if (state.openPanelIds.length === 0) return {};
+        // Folder navigation — preserve manual user selections
+        setActiveFolderId: (folderId) => {
+          set((state) => {
+            if (state.activeFolderId === folderId && state.openPanelIds.length === 0) {
+              return {};
+            }
+            // Remove only auto-selected cards, preserve manual selections
+            const newSelectedCardIds = new Set(state.selectedCardIds);
+            state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
             return {
+              activeFolderId: folderId,
               openPanelIds: [],
               maximizedItemId: null,
+              selectedCardIds: newSelectedCardIds,
               panelAutoSelectedCardIds: new Set(),
             };
-          } else {
-            const isAlreadyOpen = state.openPanelIds.length === 1 && state.openPanelIds[0] === id;
+          });
+        },
+
+        clearActiveFolder: () => {
+          set((state) => {
+            if (state.activeFolderId === null && state.openPanelIds.length === 0) return {};
+            // Remove only auto-selected cards, preserve manual selections
+            const newSelectedCardIds = new Set(state.selectedCardIds);
+            state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
+            return {
+              activeFolderId: null,
+              openPanelIds: [],
+              maximizedItemId: null,
+              selectedCardIds: newSelectedCardIds,
+              panelAutoSelectedCardIds: new Set(),
+            };
+          });
+        },
+
+        // Direct setter used by useFolderUrl hook for URL → store sync
+        // Does NOT clear panels — only updates the folder ID
+        _setActiveFolderIdDirect: (folderId) => set({ activeFolderId: folderId }),
+
+        // Direct panel open/close used by useFolderUrl hook for URL → store sync
+        _openPanelDirect: (itemId) => set({ openPanelIds: [itemId], maximizedItemId: itemId }),
+        _closePanelDirect: () => set((state) => {
+          // Remove only auto-selected cards, preserve manual selections
+          const newSelectedCardIds = new Set(state.selectedCardIds);
+          state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
+          return {
+            openPanelIds: [],
+            maximizedItemId: null,
+            selectedCardIds: newSelectedCardIds,
+            panelAutoSelectedCardIds: new Set(),
+          };
+        }),
+
+        // Panel actions
+        openPanel: (itemId, mode) => {
+          set((state) => {
+            const isAlreadyOpen = state.openPanelIds.includes(itemId);
             if (isAlreadyOpen) return {};
 
             const newSelectedCardIds = new Set(state.selectedCardIds);
             const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
 
-            // In workspace split view, deselect the previously maximized card when opening a new one
-            if (state.workspaceSplitViewActive && state.maximizedItemId && state.maximizedItemId !== id) {
-              newSelectedCardIds.delete(state.maximizedItemId);
-              newPanelAutoSelectedCardIds.delete(state.maximizedItemId);
+            // Add to selections and track as auto-selected
+            newSelectedCardIds.add(itemId);
+            newPanelAutoSelectedCardIds.add(itemId);
+
+            // Handle different modes
+            if (mode === 'dual') {
+              // Dual-panel mode: add as second panel (only if we have exactly 1 panel open)
+              if (state.openPanelIds.length === 1) {
+                return {
+                  openPanelIds: [itemId, state.openPanelIds[0]], // New panel becomes left (index 0)
+                  maximizedItemId: itemId, // Focus on the newly opened panel
+                  workspaceSplitViewActive: true, // Enable split view for dual-panel
+                  selectedCardIds: newSelectedCardIds,
+                  panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
+                };
+              }
+              // If not exactly 1 panel open, fall through to replace mode
             }
 
-            // Add to selections and track as auto-selected
-            newSelectedCardIds.add(id);
-            newPanelAutoSelectedCardIds.add(id);
-
+            // Replace mode (default): replace all open panels with this one
             return {
-              openPanelIds: [id],
-              maximizedItemId: id,
+              openPanelIds: [itemId],
+              maximizedItemId: itemId,
               selectedCardIds: newSelectedCardIds,
               panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
             };
+          });
+        },
+
+        closePanel: (itemId) => {
+          set((state) => {
+            if (state.openPanelIds.length === 0) return {};
+
+            // Dual-panel mode: closing one panel should keep the other
+            if (state.openPanelIds.length === 2) {
+              const remainingPanelId = state.openPanelIds.find(id => id !== itemId);
+              if (!remainingPanelId) {
+                // Shouldn't happen, but fallback to closing all
+                const newSelectedCardIds = new Set(state.selectedCardIds);
+                state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
+                return {
+                  openPanelIds: [],
+                  maximizedItemId: null,
+                  workspaceSplitViewActive: false,
+                  selectedCardIds: newSelectedCardIds,
+                  panelAutoSelectedCardIds: new Set(),
+                };
+              }
+
+              // Remove the closed panel from selections but keep the remaining one
+              const newSelectedCardIds = new Set(state.selectedCardIds);
+              const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
+              if (newPanelAutoSelectedCardIds.has(itemId)) {
+                newSelectedCardIds.delete(itemId);
+                newPanelAutoSelectedCardIds.delete(itemId);
+              }
+
+              return {
+                openPanelIds: [remainingPanelId],
+                maximizedItemId: remainingPanelId,
+                workspaceSplitViewActive: true, // Keep split view active with single panel
+                selectedCardIds: newSelectedCardIds,
+                panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
+              };
+            }
+
+            // Single panel mode: close all panels
+            const newSelectedCardIds = new Set(state.selectedCardIds);
+            state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
+            return {
+              openPanelIds: [],
+              maximizedItemId: null,
+              workspaceSplitViewActive: false, // Disable split view when closing
+              selectedCardIds: newSelectedCardIds,
+              panelAutoSelectedCardIds: new Set(),
+            };
+          });
+        },
+
+        closeAllPanels: () => {
+          set((state) => {
+            if (state.openPanelIds.length === 0) return {};
+            // Remove only auto-selected cards, preserve manual selections
+            const newSelectedCardIds = new Set(state.selectedCardIds);
+            state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
+            return {
+              openPanelIds: [],
+              maximizedItemId: null,
+              selectedCardIds: newSelectedCardIds,
+              panelAutoSelectedCardIds: new Set(),
+            };
+          });
+        },
+
+        reorderPanels: (fromIndex, toIndex) => set((state) => {
+          // No reordering in single view
+          return state;
+        }),
+
+        setItemPrompt: (prompt) => set({ itemPrompt: prompt }),
+        setMaximizedItemId: (id) => set((state) => {
+          // Disable workspace split view when item is un-maximized
+          if (id === null && state.workspaceSplitViewActive) {
+            return { maximizedItemId: id, workspaceSplitViewActive: false };
           }
-        });
-      },
 
-      setShowVersionHistory: (show) => set({ showVersionHistory: show }),
-      setShowCreateWorkspaceModal: (show) => set({ showCreateWorkspaceModal: show }),
-      setShowSheetModal: (show) => set({ showSheetModal: show }),
+          // In workspace split view, deselect the previously maximized card when switching to a new one
+          if (state.workspaceSplitViewActive && id !== null && state.maximizedItemId !== id) {
+            const newSelectedCardIds = new Set(state.selectedCardIds);
+            if (state.maximizedItemId) {
+              newSelectedCardIds.delete(state.maximizedItemId);
+            }
+            return {
+              maximizedItemId: id,
+              selectedCardIds: newSelectedCardIds
+            };
+          }
 
-      // UI Preferences actions
-      setShowJsonView: (show) => set({ showJsonView: show }),
-      setSearchQuery: (query) => set({ searchQuery: query }),
+          return { maximizedItemId: id };
+        }),
 
-      setSelectedActions: (actions) => set({ selectedActions: actions }),
-      clearSelectedActions: () => set({ selectedActions: [] }),
-      setSelectedModelId: (modelId) => set({ selectedModelId: modelId }),
+        // Workspace Split View actions
+        // Workspace Split View actions
+        toggleWorkspaceSplitView: () => set((state) => {
+          // Only allow enabling split view if an item is maximized
+          if (!state.workspaceSplitViewActive && !state.maximizedItemId) {
+            return { workspaceSplitViewActive: false };
+          }
+          return { workspaceSplitViewActive: !state.workspaceSplitViewActive };
+        }),
+        enableWorkspaceSplitView: () => set((state) => {
+          if (!state.maximizedItemId) return { workspaceSplitViewActive: false };
+          return { workspaceSplitViewActive: true };
+        }),
+        disableWorkspaceSplitView: () => set({ workspaceSplitViewActive: false }),
 
-      // Text selection actions
-      setInMultiSelectMode: (inMultiMode) => set({ inMultiSelectMode: inMultiMode }),
-      setInSingleSelectMode: (inSingleMode) => set({ inSingleSelectMode: inSingleMode }),
-      setTooltipVisible: (visible) => set({ tooltipVisible: visible }),
-      setSelectedHighlightColorId: (colorId) => set({ selectedHighlightColorId: colorId }),
-      enterMultiSelectMode: () => set({ inMultiSelectMode: true, inSingleSelectMode: false, tooltipVisible: true }),
-      exitMultiSelectMode: () => set({ inMultiSelectMode: false, tooltipVisible: false }),
-      enterSingleSelectMode: () => set({ inSingleSelectMode: true, inMultiSelectMode: false, tooltipVisible: true }),
-      exitSingleSelectMode: () => set({ inSingleSelectMode: false, tooltipVisible: false }),
+        // Legacy compatibility
+        setOpenModalItemId: (id) => {
+          set((state) => {
+            if (id === null) {
+              if (state.openPanelIds.length === 0) return {};
+              return {
+                openPanelIds: [],
+                maximizedItemId: null,
+                panelAutoSelectedCardIds: new Set(),
+              };
+            } else {
+              const isAlreadyOpen = state.openPanelIds.length === 1 && state.openPanelIds[0] === id;
+              if (isAlreadyOpen) return {};
 
-      // Card selection actions
-      toggleCardSelection: (id) => set((state) => {
-        const newSet = new Set(state.selectedCardIds);
-        const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
+              const newSelectedCardIds = new Set(state.selectedCardIds);
+              const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
 
-        if (newSet.has(id)) {
-          newSet.delete(id);
-          newPanelAutoSelectedCardIds.delete(id);
-        } else {
-          newSet.add(id);
-        }
-        return {
-          selectedCardIds: newSet,
-          panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-        };
-      }),
+              // In workspace split view, deselect the previously maximized card when opening a new one
+              if (state.workspaceSplitViewActive && state.maximizedItemId && state.maximizedItemId !== id) {
+                newSelectedCardIds.delete(state.maximizedItemId);
+                newPanelAutoSelectedCardIds.delete(state.maximizedItemId);
+              }
 
-      clearCardSelection: () => set({
-        selectedCardIds: new Set<string>(),
-        panelAutoSelectedCardIds: new Set<string>(),
-      }),
+              // Add to selections and track as auto-selected
+              newSelectedCardIds.add(id);
+              newPanelAutoSelectedCardIds.add(id);
 
-      selectMultipleCards: (ids) => set((state) => {
-        const newSelectedCardIds = new Set(ids);
-        const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
+              return {
+                openPanelIds: [id],
+                maximizedItemId: id,
+                selectedCardIds: newSelectedCardIds,
+                panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
+              };
+            }
+          });
+        },
 
-        newPanelAutoSelectedCardIds.forEach(id => {
-          if (!newSelectedCardIds.has(id)) {
+        setShowVersionHistory: (show) => set({ showVersionHistory: show }),
+        setShowCreateWorkspaceModal: (show) => set({ showCreateWorkspaceModal: show }),
+        setShowSheetModal: (show) => set({ showSheetModal: show }),
+
+        // UI Preferences actions
+        setShowJsonView: (show) => set({ showJsonView: show }),
+        setSearchQuery: (query) => set({ searchQuery: query }),
+
+        setSelectedActions: (actions) => set({ selectedActions: actions }),
+        clearSelectedActions: () => set({ selectedActions: [] }),
+        setSelectedModelId: (modelId) => set({ selectedModelId: modelId }),
+
+        // Text selection actions
+        setInMultiSelectMode: (inMultiMode) => set({ inMultiSelectMode: inMultiMode }),
+        setInSingleSelectMode: (inSingleMode) => set({ inSingleSelectMode: inSingleMode }),
+        setTooltipVisible: (visible) => set({ tooltipVisible: visible }),
+        setSelectedHighlightColorId: (colorId) => set({ selectedHighlightColorId: colorId }),
+        enterMultiSelectMode: () => set({ inMultiSelectMode: true, inSingleSelectMode: false, tooltipVisible: true }),
+        exitMultiSelectMode: () => set({ inMultiSelectMode: false, tooltipVisible: false }),
+        enterSingleSelectMode: () => set({ inSingleSelectMode: true, inMultiSelectMode: false, tooltipVisible: true }),
+        exitSingleSelectMode: () => set({ inSingleSelectMode: false, tooltipVisible: false }),
+
+        // Card selection actions
+        toggleCardSelection: (id) => set((state) => {
+          const newSet = new Set(state.selectedCardIds);
+          const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
+
+          if (newSet.has(id)) {
+            newSet.delete(id);
             newPanelAutoSelectedCardIds.delete(id);
+          } else {
+            newSet.add(id);
           }
-        });
+          return {
+            selectedCardIds: newSet,
+            panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
+          };
+        }),
 
-        newSelectedCardIds.forEach(id => {
-          newPanelAutoSelectedCardIds.delete(id);
-        });
+        clearCardSelection: () => set({
+          selectedCardIds: new Set<string>(),
+          panelAutoSelectedCardIds: new Set<string>(),
+        }),
 
-        return {
-          selectedCardIds: newSelectedCardIds,
-          panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-        };
-      }),
+        selectMultipleCards: (ids) => set((state) => {
+          const newSelectedCardIds = new Set(ids);
+          const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
 
-      setCardPlaying: (id, isPlaying) => set((state) => {
-        const newSet = new Set(state.playingYouTubeCardIds);
-        if (isPlaying) {
-          newSet.add(id);
-        } else {
-          newSet.delete(id);
-        }
-        return { playingYouTubeCardIds: newSet };
-      }),
-      clearPlayingYouTubeCards: () => set({ playingYouTubeCardIds: new Set<string>() }),
+          newPanelAutoSelectedCardIds.forEach(id => {
+            if (!newSelectedCardIds.has(id)) {
+              newPanelAutoSelectedCardIds.delete(id);
+            }
+          });
 
-      // Scroll lock actions
-      setItemScrollLocked: (itemId, isLocked) => set((state) => {
-        const newMap = new Map(state.itemScrollLocked);
-        newMap.set(itemId, isLocked);
-        return { itemScrollLocked: newMap };
-      }),
-      toggleItemScrollLocked: (itemId) => set((state) => {
-        const newMap = new Map(state.itemScrollLocked);
-        const current = newMap.get(itemId) ?? true;
-        newMap.set(itemId, !current);
-        return { itemScrollLocked: newMap };
-      }),
-
-      // Reply selection actions
-      addReplySelection: (selection) => set((state) => {
-        const newSelections = [...state.replySelections, selection];
-        return { replySelections: newSelections };
-      }),
-      removeReplySelection: (index) => set((state) => ({
-        replySelections: state.replySelections.filter((_, i) => i !== index),
-      })),
-      clearReplySelections: () => set({ replySelections: [] }),
-
-      // BlockNote selection actions
-      setBlockNoteSelection: (selection) => {
-        set({ blockNoteSelection: selection });
-      },
-      clearBlockNoteSelection: () => {
-        set({ blockNoteSelection: null });
-      },
-
-
-      // Utility actions
-      resetChatState: () => set({
-        isChatExpanded: initialState.isChatExpanded,
-        isChatMaximized: initialState.isChatMaximized,
-        workspacePanelSize: initialState.workspacePanelSize,
-      }),
-
-      // Chat actions
-      setIsChatExpanded: (expanded) => set({ isChatExpanded: expanded }),
-      toggleChatExpanded: () => set((state) => ({ isChatExpanded: !state.isChatExpanded })),
-      setIsChatMaximized: (maximized) => set({ isChatMaximized: maximized }),
-      toggleChatMaximized: () => set((state) => ({ isChatMaximized: !state.isChatMaximized })),
-      setIsThreadListVisible: (visible) => set({ isThreadListVisible: visible }),
-      toggleThreadListVisible: () => set((state) => ({ isThreadListVisible: !state.isThreadListVisible })),
-      setWorkspacePanelSize: (size) => set({ workspacePanelSize: size }),
-
-      closeAllModals: () => set((state) => {
-        // Only remove auto-selected cards from selection
-        const newSelectedCardIds = new Set(state.selectedCardIds);
-        const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-
-        state.openPanelIds.forEach(id => {
-          if (newPanelAutoSelectedCardIds.has(id)) {
-            newSelectedCardIds.delete(id);
+          newSelectedCardIds.forEach(id => {
             newPanelAutoSelectedCardIds.delete(id);
-          }
-        });
+          });
 
-        return {
-          openPanelIds: [],
-          itemPrompt: null,
-          maximizedItemId: null,
-          showVersionHistory: false,
-          showCreateWorkspaceModal: false,
-          showSheetModal: false,
-          selectedCardIds: newSelectedCardIds,
-          panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-        };
+          return {
+            selectedCardIds: newSelectedCardIds,
+            panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
+          };
+        }),
+
+        setCardPlaying: (id, isPlaying) => set((state) => {
+          const newSet = new Set(state.playingYouTubeCardIds);
+          if (isPlaying) {
+            newSet.add(id);
+          } else {
+            newSet.delete(id);
+          }
+          return { playingYouTubeCardIds: newSet };
+        }),
+        clearPlayingYouTubeCards: () => set({ playingYouTubeCardIds: new Set<string>() }),
+
+        // Scroll lock actions
+        setItemScrollLocked: (itemId, isLocked) => set((state) => {
+          const newMap = new Map(state.itemScrollLocked);
+          newMap.set(itemId, isLocked);
+          return { itemScrollLocked: newMap };
+        }),
+        toggleItemScrollLocked: (itemId) => set((state) => {
+          const newMap = new Map(state.itemScrollLocked);
+          const current = newMap.get(itemId) ?? true;
+          newMap.set(itemId, !current);
+          return { itemScrollLocked: newMap };
+        }),
+
+        // Reply selection actions
+        addReplySelection: (selection) => set((state) => {
+          const newSelections = [...state.replySelections, selection];
+          return { replySelections: newSelections };
+        }),
+        removeReplySelection: (index) => set((state) => ({
+          replySelections: state.replySelections.filter((_, i) => i !== index),
+        })),
+        clearReplySelections: () => set({ replySelections: [] }),
+
+        // BlockNote selection actions
+        setBlockNoteSelection: (selection) => {
+          set({ blockNoteSelection: selection });
+        },
+        clearBlockNoteSelection: () => {
+          set({ blockNoteSelection: null });
+        },
+
+
+        // Utility actions
+        resetChatState: () => set({
+          isChatExpanded: initialState.isChatExpanded,
+          isChatMaximized: initialState.isChatMaximized,
+          workspacePanelSize: initialState.workspacePanelSize,
+        }),
+
+        // Chat actions
+        setIsChatExpanded: (expanded) => set({ isChatExpanded: expanded }),
+        toggleChatExpanded: () => set((state) => ({ isChatExpanded: !state.isChatExpanded })),
+        setIsChatMaximized: (maximized) => set({ isChatMaximized: maximized }),
+        toggleChatMaximized: () => set((state) => ({ isChatMaximized: !state.isChatMaximized })),
+        setIsThreadListVisible: (visible) => set({ isThreadListVisible: visible }),
+        toggleThreadListVisible: () => set((state) => ({ isThreadListVisible: !state.isThreadListVisible })),
+        setWorkspacePanelSize: (size) => set({ workspacePanelSize: size }),
+
+        closeAllModals: () => set((state) => {
+          // Only remove auto-selected cards from selection
+          const newSelectedCardIds = new Set(state.selectedCardIds);
+          const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
+
+          state.openPanelIds.forEach(id => {
+            if (newPanelAutoSelectedCardIds.has(id)) {
+              newSelectedCardIds.delete(id);
+              newPanelAutoSelectedCardIds.delete(id);
+            }
+          });
+
+          return {
+            openPanelIds: [],
+            itemPrompt: null,
+            maximizedItemId: null,
+            showVersionHistory: false,
+            showCreateWorkspaceModal: false,
+            showSheetModal: false,
+            selectedCardIds: newSelectedCardIds,
+            panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
+          };
+        }),
       }),
-    }),
-    {
-      name: 'thinkex-ui-preferences',
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ selectedModelId: state.selectedModelId }),
-    },
+      {
+        name: 'thinkex-ui-preferences',
+        storage: createJSONStorage(() => localStorage),
+        partialize: (state) => ({ selectedModelId: state.selectedModelId }),
+      },
     ),
     { name: 'UI Store' }
   )
@@ -550,6 +600,7 @@ export const selectPrimaryPanelId = (state: UIState) => state.openPanelIds[0] ??
 export const selectSecondaryPanelId = (state: UIState) => state.openPanelIds[1] ?? null;
 export const selectHasSplitView = (state: UIState) => state.openPanelIds.length >= 2;
 export const selectIsPanelOpen = (state: UIState) => state.openPanelIds.length > 0;
+export const selectIsDualPanelActive = (state: UIState) => state.openPanelIds.length === 2 && state.workspaceSplitViewActive;
 
 // Legacy compatibility selectors
 export const selectOpenModalItemId = (state: UIState) => state.openPanelIds[0] ?? null;
