@@ -326,6 +326,9 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* Prevent scroll bounce effect */
+  overscroll-behavior: none;
+  
   /* Google Keep-inspired dark mode color palette */
   /* Dark gray background like Google Keep */
   /* White text for primary content */

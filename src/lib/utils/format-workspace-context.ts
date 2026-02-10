@@ -62,6 +62,19 @@ FORMATTING:
     \int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
     $$
   - Apply these same math formatting rules to all tool calls and responses
+  - Spacing: Use \, for thin space in integrals: $$\int f(x) \, dx$$
+  - Common patterns:
+    * Fractions: $$\frac{a}{b}$$
+    * Square roots: $$\sqrt{x}$$ or $$\sqrt[n]{x}$$
+    * Greek letters: $$\alpha, \beta, \gamma, \pi$$
+    * Summations: $$\sum_{i=1}^{n}$$
+    * Integrals: $$\int_{a}^{b}$$
+    * Matrices: $$\begin{bmatrix} a & b \\ c & d \end{bmatrix}$$
+  - Best practices:
+    * Keep inline math simple (e.g., $$x = 5$$)
+    * Use block math for complex expressions
+    * Add context/explanation for equations
+    * Break complex equations into steps
 - Diagrams: Use \`\`\`mermaid blocks for when a diagram would be helpful
 </system>`;
 }

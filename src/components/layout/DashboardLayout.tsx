@@ -72,11 +72,11 @@ export function DashboardLayout({
   // Get sidebar control to auto-close when panels open
   const { setOpen } = useSidebar();
 
-  // OPTIMIZED: Memoize onLayout callback to prevent ResizablePanelGroup re-renders
+  // OPTIMIZED: Memoize onLayoutChange callback to prevent ResizablePanelGroup re-renders
   // This prevents cascading re-renders of all ResizablePanel children
-  const handlePanelLayout = useCallback((sizes: number[]) => {
+  const handlePanelLayout = useCallback((layout: { [panelId: string]: number }) => {
     // Track workspace size for column calculations
-    const workspaceSize = sizes[0];
+    const workspaceSize = layout["left-area-panel"] ?? 100;
     onWorkspaceSizeChange?.(workspaceSize);
 
     // Auto-maximize behavior removed - let users manually control chat size
@@ -120,19 +120,18 @@ export function DashboardLayout({
         <ResizablePanelGroup
           key={`layout-${effectiveChatExpanded ? "chat" : "no-chat"}`}
           id={`layout-${effectiveChatExpanded ? "chat" : "no-chat"}`}
-          direction="horizontal"
+          orientation="horizontal"
           className="flex-1 z-10"
-          onLayout={handlePanelLayout}
+          onLayoutChange={handlePanelLayout}
         >
           {/* Left Area: Workspace area (header + sidebar + workspace canvas) */}
           <ResizablePanel
             id="left-area-panel"
-            order={1}
             defaultSize={(() => {
-              if (!effectiveChatExpanded) return 100;
-              return 100 - PANEL_DEFAULTS.CHAT;
+              if (!effectiveChatExpanded) return "100%";
+              return `${100 - PANEL_DEFAULTS.CHAT}%`;
             })()}
-            minSize={effectiveChatExpanded ? PANEL_DEFAULTS.WORKSPACE_MIN : 100}
+            minSize={effectiveChatExpanded ? `${PANEL_DEFAULTS.WORKSPACE_MIN}%` : "100%"}
           >
             <div className="h-full flex flex-col relative overflow-hidden">
               {/* Header spans sidebar + workspace canvas (only render when a workspace exists) */}
@@ -161,14 +160,13 @@ export function DashboardLayout({
                 <SidebarInset className="flex flex-col relative overflow-hidden">
                   {/* WORKSPACE SPLIT VIEW MODE: Show workspace + item side-by-side */}
                   {workspaceSplitViewActive && maximizedItemId ? (
-                    <ResizablePanelGroup direction="horizontal" className="flex-1">
+                    <ResizablePanelGroup orientation="horizontal" className="flex-1">
                       {/* Workspace Panel - Single Column Mode */}
                       <ResizablePanel
                         id="split-workspace-panel"
-                        order={1}
-                        defaultSize={50}
-                        minSize={25}
-                        maxSize={60}
+                        defaultSize="50%"
+                        minSize="25%"
+                        maxSize="60%"
                       >
                         <WorkspaceCanvasDropzone>{workspaceSection}</WorkspaceCanvasDropzone>
                       </ResizablePanel>
@@ -178,9 +176,8 @@ export function DashboardLayout({
                       {/* Item Panel */}
                       <ResizablePanel
                         id="split-item-panel"
-                        order={2}
-                        defaultSize={50}
-                        minSize={40}
+                        defaultSize="50%"
+                        minSize="40%"
                       >
                         {modalManager}
                       </ResizablePanel>
@@ -209,10 +206,9 @@ export function DashboardLayout({
               <ResizableHandle id="workspace-chat-handle" className="border-r border-sidebar-border" />
               <ResizablePanel
                 id="chat-panel"
-                order={2}
-                defaultSize={panels.length > 0 ? PANEL_DEFAULTS.CHAT_MIN : PANEL_DEFAULTS.CHAT}
-                minSize={PANEL_DEFAULTS.CHAT_MIN}
-                maxSize={PANEL_DEFAULTS.CHAT_MAX}
+                defaultSize={panels.length > 0 ? `${PANEL_DEFAULTS.CHAT_MIN}%` : `${PANEL_DEFAULTS.CHAT}%`}
+                minSize={`${PANEL_DEFAULTS.CHAT_MIN}%`}
+                maxSize={`${PANEL_DEFAULTS.CHAT_MAX}%`}
               >
                 <AssistantDropzone>
                   <AssistantPanel

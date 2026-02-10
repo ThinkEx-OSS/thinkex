@@ -148,6 +148,56 @@ QUALITY GUIDELINES FOR THE YOUTUBE VIDEO:
 }
 
 /**
+ * Inject user-selected context (reply quotes + BlockNote selection) into the last user message.
+ * Reads from runConfig metadata sent via the composer's setRunConfig().
+ * This keeps context in the user message (not system prompt) without showing in the UI.
+ */
+function injectSelectionContext(
+  messages: any[],
+  metadata?: { replySelections?: Array<{ text: string }>; blockNoteSelection?: { cardName: string; text: string } }
+): void {
+  if (!metadata) return;
+
+  const parts: string[] = [];
+
+  // Reply selections (quoted text from assistant messages)
+  if (metadata.replySelections && metadata.replySelections.length > 0) {
+    const quoted = metadata.replySelections
+      .map((sel) => `> ${sel.text}`)
+      .join("\n");
+    parts.push(`[Referring to:\n${quoted}]`);
+  }
+
+  // BlockNote selection (text selected from a card in the editor)
+  if (metadata.blockNoteSelection?.text) {
+    parts.push(`[Selected text from "${metadata.blockNoteSelection.cardName}":\n${metadata.blockNoteSelection.text}]`);
+  }
+
+  if (parts.length === 0) return;
+
+  const prefix = parts.join("\n") + "\n\n";
+
+  // Find the last user message and prepend the context
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role !== "user") continue;
+
+    if (Array.isArray(msg.content)) {
+      const textIdx = msg.content.findIndex((p: any) => p.type === "text");
+      if (textIdx !== -1) {
+        msg.content[textIdx] = {
+          ...msg.content[textIdx],
+          text: prefix + msg.content[textIdx].text,
+        };
+      }
+    } else if (typeof msg.content === "string") {
+      messages[i] = { ...msg, content: prefix + msg.content };
+    }
+    break;
+  }
+}
+
+/**
  * Build the enhanced system prompt with guidelines and detection hints
  * Uses array join for better performance than string concatenation
  */
@@ -205,7 +255,7 @@ export async function POST(req: Request) {
 
     // Get pre-formatted selected cards context from client (no DB fetch needed)
     const selectedCardsContext = getSelectedCardsContext(body);
-    const selectedActions = body.selectedActions || [];
+    const selectedActions = body.metadata?.custom?.selectedActions || body.selectedActions || [];
 
     // Get model ID and ensure it has the correct prefix for Gateway
     let modelId = body.modelId || "gemini-2.5-flash";
@@ -242,16 +292,10 @@ export async function POST(req: Request) {
       }
     }
 
-    // Inject reply context if available
-    const replySelections = body.replySelections || [];
-    if (replySelections.length > 0) {
-      const replyContext = replySelections
-        .map((sel: { text: string }) => `> ${sel.text}`)
-        .join("\n");
-      systemPromptParts.push(`\n\nREPLY CONTEXT:\nThe user is replying specifically to these parts of the previous message:\n${replyContext}`);
-    }
-
     const finalSystemPrompt = systemPromptParts.join('');
+
+    // Inject reply + BlockNote selection context into the last user message (sent via runConfig metadata)
+    injectSelectionContext(cleanedMessages, body.metadata?.custom);
 
     // Initialize PostHog client
     const posthogClient = new PostHog(process.env.POSTHOG_API_KEY || "disabled", {

@@ -6,6 +6,7 @@ import { mermaid } from "@streamdown/mermaid";
 import { math } from "@streamdown/math";
 import { cn } from "@/lib/utils";
 import React, { memo } from "react";
+import type { AnchorHTMLAttributes, HTMLAttributes } from "react";
 import { MarkdownLink } from "@/components/ui/markdown-link";
 
 // Create code plugin with one-dark-pro theme
@@ -19,28 +20,13 @@ interface StreamdownMarkdownProps {
 }
 
 /**
- * Streamdown-based markdown component that uses $$...$$ for all math
- * This replaces ReactMarkdown to ensure consistent math syntax across the app
+ * Streamdown-based markdown component with native math support
+ * This replaces ReactMarkdown and relies on Streamdown's built-in math processing
  */
 const StreamdownMarkdownImpl: React.FC<StreamdownMarkdownProps> = ({ 
   children, 
   className 
 }) => {
-  // Normalize math syntax to Streamdown format
-  const normalizedContent = children
-    // Convert \( ... \) to $$...$$ (inline math)
-    .replace(/\\{1,2}\(([\s\S]*?)\\{1,2}\)/g, (_, content) => `$$${content.trim()}$$`)
-    // Convert \[ ... \] to $$...$$ (block math)
-    .replace(/\\{1,2}\[([\s\S]*?)\\{1,2}\]/g, (_, content) => `$$\n${content.trim()}\n$$`)
-    // Convert single $ ... $ to $$...$$ (inline math), but avoid currency like $10 or $5.50
-    .replace(/(?<!\\)(?<!\$)\$(?!\$)([^$\n]+?)(?<!\\)(?<!\$)\$(?!\$)/g, (match, content) => {
-      // Check if this looks like currency (numbers with optional decimals)
-      if (/^\d+(\.\d{1,2})?$/.test(content.trim())) {
-        return match; // Keep as currency
-      }
-      return `$$${content}$$`;
-    });
-
   return (
     <div className={cn("aui-md", className)}>
       <Streamdown
@@ -67,14 +53,16 @@ const StreamdownMarkdownImpl: React.FC<StreamdownMarkdownProps> = ({
           ]
         ]}
         components={{
-          a: MarkdownLink,
-          ol: ({ children }) => (
-            <ol className="ml-4 list-outside list-decimal whitespace-normal">
+          a: (props: AnchorHTMLAttributes<HTMLAnchorElement> & { node?: any }) => (
+            <MarkdownLink {...props} />
+          ),
+          ol: ({ children, node, ...props }: HTMLAttributes<HTMLOListElement> & { node?: any }) => (
+            <ol className="ml-4 list-outside list-decimal whitespace-normal" {...props}>
               {children}
             </ol>
           ),
-          ul: ({ children }) => (
-            <ul className="ml-4 list-outside list-disc whitespace-normal">
+          ul: ({ children, node, ...props }: HTMLAttributes<HTMLUListElement> & { node?: any }) => (
+            <ul className="ml-4 list-outside list-disc whitespace-normal" {...props}>
               {children}
             </ul>
           ),
@@ -85,7 +73,7 @@ const StreamdownMarkdownImpl: React.FC<StreamdownMarkdownProps> = ({
           },
         }}
       >
-        {normalizedContent}
+        {children}
       </Streamdown>
     </div>
   );

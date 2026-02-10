@@ -95,7 +95,7 @@ import { CardContextDisplay } from "@/components/chat/CardContextDisplay";
 import { ReplyContextDisplay } from "@/components/chat/ReplyContextDisplay";
 import { MentionMenu } from "@/components/chat/MentionMenu";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import { useUIStore, selectReplySelections, selectSelectedCardIdsArray } from "@/lib/stores/ui-store";
+import { useUIStore, selectReplySelections, selectSelectedCardIdsArray, selectBlockNoteSelection } from "@/lib/stores/ui-store";
 import { DropdownMenuSeparator, DropdownMenuLabel, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { useShallow } from "zustand/react/shallow";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
@@ -352,7 +352,9 @@ const Composer: FC<ComposerProps> = ({ items }) => {
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
   const aui = useAui();
   const replySelections = useUIStore(useShallow(selectReplySelections));
+  const blockNoteSelection = useUIStore(selectBlockNoteSelection);
   const clearReplySelections = useUIStore((state) => state.clearReplySelections);
+  const clearBlockNoteSelection = useUIStore((state) => state.clearBlockNoteSelection);
   const clearSelectedActions = useUIStore((state) => state.clearSelectedActions);
   const selectedCardIdsArray = useUIStore(useShallow(selectSelectedCardIdsArray));
   const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
@@ -651,18 +653,32 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         // Combine all context: selected cards, reply texts, and user message
         let modifiedText = currentText;
 
+        // Attach per-request context as metadata via runConfig
+        // This flows through as body.metadata.custom on the server
+        // IMPORTANT: Always set runConfig (even empty) to clear stale data from previous sends,
+        // because the composer does NOT reset runConfig after send().
+        const customMetadata: Record<string, unknown> = {};
+        if (replySelections.length > 0) {
+          customMetadata.replySelections = replySelections;
+        }
+        if (blockNoteSelection) {
+          customMetadata.blockNoteSelection = blockNoteSelection;
+        }
+        if (selectedActions.length > 0) {
+          customMetadata.selectedActions = selectedActions;
+        }
+        aui?.composer()?.setRunConfig(
+          Object.keys(customMetadata).length > 0 ? { custom: customMetadata } : {}
+        );
+
         // Set the modified text and send
         aui?.composer()?.setText(modifiedText);
         aui?.composer()?.send();
 
-        // Clear reply selections immediately (these are added to the message itself)
+        // Clear all per-request state immediately — captured in runConfig before send()
         clearReplySelections();
-
-        // Delay clearing selected actions to ensure they're included in the API request
-        // The useAssistantInstructions hook needs the actions to be available when the request is made
-        setTimeout(() => {
-          clearSelectedActions();
-        }, 500);
+        clearBlockNoteSelection();
+        clearSelectedActions();
 
         // Note: BlockNote selection is not cleared automatically - it persists until manually cleared
       }}

@@ -16,8 +16,6 @@ interface WorkspaceRuntimeProviderProps {
   children: React.ReactNode;
 }
 
-import { useShallow } from "zustand/react/shallow";
-
 import { ImageSearchToolUI } from "@/components/assistant-ui/ImageSearchToolUI";
 import { AddImageToolUI } from "@/components/assistant-ui/AddImageToolUI";
 
@@ -36,8 +34,6 @@ export function WorkspaceRuntimeProvider({
     triggering an infinite update loop. The Set reference is stable until changed.
   */
   const selectedCardIdsSet = useUIStore((state) => state.selectedCardIds);
-  const selectedActions = useUIStore((state) => state.selectedActions);
-  const replySelections = useUIStore(useShallow((state) => state.replySelections));
   const { data: session } = useSession();
 
   // Get workspace state to format selected cards context on client
@@ -145,15 +141,13 @@ export function WorkspaceRuntimeProvider({
           modelId: selectedModelId,
           activeFolderId,
           selectedCardsContext, // Pre-formatted context (client-side) instead of IDs
-          replySelections,
-          selectedActions,
         },
         headers: {
           // Headers for static context if needed
         },
       });
       return transport;
-    }, [workspaceId, selectedModelId, activeFolderId, selectedCardsContext, replySelections, selectedActions]),
+    }, [workspaceId, selectedModelId, activeFolderId, selectedCardsContext]),
     adapters: {
       attachments: new SupabaseAttachmentAdapter(),
     },

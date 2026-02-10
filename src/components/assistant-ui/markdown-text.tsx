@@ -1,6 +1,7 @@
 "use client";
 
 import { Streamdown, defaultRehypePlugins } from "streamdown";
+import "streamdown/styles.css";
 import { createCodePlugin } from "@streamdown/code";
 import { mermaid } from "@streamdown/mermaid";
 import { math } from "@streamdown/math";
@@ -13,26 +14,8 @@ import { useMessagePartText } from "@assistant-ui/react";
 import { useAuiState } from "@assistant-ui/react";
 import { cn } from "@/lib/utils";
 import React, { memo, useRef, useEffect } from "react";
+import type { AnchorHTMLAttributes, HTMLAttributes } from "react";
 import { MarkdownLink } from "@/components/ui/markdown-link";
-
-/**
- * Normalize various LaTeX delimiter formats to $$...$$ which is what
- * @streamdown/math (remark-math with singleDollarTextMath: false) expects.
- * LLMs often emit \(...\) or \[...\] despite system prompt instructions.
- */
-function normalizeLatexDelimiters(input: string): string {
-  return (
-    input
-      // Convert [/math]...[/math] to $$...$$ (block math)
-      .replace(/\[\/math\]([\s\S]*?)\[\/math\]/g, (_, content) => `$$${content.trim()}$$`)
-      // Convert [/inline]...[/inline] to $$...$$ (inline math)
-      .replace(/\[\/inline\]([\s\S]*?)\[\/inline\]/g, (_, content) => `$$${content.trim()}$$`)
-      // Convert \( ... \) to $$...$$ (inline math) - handles both single and double backslashes
-      .replace(/\\{1,2}\(([\s\S]*?)\\{1,2}\)/g, (_, content) => `$$${content.trim()}$$`)
-      // Convert \[ ... \] to $$...$$ (block math) - handles both single and double backslashes
-      .replace(/\\{1,2}\[([\s\S]*?)\\{1,2}\]/g, (_, content) => `\n$$${content.trim()}$$\n`)
-  );
-}
 
 const MarkdownTextImpl = () => {
   // Get the text content from assistant-ui context
@@ -124,6 +107,7 @@ const MarkdownTextImpl = () => {
   return (
     <div key={key} ref={containerRef} className="aui-md" onCopy={handleCopy}>
       <Streamdown
+        animated={{ animation: "fadeIn", duration: 200, easing: "ease-out" }}
         isAnimating={isRunning}
         caret="block"
         className={cn(
@@ -150,14 +134,16 @@ const MarkdownTextImpl = () => {
           ]
         ]}
         components={{
-          a: MarkdownLink,
-          ol: ({ children }) => (
-            <ol className="ml-4 list-outside list-decimal whitespace-normal">
+          a: (props: AnchorHTMLAttributes<HTMLAnchorElement> & { node?: any }) => (
+            <MarkdownLink {...props} />
+          ),
+          ol: ({ children, node, ...props }: HTMLAttributes<HTMLOListElement> & { node?: any }) => (
+            <ol className="ml-4 list-outside list-decimal whitespace-normal" {...props}>
               {children}
             </ol>
           ),
-          ul: ({ children }) => (
-            <ul className="ml-4 list-outside list-disc whitespace-normal">
+          ul: ({ children, node, ...props }: HTMLAttributes<HTMLUListElement> & { node?: any }) => (
+            <ul className="ml-4 list-outside list-disc whitespace-normal" {...props}>
               {children}
             </ul>
           ),
@@ -168,7 +154,7 @@ const MarkdownTextImpl = () => {
           },
         }}
       >
-        {normalizeLatexDelimiters(text)}
+        {text}
       </Streamdown>
     </div>
   );

@@ -5,7 +5,6 @@ import { useAui, useAuiState } from "@assistant-ui/react";
 import { Thread } from "./thread";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceContextProvider } from "@/hooks/ai/use-workspace-context-provider";
-import { useBlockNoteSelectionContextProvider } from "@/hooks/ai/use-blocknote-selection-context-provider";
 import AppChatHeader from "@/components/chat/AppChatHeader";
 import { cn } from "@/lib/utils";
 import AssistantTextSelectionManager from "@/components/assistant-ui/AssistantTextSelectionManager";
@@ -299,9 +298,6 @@ function WorkspaceContextWrapperContent({
   useWorkspaceContextProvider(workspaceId || null, state);
 
 
-
-  // Inject BlockNote selection context as system instructions
-  useBlockNoteSelectionContextProvider();
 
   // Handle maximize toggle from button
   const handleToggleMaximize = () => {
