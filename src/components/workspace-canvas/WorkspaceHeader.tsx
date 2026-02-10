@@ -1010,6 +1010,11 @@ export default function WorkspaceHeader({
 
                                     <DropdownMenuItem
                     onClick={() => {
+                      const isRecording = useAudioRecordingStore.getState().isRecording;
+                      if (isRecording) {
+                        toast.error("Recording already in progress");
+                        return;
+                      }
                       openAudioDialog();
                       setIsNewMenuOpen(false);
                     }}
