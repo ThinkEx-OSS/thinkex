@@ -160,10 +160,22 @@ export default function WorkspaceContent({
   // Listen for audio processing completion events
   useEffect(() => {
     const handleAudioComplete = (e: Event) => {
-      const { itemId, summary, transcript, segments, error } = (e as CustomEvent).detail;
+      const { itemId, summary, transcript, segments, error, retrying } = (e as CustomEvent).detail;
       if (!itemId) return;
 
       const existingData = viewState.items.find((i) => i.id === itemId)?.data ?? {};
+
+      // Retry: transition back to "processing" state
+      if (retrying) {
+        updateItem(itemId, {
+          data: {
+            ...existingData,
+            processingStatus: "processing",
+            error: undefined,
+          } as any,
+        });
+        return;
+      }
 
       if (error) {
         updateItem(itemId, {

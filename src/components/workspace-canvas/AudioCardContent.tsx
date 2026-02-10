@@ -55,11 +55,56 @@ interface AudioCardContentProps {
   item: Item;
   isCompact?: boolean;
   isScrollLocked?: boolean;
-  onRetryProcessing?: (itemId: string) => void;
 }
 
-export function AudioCardContent({ item, isCompact = false, isScrollLocked = false, onRetryProcessing }: AudioCardContentProps) {
+export function AudioCardContent({ item, isCompact = false, isScrollLocked = false }: AudioCardContentProps) {
   const audioData = item.data as AudioData;
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  const handleRetry = useCallback(() => {
+    if (!audioData.fileUrl || isRetrying) return;
+    setIsRetrying(true);
+
+    // Immediately transition card to "processing" via the same event system
+    window.dispatchEvent(
+      new CustomEvent("audio-processing-complete", {
+        detail: { itemId: item.id, retrying: true },
+      })
+    );
+
+    fetch("/api/audio/process", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileUrl: audioData.fileUrl,
+        filename: audioData.filename,
+        mimeType: audioData.mimeType || "audio/webm",
+      }),
+    })
+      .then((res) => res.json())
+      .then((result) => {
+        window.dispatchEvent(
+          new CustomEvent("audio-processing-complete", {
+            detail: result.success
+              ? {
+                  itemId: item.id,
+                  summary: result.summary,
+                  transcript: result.transcript,
+                  segments: result.segments,
+                }
+              : { itemId: item.id, error: result.error || "Processing failed" },
+          })
+        );
+      })
+      .catch((err) => {
+        window.dispatchEvent(
+          new CustomEvent("audio-processing-complete", {
+            detail: { itemId: item.id, error: err.message || "Processing failed" },
+          })
+        );
+      })
+      .finally(() => setIsRetrying(false));
+  }, [audioData.fileUrl, audioData.filename, audioData.mimeType, item.id, isRetrying]);
 
   // ── Loading / Error states ──────────────────────────────────────────────
 
@@ -99,14 +144,19 @@ export function AudioCardContent({ item, isCompact = false, isScrollLocked = fal
             {audioData.error || "An error occurred while processing the audio."}
           </p>
         </div>
-        {onRetryProcessing && audioData.fileUrl && (
+        {audioData.fileUrl && (
           <button
             type="button"
-            onClick={() => onRetryProcessing(item.id)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer"
+            onClick={handleRetry}
+            disabled={isRetrying}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-50"
           >
-            <RotateCcw className="h-3 w-3" />
-            Retry
+            {isRetrying ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RotateCcw className="h-3 w-3" />
+            )}
+            {isRetrying ? "Retrying..." : "Retry"}
           </button>
         )}
       </div>
