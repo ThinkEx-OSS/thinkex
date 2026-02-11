@@ -126,7 +126,7 @@ const MODEL_PROVIDERS = [
     provider: "Claude",
     icon: <SiClaude className="size-3.5" />,
     models: [
-      { id: "anthropic/claude-sonnet-4.5", name: "Sonnet 4.5", description: "Latest Claude model" },
+      { id: "gemini-3-flash-preview", name: "Sonnet 4.5", description: "Latest Claude model" },
     ],
   },
   {
