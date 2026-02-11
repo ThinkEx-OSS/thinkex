@@ -85,7 +85,6 @@ function FolderCardComponent({
   const [isDragHover, setIsDragHover] = useState(false);
   const [selectedCount, setSelectedCount] = useState<number | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [shouldAutoFocus, setShouldAutoFocus] = useState(false);
 
   // Subscribe directly to this folder's selection state from the store
   const isSelected = useUIStore(
@@ -103,19 +102,8 @@ function FolderCardComponent({
 
   const folderColor = item.color || "#6366F1"; // Default to indigo
 
-  // Auto-focus and scroll into view for newly created folders (name is "New Folder")
-  useEffect(() => {
-    if (item.name === "New Folder") {
-      setShouldAutoFocus(true);
-      // Scroll the folder card into view
-      const element = document.getElementById(`item-${item.id}`);
-      if (element) {
-        setTimeout(() => {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 100);
-      }
-    }
-  }, [item.id, item.name]);
+  // Note: Auto-focus removed - user must click to edit title
+  // Scroll behavior is handled by useReactiveNavigation hook
 
   // Listen for drag hover events
   useEffect(() => {
@@ -406,19 +394,13 @@ function FolderCardComponent({
                   subtitle=""
                   description=""
                   onNameChange={handleNameChange}
-                  onNameCommit={(value) => {
-                    handleNameCommit(value);
-                    // Clear auto-focus after first commit
-                    if (shouldAutoFocus) {
-                      setShouldAutoFocus(false);
-                    }
-                  }}
+                  onNameCommit={handleNameCommit}
                   onSubtitleChange={() => { }}
                   onTitleFocus={() => setIsEditingTitle(true)}
                   onTitleBlur={() => setIsEditingTitle(false)}
                   readOnly={false}
                   noMargin={true}
-                  autoFocus={shouldAutoFocus}
+                  autoFocus={false}
                 />
                 {/* Item count as subtext */}
                 <p className="text-sm text-muted-foreground mt-1">

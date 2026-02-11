@@ -416,7 +416,8 @@ export function WorkspaceSection({
     // Clear the selection
     clearCardSelection();
 
-    // Note: FolderCard auto-focuses the title when name is "New Folder"
+    // Navigate to the newly created folder
+    handleCreatedItems([folderId]);
   };
 
   // Handle PDF upload from BottomActionBar
@@ -650,7 +651,14 @@ export function WorkspaceSection({
                     }
                   }
                 },
-                onCreateFolder: () => { if (addItem) addItem("folder"); },
+                onCreateFolder: () => {
+                  if (addItem) {
+                    const itemId = addItem("folder");
+                    if (handleCreatedItems && itemId) {
+                      handleCreatedItems([itemId]);
+                    }
+                  }
+                },
                 onUpload: () => handleUploadMenuItemClick(),
                 onAudio: () => openAudioDialog(),
                 onYouTube: () => setShowYouTubeDialog(true),

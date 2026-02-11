@@ -974,7 +974,14 @@ export default function WorkspaceHeader({
                           }
                         }
                       },
-                      onCreateFolder: () => { if (addItem) addItem("folder"); },
+                      onCreateFolder: () => {
+                        if (addItem) {
+                          const itemId = addItem("folder");
+                          if (onItemCreated && itemId) {
+                            onItemCreated([itemId]);
+                          }
+                        }
+                      },
                       onUpload: () => { setShowUploadDialog(true); setIsNewMenuOpen(false); },
                       onAudio: () => { openAudioDialog(); setIsNewMenuOpen(false); },
                       onYouTube: () => { setShowYouTubeDialog(true); setIsNewMenuOpen(false); },
