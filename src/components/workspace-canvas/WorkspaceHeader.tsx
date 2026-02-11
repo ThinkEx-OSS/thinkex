@@ -828,12 +828,12 @@ export default function WorkspaceHeader({
                     <LuPanelLeftOpen />
                   )}
                   <span className="text-xs font-medium">
-                    {workspaceSplitViewActive ? "Focus" : "Split View"}
+                    {workspaceSplitViewActive ? "Focus" : "Split"}
                   </span>
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                {workspaceSplitViewActive ? "Focus on this item" : "Split View"}
+                {workspaceSplitViewActive ? "Focus on this item" : "Split"}
               </TooltipContent>
             </Tooltip>
 
