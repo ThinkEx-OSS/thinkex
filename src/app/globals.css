@@ -316,6 +316,51 @@
   flex: 1 !important;
 }
 
+/* Remove black background from code blocks in BlockNote editor */
+.bn-block-content[data-content-type="codeBlock"],
+.bn-block-content[data-content-type="codeBlock"] pre,
+.bn-block-content[data-content-type="codeBlock"] code {
+  background: transparent !important;
+}
+
+/* Ensure code blocks use theme-aware colors */
+.bn-block-content[data-content-type="codeBlock"] pre,
+.bn-block-content[data-content-type="codeBlock"] code {
+  color: hsl(var(--foreground)) !important;
+  background-color: hsl(var(--muted)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+/* Fix black background above and below code block containers */
+.bn-block-content[data-content-type="codeBlock"] {
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.bn-block-content[data-content-type="codeBlock"] > div {
+  background: transparent !important;
+}
+
+/* Remove any inherited backgrounds from the code block wrapper */
+.bn-block-content[data-content-type="codeBlock"] .custom-code-block-editor {
+  background: hsl(var(--background)) !important;
+}
+
+/* Force transparent background on all code block related elements */
+.bn-block-content[data-content-type="codeBlock"],
+.bn-block-content[data-content-type="codeBlock"] *,
+.bn-block-content[data-content-type="codeBlock"]::before,
+.bn-block-content[data-content-type="codeBlock"]::after {
+  background: transparent !important;
+}
+
+/* Only allow specific backgrounds for code content */
+.bn-block-content[data-content-type="codeBlock"] .custom-code-block-editor,
+.bn-block-content[data-content-type="codeBlock"] .code-block-editor-pre {
+  background: hsl(var(--muted)) !important;
+}
+
 /* Make BlockNote blockquotes white instead of gray */
 .bn-block-content[data-content-type="quote"] blockquote,
 .bn-block-content[data-content-type="quote"] .bn-inline-content {
