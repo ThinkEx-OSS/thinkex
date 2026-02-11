@@ -288,37 +288,6 @@ export function PdfPanelHeader({
                 <TooltipContent>{showThumbnails ? 'Hide Thumbnails' : 'Show Thumbnails'}</TooltipContent>
             </Tooltip>
 
-            {/* Zoom Dropdown */}
-            <DropdownMenu>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <DropdownMenuTrigger asChild>
-                            <button className="inline-flex h-8 items-center justify-center rounded-md px-2 text-sm text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer min-w-[50px] border border-sidebar-border">
-                                {zoomPercent}%
-                                <ChevronDown className="ml-1 h-3 w-3 opacity-50" />
-                            </button>
-                        </DropdownMenuTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent>Zoom Options</TooltipContent>
-                </Tooltip>
-                <DropdownMenuContent align="end" className="w-32">
-                    <DropdownMenuItem onClick={() => zoomProvides?.requestZoom(ZoomMode.FitPage)}>
-                        Fit to Page
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => zoomProvides?.requestZoom(ZoomMode.FitWidth)}>
-                        Fit to Width
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    {[50, 75, 100, 125, 150, 200].map((percent) => (
-                        <DropdownMenuItem
-                            key={percent}
-                            onClick={() => zoomProvides?.requestZoom(percent / 100)}
-                        >
-                            {percent}%
-                        </DropdownMenuItem>
-                    ))}
-                </DropdownMenuContent>
-            </DropdownMenu>
 
 
 
@@ -336,21 +305,32 @@ export function PdfPanelHeader({
                 <TooltipContent>{captureState.isMarqueeCaptureActive ? "Cancel Capture" : "Capture Area"}</TooltipContent>
             </Tooltip>
 
+            {/* PDF Options Dropdown */}
+            <DropdownMenu>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                            <button className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer border border-sidebar-border">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </button>
+                        </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>PDF Options</TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent align="end" className="w-40">
+                    <DropdownMenuItem onClick={() => zoomProvides?.requestZoom(ZoomMode.FitWidth)}>
+                        <Expand className="mr-2 h-4 w-4" />
+                        Fit to Width
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => rotateProvider?.rotateBackward()}>
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        Rotate Left
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
 
 
-            {/* Rotate Button */}
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <button
-                        type="button"
-                        onClick={() => rotateProvider?.rotateBackward()}
-                        className={buttonClass}
-                    >
-                        <RotateCcw className={iconClass} />
-                    </button>
-                </TooltipTrigger>
-                <TooltipContent>Rotate Left</TooltipContent>
-            </Tooltip>
+
 
 
         </>

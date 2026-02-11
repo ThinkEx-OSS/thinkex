@@ -828,7 +828,7 @@ export default function WorkspaceHeader({
                     <LuPanelLeftOpen />
                   )}
                   <span className="text-xs font-medium">
-                    {workspaceSplitViewActive ? "Focus" : "Split View"}
+                    {workspaceSplitViewActive ? "Focus" : "Split"}
                   </span>
                 </button>
               </TooltipTrigger>
@@ -837,18 +837,6 @@ export default function WorkspaceHeader({
               </TooltipContent>
             </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => onCloseActiveItem?.(activeItems[0].id)}
-                  className="h-8 w-8 flex items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
-                  aria-label="Close"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>Close</TooltipContent>
-            </Tooltip>
 
             {setIsChatExpanded ? (
               <ChatFloatingButton

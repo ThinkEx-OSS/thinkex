@@ -54,7 +54,7 @@ export function ItemOpenPrompt({ position, onReplace, onSplit, onCancel }: ItemO
                         className="flex items-center gap-2 px-2 py-1.5 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground rounded-sm cursor-pointer select-none outline-none"
                     >
                         <Columns className="size-4 text-muted-foreground" />
-                        <span>Split View</span>
+                        <span>Split</span>
                     </button>
                 </div>
             </div>
