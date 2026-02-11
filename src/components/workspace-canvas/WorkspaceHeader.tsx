@@ -806,7 +806,7 @@ export default function WorkspaceHeader({
                     const { toggleWorkspaceSplitView } = useUIStore.getState();
                     toggleWorkspaceSplitView();
                   }}
-                  className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer px-3"
+                  className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer px-3 mr-2"
                   aria-label={workspaceSplitViewActive ? "Focus" : "Split View"}
                 >
                   {workspaceSplitViewActive ? (
@@ -835,19 +835,6 @@ export default function WorkspaceHeader({
               <TooltipContent>
                 {workspaceSplitViewActive ? "Focus on this item" : "Split View"}
               </TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => onCloseActiveItem?.(activeItems[0].id)}
-                  className="h-8 w-8 flex items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
-                  aria-label="Close"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>Close</TooltipContent>
             </Tooltip>
 
             {setIsChatExpanded ? (

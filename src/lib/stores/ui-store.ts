@@ -201,6 +201,7 @@ export const useUIStore = create<UIState>()(
             activeFolderId: folderId,
             openPanelIds: [],
             maximizedItemId: null,
+            workspaceSplitViewActive: false,
             selectedCardIds: newSelectedCardIds,
             panelAutoSelectedCardIds: new Set(),
           };
@@ -217,6 +218,7 @@ export const useUIStore = create<UIState>()(
             activeFolderId: null,
             openPanelIds: [],
             maximizedItemId: null,
+            workspaceSplitViewActive: false,
             selectedCardIds: newSelectedCardIds,
             panelAutoSelectedCardIds: new Set(),
           };
@@ -236,6 +238,7 @@ export const useUIStore = create<UIState>()(
         return {
           openPanelIds: [],
           maximizedItemId: null,
+          workspaceSplitViewActive: false,
           selectedCardIds: newSelectedCardIds,
           panelAutoSelectedCardIds: new Set(),
         };
@@ -288,6 +291,7 @@ export const useUIStore = create<UIState>()(
           return {
             openPanelIds: [],
             maximizedItemId: null,
+            workspaceSplitViewActive: false,
             selectedCardIds: newSelectedCardIds,
             panelAutoSelectedCardIds: new Set(),
           };
@@ -512,6 +516,7 @@ export const useUIStore = create<UIState>()(
           openPanelIds: [],
           itemPrompt: null,
           maximizedItemId: null,
+          workspaceSplitViewActive: false,
           showVersionHistory: false,
           showCreateWorkspaceModal: false,
           showSheetModal: false,

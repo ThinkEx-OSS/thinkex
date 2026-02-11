@@ -1,13 +1,12 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import ItemHeader from "@/components/workspace-canvas/ItemHeader";
 import SpotlightModal from "@/components/SpotlightModal";
 import { getCardColorCSS, getCardAccentColor, getWhiteTintedColor } from "@/lib/workspace-state/colors";
 import type { Item, PdfData } from "@/lib/workspace-state/types";
-import { useUIStore, selectSelectedCardIdsArray } from "@/lib/stores/ui-store";
-import { useShallow } from "zustand/react/shallow";
+import { useUIStore } from "@/lib/stores/ui-store";
 import { formatKeyboardShortcut } from "@/lib/utils/keyboard-shortcut";
 import { ItemPanelContent } from "@/components/workspace-canvas/ItemPanelContent";
 
@@ -33,19 +32,12 @@ export function PDFViewerModal({
   const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
 
-  // Use array selector with shallow comparison to prevent unnecessary re-renders and SSR issues
-  const selectedCardIdsArray = useUIStore(
-    useShallow(selectSelectedCardIdsArray)
-  );
-  const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
-
-  // Track whether we selected the card (so we know whether to deselect on cleanup)
+  // Auto-select card when modal opens (read selection state imperatively to avoid infinite loops)
   useEffect(() => {
-    // Only run when modal is open and we have an item
     if (!isOpen || !item?.id) return;
 
     // Check if card was already selected at the time of opening
-    const wasAlreadySelected = selectedCardIds.has(item.id);
+    const wasAlreadySelected = useUIStore.getState().selectedCardIds.has(item.id);
 
     // If not already selected, select it now (adds it to context)
     if (!wasAlreadySelected) {
@@ -59,7 +51,7 @@ export function PDFViewerModal({
 
     // If it was already selected, don't change anything on cleanup
     return undefined;
-  }, [isOpen, item?.id, selectedCardIds, toggleCardSelection]);
+  }, [isOpen, item?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {

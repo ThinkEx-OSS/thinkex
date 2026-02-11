@@ -40,14 +40,13 @@ export function CardDetailModal({
   // Since WorkspaceCard now subscribes directly to its own isSelected state,
   // changing the selection will only re-render the affected card, not all cards
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
-  const selectedCardIds = useUIStore((state) => state.selectedCardIds);
 
-  // Auto-select card when modal opens
+  // Auto-select card when modal opens (read selection state imperatively to avoid infinite loops)
   useEffect(() => {
     if (!isOpen || !item?.id) return;
 
     // Check if card was already selected at the time of opening
-    const wasAlreadySelected = selectedCardIds.has(item.id);
+    const wasAlreadySelected = useUIStore.getState().selectedCardIds.has(item.id);
 
     // If not already selected, select it now
     if (!wasAlreadySelected) {
@@ -61,8 +60,6 @@ export function CardDetailModal({
 
     return undefined;
   }, [isOpen, item?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
 
   // Handle escape key
   const handleEscape = useCallback(
