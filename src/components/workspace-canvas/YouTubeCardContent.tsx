@@ -5,7 +5,7 @@ import type { Item, YouTubeData } from "@/lib/workspace-state/types";
 import { extractYouTubeVideoId, getYouTubeThumbnailUrl, extractYouTubePlaylistId } from "@/lib/utils/youtube-url";
 import { Play, List, Video } from "lucide-react";
 import { useYouTubePlayer } from "@/hooks/use-youtube-player";
-import { YouTubePlayerControls } from "./YouTubePlayerControls";
+
 
 interface YouTubeCardContentProps {
   item: Item;
@@ -24,16 +24,14 @@ export function YouTubeCardContent({ item, isPlaying, onTogglePlay }: YouTubeCar
 
   const hasValidUrl = videoId !== null || playlistId !== null;
 
-  // IFrame Player API hook – only active when the card is in "playing" mode
-  // Native YouTube controls are hidden; our custom overlay replaces them
   const { containerRef, playerRef, isReady } = useYouTubePlayer({
     videoId: isPlaying ? videoId : null,
     playlistId: isPlaying ? playlistId : null,
     playerVars: {
       autoplay: 0,
-      controls: 0,
-      disablekb: 1,
-      fs: 0,
+      controls: 1,
+      disablekb: 0,
+      fs: 1,
       iv_load_policy: 3,
       playsinline: 1,
       rel: 0,
@@ -56,8 +54,7 @@ export function YouTubeCardContent({ item, isPlaying, onTogglePlay }: YouTubeCar
       iframe.style.width = "100%";
       iframe.style.height = "100%";
       iframe.style.borderRadius = "0.5rem";
-      iframe.style.pointerEvents = "none";
-      iframe.tabIndex = -1;
+      // pointer-events:none removed to allow interaction with native controls
       iframe.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture");
       iframe.allowFullscreen = true;
     } catch {
@@ -65,9 +62,7 @@ export function YouTubeCardContent({ item, isPlaying, onTogglePlay }: YouTubeCar
     }
   }, [isReady, playerRef]);
 
-  const handleAdjust = useCallback(() => {
-    onTogglePlay(false);
-  }, [onTogglePlay]);
+
 
   if (!hasValidUrl) {
     // Invalid URL - show error state
@@ -87,19 +82,29 @@ export function YouTubeCardContent({ item, isPlaying, onTogglePlay }: YouTubeCar
 
   return (
     <div
-      className="flex-1 min-h-0 relative"
+      className="flex-1 min-h-0 relative group"
       data-youtube-content
     >
       {isPlaying ? (
         <>
           {/* The YT.Player API replaces this div with its iframe */}
           <div ref={containerRef} className="w-full h-full" />
-          {/* Custom controls overlay – replaces YouTube's native chrome */}
-          <YouTubePlayerControls
-            playerRef={playerRef}
-            isReady={isReady}
-            onAdjust={handleAdjust}
-          />
+
+          {/* Adjust Button Overlay - Visible on hover */}
+          <div className="absolute top-0 left-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+            <div className="flex justify-start pointer-events-auto">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTogglePlay(false);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium text-white/90 hover:text-white bg-black/50 hover:bg-black/70 backdrop-blur-md transition-colors shadow-sm"
+              >
+                Adjust
+              </button>
+            </div>
+          </div>
         </>
       ) : (
         // Thumbnail view with play button (or playlist fallback)
