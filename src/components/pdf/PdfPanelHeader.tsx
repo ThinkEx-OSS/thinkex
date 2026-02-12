@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, memo, useLayoutEffect } from 'react';
 import { createPortal } from "react-dom";
 import { X, RotateCcw, Maximize, Minimize, ChevronUp, ChevronDown, MoreHorizontal, Expand, Shrink, Camera } from 'lucide-react';
 import { LuLayoutList } from "react-icons/lu";
@@ -13,6 +13,7 @@ import {
     DropdownMenuTrigger,
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useAui } from "@assistant-ui/react";
@@ -25,7 +26,6 @@ import { useFullscreen } from '@embedpdf/plugin-fullscreen/react';
 
 import { useScroll } from '@embedpdf/plugin-scroll/react';
 import { useCapture } from '@embedpdf/plugin-capture/react';
-// Separate SearchBar component - mounts fresh so autoFocus works
 
 
 interface PdfPanelHeaderProps {
@@ -44,7 +44,9 @@ interface PdfPanelHeaderProps {
 }
 
 
-export function PdfPanelHeader({
+
+
+export const PdfPanelHeader = memo(function PdfPanelHeader({
     documentId,
     itemName,
     isMaximized,
@@ -57,6 +59,8 @@ export function PdfPanelHeader({
     isLeftPanel = false, // Default to false for backwards compat
     renderInPortal = false,
 }: PdfPanelHeaderProps) {
+
+
     const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 
     useEffect(() => {
@@ -72,33 +76,35 @@ export function PdfPanelHeader({
 
     const { provides: capture, state: captureState } = useCapture(documentId);
 
+    // Stabilize capture ref — useCapture returns a new scope object every render
+    // which would cause useEffect to re-subscribe on every render
+    const captureRef = useRef(capture);
+    captureRef.current = capture;
+
     const aui = useAui();
+    const auiRef = useRef(aui);
+    auiRef.current = aui;
 
     const isChatExpanded = useUIStore((state) => state.isChatExpanded);
     const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
 
-
-
-
-
-    // Handle Capture
+    // Handle Capture — use refs for unstable values to prevent effect re-firing
     useEffect(() => {
-        if (!capture) return;
+        const cap = captureRef.current;
+        if (!cap) return;
 
-        const unsubscribe = capture.onCaptureArea(async (result) => {
+        const unsubscribe = cap.onCaptureArea(async (result) => {
             try {
                 // Convert blob to File
                 const filename = `capture-page-${result.pageIndex + 1}-${Date.now()}.png`;
                 const file = new File([result.blob], filename, { type: result.imageType });
 
                 // Add attachment to composer
-                await aui.composer().addAttachment(file);
+                await auiRef.current.composer().addAttachment(file);
                 toast.success("Screenshot added to chat");
 
                 // Turn off capture mode
-                if (captureState.isMarqueeCaptureActive) {
-                    capture.toggleMarqueeCapture();
-                }
+                captureRef.current?.toggleMarqueeCapture();
 
             } catch (error) {
                 console.error("Failed to add capture attachment:", error);
@@ -109,7 +115,9 @@ export function PdfPanelHeader({
         return () => {
             unsubscribe();
         };
-    }, [capture, aui, captureState.isMarqueeCaptureActive]);
+        // Only re-subscribe when documentId changes (capture scope depends on it)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [documentId]);
 
 
     const zoomPercent = zoomState?.currentZoomLevel
@@ -122,7 +130,7 @@ export function PdfPanelHeader({
 
 
 
-    const ControlsGroup = () => (
+    const controlsContent = (
         <>
             {/* Thumbnail Toggle */}
             <Tooltip>
@@ -137,9 +145,6 @@ export function PdfPanelHeader({
                 </TooltipTrigger>
                 <TooltipContent>{showThumbnails ? 'Hide Thumbnails' : 'Show Thumbnails'}</TooltipContent>
             </Tooltip>
-
-
-
 
             {/* Capture Button */}
             <Tooltip>
@@ -157,16 +162,11 @@ export function PdfPanelHeader({
 
             {/* PDF Options Dropdown */}
             <DropdownMenu>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <DropdownMenuTrigger asChild>
-                            <button className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer border border-sidebar-border">
-                                <MoreHorizontal className="h-4 w-4" />
-                            </button>
-                        </DropdownMenuTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent>PDF Options</TooltipContent>
-                </Tooltip>
+                <DropdownMenuTrigger asChild>
+                    <button className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer border border-sidebar-border">
+                        <MoreHorizontal className="h-4 w-4" />
+                    </button>
+                </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-40">
                     <DropdownMenuItem onClick={() => zoomProvides?.requestZoom(ZoomMode.FitWidth)}>
                         <Expand className="mr-2 h-4 w-4" />
@@ -178,11 +178,6 @@ export function PdfPanelHeader({
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>
-
-
-
-
-
         </>
     );
 
@@ -191,7 +186,7 @@ export function PdfPanelHeader({
     if (renderInPortal && portalTarget) {
         return (
             <>
-                {createPortal(<ControlsGroup />, portalTarget)}
+                {createPortal(controlsContent, portalTarget)}
 
             </>
         );
@@ -200,44 +195,33 @@ export function PdfPanelHeader({
     return (
         <div className="flex flex-col">
             {/* Main Header Row */}
-            <div className="flex items-center justify-between py-2 px-3 gap-2">
-                {/* Left: Thumbnails + Title */}
+            <div className="flex items-center justify-between py-2 px-3 gap-2 h-12">
+                {/* Left: Title */}
                 <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                    <ControlsGroup />
-
-
-
-                    {isMaximized && (
-                        <span className="text-sm font-medium text-sidebar-foreground truncate ml-1">
-                            {itemName}
-                        </span>
-                    )}
+                    <div className="text-sm font-medium text-sidebar-foreground truncate" title={itemName}>
+                        {itemName}
+                    </div>
                 </div>
 
-
-
-                {/* Right: Fullscreen, More, Close (Standard Controls) */}
+                {/* Right: Controls (Hover Only) */}
                 <div className="flex items-center gap-2 flex-shrink-0">
+                    {controlsContent}
 
+                    <div className="w-px h-4 bg-sidebar-border mx-1" />
+
+                    {/* Focus / Replace Button */}
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <button
                                 onClick={onMaximize}
                                 className={buttonClass}
+                                aria-label="Focus"
                             >
-                                {isMaximized ? (
-                                    <Minimize className={iconClass} />
-                                ) : (
-                                    <Maximize className={iconClass} />
-                                )}
+                                <Maximize className={iconClass} />
                             </button>
                         </TooltipTrigger>
-                        <TooltipContent>{isMaximized ? 'Restore to Panel' : 'Maximize to Modal'}</TooltipContent>
+                        <TooltipContent>Open in full screen focus mode</TooltipContent>
                     </Tooltip>
-
-
-
-
 
                     {/* Close Button */}
                     <button
@@ -260,9 +244,6 @@ export function PdfPanelHeader({
                     )}
                 </div>
             </div>
-
-
-
         </div>
     );
-}
+});

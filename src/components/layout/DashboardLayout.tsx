@@ -9,6 +9,8 @@ import { AssistantDropzone } from "@/components/assistant-ui/AssistantDropzone";
 import { PANEL_DEFAULTS } from "@/lib/layout-constants";
 import React, { useCallback, useEffect, useRef } from "react";
 
+import { useUIStore, type ViewMode } from "@/lib/stores/ui-store";
+
 interface DashboardLayoutProps {
   // Workspace sidebar
   currentWorkspaceId: string | null;
@@ -17,9 +19,6 @@ interface DashboardLayoutProps {
   onWorkspaceSwitch: (slug: string) => void;
   showCreateModal: boolean;
   setShowCreateModal: (show: boolean) => void;
-
-  // Workspace header (should span sidebar + workspace area)
-  workspaceHeader?: React.ReactNode;
 
   // Chat state
   isDesktop: boolean;
@@ -36,10 +35,9 @@ interface DashboardLayoutProps {
 
   // Component slots
   workspaceSection: React.ReactNode;
-  panels: React.ReactNode[];  // Array of panel elements to render (max 2)
-  modalManager?: React.ReactNode; // Add modalManager as a separate prop
-  maximizedItemId?: string | null; // Add maximized item ID
-
+  splitViewContent?: React.ReactNode; // Split view layout for panel+panel mode
+  panelContent?: React.ReactNode; // Single panel content for workspace+panel mode (full height)
+  workspaceHeader?: React.ReactNode; // Header that spans above sidebar + workspace
 }
 
 /**
@@ -53,7 +51,6 @@ export function DashboardLayout({
   onWorkspaceSwitch,
   showCreateModal,
   setShowCreateModal,
-  workspaceHeader,
   isDesktop,
   isChatExpanded,
   isChatMaximized,
@@ -64,13 +61,13 @@ export function DashboardLayout({
   onMultiSelect,
   onAssistantThreadRunningChange,
   workspaceSection,
-  panels,
-  modalManager,
-  maximizedItemId,
-
+  splitViewContent,
+  panelContent,
+  workspaceHeader,
 }: DashboardLayoutProps) {
   // Get sidebar control to auto-close when panels open
   const { setOpen } = useSidebar();
+  const viewMode = useUIStore((state) => state.viewMode);
 
   // OPTIMIZED: Memoize onLayoutChange callback to prevent ResizablePanelGroup re-renders
   // This prevents cascading re-renders of all ResizablePanel children
@@ -133,41 +130,90 @@ export function DashboardLayout({
             })()}
             minSize={effectiveChatExpanded ? `${PANEL_DEFAULTS.WORKSPACE_MIN}%` : "100%"}
           >
-            <div className="h-full flex flex-col relative overflow-hidden">
-              {/* Header spans sidebar + workspace canvas (only render when a workspace exists) */}
-              {!!currentWorkspaceId && workspaceHeader}
-
-              {/* Below header: sidebar + workspace content */}
-              <div className="flex flex-1 overflow-hidden relative">
-                <Sidebar
-                  side="left"
-                  variant="sidebar"
-                  collapsible="offcanvas"
-                  key={`sidebar-${currentWorkspaceId || "none"}`}
-                  embedded
+            {/* workspace+panel mode: split at the outer level so panel is full height */}
+            {viewMode === 'workspace+panel' && panelContent ? (
+              <ResizablePanelGroup
+                id="split-view-workspace-panel"
+                orientation="horizontal"
+                className="h-full"
+              >
+                {/* Left: header + sidebar + workspace */}
+                <ResizablePanel
+                  id="split-workspace"
+                  defaultSize="50%"
+                  minSize="25%"
+                  maxSize="70%"
                 >
-                  <WorkspaceSidebar
-                    showJsonView={showJsonView}
-                    setShowJsonView={setShowJsonView}
-                    onWorkspaceSwitch={onWorkspaceSwitch}
-                    showCreateModal={showCreateModal}
-                    setShowCreateModal={setShowCreateModal}
-                    isChatExpanded={effectiveChatExpanded}
-                    setIsChatExpanded={setIsChatExpanded}
-                  />
-                </Sidebar>
+                  <div className="h-full flex flex-col relative overflow-hidden">
+                    {!!currentWorkspaceId && workspaceHeader}
+                    <div className="flex flex-1 overflow-hidden relative">
+                      <Sidebar
+                        side="left"
+                        variant="sidebar"
+                        collapsible="offcanvas"
+                        key={`sidebar-${currentWorkspaceId || "none"}`}
+                        embedded
+                      >
+                        <WorkspaceSidebar
+                          showJsonView={showJsonView}
+                          setShowJsonView={setShowJsonView}
+                          onWorkspaceSwitch={onWorkspaceSwitch}
+                          showCreateModal={showCreateModal}
+                          setShowCreateModal={setShowCreateModal}
+                          isChatExpanded={effectiveChatExpanded}
+                          setIsChatExpanded={setIsChatExpanded}
+                        />
+                      </Sidebar>
+                      <SidebarInset className="flex flex-col relative overflow-hidden">
+                        <WorkspaceCanvasDropzone>{workspaceSection}</WorkspaceCanvasDropzone>
+                      </SidebarInset>
+                    </div>
+                  </div>
+                </ResizablePanel>
 
-                <SidebarInset className="flex flex-col relative overflow-hidden">
-                  <WorkspaceCanvasDropzone>{workspaceSection}</WorkspaceCanvasDropzone>
-                  {/* Hide workspace content when item is maximized for better performance */}
-                  {maximizedItemId && (
-                    <div className="absolute inset-0 bg-background pointer-events-none" />
-                  )}
-                  {/* Modal Manager - positioned here to cover strictly the workspace content area (below header) */}
-                  {modalManager}
-                </SidebarInset>
+                <ResizableHandle id="split-handle" className="border-r border-sidebar-border" />
+
+                {/* Right: item panel (full height) */}
+                <ResizablePanel
+                  id="split-item-panel"
+                  defaultSize="50%"
+                  minSize="30%"
+                >
+                  {panelContent}
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            ) : (
+              /* Normal mode or panel+panel mode */
+              <div className="h-full flex flex-col relative overflow-hidden">
+                {!!currentWorkspaceId && viewMode !== 'panel+panel' && workspaceHeader}
+                <div className="flex flex-1 overflow-hidden relative">
+                  <Sidebar
+                    side="left"
+                    variant="sidebar"
+                    collapsible="offcanvas"
+                    key={`sidebar-${currentWorkspaceId || "none"}`}
+                    embedded
+                  >
+                    <WorkspaceSidebar
+                      showJsonView={showJsonView}
+                      setShowJsonView={setShowJsonView}
+                      onWorkspaceSwitch={onWorkspaceSwitch}
+                      showCreateModal={showCreateModal}
+                      setShowCreateModal={setShowCreateModal}
+                      isChatExpanded={effectiveChatExpanded}
+                      setIsChatExpanded={setIsChatExpanded}
+                    />
+                  </Sidebar>
+                  <SidebarInset className="flex flex-col relative overflow-hidden">
+                    {viewMode === 'panel+panel' && splitViewContent ? (
+                      <>{splitViewContent}</>
+                    ) : (
+                      <WorkspaceCanvasDropzone>{workspaceSection}</WorkspaceCanvasDropzone>
+                    )}
+                  </SidebarInset>
+                </div>
               </div>
-            </div>
+            )}
           </ResizablePanel>
 
           {/* Chat Section - Only when expanded and workspace exists */}
@@ -176,7 +222,7 @@ export function DashboardLayout({
               <ResizableHandle id="workspace-chat-handle" className="border-r border-sidebar-border" />
               <ResizablePanel
                 id="chat-panel"
-                defaultSize={panels.length > 0 ? `${PANEL_DEFAULTS.CHAT_MIN}%` : `${PANEL_DEFAULTS.CHAT}%`}
+                defaultSize={`${PANEL_DEFAULTS.CHAT}%`}
                 minSize={`${PANEL_DEFAULTS.CHAT_MIN}%`}
                 maxSize={`${PANEL_DEFAULTS.CHAT_MAX}%`}
               >

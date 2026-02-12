@@ -1,13 +1,12 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import ItemHeader from "@/components/workspace-canvas/ItemHeader";
 import SpotlightModal from "@/components/SpotlightModal";
 import { getCardColorCSS, getCardAccentColor, getWhiteTintedColor } from "@/lib/workspace-state/colors";
 import type { Item, PdfData } from "@/lib/workspace-state/types";
-import { useUIStore, selectSelectedCardIdsArray } from "@/lib/stores/ui-store";
-import { useShallow } from "zustand/react/shallow";
+import { useUIStore } from "@/lib/stores/ui-store";
 import { formatKeyboardShortcut } from "@/lib/utils/keyboard-shortcut";
 import { ItemPanelContent } from "@/components/workspace-canvas/ItemPanelContent";
 
@@ -33,33 +32,14 @@ export function PDFViewerModal({
   const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
 
-  // Use array selector with shallow comparison to prevent unnecessary re-renders and SSR issues
-  const selectedCardIdsArray = useUIStore(
-    useShallow(selectSelectedCardIdsArray)
-  );
-  const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
+  // Check if card was already selected at the time of opening
+  // We access the store directly to avoid creating a subscription loop
+  // const currentSelectedIds = useUIStore.getState().selectedCardIds;
+  // const wasAlreadySelected = currentSelectedIds.has(item.id);
 
-  // Track whether we selected the card (so we know whether to deselect on cleanup)
-  useEffect(() => {
-    // Only run when modal is open and we have an item
-    if (!isOpen || !item?.id) return;
-
-    // Check if card was already selected at the time of opening
-    const wasAlreadySelected = selectedCardIds.has(item.id);
-
-    // If not already selected, select it now (adds it to context)
-    if (!wasAlreadySelected) {
-      toggleCardSelection(item.id);
-
-      // Only deselect on cleanup if we were the ones who selected it
-      return () => {
-        toggleCardSelection(item.id);
-      };
-    }
-
-    // If it was already selected, don't change anything on cleanup
-    return undefined;
-  }, [isOpen, item?.id, selectedCardIds, toggleCardSelection]);
+  // Auto-selection is now handled by the URL sync mechanism in ui-store (_openPanelDirect)
+  // or by the manual open action (openPanel).
+  // We no longer need to manually select it here, which avoids the infinite loop risk.
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {

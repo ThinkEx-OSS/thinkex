@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import type { AgentState, Item, CardType, PdfData } from "@/lib/workspace-state/types";
 import type { WorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import WorkspaceContent from "./WorkspaceContent";
+import WorkspaceHeader from "@/components/workspace-canvas/WorkspaceHeader";
 import SelectionActionBar from "./SelectionActionBar";
 import { WorkspaceSkeleton } from "@/components/workspace/WorkspaceSkeleton";
 import { MarqueeSelector } from "./MarqueeSelector";
@@ -113,6 +114,22 @@ interface WorkspaceSectionProps {
   workspaceTitle?: string;
   workspaceIcon?: string | null;
   workspaceColor?: string | null;
+
+  // Header Props
+  onRenameFolder?: (folderId: string, newName: string) => void;
+  onOpenSettings?: () => void;
+  onOpenShare?: () => void;
+
+  // Active Item Helper Props (for header to control active items)
+  activeItems?: Item[];
+  activeItemMode?: 'maximized' | 'maximized' | null;
+  onCloseActiveItem?: (itemId: string) => void;
+  onMinimizeActiveItem?: (itemId: string) => void;
+  onMaximizeActiveItem?: (itemId: string | null) => void;
+  onUpdateActiveItem?: (itemId: string, updates: Partial<Item>) => void;
+
+  // Modal Manager
+  modalManager?: React.ReactNode;
 }
 
 /**
@@ -152,6 +169,17 @@ export function WorkspaceSection({
   workspaceColor,
   operations,
   isItemPanelOpen,
+  onRenameFolder,
+  onOpenSettings,
+  onOpenShare,
+
+  activeItems,
+  activeItemMode,
+  onCloseActiveItem,
+  onMinimizeActiveItem,
+  onMaximizeActiveItem,
+  onUpdateActiveItem,
+  modalManager,
 }: WorkspaceSectionProps) {
   // Card selection state from UI store
   // Use array selector with shallow comparison to prevent unnecessary re-renders and SSR issues
@@ -573,6 +601,8 @@ export function WorkspaceSection({
       data-tour="workspace-canvas"
       onMouseDown={handleWorkspaceMouseDown}
     >
+      {/* WorkspaceHeader is now rendered in DashboardLayout above the sidebar */}
+
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div ref={scrollAreaRef} className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
@@ -580,6 +610,9 @@ export function WorkspaceSection({
               "relative min-h-full flex flex-col",
               showJsonView ? "h-full" : "",
             )}>
+              {/* Modal Manager - Renders over content but BELOW header */}
+              {modalManager}
+
               {/* Show skeleton until workspace content is loaded */}
               {(!currentWorkspaceId && currentSlug) || (currentWorkspaceId && isLoadingWorkspace) ? (
                 // If it's taking too long or we have no workspace ID but have a slug,

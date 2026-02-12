@@ -1,6 +1,6 @@
 import { QuizContent } from "./QuizContent";
 import { ImageCardContent } from "./ImageCardContent";
-import { MoreVertical, Trash2, Palette, CheckCircle2, FolderInput, FileText, Copy, X, Pencil, Columns, Link2 } from "lucide-react";
+import { MoreVertical, Trash2, Palette, CheckCircle2, FolderInput, FileText, Copy, X, Pencil, Columns, Link2, PanelRight, SplitSquareHorizontal } from "lucide-react";
 import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
 import { useCallback, useState, memo, useRef, useEffect, useMemo } from "react";
 import { useTheme } from "next-themes";
@@ -223,6 +223,8 @@ function WorkspaceCard({
   const setOpenModalItemId = useUIStore((state) => state.setOpenModalItemId);
   const openPanel = useUIStore((state) => state.openPanel);
   const closePanel = useUIStore((state) => state.closePanel);
+  const viewMode = useUIStore((state) => state.viewMode);
+  const splitWithItem = useUIStore((state) => state.splitWithItem);
 
   // Register this card's minimal context (title, id, type) with the assistant
   useCardContextProvider(item);
@@ -570,11 +572,15 @@ function WorkspaceCard({
       return;
     }
 
-    // Normal click always replaces - no prompt needed
-    // Split view is available via right-click context menu
+    // In workspace+panel mode: clicking a card replaces the open panel
+    if (viewMode === 'workspace+panel') {
+      openPanel(item.id, 'replace');
+      return;
+    }
 
+    // Default: open in focus mode (maximized modal)
     onOpenModal(item.id);
-  }, [isEditingTitle, isOpenInPanel, item.id, item.type, onOpenModal, setOpenModalItemId, openPanelIds, isYouTubePlaying, setCardPlaying, maximizedItemId]);
+  }, [isEditingTitle, isOpenInPanel, item.id, item.type, onOpenModal, setOpenModalItemId, openPanelIds, isYouTubePlaying, setCardPlaying, maximizedItemId, viewMode, openPanel]);
 
   return (
     <ContextMenu>
@@ -592,8 +598,8 @@ function WorkspaceCard({
               }`}
             style={{
               backgroundColor: (item.type === 'youtube' || item.type === 'image') ? 'transparent' : (item.color ? getCardColorCSS(item.color, resolvedTheme === 'dark' ? 0.25 : 0.4) : 'var(--card)'),
-              borderColor: isSelected ? 'rgba(255, 255, 255, 0.8)' : (item.color ? getCardAccentColor(item.color, resolvedTheme === 'dark' ? 0.5 : 0.3) : 'transparent'),
-              borderWidth: isSelected ? '3px' : ((item.type === 'youtube' || item.type === 'image' || (item.type === 'pdf' && shouldShowPreview)) ? '0px' : '1px'),
+              borderColor: isSelected ? 'rgba(255, 255, 255, 0.8)' : (isOpenInPanel ? 'hsl(var(--primary))' : (item.color ? getCardAccentColor(item.color, resolvedTheme === 'dark' ? 0.5 : 0.3) : 'transparent')),
+              borderWidth: isSelected ? '3px' : (isOpenInPanel ? '2px' : ((item.type === 'youtube' || item.type === 'image' || (item.type === 'pdf' && shouldShowPreview)) ? '0px' : '1px')),
               boxShadow: isSelected && resolvedTheme !== 'dark' ? '0 0 3px rgba(0, 0, 0, 0.8), 0 0 8px rgba(0, 0, 0, 0.5)' : undefined,
               transition: 'border-color 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease-out'
             } as React.CSSProperties}
@@ -603,88 +609,15 @@ function WorkspaceCard({
             onClick={handleCardClick}
           >
             {/* Floating Controls Container */}
-            <div className={`absolute top-3 right-3 z-20 flex items-center gap-2 ${isOpenInPanel || isEditingTitle ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
-              {/* Scroll Lock/Unlock Button - Hidden for YouTube, image, quiz, and narrow note/PDF cards */}
-              {item.type !== 'youtube' && item.type !== 'image' && item.type !== 'quiz' && !(item.type === 'note' && !shouldShowPreview) && !(item.type === 'pdf' && !shouldShowPreview) && (
-                <button
-                  type="button"
-                  aria-label={isScrollLocked ? 'Click to unlock scroll' : 'Click to lock scroll'}
-                  title={isScrollLocked ? 'Click to unlock scroll' : 'Click to lock scroll'}
-                  className="inline-flex h-8 items-center justify-center gap-1.5 pl-2.5 pr-3 rounded-xl text-white/90 hover:text-white hover:scale-105 hover:shadow-lg transition-all duration-200 cursor-pointer"
-                  style={{
-                    backgroundColor: (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)'),
-                    backdropFilter: 'blur(8px)'
-                  }}
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.8)' : (resolvedTheme === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.3)');
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)');
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleItemScrollLocked(item.id);
-                  }}
-                >
-                  {isScrollLocked ? (
-                    <PiMouseScrollFill className="h-4 w-4 shrink-0" />
-                  ) : (
-                    <PiMouseScrollBold className="h-4 w-4 shrink-0" />
-                  )}
-                  <span className={cn("text-xs font-medium", resolvedTheme === 'dark' ? "text-white/90" : "text-white/80")}>{isScrollLocked ? 'Scroll' : 'Lock'}</span>
-                </button>
-              )}
-
-              {/* Selection Button */}
-              <button
-                type="button"
-                aria-label={isSelected ? 'Deselect card' : 'Select card'}
-                title={isSelected ? 'Deselect card' : 'Select card'}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer"
-                style={{
-                  backgroundColor: isSelected
-                    ? ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.3)')
-                    : ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)')),
-                  backdropFilter: 'blur(8px)'
-                }}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = isSelected
-                    ? ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(239, 68, 68, 0.6)' : 'rgba(239, 68, 68, 0.5)')
-                    : ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.8)' : (resolvedTheme === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.3)'));
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = isSelected
-                    ? ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.3)')
-                    : ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)'));
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleSelection(item.id);
-                }}
-              >
-                {isSelected ? (
-                  <X className="h-4 w-4" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" />
-                )}
-              </button>
-
-              {/* Options Menu */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild className="cursor-pointer">
+            {!isOpenInPanel && (
+              <div className={`absolute top-3 right-3 z-20 flex items-center gap-2 ${isEditingTitle ? '' : 'opacity-0 group-hover:opacity-100'}`}>
+                {/* Scroll Lock/Unlock Button - Hidden for YouTube, image, quiz, and narrow note/PDF cards */}
+                {item.type !== 'youtube' && item.type !== 'image' && item.type !== 'quiz' && !(item.type === 'note' && !shouldShowPreview) && !(item.type === 'pdf' && !shouldShowPreview) && (
                   <button
                     type="button"
-                    aria-label="Card settings"
-                    title="Card settings"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                    aria-label={isScrollLocked ? 'Click to unlock scroll' : 'Click to lock scroll'}
+                    title={isScrollLocked ? 'Click to unlock scroll' : 'Click to lock scroll'}
+                    className="inline-flex h-8 items-center justify-center gap-1.5 pl-2.5 pr-3 rounded-xl text-white/90 hover:text-white hover:scale-105 hover:shadow-lg transition-all duration-200 cursor-pointer"
                     style={{
                       backgroundColor: (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)'),
                       backdropFilter: 'blur(8px)'
@@ -699,50 +632,125 @@ function WorkspaceCard({
                     onMouseLeave={(e) => {
                       (e.currentTarget as HTMLButtonElement).style.backgroundColor = (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)');
                     }}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleItemScrollLocked(item.id);
+                    }}
                   >
-                    <MoreVertical className="h-4 w-4" />
+                    {isScrollLocked ? (
+                      <PiMouseScrollFill className="h-4 w-4 shrink-0" />
+                    ) : (
+                      <PiMouseScrollBold className="h-4 w-4 shrink-0" />
+                    )}
+                    <span className={cn("text-xs font-medium", resolvedTheme === 'dark' ? "text-white/90" : "text-white/80")}>{isScrollLocked ? 'Scroll' : 'Lock'}</span>
                   </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
+                )}
 
-                  <DropdownMenuItem onSelect={() => setShowRenameDialog(true)}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    <span>Rename</span>
-                  </DropdownMenuItem>
-                  {onMoveItem && (
-                    <>
-                      <DropdownMenuItem onSelect={() => setShowMoveDialog(true)}>
-                        <FolderInput className="mr-2 h-4 w-4" />
-                        <span>Move to</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
+                {/* Selection Button */}
+                <button
+                  type="button"
+                  aria-label={isSelected ? 'Deselect card' : 'Select card'}
+                  title={isSelected ? 'Deselect card' : 'Select card'}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                  style={{
+                    backgroundColor: isSelected
+                      ? ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.3)')
+                      : ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)')),
+                    backdropFilter: 'blur(8px)'
+                  }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = isSelected
+                      ? ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(239, 68, 68, 0.6)' : 'rgba(239, 68, 68, 0.5)')
+                      : ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.8)' : (resolvedTheme === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.3)'));
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = isSelected
+                      ? ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.3)')
+                      : ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)'));
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleSelection(item.id);
+                  }}
+                >
+                  {isSelected ? (
+                    <X className="h-4 w-4" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4" />
                   )}
-                  {item.type === 'note' && (
-                    <>
-                      <DropdownMenuItem onSelect={handleCopyMarkdown}>
-                        <Copy className="mr-2 h-4 w-4" />
-                        <span>Copy Markdown</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
-                  )}
-                  <DropdownMenuItem onSelect={() => setIsColorPickerOpen(true)}>
-                    <Palette className="mr-2 h-4 w-4" />
-                    <span>Change Color</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleDelete}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    <span>Delete</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+                </button>
+
+                {/* Options Menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild className="cursor-pointer">
+                    <button
+                      type="button"
+                      aria-label="Card settings"
+                      title="Card settings"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                      style={{
+                        backgroundColor: (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)'),
+                        backdropFilter: 'blur(8px)'
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLButtonElement).style.backgroundColor = (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.8)' : (resolvedTheme === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.3)');
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLButtonElement).style.backgroundColor = (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)');
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
+
+                    <DropdownMenuItem onSelect={() => setShowRenameDialog(true)}>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      <span>Rename</span>
+                    </DropdownMenuItem>
+                    {onMoveItem && (
+                      <>
+                        <DropdownMenuItem onSelect={() => setShowMoveDialog(true)}>
+                          <FolderInput className="mr-2 h-4 w-4" />
+                          <span>Move to</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                      </>
+                    )}
+                    {item.type === 'note' && (
+                      <>
+                        <DropdownMenuItem onSelect={handleCopyMarkdown}>
+                          <Copy className="mr-2 h-4 w-4" />
+                          <span>Copy Markdown</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                      </>
+                    )}
+                    <DropdownMenuItem onSelect={() => setIsColorPickerOpen(true)}>
+                      <Palette className="mr-2 h-4 w-4" />
+                      <span>Change Color</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={handleDelete}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      <span>Delete</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
 
             {/* Color Picker Dialog */}
             <Dialog open={isColorPickerOpen} onOpenChange={setIsColorPickerOpen}>
@@ -1007,6 +1015,15 @@ function WorkspaceCard({
               }
               return null;
             })()}
+
+            {/* Active in Panel Overlay */}
+            {isOpenInPanel && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-card/95 backdrop-blur-[1px] animate-in fade-in duration-200 select-none">
+                <PanelRight className="w-10 h-10 text-primary mb-3 opacity-90" />
+                <span className="text-sm font-medium text-muted-foreground">Open in Panel</span>
+              </div>
+            )}
+
           </article>
 
 
@@ -1061,6 +1078,16 @@ function WorkspaceCard({
 
       {/* Right-Click Context Menu */}
       <ContextMenuContent className="w-48">
+
+        {/* Split View Actions */}
+
+        {viewMode === 'workspace+panel' && !openPanelIds.includes(item.id) && (
+          <ContextMenuItem onSelect={() => splitWithItem(item.id)}>
+            <SplitSquareHorizontal className="mr-2 h-4 w-4" />
+            <span>Double Panel</span>
+          </ContextMenuItem>
+        )}
+        <ContextMenuSeparator />
 
         <ContextMenuItem onSelect={() => setShowRenameDialog(true)}>
           <Pencil className="mr-2 h-4 w-4" />

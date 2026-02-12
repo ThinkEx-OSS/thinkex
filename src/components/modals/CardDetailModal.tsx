@@ -42,25 +42,9 @@ export function CardDetailModal({
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
   const selectedCardIds = useUIStore((state) => state.selectedCardIds);
 
-  // Auto-select card when modal opens
-  useEffect(() => {
-    if (!isOpen || !item?.id) return;
-
-    // Check if card was already selected at the time of opening
-    const wasAlreadySelected = selectedCardIds.has(item.id);
-
-    // If not already selected, select it now
-    if (!wasAlreadySelected) {
-      toggleCardSelection(item.id);
-
-      // Only deselect on cleanup if we were the ones who selected it
-      return () => {
-        toggleCardSelection(item.id);
-      };
-    }
-
-    return undefined;
-  }, [isOpen, item?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Auto-selection is now handled by the URL sync mechanism in ui-store (_openPanelDirect)
+  // or by the manual open action (openPanel).
+  // We no longer need to manually select it here.
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
 

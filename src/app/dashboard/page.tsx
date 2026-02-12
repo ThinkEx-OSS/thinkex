@@ -22,11 +22,12 @@ import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useSession } from "@/lib/auth-client";
 import { WorkspaceSection } from "@/components/workspace-canvas/WorkspaceSection";
-import WorkspaceHeader from "@/components/workspace-canvas/WorkspaceHeader";
 import { ModalManager } from "@/components/modals/ModalManager";
 import { AnonymousSignInPrompt } from "@/components/modals/AnonymousSignInPrompt";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { SplitViewLayout } from "@/components/layout/SplitViewLayout";
 import { ItemPanelContent } from "@/components/workspace-canvas/ItemPanelContent";
+import WorkspaceHeader from "@/components/workspace-canvas/WorkspaceHeader";
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { MobileWarning } from "@/components/ui/MobileWarning";
 import { AnonymousSessionHandler, SidebarCoordinator } from "@/components/layout/SessionHandler";
@@ -216,6 +217,9 @@ function DashboardContent({
   const toggleChatExpanded = useUIStore((state) => state.toggleChatExpanded);
   const toggleChatMaximized = useUIStore((state) => state.toggleChatMaximized);
 
+  // View mode from store
+  const viewMode = useUIStore((state) => state.viewMode);
+
   // Panel state - using new array-based system
   const openPanelIds = useUIStore((state) => state.openPanelIds);
   const closePanel = useUIStore((state) => state.closePanel);
@@ -274,14 +278,6 @@ function DashboardContent({
     };
   };
 
-  // Derive item panels from openPanelIds array
-  // NOTE: With split view removed, we always use maximizedItemId (ModalManager)
-  // But we keep the panels calculation for now in case we want to re-enable split view later
-  // or for the "transition" state. However, openPanel in ui-store now enforces maximizedItemId.
-  const panels = useMemo(() => {
-    // We don't render side-by-side panels anymore
-    return [];
-  }, []);
 
   // CopilotKit actions removed - now using Assistant-UI directly
 
@@ -361,6 +357,86 @@ function DashboardContent({
     setShowWorkspaceShare(true); // Open share dialog instead of dedicated history modal
   }, [posthog, currentWorkspaceId]);
 
+  // Build the split view layout element (for panel+panel mode only)
+  const splitViewContent = useMemo(() => {
+    if (viewMode !== 'panel+panel') return undefined;
+    return (
+      <SplitViewLayout
+        items={state.items}
+        workspaceSection={
+          <WorkspaceSection
+            loadingWorkspaces={loadingCurrentWorkspace}
+            isLoadingWorkspace={isLoadingWorkspace}
+            currentWorkspaceId={currentWorkspaceId}
+            currentSlug={currentSlug}
+            state={state}
+            showJsonView={showJsonView}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            isSaving={isSaving}
+            lastSavedAt={lastSavedAt}
+            hasUnsavedChanges={hasUnsavedChanges}
+            onManualSave={manualSave}
+            addItem={operations.createItem}
+            updateItem={operations.updateItem}
+            deleteItem={operations.deleteItem}
+            updateAllItems={operations.updateAllItems}
+            getStatePreviewJSON={getStatePreviewJSON}
+            isChatMaximized={isChatMaximized}
+            columns={1}
+            isDesktop={isDesktop}
+            isChatExpanded={isChatExpanded}
+            setIsChatExpanded={setIsChatExpanded}
+            isItemPanelOpen={true}
+            setOpenModalItemId={setOpenModalItemId}
+            onShowHistory={handleShowHistory}
+            titleInputRef={titleInputRef as React.RefObject<HTMLInputElement>}
+            operations={operations}
+            scrollAreaRef={scrollAreaRef as React.RefObject<HTMLDivElement>}
+            workspaceTitle={currentWorkspaceTitle}
+            workspaceIcon={currentWorkspaceIcon}
+            workspaceColor={currentWorkspaceColor}
+            onRenameFolder={(folderId, newName) => {
+              operations.updateItem(folderId, { name: newName });
+            }}
+            onOpenSettings={() => setShowWorkspaceSettings(true)}
+            onOpenShare={() => setShowWorkspaceShare(true)}
+            activeItems={[]} // In split view, workspace header doesn't control active item
+            activeItemMode={null}
+          />
+        }
+        onUpdateItem={operations.updateItem}
+        onUpdateItemData={operations.updateItemData}
+        onFlushPendingChanges={operations.flushPendingChanges}
+      />
+    );
+  }, [viewMode, state.items, loadingCurrentWorkspace, isLoadingWorkspace, currentWorkspaceId, currentSlug, state, showJsonView, searchQuery, isSaving, lastSavedAt, hasUnsavedChanges, isChatMaximized, isDesktop, isChatExpanded, currentWorkspaceTitle, currentWorkspaceIcon, currentWorkspaceColor, operations, manualSave, setSearchQuery, setIsChatExpanded, setOpenModalItemId, handleShowHistory, titleInputRef, scrollAreaRef, getStatePreviewJSON]);
+
+  // Build the single panel content (for workspace+panel mode)
+  const panelContent = useMemo(() => {
+    if (viewMode !== 'workspace+panel') return undefined;
+    const panelItem = openPanelIds
+      .map(id => state.items.find(i => i.id === id))
+      .find((i): i is NonNullable<typeof i> => !!i);
+    if (!panelItem) return undefined;
+    return (
+      <ItemPanelContent
+        key={panelItem.id}
+        item={panelItem}
+        onClose={() => {
+          operations.flushPendingChanges(panelItem.id);
+          closePanel(panelItem.id);
+        }}
+        onMaximize={() => setMaximizedItemId(panelItem.id)}
+        isMaximized={false}
+        onUpdateItem={(updates) => operations.updateItem(panelItem.id, updates)}
+        onUpdateItemData={(updater) => operations.updateItemData(panelItem.id, updater)}
+        isRightmostPanel={true}
+        isLeftPanel={false}
+      />
+    );
+  }, [viewMode, openPanelIds, state.items, operations, closePanel, setMaximizedItemId]);
+
 
   return (
     <PdfEngineWrapper>
@@ -379,10 +455,21 @@ function DashboardContent({
         onWorkspaceSwitch={switchWorkspace}
         showCreateModal={showCreateWorkspaceModal}
         setShowCreateModal={setShowCreateWorkspaceModal}
+        isDesktop={isDesktop}
+        isChatExpanded={isChatExpanded}
+        isChatMaximized={isChatMaximized}
+        setIsChatExpanded={setIsChatExpanded}
+        setIsChatMaximized={setIsChatMaximized}
+        onWorkspaceSizeChange={setWorkspacePanelSize}
+        onSingleSelect={handleCreateInstantNote}
+        onMultiSelect={handleCreateCardFromSelections}
+        onAssistantThreadRunningChange={setAssistantThreadRunning}
+        splitViewContent={splitViewContent}
+        panelContent={panelContent}
         workspaceHeader={
           !showJsonView && !isChatMaximized && currentWorkspaceId && !isLoadingWorkspace ? (
             <WorkspaceHeader
-              titleInputRef={titleInputRef}
+              titleInputRef={titleInputRef as React.RefObject<HTMLInputElement>}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               currentWorkspaceId={currentWorkspaceId}
@@ -402,23 +489,21 @@ function DashboardContent({
               }}
               onOpenSettings={() => setShowWorkspaceSettings(true)}
               onOpenShare={() => setShowWorkspaceShare(true)}
-              isItemPanelOpen={panels.length > 0}
-
-              // Active Item Props
+              isItemPanelOpen={viewMode === 'workspace+panel' || viewMode === 'panel+panel'}
               activeItems={(() => {
+                // Collect active items from panels + maximized
                 if (maximizedItemId) {
                   const item = state.items?.find(i => i.id === maximizedItemId);
                   return item ? [item] : [];
                 }
-                // If not maximized, show open panels (split view) in breadcrumb too
-                if (openPanelIds.length > 0) {
+                if (viewMode === 'workspace+panel' || viewMode === 'panel+panel') {
                   return openPanelIds
                     .map(id => state.items?.find(i => i.id === id))
                     .filter((i): i is NonNullable<typeof i> => !!i);
                 }
                 return [];
               })()}
-              activeItemMode={maximizedItemId ? 'maximized' : (panels.length > 0 ? 'split' : null)}
+              activeItemMode={maximizedItemId ? 'maximized' : null}
               onCloseActiveItem={(id) => {
                 operations.flushPendingChanges(id);
                 closePanel(id);
@@ -428,18 +513,8 @@ function DashboardContent({
               onMaximizeActiveItem={(id) => setMaximizedItemId(id)}
               onUpdateActiveItem={operations.updateItem}
             />
-          ) : null
+          ) : undefined
         }
-        isDesktop={isDesktop}
-        isChatExpanded={isChatExpanded}
-        isChatMaximized={isChatMaximized}
-        setIsChatExpanded={setIsChatExpanded}
-        setIsChatMaximized={setIsChatMaximized}
-        onWorkspaceSizeChange={setWorkspacePanelSize}
-        onSingleSelect={handleCreateInstantNote}
-        onMultiSelect={handleCreateCardFromSelections}
-        onAssistantThreadRunningChange={setAssistantThreadRunning}
-        panels={panels}
         workspaceSection={
           <WorkspaceSection
             loadingWorkspaces={loadingCurrentWorkspace}
@@ -465,7 +540,7 @@ function DashboardContent({
             isDesktop={isDesktop}
             isChatExpanded={isChatExpanded}
             setIsChatExpanded={setIsChatExpanded}
-            isItemPanelOpen={panels.length > 0}
+            isItemPanelOpen={viewMode === 'workspace+panel' || viewMode === 'panel+panel'}
             setOpenModalItemId={setOpenModalItemId}
             onShowHistory={handleShowHistory}
             titleInputRef={titleInputRef as React.RefObject<HTMLInputElement>}
@@ -474,11 +549,30 @@ function DashboardContent({
             workspaceTitle={currentWorkspaceTitle}
             workspaceIcon={currentWorkspaceIcon}
             workspaceColor={currentWorkspaceColor}
+            onRenameFolder={(folderId, newName) => {
+              operations.updateItem(folderId, { name: newName });
+            }}
+            onOpenSettings={() => setShowWorkspaceSettings(true)}
+            onOpenShare={() => setShowWorkspaceShare(true)}
+            activeItems={(() => {
+              if (maximizedItemId) {
+                const item = state.items?.find(i => i.id === maximizedItemId);
+                return item ? [item] : [];
+              }
+              return [];
+            })()}
+            activeItemMode={maximizedItemId ? 'maximized' : null}
+            onCloseActiveItem={(id) => {
+              operations.flushPendingChanges(id);
+              closePanel(id);
+              if (maximizedItemId === id) setMaximizedItemId(null);
+            }}
+            onMinimizeActiveItem={() => setMaximizedItemId(null)}
+            onMaximizeActiveItem={(id) => setMaximizedItemId(id)}
+            onUpdateActiveItem={operations.updateItem}
+            modalManager={modalManagerElement}
           />
         }
-        modalManager={modalManagerElement}
-        maximizedItemId={maximizedItemId}
-
       />
       <WorkspaceInstructionModal
         mode={instructionModal.mode ?? "first-open"}

@@ -16,7 +16,7 @@ export function ItemHeader(props: {
   noMargin?: boolean;
   onTitleFocus?: () => void;
   onTitleBlur?: () => void;
-  textSize?: "xs" | "lg" | "2xl";
+  textSize?: "xs" | "sm" | "lg" | "2xl";
   fontWeight?: "normal" | "medium" | "semibold" | "bold";
   fullWidth?: boolean;
   allowWrap?: boolean; // Allow text to wrap and fill height
@@ -149,7 +149,7 @@ export function ItemHeader(props: {
     }
   }, [autoFocus, readOnly]);
 
-  const textSizeClass = textSize === "xs" ? "text-xs" : (textSize === "lg" ? "text-base" : "text-2xl");
+  const textSizeClass = textSize === "xs" ? "text-xs" : (textSize === "sm" ? "text-sm" : (textSize === "lg" ? "text-base" : "text-2xl"));
   const fontWeightClass = `font-${fontWeight}`;
 
   if (readOnly) {

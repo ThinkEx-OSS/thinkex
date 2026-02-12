@@ -7,6 +7,8 @@ import { WORKSPACE_PANEL_SIZES } from '@/lib/layout-constants';
  * This replaces scattered useState hooks in dashboard
  */
 
+export type ViewMode = 'workspace' | 'focus' | 'workspace+panel' | 'panel+panel';
+
 interface UIState {
   // Chat state
   isChatExpanded: boolean;
@@ -16,10 +18,11 @@ interface UIState {
   // Layout state
   workspacePanelSize: number; // percentage (0-100)
 
-  // Panel state (item panels for notes/PDFs)
+  // View mode & Panel state
+  viewMode: ViewMode; // Current layout mode
   openPanelIds: string[]; // Array of open item IDs (order = layout order, max 2)
   itemPrompt: { itemId: string; x: number; y: number } | null; // Global prompt state
-  maximizedItemId: string | null; // The ID of the item currently expanded to full screen
+  maximizedItemId: string | null; // The ID of the item currently expanded to full screen (focus mode)
 
 
   // Modal state
@@ -65,8 +68,9 @@ interface UIState {
   setWorkspacePanelSize: (size: number) => void;
 
 
-  // Actions - Panels
+  // Actions - Panels & View Mode
   openPanel: (itemId: string, mode: 'replace' | 'add') => void;
+  splitWithItem: (itemId: string) => void; // Enter panel+panel mode from workspace+panel
   closePanel: (itemId: string) => void;
   closeAllPanels: () => void;
   reorderPanels: (fromIndex: number, toIndex: number) => void;
@@ -141,7 +145,8 @@ const initialState = {
   // Layout
   workspacePanelSize: WORKSPACE_PANEL_SIZES.WITH_CHAT, // Default when chat is expanded
 
-  // Panels
+  // View mode & Panels
+  viewMode: 'workspace' as ViewMode,
   openPanelIds: [],
   itemPrompt: null,
   maximizedItemId: null,
@@ -189,6 +194,11 @@ export const useUIStore = create<UIState>()(
         // Folder navigation — preserve manual user selections
         setActiveFolderId: (folderId) => {
           set((state) => {
+            // In workspace+panel mode: keep the panel open, just change folder
+            if (state.viewMode === 'workspace+panel') {
+              if (state.activeFolderId === folderId) return {};
+              return { activeFolderId: folderId };
+            }
             if (state.activeFolderId === folderId && state.openPanelIds.length === 0) {
               return {};
             }
@@ -197,6 +207,7 @@ export const useUIStore = create<UIState>()(
             state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
             return {
               activeFolderId: folderId,
+              viewMode: 'workspace' as ViewMode,
               openPanelIds: [],
               maximizedItemId: null,
               selectedCardIds: newSelectedCardIds,
@@ -207,12 +218,18 @@ export const useUIStore = create<UIState>()(
 
         clearActiveFolder: () => {
           set((state) => {
+            // In workspace+panel mode: keep the panel open, just clear folder
+            if (state.viewMode === 'workspace+panel') {
+              if (state.activeFolderId === null) return {};
+              return { activeFolderId: null };
+            }
             if (state.activeFolderId === null && state.openPanelIds.length === 0) return {};
             // Remove only auto-selected cards, preserve manual selections
             const newSelectedCardIds = new Set(state.selectedCardIds);
             state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
             return {
               activeFolderId: null,
+              viewMode: 'workspace' as ViewMode,
               openPanelIds: [],
               maximizedItemId: null,
               selectedCardIds: newSelectedCardIds,
@@ -226,12 +243,36 @@ export const useUIStore = create<UIState>()(
         _setActiveFolderIdDirect: (folderId) => set({ activeFolderId: folderId }),
 
         // Direct panel open/close used by useFolderUrl hook for URL → store sync
-        _openPanelDirect: (itemId) => set({ openPanelIds: [itemId], maximizedItemId: itemId }),
+        // Only force focus mode if the panel is genuinely new (not an echo from our own state change)
+        _openPanelDirect: (itemId) => set((state) => {
+          // If this item is already the primary panel, skip — this is an echo from the URL sync
+          if (state.openPanelIds[0] === itemId) return {};
+
+          const newSelectedCardIds = new Set(state.selectedCardIds);
+          const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
+
+          // Clean up old auto-selected cards if switching panels via URL (e.g. back button)
+          state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
+          newPanelAutoSelectedCardIds.clear();
+
+          // Add to selections and track as auto-selected
+          newSelectedCardIds.add(itemId);
+          newPanelAutoSelectedCardIds.add(itemId);
+
+          return {
+            openPanelIds: [itemId],
+            maximizedItemId: itemId,
+            viewMode: 'focus' as ViewMode,
+            selectedCardIds: newSelectedCardIds,
+            panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
+          };
+        }),
         _closePanelDirect: () => set((state) => {
           // Remove only auto-selected cards, preserve manual selections
           const newSelectedCardIds = new Set(state.selectedCardIds);
           state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
           return {
+            viewMode: 'workspace' as ViewMode,
             openPanelIds: [],
             maximizedItemId: null,
             selectedCardIds: newSelectedCardIds,
@@ -242,19 +283,54 @@ export const useUIStore = create<UIState>()(
         // Panel actions
         openPanel: (itemId, mode) => {
           set((state) => {
-            const isAlreadyOpen = state.openPanelIds.length === 1 && state.openPanelIds[0] === itemId;
-            if (isAlreadyOpen) return {};
-
             const newSelectedCardIds = new Set(state.selectedCardIds);
             const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
 
-            // Add to selections and track as auto-selected
+            if (mode === 'replace') {
+              // In workspace+panel mode: replace the panel content
+              // If no panels open yet, enter workspace+panel mode
+              // Only skip if we're already in workspace+panel with this exact item
+              const isAlreadyOpen = state.viewMode === 'workspace+panel' && state.openPanelIds.length === 1 && state.openPanelIds[0] === itemId;
+              if (isAlreadyOpen) return {};
+
+              // Clean up old auto-selected cards
+              state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
+              newPanelAutoSelectedCardIds.clear();
+
+              // Add new item to selections
+              newSelectedCardIds.add(itemId);
+              newPanelAutoSelectedCardIds.add(itemId);
+
+              return {
+                viewMode: 'workspace+panel' as ViewMode,
+                openPanelIds: [itemId],
+                maximizedItemId: null,
+                selectedCardIds: newSelectedCardIds,
+                panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
+              };
+            }
+
+            // mode === 'add' — not used directly, use splitWithItem instead
+            return {};
+          });
+        },
+
+        // Enter panel+panel mode from workspace+panel
+        splitWithItem: (itemId) => {
+          set((state) => {
+            if (state.openPanelIds.length === 0) return {};
+            const existingId = state.openPanelIds[0];
+            if (existingId === itemId) return {}; // Can't split with the same item
+
+            const newSelectedCardIds = new Set(state.selectedCardIds);
+            const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
             newSelectedCardIds.add(itemId);
             newPanelAutoSelectedCardIds.add(itemId);
 
             return {
-              openPanelIds: [itemId],
-              maximizedItemId: itemId,
+              viewMode: 'panel+panel' as ViewMode,
+              openPanelIds: [itemId, existingId],
+              maximizedItemId: null,
               selectedCardIds: newSelectedCardIds,
               panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
             };
@@ -264,26 +340,47 @@ export const useUIStore = create<UIState>()(
         closePanel: (itemId) => {
           set((state) => {
             if (state.openPanelIds.length === 0) return {};
-            // Remove only auto-selected cards, preserve manual selections
-            const newSelectedCardIds = new Set(state.selectedCardIds);
-            state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
-            return {
-              openPanelIds: [],
-              maximizedItemId: null,
 
+            const remaining = state.openPanelIds.filter(id => id !== itemId);
+            const newSelectedCardIds = new Set(state.selectedCardIds);
+
+            // Remove the closed item from auto-selected if it was auto-selected
+            if (state.panelAutoSelectedCardIds.has(itemId)) {
+              newSelectedCardIds.delete(itemId);
+            }
+            const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
+            newPanelAutoSelectedCardIds.delete(itemId);
+
+            if (remaining.length === 0) {
+              // No panels left → workspace mode
+              return {
+                viewMode: 'workspace' as ViewMode,
+                openPanelIds: [],
+                maximizedItemId: null,
+                selectedCardIds: newSelectedCardIds,
+                panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
+              };
+            }
+
+            // One panel remaining → workspace+panel
+            return {
+              viewMode: 'workspace+panel' as ViewMode,
+              openPanelIds: remaining,
+              maximizedItemId: null,
               selectedCardIds: newSelectedCardIds,
-              panelAutoSelectedCardIds: new Set(),
+              panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
             };
           });
         },
 
         closeAllPanels: () => {
           set((state) => {
-            if (state.openPanelIds.length === 0) return {};
+            if (state.openPanelIds.length === 0 && state.viewMode === 'workspace') return {};
             // Remove only auto-selected cards, preserve manual selections
             const newSelectedCardIds = new Set(state.selectedCardIds);
             state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
             return {
+              viewMode: 'workspace' as ViewMode,
               openPanelIds: [],
               maximizedItemId: null,
               selectedCardIds: newSelectedCardIds,
@@ -293,40 +390,55 @@ export const useUIStore = create<UIState>()(
         },
 
         reorderPanels: (fromIndex, toIndex) => set((state) => {
-          // No reordering in single view
-          return state;
+          const newPanelIds = [...state.openPanelIds];
+          const [removed] = newPanelIds.splice(fromIndex, 1);
+          newPanelIds.splice(toIndex, 0, removed);
+          return { openPanelIds: newPanelIds };
         }),
 
         setItemPrompt: (prompt) => set({ itemPrompt: prompt }),
-        setMaximizedItemId: (id) => set({ maximizedItemId: id }),
+        setMaximizedItemId: (id) => set({
+          maximizedItemId: id,
+          viewMode: id ? 'focus' as ViewMode : 'workspace' as ViewMode,
+          // When entering focus mode, keep openPanelIds for breadcrumb; when leaving, clear
+          ...(id === null ? { openPanelIds: [] } : { openPanelIds: [id] }),
+        }),
 
         // Workspace Split View actions
 
 
-        // Legacy compatibility
+        // Legacy compatibility — opens item in focus mode (maximized)
         setOpenModalItemId: (id) => {
           set((state) => {
             if (id === null) {
-              if (state.openPanelIds.length === 0) return {};
+              if (state.openPanelIds.length === 0 && state.viewMode === 'workspace') return {};
+              // Remove only auto-selected cards
+              const newSelectedCardIds = new Set(state.selectedCardIds);
+              state.panelAutoSelectedCardIds.forEach(aid => newSelectedCardIds.delete(aid));
               return {
+                viewMode: 'workspace' as ViewMode,
                 openPanelIds: [],
                 maximizedItemId: null,
+                selectedCardIds: newSelectedCardIds,
                 panelAutoSelectedCardIds: new Set(),
               };
             } else {
-              const isAlreadyOpen = state.openPanelIds.length === 1 && state.openPanelIds[0] === id;
+              const isAlreadyOpen = state.openPanelIds.length === 1 && state.openPanelIds[0] === id && state.maximizedItemId === id;
               if (isAlreadyOpen) return {};
 
               const newSelectedCardIds = new Set(state.selectedCardIds);
               const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
 
-
+              // Clean up old auto-selected cards
+              state.panelAutoSelectedCardIds.forEach(aid => newSelectedCardIds.delete(aid));
+              newPanelAutoSelectedCardIds.clear();
 
               // Add to selections and track as auto-selected
               newSelectedCardIds.add(id);
               newPanelAutoSelectedCardIds.add(id);
 
               return {
+                viewMode: 'focus' as ViewMode,
                 openPanelIds: [id],
                 maximizedItemId: id,
                 selectedCardIds: newSelectedCardIds,
@@ -472,6 +584,7 @@ export const useUIStore = create<UIState>()(
           });
 
           return {
+            viewMode: 'workspace' as ViewMode,
             openPanelIds: [],
             itemPrompt: null,
             maximizedItemId: null,
@@ -506,6 +619,9 @@ export const selectModalState = (state: UIState) => ({
   showCreateWorkspaceModal: state.showCreateWorkspaceModal,
   showSheetModal: state.showSheetModal,
 });
+
+// View mode selector
+export const selectViewMode = (state: UIState) => state.viewMode;
 
 // Panel selectors - for backwards compatibility and convenience
 export const selectOpenPanelIds = (state: UIState) => state.openPanelIds;

@@ -94,37 +94,24 @@ export function ItemPanelContent({
                         </TooltipContent>
                     </Tooltip>
 
-                    {/* Split View / Focus Button */}
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <button
                                 type="button"
-                                aria-label="Focus"
-                                title="Focus"
-                                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground opacity-50 cursor-not-allowed px-3"
-                                disabled
+                                aria-label="Close"
+                                title="Close"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+                                onClick={onClose}
                             >
-                                <svg
-                                    viewBox="0 0 24 24"
-                                    className="w-4 h-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                >
-                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                    <circle cx="12" cy="12" r="3" />
-                                </svg>
-                                <span className="text-xs font-medium">
-                                    Focus
-                                </span>
+                                <X className="h-4 w-4" />
                             </button>
                         </TooltipTrigger>
                         <TooltipContent>
-                            Focus mode is active
+                            Close
                         </TooltipContent>
                     </Tooltip>
+
+
 
 
                     {!isChatExpanded && isRightmostPanel && (

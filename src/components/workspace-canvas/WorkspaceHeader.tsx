@@ -4,8 +4,8 @@ import type React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Search, X, ChevronDown, FolderOpen, Plus, Upload, FileText, Folder as FolderIcon, Settings, Share2, Play, Brain, File, Newspaper, ImageIcon, Mic } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Search, X, ChevronDown, FolderOpen, Plus, Upload, FileText, Folder as FolderIcon, Settings, Share2, Play, Brain, File, Newspaper, ImageIcon, Mic, PanelRight } from "lucide-react";
 import { LuBook, LuPanelLeftOpen } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
@@ -104,7 +104,9 @@ interface WorkspaceHeaderProps {
   onUpdateActiveItem?: (itemId: string, updates: Partial<Item>) => void;
 }
 
-export default function WorkspaceHeader({
+
+
+export function WorkspaceHeader({
   titleInputRef,
   searchQuery,
   onSearchChange,
@@ -140,6 +142,7 @@ export default function WorkspaceHeader({
   onMaximizeActiveItem,
   onUpdateActiveItem,
 }: WorkspaceHeaderProps) {
+  const router = useRouter();
   const [isFocused, setIsFocused] = useState(false);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [isNewMenuOpen, setIsNewMenuOpen] = useState(false);
@@ -180,6 +183,7 @@ export default function WorkspaceHeader({
   const activeFolderId = useUIStore((state) => state.activeFolderId);
   const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
   const clearActiveFolder = useUIStore((state) => state.clearActiveFolder);
+  const openPanel = useUIStore((state) => state.openPanel);
 
   // Build folder path for breadcrumbs
   const folderPath = useMemo(() => {
@@ -751,14 +755,22 @@ export default function WorkspaceHeader({
 
                 {activeItems.length === 1 ? (
                   // Single Active Item (Maximized or Single Panel) - Editable
-                  // Single Active Item (Maximized or Single Panel) - Click to Rename (Folder style)
-                  <button
+                  <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => {
                       setRenamingTarget({ id: activeItems[0].id, type: 'item' });
                       setRenameValue(activeItems[0].name);
                       setShowRenameDialog(true);
                     }}
-                    className={breadcrumbItemClass}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        setRenamingTarget({ id: activeItems[0].id, type: 'item' });
+                        setRenameValue(activeItems[0].name);
+                        setShowRenameDialog(true);
+                      }
+                    }}
+                    className={cn(breadcrumbItemClass, "group pr-1")}
                   >
                     {/* Icon based on type */}
                     {activeItems[0].type === 'note' && <FileText className="h-3.5 w-3.5 shrink-0 text-blue-400" />}
@@ -773,7 +785,25 @@ export default function WorkspaceHeader({
                     <span className="truncate text-sidebar-foreground max-w-[300px]" title={activeItems[0].name}>
                       {activeItems[0].name}
                     </span>
-                  </button>
+
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCloseActiveItem?.(activeItems[0].id);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.stopPropagation();
+                          onCloseActiveItem?.(activeItems[0].id);
+                        }
+                      }}
+                      className="ml-1 text-sidebar-foreground/50 hover:text-red-600 p-0.5 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full transition-colors cursor-pointer"
+                    >
+                      <X className="h-3 w-3" />
+                    </div>
+                  </div>
                 ) : (
                   // Multiple Active Items (Split View)
                   <span className="flex items-center gap-1 min-w-0">
@@ -781,7 +811,18 @@ export default function WorkspaceHeader({
                       {activeItems.map((item, idx) => (
                         <span key={item.id} className="flex items-center gap-1">
                           {idx > 0 && <span className="text-sidebar-foreground/30">|</span>}
-                          <span className="truncate max-w-[200px]" title={item.name}>{item.name}</span>
+                          <div className="flex items-center gap-1 group/item">
+                            <span className="truncate max-w-[200px]" title={item.name}>{item.name}</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onCloseActiveItem?.(item.id);
+                              }}
+                              className="text-sidebar-foreground/50 hover:text-red-600 p-0.5 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full transition-colors"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
                         </span>
                       ))}
                     </span>
@@ -798,23 +839,28 @@ export default function WorkspaceHeader({
           <div className="flex items-center gap-2 pointer-events-auto">
             <div id="workspace-header-portal" className="flex items-center gap-2" />
 
-            {/* Split View / Focus Button */}
-            {/* Split View / Focus Button - Now just a visual indicator or placeholder */}
+            {/* Split View Button — transitions from focus to workspace+panel */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground opacity-50 cursor-not-allowed px-3"
-                  aria-label="Focus Mode"
-                  disabled
+                  className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer px-3"
+                  aria-label="Open split view"
+                  onClick={() => {
+                    // Get the first active item and open it in panel mode (workspace+panel)
+                    const itemId = activeItems[0]?.id;
+                    if (itemId) {
+                      openPanel(itemId, 'replace');
+                    }
+                  }}
                 >
-                  <LuPanelLeftOpen />
+                  <LuPanelLeftOpen className="h-4 w-4" />
                   <span className="text-xs font-medium">
-                    Focus
+                    Split
                   </span>
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                Focus mode is active
+                Show workspace alongside this panel
               </TooltipContent>
             </Tooltip>
 
@@ -1063,5 +1109,7 @@ export default function WorkspaceHeader({
     </div>
   );
 }
+
+export default WorkspaceHeader;
 
 

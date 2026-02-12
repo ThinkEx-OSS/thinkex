@@ -27,6 +27,7 @@ interface ModalManagerProps {
  * Centralized modal manager component.
  * Handles all modal state and logic for the dashboard.
  */
+
 export function ModalManager({
   items,
   onUpdateItem,
