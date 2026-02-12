@@ -77,8 +77,8 @@ export function ItemPanelContent({
                         <TooltipTrigger asChild>
                             <button
                                 type="button"
-                                aria-label={isMaximized ? "Restore to Panel" : "Maximize to Modal"}
-                                title={isMaximized ? "Restore to Panel" : "Maximize to Modal"}
+                                aria-label={isMaximized ? "Restore to Panel" : "Maximize"}
+                                title={isMaximized ? "Restore to Panel" : "Maximize"}
                                 className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
                                 onClick={onMaximize}
                             >
@@ -90,7 +90,7 @@ export function ItemPanelContent({
                             </button>
                         </TooltipTrigger>
                         <TooltipContent>
-                            {isMaximized ? "Restore to Panel" : "Maximize to Modal"}
+                            {isMaximized ? "Restore to Panel" : "Maximize"}
                         </TooltipContent>
                     </Tooltip>
 
