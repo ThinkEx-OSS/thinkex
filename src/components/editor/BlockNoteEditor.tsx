@@ -352,38 +352,40 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
 
   return (
     <MathEditProvider>
-      <BlockNoteView
-        editor={editor}
-        theme={resolvedTheme === "dark" ? "dark" : "light"}
-        editable={isEditable}
-        slashMenu={false}
-        formattingToolbar={!isEditable || readOnly ? undefined : false}
-        className={readOnly ? "" : "blocknote-with-static-toolbar"}
-        shadCNComponents={{
-          // Use project's portal-based Tooltip so tooltips escape overflow containers
-          Tooltip: Tooltip as any,
-        }}
-      >
-        {/* Static formatting toolbar - always visible for editable editors */}
-        {isEditable && !readOnly && (
-          <div className="blocknote-toolbar-wrapper">
-            <FormattingToolbar />
-          </div>
-        )}
-        {/* Slash menu with math items */}
-        <SuggestionMenuController
-          triggerCharacter="/"
-          getItems={async (query: string) =>
-            filterSuggestionItems(getCustomSlashMenuItems(editor), query)
-          }
-        />
-        <SuggestionMenuController
-          triggerCharacter="$"
-          getItems={async (query: string) =>
-            filterSuggestionItems(getInlineMathMenuItems(editor), query)
-          }
-        />
-      </BlockNoteView>
+      <div className="group/editor relative w-full h-full">
+        <BlockNoteView
+          editor={editor}
+          theme={resolvedTheme === "dark" ? "dark" : "light"}
+          editable={isEditable}
+          slashMenu={false}
+          formattingToolbar={!isEditable || readOnly ? undefined : false}
+          className={readOnly ? "" : "blocknote-with-static-toolbar"}
+          shadCNComponents={{
+            // Use project's portal-based Tooltip so tooltips escape overflow containers
+            Tooltip: Tooltip as any,
+          }}
+        >
+          {/* Static formatting toolbar - always visible for editable editors */}
+          {isEditable && !readOnly && (
+            <div className="blocknote-toolbar-wrapper transition-all duration-200 ease-in-out opacity-0 group-hover/editor:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100">
+              <FormattingToolbar />
+            </div>
+          )}
+          {/* Slash menu with math items */}
+          <SuggestionMenuController
+            triggerCharacter="/"
+            getItems={async (query: string) =>
+              filterSuggestionItems(getCustomSlashMenuItems(editor), query)
+            }
+          />
+          <SuggestionMenuController
+            triggerCharacter="$"
+            getItems={async (query: string) =>
+              filterSuggestionItems(getInlineMathMenuItems(editor), query)
+            }
+          />
+        </BlockNoteView>
+      </div>
     </MathEditProvider>
   );
 }

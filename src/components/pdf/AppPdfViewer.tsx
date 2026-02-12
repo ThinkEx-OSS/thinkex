@@ -9,7 +9,7 @@ import { DocumentContent, DocumentManagerPluginPackage } from '@embedpdf/plugin-
 import { RenderLayer, RenderPluginPackage } from '@embedpdf/plugin-render/react';
 import { ZoomPluginPackage, ZoomMode, ZoomGestureWrapper, useZoom } from '@embedpdf/plugin-zoom/react';
 import { PanPluginPackage } from '@embedpdf/plugin-pan/react';
-import { SearchPluginPackage, SearchLayer } from '@embedpdf/plugin-search/react';
+
 import { SelectionPluginPackage, SelectionLayer, useSelectionCapability, SelectionSelectionMenuProps } from '@embedpdf/plugin-selection/react';
 import { RotatePluginPackage, Rotate } from '@embedpdf/plugin-rotate/react';
 import { FullscreenPluginPackage } from '@embedpdf/plugin-fullscreen/react';
@@ -524,7 +524,7 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
     createPluginRegistration(PanPluginPackage),
     createPluginRegistration(RotatePluginPackage),
     createPluginRegistration(FullscreenPluginPackage),
-    createPluginRegistration(SearchPluginPackage),
+
     createPluginRegistration(SelectionPluginPackage),
     // Dependencies first for Annotations
     createPluginRegistration(HistoryPluginPackage),
@@ -648,11 +648,7 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
                                         pageIndex={pageIndex}
                                         style={{ pointerEvents: 'none' }}
                                       />
-                                      {/* Search highlight layer */}
-                                      <SearchLayer
-                                        documentId={activeDocumentId}
-                                        pageIndex={pageIndex}
-                                      />
+
                                       {/* Selection layer for text selection - Rendered below annotation layer but allows text selection */}
                                       <SelectionLayer
                                         documentId={activeDocumentId}

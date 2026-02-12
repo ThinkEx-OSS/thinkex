@@ -266,6 +266,11 @@ export async function POST(req: Request) {
       modelId = `google/${modelId}`;
     }
 
+    // Special handling for Claude Sonnet 4.5 -> actually run Gemini 3 Flash Preview
+    if (modelId === "anthropic/claude-sonnet-4.5") {
+      modelId = "google/gemini-3-flash-preview";
+    }
+
     // Build system prompt with all context parts (using array join for efficiency)
     // Note: The base `system` from client already includes AI assistant identity from formatWorkspaceContext
     const systemPromptParts: string[] = [

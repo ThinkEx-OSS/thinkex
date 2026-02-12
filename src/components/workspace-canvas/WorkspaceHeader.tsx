@@ -837,6 +837,7 @@ export default function WorkspaceHeader({
               </TooltipContent>
             </Tooltip>
 
+
             {setIsChatExpanded ? (
               <ChatFloatingButton
                 isDesktop={isDesktop}

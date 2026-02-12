@@ -1,0 +1,39 @@
+/* Custom Code Block Editor Styles */
+
+/* Editable code content area */
+.code-block-editor-pre {
+    margin: 0;
+    padding: 16px;
+    overflow-x: auto;
+    min-height: 40px;
+}
+
+.code-block-editor-code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    tab-size: 2;
+    white-space: pre;
+    color: hsl(var(--foreground));
+}
+
+/* Code content area scrollbar */
+.code-block-editor-pre::-webkit-scrollbar {
+    height: 6px;
+}
+
+.code-block-editor-pre::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.code-block-editor-pre::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+}
+
+/* Override BlockNote's inline content styling inside code blocks */
+.custom-code-block-editor .bn-inline-content {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.6;
+}

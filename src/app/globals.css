@@ -114,17 +114,6 @@
   width: 100%;
   overflow: visible;
   padding-block: 2px;
-  opacity: 0.5;
-  transition: opacity 0.2s ease;
-}
-
-.blocknote-toolbar-wrapper:hover {
-  opacity: 1;
-}
-
-/* Hide toolbar completely when not hovering over the editor area */
-.blocknote-with-static-toolbar.bn-container:not(:has(.bn-editor:hover)) .blocknote-toolbar-wrapper:not(:hover) {
-  opacity: 0;
 }
 
 /* Center the toolbar items and remove default styling */
@@ -327,6 +316,51 @@
   flex: 1 !important;
 }
 
+/* Remove black background from code blocks in BlockNote editor */
+.bn-block-content[data-content-type="codeBlock"],
+.bn-block-content[data-content-type="codeBlock"] pre,
+.bn-block-content[data-content-type="codeBlock"] code {
+  background: transparent !important;
+}
+
+/* Ensure code blocks use theme-aware colors */
+.bn-block-content[data-content-type="codeBlock"] pre,
+.bn-block-content[data-content-type="codeBlock"] code {
+  color: hsl(var(--foreground)) !important;
+  background-color: hsl(var(--muted)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+/* Fix black background above and below code block containers */
+.bn-block-content[data-content-type="codeBlock"] {
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.bn-block-content[data-content-type="codeBlock"] > div {
+  background: transparent !important;
+}
+
+/* Remove any inherited backgrounds from the code block wrapper */
+.bn-block-content[data-content-type="codeBlock"] .custom-code-block-editor {
+  background: hsl(var(--background)) !important;
+}
+
+/* Force transparent background on all code block related elements */
+.bn-block-content[data-content-type="codeBlock"],
+.bn-block-content[data-content-type="codeBlock"] *,
+.bn-block-content[data-content-type="codeBlock"]::before,
+.bn-block-content[data-content-type="codeBlock"]::after {
+  background: transparent !important;
+}
+
+/* Only allow specific backgrounds for code content */
+.bn-block-content[data-content-type="codeBlock"] .custom-code-block-editor,
+.bn-block-content[data-content-type="codeBlock"] .code-block-editor-pre {
+  background: hsl(var(--muted)) !important;
+}
+
 /* Make BlockNote blockquotes white instead of gray */
 .bn-block-content[data-content-type="quote"] blockquote,
 .bn-block-content[data-content-type="quote"] .bn-inline-content {
@@ -375,8 +409,8 @@
 }
 
 /* Make keyboard-selected item visibly distinct from the popover background */
-.bn-suggestion-menu > .bn-suggestion-menu-item[aria-selected="true"],
-.bn-dropdown-menu > .bn-dropdown-menu-item[aria-selected="true"] {
+.bn-suggestion-menu>.bn-suggestion-menu-item[aria-selected="true"],
+.bn-dropdown-menu>.bn-dropdown-menu-item[aria-selected="true"] {
   background: color-mix(in oklch, var(--foreground) 12%, var(--popover)) !important;
 }
 
@@ -385,7 +419,7 @@
 :root {
   /* Prevent scroll bounce effect */
   overscroll-behavior: none;
-  
+
   /* Google Keep-inspired dark mode color palette */
   /* Dark gray background like Google Keep */
   /* White text for primary content */
@@ -774,11 +808,13 @@ body.marquee-selecting iframe {
 
 /* Modal backdrop - theme aware */
 .backdrop-dark {
-  --backdrop-bg: rgba(0, 0, 0, 0.15); /* Light backdrop for light mode */
+  --backdrop-bg: rgba(0, 0, 0, 0.15);
+  /* Light backdrop for light mode */
 }
 
 .dark .backdrop-dark {
-  --backdrop-bg: rgba(0, 0, 0, 0.6); /* Darker backdrop for dark mode */
+  --backdrop-bg: rgba(0, 0, 0, 0.6);
+  /* Darker backdrop for dark mode */
 }
 
 /* Custom scrollbar styling for modal */
@@ -1273,8 +1309,10 @@ body.marquee-selecting iframe {
   /* Headers should prefer word breaks but can fall back */
   overflow-wrap: break-word;
   word-break: break-word;
-  min-width: 0; /* Allow shrinking */
-  max-width: 100%; /* Don't overflow parent */
+  min-width: 0;
+  /* Allow shrinking */
+  max-width: 100%;
+  /* Don't overflow parent */
 }
 
 /* Dark theme styling for react-color SwatchesPicker */
@@ -1510,4 +1548,3 @@ body:has(.card-detail-modal) .workspace-grid-container {
     opacity: 1;
   }
 }
-

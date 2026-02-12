@@ -219,7 +219,10 @@ function getFileType(url: string): { type: 'video' | 'pdf' | 'image' | 'document
  * Displays files being processed (Supabase storage files and YouTube videos).
  */
 export const FileProcessingToolUI = makeAssistantToolUI<{
-    jsonInput: string;
+    urls?: string[];
+    fileNames?: string[];
+    instruction?: string;
+    forceReprocess?: boolean;
 }, string>({
     toolName: "processFiles",
     render: function FileProcessingToolUI({ args, status, result }) {
@@ -242,14 +245,12 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
         let urls: string[] = [];
         let instruction: string | undefined;
 
-        if (args?.jsonInput) {
-            try {
-                const parsed = JSON.parse(args.jsonInput);
-                urls = parsed.urls || [];
-                instruction = parsed.instruction;
-            } catch (e) {
-                console.error("Failed to parse jsonInput:", e);
-            }
+        // Use the actual tool parameters
+        if (args?.urls && Array.isArray(args.urls)) {
+            urls = args.urls;
+        }
+        if (args?.instruction) {
+            instruction = args.instruction;
         }
 
         const fileCount = urls.length;
@@ -259,7 +260,9 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
             console.debug("📁 [FILE_TOOL_UI] Parsed data:", {
                 fileCount,
                 urls,
+                fileNames: args?.fileNames,
                 instruction,
+                forceReprocess: args?.forceReprocess,
                 resultLength: result?.length || 0,
                 isRunning,
                 isComplete,
