@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { useDropzone } from "react-dropzone";
 import { usePdfUpload } from "@/hooks/workspace/use-pdf-upload";
+import { generateSlug } from "@/lib/workspace/slug";
 
 // Context for section visibility - allows child components to know when to focus
 const SectionVisibilityContext = createContext<{
@@ -148,22 +149,34 @@ export function HomeContent() {
     // Guard against multiple rapid clicks
     if (createWorkspace.isPending) return;
 
+    const name = "Blank Workspace";
+    const newId = crypto.randomUUID();
+    const newSlug = generateSlug(name);
+
+    // OPTIMISTIC NAVIGATION:
+    // 1. Trigger mutation (updates cache immediately via onMutate)
+    // 2. Navigate immediately (don't wait for server response)
     createWorkspace.mutate(
       {
-        name: "Blank Workspace",
+        name,
         icon: null,
         color: null,
+        id: newId,
+        slug: newSlug,
       },
       {
-        onSuccess: ({ workspace }) => {
-          router.push(`/workspace/${workspace.slug}`);
-        },
         onError: (err) => {
           const msg = err instanceof Error ? err.message : "Something went wrong";
           toast.error("Could not create workspace", { description: msg });
+          // If creation fails, we might be on a 404 page or broken state.
+          // Ideally we'd redirect back to home, but for now specific error handling is in mutation
         },
       }
     );
+
+    // Navigate immediately to the new slug
+    // The cache is already primed with the empty workspace and empty event log
+    router.push(`/workspace/${newSlug}`);
   };
 
   return (

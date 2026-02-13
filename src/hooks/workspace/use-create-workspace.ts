@@ -13,6 +13,8 @@ interface CreateWorkspaceParams {
   description?: string;
   is_public?: boolean;
   initialState?: AgentState;
+  id?: string;
+  slug?: string;
 }
 
 interface CreateWorkspaceResponse {
@@ -66,20 +68,25 @@ export function useCreateWorkspace() {
       // Snapshot the previous value for rollback
       const previous = queryClient.getQueryData<WorkspaceWithState[]>(["workspaces"]);
 
+      // If client provided optimistic ID/Slug, use them. Otherwise fallback to temp.
+      // Note: For instant optimistic navigation, the client MUST provide these.
+      const optimisticId = newWorkspace.id || `temp-${Date.now()}`;
+      const optimisticSlug = newWorkspace.slug || `temp-${Date.now()}`;
+
       // Optimistically add the new workspace to the list
       queryClient.setQueryData<WorkspaceWithState[]>(["workspaces"], (old) => {
         if (!old) return old;
 
         const optimisticWorkspace: WorkspaceWithState = {
-          id: `temp-${Date.now()}`,
-          slug: `temp-${Date.now()}`,
+          id: optimisticId,
+          slug: optimisticSlug,
           name: newWorkspace.name,
           description: newWorkspace.description || "",
           template: newWorkspace.template || "blank",
           isPublic: newWorkspace.is_public || false,
           icon: newWorkspace.icon || null,
           color: newWorkspace.color || null,
-          userId: "",
+          userId: "", // Will be filled by actual user data or ignored in list view for now
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           sortOrder: old.length,
@@ -88,6 +95,18 @@ export function useCreateWorkspace() {
 
         return [optimisticWorkspace, ...old];
       });
+
+      // PRIME CACHE FOR THE NEW WORKSPACE PAGE
+      // This allows instant navigation without waiting for a fetch
+      if (newWorkspace.id) {
+        // 1. Prime the events log with an empty state or initial state
+        // This matches the structure returned by `fetchWorkspaceEvents`
+        queryClient.setQueryData(["workspace", newWorkspace.id, "events"], {
+          events: [],
+          snapshot: null,
+          version: 0
+        });
+      }
 
       return { previous };
     },
