@@ -15,14 +15,11 @@ export function useReactiveNavigation(workspaceState: AgentState) {
     const selectMultipleCards = useUIStore((state) => state.selectMultipleCards);
 
     const handleCreatedItems = useCallback((createdIds: string[]) => {
-        // Select the newly created items
-        selectMultipleCards(createdIds);
-
         // Set pending navigation to trigger in useEffect once item is available in state
         if (createdIds.length > 0) {
             setPendingNavigationId(createdIds[0]);
         }
-    }, [selectMultipleCards]);
+    }, []);
 
     // Effect to handle navigation once item appears in state
     useEffect(() => {
