@@ -5,24 +5,12 @@ import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useCreateWorkspaceFromPrompt } from "@/hooks/workspace/use-create-workspace";
-import type { UploadedPdfMetadata } from "@/hooks/workspace/use-pdf-upload";
-// import { useImageUpload } from "@/hooks/workspace/use-image-upload";
-import { ArrowUp, FileText, Loader2, X, Link as LinkIcon } from "lucide-react";
-// import { ImageIcon } from "lucide-react";
+import { ArrowUp, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import TypingText from "@/components/ui/typing-text";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
-import type { PdfData } from "@/lib/workspace-state/types";
-// import type { ImageData } from "@/lib/workspace-state/types";
 
 const PLACEHOLDER_OPTIONS = [
   "help me study organic chemistry",
@@ -51,24 +39,17 @@ const baseText = "Create a workspace on ";
 
 interface HomePromptInputProps {
   shouldFocus?: boolean;
-  uploadedFiles: UploadedPdfMetadata[];
-  isUploading: boolean;
-  removeFile: (fileUrl: string) => void;
-  clearFiles: () => void;
-  openFilePicker: () => void;
-  uploadFiles: (files: File[]) => Promise<UploadedPdfMetadata[]>;
 }
 
-export function HomePromptInput({ shouldFocus, uploadedFiles, isUploading, removeFile, clearFiles, openFilePicker, uploadFiles }: HomePromptInputProps) {
+export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
   const router = useRouter();
+
   const { resolvedTheme } = useTheme();
   const [value, setValue] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
   const [introComplete, setIntroComplete] = useState(false);
   const [prefixTyped, setPrefixTyped] = useState(false);
   const [typedPrefix, setTypedPrefix] = useState("");
-  const [isUrlDialogOpen, setIsUrlDialogOpen] = useState(false);
-  const [urlInput, setUrlInput] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const typingKeyRef = useRef(0);
 
@@ -173,82 +154,11 @@ export function HomePromptInput({ shouldFocus, uploadedFiles, isUploading, remov
     toast("Autogen coming soon");
   };
 
-  const handleUrlSubmit = () => {
-    if (!urlInput.trim()) return;
 
-    // Append URL to current value, adding a space if needed
-    const newValue = value + (value && !value.endsWith(' ') ? ' ' : '') + urlInput.trim() + ' ';
-    setValue(newValue);
-    setUrlInput("");
-    setIsUrlDialogOpen(false);
-
-    // Focus back on input
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 100);
-  };
 
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-[760px]">
       <div className="relative">
-        {/* Uploaded files display */}
-        {uploadedFiles.length > 0 && (
-          <div className="mb-3 flex flex-wrap gap-2">
-            {uploadedFiles.map((file) => (
-              <div
-                key={file.fileUrl}
-                className={cn(
-                  "flex items-center gap-2 rounded-lg px-3 py-1.5",
-                  "bg-muted border",
-                  "text-sm"
-                )}
-              >
-                <FileText className="h-3.5 w-3.5 flex-shrink-0" />
-                <span className="truncate max-w-[200px]">{file.name}</span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeFile(file.fileUrl);
-                  }}
-                  className="ml-1 hover:text-foreground transition-colors"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* // Uploaded images display */}
-        {/* uploadedImages.length > 0 && (
-          <div className="mb-3 flex flex-wrap gap-2">
-            {uploadedImages.map((file) => (
-              <div
-                key={file.fileUrl}
-                className={cn(
-                  "flex items-center gap-2 rounded-lg px-3 py-1.5",
-                  "bg-foreground/5 border border-foreground/10",
-                  "text-sm text-foreground/80"
-                )}
-              >
-                <ImageIcon className="h-3.5 w-3.5 flex-shrink-0" />
-                <span className="truncate max-w-[200px]">{file.name}</span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeImage(file.fileUrl);
-                  }}
-                  className="ml-1 hover:text-foreground transition-colors"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        ) */}
-
         {/* Input container styled to look like one input */}
         <div
           onClick={() => inputRef.current?.focus()}
@@ -257,10 +167,9 @@ export function HomePromptInput({ shouldFocus, uploadedFiles, isUploading, remov
             isExpanded ? "rounded-[24px]" : "rounded-[32px]",
             "border",
             "bg-sidebar backdrop-blur-xl",
-            "px-4 py-2 md:px-6 md:py-3",
+            "px-4 py-1 md:px-6 md:py-2",
             "pr-14 md:pr-16",
             "shadow-[0_24px_90px_-40px_rgba(0,0,0,0.85)]",
-            "focus-within:border-foreground/40",
             "transition-[border-radius,height] duration-300 ease-in-out",
             "cursor-text"
           )}
@@ -347,96 +256,24 @@ export function HomePromptInput({ shouldFocus, uploadedFiles, isUploading, remov
             </div>
           </div>
 
-          <div className="mx-0 my-1 h-px bg-gradient-to-r from-transparent via-foreground/20 to-transparent" />
 
-          <div className="mt-0 flex items-center gap-0.5">
-            <button
-              type="button"
-              onClick={() => openFilePicker()}
-              className={cn(
-                "flex items-center gap-1 px-1.5 py-0.5 rounded-md",
-                "text-[11px] text-sidebar-foreground/70",
-                "hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
-              )}
-            >
-              <FileText className="h-3 w-3" />
-              <span>Upload PDF</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsUrlDialogOpen(true)}
-              className={cn(
-                "flex items-center gap-1 px-1.5 py-0.5 rounded-md",
-                "text-[11px] text-sidebar-foreground/70",
-                "hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
-              )}
-            >
-              <LinkIcon className="h-3 w-3" />
-              <span>Add URL</span>
-            </button>
-            {/* <button
-              type="button"
-              onClick={() => openImagePicker()}
-              className={cn(
-                "flex items-center gap-1 px-1.5 py-0.5 rounded-md",
-                "text-[11px] text-sidebar-foreground/70",
-                "hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
-              )}
-            >
-              <ImageIcon className="h-3 w-3" />
-              <span>Add Image</span>
-            </button> */}
-          </div>
 
-          <button
+          <TooltipIconButton
+            tooltip="Create workspace"
+            side="bottom"
             type="submit"
+            variant="default"
+            size="icon"
+            className="size-[34px] rounded-full p-1 absolute right-3 md:right-4 top-1/2 -translate-y-1/2"
             disabled={!value.trim()}
             onClick={(e) => e.stopPropagation()}
-            className={cn(
-              "absolute right-3 md:right-4 top-1/2 -translate-y-1/2",
-              "h-7 w-7 md:h-8 md:w-8 rounded-full",
-              "flex items-center justify-center",
-              "bg-background text-foreground border border-border",
-              "transition-colors",
-              "hover:bg-muted hover:border-border/80",
-              "disabled:opacity-40 disabled:cursor-not-allowed"
-            )}
-            aria-label="Submit prompt"
+            aria-label="Create workspace"
           >
-            <ArrowUp className="h-5 w-5" />
-          </button>
+            <ArrowUp className="size-4 text-background" />
+          </TooltipIconButton>
         </div>
       </div>
 
-      <Dialog open={isUrlDialogOpen} onOpenChange={setIsUrlDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Link</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <Input
-              placeholder="Paste URL here..."
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleUrlSubmit();
-                }
-              }}
-              autoFocus
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsUrlDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUrlSubmit} disabled={!urlInput.trim()}>
-              Add
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </form>
   );
 }
