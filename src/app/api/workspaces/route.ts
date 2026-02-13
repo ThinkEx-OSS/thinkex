@@ -146,7 +146,7 @@ async function handlePOST(request: NextRequest) {
   const userId = user.userId;
 
   const body = await request.json();
-  const { name, description, template, is_public, icon, color, initialState: customInitialState, id, slug: customSlug } = body;
+  const { name, description, template, is_public, icon, color, initialState: customInitialState } = body;
 
   // Use the provided template, defaulting to "blank"
   const effectiveTemplate: WorkspaceTemplate = (template && [
@@ -178,46 +178,28 @@ async function handlePOST(request: NextRequest) {
 
   while (attempts < MAX_ATTEMPTS) {
     try {
-      // Use client-provided slug if available (and valid), otherwise generate one
-      const slug = (customSlug && /^[a-z0-9-]+$/.test(customSlug)) ? customSlug : generateSlug(name);
-
-      // Use client-provided ID if available (and valid UUID), otherwise let DB generate it (or use undefined to let default gen)
-      // Note: we're inserting into a table where ID is likely a primary key UUID.
-      // Drizzle insert will use the 'values' object. If 'id' is present in values, it tries to use it.
-
-      const values: any = {
-        userId: userId,
-        name,
-        description: description || "",
-        template: effectiveTemplate,
-        isPublic: is_public || false,
-        icon: icon || null,
-        color: color || null,
-        sortOrder: newSortOrder,
-        slug,
-      };
-
-      if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
-        values.id = id;
-      }
+      // Generate slug
+      const slug = generateSlug(name);
 
       [workspace] = await db
         .insert(workspaces)
-        .values(values)
+        .values({
+          userId: userId,
+          name,
+          description: description || "",
+          template: effectiveTemplate,
+          isPublic: is_public || false,
+          icon: icon || null,
+          color: color || null,
+          sortOrder: newSortOrder,
+          slug,
+        })
         .returning();
 
       break; // Success
     } catch (error: any) {
       // Postgres unique constraint violation code is 23505
       if (error?.code === '23505') {
-        // If client provided a specific ID/Slug and it collided, we can't retry with the same ID/Slug.
-        // We should probably fail or fallback to generating a new one.
-        // For now, if customSlug was provided, we assume the client checks uniqueness or handles error.
-        // But if we generated the slug, we can retry.
-        if (customSlug || id) {
-          throw error; // Client provided duplicate ID/Slug
-        }
-
         attempts++;
         if (attempts === MAX_ATTEMPTS) throw error;
         continue;

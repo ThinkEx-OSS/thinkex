@@ -18,7 +18,7 @@ export function generateSlug(name: string): string {
 
     // Use Web Crypto API for better randomness and guaranteed length
     // (fallback to Math.random if crypto not available, though in Node/modern browsers it is)
-    const suffix = Math.random().toString(36).substring(2, 10).padEnd(8, '0');
+    const suffix = Math.random().toString(36).substring(2, 8).padEnd(6, '0');
 
     // If truncated is empty (e.g. name was "!!!"), fallback to 'workspace'
     const finalSlug = truncated || 'workspace';
