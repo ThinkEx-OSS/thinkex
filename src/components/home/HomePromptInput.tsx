@@ -50,7 +50,6 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
     removeFile,
     removeLink,
     totalFileSize,
-    clearAll,
     hasUploading,
     awaitAllUploads,
     getFileItems,
@@ -198,7 +197,6 @@ export function HomePromptInput({ shouldFocus }: HomePromptInputProps) {
         ATTACHMENTS_SESSION_KEY,
         JSON.stringify({ fileUrls, links })
       );
-      clearAll();
       router.push(`/generate?prompt=${encodeURIComponent(trimmed)}`);
     } catch (err) {
       toast.error(
