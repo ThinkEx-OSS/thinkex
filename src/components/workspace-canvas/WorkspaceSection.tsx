@@ -189,7 +189,6 @@ export function WorkspaceSection({
   const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
   const clearCardSelection = useUIStore((state) => state.clearCardSelection);
   const openPanel = useUIStore((state) => state.openPanel);
-  const setSelectedActions = useUIStore((state) => state.setSelectedActions);
   const { data: session } = useSession();
 
   // Assistant API for Deep Research action

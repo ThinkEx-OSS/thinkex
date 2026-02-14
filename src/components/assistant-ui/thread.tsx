@@ -6,19 +6,15 @@ import {
   CheckCircle2,
   ChevronLeftIcon,
   ChevronRightIcon,
-  ChevronUpIcon,
   CopyIcon,
   FileText,
   PencilIcon,
   PlusSquareIcon,
   RefreshCwIcon,
   Square,
-  SearchIcon,
   GalleryHorizontalEnd,
-  Code as CodeIcon,
   AlertTriangle,
   Sparkles,
-  Globe,
   Bug,
 } from "lucide-react";
 import { FaQuoteLeft, FaWandMagicSparkles, FaCheck } from "react-icons/fa6";
@@ -357,7 +353,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
   const blockNoteSelection = useUIStore(selectBlockNoteSelection);
   const clearReplySelections = useUIStore((state) => state.clearReplySelections);
   const clearBlockNoteSelection = useUIStore((state) => state.clearBlockNoteSelection);
-  const clearSelectedActions = useUIStore((state) => state.clearSelectedActions);
   const selectedCardIdsArray = useUIStore(useShallow(selectSelectedCardIdsArray));
   const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
   const queryClient = useQueryClient();
@@ -368,8 +363,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
 
   // Debounce refetch timeout map (similar to CreateNoteToolUI pattern)
   const refetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const selectedActions = useUIStore((state) => state.selectedActions);
 
   // Watch for thread changes to auto-focus composer (built-in assistant-ui behavior)
   const mainThreadId = useAuiState(({ threads }) => (threads as any)?.mainThreadId);
@@ -671,9 +664,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         if (blockNoteSelection) {
           customMetadata.blockNoteSelection = blockNoteSelection;
         }
-        if (selectedActions.length > 0) {
-          customMetadata.selectedActions = selectedActions;
-        }
         aui?.composer()?.setRunConfig(
           Object.keys(customMetadata).length > 0 ? { custom: customMetadata } : {}
         );
@@ -685,7 +675,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         // Clear all per-request state immediately — captured in runConfig before send()
         clearReplySelections();
         clearBlockNoteSelection();
-        clearSelectedActions();
 
         // Note: BlockNote selection is not cleared automatically - it persists until manually cleared
       }}
@@ -739,8 +728,6 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
   const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
 
-  const selectedIds = useUIStore((state) => state.selectedActions);
-  const setSelectedActions = useUIStore((state) => state.setSelectedActions);
   const [isWarningPopoverOpen, setIsWarningPopoverOpen] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -768,73 +755,6 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
     return filterItems(items, "");
   }, [items]);
 
-  // Action items
-  const actionItems = [
-    {
-      id: "manage-workspace",
-      label: "Edit Workspace",
-      description: "Create, update, and organize content",
-      icon: <PencilIcon className="size-3.5" />,
-      onClick: () => {
-        // Placeholder for manage workspace action
-      },
-    },
-    {
-      id: "search-web",
-      label: "Search Web",
-      description: "Search the web and attach links as context",
-      icon: <SearchIcon className="size-3.5" />,
-      onClick: () => {
-        // Placeholder for search web action
-      },
-    },
-    {
-      id: "run-code",
-      label: "Analyze (Run Code)",
-      description: "Runs Python code for calculations and analysis",
-      icon: <CodeIcon className="size-3.5" />,
-      onClick: () => {
-        // Placeholder for run code action
-      },
-    },
-    {
-      id: "deep-research",
-      label: "Deep Research",
-      description: "Comprehensive research using multiple sources",
-      icon: <Globe className="size-3.5" />,
-      onClick: () => {
-        // Toggle behavior is handled by handleActionClick
-        // Only set text if we are selecting it (not waiting to be deselected)
-        const isCurrentlySelected = selectedIds.includes("deep-research");
-        if (!isCurrentlySelected) {
-
-        }
-      },
-    },
-  ];
-
-  const handleActionClick = (itemId: string) => {
-    // Only allow one action to be selected at a time
-    // If clicking the same action, deselect it; otherwise, select only this action
-    const newSelectedIds = selectedIds.includes(itemId)
-      ? [] // Deselect if already selected
-      : [itemId]; // Select only this action (replaces any previously selected)
-
-    setSelectedActions(newSelectedIds);
-
-    // Call the item's onClick handler if provided
-    const item = actionItems.find((i) => i.id === itemId);
-    item?.onClick?.();
-
-    // Focus the composer input after action selection
-    focusComposerInput();
-  };
-
-  const isActionSelected = (itemId: string) => selectedIds.includes(itemId);
-  const selectedAction = selectedIds.length > 0
-    ? actionItems.find((item) => item.id === selectedIds[0]) || null
-    : null;
-
   return (
     <div className="aui-composer-action-wrapper relative mx-1 mb-2 flex items-center justify-between">
       {/* Attachment buttons on the left */}
@@ -842,51 +762,6 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
         <div className="relative z-0">
           <ComposerAddAttachment />
         </div>
-        {/* Actions Button */}
-        <DropdownMenu onOpenChange={(open) => {
-          if (!open) {
-            focusComposerInput();
-          }
-        }}>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className={cn(
-                "flex items-center gap-1.5 px-1.5 py-1 rounded-md bg-sidebar-accent hover:bg-accent transition-colors flex-shrink-0 text-xs font-normal cursor-pointer",
-                selectedAction ? "text-white" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {selectedAction ? selectedAction.icon : <ChevronUpIcon className="w-3.5 h-3.5" />}
-              <span>{selectedAction ? selectedAction.label : "Actions"}</span>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="top" className="w-48 max-h-80 overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()}>
-            {actionItems.map((item) => {
-              const selected = isActionSelected(item.id);
-              return (
-                <DropdownMenuItem
-                  key={item.id}
-                  onClick={() => {
-                    handleActionClick(item.id);
-                  }}
-                  title={item.description}
-                  aria-label={item.description ?? item.label}
-                  className={cn(
-                    "cursor-pointer",
-                    selected && "bg-accent/50"
-                  )}
-                >
-                  {selected ? (
-                    <FaCheck className="size-3.5 text-sidebar-foreground/80" />
-                  ) : (
-                    item.icon
-                  )}
-                  <span>{item.label}</span>
-                </DropdownMenuItem>
-              );
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
         {/* Model Selector Button */}
         <DropdownMenu open={isModelSelectorOpen} onOpenChange={(open) => {
           setIsModelSelectorOpen(open);

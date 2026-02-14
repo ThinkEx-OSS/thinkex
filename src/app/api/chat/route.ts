@@ -9,7 +9,6 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { createChatTools } from "@/lib/ai/tools";
 import type { GatewayProviderOptions } from "@ai-sdk/gateway";
-import { formatSelectedActionsContext } from "@/lib/utils/format-workspace-context";
 
 // Regex patterns as constants (compiled once, reused for all requests)
 const URL_CONTEXT_REGEX = /\[URL_CONTEXT:(.+?)\]/g;
@@ -205,7 +204,6 @@ export async function POST(req: Request) {
 
     // Get pre-formatted selected cards context from client (no DB fetch needed)
     const selectedCardsContext = getSelectedCardsContext(body);
-    const selectedActions = body.metadata?.custom?.selectedActions || body.selectedActions || [];
 
     // Get model ID and ensure it has the correct prefix for Gateway
     let modelId = body.modelId || "gemini-2.5-flash";
@@ -233,14 +231,6 @@ export async function POST(req: Request) {
     // Inject selected cards context if available
     if (selectedCardsContext) {
       systemPromptParts.push(`\n\n${selectedCardsContext}`);
-    }
-
-    // Inject selected actions context if available
-    if (selectedActions.length > 0) {
-      const selectedActionsContext = formatSelectedActionsContext(selectedActions);
-      if (selectedActionsContext) {
-        systemPromptParts.push(`\n\n${selectedActionsContext}`);
-      }
     }
 
     const finalSystemPrompt = systemPromptParts.join('');
@@ -273,7 +263,7 @@ export async function POST(req: Request) {
       userId,
       activeFolderId,
       clientTools: body.tools,
-      enableDeepResearch: selectedActions.includes("deep-research"),
+      enableDeepResearch: false,
     });
 
     // Stream the response

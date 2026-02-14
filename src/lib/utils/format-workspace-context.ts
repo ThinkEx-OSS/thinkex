@@ -505,39 +505,6 @@ function formatImageDetailsFull(data: ImageData): string[] {
 
 
 /**
- * Formats selected actions context for the assistant
- * Used when actions are selected in the actions menu
- */
-export function formatSelectedActionsContext(selectedActions: string[]): string {
-    if (selectedActions.length === 0) {
-        return "";
-    }
-
-    const actionLabels: Record<string, string> = {
-        "manage-workspace": "Manage Workspace",
-        "search-web": "Search Web",
-        "run-code": "Analyze (Run Code)",
-    };
-
-    const formattedActions = selectedActions.map((action) => {
-        return actionLabels[action] || action;
-    });
-
-    const actionsList = formattedActions.map((action, index) => `${index + 1}. ${action}`).join("\n");
-
-    return `<instructions>
-
-Selected Actions:
-The user has selected ${selectedActions.length} action${selectedActions.length !== 1 ? 's' : ''} in the actions menu:
-
-${actionsList}
-
-These actions are currently active. Consider them when responding to queries or performing operations.
-
-</instructions>`;
-}
-
-/**
  * Formats flashcard details with FULL content
  */
 function formatFlashcardDetailsFull(data: FlashcardData): string[] {

@@ -33,7 +33,6 @@ interface UIState {
   searchQuery: string;
 
   activeFolderId: string | null; // Active folder for filtering
-  selectedActions: string[]; // Action IDs selected in the actions menu
   selectedModelId: string; // Selected AI model ID
 
   // Text selection state
@@ -97,8 +96,6 @@ interface UIState {
   _openPanelDirect: (itemId: string) => void;
   /** Direct panel close used by useFolderUrl hook — URL sync only */
   _closePanelDirect: () => void;
-  setSelectedActions: (actions: string[]) => void;
-  clearSelectedActions: () => void;
   setSelectedModelId: (modelId: string) => void;
 
   // Actions - Text selection
@@ -161,7 +158,6 @@ const initialState = {
   searchQuery: '',
 
   activeFolderId: null,
-  selectedActions: [],
   selectedModelId: 'gemini-2.5-flash',
 
   // Text selection
@@ -456,8 +452,6 @@ export const useUIStore = create<UIState>()(
         setShowJsonView: (show) => set({ showJsonView: show }),
         setSearchQuery: (query) => set({ searchQuery: query }),
 
-        setSelectedActions: (actions) => set({ selectedActions: actions }),
-        clearSelectedActions: () => set({ selectedActions: [] }),
         setSelectedModelId: (modelId) => set({ selectedModelId: modelId }),
 
         // Text selection actions

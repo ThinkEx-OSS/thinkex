@@ -167,8 +167,6 @@ export function WorkspaceHeader({
 
   // Assistant API for Deep Research action
   const aui = useAui();
-  const setSelectedActions = useUIStore((state) => state.setSelectedActions);
-
 
   // React Query client for cache invalidation
   const queryClient = useQueryClient();

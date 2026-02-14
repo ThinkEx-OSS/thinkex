@@ -139,9 +139,6 @@ function WorkspaceContextWrapperContent({
   );
   const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
 
-  // Get selected actions from UI store
-  const selectedActions = useUIStore((state) => state.selectedActions);
-
   // Filter items to get only selected cards
   const selectedItems = useMemo(
     () => items.filter((item) => selectedCardIds.has(item.id)),
