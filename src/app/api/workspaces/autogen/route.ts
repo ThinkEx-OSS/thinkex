@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { google } from "@ai-sdk/google";
-import { streamText, Output } from "ai";
+import { streamText, generateText, Output } from "ai";
 import { z } from "zod";
+import { executeWebSearch } from "@/lib/ai/tools/web-search";
 import { randomUUID } from "crypto";
 import { desc, eq, sql } from "drizzle-orm";
 import { requireAuthWithUserInfo } from "@/lib/api/workspace-helpers";
@@ -134,14 +135,71 @@ const DISTILLED_SCHEMA = z.object({
 
 type DistilledOutput = z.infer<typeof DISTILLED_SCHEMA>;
 
-/** Main agent: reads full message (PDFs, video, links) once, outputs metadata + distilled prompts. Streams partial output when onPartial provided. */
+type DistillationResult = {
+  metadata: { title: string; icon: string; color: string };
+  contentSummary: string;
+  quizTopic: string;
+  youtubeSearchTerm: string;
+  sources: Array<{ title: string; url: string }>;
+};
+
+const SEARCH_DECISION_SCHEMA = z.object({
+  needsSearch: z.boolean().describe("True if the prompt references current events, recent news, specific people/companies, unfamiliar topics, or anything that would benefit from up-to-date web information"),
+  searchQuery: z.string().optional().describe("If needsSearch is true, a concise 2-6 word search query to find relevant information (e.g. 'Fed interest rate 2025' or 'company name latest news')"),
+});
+
+/** Phase 1: Flash-lite decides whether to search. Returns search context + sources if needed. */
+async function runSearchPhase(
+  prompt: string,
+  hasAttachments: boolean,
+  send: (ev: StreamEvent) => void
+): Promise<{ searchContext: string; sources: Array<{ title: string; url: string }> }> {
+  const { output } = await generateText({
+    model: google("gemini-2.5-flash-lite"),
+    output: Output.object({ schema: SEARCH_DECISION_SCHEMA }),
+    prompt: `Given this user prompt for a study workspace, decide if web search would help.
+
+User prompt: "${prompt.slice(0, 500)}"
+Has attachments (files/links): ${hasAttachments}
+
+Set needsSearch=true only if: current events, recent news, specific people/places/companies, or topics you're uncertain about.
+Set needsSearch=false for: general concepts, textbook topics, well-known subjects, or when the user provided sufficient context.
+If needsSearch=true, provide a searchQuery (2-6 words) to look up.`,
+  });
+
+  if (!output || !output.needsSearch || !output.searchQuery?.trim()) {
+    return { searchContext: "", sources: [] };
+  }
+
+  const query = String(output.searchQuery).trim();
+  send({ type: "toolCall", data: { toolName: "webSearch", query, status: "searching" } });
+  const { text, sources } = await executeWebSearch(query);
+  send({ type: "toolResult", data: { toolName: "webSearch", status: "done" } });
+
+  const searchContext = `\n\nCONTEXT FROM WEB SEARCH (use this to inform your response):\n${text}`;
+  return { searchContext, sources };
+}
+
+/** Main agent: reads full message (PDFs, video, links) once, outputs metadata + distilled prompts. No tools—uses pre-fetched search context when available. */
 async function runDistillationAgent(
   prompt: string,
   fileUrls: FileUrlItem[],
   links: string[],
-  onPartial?: (partial: Partial<DistilledOutput>) => void
-): Promise<DistilledOutput> {
+  searchContext: string,
+  sources: Array<{ title: string; url: string }>,
+  send: (ev: StreamEvent) => void
+): Promise<DistillationResult> {
   let output: DistilledOutput | undefined;
+
+  const userMessage = buildUserMessage(prompt, fileUrls, links);
+  const contentWithSearch: UserMessagePart[] = searchContext
+    ? userMessage.content.map((part): UserMessagePart =>
+        part.type === "text"
+          ? { type: "text", text: searchContext + (part.text ?? "") }
+          : part
+      )
+    : userMessage.content;
+
   const { partialOutputStream } = streamText({
     model: google("gemini-2.5-flash-lite"),
     output: Output.object({ schema: DISTILLED_SCHEMA }),
@@ -151,35 +209,43 @@ async function runDistillationAgent(
 3. Produce a quiz topic string (can include "References: ..." if links are relevant).
 4. Produce a YouTube search term to find a related video. Use a broad, general query (2-5 common words) that is likely to return results—e.g. "Emacs tutorial beginners" or "UNIX command line basics". Do NOT use course codes (e.g. CMSC 216), assignment names, grading details, or other narrow phrasing that would yield few or no videos.
 
+If CONTEXT FROM WEB SEARCH is provided below, use it to ground your response.
+
 Available icons (must be one of these): ${AVAILABLE_ICONS.join(", ")}`,
-    messages: [buildUserMessage(prompt, fileUrls, links)] as const,
+    messages: [{ role: "user" as const, content: contentWithSearch }] as const,
     onError: ({ error }) => logger.error("[AUTOGEN] Distillation stream error:", error),
   });
 
   for await (const partial of partialOutputStream) {
     output = partial as DistilledOutput;
-    onPartial?.(partial as Partial<DistilledOutput>);
+    send({ type: "partial", data: { stage: "distillation", partial } });
   }
 
   if (!output) throw new Error("Failed to generate distillation output");
 
-  let title = output.metadata.title.trim();
+  const meta = output.metadata ?? {};
+  let title = String(meta.title ?? "").trim();
   if (title.length > MAX_TITLE_LENGTH) title = title.substring(0, MAX_TITLE_LENGTH).trim();
   if (!title) title = "New Workspace";
 
-  let icon = output.metadata.icon;
+  let icon = meta.icon;
   if (!icon || !AVAILABLE_ICONS.includes(icon)) icon = "FolderIcon";
 
-  let color = output.metadata.color;
+  let color = meta.color;
   if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
     color = CANVAS_CARD_COLORS[Math.floor(Math.random() * CANVAS_CARD_COLORS.length)];
   }
 
-  const result = {
+  const contentSummary = String(output.contentSummary ?? "").trim() || prompt;
+  const quizTopic = String(output.quizTopic ?? "").trim() || prompt;
+  const youtubeSearchTerm = String(output.youtubeSearchTerm ?? "").trim() || prompt;
+
+  const result: DistillationResult = {
     metadata: { title, icon, color },
-    contentSummary: output.contentSummary,
-    quizTopic: output.quizTopic,
-    youtubeSearchTerm: output.youtubeSearchTerm,
+    contentSummary,
+    quizTopic,
+    youtubeSearchTerm,
+    sources: Array.isArray(sources) ? sources : [],
   };
   logger.debug("[AUTOGEN] Distillation input", {
     prompt: truncateForLog(prompt),
@@ -195,6 +261,7 @@ Available icons (must be one of these): ${AVAILABLE_ICONS.join(", ")}`,
     contentSummaryPreview: truncateForLog(result.contentSummary),
     quizTopic: truncateForLog(result.quizTopic),
     youtubeSearchTerm: result.youtubeSearchTerm,
+    sourcesCount: result.sources.length,
   });
   return result;
 }
@@ -213,67 +280,18 @@ FORMATTING (apply to both note content and flashcard front/back text):
 Output a complete note (title + markdown content) and 5–8 flashcard pairs (front, back) that reinforce the same material.`;
 
 type StreamEvent =
+  | { type: "phase"; data: { stage: "understanding" } }
   | { type: "metadata"; data: { title: string; icon: string; color: string } }
   | { type: "partial"; data: { stage: "metadata" | "distillation" | "noteFlashcards"; partial: unknown } }
+  | { type: "toolCall"; data: { toolName: string; query?: string; status: string } }
+  | { type: "toolResult"; data: { toolName: string; status: string } }
   | { type: "workspace"; data: { id: string; slug: string; name: string } }
-  | { type: "progress"; data: { step: "note" | "quiz" | "flashcards" | "youtube"; status: "done" } }
+  | { type: "progress"; data: { step: "understanding" | "note" | "quiz" | "flashcards" | "youtube"; status: "done" } }
   | { type: "complete"; data: { workspace: { id: string; slug: string; name: string } } }
   | { type: "error"; data: { message: string } };
 
 function streamEvent(ev: StreamEvent): string {
   return JSON.stringify(ev) + "\n";
-}
-
-const METADATA_SCHEMA = z.object({
-  title: z.string().describe("A short, concise workspace title (max 5-6 words)"),
-  icon: z.string().describe("A HeroIcon name that represents the topic"),
-  color: z.string().describe("A hex color code that fits the topic theme"),
-});
-
-/** Generate workspace metadata (title, icon, color) from a text prompt. Used when user has no attachments (!hasParts). Streams partial when onPartial provided. */
-async function generateWorkspaceMetadata(
-  prompt: string,
-  onPartial?: (partial: Partial<{ title: string; icon: string; color: string }>) => void
-) {
-  let output: { title: string; icon: string; color: string } | undefined;
-  const { partialOutputStream } = streamText({
-    model: google("gemini-2.5-flash-lite"),
-    output: Output.object({
-      name: "WorkspaceMetadata",
-      description: "Workspace title, icon, and color for a topic",
-      schema: METADATA_SCHEMA,
-    }),
-    system: `You are a helpful assistant that generates workspace metadata.
-Given a user's prompt, generate:
-1. A short, concise workspace title (max 5-6 words)
-2. An appropriate HeroIcon name from: ${AVAILABLE_ICONS.join(", ")}
-3. A hex color code that fits the topic theme (e.g. #3B82F6)`,
-    prompt: `User prompt: "${prompt}"\n\nGenerate workspace title, icon, and color.`,
-    onError: ({ error }) => logger.error("[AUTOGEN] Metadata stream error:", error),
-  });
-
-  for await (const partial of partialOutputStream) {
-    output = partial as { title: string; icon: string; color: string };
-    onPartial?.(partial as Partial<{ title: string; icon: string; color: string }>);
-  }
-
-  if (!output) throw new Error("Failed to generate workspace metadata");
-
-  let title = output.title.trim();
-  if (title.length > MAX_TITLE_LENGTH) title = title.substring(0, MAX_TITLE_LENGTH).trim();
-  if (!title) title = "New Workspace";
-
-  let icon = output.icon;
-  if (!icon || !AVAILABLE_ICONS.includes(icon)) icon = "FolderIcon";
-
-  let color = output.color;
-  if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
-    color = CANVAS_CARD_COLORS[Math.floor(Math.random() * CANVAS_CARD_COLORS.length)];
-  }
-
-  logger.debug("[AUTOGEN] Metadata-only input", { prompt: truncateForLog(prompt) });
-  logger.debug("[AUTOGEN] Metadata-only output", { title, icon, color });
-  return { title, icon, color };
 }
 
 /**
@@ -344,51 +362,40 @@ export async function POST(request: NextRequest) {
           promptLength: prompt.length,
         });
 
-        // 1. Get metadata (and distilled prompts when user has attachments)
+        // 1. Search phase: flash-lite decides if we need web search, runs it if yes
+        send({ type: "phase", data: { stage: "understanding" } });
         const phase1Start = Date.now();
-        let title: string;
-        let icon: string;
-        let color: string;
-        let contentSummary: string;
-        let quizTopic: string;
-        let youtubeSearchTerm: string;
+        const { searchContext, sources: searchSources } = await runSearchPhase(
+          prompt,
+          hasParts,
+          send
+        );
 
-        if (hasParts) {
-          const distilled = await runDistillationAgent(
-            prompt,
-            fileUrls ?? [],
-            links ?? [],
-            (partial) => send({ type: "partial", data: { stage: "distillation", partial } })
-          );
-          title = distilled.metadata.title;
-          icon = distilled.metadata.icon;
-          color = distilled.metadata.color;
-          contentSummary = distilled.contentSummary;
-          quizTopic = distilled.quizTopic;
-          youtubeSearchTerm = distilled.youtubeSearchTerm;
-        } else {
-          const meta = await generateWorkspaceMetadata(
-            prompt,
-            (partial) => send({ type: "partial", data: { stage: "metadata", partial } })
-          );
-          title = meta.title;
-          icon = meta.icon;
-          color = meta.color;
-          contentSummary = prompt;
-          const nonYtLinks = links?.filter((l) => !isYouTubeUrl(l)) ?? [];
-          quizTopic = nonYtLinks.length > 0 ? `${prompt}\n\nReferences: ${nonYtLinks.join(", ")}` : prompt;
-          youtubeSearchTerm = prompt;
-        }
+        // Mark "understanding" (and any search) phase complete so progress bar advances
+        send({ type: "progress", data: { step: "understanding", status: "done" } });
+
+        // 2. Distillation agent (streaming, no tools—avoids Gemini 2.5 tools+JSON limitation)
+        const distilled = await runDistillationAgent(
+          prompt,
+          fileUrls ?? [],
+          links ?? [],
+          searchContext,
+          searchSources,
+          send
+        );
+
+        const { metadata, contentSummary, quizTopic, youtubeSearchTerm } = distilled;
+        const { title, icon, color } = metadata;
 
         logger.debug("[AUTOGEN] Content-generation prompts", {
-          contentSummaryLength: contentSummary.length,
-          contentSummaryPreview: truncateForLog(contentSummary),
-          quizTopic: truncateForLog(quizTopic),
-          youtubeSearchTerm,
+          contentSummaryLength: contentSummary?.length ?? 0,
+          contentSummaryPreview: truncateForLog(contentSummary ?? ""),
+          quizTopic: truncateForLog(quizTopic ?? ""),
+          youtubeSearchTerm: youtubeSearchTerm ?? "",
         });
 
         timings.metadataMs = Date.now() - phase1Start;
-        logger.info("[AUTOGEN] Metadata done", { ms: timings.metadataMs, title, hasParts });
+        logger.info("[AUTOGEN] Distillation done", { ms: timings.metadataMs, title, sourcesCount: distilled.sources?.length ?? 0 });
 
         send({ type: "metadata", data: { title, icon, color } });
 
@@ -563,7 +570,13 @@ Return:
         // Build create params for bulk create
         const phase4Start = Date.now();
         const createParams: CreateItemParams[] = [
-          { title: noteFlashcardResult.note.title, content: noteFlashcardResult.note.content, itemType: "note", layout: noteFlashcardResult.note.layout },
+          {
+            title: noteFlashcardResult.note.title,
+            content: noteFlashcardResult.note.content,
+            itemType: "note",
+            layout: noteFlashcardResult.note.layout,
+            ...((distilled.sources?.length ?? 0) > 0 && { sources: distilled.sources }),
+          },
           { title: noteFlashcardResult.flashcards.title, itemType: "flashcard", flashcardData: { cards: noteFlashcardResult.flashcards.cards }, layout: noteFlashcardResult.flashcards.layout },
           { title: quizResult.title, itemType: "quiz", quizData: { questions: quizResult.questions }, layout: quizResult.layout },
           ...(youtubeResult ? [{ title: youtubeResult.title, itemType: "youtube" as const, youtubeData: { url: youtubeResult.url }, layout: youtubeResult.layout }] : []),

@@ -14,6 +14,7 @@ import { FloatingWorkspaceCards } from "@/components/landing/FloatingWorkspaceCa
 import { ATTACHMENTS_SESSION_KEY } from "@/contexts/HomeAttachmentsContext";
 
 const PROGRESS_LABELS: Record<string, string> = {
+  understanding: "Understanding content...",
   metadata: "Generating workspace title...",
   workspace: "Creating your workspace...",
   note: "Creating your note...",
@@ -23,7 +24,7 @@ const PROGRESS_LABELS: Record<string, string> = {
   complete: "Done! Opening your workspace...",
 };
 
-const PROGRESS_STEPS = ["metadata", "workspace", "note", "quiz", "flashcards", "youtube"] as const;
+const PROGRESS_STEPS = ["understanding", "metadata", "workspace", "note", "quiz", "flashcards", "youtube"] as const;
 
 function GenerateContent() {
   const router = useRouter();
@@ -56,7 +57,7 @@ function GenerateContent() {
     setGenerationCompleteSlug(null);
     setUserInteracted(false);
     isRedirectingRef.current = false;
-    setProgressText("Generating workspace title...");
+    setProgressText("Understanding content...");
 
     let fileUrls: Array<{ url: string; mediaType: string; filename?: string; fileSize?: number }> = [];
     let links: string[] = [];
@@ -120,10 +121,21 @@ function GenerateContent() {
                 step?: string;
                 stage?: string;
                 partial?: Record<string, unknown>;
+                toolName?: string;
+                query?: string;
               };
             };
 
-            if (ev.type === "partial" && ev.data?.partial) {
+            if (ev.type === "phase" && ev.data?.stage === "understanding") {
+              applyIfNotAborted(() => setProgressText("Understanding content..."));
+            } else if (ev.type === "toolCall" && ev.data?.toolName === "webSearch" && ev.data?.query) {
+              const q = ev.data.query;
+              applyIfNotAborted(() =>
+                setProgressText(`Searching the web for: "${q.length > 50 ? q.slice(0, 50) + "..." : q}"`)
+              );
+            } else if (ev.type === "toolResult" && ev.data?.toolName === "webSearch") {
+              applyIfNotAborted(() => setProgressText("Processing search results..."));
+            } else if (ev.type === "partial" && ev.data?.partial) {
               const p = ev.data.partial as Record<string, unknown>;
               const stage = ev.data.stage as string;
               if (stage === "metadata" && typeof p.title === "string" && p.title) {

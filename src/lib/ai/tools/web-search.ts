@@ -61,6 +61,80 @@ const resolveRedirectUrl = async (url: string) => {
 };
 
 /**
+ * Extract sources from Google grounding metadata chunks and resolve Vertex redirect URLs.
+ * Used by autogen and other consumers that need sources for notes.
+ */
+export async function resolveGroundingChunksToSources(
+    groundingChunks: unknown[] | null | undefined
+): Promise<Array<{ title: string; url: string }>> {
+    if (!groundingChunks || !Array.isArray(groundingChunks)) return [];
+
+    const resolved = await Promise.all(
+        groundingChunks.map(async (chunk: any) => {
+            const uri = chunk?.web?.uri;
+            const title = chunk?.web?.title || "Source";
+            if (!uri) return null;
+
+            let url = uri;
+            if (isVertexRedirectUrl(uri)) {
+                const resolvedUrl = await resolveRedirectUrl(uri);
+                if (resolvedUrl && !isVertexRedirectUrl(resolvedUrl)) {
+                    url = resolvedUrl;
+                }
+            }
+
+            return { title, url };
+        })
+    );
+
+    return resolved.filter((s): s is { title: string; url: string } => s !== null);
+}
+
+export type WebSearchResult = {
+    text: string;
+    sources: Array<{ title: string; url: string }>;
+    groundingMetadata?: { groundingChunks?: unknown[] };
+};
+
+/**
+ * Execute a web search and return text + sources. Used by both chat webSearch tool and autogen.
+ */
+export async function executeWebSearch(query: string): Promise<WebSearchResult> {
+    const { text, providerMetadata } = await generateText({
+        model: google('gemini-2.5-flash-lite'),
+        tools: {
+            googleSearch: google.tools.googleSearch({ mode: 'MODE_UNSPECIFIED' }),
+        },
+        prompt: `Search the web and provide comprehensive information about: ${query}
+
+Please use the search tool to find current, accurate information and provide a detailed response with key findings.`,
+        stopWhen: stepCountIs(10),
+    });
+
+    const groundingMetadata = (providerMetadata?.google as { groundingMetadata?: { groundingChunks?: unknown[] } })?.groundingMetadata;
+    const groundingChunks = groundingMetadata?.groundingChunks;
+    const sources = await resolveGroundingChunksToSources(groundingChunks);
+
+    const resolvedChunks = groundingChunks
+        ? await Promise.all(
+            (groundingChunks as any[]).map(async (chunk) => {
+                const uri = chunk?.web?.uri;
+                if (!uri || !isVertexRedirectUrl(uri)) return chunk;
+                const resolved = await resolveRedirectUrl(uri);
+                if (!resolved || isVertexRedirectUrl(resolved)) return chunk;
+                return { ...chunk, web: { ...chunk.web, uri: resolved } };
+            })
+        )
+        : groundingChunks;
+
+    const resolvedMetadata = groundingMetadata
+        ? { ...groundingMetadata, groundingChunks: resolvedChunks }
+        : groundingMetadata;
+
+    return { text, sources, groundingMetadata: resolvedMetadata };
+}
+
+/**
  * Create a custom web search tool that uses a lightweight model to perform the search
  * and synthesize results before returning to the main conversation.
  */
@@ -73,52 +147,8 @@ export function createWebSearchTool() {
             })
         ),
         execute: async ({ query }) => {
-            // Use a lightweight model for the internal search loop
-            const { text, providerMetadata } = await generateText({
-                model: google('gemini-2.5-flash-lite'),
-                tools: {
-                    googleSearch: google.tools.googleSearch({
-                        mode: 'MODE_UNSPECIFIED',
-                    }),
-                },
-                prompt: `Search the web and provide comprehensive information about: ${query}
-
-Please use the search tool to find current, accurate information and provide a detailed response with key findings.`,
-                stopWhen: stepCountIs(10), // Allow the model steps to search and synthesize
-            });
-
-            const groundingMetadata = (providerMetadata?.google as any)?.groundingMetadata;
-            const groundingChunks = groundingMetadata?.groundingChunks as any[] | undefined;
-
-            const resolvedChunks = groundingChunks
-                ? await Promise.all(
-                    groundingChunks.map(async (chunk) => {
-                        const uri = chunk?.web?.uri;
-                        if (!uri || !isVertexRedirectUrl(uri)) return chunk;
-
-                        const resolved = await resolveRedirectUrl(uri);
-                        if (!resolved || isVertexRedirectUrl(resolved)) return chunk;
-
-                        return {
-                            ...chunk,
-                            web: {
-                                ...chunk.web,
-                                uri: resolved,
-                            },
-                        };
-                    })
-                )
-                : groundingChunks;
-
-            const resolvedMetadata = groundingMetadata
-                ? { ...groundingMetadata, groundingChunks: resolvedChunks }
-                : groundingMetadata;
-
-            // Return both text and metadata as a JSON string for the UI to parse
-            return JSON.stringify({
-                text,
-                groundingMetadata: resolvedMetadata
-            });
+            const { text, groundingMetadata } = await executeWebSearch(query);
+            return JSON.stringify({ text, groundingMetadata });
         },
     });
 }

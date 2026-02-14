@@ -337,7 +337,7 @@ export function HomeContent() {
             </div>
 
             {/* Dynamic tagline with mask wipe animation */}
-            <div className="mb-6 relative z-10">
+            <div className="mb-10 relative z-10">
               <DynamicTagline />
             </div>
 
