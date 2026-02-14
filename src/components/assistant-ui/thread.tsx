@@ -7,6 +7,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
+  File,
   FileText,
   PencilIcon,
   PlusSquareIcon,
@@ -16,10 +17,12 @@ import {
   AlertTriangle,
   Sparkles,
   Bug,
+  Brain,
 } from "lucide-react";
 import { FaQuoteLeft, FaWandMagicSparkles, FaCheck } from "react-icons/fa6";
 import { LuSparkle } from "react-icons/lu";
 import { SiClaude, SiOpenai } from "react-icons/si";
+import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import {
   ActionBarPrimitive,
@@ -286,58 +289,69 @@ const ThreadWelcome: FC = () => {
 };
 
 const ThreadSuggestions: FC = () => {
+  const aui = useAui();
+
+  const handleSuggestionClick = useCallback(
+    (action: string) => {
+      aui?.composer()?.setText(action);
+      focusComposerInput(true);
+    },
+    [aui]
+  );
+
   return (
     <div className="aui-thread-welcome-suggestions grid w-full gap-2 pb-4 @md:grid-cols-2">
       {[
         {
-          title: "Summarize my paper",
-          label: "and extract findings",
-          action: "Summarize my paper and extract findings",
-        },
-        {
-          title: "Create notes",
-          label: "based on my lecture slides",
-          action: "Create notes based on my lecture slides",
-        },
-        {
           title: "Read my PDF",
-          label: "and pull out key points",
-          action: "Read my PDF",
+          icon: File,
+          iconClassName: "size-4 shrink-0 text-red-400",
+          composerFill: "Read my PDF and ",
+        },
+        {
+          title: "Take notes",
+          icon: FileText,
+          iconClassName: "size-4 shrink-0 text-blue-400",
+          composerFill: "Take notes based on ",
         },
         {
           title: "Make flashcards",
-          label: "from this YouTube video",
-          action: "Make flashcards from this YouTube video",
+          icon: PiCardsThreeBold,
+          iconClassName: "size-4 shrink-0 text-purple-400 rotate-180",
+          composerFill: "Make flashcards from ",
         },
-      ].map((suggestedAction, index) => (
-        <m.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
-          transition={{ delay: 0.05 * index }}
-          key={`suggested-action-${suggestedAction.title}-${index}`}
-          className="aui-thread-welcome-suggestion-display [&:nth-child(n+3)]:hidden @md:[&:nth-child(n+3)]:block"
-        >
-          <ThreadPrimitive.Suggestion
-            prompt={suggestedAction.action}
-            send
-            asChild
+        {
+          title: "Start a quiz",
+          icon: Brain,
+          iconClassName: "size-4 shrink-0 text-green-400",
+          composerFill: "Start a quiz to ",
+        },
+      ].map((suggestedAction, index) => {
+        const Icon = suggestedAction.icon;
+        return (
+          <m.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ delay: 0.05 * index }}
+            key={`suggested-action-${suggestedAction.title}-${index}`}
+            className="aui-thread-welcome-suggestion-display [&:nth-child(n+3)]:hidden @md:[&:nth-child(n+3)]:block"
           >
             <Button
+              type="button"
               variant="ghost"
-              className="aui-thread-welcome-suggestion h-auto w-full flex-1 flex-wrap items-start justify-start gap-1 rounded-lg border border-sidebar-border px-5 py-4 text-left text-sm @md:flex-col dark:hover:bg-accent/60"
-              aria-label={suggestedAction.action}
+              className="aui-thread-welcome-suggestion h-auto w-full flex-1 flex-wrap items-center justify-start gap-2 rounded-lg border border-sidebar-border px-5 py-4 text-left text-sm dark:hover:bg-accent/60"
+                aria-label={suggestedAction.composerFill}
+              onClick={() => handleSuggestionClick(suggestedAction.composerFill)}
             >
+              <Icon className={suggestedAction.iconClassName} />
               <span className="aui-thread-welcome-suggestion-text-1 font-medium">
                 {suggestedAction.title}
               </span>
-              <span className="aui-thread-welcome-suggestion-text-2 text-muted-foreground">
-                {suggestedAction.label}
-              </span>
             </Button>
-          </ThreadPrimitive.Suggestion>
-        </m.div>
-      ))}
+          </m.div>
+        );
+      })}
     </div>
   );
 };
