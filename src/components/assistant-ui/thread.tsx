@@ -2,6 +2,7 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
   CheckIcon,
+  Loader2,
   CheckCircle2,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -76,6 +77,7 @@ import { UpdatePdfContentToolUI } from "@/components/assistant-ui/UpdatePdfConte
 
 import { DeleteCardToolUI } from "@/components/assistant-ui/DeleteCardToolUI";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
+import { useAttachmentUploadStore } from "@/lib/stores/attachment-upload-store";
 import {
   ComposerAttachments,
   ComposerAddAttachment,
@@ -624,6 +626,11 @@ const Composer: FC<ComposerProps> = ({ items }) => {
       onSubmit={async (e) => {
         e.preventDefault();
 
+        // Wait for attachment uploads before sending (same UX as home input)
+        if (useAttachmentUploadStore.getState().hasUploading()) {
+          return;
+        }
+
         // Get the current composer state
         const composerState = aui?.composer()?.getState();
         if (!composerState) return;
@@ -724,6 +731,7 @@ interface ComposerActionProps {
 const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
   const { data: session } = useSession();
   useAui();
+  const hasUploading = useAttachmentUploadStore((s) => s.hasUploading());
   const isAnonymous = session?.user?.isAnonymous ?? false;
   const selectedCardIdsArray = useUIStore(
     useShallow(selectSelectedCardIdsArray)
@@ -1027,15 +1035,20 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
         <AuiIf condition={({ thread }) => !thread.isRunning}>
           <ComposerPrimitive.Send asChild>
             <TooltipIconButton
-              tooltip="Send message"
+              tooltip={hasUploading ? "Uploading attachments..." : "Send message"}
               side="bottom"
               type="submit"
               variant="default"
               size="icon"
               className="aui-composer-send size-[34px] rounded-full p-1"
               aria-label="Send message"
+              disabled={hasUploading}
             >
-              <ArrowUpIcon className="aui-composer-send-icon size-4 text-background" />
+              {hasUploading ? (
+                <Loader2 className="aui-composer-send-icon size-4 text-background animate-spin" />
+              ) : (
+                <ArrowUpIcon className="aui-composer-send-icon size-4 text-background" />
+              )}
             </TooltipIconButton>
           </ComposerPrimitive.Send>
         </AuiIf>
@@ -1690,6 +1703,7 @@ const truncateText = (text: string, maxLength: number = 30) => {
 
 const EditComposer: FC = () => {
   const aui = useAui();
+  const hasUploading = useAttachmentUploadStore((s) => s.hasUploading());
   const messageAttachments = useAuiState(
     useShallow(({ message }) => (message as { attachments?: unknown[] })?.attachments || [])
   );
@@ -1824,6 +1838,10 @@ const EditComposer: FC = () => {
         onSubmit={(e) => {
           e.preventDefault();
 
+          if (useAttachmentUploadStore.getState().hasUploading()) {
+            return;
+          }
+
           // Get the current composer state
           const composerState = aui?.composer()?.getState();
           if (!composerState) return;
@@ -1927,14 +1945,23 @@ const EditComposer: FC = () => {
                 Cancel
               </Button>
             </ComposerPrimitive.Cancel>
-            <ComposerPrimitive.Send asChild disabled={currentText === originalText}>
+            <ComposerPrimitive.Send asChild disabled={currentText === originalText || hasUploading}>
               <Button
                 size="sm"
                 aria-label="Update message"
-                disabled={currentText === originalText}
-                className={currentText === originalText ? "opacity-50 cursor-not-allowed" : ""}
+                disabled={currentText === originalText || hasUploading}
+                className={cn(
+                  (currentText === originalText || hasUploading) && "opacity-50 cursor-not-allowed"
+                )}
               >
-                Update
+                {hasUploading ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                    Uploading...
+                  </>
+                ) : (
+                  "Update"
+                )}
               </Button>
             </ComposerPrimitive.Send>
           </div>

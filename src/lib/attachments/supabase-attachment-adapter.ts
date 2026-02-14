@@ -6,6 +6,9 @@ import type {
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
 import { isPasswordProtectedPdf } from "@/lib/uploads/pdf-validation";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
+import { useAttachmentUploadStore } from "@/lib/stores/attachment-upload-store";
+
+const getUploadStore = () => useAttachmentUploadStore.getState();
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB to match server limit
 
@@ -54,7 +57,12 @@ export class SupabaseAttachmentAdapter implements AttachmentAdapter {
     const id = crypto.randomUUID();
 
     // Start upload immediately in background (optimistic)
-    this.pendingUploads.set(id, uploadFileDirect(file).then((r) => r.url));
+    getUploadStore().addUploading(id);
+    const uploadPromise = uploadFileDirect(file).then((r) => {
+      getUploadStore().removeUploading(id);
+      return r.url;
+    });
+    this.pendingUploads.set(id, uploadPromise);
 
     return {
       id,
@@ -97,6 +105,7 @@ export class SupabaseAttachmentAdapter implements AttachmentAdapter {
 
   async remove(attachment: PendingAttachment): Promise<void> {
     // Cancel/cleanup the pending upload if user removes the attachment
+    getUploadStore().removeUploading(attachment.id);
     this.pendingUploads.delete(attachment.id);
   }
 }

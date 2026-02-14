@@ -1,7 +1,7 @@
 "use client";
 
 import React, { PropsWithChildren, useEffect, useState, useRef, type FC } from "react";
-import { XIcon, FileText, Link as LinkIcon, Upload, Link2, SearchIcon, Plus, Code as CodeIcon, GalleryHorizontalEnd } from "lucide-react";
+import { XIcon, FileText, Link as LinkIcon, Upload, Link2, SearchIcon, Plus, Code as CodeIcon, GalleryHorizontalEnd, Loader2 } from "lucide-react";
 import { LuPaperclip } from "react-icons/lu";
 import { toast } from "sonner";
 import {
@@ -38,6 +38,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { createUrlFile } from "@/lib/attachments/url-utils";
+import { useAttachmentUploadStore } from "@/lib/stores/attachment-upload-store";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { FaCheck } from "react-icons/fa";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
@@ -256,6 +257,8 @@ const AttachmentThumb: FC = () => {
 const AttachmentUI: FC = () => {
   const aui = useAui();
   const isComposer = aui.attachment.source === "composer";
+  const attachmentId = useAuiState(({ attachment }) => (attachment as { id?: string })?.id);
+  const isUploading = useAttachmentUploadStore((s) => attachmentId != null && s.isUploading(attachmentId));
 
   const isImage = useAuiState(
     ({ attachment }) => (attachment as { type?: string })?.type === "image"
@@ -380,27 +383,42 @@ const AttachmentUI: FC = () => {
         )}
       >
         <div className="relative">
-          <AttachmentPreviewDialog>
-            <TooltipTrigger asChild>
-              <div
-                className={cn(
-                  "aui-attachment-tile size-14 cursor-pointer overflow-hidden rounded-[14px] border bg-muted transition-opacity hover:opacity-75",
-                  isComposer &&
-                  "aui-attachment-tile-composer border-foreground/20",
-                )}
-                role="button"
-                id="attachment-tile"
-                aria-label={`${typeLabel} attachment`}
-              >
-                <AttachmentThumb />
-              </div>
-            </TooltipTrigger>
-          </AttachmentPreviewDialog>
-          {isComposer && <AttachmentRemove />}
+          {isComposer && isUploading ? (
+            <div
+              className={cn(
+                "aui-attachment-tile size-14 overflow-hidden rounded-[14px] border border-foreground/20 bg-muted/60 flex items-center justify-center",
+                isImage && "size-24"
+              )}
+            >
+              <Loader2 className="size-6 shrink-0 text-muted-foreground animate-spin" />
+            </div>
+          ) : (
+            <>
+              <AttachmentPreviewDialog>
+                <TooltipTrigger asChild>
+                  <div
+                    className={cn(
+                      "aui-attachment-tile size-14 cursor-pointer overflow-hidden rounded-[14px] border bg-muted transition-opacity hover:opacity-75",
+                      isComposer &&
+                      "aui-attachment-tile-composer border-foreground/20",
+                    )}
+                    role="button"
+                    id="attachment-tile"
+                    aria-label={`${typeLabel} attachment`}
+                  >
+                    <AttachmentThumb />
+                  </div>
+                </TooltipTrigger>
+              </AttachmentPreviewDialog>
+              {isComposer && <AttachmentRemove />}
+            </>
+          )}
         </div>
-        <div className="text-[11px] text-muted-foreground w-full truncate text-center px-1 leading-tight">
-          <AttachmentPrimitive.Name />
-        </div>
+        {!(isComposer && isUploading) && (
+          <div className="text-[11px] text-muted-foreground w-full truncate text-center px-1 leading-tight">
+            <AttachmentPrimitive.Name />
+          </div>
+        )}
       </AttachmentPrimitive.Root>
       <TooltipContent side="top">
         <AttachmentPrimitive.Name />
