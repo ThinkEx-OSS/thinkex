@@ -7,7 +7,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
-  File,
+  File as FileIcon,
   FileText,
   PencilIcon,
   PlusSquareIcon,
@@ -324,7 +324,7 @@ const ThreadSuggestions: FC = () => {
         },
         {
           title: "PDF",
-          icon: File,
+          icon: FileIcon,
           iconClassName: "size-4 shrink-0 text-red-400",
           composerFill: "Read my PDF and ",
         },

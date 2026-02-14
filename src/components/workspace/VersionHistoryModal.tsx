@@ -156,7 +156,7 @@ function getEventDescription(event: WorkspaceEvent, items?: any[]): string {
       return count > 0 ? `Created folder with ${count} item${count === 1 ? '' : 's'}` : 'Created folder';
     }
     default:
-      return event.type;
+      return 'Unknown event';
   }
 }
 
