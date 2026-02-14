@@ -252,6 +252,8 @@ function DashboardContent({
   // Panel state - using new array-based system
   const openPanelIds = useUIStore((state) => state.openPanelIds);
   const closePanel = useUIStore((state) => state.closePanel);
+  const navigateToRoot = useUIStore((state) => state.navigateToRoot);
+  const navigateToFolder = useUIStore((state) => state.navigateToFolder);
   const maximizedItemId = useUIStore((state) => state.maximizedItemId);
   const setMaximizedItemId = useUIStore((state) => state.setMaximizedItemId);
 
@@ -531,6 +533,14 @@ function DashboardContent({
                 operations.flushPendingChanges(id);
                 closePanel(id);
                 if (maximizedItemId === id) setMaximizedItemId(null);
+              }}
+              onNavigateToRoot={() => {
+                openPanelIds.forEach((id) => operations.flushPendingChanges(id));
+                navigateToRoot();
+              }}
+              onNavigateToFolder={(folderId) => {
+                openPanelIds.forEach((id) => operations.flushPendingChanges(id));
+                navigateToFolder(folderId);
               }}
               onMinimizeActiveItem={() => setMaximizedItemId(null)}
               onMaximizeActiveItem={(id) => setMaximizedItemId(id)}

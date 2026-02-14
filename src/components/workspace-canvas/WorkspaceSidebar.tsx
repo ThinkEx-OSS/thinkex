@@ -84,8 +84,7 @@ function WorkspaceSidebar({
   // Get current workspace ID from Zustand store (moved in Phase 3)
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
 
-  // Get clearActiveFolder from UI store to navigate to root level
-  const clearActiveFolder = useUIStore((state) => state.clearActiveFolder);
+  const navigateToRoot = useUIStore((state) => state.navigateToRoot);
   const activeFolderId = useUIStore((state) => state.activeFolderId);
   const openPanelIds = useUIStore((state) => state.openPanelIds);
 
@@ -231,7 +230,7 @@ function WorkspaceSidebar({
                                   isActive={false} // Don't highlight as "selected" context
                                   onWorkspaceClick={() => {
                                     // Navigate to root level of workspace (similar to breadcrumb)
-                                    clearActiveFolder();
+                                    navigateToRoot();
                                   }}
                                   onSettingsClick={handleSettingsClick}
                                   onShareClick={handleShareClick}

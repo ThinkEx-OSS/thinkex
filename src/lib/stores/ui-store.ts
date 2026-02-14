@@ -90,6 +90,10 @@ interface UIState {
 
   setActiveFolderId: (folderId: string | null) => void;
   clearActiveFolder: () => void;
+  /** Atomic: close panels, clear/set folder, deselect panel cards. Use for explicit navigation (breadcrumb, sidebar). */
+  navigateToRoot: () => void;
+  /** Atomic: close panels, set folder, deselect panel cards. Use for explicit navigation (breadcrumb, sidebar). */
+  navigateToFolder: (folderId: string) => void;
   /** Direct setter used by useFolderUrl hook — does not clear panels (URL sync only) */
   _setActiveFolderIdDirect: (folderId: string | null) => void;
   /** Direct panel open used by useFolderUrl hook — URL sync only */
@@ -187,22 +191,17 @@ export const useUIStore = create<UIState>()(
       (set) => ({
         ...initialState,
 
-        // Folder navigation — preserve manual user selections
-        setActiveFolderId: (folderId) => {
+        // Folder-only setter — for "reveal" (scroll to item, show folder) and URL sync. Never touches panels.
+        setActiveFolderId: (folderId) => set({ activeFolderId: folderId }),
+
+        // Alias for navigateToRoot — kept for backward compat during migration
+        clearActiveFolder: () => {
           set((state) => {
-            // In workspace+panel mode: keep the panel open, just change folder
-            if (state.viewMode === 'workspace+panel') {
-              if (state.activeFolderId === folderId) return {};
-              return { activeFolderId: folderId };
-            }
-            if (state.activeFolderId === folderId && state.openPanelIds.length === 0) {
-              return {};
-            }
-            // Remove only auto-selected cards, preserve manual selections
+            if (state.activeFolderId === null && state.openPanelIds.length === 0) return {};
             const newSelectedCardIds = new Set(state.selectedCardIds);
             state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
             return {
-              activeFolderId: folderId,
+              activeFolderId: null,
               viewMode: 'workspace' as ViewMode,
               openPanelIds: [],
               maximizedItemId: null,
@@ -212,19 +211,30 @@ export const useUIStore = create<UIState>()(
           });
         },
 
-        clearActiveFolder: () => {
+        // Atomic navigation — close panels, set folder, deselect panel cards. Single update = no URL race.
+        navigateToRoot: () => {
           set((state) => {
-            // In workspace+panel mode: keep the panel open, just clear folder
-            if (state.viewMode === 'workspace+panel') {
-              if (state.activeFolderId === null) return {};
-              return { activeFolderId: null };
-            }
             if (state.activeFolderId === null && state.openPanelIds.length === 0) return {};
-            // Remove only auto-selected cards, preserve manual selections
             const newSelectedCardIds = new Set(state.selectedCardIds);
             state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
             return {
               activeFolderId: null,
+              viewMode: 'workspace' as ViewMode,
+              openPanelIds: [],
+              maximizedItemId: null,
+              selectedCardIds: newSelectedCardIds,
+              panelAutoSelectedCardIds: new Set(),
+            };
+          });
+        },
+
+        navigateToFolder: (folderId) => {
+          set((state) => {
+            if (state.activeFolderId === folderId && state.openPanelIds.length === 0) return {};
+            const newSelectedCardIds = new Set(state.selectedCardIds);
+            state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
+            return {
+              activeFolderId: folderId,
               viewMode: 'workspace' as ViewMode,
               openPanelIds: [],
               maximizedItemId: null,

@@ -99,7 +99,9 @@ interface WorkspaceHeaderProps {
   activeItems?: Item[];
   activeItemMode?: 'maximized' | 'split' | null;
   onCloseActiveItem?: (itemId: string) => void;
-  onMinimizeActiveItem?: (itemId: string) => void;
+  onNavigateToRoot?: () => void;
+  onNavigateToFolder?: (folderId: string) => void;
+  onMinimizeActiveItem?: () => void;
   onMaximizeActiveItem?: (itemId: string | null) => void;
   onUpdateActiveItem?: (itemId: string, updates: Partial<Item>) => void;
 }
@@ -138,6 +140,8 @@ export function WorkspaceHeader({
   activeItems = [],
   activeItemMode = null,
   onCloseActiveItem,
+  onNavigateToRoot,
+  onNavigateToFolder,
   onMinimizeActiveItem,
   onMaximizeActiveItem,
   onUpdateActiveItem,
@@ -179,8 +183,6 @@ export function WorkspaceHeader({
 
   // Get active folder from UI store
   const activeFolderId = useUIStore((state) => state.activeFolderId);
-  const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
-  const clearActiveFolder = useUIStore((state) => state.clearActiveFolder);
   const openPanel = useUIStore((state) => state.openPanel);
 
   // Build folder path for breadcrumbs
@@ -192,22 +194,15 @@ export function WorkspaceHeader({
   // Compact mode when space is tight (item panel open + chat expanded)
   const isCompactMode = isItemPanelOpen && isChatExpanded;
 
-  // Handle folder click - navigate or rename if already active
+  // Handle folder click - navigate or rename if already active (and no panel open)
   const handleFolderClick = useCallback((folderId: string) => {
-    // If we have active items, close them to "navigate back" to the folder view
+    // If panel is open, always navigate (close panel) — don't open rename
     if (activeItems.length > 0) {
-      onMaximizeActiveItem?.(null);
-      activeItems.forEach(item => onCloseActiveItem?.(item.id));
-
-      // Ensure we are in the correct folder
-      if (activeFolderId !== folderId) {
-        setActiveFolderId(folderId);
-      }
+      onNavigateToFolder?.(folderId);
       return;
     }
-
     if (activeFolderId === folderId && onRenameFolder) {
-      // Folder is already active, open rename dialog
+      // Folder is already active and no panel — open rename dialog
       const folder = items.find(i => i.id === folderId && i.type === 'folder');
       if (folder) {
         setRenamingTarget({ id: folderId, type: 'folder' });
@@ -215,10 +210,9 @@ export function WorkspaceHeader({
         setShowRenameDialog(true);
       }
     } else {
-      // Navigate to folder
-      setActiveFolderId(folderId);
+      onNavigateToFolder?.(folderId);
     }
-  }, [activeFolderId, items, onRenameFolder, setActiveFolderId, activeItems, onMaximizeActiveItem, onCloseActiveItem]);
+  }, [activeFolderId, activeItems.length, items, onRenameFolder, onNavigateToFolder]);
 
   // Handle rename
   const handleRename = useCallback(() => {
@@ -501,13 +495,7 @@ export function WorkspaceHeader({
             {/* Hidden in compact mode when inside a folder/item - the logic handles this */}
             {(activeFolderId || activeItems.length > 0) && !isCompactMode ? (
               <button
-                onClick={() => {
-                  if (activeFolderId) clearActiveFolder();
-                  if (activeItems.length > 0) {
-                    onMaximizeActiveItem?.(null);
-                    activeItems.forEach(item => onCloseActiveItem?.(item.id));
-                  }
-                }}
+                onClick={() => onNavigateToRoot?.()}
                 data-breadcrumb-target="root"
                 className={cn(
                   breadcrumbItemClass,
@@ -611,7 +599,7 @@ export function WorkspaceHeader({
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start" className="max-w-[200px]">
                         <DropdownMenuItem
-                          onClick={clearActiveFolder}
+                          onClick={() => onNavigateToRoot?.()}
                           data-breadcrumb-target="root"
                           className={cn(
                             "flex items-center gap-1.5 cursor-pointer",

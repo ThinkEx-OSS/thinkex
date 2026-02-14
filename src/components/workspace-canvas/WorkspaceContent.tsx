@@ -90,7 +90,7 @@ export default function WorkspaceContent({
 
   // Folder filtering state from UI store
   const activeFolderId = useUIStore((state) => state.activeFolderId);
-  const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
+  const navigateToFolder = useUIStore((state) => state.navigateToFolder);
 
   // Copy state for JSON view
   const [isCopied, setIsCopied] = useState(false);
@@ -144,9 +144,9 @@ export default function WorkspaceContent({
 
   // Handle opening a folder (folders are now items with type: 'folder')
   const handleOpenFolder = useCallback((folderId: string) => {
-    setActiveFolderId(folderId);
+    navigateToFolder(folderId);
     onOpenFolder?.(folderId);
-  }, [setActiveFolderId, onOpenFolder]);
+  }, [navigateToFolder, onOpenFolder]);
 
   // Listen for audio processing completion events
   useEffect(() => {

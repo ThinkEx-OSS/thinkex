@@ -23,7 +23,6 @@ export function useNavigateToItem() {
     const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
     const { state: workspaceState } = useWorkspaceState(workspaceId);
     const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
-    const clearActiveFolder = useUIStore((state) => state.clearActiveFolder);
 
     const navigateToItem = useCallback(
         (itemId: string, options?: { silent?: boolean }): boolean => {
@@ -38,12 +37,11 @@ export function useNavigateToItem() {
                 return false;
             }
 
-            // If item is in a folder, set the folder as active so it's visible in the main view
+            // If item is in a folder, set the folder as active so it's visible in the main view (reveal only)
             if (item.folderId) {
                 setActiveFolderId(item.folderId);
             } else {
-                // If item is in root, clear any active folder
-                clearActiveFolder();
+                setActiveFolderId(null);
             }
 
             // Small delay to let the DOM update (folder filter and scroll)
@@ -149,7 +147,7 @@ export function useNavigateToItem() {
 
             return true;
         },
-        [workspaceState?.items, setActiveFolderId, clearActiveFolder]
+        [workspaceState?.items, setActiveFolderId]
     );
 
     return navigateToItem;

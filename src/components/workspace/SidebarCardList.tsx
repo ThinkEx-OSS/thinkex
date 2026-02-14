@@ -790,7 +790,8 @@ function SidebarCardList() {
     const { workspaces } = useWorkspaceContext();
     const activeFolderId = useUIStore((state) => state.activeFolderId);
     const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
-    const clearActiveFolder = useUIStore((state) => state.clearActiveFolder);
+    const navigateToRoot = useUIStore((state) => state.navigateToRoot);
+    const navigateToFolder = useUIStore((state) => state.navigateToFolder);
 
     // Get current workspace details
     const currentWorkspace = useMemo(() => {
@@ -881,18 +882,16 @@ function SidebarCardList() {
         );
     }, [allItems]);
 
-    // Handle clicking on a folder - toggle folder filter
+    // Handle clicking on a folder - toggle folder filter (atomic navigate)
     const handleFolderClick = useCallback(
         (folderId: string) => {
             if (activeFolderId === folderId) {
-                // If clicking the active folder, clear the filter
-                clearActiveFolder();
+                navigateToRoot();
             } else {
-                // Set this folder as active
-                setActiveFolderId(folderId);
+                navigateToFolder(folderId);
             }
         },
-        [activeFolderId, setActiveFolderId, clearActiveFolder]
+        [activeFolderId, navigateToRoot, navigateToFolder]
     );
 
     // Handle clicking on an item - open parent folders, set active folder, and scroll to card
@@ -915,8 +914,8 @@ function SidebarCardList() {
                 // Set the item's folder as active so it's visible in the main view
                 setActiveFolderId(item.folderId);
             } else {
-                // If item is in root, clear any active folder
-                clearActiveFolder();
+                // If item is in root, clear any active folder (reveal only - no panel close)
+                setActiveFolderId(null);
             }
 
             // Small delay to let the DOM update (folder filter and scroll)
@@ -1015,7 +1014,7 @@ function SidebarCardList() {
                 }
             }, 150); // Slightly longer delay to ensure folder filter is applied
         },
-        [allItems, setActiveFolderId, clearActiveFolder]
+        [allItems, setActiveFolderId]
     );
 
     if (isLoading) {
