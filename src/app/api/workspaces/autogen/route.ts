@@ -12,8 +12,15 @@ import { searchVideos } from "@/lib/youtube";
 import { findNextAvailablePosition } from "@/lib/workspace-state/grid-layout-helpers";
 import type { Item } from "@/lib/workspace-state/types";
 import { CANVAS_CARD_COLORS } from "@/lib/workspace-state/colors";
+import { logger } from "@/lib/utils/logger";
 
 const MAX_TITLE_LENGTH = 60;
+const LOG_TRUNCATE = 400;
+
+function truncateForLog(s: string, max = LOG_TRUNCATE): string {
+  if (s.length <= max) return s;
+  return s.slice(0, max) + "...";
+}
 
 // HeroIcons that make sense as workspace topics (study, projects, subjects). No UI/settings/redundant.
 const AVAILABLE_ICONS = [
@@ -122,7 +129,7 @@ const DISTILLED_SCHEMA = z.object({
     .string()
     .describe("Comprehensive summary of the content for creating study note and flashcards. Include key concepts, facts, and structure. 200-800 words."),
   quizTopic: z.string().describe("Topic string for quiz generation, with references if relevant"),
-  youtubeSearchTerm: z.string().describe("Search query for finding a related YouTube video"),
+  youtubeSearchTerm: z.string().describe("Broad, general search query for finding a related YouTube video (e.g. 'Emacs tutorial for beginners' not 'CMSC 216 UNIX Emacs project grading')."),
 });
 
 type DistilledOutput = z.infer<typeof DISTILLED_SCHEMA>;
@@ -142,11 +149,11 @@ async function runDistillationAgent(
 1. Generate workspace metadata: a short title, an icon name from the list, and a hex color.
 2. Write a comprehensive content summary (200-800 words) capturing key concepts, facts, and structure for creating notes and materials.
 3. Produce a quiz topic string (can include "References: ..." if links are relevant).
-4. Produce a YouTube search term to find a related video on the topic.
+4. Produce a YouTube search term to find a related video. Use a broad, general query (2-5 common words) that is likely to return results—e.g. "Emacs tutorial beginners" or "UNIX command line basics". Do NOT use course codes (e.g. CMSC 216), assignment names, grading details, or other narrow phrasing that would yield few or no videos.
 
 Available icons (must be one of these): ${AVAILABLE_ICONS.join(", ")}`,
     messages: [buildUserMessage(prompt, fileUrls, links)] as const,
-    onError: ({ error }) => console.error("[Distillation] stream error:", error),
+    onError: ({ error }) => logger.error("[AUTOGEN] Distillation stream error:", error),
   });
 
   for await (const partial of partialOutputStream) {
@@ -168,12 +175,28 @@ Available icons (must be one of these): ${AVAILABLE_ICONS.join(", ")}`,
     color = CANVAS_CARD_COLORS[Math.floor(Math.random() * CANVAS_CARD_COLORS.length)];
   }
 
-  return {
+  const result = {
     metadata: { title, icon, color },
     contentSummary: output.contentSummary,
     quizTopic: output.quizTopic,
     youtubeSearchTerm: output.youtubeSearchTerm,
   };
+  logger.debug("[AUTOGEN] Distillation input", {
+    prompt: truncateForLog(prompt),
+    fileCount: fileUrls.length,
+    linkCount: links.length,
+    fileNames: fileUrls.map((f) => f.filename ?? f.url?.slice(-30)),
+  });
+  logger.debug("[AUTOGEN] Distillation output", {
+    title: result.metadata.title,
+    icon: result.metadata.icon,
+    color: result.metadata.color,
+    contentSummaryLength: result.contentSummary.length,
+    contentSummaryPreview: truncateForLog(result.contentSummary),
+    quizTopic: truncateForLog(result.quizTopic),
+    youtubeSearchTerm: result.youtubeSearchTerm,
+  });
+  return result;
 }
 
 /** System prompt for note + flashcard generation. Aligns with formatWorkspaceContext FORMATTING (markdown, math, mermaid). */
@@ -226,7 +249,7 @@ Given a user's prompt, generate:
 2. An appropriate HeroIcon name from: ${AVAILABLE_ICONS.join(", ")}
 3. A hex color code that fits the topic theme (e.g. #3B82F6)`,
     prompt: `User prompt: "${prompt}"\n\nGenerate workspace title, icon, and color.`,
-    onError: ({ error }) => console.error("[Metadata] stream error:", error),
+    onError: ({ error }) => logger.error("[AUTOGEN] Metadata stream error:", error),
   });
 
   for await (const partial of partialOutputStream) {
@@ -248,6 +271,8 @@ Given a user's prompt, generate:
     color = CANVAS_CARD_COLORS[Math.floor(Math.random() * CANVAS_CARD_COLORS.length)];
   }
 
+  logger.debug("[AUTOGEN] Metadata-only input", { prompt: truncateForLog(prompt) });
+  logger.debug("[AUTOGEN] Metadata-only output", { title, icon, color });
   return { title, icon, color };
 }
 
@@ -272,6 +297,9 @@ export async function POST(request: NextRequest) {
         controller.enqueue(encoder.encode(streamEvent(ev)));
       };
 
+      const autogenStart = Date.now();
+      const timings: Record<string, number> = {};
+
       try {
         const userId = user!.userId;
 
@@ -279,6 +307,7 @@ export async function POST(request: NextRequest) {
         try {
           body = await request.json();
         } catch {
+          logger.error("[AUTOGEN] Invalid JSON payload");
           send({ type: "error", data: { message: "Invalid JSON payload" } });
           controller.close();
           return;
@@ -286,6 +315,7 @@ export async function POST(request: NextRequest) {
 
         const prompt = typeof body?.prompt === "string" ? body.prompt.trim() : "";
         if (!prompt) {
+          logger.warn("[AUTOGEN] Rejected: missing prompt");
           send({ type: "error", data: { message: "prompt is required" } });
           controller.close();
           return;
@@ -298,14 +328,24 @@ export async function POST(request: NextRequest) {
         if (fileUrls?.length) {
           const invalid = fileUrls.filter((f) => !f?.url || !isAllowedFileUrl(f.url));
           if (invalid.length > 0) {
+            logger.warn("[AUTOGEN] Rejected: invalid file URLs", { invalidCount: invalid.length });
             send({ type: "error", data: { message: "One or more file URLs are not allowed" } });
             controller.close();
             return;
           }
         }
 
-        // 1. Get metadata (and distilled prompts when user has attachments)
         const hasParts = (fileUrls?.length ?? 0) > 0 || (links?.length ?? 0) > 0;
+        logger.info("[AUTOGEN] Start", {
+          userId,
+          hasParts,
+          fileCount: fileUrls?.length ?? 0,
+          linkCount: links?.length ?? 0,
+          promptLength: prompt.length,
+        });
+
+        // 1. Get metadata (and distilled prompts when user has attachments)
+        const phase1Start = Date.now();
         let title: string;
         let icon: string;
         let color: string;
@@ -340,9 +380,20 @@ export async function POST(request: NextRequest) {
           youtubeSearchTerm = prompt;
         }
 
+        logger.debug("[AUTOGEN] Content-generation prompts", {
+          contentSummaryLength: contentSummary.length,
+          contentSummaryPreview: truncateForLog(contentSummary),
+          quizTopic: truncateForLog(quizTopic),
+          youtubeSearchTerm,
+        });
+
+        timings.metadataMs = Date.now() - phase1Start;
+        logger.info("[AUTOGEN] Metadata done", { ms: timings.metadataMs, title, hasParts });
+
         send({ type: "metadata", data: { title, icon, color } });
 
         // 2. Create workspace
+        const phase2Start = Date.now();
         const maxSortData = await db
           .select({ sortOrder: workspaces.sortOrder })
           .from(workspaces)
@@ -386,10 +437,14 @@ export async function POST(request: NextRequest) {
         }
 
         if (!workspace) {
+          logger.error("[AUTOGEN] Failed to create workspace after insert");
           send({ type: "error", data: { message: "Failed to create workspace" } });
           controller.close();
           return;
         }
+
+        timings.workspaceCreateMs = Date.now() - phase2Start;
+        logger.info("[AUTOGEN] Workspace created", { ms: timings.workspaceCreateMs, workspaceId: workspace.id, slug: workspace.slug });
 
         const workspaceId = workspace.id;
         send({ type: "workspace", data: { id: workspace.id, slug: workspace.slug || "", name: workspace.name } });
@@ -409,10 +464,11 @@ export async function POST(request: NextRequest) {
             )
           `);
         } catch (eventError) {
-          console.error("Error creating WORKSPACE_CREATED event:", eventError);
+          logger.error("[AUTOGEN] Error creating WORKSPACE_CREATED event:", eventError);
         }
 
         // 3. Generate content in parallel. Stream progress as each completes. Defer DB writes to bulk create.
+        const phase3Start = Date.now();
         const NOTE_FLASHCARD_SCHEMA = z.object({
           note: z.object({ title: z.string(), content: z.string() }),
           flashcards: z.object({
@@ -439,7 +495,7 @@ ${contentSummary}
 Return:
 1. note: a short title and markdown content for a study note.
 2. flashcards: a title and 5-8 flashcard pairs (front, back) on the same topic.`,
-            onError: ({ error }) => console.error("[NoteFlashcards] stream error:", error),
+            onError: ({ error }) => logger.error("[AUTOGEN] NoteFlashcards stream error:", error),
           });
 
           for await (const partial of partialOutputStream) {
@@ -479,7 +535,33 @@ Return:
           })(),
         ]);
 
+        timings.contentGenerationMs = Date.now() - phase3Start;
+        logger.info("[AUTOGEN] Content generation done", { ms: timings.contentGenerationMs });
+
+        logger.debug("[AUTOGEN] Generated content", {
+          note: {
+            title: noteFlashcardResult.note.title,
+            contentLength: noteFlashcardResult.note.content.length,
+            contentPreview: truncateForLog(noteFlashcardResult.note.content),
+          },
+          flashcards: {
+            title: noteFlashcardResult.flashcards.title,
+            cardCount: noteFlashcardResult.flashcards.cards.length,
+            firstCardFront: noteFlashcardResult.flashcards.cards[0]?.front
+              ? truncateForLog(noteFlashcardResult.flashcards.cards[0].front, 120)
+              : undefined,
+          },
+          quiz: {
+            title: quizResult.title,
+            questionCount: quizResult.questions.length,
+          },
+          youtube: youtubeResult
+            ? { title: youtubeResult.title, url: youtubeResult.url?.slice(0, 50) + "..." }
+            : null,
+        });
+
         // Build create params for bulk create
+        const phase4Start = Date.now();
         const createParams: CreateItemParams[] = [
           { title: noteFlashcardResult.note.title, content: noteFlashcardResult.note.content, itemType: "note", layout: noteFlashcardResult.note.layout },
           { title: noteFlashcardResult.flashcards.title, itemType: "flashcard", flashcardData: { cards: noteFlashcardResult.flashcards.cards }, layout: noteFlashcardResult.flashcards.layout },
@@ -503,13 +585,25 @@ Return:
 
         const bulkResult = await workspaceWorker("bulkCreate", { workspaceId, items: createParams });
 
+        timings.bulkCreateMs = Date.now() - phase4Start;
+        logger.info("[AUTOGEN] Bulk create done", { ms: timings.bulkCreateMs, itemCount: createParams.length });
+
         if (!(bulkResult as { success?: boolean }).success) {
           const errMsg =
             (bulkResult as { message?: string }).message ??
             "Failed to create workspace items";
+          logger.error("[AUTOGEN] Bulk create failed", { errMsg, workspaceId });
           send({ type: "error", data: { message: errMsg } });
           return;
         }
+
+        const totalMs = Date.now() - autogenStart;
+        logger.info("[AUTOGEN] Complete", {
+          totalMs,
+          workspaceId: workspace.id,
+          slug: workspace.slug,
+          timings: { ...timings },
+        });
 
         send({
           type: "complete",
@@ -522,7 +616,9 @@ Return:
           },
         });
       } catch (error) {
+        const totalMs = Date.now() - autogenStart;
         const msg = error instanceof Error ? error.message : "Unknown error";
+        logger.error("[AUTOGEN] Error", { message: msg, totalMs, timings: Object.keys(timings).length ? timings : undefined });
         send({ type: "error", data: { message: msg } });
       } finally {
         controller.close();
