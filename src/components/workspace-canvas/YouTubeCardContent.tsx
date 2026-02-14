@@ -5,6 +5,7 @@ import type { Item, YouTubeData } from "@/lib/workspace-state/types";
 import { extractYouTubeVideoId, getYouTubeThumbnailUrl, extractYouTubePlaylistId } from "@/lib/utils/youtube-url";
 import { Play } from "lucide-react";
 import { useYouTubePlayer } from "@/hooks/use-youtube-player";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 
 
 interface YouTubeCardContentProps {
@@ -77,11 +78,15 @@ export function YouTubeCardContent({ item, isPlaying, onTogglePlay }: YouTubeCar
     );
   }
 
+  const title = item.name || "YouTube Video";
+
   return (
-    <div
-      className="flex-1 min-h-0 relative group"
-      data-youtube-content
-    >
+    <HoverCard openDelay={100} closeDelay={100}>
+      <HoverCardTrigger asChild>
+        <div
+          className="flex-1 min-h-0 relative group"
+          data-youtube-content
+        >
       {isPlaying ? (
         <>
           {/* The YT.Player API replaces this div with its iframe */}
@@ -137,7 +142,12 @@ export function YouTubeCardContent({ item, isPlaying, onTogglePlay }: YouTubeCar
           )}
         </div>
       )}
-    </div>
+        </div>
+      </HoverCardTrigger>
+      <HoverCardContent side="top" className="max-w-[320px]">
+        <p className="text-sm font-medium">{title}</p>
+      </HoverCardContent>
+    </HoverCard>
   );
 }
 export default YouTubeCardContent;
