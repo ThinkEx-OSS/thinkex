@@ -48,7 +48,7 @@ type FileUrlItem = { url: string; mediaType: string; filename?: string; fileSize
 type UserMessagePart =
   | { type: "text"; text: string }
   | { type: "image"; image: string; mediaType?: string }
-  | { type: "file"; data: string; mediaType: string };
+  | { type: "file"; data: string; mediaType: string; filename?: string };
 
 function isYouTubeUrl(url: string): boolean {
   return /youtube\.com\/watch|youtu\.be\//.test(url);
@@ -71,7 +71,12 @@ function buildUserMessage(
     if (isImage) {
       parts.push({ type: "image", image: f.url, mediaType: f.mediaType });
     } else {
-      parts.push({ type: "file", data: f.url, mediaType: f.mediaType });
+      parts.push({
+        type: "file",
+        data: f.url,
+        mediaType: f.mediaType,
+        ...(f.filename && { filename: f.filename }),
+      });
     }
   }
   const ytUrl = links?.find(isYouTubeUrl);
@@ -131,7 +136,7 @@ async function runDistillationAgent(
 ): Promise<DistilledOutput> {
   let output: DistilledOutput | undefined;
   const { partialOutputStream } = streamText({
-    model: google("gemini-2.5-flash"),
+    model: google("gemini-2.5-flash-lite"),
     output: Output.object({ schema: DISTILLED_SCHEMA }),
     system: `You are a helpful assistant. The user has provided content (prompt, files, links). Your job is to:
 1. Generate workspace metadata: a short title, an icon name from the list, and a hex color.
