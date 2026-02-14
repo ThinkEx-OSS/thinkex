@@ -536,9 +536,12 @@ export function WorkspaceGrid({
           newItem.w = closestFrame.w;
         }
       } else if (itemData.type === 'youtube') {
-        // YouTube cards: Only enforce min/max constraints, no aspect ratio snapping
-        // Constraints are already enforced by the grid layout system (minW: 2, minH: 5, maxW: 4, maxH: 11)
-        // No additional snapping needed - allow free resizing within bounds
+        // At w=1: force h=4 (matches note compact). At w=2: force h=7
+        if (newItem.w === 1) {
+          newItem.h = 4;
+        } else {
+          newItem.h = 7;
+        }
       } else if (itemData.type === 'folder' || itemData.type === 'flashcard') {
         // Folders and flashcards don't need minimum height enforcement - skip
       } else if (currentBreakpointRef.current !== 'xxs' && (itemData.type === 'note' || itemData.type === 'pdf' || itemData.type === 'quiz')) {

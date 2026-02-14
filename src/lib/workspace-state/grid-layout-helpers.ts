@@ -9,7 +9,7 @@ export const DEFAULT_CARD_DIMENSIONS: Record<CardType, { w: number; h: number }>
   pdf: { w: 1, h: 4 },
   flashcard: { w: 2, h: 5 },
   folder: { w: 1, h: 4 },
-  youtube: { w: 4, h: 10 },
+  youtube: { w: 2, h: 7 },
   quiz: { w: 2, h: 13 },
   image: { w: 4, h: 10 },
   audio: { w: 2, h: 10 },
@@ -51,7 +51,7 @@ export function itemsToLayout(items: Item[], breakpoint: 'lg' | 'xxs' = 'lg'): L
   return items.map((item) => {
     const layout = getLayoutForBreakpoint(item, breakpoint);
 
-    // Special constraints for YouTube videos to maintain proper aspect ratios
+    // YouTube: resizable smaller but not larger than 2x7; at w=1 force h=4 (matches note compact)
     if (item.type === 'youtube') {
       return {
         i: item.id,
@@ -59,14 +59,14 @@ export function itemsToLayout(items: Item[], breakpoint: 'lg' | 'xxs' = 'lg'): L
         y: layout?.y ?? 0,
         w: layout?.w ?? DEFAULT_CARD_DIMENSIONS[item.type].w,
         h: layout?.h ?? DEFAULT_CARD_DIMENSIONS[item.type].h,
-        minW: 2, // Minimum width to keep video readable
-        minH: 5, // Minimum height for controls
-        maxW: 4, // Maximum width (full grid)
-        maxH: 11, // Constant maximum height
+        minW: 1,
+        minH: 4,
+        maxW: 2,
+        maxH: 7,
       };
     }
 
-    // Apply exact same resize constraints for images as YouTube cards
+    // Images: flexible aspect ratios with width-driven height snapping
     if (item.type === 'image') {
       return {
         i: item.id,
