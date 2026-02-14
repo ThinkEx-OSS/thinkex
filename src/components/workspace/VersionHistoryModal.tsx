@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Clock, User, Undo2, Calendar, AlertCircle, Camera } from "lucide-react";
+import { Clock, User, Undo2, Calendar, AlertCircle, Camera, FolderPlus, Plus, Pencil, Trash2, FileText, RefreshCw, Folder, FolderInput } from "lucide-react";
 import type { WorkspaceEvent, SnapshotInfo } from "@/lib/workspace/events";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/lib/auth-client";
@@ -20,39 +20,55 @@ interface VersionHistoryModalProps {
 }
 
 function getEventIcon(event: WorkspaceEvent) {
+  const iconClass = "h-6 w-6 shrink-0";
   switch (event.type) {
+    case 'WORKSPACE_CREATED':
+      return <FolderPlus className={`${iconClass} text-amber-500`} />;
     case 'ITEM_CREATED':
-      return '➕';
+      return <Plus className={`${iconClass} text-emerald-500`} />;
     case 'ITEM_UPDATED':
-      return '✏️';
+      return <Pencil className={`${iconClass} text-amber-500`} />;
     case 'ITEM_DELETED':
-      return '🗑️';
+      return <Trash2 className={`${iconClass} text-red-500`} />;
     case 'GLOBAL_TITLE_SET':
     case 'GLOBAL_DESCRIPTION_SET':
-      return '📝';
+      return <FileText className={`${iconClass} text-blue-500`} />;
     case 'BULK_ITEMS_UPDATED': {
-      // Support both new format (layoutUpdates) and legacy format (items array)
-      // For new format (layoutUpdates), we can't determine deletions from layout changes alone
-      // Only check for deletions if we have the full items array (legacy format)
       if (event.payload.items) {
-        // Legacy format: can check for deletions
         const itemCount = event.payload.items.length;
         const prevCount = event.payload.previousItemCount;
         if (prevCount !== undefined && prevCount > itemCount) {
-          return '🗑️';
+          return <Trash2 className={`${iconClass} text-red-500`} />;
         }
       }
-      // New format (layoutUpdates) or no deletions detected: show as layout change
-      return '🔄';
+      return <RefreshCw className={`${iconClass} text-slate-500`} />;
     }
     case 'BULK_ITEMS_CREATED':
-      return '➕';
-
+      return <Plus className={`${iconClass} text-emerald-500`} />;
+    case 'WORKSPACE_SNAPSHOT':
+      return <Camera className={`${iconClass} text-slate-500`} />;
+    case 'FOLDER_CREATED':
+      return <FolderPlus className={`${iconClass} text-amber-500`} />;
+    case 'FOLDER_UPDATED':
+      return <Pencil className={`${iconClass} text-amber-500`} />;
+    case 'FOLDER_DELETED':
+      return <Trash2 className={`${iconClass} text-red-500`} />;
+    case 'ITEM_MOVED_TO_FOLDER':
+    case 'ITEMS_MOVED_TO_FOLDER':
+      return <FolderInput className={`${iconClass} text-slate-500`} />;
+    case 'FOLDER_CREATED_WITH_ITEMS':
+      return <Folder className={`${iconClass} text-amber-500`} />;
+    default:
+      return <FileText className={`${iconClass} text-muted-foreground`} />;
   }
 }
 
 function getEventDescription(event: WorkspaceEvent, items?: any[]): string {
   switch (event.type) {
+    case 'WORKSPACE_CREATED': {
+      const title = event.payload.title?.trim();
+      return title ? `Created workspace "${title}"` : 'Workspace created';
+    }
     case 'ITEM_CREATED':
       return `Created ${event.payload.item.type}: "${event.payload.item.name}"`;
     case 'ITEM_UPDATED': {
@@ -113,7 +129,32 @@ function getEventDescription(event: WorkspaceEvent, items?: any[]): string {
         }
       }
     }
-
+    case 'WORKSPACE_SNAPSHOT':
+      return 'Saved workspace snapshot';
+    case 'FOLDER_CREATED': {
+      const name = event.payload.folder?.name;
+      return name ? `Created folder "${name}"` : 'Created folder';
+    }
+    case 'FOLDER_UPDATED':
+      return 'Updated folder';
+    case 'FOLDER_DELETED':
+      return 'Deleted folder';
+    case 'ITEM_MOVED_TO_FOLDER': {
+      const n = event.payload.folderId ? 'moved into folder' : 'removed from folder';
+      return `Item ${n}`;
+    }
+    case 'ITEMS_MOVED_TO_FOLDER': {
+      const count = event.payload.itemIds?.length ?? 0;
+      const n = event.payload.folderId ? 'moved into folder' : 'removed from folder';
+      return count <= 1 ? `Item ${n}` : `${count} items ${n}`;
+    }
+    case 'FOLDER_CREATED_WITH_ITEMS': {
+      const name = event.payload.folder?.name;
+      const count = event.payload.itemIds?.length ?? 0;
+      if (name && count > 0) return `Created folder "${name}" with ${count} item${count === 1 ? '' : 's'}`;
+      if (name) return `Created folder "${name}"`;
+      return count > 0 ? `Created folder with ${count} item${count === 1 ? '' : 's'}` : 'Created folder';
+    }
     default:
       return event.type;
   }
@@ -299,16 +340,21 @@ export function VersionHistoryContent({
               {reversedEvents.map((event) => {
                 const eventVersion = event.version ?? 0;
 
+                const isWorkspaceCreated = event.type === 'WORKSPACE_CREATED';
+
                 return (
                   <div
                     key={event.id}
                     className={cn(
                       "group relative rounded-lg border p-4 hover:bg-accent/50 transition-colors",
-                      eventVersion === currentVersion && "bg-blue-500/10 border-blue-500/30 ring-1 ring-blue-500/20"
+                      eventVersion === currentVersion && "bg-blue-500/10 border-blue-500/30 ring-1 ring-blue-500/20",
+                      isWorkspaceCreated && "bg-amber-500/5 border-amber-500/20"
                     )}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="text-2xl mt-0.5">{getEventIcon(event)}</div>
+                      <div className="mt-0.5 flex items-center justify-center w-8 shrink-0">
+                        {getEventIcon(event)}
+                      </div>
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
@@ -337,7 +383,7 @@ export function VersionHistoryContent({
                         </div>
                       </div>
 
-                      {eventVersion < currentVersion && (
+                      {eventVersion < currentVersion && !isWorkspaceCreated && (
                         <Button
                           size="sm"
                           variant="ghost"
