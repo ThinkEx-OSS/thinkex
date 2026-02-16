@@ -27,7 +27,7 @@ import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { useCardContextProvider } from "@/hooks/ai/use-card-context-provider";
-import { useElementWidth } from "@/hooks/use-element-width";
+import { useElementSize } from "@/hooks/use-element-size";
 import { useIsVisible } from "@/hooks/use-is-visible";
 import { extractYouTubeVideoId, extractYouTubePlaylistId } from "@/lib/utils/youtube-url";
 import { YouTubeCardContent } from "./YouTubeCardContent";
@@ -241,13 +241,15 @@ function WorkspaceCard({
   const [isDragging, setIsDragging] = useState(false);
   const articleRef = useRef<HTMLElement>(null);
 
-  // Measure card width to determine if we should show preview
-  const cardWidth = useElementWidth(articleRef);
+  // Measure card size to determine if we should show preview
+  const { width: cardWidth, height: cardHeight } = useElementSize(articleRef);
 
-  // Show preview if card is wider than ~320px (roughly when w > 1 in grid)
-  // This threshold works for single-column minimized cards vs wider cards
-  // OPTIMIZED: Treat undefined (initial) as wide enough to prevent flicker on mount
-  const shouldShowPreview = cardWidth === undefined || cardWidth > 320;
+  // Show preview only if card is wide AND tall enough for meaningful content
+  // Width: ~320px (roughly when w > 1 in grid); Height: ~180px minimum
+  // OPTIMIZED: Treat undefined (initial) as sufficient to prevent flicker on mount
+  const meetsWidth = cardWidth === undefined || cardWidth > 320;
+  const meetsHeight = cardHeight === undefined || cardHeight > 180;
+  const shouldShowPreview = meetsWidth && meetsHeight;
 
   // PERFORMANCE: Track visibility for PDF virtualization
   // Only mount PDF content when card is visible in viewport
