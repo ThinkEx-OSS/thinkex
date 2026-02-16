@@ -84,9 +84,11 @@ function WorkspaceSidebar({
   // Get current workspace ID from Zustand store (moved in Phase 3)
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
 
+  const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
   const navigateToRoot = useUIStore((state) => state.navigateToRoot);
   const activeFolderId = useUIStore((state) => state.activeFolderId);
   const openPanelIds = useUIStore((state) => state.openPanelIds);
+  const maximizedItemId = useUIStore((state) => state.maximizedItemId);
 
   // Get Joyride context for tour functionality
   // const { startTour } = useJoyride();
@@ -229,8 +231,11 @@ function WorkspaceSidebar({
                                   workspace={currentWorkspace}
                                   isActive={false} // Don't highlight as "selected" context
                                   onWorkspaceClick={() => {
-                                    // Navigate to root level of workspace (similar to breadcrumb)
-                                    navigateToRoot();
+                                    if (maximizedItemId) {
+                                      navigateToRoot();
+                                    } else {
+                                      setActiveFolderId(null);
+                                    }
                                   }}
                                   onSettingsClick={handleSettingsClick}
                                   onShareClick={handleShareClick}

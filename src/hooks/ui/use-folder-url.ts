@@ -4,134 +4,140 @@ import { useEffect, useRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useUIStore } from "@/lib/stores/ui-store";
 
+const DEBOUNCE_MS = 80;
+
+/** Parsed URL state for workspace navigation */
+interface UrlState {
+  folder: string | null;
+  items: string[];
+  focus: string | null;
+}
+
 /**
- * Hook that syncs workspace navigation state between URL query params and the UI store.
- * This enables browser-native back/forward navigation for folders AND open items.
+ * Syncs workspace navigation state between URL query params and the UI store.
+ * Enables browser back/forward and shareable deep links.
  *
- * Query params:
- *   ?folder=<id>  — active folder
- *   ?item=<id>    — open/maximized item panel (note, PDF, etc.)
- *
- * Usage: Call once in the DashboardView component.
- *
- * - On mount / URL change: reads params and sets store state
- * - On store change: pushes new URL (creates browser history entry)
- * - On browser back/forward (popstate): URL changes trigger the first path above
+ * URL params:
+ *   folder=<id>   — active folder filter
+ *   items=<ids>  — open panels: "id" or "id1,id2" (split view)
+ *   focus=<id>   — maximized (focused) panel; only valid when single panel
+ *   item=<id>    — legacy, same as items=<id>
  */
 export function useFolderUrl() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Folder state
   const activeFolderId = useUIStore((state) => state.activeFolderId);
+  const openPanelIds = useUIStore((state) => state.openPanelIds);
+  const maximizedItemId = useUIStore((state) => state.maximizedItemId);
+
   const setActiveFolderIdDirect = useUIStore((state) => state._setActiveFolderIdDirect);
+  const setPanelsFromUrl = useUIStore((state) => state._setPanelsFromUrl);
 
-  // Panel state — track the first open panel (maximized item)
-  const openPanelId = useUIStore((state) => state.openPanelIds[0] ?? null);
-  const openPanelDirect = useUIStore((state) => state._openPanelDirect);
-  const closePanelDirect = useUIStore((state) => state._closePanelDirect);
-
-  // Track whether we're currently syncing from URL → store to avoid circular updates
   const isSyncingFromUrl = useRef(false);
-  // Track the last state we pushed to the URL to avoid duplicate pushes
-  const lastPushedState = useRef<{ folder: string | null; item: string | null } | undefined>(undefined);
+  const lastPushedState = useRef<UrlState | undefined>(undefined);
 
-  // Sync URL → Store: When the URL changes (including browser back/forward),
-  // update the store to match
+  const parseUrlState = (): UrlState => {
+    const folder = searchParams.get("folder") || null;
+    const itemsParam = searchParams.get("items");
+    const legacyItem = searchParams.get("item");
+    const items = itemsParam
+      ? itemsParam.split(",").filter(Boolean).slice(0, 2)
+      : legacyItem
+        ? [legacyItem]
+        : [];
+    const focusParam = searchParams.get("focus");
+    const focus =
+      focusParam && items.length === 1 && items[0] === focusParam
+        ? focusParam
+        : null;
+    return { folder, items, focus };
+  };
+
+  // URL → Store: on searchParams change (incl. back/forward)
   useEffect(() => {
-    const folderFromUrl = searchParams.get("folder") || null;
-    const itemFromUrl = searchParams.get("item") || null;
+    const url = parseUrlState();
 
-    const folderChanged = folderFromUrl !== activeFolderId;
-    const itemChanged = itemFromUrl !== openPanelId;
+    const folderChanged = url.folder !== activeFolderId;
+    const itemsChanged =
+      url.items.length !== openPanelIds.length ||
+      url.items.some((id, i) => id !== openPanelIds[i]);
+    const focusChanged = url.focus !== maximizedItemId;
 
-    if (folderChanged || itemChanged) {
+    if (folderChanged || itemsChanged || focusChanged) {
       isSyncingFromUrl.current = true;
 
       if (folderChanged) {
-        setActiveFolderIdDirect(folderFromUrl);
+        setActiveFolderIdDirect(url.folder);
       }
-      if (itemChanged) {
-        if (itemFromUrl) {
-          openPanelDirect(itemFromUrl);
-        } else {
-          closePanelDirect();
-        }
+      if (itemsChanged || focusChanged) {
+        setPanelsFromUrl(url.items, url.focus);
       }
 
-      // Reset sync flag after microtask to allow the store updates to propagate
       queueMicrotask(() => {
         isSyncingFromUrl.current = false;
       });
     }
-    // We intentionally only depend on searchParams to react to URL changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  // Sync Store → URL: When activeFolderId or openPanelId changes in the store.
-  // Debounced (~80ms) so rapid successive updates (e.g. navigateToRoot) result in one push — avoids race.
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const DEBOUNCE_MS = 80;
-
+  // Store → URL: on store change, debounced
   useEffect(() => {
-    // Skip if this change came from a URL sync (avoid circular loop)
     if (isSyncingFromUrl.current) {
-      lastPushedState.current = { folder: activeFolderId, item: openPanelId };
+      lastPushedState.current = {
+        folder: activeFolderId,
+        items: [...openPanelIds],
+        focus: maximizedItemId,
+      };
       return;
     }
 
-    // Skip if we already pushed this exact state (avoid duplicate history entries)
+    const next: UrlState = {
+      folder: activeFolderId,
+      items: [...openPanelIds],
+      focus:
+        maximizedItemId && openPanelIds.length === 1 && openPanelIds[0] === maximizedItemId
+          ? maximizedItemId
+          : null,
+    };
+
+    const prev = lastPushedState.current;
     if (
-      lastPushedState.current &&
-      lastPushedState.current.folder === activeFolderId &&
-      lastPushedState.current.item === openPanelId
+      prev &&
+      prev.folder === next.folder &&
+      prev.items.length === next.items.length &&
+      prev.items.every((id, i) => id === next.items[i]) &&
+      prev.focus === next.focus
     ) {
       return;
     }
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    debounceRef.current = setTimeout(() => {
-      debounceRef.current = null;
-      lastPushedState.current = { folder: activeFolderId, item: openPanelId };
+    const tid = setTimeout(() => {
+      lastPushedState.current = next;
 
       const params = new URLSearchParams(searchParams.toString());
-      if (activeFolderId) {
-        params.set("folder", activeFolderId);
+
+      if (next.folder) params.set("folder", next.folder);
+      else params.delete("folder");
+
+      if (next.items.length > 0) {
+        params.set("items", next.items.join(","));
+        params.delete("item");
       } else {
-        params.delete("folder");
-      }
-      if (openPanelId) {
-        params.set("item", openPanelId);
-      } else {
+        params.delete("items");
         params.delete("item");
       }
 
-      const paramString = params.toString();
-      const newUrl = paramString ? `${pathname}?${paramString}` : pathname;
-      router.push(newUrl, { scroll: false });
+      if (next.focus) params.set("focus", next.focus);
+      else params.delete("focus");
+
+      const qs = params.toString();
+      router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     }, DEBOUNCE_MS);
 
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
+    return () => clearTimeout(tid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeFolderId, openPanelId]);
+  }, [activeFolderId, openPanelIds, maximizedItemId]);
 
-  // On initial mount, sync URL → store if there are params
-  // (This handles deep links / page refresh)
-  useEffect(() => {
-    const folderFromUrl = searchParams.get("folder") || null;
-    const itemFromUrl = searchParams.get("item") || null;
-
-    if (folderFromUrl && folderFromUrl !== activeFolderId) {
-      setActiveFolderIdDirect(folderFromUrl);
-    }
-    if (itemFromUrl && itemFromUrl !== openPanelId) {
-      openPanelDirect(itemFromUrl);
-    }
-    // Only run on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 }

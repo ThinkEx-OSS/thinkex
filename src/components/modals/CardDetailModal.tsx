@@ -42,7 +42,7 @@ export function CardDetailModal({
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
   const selectedCardIds = useUIStore((state) => state.selectedCardIds);
 
-  // Auto-selection is now handled by the URL sync mechanism in ui-store (_openPanelDirect)
+  // Auto-selection is handled by the URL sync mechanism (use-folder-url)
   // or by the manual open action (openPanel).
   // We no longer need to manually select it here.
 

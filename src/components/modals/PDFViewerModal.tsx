@@ -37,7 +37,7 @@ export function PDFViewerModal({
   // const currentSelectedIds = useUIStore.getState().selectedCardIds;
   // const wasAlreadySelected = currentSelectedIds.has(item.id);
 
-  // Auto-selection is now handled by the URL sync mechanism in ui-store (_openPanelDirect)
+  // Auto-selection is handled by the URL sync mechanism (use-folder-url)
   // or by the manual open action (openPanel).
   // We no longer need to manually select it here, which avoids the infinite loop risk.
 

@@ -89,17 +89,14 @@ interface UIState {
   setSearchQuery: (query: string) => void;
 
   setActiveFolderId: (folderId: string | null) => void;
-  clearActiveFolder: () => void;
-  /** Atomic: close panels, clear/set folder, deselect panel cards. Use for explicit navigation (breadcrumb, sidebar). */
+  /** Atomic: close panels, clear folder, deselect panel cards. Use when panel is focused and user navigates back. */
   navigateToRoot: () => void;
-  /** Atomic: close panels, set folder, deselect panel cards. Use for explicit navigation (breadcrumb, sidebar). */
+  /** Atomic: close panels, set folder, deselect panel cards. Use when panel is focused and user navigates back. */
   navigateToFolder: (folderId: string) => void;
-  /** Direct setter used by useFolderUrl hook — does not clear panels (URL sync only) */
+  /** URL sync only — sets folder without touching panels */
   _setActiveFolderIdDirect: (folderId: string | null) => void;
-  /** Direct panel open used by useFolderUrl hook — URL sync only */
-  _openPanelDirect: (itemId: string) => void;
-  /** Direct panel close used by useFolderUrl hook — URL sync only */
-  _closePanelDirect: () => void;
+  /** URL sync only — sets panels and optionally focused (maximized) item */
+  _setPanelsFromUrl: (ids: string[], maximizedId?: string | null) => void;
   setSelectedModelId: (modelId: string) => void;
 
   // Actions - Text selection
@@ -191,27 +188,10 @@ export const useUIStore = create<UIState>()(
       (set) => ({
         ...initialState,
 
-        // Folder-only setter — for "reveal" (scroll to item, show folder) and URL sync. Never touches panels.
+        // Folder-only setter — for folder switching (sidebar, workspace content). Never touches panels.
         setActiveFolderId: (folderId) => set({ activeFolderId: folderId }),
 
-        // Alias for navigateToRoot — kept for backward compat during migration
-        clearActiveFolder: () => {
-          set((state) => {
-            if (state.activeFolderId === null && state.openPanelIds.length === 0) return {};
-            const newSelectedCardIds = new Set(state.selectedCardIds);
-            state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
-            return {
-              activeFolderId: null,
-              viewMode: 'workspace' as ViewMode,
-              openPanelIds: [],
-              maximizedItemId: null,
-              selectedCardIds: newSelectedCardIds,
-              panelAutoSelectedCardIds: new Set(),
-            };
-          });
-        },
-
-        // Atomic navigation — close panels, set folder, deselect panel cards. Single update = no URL race.
+        // Atomic navigation — close panels, set folder, deselect panel cards.
         navigateToRoot: () => {
           set((state) => {
             if (state.activeFolderId === null && state.openPanelIds.length === 0) return {};
@@ -244,45 +224,50 @@ export const useUIStore = create<UIState>()(
           });
         },
 
-        // Direct setter used by useFolderUrl hook for URL → store sync
-        // Does NOT clear panels — only updates the folder ID
         _setActiveFolderIdDirect: (folderId) => set({ activeFolderId: folderId }),
 
-        // Direct panel open/close used by useFolderUrl hook for URL → store sync
-        // Only force focus mode if the panel is genuinely new (not an echo from our own state change)
-        _openPanelDirect: (itemId) => set((state) => {
-          // If this item is already the primary panel, skip — this is an echo from the URL sync
-          if (state.openPanelIds[0] === itemId) return {};
-
+        // URL sync only — sets panels and optionally maximized (focus) item
+        _setPanelsFromUrl: (ids, maximizedId) => set((state) => {
+          const validIds = ids.slice(0, 2); // max 2 panels
+          if (validIds.length === 0) {
+            const newSelectedCardIds = new Set(state.selectedCardIds);
+            state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
+            return {
+              viewMode: 'workspace' as ViewMode,
+              openPanelIds: [],
+              maximizedItemId: null,
+              selectedCardIds: newSelectedCardIds,
+              panelAutoSelectedCardIds: new Set(),
+            };
+          }
           const newSelectedCardIds = new Set(state.selectedCardIds);
-          const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-
-          // Clean up old auto-selected cards if switching panels via URL (e.g. back button)
-          state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
-          newPanelAutoSelectedCardIds.clear();
-
-          // Add to selections and track as auto-selected
-          newSelectedCardIds.add(itemId);
-          newPanelAutoSelectedCardIds.add(itemId);
-
+          const newPanelAutoSelectedCardIds = new Set<string>();
+          validIds.forEach(id => {
+            newSelectedCardIds.add(id);
+            newPanelAutoSelectedCardIds.add(id);
+          });
+          state.panelAutoSelectedCardIds.forEach(id => {
+            if (!validIds.includes(id)) newSelectedCardIds.delete(id);
+          });
+          // Focus only valid when single panel and maximizedId in validIds
+          const focusId =
+            maximizedId &&
+            validIds.length === 1 &&
+            validIds[0] === maximizedId
+              ? maximizedId
+              : null;
+          const viewMode: ViewMode =
+            focusId
+              ? 'focus'
+              : validIds.length === 2
+                ? 'panel+panel'
+                : 'workspace+panel';
           return {
-            openPanelIds: [itemId],
-            maximizedItemId: itemId,
-            viewMode: 'focus' as ViewMode,
+            openPanelIds: validIds,
+            maximizedItemId: focusId,
+            viewMode,
             selectedCardIds: newSelectedCardIds,
             panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-          };
-        }),
-        _closePanelDirect: () => set((state) => {
-          // Remove only auto-selected cards, preserve manual selections
-          const newSelectedCardIds = new Set(state.selectedCardIds);
-          state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
-          return {
-            viewMode: 'workspace' as ViewMode,
-            openPanelIds: [],
-            maximizedItemId: null,
-            selectedCardIds: newSelectedCardIds,
-            panelAutoSelectedCardIds: new Set(),
           };
         }),
 

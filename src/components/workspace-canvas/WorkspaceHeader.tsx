@@ -194,9 +194,9 @@ export function WorkspaceHeader({
   // Compact mode when space is tight (item panel open + chat expanded)
   const isCompactMode = isItemPanelOpen && isChatExpanded;
 
-  // Handle folder click - navigate or rename if already active (and no panel open)
+  // Handle folder click - switch folder or rename if already active (and no panel open)
   const handleFolderClick = useCallback((folderId: string) => {
-    // If panel is open, always navigate (close panel) — don't open rename
+    // If panel is open, delegate to parent (closes if focused, else just switches folder) — don't open rename
     if (activeItems.length > 0) {
       onNavigateToFolder?.(folderId);
       return;

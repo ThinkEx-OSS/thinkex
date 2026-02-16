@@ -90,7 +90,7 @@ export default function WorkspaceContent({
 
   // Folder filtering state from UI store
   const activeFolderId = useUIStore((state) => state.activeFolderId);
-  const navigateToFolder = useUIStore((state) => state.navigateToFolder);
+  const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
 
   // Copy state for JSON view
   const [isCopied, setIsCopied] = useState(false);
@@ -143,10 +143,11 @@ export default function WorkspaceContent({
   }, [viewState.items, searchQuery, activeFolderId]);
 
   // Handle opening a folder (folders are now items with type: 'folder')
+  // Uses setActiveFolderId to switch folder without closing panels; breadcrumb handles "navigate back"
   const handleOpenFolder = useCallback((folderId: string) => {
-    navigateToFolder(folderId);
+    setActiveFolderId(folderId);
     onOpenFolder?.(folderId);
-  }, [navigateToFolder, onOpenFolder]);
+  }, [setActiveFolderId, onOpenFolder]);
 
   // Listen for audio processing completion events
   useEffect(() => {

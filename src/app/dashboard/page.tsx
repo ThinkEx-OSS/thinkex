@@ -252,6 +252,7 @@ function DashboardContent({
   // Panel state - using new array-based system
   const openPanelIds = useUIStore((state) => state.openPanelIds);
   const closePanel = useUIStore((state) => state.closePanel);
+  const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
   const navigateToRoot = useUIStore((state) => state.navigateToRoot);
   const navigateToFolder = useUIStore((state) => state.navigateToFolder);
   const maximizedItemId = useUIStore((state) => state.maximizedItemId);
@@ -536,11 +537,19 @@ function DashboardContent({
               }}
               onNavigateToRoot={() => {
                 openPanelIds.forEach((id) => operations.flushPendingChanges(id));
-                navigateToRoot();
+                if (maximizedItemId) {
+                  navigateToRoot();
+                } else {
+                  setActiveFolderId(null);
+                }
               }}
               onNavigateToFolder={(folderId) => {
                 openPanelIds.forEach((id) => operations.flushPendingChanges(id));
-                navigateToFolder(folderId);
+                if (maximizedItemId) {
+                  navigateToFolder(folderId);
+                } else {
+                  setActiveFolderId(folderId);
+                }
               }}
               onMinimizeActiveItem={() => setMaximizedItemId(null)}
               onMaximizeActiveItem={(id) => setMaximizedItemId(id)}
@@ -689,7 +698,7 @@ function DashboardView() {
   }, [currentWorkspaceId, setSearchQuery]);
 
   // Sync active folder with URL query param (?folder=<id>)
-  // This replaces the old clearActiveFolder on workspace change
+  // Reset folder/panels when workspace changes
   // and enables browser-native back/forward for folder navigation
   useFolderUrl();
 

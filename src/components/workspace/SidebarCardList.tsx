@@ -790,8 +790,6 @@ function SidebarCardList() {
     const { workspaces } = useWorkspaceContext();
     const activeFolderId = useUIStore((state) => state.activeFolderId);
     const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
-    const navigateToRoot = useUIStore((state) => state.navigateToRoot);
-    const navigateToFolder = useUIStore((state) => state.navigateToFolder);
 
     // Get current workspace details
     const currentWorkspace = useMemo(() => {
@@ -882,16 +880,16 @@ function SidebarCardList() {
         );
     }, [allItems]);
 
-    // Handle clicking on a folder - toggle folder filter (atomic navigate)
+    // Handle clicking on a folder - switch folder filter (keeps panels open; breadcrumb handles "navigate back")
     const handleFolderClick = useCallback(
         (folderId: string) => {
             if (activeFolderId === folderId) {
-                navigateToRoot();
+                setActiveFolderId(null);
             } else {
-                navigateToFolder(folderId);
+                setActiveFolderId(folderId);
             }
         },
-        [activeFolderId, navigateToRoot, navigateToFolder]
+        [activeFolderId, setActiveFolderId]
     );
 
     // Handle clicking on an item - open parent folders, set active folder, and scroll to card
