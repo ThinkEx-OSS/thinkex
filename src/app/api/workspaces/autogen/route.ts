@@ -10,6 +10,7 @@ import { db, workspaces } from "@/lib/db/client";
 import { generateSlug } from "@/lib/workspace/slug";
 import { workspaceWorker, quizWorker, type CreateItemParams } from "@/lib/ai/workers";
 import { searchVideos } from "@/lib/youtube";
+import { UrlProcessor } from "@/lib/ai/utils/url-processor";
 import { findNextAvailablePosition } from "@/lib/workspace-state/grid-layout-helpers";
 import type { Item } from "@/lib/workspace-state/types";
 import { CANVAS_CARD_COLORS } from "@/lib/workspace-state/colors";
@@ -180,7 +181,9 @@ If needsSearch=true, provide a searchQuery (2-6 words) to look up.`,
   return { searchContext, sources };
 }
 
-/** Main agent: reads full message (PDFs, video, links) once, outputs metadata + distilled prompts. No tools—uses pre-fetched search context when available. */
+const MAX_LINK_CONTENT_CHARS = 6000;
+
+/** Main agent: reads full message (PDFs, video, links) once, outputs metadata + distilled prompts. No tools—uses pre-fetched search context and link content when available. */
 async function runDistillationAgent(
   prompt: string,
   fileUrls: FileUrlItem[],
@@ -191,12 +194,31 @@ async function runDistillationAgent(
 ): Promise<DistillationResult> {
   let output: DistilledOutput | undefined;
 
+  const nonYtLinks = links?.filter((l) => !isYouTubeUrl(l)) ?? [];
+  let linkContext = "";
+  if (nonYtLinks.length > 0) {
+    send({ type: "toolCall", data: { toolName: "urlFetch", status: "fetching" } });
+    const results = await UrlProcessor.processUrls(nonYtLinks);
+    const successful = results.filter((r) => r.success && r.content);
+    if (successful.length > 0) {
+      linkContext =
+        "\n\nCONTEXT FROM REFERENCE LINKS (use this to inform your response):\n" +
+        successful
+          .map((r) => {
+            const content = r.content!.length > MAX_LINK_CONTENT_CHARS ? r.content!.slice(0, MAX_LINK_CONTENT_CHARS) + "..." : r.content!;
+            return `**${r.title}** (${r.url})\n\n${content}`;
+          })
+          .join("\n\n---\n\n");
+    }
+    send({ type: "toolResult", data: { toolName: "urlFetch", status: "done" } });
+  }
+
   const userMessage = buildUserMessage(prompt, fileUrls, links);
-  const contentWithSearch: UserMessagePart[] = searchContext
+  const contextParts: string[] = [searchContext, linkContext].filter(Boolean);
+  const combinedContext = contextParts.length > 0 ? contextParts.join("") : "";
+  const contentWithContext: UserMessagePart[] = combinedContext
     ? userMessage.content.map((part): UserMessagePart =>
-        part.type === "text"
-          ? { type: "text", text: searchContext + (part.text ?? "") }
-          : part
+        part.type === "text" ? { type: "text", text: combinedContext + (part.text ?? "") } : part
       )
     : userMessage.content;
 
@@ -209,10 +231,10 @@ async function runDistillationAgent(
 3. Produce a quiz topic string (can include "References: ..." if links are relevant).
 4. Produce a YouTube search term to find a related video. Use a broad, general query (2-5 common words) that is likely to return results—e.g. "Emacs tutorial beginners" or "UNIX command line basics". Do NOT use course codes (e.g. CMSC 216), assignment names, grading details, or other narrow phrasing that would yield few or no videos.
 
-If CONTEXT FROM WEB SEARCH is provided below, use it to ground your response.
+If CONTEXT FROM WEB SEARCH or CONTEXT FROM REFERENCE LINKS is provided below, use it to ground your response.
 
 Available icons (must be one of these): ${AVAILABLE_ICONS.join(", ")}`,
-    messages: [{ role: "user" as const, content: contentWithSearch }] as const,
+    messages: [{ role: "user" as const, content: contentWithContext }] as const,
     onError: ({ error }) => logger.error("[AUTOGEN] Distillation stream error:", error),
   });
 

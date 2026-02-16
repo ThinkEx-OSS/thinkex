@@ -52,7 +52,7 @@ class GoogleContextStrategy implements ScrapingStrategy {
 
       try {
         const result = await generateText({
-          model: google("gemini-2.5-flash"),
+          model: google("gemini-2.5-flash-lite"),
           tools: {
             urlContext: google.tools.urlContext({}) as any,
           },
