@@ -91,6 +91,7 @@ export function AudioCardContent({ item, isCompact = false, isScrollLocked = fal
                   itemId: item.id,
                   summary: result.summary,
                   segments: result.segments,
+                  duration: result.duration,
                 }
               : { itemId: item.id, error: result.error || "Processing failed" },
           })
@@ -170,6 +171,13 @@ export function AudioCardContent({ item, isCompact = false, isScrollLocked = fal
 
 // ─── Complete state (with player) ───────────────────────────────────────────
 
+/** Compute duration from segments when audio.duration is NaN (common for WebM/MediaRecorder) */
+function getDurationFromSegments(segments: AudioSegment[] | undefined): number {
+  if (!segments || segments.length === 0) return 0;
+  const lastTs = parseTimestamp(segments[segments.length - 1].timestamp);
+  return lastTs + 45; // Buffer for last segment content
+}
+
 function AudioCardComplete({
   audioData,
   isCompact,
@@ -182,9 +190,15 @@ function AudioCardComplete({
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
 
+  const durationFromSegments = getDurationFromSegments(audioData.segments);
+  const initialDuration =
+    (audioData.duration != null && audioData.duration > 0)
+      ? audioData.duration
+      : durationFromSegments;
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(audioData.duration ?? 0);
+  const [duration, setDuration] = useState(initialDuration);
   const [isMuted] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [activeSegmentIdx, setActiveSegmentIdx] = useState(-1);
@@ -216,20 +230,25 @@ function AudioCardComplete({
     if (!audio) return;
 
     const onTimeUpdate = () => setCurrentTime(audio.currentTime);
-    const onLoadedMetadata = () => {
-      if (audio.duration && isFinite(audio.duration)) {
-        setDuration(audio.duration);
-      }
+    const applyDuration = (d: number) => {
+      if (d > 0 && isFinite(d)) setDuration(d);
     };
+    const onLoadedMetadata = () => applyDuration(audio.duration);
+    const onDurationChange = () => applyDuration(audio.duration);
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
     const onEnded = () => {
       setIsPlaying(false);
+      // WebM/MediaRecorder often has NaN duration - capture actual length when playback ends
+      if (audio.currentTime > 0 && (!audio.duration || !isFinite(audio.duration))) {
+        setDuration(audio.currentTime);
+      }
       setCurrentTime(0);
     };
 
     audio.addEventListener("timeupdate", onTimeUpdate);
     audio.addEventListener("loadedmetadata", onLoadedMetadata);
+    audio.addEventListener("durationchange", onDurationChange);
     audio.addEventListener("play", onPlay);
     audio.addEventListener("pause", onPause);
     audio.addEventListener("ended", onEnded);
@@ -237,6 +256,7 @@ function AudioCardComplete({
     return () => {
       audio.removeEventListener("timeupdate", onTimeUpdate);
       audio.removeEventListener("loadedmetadata", onLoadedMetadata);
+      audio.removeEventListener("durationchange", onDurationChange);
       audio.removeEventListener("play", onPlay);
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("ended", onEnded);

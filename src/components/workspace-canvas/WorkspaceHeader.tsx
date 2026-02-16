@@ -389,6 +389,7 @@ export function WorkspaceHeader({
                   itemId,
                   summary: result.summary,
                   segments: result.segments,
+                  duration: result.duration,
                 },
               })
             );

@@ -560,6 +560,7 @@ export function WorkspaceSection({
                   itemId,
                   summary: result.summary,
                   segments: result.segments,
+                  duration: result.duration,
                 },
               })
             );

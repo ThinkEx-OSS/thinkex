@@ -121,7 +121,8 @@ export async function POST(req: NextRequest) {
 Requirements:
 1. Provide a comprehensive summary of the entire audio content.
 2. Identify distinct speakers (e.g., Speaker 1, Speaker 2, or names if context allows).
-3. Provide accurate timestamps for each segment (Format: MM:SS).`;
+3. Provide accurate timestamps for each segment (Format: MM:SS).
+4. Provide the total duration of the audio in seconds (a single number, e.g. 180.5 for 3 minutes).`;
 
     const response = await client.models.generateContent({
       model: "gemini-2.5-flash",
@@ -137,6 +138,10 @@ Requirements:
             summary: {
               type: Type.STRING,
               description: "A concise summary of the audio content.",
+            },
+            duration: {
+              type: Type.NUMBER,
+              description: "Total duration of the audio in seconds.",
             },
             segments: {
               type: Type.ARRAY,
@@ -176,6 +181,7 @@ Requirements:
       success: true,
       summary: result.summary,
       segments: result.segments,
+      duration: typeof result.duration === "number" && result.duration > 0 ? result.duration : undefined,
     });
   } catch (error: unknown) {
     console.error("[AUDIO_PROCESS] Error:", error);
