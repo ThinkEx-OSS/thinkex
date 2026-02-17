@@ -420,68 +420,44 @@
   /* Prevent scroll bounce effect */
   overscroll-behavior: none;
 
-  /* Google Keep-inspired dark mode color palette */
-  /* Dark gray background like Google Keep */
-  /* White text for primary content */
+  /* Light mode: white / neutral palette (matching chat, composer, action cards) */
   --card: oklch(1 0 0);
-  /* Dark card background */
-  --card-foreground: oklch(0.129 0.042 264.695);
-  /* White card text */
+  --card-foreground: oklch(0.22 0.01 0);
   --primary: oklch(0.208 0.042 265.755);
-  /* Primary elements in white */
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  /* Primary text on white background */
-  --secondary: oklch(0.968 0.000 0);
-  /* Secondary neutral gray */
-  --secondary-foreground: oklch(0.208 0.005 240);
-  /* Secondary text in neutral gray */
-  --muted: oklch(0.968 0.000 0);
-  /* Muted background - pure gray */
-  --muted-foreground: oklch(0.554 0.010 240);
-  /* Muted text in neutral gray */
-  --accent: oklch(0.968 0.000 0);
-  /* Neutral gray accent */
-  --accent-foreground: oklch(0.208 0.005 240);
-  /* Accent text in neutral gray */
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.98 0 0);
+  --secondary-foreground: oklch(0.22 0.01 0);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.45 0.01 0);
+  --accent: oklch(0.97 0 0);
+  /* Neutral-100 for hover */
+  --accent-foreground: oklch(0.22 0.01 0);
   --destructive: oklch(0.577 0.245 27.325);
-  /* Google red for errors */
   --destructive-foreground: #ffffff;
-  --border: oklch(0.929 0.013 255.508);
-  /* Dark borders */
-  --input: oklch(0.929 0.013 255.508);
-  /* Input background */
+  --border: oklch(0.91 0 0);
+  --input: oklch(0.93 0 0);
   --ring: oklch(0.704 0.04 256.788);
-  /* Blue focus ring */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
   --radius: 0.625rem;
-  /* More rounded corners like Google Keep */
-  --sidebar: hsl(0 0% 98%);
-  /* Slightly different sidebar background */
-  --sidebar-foreground: hsl(240 5.3% 26.1%);
-  /* Sidebar text */
-  --sidebar-primary: hsl(240 5.9% 10%);
-  /* Sidebar primary background */
-  --sidebar-primary-foreground: hsl(0 0% 98%);
-  /* Sidebar primary text */
-  --sidebar-accent: hsl(240 4.8% 95.9%);
-  /* Sidebar accent */
-  --sidebar-accent-foreground: hsl(240 5.9% 10%);
-  /* Sidebar accent text */
-  --sidebar-border: hsl(220 13% 91%);
-  /* Sidebar border */
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.22 0.01 0);
+  --sidebar-primary: oklch(0.22 0.01 0);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(1 0 0);
+  --sidebar-accent-foreground: oklch(0.22 0.01 0);
+  --sidebar-border: oklch(0.9 0 0);
   --sidebar-ring: hsl(217.2 91.2% 59.8%);
-  /* Sidebar focus ring */
   --font-geist: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-inter: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-outfit: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --background: oklch(0.95 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(0.98 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.22 0.01 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.01 0);
 }
 
 /* Dark mode variables - applied when system prefers dark */
