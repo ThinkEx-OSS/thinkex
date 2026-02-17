@@ -304,7 +304,6 @@ export function HomeContent() {
         scrollY={scrollY}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        shouldFocusSearch={workspacesVisible}
       />
 
       {/* Scrollable Content */}
