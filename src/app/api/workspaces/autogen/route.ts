@@ -50,6 +50,7 @@ const AUTOGEN_LAYOUTS = {
   note: { x: 2, y: 5, w: 1, h: 4 },
   quiz: { x: 0, y: 7, w: 2, h: 13 },
   pdf: { w: 1, h: 4 },
+  image: { w: 2, h: 8 },
 } as const;
 
 type FileUrlItem = { url: string; mediaType: string; filename?: string; fileSize?: number };
@@ -616,6 +617,7 @@ Return:
         ];
 
         const pdfFileUrls = (fileUrls ?? []).filter((f) => f.mediaType === "application/pdf");
+        const imageFileUrls = (fileUrls ?? []).filter((f) => f.mediaType?.startsWith("image/"));
         const itemsForLayout: Pick<Item, "type" | "layout">[] = [
           { type: "note", layout: noteFlashcardResult.note.layout },
           { type: "flashcard", layout: noteFlashcardResult.flashcards.layout },
@@ -627,6 +629,12 @@ Return:
           const title = (pdf.filename ?? "document").replace(/\.pdf$/i, "");
           createParams.push({ title, itemType: "pdf", pdfData: { fileUrl: pdf.url, filename: pdf.filename ?? "document.pdf", fileSize: pdf.fileSize }, layout: position });
           itemsForLayout.push({ type: "pdf", layout: position });
+        }
+        for (const img of imageFileUrls) {
+          const position = findNextAvailablePosition(itemsForLayout as Item[], "image", 4, "", "", AUTOGEN_LAYOUTS.image.w, AUTOGEN_LAYOUTS.image.h);
+          const title = (img.filename ?? "image").replace(/\.(png|jpe?g|gif|webp|svg)$/i, "") || "Image";
+          createParams.push({ title, itemType: "image", imageData: { url: img.url, altText: title }, layout: position });
+          itemsForLayout.push({ type: "image", layout: position });
         }
 
         const bulkResult = await workspaceWorker("bulkCreate", { workspaceId, items: createParams });

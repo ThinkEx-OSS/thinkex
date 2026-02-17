@@ -271,10 +271,10 @@ export function WorkspaceInstructionModal({
     <div
       className={cn(
         "fixed inset-0 z-[90] flex items-center justify-center px-4 py-6 transition-opacity duration-300 ease-out",
-        // Minimal blur + lighter overlay when generating or generation complete so floating cards stay clear
+        // Lighter overlay when generating or generation complete so floating cards stay clear
         isGenerating || (!!generationComplete && !!workspaceSlug)
-          ? "bg-black/5 dark:bg-black/15 backdrop-blur-0"
-          : "bg-black/25 dark:bg-black/40 backdrop-blur-[12px]",
+          ? "bg-black/5 dark:bg-black/15 backdrop-blur-[16px]"
+          : "bg-black/25 dark:bg-black/40 backdrop-blur-[24px]",
         isClosing ? "opacity-0" : "opacity-100"
       )}
       role="dialog"
@@ -297,7 +297,7 @@ export function WorkspaceInstructionModal({
 
           {/* Generating banner at top — when isGenerating, shows progress and step indicator */}
           {isGenerating && (
-            <div className="shrink-0 flex flex-col gap-2 px-5 py-4 bg-primary/10 dark:bg-gray-800/70 border-b border-white/10 dark:border-white/5">
+            <div className="shrink-0 flex flex-col gap-2 px-5 py-4 bg-sidebar border-b border-sidebar-border">
               <div className="flex items-center gap-3">
                 <DotLottieReact
                   src={resolvedTheme === "light" ? "/thinkexlight.lottie" : "/logo.lottie"}
@@ -334,7 +334,7 @@ export function WorkspaceInstructionModal({
 
           {/* Generation complete banner — when user interacted, show button instead of auto-redirect */}
           {generationComplete && workspaceSlug && onOpenWorkspace && (
-            <div className="shrink-0 flex flex-col items-center justify-center gap-3 px-5 py-4 bg-primary/10 dark:bg-gray-800/70 border-b border-white/10 dark:border-white/5">
+            <div className="shrink-0 flex flex-col items-center justify-center gap-3 px-5 py-4 bg-sidebar border-b border-sidebar-border">
               <h3 className="text-sm font-semibold text-sidebar-foreground">
                 Your workspace is ready
               </h3>
@@ -350,7 +350,7 @@ export function WorkspaceInstructionModal({
           )}
 
           {/* Upper panel — video/carousel (always shown, including when generating) */}
-              <div className="relative min-h-0 flex-1 overflow-hidden bg-primary/10 dark:bg-gray-800/70">
+              <div className="relative min-h-0 flex-1 overflow-hidden bg-sidebar">
                 <div className="absolute -left-20 -top-20 h-44 w-44 rounded-full bg-primary/15 blur-[80px]" />
                 <div className="absolute -bottom-20 -right-20 h-52 w-52 rounded-full bg-accent/25 blur-[80px]" />
 
@@ -406,7 +406,7 @@ export function WorkspaceInstructionModal({
               </div>
 
               {/* Lower panel — text, dots, action buttons (always shown, including when generating) */}
-              <div className="relative flex flex-col items-center gap-1 bg-primary/10 dark:bg-gray-800/70 px-5 pb-4 pt-3 rounded-b-[24px]">
+              <div className="relative flex flex-col items-center gap-1 bg-sidebar px-5 pb-4 pt-3 rounded-b-[24px]">
                 {/* Text block — fades with the video */}
                 <div
                   className={cn(

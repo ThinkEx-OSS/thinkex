@@ -81,7 +81,7 @@ export function HomeActionCards({ onUpload, onLink, onPasteText, onRecord, onSta
             />
             <ActionCard
                 icon={<ClipboardPaste className="h-6 w-6" />}
-                title="Paste text"
+                title="Paste"
                 subtitle="From clipboard"
                 onClick={onPasteText}
                 isLoading={isLoading}

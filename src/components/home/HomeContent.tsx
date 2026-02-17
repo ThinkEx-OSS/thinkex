@@ -53,6 +53,25 @@ interface HeroAttachmentsSectionProps {
   onClearPastedText: () => void;
 }
 
+/** Try to get an image from clipboard. Returns File or null. */
+async function getClipboardImage(): Promise<File | null> {
+  try {
+    const items = await navigator.clipboard.read();
+    for (const item of items) {
+      for (const type of item.types) {
+        if (type.startsWith("image/")) {
+          const blob = await item.getType(type);
+          const ext = type === "image/png" ? "png" : type === "image/jpeg" || type === "image/jpg" ? "jpg" : type === "image/gif" ? "gif" : type === "image/webp" ? "webp" : "png";
+          return new File([blob], `image-${Date.now()}.${ext}`, { type });
+        }
+      }
+    }
+  } catch {
+    // Clipboard read denied or not supported
+  }
+  return null;
+}
+
 function HeroAttachmentsSection({
   fileInputRef,
   showLinkDialog,
@@ -88,6 +107,12 @@ function HeroAttachmentsSection({
   };
 
   const handlePasteText = async () => {
+    const clipboardImage = await getClipboardImage();
+    if (clipboardImage) {
+      await addFiles([clipboardImage]);
+      onRequestShowPromptInput();
+      return;
+    }
     try {
       const text = await navigator.clipboard.readText();
       onRequestShowPromptInput();
