@@ -225,15 +225,26 @@ async function runDistillationAgent(
   const { partialOutputStream } = streamText({
     model: google("gemini-2.5-flash-lite"),
     output: Output.object({ schema: DISTILLED_SCHEMA }),
-    system: `You are a helpful assistant. The user has provided content (prompt, files, links). Your job is to:
-1. Generate workspace metadata: a short title, an icon name from the list, and a hex color.
-2. Write a comprehensive content summary (200-800 words) capturing key concepts, facts, and structure for creating notes and materials.
-3. Produce a quiz topic string (can include "References: ..." if links are relevant).
-4. Produce a YouTube search term to find a related video. Use a broad, general query (2-5 common words) that is likely to return results—e.g. "Emacs tutorial beginners" or "UNIX command line basics". Do NOT use course codes (e.g. CMSC 216), assignment names, grading details, or other narrow phrasing that would yield few or no videos.
+    system: `<role>
+You are a workspace content distiller. The user provides content (prompt, files, links). You extract metadata and distilled content for creating study materials.
+</role>
 
-If CONTEXT FROM WEB SEARCH or CONTEXT FROM REFERENCE LINKS is provided below, use it to ground your response.
+<task>
+1. Generate workspace metadata: a short title (5-6 words), an icon from the list, and a hex color.
+2. Write a content summary (200-800 words) with key concepts, facts, and structure for notes and flashcards.
+3. Produce a quiz topic string (optionally "References: ..." if links are relevant).
+4. Produce a YouTube search term: broad, 2-5 common words (e.g. "Emacs tutorial beginners"). Do NOT use course codes, assignment names, or narrow phrasing.
+</task>
 
-Available icons (must be one of these): ${AVAILABLE_ICONS.join(", ")}`,
+<constraints>
+- If CONTEXT FROM WEB SEARCH or CONTEXT FROM REFERENCE LINKS is provided below, ground your response in it.
+- Icons must be one of: ${AVAILABLE_ICONS.join(", ")}
+</constraints>
+
+<example>
+Input: "Create a workspace for learning Python data analysis"
+Output shape: metadata (title: "Python Data Analysis", icon: "ChartBarIcon", color: "#3b82f6"), contentSummary (structured overview of key topics), quizTopic ("Python pandas matplotlib"), youtubeSearchTerm ("Python data analysis tutorial")
+</example>`,
     messages: [{ role: "user" as const, content: contentWithContext }] as const,
     onError: ({ error }) => logger.error("[AUTOGEN] Distillation stream error:", error),
   });

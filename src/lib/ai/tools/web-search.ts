@@ -105,9 +105,14 @@ export async function executeWebSearch(query: string): Promise<WebSearchResult> 
         tools: {
             googleSearch: google.tools.googleSearch({ mode: 'MODE_UNSPECIFIED' }),
         },
-        prompt: `Search the web and provide comprehensive information about: ${query}
+        prompt: `Search the web for current, accurate information about: ${query}
 
-Please use the search tool to find current, accurate information and provide a detailed response with key findings.`,
+Use the search tool to find relevant sources. Format your response as:
+Summary: [2-4 sentence overview]
+Key findings:
+- [Finding 1]
+- [Finding 2]
+- [Additional findings]`,
         stopWhen: stepCountIs(10),
     });
 

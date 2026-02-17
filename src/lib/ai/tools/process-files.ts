@@ -98,9 +98,14 @@ async function processLocalFiles(
 
     const fileListText = fileInfos.map((f, i) => `${i + 1}. ${f.filename}`).join('\n');
 
+    const outputFormat = `Format each file's analysis as:
+**filename.ext:**
+- Summary: [1-2 sentences]
+- Key points: [bullet list]`;
+
     const batchPrompt = instruction
-        ? `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\n${instruction}\n\nProvide your analysis for each file, clearly labeled with the filename.`
-        : `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\nFor each file, extract and summarize:\n- Main topics, themes, or subject matter\n- Key information, data, or details\n- Important facts or insights\n- Any structured data, lists, or specific information\n\nProvide a clear, comprehensive analysis for each file, clearly labeled with the filename.`;
+        ? `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\n${instruction}\n\n${outputFormat}`
+        : `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\nFor each file, extract and summarize: main topics, key information, important facts or insights, and any structured data.\n\n${outputFormat}`;
 
     const messageContent: Array<{ type: "text"; text: string } | { type: "file"; data: string; mediaType: string; filename?: string }> = [
         { type: "text", text: batchPrompt },
@@ -141,9 +146,14 @@ async function processSupabaseFiles(
 
     const fileListText = fileInfos.map((f, i) => `${i + 1}. ${f.filename}`).join('\n');
 
+    const outputFormat = `Format each file's analysis as:
+**filename.ext:**
+- Summary: [1-2 sentences]
+- Key points: [bullet list]`;
+
     const batchPrompt = instruction
-        ? `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\n${instruction}\n\nProvide your analysis for each file, clearly labeled with the filename.`
-        : `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\nFor each file, extract and summarize:\n- Main topics, themes, or subject matter\n- Key information, data, or details\n- Important facts or insights\n- Any structured data, lists, or specific information\n\nProvide a clear, comprehensive analysis for each file, clearly labeled with the filename.`;
+        ? `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\n${instruction}\n\n${outputFormat}`
+        : `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\nFor each file, extract and summarize: main topics, key information, important facts or insights, and any structured data.\n\n${outputFormat}`;
 
     const messageContent: Array<{ type: "text"; text: string } | { type: "file"; data: string; mediaType: string; filename?: string }> = [
         { type: "text", text: batchPrompt },
@@ -179,13 +189,8 @@ async function processYouTubeVideo(
     logger.debug("📁 [FILE_TOOL] Processing YouTube URL natively:", youtubeUrl);
 
     const videoPrompt = instruction
-        ? `Analyze this video. ${instruction}`
-        : `Analyze this video. Extract and summarize:
-- Main topics and key points
-- Important details and visual information
-- Any specific data or insights relevant to the user's question
-
-Provide a clear, comprehensive analysis of the video content.`;
+        ? `Analyze this video. ${instruction}\n\nFormat your response as:\n**Summary:** [2-3 sentences]\n**Key points:** [bullet list]`
+        : `Analyze this video. Extract and summarize main topics, key points, important details, and any specific data or insights.\n\nFormat your response as:\n**Summary:** [2-3 sentences]\n**Key points:** [bullet list]`;
 
     const { text: videoAnalysis } = await generateText({
         model: google("gemini-2.5-flash-lite"),

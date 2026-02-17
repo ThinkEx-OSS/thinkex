@@ -96,6 +96,19 @@ INSTRUCTIONS:
 7. Remove any redundant or repetitive information
 8. Ensure the note flows naturally and reads well
 
+Example - combining fragments with math and currency:
+Input: "E = mc^2. The cost was $99. | Also: quadratic formula x = (-b ± sqrt(b^2-4ac))/(2a)"
+Output:
+# Energy and Algebra
+
+The famous equation $$E = mc^2$$ relates mass and energy. A related purchase cost $99.
+
+The quadratic formula solves $$ax^2 + bx + c = 0$$:
+
+$$
+x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}
+$$
+
 Return ONLY the reformatted note content in markdown format. Do not include any meta-commentary or explanations.`;
 
     const aiResult = await generateText({

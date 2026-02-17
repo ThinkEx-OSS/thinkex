@@ -174,7 +174,29 @@ OUTPUT FORMAT (strict JSON):
   ]
 }
 
-For true_false questions, options should be exactly ["True", "False"] and correctIndex 0 for True, 1 for False.`;
+For true_false questions, options should be exactly ["True", "False"] and correctIndex 0 for True, 1 for False.
+
+Example (multiple_choice):
+{
+  "id": "q_001",
+  "type": "multiple_choice",
+  "questionText": "What is the capital of France?",
+  "options": ["London", "Paris", "Berlin", "Madrid"],
+  "correctIndex": 1,
+  "hint": "Think of the Eiffel Tower.",
+  "explanation": "Paris is the capital and largest city of France."
+}
+
+Example (true_false):
+{
+  "id": "q_002",
+  "type": "true_false",
+  "questionText": "Water boils at 100°C at standard atmospheric pressure.",
+  "options": ["True", "False"],
+  "correctIndex": 0,
+  "hint": "Consider the Celsius scale.",
+  "explanation": "At 1 atm, water boils at 100°C (212°F)."
+}`;
 
         // Use structured output generation for better reliability
         const { output: quizData } = await generateText({

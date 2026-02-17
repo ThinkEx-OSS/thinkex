@@ -22,8 +22,11 @@ export async function textSelectionWorker(
             improve: `Improve the following text for grammar, clarity, and style:\n\n${text}`,
         };
 
+        const systemInstruction = `You transform selected text as requested. Return ONLY the transformed text—no preamble, labels, or meta-commentary. Be concise: summarize in 1-3 sentences; explain in 2-5 sentences; rewrite/improve to similar length; translate preserves length.`;
+
         const result = await generateText({
             model: google("gemini-2.5-flash"),
+            system: systemInstruction,
             prompt: prompts[action] + (additionalContext ? `\n\nAdditional context: ${additionalContext}` : ""),
         });
 

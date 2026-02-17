@@ -94,13 +94,14 @@ ${result.url}
 Content:
 ${result.content}
 
-Please provide:
-- What this URL/page is about
-- Key information, features, specifications, or data
-- Important details relevant to the user's question
-- Publication dates or last updated information
+Provide a clear, accurate answer. Format your response as:
 
-Provide a clear, accurate answer based on the URL content.`;
+Summary: [1-2 sentences on what this page is about]
+Key information:
+- [Point 1]
+- [Point 2]
+- [Additional points as needed]
+Details: [Important details, specs, data, or publication/update dates relevant to the user's question]`;
 
                     const { text } = await generateText({
                         model: google("gemini-2.5-flash"),

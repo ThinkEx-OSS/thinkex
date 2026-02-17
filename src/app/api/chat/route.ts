@@ -223,7 +223,6 @@ export async function POST(req: Request) {
     // Note: The base `system` from client already includes AI assistant identity from formatWorkspaceContext
     const systemPromptParts: string[] = [
       buildSystemPrompt(system, urlContextUrls),
-      `\n\nMODEL IDENTITY: You are currently running as "${modelId}". If the user asks what model you are, tell them this model ID.`,
     ];
 
 
