@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo, memo } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
-import { MoreVertical, Trash2, CheckCircle2, Pencil, Palette, ChevronLeft, ChevronRight, X, FolderInput } from "lucide-react";
+import { MoreVertical, Trash2, CheckCircle2, Pencil, Palette, ChevronLeft, ChevronRight, X, FolderInput, PanelRight, SplitSquareHorizontal } from "lucide-react";
 import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
 import { useTheme } from "next-themes";
 import type { Item, FlashcardData, FlashcardItem } from "@/lib/workspace-state/types";
@@ -46,6 +47,7 @@ import {
 } from "@/components/ui/dialog";
 import MoveToDialog from "@/components/modals/MoveToDialog";
 import RenameDialog from "@/components/modals/RenameDialog";
+import { PanelActionMenuPortal } from "@/components/workspace-canvas/PanelActionMenuPortal";
 
 interface FlashcardWorkspaceCardProps {
     item: Item;
@@ -177,6 +179,10 @@ export function FlashcardWorkspaceCard({
         (state) => state.selectedCardIds.has(item.id)
     );
     const onToggleSelection = useUIStore((state) => state.toggleCardSelection);
+    const viewMode = useUIStore((state) => state.viewMode);
+    const openPanelIds = useUIStore((state) => state.openPanelIds);
+    const openPanel = useUIStore((state) => state.openPanel);
+    const splitWithItem = useUIStore((state) => state.splitWithItem);
     const { resolvedTheme } = useTheme();
 
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -185,6 +191,7 @@ export function FlashcardWorkspaceCard({
     const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
     const [isFlipped, setIsFlipped] = useState(false);
     const [isFlipping, setIsFlipping] = useState(false);
+    const [panelActionMenu, setPanelActionMenu] = useState<{ x: number; y: number; itemId: string } | null>(null);
     // Get scroll lock state from Zustand store (persists across interactions)
     const isScrollLocked = useUIStore(selectItemScrollLocked(item.id));
     const toggleItemScrollLocked = useUIStore((state) => state.toggleItemScrollLocked);
@@ -387,9 +394,17 @@ export function FlashcardWorkspaceCard({
             return;
         }
 
+        // In workspace+panel mode: show Replace / Double Panel menu at cursor
+        if (viewMode === 'workspace+panel' && !openPanelIds.includes(item.id)) {
+            e.preventDefault();
+            e.stopPropagation();
+            setPanelActionMenu({ x: e.clientX, y: e.clientY, itemId: item.id });
+            return;
+        }
+
         // Safe to flip - user clicked without dragging
         handleFlip();
-    }, [handleFlip, isScrollLocked, onToggleSelection, item.id]);
+    }, [handleFlip, isScrollLocked, onToggleSelection, item.id, viewMode, openPanelIds]);
 
     // Navigation Handlers
     const goNext = useCallback((e: React.MouseEvent) => {
@@ -413,6 +428,20 @@ export function FlashcardWorkspaceCard({
         }
         handleIndexChange((currentIndex - 1 + cards.length) % cards.length);
     }, [isFlipped, startFlipAnimation, handleIndexChange, currentIndex, cards.length]);
+
+    const handleReplacePanel = useCallback(() => {
+        if (panelActionMenu) {
+            openPanel(panelActionMenu.itemId, 'replace');
+            setPanelActionMenu(null);
+        }
+    }, [panelActionMenu, openPanel]);
+
+    const handleDoublePanel = useCallback(() => {
+        if (panelActionMenu) {
+            splitWithItem(panelActionMenu.itemId);
+            setPanelActionMenu(null);
+        }
+    }, [panelActionMenu, splitWithItem]);
 
     // Calculate border styling to match WorkspaceCard
     const borderColor = isSelected ? 'rgba(255, 255, 255, 0.8)' : (item.color ? getCardAccentColor(item.color, resolvedTheme === 'dark' ? 0.5 : 0.3) : 'transparent');
@@ -506,6 +535,15 @@ export function FlashcardWorkspaceCard({
                                 </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
+                                {viewMode === 'workspace+panel' && !openPanelIds.includes(item.id) && (
+                                    <>
+                                        <DropdownMenuItem onSelect={() => splitWithItem(item.id)}>
+                                            <SplitSquareHorizontal className="mr-2 h-4 w-4" />
+                                            <span>Double Panel</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                    </>
+                                )}
                                 <DropdownMenuItem onSelect={() => setShowRenameDialog(true)}>
                                     <Pencil className="mr-2 h-4 w-4" />
                                     <span>Rename</span>
@@ -699,6 +737,15 @@ export function FlashcardWorkspaceCard({
 
             {/* Right-Click Context Menu */}
             <ContextMenuContent className="w-48">
+                {viewMode === 'workspace+panel' && !openPanelIds.includes(item.id) && (
+                    <>
+                        <ContextMenuItem onSelect={() => splitWithItem(item.id)}>
+                            <SplitSquareHorizontal className="mr-2 h-4 w-4" />
+                            <span>Double Panel</span>
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
+                    </>
+                )}
                 <ContextMenuItem onSelect={() => setShowRenameDialog(true)}>
                     <Pencil className="mr-2 h-4 w-4" />
                     <span>Rename</span>
@@ -729,6 +776,18 @@ export function FlashcardWorkspaceCard({
                     <span>Delete</span>
                 </ContextMenuItem>
             </ContextMenuContent>
+
+            {/* Panel action menu - appears at cursor when single-clicking a card in workspace+panel mode */}
+            {typeof document !== "undefined" && panelActionMenu && createPortal(
+                <PanelActionMenuPortal
+                    x={panelActionMenu.x}
+                    y={panelActionMenu.y}
+                    onReplace={handleReplacePanel}
+                    onDoublePanel={handleDoublePanel}
+                    onClose={() => setPanelActionMenu(null)}
+                />,
+                document.body
+            )}
         </ContextMenu>
     );
 }

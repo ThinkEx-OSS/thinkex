@@ -13,9 +13,10 @@ interface QuizContentProps {
     item: Item;
     onUpdateData: (updater: (prev: ItemData) => ItemData) => void;
     isScrollLocked?: boolean;
+    className?: string; // Optional (e.g. padding when in modal)
 }
 
-export function QuizContent({ item, onUpdateData, isScrollLocked = false }: QuizContentProps) {
+export function QuizContent({ item, onUpdateData, isScrollLocked = false, className }: QuizContentProps) {
     const quizData = item.data as QuizData;
     const questions = quizData.questions || [];
     const aui = useAui();
@@ -244,13 +245,18 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
         e.preventDefault();
     };
 
+    // Stop propagation so card click doesn't open modal when interacting with quiz
+    const stopPropagation = (e: React.MouseEvent) => {
+        e.stopPropagation();
+    };
+
     if (!currentQuestion && !showResults) {
         // Template-created items have "Update me" name and should show generating skeleton
         const isAwaitingGeneration = item.name === "Update me" && questions.length === 0;
 
         if (isAwaitingGeneration) {
             return (
-                <div className="flex flex-col h-full">
+                <div className={cn("flex flex-col h-full", className)}>
                     {/* Question Area Skeleton */}
                     <div className={cn(
                         "flex-1 p-2",
@@ -333,7 +339,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
 
         // User-created quiz with no questions - show empty state
         return (
-            <div className="flex flex-col h-full items-center justify-center p-4 text-center">
+            <div className={cn("flex flex-col h-full items-center justify-center p-4 text-center", className)}>
                 <p className="text-foreground/60 text-sm dark:text-white/60">No questions yet</p>
                 <p className="text-foreground/40 text-xs mt-1 dark:text-white/40">Ask the AI to generate quiz questions</p>
             </div>
@@ -344,7 +350,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
     if (showResults) {
         const percentage = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
         return (
-            <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+            <div className={cn("flex flex-col items-center justify-center h-full p-6 text-center", className)}>
                 <Trophy className={cn(
                     "w-16 h-16 mb-4",
                     percentage >= 80 ? "text-yellow-400" : percentage >= 50 ? "text-blue-400" : "text-white/50"
@@ -357,7 +363,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                 <div className="flex gap-3">
                     <button
                         onMouseDown={preventFocusSteal}
-                        onClick={handleRestart}
+                        onClick={(e) => { stopPropagation(e); handleRestart(); }}
                         className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-foreground transition-colors cursor-pointer dark:text-white"
                     >
                         <RotateCcw className="w-4 h-4" />
@@ -365,7 +371,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                     </button>
                     <button
                         onMouseDown={preventFocusSteal}
-                        onClick={handleUpdateQuiz}
+                        onClick={(e) => { stopPropagation(e); handleUpdateQuiz(); }}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors cursor-pointer"
                     >
                         <Plus className="w-4 h-4" />
@@ -377,7 +383,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
     }
 
     return (
-        <div className="flex flex-col h-full">
+        <div className={cn("flex flex-col h-full", className)}>
             {/* Question */}
             <div className={cn(
                 "flex-1 p-2",
@@ -404,7 +410,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                             <button
                                 key={index}
                                 onMouseDown={preventFocusSteal}
-                                onClick={() => handleSelectAnswer(index)}
+                                onClick={(e) => { stopPropagation(e); handleSelectAnswer(index); }}
                                 disabled={isSubmitted}
                                 className={cn(
                                     "w-full p-3 text-left rounded-lg border transition-all duration-200 cursor-pointer",
@@ -451,7 +457,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                         {currentQuestion.hint && !isSubmitted && (
                             <button
                                 onMouseDown={preventFocusSteal}
-                                onClick={() => setShowHint(!showHint)}
+                                onClick={(e) => { stopPropagation(e); setShowHint(!showHint); }}
                                 className="flex items-center gap-2 text-sm text-yellow-600/80 hover:text-yellow-600 transition-colors cursor-pointer dark:text-yellow-400/80 dark:hover:text-yellow-400"
                             >
                                 <Lightbulb className="w-4 h-4" />
@@ -508,7 +514,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                     <div className="flex-1 flex items-center justify-start">
                         <button
                             onMouseDown={preventFocusSteal}
-                            onClick={handleRestart}
+                            onClick={(e) => { stopPropagation(e); handleRestart(); }}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-500/70 hover:text-gray-700 hover:bg-gray-100/50 transition-colors cursor-pointer dark:text-foreground/40 dark:hover:text-foreground dark:hover:bg-white/10"
                         >
                             <RotateCcw className="w-4 h-4 rotate-180" />
@@ -520,7 +526,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                     <div className="flex items-center gap-1 justify-center">
                         <button
                             onMouseDown={preventFocusSteal}
-                            onClick={handlePrevious}
+                            onClick={(e) => { stopPropagation(e); handlePrevious(); }}
                             disabled={currentIndex === 0}
                             className={cn(
                                 "flex items-center justify-center w-8 h-8 rounded-lg text-sm transition-colors cursor-pointer",
@@ -536,7 +542,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                         </span>
                         <button
                             onMouseDown={preventFocusSteal}
-                            onClick={handleArrowNext}
+                            onClick={(e) => { stopPropagation(e); handleArrowNext(); }}
                             disabled={currentIndex >= totalQuestions - 1}
                             className={cn(
                                 "flex items-center justify-center w-8 h-8 rounded-lg text-sm transition-colors cursor-pointer",
@@ -554,7 +560,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                         {!isSubmitted ? (
                             <button
                                 onMouseDown={preventFocusSteal}
-                                onClick={handleSubmit}
+                                onClick={(e) => { stopPropagation(e); handleSubmit(); }}
                                 disabled={selectedAnswer === null}
                                 className={cn(
                                     "px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
@@ -568,7 +574,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false }: Quiz
                         ) : (
                             <button
                                 onMouseDown={preventFocusSteal}
-                                onClick={handleNext}
+                                onClick={(e) => { stopPropagation(e); handleNext(); }}
                                 className="px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer bg-blue-500 hover:bg-blue-600 text-white dark:text-white"
                             >
                                 {currentIndex < totalQuestions - 1 ? "Next" : "Finish"}

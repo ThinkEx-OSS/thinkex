@@ -3,6 +3,7 @@ import { ImageCardContent } from "./ImageCardContent";
 import { MoreVertical, Trash2, Palette, CheckCircle2, FolderInput, FileText, Copy, X, Pencil, Columns, Link2, PanelRight, SplitSquareHorizontal } from "lucide-react";
 import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
 import { useCallback, useState, memo, useRef, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { usePostHog } from 'posthog-js/react';
@@ -33,6 +34,7 @@ import { extractYouTubeVideoId, extractYouTubePlaylistId } from "@/lib/utils/you
 import { YouTubeCardContent } from "./YouTubeCardContent";
 import { getLayoutForBreakpoint } from "@/lib/workspace-state/grid-layout-helpers";
 import { SourcesDisplay } from "./SourcesDisplay";
+import { PanelActionMenuPortal } from "./PanelActionMenuPortal";
 
 import {
   DropdownMenu,
@@ -235,6 +237,7 @@ function WorkspaceCard({
   const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [panelActionMenu, setPanelActionMenu] = useState<{ x: number; y: number; itemId: string } | null>(null);
   // Get scroll lock state from Zustand store (persists across interactions)
   const isScrollLocked = useUIStore(selectItemScrollLocked(item.id));
   const toggleItemScrollLocked = useUIStore((state) => state.toggleItemScrollLocked);
@@ -485,6 +488,8 @@ function WorkspaceCard({
     if (target.closest('[data-slot="dropdown-menu-item"]') ||
       target.closest('[data-slot="dropdown-menu-content"]') ||
       target.closest('[data-slot="dropdown-menu-trigger"]') ||
+      target.closest('[data-slot="popover-content"]') ||
+      target.closest('[data-slot="popover"]') ||
       target.closest('[data-slot="dialog-content"]') ||
       target.closest('[data-slot="dialog-close"]') ||
       target.closest('[data-slot="dialog-overlay"]')) {
@@ -544,13 +549,6 @@ function WorkspaceCard({
       }
     }
 
-    // Prevent opening modal for quiz cards as they are interactive
-    if (item.type === 'quiz') {
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
-
     // YouTube cards open in panel (same as notes/PDFs) - no special handling, fall through
 
     // If this card is already open in panel mode, close it instead of re-opening
@@ -560,15 +558,31 @@ function WorkspaceCard({
       return;
     }
 
-    // In workspace+panel mode: clicking a card replaces the open panel
-    if (viewMode === 'workspace+panel') {
-      openPanel(item.id, 'replace');
+    // In workspace+panel mode: show Replace / Double Panel menu at cursor
+    if (viewMode === 'workspace+panel' && !openPanelIds.includes(item.id)) {
+      e.preventDefault();
+      e.stopPropagation();
+      setPanelActionMenu({ x: e.clientX, y: e.clientY, itemId: item.id });
       return;
     }
 
     // Default: open in focus mode (maximized modal)
     onOpenModal(item.id);
   }, [isEditingTitle, isOpenInPanel, item.id, item.type, onOpenModal, openPanelIds, maximizedItemId, viewMode, openPanel, closePanel]);
+
+  const handleReplacePanel = useCallback(() => {
+    if (panelActionMenu) {
+      openPanel(panelActionMenu.itemId, 'replace');
+      setPanelActionMenu(null);
+    }
+  }, [panelActionMenu, openPanel]);
+
+  const handleDoublePanel = useCallback(() => {
+    if (panelActionMenu) {
+      splitWithItem(panelActionMenu.itemId);
+      setPanelActionMenu(null);
+    }
+  }, [panelActionMenu, splitWithItem]);
 
   return (
     <ContextMenu>
@@ -850,12 +864,9 @@ function WorkspaceCard({
               );
             })()}
 
-            {/* Quiz Content - render interactive quiz */}
+            {/* Quiz Content - render interactive quiz (clicks on non-interactive areas open modal via parent) */}
             {item.type === 'quiz' && shouldShowPreview && (
-              <div
-                className="flex-1 min-h-0"
-                onClick={(e) => e.stopPropagation()}
-              >
+              <div className="flex-1 min-h-0">
                 <QuizContent
                   item={item}
                   onUpdateData={(updater) => onUpdateItem(item.id, { data: updater(item.data) as any })}
@@ -1021,9 +1032,12 @@ function WorkspaceCard({
 
             {/* Active in Panel Overlay */}
             {isOpenInPanel && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-card/95 backdrop-blur-[1px] animate-in fade-in duration-200 select-none">
-                <PanelRight className="w-10 h-10 text-primary mb-3 opacity-90" />
-                <span className="text-sm font-medium text-muted-foreground">Open in Panel</span>
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-card/95 backdrop-blur-[1px] animate-in fade-in duration-200 select-none cursor-pointer group/overlay">
+                <div className="relative w-10 h-10 mb-3 flex items-center justify-center">
+                  <PanelRight className="w-10 h-10 text-primary opacity-90 absolute transition-opacity duration-200 group-hover/overlay:opacity-0" />
+                  <X className="w-10 h-10 text-primary opacity-90 absolute hidden origin-center transition-all duration-200 group-hover/overlay:block group-hover/overlay:scale-110" />
+                </div>
+                <span className="text-sm font-medium text-muted-foreground">Click to close</span>
               </div>
             )}
 
@@ -1131,6 +1145,17 @@ function WorkspaceCard({
         </ContextMenuItem>
       </ContextMenuContent>
 
+      {/* Panel action menu - appears at cursor when single-clicking a card in workspace+panel mode */}
+      {typeof document !== "undefined" && panelActionMenu && createPortal(
+        <PanelActionMenuPortal
+          x={panelActionMenu.x}
+          y={panelActionMenu.y}
+          onReplace={handleReplacePanel}
+          onDoublePanel={handleDoublePanel}
+          onClose={() => setPanelActionMenu(null)}
+        />,
+        document.body
+      )}
     </ContextMenu>
   );
 }

@@ -194,6 +194,7 @@ export function ItemPanelContent({
                         key={item.id}
                         item={item}
                         onUpdateData={onUpdateItemData}
+                        quizClassName={item.type === 'quiz' ? 'p-4 md:p-5 lg:p-6' : undefined}
                     />
                 )}
             </div>

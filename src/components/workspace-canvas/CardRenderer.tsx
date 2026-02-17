@@ -14,10 +14,10 @@ import { QuizContent } from "./QuizContent";
 export function CardRenderer(props: {
   item: Item;
   onUpdateData: (updater: (prev: ItemData) => ItemData) => void;
-
   layoutKey?: string | number;
+  quizClassName?: string; // Optional padding/className for quiz when shown in modal
 }) {
-  const { item, onUpdateData } = props;
+  const { item, onUpdateData, quizClassName } = props;
 
   if (item.type === "note") {
     const noteData = item.data as NoteData;
@@ -87,7 +87,7 @@ export function CardRenderer(props: {
   }
 
   if (item.type === "quiz") {
-    return <QuizContent item={item} onUpdateData={onUpdateData} />;
+    return <QuizContent item={item} onUpdateData={onUpdateData} className={quizClassName} />;
   }
 
   if (item.type === "youtube") {
