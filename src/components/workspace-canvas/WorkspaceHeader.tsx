@@ -176,7 +176,7 @@ export function WorkspaceHeader({
   const queryClient = useQueryClient();
 
   // Consistent breadcrumb item styling
-  const breadcrumbItemClass = "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-sidebar-accent cursor-pointer px-2 py-1.5 -mx-2 -my-1.5";
+  const breadcrumbItemClass = "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-accent cursor-pointer px-2 py-1.5 -mx-2 -my-1.5";
 
 
 
@@ -824,7 +824,7 @@ export function WorkspaceHeader({
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer px-3"
+                  className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer px-3"
                   aria-label="Open split view"
                   onClick={() => {
                     // Get the first active item and open it in panel mode (workspace+panel)
@@ -851,7 +851,7 @@ export function WorkspaceHeader({
                 <button
                   type="button"
                   aria-label="Close"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer"
                   onClick={() => onCloseActiveItem?.(activeItems[0]?.id)}
                 >
                   <X className="h-4 w-4" />
@@ -917,8 +917,8 @@ export function WorkspaceHeader({
                     searchQuery ? "pr-8" : "pr-3",
                     "border border-sidebar-border text-sidebar-foreground/70 placeholder:text-sidebar-foreground/50 transition-colors",
                     isFocused
-                      ? "text-sidebar-foreground bg-sidebar-accent"
-                      : "hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                      ? "text-sidebar-foreground bg-accent"
+                      : "hover:text-sidebar-foreground hover:bg-accent"
                   )}
                 />
                 {/* Clear button - only show when there's text */}
@@ -941,7 +941,7 @@ export function WorkspaceHeader({
                     onClick={handleSearchIconClick}
                     className={cn(
                       "h-8 w-8 flex items-center justify-center rounded-md transition-colors pointer-events-auto cursor-pointer",
-                      "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                      "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent"
                     )}
                     data-tour="search-bar"
                     aria-label="Search workspace"
@@ -962,11 +962,11 @@ export function WorkspaceHeader({
                   <button
                     className={cn(
                       "h-8 outline-none rounded-md text-sm pointer-events-auto whitespace-nowrap relative cursor-pointer box-border",
-                      "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors",
+                      "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors",
                       isCompactMode
                         ? "w-8 flex items-center justify-center px-0"
                         : "inline-flex items-center gap-2 px-2",
-                      isNewMenuOpen && "text-sidebar-foreground bg-sidebar-accent"
+                      isNewMenuOpen && "text-sidebar-foreground bg-accent"
                     )}
                     data-tour="add-card-button"
                   >

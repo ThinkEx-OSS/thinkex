@@ -30,7 +30,7 @@ export default function ChatFloatingButton({
       }}
       className={cn(
         "inline-flex items-center gap-2 h-8 px-2 outline-none rounded-md text-sm pointer-events-auto whitespace-nowrap relative cursor-pointer box-border",
-        "border border-sidebar-border text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+        "border border-sidebar-border text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-accent transition-colors"
       )}
       data-tour="chat-toggle"
       aria-label={`Open AI Chat (${formatKeyboardShortcut('J')})`}

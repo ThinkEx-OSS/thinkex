@@ -626,7 +626,9 @@ export function useWorkspaceOperations(
 
   const moveItemsToFolder = useCallback(
     (itemIds: string[], folderId: string | null) => {
-      const itemNames = itemIds.map(id => currentState.items.find(i => i.id === id)?.name);
+      const itemNames = itemIds
+        .map(id => currentState.items.find(i => i.id === id)?.name)
+        .filter((n): n is string => n != null);
       logger.debug("📁 [ITEMS-MOVE] Moving items to folder:", { itemIds, folderId });
       const event = createEvent("ITEMS_MOVED_TO_FOLDER", { itemIds, folderId, itemNames }, userId, userName);
       mutation.mutate(event);
