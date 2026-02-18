@@ -8,6 +8,13 @@
       "when": 1768802558046,
       "tag": "0000_sad_wallflower",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1771377459878,
+      "tag": "0002_add_workspace_share_links",
+      "breakpoints": true
     }
   ]
 }

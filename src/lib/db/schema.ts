@@ -238,3 +238,30 @@ export const workspaceInvites = pgTable("workspace_invites", {
    FROM workspace_collaborators c
   WHERE ((c.workspace_id = workspace_invites.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))`  }),
 ]);
+
+// Multi-use share links: anyone with the link can join (no email restriction)
+export const workspaceShareLinks = pgTable("workspace_share_links", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	workspaceId: uuid("workspace_id").notNull(),
+	token: text("token").notNull(),
+	permissionLevel: text("permission_level").default('editor').notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
+	expiresAt: timestamp("expires_at", { withTimezone: true, mode: 'string' }).notNull(),
+}, (table) => [
+	index("idx_workspace_share_links_token").using("btree", table.token.asc().nullsLast().op("text_ops")),
+	index("idx_workspace_share_links_workspace").using("btree", table.workspaceId.asc().nullsLast().op("uuid_ops")),
+	unique("workspace_share_links_token_key").on(table.token),
+	unique("workspace_share_links_workspace_key").on(table.workspaceId),
+	foreignKey({
+		columns: [table.workspaceId],
+		foreignColumns: [workspaces.id],
+		name: "workspace_share_links_workspace_id_fkey"
+	}).onDelete("cascade"),
+	pgPolicy("Public can view share link by token", { as: "permissive", for: "select", to: ["public"], using: sql`true` }),
+	pgPolicy("Owners and editors can manage share links", {
+		as: "permissive", for: "all", to: ["authenticated"], using: sql`(EXISTS ( SELECT 1
+   FROM workspaces w
+  WHERE ((w.id = workspace_share_links.workspace_id) AND (w.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
+   FROM workspace_collaborators c
+  WHERE ((c.workspace_id = workspace_share_links.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))`  }),
+]);

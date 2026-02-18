@@ -30,7 +30,7 @@ interface UseWorkspaceInstructionModalResult {
   markInteracted: () => void;
 }
 
-const FIRST_OPEN_UNLOCK_MS = 7000;
+const FIRST_OPEN_UNLOCK_MS = 3000;
 
 export function useWorkspaceInstructionModal({
   workspaceId,
