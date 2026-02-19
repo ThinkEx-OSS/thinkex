@@ -25,6 +25,7 @@ import { ExportPluginPackage } from '@embedpdf/plugin-export/react';
 
 import { Loader2, ChevronLeft, ChevronRight, Copy, Sparkles, Check, Trash2, Search, X as XIcon, ArrowUp, ArrowDown } from 'lucide-react';
 import { useUIStore } from "@/lib/stores/ui-store";
+import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { toast } from "sonner";
 import { useMemo, ReactNode, useState, useEffect, useRef, useCallback } from 'react';
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
@@ -295,6 +296,7 @@ const TextSelectionMenu = ({
           });
           scope.clear();
           toast.success("Added to context");
+          focusComposerInput();
         } else {
           console.warn("Ask AI: No text extracted");
         }
