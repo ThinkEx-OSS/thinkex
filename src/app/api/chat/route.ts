@@ -97,20 +97,24 @@ function getSelectedCardsContext(body: any): string {
 
 
 /**
- * Inject user-selected context (reply quotes + BlockNote selection) into the last user message.
+ * Inject user-selected context (reply quotes + BlockNote selection + selected cards) into the last user message.
  * Reads from runConfig metadata sent via the composer's setRunConfig().
  * This keeps context in the user message (not system prompt) without showing in the UI.
  */
 function injectSelectionContext(
   messages: any[],
-  metadata?: { replySelections?: Array<{ text: string }>; blockNoteSelection?: { cardName: string; text: string } }
+  metadata?: { replySelections?: Array<{ text: string }>; blockNoteSelection?: { cardName: string; text: string } },
+  selectedCardsContext?: string
 ): void {
-  if (!metadata) return;
-
   const parts: string[] = [];
 
+  // Selected cards (pre-formatted from client)
+  if (selectedCardsContext && selectedCardsContext.trim()) {
+    parts.push(`[Selected cards context:\n${selectedCardsContext.trim()}]`);
+  }
+
   // Reply selections (quoted text from assistant messages)
-  if (metadata.replySelections && metadata.replySelections.length > 0) {
+  if (metadata?.replySelections && metadata.replySelections.length > 0) {
     const quoted = metadata.replySelections
       .map((sel) => `> ${sel.text}`)
       .join("\n");
@@ -118,7 +122,7 @@ function injectSelectionContext(
   }
 
   // BlockNote selection (text selected from a card in the editor)
-  if (metadata.blockNoteSelection?.text) {
+  if (metadata?.blockNoteSelection?.text) {
     parts.push(`[Selected text from "${metadata.blockNoteSelection.cardName}":\n${metadata.blockNoteSelection.text}]`);
   }
 
@@ -219,23 +223,11 @@ export async function POST(req: Request) {
       modelId = "google/gemini-3-flash-preview";
     }
 
-    // Build system prompt with all context parts (using array join for efficiency)
-    // Note: The base `system` from client already includes AI assistant identity from formatWorkspaceContext
-    const systemPromptParts: string[] = [
-      buildSystemPrompt(system, urlContextUrls),
-    ];
+    // Build system prompt (identity, guidelines, URL hints — no selected cards)
+    const finalSystemPrompt = buildSystemPrompt(system, urlContextUrls);
 
-
-
-    // Inject selected cards context if available
-    if (selectedCardsContext) {
-      systemPromptParts.push(`\n\n${selectedCardsContext}`);
-    }
-
-    const finalSystemPrompt = systemPromptParts.join('');
-
-    // Inject reply + BlockNote selection context into the last user message (sent via runConfig metadata)
-    injectSelectionContext(cleanedMessages, body.metadata?.custom);
+    // Inject selected cards + reply + BlockNote selection context into the last user message
+    injectSelectionContext(cleanedMessages, body.metadata?.custom, selectedCardsContext);
 
     // Initialize PostHog client
     const posthogClient = new PostHog(process.env.POSTHOG_API_KEY || "disabled", {
