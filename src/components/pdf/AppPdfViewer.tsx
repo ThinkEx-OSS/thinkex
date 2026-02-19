@@ -4,7 +4,7 @@ import { createPluginRegistration } from '@embedpdf/core';
 import { EmbedPDF } from '@embedpdf/core/react';
 import { useEngineContext } from '@embedpdf/engines/react';
 import { ViewportPluginPackage, Viewport, useViewportCapability } from '@embedpdf/plugin-viewport/react';
-import { ScrollPluginPackage, Scroller, useScroll } from '@embedpdf/plugin-scroll/react';
+import { ScrollPluginPackage, Scroller, useScroll, useScrollCapability } from '@embedpdf/plugin-scroll/react';
 import { DocumentContent, DocumentManagerPluginPackage } from '@embedpdf/plugin-document-manager/react';
 import { RenderLayer, RenderPluginPackage } from '@embedpdf/plugin-render/react';
 import { ZoomPluginPackage, ZoomMode, ZoomGestureWrapper, useZoom } from '@embedpdf/plugin-zoom/react';
@@ -19,7 +19,9 @@ import { ThumbnailPluginPackage, ThumbnailsPane, ThumbImg } from '@embedpdf/plug
 import { AnnotationPluginPackage, AnnotationLayer, useAnnotationCapability, AnnotationSelectionMenuProps } from '@embedpdf/plugin-annotation/react';
 import { CapturePluginPackage, MarqueeCapture, useCapture } from '@embedpdf/plugin-capture/react';
 import { HistoryPluginPackage } from '@embedpdf/plugin-history/react';
-import { SearchPluginPackage, SearchLayer, useSearch, useSearchCapability } from '@embedpdf/plugin-search/react';
+import { SearchPluginPackage, SearchLayer, useSearch } from '@embedpdf/plugin-search/react';
+import { MatchFlag } from '@embedpdf/models';
+import { ExportPluginPackage } from '@embedpdf/plugin-export/react';
 
 import { Loader2, ChevronLeft, ChevronRight, Copy, Sparkles, Check, Trash2, Search, X as XIcon, ArrowUp, ArrowDown } from 'lucide-react';
 import { useUIStore } from "@/lib/stores/ui-store";
@@ -336,7 +338,36 @@ const TextSelectionMenu = ({
   );
 };
 
-const PageControls = ({ documentId, itemName, isMaximized, isVisible }: { documentId: string; itemName?: string; isMaximized?: boolean; isVisible: boolean }) => {
+// Subscribes to viewport scroll activity and calls onActivity (per embedpdf example)
+const PdfViewportActivityListener = ({ documentId, onActivity }: { documentId: string; onActivity: () => void }) => {
+  const { provides: viewportCapability } = useViewportCapability();
+
+  useEffect(() => {
+    const viewport = viewportCapability?.forDocument(documentId);
+    if (!viewport) return;
+    return viewport.onScrollActivity((activity) => {
+      if (activity) onActivity();
+    });
+  }, [documentId, viewportCapability, onActivity]);
+
+  return null;
+};
+
+const PageControls = ({
+  documentId,
+  itemName,
+  isMaximized,
+  isVisible,
+  onMouseEnter,
+  onMouseLeave,
+}: {
+  documentId: string;
+  itemName?: string;
+  isMaximized?: boolean;
+  isVisible: boolean;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+}) => {
   const { provides: scroll, state } = useScroll(documentId);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -360,8 +391,11 @@ const PageControls = ({ documentId, itemName, isMaximized, isVisible }: { docume
   if (!state || !scroll) return null;
 
   return (
-    <div className={`absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center bg-black/75 backdrop-blur-md rounded-2xl p-1 shadow-lg border border-white/10 transition-all duration-300 pointer-events-auto scale-90 origin-bottom ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-
+    <div
+      className={`absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center bg-black/75 backdrop-blur-md rounded-2xl p-1 shadow-lg border border-white/10 transition-all duration-300 pointer-events-auto scale-90 origin-bottom ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
       {/* Controls Row */}
       <div className="flex items-center gap-1 px-1 py-0.5">
         <button
@@ -468,14 +502,23 @@ const ThumbnailSidebar = ({ documentId }: ThumbnailSidebarProps) => {
 
 // ─────────────────────────────────────────────────────────
 // PDF Search Bar (intercepts Cmd/Ctrl+F)
+// Follows embedpdf examples-react-mui Search practices.
 // ─────────────────────────────────────────────────────────
 
 const PdfSearchBar = ({ documentId }: { documentId: string }) => {
   const { state, provides } = useSearch(documentId);
-  const { provides: scroll } = useScroll(documentId);
+  const { provides: scrollCapability } = useScrollCapability();
+  const scroll = scrollCapability?.forDocument(documentId);
   const [isOpen, setIsOpen] = useState(false);
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState(state.query || '');
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when search becomes available (per official example)
+  useEffect(() => {
+    if (provides && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [provides]);
 
   // Intercept Cmd/Ctrl+F
   useEffect(() => {
@@ -484,7 +527,6 @@ const PdfSearchBar = ({ documentId }: { documentId: string }) => {
         e.preventDefault();
         e.stopPropagation();
         setIsOpen(true);
-        // Focus input after state update
         setTimeout(() => inputRef.current?.focus(), 50);
       }
       if (e.key === 'Escape' && isOpen) {
@@ -497,30 +539,33 @@ const PdfSearchBar = ({ documentId }: { documentId: string }) => {
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [isOpen]);
 
-  // Scroll to active result when it changes
+  // Scroll to active result when navigating (next/prev) - per embedpdf example.
+  // Do NOT include state.results or scroll in deps to avoid scroll lock.
+  const scrollToItem = (index: number) => {
+    const item = state.results[index];
+    if (!item) return;
+
+    const minCoordinates = item.rects.reduce(
+      (min, rect) => ({
+        x: Math.min(min.x, rect.origin.x),
+        y: Math.min(min.y, rect.origin.y),
+      }),
+      { x: Infinity, y: Infinity }
+    );
+
+    scroll?.scrollToPage({
+      pageNumber: item.pageIndex + 1,
+      pageCoordinates: minCoordinates,
+      alignX: 50,
+      alignY: 50,
+    });
+  };
+
   useEffect(() => {
-    if (
-      state.activeResultIndex >= 0 &&
-      !state.loading &&
-      state.results.length > 0
-    ) {
-      const item = state.results[state.activeResultIndex];
-      if (!item) return;
-
-      const minCoordinates = item.rects.reduce(
-        (min, rect) => ({
-          x: Math.min(min.x, rect.origin.x),
-          y: Math.min(min.y, rect.origin.y),
-        }),
-        { x: Infinity, y: Infinity }
-      );
-
-      scroll?.scrollToPage({
-        pageNumber: item.pageIndex + 1,
-        pageCoordinates: minCoordinates,
-      });
+    if (state.activeResultIndex !== undefined && !state.loading) {
+      scrollToItem(state.activeResultIndex);
     }
-  }, [state.activeResultIndex, state.loading, state.results, scroll]);
+  }, [state.activeResultIndex, state.loading, state.query, state.flags]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -529,6 +574,14 @@ const PdfSearchBar = ({ documentId }: { documentId: string }) => {
       provides?.stopSearch();
     } else {
       provides?.searchAllPages(value);
+    }
+  };
+
+  const handleFlagChange = (flag: MatchFlag, checked: boolean) => {
+    if (checked) {
+      provides?.setFlags([...(state.flags ?? []), flag]);
+    } else {
+      provides?.setFlags((state.flags ?? []).filter((f) => f !== flag));
     }
   };
 
@@ -556,60 +609,77 @@ const PdfSearchBar = ({ documentId }: { documentId: string }) => {
   if (!isOpen || !provides) return null;
 
   return (
-    <div className="absolute top-3 right-3 z-50 flex items-center gap-1.5 bg-black/80 backdrop-blur-md rounded-lg p-1.5 shadow-xl border border-white/15 text-white animate-in fade-in slide-in-from-top-2 duration-200">
-      <Search size={14} className="text-white/50 ml-1" />
-      <input
-        ref={inputRef}
-        type="text"
-        value={inputValue}
-        onChange={handleInputChange}
-        onKeyDown={handleKeyDown}
-        placeholder="Find in PDF..."
-        className="bg-transparent text-sm text-white placeholder:text-white/40 outline-none w-48 px-1"
-        autoFocus
-      />
+    <div className="absolute top-3 right-3 z-50 flex flex-col gap-1.5 bg-black/80 backdrop-blur-md rounded-lg p-2 shadow-xl border border-white/15 text-white animate-in fade-in slide-in-from-top-2 duration-200 min-w-[260px]">
+      <div className="flex items-center gap-1.5">
+        <Search size={14} className="text-white/50 ml-0.5 flex-shrink-0" />
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          placeholder="Find in PDF..."
+          className="bg-transparent text-sm text-white placeholder:text-white/40 outline-none flex-1 px-1 min-w-0"
+          autoFocus
+        />
 
-      {/* Result count */}
-      {state.active && !state.loading && inputValue && (
-        <span className="text-[11px] text-white/50 tabular-nums whitespace-nowrap px-1">
-          {state.total > 0
-            ? `${state.activeResultIndex + 1} / ${state.total}`
-            : 'No results'}
-        </span>
-      )}
+        {state.active && !state.loading && inputValue && (
+          <span className="text-[11px] text-white/50 tabular-nums whitespace-nowrap flex-shrink-0">
+            {state.total > 0 ? `${(state.activeResultIndex ?? 0) + 1} / ${state.total}` : 'No results'}
+          </span>
+        )}
 
-      {state.loading && (
-        <Loader2 size={12} className="animate-spin text-white/50" />
-      )}
+        {state.loading && <Loader2 size={12} className="animate-spin text-white/50 flex-shrink-0" />}
 
-      {/* Nav buttons */}
-      {state.total > 0 && (
-        <div className="flex items-center gap-0.5">
-          <button
-            onClick={() => provides.previousResult()}
-            className="p-1 rounded hover:bg-white/10 transition-colors"
-            title="Previous (Shift+Enter)"
-          >
-            <ArrowUp size={13} />
-          </button>
-          <button
-            onClick={() => provides.nextResult()}
-            className="p-1 rounded hover:bg-white/10 transition-colors"
-            title="Next (Enter)"
-          >
-            <ArrowDown size={13} />
-          </button>
-        </div>
-      )}
+        {state.total > 0 && (
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            <button
+              onClick={() => provides.previousResult()}
+              className="p-1 rounded hover:bg-white/10 transition-colors"
+              title="Previous (Shift+Enter)"
+            >
+              <ArrowUp size={13} />
+            </button>
+            <button
+              onClick={() => provides.nextResult()}
+              className="p-1 rounded hover:bg-white/10 transition-colors"
+              title="Next (Enter)"
+            >
+              <ArrowDown size={13} />
+            </button>
+          </div>
+        )}
 
-      {/* Close */}
-      <button
-        onClick={handleClose}
-        className="p-1 rounded hover:bg-white/10 transition-colors ml-0.5"
-        title="Close (Esc)"
-      >
-        <XIcon size={13} />
-      </button>
+        <button
+          onClick={handleClose}
+          className="p-1 rounded hover:bg-white/10 transition-colors flex-shrink-0"
+          title="Close (Esc)"
+        >
+          <XIcon size={13} />
+        </button>
+      </div>
+
+      {/* Match flags - per official example */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/70 pl-5">
+        <label className="flex items-center gap-1.5 cursor-pointer hover:text-white/90">
+          <input
+            type="checkbox"
+            checked={(state.flags ?? []).includes(MatchFlag.MatchCase)}
+            onChange={(e) => handleFlagChange(MatchFlag.MatchCase, e.target.checked)}
+            className="rounded border-white/30 bg-transparent"
+          />
+          Case sensitive
+        </label>
+        <label className="flex items-center gap-1.5 cursor-pointer hover:text-white/90">
+          <input
+            type="checkbox"
+            checked={(state.flags ?? []).includes(MatchFlag.MatchWholeWord)}
+            onChange={(e) => handleFlagChange(MatchFlag.MatchWholeWord, e.target.checked)}
+            className="rounded border-white/30 bg-transparent"
+          />
+          Whole word
+        </label>
+      </div>
     </div>
   );
 };
@@ -618,9 +688,10 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
   // Use the shared Pdfium engine from context
   const { engine, isLoading } = useEngineContext();
 
-  // Visibility state managed at parent level to catch all container events
+  // Visibility: show on viewport scroll + mouse activity, hide after 4s (per embedpdf example)
   const [controlsVisible, setControlsVisible] = useState(true);
   const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const isHoveringRef = useRef(false);
 
   // Annotation state
   const [showAnnotations, setShowAnnotations] = useState(initialShowAnnotations);
@@ -632,16 +703,23 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
     }
   }, [initialShowAnnotations]);
 
-
   const showControls = useCallback(() => {
     setControlsVisible(true);
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {
-      setControlsVisible(false);
-    }, 2000);
+      if (!isHoveringRef.current) setControlsVisible(false);
+    }, 4000);
   }, []);
+
+  const handlePageControlsMouseEnter = useCallback(() => {
+    isHoveringRef.current = true;
+    setControlsVisible(true);
+  }, []);
+
+  const handlePageControlsMouseLeave = useCallback(() => {
+    isHoveringRef.current = false;
+    showControls();
+  }, [showControls]);
 
   // Initial show
   useEffect(() => {
@@ -673,6 +751,7 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
     createPluginRegistration(PanPluginPackage),
     createPluginRegistration(RotatePluginPackage),
     createPluginRegistration(FullscreenPluginPackage),
+    createPluginRegistration(ExportPluginPackage),
 
     createPluginRegistration(SelectionPluginPackage),
     // Dependencies first for Annotations
@@ -745,6 +824,9 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
                     <div className="flex flex-col h-full relative">
                       {/* PDF State Persistence */}
                       <PdfStatePersister documentId={activeDocumentId} pdfSrc={pdfSrc} />
+
+                      {/* Show page controls on viewport scroll activity */}
+                      <PdfViewportActivityListener documentId={activeDocumentId} onActivity={showControls} />
 
                       {/* Custom Header (if provided), passing the annotation toggles */}
                       {renderHeader && renderHeader(
@@ -839,6 +921,8 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
                             itemName={itemName}
                             isMaximized={isMaximized}
                             isVisible={controlsVisible}
+                            onMouseEnter={handlePageControlsMouseEnter}
+                            onMouseLeave={handlePageControlsMouseLeave}
                           />
                         </div>
                       </div>

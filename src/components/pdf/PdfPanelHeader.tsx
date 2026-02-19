@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, memo, useLayoutEffect } from 'react';
 import { createPortal } from "react-dom";
-import { X, RotateCcw, Maximize, Minimize, ChevronUp, ChevronDown, MoreHorizontal, Expand, Shrink, Camera } from 'lucide-react';
+import { X, RotateCcw, Maximize, Minimize, ChevronUp, ChevronDown, MoreHorizontal, Expand, Shrink, Camera, Download } from 'lucide-react';
 import { LuLayoutList } from "react-icons/lu";
 import { formatKeyboardShortcut } from '@/lib/utils/keyboard-shortcut';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -26,6 +26,7 @@ import { useFullscreen } from '@embedpdf/plugin-fullscreen/react';
 
 import { useScroll } from '@embedpdf/plugin-scroll/react';
 import { useCapture } from '@embedpdf/plugin-capture/react';
+import { useExportCapability } from '@embedpdf/plugin-export/react';
 
 
 interface PdfPanelHeaderProps {
@@ -75,6 +76,8 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
     const { provides: fullscreenProvider, state: fullscreenState } = useFullscreen();
 
     const { provides: capture, state: captureState } = useCapture(documentId);
+    const { provides: exportCapability } = useExportCapability();
+    const exportProvider = exportCapability?.forDocument(documentId);
 
     // Stabilize capture ref — useCapture returns a new scope object every render
     // which would cause useEffect to re-subscribe on every render
@@ -158,6 +161,12 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
                         <LuLayoutList className="mr-2 h-4 w-4" />
                         Thumbnail
                     </DropdownMenuItem>
+                    {exportProvider && (
+                        <DropdownMenuItem onClick={() => exportProvider.download()}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Download PDF
+                        </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => zoomProvides?.requestZoom(ZoomMode.FitWidth)}>
                         <Expand className="mr-2 h-4 w-4" />
