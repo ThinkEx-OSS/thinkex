@@ -82,7 +82,7 @@ export function HomeActionCards({ onUpload, onLink, onPasteText, onRecord, onSta
             <ActionCard
                 icon={<ClipboardPaste className="h-6 w-6" />}
                 title="Paste"
-                subtitle="From clipboard"
+                subtitle="From Clipboard"
                 onClick={onPasteText}
                 isLoading={isLoading}
             />
@@ -95,7 +95,7 @@ export function HomeActionCards({ onUpload, onLink, onPasteText, onRecord, onSta
             />
             <ActionCard
                 icon={isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <FolderPlus className="h-6 w-6" />}
-                title="Start fresh"
+                title="Start Fresh"
                 subtitle="Empty Workspace"
                 onClick={onStartFromScratch}
                 isLoading={isLoading}
