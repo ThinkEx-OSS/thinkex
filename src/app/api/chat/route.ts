@@ -1,5 +1,5 @@
 import { gateway } from "ai";
-import { streamText, convertToModelMessages, stepCountIs, wrapLanguageModel, tool } from "ai";
+import { streamText, smoothStream, convertToModelMessages, stepCountIs, wrapLanguageModel, tool } from "ai";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 import { PostHog } from "posthog-node";
 import { withTracing } from "@posthog/ai";
@@ -298,6 +298,7 @@ export async function POST(req: Request) {
       stopWhen: stepCountIs(25),
       tools,
       providerOptions,
+      experimental_transform: smoothStream({ chunking: "word", delayInMs: 15 }),
       onFinish: ({ usage, finishReason }) => {
         const usageInfo = {
           inputTokens: usage?.inputTokens,

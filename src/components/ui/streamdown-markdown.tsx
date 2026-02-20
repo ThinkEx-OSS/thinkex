@@ -1,6 +1,6 @@
 "use client";
 
-import { Streamdown, defaultRehypePlugins } from "streamdown";
+import { Streamdown } from "streamdown";
 import { createCodePlugin } from "@streamdown/code";
 import { mermaid } from "@streamdown/mermaid";
 import { createMathPlugin } from "@streamdown/math";
@@ -36,25 +36,7 @@ const StreamdownMarkdownImpl: React.FC<StreamdownMarkdownProps> = ({
         caret="block"
         className="streamdown-content size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
         linkSafety={{ enabled: false }}
-        plugins={{
-          code: code,
-          mermaid: mermaid,
-          math: math,
-        }}
-        rehypePlugins={[
-          defaultRehypePlugins.raw,
-          defaultRehypePlugins.sanitize,
-          [
-            // @ts-ignore - accessing internal harden plugin
-            defaultRehypePlugins.harden[0],
-            {
-              allowedLinkPrefixes: ["*"],
-              allowedImagePrefixes: ["*"],
-              allowedProtocols: ["*"],
-              allowDataImages: true,
-            }
-          ]
-        ]}
+        plugins={{ code, mermaid, math }}
         components={{
           a: (props: AnchorHTMLAttributes<HTMLAnchorElement> & { node?: any }) => (
             <MarkdownLink {...props} />

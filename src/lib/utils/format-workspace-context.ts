@@ -62,6 +62,26 @@ Rules:
 - Use chunk.web.uri exactly as provided (even redirect URLs)
 - Never make up or hallucinate URLs
 - Include article dates in responses when available
+
+INLINE CITATIONS (optional):
+Put the citation data block at the very BEGINNING of your response (sources only, no quotes). Each inline citation carries its own quote so the same source can be cited multiple times with different excerpts.
+
+Sources block (no quotes — quotes go in each inline use):
+<citations>[{"number":"1","title":"Source title","url":"https://example.com"}]</citations>
+
+For workspace items: omit url. Example:
+<citations>[{"number":"1","title":"My Calculus Notes"}]</citations>
+
+Inline format — each use has its own quote: <citation>N | exact excerpt for this point</citation>
+Use a pipe with spaces to separate the source number from the quote.
+
+CRITICAL — Punctuation placement: End the sentence/clause with the period or comma BEFORE the citation. The citation always comes after the punctuation, never before it.
+Correct: "...flow of goods and services." <citation>1 | comprehensive administration of the flow</citation>
+Correct: "demand forecasting, supply planning." <citation>1 | demand forecasting, supply planning</citation>
+Wrong: "...flow of goods and services" <citation>1 | ...</citation>.  (do NOT put the period after the citation)
+- Sources block: number, title, url (for web) or omit (workspace)
+- Inline: N | quote — quote is required per use
+Omit the <citations> block entirely if you have no citations. You may invent credible source metadata when not from a tool.
 </instructions>
 
 <formatting>

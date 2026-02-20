@@ -1,28 +1,167 @@
 "use client";
 
-import { Streamdown, defaultRehypePlugins } from "streamdown";
+import { Streamdown } from "streamdown";
 import "streamdown/styles.css";
 import { createCodePlugin } from "@streamdown/code";
 import { mermaid } from "@streamdown/mermaid";
 import { createMathPlugin } from "@streamdown/math";
+import { useMessagePartText, useAuiState } from "@assistant-ui/react";
+import {
+  Children,
+  createContext,
+  isValidElement,
+  memo,
+  useRef,
+  useEffect,
+  useContext,
+  type ReactNode,
+} from "react";
+import type {
+  AnchorHTMLAttributes,
+  ClipboardEvent as ReactClipboardEvent,
+  HTMLAttributes,
+} from "react";
+import {
+  InlineCitation,
+  InlineCitationCard,
+  InlineCitationCardTrigger,
+  InlineCitationCardBody,
+  InlineCitationCarousel,
+  InlineCitationCarouselContent,
+  InlineCitationCarouselItem,
+  InlineCitationCarouselHeader,
+  InlineCitationCarouselIndex,
+  InlineCitationCarouselPrev,
+  InlineCitationCarouselNext,
+  InlineCitationSource,
+  InlineCitationQuote,
+} from "@/components/ai-elements/inline-citation";
+import { MarkdownLink } from "@/components/ui/markdown-link";
+import { useCitationsFromMessage } from "@/hooks/ai/use-citations-from-message";
+import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
+import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
+import { useUIStore } from "@/lib/stores/ui-store";
+import { useWorkspaceStore } from "@/lib/stores/workspace-store";
+import type { Citation } from "@/lib/ai/citations/types";
+import { preprocessLatex } from "@/lib/utils/preprocess-latex";
+import { cn } from "@/lib/utils";
 
 const math = createMathPlugin({ singleDollarTextMath: true });
+const code = createCodePlugin({ themes: ["one-dark-pro", "one-dark-pro"] });
+const CitationContext = createContext<Citation[]>([]);
 
-// Create code plugin with one-dark-pro theme
-const code = createCodePlugin({
-  themes: ['one-dark-pro', 'one-dark-pro'],
-});
-import { useMessagePartText } from "@assistant-ui/react";
-import { useAuiState } from "@assistant-ui/react";
-import { cn } from "@/lib/utils";
-import React, { memo, useRef, useEffect } from "react";
-import type { AnchorHTMLAttributes, HTMLAttributes } from "react";
-import { MarkdownLink } from "@/components/ui/markdown-link";
-import { preprocessLatex } from "@/lib/utils/preprocess-latex";
+/** Recursively extract all text from children (handles nested elements from markdown parsing). */
+function extractAllText(children: ReactNode): string {
+  if (typeof children === "string") return children;
+  if (children == null) return "";
+  const arr = Children.toArray(children);
+  return arr
+    .map((child) => {
+      if (typeof child === "string") return child;
+      if (isValidElement(child)) {
+        const nested = (child.props as { children?: ReactNode }).children;
+        if (nested != null) return extractAllText(nested);
+      }
+      return "";
+    })
+    .join("");
+}
+
+/** Parse "N | quote" or legacy "N" from citation element content. */
+function parseCitationContent(children: ReactNode): { number: string; quote?: string } {
+  const text = extractAllText(children).trim();
+  if (!text) return { number: "1" };
+  // New format: "N | quote" — same source can have different quotes per use
+  const pipeIdx = text.indexOf(" | ");
+  if (pipeIdx !== -1) {
+    return {
+      number: text.slice(0, pipeIdx).trim() || "1",
+      quote: text.slice(pipeIdx + 3).trim() || undefined,
+    };
+  }
+  // Legacy: just "N"
+  return { number: text };
+}
+
+const CitationRenderer = memo(
+  ({ children }: { children?: ReactNode }) => {
+    const citations = useContext(CitationContext);
+    const { number: idStr, quote: instanceQuote } = parseCitationContent(children);
+    const index = parseInt(idStr, 10);
+    const citation = !isNaN(index) && index >= 1 ? citations[index - 1] : null;
+    // Prefer instance-level quote (new format); fall back to source quote (legacy)
+    const quote = instanceQuote ?? citation?.quote;
+    const effectiveCitation = citation ?? {
+      number: idStr,
+      title: `Source ${idStr}`,
+    };
+
+    const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
+    const { state: workspaceState } = useWorkspaceState(workspaceId);
+    const navigateToItem = useNavigateToItem();
+    const setOpenModalItemId = useUIStore((s) => s.setOpenModalItemId);
+
+    const titleNorm = (s: string) => s.trim().toLowerCase();
+    const handleWorkspaceNoteClick = () => {
+      if (!workspaceState?.items || !effectiveCitation.title) return;
+      const item = workspaceState.items.find(
+        (i) =>
+          i.type === "note" &&
+          titleNorm(i.name) === titleNorm(effectiveCitation.title)
+      );
+      if (item && navigateToItem(item.id, { silent: true })) {
+        setOpenModalItemId(item.id);
+      }
+    };
+
+    const hasWorkspaceNote =
+      !effectiveCitation.url &&
+      workspaceState?.items?.some(
+        (i) =>
+          i.type === "note" &&
+          titleNorm(i.name) === titleNorm(effectiveCitation.title)
+      );
+
+    return (
+      <InlineCitation>
+        <InlineCitationCard>
+          <InlineCitationCardTrigger
+            sources={effectiveCitation.url ? [effectiveCitation.url] : []}
+            fallbackLabel={idStr}
+          />
+          <InlineCitationCardBody>
+            <InlineCitationCarousel>
+              <InlineCitationCarouselHeader>
+                <InlineCitationCarouselPrev />
+                <InlineCitationCarouselNext />
+                <InlineCitationCarouselIndex />
+              </InlineCitationCarouselHeader>
+              <InlineCitationCarouselContent>
+                <InlineCitationCarouselItem>
+                  <InlineCitationSource
+                    title={effectiveCitation.title}
+                    url={effectiveCitation.url}
+                    onClick={
+                      hasWorkspaceNote ? handleWorkspaceNoteClick : undefined
+                    }
+                  >
+                    {quote && <InlineCitationQuote>{quote}</InlineCitationQuote>}
+                  </InlineCitationSource>
+                </InlineCitationCarouselItem>
+              </InlineCitationCarouselContent>
+            </InlineCitationCarousel>
+          </InlineCitationCardBody>
+        </InlineCitationCard>
+      </InlineCitation>
+    );
+  }
+);
+CitationRenderer.displayName = "CitationRenderer";
 
 const MarkdownTextImpl = () => {
   // Get the text content from assistant-ui context
   const { text } = useMessagePartText();
+  const citations = useCitationsFromMessage();
 
   // Get thread and message ID for unique key per message
   const threadId = useAuiState(({ threads }) => (threads as any)?.mainThreadId);
@@ -69,7 +208,7 @@ const MarkdownTextImpl = () => {
   }, [threadId, messageId]);
 
   // Ensure copied content keeps rich HTML but strips background/highlight styles
-  const handleCopy = (event: React.ClipboardEvent<HTMLDivElement>) => {
+  const handleCopy = (event: ReactClipboardEvent<HTMLDivElement>) => {
     if (typeof window === "undefined") return;
 
     const selection = window.getSelection();
@@ -82,15 +221,10 @@ const MarkdownTextImpl = () => {
     const wrapper = document.createElement("div");
     wrapper.appendChild(fragment);
 
-    // Strip background-related inline styles so no highlight color is preserved
+    // Strip background/highlight styles from copied HTML
     wrapper.querySelectorAll<HTMLElement>("*").forEach((el) => {
-      const style = el.style;
-      if (!style) return;
-
-      // Remove background colors/highlights while leaving other styling intact
-      style.removeProperty("background");
-      style.removeProperty("background-color");
-      // Lines 88-89 already remove background/background-color, so this line can be deleted
+      el.style?.removeProperty("background");
+      el.style?.removeProperty("background-color");
     });
 
     const html = wrapper.innerHTML;
@@ -109,7 +243,9 @@ const MarkdownTextImpl = () => {
 
   return (
     <div key={key} ref={containerRef} className="aui-md" onCopy={handleCopy}>
+      <CitationContext.Provider value={citations}>
       <Streamdown
+        allowedTags={{ citation: [] }}
         animated={{ animation: "fadeIn", duration: 200, easing: "ease-out" }}
         isAnimating={isRunning}
         caret="block"
@@ -117,28 +253,14 @@ const MarkdownTextImpl = () => {
           "streamdown-content size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
         )}
         linkSafety={{ enabled: false }}
-        plugins={{
-          code: code,
-          mermaid: mermaid,
-          math: math,
-        }}
-        rehypePlugins={[
-          defaultRehypePlugins.raw,
-          defaultRehypePlugins.sanitize,
-          [
-            // @ts-ignore - accessing internal harden plugin
-            defaultRehypePlugins.harden[0],
-            {
-              allowedLinkPrefixes: ["*"],
-              allowedImagePrefixes: ["*"],
-              allowedProtocols: ["*"],
-              allowDataImages: true,
-            }
-          ]
-        ]}
+        plugins={{ code, mermaid, math }}
         components={{
           a: (props: AnchorHTMLAttributes<HTMLAnchorElement> & { node?: any }) => (
             <MarkdownLink {...props} />
+          ),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          citation: (props: any) => (
+            <CitationRenderer>{props.children}</CitationRenderer>
           ),
           ol: ({ children, node, ...props }: HTMLAttributes<HTMLOListElement> & { node?: any }) => (
             <ol className="ml-4 list-outside list-decimal whitespace-normal" {...props}>
@@ -159,6 +281,7 @@ const MarkdownTextImpl = () => {
       >
         {preprocessLatex(text)}
       </Streamdown>
+      </CitationContext.Provider>
     </div>
   );
 };
