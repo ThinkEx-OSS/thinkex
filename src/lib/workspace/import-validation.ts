@@ -1,4 +1,4 @@
-﻿import type { AgentState, Item, CardType } from "@/lib/workspace-state/types";
+import type { AgentState, Item, CardType } from "@/lib/workspace-state/types";
 
 export interface ValidationResult {
   isValid: boolean;
@@ -47,8 +47,6 @@ export function validateImportedJSON(jsonString: string): ValidationResult {
     const validatedState: AgentState = {
       items: parsed.items,
       globalTitle: typeof parsed.globalTitle === 'string' ? parsed.globalTitle : "",
-      globalDescription: typeof parsed.globalDescription === 'string' ? parsed.globalDescription : "",
-      itemsCreated: typeof parsed.itemsCreated === 'number' ? parsed.itemsCreated : parsed.items.length,
     };
 
     return {

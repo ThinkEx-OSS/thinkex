@@ -12,17 +12,19 @@ export function eventReducer(state: AgentState, event: WorkspaceEvent): AgentSta
       return {
         ...state,
         globalTitle: event.payload.title,
-        globalDescription: event.payload.description,
       };
 
-    case 'ITEM_CREATED':
-      const isFolder = event.payload.item.type === 'folder';
+    case 'ITEM_CREATED': {
+      const item = event.payload.item;
+      const now = event.timestamp || Date.now();
       return {
         ...state,
-        items: [...state.items, event.payload.item],
+        items: [...state.items, { ...item, lastModified: now }],
       };
+    }
 
-    case 'ITEM_UPDATED':
+    case 'ITEM_UPDATED': {
+      const now = event.timestamp || Date.now();
       return {
         ...state,
         items: state.items.map(item =>
@@ -37,11 +39,13 @@ export function eventReducer(state: AgentState, event: WorkspaceEvent): AgentSta
                   ...event.payload.changes.data, // Apply new data updates
                 }
                 : item.data,
-              lastSource: event.payload.source // Propagate source to item state
+              lastSource: event.payload.source, // Propagate source to item state
+              lastModified: now,
             }
             : item
         ),
       };
+    }
 
     case 'ITEM_DELETED': {
       const deletedItemId = event.payload.id;
@@ -68,10 +72,8 @@ export function eventReducer(state: AgentState, event: WorkspaceEvent): AgentSta
       };
 
     case 'GLOBAL_DESCRIPTION_SET':
-      return {
-        ...state,
-        globalDescription: event.payload.description,
-      };
+      // No-op: globalDescription removed from state
+      return state;
 
 
     case 'WORKSPACE_SNAPSHOT':
@@ -138,12 +140,17 @@ export function eventReducer(state: AgentState, event: WorkspaceEvent): AgentSta
       }
     }
 
-    case 'BULK_ITEMS_CREATED':
-      // Create multiple items atomically in a single event
+    case 'BULK_ITEMS_CREATED': {
+      const now = event.timestamp || Date.now();
+      const itemsWithModified = event.payload.items.map((item) => ({
+        ...item,
+        lastModified: now,
+      }));
       return {
         ...state,
-        items: [...state.items, ...event.payload.items],
+        items: [...state.items, ...itemsWithModified],
       };
+    }
 
 
 
@@ -214,8 +221,8 @@ export function eventReducer(state: AgentState, event: WorkspaceEvent): AgentSta
     }
 
     case 'FOLDER_CREATED_WITH_ITEMS': {
-      // Create folder and move items atomically in a single operation
-      const folder = event.payload.folder;
+      const now = event.timestamp || Date.now();
+      const folder = { ...event.payload.folder, lastModified: now };
       const itemIdsSet = new Set(event.payload.itemIds);
       const folderId = folder.id;
 
@@ -226,12 +233,12 @@ export function eventReducer(state: AgentState, event: WorkspaceEvent): AgentSta
             ? {
               ...item,
               folderId: folderId,
-              layout: undefined // Clear layout for fresh positioning in new folder
+              layout: undefined,
+              lastModified: now,
             }
             : item
         );
 
-      // Add the folder item itself
       updatedItems.push(folder);
 
       return {

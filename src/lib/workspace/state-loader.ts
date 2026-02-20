@@ -59,8 +59,6 @@ export async function loadWorkspaceState(workspaceId: string): Promise<AgentStat
     return {
       items: [],
       globalTitle: "",
-      globalDescription: "",
-      itemsCreated: 0,
       workspaceId: workspaceId,
     };
   }

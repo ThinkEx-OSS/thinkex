@@ -1,10 +1,71 @@
 import type { AgentState, Item, NoteData, PdfData, FlashcardData, FlashcardItem, YouTubeData, QuizData, QuizQuestion, ImageData, AudioData } from "@/lib/workspace-state/types";
 import { serializeBlockNote } from "./serialize-blocknote";
 import { type Block } from "@/components/editor/BlockNoteEditor";
+import { getVirtualPath } from "./virtual-workspace-fs";
+
+/**
+ * Formats item metadata only (no content). Used for virtual FS in system context.
+ */
+function formatItemMetadata(item: Item, items: Item[]): string {
+    const path = getVirtualPath(item, items);
+    const parts: string[] = [path, `type=${item.type}`, `name="${item.name}"`];
+    if (item.subtitle) parts.push(`subtitle="${item.subtitle}"`);
+
+    switch (item.type) {
+        case "pdf": {
+            const d = item.data as PdfData;
+            if (d?.filename) parts.push(`filename=${d.filename}`);
+            if (d?.textContent) parts.push("hasContent=true");
+            break;
+        }
+        case "flashcard": {
+            const d = item.data as FlashcardData;
+            const n = d?.cards?.length ?? (d?.front ? 1 : 0);
+            parts.push(`cards=${n}`);
+            break;
+        }
+        case "quiz": {
+            const d = item.data as QuizData;
+            parts.push(`questions=${d?.questions?.length ?? 0}`);
+            break;
+        }
+        case "audio": {
+            const d = item.data as AudioData;
+            parts.push(`status=${d?.processingStatus ?? "unknown"}`);
+            break;
+        }
+    }
+    return parts.join(" ");
+}
+
+/**
+ * Formats the workspace as a virtual file system with metadata only (no content).
+ * Replaces per-card context registration — send this once in workspace context.
+ * Content is available via selected cards context or tools (processFiles, etc.).
+ */
+export function formatVirtualWorkspaceFS(state: AgentState): string {
+    const { items = [] } = state;
+    const contentItems = items.filter((i) => i.type !== "folder");
+    if (contentItems.length === 0) {
+        return `<virtual-workspace>
+Workspace is empty. Reference items by name when created.
+</virtual-workspace>`;
+    }
+
+    const entries = contentItems.map((item) =>
+        formatItemMetadata(item, items)
+    );
+
+    return `<virtual-workspace>
+Paths and metadata. Reference items by path or name. Use processFiles or selected cards for content.
+
+${entries.join("\n")}
+</virtual-workspace>`;
+}
 
 /**
  * Formats minimal workspace context (metadata and system instructions only)
- * Cards register their own context individually, so we don't include the items list here
+ * Virtual FS (formatVirtualWorkspaceFS) provides the item tree and metadata only.
  */
 export function formatWorkspaceContext(state: AgentState): string {
     const { globalTitle } = state;
@@ -27,10 +88,10 @@ Your knowledge cutoff date is January 2025.
 </time_and_knowledge>
 
 <context>
-WORKSPACE ITEMS:
-The <workspace-item> tags represent cards in the workspace. Items named "Update me" are template placeholders awaiting content generation.
+WORKSPACE (virtual file system):
+${formatVirtualWorkspaceFS(state)}
 
-When users say "this", they may mean information in the <context> section. Reference cards by name. If no context is provided, explain how to select cards: hover + click checkmark, shift-click, or drag-select, or select them yourself with the selectCard tool.
+When users say "this", they may mean information in the <context> section. Reference items by path or name. If no context is provided, explain how to select cards: hover + click checkmark, shift-click, or drag-select, or select them yourself with the selectCard tool.
 
 When answering questions about selected cards or content in <context>, rely only on the facts directly mentioned in that context. Do not invent or assume information not present. If the answer is not in the context, say so.
 </context>

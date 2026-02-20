@@ -797,7 +797,7 @@ function SidebarCardList() {
     }, [workspaces, currentWorkspaceId]);
 
     // Get workspace operations for delete functionality
-    const operations = useWorkspaceOperations(currentWorkspaceId, state || { items: [], workspaceId: currentWorkspaceId || '', globalTitle: '', globalDescription: '', globalTags: [] });
+    const operations = useWorkspaceOperations(currentWorkspaceId, state || { items: [], workspaceId: currentWorkspaceId || '', globalTitle: '' });
 
     const handleDeleteItem = useCallback(
         async (itemId: string) => {
