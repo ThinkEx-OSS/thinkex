@@ -208,6 +208,20 @@
   overflow-wrap: break-word !important;
 }
 
+/* Prosemirror-search citation highlight - theme-aware */
+.ProseMirror-search-match {
+  background-color: rgba(234, 179, 8, 0.35);
+}
+.ProseMirror-active-search-match {
+  background-color: rgba(234, 179, 8, 0.55);
+}
+.dark .ProseMirror-search-match {
+  background-color: rgba(251, 191, 36, 0.35);
+}
+.dark .ProseMirror-active-search-match {
+  background-color: rgba(251, 191, 36, 0.5);
+}
+
 /* Fix BlockNote formatting toolbar display - compact version */
 .bn-formatting-toolbar {
   min-height: 1.75rem !important;

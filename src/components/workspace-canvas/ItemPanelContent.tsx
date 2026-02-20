@@ -163,6 +163,7 @@ export function ItemPanelContent({
                             pdfSrc={pdfData.fileUrl}
                             showThumbnails={showThumbnails}
                             itemName={item.name}
+                            itemId={item.id}
                             isMaximized={isMaximized}
                             renderHeader={(documentId, annotationControls) => (
                                 <div>

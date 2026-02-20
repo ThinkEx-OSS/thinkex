@@ -37,6 +37,53 @@ function getMediaTypeFromUrl(url: string): string {
     return 'application/octet-stream';
 }
 
+const IMAGE_MEDIA_TYPES = [
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/svg+xml',
+];
+
+function isPdf(mediaType: string): boolean {
+    return mediaType === 'application/pdf';
+}
+
+function isImage(mediaType: string): boolean {
+    return IMAGE_MEDIA_TYPES.includes(mediaType);
+}
+
+function buildFileProcessingPrompt(
+    fileInfos: Array<{ filename: string; mediaType: string }>
+): { defaultInstruction: string; outputFormat: string } {
+    const hasPdfs = fileInfos.some((f) => isPdf(f.mediaType));
+    const hasImages = fileInfos.some((f) => isImage(f.mediaType));
+    const hasOther = fileInfos.some((f) => !isPdf(f.mediaType) && !isImage(f.mediaType));
+
+    const parts: string[] = [];
+    if (hasPdfs) {
+        parts.push(
+            'For PDFs: Extract the exact textual content in markdown format. Preserve layout: headings (# ## ###), bullet/numbered lists, tables, paragraphs, and structure. Include all text verbatim where possible.'
+        );
+    }
+    if (hasImages) {
+        parts.push('For images: Provide a brief summary of what the image shows, its subject, and any notable details.');
+    }
+    if (hasOther) {
+        parts.push(
+            'For other files (documents, audio, video): Extract or summarize the main content, key points, and important information.'
+        );
+    }
+
+    const defaultInstruction = parts.join('\n\n');
+
+    const outputFormat = `Format each file's output as:
+**filename.ext:**
+[Content — for PDFs use markdown with preserved layout; for images use a short summary]`;
+
+    return { defaultInstruction, outputFormat };
+}
+
 /**
  * Extract filename from local file URL
  */
@@ -97,15 +144,11 @@ async function processLocalFiles(
     }
 
     const fileListText = fileInfos.map((f, i) => `${i + 1}. ${f.filename}`).join('\n');
-
-    const outputFormat = `Format each file's analysis as:
-**filename.ext:**
-- Summary: [1-2 sentences]
-- Key points: [bullet list]`;
+    const { defaultInstruction, outputFormat } = buildFileProcessingPrompt(fileInfos);
 
     const batchPrompt = instruction
         ? `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\n${instruction}\n\n${outputFormat}`
-        : `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\nFor each file, extract and summarize: main topics, key information, important facts or insights, and any structured data.\n\n${outputFormat}`;
+        : `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\n${defaultInstruction}\n\n${outputFormat}`;
 
     const messageContent: Array<{ type: "text"; text: string } | { type: "file"; data: string; mediaType: string; filename?: string }> = [
         { type: "text", text: batchPrompt },
@@ -145,15 +188,11 @@ async function processSupabaseFiles(
     });
 
     const fileListText = fileInfos.map((f, i) => `${i + 1}. ${f.filename}`).join('\n');
-
-    const outputFormat = `Format each file's analysis as:
-**filename.ext:**
-- Summary: [1-2 sentences]
-- Key points: [bullet list]`;
+    const { defaultInstruction, outputFormat } = buildFileProcessingPrompt(fileInfos);
 
     const batchPrompt = instruction
         ? `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\n${instruction}\n\n${outputFormat}`
-        : `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\nFor each file, extract and summarize: main topics, key information, important facts or insights, and any structured data.\n\n${outputFormat}`;
+        : `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\n${defaultInstruction}\n\n${outputFormat}`;
 
     const messageContent: Array<{ type: "text"; text: string } | { type: "file"; data: string; mediaType: string; filename?: string }> = [
         { type: "text", text: batchPrompt },

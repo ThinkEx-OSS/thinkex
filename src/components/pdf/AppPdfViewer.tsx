@@ -212,6 +212,8 @@ interface Props {
   /** Render prop for custom header - receives documentId for PDF plugin hooks */
   renderHeader?: (documentId: string, annotationControls?: { showAnnotations: boolean, toggleAnnotations: () => void }) => ReactNode;
   itemName?: string;
+  /** Workspace item ID - for citation highlight sync */
+  itemId?: string;
   isMaximized?: boolean;
   /** Initial visibility of the annotation toolbar */
   initialShowAnnotations?: boolean;
@@ -694,7 +696,79 @@ const PdfSearchBar = ({ documentId }: { documentId: string }) => {
   );
 };
 
-const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, isMaximized, initialShowAnnotations = false }: Props) => {
+const PDF_HIGHLIGHT_DURATION_MS = 2500;
+
+/** Syncs citation highlight query from store: search PDF and scroll to first match */
+const PdfCitationHighlightSync = ({ documentId, itemId }: { documentId: string; itemId?: string }) => {
+  const { state, provides } = useSearch(documentId);
+  const { provides: scrollCapability } = useScrollCapability();
+  const scroll = scrollCapability?.forDocument(documentId);
+  const triggeredRef = useRef<string | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    if (!itemId) return;
+
+    const applyHighlight = (query: string) => {
+      if (!provides || !query?.trim()) return;
+      triggeredRef.current = query;
+      provides.searchAllPages(query);
+
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        provides.stopSearch();
+        useUIStore.getState().setCitationHighlightQuery(null);
+        triggeredRef.current = null;
+      }, PDF_HIGHLIGHT_DURATION_MS);
+    };
+
+    const unsub = useUIStore.subscribe((storeState) => {
+      const hl = storeState.citationHighlightQuery;
+      if (!hl || hl.itemId !== itemId || !hl.query?.trim()) return;
+      applyHighlight(hl.query.trim());
+    });
+
+    const hl = useUIStore.getState().citationHighlightQuery;
+    if (hl?.itemId === itemId && hl.query?.trim()) {
+      applyHighlight(hl.query.trim());
+    }
+
+    return () => {
+      unsub();
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [documentId, itemId, provides]);
+
+  // Scroll to first result when search completes
+  useEffect(() => {
+    if (!scroll || !triggeredRef.current || state.loading) return;
+    const results = state.results;
+    if (!results?.length) return;
+
+    const idx = state.activeResultIndex ?? 0;
+    const item = results[idx];
+    if (!item) return;
+
+    const minCoordinates = item.rects.reduce(
+      (min, rect) => ({
+        x: Math.min(min.x, rect.origin.x),
+        y: Math.min(min.y, rect.origin.y),
+      }),
+      { x: Infinity, y: Infinity }
+    );
+
+    scroll.scrollToPage({
+      pageNumber: item.pageIndex + 1,
+      pageCoordinates: minCoordinates,
+      alignX: 50,
+      alignY: 50,
+    });
+  }, [scroll, state.results, state.activeResultIndex, state.loading]);
+
+  return null;
+};
+
+const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, itemId, isMaximized, initialShowAnnotations = false }: Props) => {
   // Use the shared Pdfium engine from context
   const { engine, isLoading } = useEngineContext();
 
@@ -862,6 +936,9 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
                         {/* Viewport */}
                         <div className="flex-1 overflow-hidden relative">
                           <PdfSearchBar documentId={activeDocumentId} />
+                          {itemId && (
+                            <PdfCitationHighlightSync documentId={activeDocumentId} itemId={itemId} />
+                          )}
                           <CaptureOverlay documentId={activeDocumentId} />
                           <Viewport
                             documentId={activeDocumentId}

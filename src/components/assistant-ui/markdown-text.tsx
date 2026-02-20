@@ -26,13 +26,6 @@ import {
   InlineCitationCard,
   InlineCitationCardTrigger,
   InlineCitationCardBody,
-  InlineCitationCarousel,
-  InlineCitationCarouselContent,
-  InlineCitationCarouselItem,
-  InlineCitationCarouselHeader,
-  InlineCitationCarouselIndex,
-  InlineCitationCarouselPrev,
-  InlineCitationCarouselNext,
   InlineCitationSource,
   InlineCitationQuote,
 } from "@/components/ai-elements/inline-citation";
@@ -102,23 +95,28 @@ const CitationRenderer = memo(
     const setOpenModalItemId = useUIStore((s) => s.setOpenModalItemId);
 
     const titleNorm = (s: string) => s.trim().toLowerCase();
-    const handleWorkspaceNoteClick = () => {
+    const setCitationHighlightQuery = useUIStore((s) => s.setCitationHighlightQuery);
+    const handleWorkspaceItemClick = () => {
       if (!workspaceState?.items || !effectiveCitation.title) return;
       const item = workspaceState.items.find(
         (i) =>
-          i.type === "note" &&
+          (i.type === "note" || i.type === "pdf") &&
           titleNorm(i.name) === titleNorm(effectiveCitation.title)
       );
-      if (item && navigateToItem(item.id, { silent: true })) {
-        setOpenModalItemId(item.id);
+      if (!item) return;
+      // Set highlight query first (works when item is already open)
+      if (quote?.trim()) {
+        setCitationHighlightQuery({ itemId: item.id, query: quote.trim() });
       }
+      navigateToItem(item.id, { silent: true });
+      setOpenModalItemId(item.id);
     };
 
-    const hasWorkspaceNote =
+    const hasWorkspaceItem =
       !effectiveCitation.url &&
       workspaceState?.items?.some(
         (i) =>
-          i.type === "note" &&
+          (i.type === "note" || i.type === "pdf") &&
           titleNorm(i.name) === titleNorm(effectiveCitation.title)
       );
 
@@ -130,26 +128,16 @@ const CitationRenderer = memo(
             fallbackLabel={idStr}
           />
           <InlineCitationCardBody>
-            <InlineCitationCarousel>
-              <InlineCitationCarouselHeader>
-                <InlineCitationCarouselPrev />
-                <InlineCitationCarouselNext />
-                <InlineCitationCarouselIndex />
-              </InlineCitationCarouselHeader>
-              <InlineCitationCarouselContent>
-                <InlineCitationCarouselItem>
-                  <InlineCitationSource
-                    title={effectiveCitation.title}
-                    url={effectiveCitation.url}
-                    onClick={
-                      hasWorkspaceNote ? handleWorkspaceNoteClick : undefined
-                    }
-                  >
-                    {quote && <InlineCitationQuote>{quote}</InlineCitationQuote>}
-                  </InlineCitationSource>
-                </InlineCitationCarouselItem>
-              </InlineCitationCarouselContent>
-            </InlineCitationCarousel>
+            <InlineCitationSource
+              className="block p-2.5"
+              title={effectiveCitation.title}
+              url={effectiveCitation.url}
+              onClick={
+                hasWorkspaceItem ? handleWorkspaceItemClick : undefined
+              }
+            >
+              {quote && <InlineCitationQuote>{quote}</InlineCitationQuote>}
+            </InlineCitationSource>
           </InlineCitationCardBody>
         </InlineCitationCard>
       </InlineCitation>
