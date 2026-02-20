@@ -30,9 +30,8 @@ export async function GET(
     const state = await loadWorkspaceState(id);
 
     // Ensure state has workspace metadata if empty
-    if (!state.globalTitle && !state.globalDescription) {
+    if (!state.globalTitle) {
       state.globalTitle = workspace[0].name || "";
-      state.globalDescription = workspace[0].description || "";
     }
 
     // Return workspace data for forking (public access)

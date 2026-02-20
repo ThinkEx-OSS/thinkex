@@ -26,7 +26,6 @@ export interface WorkspaceOperations {
   deleteItem: (id: string) => void;
   updateAllItems: (items: Item[]) => void;
   setGlobalTitle: (title: string) => void;
-  setGlobalDescription: (description: string) => void;
 
   flushPendingChanges: (itemId: string) => void;
   // Folder operations
@@ -304,15 +303,6 @@ export function useWorkspaceOperations(
     },
     [mutation, userId, userName]
   );
-
-  const setGlobalDescription = useCallback(
-    (description: string) => {
-      const event = createEvent("GLOBAL_DESCRIPTION_SET", { description }, userId, userName);
-      mutation.mutate(event);
-    },
-    [mutation, userId, userName]
-  );
-
 
   // Helper for updating item data (used by field actions)
   const updateItemData = useCallback(
@@ -696,7 +686,6 @@ export function useWorkspaceOperations(
     deleteItem,
     updateAllItems,
     setGlobalTitle,
-    setGlobalDescription,
     flushPendingChanges,
     // Folder operations
     createFolder,

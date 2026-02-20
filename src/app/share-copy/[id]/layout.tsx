@@ -31,7 +31,7 @@ export async function generateMetadata(
     const state = await loadWorkspaceState(id);
 
     const title = state.globalTitle || workspace[0].name || "Untitled Workspace";
-    const description = state.globalDescription || workspace[0].description || "View and import this shared ThinkEx workspace.";
+    const description = workspace[0].description || "View and import this shared ThinkEx workspace.";
 
     return {
         title: `Shared Workspace: ${title}`,

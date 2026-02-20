@@ -296,10 +296,9 @@ function DashboardContent({
 
   const getStatePreviewJSON = (s: AgentState | undefined): Record<string, unknown> => {
     const snapshot = (s ?? initialState) as AgentState;
-    const { globalTitle, globalDescription, items } = snapshot;
+    const { globalTitle, items } = snapshot;
     return {
       globalTitle: globalTitle ?? initialState.globalTitle,
-      globalDescription: globalDescription ?? initialState.globalDescription,
       items: items ?? initialState.items,
     };
   };

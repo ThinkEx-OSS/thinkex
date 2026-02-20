@@ -24,8 +24,6 @@ export const WORKSPACE_TEMPLATES: TemplateDefinition[] = [
     initialState: {
       items: [],
       globalTitle: "",
-      globalDescription: "",
-      itemsCreated: 0,
     },
   },
   (() => {
@@ -72,8 +70,6 @@ export const WORKSPACE_TEMPLATES: TemplateDefinition[] = [
           }
         ],
         globalTitle: "",
-        globalDescription: "",
-        itemsCreated: 3,
       },
     };
   })(),
@@ -94,7 +90,5 @@ export function getTemplateInitialState(template: string): AgentState {
   return {
     items: templateDef.initialState.items || [],
     globalTitle: templateDef.initialState.globalTitle || "",
-    globalDescription: templateDef.initialState.globalDescription || "",
-    itemsCreated: templateDef.initialState.itemsCreated || 0,
   };
 }
