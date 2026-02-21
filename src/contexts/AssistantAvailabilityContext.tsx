@@ -4,7 +4,7 @@ import { createContext, useContext, type ReactNode } from "react";
 
 /**
  * Context to indicate whether the AI assistant is available
- * Used by hooks like useCardContextProvider to skip AI-related operations
+ * Used by hooks that need to skip AI-related operations
  * when not inside an AssistantProvider (e.g., in guest mode)
  */
 interface AssistantAvailabilityContextType {

@@ -1,5 +1,5 @@
 import { gateway } from "ai";
-import { streamText, smoothStream, convertToModelMessages, stepCountIs, wrapLanguageModel, tool } from "ai";
+import { streamText, smoothStream, convertToModelMessages, pruneMessages, stepCountIs, wrapLanguageModel, tool } from "ai";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 import { PostHog } from "posthog-node";
 import { withTracing } from "@posthog/ai";
@@ -202,6 +202,14 @@ export async function POST(req: Request) {
       });
       throw convertError;
     }
+
+    // Prune older reasoning and tool calls to save context
+    convertedMessages = pruneMessages({
+      messages: convertedMessages,
+      reasoning: "before-last-message",
+      toolCalls: "before-last-5-messages",
+      emptyMessages: "remove",
+    });
 
     // Process messages in single pass: extract URLs and clean markers
     const { urlContextUrls, cleanedMessages } = processMessages(convertedMessages);

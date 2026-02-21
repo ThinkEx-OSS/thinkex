@@ -27,7 +27,6 @@ import "react-quizlet-flashcard/dist/index.css";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import { useCardContextProvider } from "@/hooks/ai/use-card-context-provider";
 import { useElementSize } from "@/hooks/use-element-size";
 import { useIsVisible } from "@/hooks/use-is-visible";
 import { extractYouTubeVideoId, extractYouTubePlaylistId } from "@/lib/utils/youtube-url";
@@ -227,9 +226,6 @@ function WorkspaceCard({
   const closePanel = useUIStore((state) => state.closePanel);
   const viewMode = useUIStore((state) => state.viewMode);
   const splitWithItem = useUIStore((state) => state.splitWithItem);
-
-  // Register this card's minimal context (title, id, type) with the assistant
-  useCardContextProvider(item);
 
   // No dynamic calculations needed - just overflow hidden
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
