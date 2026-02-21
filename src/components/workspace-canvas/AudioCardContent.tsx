@@ -80,22 +80,22 @@ export function AudioCardContent({ item, isCompact = false, isScrollLocked = fal
         fileUrl: audioData.fileUrl,
         filename: audioData.filename,
         mimeType: audioData.mimeType || "audio/webm",
+        itemId: item.id,
       }),
     })
       .then((res) => res.json())
-      .then((result) => {
-        window.dispatchEvent(
-          new CustomEvent("audio-processing-complete", {
-            detail: result.success
-              ? {
-                  itemId: item.id,
-                  summary: result.summary,
-                  segments: result.segments,
-                  duration: result.duration,
-                }
-              : { itemId: item.id, error: result.error || "Processing failed" },
-          })
-        );
+      .then((data) => {
+        if (data.runId && data.itemId) {
+          import("@/lib/audio/poll-audio-processing").then(({ pollAudioProcessing }) =>
+            pollAudioProcessing(data.runId, data.itemId)
+          );
+        } else {
+          window.dispatchEvent(
+            new CustomEvent("audio-processing-complete", {
+              detail: { itemId: item.id, error: data.error || "Processing failed" },
+            })
+          );
+        }
       })
       .catch((err) => {
         window.dispatchEvent(

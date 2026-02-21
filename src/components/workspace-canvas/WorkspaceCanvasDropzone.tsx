@@ -331,17 +331,22 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
                   fileUrl: result.fileUrl,
                   filename: result.filename,
                   mimeType: result.originalFile.type || 'audio/mpeg',
+                  itemId,
                 }),
               })
                 .then(res => res.json())
                 .then(data => {
-                  window.dispatchEvent(
-                    new CustomEvent('audio-processing-complete', {
-                      detail: data.success
-                        ? { itemId, summary: data.summary, segments: data.segments, duration: data.duration }
-                        : { itemId, error: data.error || 'Processing failed' },
-                    })
-                  );
+                  if (data.runId && data.itemId) {
+                    import('@/lib/audio/poll-audio-processing').then(({ pollAudioProcessing }) =>
+                      pollAudioProcessing(data.runId, data.itemId)
+                    );
+                  } else {
+                    window.dispatchEvent(
+                      new CustomEvent('audio-processing-complete', {
+                        detail: { itemId, error: data.error || 'Processing failed' },
+                      })
+                    );
+                  }
                 })
                 .catch(err => {
                   window.dispatchEvent(

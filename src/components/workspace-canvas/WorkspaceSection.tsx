@@ -549,28 +549,19 @@ export function WorkspaceSection({
           fileUrl,
           filename: file.name,
           mimeType: file.type || "audio/webm",
+          itemId,
         }),
       })
         .then((res) => res.json())
-        .then((result) => {
-          if (result.success) {
-            window.dispatchEvent(
-              new CustomEvent("audio-processing-complete", {
-                detail: {
-                  itemId,
-                  summary: result.summary,
-                  segments: result.segments,
-                  duration: result.duration,
-                },
-              })
+        .then((data) => {
+          if (data.runId && data.itemId) {
+            import("@/lib/audio/poll-audio-processing").then(({ pollAudioProcessing }) =>
+              pollAudioProcessing(data.runId, data.itemId)
             );
           } else {
             window.dispatchEvent(
               new CustomEvent("audio-processing-complete", {
-                detail: {
-                  itemId,
-                  error: result.error || "Processing failed",
-                },
+                detail: { itemId, error: data.error || "Processing failed" },
               })
             );
           }

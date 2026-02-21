@@ -144,6 +144,7 @@
     "streamdown": "^2.2.0",
     "tailwind-merge": "^3.4.0",
     "tw-shimmer": "^0.4.6",
+    "workflow": "4.1.0-beta.60",
     "zod": "^4.3.6",
     "zustand": "^5.0.11"
   },

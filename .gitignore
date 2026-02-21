@@ -23,6 +23,7 @@
 
 # misc
 .DS_Store
+tmp/
 assistant-ui-main/
 *.pem
 
