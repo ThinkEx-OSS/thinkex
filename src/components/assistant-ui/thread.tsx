@@ -46,6 +46,7 @@ import * as m from "motion/react-m";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -213,7 +214,10 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
             autoScroll={false}
             className="aui-thread-viewport relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll px-4"
           >
-            <AuiIf condition={({ thread }) => thread.isEmpty}>
+            <AuiIf condition={({ thread }) => thread.isLoading}>
+              <ThreadLoadingSkeleton />
+            </AuiIf>
+            <AuiIf condition={({ thread }) => thread.isEmpty && !thread.isLoading}>
               <ThreadWelcome />
             </AuiIf>
 
@@ -253,6 +257,40 @@ const ThreadScrollToBottom: FC = () => {
         <ArrowDownIcon />
       </TooltipIconButton>
     </ThreadPrimitive.ScrollToBottom>
+  );
+};
+
+const ThreadLoadingSkeleton: FC = () => {
+  return (
+    <div
+      role="status"
+      aria-label="Loading chat"
+      className="aui-thread-loading-skeleton mx-auto flex w-full max-w-[var(--thread-max-width)] flex-col gap-6 px-2 py-8"
+    >
+      {/* User message skeleton (right-aligned) */}
+      <div className="flex justify-end">
+        <div className="max-w-[85%] space-y-2">
+          <Skeleton className="h-12 w-48 rounded-lg" />
+        </div>
+      </div>
+      {/* Assistant message skeleton (left-aligned) */}
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-full max-w-[90%] rounded" />
+        <Skeleton className="h-4 w-full max-w-[70%] rounded" />
+        <Skeleton className="h-4 w-32 rounded" />
+      </div>
+      {/* User message skeleton */}
+      <div className="flex justify-end">
+        <Skeleton className="h-10 w-64 rounded-lg" />
+      </div>
+      {/* Assistant message skeleton - taller */}
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-full max-w-[95%] rounded" />
+        <Skeleton className="h-4 w-full max-w-[80%] rounded" />
+        <Skeleton className="h-4 w-full max-w-[60%] rounded" />
+        <Skeleton className="h-4 w-24 rounded" />
+      </div>
+    </div>
   );
 };
 
