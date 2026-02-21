@@ -15,14 +15,16 @@ const CITATION_EXTRACTORS = [extractCitationsFromInlineData];
  */
 export function useCitationsFromMessage(): Citation[] {
   const message = useMessage();
-  const messages = useAuiState((s) => (s.thread as { messages?: unknown[] } | undefined)?.messages ?? []);
+  const messages = useAuiState(
+    (s) => (s.thread as unknown as { messages?: unknown[] } | undefined)?.messages ?? []
+  );
   const thread = useMemo(() => ({ messages }), [messages]);
 
   return useMemo(() => {
     const msg = {
-      id: (message as { id?: string }).id,
-      role: (message as { role?: string }).role,
-      content: (message as { content?: unknown[] }).content,
+      id: (message as unknown as { id?: string }).id,
+      role: (message as unknown as { role?: string }).role,
+      content: (message as unknown as { content?: unknown[] }).content,
     };
 
     // Extract from model-generated <citations> block

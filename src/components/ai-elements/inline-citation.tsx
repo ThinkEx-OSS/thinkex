@@ -139,7 +139,7 @@ export const InlineCitationSource = ({
         type="button"
         onClick={onClick}
         className={cn(baseClasses, className)}
-        {...props}
+        {...(props as ComponentProps<"button">)}
       >
         {content}
       </button>

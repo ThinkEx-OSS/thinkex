@@ -15,6 +15,13 @@
       "when": 1771377459878,
       "tag": "0002_add_workspace_share_links",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771631691687,
+      "tag": "0002_deep_shadowcat",
+      "breakpoints": true
     }
   ]
 }

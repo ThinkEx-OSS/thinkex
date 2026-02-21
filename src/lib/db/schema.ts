@@ -265,3 +265,73 @@ export const workspaceShareLinks = pgTable("workspace_share_links", {
    FROM workspace_collaborators c
   WHERE ((c.workspace_id = workspace_share_links.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))`  }),
 ]);
+
+// Chat threads - workspace-scoped conversations
+export const chatThreads = pgTable("chat_threads", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	workspaceId: uuid("workspace_id")
+		.notNull()
+		.references(() => workspaces.id, { onDelete: "cascade" }),
+	userId: text("user_id")
+		.notNull()
+		.references(() => user.id, { onDelete: "cascade" }),
+	title: text("title"),
+	isArchived: boolean("is_archived").default(false),
+	externalId: text("external_id"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+		.defaultNow(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+		.defaultNow()
+		.$onUpdate(() => new Date().toISOString()),
+	lastMessageAt: timestamp("last_message_at", {
+		withTimezone: true,
+		mode: "string",
+	}).defaultNow(),
+}, (table) => [
+	index("idx_chat_threads_workspace").using(
+		"btree",
+		table.workspaceId.asc().nullsLast().op("uuid_ops")
+	),
+	index("idx_chat_threads_user").using(
+		"btree",
+		table.userId.asc().nullsLast().op("text_ops")
+	),
+	index("idx_chat_threads_last_message").using(
+		"btree",
+		table.workspaceId.asc().nullsLast().op("uuid_ops"),
+		table.lastMessageAt.desc().nullsFirst().op("timestamptz_ops")
+	),
+	pgPolicy("Users can manage threads in their workspaces", {
+		as: "permissive",
+		for: "all",
+		to: ["authenticated"],
+		using: sql`(EXISTS ( SELECT 1 FROM workspaces w
+   WHERE ((w.id = chat_threads.workspace_id) AND (w.user_id = (auth.jwt() ->> 'sub'::text)))))
+   OR (EXISTS ( SELECT 1 FROM workspace_collaborators c
+   WHERE ((c.workspace_id = chat_threads.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))`,
+	}),
+]);
+
+// Chat messages - stored per thread
+export const chatMessages = pgTable("chat_messages", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	threadId: uuid("thread_id")
+		.notNull()
+		.references(() => chatThreads.id, { onDelete: "cascade" }),
+	messageId: text("message_id").notNull(),
+	parentId: text("parent_id"),
+	format: text("format").notNull(),
+	content: jsonb().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+		.defaultNow(),
+}, (table) => [
+	index("idx_chat_messages_thread").using(
+		"btree",
+		table.threadId.asc().nullsLast().op("uuid_ops")
+	),
+	index("idx_chat_messages_thread_created").using(
+		"btree",
+		table.threadId.asc().nullsLast().op("uuid_ops"),
+		table.createdAt.asc().nullsLast().op("timestamptz_ops")
+	),
+]);

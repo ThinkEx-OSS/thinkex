@@ -10,6 +10,7 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
+  { ignores: ["assistant-ui-main/**"] },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     rules: {

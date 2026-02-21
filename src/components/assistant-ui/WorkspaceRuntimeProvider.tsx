@@ -1,15 +1,17 @@
 "use client";
 
-import { AssistantCloud, AssistantRuntimeProvider } from "@assistant-ui/react";
+import {
+  AssistantRuntimeProvider,
+  unstable_useRemoteThreadListRuntime as useRemoteThreadListRuntime,
+} from "@assistant-ui/react";
 import { useChatRuntime, AssistantChatTransport } from "@assistant-ui/react-ai-sdk";
 import { useMemo, useCallback } from "react";
 import { AssistantAvailableProvider } from "@/contexts/AssistantAvailabilityContext";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { useSession } from "@/lib/auth-client";
 import { toast } from "sonner";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { formatSelectedCardsContext } from "@/lib/utils/format-workspace-context";
-import { SupabaseAttachmentAdapter } from "@/lib/attachments/supabase-attachment-adapter";
+import { createThreadListAdapter } from "@/lib/chat/custom-thread-list-adapter";
 
 interface WorkspaceRuntimeProviderProps {
   workspaceId: string;
@@ -23,23 +25,11 @@ export function WorkspaceRuntimeProvider({
   workspaceId,
   children
 }: WorkspaceRuntimeProviderProps) {
-  // ... existing hooks
-
-
   const selectedModelId = useUIStore((state) => state.selectedModelId);
   const activeFolderId = useUIStore((state) => state.activeFolderId);
-  /* 
-    FIX for "Maximum update depth exceeded":
-    We select the Set directly because Array.from() inside the selector creates a new reference on every render,
-    triggering an infinite update loop. The Set reference is stable until changed.
-  */
   const selectedCardIdsSet = useUIStore((state) => state.selectedCardIds);
-  const { data: session } = useSession();
-
-  // Get workspace state to format selected cards context on client
   const { state: workspaceState } = useWorkspaceState(workspaceId);
 
-  // Format selected cards context on client side (eliminates server-side DB fetch)
   const selectedCardsContext = useMemo(() => {
     if (!workspaceState?.items || selectedCardIdsSet.size === 0) {
       return "";
@@ -56,39 +46,6 @@ export function WorkspaceRuntimeProvider({
     return formatSelectedCardsContext(selectedItems, workspaceState.items);
   }, [workspaceState?.items, selectedCardIdsSet]);
 
-  // Create AssistantCloud instance - use anonymous mode for anonymous users
-  const cloud = useMemo(() => {
-    // If user is anonymous, use Assistant UI's built-in anonymous mode
-    if (session?.user?.isAnonymous) {
-      return new AssistantCloud({
-        baseUrl: process.env.NEXT_PUBLIC_ASSISTANT_BASE_URL!,
-        anonymous: true, // Browser-session based user ID
-      });
-    }
-
-    // For authenticated users, use token-based authentication
-    return new AssistantCloud({
-      baseUrl: process.env.NEXT_PUBLIC_ASSISTANT_BASE_URL!,
-      authToken: async () => {
-        const response = await fetch("/api/assistant-ui-token", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ workspaceId }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to get auth token");
-        }
-
-        const { token } = await response.json();
-        return token;
-      },
-    });
-  }, [workspaceId, session?.user?.isAnonymous]);
-
-  // Error handler for chat runtime errors (timeouts, network issues, etc.)
   const handleChatError = useCallback((error: Error) => {
     console.error("[Chat Error]", error);
 
@@ -130,28 +87,32 @@ export function WorkspaceRuntimeProvider({
     }
   }, []);
 
-  // Create runtime with Assistant Cloud integration
-  const runtime = useChatRuntime({
-    cloud,
-    transport: useMemo(() => {
-      const transport = new AssistantChatTransport({
+  const threadListAdapter = useMemo(
+    () => createThreadListAdapter(workspaceId),
+    [workspaceId]
+  );
+
+  const transport = useMemo(
+    () =>
+      new AssistantChatTransport({
         api: "/api/chat",
         body: {
           workspaceId,
           modelId: selectedModelId,
           activeFolderId,
-          selectedCardsContext, // Pre-formatted context (client-side) instead of IDs
+          selectedCardsContext,
         },
-        headers: {
-          // Headers for static context if needed
-        },
-      });
-      return transport;
-    }, [workspaceId, selectedModelId, activeFolderId, selectedCardsContext]),
-    adapters: {
-      attachments: new SupabaseAttachmentAdapter(),
-    },
-    onError: handleChatError,
+      }),
+    [workspaceId, selectedModelId, activeFolderId, selectedCardsContext]
+  );
+
+  const runtime = useRemoteThreadListRuntime({
+    runtimeHook: () =>
+      useChatRuntime({
+        transport,
+        onError: handleChatError,
+      }),
+    adapter: threadListAdapter,
   });
 
   return (
