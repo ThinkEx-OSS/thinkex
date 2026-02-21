@@ -46,7 +46,8 @@ export async function POST(req: NextRequest) {
         const result = await workspaceWorker("update", {
             workspaceId,
             itemId,
-            content: report, // This will be converted via markdownToBlocks
+            oldString: "",
+            newString: report,
         });
 
         if (!result.success) {

@@ -124,6 +124,11 @@ Rules:
 - Never make up or hallucinate URLs
 - Include article dates in responses when available
 
+NOTE EDITING (updateNote, Cline convention):
+- Full rewrite: oldString="", newString=entire note content.
+- Targeted edit: readWorkspace first, then oldString=exact text to find, newString=replacement. Include enough context in oldString to make it unique.
+- oldString must match exactly including whitespace, or use enough surrounding lines for uniqueness.
+
 INLINE CITATIONS (optional):
 Put the citation data block at the very BEGINNING of your response (sources only, no quotes). Each inline citation may optionally include a quote; omit the quote if you do not have the exact text from the source.
 
@@ -555,26 +560,26 @@ export function formatItemContent(item: Item): string {
 }
 
 /**
+ * Extracts the note content as markdown. Uses same source as readWorkspace
+ * (blockContent serialized, or field1 fallback) so edits match what the AI sees.
+ */
+export function getNoteContentAsMarkdown(data: NoteData): string {
+    if (data.blockContent) {
+        const content = serializeBlockNote(data.blockContent as Block[]);
+        if (content) return content;
+    }
+    return data.field1 ?? "";
+}
+
+/**
  * Formats note details with FULL content (no truncation)
  */
 function formatNoteDetailsFull(data: NoteData): string[] {
     const lines: string[] = [];
-
-    // OPTIMIZED: Prioritize blockContent for rich markdown serialization
-    if (data.blockContent) {
-        // Use the markdown serializer to preserve structure and formatting
-        const content = serializeBlockNote(data.blockContent as Block[]);
-        if (content) {
-            lines.push(`   - Content:\n${content}`);
-            return lines; // Return early if successful
-        }
+    const content = getNoteContentAsMarkdown(data);
+    if (content) {
+        lines.push(`   - Content:\n${content}`);
     }
-
-    // Fallback to field1 (plain text) if blockContent is missing or empty
-    if (data.field1) {
-        lines.push(`   - Content: ${data.field1}`);
-    }
-
     return lines;
 }
 

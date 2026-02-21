@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText } from "lucide-react";
+import { Eye } from "lucide-react";
 import { makeAssistantToolUI } from "@assistant-ui/react";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-shell";
@@ -36,32 +36,34 @@ export const ReadWorkspaceToolUI = makeAssistantToolUI<ReadArgs, ReadResult>({
             if (!result.success && result.message) {
                 content = (
                     <ToolUIErrorShell
-                        label="Read workspace item"
+                        label="Workspace read"
                         message={result.message}
                     />
                 );
             } else if (result.success) {
                 content = (
-                    <div className="my-2 flex items-center gap-2 rounded-md border border-border/50 bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">
-                        <FileText className="size-3.5" />
-                        <span>
-                            Read -{" "}
-                            {result.path
-                                ? stripExtension(result.path)
-                                : result.itemName}
-                            {result.type && (
-                                <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-[10px]">
-                                    {result.type}
-                                </span>
-                            )}
-                        </span>
+                    <div className="my-2 rounded-md border border-border/50 bg-muted/30 px-3 py-2">
+                        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                            <Eye className="size-3.5 shrink-0" />
+                            <span>
+                                Read -{" "}
+                                {result.path
+                                    ? stripExtension(result.path)
+                                    : result.itemName}
+                                {result.type && (
+                                    <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-[10px]">
+                                        {result.type}
+                                    </span>
+                                )}
+                            </span>
+                        </div>
                     </div>
                 );
             }
         } else if (status.type === "incomplete" && status.reason === "error") {
             content = (
                 <ToolUIErrorShell
-                    label="Read workspace item"
+                    label="Workspace read"
                     message={(result as any)?.message ?? "Read failed"}
                 />
             );
