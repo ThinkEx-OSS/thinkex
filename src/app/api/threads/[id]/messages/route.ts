@@ -24,8 +24,8 @@ async function getThreadAndVerify(id: string, userId: string) {
 }
 
 /**
- * GET /api/threads/[id]/messages?format=aui/v0
- * Load messages for a thread
+ * GET /api/threads/[id]/messages?format=ai-sdk/v6
+ * Load messages for a thread. Format filter is strict (ai-sdk/v6 only).
  */
 export async function GET(
   req: NextRequest,
@@ -35,7 +35,7 @@ export async function GET(
     const userId = await requireAuth();
     const { id } = await params;
     const { searchParams } = new URL(req.url);
-    const format = searchParams.get("format") ?? "aui/v0";
+    const format = searchParams.get("format") ?? "ai-sdk/v6";
 
     await getThreadAndVerify(id, userId);
 
@@ -46,7 +46,7 @@ export async function GET(
       .orderBy(desc(chatMessages.createdAt));
 
     const messages = rows
-      .filter((r) => format === "aui/v0" || r.format === format)
+      .filter((r) => r.format === format)
       .map((r) => ({
         id: r.messageId,
         parent_id: r.parentId,
