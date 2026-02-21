@@ -91,9 +91,9 @@ Your knowledge cutoff date is January 2025.
 WORKSPACE (virtual file system):
 ${formatVirtualWorkspaceFS(state)}
 
-When users say "this", they may mean information in the <context> section. Reference items by path or name. If no context is provided, explain how to select cards: hover + click checkmark, shift-click, or drag-select, or select them yourself with the selectCard tool.
+When users say "this", they may mean the selected cards. Selected cards context provides paths and metadata only — use searchWorkspace or readWorkspace to fetch full content when needed. Reference items by path or name. If no context is provided, explain how to select cards: hover + click checkmark, shift-click, or drag-select, or select them yourself with the selectCards tool.
 
-When answering questions about selected cards or content in <context>, rely only on the facts directly mentioned in that context. Do not invent or assume information not present. If the answer is not in the context, say so.
+When answering questions about selected cards, use searchWorkspace to search or readWorkspace to read the item. Rely only on facts from the content you fetch. Do not invent or assume information not present.
 </context>
 
 <instructions>
@@ -425,8 +425,49 @@ function formatRichContentSection(richContent: RichContent): string {
  * Formats a single selected card with FULL content (no truncation)
  */
 /**
- * Formats selected cards context for the assistant
- * Used when cards are added to the context drawer
+ * Formats selected cards as metadata only (paths, names, types).
+ * Use when the AI has grep/read tools — it fetches content on demand.
+ */
+export function formatSelectedCardsMetadata(selectedItems: Item[], allItems?: Item[]): string {
+    if (selectedItems.length === 0) {
+        return `<context>
+No cards selected.
+</context>`;
+    }
+
+    let effectiveItems: Item[] = [];
+    const processedIds = new Set<string>();
+
+    const processItem = (item: Item) => {
+        if (processedIds.has(item.id)) return;
+        processedIds.add(item.id);
+
+        if (item.type === "folder") {
+            effectiveItems.push(item);
+            if (allItems) {
+                const children = allItems.filter((child) => child.folderId === item.id);
+                children.forEach((child) => processItem(child));
+            }
+        } else {
+            effectiveItems.push(item);
+        }
+    };
+
+    selectedItems.forEach((item) => processItem(item));
+
+    const contentItems = effectiveItems.filter((i) => i.type !== "folder");
+    const entries = contentItems.map((item) => formatItemMetadata(item, allItems ?? effectiveItems));
+
+    return `<context>
+SELECTED CARDS (${contentItems.length}) — paths and metadata. Use searchWorkspace or readWorkspace to fetch content when needed.
+
+${entries.join("\n")}
+</context>`;
+}
+
+/**
+ * Formats selected cards context for the assistant (FULL content).
+ * Used when cards are added to the context drawer — prefer formatSelectedCardsMetadata when grep/read tools exist.
  */
 export function formatSelectedCardsContext(selectedItems: Item[], allItems?: Item[]): string {
     if (selectedItems.length === 0) {

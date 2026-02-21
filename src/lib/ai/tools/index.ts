@@ -21,6 +21,8 @@ import { createUpdatePdfContentTool } from "./pdf-tools";
 import { createSearchYoutubeTool, createAddYoutubeVideoTool } from "./youtube-tools";
 import { createSearchImagesTool, createAddImageTool } from "./image-tools";
 import { createWebSearchTool } from "./web-search";
+import { createSearchWorkspaceTool } from "./search-workspace";
+import { createReadWorkspaceTool } from "./read-workspace";
 import { logger } from "@/lib/utils/logger";
 
 export interface ChatToolsConfig {
@@ -57,6 +59,8 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
         // Search & code execution
         webSearch: createWebSearchTool(),
         executeCode: createExecuteCodeTool(),
+        searchWorkspace: createSearchWorkspaceTool(ctx),
+        readWorkspace: createReadWorkspaceTool(ctx),
 
         // Workspace operations
         createNote: createNoteTool(ctx),
