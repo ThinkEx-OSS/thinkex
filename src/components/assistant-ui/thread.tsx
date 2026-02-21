@@ -96,6 +96,7 @@ import { ToolGroup } from "@/components/assistant-ui/tool-group";
 import type { Item, PdfData } from "@/lib/workspace-state/types";
 import { CardContextDisplay } from "@/components/chat/CardContextDisplay";
 import { ReplyContextDisplay } from "@/components/chat/ReplyContextDisplay";
+import { MessageContextBadges } from "@/components/chat/MessageContextBadges";
 import { MentionMenu } from "@/components/chat/MentionMenu";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useUIStore, selectReplySelections, selectSelectedCardIdsArray, selectBlockNoteSelection } from "@/lib/stores/ui-store";
@@ -1382,6 +1383,7 @@ const UserMessage: FC = () => {
         <UserMessageAttachments />
 
         <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0">
+          <MessageContextBadges />
           <div className="aui-user-message-content rounded-lg bg-muted px-3 py-2 break-words text-foreground text-sm">
             <MessagePrimitive.Parts
               components={{

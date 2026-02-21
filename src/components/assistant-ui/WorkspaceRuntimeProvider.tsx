@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { formatSelectedCardsContext } from "@/lib/utils/format-workspace-context";
 import { createThreadListAdapter } from "@/lib/chat/custom-thread-list-adapter";
+import { toCreateMessageWithContext } from "@/lib/chat/toCreateMessageWithContext";
 
 interface WorkspaceRuntimeProviderProps {
   workspaceId: string;
@@ -111,6 +112,7 @@ export function WorkspaceRuntimeProvider({
       useChatRuntime({
         transport,
         onError: handleChatError,
+        toCreateMessage: toCreateMessageWithContext,
       }),
     adapter: threadListAdapter,
   });
