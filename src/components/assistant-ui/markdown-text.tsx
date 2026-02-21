@@ -8,12 +8,10 @@ import { createMathPlugin } from "@streamdown/math";
 import { useMessagePartText, useAuiState } from "@assistant-ui/react";
 import {
   Children,
-  createContext,
   isValidElement,
   memo,
   useRef,
   useEffect,
-  useContext,
   type ReactNode,
 } from "react";
 import type {
@@ -28,24 +26,23 @@ import {
   InlineCitationCardBody,
   InlineCitationSource,
   InlineCitationQuote,
+  UrlCitation,
 } from "@/components/ai-elements/inline-citation";
 import { MarkdownLink } from "@/components/ui/markdown-link";
-import { useCitationsFromMessage } from "@/hooks/ai/use-citations-from-message";
 import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import type { Citation } from "@/lib/ai/citations/types";
+import { getCitationUrl } from "@/lib/utils/preprocess-latex";
 import { preprocessLatex } from "@/lib/utils/preprocess-latex";
 import { cn } from "@/lib/utils";
 
 const math = createMathPlugin({ singleDollarTextMath: true });
 const code = createCodePlugin({ themes: ["one-dark-pro", "one-dark-pro"] });
-const CitationContext = createContext<Citation[]>([]);
 
-/** Recursively extract all text from children (handles nested elements from markdown parsing). */
-function extractAllText(children: ReactNode): string {
-  if (typeof children === "string") return children;
+/** Extract raw text from citation element children (handles nested elements). */
+function extractCitationText(children: ReactNode): string {
+  if (typeof children === "string") return children.trim();
   if (children == null) return "";
   const arr = Children.toArray(children);
   return arr
@@ -53,58 +50,54 @@ function extractAllText(children: ReactNode): string {
       if (typeof child === "string") return child;
       if (isValidElement(child)) {
         const nested = (child.props as { children?: ReactNode }).children;
-        if (nested != null) return extractAllText(nested);
+        if (nested != null) return extractCitationText(nested);
       }
       return "";
     })
-    .join("");
+    .join("")
+    .trim();
 }
 
-/** Parse "N | quote" or legacy "N" from citation element content. */
-function parseCitationContent(children: ReactNode): { number: string; quote?: string } {
-  const text = extractAllText(children).trim();
-  if (!text) return { number: "1" };
-  // New format: "N | quote" — same source can have different quotes per use
-  const pipeIdx = text.indexOf(" | ");
-  if (pipeIdx !== -1) {
-    return {
-      number: text.slice(0, pipeIdx).trim() || "1",
-      quote: text.slice(pipeIdx + 3).trim() || undefined,
-    };
-  }
-  // Legacy: just "N"
-  return { number: text };
-}
-
+/**
+ * SurfSense-style citation renderer.
+ * Content is the ref itself: urlciteN (URL), or Title, or Title|quote (workspace).
+ */
 const CitationRenderer = memo(
   ({ children }: { children?: ReactNode }) => {
-    const citations = useContext(CitationContext);
-    const { number: idStr, quote: instanceQuote } = parseCitationContent(children);
-    const index = parseInt(idStr, 10);
-    const citation = !isNaN(index) && index >= 1 ? citations[index - 1] : null;
-    // Prefer instance-level quote (new format); fall back to source quote (legacy)
-    const quote = instanceQuote ?? citation?.quote;
-    const effectiveCitation = citation ?? {
-      number: idStr,
-      title: `Source ${idStr}`,
-    };
+    const ref = extractCitationText(children);
+    if (!ref) return null;
+
+    // URL placeholder (from preprocess): render as direct link
+    const url = getCitationUrl(ref);
+    if (url) {
+      return <UrlCitation url={url} />;
+    }
+
+    // Direct URL (in case preprocess didn't run, e.g. edge case)
+    if (ref.startsWith("http://") || ref.startsWith("https://")) {
+      return <UrlCitation url={ref} />;
+    }
+
+    // Workspace citation: Title or Title|quote
+    const pipeIdx = ref.indexOf(" | ");
+    const title = pipeIdx !== -1 ? ref.slice(0, pipeIdx).trim() : ref;
+    const quote = pipeIdx !== -1 ? ref.slice(pipeIdx + 3).trim() : undefined;
 
     const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
     const { state: workspaceState } = useWorkspaceState(workspaceId);
     const navigateToItem = useNavigateToItem();
     const setOpenModalItemId = useUIStore((s) => s.setOpenModalItemId);
-
     const titleNorm = (s: string) => s.trim().toLowerCase();
     const setCitationHighlightQuery = useUIStore((s) => s.setCitationHighlightQuery);
+
     const handleWorkspaceItemClick = () => {
-      if (!workspaceState?.items || !effectiveCitation.title) return;
+      if (!workspaceState?.items || !title) return;
       const item = workspaceState.items.find(
         (i) =>
           (i.type === "note" || i.type === "pdf") &&
-          titleNorm(i.name) === titleNorm(effectiveCitation.title)
+          titleNorm(i.name) === titleNorm(title)
       );
       if (!item) return;
-      // Set highlight query first (works when item is already open)
       if (quote?.trim()) {
         setCitationHighlightQuery({ itemId: item.id, query: quote.trim() });
       }
@@ -112,29 +105,24 @@ const CitationRenderer = memo(
       setOpenModalItemId(item.id);
     };
 
-    const hasWorkspaceItem =
-      !effectiveCitation.url &&
-      workspaceState?.items?.some(
-        (i) =>
-          (i.type === "note" || i.type === "pdf") &&
-          titleNorm(i.name) === titleNorm(effectiveCitation.title)
-      );
+    const hasWorkspaceItem = workspaceState?.items?.some(
+      (i) =>
+        (i.type === "note" || i.type === "pdf") &&
+        titleNorm(i.name) === titleNorm(title)
+    );
 
     return (
       <InlineCitation>
         <InlineCitationCard>
           <InlineCitationCardTrigger
-            sources={effectiveCitation.url ? [effectiveCitation.url] : []}
-            fallbackLabel={idStr}
+            sources={[]}
+            fallbackLabel={title.slice(0, 20) + (title.length > 20 ? "…" : "")}
           />
           <InlineCitationCardBody>
             <InlineCitationSource
               className="block p-2.5"
-              title={effectiveCitation.title}
-              url={effectiveCitation.url}
-              onClick={
-                hasWorkspaceItem ? handleWorkspaceItemClick : undefined
-              }
+              title={title}
+              onClick={hasWorkspaceItem ? handleWorkspaceItemClick : undefined}
             >
               {quote && <InlineCitationQuote>{quote}</InlineCitationQuote>}
             </InlineCitationSource>
@@ -149,7 +137,6 @@ CitationRenderer.displayName = "CitationRenderer";
 const MarkdownTextImpl = () => {
   // Get the text content from assistant-ui context
   const { text } = useMessagePartText();
-  const citations = useCitationsFromMessage();
 
   // Get thread and message ID for unique key per message
   const threadId = useAuiState(({ threads }) => (threads as any)?.mainThreadId);
@@ -231,7 +218,6 @@ const MarkdownTextImpl = () => {
 
   return (
     <div key={key} ref={containerRef} className="aui-md" onCopy={handleCopy}>
-      <CitationContext.Provider value={citations}>
       <Streamdown
         allowedTags={{ citation: [] }}
         animated={{ animation: "fadeIn", duration: 200, easing: "ease-out" }}
@@ -269,7 +255,6 @@ const MarkdownTextImpl = () => {
       >
         {preprocessLatex(text)}
       </Streamdown>
-      </CitationContext.Provider>
     </div>
   );
 };

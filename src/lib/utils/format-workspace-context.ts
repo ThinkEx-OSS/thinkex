@@ -135,29 +135,25 @@ NOTE EDITING (updateNote, Cline convention):
 - Only use emojis if the user explicitly requests them. Avoid adding emojis unless asked.
 
 INLINE CITATIONS (optional):
-Put the citation data block at the very BEGINNING of your response (sources only, no quotes). Each inline citation may optionally include a quote; omit the quote if you do not have the exact text from the source.
+Use inline brackets only — no separate block. Format: [citation:REF] where REF is one of:
 
-Sources block (no quotes — quotes go in each inline use):
-<citations>[{"number":"1","title":"Source title","url":"https://example.com"}]</citations>
+- Web URL: [citation:https://example.com/article] — for web sources
+- Workspace note: [citation:Note Title] — use exact note title from workspace
+- Workspace + quote: [citation:Note Title | exact excerpt] — pipe with spaces before quote; only when you have the exact text
 
-For workspace items: omit url. Example:
-<citations>[{"number":"1","title":"My Calculus Notes"}]</citations>
+Examples:
+- [citation:https://en.wikipedia.org/wiki/Supply_chain]
+- [citation:My Calculus Notes]
+- [citation:My Calculus Notes | The derivative of x^2 is 2x]
 
-Inline format: <citation>N</citation> or <citation>N | exact excerpt</citation>
-- Without quote: <citation>1</citation> — use when you cannot cite an exact excerpt.
-- With quote: <citation>1 | exact excerpt from source</citation> — use only when you have the exact text from the source. Use pipe with spaces to separate.
+NEVER HALLUCINATE QUOTES: Only include a quote when you have the exact excerpt from the source. If unsure, use [citation:Title] without a quote. Never fabricate or paraphrase.
 
-NEVER HALLUCINATE QUOTES: Only include a quote when you have the exact excerpt from the source (tool response, context, or workspace content). If unsure or you do not have the exact text, use <citation>N</citation> without a quote. Never fabricate or paraphrase quotes.
+When quoting: Use ONLY plain text — no math, code blocks, or special formatting. Use surrounding prose or omit the quote instead.
 
-When quoting: Use ONLY plain text — no math ($$...$$), code blocks, or special formatting. Use surrounding prose or omit the quote instead.
-
-CRITICAL — Punctuation placement: End the sentence/clause with the period or comma BEFORE the citation. The citation always comes after the punctuation, never before it.
-Correct: "...flow of goods and services." <citation>1 | comprehensive administration of the flow</citation>
-Correct: "demand forecasting." <citation>1</citation>
-Wrong: "...flow of goods and services" <citation>1</citation>.  (do NOT put the period after the citation)
-- Sources block: number, title, url (for web) or omit (workspace)
-- Inline: N (no quote) or N | quote (quote optional; only when you have exact text)
-Omit the <citations> block entirely if you have no citations. You may invent credible source metadata when not from a tool.
+CRITICAL — Punctuation: Put the period or comma BEFORE the citation. The citation always comes after the punctuation.
+Correct: "...flow of goods and services." [citation:Source Title | comprehensive administration]
+Correct: "demand forecasting." [citation:Source Title]
+Wrong: "...flow of goods and services" [citation:Source Title].  (do NOT put the period after the citation)
 </instructions>
 
 <formatting>

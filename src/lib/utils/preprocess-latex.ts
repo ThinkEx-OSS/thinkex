@@ -2,32 +2,51 @@
  * Preprocesses markdown content to normalize LaTeX delimiters for Streamdown/remark-math.
  *
  * Handles:
- * 0. Strips optional model-generated <citations>...</citations> block (for display only; extracted separately)
+ * 0. Converts SurfSense-style [citation:X] to <citation>X</citation> (inline-only, no block)
  * 1. Protects currency values ($19.99, $5, $1,000) from being parsed as math
  * 2. Converts \(...\) → $...$ and \[...\] → $$...$$ (remark-math doesn't support these)
  *
  * Preserves code blocks (``` and inline `) so their contents are never modified.
  */
 
-// Match complete citations block at start (model generates sources first so they're ready during streaming)
-const CITATIONS_BLOCK_AT_START_REGEX = /^\s*<citations>[\s\S]*?<\/citations>\s*/i;
-// Fallback: match complete block at end if model still outputs there (backwards compatible)
-const CITATIONS_BLOCK_AT_END_REGEX = /<citations>[\s\S]*?<\/citations>\s*$/i;
-// During streaming: incomplete block at start (<citations>... without </citations>) — hide from <citations> to end so user never sees raw JSON
-const CITATIONS_BLOCK_INCOMPLETE_AT_START_REGEX = /^\s*<citations>[\s\S]*$/i;
+// Storage for URL citations replaced during preprocess to avoid GFM autolink interference.
+// Populated in preprocessCitations, consumed by CitationRenderer.
+let _pendingUrlCitations = new Map<string, string>();
+let _urlCiteIdx = 0;
 
-/** Strips the optional <citations>...</citations> block from markdown so it doesn't render. Also hides in-progress block during streaming. */
-export function stripCitationsBlock(markdown: string): string {
+/** Get a stored URL by placeholder key (urlcite0, urlcite1, etc.). */
+export function getCitationUrl(placeholder: string): string | undefined {
+  return _pendingUrlCitations.get(placeholder);
+}
+
+/**
+ * Converts [citation:X] to <citation>X</citation>.
+ * For URLs: replaces with placeholder to avoid GFM autolinks; stores URL in _pendingUrlCitations.
+ * Supports: [citation:https://...], [citation:Title], [citation:Title|quote]
+ */
+function preprocessCitations(markdown: string): string {
   if (!markdown) return markdown;
-  let out = markdown;
-  // 1. Strip complete block at start (or in-progress block at start — hide raw JSON during streaming)
-  if (CITATIONS_BLOCK_AT_START_REGEX.test(out)) {
-    out = out.replace(CITATIONS_BLOCK_AT_START_REGEX, "").trimStart();
-  } else if (CITATIONS_BLOCK_INCOMPLETE_AT_START_REGEX.test(out)) {
-    out = out.replace(CITATIONS_BLOCK_INCOMPLETE_AT_START_REGEX, "").trimStart();
-  }
-  // 2. Strip complete block at end
-  out = out.replace(CITATIONS_BLOCK_AT_END_REGEX, "").trimEnd();
+  _pendingUrlCitations = new Map();
+  _urlCiteIdx = 0;
+
+  // Replace URL citations with placeholders BEFORE markdown parsing
+  // GFM autolinks would otherwise convert https://... into <a>, breaking our pattern
+  let out = markdown.replace(
+    /\[citation:\s*(https?:\/\/[^\]\u200B]+)\s*\]/g,
+    (_, url: string) => {
+      const key = `urlcite${_urlCiteIdx++}`;
+      _pendingUrlCitations.set(key, url.trim());
+      return `<citation>${key}</citation>`;
+    }
+  );
+
+  // Replace remaining [citation:Title] or [citation:Title|quote] with <citation>...</citation>
+  // Content can be: workspace title (spaces ok), or title|quote
+  out = out.replace(/\[citation:\s*([^\]]+)\s*\]/g, (_, content: string) => {
+    const trimmed = content.trim();
+    return trimmed ? `<citation>${trimmed}</citation>` : "";
+  });
+
   return out;
 }
 
@@ -38,8 +57,8 @@ const CURRENCY_REGEX = /(?<!\$)\$(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)\b/g;
 export function preprocessLatex(markdown: string): string {
   if (!markdown) return markdown;
 
-  // 0. Strip citations block (model-generated metadata, displayed text only)
-  markdown = stripCitationsBlock(markdown);
+  // 0. Convert [citation:X] to <citation>X</citation> (SurfSense-style inline)
+  markdown = preprocessCitations(markdown);
 
   // 1. Protect code blocks and inline code from modification
   const preserved: string[] = [];

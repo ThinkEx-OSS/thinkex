@@ -1,6 +1,7 @@
 "use client";
 
 import type { ComponentProps, ReactNode } from "react";
+import { ExternalLink } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -169,3 +170,31 @@ export const InlineCitationQuote = ({
     {children}
   </blockquote>
 );
+
+function extractDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * SurfSense-style URL citation: clickable badge with domain, opens in new tab.
+ * Used for [citation:https://...] refs.
+ */
+export function UrlCitation({ url }: { url: string }) {
+  const domain = extractDomain(url);
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-0.5 align-super ml-0.5 rounded-full bg-secondary px-1.5 py-0 text-[10px] font-bold text-secondary-foreground no-underline transition-colors hover:bg-secondary/80"
+      title={url}
+    >
+      <ExternalLink className="size-2.5 shrink-0" />
+      {domain}
+    </a>
+  );
+}
