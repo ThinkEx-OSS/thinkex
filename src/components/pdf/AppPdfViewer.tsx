@@ -970,6 +970,7 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
                                       <SelectionLayer
                                         documentId={activeDocumentId}
                                         pageIndex={pageIndex}
+                                        background="rgba(147, 197, 253, 0.55)"
                                         selectionMenu={(props) => (
                                           <TextSelectionMenu {...props} documentId={activeDocumentId} />
                                         )}
