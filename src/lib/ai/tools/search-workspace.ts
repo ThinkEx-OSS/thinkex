@@ -22,13 +22,13 @@ function buildRegex(pattern: string): RegExp {
     return new RegExp(escaped, "gi");
 }
 
-export function createGrepWorkspaceTool(ctx: WorkspaceToolContext) {
+export function createSearchWorkspaceTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Search for a pattern in workspace item content (notes, flashcards, PDFs, quizzes, audio transcripts). Use when you need to find where a term or phrase appears across the user's materials.",
+            "Grep-like text search across workspace content (notes, flashcards, PDFs, quizzes, audio transcripts). Use when you need to find where a term or phrase appears. Pass the search pattern as `pattern` (plain text or regex).",
         inputSchema: zodSchema(
             z.object({
-                pattern: z.string().describe("The regex or plain text pattern to search for"),
+                pattern: z.string().describe("Search pattern (plain text or regex) — the term/phrase to find in workspace content"),
                 include: z
                     .string()
                     .optional()
