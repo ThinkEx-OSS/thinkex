@@ -58,12 +58,19 @@ function sortParentsBeforeChildren<
 /**
  * AI SDK–only thread history adapter.
  * Uses withFormat(aiSDKV6FormatAdapter) for persistence via useExternalHistory.
+ * Base load/append are stubs since ExternalStoreRuntime uses withFormat for persistence.
  */
 export function useCustomThreadHistoryAdapter(): ThreadHistoryAdapter {
   const aui = useAui();
 
   return useMemo<ThreadHistoryAdapter>(
     () => ({
+      async load() {
+        return { messages: [] };
+      },
+      async append() {
+        // No-op: ExternalStoreRuntime uses withFormat for persistence
+      },
       withFormat<TMessage, TStorageFormat>(
         formatAdapter: MessageFormatAdapter<TMessage, TStorageFormat>
       ): GenericThreadHistoryAdapter<TMessage> {
@@ -111,7 +118,10 @@ export function useCustomThreadHistoryAdapter(): ThreadHistoryAdapter {
             const filtered = messages.filter(
               (m: { format?: string }) => m.format === formatAdapter.format
             );
-            const decoded = filtered.map(
+            type DecodedItem = MessageFormatItem<TMessage> & {
+              created_at: string;
+            };
+            const decoded: DecodedItem[] = filtered.map(
               (m: {
                 id: string;
                 parent_id: string | null;
@@ -133,10 +143,16 @@ export function useCustomThreadHistoryAdapter(): ThreadHistoryAdapter {
             );
 
             // Topological sort: parents before children for MessageRepository.import()
+            // formatAdapter.decode returns messages with id (ai-sdk/v6 and similar formats)
+            type SortableItem = {
+              parentId: string | null;
+              message: { id: string };
+              created_at: string;
+            };
             const sorted = sortParentsBeforeChildren(
-              decoded,
-              (d) => d.created_at ?? new Date().toISOString()
-            );
+              decoded as SortableItem[],
+              (d) => d.created_at
+            ) as DecodedItem[];
 
             return {
               messages: sorted.map(({ parentId, message }) => ({

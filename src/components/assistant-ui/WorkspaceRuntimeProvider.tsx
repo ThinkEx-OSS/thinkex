@@ -10,7 +10,7 @@ import { AssistantAvailableProvider } from "@/contexts/AssistantAvailabilityCont
 import { useUIStore } from "@/lib/stores/ui-store";
 import { toast } from "sonner";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
-import { formatSelectedCardsContext } from "@/lib/utils/format-workspace-context";
+import { formatSelectedCardsMetadata } from "@/lib/utils/format-workspace-context";
 import { createThreadListAdapter } from "@/lib/chat/custom-thread-list-adapter";
 import { toCreateMessageWithContext } from "@/lib/chat/toCreateMessageWithContext";
 
@@ -44,7 +44,7 @@ export function WorkspaceRuntimeProvider({
       return "";
     }
 
-    return formatSelectedCardsContext(selectedItems, workspaceState.items);
+    return formatSelectedCardsMetadata(selectedItems, workspaceState.items);
   }, [workspaceState?.items, selectedCardIdsSet]);
 
   const handleChatError = useCallback((error: Error) => {

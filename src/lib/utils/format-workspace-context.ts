@@ -91,9 +91,9 @@ Your knowledge cutoff date is January 2025.
 WORKSPACE (virtual file system):
 ${formatVirtualWorkspaceFS(state)}
 
-When users say "this", they may mean the selected cards. Selected cards context provides paths and metadata only — use searchWorkspace or readWorkspace to fetch full content when needed. Reference items by path or name. If no context is provided, explain how to select cards: hover + click checkmark, shift-click, or drag-select, or select them yourself with the selectCards tool.
+When users say "this", they may mean the selected cards. Selected cards context provides paths and metadata only — use grepWorkspace or readWorkspace to fetch full content when needed. Reference items by path or name. If no context is provided, explain how to select cards: hover + click checkmark, shift-click, or drag-select, or select them yourself with the selectCards tool.
 
-When answering questions about selected cards, use searchWorkspace to search or readWorkspace to read the item. Rely only on facts from the content you fetch. Do not invent or assume information not present.
+When answering questions about selected cards, use grepWorkspace to search or readWorkspace to read the item. Rely only on facts from the content you fetch. Do not invent or assume information not present.
 </context>
 
 <instructions>
@@ -464,7 +464,7 @@ No cards selected.
     const entries = contentItems.map((item) => formatItemMetadata(item, allItems ?? effectiveItems));
 
     return `<context>
-SELECTED CARDS (${contentItems.length}) — paths and metadata. Use searchWorkspace or readWorkspace to fetch content when needed.
+SELECTED CARDS (${contentItems.length}) — paths and metadata. Use grepWorkspace or readWorkspace to fetch content when needed.
 
 ${entries.join("\n")}
 </context>`;
@@ -520,11 +520,15 @@ No cards selected.
  * Formats a single selected card with FULL content (no truncation)
  */
 function formatSelectedCardFull(item: Item, index: number): string {
-    const lines = [
-        `<card type="${item.type}" name="${item.name}">`
-    ];
+    return formatItemContent(item);
+}
 
-    // Add type-specific details with FULL content
+/**
+ * Format full content of a single item. Used by read tool and formatSelectedCardFull.
+ */
+export function formatItemContent(item: Item): string {
+    const lines = [`<card type="${item.type}" name="${item.name}">`];
+
     switch (item.type) {
         case "note":
             lines.push(...formatNoteDetailsFull(item.data as NoteData));
@@ -547,10 +551,11 @@ function formatSelectedCardFull(item: Item, index: number): string {
         case "audio":
             lines.push(...formatAudioDetailsFull(item.data as AudioData));
             break;
+        default:
+            break;
     }
 
     lines.push(`</card>`);
-
     return lines.join("\n");
 }
 

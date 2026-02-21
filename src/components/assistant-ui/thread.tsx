@@ -75,7 +75,7 @@ import { URLContextToolUI } from "@/components/assistant-ui/URLContextToolUI";
 import { UpdateNoteToolUI } from "@/components/assistant-ui/UpdateNoteToolUI";
 import { WebSearchToolUI } from "@/components/assistant-ui/WebSearchToolUI";
 import { UpdatePdfContentToolUI } from "@/components/assistant-ui/UpdatePdfContentToolUI";
-import { SearchWorkspaceToolUI } from "@/components/assistant-ui/SearchWorkspaceToolUI";
+import { GrepWorkspaceToolUI } from "@/components/assistant-ui/GrepWorkspaceToolUI";
 import { ReadWorkspaceToolUI } from "@/components/assistant-ui/ReadWorkspaceToolUI";
 
 import { DeleteCardToolUI } from "@/components/assistant-ui/DeleteCardToolUI";
@@ -112,7 +112,6 @@ import { useCreateCardFromMessage } from "@/hooks/ai/use-create-card-from-messag
 import { extractUrls, createUrlFile } from "@/lib/attachments/url-utils";
 import { filterItems } from "@/lib/workspace-state/search";
 import { useSession } from "@/lib/auth-client";
-import { formatSelectedCardsContext } from "@/lib/utils/format-workspace-context";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { SpeechToTextButton } from "@/components/assistant-ui/SpeechToTextButton";
 
@@ -200,7 +199,7 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
         {/* <DeepResearchToolUI /> */}
         <WebSearchToolUI />
         <UpdatePdfContentToolUI />
-        <SearchWorkspaceToolUI />
+        <GrepWorkspaceToolUI />
         <ReadWorkspaceToolUI />
         <ThreadPrimitive.Root
           className="aui-root aui-thread-root @container flex h-full flex-col bg-sidebar"

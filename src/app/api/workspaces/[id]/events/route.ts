@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { WorkspaceEvent, EventResponse } from "@/lib/workspace/events";
 import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
+import { loadWorkspaceState } from "@/lib/workspace/state-loader";
+import { hasDuplicateName } from "@/lib/workspace/unique-name";
 import { db, workspaceEvents } from "@/lib/db/client";
 import { eq, gt, asc, sql, and } from "drizzle-orm";
 import { requireAuth, verifyWorkspaceAccess, withErrorHandling } from "@/lib/api/workspace-helpers";
@@ -231,6 +233,37 @@ async function handlePOST(
   const workspaceCheckStart = Date.now();
   await verifyWorkspaceAccess(id, userId, 'editor');
   timings.workspaceCheck = Date.now() - workspaceCheckStart;
+
+  // Validate unique name for ITEM_CREATED and ITEM_UPDATED (when name changes)
+  if (event.type === "ITEM_CREATED") {
+    const item = event.payload?.item;
+    if (item?.name != null && item?.type) {
+      const state = await loadWorkspaceState(id);
+      if (hasDuplicateName(state.items, item.name, item.type, item.folderId ?? null)) {
+        return NextResponse.json(
+          { error: `A ${item.type} named "${item.name}" already exists in this folder` },
+          { status: 400 }
+        );
+      }
+    }
+  }
+  if (event.type === "ITEM_UPDATED" && event.payload?.changes?.name != null) {
+    const itemId = event.payload?.id;
+    const newName = event.payload.changes.name;
+    if (itemId && newName) {
+      const state = await loadWorkspaceState(id);
+      const existingItem = state.items.find((i: { id: string }) => i.id === itemId);
+      if (existingItem) {
+        const newFolderId = event.payload.changes.folderId ?? existingItem.folderId ?? null;
+        if (hasDuplicateName(state.items, newName, existingItem.type, newFolderId, itemId)) {
+          return NextResponse.json(
+            { error: `A ${existingItem.type} named "${newName}" already exists in this folder` },
+            { status: 400 }
+          );
+        }
+      }
+    }
+  }
 
   // Use the append function to handle versioning and conflicts
   const appendStart = Date.now();

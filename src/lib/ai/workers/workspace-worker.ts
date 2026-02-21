@@ -12,6 +12,7 @@ import type { Item, NoteData, PdfData, QuizData, QuizQuestion } from "@/lib/work
 import { markdownToBlocks } from "@/lib/editor/markdown-to-blocks";
 import { executeWorkspaceOperation } from "./common";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
+import { hasDuplicateName } from "@/lib/workspace/unique-name";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 import { replace as applyReplace, trimDiff, normalizeLineEndings } from "@/lib/utils/edit-replace";
 import { getNoteContentAsMarkdown } from "@/lib/utils/format-workspace-context";
@@ -291,6 +292,13 @@ export async function workspaceWorker(
             // Handle different actions
             if (action === "create") {
                 const item = await buildItemFromCreateParams(params);
+                const currentState = await loadWorkspaceState(params.workspaceId);
+                if (hasDuplicateName(currentState.items, item.name, item.type, item.folderId ?? null)) {
+                    return {
+                        success: false,
+                        message: `A ${item.type} named "${item.name}" already exists in this folder`,
+                    };
+                }
                 const event = createEvent("ITEM_CREATED", { id: item.id, item }, userId);
 
                 // For create operations, retry on version conflicts since creates are independent
@@ -554,6 +562,16 @@ export async function workspaceWorker(
                     const currentState = await loadWorkspaceState(params.workspaceId);
                     const existingItem = currentState.items.find((i: any) => i.id === params.itemId);
                     const itemName = (changes as Partial<Item>).name ?? existingItem?.name;
+                    const newFolderId = (changes as Partial<Item>).folderId ?? existingItem?.folderId ?? null;
+
+                    if (itemName && existingItem) {
+                        if (hasDuplicateName(currentState.items, itemName, existingItem.type, newFolderId, params.itemId)) {
+                            return {
+                                success: false,
+                                message: `A ${existingItem.type} named "${itemName}" already exists in this folder`,
+                            };
+                        }
+                    }
 
                     logger.time("📝 [UPDATE-NOTE] Event creation");
                     const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: 'agent', name: itemName }, userId);
@@ -679,6 +697,12 @@ export async function workspaceWorker(
                 // Handle title update if provided
                 if (params.title) {
                     logger.debug("🎴 [UPDATE-FLASHCARD] Updating title:", params.title);
+                    if (hasDuplicateName(currentState.items, params.title, existingItem.type, existingItem.folderId ?? null, params.itemId)) {
+                        return {
+                            success: false,
+                            message: `A ${existingItem.type} named "${params.title}" already exists in this folder`,
+                        };
+                    }
                     changes.name = params.title;
                 }
 
@@ -773,6 +797,12 @@ export async function workspaceWorker(
                 // Handle title update if provided
                 if (params.title) {
                     logger.debug("🎯 [UPDATE-QUIZ] Updating title:", params.title);
+                    if (hasDuplicateName(currentState.items, params.title, existingItem.type, existingItem.folderId ?? null, params.itemId)) {
+                        return {
+                            success: false,
+                            message: `A ${existingItem.type} named "${params.title}" already exists in this folder`,
+                        };
+                    }
                     changes.name = params.title;
                 }
 
@@ -871,6 +901,12 @@ export async function workspaceWorker(
                 const changes: Partial<Item> = { data: updatedData };
 
                 if (params.title) {
+                    if (hasDuplicateName(currentState.items, params.title, existingItem.type, existingItem.folderId ?? null, params.itemId)) {
+                        return {
+                            success: false,
+                            message: `A ${existingItem.type} named "${params.title}" already exists in this folder`,
+                        };
+                    }
                     changes.name = params.title;
                 }
 

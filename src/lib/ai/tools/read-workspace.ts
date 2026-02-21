@@ -69,7 +69,7 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
                 return {
                     success: false,
                     message: `Item not found${itemName ? `: "${itemName}"` : ` at path: ${path}`}. ${
-                        sample ? `Example paths: ${sample}` : "Workspace may be empty. Use searchWorkspace to search."
+                        sample ? `Example paths: ${sample}` : "Workspace may be empty. Use grepWorkspace to search."
                     }`,
                 };
             }
