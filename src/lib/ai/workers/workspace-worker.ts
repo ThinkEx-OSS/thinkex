@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { createPatch, diffLines } from "diff";
 import { auth } from "@/lib/auth";
 import { db, workspaces } from "@/lib/db/client";
 import { workspaceCollaborators } from "@/lib/db/schema";
@@ -12,6 +13,8 @@ import { markdownToBlocks } from "@/lib/editor/markdown-to-blocks";
 import { executeWorkspaceOperation } from "./common";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
+import { replace as applyReplace, trimDiff, normalizeLineEndings } from "@/lib/utils/edit-replace";
+import { getNoteContentAsMarkdown } from "@/lib/utils/format-workspace-context";
 
 /** Create params for a single item (used by create and bulkCreate). Exported for autogen. */
 export type CreateItemParams = {
@@ -182,8 +185,14 @@ export async function workspaceWorker(
         /** For bulkCreate: array of create params (no workspaceId). Items are built and appended as one BULK_ITEMS_CREATED event. */
         items?: CreateItemParams[];
         title?: string;
-        content?: string; // For notes
+        content?: string; // For create
+        /** Cline convention: oldString+newString. oldString='' = full rewrite, else targeted edit (update only) */
+        oldString?: string;
+        newString?: string;
+        replaceAll?: boolean;
         itemId?: string;
+        /** Display name for diff header (e.g. note title) */
+        itemName?: string;
 
         itemType?: "note" | "flashcard" | "quiz" | "youtube" | "image" | "audio" | "pdf"; // Defaults to "note" if undefined
         pdfData?: {
@@ -463,18 +472,61 @@ export async function workspaceWorker(
                         changes.name = titleStr;
                     }
 
-                    // Update content if provided (allow empty string to clear content)
-                    if (params.content !== undefined) {
-                        const contentStr = typeof params.content === 'string' ? params.content : String(params.content);
+                    // Update content: Cline convention (oldString + newString)
+                    let contentOld = "";
+                    let contentNew = "";
+                    let diffOutput = "";
+                    let filediffAdditions = 0;
+                    let filediffDeletions = 0;
+
+                    if (params.oldString !== undefined && params.newString !== undefined) {
+                        const oldStr = typeof params.oldString === "string" ? params.oldString : String(params.oldString);
+                        const newStr = typeof params.newString === "string" ? params.newString : String(params.newString);
+                        const replaceAll = !!params.replaceAll;
+
+                        if (oldStr === newStr) {
+                            throw new Error("No changes to apply: oldString and newString are identical.");
+                        }
+
+                        if (oldStr === "") {
+                            // Full rewrite: newString is entire note content
+                            contentOld = "";
+                            contentNew = newStr;
+                        } else {
+                            // Targeted edit: load note, find and replace
+                            const currentState = await loadWorkspaceState(params.workspaceId);
+                            const existingItem = currentState.items.find((i: Item) => i.id === params.itemId);
+                            if (!existingItem) {
+                                throw new Error(`Note not found with ID: ${params.itemId}`);
+                            }
+                            if (existingItem.type !== "note") {
+                                throw new Error(`Item "${existingItem.name}" is not a note (type: ${existingItem.type})`);
+                            }
+                            contentOld = getNoteContentAsMarkdown(existingItem.data as NoteData);
+                            contentNew = applyReplace(contentOld, oldStr, newStr, replaceAll);
+                        }
 
                         logger.time("📝 [UPDATE-NOTE] markdownToBlocks conversion");
-                        const blockContent = await markdownToBlocks(contentStr);
+                        const blockContent = await markdownToBlocks(contentNew);
                         logger.timeEnd("📝 [UPDATE-NOTE] markdownToBlocks conversion");
 
                         changes.data = {
-                            field1: contentStr,
-                            blockContent: blockContent,
+                            field1: contentNew,
+                            blockContent,
                         } as NoteData;
+
+                        const patchName = params.itemName ?? "note";
+                        diffOutput = trimDiff(
+                            createPatch(
+                                patchName,
+                                normalizeLineEndings(contentOld),
+                                normalizeLineEndings(contentNew)
+                            )
+                        );
+                        for (const change of diffLines(contentOld, contentNew)) {
+                            if (change.added) filediffAdditions += change.count || 0;
+                            if (change.removed) filediffDeletions += change.count || 0;
+                        }
                     }
 
                     // Update sources if provided
@@ -546,13 +598,26 @@ export async function workspaceWorker(
                     logger.group("✅ [UPDATE-NOTE] Update completed successfully", true);
                     logger.groupEnd();
 
-                    return {
+                    const result: {
+                        success: boolean;
+                        itemId?: string;
+                        message: string;
+                        event?: WorkspaceEvent;
+                        version?: number;
+                        diff?: string;
+                        filediff?: { additions: number; deletions: number };
+                    } = {
                         success: true,
                         itemId: params.itemId,
                         message: `Updated note successfully`,
                         event,
                         version: appendResult.version,
                     };
+                    if (diffOutput) {
+                        result.diff = diffOutput;
+                        result.filediff = { additions: filediffAdditions, deletions: filediffDeletions };
+                    }
+                    return result;
                 } catch (error: any) {
                     logger.group("❌ [UPDATE-NOTE] Error during update operation", false);
                     logger.error("Error type:", error?.constructor?.name || typeof error);

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { makeAssistantToolUI } from "@assistant-ui/react";
 import { useOptimisticToolUpdate } from "@/hooks/ai/use-optimistic-tool-update";
@@ -14,14 +14,20 @@ import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-shell";
 import { ToolUIErrorShell } from "@/components/assistant-ui/tool-ui-error-shell";
+import { DiffViewer } from "@/components/assistant-ui/diff-viewer";
 import type { WorkspaceResult } from "@/lib/ai/tool-result-schemas";
 import { parseWorkspaceResult } from "@/lib/ai/tool-result-schemas";
 
-type UpdateNoteArgs = { noteName: string; content: string };
+type UpdateNoteArgs = { noteName: string; oldString: string; newString: string; replaceAll?: boolean };
+
+interface UpdateNoteResult extends WorkspaceResult {
+  diff?: string;
+  filediff?: { additions: number; deletions: number };
+}
 
 interface UpdateNoteReceiptProps {
   args: UpdateNoteArgs;
-  result: WorkspaceResult;
+  result: UpdateNoteResult;
   status: any;
 }
 
@@ -45,52 +51,67 @@ const UpdateNoteReceipt = ({ args, result, status }: UpdateNoteReceiptProps) => 
     }
   };
 
+  const hasDiff = result.diff && result.diff.trim().length > 0;
+
   return (
-    <div
-      className={cn(
-        "my-1 flex w-full items-center justify-between overflow-hidden rounded-md border border-border/50 bg-card/50 text-card-foreground shadow-sm px-2 py-2",
-        status?.type === "complete" && result.itemId && "cursor-pointer hover:bg-accent transition-colors"
-      )}
-      onClick={status?.type === "complete" && result.itemId ? handleViewCard : undefined}
-    >
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <div className={cn(
-          status?.type === "complete" ? "text-blue-400" : "text-red-400"
-        )}>
-          {status?.type === "complete" ? (
-            <FileText className="size-4" />
-          ) : (
-            <X className="size-4" />
-          )}
-        </div>
-        <div className="flex flex-col min-w-0 flex-1">
-          <span className="text-xs font-medium truncate">
-            {status?.type === "complete" ? (card?.name || "Card Updated") : "Update Cancelled"}
-          </span>
-          {status?.type === "complete" && (
-            <span className="text-[10px] text-muted-foreground">
-              Note updated
+    <div className="my-1 flex flex-col gap-2">
+      <div
+        className={cn(
+          "flex w-full items-center justify-between overflow-hidden rounded-md border border-border/50 bg-card/50 text-card-foreground shadow-sm px-2 py-2",
+          status?.type === "complete" && result.itemId && "cursor-pointer hover:bg-accent transition-colors"
+        )}
+        onClick={status?.type === "complete" && result.itemId ? handleViewCard : undefined}
+      >
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div
+            className={cn(status?.type === "complete" ? "text-blue-400" : "text-red-400")}
+          >
+            {status?.type === "complete" ? (
+              <FileText className="size-4" />
+            ) : (
+              <X className="size-4" />
+            )}
+          </div>
+          <div className="flex flex-col min-w-0 flex-1">
+            <span className="text-xs font-medium truncate">
+              {status?.type === "complete" ? (card?.name || "Card Updated") : "Update Cancelled"}
             </span>
+            {status?.type === "complete" && (
+              <span className="text-[10px] text-muted-foreground">Note updated</span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1">
+          {status?.type === "complete" && result.itemId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 gap-1 text-[10px] px-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleViewCard();
+              }}
+            >
+              <Eye className="size-3" />
+              View
+            </Button>
           )}
         </div>
       </div>
 
-      <div className="flex items-center gap-1">
-        {status?.type === "complete" && result.itemId && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 gap-1 text-[10px] px-2"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleViewCard();
-            }}
-          >
-            <Eye className="size-3" />
-            View
-          </Button>
-        )}
-      </div>
+      {hasDiff && (
+        <DiffViewer
+          patch={result.diff}
+          viewMode="unified"
+          size="xs"
+          variant="muted"
+          showIcon={false}
+          showLineNumbers={false}
+          renderMarkdown
+          className="max-h-48 overflow-y-auto"
+        />
+      )}
     </div>
   );
 };
@@ -117,7 +138,7 @@ export const UpdateNoteToolUI = makeAssistantToolUI<UpdateNoteArgs, WorkspaceRes
     let content: ReactNode = null;
 
     if (parsed?.success) {
-      content = <UpdateNoteReceipt args={args} result={parsed} status={status} />;
+      content = <UpdateNoteReceipt args={args} result={parsed as UpdateNoteResult} status={status} />;
     } else if (status.type === "running") {
       content = <ToolUILoadingShell label="Updating note..." />;
     } else if (status.type === "complete" && parsed && !parsed.success) {

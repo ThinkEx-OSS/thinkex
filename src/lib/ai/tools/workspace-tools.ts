@@ -69,28 +69,48 @@ export function createNoteTool(ctx: WorkspaceToolContext) {
 
 /**
  * Create the updateNote tool
+ * Cline convention: oldString='' = full rewrite, oldString!='' = targeted edit
  */
 export function createUpdateNoteTool(ctx: WorkspaceToolContext) {
     return tool({
-        description: "Update the content and/or title of an existing note.",
+        description:
+            "Update a note. Full rewrite: oldString='', newString=entire note content. Targeted edit: oldString=exact text to find (from readWorkspace), newString=replacement. Include enough context in oldString to make it unique.",
         inputSchema: zodSchema(
-            z.object({
-                noteName: z.string().describe("The name of the note to update (will be matched using fuzzy search)"),
-                content: z.string().describe("The full note body ONLY (do not include the title as a header)."),
-                title: z.string().optional().describe("New title for the note. If not provided, the existing title will be preserved."),
-                sources: z.array(
-                    z.object({
-                        title: z.string().describe("Title of the source page"),
-                        url: z.string().describe("URL of the source"),
-                        favicon: z.string().optional().describe("Optional favicon URL"),
-                    })
-                ).optional().describe("Optional sources from web search or user-provided URLs"),
-            }).passthrough()
+            z
+                .object({
+                    noteName: z.string().describe("The name of the note to update (will be matched using fuzzy search)"),
+                    oldString: z
+                        .string()
+                        .describe(
+                            "Text to find. Use empty string '' for full rewrite; otherwise exact text from readWorkspace for targeted edit."
+                        ),
+                    newString: z
+                        .string()
+                        .describe("Replacement text (entire note if oldString is empty)"),
+                    replaceAll: z.boolean().optional().default(false),
+                    title: z.string().optional().describe("New title for the note. If not provided, the existing title will be preserved."),
+                    sources: z
+                        .array(
+                            z.object({
+                                title: z.string().describe("Title of the source page"),
+                                url: z.string().describe("URL of the source"),
+                                favicon: z.string().optional().describe("Optional favicon URL"),
+                            })
+                        )
+                        .optional()
+                        .describe("Optional sources from web search or user-provided URLs"),
+                })
+                .passthrough()
         ),
-        execute: async (input: { noteName: string; content: string; title?: string; sources?: Array<{ title: string; url: string; favicon?: string }> }) => {
-            const noteName = input.noteName;
-            const content = input.content;
-            const title = input.title;
+        execute: async (input: {
+            noteName: string;
+            oldString: string;
+            newString: string;
+            replaceAll?: boolean;
+            title?: string;
+            sources?: Array<{ title: string; url: string; favicon?: string }>;
+        }) => {
+            const { noteName, oldString, newString, replaceAll, title } = input;
 
             if (!noteName) {
                 return {
@@ -99,10 +119,24 @@ export function createUpdateNoteTool(ctx: WorkspaceToolContext) {
                 };
             }
 
-            if (content === undefined || content === null) {
+            if (oldString === undefined || oldString === null) {
                 return {
                     success: false,
-                    message: "Content is required.",
+                    message: "oldString is required. Use '' for full rewrite.",
+                };
+            }
+
+            if (newString === undefined || newString === null) {
+                return {
+                    success: false,
+                    message: "newString is required.",
+                };
+            }
+
+            if (oldString === newString) {
+                return {
+                    success: false,
+                    message: "No changes to apply: oldString and newString are identical.",
                 };
             }
 
@@ -114,22 +148,19 @@ export function createUpdateNoteTool(ctx: WorkspaceToolContext) {
             }
 
             try {
-                // Load workspace state (security is enforced by workspace-worker)
                 const accessResult = await loadStateForTool(ctx);
                 if (!accessResult.success) {
                     return accessResult;
                 }
 
                 const { state } = accessResult;
-
-                // Fuzzy match the note by name
                 const matchedNote = fuzzyMatchItem(state.items, noteName, "note");
 
                 if (!matchedNote) {
                     const availableNotes = getAvailableItemsList(state.items, "note");
                     return {
                         success: false,
-                        message: `Could not find note "${noteName}". ${availableNotes ? `Available notes: ${availableNotes}` : 'No notes found in workspace.'}`,
+                        message: `Could not find note "${noteName}". ${availableNotes ? `Available notes: ${availableNotes}` : "No notes found in workspace."}`,
                     };
                 }
 
@@ -142,8 +173,11 @@ export function createUpdateNoteTool(ctx: WorkspaceToolContext) {
                 const workerResult = await workspaceWorker("update", {
                     workspaceId: ctx.workspaceId,
                     itemId: matchedNote.id,
-                    content: content,
-                    title: title,
+                    itemName: matchedNote.name,
+                    oldString,
+                    newString,
+                    replaceAll,
+                    title,
                     sources: input.sources,
                 });
 
