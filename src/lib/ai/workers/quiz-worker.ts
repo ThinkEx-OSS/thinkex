@@ -5,10 +5,10 @@ import { logger } from "@/lib/utils/logger";
 import { QuizQuestion, QuestionType } from "@/lib/workspace-state/types";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 
-const DEFAULT_CHAT_MODEL_ID = "gemini-2.5-flash-lite";
+const DEFAULT_CHAT_MODEL_ID = "gemini-2.5-flash";
 
 export type QuizWorkerParams = {
-    topic?: string;                // Used only if no context provided
+    topic?: string;                // Optional topic or focus instructions, including for context-based quizzes
     contextContent?: string;       // Aggregated content from selected cards
     sourceCardIds?: string[];
     sourceCardNames?: string[];
@@ -79,7 +79,7 @@ For weak areas:
 
 export async function quizWorker(params: QuizWorkerParams): Promise<{ questions: QuizQuestion[]; title: string }> {
     try {
-        const questionCount = params.questionCount || 5;
+        const questionCount = params.questionCount ?? 5;
         const questionTypes = params.questionTypes || ["multiple_choice", "true_false"];
 
         logger.debug("🎯 [QUIZ-WORKER] Starting quiz generation:", {
@@ -96,6 +96,10 @@ export async function quizWorker(params: QuizWorkerParams): Promise<{ questions:
 
         if (params.contextContent) {
             // Context-based quiz generation
+            const topicInstruction = params.topic
+                ? `\nUSER'S SPECIFIC INSTRUCTIONS / TOPIC FOCUS:\n"${params.topic}"\n\nEnsure the generated questions specifically address these instructions within the provided content.`
+                : "";
+
             prompt = `You are a quiz generator. Create exactly ${questionCount} quiz questions based EXCLUSIVELY on the following content. Do NOT use any external knowledge.
 
 IMPORTANT: The content below is from workspace cards and includes metadata headers like "CARD 1:", "Card ID:", "METADATA:", "CONTENT:", etc. IGNORE ALL METADATA. Focus ONLY on the actual educational content within each card - the text, concepts, facts, and information being taught. Do NOT create questions about:
@@ -106,6 +110,7 @@ IMPORTANT: The content below is from workspace cards and includes metadata heade
 
 CONTENT TO QUIZ ON:
 ${params.contextContent}
+${topicInstruction}
 
 REQUIREMENTS:
 ${adaptiveInstructions}
