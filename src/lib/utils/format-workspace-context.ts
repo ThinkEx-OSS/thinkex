@@ -112,7 +112,7 @@ Use webSearch when: temporal cues ("today", "latest", "current"), real-time data
 Use internal knowledge for: creative writing, coding, general concepts, summarizing provided content.
 If uncertain about accuracy, prefer to search.
 
-PDF CONTENT: For PDFs with ocr=complete (in virtual-workspace metadata), use readWorkspace to get the content — it is already extracted. Use processFiles only for PDFs with ocr=none (not yet extracted) or ocr=failed.
+PDF CONTENT: For PDFs with ocr=complete (in virtual-workspace metadata), use readWorkspace to get the content — it is already extracted. Use pageStart and pageEnd (1-indexed) to read specific pages only — e.g. pageStart=5, pageEnd=10 for pages 5–10. Use processFiles only for PDFs with ocr=none (not yet extracted) or ocr=failed.
 
 PDF IMAGES: When readWorkspace shows image placeholders like ![img-0.jpeg](img-0.jpeg), use processFiles with pdfImageRefs: [{ pdfName: "<PDF item name>", imageId: "img-0.jpeg" }] to analyze the image.
 
@@ -531,10 +531,21 @@ function formatSelectedCardFull(item: Item, index: number): string {
     return formatItemContent(item);
 }
 
+export interface FormatItemContentOptions {
+    /** For PDFs: 1-indexed start page (inclusive) */
+    pageStart?: number;
+    /** For PDFs: 1-indexed end page (inclusive) */
+    pageEnd?: number;
+}
+
 /**
  * Format full content of a single item. Used by read tool and formatSelectedCardFull.
+ * For PDFs, pass pageStart/pageEnd to read only specific pages.
  */
-export function formatItemContent(item: Item): string {
+export function formatItemContent(
+    item: Item,
+    options?: FormatItemContentOptions
+): string {
     const lines: string[] = [];
 
     switch (item.type) {
@@ -542,7 +553,13 @@ export function formatItemContent(item: Item): string {
             lines.push(...formatNoteDetailsFull(item.data as NoteData));
             break;
         case "pdf":
-            lines.push(...formatPdfDetailsFull(item.data as PdfData));
+            lines.push(
+                ...formatPdfDetailsFull(
+                    item.data as PdfData,
+                    options?.pageStart,
+                    options?.pageEnd
+                )
+            );
             break;
         case "flashcard":
             lines.push(...formatFlashcardDetailsFull(item.data as FlashcardData));
@@ -641,8 +658,13 @@ function escapeRegex(s: string): string {
  * without needing to call processFiles.
  * OCR pages output markdown as proper lines (one line per line) instead of JSON blobs.
  * Image and table placeholders are mapped to actual content when available.
+ * Optionally filter by pageStart/pageEnd (1-indexed, inclusive).
  */
-function formatPdfDetailsFull(data: PdfData): string[] {
+function formatPdfDetailsFull(
+    data: PdfData,
+    pageStart?: number,
+    pageEnd?: number
+): string[] {
     const lines: string[] = [];
 
     if (data.filename) {
@@ -654,8 +676,25 @@ function formatPdfDetailsFull(data: PdfData): string[] {
     }
 
     if (data.ocrPages?.length) {
-        lines.push(`   - OCR Pages (${data.ocrPages.length}):`);
-        for (const page of data.ocrPages) {
+        let pagesToShow = data.ocrPages;
+        if (pageStart != null || pageEnd != null) {
+            const startIdx = pageStart != null ? Math.max(0, pageStart - 1) : 0;
+            const endIdx =
+                pageEnd != null
+                    ? Math.min(data.ocrPages.length - 1, pageEnd - 1)
+                    : data.ocrPages.length - 1;
+            pagesToShow = data.ocrPages.filter(
+                (p) => p.index >= startIdx && p.index <= endIdx
+            );
+            if (pagesToShow.length > 0) {
+                lines.push(
+                    `   - OCR Pages ${pageStart ?? 1}-${pageEnd ?? data.ocrPages.length} (${pagesToShow.length} of ${data.ocrPages.length}):`
+                );
+            }
+        } else {
+            lines.push(`   - OCR Pages (${data.ocrPages.length}):`);
+        }
+        for (const page of pagesToShow) {
             const pageNum = page.index + 1;
             lines.push(`     --- Page ${pageNum} ---`);
             if (page.header) lines.push(`     Header: ${page.header}`);

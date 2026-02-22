@@ -15,6 +15,7 @@ import { useSession } from "@/lib/auth-client";
 import { LoginGate } from "@/components/workspace/LoginGate";
 import { AccessDenied } from "@/components/workspace/AccessDenied";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
+import { uploadPdfAndRunOcr } from "@/lib/uploads/pdf-upload-with-ocr";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 
@@ -468,23 +469,14 @@ export function WorkspaceSection({
 
     const uploadAndOcrPromises = unprotectedFiles.map(async (file) => {
       try {
-        const formData = new FormData();
-        formData.append('file', file);
-        const res = await fetch('/api/pdf/upload-and-ocr', {
-          method: 'POST',
-          body: formData,
-        });
-        const json = await res.json();
-        if (!res.ok || json.error) {
-          throw new Error(json.error || 'Upload and OCR failed');
-        }
+        const json = await uploadPdfAndRunOcr(file);
         const pdfData: Partial<PdfData> = {
           fileUrl: json.fileUrl,
           filename: json.filename,
           fileSize: json.fileSize,
           textContent: json.textContent,
           ocrPages: json.ocrPages,
-          ocrStatus: json.ocrStatus ?? (json.ocrPages?.length ? 'complete' : 'failed'),
+          ocrStatus: json.ocrStatus,
           ...(json.ocrError && { ocrError: json.ocrError }),
         };
         return {

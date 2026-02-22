@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const t0 = Date.now();
     logger.info("[PDF_OCR] Route fired", {
       fileUrl: fileUrl.slice(0, 80) + (fileUrl.length > 80 ? "…" : ""),
       userId: session.user?.id,
@@ -65,7 +66,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const tFetch = Date.now();
     const res = await fetch(fileUrl);
+    logger.info("[PDF_OCR] Fetched from storage", {
+      ms: Date.now() - tFetch,
+    });
     if (!res.ok) {
       return NextResponse.json(
         { error: `Failed to fetch PDF: ${res.status} ${res.statusText}` },
@@ -97,9 +102,10 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await res.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    logger.debug("[PDF_OCR] Fetched PDF", {
+    logger.info("[PDF_OCR] PDF buffered", {
       sizeBytes: buffer.length,
       sizeMB: (buffer.length / (1024 * 1024)).toFixed(2),
+      fetchMs: Date.now() - tFetch,
     });
 
     if (buffer.length > MAX_PDF_SIZE_BYTES) {
@@ -111,12 +117,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const tOcr = Date.now();
     const result = await ocrPdfFromBuffer(buffer);
+    const ocrMs = Date.now() - tOcr;
+    const totalMs = Date.now() - t0;
 
     logger.info("[PDF_OCR] OCR complete", {
       pageCount: result.pages.length,
       textContentLength: result.textContent.length,
-      textContentPreview: result.textContent.slice(0, 100) + (result.textContent.length > 100 ? "…" : ""),
+      ocrMs,
+      totalMs,
     });
 
     return NextResponse.json({

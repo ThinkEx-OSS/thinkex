@@ -11,6 +11,7 @@ import type { PdfData, ImageData, AudioData } from "@/lib/workspace-state/types"
 import { getBestFrameForRatio, type GridFrame } from "@/lib/workspace-state/aspect-ratios";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
+import { uploadPdfAndRunOcr } from "@/lib/uploads/pdf-upload-with-ocr";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 
@@ -142,11 +143,11 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
       );
 
       try {
-        // Separate PDFs from other files — PDFs use upload-and-ocr (single request)
+        // Separate PDFs from other files — PDFs use direct upload + OCR from URL
         const pdfFiles = filteredFiles.filter((f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
         const nonPdfFiles = filteredFiles.filter((f) => f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf'));
 
-        // PDFs: upload + OCR in one request per file
+        // PDFs: direct upload to Supabase + OCR from URL (bypasses 10MB body limit)
         const pdfResults: Array<{
           fileUrl: string;
           filename: string;
@@ -162,16 +163,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
 
           const pdfPromises = pdfFiles.map(async (file) => {
             try {
-              const formData = new FormData();
-              formData.append('file', file);
-              const res = await fetch('/api/pdf/upload-and-ocr', {
-                method: 'POST',
-                body: formData,
-              });
-              const json = await res.json();
-              if (!res.ok || json.error) {
-                throw new Error(json.error || 'Upload and OCR failed');
-              }
+              const json = await uploadPdfAndRunOcr(file);
               return {
                 fileUrl: json.fileUrl,
                 filename: json.filename,
@@ -183,7 +175,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
                   fileSize: json.fileSize,
                   textContent: json.textContent,
                   ocrPages: json.ocrPages,
-                  ocrStatus: json.ocrStatus ?? (json.ocrPages?.length ? 'complete' : 'failed'),
+                  ocrStatus: json.ocrStatus,
                   ...(json.ocrError && { ocrError: json.ocrError }),
                 } as Partial<PdfData>,
               };

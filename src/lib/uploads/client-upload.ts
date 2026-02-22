@@ -17,11 +17,22 @@ interface UploadResult {
   filename: string;
 }
 
+export interface UploadFileDirectOptions {
+  /** Enable timing and step logs for debugging (e.g. PDF upload flow) */
+  log?: boolean;
+}
+
 /**
  * Upload a file directly to storage, bypassing the serverless function body limit.
  * Works for both Supabase (direct upload) and local storage (fallback to API route).
  */
-export async function uploadFileDirect(file: File): Promise<UploadResult> {
+export async function uploadFileDirect(
+  file: File,
+  options?: UploadFileDirectOptions
+): Promise<UploadResult> {
+  const log = options?.log ?? false;
+  const t0 = log ? performance.now() : 0;
+
   if (file.size > MAX_FILE_SIZE_BYTES) {
     throw new Error(
       `File size exceeds ${MAX_FILE_SIZE_BYTES / (1024 * 1024)}MB limit`
@@ -46,14 +57,25 @@ export async function uploadFileDirect(file: File): Promise<UploadResult> {
   }
 
   const urlData = await urlResponse.json();
+  if (log) {
+    console.info(
+      `[PDF_UPLOAD] Get signed URL: ${(performance.now() - t0).toFixed(0)}ms`
+    );
+  }
 
   // Local storage mode: fall back to /api/upload-file
   if (urlData.mode === "local") {
-    return uploadViaApiRoute(file);
+    const result = await uploadViaApiRoute(file);
+    if (log) {
+      const t = performance.now() - t0;
+      console.info(`[PDF_UPLOAD] Local fallback upload: ${t.toFixed(0)}ms`);
+    }
+    return result;
   }
 
   // Step 2: Upload file directly to Supabase using the signed URL
   const { signedUrl, token, publicUrl, path } = urlData;
+  const tPut = log ? performance.now() : 0;
 
   const uploadResponse = await fetch(signedUrl, {
     method: "PUT",
@@ -71,6 +93,14 @@ export async function uploadFileDirect(file: File): Promise<UploadResult> {
     }
     throw new Error(
       `Direct upload failed: ${uploadResponse.statusText}`
+    );
+  }
+
+  if (log) {
+    const t = performance.now() - tPut;
+    const total = performance.now() - t0;
+    console.info(
+      `[PDF_UPLOAD] Direct upload to storage: ${t.toFixed(0)}ms | total upload: ${total.toFixed(0)}ms`
     );
   }
 

@@ -44,6 +44,7 @@ import { useWorkspaceInstructionModal } from "@/hooks/workspace/use-workspace-in
 import { InviteGuard } from "@/components/workspace/InviteGuard";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
+import { uploadPdfAndRunOcr } from "@/lib/uploads/pdf-upload-with-ocr";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 import { useFolderUrl } from "@/hooks/ui/use-folder-url";
 import { OPEN_RECORD_PARAM } from "@/components/modals/RecordWorkspaceDialog";
@@ -352,23 +353,14 @@ function DashboardContent({
         await Promise.all(
           unprotectedFiles.map(async (file) => {
             try {
-              const formData = new FormData();
-              formData.append("file", file);
-              const res = await fetch("/api/pdf/upload-and-ocr", {
-                method: "POST",
-                body: formData,
-              });
-              const json = await res.json();
-              if (!res.ok || json.error) {
-                throw new Error(json.error || "Upload and OCR failed");
-              }
+              const json = await uploadPdfAndRunOcr(file);
               const pdfData: Partial<PdfData> = {
                 fileUrl: json.fileUrl,
                 filename: json.filename,
                 fileSize: json.fileSize,
                 textContent: json.textContent,
                 ocrPages: json.ocrPages,
-                ocrStatus: json.ocrStatus ?? (json.ocrPages?.length ? "complete" : "failed"),
+                ocrStatus: json.ocrStatus,
                 ...(json.ocrError && { ocrError: json.ocrError }),
               };
               return {

@@ -17,7 +17,7 @@ const MAX_LINE_LENGTH = 2000;
 export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Read content of a workspace item (note, flashcard deck, PDF summary, quiz) by path or name. Usage: By default returns up to 500 lines from the start. The lineStart parameter is the 1-indexed line number to start from — call again with a larger lineStart to read later sections. Use searchWorkspace to find specific content in large items. Contents are returned with each line prefixed by its line number as <line>: <content>. Any line longer than 2000 characters is truncated. Avoid tiny repeated slices (e.g. 30-line chunks); read a larger window. REQUIRED before targeted updateNote edits — the tool will error otherwise.",
+            "Read content of a workspace item (note, flashcard deck, PDF summary, quiz) by path or name. Usage: By default returns up to 500 lines from the start. The lineStart parameter is the 1-indexed line number to start from — call again with a larger lineStart to read later sections. For PDFs: use pageStart and pageEnd (1-indexed) to read only specific pages — e.g. pageStart=5, pageEnd=10 reads pages 5–10. Use searchWorkspace to find specific content in large items. Contents are returned with each line prefixed by its line number as <line>: <content>. Any line longer than 2000 characters is truncated. Avoid tiny repeated slices (e.g. 30-line chunks); read a larger window. REQUIRED before targeted updateNote edits — the tool will error otherwise.",
         inputSchema: zodSchema(
             z.object({
                 path: z
@@ -45,9 +45,21 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
                     .max(MAX_LIMIT)
                     .optional()
                     .describe(`Max lines to return (default ${DEFAULT_LIMIT}, max ${MAX_LIMIT}). Use with lineStart for pagination.`),
+                pageStart: z
+                    .number()
+                    .int()
+                    .min(1)
+                    .optional()
+                    .describe("For PDFs only: 1-indexed start page (e.g. 5 for page 5). Use with pageEnd to read a page range."),
+                pageEnd: z
+                    .number()
+                    .int()
+                    .min(1)
+                    .optional()
+                    .describe("For PDFs only: 1-indexed end page inclusive (e.g. 10 for pages 5–10). Use with pageStart."),
             })
         ),
-        execute: async ({ path, itemName, lineStart = 1, limit = DEFAULT_LIMIT }) => {
+        execute: async ({ path, itemName, lineStart = 1, limit = DEFAULT_LIMIT, pageStart, pageEnd }) => {
             if (!path?.trim() && !itemName?.trim()) {
                 return {
                     success: false,
@@ -101,7 +113,12 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
                 };
             }
 
-            const fullContent = formatItemContent(item);
+            const pdfPageRange =
+                item.type === "pdf" && (pageStart != null || pageEnd != null)
+                    ? { pageStart, pageEnd }
+                    : undefined;
+
+            const fullContent = formatItemContent(item, pdfPageRange);
             const allLines = fullContent.split(/\r?\n/);
             const totalLines = allLines.length;
             const startIdx = Math.max(0, lineStart - 1);
@@ -157,6 +174,16 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
                 lineEnd,
                 hasMore,
                 ...(hasMore && { nextLineStart: lineEnd + 1 }),
+                ...(item.type === "pdf" &&
+                    Array.isArray((item.data as { ocrPages?: unknown[] })?.ocrPages) && {
+                    totalPages: (item.data as { ocrPages: unknown[] }).ocrPages.length,
+                    ...(pdfPageRange && {
+                        pageRange: {
+                            start: pdfPageRange.pageStart,
+                            end: pdfPageRange.pageEnd,
+                        },
+                    }),
+                }),
             };
         },
     });
