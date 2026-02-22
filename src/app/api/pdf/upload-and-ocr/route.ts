@@ -80,67 +80,51 @@ export async function POST(req: NextRequest) {
     const filename = `${timestamp}-${random}-${sanitizedName}`;
 
     const storageType = getStorageType();
-    let fileUrl: string;
 
-    if (storageType === "local") {
-      fileUrl = await saveFileLocally(buffer, filename);
-    } else {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    // Run upload and OCR in parallel (we have the buffer for both)
+    const [uploadResult, ocrResultOrError] = await Promise.all([
+      storageType === "local"
+        ? saveFileLocally(buffer, filename)
+        : (async () => {
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+            const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+            if (!supabaseUrl || !serviceRoleKey) {
+              throw new Error("Server configuration error: Supabase not configured");
+            }
+            const supabase = createClient(supabaseUrl, serviceRoleKey, {
+              auth: { autoRefreshToken: false, persistSession: false },
+            });
+            const { error } = await supabase.storage
+              .from("file-upload")
+              .upload(filename, buffer, {
+                cacheControl: "3600",
+                upsert: false,
+                contentType: "application/pdf",
+              });
+            if (error) throw new Error(error.message);
+            const { data } = supabase.storage.from("file-upload").getPublicUrl(filename);
+            return data.publicUrl;
+          })(),
+      ocrPdfFromBuffer(buffer).catch((err) => err),
+    ]);
 
-      if (!supabaseUrl || !serviceRoleKey) {
-        return NextResponse.json(
-          { error: "Server configuration error: Supabase not configured" },
-          { status: 500 }
-        );
-      }
-
-      const supabase = createClient(supabaseUrl, serviceRoleKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      });
-
-      const { error } = await supabase.storage
-        .from("file-upload")
-        .upload(filename, buffer, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: "application/pdf",
-        });
-
-      if (error) {
-        logger.error("[PDF_UPLOAD_OCR] Supabase upload failed:", error);
-        return NextResponse.json(
-          { error: `Failed to upload: ${error.message}` },
-          { status: 500 }
-        );
-      }
-
-      const { data: urlData } = supabase.storage
-        .from("file-upload")
-        .getPublicUrl(filename);
-      fileUrl = urlData.publicUrl;
-    }
-
-    logger.info("[PDF_UPLOAD_OCR] Upload complete, running OCR", {
-      filename,
-      sizeMB: (buffer.length / (1024 * 1024)).toFixed(2),
-    });
+    const fileUrl = uploadResult;
 
     let ocrResult: Awaited<ReturnType<typeof ocrPdfFromBuffer>>;
     let ocrStatus: "complete" | "failed" = "complete";
     let ocrError: string | undefined;
 
-    try {
-      ocrResult = await ocrPdfFromBuffer(buffer);
+    if (ocrResultOrError instanceof Error) {
+      ocrStatus = "failed";
+      ocrError = ocrResultOrError.message;
+      ocrResult = { pages: [], textContent: "" };
+      logger.warn("[PDF_UPLOAD_OCR] OCR failed, returning file without content:", ocrError);
+    } else {
+      ocrResult = ocrResultOrError;
       logger.info("[PDF_UPLOAD_OCR] OCR complete", {
         pageCount: ocrResult.pages.length,
         textContentLength: ocrResult.textContent.length,
       });
-    } catch (err) {
-      ocrStatus = "failed";
-      ocrError = err instanceof Error ? err.message : "OCR failed";
-      logger.warn("[PDF_UPLOAD_OCR] OCR failed, returning file without content:", ocrError);
-      ocrResult = { pages: [], textContent: "" };
     }
 
     return NextResponse.json({
