@@ -948,15 +948,16 @@ export async function workspaceWorker(
                     throw new Error("Workspace was modified by another user, please try again");
                 }
 
+                const contentLen = textContent?.length ?? 0;
                 logger.info("📄 [WORKSPACE-WORKER] Updated PDF text content:", {
                     itemId: params.itemId,
-                    contentLength: params.pdfTextContent.length,
+                    contentLength: contentLen,
                 });
 
                 return {
                     success: true,
                     itemId: params.itemId,
-                    message: `Cached text content for PDF "${existingItem.name}" (${params.pdfTextContent.length} chars)`,
+                    message: `Cached text content for PDF "${existingItem.name}" (${contentLen} chars)`,
                     event,
                     version: appendResult.version,
                 };

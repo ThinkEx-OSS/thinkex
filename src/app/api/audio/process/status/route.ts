@@ -30,7 +30,11 @@ export async function GET(req: NextRequest) {
     const status = await run.status;
 
     if (status === "completed") {
-      const result = await run.returnValue;
+      const result = (await run.returnValue) as {
+        summary: string;
+        segments: Array<{ speaker: string; timestamp: string; content: string }>;
+        duration?: number;
+      };
       return NextResponse.json({
         status: "completed",
         result: {
