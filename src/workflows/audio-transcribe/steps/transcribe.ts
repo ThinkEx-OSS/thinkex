@@ -36,7 +36,7 @@ Requirements:
 4. Provide the total duration of the audio in seconds (a single number, e.g. 180.5 for 3 minutes).`;
 
   const response = await client.models.generateContent({
-    model: "gemini-2.5-flash-lite",
+    model: "gemini-2.5-flash",
     contents: createUserContent([
       createPartFromUri(fileUri, mimeType),
       prompt,
