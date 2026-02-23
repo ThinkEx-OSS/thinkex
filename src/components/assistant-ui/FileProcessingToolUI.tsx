@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 
 const ANIMATION_DURATION = 200;
 const SHIMMER_DURATION = 1000;
+const MAX_DISPLAY_CHARS = 3000;
 
 /**
  * Root collapsible container that manages open/closed state and scroll lock.
@@ -334,7 +335,11 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
                                 {isComplete && parsedResult != null && parsedResult.trim() && (
                                     <div className="border-t pt-2">
                                         <div className="prose prose-sm max-w-none dark:prose-invert">
-                                            <StandaloneMarkdown>{parsedResult}</StandaloneMarkdown>
+                                            <StandaloneMarkdown>
+                                                {parsedResult.length > MAX_DISPLAY_CHARS
+                                                    ? `${parsedResult.slice(0, MAX_DISPLAY_CHARS)}\n\n*…truncated for display*`
+                                                    : parsedResult}
+                                            </StandaloneMarkdown>
                                         </div>
                                     </div>
                                 )}
