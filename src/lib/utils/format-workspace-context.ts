@@ -109,7 +109,7 @@ Use webSearch when: temporal cues ("today", "latest", "current"), real-time data
 Use internal knowledge for: creative writing, coding, general concepts, summarizing provided content.
 If uncertain about accuracy, prefer to search.
 
-PDF ATTACHMENTS: When the user uploads a PDF as a file attachment and there's a matching PDF item in the workspace, call updatePdfContent with a comprehensive summary of the PDF's content to cache it. This avoids reprocessing the file later.
+PDF CONTENT: For PDFs with extracted content, use readWorkspace to get the content. Use pageStart and pageEnd (1-indexed) to read specific pages — e.g. pageStart=5, pageEnd=10 for pages 5–10. If readWorkspace indicates content is not yet available, use processFiles instead.
 
 YOUTUBE: If user says "add a video" without a topic, infer from workspace context. Don't ask - just search.
 
