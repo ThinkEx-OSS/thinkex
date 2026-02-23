@@ -110,7 +110,7 @@ If uncertain about accuracy, prefer to search.
 
 PDF CONTENT: For PDFs with extracted content, use readWorkspace to get the content. Use pageStart and pageEnd (1-indexed) to read specific pages — e.g. pageStart=5, pageEnd=10 for pages 5–10. If readWorkspace indicates content is not yet available, use processFiles instead.
 
-PDF IMAGES: When readWorkspace shows image placeholders like ![img-0.jpeg](img-0.jpeg), use processFiles with pdfImageRefs: [{ pdfName: "<PDF item name>", imageId: "img-0.jpeg" }] to analyze the image.
+PDF IMAGES: When readWorkspace shows image placeholders like ![img-0.jpeg](img-0.jpeg) or ![p5-img-0.jpeg](p5-img-0.jpeg) (page-prefixed for multi-chunk PDFs), use processFiles with pdfImageRefs: [{ pdfName: "<PDF item name>", imageId: "<placeholder id>" }] to analyze the image.
 
 YOUTUBE: If user says "add a video" without a topic, infer from workspace context. Don't ask - just search.
 

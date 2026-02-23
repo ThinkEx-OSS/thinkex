@@ -173,7 +173,7 @@ async function runOcrForPdfUrl(fileUrl: string): Promise<{
 type PdfImageRef = { pdfName: string; imageId: string };
 
 /**
- * Process images extracted from PDF OCR (resolve placeholder refs like img-0.jpeg to base64).
+ * Process images extracted from PDF OCR (resolve placeholder refs like img-0.jpeg or p5-img-0.jpeg to base64).
  */
 async function processPdfImages(
     pdfImageRefs: PdfImageRef[],
@@ -212,7 +212,7 @@ async function processPdfImages(
     }
 
     if (fileInfos.length === 0) {
-        return "No PDF images could be found. Ensure the PDF was OCR'd with images (OCR_INCLUDE_IMAGES not false) and the imageId matches the placeholder (e.g. img-0.jpeg).";
+        return "No PDF images could be found. Ensure the PDF was OCR'd with images (OCR_INCLUDE_IMAGES not false) and the imageId matches the placeholder (e.g. img-0.jpeg or p5-img-0.jpeg).";
     }
 
     const fileListText = fileInfos.map((f, i) => `${i + 1}. ${f.filename} (from PDF)`).join("\n");
