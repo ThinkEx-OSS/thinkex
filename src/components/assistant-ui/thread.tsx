@@ -888,7 +888,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
         {process.env.NODE_ENV === "development" && (
           <button
             type="button"
-            className="flex items-center gap-1.5 pl-0 pr-1.5 py-1 rounded-md bg-red-500/10 hover:bg-red-500/20 transition-colors flex-shrink-0 text-xs font-normal text-red-500 hover:text-red-400 cursor-pointer border border-red-500/20"
+            className="flex items-center gap-1.5 px-1.5 py-1 rounded-md bg-red-500/10 hover:bg-red-500/20 transition-colors flex-shrink-0 text-xs font-normal text-red-500 hover:text-red-400 cursor-pointer border border-red-500/20"
             onClick={() => {
               window.open("http://localhost:4983", "_blank");
             }}
