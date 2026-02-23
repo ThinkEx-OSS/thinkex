@@ -19,15 +19,16 @@ export function createQuizTool(ctx: WorkspaceToolContext) {
         description: "Create an interactive quiz. Extract topic from user message. Use selected cards as context if available.",
         inputSchema: zodSchema(
             z.object({
-                topic: z.string().optional().describe("The topic for the quiz - extract from user's message"),
+                topic: z.string().optional().describe("The topic or specific focus instructions for the quiz - extract from user's message"),
                 contextContent: z.string().optional().describe("Content from selected cards in system context if available"),
+                questionCount: z.number().int().min(1).max(50).optional().describe("The specific number of questions requested by the user, if provided"),
                 sourceCardIds: z.array(z.string()).optional().describe("IDs of source cards"),
                 sourceCardNames: z.array(z.string()).optional().describe("Names of source cards"),
             })
         ),
-        execute: async (input: { topic?: string; contextContent?: string; sourceCardIds?: string[]; sourceCardNames?: string[] }) => {
-            const { topic, contextContent, sourceCardIds, sourceCardNames } = input;
-            logger.debug("🎯 [CREATE-QUIZ] Tool execution started:", { topic, hasContext: !!contextContent });
+        execute: async (input: { topic?: string; contextContent?: string; questionCount?: number; sourceCardIds?: string[]; sourceCardNames?: string[] }) => {
+            const { topic, contextContent, questionCount, sourceCardIds, sourceCardNames } = input;
+            logger.debug("🎯 [CREATE-QUIZ] Tool execution started:", { topic, questionCount, hasContext: !!contextContent });
 
             if (!ctx.workspaceId) {
                 return {
@@ -50,6 +51,7 @@ export function createQuizTool(ctx: WorkspaceToolContext) {
                     contextLength: contextContent?.length,
                     sourceCardNames,
                     sourceCardIds,
+                    questionCount,
                     providedTopic: topic,
                 });
 
@@ -57,7 +59,7 @@ export function createQuizTool(ctx: WorkspaceToolContext) {
                 const quizResult = await quizWorker({
                     topic: topic || undefined,
                     contextContent,
-                    questionCount: 5,
+                    questionCount: questionCount ?? 5,
                     sourceCardIds,
                     sourceCardNames,
                 });
@@ -118,14 +120,15 @@ export function createUpdateQuizTool(ctx: WorkspaceToolContext) {
                 title: z.string().optional().describe("New title for the quiz. If not provided, the existing title will be preserved."),
                 topic: z.string().optional().describe("New topic for questions"),
                 contextContent: z.string().optional().describe("Content from newly selected cards in system context"),
+                questionCount: z.number().int().min(1).max(50).optional().describe("The specific number of questions to add, if provided"),
                 sourceCardIds: z.array(z.string()).optional().describe("IDs of source cards"),
                 sourceCardNames: z.array(z.string()).optional().describe("Names of source cards"),
             })
         ),
-        execute: async (input: { quizName: string; title?: string; topic?: string; contextContent?: string; sourceCardIds?: string[]; sourceCardNames?: string[] }) => {
-            const { quizName, title, topic: explicitTopic, contextContent, sourceCardIds, sourceCardNames } = input;
+        execute: async (input: { quizName: string; title?: string; topic?: string; contextContent?: string; questionCount?: number; sourceCardIds?: string[]; sourceCardNames?: string[] }) => {
+            const { quizName, title, topic: explicitTopic, contextContent, questionCount, sourceCardIds, sourceCardNames } = input;
 
-            logger.debug("🎯 [UPDATE-QUIZ] Tool execution started:", { quizName, explicitTopic, title });
+            logger.debug("🎯 [UPDATE-QUIZ] Tool execution started:", { quizName, explicitTopic, questionCount, title });
 
             if (!ctx.workspaceId) {
                 return {
@@ -223,13 +226,14 @@ export function createUpdateQuizTool(ctx: WorkspaceToolContext) {
                 logger.debug("🎯 [UPDATE-QUIZ] Configuration:", {
                     topic,
                     hasContext: !!contextContent,
+                    questionCount,
                     sourceCards: sourceCardNames,
                     isBlankQuiz,
                 });
 
                 // For quizzes WITH existing questions: require explicit topic/context to add more
                 // For BLANK quizzes: always generate questions using the topic (even if just quiz name)
-                if (!isBlankQuiz && !explicitTopic && !contextContent && !sourceCardIds) {
+                if (!isBlankQuiz && !explicitTopic && !contextContent && !sourceCardIds && questionCount === undefined) {
                     return {
                         success: true,
                         quizId,
@@ -249,7 +253,7 @@ export function createUpdateQuizTool(ctx: WorkspaceToolContext) {
                 const quizResult = await quizWorker({
                     topic,
                     contextContent,
-                    questionCount: 5,
+                    questionCount: questionCount ?? 5,
                     existingQuestions,
                     performanceTelemetry,
                     sourceCardIds,

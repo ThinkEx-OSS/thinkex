@@ -40,6 +40,7 @@ interface PdfSavedState {
   scrollTop: number;
   scrollLeft: number;
   zoom: number;
+  currentPage: number;
   timestamp: number;
 }
 
@@ -84,6 +85,7 @@ const PdfStatePersister = ({ documentId, pdfSrc, itemId }: { documentId: string;
           scrollTop: metrics.scrollTop,
           scrollLeft: metrics.scrollLeft,
           zoom: zoomState.currentZoomLevel,
+          currentPage: scrollState?.currentPage ?? 1,
           timestamp: Date.now(),
         };
         const stateStr = JSON.stringify(state);
@@ -97,7 +99,7 @@ const PdfStatePersister = ({ documentId, pdfSrc, itemId }: { documentId: string;
     } catch (e) {
       console.warn('[PdfStatePersister] Failed to save state:', e);
     }
-  }, [viewportCapability, zoomState.currentZoomLevel, documentId, storageKey, canSave]);
+  }, [viewportCapability, zoomState.currentZoomLevel, scrollState?.currentPage, documentId, storageKey, canSave]);
 
   // Restore state on mount (only once per document)
   useEffect(() => {
