@@ -1,3 +1,5 @@
+import { fetch } from "workflow";
+
 const MAX_PDF_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
 
 /**
