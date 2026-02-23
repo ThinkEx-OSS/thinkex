@@ -678,7 +678,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
 
   return (
     <ComposerPrimitive.Root
-      className="aui-composer-root relative flex w-full flex-col rounded-lg border border-sidebar-border bg-sidebar-accent px-1 pt-1 shadow-[0_9px_9px_0px_rgba(0,0,0,0.01),0_2px_5px_0px_rgba(0,0,0,0.06)] dark:border-sidebar-border/15"
+      className="aui-composer-root relative flex w-full flex-col rounded-lg border border-sidebar-border bg-sidebar-accent px-3.5 pt-2 pb-1 shadow-[0_9px_9px_0px_rgba(0,0,0,0.01),0_2px_5px_0px_rgba(0,0,0,0.06)] dark:border-sidebar-border/15"
       onClick={(e) => {
         // Focus the input when clicking anywhere in the composer area
         // This allows users to easily return focus after interacting with quizzes or other cards
@@ -760,7 +760,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         <ComposerPrimitive.Input
           ref={inputRef}
           placeholder="Ask anything or @mention context"
-          className="aui-composer-input max-h-32 w-full resize-none bg-transparent px-3.5 py-1.5 text-base text-sidebar-foreground outline-none placeholder:text-sidebar-foreground/60 focus:outline-none"
+          className="aui-composer-input max-h-32 w-full resize-none bg-transparent py-1.5 text-base text-sidebar-foreground outline-none placeholder:text-sidebar-foreground/60 focus:outline-none"
           rows={1}
           autoFocus
           aria-label="Message input"
@@ -827,7 +827,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
   }, [items]);
 
   return (
-    <div className="aui-composer-action-wrapper relative mx-1 mb-2 flex items-center justify-between">
+    <div className="aui-composer-action-wrapper relative mb-2 flex items-center justify-between">
       {/* Attachment buttons on the left */}
       <div className="flex items-center gap-1 relative z-0">
         <div className="relative z-0">
@@ -843,7 +843,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="flex items-center gap-1.5 px-1.5 py-1 rounded-md bg-sidebar-accent hover:bg-accent transition-colors flex-shrink-0 text-xs font-normal text-muted-foreground hover:text-foreground cursor-pointer"
+              className="flex items-center gap-1.5 pl-0 pr-1.5 py-1 rounded-md bg-sidebar-accent hover:bg-accent transition-colors flex-shrink-0 text-xs font-normal text-muted-foreground hover:text-foreground cursor-pointer"
             >
               {getModelIcon(selectedModel.id)}
               <span>{getModelDisplayName(selectedModel.id)}</span>
@@ -890,7 +890,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
         {process.env.NODE_ENV === "development" && (
           <button
             type="button"
-            className="flex items-center gap-1.5 px-1.5 py-1 rounded-md bg-red-500/10 hover:bg-red-500/20 transition-colors flex-shrink-0 text-xs font-normal text-red-500 hover:text-red-400 cursor-pointer border border-red-500/20"
+            className="flex items-center gap-1.5 pl-0 pr-1.5 py-1 rounded-md bg-red-500/10 hover:bg-red-500/20 transition-colors flex-shrink-0 text-xs font-normal text-red-500 hover:text-red-400 cursor-pointer border border-red-500/20"
             onClick={() => {
               window.open("http://localhost:4983", "_blank");
             }}
