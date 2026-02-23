@@ -219,8 +219,8 @@ async function runDistillationAgent(
   const combinedContext = contextParts.length > 0 ? contextParts.join("") : "";
   const contentWithContext: UserMessagePart[] = combinedContext
     ? userMessage.content.map((part): UserMessagePart =>
-        part.type === "text" ? { type: "text", text: combinedContext + (part.text ?? "") } : part
-      )
+      part.type === "text" ? { type: "text", text: combinedContext + (part.text ?? "") } : part
+    )
     : userMessage.content;
 
   const { partialOutputStream } = streamText({
@@ -233,7 +233,7 @@ You are a workspace content distiller. The user provides content (prompt, files,
 <task>
 1. Generate workspace metadata: a short title (5-6 words), an icon from the list, and a hex color.
 2. Write a content summary (200-800 words) with key concepts, facts, and structure for notes and flashcards.
-3. Produce a quiz topic string (optionally "References: ..." if links are relevant).
+3. Produce a quiz topic string focused EXPLICITLY on the introductory / foundational concepts covered at the very beginning of the content (optionally "References: ..." if links are relevant). Do NOT use advanced concepts from the middle or end.
 4. Produce a YouTube search term: broad, 2-5 common words (e.g. "Emacs tutorial beginners"). Do NOT use course codes, assignment names, or narrow phrasing.
 </task>
 
