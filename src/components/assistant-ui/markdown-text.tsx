@@ -101,7 +101,8 @@ const CitationRenderer = memo(
     const { state: workspaceState } = useWorkspaceState(workspaceId);
     const navigateToItem = useNavigateToItem();
     const setOpenModalItemId = useUIStore((s) => s.setOpenModalItemId);
-    const titleNorm = (s: string) => s.trim().toLowerCase();
+    // Normalize for matching: trim, lowercase, strip .pdf (model may include it; items often don't)
+    const titleNorm = (s: string) => s.trim().toLowerCase().replace(/\.pdf$/i, "");
     const setCitationHighlightQuery = useUIStore((s) => s.setCitationHighlightQuery);
 
     const handleWorkspaceItemClick = () => {
