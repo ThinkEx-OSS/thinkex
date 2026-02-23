@@ -827,7 +827,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
   return (
     <div className="aui-composer-action-wrapper relative mb-2 flex items-center justify-between">
       {/* Attachment buttons on the left */}
-      <div className="flex items-center gap-1 relative z-0">
+      <div className="flex items-center gap-1.5 relative z-0">
         <div className="relative z-0">
           <ComposerAddAttachment />
         </div>
