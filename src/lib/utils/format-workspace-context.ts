@@ -127,14 +127,17 @@ Use simple plain text only. Bare minimum for uniqueness. No math, LaTeX, or comp
 Output citation HTML: <citation>REF</citation> where REF is one of:
 
 - Web URL: <citation>https://example.com/article</citation>
-- Workspace note: <citation>Note Title</citation>
+- Workspace note: <citation>Note Title</citation> — or virtual path: <citation>notes/My Note.md</citation>
 - Workspace + quote: <citation>Note Title | exact excerpt</citation> — pipe with spaces; only when you have the exact text
+- PDF: <citation>PDF Title</citation> or virtual path: <citation>pdfs/Syllabus.pdf</citation>
 - PDF with page: <citation>PDF Title | exact excerpt | p. 5</citation> — for PDFs, ALWAYS include page; use " | p. N" at end (1-indexed)
-- PDF with page only: <citation>PDF Title | p. 5</citation>
+- PDF with page only: <citation>PDF Title | p. 5</citation> or <citation>pdfs/Syllabus.pdf | p. 3</citation>
 
 Examples (plain text only):
 - <citation>https://en.wikipedia.org/wiki/Supply_chain</citation>
 - <citation>My Calculus Notes</citation>
+- <citation>notes/My Calculus Notes.md</citation>
+- <citation>pdfs/Syllabus.pdf</citation>
 - <citation>My Calculus Notes | the derivative rule for power functions</citation>
 - <citation>Math 240 Textbook | limit definition | p. 42</citation>
 

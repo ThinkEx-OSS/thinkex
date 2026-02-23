@@ -27,6 +27,7 @@ import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { getCitationUrl } from "@/lib/utils/preprocess-latex";
+import { resolveItemByPath } from "@/lib/ai/tools/workspace-search-utils";
 import { preprocessLatex } from "@/lib/utils/preprocess-latex";
 import { cn } from "@/lib/utils";
 
@@ -107,11 +108,17 @@ const CitationRenderer = memo(
 
     const handleWorkspaceItemClick = () => {
       if (!workspaceState?.items || !title) return;
-      const item = workspaceState.items.find(
-        (i) =>
-          (i.type === "note" || i.type === "pdf") &&
-          titleNorm(i.name) === titleNorm(title)
-      );
+      // Resolve by virtual path first (e.g. "pdfs/Syllabus.pdf") — AI may cite using paths from <virtual-workspace>
+      const items = workspaceState.items;
+      const byPath = resolveItemByPath(items, title);
+      const item =
+        byPath && (byPath.type === "note" || byPath.type === "pdf")
+          ? byPath
+          : items.find(
+              (i) =>
+                (i.type === "note" || i.type === "pdf") &&
+                titleNorm(i.name) === titleNorm(title)
+            );
       if (!item) return;
       // Set citation highlight: for PDFs with page, or when we have a quote to search
       if (quote?.trim() || (pageNumber != null && item.type === "pdf")) {
@@ -125,8 +132,10 @@ const CitationRenderer = memo(
       setOpenModalItemId(item.id);
     };
 
+    // For path-like refs (e.g. pdfs/Syllabus.pdf), show basename in badge
+    const displayTitle = title.includes("/") ? title.split("/").pop() ?? title : title;
     const badgeLabel =
-      title.slice(0, 20) + (title.length > 20 ? "…" : "") +
+      displayTitle.slice(0, 20) + (displayTitle.length > 20 ? "…" : "") +
       (pageNumber != null ? ` · p.${pageNumber}` : "");
 
     return (
