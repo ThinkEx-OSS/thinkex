@@ -44,7 +44,9 @@ export async function POST(req: NextRequest) {
     if (process.env.NEXT_PUBLIC_APP_URL) {
       allowedHosts.push(new URL(process.env.NEXT_PUBLIC_APP_URL).hostname);
     }
-    allowedHosts.push("localhost", "127.0.0.1");
+    if (process.env.NODE_ENV === "development") {
+      allowedHosts.push("localhost", "127.0.0.1");
+    }
 
     let parsedUrl: URL;
     try {

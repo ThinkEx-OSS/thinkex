@@ -92,7 +92,14 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
                         message: `Multiple items named "${itemName}". Use path to disambiguate: ${paths}`,
                     };
                 }
-                item = fuzzyMatchItem(items, itemName.trim());
+                if (exactMatches.length === 1) {
+                    item = exactMatches[0]!;
+                } else {
+                    item = fuzzyMatchItem(
+                        items.filter((i) => i.type !== "folder"),
+                        itemName.trim()
+                    );
+                }
             }
 
             if (!item) {

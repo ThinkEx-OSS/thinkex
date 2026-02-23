@@ -52,7 +52,9 @@ export async function POST(req: NextRequest) {
     if (process.env.NEXT_PUBLIC_APP_URL) {
       allowedHosts.push(new URL(process.env.NEXT_PUBLIC_APP_URL).hostname);
     }
-    allowedHosts.push("localhost"); // local storage in dev
+    if (process.env.NODE_ENV === "development") {
+      allowedHosts.push("localhost"); // local storage in dev
+    }
 
     let parsedUrl: URL;
     try {

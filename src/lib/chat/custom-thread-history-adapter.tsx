@@ -80,7 +80,7 @@ export function useCustomThreadHistoryAdapter(): ThreadHistoryAdapter {
             const messageId = formatAdapter.getId(item.message);
             const encoded = formatAdapter.encode(item) as TStorageFormat;
 
-            const res = await fetch(`/api/threads/${remoteId}/messages`, {
+            const res = await fetch(`/api/threads/${encodeURIComponent(remoteId)}/messages`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -104,7 +104,7 @@ export function useCustomThreadHistoryAdapter(): ThreadHistoryAdapter {
             if (!remoteId) return { messages: [] };
 
             const res = await fetch(
-              `/api/threads/${remoteId}/messages?format=${formatAdapter.format}`
+              `/api/threads/${encodeURIComponent(remoteId)}/messages?format=${encodeURIComponent(formatAdapter.format)}`
             );
             if (!res.ok) {
               throw new Error(`Failed to load messages: ${res.status}`);

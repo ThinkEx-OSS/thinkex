@@ -5,7 +5,7 @@ import {
   requireAuth,
   verifyWorkspaceAccess,
 } from "@/lib/api/workspace-helpers";
-import { eq, desc } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 
 async function getThreadAndVerify(id: string, userId: string) {
   const [thread] = await db
@@ -42,12 +42,10 @@ export async function GET(
     const rows = await db
       .select()
       .from(chatMessages)
-      .where(eq(chatMessages.threadId, id))
+      .where(and(eq(chatMessages.threadId, id), eq(chatMessages.format, format)))
       .orderBy(desc(chatMessages.createdAt));
 
-    const messages = rows
-      .filter((r) => r.format === format)
-      .map((r) => ({
+    const messages = rows.map((r) => ({
         id: r.messageId,
         parent_id: r.parentId,
         format: r.format,

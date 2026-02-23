@@ -174,7 +174,8 @@ export function createUpdateNoteTool(ctx: WorkspaceToolContext) {
 
                 // Read-before-write: for targeted edits, assert item was read
                 // Skip assert when threadId is a placeholder (e.g. DEFAULT_THREAD_ID before thread exists)
-                const isTargetedEdit = oldString.trim().length > 0;
+                // Use exact empty check so whitespace-only oldString still enforces read requirement
+                const isTargetedEdit = oldString !== "";
                 if (isTargetedEdit && isValidThreadIdForDb(ctx.threadId)) {
                     const currentLastModified = matchedNote.lastModified ?? 0;
                     const assert = await assertWorkspaceItemRead(

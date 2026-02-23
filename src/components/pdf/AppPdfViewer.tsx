@@ -702,7 +702,7 @@ const PdfSearchBar = ({ documentId }: { documentId: string }) => {
 
 const PDF_HIGHLIGHT_DURATION_MS = 2500;
 
-/** Scrolls to initialPage when layout is ready. Uses EmbedPDF's onLayoutReady (EventHook API). */
+/** Scrolls to initialPage when layout is ready. Also scrolls when initialPage changes after load (e.g. citation navigation). */
 const PdfInitialPageScroll = ({
   documentId,
   initialPage,
@@ -713,22 +713,44 @@ const PdfInitialPageScroll = ({
   onScrolled?: () => void;
 }) => {
   const { provides: scrollCapability } = useScrollCapability();
+  const layoutReadyRef = useRef<{ totalPages: number } | null>(null);
 
   useEffect(() => {
     if (!scrollCapability || initialPage == null || initialPage < 1) return;
 
-    const unsub = scrollCapability.onLayoutReady((ev) => {
-      if (ev.documentId !== documentId || !ev.isInitial || ev.totalPages < 1) return;
-
+    const scrollToPage = (totalPages: number) => {
       const scrollScope = scrollCapability.forDocument(documentId);
       if (!scrollScope) return;
-
-      const page = Math.min(Math.max(1, initialPage), ev.totalPages);
+      const page = Math.min(Math.max(1, initialPage), totalPages);
       scrollScope.scrollToPage({ pageNumber: page });
       onScrolled?.();
+    };
+
+    const unsub = scrollCapability.onLayoutReady((ev) => {
+      if (ev.documentId !== documentId || !ev.isInitial || ev.totalPages < 1) return;
+      layoutReadyRef.current = { totalPages: ev.totalPages };
+      scrollToPage(ev.totalPages);
     });
 
     return unsub;
+  }, [scrollCapability, documentId]);
+
+  // Clear ref when document changes so we don't use stale totalPages
+  useEffect(() => {
+    return () => {
+      layoutReadyRef.current = null;
+    };
+  }, [documentId]);
+
+  // When initialPage changes after layout is ready, scroll without waiting for onLayoutReady again
+  useEffect(() => {
+    if (!scrollCapability || initialPage == null || initialPage < 1 || !layoutReadyRef.current) return;
+    const { totalPages } = layoutReadyRef.current;
+    const scrollScope = scrollCapability.forDocument(documentId);
+    if (!scrollScope) return;
+    const page = Math.min(Math.max(1, initialPage), totalPages);
+    scrollScope.scrollToPage({ pageNumber: page });
+    onScrolled?.();
   }, [scrollCapability, documentId, initialPage, onScrolled]);
 
   return null;

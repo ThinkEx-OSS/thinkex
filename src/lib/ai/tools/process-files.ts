@@ -199,10 +199,11 @@ async function processPdfImages(
 
             const dataUrl =
                 base64.startsWith("data:") ? base64 : `data:image/png;base64,${base64}`;
-            const mediaType = ref.imageId.toLowerCase().match(/\.(jpe?g|png|gif|webp)$/)
-                ? (ref.imageId.endsWith(".png") ? "image/png"
-                    : ref.imageId.match(/\.jpe?g$/i) ? "image/jpeg"
-                        : ref.imageId.endsWith(".gif") ? "image/gif"
+            const lower = ref.imageId.toLowerCase();
+            const mediaType = lower.match(/\.(jpe?g|png|gif|webp)$/)
+                ? (lower.endsWith(".png") ? "image/png"
+                    : lower.match(/\.jpe?g$/) ? "image/jpeg"
+                        : lower.endsWith(".gif") ? "image/gif"
                             : "image/webp")
                 : "image/png";
 
@@ -413,9 +414,10 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
                 return "Error: 'urls' must be an array.";
             }
 
-            // If only pdfImageRefs were provided and we processed them, return those
-            if (urlList.length === 0 && pdfImageResults.length > 0) {
-                return pdfImageResults.join("\n\n---\n\n");
+            // If only pdfImageRefs and/or cached content: combine both when present
+            if (urlList.length === 0 && (cachedResults.length > 0 || pdfImageResults.length > 0)) {
+                const parts = [...cachedResults, ...pdfImageResults].filter(Boolean);
+                return parts.join("\n\n---\n\n");
             }
 
             if (urlList.length === 0) {

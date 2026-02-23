@@ -35,11 +35,11 @@ export async function PATCH(
     const userId = await requireAuth();
     const { id: threadId, messageId } = await params;
     const body = await req.json().catch(() => ({}));
-    const { format, content } = body;
+    const { content } = body;
 
-    if (!format || content === undefined) {
+    if (content === undefined) {
       return NextResponse.json(
-        { error: "format and content are required" },
+        { error: "content is required" },
         { status: 400 }
       );
     }

@@ -390,12 +390,30 @@ function DashboardContent({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ fileUrl: r.fileUrl, itemId }),
         })
-          .then((res) => res.json())
+          .then(async (res) => {
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({ error: res.statusText }));
+              throw new Error((err as { error?: string }).error ?? `OCR start failed: ${res.status}`);
+            }
+            return res.json();
+          })
           .then((data) => {
             if (data.runId && data.itemId) {
-              import("@/lib/pdf/poll-pdf-ocr").then(({ pollPdfOcr }) =>
-                pollPdfOcr(data.runId, data.itemId)
-              );
+              import("@/lib/pdf/poll-pdf-ocr")
+                .then(({ pollPdfOcr }) => pollPdfOcr(data.runId, data.itemId))
+                .catch((err) => {
+                  window.dispatchEvent(
+                    new CustomEvent("pdf-processing-complete", {
+                      detail: {
+                        itemId,
+                        textContent: "",
+                        ocrPages: [],
+                        ocrStatus: "failed" as const,
+                        ocrError: err instanceof Error ? err.message : "Failed to start OCR polling",
+                      },
+                    })
+                  );
+                });
             } else {
               window.dispatchEvent(
                 new CustomEvent("pdf-processing-complete", {

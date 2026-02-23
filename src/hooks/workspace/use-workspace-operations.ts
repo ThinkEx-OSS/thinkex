@@ -121,7 +121,7 @@ export function useWorkspaceOperations(
 
       if (hasDuplicateName(currentState.items, finalName, validType, folderId)) {
         toast.error(`A ${validType} named "${finalName}" already exists in this folder`);
-        return id;
+        return "";
       }
 
       const item: Item = {
