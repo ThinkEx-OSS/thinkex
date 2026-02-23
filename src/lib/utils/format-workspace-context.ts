@@ -690,6 +690,8 @@ function formatPdfDetailsFull(
             }
             if (page.footer) lines.push(`     Footer: ${page.footer}`);
         }
+    } else if (data.ocrStatus === "processing") {
+        lines.push(`   - (Content is being extracted. Please wait a moment and try readWorkspace or processFiles again.)`);
     } else {
         lines.push(`   - (Content not yet extracted. You must call the processFiles tool to extract it — do not ask the user to do this.)`);
     }
