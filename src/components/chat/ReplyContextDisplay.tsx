@@ -36,7 +36,7 @@ function ReplyContextDisplayImpl() {
           animate={{ opacity: 1, height: "auto" }}
           exit={{ opacity: 0, height: 0 }}
           transition={{ duration: 0.2, ease: "easeOut" }}
-          className="flex items-center gap-1.5 px-1 py-1 overflow-hidden"
+          className="flex items-center gap-1.5 py-1 overflow-hidden"
         >
           {/* Selections Container */}
           <div

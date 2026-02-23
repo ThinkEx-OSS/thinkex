@@ -46,7 +46,7 @@ function CardContextDisplayImpl({ items }: CardContextDisplayProps) {
   };
 
   return (
-    <div className="flex items-center gap-1.5 px-3 py-1 overflow-visible">
+    <div className="flex items-center gap-1.5 py-1 overflow-visible">
       {/* Items Container */}
       <div
         className={`flex gap-1.5 flex-1 items-center ${isExpanded ? "flex-wrap" : "flex-nowrap overflow-hidden"
