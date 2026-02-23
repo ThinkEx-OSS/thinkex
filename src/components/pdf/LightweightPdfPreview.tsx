@@ -11,6 +11,7 @@ import { Loader2 } from 'lucide-react';
 interface PdfSavedState {
     scrollTop: number;
     zoom: number;
+    currentPage?: number;
     timestamp: number;
 }
 
@@ -26,6 +27,38 @@ interface PdfSnapshotRendererProps {
     pdfSrc: string;
     className?: string;
     pageCount: number;
+}
+
+function getErrorDetails(error: unknown): Record<string, unknown> {
+    if (error instanceof Error) {
+        return {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+        };
+    }
+
+    if (typeof error === 'object' && error !== null) {
+        const maybeError = error as Record<string, unknown>;
+        return {
+            name: typeof maybeError.name === 'string' ? maybeError.name : undefined,
+            message: typeof maybeError.message === 'string' ? maybeError.message : undefined,
+            code: maybeError.code,
+            reason: maybeError.reason,
+        };
+    }
+
+    return { value: error };
+}
+
+function hasLikelyStaleCurrentPage(state: PdfSavedState, pageCount: number): boolean {
+    if (pageCount <= 1) return false;
+    if (typeof state.currentPage !== 'number' || state.currentPage < 1) return false;
+    if (state.currentPage > 1) return false;
+
+    const zoom = state.zoom || 1.0;
+    const approxFirstPageHeight = 800 * zoom;
+    return state.scrollTop > approxFirstPageHeight * 1.25;
 }
 
 /**
@@ -45,7 +78,6 @@ function PdfSnapshotRenderer({
     const [scrollOffset, setScrollOffset] = useState<number>(0);
     const [displayScale, setDisplayScale] = useState(1); // Track DPR to scale image back down
     const mountedRef = useRef(true);
-    const hasRenderedRef = useRef(false);
 
     // Get saved state from localStorage
     const savedState = useMemo((): PdfSavedState | null => {
@@ -61,36 +93,61 @@ function PdfSnapshotRenderer({
         return null;
     }, [pdfSrc]);
 
-    // Calculate page from saved scroll position
+    // Determine which page to display.
+    // Prefer the explicitly saved currentPage (1-indexed) over the approximate
+    // scrollTop heuristic, which drifts significantly on tall documents.
     const estimatedPage = useMemo(() => {
         if (!savedState) return 0;
 
+        const hasCurrentPage = typeof savedState.currentPage === 'number' && savedState.currentPage >= 1;
+        const currentPageLooksStale = hasCurrentPage && hasLikelyStaleCurrentPage(savedState, pageCount);
+        const exactCurrentPage = typeof savedState.currentPage === 'number' ? savedState.currentPage : 1;
+
+        if (hasCurrentPage && !currentPageLooksStale) {
+            // Use exact saved page (convert 1-indexed → 0-indexed)
+            return Math.max(0, Math.min(exactCurrentPage - 1, pageCount - 1));
+        }
+
+        // Fallback for old cached states that don't have currentPage (or stale currentPage)
         const zoom = savedState.zoom || 1.0;
-        // Rough estimation: assume ~800px per page at zoom 1.0
         const avgPageHeight = 800 * zoom;
         const page = Math.floor(savedState.scrollTop / avgPageHeight);
         return Math.max(0, Math.min(page, pageCount - 1));
     }, [savedState, pageCount]);
 
-    // Render the pages when ready (prev, current, next)
+    // Keep refs always pointing at the latest values so the render effect can read
+    // them without needing them in its dependency array. This avoids the old race
+    // where hasRenderedRef blocked a re-render after estimatedPage settled while
+    // renderCapability was already available.
+    const estimatedPageRef = useRef(estimatedPage);
+    estimatedPageRef.current = estimatedPage;
+    const savedStateRef = useRef(savedState);
+    savedStateRef.current = savedState;
+
+    // Render the pages when ready (prev, current, next).
+    // Depends only on renderCapability and pageCount — the truly async values that
+    // determine when we are ready to render. estimatedPage and savedState are read
+    // synchronously via refs inside the async callback.
     useEffect(() => {
-        if (!renderCapability || hasRenderedRef.current) return;
+        if (!renderCapability || pageCount === 0) return;
 
         mountedRef.current = true;
-        hasRenderedRef.current = true;
 
         const renderSnapshot = async () => {
             try {
                 setIsRendering(true);
 
-                const currentPageIndex = estimatedPage;
+                // Read latest values via refs so this effect doesn't need to re-run
+                // every time estimatedPage or savedState changes.
+                const currentPageIndex = estimatedPageRef.current;
+                const currentSavedState = savedStateRef.current;
 
                 // Set page info for display
                 setPageInfo({ current: currentPageIndex + 1, total: pageCount });
 
                 // Get saved zoom or use default (don't cap to preserve user's view)
                 // Multiply by device pixel ratio for sharp rendering on retina displays
-                const baseScale = savedState?.zoom || 0.5;
+                const baseScale = currentSavedState?.zoom || 0.5;
                 const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
                 const renderDpr = Math.min(dpr, 2); // Cap DPR at 2x to avoid huge renders
                 const scale = baseScale * renderDpr;
@@ -112,7 +169,7 @@ function PdfSnapshotRenderer({
                 pagesToRender.push(currentPageIndex);
                 if (currentPageIndex < pageCount - 1) pagesToRender.push(currentPageIndex + 1);
 
-                // Render all pages and stitch them together
+                // Render pages one-by-one. A failure on one page should not blank the entire preview.
                 const renderPage = (pageIdx: number): Promise<Blob> => {
                     return new Promise((resolve, reject) => {
                         const task = renderScope.renderPage({
@@ -129,30 +186,78 @@ function PdfSnapshotRenderer({
                     });
                 };
 
-                // Render all pages in parallel
-                const blobs = await Promise.all(pagesToRender.map(renderPage));
+                const renderedPages: Array<{ pageIdx: number; blob: Blob }> = [];
+                for (const pageIdx of pagesToRender) {
+                    try {
+                        const blob = await renderPage(pageIdx);
+                        renderedPages.push({ pageIdx, blob });
+                    } catch (error) {
+                        console.error('[LightweightPdfPreview] Failed to render page', {
+                            documentId,
+                            pageIdx,
+                            pageCount,
+                            requestedCurrentPage: currentPageIndex,
+                            error: getErrorDetails(error),
+                        });
+                    }
+                }
+
+                if (renderedPages.length === 0) {
+                    console.error('[LightweightPdfPreview] No pages rendered for snapshot', {
+                        documentId,
+                        pageCount,
+                        requestedCurrentPage: currentPageIndex,
+                    });
+                    setImageUrl(null);
+                    setIsRendering(false);
+                    return;
+                }
 
                 if (!mountedRef.current) return;
 
                 // Convert blobs to images and stitch them vertically
-                const images = await Promise.all(blobs.map(blob => {
-                    return new Promise<HTMLImageElement>((resolve, reject) => {
-                        const img = new Image();
-                        img.onload = () => resolve(img);
-                        img.onerror = reject;
-                        img.src = URL.createObjectURL(blob);
+                const images: Array<{ pageIdx: number; image: HTMLImageElement }> = [];
+                for (const { pageIdx, blob } of renderedPages) {
+                    try {
+                        const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+                            const img = new Image();
+                            img.onload = () => resolve(img);
+                            img.onerror = reject;
+                            img.src = URL.createObjectURL(blob);
+                        });
+                        images.push({ pageIdx, image });
+                    } catch (error) {
+                        console.error('[LightweightPdfPreview] Failed to decode rendered page image', {
+                            documentId,
+                            pageIdx,
+                            error: getErrorDetails(error),
+                        });
+                    }
+                }
+
+                if (images.length === 0) {
+                    console.error('[LightweightPdfPreview] All rendered page images failed to decode', {
+                        documentId,
+                        pageCount,
+                        requestedCurrentPage: currentPageIndex,
                     });
-                }));
+                    setImageUrl(null);
+                    setIsRendering(false);
+                    return;
+                }
 
                 if (!mountedRef.current) {
-                    images.forEach(img => URL.revokeObjectURL(img.src));
+                    images.forEach(({ image }) => URL.revokeObjectURL(image.src));
                     return;
                 }
 
                 // Calculate total canvas size
-                const maxWidth = Math.max(...images.map(img => img.width));
-                const totalHeight = images.reduce((sum, img) => sum + img.height, 0);
+                const maxWidth = Math.max(...images.map(({ image }) => image.width));
+                const totalHeight = images.reduce((sum, { image }) => sum + image.height, 0);
                 const gap = 10 * renderDpr; // Small gap between pages
+                const pageOffsetMap = new Map<number, number>();
+                const hasCurrentPage = images.some(({ pageIdx }) => pageIdx === currentPageIndex);
+                const displayPageIndex = hasCurrentPage ? currentPageIndex : images[0].pageIdx;
 
                 // Create canvas and stitch images
                 const canvas = document.createElement('canvas');
@@ -165,42 +270,70 @@ function PdfSnapshotRenderer({
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
                     let yOffset = 0;
-                    images.forEach((img, i) => {
+                    images.forEach(({ pageIdx, image }) => {
+                        pageOffsetMap.set(pageIdx, yOffset);
                         // Center each page horizontally
-                        const xOffset = (maxWidth - img.width) / 2;
-                        ctx.drawImage(img, xOffset, yOffset);
-                        yOffset += img.height + gap;
+                        const xOffset = (maxWidth - image.width) / 2;
+                        ctx.drawImage(image, xOffset, yOffset);
+                        yOffset += image.height + gap;
                     });
 
                     // Convert to blob
                     canvas.toBlob((blob) => {
                         if (blob && mountedRef.current) {
                             const url = URL.createObjectURL(blob);
-                            setImageUrl(url);
+                            setImageUrl((prevUrl) => {
+                                if (prevUrl) URL.revokeObjectURL(prevUrl);
+                                return url;
+                            });
+                            setPageInfo({ current: displayPageIndex + 1, total: pageCount });
 
-                            // Calculate scroll offset - need to account for previous page
-                            if (savedState) {
-                                const zoom = savedState.zoom || 1.0;
+                            // Calculate scroll offset relative to the rendered page used for display.
+                            // For modern saved state with exact currentPage, anchor to page top to avoid
+                            // drift/overshoot artifacts from approximated per-page heights.
+                            const pageTopOffset = pageOffsetMap.get(displayPageIndex) ?? 0;
+                            const displayPageImage = images.find(({ pageIdx }) => pageIdx === displayPageIndex)?.image;
+                            const displayPageHeight = displayPageImage?.height ?? 0;
+                            const hasExactCurrentPage =
+                                typeof currentSavedState?.currentPage === 'number' &&
+                                currentSavedState.currentPage >= 1 &&
+                                !hasLikelyStaleCurrentPage(currentSavedState, pageCount);
+
+                            if (currentSavedState && !hasExactCurrentPage) {
+                                // Legacy state fallback: no saved currentPage. Keep old heuristic but
+                                // constrain the offset to the active page bounds.
+                                const zoom = currentSavedState.zoom || 1.0;
                                 const avgPageHeight = 800 * zoom;
-                                const pageStartY = currentPageIndex * avgPageHeight;
-                                const offsetWithinPage = savedState.scrollTop - pageStartY;
-
-                                // Add height of previous page(s) to offset
-                                const prevPagesHeight = currentPageIndex > 0 ? images[0].height + gap : 0;
-
-                                setScrollOffset(prevPagesHeight + Math.max(0, offsetWithinPage * renderDpr));
+                                const pageStartY = displayPageIndex * avgPageHeight;
+                                const offsetWithinPage = currentSavedState.scrollTop - pageStartY;
+                                const rawOffset = pageTopOffset + Math.max(0, offsetWithinPage * renderDpr);
+                                const pageMaxOffset = pageTopOffset + Math.max(0, displayPageHeight - 1);
+                                const clampedOffset = Math.min(Math.max(pageTopOffset, rawOffset), pageMaxOffset);
+                                setScrollOffset(clampedOffset);
+                            } else {
+                                // Exact state path (or no state): stable page-top preview.
+                                const clampedOffset = Math.min(Math.max(0, pageTopOffset), Math.max(0, canvas.height - 1));
+                                setScrollOffset(clampedOffset);
                             }
 
+                            setIsRendering(false);
+                        } else if (mountedRef.current) {
+                            console.error('[LightweightPdfPreview] Failed to create snapshot blob', {
+                                documentId,
+                                pageCount,
+                                requestedCurrentPage: currentPageIndex,
+                            });
+                            setImageUrl(null);
                             setIsRendering(false);
                         }
                     }, 'image/webp', 0.92);
                 }
 
                 // Cleanup temp image URLs
-                images.forEach(img => URL.revokeObjectURL(img.src));
+                images.forEach(({ image }) => URL.revokeObjectURL(image.src));
 
             } catch (e) {
-                console.error('[LightweightPdfPreview] Error:', e);
+                console.error('[LightweightPdfPreview] Error:', getErrorDetails(e));
                 setIsRendering(false);
             }
         };
@@ -210,7 +343,7 @@ function PdfSnapshotRenderer({
         return () => {
             mountedRef.current = false;
         };
-    }, [renderCapability, documentId, estimatedPage, savedState, pageCount]);
+    }, [renderCapability, documentId, pageCount]);
 
     // Cleanup image URL on unmount
     useEffect(() => {
@@ -285,7 +418,8 @@ export function LightweightPdfPreview({ pdfSrc, className }: LightweightPdfPrevi
     // Minimal plugins - just enough to render a page image
     const plugins = useMemo(() => [
         createPluginRegistration(DocumentManagerPluginPackage, {
-            initialDocuments: [{ url: pdfSrc }],
+            // Use full-fetch so renderPage can access deep pages in this minimal, non-scrolling instance.
+            initialDocuments: [{ url: pdfSrc, mode: 'full-fetch' }],
         }),
         createPluginRegistration(RenderPluginPackage, {
             withForms: true,

@@ -40,6 +40,7 @@ interface PdfSavedState {
   scrollTop: number;
   scrollLeft: number;
   zoom: number;
+  currentPage: number;
   timestamp: number;
 }
 
@@ -54,6 +55,7 @@ const restoreCompleted = new Set<string>();
  * Persists and restores PDF scroll position and zoom level to localStorage.
  */
 const PdfStatePersister = ({ documentId, pdfSrc }: { documentId: string; pdfSrc: string }) => {
+  const { state: scrollState } = useScroll(documentId);
   const { provides: viewportCapability } = useViewportCapability();
   const { state: zoomState, provides: zoomScope } = useZoom(documentId);
   const debounceRef = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -83,6 +85,7 @@ const PdfStatePersister = ({ documentId, pdfSrc }: { documentId: string; pdfSrc:
           scrollTop: metrics.scrollTop,
           scrollLeft: metrics.scrollLeft,
           zoom: zoomState.currentZoomLevel,
+          currentPage: scrollState?.currentPage ?? 1,
           timestamp: Date.now(),
         };
         const stateStr = JSON.stringify(state);
@@ -96,7 +99,7 @@ const PdfStatePersister = ({ documentId, pdfSrc }: { documentId: string; pdfSrc:
     } catch (e) {
       console.warn('[PdfStatePersister] Failed to save state:', e);
     }
-  }, [viewportCapability, zoomState.currentZoomLevel, documentId, storageKey, canSave]);
+  }, [viewportCapability, zoomState.currentZoomLevel, scrollState?.currentPage, documentId, storageKey, canSave]);
 
   // Restore state on mount (only once per document)
   useEffect(() => {
