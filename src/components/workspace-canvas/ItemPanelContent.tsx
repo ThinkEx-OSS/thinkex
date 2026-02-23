@@ -38,6 +38,7 @@ export function ItemPanelContent({
 }: ItemPanelContentProps) {
     const isChatExpanded = useUIStore((state) => state.isChatExpanded);
     const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
+    const citationHighlightQuery = useUIStore((state) => state.citationHighlightQuery);
 
     const isDesktop = true;
 
@@ -164,6 +165,14 @@ export function ItemPanelContent({
                             showThumbnails={showThumbnails}
                             itemName={item.name}
                             itemId={item.id}
+                            initialPage={
+                                citationHighlightQuery?.itemId === item.id &&
+                                citationHighlightQuery?.pageNumber != null &&
+                                citationHighlightQuery.pageNumber >= 1 &&
+                                !citationHighlightQuery?.query?.trim()
+                                    ? citationHighlightQuery.pageNumber
+                                    : undefined
+                            }
                             isMaximized={isMaximized}
                             renderHeader={(documentId, annotationControls) => (
                                 <div>

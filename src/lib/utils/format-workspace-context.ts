@@ -56,7 +56,7 @@ Workspace is empty. Reference items by name when created.
     );
 
     return `<virtual-workspace>
-Paths and metadata. Use readWorkspace to read content. Use processFiles for PDFs that need content extracted.
+Paths and metadata. Use readWorkspace to read content. Call processFiles for PDFs that need content extracted (you call it — do not ask the user).
 
 ${entries.join("\n")}
 </virtual-workspace>`;
@@ -109,7 +109,7 @@ Use webSearch when: temporal cues ("today", "latest", "current"), real-time data
 Use internal knowledge for: creative writing, coding, general concepts, summarizing provided content.
 If uncertain about accuracy, prefer to search.
 
-PDF: Use readWorkspace for PDFs with content (pageStart/pageEnd for page ranges). If not yet available, use processFiles. For image placeholders in readWorkspace output, use processFiles with pdfImageRefs.
+PDF: Use readWorkspace for PDFs with content (pageStart/pageEnd for page ranges). If content is not yet extracted, you must call processFiles — do not ask the user. For image placeholders in readWorkspace output, call processFiles with pdfImageRefs.
 
 YOUTUBE: If user says "add a video" without a topic, infer from workspace context. Don't ask - just search.
 
@@ -696,7 +696,7 @@ function formatPdfDetailsFull(
             if (page.footer) lines.push(`     Footer: ${page.footer}`);
         }
     } else {
-        lines.push(`   - (Content not yet extracted — use processFiles to extract)`);
+        lines.push(`   - (Content not yet extracted. You must call the processFiles tool to extract it — do not ask the user to do this.)`);
     }
 
     return lines;

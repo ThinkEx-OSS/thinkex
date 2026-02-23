@@ -19,15 +19,8 @@ import type {
   ClipboardEvent as ReactClipboardEvent,
   HTMLAttributes,
 } from "react";
-import {
-  InlineCitation,
-  InlineCitationCard,
-  InlineCitationCardTrigger,
-  InlineCitationCardBody,
-  InlineCitationSource,
-  InlineCitationQuote,
-  UrlCitation,
-} from "@/components/ai-elements/inline-citation";
+import { InlineCitation, UrlCitation } from "@/components/ai-elements/inline-citation";
+import { Badge } from "@/components/ui/badge";
 import { MarkdownLink } from "@/components/ui/markdown-link";
 import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
@@ -131,37 +124,27 @@ const CitationRenderer = memo(
       setOpenModalItemId(item.id);
     };
 
-    const hasWorkspaceItem = workspaceState?.items?.some(
-      (i) =>
-        (i.type === "note" || i.type === "pdf") &&
-        titleNorm(i.name) === titleNorm(title)
-    );
+    const badgeLabel =
+      title.slice(0, 20) + (title.length > 20 ? "…" : "") +
+      (pageNumber != null ? ` · p.${pageNumber}` : "");
 
     return (
       <InlineCitation>
-        <InlineCitationCard>
-          <InlineCitationCardTrigger
-            sources={[]}
-            fallbackLabel={
-              title.slice(0, 20) + (title.length > 20 ? "…" : "") +
-              (pageNumber != null ? ` · p.${pageNumber}` : "")
+        <Badge
+          variant="secondary"
+          className="ml-0.5 px-1.5 py-0 rounded-full text-[10px] font-medium cursor-pointer hover:bg-secondary/80"
+          onClick={handleWorkspaceItemClick}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleWorkspaceItemClick();
             }
-          />
-          <InlineCitationCardBody>
-            <InlineCitationSource
-              className="block p-2.5"
-              title={title}
-              onClick={hasWorkspaceItem ? handleWorkspaceItemClick : undefined}
-            >
-              {quote && <InlineCitationQuote>{quote}</InlineCitationQuote>}
-              {pageNumber != null && (
-                <span className="mt-1.5 block text-xs text-muted-foreground">
-                  Page {pageNumber}
-                </span>
-              )}
-            </InlineCitationSource>
-          </InlineCitationCardBody>
-        </InlineCitationCard>
+          }}
+        >
+          {badgeLabel}
+        </Badge>
       </InlineCitation>
     );
   }

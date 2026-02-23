@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useRef, useState } from "react";
+import { memo, useCallback, useRef, useState, useEffect } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { BrainIcon, ChevronDownIcon } from "lucide-react";
 import {
@@ -233,8 +233,26 @@ const ReasoningGroupImpl: ReasoningGroupComponent = ({
     return lastIndex >= startIndex && lastIndex <= endIndex;
   });
 
+  const [isManuallyOpen, setIsManuallyOpen] = useState(false);
+  const isOpen = isReasoningStreaming || isManuallyOpen;
+
+  // Auto-collapse when streaming finishes
+  useEffect(() => {
+    if (!isReasoningStreaming) {
+      setIsManuallyOpen(false);
+    }
+  }, [isReasoningStreaming]);
+
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (isReasoningStreaming && !open) return;
+      setIsManuallyOpen(open);
+    },
+    [isReasoningStreaming],
+  );
+
   return (
-    <ReasoningRoot defaultOpen={isReasoningStreaming}>
+    <ReasoningRoot open={isOpen} onOpenChange={handleOpenChange}>
       <ReasoningTrigger active={isReasoningStreaming} />
       <ReasoningContent aria-busy={isReasoningStreaming}>
         <ReasoningText>{children}</ReasoningText>

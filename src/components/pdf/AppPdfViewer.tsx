@@ -52,8 +52,9 @@ const restoreCompleted = new Set<string>();
 
 /**
  * Persists and restores PDF scroll position and zoom level to localStorage.
+ * Skips scroll restore when a citation is opening this PDF (citation takes priority).
  */
-const PdfStatePersister = ({ documentId, pdfSrc }: { documentId: string; pdfSrc: string }) => {
+const PdfStatePersister = ({ documentId, pdfSrc, itemId }: { documentId: string; pdfSrc: string; itemId?: string }) => {
   const { provides: viewportCapability } = useViewportCapability();
   const { state: zoomState, provides: zoomScope } = useZoom(documentId);
   const debounceRef = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -112,8 +113,9 @@ const PdfStatePersister = ({ documentId, pdfSrc }: { documentId: string; pdfSrc:
 
     try {
       const saved = localStorage.getItem(storageKey);
+      const citationForThisItem = itemId && useUIStore.getState().citationHighlightQuery?.itemId === itemId;
 
-      if (saved) {
+      if (saved && !citationForThisItem) {
         const state: PdfSavedState = JSON.parse(saved);
 
         // Delay restoration to ensure it runs AFTER the plugin's default zoom is applied
@@ -137,7 +139,7 @@ const PdfStatePersister = ({ documentId, pdfSrc }: { documentId: string; pdfSrc:
           }, 200);
         }, 300); // Wait for default zoom to be applied first
       } else {
-        // No saved state, enable saving immediately
+        // No saved state, or citation is opening this PDF (citation scroll takes priority)
         restoreCompleted.add(restoreKey);
       }
     } catch (e) {
@@ -149,7 +151,7 @@ const PdfStatePersister = ({ documentId, pdfSrc }: { documentId: string; pdfSrc:
     return () => {
       saveCurrentState();
     };
-  }, [viewportCapability, zoomScope, documentId, pdfSrc, storageKey, restoreKey, saveCurrentState]);
+  }, [viewportCapability, zoomScope, documentId, pdfSrc, storageKey, restoreKey, saveCurrentState, itemId]);
 
   // Save on zoom changes (debounced)
   useEffect(() => {
@@ -211,6 +213,8 @@ interface Props {
   itemName?: string;
   /** Workspace item ID - for citation highlight sync */
   itemId?: string;
+  /** Scroll to this page when document loads (e.g. from citation). Uses EmbedPDF onLayoutReady. */
+  initialPage?: number;
   isMaximized?: boolean;
   /** Initial visibility of the annotation toolbar */
   initialShowAnnotations?: boolean;
@@ -695,7 +699,39 @@ const PdfSearchBar = ({ documentId }: { documentId: string }) => {
 
 const PDF_HIGHLIGHT_DURATION_MS = 2500;
 
-/** Syncs citation highlight query from store: search PDF and scroll to first match, or scroll to page if no results */
+/** Scrolls to initialPage when layout is ready. Uses EmbedPDF's onLayoutReady (EventHook API). */
+const PdfInitialPageScroll = ({
+  documentId,
+  initialPage,
+  onScrolled,
+}: {
+  documentId: string;
+  initialPage?: number;
+  onScrolled?: () => void;
+}) => {
+  const { provides: scrollCapability } = useScrollCapability();
+
+  useEffect(() => {
+    if (!scrollCapability || initialPage == null || initialPage < 1) return;
+
+    const unsub = scrollCapability.onLayoutReady((ev) => {
+      if (ev.documentId !== documentId || !ev.isInitial || ev.totalPages < 1) return;
+
+      const scrollScope = scrollCapability.forDocument(documentId);
+      if (!scrollScope) return;
+
+      const page = Math.min(Math.max(1, initialPage), ev.totalPages);
+      scrollScope.scrollToPage({ pageNumber: page });
+      onScrolled?.();
+    });
+
+    return unsub;
+  }, [scrollCapability, documentId, initialPage, onScrolled]);
+
+  return null;
+};
+
+/** Syncs citation search query from store: runs text search, scrolls to first match or page fallback. */
 const PdfCitationHighlightSync = ({ documentId, itemId }: { documentId: string; itemId?: string }) => {
   const { state, provides } = useSearch(documentId);
   const { provides: scrollCapability } = useScrollCapability();
@@ -719,41 +755,29 @@ const PdfCitationHighlightSync = ({ documentId, itemId }: { documentId: string; 
 
     const applyCitation = (hl: { itemId: string; query: string; pageNumber?: number }) => {
       const hasQuery = !!hl.query?.trim();
-      const hasPage = hl.pageNumber != null && hl.pageNumber >= 1;
+      if (!hasQuery) return; // Page-only handled by PdfInitialPageScroll
 
-      if (hasQuery) {
-        triggeredRef.current = hl.query.trim();
-        pageFallbackRef.current = hasPage ? hl.pageNumber! : null;
-        provides?.searchAllPages(hl.query.trim());
-      } else if (hasPage && scroll && hl.pageNumber != null) {
-        // No query: scroll directly to page
-        const totalPages = scrollState?.totalPages ?? 1;
-        const page = Math.min(Math.max(1, hl.pageNumber), totalPages);
-        scroll.scrollToPage({ pageNumber: page });
-        pageFallbackRef.current = null;
-      }
-
+      triggeredRef.current = hl.query.trim();
+      pageFallbackRef.current = hl.pageNumber ?? null;
+      provides?.searchAllPages(hl.query.trim());
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(clearCitation, PDF_HIGHLIGHT_DURATION_MS);
     };
 
     const unsub = useUIStore.subscribe((storeState) => {
       const hl = storeState.citationHighlightQuery;
-      if (!hl || hl.itemId !== itemId) return;
-      if (!hl.query?.trim() && !(hl.pageNumber != null && hl.pageNumber >= 1)) return;
+      if (!hl || hl.itemId !== itemId || !hl.query?.trim()) return;
       applyCitation(hl);
     });
 
     const hl = useUIStore.getState().citationHighlightQuery;
-    if (hl?.itemId === itemId && (hl.query?.trim() || (hl.pageNumber != null && hl.pageNumber >= 1))) {
-      applyCitation(hl);
-    }
+    if (hl?.itemId === itemId && hl.query?.trim()) applyCitation(hl);
 
     return () => {
       unsub();
       clearCitation();
     };
-  }, [documentId, itemId, provides, scroll, scrollState?.totalPages]);
+  }, [documentId, itemId, provides]);
 
   // Scroll to first result when search completes, or fallback to page when no results
   useEffect(() => {
@@ -794,7 +818,7 @@ const PdfCitationHighlightSync = ({ documentId, itemId }: { documentId: string; 
   return null;
 };
 
-const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, itemId, isMaximized, initialShowAnnotations = false }: Props) => {
+const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, itemId, initialPage, isMaximized, initialShowAnnotations = false }: Props) => {
   // Use the shared Pdfium engine from context
   const { engine, isLoading } = useEngineContext();
 
@@ -933,7 +957,7 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
                   {isLoaded && (
                     <div className="flex flex-col h-full relative">
                       {/* PDF State Persistence */}
-                      <PdfStatePersister documentId={activeDocumentId} pdfSrc={pdfSrc} />
+                      <PdfStatePersister documentId={activeDocumentId} pdfSrc={pdfSrc} itemId={itemId} />
 
                       {/* Show page controls on viewport scroll activity */}
                       <PdfViewportActivityListener documentId={activeDocumentId} onActivity={showControls} />
@@ -962,9 +986,14 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
                         {/* Viewport */}
                         <div className="flex-1 overflow-hidden relative">
                           <PdfSearchBar documentId={activeDocumentId} />
-                          {itemId && (
-                            <PdfCitationHighlightSync documentId={activeDocumentId} itemId={itemId} />
-                          )}
+                            <PdfInitialPageScroll
+                              documentId={activeDocumentId}
+                              initialPage={initialPage}
+                              onScrolled={() => useUIStore.getState().setCitationHighlightQuery(null)}
+                            />
+                            {itemId && (
+                              <PdfCitationHighlightSync documentId={activeDocumentId} itemId={itemId} />
+                            )}
                           <CaptureOverlay documentId={activeDocumentId} />
                           <Viewport
                             documentId={activeDocumentId}
