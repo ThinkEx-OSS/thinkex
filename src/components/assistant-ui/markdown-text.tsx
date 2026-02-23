@@ -40,6 +40,26 @@ import { cn } from "@/lib/utils";
 const math = createMathPlugin({ singleDollarTextMath: true });
 const code = createCodePlugin({ themes: ["one-dark-pro", "one-dark-pro"] });
 
+/** Parse page number from citation ref (e.g. "Title | quote | p. 5" or "Title | p. 5"). */
+function parseCitationPage(ref: string): { title: string; quote?: string; pageNumber?: number } {
+  const segments = ref.split(/\s*\|\s*/).map((s) => s.trim()).filter(Boolean);
+  if (segments.length === 0) return { title: "" };
+
+  const last = segments[segments.length - 1];
+  const pageMatch = last.match(/^(?:p\.?\s*)?(\d+)$/i) || last.match(/^page\s*(\d+)$/i);
+  let pageNumber: number | undefined;
+  let title: string;
+  let quote: string | undefined;
+
+  if (pageMatch) {
+    pageNumber = parseInt(pageMatch[1], 10);
+    segments.pop();
+  }
+  title = segments[0] ?? "";
+  quote = segments.length > 1 ? segments.slice(1).join(" | ") : undefined;
+  return { title, quote: quote || undefined, pageNumber };
+}
+
 /** Extract raw text from citation element children (handles nested elements). */
 function extractCitationText(children: ReactNode): string {
   if (typeof children === "string") return children.trim();
@@ -78,10 +98,11 @@ const CitationRenderer = memo(
       return <UrlCitation url={ref} />;
     }
 
-    // Workspace citation: Title or Title|quote
-    const pipeIdx = ref.indexOf(" | ");
-    const title = pipeIdx !== -1 ? ref.slice(0, pipeIdx).trim() : ref;
-    const quote = pipeIdx !== -1 ? ref.slice(pipeIdx + 3).trim() : undefined;
+    // Workspace citation: Title, Title|quote, or Title|quote|p. 5 (with optional page)
+    const parsed = parseCitationPage(ref);
+    const { title: parsedTitle, quote: parsedQuote, pageNumber } = parsed;
+    const title = parsedTitle;
+    const quote = parsedQuote;
 
     const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
     const { state: workspaceState } = useWorkspaceState(workspaceId);
@@ -98,8 +119,13 @@ const CitationRenderer = memo(
           titleNorm(i.name) === titleNorm(title)
       );
       if (!item) return;
-      if (quote?.trim()) {
-        setCitationHighlightQuery({ itemId: item.id, query: quote.trim() });
+      // Set citation highlight: for PDFs with page, or when we have a quote to search
+      if (quote?.trim() || (pageNumber != null && item.type === "pdf")) {
+        setCitationHighlightQuery({
+          itemId: item.id,
+          query: quote?.trim() ?? "",
+          ...(pageNumber != null && { pageNumber }),
+        });
       }
       navigateToItem(item.id, { silent: true });
       setOpenModalItemId(item.id);
@@ -116,7 +142,10 @@ const CitationRenderer = memo(
         <InlineCitationCard>
           <InlineCitationCardTrigger
             sources={[]}
-            fallbackLabel={title.slice(0, 20) + (title.length > 20 ? "…" : "")}
+            fallbackLabel={
+              title.slice(0, 20) + (title.length > 20 ? "…" : "") +
+              (pageNumber != null ? ` · p.${pageNumber}` : "")
+            }
           />
           <InlineCitationCardBody>
             <InlineCitationSource
@@ -125,6 +154,11 @@ const CitationRenderer = memo(
               onClick={hasWorkspaceItem ? handleWorkspaceItemClick : undefined}
             >
               {quote && <InlineCitationQuote>{quote}</InlineCitationQuote>}
+              {pageNumber != null && (
+                <span className="mt-1.5 block text-xs text-muted-foreground">
+                  Page {pageNumber}
+                </span>
+              )}
             </InlineCitationSource>
           </InlineCitationCardBody>
         </InlineCitationCard>

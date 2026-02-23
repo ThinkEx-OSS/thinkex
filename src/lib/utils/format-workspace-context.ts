@@ -15,10 +15,6 @@ function formatItemMetadata(item: Item, items: Item[]): string {
         case "pdf": {
             const d = item.data as PdfData;
             if (d?.filename) parts.push(`filename=${d.filename}`);
-            // OCR indicator: complete only when we have ocrPages (actual OCR ran)
-            if (d?.ocrStatus === "failed") parts.push("ocr=failed");
-            else if (d?.ocrPages?.length) parts.push("ocr=complete");
-            else parts.push("ocr=none");
             break;
         }
         case "flashcard": {
@@ -60,7 +56,7 @@ Workspace is empty. Reference items by name when created.
     );
 
     return `<virtual-workspace>
-Paths and metadata. Use readWorkspace for items with ocr=complete; use processFiles for PDFs with ocr=none.
+Paths and metadata. Use readWorkspace to read content. Use processFiles for PDFs that need content extracted.
 
 ${entries.join("\n")}
 </virtual-workspace>`;
@@ -112,7 +108,7 @@ Use webSearch when: temporal cues ("today", "latest", "current"), real-time data
 Use internal knowledge for: creative writing, coding, general concepts, summarizing provided content.
 If uncertain about accuracy, prefer to search.
 
-PDF CONTENT: For PDFs with ocr=complete (in virtual-workspace metadata), use readWorkspace to get the content — it is already extracted. Use pageStart and pageEnd (1-indexed) to read specific pages only — e.g. pageStart=5, pageEnd=10 for pages 5–10. Use processFiles only for PDFs with ocr=none (not yet extracted) or ocr=failed.
+PDF CONTENT: For PDFs with extracted content, use readWorkspace to get the content. Use pageStart and pageEnd (1-indexed) to read specific pages — e.g. pageStart=5, pageEnd=10 for pages 5–10. If readWorkspace indicates content is not yet available, use processFiles instead.
 
 PDF IMAGES: When readWorkspace shows image placeholders like ![img-0.jpeg](img-0.jpeg), use processFiles with pdfImageRefs: [{ pdfName: "<PDF item name>", imageId: "img-0.jpeg" }] to analyze the image.
 
@@ -140,27 +136,25 @@ NOTE EDITING (updateNote, Cline convention):
 - Only use emojis if the user explicitly requests them. Avoid adding emojis unless asked.
 
 INLINE CITATIONS (optional):
-Use inline brackets only — no separate block. Format: [citation:REF] where REF is one of:
+Output citation HTML directly: <citation>REF</citation> where REF is one of:
 
-- Web URL: [citation:https://example.com/article] — for web sources
-- Workspace note: [citation:Note Title] — use exact note title from workspace
-- Workspace + quote: [citation:Note Title | exact excerpt] — pipe with spaces before quote; only when you have the exact text
-
-Do NOT use page numbers (e.g. p. 3, page 5) in citations. Use the actual quoted text instead.
+- Web URL: <citation>https://example.com/article</citation>
+- Workspace note: <citation>Note Title</citation>
+- Workspace + quote: <citation>Note Title | exact excerpt</citation> — pipe with spaces; only when you have the exact text
+- PDF with page: <citation>PDF Title | exact excerpt | p. 5</citation> — for PDFs, ALWAYS include page; use " | p. N" at end (1-indexed)
+- PDF with page only: <citation>PDF Title | p. 5</citation>
 
 Examples:
-- [citation:https://en.wikipedia.org/wiki/Supply_chain]
-- [citation:My Calculus Notes]
-- [citation:My Calculus Notes | The derivative of x^2 is 2x]
+- <citation>https://en.wikipedia.org/wiki/Supply_chain</citation>
+- <citation>My Calculus Notes</citation>
+- <citation>My Calculus Notes | The derivative of x^2 is 2x</citation>
+- <citation>Math 240 Textbook | The limit of f(x) as x approaches a is L | p. 42</citation>
 
-NEVER HALLUCINATE QUOTES: Only include a quote when you have the exact excerpt from the source. If unsure, use [citation:Title] without a quote. Never fabricate or paraphrase.
+NEVER HALLUCINATE QUOTES: Only include a quote when you have the exact excerpt. If unsure, use <citation>Title</citation> without a quote. For PDFs, always include the page.
 
-When quoting: Use ONLY plain text — no math, code blocks, or special formatting. Use surrounding prose or omit the quote instead.
-
-CRITICAL — Punctuation: Put the period or comma BEFORE the citation. The citation always comes after the punctuation.
-Correct: "...flow of goods and services." [citation:Source Title | comprehensive administration]
-Correct: "demand forecasting." [citation:Source Title]
-Wrong: "...flow of goods and services" [citation:Source Title].  (do NOT put the period after the citation)
+CRITICAL — Punctuation: Put the period or comma BEFORE the citation.
+Correct: "...flow of goods and services." <citation>Source Title | comprehensive administration</citation>
+Wrong: "...flow of goods and services" <citation>Source Title</citation>.  (do NOT put the period after)
 </instructions>
 
 <formatting>
@@ -613,7 +607,7 @@ function formatNoteDetailsFull(data: NoteData): string[] {
  */
 export function formatOcrPagesAsMarkdown(ocrPages: PdfData["ocrPages"]): string {
     if (!ocrPages?.length) return "";
-    const lines: string[] = [`OCR Pages (${ocrPages.length}):`];
+    const lines: string[] = [`Pages (${ocrPages.length}):`];
     for (const page of ocrPages) {
         const pageNum = page.index + 1;
         lines.push(`--- Page ${pageNum} ---`);
@@ -688,11 +682,11 @@ function formatPdfDetailsFull(
             );
             if (pagesToShow.length > 0) {
                 lines.push(
-                    `   - OCR Pages ${pageStart ?? 1}-${pageEnd ?? data.ocrPages.length} (${pagesToShow.length} of ${data.ocrPages.length}):`
+                    `   - Pages ${pageStart ?? 1}-${pageEnd ?? data.ocrPages.length} (${pagesToShow.length} of ${data.ocrPages.length}):`
                 );
             }
         } else {
-            lines.push(`   - OCR Pages (${data.ocrPages.length}):`);
+            lines.push(`   - Pages (${data.ocrPages.length}):`);
         }
         for (const page of pagesToShow) {
             const pageNum = page.index + 1;
@@ -708,10 +702,8 @@ function formatPdfDetailsFull(
             }
             if (page.footer) lines.push(`     Footer: ${page.footer}`);
         }
-    } else if (data.textContent) {
-        lines.push(`   - Extracted Content:\n${data.textContent}`);
     } else {
-        lines.push(`   - (Content not yet extracted — use processFiles or upload the PDF to extract)`);
+        lines.push(`   - (Content not yet extracted — use processFiles to extract)`);
     }
 
     return lines;

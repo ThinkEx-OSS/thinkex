@@ -11,7 +11,7 @@ import type { PdfData, ImageData, AudioData } from "@/lib/workspace-state/types"
 import { getBestFrameForRatio, type GridFrame } from "@/lib/workspace-state/aspect-ratios";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
-import { uploadPdfAndRunOcr } from "@/lib/uploads/pdf-upload-with-ocr";
+import { uploadPdfToStorage } from "@/lib/uploads/pdf-upload-with-ocr";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 
@@ -147,7 +147,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
         const pdfFiles = filteredFiles.filter((f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
         const nonPdfFiles = filteredFiles.filter((f) => f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf'));
 
-        // PDFs: direct upload to Supabase + OCR from URL (bypasses 10MB body limit)
+        // PDFs: upload to storage only (non-blocking), OCR runs in background
         const pdfResults: Array<{
           fileUrl: string;
           filename: string;
@@ -156,40 +156,32 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
           pdfData: Partial<PdfData>;
         }> = [];
         if (pdfFiles.length > 0) {
-          const pdfToastId = toast.loading(
-            `Uploading and extracting text from ${pdfFiles.length} PDF${pdfFiles.length > 1 ? 's' : ''}...`,
-            { style: { color: '#fff' } }
-          );
-
           const pdfPromises = pdfFiles.map(async (file) => {
             try {
-              const json = await uploadPdfAndRunOcr(file);
+              const { url, filename, fileSize } = await uploadPdfToStorage(file);
               return {
-                fileUrl: json.fileUrl,
-                filename: json.filename,
-                fileSize: json.fileSize,
+                fileUrl: url,
+                filename,
+                fileSize,
                 name: file.name.replace(/\.pdf$/i, ''),
                 pdfData: {
-                  fileUrl: json.fileUrl,
-                  filename: json.filename,
-                  fileSize: json.fileSize,
-                  textContent: json.textContent,
-                  ocrPages: json.ocrPages,
-                  ocrStatus: json.ocrStatus,
-                  ...(json.ocrError && { ocrError: json.ocrError }),
+                  fileUrl: url,
+                  filename,
+                  fileSize,
+                  ocrStatus: "processing" as const,
+                  ocrPages: [],
                 } as Partial<PdfData>,
               };
             } catch (err) {
               const fileKey = getFileKey(file);
               processingFilesRef.current.delete(fileKey);
-              console.error('PDF upload-and-OCR failed:', err);
+              console.error('PDF upload failed:', err);
               return null;
             }
           });
 
           const results = await Promise.all(pdfPromises);
           pdfResults.push(...results.filter((r): r is NonNullable<typeof r> => r !== null));
-          toast.dismiss(pdfToastId);
         }
 
         // Non-PDFs: upload only
@@ -231,7 +223,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
             else imageResults.push(r);
           });
 
-          // Create PDF cards (OCR data already included)
+          // Create PDF cards (OCR runs in background)
           if (pdfResults.length > 0) {
             const pdfCardDefinitions = pdfResults.map((r) => ({
               type: 'pdf' as const,
@@ -240,6 +232,49 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
             }));
             const pdfCreatedIds = operations.createItems(pdfCardDefinitions);
             handleCreatedItems(pdfCreatedIds);
+            // Run OCR via workflow; poller dispatches pdf-processing-complete
+            pdfResults.forEach((r, i) => {
+              const itemId = pdfCreatedIds[i];
+              if (!itemId) return;
+              fetch("/api/pdf/ocr/start", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ fileUrl: r.fileUrl, itemId }),
+              })
+                .then((res) => res.json())
+                .then((data) => {
+                  if (data.runId && data.itemId) {
+                    import("@/lib/pdf/poll-pdf-ocr").then(({ pollPdfOcr }) =>
+                      pollPdfOcr(data.runId, data.itemId)
+                    );
+                  } else {
+                    window.dispatchEvent(
+                      new CustomEvent("pdf-processing-complete", {
+                        detail: {
+                          itemId,
+                          textContent: "",
+                          ocrPages: [],
+                          ocrStatus: "failed" as const,
+                          ocrError: data.error || "Failed to start OCR",
+                        },
+                      })
+                    );
+                  }
+                })
+                .catch((err) => {
+                  window.dispatchEvent(
+                    new CustomEvent("pdf-processing-complete", {
+                      detail: {
+                        itemId,
+                        textContent: "",
+                        ocrPages: [],
+                        ocrStatus: "failed" as const,
+                        ocrError: err.message || "Failed to start OCR",
+                      },
+                    })
+                  );
+                });
+            });
           }
 
           toast.dismiss(loadingToastId);

@@ -370,10 +370,34 @@ export function useWorkspaceOperations(
       const timeout = setTimeout(() => {
         const finalUpdater = pendingItemDataUpdatersRef.current.get(itemId);
         if (finalUpdater) {
-          // Get the latest item state when the timeout fires
-          const latestItem = currentState.items.find(item => item.id === itemId);
+          // CRITICAL: Read latest state from cache (not currentState closure) so we get
+          // items created after this callback was invoked (e.g. OCR completing after PDF create)
+          let latestItem: Item | undefined;
+          if (workspaceId) {
+            const cacheData = queryClient.getQueryData<EventResponse>([
+              "workspace",
+              workspaceId,
+              "events",
+            ]);
+            if (cacheData?.events) {
+              const latestState = replayEvents(cacheData.events, workspaceId, cacheData.snapshot?.state);
+              latestItem = latestState.items.find(item => item.id === itemId);
+            }
+          }
           if (!latestItem) {
-            logger.warn(`updateItemData: Item ${itemId} not found when applying debounced update`);
+            latestItem = currentState.items.find(item => item.id === itemId);
+          }
+          if (!latestItem) {
+            const cacheData = workspaceId
+              ? queryClient.getQueryData<EventResponse>(["workspace", workspaceId, "events"])
+              : null;
+            const itemCount = cacheData?.events
+              ? replayEvents(cacheData.events, workspaceId!, cacheData.snapshot?.state).items.length
+              : 0;
+            logger.warn(`[OCR/UPDATE] updateItemData: Item ${itemId} not found. Item may have been deleted. Cache has ${itemCount} items.`, {
+              itemId,
+              workspaceId,
+            });
             pendingItemDataUpdatersRef.current.delete(itemId);
             updateItemDataDebounceRef.current.delete(itemId);
             return;
@@ -382,10 +406,12 @@ export function useWorkspaceOperations(
           // Apply the final updater to get new data
           const newData = finalUpdater(latestItem.data);
 
-          logger.debug("⏱️ [DEBOUNCE] updateItemData firing after 500ms:", {
+          const ocrStatus = (newData as { ocrStatus?: string })?.ocrStatus;
+          logger.debug("[OCR/UPDATE] updateItemData firing:", {
             itemId,
-            hasDataChanges: true,
-            dataKeys: Object.keys(newData)
+            itemName: latestItem.name,
+            ocrStatus,
+            dataKeys: Object.keys(newData),
           });
 
           // Emit update event with new data - include name for version history display
@@ -404,7 +430,7 @@ export function useWorkspaceOperations(
 
       updateItemDataDebounceRef.current.set(itemId, timeout);
     },
-    [currentState, mutation, userId, userName]
+    [workspaceId, queryClient, currentState, mutation, userId, userName]
   );
 
 

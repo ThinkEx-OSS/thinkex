@@ -2,9 +2,6 @@ import { google } from "@ai-sdk/google";
 import { generateText, tool, zodSchema } from "ai";
 import { z } from "zod";
 import { logger } from "@/lib/utils/logger";
-import { readFile } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
 import { headers } from "next/headers";
 import { loadStateForTool, fuzzyMatchItem } from "./tool-utils";
 import type { WorkspaceToolContext } from "./workspace-tools";
@@ -84,96 +81,6 @@ function buildFileProcessingPrompt(
 [Content — for PDFs use markdown with preserved layout; for images use a short summary]`;
 
     return { defaultInstruction, outputFormat };
-}
-
-/**
- * Extract filename from local file URL
- */
-function extractLocalFilename(url: string): string | null {
-    // Match: http://localhost:3000/api/files/filename or /api/files/filename
-    const match = url.match(/\/api\/files\/(.+?)(?:\?|$)/);
-    return match ? decodeURIComponent(match[1]) : null;
-}
-
-/**
- * Process local files by reading from disk and sending as base64 to Gemini
- */
-async function processLocalFiles(
-    localUrls: string[],
-    instruction?: string
-): Promise<string> {
-    const uploadsDir = process.env.UPLOADS_DIR || join(process.cwd(), 'uploads');
-    const fileInfos: Array<{ filename: string; mediaType: string; data: string }> = [];
-
-    for (const url of localUrls) {
-        const filename = extractLocalFilename(url);
-        if (!filename) {
-            logger.warn(`📁 [FILE_TOOL] Could not extract filename from local URL: ${url}`);
-            continue;
-        }
-
-        // Security: Prevent directory traversal (slash and backslash for Windows)
-        if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
-            logger.warn(`📁 [FILE_TOOL] Invalid filename detected: ${filename}`);
-            continue;
-        }
-
-        const filePath = join(uploadsDir, filename);
-
-        if (!existsSync(filePath)) {
-            logger.warn(`📁 [FILE_TOOL] File not found: ${filePath}`);
-            continue;
-        }
-
-        try {
-            const fileBuffer = await readFile(filePath);
-            const base64Data = fileBuffer.toString('base64');
-            const mediaType = getMediaTypeFromUrl(url);
-
-            fileInfos.push({
-                filename,
-                mediaType,
-                data: `data:${mediaType};base64,${base64Data}`,
-            });
-        } catch (error) {
-            logger.error(`📁 [FILE_TOOL] Error reading local file ${filePath}:`, error);
-            continue;
-        }
-    }
-
-    if (fileInfos.length === 0) {
-        return "No local files could be processed";
-    }
-
-    const fileListText = fileInfos.map((f, i) => `${i + 1}. ${f.filename}`).join('\n');
-    const { defaultInstruction, outputFormat } = buildFileProcessingPrompt(fileInfos);
-
-    const batchPrompt = instruction
-        ? `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\n${instruction}\n\n${outputFormat}`
-        : `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\n${defaultInstruction}\n\n${outputFormat}`;
-
-    const messageContent: Array<{ type: "text"; text: string } | { type: "file"; data: string; mediaType: string; filename?: string }> = [
-        { type: "text", text: batchPrompt },
-        ...fileInfos.map((f) => ({
-            type: "file" as const,
-            data: f.data,
-            mediaType: f.mediaType,
-            filename: f.filename,
-        })),
-    ];
-
-    logger.debug("📁 [FILE_TOOL] Sending batched analysis request for", fileInfos.length, "local files");
-
-    const { text: batchAnalysis } = await generateText({
-        model: google("gemini-2.5-flash-lite"),
-        messages: [{
-            role: "user",
-            content: messageContent,
-        }],
-    });
-
-    logger.debug("📁 [FILE_TOOL] Successfully analyzed", fileInfos.length, "local files in batch");
-    return batchAnalysis;
 }
 
 /**
@@ -369,15 +276,15 @@ async function processYouTubeVideo(
  */
 export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
     return tool({
-        description: "Process and analyze files including PDFs, images, documents, and videos. Handles local file URLs (/api/files/...), Supabase storage URLs (files uploaded to your workspace), YouTube videos, and images extracted from PDFs (use pdfImageRefs for placeholders like img-0.jpeg from readWorkspace). Use processFiles for file URLs, video URLs, workspace file names (fuzzy matched), OR pdfImageRefs to analyze images inside PDFs. For workspace PDFs without OCR content (ocr=none), processFiles runs OCR first and caches the result; if OCR fails it falls back to Gemini via the file URL. If a PDF has cached content it will be returned automatically — set forceReprocess to true to bypass the cache.",
+        description: "Process and analyze files including PDFs, images, documents, and videos. Handles Supabase storage URLs (files uploaded to your workspace), YouTube videos, and images from PDFs (use pdfImageRefs for placeholders like img-0.jpeg from readWorkspace). Use processFiles for file URLs, video URLs, workspace file names (fuzzy matched), OR pdfImageRefs to analyze images inside PDFs. For workspace PDFs without extracted content, processFiles extracts and caches the result; if extraction fails it falls back to Gemini via the file URL. If a PDF is still extracting, respond that the user should wait. If a PDF has cached content it will be returned automatically — set forceReprocess to true to bypass the cache. Cloud storage URLs only.",
         inputSchema: zodSchema(
             z.object({
-                urls: z.array(z.string()).optional().describe("Array of file/video URLs to process (Supabase storage URLs, local /api/files/ URLs, or YouTube URLs)"),
+                urls: z.array(z.string()).optional().describe("Array of file/video URLs to process (Supabase storage URLs or YouTube URLs)"),
                 fileNames: z.array(z.string()).optional().describe("Array of workspace item names to look up via fuzzy match (e.g. 'Annual Report')"),
                 pdfImageRefs: z.array(z.object({
                     pdfName: z.string().describe("Name of the PDF workspace item (fuzzy matched)"),
-                    imageId: z.string().describe("Image placeholder ID from OCR output (e.g. img-0.jpeg)"),
-                })).optional().describe("Images extracted from PDFs during OCR — map placeholder names to base64 for analysis"),
+                    imageId: z.string().describe("Image placeholder ID from PDF (e.g. img-0.jpeg)"),
+                })).optional().describe("Images from PDFs — map placeholder names to base64 for analysis"),
                 instruction: z.string().optional().describe("Custom instruction for what to extract or focus on during analysis"),
                 forceReprocess: z.boolean().optional().describe("Set to true to bypass cached PDF content and re-analyze the file"),
             })
@@ -387,8 +294,6 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
             const fileNames = fileNamesInput || [];
             const forceReprocess = forceReprocessInput === true;
 
-            // Track matched PDF items for auto-caching after extraction
-            const matchedPdfItems: Map<string, Item> = new Map(); // fileUrl -> Item
             const cachedResults: string[] = [];
 
             // Resolve file names to URLs using fuzzy matching if context is available
@@ -416,6 +321,13 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
                                             continue; // Skip adding to urlList — no reprocessing needed
                                         }
 
+                                        // OCR already running in background from upload — respond instead of Gemini fallback
+                                        if (pdfData.ocrStatus === "processing") {
+                                            cachedResults.push(`**${matchedItem.name}**: This PDF is still being extracted. Please wait a moment and try again.`);
+                                            logger.debug(`📁 [FILE_TOOL] PDF "${name}" still processing — responding with wait message`);
+                                            continue;
+                                        }
+
                                         if (pdfData.fileUrl) {
                                             // Try OCR first (reuses upload+extract logic); fall back to Supabase URL if OCR fails
                                             const ocrResult = await runOcrForPdfUrl(pdfData.fileUrl);
@@ -424,7 +336,7 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
                                                     ? formatOcrPagesAsMarkdown(ocrResult.ocrPages)
                                                     : ocrResult.textContent;
                                                 logger.debug(`📁 [FILE_TOOL] OCR extracted content for "${name}" (${formatted.length} chars)`);
-                                                cachedResults.push(`**${matchedItem.name}** (OCR):\n\n${formatted}`);
+                                                cachedResults.push(`**${matchedItem.name}** (extracted):\n\n${formatted}`);
                                                 // Persist OCR result so future calls use cached content
                                                 try {
                                                     await workspaceWorker("updatePdfContent", {
@@ -442,7 +354,6 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
                                             }
                                             // OCR failed — fall back to Supabase URL (Gemini)
                                             urlList.push(pdfData.fileUrl);
-                                            matchedPdfItems.set(pdfData.fileUrl, matchedItem);
                                             logger.debug(`📁 [FILE_TOOL] Resolved file name "${name}" to URL (Supabase fallback): ${pdfData.fileUrl}`);
                                         } else {
                                             notFoundData.push(`Item "${name}" found but has no file URL.`);
@@ -515,27 +426,25 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
                 return `Too many files (${urlList.length}). Maximum 20 files allowed.`;
             }
 
-            // Separate file URLs by type
+            // Separate file URLs by type (cloud only — no local /api/files/)
             const supabaseUrls = urlList.filter((url: string) => url.includes('supabase.co/storage'));
-            const localUrls = urlList.filter((url: string) => url.includes('/api/files/'));
             const youtubeUrls = urlList.filter((url: string) => url.match(/^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/));
+
+            const skippedLocal = urlList.filter((url: string) => url.includes('/api/files/'));
+            if (skippedLocal.length > 0) {
+                logger.debug(`📁 [FILE_TOOL] Skipping ${skippedLocal.length} local file URL(s) — cloud storage only`);
+            }
+
+            if (supabaseUrls.length === 0 && youtubeUrls.length === 0) {
+                return skippedLocal.length > 0
+                    ? "Local file URLs (/api/files/...) are not supported. Use Supabase storage URLs (files uploaded to your workspace) or YouTube URLs."
+                    : "No file URLs provided (and no file names or pdfImageRefs could be resolved).";
+            }
 
             const fileResults: string[] = [];
 
             // Process different file types in parallel using Promise.all()
             const processingPromises: Promise<string | null>[] = [];
-
-            // Handle local file URLs (read from disk and send as base64)
-            if (localUrls.length > 0) {
-                processingPromises.push(
-                    processLocalFiles(localUrls, instruction)
-                        .then(result => result)
-                        .catch(error => {
-                            logger.error("📁 [FILE_TOOL] Error in local file processing:", error);
-                            return `Error processing local files: ${error instanceof Error ? error.message : String(error)}`;
-                        })
-                );
-            }
 
             // Handle Supabase file URLs
             if (supabaseUrls.length > 0) {
@@ -576,23 +485,7 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
                 fileResults.push(...results.filter((r): r is string => r !== null));
             }
 
-            // Auto-persist extracted content to matched PDF items (fire-and-forget)
-            if (matchedPdfItems.size > 0 && ctx?.workspaceId && fileResults.length > 0) {
-                const combinedResult = fileResults.join('\n\n---\n\n');
-                for (const [fileUrl, item] of matchedPdfItems) {
-                    try {
-                        await workspaceWorker("updatePdfContent", {
-                            workspaceId: ctx.workspaceId,
-                            itemId: item.id,
-                            pdfTextContent: combinedResult,
-                        });
-                        logger.debug(`📁 [FILE_TOOL] Auto-cached extracted content for PDF "${item.name}" (${combinedResult.length} chars)`);
-                    } catch (cacheError) {
-                        // Non-fatal: log but don't fail the tool call
-                        logger.warn(`📁 [FILE_TOOL] Failed to auto-cache content for PDF "${item.name}":`, cacheError);
-                    }
-                }
-            }
+            // Never persist Gemini analysis to PDF items — only Azure OCR (runOcrForPdfUrl) writes ocrPages/textContent
 
             // Prepend cached results if we had a mix of cached + freshly processed
             if (cachedResults.length > 0) {

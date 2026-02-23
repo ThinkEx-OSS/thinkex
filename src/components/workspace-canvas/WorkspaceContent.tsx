@@ -149,6 +149,31 @@ export default function WorkspaceContent({
     onOpenFolder?.(folderId);
   }, [setActiveFolderId, onOpenFolder]);
 
+  // Listen for PDF OCR completion events
+  useEffect(() => {
+    const handlePdfComplete = (e: Event) => {
+      const { itemId, textContent, ocrPages, ocrStatus, ocrError } = (e as CustomEvent).detail;
+      if (!itemId) return;
+
+      const existingData = viewState.items.find((i) => i.id === itemId)?.data ?? {};
+
+      updateItem(itemId, {
+        data: {
+          ...existingData,
+          textContent,
+          ocrPages: ocrPages ?? [],
+          ocrStatus,
+          ...(ocrError && { ocrError }),
+        } as any,
+      });
+    };
+
+    window.addEventListener("pdf-processing-complete", handlePdfComplete);
+    return () => {
+      window.removeEventListener("pdf-processing-complete", handlePdfComplete);
+    };
+  }, [updateItem, viewState.items]);
+
   // Listen for audio processing completion events
   useEffect(() => {
     const handleAudioComplete = (e: Event) => {

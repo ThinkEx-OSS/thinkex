@@ -1,16 +1,28 @@
 /**
  * Azure Mistral Document AI OCR for PDFs.
- * Splits large PDFs into 10-page batches (30 MB cap), processes in parallel, merges results.
+ * Splits PDFs into page batches (30 MB cap), processes in parallel, merges results.
+ * Chunk size is adaptive: smaller for few-page PDFs (max parallelism), larger for big PDFs (fewer API calls).
  */
 
 import { PDFDocument } from "pdf-lib";
 import { logger } from "@/lib/utils/logger";
 
-const MAX_PAGES_PER_BATCH = 10;
 const MAX_BATCH_SIZE_BYTES = 30 * 1024 * 1024; // 30 MB
 /** Max concurrent OCR requests to Azure; prevents 408 timeouts from request flooding */
 const MAX_CONCURRENT_OCR = 5;
 const DEFAULT_MODEL = "mistral-document-ai-2512";
+
+/**
+ * Choose chunk size based on total page count.
+ * Small PDFs: 1 page per chunk (max parallelism).
+ * Large PDFs: bigger chunks to reduce API calls and rate-limit risk.
+ */
+function getMaxPagesPerChunk(pageCount: number): number {
+  if (pageCount <= 10) return 1;
+  if (pageCount <= 30) return 3;
+  if (pageCount <= 100) return 6;
+  return 12;
+}
 
 /** Rich OCR page data from Azure Document AI (stored in PdfData.ocrPages). Dimensions omitted. */
 export interface OcrPage {
@@ -47,8 +59,9 @@ interface AzureOcrResponse {
 
 /**
  * Call Azure Document AI OCR endpoint with a base64-encoded PDF chunk.
+ * Exported for use in workflow steps (single chunk = single step).
  */
-async function ocrChunk(base64Pdf: string): Promise<OcrPage[]> {
+export async function ocrSingleChunk(base64Pdf: string): Promise<OcrPage[]> {
   const apiKey = process.env.AZURE_DOCUMENT_AI_API_KEY;
   const endpoint = process.env.AZURE_DOCUMENT_AI_ENDPOINT;
   const model =
@@ -118,7 +131,7 @@ async function ocrChunk(base64Pdf: string): Promise<OcrPage[]> {
 }
 
 /**
- * Split a PDF buffer into page chunks. Respects 10 pages and ~30 MB per batch.
+ * Split a PDF buffer into page chunks. Respects maxPages and ~30 MB per batch.
  */
 function getChunkRanges(
   pageCount: number,
@@ -144,6 +157,38 @@ function getChunkRanges(
   return ranges;
 }
 
+/** Chunk spec for workflow steps - each chunk is a separate OCR step */
+export interface OcrChunkSpec {
+  start: number;
+  end: number;
+  base64: string;
+}
+
+/**
+ * Load PDF, compute chunk ranges, extract each chunk to base64.
+ * Returns chunk specs for workflow steps (avoids passing full PDF to each step).
+ */
+export async function prepareOcrChunks(buffer: Buffer): Promise<{
+  pageCount: number;
+  chunks: OcrChunkSpec[];
+}> {
+  const doc = await PDFDocument.load(buffer);
+  const pageCount = doc.getPageCount();
+  if (pageCount === 0) {
+    return { pageCount: 0, chunks: [] };
+  }
+
+  const maxPages = getMaxPagesPerChunk(pageCount);
+  const ranges = getChunkRanges(pageCount, buffer, maxPages);
+
+  const chunks: OcrChunkSpec[] = [];
+  for (const [start, end] of ranges) {
+    const base64 = await extractChunkAsBase64(doc, start, end);
+    chunks.push({ start, end, base64 });
+  }
+  return { pageCount, chunks };
+}
+
 /**
  * Extract a page range from a PDF as a new PDF buffer (base64).
  */
@@ -164,60 +209,73 @@ async function extractChunkAsBase64(
 }
 
 /**
- * Run OCR on a PDF buffer. Splits into batches if >10 pages or chunk >30 MB.
+ * Run OCR on a PDF buffer. Splits into batches; chunk size adapts to page count.
  */
 export async function ocrPdfFromBuffer(
   buffer: Buffer,
   options?: { maxPagesPerBatch?: number }
 ): Promise<OcrResult> {
   const t0 = Date.now();
-  const maxPages = options?.maxPagesPerBatch ?? MAX_PAGES_PER_BATCH;
 
   const doc = await PDFDocument.load(buffer);
   const pageCount = doc.getPageCount();
-  logger.info("[PDF_OCR_AZURE] Loaded PDF", {
-    pageCount,
-    sizeMB: (buffer.length / (1024 * 1024)).toFixed(2),
-    loadMs: Date.now() - t0,
-  });
 
   if (pageCount === 0) {
     return { pages: [], textContent: "" };
   }
 
+  const maxPages =
+    options?.maxPagesPerBatch ?? getMaxPagesPerChunk(pageCount);
   const ranges = getChunkRanges(pageCount, buffer, maxPages);
-  logger.info("[PDF_OCR_AZURE] Chunk plan", {
-    chunkCount: ranges.length,
-    concurrency: MAX_CONCURRENT_OCR,
-    ranges: ranges.map(([s, e]) => `${s}-${e}`),
+
+  logger.info("[PDF_OCR_AZURE] Start", {
+    pageCount,
+    totalChunks: ranges.length,
+    pagesPerChunk: maxPages,
+    totalBytes: buffer.length,
+    totalBytesMB: (buffer.length / (1024 * 1024)).toFixed(2),
   });
 
   // Process in batches of MAX_CONCURRENT_OCR to avoid 408 timeouts from flooding Azure
   const chunkResults: Array<{ start: number; end: number; pages: OcrPage[] }> = [];
   for (let i = 0; i < ranges.length; i += MAX_CONCURRENT_OCR) {
     const batch = ranges.slice(i, i + MAX_CONCURRENT_OCR);
+    const batchIndex = Math.floor(i / MAX_CONCURRENT_OCR) + 1;
+    const totalBatches = Math.ceil(ranges.length / MAX_CONCURRENT_OCR);
+
+    logger.info("[PDF_OCR_AZURE] Batch start", {
+      batch: `${batchIndex}/${totalBatches}`,
+      chunks: batch.map(([s, e]) => `pages ${s}-${e}`),
+    });
+
+    const batchT0 = Date.now();
     const batchResults = await Promise.all(
       batch.map(async ([start, end]) => {
-        const tChunk = Date.now();
         const base64 = await extractChunkAsBase64(doc, start, end);
-        const extractMs = Date.now() - tChunk;
-        const pages = await ocrChunk(base64);
-        const ocrChunkMs = Date.now() - tChunk;
+        const chunkSizeKB = (Buffer.byteLength(base64, "utf8") * 3) / 4 / 1024; // approximate raw size
+        logger.debug("[PDF_OCR_AZURE] Chunk request", {
+          pages: `${start}-${end}`,
+          chunkSizeKB: chunkSizeKB.toFixed(0),
+        });
+        const pages = await ocrSingleChunk(base64);
         logger.debug("[PDF_OCR_AZURE] Chunk done", {
-          range: `${start}-${end}`,
-          pages: pages.length,
-          extractMs,
-          ocrMs: ocrChunkMs - extractMs,
+          pages: `${start}-${end}`,
+          extractedPages: pages.length,
         });
         return { start, end, pages };
       })
     );
+    const batchMs = Date.now() - batchT0;
+
+    const batchPages = batchResults.reduce((sum, r) => sum + r.pages.length, 0);
+    logger.info("[PDF_OCR_AZURE] Batch complete", {
+      batch: `${batchIndex}/${totalBatches}`,
+      pagesProcessed: batchPages,
+      ms: batchMs,
+    });
+
     chunkResults.push(...batchResults);
   }
-  logger.info("[PDF_OCR_AZURE] All chunks complete", {
-    totalChunks: chunkResults.length,
-    chunkMs: Date.now() - t0,
-  });
 
   const allPages: OcrPage[] = [];
   let globalIndex = 0;
@@ -236,9 +294,8 @@ export async function ocrPdfFromBuffer(
     .filter(Boolean)
     .join("\n\n");
 
-  logger.info("[PDF_OCR_AZURE] Merge complete", {
+  logger.info("[PDF_OCR_AZURE] Complete", {
     pageCount: allPages.length,
-    textContentLength: textContent.length,
     totalMs: Date.now() - t0,
   });
 

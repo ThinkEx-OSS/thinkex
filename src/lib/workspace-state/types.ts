@@ -31,7 +31,7 @@ export interface PdfData {
   filename: string; // original filename
   fileSize?: number; // optional file size in bytes
   textContent?: string; // cached extracted text content (avoids reprocessing)
-  ocrStatus?: "complete" | "failed";
+  ocrStatus?: "complete" | "failed" | "processing";
   ocrError?: string;
   ocrPages?: Array<{
     index: number;

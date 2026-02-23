@@ -695,72 +695,101 @@ const PdfSearchBar = ({ documentId }: { documentId: string }) => {
 
 const PDF_HIGHLIGHT_DURATION_MS = 2500;
 
-/** Syncs citation highlight query from store: search PDF and scroll to first match */
+/** Syncs citation highlight query from store: search PDF and scroll to first match, or scroll to page if no results */
 const PdfCitationHighlightSync = ({ documentId, itemId }: { documentId: string; itemId?: string }) => {
   const { state, provides } = useSearch(documentId);
   const { provides: scrollCapability } = useScrollCapability();
+  const { state: scrollState } = useScroll(documentId);
   const scroll = scrollCapability?.forDocument(documentId);
   const triggeredRef = useRef<string | null>(null);
+  const pageFallbackRef = useRef<number | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     if (!itemId) return;
 
-    const applyHighlight = (query: string) => {
-      if (!provides || !query?.trim()) return;
-      triggeredRef.current = query;
-      provides.searchAllPages(query);
+    const clearCitation = () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = undefined;
+      provides?.stopSearch();
+      useUIStore.getState().setCitationHighlightQuery(null);
+      triggeredRef.current = null;
+      pageFallbackRef.current = null;
+    };
+
+    const applyCitation = (hl: { itemId: string; query: string; pageNumber?: number }) => {
+      const hasQuery = !!hl.query?.trim();
+      const hasPage = hl.pageNumber != null && hl.pageNumber >= 1;
+
+      if (hasQuery) {
+        triggeredRef.current = hl.query.trim();
+        pageFallbackRef.current = hasPage ? hl.pageNumber! : null;
+        provides?.searchAllPages(hl.query.trim());
+      } else if (hasPage && scroll && hl.pageNumber != null) {
+        // No query: scroll directly to page
+        const totalPages = scrollState?.totalPages ?? 1;
+        const page = Math.min(Math.max(1, hl.pageNumber), totalPages);
+        scroll.scrollToPage({ pageNumber: page });
+        pageFallbackRef.current = null;
+      }
 
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => {
-        provides.stopSearch();
-        useUIStore.getState().setCitationHighlightQuery(null);
-        triggeredRef.current = null;
-      }, PDF_HIGHLIGHT_DURATION_MS);
+      timeoutRef.current = setTimeout(clearCitation, PDF_HIGHLIGHT_DURATION_MS);
     };
 
     const unsub = useUIStore.subscribe((storeState) => {
       const hl = storeState.citationHighlightQuery;
-      if (!hl || hl.itemId !== itemId || !hl.query?.trim()) return;
-      applyHighlight(hl.query.trim());
+      if (!hl || hl.itemId !== itemId) return;
+      if (!hl.query?.trim() && !(hl.pageNumber != null && hl.pageNumber >= 1)) return;
+      applyCitation(hl);
     });
 
     const hl = useUIStore.getState().citationHighlightQuery;
-    if (hl?.itemId === itemId && hl.query?.trim()) {
-      applyHighlight(hl.query.trim());
+    if (hl?.itemId === itemId && (hl.query?.trim() || (hl.pageNumber != null && hl.pageNumber >= 1))) {
+      applyCitation(hl);
     }
 
     return () => {
       unsub();
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      clearCitation();
     };
-  }, [documentId, itemId, provides]);
+  }, [documentId, itemId, provides, scroll, scrollState?.totalPages]);
 
-  // Scroll to first result when search completes
+  // Scroll to first result when search completes, or fallback to page when no results
   useEffect(() => {
     if (!scroll || !triggeredRef.current || state.loading) return;
-    const results = state.results;
-    if (!results?.length) return;
+    const results = state.results ?? [];
+    const pageFallback = pageFallbackRef.current;
 
-    const idx = state.activeResultIndex ?? 0;
-    const item = results[idx];
-    if (!item) return;
+    if (results.length > 0) {
+      const idx = state.activeResultIndex ?? 0;
+      const item = results[idx];
+      if (item) {
+        const minCoordinates = item.rects.reduce(
+          (min, rect) => ({
+            x: Math.min(min.x, rect.origin.x),
+            y: Math.min(min.y, rect.origin.y),
+          }),
+          { x: Infinity, y: Infinity }
+        );
+        scroll.scrollToPage({
+          pageNumber: item.pageIndex + 1,
+          pageCoordinates: minCoordinates,
+          alignX: 50,
+          alignY: 50,
+        });
+        return;
+      }
+    }
 
-    const minCoordinates = item.rects.reduce(
-      (min, rect) => ({
-        x: Math.min(min.x, rect.origin.x),
-        y: Math.min(min.y, rect.origin.y),
-      }),
-      { x: Infinity, y: Infinity }
-    );
-
-    scroll.scrollToPage({
-      pageNumber: item.pageIndex + 1,
-      pageCoordinates: minCoordinates,
-      alignX: 50,
-      alignY: 50,
-    });
-  }, [scroll, state.results, state.activeResultIndex, state.loading]);
+    // Text search returned no results: fallback to page number if provided
+    if (results.length === 0 && pageFallback != null) {
+      const totalPages = scrollState?.totalPages ?? 1;
+      const page = Math.min(Math.max(1, pageFallback), totalPages);
+      scroll.scrollToPage({ pageNumber: page });
+      pageFallbackRef.current = null;
+    }
+  }, [scroll, state.results, state.activeResultIndex, state.loading, scrollState?.totalPages]);
 
   return null;
 };

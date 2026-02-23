@@ -2,7 +2,7 @@
  * Preprocesses markdown content to normalize LaTeX delimiters for Streamdown/remark-math.
  *
  * Handles:
- * 0. Converts SurfSense-style [citation:X] to <citation>X</citation> (inline-only, no block)
+ * 0. Citation: model outputs <citation>X</citation>; URLs get placeholder; [citation:X] fallback
  * 1. Protects currency values ($19.99, $5, $1,000) from being parsed as math
  * 2. Converts \(...\) → $...$ and \[...\] → $$...$$ (remark-math doesn't support these)
  *
@@ -20,19 +20,19 @@ export function getCitationUrl(placeholder: string): string | undefined {
 }
 
 /**
- * Converts [citation:X] to <citation>X</citation>.
- * For URLs: replaces with placeholder to avoid GFM autolinks; stores URL in _pendingUrlCitations.
- * Supports: [citation:https://...], [citation:Title], [citation:Title|quote]
+ * Handles citation markup.
+ * - Model outputs <citation>X</citation> directly for workspace refs.
+ * - For <citation>https://...</citation>, replaces URL with placeholder to avoid GFM autolinks.
+ * - Fallback: [citation:X] → <citation>X</citation> for legacy or model slip-ups.
  */
 function preprocessCitations(markdown: string): string {
   if (!markdown) return markdown;
   _pendingUrlCitations = new Map();
   _urlCiteIdx = 0;
 
-  // Replace URL citations with placeholders BEFORE markdown parsing
-  // GFM autolinks would otherwise convert https://... into <a>, breaking our pattern
+  // URLs inside <citation>: replace with placeholder to avoid GFM autolinks
   let out = markdown.replace(
-    /\[citation:\s*(https?:\/\/[^\]\u200B]+)\s*\]/g,
+    /<citation>(https?:\/\/[^<]+)<\/citation>/g,
     (_, url: string) => {
       const key = `urlcite${_urlCiteIdx++}`;
       _pendingUrlCitations.set(key, url.trim());
@@ -40,11 +40,17 @@ function preprocessCitations(markdown: string): string {
     }
   );
 
-  // Replace remaining [citation:Title] or [citation:Title|quote] with <citation>...</citation>
-  // Content can be: workspace title (spaces ok), or title|quote
+  // Fallback: [citation:X] → <citation>X</citation> (legacy format; URL in brackets also gets placeholder)
   out = out.replace(/\[citation:\s*([^\]]+)\s*\]/g, (_, content: string) => {
     const trimmed = content.trim();
-    return trimmed ? `<citation>${trimmed}</citation>` : "";
+    if (!trimmed) return "";
+    const urlMatch = trimmed.match(/^(https?:\/\/\S+)$/);
+    if (urlMatch) {
+      const key = `urlcite${_urlCiteIdx++}`;
+      _pendingUrlCitations.set(key, urlMatch[1].trim());
+      return `<citation>${key}</citation>`;
+    }
+    return `<citation>${trimmed}</citation>`;
   });
 
   return out;

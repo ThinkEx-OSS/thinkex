@@ -199,11 +199,18 @@ export function useWorkspaceMutation(workspaceId: string | null, options: Worksp
     onSuccess: (data, event, context) => {
       if (!workspaceId) return;
 
-      logger.debug("✅ [SUCCESS] Mutation succeeded:", {
-        conflict: data.conflict,
-        newVersion: data.version,
-        eventId: event.id,
-      });
+        logger.debug("✅ [SUCCESS] Mutation succeeded:", {
+          conflict: data.conflict,
+          newVersion: data.version,
+          eventId: event.id,
+        });
+        if (event.type === "ITEM_UPDATED" && event.payload?.changes?.data?.ocrStatus) {
+          console.log("[OCR/UPDATE] ITEM_UPDATED persisted:", {
+            itemId: event.payload.id,
+            ocrStatus: event.payload.changes.data.ocrStatus,
+            version: data.version,
+          });
+        }
 
       // Handle conflicts with automatic retry
       if (data.conflict) {

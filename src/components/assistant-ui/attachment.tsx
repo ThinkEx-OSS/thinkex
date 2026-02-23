@@ -467,7 +467,7 @@ export const ComposerAddAttachment: FC = () => {
     if (!files || files.length === 0) return;
 
     const MAX_FILES = 10;
-    const MAX_FILE_SIZE_MB = 10;
+    const MAX_FILE_SIZE_MB = 50;
     const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
     const fileArray = Array.from(files);

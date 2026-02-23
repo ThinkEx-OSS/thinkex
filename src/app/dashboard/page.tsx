@@ -44,7 +44,7 @@ import { useWorkspaceInstructionModal } from "@/hooks/workspace/use-workspace-in
 import { InviteGuard } from "@/components/workspace/InviteGuard";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
-import { uploadPdfAndRunOcr } from "@/lib/uploads/pdf-upload-with-ocr";
+import { uploadPdfToStorage } from "@/lib/uploads/pdf-upload-with-ocr";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 import { useFolderUrl } from "@/hooks/ui/use-folder-url";
 import { OPEN_RECORD_PARAM } from "@/components/modals/RecordWorkspaceDialog";
@@ -344,45 +344,86 @@ function DashboardContent({
         return;
       }
 
-      const ocrToastId = toast.loading(
-        `Uploading and extracting text from ${unprotectedFiles.length} PDF${unprotectedFiles.length > 1 ? "s" : ""}...`,
+      const uploadToastId = toast.loading(
+        `Uploading ${unprotectedFiles.length} PDF${unprotectedFiles.length > 1 ? "s" : ""}...`,
         { style: { color: "#fff" } }
       );
 
-      const pdfCardDefinitions = (
-        await Promise.all(
-          unprotectedFiles.map(async (file) => {
-            try {
-              const json = await uploadPdfAndRunOcr(file);
-              const pdfData: Partial<PdfData> = {
-                fileUrl: json.fileUrl,
-                filename: json.filename,
-                fileSize: json.fileSize,
-                textContent: json.textContent,
-                ocrPages: json.ocrPages,
-                ocrStatus: json.ocrStatus,
-                ...(json.ocrError && { ocrError: json.ocrError }),
-              };
-              return {
-                type: "pdf" as const,
-                name: file.name.replace(/\.pdf$/i, ""),
-                initialData: pdfData,
-              };
-            } catch (err) {
-              toast.error(`Failed to process ${file.name}: ${err instanceof Error ? err.message : "Unknown error"}`);
-              return null;
-            }
-          })
-        )
-      ).filter((r): r is NonNullable<typeof r> => r !== null);
+      const uploadResults = await Promise.all(
+        unprotectedFiles.map(async (file) => {
+          try {
+            const { url, filename, fileSize } = await uploadPdfToStorage(file);
+            return { file, fileUrl: url, filename, fileSize };
+          } catch (err) {
+            toast.error(`Failed to upload ${file.name}: ${err instanceof Error ? err.message : "Unknown error"}`);
+            return null;
+          }
+        })
+      );
 
-      toast.dismiss(ocrToastId);
+      toast.dismiss(uploadToastId);
 
-      if (pdfCardDefinitions.length === 0) return;
+      const validUploads = uploadResults.filter((r): r is NonNullable<typeof r> => r !== null);
+      if (validUploads.length === 0) return;
 
-      // Create all PDF cards and navigate to the first one
+      const pdfCardDefinitions = validUploads.map(({ file, fileUrl, filename, fileSize }) => ({
+        type: "pdf" as const,
+        name: file.name.replace(/\.pdf$/i, ""),
+        initialData: {
+          fileUrl,
+          filename,
+          fileSize,
+          ocrStatus: "processing" as const,
+          ocrPages: [],
+        } as Partial<PdfData>,
+      }));
+
       const createdIds = operations.createItems(pdfCardDefinitions);
       handleCreatedItems(createdIds);
+
+      // Run OCR via workflow; poller dispatches pdf-processing-complete
+      validUploads.forEach((r, i) => {
+        const itemId = createdIds[i];
+        if (!itemId) return;
+        fetch("/api/pdf/ocr/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileUrl: r.fileUrl, itemId }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.runId && data.itemId) {
+              import("@/lib/pdf/poll-pdf-ocr").then(({ pollPdfOcr }) =>
+                pollPdfOcr(data.runId, data.itemId)
+              );
+            } else {
+              window.dispatchEvent(
+                new CustomEvent("pdf-processing-complete", {
+                  detail: {
+                    itemId,
+                    textContent: "",
+                    ocrPages: [],
+                    ocrStatus: "failed" as const,
+                    ocrError: data.error || "Failed to start OCR",
+                  },
+                })
+              );
+            }
+          })
+          .catch((err) => {
+            window.dispatchEvent(
+              new CustomEvent("pdf-processing-complete", {
+                detail: {
+                  itemId,
+                  textContent: "",
+                  ocrPages: [],
+                  ocrStatus: "failed" as const,
+                  ocrError: err.message || "Failed to start OCR",
+                },
+              })
+            );
+          });
+      });
     },
     [operations, currentWorkspaceId, handleCreatedItems]
   );

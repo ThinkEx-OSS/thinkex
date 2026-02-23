@@ -57,7 +57,7 @@ interface UIState {
   blockNoteSelection: { cardId: string; cardName: string; text: string } | null;
 
   // Citation highlight: when opening note/PDF from citation click, highlight/search this quote
-  citationHighlightQuery: { itemId: string; query: string } | null;
+  citationHighlightQuery: { itemId: string; query: string; pageNumber?: number } | null;
 
   // Actions - Chat
   setIsChatExpanded: (expanded: boolean) => void;
@@ -130,7 +130,7 @@ interface UIState {
   // Actions - BlockNote selection
   setBlockNoteSelection: (selection: { cardId: string; cardName: string; text: string } | null) => void;
   clearBlockNoteSelection: () => void;
-  setCitationHighlightQuery: (query: { itemId: string; query: string } | null) => void;
+  setCitationHighlightQuery: (query: { itemId: string; query: string; pageNumber?: number } | null) => void;
 
   // Utility actions
   resetChatState: () => void;
