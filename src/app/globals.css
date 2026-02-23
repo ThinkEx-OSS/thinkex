@@ -1537,3 +1537,20 @@ body:has(.card-detail-modal) .workspace-grid-container {
     opacity: 1;
   }
 }
+
+/* User message breathe-in animation */
+@keyframes breatheIn {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-breathe-in {
+  transform-origin: right center;
+  animation: breatheIn 0.7s cubic-bezier(0.16, 1.1, 0.3, 1.02) forwards;
+}
