@@ -4,6 +4,7 @@ import { FileIcon, ChevronDownIcon, CheckIcon, ExternalLinkIcon, AlertCircleIcon
 import {
     memo,
     useCallback,
+    useEffect,
     useRef,
     useState,
     type FC,
@@ -15,6 +16,8 @@ import {
     makeAssistantToolUI,
 } from "@assistant-ui/react";
 
+import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { StandaloneMarkdown } from "@/components/assistant-ui/standalone-markdown";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { parseStringResult } from "@/lib/ai/tool-result-schemas";
@@ -227,6 +230,23 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
 }, string>({
     toolName: "processFiles",
     render: function FileProcessingToolUI({ args, status, result }) {
+        const queryClient = useQueryClient();
+        const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+
+        // When processFiles completes with workspace file names, OCR may have been persisted
+        // server-side — invalidate events so the client refetches and shows updated PDF content
+        useEffect(() => {
+            if (
+                status.type === "complete" &&
+                workspaceId &&
+                (args?.fileNames?.length ?? 0) > 0
+            ) {
+                queryClient.invalidateQueries({
+                    queryKey: ["workspace", workspaceId, "events"],
+                });
+            }
+        }, [status.type, workspaceId, args?.fileNames?.length, queryClient]);
+
         // Client-side debugging
         if (typeof window !== 'undefined') {
             console.debug("📁 [FILE_TOOL_UI] Component render:", {
