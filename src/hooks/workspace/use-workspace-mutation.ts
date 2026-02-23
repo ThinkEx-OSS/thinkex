@@ -204,12 +204,16 @@ export function useWorkspaceMutation(workspaceId: string | null, options: Worksp
           newVersion: data.version,
           eventId: event.id,
         });
-        if (event.type === "ITEM_UPDATED" && event.payload?.changes?.data?.ocrStatus) {
-          console.log("[OCR/UPDATE] ITEM_UPDATED persisted:", {
-            itemId: event.payload.id,
-            ocrStatus: event.payload.changes.data.ocrStatus,
-            version: data.version,
-          });
+        if (event.type === "ITEM_UPDATED") {
+          const payload = event.payload;
+          const changesData = payload?.changes?.data;
+          if (changesData && "ocrStatus" in changesData && changesData.ocrStatus) {
+            console.log("[OCR/UPDATE] ITEM_UPDATED persisted:", {
+              itemId: payload.id,
+              ocrStatus: changesData.ocrStatus,
+              version: data.version,
+            });
+          }
         }
 
       // Handle conflicts with automatic retry
