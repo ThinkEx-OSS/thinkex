@@ -1,4 +1,5 @@
 import type { OcrPage } from "@/lib/pdf/azure-ocr";
+import { rewriteOcrPageImageIds } from "@/lib/pdf/azure-ocr";
 import { sleep } from "workflow";
 import { fetchPdf } from "./steps/fetch-pdf";
 import { prepareOcrChunks } from "./steps/prepare-ocr-chunks";
@@ -39,7 +40,7 @@ export async function pdfOcrWorkflow(fileUrl: string) {
 
       for (const pages of batchResults) {
         for (const p of pages) {
-          allPages.push({ ...p, index: globalIndex });
+          allPages.push(rewriteOcrPageImageIds(p, globalIndex));
           globalIndex++;
         }
       }

@@ -35,6 +35,41 @@ export interface OcrPage {
   tables?: unknown[];
 }
 
+/**
+ * Rewrite image IDs to be globally unique across merged chunks.
+ * Azure returns chunk-relative IDs (e.g. img-0 per chunk), so without this,
+ * page 0 and page 5 could both have img-0.jpeg → wrong image when resolving refs.
+ */
+export function rewriteOcrPageImageIds(
+  page: OcrPage,
+  globalPageIndex: number
+): OcrPage {
+  const images = page.images as Array<{ id?: string; [key: string]: unknown }> | undefined;
+  if (!images?.length)
+    return { ...page, index: globalPageIndex };
+
+  const idMap: Record<string, string> = {};
+  const newImages = images.map((img, i) => {
+    const oldId = (img.id ?? `img-${i}`).toString();
+    const newId = `p${globalPageIndex}-${oldId}`;
+    idMap[oldId] = newId;
+    return { ...img, id: newId };
+  });
+
+  let markdown = page.markdown ?? "";
+  for (const [oldId, newId] of Object.entries(idMap)) {
+    const escaped = oldId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    markdown = markdown.replace(new RegExp(escaped, "g"), newId);
+  }
+
+  return {
+    ...page,
+    index: globalPageIndex,
+    images: newImages,
+    markdown,
+  };
+}
+
 export interface OcrResult {
   pages: OcrPage[];
   textContent: string;
@@ -281,10 +316,7 @@ export async function ocrPdfFromBuffer(
   let globalIndex = 0;
   for (const { pages } of chunkResults) {
     for (const p of pages) {
-      allPages.push({
-        ...p,
-        index: globalIndex,
-      });
+      allPages.push(rewriteOcrPageImageIds(p, globalIndex));
       globalIndex++;
     }
   }
