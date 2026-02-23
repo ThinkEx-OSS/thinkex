@@ -58,6 +58,7 @@ const restoreCompleted = new Set<string>();
 const PdfStatePersister = ({ documentId, pdfSrc, itemId }: { documentId: string; pdfSrc: string; itemId?: string }) => {
   const { provides: viewportCapability } = useViewportCapability();
   const { state: zoomState, provides: zoomScope } = useZoom(documentId);
+  const { state: scrollState } = useScroll(documentId);
   const debounceRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const lastSavedRef = useRef<string>('');
 
