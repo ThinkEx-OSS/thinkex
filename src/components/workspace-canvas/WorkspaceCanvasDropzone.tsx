@@ -409,6 +409,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
                   filename: result.filename,
                   mimeType: result.originalFile.type || 'audio/mpeg',
                   itemId,
+                  workspaceId: currentWorkspaceId,
                 }),
               })
                 .then(res => res.json())

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import {
   Mic,
   ChevronDown,
@@ -59,11 +60,12 @@ interface AudioCardContentProps {
 }
 
 export function AudioCardContent({ item, isCompact = false, isScrollLocked = false }: AudioCardContentProps) {
+  const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
   const audioData = item.data as AudioData;
   const [isRetrying, setIsRetrying] = useState(false);
 
   const handleRetry = useCallback(() => {
-    if (!audioData.fileUrl || isRetrying) return;
+    if (!audioData.fileUrl || !workspaceId || isRetrying) return;
     setIsRetrying(true);
 
     // Immediately transition card to "processing" via the same event system
@@ -81,6 +83,7 @@ export function AudioCardContent({ item, isCompact = false, isScrollLocked = fal
         filename: audioData.filename,
         mimeType: audioData.mimeType || "audio/webm",
         itemId: item.id,
+        workspaceId,
       }),
     })
       .then((res) => res.json())
@@ -105,7 +108,7 @@ export function AudioCardContent({ item, isCompact = false, isScrollLocked = fal
         );
       })
       .finally(() => setIsRetrying(false));
-  }, [audioData.fileUrl, audioData.filename, audioData.mimeType, item.id, isRetrying]);
+  }, [audioData.fileUrl, audioData.filename, audioData.mimeType, item.id, workspaceId, isRetrying]);
 
   // ── Loading / Error states ──────────────────────────────────────────────
 

@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { fileUrl, filename, mimeType, itemId } = body;
+    const { fileUrl, filename, mimeType, itemId, workspaceId } = body;
 
     if (!fileUrl) {
       return NextResponse.json(
@@ -40,6 +40,13 @@ export async function POST(req: NextRequest) {
     if (!itemId || typeof itemId !== "string") {
       return NextResponse.json(
         { error: "itemId is required for polling" },
+        { status: 400 }
+      );
+    }
+
+    if (!workspaceId || typeof workspaceId !== "string") {
+      return NextResponse.json(
+        { error: "workspaceId is required" },
         { status: 400 }
       );
     }
@@ -77,10 +84,15 @@ export async function POST(req: NextRequest) {
 
     const audioMimeType = mimeType || guessMimeType(filename || fileUrl);
 
+    const userId = session.user.id;
+
     // Start durable workflow; return immediately for client to poll
     const run = await start(audioTranscribeWorkflow, [
       fileUrl,
       audioMimeType,
+      workspaceId,
+      itemId,
+      userId,
     ]);
 
     return NextResponse.json({

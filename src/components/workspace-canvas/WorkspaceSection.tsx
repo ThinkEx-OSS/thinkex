@@ -597,6 +597,7 @@ export function WorkspaceSection({
           filename: file.name,
           mimeType: file.type || "audio/webm",
           itemId,
+          workspaceId: currentWorkspaceId,
         }),
       })
         .then((res) => res.json())

@@ -1,5 +1,7 @@
 import ShikiHighlighter from "react-shiki/web";
 import { useMemo, useCallback, useRef, useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Plus, Copy, Check, Download, Upload } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import type { AgentState, Item, CardType } from "@/lib/workspace-state/types";
@@ -61,6 +63,9 @@ export default function WorkspaceContent({
   onPDFUpload,
   onItemCreated,
 }: WorkspaceContentProps) {
+  const queryClient = useQueryClient();
+  const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+
   // Use external ref if provided (from dashboard page), otherwise create local one
   const localScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = externalScrollContainerRef || localScrollContainerRef;
@@ -182,7 +187,7 @@ export default function WorkspaceContent({
 
       const existingData = viewState.items.find((i) => i.id === itemId)?.data ?? {};
 
-      // Retry: transition back to "processing" state
+      // Retry: transition back to "processing" state (client-only optimistic update)
       if (retrying) {
         updateItem(itemId, {
           data: {
@@ -194,23 +199,10 @@ export default function WorkspaceContent({
         return;
       }
 
-      if (error) {
-        updateItem(itemId, {
-          data: {
-            ...existingData,
-            processingStatus: "failed",
-            error,
-          } as any,
-        });
-      } else {
-        updateItem(itemId, {
-          data: {
-            ...existingData,
-            summary,
-            segments,
-            ...(typeof duration === "number" && duration > 0 && { duration }),
-            processingStatus: "complete",
-          } as any,
+      // Success/failure: workflow persisted to DB — invalidate to refetch
+      if (workspaceId) {
+        queryClient.invalidateQueries({
+          queryKey: ["workspace", workspaceId, "events"],
         });
       }
     };
@@ -219,7 +211,7 @@ export default function WorkspaceContent({
     return () => {
       window.removeEventListener("audio-processing-complete", handleAudioComplete);
     };
-  }, [updateItem, viewState.items]);
+  }, [updateItem, viewState.items, workspaceId, queryClient]);
 
   // OPTIMIZED: Wrap callbacks to ensure stable references
   const handleUpdateItem = useCallback((itemId: string, updates: Partial<Item>) => {
