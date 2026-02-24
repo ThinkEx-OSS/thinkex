@@ -3,8 +3,8 @@
 
 @import "tw-shimmer";
 
-/* Path to your installed `@blocknote/shadcn` package. */
-@source "../node_modules/@blocknote/shadcn";
+/* BlockNote shadcn: use prebuilt styles to avoid Tailwind v4 parsing bug with [is(ol,ul)] arbitrary variant */
+@import "@blocknote/shadcn/style.css";
 
 /* Streamdown markdown library - custom components handle styling, no @source needed */
 
