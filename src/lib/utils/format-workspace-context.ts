@@ -5,8 +5,9 @@ import { getVirtualPath } from "./virtual-workspace-fs";
 
 /**
  * Formats item metadata only (no content). Used for virtual FS in system context.
+ * When activePdfPages is provided and item is a PDF, includes activePage if user is currently viewing it.
  */
-function formatItemMetadata(item: Item, items: Item[]): string {
+function formatItemMetadata(item: Item, items: Item[], activePdfPages?: Record<string, number>): string {
     const path = getVirtualPath(item, items);
     const parts: string[] = [path, `type=${item.type}`, `name="${item.name}"`];
     if (item.subtitle) parts.push(`subtitle="${item.subtitle}"`);
@@ -15,6 +16,10 @@ function formatItemMetadata(item: Item, items: Item[]): string {
         case "pdf": {
             const d = item.data as PdfData;
             if (d?.filename) parts.push(`filename=${d.filename}`);
+            const activePage = activePdfPages?.[item.id];
+            if (activePage != null && activePage >= 1) {
+                parts.push(`activePage=${activePage}`);
+            }
             break;
         }
         case "flashcard": {
@@ -107,6 +112,7 @@ Use internal knowledge for: creative writing, coding, general concepts, summariz
 If uncertain about accuracy, prefer to search.
 
 PDF: Use readWorkspace for PDFs with content (pageStart/pageEnd for page ranges). If content is not yet extracted, you must call processFiles, do not ask the user. For image placeholders in readWorkspace output, call processFiles with pdfImageRefs.
+When selected card metadata includes activePage=N, the user is currently viewing that page — use this to give better, more relevant responses. When they say "this", "here", "this page", or "what I'm looking at", treat it as referring to that page.
 
 YOUTUBE: If user says "add a video" without a topic, infer from workspace context. Don't ask - just search.
 
@@ -129,19 +135,20 @@ Output citation HTML: <citation>REF</citation> where REF is one of:
 - Web URL: <citation>https://example.com/article</citation>
 - Workspace note: <citation>Note Title</citation> — or virtual path: <citation>notes/My Note.md</citation>
 - Workspace + quote: <citation>Note Title | exact excerpt</citation> — pipe with spaces; only when you have the exact text
-- PDF: <citation>PDF Title</citation> or virtual path: <citation>pdfs/Syllabus.pdf</citation>
-- PDF with page: <citation>PDF Title | exact excerpt | p. 5</citation> — for PDFs, ALWAYS include page; use " | p. N" at end (1-indexed)
-- PDF with page only: <citation>PDF Title | p. 5</citation> or <citation>pdfs/Syllabus.pdf | p. 3</citation>
+- PDF (page REQUIRED): <citation>PDF Title | p. 5</citation> or <citation>PDF Title | exact excerpt | p. 5</citation> — for PDFs you MUST include " | p. N" at end (1-indexed). Quote is optional. Virtual path is OK: <citation>pdfs/MyFile.pdf | p. 3</citation>.
+
+WRONG — PDF without page (never do this): <citation>pdfs/SomeFile.pdf</citation> or <citation>PDF Title</citation>
 
 Examples (plain text only):
 - <citation>https://en.wikipedia.org/wiki/Supply_chain</citation>
 - <citation>My Calculus Notes</citation>
 - <citation>notes/My Calculus Notes.md</citation>
-- <citation>pdfs/Syllabus.pdf</citation>
-- <citation>My Calculus Notes | the derivative rule for power functions</citation>
+- <citation>Math 240 Textbook | p. 42</citation>
 - <citation>Math 240 Textbook | limit definition | p. 42</citation>
+- <citation>pdfs/Syllabus.pdf | p. 3</citation>
 
-NEVER HALLUCINATE QUOTES: Only include a quote when you have the exact excerpt. If unsure, use <citation>Title</citation> without a quote. For PDFs, always include the page.
+NEVER HALLUCINATE QUOTES: Only include a quote when you have the exact excerpt. If unsure, use <citation>Title</citation> without a quote.
+PDF CITATIONS: Page number is MANDATORY. Every PDF citation must end with " | p. N". If you don't know the page, do not cite the PDF.
 
 CRITICAL — Punctuation: Put the period or comma BEFORE the citation.
 Correct: "...flow of goods and services." <citation>Source Title | comprehensive administration</citation>
@@ -425,8 +432,13 @@ function formatRichContentSection(richContent: RichContent): string {
 /**
  * Formats selected cards as metadata only (paths, names, types).
  * Use when the AI has grep/read tools — it fetches content on demand.
+ * When activePdfPages is provided, PDF items include activePage (page user is currently viewing).
  */
-export function formatSelectedCardsMetadata(selectedItems: Item[], allItems?: Item[]): string {
+export function formatSelectedCardsMetadata(
+    selectedItems: Item[],
+    allItems?: Item[],
+    activePdfPages?: Record<string, number>
+): string {
     if (selectedItems.length === 0) {
         return `<context>
 No cards selected.
@@ -454,7 +466,9 @@ No cards selected.
     selectedItems.forEach((item) => processItem(item));
 
     const contentItems = effectiveItems.filter((i) => i.type !== "folder");
-    const entries = contentItems.map((item) => formatItemMetadata(item, allItems ?? effectiveItems));
+    const entries = contentItems.map((item) =>
+        formatItemMetadata(item, allItems ?? effectiveItems, activePdfPages)
+    );
 
     return `<context>
 SELECTED CARDS (${contentItems.length}) — paths and metadata. Use searchWorkspace or readWorkspace to fetch content when needed.

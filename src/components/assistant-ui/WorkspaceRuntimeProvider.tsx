@@ -29,6 +29,7 @@ export function WorkspaceRuntimeProvider({
   const selectedModelId = useUIStore((state) => state.selectedModelId);
   const activeFolderId = useUIStore((state) => state.activeFolderId);
   const selectedCardIdsSet = useUIStore((state) => state.selectedCardIds);
+  const activePdfPageByItemId = useUIStore((state) => state.activePdfPageByItemId);
   const { state: workspaceState } = useWorkspaceState(workspaceId);
 
   const selectedCardsContext = useMemo(() => {
@@ -44,8 +45,12 @@ export function WorkspaceRuntimeProvider({
       return "";
     }
 
-    return formatSelectedCardsMetadata(selectedItems, workspaceState.items);
-  }, [workspaceState?.items, selectedCardIdsSet]);
+    return formatSelectedCardsMetadata(
+      selectedItems,
+      workspaceState.items,
+      activePdfPageByItemId
+    );
+  }, [workspaceState?.items, selectedCardIdsSet, activePdfPageByItemId]);
 
   const handleChatError = useCallback((error: Error) => {
     console.error("[Chat Error]", error);

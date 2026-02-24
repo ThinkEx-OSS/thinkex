@@ -59,6 +59,9 @@ interface UIState {
   // Citation highlight: when opening note/PDF from citation click, highlight/search this quote
   citationHighlightQuery: { itemId: string; query: string; pageNumber?: number } | null;
 
+  // PDF active page: itemId -> current page when PDF is open (for selected-card context)
+  activePdfPageByItemId: Record<string, number>;
+
   // Actions - Chat
   setIsChatExpanded: (expanded: boolean) => void;
   toggleChatExpanded: () => void;
@@ -131,6 +134,7 @@ interface UIState {
   setBlockNoteSelection: (selection: { cardId: string; cardName: string; text: string } | null) => void;
   clearBlockNoteSelection: () => void;
   setCitationHighlightQuery: (query: { itemId: string; query: string; pageNumber?: number } | null) => void;
+  setActivePdfPage: (itemId: string, page: number | null) => void;
 
   // Utility actions
   resetChatState: () => void;
@@ -184,6 +188,7 @@ const initialState = {
   // BlockNote selection
   blockNoteSelection: null,
   citationHighlightQuery: null,
+  activePdfPageByItemId: {},
 };
 
 export const useUIStore = create<UIState>()(
@@ -552,7 +557,17 @@ export const useUIStore = create<UIState>()(
         setCitationHighlightQuery: (query) => {
           set({ citationHighlightQuery: query });
         },
-
+        setActivePdfPage: (itemId, page) => {
+          set((state) => {
+            const next = { ...state.activePdfPageByItemId };
+            if (page == null) {
+              delete next[itemId];
+            } else {
+              next[itemId] = page;
+            }
+            return { activePdfPageByItemId: next };
+          });
+        },
 
         // Utility actions
         resetChatState: () => set({

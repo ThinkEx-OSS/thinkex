@@ -862,7 +862,7 @@ function WorkspaceCard({
                       className="w-full h-full"
                     />
                   ) : (
-                    <LazyAppPdfViewer pdfSrc={pdfData.fileUrl} />
+                    <LazyAppPdfViewer pdfSrc={pdfData.fileUrl} itemId={item.id} />
                   )}
                   {/* OCR processing indicator overlay */}
                   {isOcrProcessing && (
