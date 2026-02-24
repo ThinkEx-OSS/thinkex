@@ -4,10 +4,10 @@ import { cn } from "@/lib/utils";
 type HoverVariant = "upload" | "link" | "paste" | "record";
 
 const HOVER_VARIANT_STYLES: Record<HoverVariant, string> = {
-    upload: "hover:border-emerald-500/60 hover:bg-emerald-500/5 hover:shadow-[0_0_24px_-4px_rgba(16,185,129,0.35)] [&:hover_.action-icon]:text-emerald-600 dark:[&:hover_.action-icon]:text-emerald-400 [&:hover_.action-title]:text-emerald-700 dark:[&:hover_.action-title]:text-emerald-300 [&:hover_.action-icon]:animate-[icon-upload-bounce_0.8s_ease-in-out_infinite]",
-    link: "hover:border-blue-500/60 hover:bg-blue-500/5 hover:shadow-[0_0_24px_-4px_rgba(59,130,246,0.35)] [&:hover_.action-icon]:text-blue-600 dark:[&:hover_.action-icon]:text-blue-400 [&:hover_.action-title]:text-blue-700 dark:[&:hover_.action-title]:text-blue-300 [&:hover_.action-icon]:animate-[icon-link-sway_0.8s_ease-in-out_infinite]",
-    paste: "hover:border-amber-500/60 hover:bg-amber-500/5 hover:shadow-[0_0_24px_-4px_rgba(245,158,11,0.35)] [&:hover_.action-icon]:text-amber-600 dark:[&:hover_.action-icon]:text-amber-400 [&:hover_.action-title]:text-amber-700 dark:[&:hover_.action-title]:text-amber-300 [&:hover_.action-icon]:animate-[icon-paste-pop_0.8s_ease-in-out_infinite]",
-    record: "hover:border-rose-500/60 hover:bg-rose-500/5 hover:shadow-[0_0_24px_-4px_rgba(244,63,94,0.35)] [&:hover_.action-icon]:text-rose-600 dark:[&:hover_.action-icon]:text-rose-400 [&:hover_.action-title]:text-rose-700 dark:[&:hover_.action-title]:text-rose-300 [&:hover_.action-icon]:animate-[icon-link-pulse_0.8s_ease-in-out_infinite]",
+    upload: "hover:border-emerald-500/60 hover:shadow-[0_0_24px_-4px_rgba(16,185,129,0.35)] [&:hover_.action-icon]:text-emerald-600 dark:[&:hover_.action-icon]:text-emerald-400 [&:hover_.action-icon]:animate-[icon-upload-bounce_0.8s_ease-in-out_infinite]",
+    link: "hover:border-blue-500/60 hover:shadow-[0_0_24px_-4px_rgba(59,130,246,0.35)] [&:hover_.action-icon]:text-blue-600 dark:[&:hover_.action-icon]:text-blue-400 [&:hover_.action-icon]:animate-[icon-link-sway_0.8s_ease-in-out_infinite]",
+    paste: "hover:border-amber-500/60 hover:shadow-[0_0_24px_-4px_rgba(245,158,11,0.35)] [&:hover_.action-icon]:text-amber-600 dark:[&:hover_.action-icon]:text-amber-400 [&:hover_.action-icon]:animate-[icon-paste-pop_0.8s_ease-in-out_infinite]",
+    record: "hover:border-rose-500/60 hover:shadow-[0_0_24px_-4px_rgba(244,63,94,0.35)] [&:hover_.action-icon]:text-rose-600 dark:[&:hover_.action-icon]:text-rose-400 [&:hover_.action-icon]:animate-[icon-link-pulse_0.8s_ease-in-out_infinite]",
 };
 
 interface ActionCardProps {
