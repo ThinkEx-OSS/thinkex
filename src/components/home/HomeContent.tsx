@@ -35,6 +35,7 @@ export const useSectionVisibility = () => useContext(SectionVisibilityContext);
 
 import { HomeActionCards } from "./HomeActionCards";
 import { RecordWorkspaceDialog, OPEN_RECORD_PARAM } from "@/components/modals/RecordWorkspaceDialog";
+import { Footer } from "@/components/landing/Footer";
 
 const ACCEPT_FILES = "application/pdf,image/*,audio/*";
 
@@ -421,6 +422,11 @@ export function HomeContent() {
                   <WorkspaceGrid searchQuery={searchQuery} />
                 </div>
               </div>
+            </div>
+
+            {/* Footer */}
+            <div className="relative z-10">
+              <Footer />
             </div>
           </div>
         </HomeHeroDropzone>
