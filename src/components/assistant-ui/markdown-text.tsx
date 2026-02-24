@@ -5,7 +5,7 @@ import "streamdown/styles.css";
 import { createCodePlugin } from "@streamdown/code";
 import { mermaid } from "@streamdown/mermaid";
 import { createMathPlugin } from "@streamdown/math";
-import { useMessagePartText, useAuiState } from "@assistant-ui/react";
+import { useMessagePartText, useAuiState, type TextMessagePartProps } from "@assistant-ui/react";
 import {
   Children,
   isValidElement,
@@ -161,12 +161,14 @@ const CitationRenderer = memo(
 );
 CitationRenderer.displayName = "CitationRenderer";
 
-interface MarkdownTextProps {
+/** Props from assistant-ui when used as Text component, or optional when used directly (e.g. in Reasoning) */
+type MarkdownTextProps = Partial<TextMessagePartProps> & {
   /** Use "reasoning" for smoother streaming in reasoning blocks (blurIn, longer duration) */
   streamingVariant?: "default" | "reasoning";
-}
+};
 
-const MarkdownTextImpl = ({ streamingVariant = "default" }: MarkdownTextProps) => {
+const MarkdownTextImpl = (props: MarkdownTextProps) => {
+  const streamingVariant = props.streamingVariant ?? "default";
   // Get the text content from assistant-ui context
   const { text } = useMessagePartText();
 
