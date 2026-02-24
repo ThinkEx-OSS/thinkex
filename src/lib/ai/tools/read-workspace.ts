@@ -5,9 +5,6 @@ import { fuzzyMatchItem } from "./tool-utils";
 import { resolveItemByPath } from "./workspace-search-utils";
 import { formatItemContent } from "@/lib/utils/format-workspace-context";
 import { getVirtualPath } from "@/lib/utils/virtual-workspace-fs";
-import { recordWorkspaceItemRead } from "@/lib/db/workspace-item-reads";
-import { logger } from "@/lib/utils/logger";
-import { isValidThreadIdForDb } from "@/lib/utils/thread-id";
 import type { WorkspaceToolContext } from "./workspace-tools";
 
 const DEFAULT_LIMIT = 500;
@@ -17,7 +14,7 @@ const MAX_LINE_LENGTH = 2000;
 export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Read content of a workspace item (note, flashcard deck, PDF summary, quiz) by path or name. Usage: By default returns up to 500 lines from the start. The lineStart parameter is the 1-indexed line number to start from — call again with a larger lineStart to read later sections. For PDFs: use pageStart and pageEnd (1-indexed) to read only specific pages — e.g. pageStart=5, pageEnd=10 reads pages 5–10. Use searchWorkspace to find specific content in large items. Contents are returned with each line prefixed by its line number as <line>: <content>. Any line longer than 2000 characters is truncated. Avoid tiny repeated slices (e.g. 30-line chunks); read a larger window. REQUIRED before targeted updateNote edits — the tool will error otherwise.",
+            "Read content of a workspace item (note, flashcard deck, PDF summary, quiz) by path or name. Usage: By default returns up to 500 lines from the start. The lineStart parameter is the 1-indexed line number to start from — call again with a larger lineStart to read later sections. For PDFs: use pageStart and pageEnd (1-indexed) to read only specific pages — e.g. pageStart=5, pageEnd=10 reads pages 5–10. Use searchWorkspace to find specific content in large items. Contents are returned with each line prefixed by its line number as <line>: <content>. Any line longer than 2000 characters is truncated. Avoid tiny repeated slices (e.g. 30-line chunks); read a larger window. Call this before targeted updateNote edits to get the exact text for oldString.",
         inputSchema: zodSchema(
             z.object({
                 path: z
@@ -145,30 +142,6 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
             const hasMore = lineEnd < totalLines;
 
             const vpath = getVirtualPath(item, items);
-
-            // Record read for read-before-write enforcement (targeted edits)
-            // Skip when threadId is a placeholder (e.g. DEFAULT_THREAD_ID before thread is created)
-            logger.debug("[readWorkspace] Recording read:", {
-                threadId: ctx.threadId,
-                threadIdType: typeof ctx.threadId,
-                isValidForDb: isValidThreadIdForDb(ctx.threadId),
-                itemId: item.id,
-                lastModified: item.lastModified ?? 0,
-            });
-            if (isValidThreadIdForDb(ctx.threadId)) {
-                try {
-                    await recordWorkspaceItemRead(
-                        ctx.threadId,
-                        item.id,
-                        item.lastModified ?? 0
-                    );
-                    logger.debug("[readWorkspace] Recorded read successfully");
-                } catch (err) {
-                    logger.warn("[readWorkspace] Failed to record read:", err);
-                }
-            } else {
-                logger.debug("[readWorkspace] Skipping record (invalid threadId for DB)");
-            }
 
             return {
                 success: true,
