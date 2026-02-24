@@ -79,9 +79,14 @@ export function extractSearchableText(item: Item, items: Item[]): string {
  * Resolve an item by virtual path.
  * Path format: "Physics/notes/Thermodynamics.md" or "notes/My Note.md"
  */
+/** Known file extensions — avoid treating "4." in "4. Container Networking (2)" as extension */
+const KNOWN_EXTENSIONS = /\.(pdf|md|url|png|audio|txt)$/i;
+
 export function resolveItemByPath(items: Item[], pathInput: string): Item | null {
     const normalized = pathInput.trim().replace(/\/+/g, "/").replace(/^\//, "");
     if (!normalized) return null;
+
+    const stripExt = (s: string) => s.replace(KNOWN_EXTENSIONS, "");
 
     // Try exact match on getVirtualPath first
     const contentItems = items.filter((i) => i.type !== "folder");
@@ -89,17 +94,17 @@ export function resolveItemByPath(items: Item[], pathInput: string): Item | null
     if (exact) return exact;
 
     // Try path without extension (user might omit .md etc.)
-    const withoutExt = normalized.replace(/\.[^.]+$/, "");
+    const withoutExt = stripExt(normalized);
     const byPathNoExt = contentItems.find((item) => {
         const vp = getVirtualPath(item, items);
-        return vp.replace(/\.[^.]+$/, "") === withoutExt || vp === normalized;
+        return stripExt(vp) === withoutExt || vp === normalized;
     });
     if (byPathNoExt) return byPathNoExt;
 
     // Try matching last segment as filename (e.g. "Thermodynamics.md" -> item named "Thermodynamics")
     const segments = normalized.split("/").filter(Boolean);
     const filename = segments[segments.length - 1];
-    const nameWithoutExt = filename.replace(/\.[^.]+$/, "");
+    const nameWithoutExt = stripExt(filename);
 
     const candidates = contentItems.filter((item) => {
         const vp = getVirtualPath(item, items);
