@@ -37,6 +37,7 @@
   ],
   "exclude": [
     "node_modules",
-    "assistant-ui-main"
+    "assistant-ui-main",
+    "tmp"
   ]
 }

@@ -76,7 +76,7 @@ import { URLContextToolUI } from "@/components/assistant-ui/URLContextToolUI";
 import { UpdateNoteToolUI } from "@/components/assistant-ui/UpdateNoteToolUI";
 import { WebSearchToolUI } from "@/components/assistant-ui/WebSearchToolUI";
 import { UpdatePdfContentToolUI } from "@/components/assistant-ui/UpdatePdfContentToolUI";
-import { GrepWorkspaceToolUI } from "@/components/assistant-ui/GrepWorkspaceToolUI";
+import { SearchWorkspaceToolUI } from "@/components/assistant-ui/SearchWorkspaceToolUI";
 import { ReadWorkspaceToolUI } from "@/components/assistant-ui/ReadWorkspaceToolUI";
 
 import { DeleteCardToolUI } from "@/components/assistant-ui/DeleteCardToolUI";
@@ -200,7 +200,7 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
         {/* <DeepResearchToolUI /> */}
         <WebSearchToolUI />
         <UpdatePdfContentToolUI />
-        <GrepWorkspaceToolUI />
+        <SearchWorkspaceToolUI />
         <ReadWorkspaceToolUI />
         <ThreadPrimitive.Root
           className="aui-root aui-thread-root @container flex h-full flex-col bg-sidebar"

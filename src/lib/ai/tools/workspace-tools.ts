@@ -348,7 +348,7 @@ export function createSelectCardsTool(ctx: WorkspaceToolContext) {
                 if (notFoundCount > 0) {
                     message += ` (${notFoundCount} not found)`;
                 }
-                message += `: ${selectedItems.map(item => item.name).join(", ")}. Use grepWorkspace or readWorkspace to fetch content when needed.`;
+                message += `: ${selectedItems.map(item => item.name).join(", ")}. Use searchWorkspace or readWorkspace to fetch content when needed.`;
 
                 return {
                     success: true,
