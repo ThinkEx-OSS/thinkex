@@ -617,6 +617,24 @@ html {
   }
 }
 
+/* Home action card icon hover animations - unified 0.8s ease-in-out, moderate intensity */
+@keyframes icon-upload-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes icon-link-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.92); }
+}
+@keyframes icon-link-sway {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(4deg); }
+}
+@keyframes icon-paste-pop {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(2px); }
+}
+
 /* Subtle pulse animation for the add button */
 .animate-pulse-subtle {
   animation: pulseSubtle 2s ease-in-out infinite;

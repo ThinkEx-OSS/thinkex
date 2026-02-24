@@ -11,7 +11,7 @@ import { HeroGlow } from "./HeroGlow";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FolderPlus, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useCreateWorkspace } from "@/hooks/workspace/use-create-workspace";
 import {
   HoverCard,
@@ -42,7 +42,6 @@ interface HeroAttachmentsSectionProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   showLinkDialog: boolean;
   setShowLinkDialog: (open: boolean) => void;
-  handleCreateBlankWorkspace: () => void;
   createWorkspacePending: boolean;
   onRecord: () => void;
   heroVisible: boolean;
@@ -76,7 +75,6 @@ function HeroAttachmentsSection({
   fileInputRef,
   showLinkDialog,
   setShowLinkDialog,
-  handleCreateBlankWorkspace,
   createWorkspacePending,
   onRecord,
   heroVisible,
@@ -149,7 +147,6 @@ function HeroAttachmentsSection({
           onLink={() => setShowLinkDialog(true)}
           onPasteText={handlePasteText}
           onRecord={onRecord}
-          onStartFromScratch={handleCreateBlankWorkspace}
           isLoading={createWorkspacePending}
           uploadInputId={uploadInputId}
         />
@@ -272,28 +269,6 @@ export function HomeContent() {
     workspacesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  const handleCreateBlankWorkspace = () => {
-    // Guard against multiple rapid clicks
-    if (createWorkspace.isPending) return;
-
-    createWorkspace.mutate(
-      {
-        name: "Blank Workspace",
-        icon: null,
-        color: null,
-      },
-      {
-        onSuccess: ({ workspace }) => {
-          router.push(`/workspace/${workspace.slug}`);
-        },
-        onError: (err) => {
-          const msg = err instanceof Error ? err.message : "Something went wrong";
-          toast.error("Could not create workspace", { description: msg });
-        },
-      }
-    );
-  };
-
   const handleRecordInNewWorkspace = () => {
     if (createWorkspace.isPending) return;
     setShowRecordDialog(false);
@@ -318,6 +293,14 @@ export function HomeContent() {
   const handleRecordInExistingWorkspace = (slug: string) => {
     setShowRecordDialog(false);
     router.push(`/workspace/${slug}?${OPEN_RECORD_PARAM}=1`);
+  };
+
+  const handleRecord = () => {
+    if (!loadingWorkspaces && workspaces.length === 0) {
+      handleRecordInNewWorkspace();
+    } else {
+      setShowRecordDialog(true);
+    }
   };
 
   return (
@@ -417,9 +400,8 @@ export function HomeContent() {
                   fileInputRef={fileInputRef}
                   showLinkDialog={showLinkDialog}
                   setShowLinkDialog={setShowLinkDialog}
-                  handleCreateBlankWorkspace={handleCreateBlankWorkspace}
                   createWorkspacePending={createWorkspace.isPending}
-                  onRecord={() => setShowRecordDialog(true)}
+                  onRecord={handleRecord}
                   heroVisible={heroVisible}
                   showPromptInput={showPromptInput}
                   onRequestShowPromptInput={() => setShowPromptInput(true)}
