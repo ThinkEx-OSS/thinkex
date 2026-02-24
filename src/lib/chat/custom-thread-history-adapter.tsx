@@ -71,7 +71,7 @@ export function useCustomThreadHistoryAdapter(): ThreadHistoryAdapter {
       async append() {
         // No-op: ExternalStoreRuntime uses withFormat for persistence
       },
-      withFormat<TMessage, TStorageFormat>(
+      withFormat<TMessage, TStorageFormat extends Record<string, unknown>>(
         formatAdapter: MessageFormatAdapter<TMessage, TStorageFormat>
       ): GenericThreadHistoryAdapter<TMessage> {
         return {
