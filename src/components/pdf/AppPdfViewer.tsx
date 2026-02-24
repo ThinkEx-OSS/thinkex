@@ -60,6 +60,7 @@ const PdfStatePersister = ({ documentId, pdfSrc, itemId }: { documentId: string;
   const { state: zoomState, provides: zoomScope } = useZoom(documentId);
   const { state: scrollState } = useScroll(documentId);
   const debounceRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const restoreTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef<string>('');
 
   const storageKey = `${PDF_STATE_PREFIX}${encodeURIComponent(pdfSrc)}`;
@@ -122,8 +123,12 @@ const PdfStatePersister = ({ documentId, pdfSrc, itemId }: { documentId: string;
         const state: PdfSavedState = JSON.parse(saved);
 
         // Delay restoration to ensure it runs AFTER the plugin's default zoom is applied
-        // The plugin applies defaultZoomLevel: ZoomMode.FitWidth after document loads
-        setTimeout(() => {
+        restoreTimeoutRef.current = setTimeout(() => {
+          // Re-check citation (may have been set after our effect ran)
+          if (itemId && useUIStore.getState().citationHighlightQuery?.itemId === itemId) {
+            restoreCompleted.add(restoreKey);
+            return;
+          }
           // Restore zoom
           if (typeof state.zoom === 'number' && state.zoom > 0) {
             zoomScope.requestZoom(state.zoom);
@@ -131,16 +136,17 @@ const PdfStatePersister = ({ documentId, pdfSrc, itemId }: { documentId: string;
 
           // Restore scroll after zoom settles
           setTimeout(() => {
+            if (itemId && useUIStore.getState().citationHighlightQuery?.itemId === itemId) {
+              restoreCompleted.add(restoreKey);
+              return;
+            }
             const viewport = viewportCapability.forDocument(documentId);
             if (viewport) {
               viewport.scrollTo({ x: state.scrollLeft, y: state.scrollTop, behavior: 'instant' });
             }
-            // Mark restore as complete AFTER scroll is applied
-            setTimeout(() => {
-              restoreCompleted.add(restoreKey);
-            }, 100);
+            setTimeout(() => restoreCompleted.add(restoreKey), 100);
           }, 200);
-        }, 300); // Wait for default zoom to be applied first
+        }, 300);
       } else {
         // No saved state, or citation is opening this PDF (citation scroll takes priority)
         restoreCompleted.add(restoreKey);
@@ -152,6 +158,10 @@ const PdfStatePersister = ({ documentId, pdfSrc, itemId }: { documentId: string;
 
     // Cleanup on unmount
     return () => {
+      if (restoreTimeoutRef.current) {
+        clearTimeout(restoreTimeoutRef.current);
+        restoreTimeoutRef.current = null;
+      }
       saveCurrentState();
     };
   }, [viewportCapability, zoomScope, documentId, pdfSrc, storageKey, restoreKey, saveCurrentState, itemId]);

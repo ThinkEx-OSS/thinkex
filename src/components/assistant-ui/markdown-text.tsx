@@ -161,7 +161,12 @@ const CitationRenderer = memo(
 );
 CitationRenderer.displayName = "CitationRenderer";
 
-const MarkdownTextImpl = () => {
+interface MarkdownTextProps {
+  /** Use "reasoning" for smoother streaming in reasoning blocks (blurIn, longer duration) */
+  streamingVariant?: "default" | "reasoning";
+}
+
+const MarkdownTextImpl = ({ streamingVariant = "default" }: MarkdownTextProps) => {
   // Get the text content from assistant-ui context
   const { text } = useMessagePartText();
 
@@ -171,6 +176,11 @@ const MarkdownTextImpl = () => {
 
   // Check if the message is currently streaming
   const isRunning = useAuiState(({ thread }) => (thread as any)?.isRunning ?? false);
+
+  const animateConfig =
+    streamingVariant === "reasoning"
+      ? { animation: "blurIn" as const, duration: 250, easing: "ease-out" }
+      : { animation: "fadeIn" as const, duration: 200, easing: "ease-out" };
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -247,7 +257,7 @@ const MarkdownTextImpl = () => {
     <div key={key} ref={containerRef} className="aui-md" onCopy={handleCopy}>
       <Streamdown
         allowedTags={{ citation: [] }}
-        animated={{ animation: "fadeIn", duration: 200, easing: "ease-out" }}
+        animated={animateConfig}
         isAnimating={isRunning}
         caret="block"
         className={cn(
