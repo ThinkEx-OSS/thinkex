@@ -13,6 +13,8 @@ import { schema } from "./schema";
 import { uploadFile } from "@/lib/editor/upload-file";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useUIStore } from "@/lib/stores/ui-store";
+import { searchHighlightExtension } from "./search-highlight-extension";
+import { SearchQuery, setSearchState } from "prosemirror-search";
 import { extractTextFromSelection } from "@/lib/utils/extract-blocknote-text";
 import { MathEditProvider } from "./MathEditDialog";
 import { useTheme } from "next-themes";
@@ -116,6 +118,7 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
     uploadFile: blockNoteUploadFile,
     dictionary: en,
     autofocus: autofocus ? (typeof autofocus === "boolean" ? "start" : autofocus) : false,
+    extensions: cardId && !readOnly ? [searchHighlightExtension] : [],
   });
 
   useEffect(() => {
@@ -234,6 +237,90 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
       clearBlockNoteSelection();
     };
   }, [editor, readOnly, cardId, cardName, setBlockNoteSelection, clearBlockNoteSelection]);
+
+  // Sync citationHighlightQuery from store to prosemirror-search plugin (citation highlight)
+  useEffect(() => {
+    if (!cardId || readOnly) return;
+
+    const HIGHLIGHT_DURATION_MS = 2500;
+    const setCitationHighlightQuery = useUIStore.getState().setCitationHighlightQuery;
+
+    const applyHighlight = (query: string) => {
+      try {
+        const view = editor.prosemirrorView;
+        if (!view) return;
+
+        const { state } = view;
+        const docSize = state.doc.content.size;
+
+        const searchQuery = new SearchQuery({
+          search: query,
+          literal: true, // treat as plain text, escape regex chars
+          caseSensitive: false,
+        });
+        if (!searchQuery.valid) return;
+
+        const tr = state.tr;
+        setSearchState(tr, searchQuery, { from: 0, to: docSize });
+        view.dispatch(tr);
+
+        // Scroll first match into view after DOM updates
+        const result = searchQuery.findNext(state, 0, docSize);
+        if (result) {
+          requestAnimationFrame(() => {
+            try {
+              const { node } = view.domAtPos(result.from);
+              const el = (node as Node).nodeType === 3 ? (node as Text).parentElement : (node as HTMLElement);
+              el?.scrollIntoView({ behavior: "smooth", block: "center" });
+            } catch {
+              // ignore
+            }
+          });
+        }
+
+        // Clear highlight after a few seconds
+        const timeoutId = setTimeout(() => {
+          try {
+            const v = editor.prosemirrorView;
+            if (!v) return;
+            const s = v.state;
+            const clearQuery = new SearchQuery({ search: "\0", literal: true });
+            const clearTr = s.tr;
+            setSearchState(clearTr, clearQuery, null);
+            v.dispatch(clearTr);
+            setCitationHighlightQuery(null);
+          } catch {
+            // ignore
+          }
+        }, HIGHLIGHT_DURATION_MS);
+
+        return () => clearTimeout(timeoutId);
+      } catch (e) {
+        console.warn("[BlockNoteEditor] Citation highlight apply failed:", e);
+      }
+    };
+
+    let clearTimeoutFn: (() => void) | undefined;
+
+    const unsub = useUIStore.subscribe((state) => {
+      const hl = state.citationHighlightQuery;
+      if (!hl || hl.itemId !== cardId) return;
+      if (!hl.query?.trim()) return;
+      clearTimeoutFn?.();
+      clearTimeoutFn = applyHighlight(hl.query.trim());
+    });
+
+    // Apply immediately if we already have a matching query (e.g. note already open)
+    const hl = useUIStore.getState().citationHighlightQuery;
+    if (hl?.itemId === cardId && hl.query?.trim()) {
+      clearTimeoutFn = applyHighlight(hl.query.trim());
+    }
+
+    return () => {
+      unsub();
+      clearTimeoutFn?.();
+    };
+  }, [editor, cardId, readOnly]);
 
   // Sync content ONLY when updated by AGENT (prevents cursor jumping on user input)
   useEffect(() => {

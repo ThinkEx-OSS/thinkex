@@ -3,7 +3,7 @@ import { tool, zodSchema } from "ai";
 import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
-import { loadStateForTool, fuzzyMatchItem, getAvailableItemsList } from "./tool-utils";
+import { loadStateForTool, resolveItem, getAvailableItemsList } from "./tool-utils";
 
 /**
  * Create the createFlashcards tool
@@ -121,8 +121,8 @@ export function createUpdateFlashcardsTool(ctx: WorkspaceToolContext) {
 
                 const { state } = accessResult;
 
-                // Fuzzy match the deck by name
-                const matchedDeck = fuzzyMatchItem(state.items, deckName, "flashcard");
+                // Resolve by virtual path or fuzzy name match
+                const matchedDeck = resolveItem(state.items, deckName, "flashcard");
 
                 if (!matchedDeck) {
                     const availableDecks = getAvailableItemsList(state.items, "flashcard");

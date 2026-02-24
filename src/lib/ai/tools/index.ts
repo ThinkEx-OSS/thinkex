@@ -17,16 +17,18 @@ import {
 import { createFlashcardsTool, createUpdateFlashcardsTool } from "./flashcard-tools";
 import { createQuizTool, createUpdateQuizTool } from "./quiz-tools";
 import { createDeepResearchTool } from "./deep-research";
-import { createUpdatePdfContentTool } from "./pdf-tools";
 import { createSearchYoutubeTool, createAddYoutubeVideoTool } from "./youtube-tools";
 import { createSearchImagesTool, createAddImageTool } from "./image-tools";
 import { createWebSearchTool } from "./web-search";
+import { createSearchWorkspaceTool } from "./search-workspace";
+import { createReadWorkspaceTool } from "./read-workspace";
 import { logger } from "@/lib/utils/logger";
 
 export interface ChatToolsConfig {
     workspaceId: string | null;
     userId: string | null;
     activeFolderId?: string;
+    threadId?: string | null;
     clientTools?: Record<string, any>;
     enableDeepResearch?: boolean;
 }
@@ -39,6 +41,7 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
         workspaceId: config.workspaceId,
         userId: config.userId,
         activeFolderId: config.activeFolderId,
+        threadId: config.threadId ?? null,
     };
 
     // Safeguard frontendTools
@@ -57,6 +60,8 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
         // Search & code execution
         webSearch: createWebSearchTool(),
         executeCode: createExecuteCodeTool(),
+        searchWorkspace: createSearchWorkspaceTool(ctx),
+        readWorkspace: createReadWorkspaceTool(ctx),
 
         // Workspace operations
         createNote: createNoteTool(ctx),
@@ -64,9 +69,6 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
 
         deleteItem: createDeleteItemTool(ctx),
         selectCards: createSelectCardsTool(ctx),
-
-        // PDF content caching
-        updatePdfContent: createUpdatePdfContentTool(ctx),
 
         // Flashcards
         createFlashcards: createFlashcardsTool(ctx),

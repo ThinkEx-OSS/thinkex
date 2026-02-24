@@ -369,7 +369,7 @@ export function WorkspaceHeader({
       toast.dismiss(loadingToastId);
       toast.success("Audio uploaded — analyzing with Gemini...");
 
-      // Kick off Gemini processing in the background
+      // Kick off durable workflow and poll for completion
       fetch("/api/audio/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -377,29 +377,20 @@ export function WorkspaceHeader({
           fileUrl,
           filename: file.name,
           mimeType: file.type || "audio/webm",
+          itemId,
+          workspaceId: currentWorkspaceId,
         }),
       })
         .then((res) => res.json())
-        .then((result) => {
-          if (result.success) {
-            // Dispatch a custom event to update the audio card data
-            window.dispatchEvent(
-              new CustomEvent("audio-processing-complete", {
-                detail: {
-                  itemId,
-                  summary: result.summary,
-                  segments: result.segments,
-                  duration: result.duration,
-                },
-              })
+        .then((data) => {
+          if (data.runId && data.itemId) {
+            import("@/lib/audio/poll-audio-processing").then(({ pollAudioProcessing }) =>
+              pollAudioProcessing(data.runId, data.itemId)
             );
           } else {
             window.dispatchEvent(
               new CustomEvent("audio-processing-complete", {
-                detail: {
-                  itemId,
-                  error: result.error || "Processing failed",
-                },
+                detail: { itemId, error: data.error || "Processing failed" },
               })
             );
           }

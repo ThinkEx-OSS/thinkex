@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+.pnpm-store
 /.pnp
 .pnp.*
 .yarn/*
@@ -22,6 +23,8 @@
 
 # misc
 .DS_Store
+tmp/
+assistant-ui-main/
 *.pem
 
 # debug

@@ -3,14 +3,14 @@ import { z } from "zod";
 import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
-import { formatSelectedCardsContext } from "@/lib/utils/format-workspace-context";
 import type { Item } from "@/lib/workspace-state/types";
-import { loadStateForTool, fuzzyMatchItem, getAvailableItemsList } from "./tool-utils";
+import { loadStateForTool, resolveItem, getAvailableItemsList } from "./tool-utils";
 
 export interface WorkspaceToolContext {
     workspaceId: string | null;
     userId: string | null;
     activeFolderId?: string;
+    threadId?: string | null;
 }
 
 /**
@@ -69,28 +69,48 @@ export function createNoteTool(ctx: WorkspaceToolContext) {
 
 /**
  * Create the updateNote tool
+ * Cline convention: oldString='' = full rewrite, oldString!='' = targeted edit
  */
 export function createUpdateNoteTool(ctx: WorkspaceToolContext) {
     return tool({
-        description: "Update the content and/or title of an existing note.",
+        description:
+            "Update a note. Full rewrite: oldString='', newString=entire note. Targeted edit: call readWorkspace first to get current content, then oldString=exact text from the Content section (never include <card> wrapper), newString=replacement. Preserve exact whitespace/indentation. Fails if oldString not found or matches multiple times — include more context or use replaceAll.",
         inputSchema: zodSchema(
-            z.object({
-                noteName: z.string().describe("The name of the note to update (will be matched using fuzzy search)"),
-                content: z.string().describe("The full note body ONLY (do not include the title as a header)."),
-                title: z.string().optional().describe("New title for the note. If not provided, the existing title will be preserved."),
-                sources: z.array(
-                    z.object({
-                        title: z.string().describe("Title of the source page"),
-                        url: z.string().describe("URL of the source"),
-                        favicon: z.string().optional().describe("Optional favicon URL"),
-                    })
-                ).optional().describe("Optional sources from web search or user-provided URLs"),
-            }).passthrough()
+            z
+                .object({
+                    noteName: z.string().describe("The name of the note to update (will be matched using fuzzy search)"),
+                    oldString: z
+                        .string()
+                        .describe(
+                            "Text to find. Use '' for full rewrite. For targeted edit: exact text from readWorkspace Content section — match exactly including whitespace. Include enough context to make it unique, or use replaceAll to change every instance."
+                        ),
+                    newString: z
+                        .string()
+                        .describe("Replacement text (entire note if oldString is empty)"),
+                    replaceAll: z.boolean().optional().default(false).describe("Replace every occurrence of oldString; use for renaming or changing repeated text."),
+                    title: z.string().optional().describe("New title for the note. If not provided, the existing title will be preserved."),
+                    sources: z
+                        .array(
+                            z.object({
+                                title: z.string().describe("Title of the source page"),
+                                url: z.string().describe("URL of the source"),
+                                favicon: z.string().optional().describe("Optional favicon URL"),
+                            })
+                        )
+                        .optional()
+                        .describe("Optional sources from web search or user-provided URLs"),
+                })
+                .passthrough()
         ),
-        execute: async (input: { noteName: string; content: string; title?: string; sources?: Array<{ title: string; url: string; favicon?: string }> }) => {
-            const noteName = input.noteName;
-            const content = input.content;
-            const title = input.title;
+        execute: async (input: {
+            noteName: string;
+            oldString: string;
+            newString: string;
+            replaceAll?: boolean;
+            title?: string;
+            sources?: Array<{ title: string; url: string; favicon?: string }>;
+        }) => {
+            const { noteName, oldString, newString, replaceAll, title } = input;
 
             if (!noteName) {
                 return {
@@ -99,10 +119,24 @@ export function createUpdateNoteTool(ctx: WorkspaceToolContext) {
                 };
             }
 
-            if (content === undefined || content === null) {
+            if (oldString === undefined || oldString === null) {
                 return {
                     success: false,
-                    message: "Content is required.",
+                    message: "oldString is required. Use '' for full rewrite.",
+                };
+            }
+
+            if (newString === undefined || newString === null) {
+                return {
+                    success: false,
+                    message: "newString is required.",
+                };
+            }
+
+            if (oldString === newString) {
+                return {
+                    success: false,
+                    message: "No changes to apply: oldString and newString are identical.",
                 };
             }
 
@@ -114,22 +148,19 @@ export function createUpdateNoteTool(ctx: WorkspaceToolContext) {
             }
 
             try {
-                // Load workspace state (security is enforced by workspace-worker)
                 const accessResult = await loadStateForTool(ctx);
                 if (!accessResult.success) {
                     return accessResult;
                 }
 
                 const { state } = accessResult;
-
-                // Fuzzy match the note by name
-                const matchedNote = fuzzyMatchItem(state.items, noteName, "note");
+                const matchedNote = resolveItem(state.items, noteName, "note");
 
                 if (!matchedNote) {
                     const availableNotes = getAvailableItemsList(state.items, "note");
                     return {
                         success: false,
-                        message: `Could not find note "${noteName}". ${availableNotes ? `Available notes: ${availableNotes}` : 'No notes found in workspace.'}`,
+                        message: `Could not find note "${noteName}". ${availableNotes ? `Available notes: ${availableNotes}` : "No notes found in workspace."}`,
                     };
                 }
 
@@ -142,8 +173,11 @@ export function createUpdateNoteTool(ctx: WorkspaceToolContext) {
                 const workerResult = await workspaceWorker("update", {
                     workspaceId: ctx.workspaceId,
                     itemId: matchedNote.id,
-                    content: content,
-                    title: title,
+                    itemName: matchedNote.name,
+                    oldString,
+                    newString,
+                    replaceAll,
+                    title,
                     sources: input.sources,
                 });
 
@@ -176,7 +210,7 @@ export function createDeleteItemTool(ctx: WorkspaceToolContext) {
         description: "Permanently delete a card/note from the workspace by name.",
         inputSchema: zodSchema(
             z.object({
-                itemName: z.string().describe("The name of the item to delete (will be matched using fuzzy search)"),
+                itemName: z.string().describe("Item name or virtual path (e.g. pdfs/Report.pdf) to delete"),
             })
         ),
         execute: async ({ itemName }) => {
@@ -198,8 +232,8 @@ export function createDeleteItemTool(ctx: WorkspaceToolContext) {
 
                 const { state } = accessResult;
 
-                // Fuzzy match the item by name (any type)
-                const matchedItem = fuzzyMatchItem(state.items, itemName);
+                // Resolve by virtual path or fuzzy name match (any type)
+                const matchedItem = resolveItem(state.items, itemName);
 
                 if (!matchedItem) {
                     const availableItems = state.items.map(i => `"${i.name}" (${i.type})`).slice(0, 5).join(", ");
@@ -281,35 +315,17 @@ export function createSelectCardsTool(ctx: WorkspaceToolContext) {
                     };
                 }
 
-                // Perform fuzzy matching (matching client-side logic)
-                // 1. Exact match first
-                // 2. Contains match if no exact match
+                // Resolve by virtual path or fuzzy name match
                 const selectedItems: Item[] = [];
                 const processedIds = new Set<string>();
 
                 for (const title of cardTitles) {
-                    const searchTitle = title.toLowerCase().trim();
-
-                    // Try exact match first
-                    let match = state.items.find(
-                        item => item.name.toLowerCase().trim() === searchTitle && !processedIds.has(item.id)
-                    );
-
-                    // If no exact match, try contains match
-                    if (!match) {
-                        match = state.items.find(
-                            item => item.name.toLowerCase().includes(searchTitle) && !processedIds.has(item.id)
-                        );
-                    }
-
-                    if (match) {
+                    const match = resolveItem(state.items, title);
+                    if (match && !processedIds.has(match.id)) {
                         selectedItems.push(match);
                         processedIds.add(match.id);
                     }
                 }
-
-                // Format the selected cards context
-                const context = formatSelectedCardsContext(selectedItems, state.items);
 
                 const addedCount = selectedItems.length;
                 const notFoundCount = cardTitles.length - addedCount;
@@ -318,13 +334,12 @@ export function createSelectCardsTool(ctx: WorkspaceToolContext) {
                 if (notFoundCount > 0) {
                     message += ` (${notFoundCount} not found)`;
                 }
-                message += `: ${selectedItems.map(item => item.name).join(", ")}`;
+                message += `: ${selectedItems.map(item => item.name).join(", ")}. Use searchWorkspace or readWorkspace to fetch content when needed.`;
 
                 return {
                     success: true,
                     message,
                     addedCount,
-                    context, // Return formatted context so AI has immediate access
                     cardTitles: cardTitles,
                 };
             } catch (error: any) {
@@ -332,7 +347,6 @@ export function createSelectCardsTool(ctx: WorkspaceToolContext) {
                 return {
                     success: false,
                     message: `Failed to load workspace state: ${error?.message || String(error)}`,
-                    context: "",
                 };
             }
         },

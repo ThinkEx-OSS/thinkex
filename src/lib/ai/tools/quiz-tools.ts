@@ -9,7 +9,7 @@ import { logger } from "@/lib/utils/logger";
 import { quizWorker, workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
 import type { QuizData } from "@/lib/workspace-state/types";
-import { loadStateForTool, fuzzyMatchItem, getAvailableItemsList } from "./tool-utils";
+import { loadStateForTool, resolveItem, getAvailableItemsList } from "./tool-utils";
 
 /**
  * Create the createQuiz tool
@@ -154,8 +154,8 @@ export function createUpdateQuizTool(ctx: WorkspaceToolContext) {
 
                 const { state } = accessResult;
 
-                // Fuzzy match the quiz by name
-                const quizItem = fuzzyMatchItem(state.items, quizName, "quiz");
+                // Resolve by virtual path or fuzzy name match
+                const quizItem = resolveItem(state.items, quizName, "quiz");
 
                 if (!quizItem) {
                     const availableQuizzes = getAvailableItemsList(state.items, "quiz");

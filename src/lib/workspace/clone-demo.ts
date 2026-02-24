@@ -51,7 +51,6 @@ export async function cloneDemoWorkspace(
 
         // Ensure titles match if missing in state
         if (!initialState.globalTitle) initialState.globalTitle = name;
-        if (!initialState.globalDescription) initialState.globalDescription = description;
     } else {
         // Fallback to blank if demo workspace not found or state load failed
         initialState = getTemplateInitialState("blank");

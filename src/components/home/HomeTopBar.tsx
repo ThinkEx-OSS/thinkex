@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Github, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { UserProfileDropdown } from "./UserProfileDropdown";
@@ -73,17 +73,9 @@ export function HomeTopBar({ scrollY, searchQuery, onSearchChange }: HomeTopBarP
         </div>
       )}
 
-      {/* Right: Theme toggle + Open source + User profile */}
+      {/* Right: Theme toggle + User profile */}
       <div className="flex items-center gap-2">
         <ThemeToggle />
-        <a
-          href="https://github.com/thinkex-oss/thinkex"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-md text-foreground hover:text-muted-foreground transition-colors"
-        >
-          <Github className="h-4 w-4" />
-        </a>
         <UserProfileDropdown />
       </div>
     </header>

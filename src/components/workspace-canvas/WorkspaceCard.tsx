@@ -1,6 +1,6 @@
 import { QuizContent } from "./QuizContent";
 import { ImageCardContent } from "./ImageCardContent";
-import { MoreVertical, Trash2, Palette, CheckCircle2, FolderInput, FileText, Copy, X, Pencil, Columns, Link2, PanelRight, SplitSquareHorizontal } from "lucide-react";
+import { MoreVertical, Trash2, Palette, CheckCircle2, FolderInput, FileText, Copy, X, Pencil, Columns, Link2, PanelRight, SplitSquareHorizontal, Loader2 } from "lucide-react";
 import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
 import { useCallback, useState, memo, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
@@ -27,7 +27,6 @@ import "react-quizlet-flashcard/dist/index.css";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import { useCardContextProvider } from "@/hooks/ai/use-card-context-provider";
 import { useElementSize } from "@/hooks/use-element-size";
 import { useIsVisible } from "@/hooks/use-is-visible";
 import { extractYouTubeVideoId, extractYouTubePlaylistId } from "@/lib/utils/youtube-url";
@@ -227,9 +226,6 @@ function WorkspaceCard({
   const closePanel = useUIStore((state) => state.closePanel);
   const viewMode = useUIStore((state) => state.viewMode);
   const splitWithItem = useUIStore((state) => state.splitWithItem);
-
-  // Register this card's minimal context (title, id, type) with the assistant
-  useCardContextProvider(item);
 
   // No dynamic calculations needed - just overflow hidden
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
@@ -819,11 +815,18 @@ function WorkspaceCard({
               {/* Subtle type label for narrow cards without preview; hover shows "EXPAND OR CLICK TO VIEW" */}
               {(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio') && !shouldShowPreview && (
                 <span className={cn("block text-[10px] uppercase tracking-wider mt-auto w-max", resolvedTheme === 'dark' ? "text-muted-foreground/60" : "text-muted-foreground/40")}>
-                  <span className="relative inline-block">
-                    <span className="transition-opacity duration-150 group-hover:opacity-0">
-                      {item.type === 'note' ? 'Note' : item.type === 'pdf' ? 'PDF' : item.type === 'quiz' ? 'Quiz' : 'Recording'}
+                  <span className="relative inline-block flex items-center gap-1.5">
+                    <span className="transition-opacity duration-150 group-hover:opacity-0 flex items-center gap-1.5">
+                      {item.type === 'note' ? 'Note' : item.type === 'pdf' ? (
+                        (item.data as PdfData)?.ocrStatus === 'processing' ? (
+                          <>
+                            <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                            Extracting…
+                          </>
+                        ) : 'PDF'
+                      ) : item.type === 'quiz' ? 'Quiz' : 'Recording'}
                     </span>
-                    <span className="absolute left-0 top-0 whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                    <span className="absolute left-0 top-0 whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover:opacity-100 flex items-center">
                       Expand or click to view
                     </span>
                   </span>
@@ -841,10 +844,11 @@ function WorkspaceCard({
             {/* When scroll is locked, render lightweight placeholder instead of full PDF viewer */}
             {!isOpenInPanel && item.type === 'pdf' && shouldShowPreview && (() => {
               const pdfData = item.data as PdfData;
+              const isOcrProcessing = pdfData?.ocrStatus === 'processing';
 
               return (
                 <div
-                  className={`flex-1 min-h-0 ${isScrollLocked ? 'overflow-hidden' : 'overflow-auto'}`}
+                  className={`flex-1 min-h-0 relative ${isScrollLocked ? 'overflow-hidden' : 'overflow-auto'}`}
                   style={{ pointerEvents: isScrollLocked ? 'none' : 'auto' }}
                 >
                   {!isCardVisible ? (
@@ -858,7 +862,17 @@ function WorkspaceCard({
                       className="w-full h-full"
                     />
                   ) : (
-                    <LazyAppPdfViewer pdfSrc={pdfData.fileUrl} />
+                    <LazyAppPdfViewer pdfSrc={pdfData.fileUrl} itemId={item.id} />
+                  )}
+                  {/* OCR processing indicator overlay */}
+                  {isOcrProcessing && (
+                    <div
+                      className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-2 py-2 px-3 bg-primary/90 text-primary-foreground text-xs font-medium"
+                      style={{ color: 'inherit' }}
+                    >
+                      <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                      Extracting…
+                    </div>
                   )}
                 </div>
               );

@@ -15,6 +15,7 @@ import { useSession } from "@/lib/auth-client";
 import { LoginGate } from "@/components/workspace/LoginGate";
 import { AccessDenied } from "@/components/workspace/AccessDenied";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
+import { uploadPdfToStorage } from "@/lib/uploads/pdf-upload-with-ocr";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 
@@ -461,45 +462,91 @@ export function WorkspaceSection({
       return;
     }
 
-    // Upload all PDFs first
-    const uploadPromises = unprotectedFiles.map(async (file) => {
-      const { url: fileUrl, filename } = await uploadFileDirect(file);
+    const uploadToastId = toast.loading(
+      `Uploading ${unprotectedFiles.length} PDF${unprotectedFiles.length > 1 ? 's' : ''}...`,
+      { style: { color: '#fff' } }
+    );
 
-      return {
+    const uploadResults = await Promise.all(
+      unprotectedFiles.map(async (file) => {
+        try {
+          const { url, filename, fileSize } = await uploadPdfToStorage(file);
+          return {
+            file,
+            fileUrl: url,
+            filename,
+            fileSize,
+          };
+        } catch (err) {
+          toast.error(`Failed to upload ${file.name}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+          return null;
+        }
+      })
+    );
+
+    toast.dismiss(uploadToastId);
+
+    const validUploads = uploadResults.filter((r): r is NonNullable<typeof r> => r !== null);
+    if (validUploads.length === 0) return;
+
+    const pdfCardDefinitions = validUploads.map(({ file, fileUrl, filename, fileSize }) => ({
+      type: 'pdf' as const,
+      name: file.name.replace(/\.pdf$/i, ''),
+      initialData: {
         fileUrl,
-        filename: filename || file.name,
-        fileSize: file.size,
-        name: file.name.replace(/\.pdf$/i, ''),
-      };
+        filename,
+        fileSize,
+        ocrStatus: 'processing' as const,
+        ocrPages: [],
+      } as Partial<PdfData>,
+    }));
+
+    const createdIds = operations.createItems(pdfCardDefinitions);
+    handleCreatedItems(createdIds);
+
+    // Run OCR via workflow; poller dispatches pdf-processing-complete
+    validUploads.forEach((r, i) => {
+      const itemId = createdIds[i];
+      if (!itemId) return;
+      fetch("/api/pdf/ocr/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileUrl: r.fileUrl, itemId }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.runId && data.itemId) {
+            import("@/lib/pdf/poll-pdf-ocr").then(({ pollPdfOcr }) =>
+              pollPdfOcr(data.runId, data.itemId)
+            );
+          } else {
+            window.dispatchEvent(
+              new CustomEvent("pdf-processing-complete", {
+                detail: {
+                  itemId,
+                  textContent: "",
+                  ocrPages: [],
+                  ocrStatus: "failed" as const,
+                  ocrError: data.error || "Failed to start OCR",
+                },
+              })
+            );
+          }
+        })
+        .catch((err) => {
+          window.dispatchEvent(
+            new CustomEvent("pdf-processing-complete", {
+              detail: {
+                itemId,
+                textContent: "",
+                ocrPages: [],
+                ocrStatus: "failed" as const,
+                ocrError: err.message || "Failed to start OCR",
+              },
+            })
+          );
+        });
     });
-
-    const uploadResults = await Promise.all(uploadPromises);
-
-    // Filter out any null results (files that couldn't be processed)
-    const validResults = uploadResults.filter((result): result is NonNullable<typeof result> => result !== null);
-
-    if (validResults.length > 0) {
-      // Collect all PDF card data and create in a single batch event
-      const pdfCardDefinitions = validResults.map((result) => {
-        const pdfData: Partial<PdfData> = {
-          fileUrl: result.fileUrl,
-          filename: result.filename,
-          fileSize: result.fileSize,
-        };
-
-        return {
-          type: 'pdf' as const,
-          name: result.name,
-          initialData: pdfData,
-        };
-      });
-
-      // Create all PDF cards atomically in a single event
-      const createdIds = operations.createItems(pdfCardDefinitions);
-
-      // Auto-navigate to first created item
-      handleCreatedItems(createdIds);
-    }
   };
 
 
@@ -549,28 +596,20 @@ export function WorkspaceSection({
           fileUrl,
           filename: file.name,
           mimeType: file.type || "audio/webm",
+          itemId,
+          workspaceId: currentWorkspaceId,
         }),
       })
         .then((res) => res.json())
-        .then((result) => {
-          if (result.success) {
-            window.dispatchEvent(
-              new CustomEvent("audio-processing-complete", {
-                detail: {
-                  itemId,
-                  summary: result.summary,
-                  segments: result.segments,
-                  duration: result.duration,
-                },
-              })
+        .then((data) => {
+          if (data.runId && data.itemId) {
+            import("@/lib/audio/poll-audio-processing").then(({ pollAudioProcessing }) =>
+              pollAudioProcessing(data.runId, data.itemId)
             );
           } else {
             window.dispatchEvent(
               new CustomEvent("audio-processing-complete", {
-                detail: {
-                  itemId,
-                  error: result.error || "Processing failed",
-                },
+                detail: { itemId, error: data.error || "Processing failed" },
               })
             );
           }

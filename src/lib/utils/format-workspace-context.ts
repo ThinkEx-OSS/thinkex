@@ -1,10 +1,75 @@
 import type { AgentState, Item, NoteData, PdfData, FlashcardData, FlashcardItem, YouTubeData, QuizData, QuizQuestion, ImageData, AudioData } from "@/lib/workspace-state/types";
 import { serializeBlockNote } from "./serialize-blocknote";
 import { type Block } from "@/components/editor/BlockNoteEditor";
+import { getVirtualPath } from "./virtual-workspace-fs";
+
+/**
+ * Formats item metadata only (no content). Used for virtual FS in system context.
+ * When activePdfPages is provided and item is a PDF, includes activePage if user is currently viewing it.
+ */
+function formatItemMetadata(item: Item, items: Item[], activePdfPages?: Record<string, number>): string {
+    const path = getVirtualPath(item, items);
+    const parts: string[] = [path, `type=${item.type}`, `name="${item.name}"`];
+    if (item.subtitle) parts.push(`subtitle="${item.subtitle}"`);
+
+    switch (item.type) {
+        case "pdf": {
+            const d = item.data as PdfData;
+            if (d?.filename) parts.push(`filename=${d.filename}`);
+            const activePage = activePdfPages?.[item.id];
+            if (activePage != null && activePage >= 1) {
+                parts.push(`activePage=${activePage}`);
+            }
+            break;
+        }
+        case "flashcard": {
+            const d = item.data as FlashcardData;
+            const n = d?.cards?.length ?? (d?.front ? 1 : 0);
+            parts.push(`cards=${n}`);
+            break;
+        }
+        case "quiz": {
+            const d = item.data as QuizData;
+            parts.push(`questions=${d?.questions?.length ?? 0}`);
+            break;
+        }
+        case "audio": {
+            const d = item.data as AudioData;
+            parts.push(`status=${d?.processingStatus ?? "unknown"}`);
+            break;
+        }
+    }
+    return parts.join(" ");
+}
+
+/**
+ * Formats the workspace as a virtual file system with metadata only (no content).
+ * Replaces per-card context registration — send this once in workspace context.
+ * Content is available via selected cards context or tools (processFiles, etc.).
+ */
+export function formatVirtualWorkspaceFS(state: AgentState): string {
+    const { items = [] } = state;
+    const contentItems = items.filter((i) => i.type !== "folder");
+    if (contentItems.length === 0) {
+        return `<virtual-workspace>
+Workspace is empty. Reference items by name when created.
+</virtual-workspace>`;
+    }
+
+    const entries = contentItems.map((item) =>
+        formatItemMetadata(item, items)
+    );
+
+    return `<virtual-workspace>
+Paths and metadata. Use readWorkspace to read content. Call processFiles for PDFs that need content extracted (you call it — do not ask the user).
+
+${entries.join("\n")}
+</virtual-workspace>`;
+}
 
 /**
  * Formats minimal workspace context (metadata and system instructions only)
- * Cards register their own context individually, so we don't include the items list here
+ * Virtual FS (formatVirtualWorkspaceFS) provides the item tree and metadata only.
  */
 export function formatWorkspaceContext(state: AgentState): string {
     const { globalTitle } = state;
@@ -27,12 +92,9 @@ Your knowledge cutoff date is January 2025.
 </time_and_knowledge>
 
 <context>
-WORKSPACE ITEMS:
-The <workspace-item> tags represent cards in the workspace. Items named "Update me" are template placeholders awaiting content generation.
+${formatVirtualWorkspaceFS(state)}
 
-When users say "this", they may mean information in the <context> section. Reference cards by name. If no context is provided, explain how to select cards: hover + click checkmark, shift-click, or drag-select, or select them yourself with the selectCard tool.
-
-When answering questions about selected cards or content in <context>, rely only on the facts directly mentioned in that context. Do not invent or assume information not present. If the answer is not in the context, say so.
+When users say "this", they may mean the selected cards, which should be the primary source of your context. Selected cards context provides paths and metadata only, so use searchWorkspace or readWorkspace to fetch full content when needed. Reference items by path or name. If no context is provided, explain how to select cards: hover + click checkmark, shift-click, or drag-select, or select them yourself with the selectCards tool. Rely only on facts from the content you fetch. Do not invent or assume information not present.
 </context>
 
 <instructions>
@@ -42,13 +104,17 @@ CORE BEHAVIORS:
 - If uncertain, say so rather than guessing
 - For complex tasks, think step-by-step
 - You are allowed to complete homework or assignments for the user if they ask
+- Only use emojis if the user explicitly requests them
+
+UPDATE NOTE (targeted edits): Before using updateNote with a non-empty oldString (targeted edit), you MUST call readWorkspace first to fetch the current content. Use the exact text from the Content section as oldString. If the note may have been modified since you last read it, call readWorkspace again before retrying.
 
 WEB SEARCH GUIDELINES:
 Use webSearch when: temporal cues ("today", "latest", "current"), real-time data (scores, stocks, weather), fact verification, niche/recent info.
 Use internal knowledge for: creative writing, coding, general concepts, summarizing provided content.
 If uncertain about accuracy, prefer to search.
 
-PDF ATTACHMENTS: When the user uploads a PDF as a file attachment and there's a matching PDF item in the workspace, call updatePdfContent with a comprehensive summary of the PDF's content to cache it. This avoids reprocessing the file later.
+PDF: Use readWorkspace for PDFs with content (pageStart/pageEnd for page ranges). If content is not yet extracted, you must call processFiles, do not ask the user. For image placeholders in readWorkspace output, call processFiles with pdfImageRefs.
+When selected card metadata includes activePage=N, the user is currently viewing that page — use this to give better, more relevant responses. When they say "this", "here", "this page", or "what I'm looking at", treat it as referring to that page.
 
 YOUTUBE: If user says "add a video" without a topic, infer from workspace context. Don't ask - just search.
 
@@ -62,6 +128,33 @@ Rules:
 - Use chunk.web.uri exactly as provided (even redirect URLs)
 - Never make up or hallucinate URLs
 - Include article dates in responses when available
+
+INLINE CITATIONS (highly recommended for most responses):
+Only in your chat response — never in item content (notes, flashcards, quizzes, etc.). Use sources param for tools; do not put <citation> tags in content passed to createNote, updateNote, addFlashcards, etc.
+Use simple plain text only. Bare minimum for uniqueness. No math, LaTeX, or complex formatting inside citations.
+Output citation HTML: <citation>REF</citation> where REF is one of:
+
+- Web URL: <citation>https://example.com/article</citation>
+- Workspace note: <citation>Note Title</citation> — or virtual path: <citation>notes/My Note.md</citation>
+- Workspace + quote: <citation>Note Title | exact excerpt</citation> — pipe with spaces; only when you have the exact text
+- PDF (page REQUIRED): <citation>PDF Title | p. 5</citation> or <citation>PDF Title | exact excerpt | p. 5</citation> — for PDFs you MUST include " | p. N" at end (1-indexed). Quote is optional. Virtual path is OK: <citation>pdfs/MyFile.pdf | p. 3</citation>.
+
+WRONG — PDF without page (never do this): <citation>pdfs/SomeFile.pdf</citation> or <citation>PDF Title</citation>
+
+Examples (plain text only):
+- <citation>https://en.wikipedia.org/wiki/Supply_chain</citation>
+- <citation>My Calculus Notes</citation>
+- <citation>notes/My Calculus Notes.md</citation>
+- <citation>Math 240 Textbook | p. 42</citation>
+- <citation>Math 240 Textbook | limit definition | p. 42</citation>
+- <citation>pdfs/Syllabus.pdf | p. 3</citation>
+
+NEVER HALLUCINATE QUOTES: Only include a quote when you have the exact excerpt. If unsure, use <citation>Title</citation> without a quote.
+PDF CITATIONS: Page number is MANDATORY. Every PDF citation must end with " | p. N". If you don't know the page, do not cite the PDF.
+
+CRITICAL — Punctuation: Put the period or comma BEFORE the citation.
+Correct: "...flow of goods and services." <citation>Source Title | comprehensive administration</citation>
+Wrong: "...flow of goods and services" <citation>Source Title</citation>.  (do NOT put the period after)
 </instructions>
 
 <formatting>
@@ -93,7 +186,7 @@ $$
 \\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}
 $$
 
-DIAGRAMS: Use \`\`\`mermaid blocks for when a diagram would be helpful
+DIAGRAMS: Use \`\`\`mermaid blocks for when a diagram would be helpful in your response but not in tool call content
 </formatting>
 
 <constraints>
@@ -339,8 +432,56 @@ function formatRichContentSection(richContent: RichContent): string {
  * Formats a single selected card with FULL content (no truncation)
  */
 /**
- * Formats selected cards context for the assistant
- * Used when cards are added to the context drawer
+ * Formats selected cards as metadata only (paths, names, types).
+ * Use when the AI has grep/read tools — it fetches content on demand.
+ * When activePdfPages is provided, PDF items include activePage (page user is currently viewing).
+ */
+export function formatSelectedCardsMetadata(
+    selectedItems: Item[],
+    allItems?: Item[],
+    activePdfPages?: Record<string, number>
+): string {
+    if (selectedItems.length === 0) {
+        return `<context>
+No cards selected.
+</context>`;
+    }
+
+    let effectiveItems: Item[] = [];
+    const processedIds = new Set<string>();
+
+    const processItem = (item: Item) => {
+        if (processedIds.has(item.id)) return;
+        processedIds.add(item.id);
+
+        if (item.type === "folder") {
+            effectiveItems.push(item);
+            if (allItems) {
+                const children = allItems.filter((child) => child.folderId === item.id);
+                children.forEach((child) => processItem(child));
+            }
+        } else {
+            effectiveItems.push(item);
+        }
+    };
+
+    selectedItems.forEach((item) => processItem(item));
+
+    const contentItems = effectiveItems.filter((i) => i.type !== "folder");
+    const entries = contentItems.map((item) =>
+        formatItemMetadata(item, allItems ?? effectiveItems, activePdfPages)
+    );
+
+    return `<context>
+SELECTED CARDS (${contentItems.length}) — paths and metadata. Use searchWorkspace or readWorkspace to fetch content when needed.
+
+${entries.join("\n")}
+</context>`;
+}
+
+/**
+ * Formats selected cards context for the assistant (FULL content).
+ * Used when cards are added to the context drawer — prefer formatSelectedCardsMetadata when grep/read tools exist.
  */
 export function formatSelectedCardsContext(selectedItems: Item[], allItems?: Item[]): string {
     if (selectedItems.length === 0) {
@@ -388,17 +529,38 @@ No cards selected.
  * Formats a single selected card with FULL content (no truncation)
  */
 function formatSelectedCardFull(item: Item, index: number): string {
-    const lines = [
-        `<card type="${item.type}" name="${item.name}">`
-    ];
+    return formatItemContent(item);
+}
 
-    // Add type-specific details with FULL content
+export interface FormatItemContentOptions {
+    /** For PDFs: 1-indexed start page (inclusive) */
+    pageStart?: number;
+    /** For PDFs: 1-indexed end page (inclusive) */
+    pageEnd?: number;
+}
+
+/**
+ * Format full content of a single item. Used by read tool and formatSelectedCardFull.
+ * For PDFs, pass pageStart/pageEnd to read only specific pages.
+ */
+export function formatItemContent(
+    item: Item,
+    options?: FormatItemContentOptions
+): string {
+    const lines: string[] = [];
+
     switch (item.type) {
         case "note":
             lines.push(...formatNoteDetailsFull(item.data as NoteData));
             break;
         case "pdf":
-            lines.push(...formatPdfDetailsFull(item.data as PdfData));
+            lines.push(
+                ...formatPdfDetailsFull(
+                    item.data as PdfData,
+                    options?.pageStart,
+                    options?.pageEnd
+                )
+            );
             break;
         case "flashcard":
             lines.push(...formatFlashcardDetailsFull(item.data as FlashcardData));
@@ -415,11 +577,23 @@ function formatSelectedCardFull(item: Item, index: number): string {
         case "audio":
             lines.push(...formatAudioDetailsFull(item.data as AudioData));
             break;
+        default:
+            break;
     }
 
-    lines.push(`</card>`);
-
     return lines.join("\n");
+}
+
+/**
+ * Extracts the note content as markdown. Uses same source as readWorkspace
+ * (blockContent serialized, or field1 fallback) so edits match what the AI sees.
+ */
+export function getNoteContentAsMarkdown(data: NoteData): string {
+    if (data.blockContent) {
+        const content = serializeBlockNote(data.blockContent as Block[]);
+        if (content) return content;
+    }
+    return data.field1 ?? "";
 }
 
 /**
@@ -427,31 +601,71 @@ function formatSelectedCardFull(item: Item, index: number): string {
  */
 function formatNoteDetailsFull(data: NoteData): string[] {
     const lines: string[] = [];
-
-    // OPTIMIZED: Prioritize blockContent for rich markdown serialization
-    if (data.blockContent) {
-        // Use the markdown serializer to preserve structure and formatting
-        const content = serializeBlockNote(data.blockContent as Block[]);
-        if (content) {
-            lines.push(`   - Content:\n${content}`);
-            return lines; // Return early if successful
-        }
+    const content = getNoteContentAsMarkdown(data);
+    if (content) {
+        lines.push(`   - Content:\n${content}`);
     }
-
-    // Fallback to field1 (plain text) if blockContent is missing or empty
-    if (data.field1) {
-        lines.push(`   - Content: ${data.field1}`);
-    }
-
     return lines;
 }
 
 /**
- * Formats PDF details with FULL content
- * If cached textContent is available, include it so the agent can reason about the PDF
- * without needing to call processFiles.
+ * Formats OCR pages as markdown matching readWorkspace output.
+ * Exported for processFiles to return OCR content in the same format.
  */
-function formatPdfDetailsFull(data: PdfData): string[] {
+export function formatOcrPagesAsMarkdown(ocrPages: PdfData["ocrPages"]): string {
+    if (!ocrPages?.length) return "";
+    const lines: string[] = [`Pages (${ocrPages.length}):`];
+    for (const page of ocrPages) {
+        const pageNum = page.index + 1;
+        lines.push(`--- Page ${pageNum} ---`);
+        if (page.header) lines.push(`Header: ${page.header}`);
+        const rawMd = page.markdown ?? "";
+        const md = replaceOcrPlaceholders(
+            rawMd,
+            page.tables as Array<{ id?: string; content?: string }> | undefined
+        );
+        for (const line of md.split(/\r?\n/)) lines.push(line);
+        if (page.footer) lines.push(`Footer: ${page.footer}`);
+        lines.push("");
+    }
+    return lines.join("\n").trimEnd();
+}
+
+/** Replaces table placeholders [id](id) with actual table content. Images stay as placeholders; use processFiles with pdfImageRefs to fetch. */
+function replaceOcrPlaceholders(
+    markdown: string,
+    tables?: Array<{ id?: string; content?: string }>
+): string {
+    let out = markdown;
+    for (const tbl of tables ?? []) {
+        const id = tbl.id;
+        const content = tbl.content;
+        if (!id || !content) continue;
+        out = out.replace(
+            new RegExp(`\\[${escapeRegex(id)}\\]\\(${escapeRegex(id)}\\)`, "g"),
+            `\n\n[Table ${id}]\n${content}\n\n`
+        );
+    }
+    return out;
+}
+
+function escapeRegex(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Formats PDF details with FULL content
+ * If cached textContent/ocrPages are available, include them so the agent can reason about the PDF
+ * without needing to call processFiles.
+ * OCR pages output markdown as proper lines (one line per line) instead of JSON blobs.
+ * Image and table placeholders are mapped to actual content when available.
+ * Optionally filter by pageStart/pageEnd (1-indexed, inclusive).
+ */
+function formatPdfDetailsFull(
+    data: PdfData,
+    pageStart?: number,
+    pageEnd?: number
+): string[] {
     const lines: string[] = [];
 
     if (data.filename) {
@@ -462,15 +676,43 @@ function formatPdfDetailsFull(data: PdfData): string[] {
         lines.push(`   - URL: ${data.fileUrl}`);
     }
 
-    if (data.fileSize) {
-        const sizeMB = (data.fileSize / (1024 * 1024)).toFixed(2);
-        lines.push(`   - Size: ${sizeMB} MB`);
-    }
-
-    if (data.textContent) {
-        lines.push(`   - Extracted Content:\n${data.textContent}`);
+    if (data.ocrPages?.length) {
+        let pagesToShow = data.ocrPages;
+        if (pageStart != null || pageEnd != null) {
+            const startIdx = pageStart != null ? Math.max(0, pageStart - 1) : 0;
+            const endIdx =
+                pageEnd != null
+                    ? Math.min(data.ocrPages.length - 1, pageEnd - 1)
+                    : data.ocrPages.length - 1;
+            pagesToShow = data.ocrPages.filter(
+                (p) => p.index >= startIdx && p.index <= endIdx
+            );
+            if (pagesToShow.length > 0) {
+                lines.push(
+                    `   - Pages ${pageStart ?? 1}-${pageEnd ?? data.ocrPages.length} (${pagesToShow.length} of ${data.ocrPages.length}):`
+                );
+            }
+        } else {
+            lines.push(`   - Pages (${data.ocrPages.length}):`);
+        }
+        for (const page of pagesToShow) {
+            const pageNum = page.index + 1;
+            lines.push(`     --- Page ${pageNum} ---`);
+            if (page.header) lines.push(`     Header: ${page.header}`);
+            const rawMd = page.markdown ?? "";
+            const md = replaceOcrPlaceholders(
+                rawMd,
+                page.tables as Array<{ id?: string; content?: string }> | undefined
+            );
+            for (const line of md.split(/\r?\n/)) {
+                lines.push(`     ${line}`);
+            }
+            if (page.footer) lines.push(`     Footer: ${page.footer}`);
+        }
+    } else if (data.ocrStatus === "processing") {
+        lines.push(`   - (Content is being extracted. Please wait a moment and try readWorkspace or processFiles again.)`);
     } else {
-        lines.push(`   - (Content not yet extracted — use processFiles or upload the PDF to extract)`);
+        lines.push(`   - (Content not yet extracted. You must call the processFiles tool to extract it — do not ask the user to do this.)`);
     }
 
     return lines;

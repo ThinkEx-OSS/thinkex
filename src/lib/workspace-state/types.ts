@@ -31,6 +31,17 @@ export interface PdfData {
   filename: string; // original filename
   fileSize?: number; // optional file size in bytes
   textContent?: string; // cached extracted text content (avoids reprocessing)
+  ocrStatus?: "complete" | "failed" | "processing";
+  ocrError?: string;
+  ocrPages?: Array<{
+    index: number;
+    markdown: string;
+    images?: unknown[];
+    footer?: string | null;
+    header?: string | null;
+    hyperlinks?: unknown[];
+    tables?: unknown[];
+  }>;
 }
 
 export interface FlashcardItem {
@@ -178,14 +189,14 @@ export interface Item {
    */
   layout?: ResponsiveLayouts | LayoutPosition;
   lastSource?: 'user' | 'agent';
+  /** Timestamp (ms) when item was last modified. Set by event reducer. Used for AI conflict detection. */
+  lastModified?: number;
 }
 
 export interface AgentState {
   items: Item[]; // Includes folder-type items (type: 'folder')
   globalTitle: string;
-  globalDescription: string;
   lastAction?: string;
-  itemsCreated: number;
   workspaceId?: string; // Supabase workspace ID for persistence
   /** @deprecated Folders are now items with type: 'folder'. This field is kept for backward compatibility but is not used. */
   folders?: Folder[];

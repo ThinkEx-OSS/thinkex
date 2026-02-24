@@ -5,9 +5,7 @@ import { AgentState, CardType, ItemData, NoteData, PdfData } from "@/lib/workspa
 export const initialState: AgentState = {
   items: [],
   globalTitle: "",
-  globalDescription: "",
   lastAction: "",
-  itemsCreated: 0,
 
 };
 

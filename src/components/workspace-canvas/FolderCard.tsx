@@ -10,7 +10,6 @@ import { getCardColorCSS, getCardAccentColor, SWATCHES_COLOR_GROUPS, type CardCo
 import { useTheme } from "next-themes";
 
 import { useUIStore } from "@/lib/stores/ui-store";
-import { useCardContextProvider } from "@/hooks/ai/use-card-context-provider";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -91,10 +90,7 @@ function FolderCardComponent({
   const isSelected = useUIStore(
     (state) => state.selectedCardIds.has(item.id)
   );
-  const onToggleSelection = useUIStore((state) => state.toggleCardSelection);
-
-  // Register folder context with assistant
-  useCardContextProvider(item);
+  const   onToggleSelection = useUIStore((state) => state.toggleCardSelection);
 
   // Track drag movement to prevent opening folder after drag
   const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);

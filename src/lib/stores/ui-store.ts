@@ -56,6 +56,11 @@ interface UIState {
   // BlockNote text selection state
   blockNoteSelection: { cardId: string; cardName: string; text: string } | null;
 
+  // Citation highlight: when opening note/PDF from citation click, highlight/search this quote
+  citationHighlightQuery: { itemId: string; query: string; pageNumber?: number } | null;
+
+  // PDF active page: itemId -> current page when PDF is open (for selected-card context)
+  activePdfPageByItemId: Record<string, number>;
 
   // Actions - Chat
   setIsChatExpanded: (expanded: boolean) => void;
@@ -128,6 +133,8 @@ interface UIState {
   // Actions - BlockNote selection
   setBlockNoteSelection: (selection: { cardId: string; cardName: string; text: string } | null) => void;
   clearBlockNoteSelection: () => void;
+  setCitationHighlightQuery: (query: { itemId: string; query: string; pageNumber?: number } | null) => void;
+  setActivePdfPage: (itemId: string, page: number | null) => void;
 
   // Utility actions
   resetChatState: () => void;
@@ -159,7 +166,7 @@ const initialState = {
   searchQuery: '',
 
   activeFolderId: null,
-  selectedModelId: 'gemini-3-flash-preview',
+  selectedModelId: 'gemini-2.5-flash',
 
   // Text selection
   inMultiSelectMode: false,
@@ -180,6 +187,8 @@ const initialState = {
 
   // BlockNote selection
   blockNoteSelection: null,
+  citationHighlightQuery: null,
+  activePdfPageByItemId: {},
 };
 
 export const useUIStore = create<UIState>()(
@@ -350,6 +359,7 @@ export const useUIStore = create<UIState>()(
                 maximizedItemId: null,
                 selectedCardIds: newSelectedCardIds,
                 panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
+                citationHighlightQuery: null,
               };
             }
 
@@ -376,6 +386,7 @@ export const useUIStore = create<UIState>()(
               maximizedItemId: null,
               selectedCardIds: newSelectedCardIds,
               panelAutoSelectedCardIds: new Set(),
+              citationHighlightQuery: null,
             };
           });
         },
@@ -412,6 +423,7 @@ export const useUIStore = create<UIState>()(
                 maximizedItemId: null,
                 selectedCardIds: newSelectedCardIds,
                 panelAutoSelectedCardIds: new Set(),
+                citationHighlightQuery: null,
               };
             } else {
               const isAlreadyOpen = state.openPanelIds.length === 1 && state.openPanelIds[0] === id && state.maximizedItemId === id;
@@ -542,7 +554,20 @@ export const useUIStore = create<UIState>()(
         clearBlockNoteSelection: () => {
           set({ blockNoteSelection: null });
         },
-
+        setCitationHighlightQuery: (query) => {
+          set({ citationHighlightQuery: query });
+        },
+        setActivePdfPage: (itemId, page) => {
+          set((state) => {
+            const next = { ...state.activePdfPageByItemId };
+            if (page == null) {
+              delete next[itemId];
+            } else {
+              next[itemId] = page;
+            }
+            return { activePdfPageByItemId: next };
+          });
+        },
 
         // Utility actions
         resetChatState: () => set({
@@ -586,7 +611,7 @@ export const useUIStore = create<UIState>()(
         }),
       }),
       {
-        name: 'thinkex-ui-preferences',
+        name: 'thinkex-ui-preferences-v2',
         storage: createJSONStorage(() => localStorage),
         partialize: (state) => ({ selectedModelId: state.selectedModelId }),
       },

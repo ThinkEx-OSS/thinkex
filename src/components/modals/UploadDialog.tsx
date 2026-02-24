@@ -71,17 +71,20 @@ export function UploadDialog({
         }
     }, [open]);
 
-    // Upload multiple image files
+    // Upload multiple image files in parallel
     const uploadImageFiles = useCallback(async (files: File[]) => {
         setIsUploading(true);
         const toastId = toast.loading(`Uploading ${files.length} image${files.length > 1 ? 's' : ''}...`);
 
         try {
-            for (const file of files) {
-                const result = await uploadFileDirect(file);
-                const simpleName = file.name.split('.').slice(0, -1).join('.') || "Image";
-                onImageCreate(result.url, simpleName);
-            }
+            const results = await Promise.all(
+                files.map(async (file) => {
+                    const result = await uploadFileDirect(file);
+                    const simpleName = file.name.split('.').slice(0, -1).join('.') || "Image";
+                    return { url: result.url, simpleName };
+                })
+            );
+            results.forEach(({ url, simpleName }) => onImageCreate(url, simpleName));
 
             toast.dismiss(toastId);
             toast.success(`${files.length} image${files.length > 1 ? 's' : ''} uploaded successfully`);

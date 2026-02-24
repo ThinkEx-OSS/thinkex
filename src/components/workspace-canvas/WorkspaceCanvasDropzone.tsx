@@ -11,6 +11,7 @@ import type { PdfData, ImageData, AudioData } from "@/lib/workspace-state/types"
 import { getBestFrameForRatio, type GridFrame } from "@/lib/workspace-state/aspect-ratios";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
+import { uploadPdfToStorage } from "@/lib/uploads/pdf-upload-with-ocr";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 
@@ -142,71 +143,147 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
       );
 
       try {
-        // Upload all files in parallel, keeping the original File reference
-        const uploadPromises = filteredFiles.map(async (file) => {
-          try {
-            const { url, filename } = await uploadFileToStorage(file);
-            return {
-              fileUrl: url,
-              filename: file.name,
-              fileSize: file.size,
-              name: file.name.replace(/\.pdf$/i, ''), // Remove .pdf extension for card name
-              originalFile: file,
-            };
-          } catch (error) {
-            console.error("Failed to upload file:", error);
-            // Remove from processing set on error so it can be retried
-            const fileKey = getFileKey(file);
-            processingFilesRef.current.delete(fileKey);
-            return null;
-          }
-        });
+        // Separate PDFs from other files — PDFs use direct upload + OCR from URL
+        const pdfFiles = filteredFiles.filter((f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+        const nonPdfFiles = filteredFiles.filter((f) => f.type !== 'application/pdf' && !f.name.toLowerCase().endsWith('.pdf'));
 
-        const uploadResults = await Promise.all(uploadPromises);
-
-        // Filter out any null results (files that couldn't be processed)
-        const validResults = uploadResults.filter((result): result is NonNullable<typeof result> => result !== null);
-
-        // Dismiss loading toast
-        toast.dismiss(loadingToastId);
-
-        if (validResults.length > 0) {
-          // Separate files by type using the original file reference (avoids index misalignment)
-          const pdfResults: typeof validResults = [];
-          const imageResults: typeof validResults = [];
-          const audioResults: typeof validResults = [];
-
-          validResults.forEach((result) => {
-            const fileType = result.originalFile.type;
-            if (fileType === 'application/pdf') {
-              pdfResults.push(result);
-            } else if (fileType.startsWith('audio/')) {
-              audioResults.push(result);
-            } else {
-              imageResults.push(result);
+        // PDFs: upload to storage only (non-blocking), OCR runs in background
+        const pdfResults: Array<{
+          fileUrl: string;
+          filename: string;
+          fileSize: number;
+          name: string;
+          pdfData: Partial<PdfData>;
+        }> = [];
+        if (pdfFiles.length > 0) {
+          const pdfPromises = pdfFiles.map(async (file) => {
+            try {
+              const { url, filename, fileSize } = await uploadPdfToStorage(file);
+              return {
+                fileUrl: url,
+                filename,
+                fileSize,
+                name: file.name.replace(/\.pdf$/i, ''),
+                pdfData: {
+                  fileUrl: url,
+                  filename,
+                  fileSize,
+                  ocrStatus: "processing" as const,
+                  ocrPages: [],
+                } as Partial<PdfData>,
+              };
+            } catch (err) {
+              const fileKey = getFileKey(file);
+              processingFilesRef.current.delete(fileKey);
+              console.error('PDF upload failed:', err);
+              return null;
             }
           });
 
-          // Create PDF cards
-          if (pdfResults.length > 0) {
-            const pdfCardDefinitions = pdfResults.map((result) => {
-              const pdfData: Partial<PdfData> = {
-                fileUrl: result.fileUrl,
-                filename: result.filename,
-                fileSize: result.fileSize,
-              };
+          const results = await Promise.all(pdfPromises);
+          pdfResults.push(...results.filter((r): r is NonNullable<typeof r> => r !== null));
+        }
 
+        // Non-PDFs: upload only
+        const nonPdfResults: Array<{
+          fileUrl: string;
+          filename: string;
+          fileSize: number;
+          name: string;
+          originalFile: File;
+        }> = [];
+        if (nonPdfFiles.length > 0) {
+          const uploadPromises = nonPdfFiles.map(async (file) => {
+            try {
+              const { url, filename } = await uploadFileToStorage(file);
               return {
-                type: 'pdf' as const,
-                name: result.name,
-                initialData: pdfData,
+                fileUrl: url,
+                filename: file.name,
+                fileSize: file.size,
+                name: file.name.replace(/\.pdf$/i, ''),
+                originalFile: file,
               };
-            });
+            } catch (error) {
+              console.error('Failed to upload file:', error);
+              const fileKey = getFileKey(file);
+              processingFilesRef.current.delete(fileKey);
+              return null;
+            }
+          });
+          const results = await Promise.all(uploadPromises);
+          nonPdfResults.push(...results.filter((r): r is NonNullable<typeof r> => r !== null));
+        }
 
+        const validResults = [...pdfResults, ...nonPdfResults];
+        if (validResults.length > 0) {
+          const imageResults: typeof nonPdfResults = [];
+          const audioResults: typeof nonPdfResults = [];
+          nonPdfResults.forEach((r) => {
+            if (r.originalFile.type.startsWith('audio/')) audioResults.push(r);
+            else imageResults.push(r);
+          });
+
+          // Create PDF cards (OCR runs in background)
+          if (pdfResults.length > 0) {
+            const pdfCardDefinitions = pdfResults.map((r) => ({
+              type: 'pdf' as const,
+              name: r.name,
+              initialData: r.pdfData,
+            }));
             const pdfCreatedIds = operations.createItems(pdfCardDefinitions);
-            // Use shared hook to handle navigation/selection for PDFs
             handleCreatedItems(pdfCreatedIds);
+            // Run OCR via workflow; poller dispatches pdf-processing-complete
+            pdfResults.forEach((r, i) => {
+              const itemId = pdfCreatedIds[i];
+              if (!itemId) return;
+              fetch("/api/pdf/ocr/start", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ fileUrl: r.fileUrl, itemId }),
+              })
+                .then(async (res) => {
+                  if (!res.ok) {
+                    const err = await res.json().catch(() => ({ error: res.statusText }));
+                    throw new Error((err as { error?: string }).error ?? `OCR start failed: ${res.status}`);
+                  }
+                  return res.json();
+                })
+                .then((data) => {
+                  if (data.runId && data.itemId) {
+                    import("@/lib/pdf/poll-pdf-ocr").then(({ pollPdfOcr }) =>
+                      pollPdfOcr(data.runId, data.itemId)
+                    );
+                  } else {
+                    window.dispatchEvent(
+                      new CustomEvent("pdf-processing-complete", {
+                        detail: {
+                          itemId,
+                          textContent: "",
+                          ocrPages: [],
+                          ocrStatus: "failed" as const,
+                          ocrError: data.error || "Failed to start OCR",
+                        },
+                      })
+                    );
+                  }
+                })
+                .catch((err) => {
+                  window.dispatchEvent(
+                    new CustomEvent("pdf-processing-complete", {
+                      detail: {
+                        itemId,
+                        textContent: "",
+                        ocrPages: [],
+                        ocrStatus: "failed" as const,
+                        ocrError: err.message || "Failed to start OCR",
+                      },
+                    })
+                  );
+                });
+            });
           }
+
+          toast.dismiss(loadingToastId);
 
           // Create image cards with aspect ratio detection
           if (imageResults.length > 0) {
@@ -331,17 +408,23 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
                   fileUrl: result.fileUrl,
                   filename: result.filename,
                   mimeType: result.originalFile.type || 'audio/mpeg',
+                  itemId,
+                  workspaceId: currentWorkspaceId,
                 }),
               })
                 .then(res => res.json())
                 .then(data => {
-                  window.dispatchEvent(
-                    new CustomEvent('audio-processing-complete', {
-                      detail: data.success
-                        ? { itemId, summary: data.summary, segments: data.segments, duration: data.duration }
-                        : { itemId, error: data.error || 'Processing failed' },
-                    })
-                  );
+                  if (data.runId && data.itemId) {
+                    import('@/lib/audio/poll-audio-processing').then(({ pollAudioProcessing }) =>
+                      pollAudioProcessing(data.runId, data.itemId)
+                    );
+                  } else {
+                    window.dispatchEvent(
+                      new CustomEvent('audio-processing-complete', {
+                        detail: { itemId, error: data.error || 'Processing failed' },
+                      })
+                    );
+                  }
                 })
                 .catch(err => {
                   window.dispatchEvent(

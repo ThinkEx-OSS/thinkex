@@ -218,19 +218,14 @@ async function handlePOST(request: NextRequest) {
     // Use provided initial state (already validated on client side)
     initialState = customInitialState;
     initialState.workspaceId = workspace.id;
-    // Ensure globalTitle and globalDescription are set from workspace metadata
     if (!initialState.globalTitle) {
       initialState.globalTitle = name;
-    }
-    if (!initialState.globalDescription && description) {
-      initialState.globalDescription = description;
     }
   } else {
     // Use template-based initial state
     initialState = getTemplateInitialState(effectiveTemplate);
     initialState.workspaceId = workspace.id;
     initialState.globalTitle = name;
-    initialState.globalDescription = description || "";
   }
 
   // Note: No need to create workspace_states record - state is now managed via events

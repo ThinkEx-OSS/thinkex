@@ -14,6 +14,7 @@ import { logger } from "@/lib/utils/logger";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { getLayoutForBreakpoint, findNextAvailablePosition } from "@/lib/workspace-state/grid-layout-helpers";
 import { useRealtimeContextOptional } from "@/contexts/RealtimeContext";
+import { hasDuplicateName } from "@/lib/workspace/unique-name";
 
 /**
  * Return type for workspace operations
@@ -26,7 +27,6 @@ export interface WorkspaceOperations {
   deleteItem: (id: string) => void;
   updateAllItems: (items: Item[]) => void;
   setGlobalTitle: (title: string) => void;
-  setGlobalDescription: (description: string) => void;
 
   flushPendingChanges: (itemId: string) => void;
   // Folder operations
@@ -116,10 +116,18 @@ export function useWorkspaceOperations(
       logger.debug("🔧 [CREATE-ITEM] Initial data:", initialData);
       logger.debug("🔧 [CREATE-ITEM] Merged data:", mergedData);
 
+      const finalName = name || `New ${validType.charAt(0).toUpperCase() + validType.slice(1)}`;
+      const folderId = activeFolderId ?? null;
+
+      if (hasDuplicateName(currentState.items, finalName, validType, folderId)) {
+        toast.error(`A ${validType} named "${finalName}" already exists in this folder`);
+        return "";
+      }
+
       const item: Item = {
         id,
         type: validType,
-        name: name || `New ${validType.charAt(0).toUpperCase() + validType.slice(1)}`,
+        name: finalName,
         subtitle: "",
         data: mergedData as ItemData,
         color: getRandomCardColor(), // Assign random color to new cards
@@ -132,7 +140,7 @@ export function useWorkspaceOperations(
 
       return id; // Return ID for further operations
     },
-    [mutation, userId, userName, workspaceId]
+    [mutation, userId, userName, workspaceId, currentState.items]
   );
 
   const createItems = useCallback(
@@ -157,6 +165,9 @@ export function useWorkspaceOperations(
       // Mutable array to track items for position calculation as we generate them
       const itemsForLayout = [...currentItems];
 
+      // Track items we're creating to detect within-batch duplicates
+      const itemsSoFar: Item[] = [];
+
       // Create all items
       const createdItems: Item[] = items.map(({ type, name, initialData, initialLayout }) => {
         // Validate type is a valid CardType
@@ -168,6 +179,15 @@ export function useWorkspaceOperations(
         }
 
         const id = generateItemId();
+        const finalName = name || `New ${validType.charAt(0).toUpperCase() + validType.slice(1)}`;
+        const folderId = activeFolderId ?? null;
+
+        // Check duplicate against existing + already-created in this batch
+        const allItemsSoFar = [...currentState.items, ...itemsSoFar];
+        if (hasDuplicateName(allItemsSoFar, finalName, validType, folderId)) {
+          logger.warn(`🔧 [CREATE-ITEMS] Skipping duplicate: ${finalName} (${validType})`);
+          return null;
+        }
 
         // Merge default data with initial data
         const baseData = defaultDataFor(validType);
@@ -200,17 +220,28 @@ export function useWorkspaceOperations(
           });
         }
 
-        return {
+        const newItem: Item = {
           id,
           type: validType,
-          name: name || `New ${validType.charAt(0).toUpperCase() + validType.slice(1)}`,
+          name: finalName,
           subtitle: "",
           data: mergedData as ItemData,
           color: getRandomCardColor(), // Assign random color to new cards
           folderId: activeFolderId ?? undefined, // Auto-assign to active folder
           layout,
         };
-      });
+        itemsSoFar.push(newItem);
+        return newItem;
+      }).filter((item): item is Item => item !== null);
+
+      if (createdItems.length === 0) {
+        toast.error("All items were skipped (duplicate names in folder)");
+        return [];
+      }
+
+      if (createdItems.length < items.length) {
+        toast.warning(`${items.length - createdItems.length} item(s) skipped due to duplicate names`);
+      }
 
       // Create single batch event with all items
       const event = createEvent("BULK_ITEMS_CREATED", { items: createdItems }, userId, userName);
@@ -224,7 +255,7 @@ export function useWorkspaceOperations(
       // Return array of created item IDs
       return createdItems.map(item => item.id);
     },
-    [mutation, userId, userName, workspaceId]
+    [mutation, userId, userName, workspaceId, currentState.items]
   );
 
   const updateItem = useCallback(
@@ -245,9 +276,21 @@ export function useWorkspaceOperations(
         const finalChanges = pendingItemChangesRef.current.get(id);
         if (finalChanges) {
           const item = currentState.items.find(i => i.id === id);
-          const name = (finalChanges as Partial<Item>).name ?? item?.name;
+          const newName = (finalChanges as Partial<Item>).name ?? item?.name;
+          const newType = (finalChanges as Partial<Item>).type ?? item?.type;
+          const folderId = ((finalChanges as Partial<Item>).folderId ?? item?.folderId) ?? null;
+
+          if (newName && newType && "name" in finalChanges) {
+            if (hasDuplicateName(currentState.items, newName, newType, folderId, id)) {
+              toast.error(`A ${newType} named "${newName}" already exists in this folder`);
+              pendingItemChangesRef.current.delete(id);
+              updateItemDebounceRef.current.delete(id);
+              return;
+            }
+          }
+
           logger.debug("⏱️ [DEBOUNCE] updateItem firing after 500ms:", { id, changes: finalChanges, source });
-          const event = createEvent("ITEM_UPDATED", { id, changes: finalChanges, source, name }, userId, userName);
+          const event = createEvent("ITEM_UPDATED", { id, changes: finalChanges, source, name: newName }, userId, userName);
           mutation.mutate(event);
           // Clean up
           pendingItemChangesRef.current.delete(id);
@@ -305,15 +348,6 @@ export function useWorkspaceOperations(
     [mutation, userId, userName]
   );
 
-  const setGlobalDescription = useCallback(
-    (description: string) => {
-      const event = createEvent("GLOBAL_DESCRIPTION_SET", { description }, userId, userName);
-      mutation.mutate(event);
-    },
-    [mutation, userId, userName]
-  );
-
-
   // Helper for updating item data (used by field actions)
   const updateItemData = useCallback(
     (itemId: string, updater: (prev: Item['data']) => Item['data'], source: 'user' | 'agent' = 'user') => {
@@ -336,10 +370,34 @@ export function useWorkspaceOperations(
       const timeout = setTimeout(() => {
         const finalUpdater = pendingItemDataUpdatersRef.current.get(itemId);
         if (finalUpdater) {
-          // Get the latest item state when the timeout fires
-          const latestItem = currentState.items.find(item => item.id === itemId);
+          // CRITICAL: Read latest state from cache (not currentState closure) so we get
+          // items created after this callback was invoked (e.g. OCR completing after PDF create)
+          let latestItem: Item | undefined;
+          if (workspaceId) {
+            const cacheData = queryClient.getQueryData<EventResponse>([
+              "workspace",
+              workspaceId,
+              "events",
+            ]);
+            if (cacheData?.events) {
+              const latestState = replayEvents(cacheData.events, workspaceId, cacheData.snapshot?.state);
+              latestItem = latestState.items.find(item => item.id === itemId);
+            }
+          }
           if (!latestItem) {
-            logger.warn(`updateItemData: Item ${itemId} not found when applying debounced update`);
+            latestItem = currentState.items.find(item => item.id === itemId);
+          }
+          if (!latestItem) {
+            const cacheData = workspaceId
+              ? queryClient.getQueryData<EventResponse>(["workspace", workspaceId, "events"])
+              : null;
+            const itemCount = cacheData?.events
+              ? replayEvents(cacheData.events, workspaceId!, cacheData.snapshot?.state).items.length
+              : 0;
+            logger.warn(`[OCR/UPDATE] updateItemData: Item ${itemId} not found. Item may have been deleted. Cache has ${itemCount} items.`, {
+              itemId,
+              workspaceId,
+            });
             pendingItemDataUpdatersRef.current.delete(itemId);
             updateItemDataDebounceRef.current.delete(itemId);
             return;
@@ -348,10 +406,12 @@ export function useWorkspaceOperations(
           // Apply the final updater to get new data
           const newData = finalUpdater(latestItem.data);
 
-          logger.debug("⏱️ [DEBOUNCE] updateItemData firing after 500ms:", {
+          const ocrStatus = (newData as { ocrStatus?: string })?.ocrStatus;
+          logger.debug("[OCR/UPDATE] updateItemData firing:", {
             itemId,
-            hasDataChanges: true,
-            dataKeys: Object.keys(newData)
+            itemName: latestItem.name,
+            ocrStatus,
+            dataKeys: Object.keys(newData),
           });
 
           // Emit update event with new data - include name for version history display
@@ -370,7 +430,7 @@ export function useWorkspaceOperations(
 
       updateItemDataDebounceRef.current.set(itemId, timeout);
     },
-    [currentState, mutation, userId, userName]
+    [workspaceId, queryClient, currentState, mutation, userId, userName]
   );
 
 
@@ -696,7 +756,6 @@ export function useWorkspaceOperations(
     deleteItem,
     updateAllItems,
     setGlobalTitle,
-    setGlobalDescription,
     flushPendingChanges,
     // Folder operations
     createFolder,

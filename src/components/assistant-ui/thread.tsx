@@ -46,6 +46,7 @@ import * as m from "motion/react-m";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,7 +75,8 @@ import { URLContextToolUI } from "@/components/assistant-ui/URLContextToolUI";
 // import { DeepResearchToolUI } from "@/components/assistant-ui/DeepResearchToolUI";
 import { UpdateNoteToolUI } from "@/components/assistant-ui/UpdateNoteToolUI";
 import { WebSearchToolUI } from "@/components/assistant-ui/WebSearchToolUI";
-import { UpdatePdfContentToolUI } from "@/components/assistant-ui/UpdatePdfContentToolUI";
+import { SearchWorkspaceToolUI } from "@/components/assistant-ui/SearchWorkspaceToolUI";
+import { ReadWorkspaceToolUI } from "@/components/assistant-ui/ReadWorkspaceToolUI";
 
 import { DeleteCardToolUI } from "@/components/assistant-ui/DeleteCardToolUI";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
@@ -96,6 +98,7 @@ import { ToolGroup } from "@/components/assistant-ui/tool-group";
 import type { Item, PdfData } from "@/lib/workspace-state/types";
 import { CardContextDisplay } from "@/components/chat/CardContextDisplay";
 import { ReplyContextDisplay } from "@/components/chat/ReplyContextDisplay";
+import { MessageContextBadges } from "@/components/chat/MessageContextBadges";
 import { MentionMenu } from "@/components/chat/MentionMenu";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useUIStore, selectReplySelections, selectSelectedCardIdsArray, selectBlockNoteSelection } from "@/lib/stores/ui-store";
@@ -109,7 +112,6 @@ import { useCreateCardFromMessage } from "@/hooks/ai/use-create-card-from-messag
 import { extractUrls, createUrlFile } from "@/lib/attachments/url-utils";
 import { filterItems } from "@/lib/workspace-state/search";
 import { useSession } from "@/lib/auth-client";
-import { formatSelectedCardsContext } from "@/lib/utils/format-workspace-context";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { SpeechToTextButton } from "@/components/assistant-ui/SpeechToTextButton";
 
@@ -196,7 +198,8 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
         <URLContextToolUI />
         {/* <DeepResearchToolUI /> */}
         <WebSearchToolUI />
-        <UpdatePdfContentToolUI />
+        <SearchWorkspaceToolUI />
+        <ReadWorkspaceToolUI />
         <ThreadPrimitive.Root
           className="aui-root aui-thread-root @container flex h-full flex-col bg-sidebar"
           style={{
@@ -209,7 +212,10 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
             autoScroll={false}
             className="aui-thread-viewport relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll px-4"
           >
-            <AuiIf condition={({ thread }) => thread.isEmpty}>
+            <AuiIf condition={({ thread }) => thread.isLoading}>
+              <ThreadLoadingSkeleton />
+            </AuiIf>
+            <AuiIf condition={({ thread }) => thread.isEmpty && !thread.isLoading}>
               <ThreadWelcome />
             </AuiIf>
 
@@ -249,6 +255,40 @@ const ThreadScrollToBottom: FC = () => {
         <ArrowDownIcon />
       </TooltipIconButton>
     </ThreadPrimitive.ScrollToBottom>
+  );
+};
+
+const ThreadLoadingSkeleton: FC = () => {
+  return (
+    <div
+      role="status"
+      aria-label="Loading chat"
+      className="aui-thread-loading-skeleton mx-auto flex w-full max-w-[var(--thread-max-width)] flex-col gap-6 px-2 py-8"
+    >
+      {/* User message skeleton (right-aligned) */}
+      <div className="flex justify-end">
+        <div className="max-w-[85%] space-y-2">
+          <Skeleton className="h-12 w-48 rounded-lg" />
+        </div>
+      </div>
+      {/* Assistant message skeleton (left-aligned) */}
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-full max-w-[90%] rounded" />
+        <Skeleton className="h-4 w-full max-w-[70%] rounded" />
+        <Skeleton className="h-4 w-32 rounded" />
+      </div>
+      {/* User message skeleton */}
+      <div className="flex justify-end">
+        <Skeleton className="h-10 w-64 rounded-lg" />
+      </div>
+      {/* Assistant message skeleton - taller */}
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-full max-w-[95%] rounded" />
+        <Skeleton className="h-4 w-full max-w-[80%] rounded" />
+        <Skeleton className="h-4 w-full max-w-[60%] rounded" />
+        <Skeleton className="h-4 w-24 rounded" />
+      </div>
+    </div>
   );
 };
 
@@ -636,7 +676,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
 
   return (
     <ComposerPrimitive.Root
-      className="aui-composer-root relative flex w-full flex-col rounded-lg border border-sidebar-border bg-sidebar-accent px-1 pt-1 shadow-[0_9px_9px_0px_rgba(0,0,0,0.01),0_2px_5px_0px_rgba(0,0,0,0.06)] dark:border-sidebar-border/15"
+      className="aui-composer-root relative flex w-full flex-col rounded-lg border border-sidebar-border bg-sidebar-accent px-3.5 pt-2 pb-1 shadow-[0_9px_9px_0px_rgba(0,0,0,0.01),0_2px_5px_0px_rgba(0,0,0,0.06)] dark:border-sidebar-border/15"
       onClick={(e) => {
         // Focus the input when clicking anywhere in the composer area
         // This allows users to easily return focus after interacting with quizzes or other cards
@@ -718,7 +758,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         <ComposerPrimitive.Input
           ref={inputRef}
           placeholder="Ask anything or @mention context"
-          className="aui-composer-input max-h-32 w-full resize-none bg-transparent px-3.5 py-1.5 text-base text-sidebar-foreground outline-none placeholder:text-sidebar-foreground/60 focus:outline-none"
+          className="aui-composer-input max-h-32 w-full resize-none bg-transparent py-1.5 text-base text-sidebar-foreground outline-none placeholder:text-sidebar-foreground/60 focus:outline-none"
           rows={1}
           autoFocus
           aria-label="Message input"
@@ -785,9 +825,9 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
   }, [items]);
 
   return (
-    <div className="aui-composer-action-wrapper relative mx-1 mb-2 flex items-center justify-between">
+    <div className="aui-composer-action-wrapper relative mb-2 flex items-center justify-between">
       {/* Attachment buttons on the left */}
-      <div className="flex items-center gap-1 relative z-0">
+      <div className="flex items-center gap-1.5 relative z-0">
         <div className="relative z-0">
           <ComposerAddAttachment />
         </div>
@@ -801,7 +841,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="flex items-center gap-1.5 px-1.5 py-1 rounded-md bg-sidebar-accent hover:bg-accent transition-colors flex-shrink-0 text-xs font-normal text-muted-foreground hover:text-foreground cursor-pointer"
+              className="flex items-center gap-1.5 pl-0 pr-1.5 py-1 rounded-md bg-sidebar-accent hover:bg-accent transition-colors flex-shrink-0 text-xs font-normal text-muted-foreground hover:text-foreground cursor-pointer"
             >
               {getModelIcon(selectedModel.id)}
               <span>{getModelDisplayName(selectedModel.id)}</span>
@@ -989,7 +1029,7 @@ const AssistantMessage: FC = () => {
   return (
     <MessagePrimitive.Root asChild>
       <div
-        className="aui-assistant-message-root relative mx-auto w-full max-w-[var(--thread-max-width)] animate-in py-4 duration-150 ease-out fade-in slide-in-from-bottom-1 last:mb-24"
+        className="aui-assistant-message-root relative mx-auto w-full max-w-[var(--thread-max-width)] animate-in pb-4 duration-150 ease-out fade-in slide-in-from-bottom-1 last:mb-24"
         data-role="assistant"
       >
         <div className="aui-assistant-message-content mx-2 leading-7 break-words text-foreground">
@@ -1375,13 +1415,14 @@ const UserMessage: FC = () => {
   return (
     <MessagePrimitive.Root asChild>
       <div
-        className="aui-user-message-root mx-auto grid w-full max-w-[var(--thread-max-width)] animate-in auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 px-2 pt-4 pb-1 duration-150 ease-out fade-in slide-in-from-bottom-1 last:mb-5 [&:where(>*)]:col-start-2"
+        className="aui-user-message-root mx-auto grid w-full max-w-[var(--thread-max-width)] animate-breathe-in auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 px-2 pt-4 pb-1 last:mb-5 [&:where(>*)]:col-start-2"
         data-role="user"
       >
         {/* Attachments display */}
         <UserMessageAttachments />
 
         <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0">
+          <MessageContextBadges />
           <div className="aui-user-message-content rounded-lg bg-muted px-3 py-2 break-words text-foreground text-sm">
             <MessagePrimitive.Parts
               components={{

@@ -45,6 +45,7 @@ import type { WorkspaceWithState } from "@/lib/workspace-state/types";
 import { IconRenderer } from "@/hooks/use-icon-picker";
 import { cn } from "@/lib/utils";
 import { ThinkExLogo } from "@/components/ui/thinkex-logo";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface WorkspaceSidebarProps {
   showJsonView: boolean;
@@ -379,8 +380,9 @@ function WorkspaceSidebar({
                   </DropdownMenu>
                 </div>
 
-                {/* Support button */}
+                {/* Theme toggle & Support button */}
                 <div className="flex items-center gap-1.5 group-data-[collapsible=icon]:hidden">
+                  <ThemeToggle />
                   <SidebarMenuButton
                     size="default"
                     id="posthog-feedback-button"

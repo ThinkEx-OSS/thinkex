@@ -39,9 +39,8 @@ async function handleGET(
   const state = await loadWorkspaceState(id);
 
   // Ensure state has workspace metadata if empty
-  if (!state.globalTitle && !state.globalDescription) {
+  if (!state.globalTitle) {
     state.globalTitle = workspace.name || "";
-    state.globalDescription = workspace.description || "";
   }
 
   return NextResponse.json({

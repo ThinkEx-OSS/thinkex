@@ -1,5 +1,5 @@
 import { gateway } from "ai";
-import { streamText, convertToModelMessages, stepCountIs, wrapLanguageModel, tool } from "ai";
+import { streamText, smoothStream, convertToModelMessages, pruneMessages, stepCountIs, wrapLanguageModel, tool } from "ai";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 import { PostHog } from "posthog-node";
 import { withTracing } from "@posthog/ai";
@@ -190,6 +190,8 @@ export async function POST(req: Request) {
     const system = body.system || "";
     workspaceId = extractWorkspaceId(body);
     activeFolderId = body.activeFolderId;
+    // AssistantChatTransport passes thread remoteId as body.id (see assistant-ui react-ai-sdk)
+    const threadId = body.id ?? body.threadId ?? null;
 
     // Convert messages
     let convertedMessages;
@@ -203,6 +205,14 @@ export async function POST(req: Request) {
       throw convertError;
     }
 
+    // Prune older reasoning and tool calls to save context
+    convertedMessages = pruneMessages({
+      messages: convertedMessages,
+      reasoning: "before-last-message",
+      toolCalls: "before-last-5-messages",
+      emptyMessages: "remove",
+    });
+
     // Process messages in single pass: extract URLs and clean markers
     const { urlContextUrls, cleanedMessages } = processMessages(convertedMessages);
 
@@ -210,7 +220,7 @@ export async function POST(req: Request) {
     const selectedCardsContext = getSelectedCardsContext(body);
 
     // Get model ID and ensure it has the correct prefix for Gateway
-    let modelId = body.modelId || "gemini-3-flash-preview";
+    let modelId = body.modelId || "gemini-2.5-flash";
 
     // Auto-prefix with google/ if it looks like a gemini model and lacks prefix
     // This allows existing client code to work without changes
@@ -253,6 +263,7 @@ export async function POST(req: Request) {
       workspaceId,
       userId,
       activeFolderId,
+      threadId,
       clientTools: body.tools,
       enableDeepResearch: false,
     });
@@ -298,6 +309,7 @@ export async function POST(req: Request) {
       stopWhen: stepCountIs(25),
       tools,
       providerOptions,
+      experimental_transform: smoothStream({ chunking: "word", delayInMs: 15 }),
       onFinish: ({ usage, finishReason }) => {
         const usageInfo = {
           inputTokens: usage?.inputTokens,

@@ -1,8 +1,8 @@
 "use client";
 
-import { memo, useCallback, useRef, useState } from "react";
+import { memo, useCallback, useRef, useState, useEffect, useLayoutEffect, forwardRef } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { BrainIcon, ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon } from "lucide-react";
 import {
   useScrollLock,
   useAuiState,
@@ -136,10 +136,6 @@ function ReasoningTrigger({
       )}
       {...props}
     >
-      <BrainIcon
-        data-slot="reasoning-trigger-icon"
-        className="aui-reasoning-trigger-icon size-4 shrink-0"
-      />
       <span
         data-slot="reasoning-trigger-label"
         className="aui-reasoning-trigger-label-wrapper relative inline-block leading-none"
@@ -195,35 +191,41 @@ function ReasoningContent({
   );
 }
 
-function ReasoningText({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="reasoning-text"
-      className={cn(
-        "aui-reasoning-text relative z-0 max-h-64 overflow-y-auto pt-2 pb-2 pl-6 leading-relaxed",
-        "transform-gpu transition-[transform,opacity]",
-        "group-data-[state=open]/collapsible-content:animate-in",
-        "group-data-[state=closed]/collapsible-content:animate-out",
-        "group-data-[state=open]/collapsible-content:fade-in-0",
-        "group-data-[state=closed]/collapsible-content:fade-out-0",
-        "group-data-[state=open]/collapsible-content:slide-in-from-top-4",
-        "group-data-[state=closed]/collapsible-content:slide-out-to-top-4",
-        "group-data-[state=open]/collapsible-content:duration-(--animation-duration)",
-        "group-data-[state=closed]/collapsible-content:duration-(--animation-duration)",
-        className,
-      )}
-      {...props}
-    />
-  );
-}
+const ReasoningText = forwardRef<HTMLDivElement, React.ComponentProps<"div">>(
+  function ReasoningText({ className, ...props }, ref) {
+    return (
+      <div
+        ref={ref}
+        data-slot="reasoning-text"
+        className={cn(
+          "aui-reasoning-text relative z-0 max-h-64 overflow-y-auto scroll-smooth pt-2 pb-2 pl-6 leading-relaxed",
+          "transform-gpu transition-[transform,opacity]",
+          "group-data-[state=open]/collapsible-content:animate-in",
+          "group-data-[state=closed]/collapsible-content:animate-out",
+          "group-data-[state=open]/collapsible-content:fade-in-0",
+          "group-data-[state=closed]/collapsible-content:fade-out-0",
+          "group-data-[state=open]/collapsible-content:slide-in-from-top-4",
+          "group-data-[state=closed]/collapsible-content:slide-out-to-top-4",
+          "group-data-[state=open]/collapsible-content:duration-(--animation-duration)",
+          "group-data-[state=closed]/collapsible-content:duration-(--animation-duration)",
+          className,
+        )}
+        {...props}
+      />
+    );
+  }
+);
 
-const ReasoningImpl: ReasoningMessagePartComponent = () => <MarkdownText />;
+const ReasoningImpl: ReasoningMessagePartComponent = () => (
+  <MarkdownText streamingVariant="reasoning" />
+);
 
 const ReasoningGroupImpl: ReasoningGroupComponent = ({
   children,
   startIndex,
   endIndex,
 }) => {
+  const textContainerRef = useRef<HTMLDivElement>(null);
   const isReasoningStreaming = useAuiState(({ message }) => {
     if (message.status?.type !== "running") return false;
     const lastIndex = message.parts.length - 1;
@@ -233,11 +235,51 @@ const ReasoningGroupImpl: ReasoningGroupComponent = ({
     return lastIndex >= startIndex && lastIndex <= endIndex;
   });
 
+  // Subscribe to reasoning text length so we re-run scroll effect on each stream chunk
+  const reasoningTextSnapshot = useAuiState(({ message }) => {
+    let len = 0;
+    for (let i = startIndex; i <= endIndex && i < message.parts.length; i++) {
+      const p = message.parts[i] as { type?: string; text?: string } | undefined;
+      if (p?.type === "reasoning" && typeof p.text === "string") len += p.text.length;
+    }
+    return len;
+  });
+
+  const [isManuallyOpen, setIsManuallyOpen] = useState(false);
+  const isOpen = isReasoningStreaming || isManuallyOpen;
+
+  // Auto-scroll to bottom as reasoning streams (like assistant-ui Viewport autoScroll)
+  // reasoningTextSnapshot ensures we run on every stream chunk
+  useLayoutEffect(() => {
+    if (!isReasoningStreaming || !textContainerRef.current) return;
+    const el = textContainerRef.current;
+    // Only skip scroll if user has clearly scrolled up (e.g. >80px from bottom)
+    const fromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (fromBottom <= 80) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [isReasoningStreaming, reasoningTextSnapshot]);
+
+  // Auto-collapse when streaming finishes
+  useEffect(() => {
+    if (!isReasoningStreaming) {
+      setIsManuallyOpen(false);
+    }
+  }, [isReasoningStreaming]);
+
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (isReasoningStreaming && !open) return;
+      setIsManuallyOpen(open);
+    },
+    [isReasoningStreaming],
+  );
+
   return (
-    <ReasoningRoot defaultOpen={isReasoningStreaming}>
+    <ReasoningRoot open={isOpen} onOpenChange={handleOpenChange}>
       <ReasoningTrigger active={isReasoningStreaming} />
       <ReasoningContent aria-busy={isReasoningStreaming}>
-        <ReasoningText>{children}</ReasoningText>
+        <ReasoningText ref={textContainerRef}>{children}</ReasoningText>
       </ReasoningContent>
     </ReasoningRoot>
   );

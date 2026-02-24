@@ -5,19 +5,11 @@ import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { toast } from "sonner";
-import { getFolderPath } from "@/lib/workspace-state/search";
+
+let activeCleanup: (() => void) | null = null;
 
 /**
  * Hook that provides a function to navigate to and highlight an item in the workspace.
- * This replicates the behavior of clicking an item in the workspace sidebar.
- * 
- * The function will:
- * 1. If the item is in a folder, set that folder as active.
- * 2. If the item is NOT in a folder, clear the active folder.
- * 3. Scroll to the item's card in the workspace grid.
- * 4. Add a temporary highlight border to the card.
- * 
- * Returns false if the item doesn't exist, true otherwise.
  */
 export function useNavigateToItem() {
     const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
@@ -30,112 +22,97 @@ export function useNavigateToItem() {
                 if (!options?.silent) toast.error("Workspace not loaded");
                 return false;
             }
-
             const item = workspaceState.items.find((i) => i.id === itemId);
             if (!item) {
                 if (!options?.silent) toast.error("Item no longer exists");
                 return false;
             }
 
-            // If item is in a folder, set the folder as active so it's visible in the main view (reveal only)
-            if (item.folderId) {
-                setActiveFolderId(item.folderId);
-            } else {
-                setActiveFolderId(null);
+            if (activeCleanup) {
+                activeCleanup();
+                activeCleanup = null;
             }
 
-            // Small delay to let the DOM update (folder filter and scroll)
+            if (item.folderId) setActiveFolderId(item.folderId);
+            else setActiveFolderId(null);
+
             setTimeout(() => {
                 const element = document.getElementById(`item-${itemId}`);
-                if (!element) {
-                    // Element not found after folder switch - likely doesn't exist in DOM
-                    // The scroll logic won't work, so we should stop here
-                    return;
-                }
+                if (!element) return;
 
-                // Find the scrollable container
-                let container = element.parentElement;
+                let container: Element | null = element.parentElement;
                 while (container && container !== document.body) {
-                    const style = window.getComputedStyle(container);
-                    if (style.overflowY === "auto" || style.overflowY === "scroll") {
-                        break;
-                    }
+                    const s = window.getComputedStyle(container);
+                    if (s.overflowY === "auto" || s.overflowY === "scroll") break;
                     container = container.parentElement;
                 }
 
-                // Function to add temporary highlight after scroll ends
+                let done = false;
+                const clear = () => {
+                    if (done) return;
+                    done = true;
+                    try {
+                        element.style.outline = "";
+                        element.style.outlineOffset = "";
+                        element.style.transition = "";
+                    } catch {}
+                    activeCleanup = null;
+                };
+                activeCleanup = clear;
+
                 const addHighlight = () => {
-                    // Store original border styles
-                    const originalBorder = element.style.border;
-                    const originalBorderColor = element.style.borderColor;
-                    const originalBorderWidth = element.style.borderWidth;
-                    const originalBorderRadius = element.style.borderRadius;
-
-                    // Add highlight border with smooth animation (white, like selection)
-                    element.style.transition =
-                        "border-color 0.3s ease-out, border-width 0.2s ease-out";
-                    element.style.borderColor = "rgba(255, 255, 255, 0.8)";
-                    element.style.borderWidth = "3px";
-                    element.style.borderRadius = "0.375rem"; // rounded-md (6px)
-
-                    // Remove highlight after 1 second with fade out
+                    if (done) return;
+                    try {
+                        element.style.transition = "outline-color 0.3s ease-out";
+                        element.style.outline = "3px solid rgba(255, 255, 255, 0.8)";
+                        element.style.outlineOffset = "2px";
+                    } catch {
+                        return;
+                    }
                     setTimeout(() => {
-                        element.style.borderColor = "rgba(255, 255, 255, 0)";
-                        // Restore original styles after transition completes
-                        setTimeout(() => {
-                            element.style.border = originalBorder;
-                            element.style.borderColor = originalBorderColor;
-                            element.style.borderWidth = originalBorderWidth;
-                            element.style.borderRadius = originalBorderRadius;
-                            element.style.transition = "";
-                        }, 300);
+                        if (done) return;
+                        try {
+                            element.style.outlineColor = "rgba(255, 255, 255, 0)";
+                        } catch {}
+                        setTimeout(clear, 300);
                     }, 1000);
                 };
 
-                let highlightTriggered = false;
-
-                const triggerHighlight = () => {
-                    if (highlightTriggered) return;
-                    highlightTriggered = true;
+                let triggered = false;
+                const trigger = () => {
+                    if (triggered) return;
+                    triggered = true;
                     addHighlight();
                 };
 
-                // Use IntersectionObserver to detect when element is visible
                 const observer = new IntersectionObserver(
                     (entries) => {
-                        entries.forEach((entry) => {
-                            if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
-                                triggerHighlight();
+                        for (const e of entries) {
+                            if (e.isIntersecting && e.intersectionRatio >= 0.5) {
+                                trigger();
                                 observer.disconnect();
+                                break;
                             }
-                        });
+                        }
                     },
-                    {
-                        root: container !== document.body ? container : null,
-                        threshold: 0.5, // Trigger when 50% visible
-                    }
+                    { root: container !== document.body ? container : null, threshold: 0.5 }
                 );
-
-                // Start observing
                 observer.observe(element);
-
-                // Fallback timeout in case observer doesn't fire (edge cases)
                 setTimeout(() => {
-                    if (!highlightTriggered) {
-                        triggerHighlight();
+                    if (!triggered) {
+                        trigger();
                         observer.disconnect();
                     }
                 }, 1000);
 
                 if (container && container !== document.body) {
-                    const elementRect = element.getBoundingClientRect();
-                    const containerRect = container.getBoundingClientRect();
-                    const relativeTop = elementRect.top - containerRect.top;
-
+                    const rect = element.getBoundingClientRect();
+                    const box = container.getBoundingClientRect();
                     container.scrollTo({
                         top:
                             container.scrollTop +
-                            relativeTop -
+                            rect.top -
+                            box.top -
                             container.clientHeight / 2 +
                             element.clientHeight / 2,
                         behavior: "smooth",
@@ -143,12 +120,10 @@ export function useNavigateToItem() {
                 } else {
                     element.scrollIntoView({ behavior: "smooth", block: "center" });
                 }
-            }, 50); // Small delay to let the DOM update (folder filter and scroll)
-
+            }, 50);
             return true;
         },
         [workspaceState?.items, setActiveFolderId]
     );
-
     return navigateToItem;
 }

@@ -240,7 +240,7 @@ export function HomePromptInput({ shouldFocus, initialValue, onInitialValueAppli
                   paddingBottom: '0.25rem',
                   paddingLeft: '0',
                   paddingRight: '0',
-                  maxHeight: '50vh',
+                  maxHeight: '28vh',
                   overflowY: 'auto',
                 }}
                 className={cn(

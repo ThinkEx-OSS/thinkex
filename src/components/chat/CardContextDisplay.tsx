@@ -22,6 +22,7 @@ function CardContextDisplayImpl({ items }: CardContextDisplayProps) {
     useShallow(selectSelectedCardIdsArray)
   );
   const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
+  const activePdfPageByItemId = useUIStore((state) => state.activePdfPageByItemId);
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
   const clearBlockNoteSelection = useUIStore((state) => state.clearBlockNoteSelection);
   const blockNoteSelection = useUIStore(selectBlockNoteSelection);
@@ -46,7 +47,7 @@ function CardContextDisplayImpl({ items }: CardContextDisplayProps) {
   };
 
   return (
-    <div className="flex items-center gap-1.5 px-3 py-1 overflow-visible">
+    <div className="flex items-center gap-1.5 py-1 overflow-visible">
       {/* Items Container */}
       <div
         className={`flex gap-1.5 flex-1 items-center ${isExpanded ? "flex-wrap" : "flex-nowrap overflow-hidden"
@@ -114,10 +115,17 @@ function CardContextDisplayImpl({ items }: CardContextDisplayProps) {
               </button>
             </div>
 
-            {/* Card Title */}
+            {/* Card Title + Page number for PDFs */}
             <span className="text-xs max-w-[80px] truncate">
               {item.name || "Untitled"}
             </span>
+            {item.type === "pdf" &&
+              activePdfPageByItemId[item.id] != null &&
+              activePdfPageByItemId[item.id] >= 1 && (
+              <span className="text-xs text-muted-foreground flex-shrink-0">
+                p.{activePdfPageByItemId[item.id]}
+              </span>
+            )}
           </div>
         ))}
       </div>

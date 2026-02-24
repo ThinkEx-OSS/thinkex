@@ -1,4 +1,4 @@
-import type { Item, NoteData } from "./types";
+import type { Item, NoteData, PdfData } from "./types";
 
 /**
  * Extracts searchable text from an item's data field
@@ -13,9 +13,8 @@ function getSearchableDataText(item: Item): string {
     }
 
     case "pdf": {
-      // PDF cards don't have searchable text content in the data field
-      // The filename is already indexed via item.name
-      return "";
+      const pdfData = data as PdfData;
+      return pdfData.textContent ?? "";
     }
 
     default:

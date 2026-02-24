@@ -1,9 +1,10 @@
 "use client";
 
-import { FileIcon, ChevronDownIcon, CheckIcon, ExternalLinkIcon, AlertCircleIcon, FileTextIcon, VideoIcon, ImageIcon } from "lucide-react";
+import { FileIcon, ChevronDownIcon, FileTextIcon, VideoIcon, ImageIcon } from "lucide-react";
 import {
     memo,
     useCallback,
+    useEffect,
     useRef,
     useState,
     type FC,
@@ -15,6 +16,8 @@ import {
     makeAssistantToolUI,
 } from "@assistant-ui/react";
 
+import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { StandaloneMarkdown } from "@/components/assistant-ui/standalone-markdown";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { parseStringResult } from "@/lib/ai/tool-result-schemas";
@@ -29,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 
 const ANIMATION_DURATION = 200;
 const SHIMMER_DURATION = 1000;
+const MAX_DISPLAY_CHARS = 800;
 
 /**
  * Root collapsible container that manages open/closed state and scroll lock.
@@ -221,11 +225,28 @@ function getFileType(url: string): { type: 'video' | 'pdf' | 'image' | 'document
 export const FileProcessingToolUI = makeAssistantToolUI<{
     urls?: string[];
     fileNames?: string[];
-    instruction?: string;
+    pdfImageRefs?: Array<{ pdfName: string; imageId: string }>;
     forceReprocess?: boolean;
 }, string>({
     toolName: "processFiles",
     render: function FileProcessingToolUI({ args, status, result }) {
+        const queryClient = useQueryClient();
+        const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+
+        // When processFiles completes with workspace file names, OCR may have been persisted
+        // server-side — invalidate events so the client refetches and shows updated PDF content
+        useEffect(() => {
+            if (
+                status.type === "complete" &&
+                workspaceId &&
+                (args?.fileNames?.length ?? 0) > 0
+            ) {
+                queryClient.invalidateQueries({
+                    queryKey: ["workspace", workspaceId, "events"],
+                });
+            }
+        }, [status.type, workspaceId, args?.fileNames?.length, queryClient]);
+
         // Client-side debugging
         if (typeof window !== 'undefined') {
             console.debug("📁 [FILE_TOOL_UI] Component render:", {
@@ -243,17 +264,17 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
 
         // Parse args
         let urls: string[] = [];
-        let instruction: string | undefined;
+        let pdfImageRefs: Array<{ pdfName: string; imageId: string }> = [];
 
         // Use the actual tool parameters
         if (args?.urls && Array.isArray(args.urls)) {
             urls = args.urls;
         }
-        if (args?.instruction) {
-            instruction = args.instruction;
+        if (args?.pdfImageRefs && Array.isArray(args.pdfImageRefs)) {
+            pdfImageRefs = args.pdfImageRefs;
         }
 
-        const fileCount = urls.length;
+        const fileCount = urls.length + (args?.fileNames?.length ?? 0) + pdfImageRefs.length;
 
         // Debug parsed data
         if (typeof window !== 'undefined') {
@@ -261,8 +282,6 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
                 fileCount,
                 urls,
                 fileNames: args?.fileNames,
-                instruction,
-                forceReprocess: args?.forceReprocess,
                 resultLength: result?.length || 0,
                 isRunning,
                 isComplete,
@@ -286,23 +305,12 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
                                         <span className="text-xs font-medium text-muted-foreground/70">
                                             Files:
                                         </span>
-                                        {instruction && (
-                                            <div className="mt-1 mb-2 p-2 pb-3 bg-muted/50 rounded-md border border-border/50">
-                                                <div className="flex items-start gap-2">
-                                                    <AlertCircleIcon className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground/60" />
-                                                    <div className="flex-1">
-                                                        <span className="text-xs font-medium text-muted-foreground/70">Custom instruction:</span>
-                                                        <p className="text-xs text-foreground mt-0.5 mb-0">{instruction}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
                                         <div className="mt-1 space-y-1">
                                             {urls.map((url, index) => {
                                                 const fileInfo = getFileType(url);
                                                 const filename = url.split('/').pop() || url;
                                                 return (
-                                                    <div key={index} className="flex items-center gap-2">
+                                                    <div key={`url-${index}`} className="flex items-center gap-2">
                                                         {fileInfo.icon}
                                                         <a
                                                             href={url}
@@ -318,6 +326,26 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
                                                     </div>
                                                 );
                                             })}
+                                            {(args?.fileNames ?? []).map((name, index) => (
+                                                <div key={`name-${index}`} className="flex items-center gap-2">
+                                                    <FileIcon className="h-3 w-3" />
+                                                    <span className="text-xs break-all">{name}</span>
+                                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
+                                                        workspace
+                                                    </Badge>
+                                                </div>
+                                            ))}
+                                            {pdfImageRefs.map((ref, index) => (
+                                                <div key={`pdfimg-${index}`} className="flex items-center gap-2">
+                                                    <ImageIcon className="h-3 w-3" />
+                                                    <span className="text-xs break-all">
+                                                        {ref.imageId} <span className="text-muted-foreground">from {ref.pdfName}</span>
+                                                    </span>
+                                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
+                                                        PDF image
+                                                    </Badge>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                 )}
@@ -334,7 +362,11 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
                                 {isComplete && parsedResult != null && parsedResult.trim() && (
                                     <div className="border-t pt-2">
                                         <div className="prose prose-sm max-w-none dark:prose-invert">
-                                            <StandaloneMarkdown>{parsedResult}</StandaloneMarkdown>
+                                            <StandaloneMarkdown>
+                                                {parsedResult.length > MAX_DISPLAY_CHARS
+                                                    ? `${parsedResult.slice(0, MAX_DISPLAY_CHARS)}\n\n*…truncated for display*`
+                                                    : parsedResult}
+                                            </StandaloneMarkdown>
                                         </div>
                                     </div>
                                 )}

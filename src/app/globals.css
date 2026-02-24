@@ -208,6 +208,20 @@
   overflow-wrap: break-word !important;
 }
 
+/* Prosemirror-search citation highlight - theme-aware */
+.ProseMirror-search-match {
+  background-color: rgba(234, 179, 8, 0.35);
+}
+.ProseMirror-active-search-match {
+  background-color: rgba(234, 179, 8, 0.55);
+}
+.dark .ProseMirror-search-match {
+  background-color: rgba(251, 191, 36, 0.35);
+}
+.dark .ProseMirror-active-search-match {
+  background-color: rgba(251, 191, 36, 0.5);
+}
+
 /* Fix BlockNote formatting toolbar display - compact version */
 .bn-formatting-toolbar {
   min-height: 1.75rem !important;
@@ -601,6 +615,24 @@ html {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Home action card icon hover animations - unified 0.8s ease-in-out, moderate intensity */
+@keyframes icon-upload-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes icon-link-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.92); }
+}
+@keyframes icon-link-sway {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(4deg); }
+}
+@keyframes icon-paste-pop {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(2px); }
 }
 
 /* Subtle pulse animation for the add button */
@@ -1522,4 +1554,21 @@ body:has(.card-detail-modal) .workspace-grid-container {
   to {
     opacity: 1;
   }
+}
+
+/* User message breathe-in animation */
+@keyframes breatheIn {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-breathe-in {
+  transform-origin: right center;
+  animation: breatheIn 0.7s cubic-bezier(0.16, 1.1, 0.3, 1.02) forwards;
 }

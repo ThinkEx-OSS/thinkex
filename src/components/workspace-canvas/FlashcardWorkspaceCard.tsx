@@ -13,7 +13,6 @@ import { useUIStore, selectItemScrollLocked } from "@/lib/stores/ui-store";
 import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEditor";
 import { BlockNotePreview, PreviewBlock } from "@/components/editor/BlockNotePreview";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
-import { useCardContextProvider } from "@/hooks/ai/use-card-context-provider";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -167,9 +166,6 @@ export function FlashcardWorkspaceCard({
     onOpenModal,
     onMoveItem,
 }: FlashcardWorkspaceCardProps) {
-    // Register this card's minimal context (title, id, type) with the assistant
-    useCardContextProvider(item);
-
     // Subscribe directly to this card's selection state from the store
     // This prevents full grid re-renders when selection changes
     const isSelected = useUIStore(

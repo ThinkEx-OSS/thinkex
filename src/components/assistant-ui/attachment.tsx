@@ -442,7 +442,7 @@ export const UserMessageAttachments: FC = () => {
 
 export const ComposerAttachments: FC = () => {
   return (
-    <div className="aui-composer-attachments mb-2 flex w-full flex-row items-center gap-2 overflow-x-auto px-1.5 pt-0.5 pb-1 empty:hidden">
+    <div className="aui-composer-attachments mb-2 flex w-full flex-row items-center gap-2 overflow-x-auto pt-0.5 pb-1 empty:hidden">
       <ComposerPrimitive.Attachments
         components={{ Attachment: AttachmentUI }}
       />
@@ -467,7 +467,7 @@ export const ComposerAddAttachment: FC = () => {
     if (!files || files.length === 0) return;
 
     const MAX_FILES = 10;
-    const MAX_FILE_SIZE_MB = 10;
+    const MAX_FILE_SIZE_MB = 50;
     const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
     const fileArray = Array.from(files);
@@ -542,7 +542,7 @@ export const ComposerAddAttachment: FC = () => {
             <TooltipTrigger asChild>
               <label
                 htmlFor={uploadInputId}
-                className="aui-composer-add-attachment flex items-center gap-1.5 px-1.5 py-1 rounded-md bg-sidebar-accent hover:bg-accent transition-colors flex-shrink-0 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer ml-1"
+                className="aui-composer-add-attachment flex items-center gap-1.5 pl-0 pr-1.5 py-1 rounded-md bg-sidebar-accent hover:bg-accent transition-colors flex-shrink-0 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
                 aria-label="Add Attachment"
               >
                 <LuPaperclip className="w-3.5 h-3.5" />
