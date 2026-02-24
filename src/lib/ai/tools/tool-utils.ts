@@ -5,6 +5,7 @@
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import type { Item } from "@/lib/workspace-state/types";
 import type { WorkspaceToolContext } from "./workspace-tools";
+import { resolveItemByPath } from "./workspace-search-utils";
 
 /**
  * Load workspace state for tool operations
@@ -19,6 +20,30 @@ export async function loadStateForTool(
 
     const state = await loadWorkspaceState(ctx.workspaceId);
     return { success: true, state };
+}
+
+/**
+ * Resolve an item by virtual path or fuzzy name match.
+ * Tries virtual path first when input looks like a path (contains /),
+ * then falls back to fuzzyMatchItem for plain names.
+ * If itemType is provided, only returns items of that type.
+ */
+export function resolveItem(
+    items: Item[],
+    input: string,
+    itemType?: Item["type"]
+): Item | undefined {
+    const trimmed = input.trim();
+    if (!trimmed) return undefined;
+
+    // 1. Try virtual path first when input looks like a path
+    if (trimmed.includes("/")) {
+        const byPath = resolveItemByPath(items, trimmed);
+        if (byPath && (!itemType || byPath.type === itemType)) return byPath;
+    }
+
+    // 2. Fall back to fuzzy name match
+    return fuzzyMatchItem(items, trimmed, itemType);
 }
 
 /**

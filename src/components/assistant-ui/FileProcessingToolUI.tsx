@@ -1,6 +1,6 @@
 "use client";
 
-import { FileIcon, ChevronDownIcon, CheckIcon, ExternalLinkIcon, AlertCircleIcon, FileTextIcon, VideoIcon, ImageIcon } from "lucide-react";
+import { FileIcon, ChevronDownIcon, FileTextIcon, VideoIcon, ImageIcon } from "lucide-react";
 import {
     memo,
     useCallback,
@@ -32,7 +32,7 @@ import { Badge } from "@/components/ui/badge";
 
 const ANIMATION_DURATION = 200;
 const SHIMMER_DURATION = 1000;
-const MAX_DISPLAY_CHARS = 3000;
+const MAX_DISPLAY_CHARS = 800;
 
 /**
  * Root collapsible container that manages open/closed state and scroll lock.
@@ -226,7 +226,6 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
     urls?: string[];
     fileNames?: string[];
     pdfImageRefs?: Array<{ pdfName: string; imageId: string }>;
-    instruction?: string;
     forceReprocess?: boolean;
 }, string>({
     toolName: "processFiles",
@@ -266,7 +265,6 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
         // Parse args
         let urls: string[] = [];
         let pdfImageRefs: Array<{ pdfName: string; imageId: string }> = [];
-        let instruction: string | undefined;
 
         // Use the actual tool parameters
         if (args?.urls && Array.isArray(args.urls)) {
@@ -274,9 +272,6 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
         }
         if (args?.pdfImageRefs && Array.isArray(args.pdfImageRefs)) {
             pdfImageRefs = args.pdfImageRefs;
-        }
-        if (args?.instruction) {
-            instruction = args.instruction;
         }
 
         const fileCount = urls.length + (args?.fileNames?.length ?? 0) + pdfImageRefs.length;
@@ -287,8 +282,6 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
                 fileCount,
                 urls,
                 fileNames: args?.fileNames,
-                instruction,
-                forceReprocess: args?.forceReprocess,
                 resultLength: result?.length || 0,
                 isRunning,
                 isComplete,
@@ -312,17 +305,6 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
                                         <span className="text-xs font-medium text-muted-foreground/70">
                                             Files:
                                         </span>
-                                        {instruction && (
-                                            <div className="mt-1 mb-2 p-2 pb-3 bg-muted/50 rounded-md border border-border/50">
-                                                <div className="flex items-start gap-2">
-                                                    <AlertCircleIcon className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground/60" />
-                                                    <div className="flex-1">
-                                                        <span className="text-xs font-medium text-muted-foreground/70">Custom instruction:</span>
-                                                        <p className="text-xs text-foreground mt-0.5 mb-0">{instruction}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
                                         <div className="mt-1 space-y-1">
                                             {urls.map((url, index) => {
                                                 const fileInfo = getFileType(url);

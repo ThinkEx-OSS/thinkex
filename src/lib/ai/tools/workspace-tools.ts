@@ -4,7 +4,7 @@ import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import type { Item } from "@/lib/workspace-state/types";
-import { loadStateForTool, fuzzyMatchItem, getAvailableItemsList } from "./tool-utils";
+import { loadStateForTool, resolveItem, getAvailableItemsList } from "./tool-utils";
 
 export interface WorkspaceToolContext {
     workspaceId: string | null;
@@ -154,7 +154,7 @@ export function createUpdateNoteTool(ctx: WorkspaceToolContext) {
                 }
 
                 const { state } = accessResult;
-                const matchedNote = fuzzyMatchItem(state.items, noteName, "note");
+                const matchedNote = resolveItem(state.items, noteName, "note");
 
                 if (!matchedNote) {
                     const availableNotes = getAvailableItemsList(state.items, "note");
@@ -210,7 +210,7 @@ export function createDeleteItemTool(ctx: WorkspaceToolContext) {
         description: "Permanently delete a card/note from the workspace by name.",
         inputSchema: zodSchema(
             z.object({
-                itemName: z.string().describe("The name of the item to delete (will be matched using fuzzy search)"),
+                itemName: z.string().describe("Item name or virtual path (e.g. pdfs/Report.pdf) to delete"),
             })
         ),
         execute: async ({ itemName }) => {
@@ -232,8 +232,8 @@ export function createDeleteItemTool(ctx: WorkspaceToolContext) {
 
                 const { state } = accessResult;
 
-                // Fuzzy match the item by name (any type)
-                const matchedItem = fuzzyMatchItem(state.items, itemName);
+                // Resolve by virtual path or fuzzy name match (any type)
+                const matchedItem = resolveItem(state.items, itemName);
 
                 if (!matchedItem) {
                     const availableItems = state.items.map(i => `"${i.name}" (${i.type})`).slice(0, 5).join(", ");
@@ -315,28 +315,13 @@ export function createSelectCardsTool(ctx: WorkspaceToolContext) {
                     };
                 }
 
-                // Perform fuzzy matching (matching client-side logic)
-                // 1. Exact match first
-                // 2. Contains match if no exact match
+                // Resolve by virtual path or fuzzy name match
                 const selectedItems: Item[] = [];
                 const processedIds = new Set<string>();
 
                 for (const title of cardTitles) {
-                    const searchTitle = title.toLowerCase().trim();
-
-                    // Try exact match first
-                    let match = state.items.find(
-                        item => item.name.toLowerCase().trim() === searchTitle && !processedIds.has(item.id)
-                    );
-
-                    // If no exact match, try contains match
-                    if (!match) {
-                        match = state.items.find(
-                            item => item.name.toLowerCase().includes(searchTitle) && !processedIds.has(item.id)
-                        );
-                    }
-
-                    if (match) {
+                    const match = resolveItem(state.items, title);
+                    if (match && !processedIds.has(match.id)) {
                         selectedItems.push(match);
                         processedIds.add(match.id);
                     }

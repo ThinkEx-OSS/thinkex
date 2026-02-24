@@ -3,7 +3,7 @@ import { generateText, tool, zodSchema } from "ai";
 import { z } from "zod";
 import { logger } from "@/lib/utils/logger";
 import { headers } from "next/headers";
-import { loadStateForTool, fuzzyMatchItem } from "./tool-utils";
+import { loadStateForTool, resolveItem } from "./tool-utils";
 import type { WorkspaceToolContext } from "./workspace-tools";
 import type { Item, PdfData } from "@/lib/workspace-state/types";
 import { workspaceWorker } from "@/lib/ai/workers";
@@ -86,10 +86,7 @@ function buildFileProcessingPrompt(
 /**
  * Process Supabase storage files by sending URLs directly to Gemini
  */
-async function processSupabaseFiles(
-    supabaseUrls: string[],
-    instruction?: string
-): Promise<string> {
+async function processSupabaseFiles(supabaseUrls: string[]): Promise<string> {
     const fileInfos: FileInfo[] = supabaseUrls.map((fileUrl: string) => {
         const filename = decodeURIComponent(fileUrl.split('/').pop() || 'file');
         const mediaType = getMediaTypeFromUrl(fileUrl);
@@ -99,9 +96,7 @@ async function processSupabaseFiles(
     const fileListText = fileInfos.map((f, i) => `${i + 1}. ${f.filename}`).join('\n');
     const { defaultInstruction, outputFormat } = buildFileProcessingPrompt(fileInfos);
 
-    const batchPrompt = instruction
-        ? `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\n${instruction}\n\n${outputFormat}`
-        : `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\n${defaultInstruction}\n\n${outputFormat}`;
+    const batchPrompt = `Analyze the following ${fileInfos.length} file(s):\n${fileListText}\n\n${defaultInstruction}\n\n${outputFormat}`;
 
     const messageContent: Array<{ type: "text"; text: string } | { type: "file"; data: string; mediaType: string; filename?: string }> = [
         { type: "text", text: batchPrompt },
@@ -177,13 +172,12 @@ type PdfImageRef = { pdfName: string; imageId: string };
  */
 async function processPdfImages(
     pdfImageRefs: PdfImageRef[],
-    stateItems: Item[],
-    instruction?: string
+    stateItems: Item[]
 ): Promise<string> {
     const fileInfos: Array<{ filename: string; mediaType: string; data: string }> = [];
 
     for (const ref of pdfImageRefs) {
-        const pdfItem = fuzzyMatchItem(stateItems, ref.pdfName);
+        const pdfItem = resolveItem(stateItems, ref.pdfName, "pdf");
         if (!pdfItem || pdfItem.type !== "pdf") continue;
 
         const pdfData = pdfItem.data as PdfData;
@@ -218,9 +212,7 @@ async function processPdfImages(
 
     const fileListText = fileInfos.map((f, i) => `${i + 1}. ${f.filename} (from PDF)`).join("\n");
     const { defaultInstruction, outputFormat } = buildFileProcessingPrompt(fileInfos);
-    const batchPrompt = instruction
-        ? `Analyze the following ${fileInfos.length} image(s) extracted from PDFs:\n${fileListText}\n\n${instruction}\n\n${outputFormat}`
-        : `Analyze the following ${fileInfos.length} image(s) extracted from PDFs:\n${fileListText}\n\n${defaultInstruction}\n\n${outputFormat}`;
+    const batchPrompt = `Analyze the following ${fileInfos.length} image(s) extracted from PDFs:\n${fileListText}\n\n${defaultInstruction}\n\n${outputFormat}`;
 
     const messageContent: Array<{ type: "text"; text: string } | { type: "file"; data: string; mediaType: string; filename?: string }> = [
         { type: "text", text: batchPrompt },
@@ -243,15 +235,10 @@ async function processPdfImages(
 /**
  * Process a YouTube video using Gemini's native video support
  */
-async function processYouTubeVideo(
-    youtubeUrl: string,
-    instruction?: string
-): Promise<string> {
+async function processYouTubeVideo(youtubeUrl: string): Promise<string> {
     logger.debug("📁 [FILE_TOOL] Processing YouTube URL natively:", youtubeUrl);
 
-    const videoPrompt = instruction
-        ? `Analyze this video. ${instruction}\n\nFormat your response as:\n**Summary:** [2-3 sentences]\n**Key points:** [bullet list]`
-        : `Analyze this video. Extract and summarize main topics, key points, important details, and any specific data or insights.\n\nFormat your response as:\n**Summary:** [2-3 sentences]\n**Key points:** [bullet list]`;
+    const videoPrompt = `Analyze this video. Extract and summarize main topics, key points, important details, and any specific data or insights.\n\nFormat your response as:\n**Summary:** [2-3 sentences]\n**Key points:** [bullet list]`;
 
     const { text: videoAnalysis } = await generateText({
         model: google("gemini-2.5-flash-lite"),
@@ -281,16 +268,15 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
         inputSchema: zodSchema(
             z.object({
                 urls: z.array(z.string()).optional().describe("Array of file/video URLs to process (Supabase storage URLs or YouTube URLs)"),
-                fileNames: z.array(z.string()).optional().describe("Array of workspace item names to look up via fuzzy match (e.g. 'Annual Report')"),
+                fileNames: z.array(z.string()).optional().describe("Workspace item names or virtual paths (e.g. 'Annual Report' or pdfs/Annual Report.pdf)"),
                 pdfImageRefs: z.array(z.object({
-                    pdfName: z.string().describe("Name of the PDF workspace item (fuzzy matched)"),
+                    pdfName: z.string().describe("PDF name or virtual path (e.g. pdfs/Syllabus.pdf)"),
                     imageId: z.string().describe("Image placeholder ID from PDF (e.g. img-0.jpeg)"),
                 })).optional().describe("Images from PDFs — map placeholder names to base64 for analysis"),
-                instruction: z.string().optional().describe("Custom instruction for what to extract or focus on during analysis"),
                 forceReprocess: z.boolean().optional().describe("Set to true to bypass cached PDF content and re-analyze the file"),
             })
         ),
-        execute: async ({ urls, fileNames: fileNamesInput, pdfImageRefs, instruction, forceReprocess: forceReprocessInput }) => {
+        execute: async ({ urls, fileNames: fileNamesInput, pdfImageRefs, forceReprocess: forceReprocessInput }) => {
             let urlList = urls || [];
             const fileNames = fileNamesInput || [];
             const forceReprocess = forceReprocessInput === true;
@@ -307,8 +293,8 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
                             const notFoundData: string[] = [];
 
                             for (const name of fileNames) {
-                                // Try to match any item type that might contain a file
-                                const matchedItem = fuzzyMatchItem(state.items, name);
+                                // Try to match by virtual path or name (any file-like type)
+                                const matchedItem = resolveItem(state.items, name);
 
                                 if (matchedItem) {
                                     if (matchedItem.type === 'pdf') {
@@ -394,8 +380,7 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
                     if (accessResult.success) {
                         const result = await processPdfImages(
                             pdfImageRefs,
-                            accessResult.state.items,
-                            instruction
+                            accessResult.state.items
                         );
                         pdfImageResults.push(result);
                     }
@@ -451,7 +436,7 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
             // Handle Supabase file URLs
             if (supabaseUrls.length > 0) {
                 processingPromises.push(
-                    processSupabaseFiles(supabaseUrls, instruction)
+                    processSupabaseFiles(supabaseUrls)
                         .then(result => result)
                         .catch(error => {
                             logger.error("📁 [FILE_TOOL] Error in Supabase file processing:", error);
@@ -469,7 +454,7 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
             // Handle YouTube videos
             if (youtubeUrls.length > 0) {
                 processingPromises.push(
-                    processYouTubeVideo(youtubeUrls[0], instruction)
+                    processYouTubeVideo(youtubeUrls[0])
                         .then(result => result)
                         .catch(videoError => {
                             logger.error("📁 [FILE_TOOL] Error processing YouTube video:", {
