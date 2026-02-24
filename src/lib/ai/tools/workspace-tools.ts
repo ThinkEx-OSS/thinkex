@@ -5,8 +5,6 @@ import { workspaceWorker } from "@/lib/ai/workers";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import type { Item } from "@/lib/workspace-state/types";
 import { loadStateForTool, fuzzyMatchItem, getAvailableItemsList } from "./tool-utils";
-import { assertWorkspaceItemRead } from "@/lib/db/workspace-item-reads";
-import { isValidThreadIdForDb } from "@/lib/utils/thread-id";
 
 export interface WorkspaceToolContext {
     workspaceId: string | null;
@@ -76,7 +74,7 @@ export function createNoteTool(ctx: WorkspaceToolContext) {
 export function createUpdateNoteTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Update a note. You MUST use readWorkspace at least once before targeted edits — the tool will error otherwise. Full rewrite: oldString='', newString=entire note. Targeted edit: readWorkspace first, then oldString=exact text from the Content section (never include <card> wrapper), newString=replacement. Preserve exact whitespace/indentation. Fails if oldString not found or matches multiple times — include more context or use replaceAll.",
+            "Update a note. Full rewrite: oldString='', newString=entire note. Targeted edit: call readWorkspace first to get current content, then oldString=exact text from the Content section (never include <card> wrapper), newString=replacement. Preserve exact whitespace/indentation. Fails if oldString not found or matches multiple times — include more context or use replaceAll.",
         inputSchema: zodSchema(
             z
                 .object({
@@ -171,25 +169,6 @@ export function createUpdateNoteTool(ctx: WorkspaceToolContext) {
                     matchedName: matchedNote.name,
                     matchedId: matchedNote.id,
                 });
-
-                // Read-before-write: for targeted edits, assert item was read
-                // Skip assert when threadId is a placeholder (e.g. DEFAULT_THREAD_ID before thread exists)
-                // Use exact empty check so whitespace-only oldString still enforces read requirement
-                const isTargetedEdit = oldString !== "";
-                if (isTargetedEdit && isValidThreadIdForDb(ctx.threadId)) {
-                    const currentLastModified = matchedNote.lastModified ?? 0;
-                    const assert = await assertWorkspaceItemRead(
-                        ctx.threadId,
-                        matchedNote.id,
-                        currentLastModified
-                    );
-                    if (!assert.ok) {
-                        return {
-                            success: false,
-                            message: assert.message,
-                        };
-                    }
-                }
 
                 const workerResult = await workspaceWorker("update", {
                     workspaceId: ctx.workspaceId,
