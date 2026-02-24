@@ -29,11 +29,11 @@
   "dependencies": {
     "@ai-sdk/devtools": "^0.0.12",
     "@ai-sdk/gateway": "^3.0.39",
-    "@ai-sdk/google": "^3.0.23",
-    "@assistant-ui/react": "0.12.9",
+    "@ai-sdk/google": "^3.0.30",
+    "@assistant-ui/react": "0.12.11",
     "@assistant-ui/react-ai-sdk": "^1.3.6",
     "@assistant-ui/react-devtools": "^0.2.3",
-    "@assistant-ui/react-markdown": "^0.12.3",
+    "@assistant-ui/react-markdown": "^0.12.4",
     "@blocknote/code-block": "^0.46.2",
     "@blocknote/core": "^0.46.2",
     "@blocknote/react": "^0.46.2",
@@ -94,8 +94,8 @@
     "@tanstack/react-query-devtools": "^5.91.3",
     "@tanstack/react-virtual": "^3.13.14",
     "@vercel/speed-insights": "^1.3.1",
-    "ai": "^6.0.78",
-    "assistant-stream": "^0.3.2",
+    "ai": "^6.0.97",
+    "assistant-stream": "^0.3.3",
     "better-auth": "^1.4.18",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -179,9 +179,6 @@
     "overrides": {
       "@types/react": "19.2.2",
       "@types/react-dom": "19.2.2"
-    },
-    "patchedDependencies": {
-      "@assistant-ui/react@0.12.9": "patches/@assistant-ui__react@0.12.9.patch"
     }
   }
 }
