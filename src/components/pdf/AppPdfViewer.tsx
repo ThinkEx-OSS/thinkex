@@ -713,27 +713,28 @@ const PdfInitialPageScroll = ({
   onScrolled?: () => void;
 }) => {
   const { provides: scrollCapability } = useScrollCapability();
+  const { state: scrollState } = useScroll(documentId);
   const layoutReadyRef = useRef<{ totalPages: number } | null>(null);
 
+  // Always subscribe to onLayoutReady so we capture readiness even when PDF opened without citation
   useEffect(() => {
-    if (!scrollCapability || initialPage == null || initialPage < 1) return;
-
-    const scrollToPage = (totalPages: number) => {
-      const scrollScope = scrollCapability.forDocument(documentId);
-      if (!scrollScope) return;
-      const page = Math.min(Math.max(1, initialPage), totalPages);
-      scrollScope.scrollToPage({ pageNumber: page });
-      onScrolled?.();
-    };
+    if (!scrollCapability) return;
 
     const unsub = scrollCapability.onLayoutReady((ev) => {
       if (ev.documentId !== documentId || !ev.isInitial || ev.totalPages < 1) return;
       layoutReadyRef.current = { totalPages: ev.totalPages };
-      scrollToPage(ev.totalPages);
+      if (initialPage != null && initialPage >= 1) {
+        const scrollScope = scrollCapability.forDocument(documentId);
+        if (scrollScope) {
+          const page = Math.min(Math.max(1, initialPage), ev.totalPages);
+          scrollScope.scrollToPage({ pageNumber: page });
+          onScrolled?.();
+        }
+      }
     });
 
     return unsub;
-  }, [scrollCapability, documentId]);
+  }, [scrollCapability, documentId, initialPage, onScrolled]);
 
   // Clear ref when document changes so we don't use stale totalPages
   useEffect(() => {
@@ -742,16 +743,21 @@ const PdfInitialPageScroll = ({
     };
   }, [documentId]);
 
-  // When initialPage changes after layout is ready, scroll without waiting for onLayoutReady again
+  // When initialPage changes after layout is ready (or when totalPages from useScroll indicates doc is ready), scroll.
+  // Use scrollState.totalPages as fallback when layoutReadyRef missed (PDF already open when we mounted).
   useEffect(() => {
-    if (!scrollCapability || initialPage == null || initialPage < 1 || !layoutReadyRef.current) return;
-    const { totalPages } = layoutReadyRef.current;
+    if (!scrollCapability || initialPage == null || initialPage < 1) return;
+
     const scrollScope = scrollCapability.forDocument(documentId);
     if (!scrollScope) return;
+
+    const totalPages = layoutReadyRef.current?.totalPages ?? scrollState?.totalPages ?? 0;
+    if (totalPages < 1) return;
+
     const page = Math.min(Math.max(1, initialPage), totalPages);
     scrollScope.scrollToPage({ pageNumber: page });
     onScrolled?.();
-  }, [scrollCapability, documentId, initialPage, onScrolled]);
+  }, [scrollCapability, documentId, initialPage, onScrolled, scrollState?.totalPages]);
 
   return null;
 };
