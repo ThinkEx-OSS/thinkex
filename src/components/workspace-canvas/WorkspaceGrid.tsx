@@ -578,6 +578,16 @@ export function WorkspaceGrid({
         placeholder.w = newItem.w;
         placeholder.h = newItem.h;
       }
+
+      // Clamp position to prevent off-screen glitches when resizing from left/west or top/north handles.
+      // react-grid-layout can set negative x/y when dragging those edges; we clamp to grid bounds.
+      const cols = currentBreakpointRef.current === 'xxs' ? 1 : 4;
+      newItem.x = Math.max(0, Math.min(cols - newItem.w, newItem.x));
+      newItem.y = Math.max(0, newItem.y);
+      if (placeholder) {
+        placeholder.x = newItem.x;
+        placeholder.y = newItem.y;
+      }
     }
   }, []);
 
