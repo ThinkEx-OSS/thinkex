@@ -34,7 +34,8 @@ const SectionVisibilityContext = createContext<{
 export const useSectionVisibility = () => useContext(SectionVisibilityContext);
 
 import { HomeActionCards } from "./HomeActionCards";
-import { RecordWorkspaceDialog, OPEN_RECORD_PARAM } from "@/components/modals/RecordWorkspaceDialog";
+import { RecordWorkspaceDialog } from "@/components/modals/RecordWorkspaceDialog";
+import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { Footer } from "@/components/landing/Footer";
 
 const ACCEPT_FILES = "application/pdf,image/*,audio/*";
@@ -174,6 +175,7 @@ function HeroAttachmentsSection({
 
 export function HomeContent() {
   const router = useRouter();
+  const setShouldOpenOnWorkspaceLoad = useAudioRecordingStore((s) => s.setShouldOpenOnWorkspaceLoad);
   const [scrollY, setScrollY] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [heroVisible, setHeroVisible] = useState(true);
@@ -281,7 +283,8 @@ export function HomeContent() {
       },
       {
         onSuccess: ({ workspace }) => {
-          router.push(`/workspace/${workspace.slug}?${OPEN_RECORD_PARAM}=1`);
+          setShouldOpenOnWorkspaceLoad(true);
+          router.push(`/workspace/${workspace.slug}`);
         },
         onError: (err) => {
           const msg = err instanceof Error ? err.message : "Something went wrong";
@@ -293,7 +296,8 @@ export function HomeContent() {
 
   const handleRecordInExistingWorkspace = (slug: string) => {
     setShowRecordDialog(false);
-    router.push(`/workspace/${slug}?${OPEN_RECORD_PARAM}=1`);
+    setShouldOpenOnWorkspaceLoad(true);
+    router.push(`/workspace/${slug}`);
   };
 
   const handleRecord = () => {

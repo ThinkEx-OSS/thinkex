@@ -47,7 +47,6 @@ import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
 import { uploadPdfToStorage } from "@/lib/uploads/pdf-upload-with-ocr";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 import { useFolderUrl } from "@/hooks/ui/use-folder-url";
-import { OPEN_RECORD_PARAM } from "@/components/modals/RecordWorkspaceDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 
 // Main dashboard content component
@@ -104,31 +103,27 @@ function DashboardContent({
     clearPlayingYouTubeCards();
   }, [clearPlayingYouTubeCards]);
 
-  // Open audio recorder only when landing from home Record flow (?openRecord=1).
-  // Wait until workspace content is loaded so we open once, without double-opening on re-renders.
-  const searchParams = useSearchParams();
+  // Open audio recorder when landing from home Record flow (store flag set before navigate).
   const openAudioDialog = useAudioRecordingStore((s) => s.openDialog);
   const closeAudioDialog = useAudioRecordingStore((s) => s.closeDialog);
+  const shouldOpenOnWorkspaceLoad = useAudioRecordingStore((s) => s.shouldOpenOnWorkspaceLoad);
+  const setShouldOpenOnWorkspaceLoad = useAudioRecordingStore((s) => s.setShouldOpenOnWorkspaceLoad);
   const prevWorkspaceIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!currentWorkspaceId || isLoadingWorkspace) return;
 
-    const hasOpenRecordParam = searchParams.get(OPEN_RECORD_PARAM) === "1";
-
-    if (hasOpenRecordParam) {
+    if (shouldOpenOnWorkspaceLoad) {
+      setShouldOpenOnWorkspaceLoad(false);
       openAudioDialog();
-      const url = new URL(window.location.href);
-      url.searchParams.delete(OPEN_RECORD_PARAM);
-      router.replace(url.pathname + url.search, { scroll: false });
     }
 
-    // Close audio dialog when switching to a different workspace (dialog state is global and would otherwise persist)
-    if (prevWorkspaceIdRef.current !== null && prevWorkspaceIdRef.current !== currentWorkspaceId && !hasOpenRecordParam) {
+    // Close audio dialog when switching to a different workspace (dialog state is global)
+    if (prevWorkspaceIdRef.current !== null && prevWorkspaceIdRef.current !== currentWorkspaceId) {
       closeAudioDialog();
     }
     prevWorkspaceIdRef.current = currentWorkspaceId;
-  }, [currentWorkspaceId, isLoadingWorkspace, searchParams, openAudioDialog, closeAudioDialog, router]);
+  }, [currentWorkspaceId, isLoadingWorkspace, shouldOpenOnWorkspaceLoad, openAudioDialog, closeAudioDialog, setShouldOpenOnWorkspaceLoad]);
 
   // Workspace operations (emits events with optimistic updates)
   const operations = useWorkspaceOperations(currentWorkspaceId, state);

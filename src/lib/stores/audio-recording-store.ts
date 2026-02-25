@@ -20,6 +20,9 @@ export interface AudioRecordingState {
   // Dialog visibility (recording continues regardless)
   isDialogOpen: boolean;
 
+  /** One-time flag: set from home Record flow before navigate; workspace consumes on load */
+  shouldOpenOnWorkspaceLoad: boolean;
+
   // Actions
   startRecording: () => Promise<void>;
   stopRecording: () => void;
@@ -29,6 +32,7 @@ export interface AudioRecordingState {
   openDialog: () => void;
   closeDialog: () => void;
   setDuration: (d: number) => void;
+  setShouldOpenOnWorkspaceLoad: (flag: boolean) => void;
 }
 
 function getSupportedMimeType(): string {
@@ -61,9 +65,11 @@ export const useAudioRecordingStore = create<AudioRecordingState>((set, get) => 
   _analyser: null,
   _resetting: false,
   isDialogOpen: false,
+  shouldOpenOnWorkspaceLoad: false,
 
   openDialog: () => set({ isDialogOpen: true }),
   closeDialog: () => set({ isDialogOpen: false }),
+  setShouldOpenOnWorkspaceLoad: (flag) => set({ shouldOpenOnWorkspaceLoad: flag }),
 
   setDuration: (d) => set({ duration: d }),
 

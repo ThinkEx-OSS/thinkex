@@ -13,8 +13,6 @@ import { cn } from "@/lib/utils";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
 import { IconRenderer } from "@/hooks/use-icon-picker";
 
-const OPEN_RECORD_PARAM = "openRecord";
-
 interface RecordWorkspaceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -114,5 +112,3 @@ export function RecordWorkspaceDialog({
     </Dialog>
   );
 }
-
-export { OPEN_RECORD_PARAM };
