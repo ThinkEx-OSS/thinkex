@@ -7,6 +7,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
+  CornerDownRight,
   File as FileIcon,
   FileText,
   PencilIcon,
@@ -35,6 +36,8 @@ import {
   MessagePrimitive,
   ThreadPrimitive,
   useAui,
+  useAssistantApi,
+  useMessage,
   useMessagePartText,
   useAuiState,
 } from "@assistant-ui/react";
@@ -1060,8 +1063,27 @@ const AssistantMessage: FC = () => {
   );
 };
 
+const CONTINUE_RESPONSE_CHAR_THRESHOLD = 500;
+
 const AssistantActionBar: FC = () => {
   const { createCard, isCreating } = useCreateCardFromMessage({ debounceMs: 300 });
+  const message = useMessage();
+  const api = useAssistantApi();
+
+  const textLength = useMemo(() => {
+    return message.content
+      .filter((part): part is { type: "text"; text: string } => part.type === "text")
+      .reduce((sum, part) => sum + (part.text?.length ?? 0), 0);
+  }, [message.content]);
+
+  const showContinueButton = textLength > 0 && textLength < CONTINUE_RESPONSE_CHAR_THRESHOLD;
+
+  const handleContinueClick = useCallback(() => {
+    api?.thread().append({
+      role: "user",
+      content: [{ type: "text", text: "Continue" }],
+    });
+  }, [api]);
 
   return (
     <ActionBarPrimitive.Root
@@ -1084,16 +1106,29 @@ const AssistantActionBar: FC = () => {
           <RefreshCwIcon />
         </TooltipIconButton>
       </ActionBarPrimitive.Reload>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={createCard}
-        disabled={isCreating}
-        className="!px-1 gap-1 h-6 text-xs font-medium hover:bg-sidebar-accent"
-      >
-        <FileText className={cn("h-3 w-3", isCreating && "animate-pulse")} />
-        <span>Create Note</span>
-      </Button>
+      {showContinueButton ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleContinueClick}
+          className="!px-1 gap-1 h-6 text-xs font-medium hover:bg-sidebar-accent"
+          title="Continue response"
+        >
+          <CornerDownRight className="h-3 w-3" />
+          <span>Continue</span>
+        </Button>
+      ) : (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={createCard}
+          disabled={isCreating}
+          className="!px-1 gap-1 h-6 text-xs font-medium hover:bg-sidebar-accent"
+        >
+          <FileText className={cn("h-3 w-3", isCreating && "animate-pulse")} />
+          <span>Create Note</span>
+        </Button>
+      )}
     </ActionBarPrimitive.Root>
   );
 };
