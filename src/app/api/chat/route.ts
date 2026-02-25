@@ -284,11 +284,9 @@ export async function POST(req: Request) {
       },
     };
 
-    // Gemini 3: set thinkingLevel per model (Gemini 2.5 uses default dynamic budget)
+    // Gemini 3 Flash: set thinkingLevel (Gemini 2.5 uses default dynamic budget)
     if (modelId.includes("gemini-3-flash")) {
       googleConfig.thinkingConfig.thinkingLevel = "minimal";
-    } else if (modelId.includes("gemini-3-pro")) {
-      googleConfig.thinkingConfig.thinkingLevel = "low";
     }
 
     // Prepare provider options
