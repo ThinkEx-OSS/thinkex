@@ -1,6 +1,5 @@
 import { AuthPageBackground } from "@/components/auth/AuthPageBackground";
-import { SignInForm, SignUpForm, ForgotPasswordForm } from "@/components/auth/AuthForms";
-import Link from "next/link";
+import { SignInForm, SignUpForm } from "@/components/auth/AuthForms";
 import { db } from "@/lib/db/client";
 import { workspaceInvites, workspaces, user } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -11,7 +10,6 @@ export function generateStaticParams() {
   return [
     { path: "sign-in" },
     { path: "sign-up" },
-    { path: "forgot-password" },
   ];
 }
 
@@ -39,13 +37,11 @@ export default async function AuthPage({
     redirectTo = "/home";
   }
 
-  let title = path === "sign-in" ? "Welcome back" :
-    path === "sign-up" ? "Create an account" :
-      "Reset Password";
+  let title = path === "sign-in" ? "Welcome back" : "Create an account";
 
-  let description = path === "sign-in" ? "Enter your email below to login to your account" :
-    path === "sign-up" ? "Enter your information to get started" :
-      "Enter your email to reset your password";
+  let description = path === "sign-in"
+    ? "Sign in with your Google account to continue"
+    : "Sign up with your Google account to get started";
 
   // Handle Invite Context
   if (inviteToken) {
@@ -98,7 +94,6 @@ export default async function AuthPage({
           <div className="w-full bg-background/60 backdrop-blur-md border border-blue-500/20 shadow-xl rounded-xl p-6 md:p-8">
             {path === "sign-in" && <SignInForm redirectTo={redirectTo} title={title} description={description} />}
             {path === "sign-up" && <SignUpForm redirectTo={redirectTo} title={title} description={description} />}
-            {path === "forgot-password" && <ForgotPasswordForm redirectTo={redirectTo} />}
           </div>
         </div>
       </div>

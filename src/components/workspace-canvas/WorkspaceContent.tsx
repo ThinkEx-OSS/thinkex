@@ -179,6 +179,76 @@ export default function WorkspaceContent({
     };
   }, [updateItem, viewState.items]);
 
+  // Auto-migrate legacy PDFs that have a fileUrl but no ocrPages.
+  // Kicks off the durable OCR workflow; the existing pdf-processing-complete
+  // listener above persists the result via updateItem when each workflow finishes.
+  const migratedIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!workspaceId) return;
+
+    const legacyPdfs = viewState.items.filter((item) => {
+      if (item.type !== "pdf") return false;
+      const pdf = item.data as import("@/lib/workspace-state/types").PdfData;
+      if (!pdf.fileUrl) return false;
+      if (pdf.ocrPages?.length) return false;
+      if (pdf.ocrStatus === "processing" || pdf.ocrStatus === "complete") return false;
+      if (migratedIdsRef.current.has(item.id)) return false;
+      return true;
+    });
+
+    if (legacyPdfs.length === 0) return;
+
+    for (const item of legacyPdfs) {
+      migratedIdsRef.current.add(item.id);
+      const pdf = item.data as import("@/lib/workspace-state/types").PdfData;
+
+      fetch("/api/pdf/ocr/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileUrl: pdf.fileUrl, itemId: item.id }),
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: res.statusText }));
+            throw new Error((err as { error?: string }).error ?? `OCR start failed: ${res.status}`);
+          }
+          return res.json();
+        })
+        .then((data) => {
+          if (data.runId && data.itemId) {
+            import("@/lib/pdf/poll-pdf-ocr").then(({ pollPdfOcr }) =>
+              pollPdfOcr(data.runId, data.itemId)
+            );
+          } else {
+            window.dispatchEvent(
+              new CustomEvent("pdf-processing-complete", {
+                detail: {
+                  itemId: item.id,
+                  textContent: "",
+                  ocrPages: [],
+                  ocrStatus: "failed" as const,
+                  ocrError: data.error || "Failed to start OCR",
+                },
+              })
+            );
+          }
+        })
+        .catch((err) => {
+          window.dispatchEvent(
+            new CustomEvent("pdf-processing-complete", {
+              detail: {
+                itemId: item.id,
+                textContent: "",
+                ocrPages: [],
+                ocrStatus: "failed" as const,
+                ocrError: err.message || "Failed to start legacy PDF OCR",
+              },
+            })
+          );
+        });
+    }
+  }, [viewState.items, workspaceId]);
+
   // Listen for audio processing completion events
   useEffect(() => {
     const handleAudioComplete = (e: Event) => {
