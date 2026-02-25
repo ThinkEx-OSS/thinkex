@@ -18,7 +18,7 @@ import { createFlashcardsTool, createUpdateFlashcardsTool } from "./flashcard-to
 import { createQuizTool, createUpdateQuizTool } from "./quiz-tools";
 import { createDeepResearchTool } from "./deep-research";
 import { createSearchYoutubeTool, createAddYoutubeVideoTool } from "./youtube-tools";
-import { createSearchImagesTool, createAddImageTool } from "./image-tools";
+// import { createSearchImagesTool, createAddImageTool } from "./image-tools";
 import { createWebSearchTool } from "./web-search";
 import { createSearchWorkspaceTool } from "./search-workspace";
 import { createReadWorkspaceTool } from "./read-workspace";
@@ -86,8 +86,8 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
         addYoutubeVideo: createAddYoutubeVideoTool(ctx),
 
         // Google Images
-        searchImages: createSearchImagesTool(),
-        addImage: createAddImageTool(ctx),
+        // searchImages: createSearchImagesTool(),
+        // addImage: createAddImageTool(ctx),
 
         // Client tools from frontend
         ...frontendClientTools,
