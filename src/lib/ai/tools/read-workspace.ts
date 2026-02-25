@@ -14,7 +14,7 @@ const MAX_LINE_LENGTH = 2000;
 export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Read content of a workspace item (note, flashcard deck, PDF summary, quiz) by path or name. Usage: By default returns up to 500 lines from the start. The lineStart parameter is the 1-indexed line number to start from — call again with a larger lineStart to read later sections. For PDFs: use pageStart and pageEnd (1-indexed) to read only specific pages — e.g. pageStart=5, pageEnd=10 reads pages 5–10. Use searchWorkspace to find specific content in large items. Contents are returned with each line prefixed by its line number as <line>: <content>. Any line longer than 2000 characters is truncated. Avoid tiny repeated slices (e.g. 30-line chunks); read a larger window. Call this before targeted updateNote edits to get the exact text for oldString.",
+            "Read content of a workspace item (note, flashcard deck, PDF summary, quiz) by path or name. Usage: By default returns up to 500 lines from the start. The lineStart parameter is the 1-indexed line number to start from — call again with a larger lineStart to read later sections. For PDFs: use pageStart and pageEnd (1-indexed) to read only specific pages — e.g. pageStart=5, pageEnd=10 reads pages 5–10. Use searchWorkspace to find specific content in large items. Contents are returned with each line prefixed by its line number as <line>: <content>. Any line longer than 2000 characters is truncated. Avoid tiny repeated slices (e.g. 30-line chunks); read a larger window.",
         inputSchema: zodSchema(
             z.object({
                 path: z

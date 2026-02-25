@@ -74,7 +74,7 @@ export function createNoteTool(ctx: WorkspaceToolContext) {
 export function createUpdateNoteTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Update a note. Full rewrite: oldString='', newString=entire note. Targeted edit: call readWorkspace first to get current content, then oldString=exact text from the Content section (never include <card> wrapper), newString=replacement. Preserve exact whitespace/indentation. Fails if oldString not found or matches multiple times — include more context or use replaceAll.",
+            "Update a note. Full rewrite: oldString='', newString=entire note. Targeted edit: MUST call readWorkspace first to get current content, then oldString=exact text from the Content section (never include <card> wrapper), newString=replacement. Preserve exact whitespace/indentation. Fails if oldString not found or matches multiple times — include more context or use replaceAll. If the note may have been modified since you last read it, call readWorkspace again before retrying.",
         inputSchema: zodSchema(
             z
                 .object({

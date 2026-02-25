@@ -61,7 +61,7 @@ Workspace is empty. Reference items by name when created.
     );
 
     return `<virtual-workspace>
-Paths and metadata. Use readWorkspace to read content. Call processFiles for PDFs that need content extracted (you call it — do not ask the user).
+Paths and metadata. See PDF/updateNote instructions below.
 
 ${entries.join("\n")}
 </virtual-workspace>`;
@@ -99,14 +99,12 @@ When users say "this", they may mean the selected cards, which should be the pri
 
 <instructions>
 CORE BEHAVIORS:
-- Reference workspace items by name (never IDs)
+- Reference workspace items by path or name (never IDs)
 - After tool calls, always provide a natural language response explaining the result
 - If uncertain, say so rather than guessing
 - For complex tasks, think step-by-step
 - You are allowed to complete homework or assignments for the user if they ask
 - Only use emojis if the user explicitly requests them
-
-UPDATE NOTE (targeted edits): Before using updateNote with a non-empty oldString (targeted edit), you MUST call readWorkspace first to fetch the current content. Use the exact text from the Content section as oldString. If the note may have been modified since you last read it, call readWorkspace again before retrying.
 
 WEB SEARCH GUIDELINES:
 Use webSearch when: temporal cues ("today", "latest", "current"), real-time data (scores, stocks, weather), fact verification, niche/recent info.
