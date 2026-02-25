@@ -23,8 +23,8 @@ interface ActionCardProps {
 
 function ActionCard({ icon, title, subtitle, onClick, isLoading, hoverVariant = "upload", htmlFor }: ActionCardProps) {
     const sharedClassName = cn(
-        "group flex flex-col items-start gap-2 p-4 min-h-[88px] w-full rounded-2xl border bg-white dark:bg-sidebar backdrop-blur-xl",
-        "hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-300 ease-out text-left cursor-pointer",
+        "group flex flex-col items-start gap-2 p-4 min-h-[88px] w-full rounded-2xl border bg-white/95 dark:bg-sidebar/95",
+        "hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-transform duration-300 ease-out text-left cursor-pointer",
         "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2",
         "disabled:pointer-events-none disabled:opacity-50",
         !isLoading && HOVER_VARIANT_STYLES[hoverVariant]
