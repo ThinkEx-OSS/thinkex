@@ -119,14 +119,14 @@ export const AddImageToolUI = makeAssistantToolUI<AddImageArgs, WorkspaceResult>
             );
         } else if (status.type === "running") {
             content = <ToolUILoadingShell label="Adding image..." />;
-        } else if (status.type !== "running" && status.type === "complete" && parsed && !parsed.success) {
+        } else if (status.type === "complete" && parsed && !parsed.success) {
             content = (
                 <ToolUIErrorShell
                     label="Failed to add image"
                     message={parsed.message}
                 />
             );
-        } else if (status.type !== "running" && status.type === "incomplete" && status.reason === "error") {
+        } else if (status.type === "incomplete" && status.reason === "error") {
             content = (
                 <ToolUIErrorShell
                     label="Failed to add image"
