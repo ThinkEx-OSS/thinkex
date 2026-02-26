@@ -17,8 +17,6 @@ import WorkspaceSaveIndicator from "@/components/workspace/WorkspaceSaveIndicato
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { IconRenderer } from "@/hooks/use-icon-picker";
-import { useAui } from "@assistant-ui/react";
-import { focusComposerInput } from "@/lib/utils/composer-utils";
 import ItemHeader from "@/components/workspace-canvas/ItemHeader"; // Import ItemHeader
 import {
   DropdownMenu,
@@ -57,6 +55,7 @@ import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { getBestFrameForRatio } from "@/lib/workspace-state/aspect-ratios";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
+import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
 interface WorkspaceHeaderProps {
   titleInputRef: React.RefObject<HTMLInputElement | null>;
   searchQuery: string;
@@ -156,6 +155,8 @@ export function WorkspaceHeader({
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
   const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [showQuizDialog, setShowQuizDialog] = useState(false);
+  const [showFlashcardsDialog, setShowFlashcardsDialog] = useState(false);
   const showAudioDialog = useAudioRecordingStore((s) => s.isDialogOpen);
   const openAudioDialog = useAudioRecordingStore((s) => s.openDialog);
   const closeAudioDialog = useAudioRecordingStore((s) => s.closeDialog);
@@ -168,9 +169,6 @@ export function WorkspaceHeader({
   const [hoveredBreadcrumbTarget, setHoveredBreadcrumbTarget] = useState<string | null>(null); // 'root' or folderId
   const isDraggingRef = useRef(false);
   const [ellipsisDropdownOpen, setEllipsisDropdownOpen] = useState(false);
-
-  // Assistant API for Deep Research action
-  const aui = useAui();
 
   // React Query client for cache invalidation
   const queryClient = useQueryClient();
@@ -984,20 +982,12 @@ export function WorkspaceHeader({
                       onYouTube: () => { setShowYouTubeDialog(true); setIsNewMenuOpen(false); },
                       onWebsite: () => { setShowWebsiteDialog(true); setIsNewMenuOpen(false); },
                       onFlashcards: () => {
-                        if (addItem) {
-                          const itemId = addItem("flashcard");
-                          if (onItemCreated && itemId) {
-                            onItemCreated([itemId]);
-                          }
-                        }
+                        setShowFlashcardsDialog(true);
+                        setIsNewMenuOpen(false);
                       },
                       onQuiz: () => {
-                        if (setIsChatExpanded && !isChatExpanded) {
-                          setIsChatExpanded(true);
-                        }
-                        aui?.composer().setText("Create a quiz about ");
-                        focusComposerInput();
-                        toast.success("Quiz creation started");
+                        setShowQuizDialog(true);
+                        setIsNewMenuOpen(false);
                       },
                     },
                     MenuItem: DropdownMenuItem,
@@ -1094,6 +1084,22 @@ export function WorkspaceHeader({
         open={showAudioDialog}
         onOpenChange={(open) => { if (open) openAudioDialog(); else closeAudioDialog(); }}
         onAudioReady={handleAudioReady}
+      />
+      {/* Quiz Prompt Builder Dialog */}
+      <PromptBuilderDialog
+        open={showQuizDialog}
+        onOpenChange={setShowQuizDialog}
+        action="quiz"
+        items={items}
+        onBeforeSubmit={() => setIsChatExpanded?.(true)}
+      />
+      {/* Flashcards Prompt Builder Dialog */}
+      <PromptBuilderDialog
+        open={showFlashcardsDialog}
+        onOpenChange={setShowFlashcardsDialog}
+        action="flashcards"
+        items={items}
+        onBeforeSubmit={() => setIsChatExpanded?.(true)}
       />
     </div>
   );

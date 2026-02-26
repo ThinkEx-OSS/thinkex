@@ -47,13 +47,12 @@ import { PiCardsThreeBold } from "react-icons/pi";
 import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
-import { useAui } from "@assistant-ui/react";
-import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { UploadDialog } from "@/components/modals/UploadDialog";
 import { AudioRecordingIndicator } from "./AudioRecordingIndicator";
 import { getBestFrameForRatio } from "@/lib/workspace-state/aspect-ratios";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
+import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
@@ -192,11 +191,6 @@ export function WorkspaceSection({
   const openPanel = useUIStore((state) => state.openPanel);
   const { data: session } = useSession();
 
-  // Assistant API for Deep Research action
-  // Note: WorkspaceSection is inside WorkspaceRuntimeProvider in DashboardLayout, so this hook works
-  const aui = useAui();
-
-
   // Get active folder info from UI store
   const activeFolderId = useUIStore((uiState) => uiState.activeFolderId);
 
@@ -229,6 +223,8 @@ export function WorkspaceSection({
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
+  const [showQuizDialog, setShowQuizDialog] = useState(false);
+  const [showFlashcardsDialog, setShowFlashcardsDialog] = useState(false);
   const showAudioDialog = useAudioRecordingStore((s) => s.isDialogOpen);
   const openAudioDialog = useAudioRecordingStore((s) => s.openDialog);
   const closeAudioDialog = useAudioRecordingStore((s) => s.closeDialog);
@@ -729,22 +725,8 @@ export function WorkspaceSection({
                 onAudio: () => openAudioDialog(),
                 onYouTube: () => setShowYouTubeDialog(true),
                 onWebsite: () => setShowWebsiteDialog(true),
-                onFlashcards: () => {
-                  if (addItem) {
-                    const itemId = addItem("flashcard");
-                    if (handleCreatedItems && itemId) {
-                      handleCreatedItems([itemId]);
-                    }
-                  }
-                },
-                onQuiz: () => {
-                  if (setIsChatExpanded && !isChatExpanded && isDesktop) {
-                    setIsChatExpanded(true);
-                  }
-                  aui.composer().setText("Create a quiz about ");
-                  focusComposerInput();
-                  toast.success("Quiz creation started");
-                },
+                onFlashcards: () => setShowFlashcardsDialog(true),
+                onQuiz: () => setShowQuizDialog(true),
               },
               MenuItem: ContextMenuItem,
               MenuSub: ContextMenuSub,
@@ -840,6 +822,22 @@ export function WorkspaceSection({
         open={showAudioDialog}
         onOpenChange={(open) => { if (open) openAudioDialog(); else closeAudioDialog(); }}
         onAudioReady={handleAudioReady}
+      />
+      {/* Quiz Prompt Builder Dialog */}
+      <PromptBuilderDialog
+        open={showQuizDialog}
+        onOpenChange={setShowQuizDialog}
+        action="quiz"
+        items={state.items ?? []}
+        onBeforeSubmit={() => { if (isDesktop && setIsChatExpanded && !isChatExpanded) setIsChatExpanded(true); }}
+      />
+      {/* Flashcards Prompt Builder Dialog */}
+      <PromptBuilderDialog
+        open={showFlashcardsDialog}
+        onOpenChange={setShowFlashcardsDialog}
+        action="flashcards"
+        items={state.items ?? []}
+        onBeforeSubmit={() => { if (isDesktop && setIsChatExpanded && !isChatExpanded) setIsChatExpanded(true); }}
       />
       {/* Floating recording indicator (visible when dialog is closed but recording is active) */}
       <AudioRecordingIndicator />
