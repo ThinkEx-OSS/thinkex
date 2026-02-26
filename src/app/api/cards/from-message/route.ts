@@ -67,54 +67,31 @@ export async function POST(request: NextRequest) {
 
     });
 
-    // Use AI to process and reformat the content into a cohesive note
+    // Use AI to extract pure note content from the assistant response (no summarization, no information loss)
     logger.debug("📝 [CREATE-CARD-FROM-MESSAGE] Processing content with AI");
 
-    const systemPrompt = `You are a note-taking assistant. Your task is to create a cohesive, well-formatted note from the provided content.
+    const systemPrompt = `You are a content extractor. Your task is to turn an assistant's chat response into a clean note card. CRITICAL: Preserve ALL substantive information — do NOT summarize or condense. Only remove irrelevant agent meta-talk.
 
-INSTRUCTIONS:
-1. Create a clear, concise title for the note (extract from content or create one that summarizes the main topic)
-2. Reformulate and organize the content into a cohesive, well-structured note
-3. Ensure proper markdown formatting:
-   - Use appropriate headings (# ## ###) to structure the content
-   - Use lists (- or 1.) for enumerated items
-   - Use **bold** for emphasis and *italic* for subtle emphasis
-   - Use > for block quotes when appropriate
-   - Use proper line breaks and spacing for readability
-4. Format mathematical expressions using LaTeX:
-   - Use $$...$$ for all math expressions (both inline and block)
-   - For inline math: $$E = mc^2$$ (same line as text)
-   - For block math (separate lines):
-     $$
-     \\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}
-     $$
-   - For currency, use a plain $ with no closing $: e.g. $19.99, $5
-   - Always ensure math blocks are properly closed with matching $$
-   - Add spaces around $$ symbols when math appears in lists or tables
-5. If the content contains multiple selections or fragments, combine them into a single cohesive narrative
-6. Maintain the original meaning and key information while improving clarity and organization
-7. Remove any redundant or repetitive information
-8. Ensure the note flows naturally and reads well
+GOALS:
+1. Zero information loss — keep every fact, detail, step, and example from the original content
+2. Pure content only — strip all conversational fluff the agent added (e.g. "Here's what I found", "Let me organize this", "I hope this helps", "Does this answer your question?", pleasantries, disclaimers)
+3. Extract or infer a concise title from the content
+4. Output ONLY the note content in markdown — no meta-commentary, no explanations
 
-Example - combining fragments with math and currency:
-Input: "E = mc^2. The cost was $99. | Also: quadratic formula x = (-b ± sqrt(b^2-4ac))/(2a)"
-Output:
-# Energy and Algebra
-
-The famous equation $$E = mc^2$$ relates mass and energy. A related purchase cost $99.
-
-The quadratic formula solves $$ax^2 + bx + c = 0$$:
-
-$$
-x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}
-$$
-
-Return ONLY the reformatted note content in markdown format. Do not include any meta-commentary or explanations.`;
+RULES:
+- DO NOT summarize. If the content has 10 bullet points, output 10 bullet points. If it has a long example, keep the full example
+- Remove: conversational phrases, "I" statements, meta-commentary, filler
+- Keep: all factual content, lists, code blocks, examples, definitions, steps
+- Markdown: use headings (# ## ###), lists (- or 1.), **bold**, *italic*, > block quotes where appropriate
+- Math (same as main system): $$...$$ for inline and block. Currency: use plain $ with no closing $ (e.g. $19.99)
+- Start content with subheadings/text — DO NOT repeat the title in the body
+- If multiple fragments: concatenate into one cohesive note, preserving all content
+- Return ONLY the reformatted note (first line or # heading = title; rest = body). No preamble or footer.`;
 
     const aiResult = await generateText({
-      model: google("gemini-2.5-flash"),
+      model: google("gemini-3-flash-preview"),
       system: systemPrompt,
-      prompt: `Create a cohesive, well-formatted note from the following content:\n\n${content}`,
+      prompt: `Extract the pure note content from this assistant response. Preserve all information. Remove only conversational/meta fluff. Output title + body in markdown:\n\n${content}`,
     });
 
     const reformattedContent = aiResult.text.trim();

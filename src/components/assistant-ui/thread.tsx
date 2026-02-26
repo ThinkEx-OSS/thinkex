@@ -1126,7 +1126,7 @@ const AssistantActionBar: FC = () => {
           className="!px-1 gap-1 h-6 text-xs font-medium hover:bg-sidebar-accent"
         >
           <FileText className={cn("h-3 w-3", isCreating && "animate-pulse")} />
-          <span>Create Note</span>
+          <span>Save as Note</span>
         </Button>
       )}
     </ActionBarPrimitive.Root>
