@@ -5,6 +5,7 @@ import { useAui, useAuiState } from "@assistant-ui/react";
 import { Thread } from "./thread";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceContextProvider } from "@/hooks/ai/use-workspace-context-provider";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import AppChatHeader from "@/components/chat/AppChatHeader";
 import { cn } from "@/lib/utils";
 import AssistantTextSelectionManager from "@/components/assistant-ui/AssistantTextSelectionManager";
@@ -145,9 +146,12 @@ function WorkspaceContextWrapperContent({
     [items, selectedCardIds]
   );
 
+  // Workspace name from DB (fallback when state.globalTitle is empty, e.g. after rename in Settings)
+  const { currentWorkspace } = useWorkspaceContext();
+
   // Inject minimal workspace context (metadata and system instructions only)
   // Cards register their own context individually
-  useWorkspaceContextProvider(workspaceId || null, state);
+  useWorkspaceContextProvider(workspaceId || null, state, currentWorkspace?.name);
 
 
 
