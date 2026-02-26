@@ -7,7 +7,7 @@ import { ViewportPluginPackage, Viewport, useViewportCapability } from '@embedpd
 import { ScrollPluginPackage, Scroller, useScroll, useScrollCapability } from '@embedpdf/plugin-scroll/react';
 import { DocumentContent, DocumentManagerPluginPackage } from '@embedpdf/plugin-document-manager/react';
 import { RenderLayer, RenderPluginPackage } from '@embedpdf/plugin-render/react';
-import { ZoomPluginPackage, ZoomMode, ZoomGestureWrapper, useZoom } from '@embedpdf/plugin-zoom/react';
+import { ZoomPluginPackage, ZoomMode, ZoomGestureWrapper } from '@embedpdf/plugin-zoom/react';
 import { PanPluginPackage } from '@embedpdf/plugin-pan/react';
 
 import { SelectionPluginPackage, SelectionLayer, useSelectionCapability, SelectionSelectionMenuProps } from '@embedpdf/plugin-selection/react';
@@ -37,182 +37,84 @@ import { PdfPasswordPrompt } from './PdfPasswordPrompt';
 // ─────────────────────────────────────────────────────────
 
 interface PdfSavedState {
-  scrollTop: number;
-  scrollLeft: number;
-  zoom: number;
   currentPage: number;
-  timestamp: number;
 }
 
 const PDF_STATE_PREFIX = 'pdf-state-';
 
-// Module-level tracking to survive StrictMode double-mounts
-const restoredDocuments = new Set<string>();
-// Track which documents have completed restoration (not just started)
-const restoreCompleted = new Set<string>();
-
 /**
- * Persists and restores PDF scroll position and zoom level to localStorage.
- * Skips scroll restore when a citation is opening this PDF (citation takes priority).
+ * Persists the current page to localStorage and restores it on mount.
+ * Skips restore when a citation is navigating this PDF (citation takes priority).
  */
 const PdfStatePersister = ({ documentId, pdfSrc, itemId }: { documentId: string; pdfSrc: string; itemId?: string }) => {
-  const { provides: viewportCapability } = useViewportCapability();
-  const { state: zoomState, provides: zoomScope } = useZoom(documentId);
+  const { provides: scrollCapability } = useScrollCapability();
   const { state: scrollState } = useScroll(documentId);
-  const debounceRef = useRef<NodeJS.Timeout | undefined>(undefined);
-  const restoreTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSavedRef = useRef<string>('');
+  const [restored, setRestored] = useState(false);
+  const skipNextSaveRef = useRef(false);
+  const pendingRestorePageRef = useRef<number | null>(null);
 
   const storageKey = `${PDF_STATE_PREFIX}${encodeURIComponent(pdfSrc)}`;
-  const restoreKey = `${documentId}-${pdfSrc}`;
 
-  // Check if restore is complete before allowing saves
-  const canSave = useCallback(() => {
-    return restoreCompleted.has(restoreKey);
-  }, [restoreKey]);
+  // Determine target page on layout ready (but don't scroll here — scroll requests
+  // emitted during onLayoutReady are lost because Viewport's useLayoutEffect subscription
+  // runs after Scroller's useLayoutEffect which fires onLayoutReady)
+  useEffect(() => {
+    if (!scrollCapability) return;
 
-  // Helper to save current state
-  const saveCurrentState = useCallback(() => {
-    if (!viewportCapability) return;
-    if (!canSave()) {
-      return;
-    }
+    const unsub = scrollCapability.onLayoutReady((ev) => {
+      if (ev.documentId !== documentId || !ev.isInitial || ev.totalPages < 1) return;
 
-    try {
-      const viewport = viewportCapability.forDocument(documentId);
-      const metrics = viewport?.getMetrics();
+      if (itemId && useUIStore.getState().citationHighlightQuery?.itemId === itemId) {
+        skipNextSaveRef.current = true;
+        setRestored(true);
+        return;
+      }
 
-      if (metrics && zoomState.currentZoomLevel > 0) {
-        const state: PdfSavedState = {
-          scrollTop: metrics.scrollTop,
-          scrollLeft: metrics.scrollLeft,
-          zoom: zoomState.currentZoomLevel,
-          currentPage: scrollState?.currentPage ?? 1,
-          timestamp: Date.now(),
-        };
-        const stateStr = JSON.stringify(state);
-
-        // Only save if state actually changed
-        if (stateStr !== lastSavedRef.current) {
-          localStorage.setItem(storageKey, stateStr);
-          lastSavedRef.current = stateStr;
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          const page = saved.currentPage ?? 1;
+          if (page > 1 && page <= ev.totalPages) {
+            pendingRestorePageRef.current = page;
+            skipNextSaveRef.current = true;
+          }
         }
+      } catch (e) {
+        console.warn('[PdfStatePersister] Restore failed:', e);
       }
-    } catch (e) {
-      console.warn('[PdfStatePersister] Failed to save state:', e);
-    }
-  }, [viewportCapability, zoomState.currentZoomLevel, scrollState?.currentPage, documentId, storageKey, canSave]);
-
-  // Restore state on mount (only once per document)
-  useEffect(() => {
-    if (restoredDocuments.has(restoreKey)) {
-      return;
-    }
-
-    if (!viewportCapability || !zoomScope) {
-      return;
-    }
-
-    restoredDocuments.add(restoreKey);
-
-    try {
-      const saved = localStorage.getItem(storageKey);
-      const citationForThisItem = itemId && useUIStore.getState().citationHighlightQuery?.itemId === itemId;
-
-      if (saved && !citationForThisItem) {
-        const state: PdfSavedState = JSON.parse(saved);
-
-        // Delay restoration to ensure it runs AFTER the plugin's default zoom is applied
-        restoreTimeoutRef.current = setTimeout(() => {
-          // Re-check citation (may have been set after our effect ran)
-          if (itemId && useUIStore.getState().citationHighlightQuery?.itemId === itemId) {
-            restoreCompleted.add(restoreKey);
-            return;
-          }
-          // Restore zoom
-          if (typeof state.zoom === 'number' && state.zoom > 0) {
-            zoomScope.requestZoom(state.zoom);
-          }
-
-          // Restore scroll after zoom settles
-          setTimeout(() => {
-            if (itemId && useUIStore.getState().citationHighlightQuery?.itemId === itemId) {
-              restoreCompleted.add(restoreKey);
-              return;
-            }
-            const viewport = viewportCapability.forDocument(documentId);
-            if (viewport) {
-              viewport.scrollTo({ x: state.scrollLeft, y: state.scrollTop, behavior: 'instant' });
-            }
-            setTimeout(() => restoreCompleted.add(restoreKey), 100);
-          }, 200);
-        }, 300);
-      } else {
-        // No saved state, or citation is opening this PDF (citation scroll takes priority)
-        restoreCompleted.add(restoreKey);
-      }
-    } catch (e) {
-      console.warn('[PdfStatePersister] Restore failed:', e);
-      restoreCompleted.add(restoreKey); // Enable saving even if restore fails
-    }
-
-    // Cleanup on unmount
-    return () => {
-      if (restoreTimeoutRef.current) {
-        clearTimeout(restoreTimeoutRef.current);
-        restoreTimeoutRef.current = null;
-      }
-      saveCurrentState();
-    };
-  }, [viewportCapability, zoomScope, documentId, pdfSrc, storageKey, restoreKey, saveCurrentState, itemId]);
-
-  // Save on zoom changes (debounced)
-  useEffect(() => {
-    if (!viewportCapability || zoomState.currentZoomLevel === 0) return;
-    if (!canSave()) return;
-
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-    debounceRef.current = setTimeout(saveCurrentState, 300);
-
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-    };
-  }, [zoomState.currentZoomLevel, saveCurrentState, viewportCapability, canSave]);
-
-  // Save on scroll changes
-  useEffect(() => {
-    if (!viewportCapability) return;
-
-    const unsub = viewportCapability.onScrollChange((event) => {
-      if (event.documentId !== documentId) return;
-      if (!canSave()) return;
-
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-      debounceRef.current = setTimeout(saveCurrentState, 300);
+      setRestored(true);
     });
 
     return unsub;
-  }, [viewportCapability, documentId, saveCurrentState, canSave]);
+  }, [scrollCapability, documentId, storageKey, itemId]);
 
-  // Save on page unload
+  // Perform the deferred scroll after restored is set (runs in useEffect phase,
+  // after Viewport's useLayoutEffect has subscribed to scroll requests)
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (canSave()) {
-        saveCurrentState();
-      }
-    };
+    if (!restored || !scrollCapability || pendingRestorePageRef.current == null) return;
+    const page = pendingRestorePageRef.current;
+    pendingRestorePageRef.current = null;
+    const scope = scrollCapability.forDocument(documentId);
+    scope?.scrollToPage({ pageNumber: page, behavior: 'instant' });
+  }, [restored, scrollCapability, documentId]);
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [saveCurrentState]);
+  // Save current page to localStorage on page changes (after restoration)
+  useEffect(() => {
+    if (!restored) return;
+    const page = scrollState?.currentPage;
+    if (page != null && page >= 1) {
+      if (skipNextSaveRef.current) {
+        skipNextSaveRef.current = false;
+        return;
+      }
+      try {
+        localStorage.setItem(storageKey, JSON.stringify({ currentPage: page }));
+      } catch (e) {
+        console.warn('[PdfStatePersister] Save failed:', e);
+      }
+    }
+  }, [restored, scrollState?.currentPage, storageKey]);
 
   return null;
 };
@@ -712,56 +614,61 @@ const PdfSearchBar = ({ documentId }: { documentId: string }) => {
 
 const PDF_HIGHLIGHT_DURATION_MS = 2500;
 
-/** Scrolls to initialPage when layout is ready. Also scrolls when initialPage changes after load (e.g. citation navigation). */
+/** Scrolls to initialPage when layout is ready. Also scrolls when initialPage changes after load. Clears citation state after navigating. */
 const PdfInitialPageScroll = ({
   documentId,
   initialPage,
-  onScrolled,
 }: {
   documentId: string;
   initialPage?: number;
-  onScrolled?: () => void;
 }) => {
   const { provides: scrollCapability } = useScrollCapability();
-  const layoutReadyRef = useRef<{ totalPages: number } | null>(null);
+  const layoutInfoRef = useRef<{ totalPages: number } | null>(null);
+  const pendingPageRef = useRef<number | null>(null);
+  const [layoutReady, setLayoutReady] = useState(false);
 
+  // Always track layout readiness (unconditionally), and queue the initial page
+  // scroll if a citation is active. Don't scroll here — scroll requests emitted
+  // during onLayoutReady are lost because Viewport's subscription isn't set up yet.
   useEffect(() => {
-    if (!scrollCapability || initialPage == null || initialPage < 1) return;
-
-    const scrollToPage = (totalPages: number) => {
-      const scrollScope = scrollCapability.forDocument(documentId);
-      if (!scrollScope) return;
-      const page = Math.min(Math.max(1, initialPage), totalPages);
-      scrollScope.scrollToPage({ pageNumber: page });
-      onScrolled?.();
-    };
+    if (!scrollCapability) return;
 
     const unsub = scrollCapability.onLayoutReady((ev) => {
       if (ev.documentId !== documentId || !ev.isInitial || ev.totalPages < 1) return;
-      layoutReadyRef.current = { totalPages: ev.totalPages };
-      scrollToPage(ev.totalPages);
+      layoutInfoRef.current = { totalPages: ev.totalPages };
+      if (initialPage != null && initialPage >= 1) {
+        pendingPageRef.current = Math.min(Math.max(1, initialPage), ev.totalPages);
+      }
+      setLayoutReady(true);
     });
 
     return unsub;
   }, [scrollCapability, documentId]);
 
-  // Clear ref when document changes so we don't use stale totalPages
   useEffect(() => {
-    return () => {
-      layoutReadyRef.current = null;
-    };
+    return () => { layoutInfoRef.current = null; setLayoutReady(false); };
   }, [documentId]);
 
-  // When initialPage changes after layout is ready, scroll without waiting for onLayoutReady again
+  // Deferred scroll: runs in useEffect phase after Viewport's subscription is set up
   useEffect(() => {
-    if (!scrollCapability || initialPage == null || initialPage < 1 || !layoutReadyRef.current) return;
-    const { totalPages } = layoutReadyRef.current;
-    const scrollScope = scrollCapability.forDocument(documentId);
-    if (!scrollScope) return;
+    if (!layoutReady || !scrollCapability || pendingPageRef.current == null) return;
+    const page = pendingPageRef.current;
+    pendingPageRef.current = null;
+    const scope = scrollCapability.forDocument(documentId);
+    scope?.scrollToPage({ pageNumber: page, behavior: 'instant' });
+    useUIStore.getState().setCitationHighlightQuery(null);
+  }, [layoutReady, scrollCapability, documentId]);
+
+  // When initialPage changes after layout is already ready, scroll immediately
+  useEffect(() => {
+    if (!scrollCapability || initialPage == null || initialPage < 1 || !layoutInfoRef.current) return;
+    const { totalPages } = layoutInfoRef.current;
+    const scope = scrollCapability.forDocument(documentId);
+    if (!scope) return;
     const page = Math.min(Math.max(1, initialPage), totalPages);
-    scrollScope.scrollToPage({ pageNumber: page });
-    onScrolled?.();
-  }, [scrollCapability, documentId, initialPage, onScrolled]);
+    scope.scrollToPage({ pageNumber: page });
+    useUIStore.getState().setCitationHighlightQuery(null);
+  }, [scrollCapability, documentId, initialPage]);
 
   return null;
 };
@@ -1045,7 +952,6 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
                             <PdfInitialPageScroll
                               documentId={activeDocumentId}
                               initialPage={initialPage}
-                              onScrolled={() => useUIStore.getState().setCitationHighlightQuery(null)}
                             />
                             {itemId && (
                               <>

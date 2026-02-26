@@ -856,8 +856,9 @@ function WorkspaceCard({
                     <div className="w-full h-full flex items-center justify-center bg-muted text-xs" style={{ color: resolvedTheme === 'dark' ? 'rgba(163, 175, 191, 0.5)' : 'rgba(107, 114, 128, 0.6)' }}>
                       PDF
                     </div>
-                  ) : isScrollLocked ? (
+                  ) : isScrollLocked || maximizedItemId === item.id ? (
                     <LightweightPdfPreview
+                      key={`preview-${maximizedItemId ?? 'none'}`}
                       pdfSrc={pdfData.fileUrl}
                       className="w-full h-full"
                     />
