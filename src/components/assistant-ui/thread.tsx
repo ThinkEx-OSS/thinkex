@@ -21,6 +21,7 @@ import {
   Brain,
   Play,
   Globe,
+  MoreHorizontal,
 } from "lucide-react";
 import { FaQuoteLeft, FaWandMagicSparkles, FaCheck } from "react-icons/fa6";
 import { LuSparkle } from "react-icons/lu";
@@ -233,7 +234,7 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
 
             <ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer sticky bottom-0 mx-auto mt-auto flex w-full max-w-[var(--thread-max-width)] flex-col gap-4 overflow-visible rounded-t-3xl bg-sidebar pb-3 md:pb-4">
               <ThreadScrollToBottom />
-              <Composer items={items} />
+              <ComposerHoverWrapper items={items} />
             </ThreadPrimitive.ViewportFooter>
           </ThreadPrimitive.Viewport>
         </ThreadPrimitive.Root>
@@ -451,6 +452,222 @@ const ThreadSuggestions: FC<ThreadSuggestionsProps> = ({ items }) => {
         />
       )}
     </>
+  );
+};
+
+// Floating action buttons shown above composer on hover
+const COMPOSER_FLOATING_ACTIONS = [
+  {
+    id: "note",
+    label: "Note",
+    icon: FileText,
+    iconClassName: "size-3.5 shrink-0 text-blue-400",
+    action: "note" as PromptBuilderAction,
+    useDialog: true,
+  },
+  {
+    id: "flashcards",
+    label: "Flashcards",
+    icon: PiCardsThreeBold,
+    iconClassName: "size-3.5 shrink-0 text-purple-400 rotate-180",
+    action: "flashcards" as PromptBuilderAction,
+    useDialog: true,
+  },
+  {
+    id: "quiz",
+    label: "Quiz",
+    icon: Brain,
+    iconClassName: "size-3.5 shrink-0 text-green-400",
+    action: "quiz" as PromptBuilderAction,
+    useDialog: true,
+  },
+  {
+    id: "more",
+    icon: MoreHorizontal,
+    iconClassName: "size-3.5 shrink-0 text-muted-foreground",
+    isDropdown: true,
+  },
+];
+
+interface ComposerHoverWrapperProps {
+  items: Item[];
+}
+
+const COMPOSER_MORE_OPTIONS = [
+  {
+    id: "youtube",
+    label: "YouTube",
+    icon: Play,
+    iconClassName: "size-3.5 text-red-500",
+    action: "youtube" as PromptBuilderAction,
+  },
+  {
+    id: "search",
+    label: "Search",
+    icon: Globe,
+    iconClassName: "size-3.5 text-sky-500",
+    composerFill: "Search the web for ",
+  },
+];
+
+const ComposerHoverWrapper: FC<ComposerHoverWrapperProps> = ({ items }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  const aui = useAui();
+  const [dialogAction, setDialogAction] = useState<PromptBuilderAction | null>(null);
+  const [isMorePopoverOpen, setIsMorePopoverOpen] = useState(false);
+  const morePopoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isThreadEmpty = useAuiState(({ thread }) => thread?.isEmpty ?? true);
+  const composerText = useAuiState((s) => (s as { composer?: { text?: string } })?.composer?.text ?? "");
+  const hasComposerText = Boolean(composerText?.trim());
+
+  const handleDirectFill = useCallback(
+    (fill: string) => {
+      aui?.composer()?.setText(fill);
+      focusComposerInput(true);
+    },
+    [aui]
+  );
+
+  useEffect(() => () => {
+    if (morePopoverTimeoutRef.current) clearTimeout(morePopoverTimeoutRef.current);
+  }, []);
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Floating buttons - appear above composer on hover */}
+      <div
+        className={cn(
+          "absolute bottom-full left-0 right-0 z-20 flex justify-center gap-1.5 pb-2",
+          "transition-opacity duration-150 ease-out",
+          !isThreadEmpty && isHovered && !hasComposerText
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none"
+        )}
+      >
+        <div className="flex flex-wrap items-center justify-center gap-1.5 rounded-xl border border-sidebar-border bg-sidebar-accent px-1.5 py-1 shadow-md dark:border-sidebar-border/15">
+          {COMPOSER_FLOATING_ACTIONS.map((action) => {
+            const Icon = action.icon;
+            if ("isDropdown" in action && action.isDropdown) {
+              return (
+                <Popover
+                  key={action.id}
+                  open={isMorePopoverOpen}
+                  onOpenChange={setIsMorePopoverOpen}
+                >
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={(e) => e.preventDefault()}
+                      onMouseEnter={() => {
+                        if (morePopoverTimeoutRef.current) {
+                          clearTimeout(morePopoverTimeoutRef.current);
+                        }
+                        setIsMorePopoverOpen(true);
+                      }}
+                      onMouseLeave={() => {
+                        morePopoverTimeoutRef.current = setTimeout(() => {
+                          setIsMorePopoverOpen(false);
+                        }, 100);
+                      }}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium",
+                        "text-sidebar-foreground transition-colors",
+                        "hover:bg-sidebar-foreground/10 dark:hover:bg-sidebar-foreground/15"
+                      )}
+                      aria-label="More options"
+                    >
+                      <Icon className={action.iconClassName} />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="end"
+                    side="top"
+                    sideOffset={4}
+                    className="w-auto rounded-xl border border-sidebar-border bg-sidebar-accent px-1.5 py-0.5 shadow-none dark:border-sidebar-border/15"
+                    onMouseEnter={() => {
+                      if (morePopoverTimeoutRef.current) {
+                        clearTimeout(morePopoverTimeoutRef.current);
+                      }
+                      setIsMorePopoverOpen(true);
+                    }}
+                    onMouseLeave={() => {
+                      morePopoverTimeoutRef.current = setTimeout(() => {
+                        setIsMorePopoverOpen(false);
+                      }, 100);
+                    }}
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      {COMPOSER_MORE_OPTIONS.map((opt) => {
+                        const OptIcon = opt.icon;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => {
+                              setIsMorePopoverOpen(false);
+                              if ("action" in opt && opt.action) {
+                                setDialogAction(opt.action);
+                              } else if ("composerFill" in opt && opt.composerFill) {
+                                handleDirectFill(opt.composerFill);
+                              }
+                            }}
+                            className={cn(
+                              "inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium",
+                              "text-sidebar-foreground transition-colors focus:outline-none focus:ring-0",
+                              "hover:bg-sidebar-foreground/10 dark:hover:bg-sidebar-foreground/15"
+                            )}
+                          >
+                            <OptIcon className={opt.iconClassName} />
+                            <span>{opt.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              );
+            }
+            return (
+              <button
+                key={action.id}
+                type="button"
+                onClick={() => {
+                  if (action.useDialog && "action" in action && action.action) {
+                    setDialogAction(action.action);
+                  } else if ("composerFill" in action && typeof action.composerFill === "string") {
+                    handleDirectFill(action.composerFill);
+                  }
+                }}
+                className={cn(
+                  "inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium",
+                  "text-sidebar-foreground transition-colors",
+                  "hover:bg-sidebar-foreground/10 dark:hover:bg-sidebar-foreground/15"
+                )}
+                aria-label={action.label}
+              >
+                <Icon className={action.iconClassName} />
+                <span>{action.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <Composer items={items} />
+
+      {dialogAction && (
+        <PromptBuilderDialog
+          open={!!dialogAction}
+          onOpenChange={(open) => !open && setDialogAction(null)}
+          action={dialogAction}
+          items={items}
+        />
+      )}
+    </div>
   );
 };
 
@@ -1104,7 +1321,7 @@ const AssistantMessage: FC = () => {
   );
 };
 
-const CONTINUE_RESPONSE_CHAR_THRESHOLD = 500;
+const CONTINUE_RESPONSE_CHAR_THRESHOLD = 250;
 
 const AssistantActionBar: FC = () => {
   const { createCard, isCreating } = useCreateCardFromMessage({ debounceMs: 300 });

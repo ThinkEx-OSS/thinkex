@@ -58,6 +58,11 @@ const ACTION_CONFIG: Record<
     countStep?: number;
     hasTopicSelector?: boolean;
     hasTemplates?: boolean;
+    /** Override for simple input (when !hasTopicSelector) */
+    inputLabel?: string;
+    inputPlaceholder?: string;
+    /** For YouTube: prompt when user pastes a URL */
+    prefixForUrl?: string;
   }
 > = {
   flashcards: {
@@ -87,13 +92,16 @@ const ACTION_CONFIG: Record<
     hasTopicSelector: true,
   },
   youtube: {
-    label: "Find a YouTube video",
+    label: "Add YouTube Video",
     prefix: "Find a YouTube video on ",
+    prefixForUrl: "Add this YouTube video to my workspace and summarize it.",
     icon: Play,
-    description: "Search for a YouTube video about your topic.",
+    description: "Enter a topic to search, or paste a YouTube link to add it to your workspace.",
+    inputLabel: "Topic or YouTube link",
+    inputPlaceholder: "e.g. photosynthesis... or paste a YouTube link",
   },
   note: {
-    label: "Customize Note",
+    label: "Create Note",
     prefix: "Make a note on ",
     icon: FileText,
     description: "Select specific prompts and formats for your note.",
@@ -116,6 +124,15 @@ interface PromptBuilderDialogProps {
 function truncate(str: string, max: number) {
   if (str.length <= max) return str;
   return str.slice(0, max).trim() + "...";
+}
+
+const YOUTUBE_URL_REGEX = /(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/[^\s]+/gi;
+function extractYouTubeUrl(str: string): string | null {
+  const match = str.trim().match(YOUTUBE_URL_REGEX);
+  return match ? match[0] : null;
+}
+function isYouTubeUrl(str: string): boolean {
+  return extractYouTubeUrl(str) !== null;
 }
 
 export function PromptBuilderDialog({
@@ -217,16 +234,22 @@ export function PromptBuilderDialog({
     if (config.countLabel && (action === "flashcards" || action === "quiz")) {
       parts.push(`Create ${count} ${action === "flashcards" ? "flashcards" : "quiz questions"}`);
     }
-    const topicSource =
-      topicInput.trim() ||
-      (selectedContextIds.size > 0 ? "the selected content" : "a topic");
-    parts.push(config.prefix.trim() + " " + topicSource);
+    if (action === "youtube" && isYouTubeUrl(topicInput)) {
+      const url = extractYouTubeUrl(topicInput)!;
+      const prefix = (config as { prefixForUrl?: string }).prefixForUrl ?? "Add this YouTube video to my workspace.";
+      parts.push(`${prefix} ${url}`);
+    } else {
+      const topicSource =
+        topicInput.trim() ||
+        (selectedContextIds.size > 0 ? "the selected content" : "a topic");
+      parts.push(config.prefix.trim() + " " + topicSource);
+    }
     if (action === "note" && config.hasTemplates && noteTemplate) {
       const tpl = NOTE_TEMPLATES.find((t) => t.id === noteTemplate);
       if (tpl?.description) parts.push(tpl.description);
     }
     return parts.join(". ");
-  }, [config.prefix, config.countLabel, config.hasTemplates, action, count, topicInput, selectedContextIds.size, noteTemplate]);
+  }, [config, action, count, topicInput, selectedContextIds.size, noteTemplate]);
 
   const hasValidTopic =
     (config.hasTopicSelector && (topicInput.trim().length > 0 || selectedContextIds.size > 0)) ||
@@ -498,14 +521,16 @@ export function PromptBuilderDialog({
           {/* Simple topic input (when no topic selector) */}
           {!config.hasTopicSelector && (
             <div className="space-y-2">
-              <Label htmlFor="prompt-builder-topic">Topic <span className="text-destructive">*</span></Label>
+              <Label htmlFor="prompt-builder-topic">
+                {config.inputLabel ?? "Topic"} <span className="text-destructive">*</span>
+              </Label>
               <Input
-                  ref={topicInputRef as React.RefObject<HTMLInputElement>}
-                  id="prompt-builder-topic"
-                  placeholder="e.g. photosynthesis, machine learning basics..."
-                  value={topicInput}
-                  onChange={(e) => setTopicInput(e.target.value)}
-                />
+                ref={topicInputRef as React.RefObject<HTMLInputElement>}
+                id="prompt-builder-topic"
+                placeholder={config.inputPlaceholder ?? "e.g. photosynthesis..."}
+                value={topicInput}
+                onChange={(e) => setTopicInput(e.target.value)}
+              />
             </div>
           )}
 

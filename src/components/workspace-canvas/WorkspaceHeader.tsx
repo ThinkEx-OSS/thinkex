@@ -769,7 +769,7 @@ export function WorkspaceHeader({
                           onCloseActiveItem?.(activeItems[0].id);
                         }
                       }}
-                      className="ml-1 text-sidebar-foreground/50 hover:text-red-600 p-0.5 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full transition-colors cursor-pointer"
+                      className="ml-1 text-sidebar-foreground/50 hover:text-red-600 p-0.5 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full transition-all cursor-pointer opacity-0 group-hover:opacity-100"
                     >
                       <X className="h-3 w-3" />
                     </div>
@@ -788,7 +788,7 @@ export function WorkspaceHeader({
                                 e.stopPropagation();
                                 onCloseActiveItem?.(item.id);
                               }}
-                              className="text-sidebar-foreground/50 hover:text-red-600 p-0.5 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full transition-colors"
+                              className="text-sidebar-foreground/50 hover:text-red-600 p-0.5 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full transition-all opacity-0 group-hover/item:opacity-100"
                             >
                               <X className="h-3 w-3" />
                             </button>
