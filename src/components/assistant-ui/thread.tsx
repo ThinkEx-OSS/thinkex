@@ -1085,22 +1085,33 @@ const AssistantActionBar: FC = () => {
     });
   }, [api]);
 
+  const textContent = useMemo(() => {
+    return message.content
+      .filter((part): part is { type: "text"; text: string } => part.type === "text")
+      .map((part) => part.text ?? "")
+      .join("\n\n");
+  }, [message.content]);
+
+  const [copied, setCopied] = useState(false);
+  const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleCopy = useCallback(() => {
+    if (!textContent) return;
+    navigator.clipboard.writeText(textContent);
+    setCopied(true);
+    if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
+  }, [textContent]);
+
   return (
     <ActionBarPrimitive.Root
       hideWhenRunning
       autohide="never"
       className="aui-assistant-action-bar-root col-start-3 row-start-2 -ml-1 flex gap-0.5 text-muted-foreground data-floating:absolute data-floating:rounded-md data-floating:border data-floating:bg-background data-floating:p-1 data-floating:shadow-sm"
     >
-      <ActionBarPrimitive.Copy asChild>
-        <TooltipIconButton tooltip="Copy">
-          <MessagePrimitive.If copied>
-            <CheckIcon />
-          </MessagePrimitive.If>
-          <MessagePrimitive.If copied={false}>
-            <CopyIcon />
-          </MessagePrimitive.If>
-        </TooltipIconButton>
-      </ActionBarPrimitive.Copy>
+      <TooltipIconButton tooltip="Copy" onClick={handleCopy}>
+        {copied ? <CheckIcon /> : <CopyIcon />}
+      </TooltipIconButton>
       <ActionBarPrimitive.Reload asChild>
         <TooltipIconButton tooltip="Refresh">
           <RefreshCwIcon />
@@ -1481,22 +1492,34 @@ const UserMessage: FC = () => {
 };
 
 const UserActionBar: FC = () => {
+  const message = useMessage();
+  const [copied, setCopied] = useState(false);
+  const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const textContent = useMemo(() => {
+    return message.content
+      .filter((part): part is { type: "text"; text: string } => part.type === "text")
+      .map((part) => part.text ?? "")
+      .join("\n\n");
+  }, [message.content]);
+
+  const handleCopy = useCallback(() => {
+    if (!textContent) return;
+    navigator.clipboard.writeText(textContent);
+    setCopied(true);
+    if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
+  }, [textContent]);
+
   return (
     <ActionBarPrimitive.Root
       hideWhenRunning
       autohide="not-last"
       className="aui-user-action-bar-root flex gap-1 text-muted-foreground data-floating:absolute data-floating:rounded-md data-floating:border data-floating:bg-background data-floating:p-1 data-floating:shadow-sm"
     >
-      <ActionBarPrimitive.Copy asChild>
-        <TooltipIconButton tooltip="Copy">
-          <MessagePrimitive.If copied>
-            <CheckIcon />
-          </MessagePrimitive.If>
-          <MessagePrimitive.If copied={false}>
-            <CopyIcon />
-          </MessagePrimitive.If>
-        </TooltipIconButton>
-      </ActionBarPrimitive.Copy>
+      <TooltipIconButton tooltip="Copy" onClick={handleCopy}>
+        {copied ? <CheckIcon /> : <CopyIcon />}
+      </TooltipIconButton>
       <ActionBarPrimitive.Edit asChild>
         <TooltipIconButton tooltip="Edit">
           <PencilIcon />
