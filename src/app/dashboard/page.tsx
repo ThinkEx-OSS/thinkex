@@ -129,7 +129,7 @@ function DashboardContent({
   const operations = useWorkspaceOperations(currentWorkspaceId, state);
 
   // Version control (history only)
-  const { revertToVersion } = useWorkspaceHistory(currentWorkspaceId);
+  const { revertToVersion: revertToVersionRaw } = useWorkspaceHistory(currentWorkspaceId);
   const { data: eventLog } = useWorkspaceEvents(currentWorkspaceId);
 
   // Track sign-in prompt for anonymous users
@@ -227,16 +227,22 @@ function DashboardContent({
   const searchQuery = useUIStore((state) => state.searchQuery);
   const isChatMaximized = useUIStore((state) => state.isChatMaximized);
   const workspacePanelSize = useUIStore((state) => state.workspacePanelSize);
-  // NOTE: openModalItemId is subscribed ONLY in ModalManager to prevent re-renders here
-  const showVersionHistory = useUIStore((state) => state.showVersionHistory);
   const showCreateWorkspaceModal = useUIStore((state) => state.showCreateWorkspaceModal);
   const setShowJsonView = useUIStore((state) => state.setShowJsonView);
   const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
   const setSearchQuery = useUIStore((state) => state.setSearchQuery);
   const setIsChatMaximized = useUIStore((state) => state.setIsChatMaximized);
   const setOpenModalItemId = useUIStore((state) => state.setOpenModalItemId);
-  const setShowVersionHistory = useUIStore((state) => state.setShowVersionHistory);
   const setShowCreateWorkspaceModal = useUIStore((state) => state.setShowCreateWorkspaceModal);
+
+  // Version revert: close ShareWorkspaceDialog on success (history is shown there)
+  const revertToVersion = useCallback(
+    async (targetVersion: number) => {
+      await revertToVersionRaw(targetVersion);
+      setShowWorkspaceShare(false);
+    },
+    [revertToVersionRaw, setShowWorkspaceShare]
+  );
   const setWorkspacePanelSize = useUIStore((state) => state.setWorkspacePanelSize);
   const toggleChatExpanded = useUIStore((state) => state.toggleChatExpanded);
   const toggleChatMaximized = useUIStore((state) => state.toggleChatMaximized);
@@ -307,14 +313,7 @@ function DashboardContent({
       items={state.items}
       onUpdateItem={operations.updateItem}
       onUpdateItemData={operations.updateItemData}
-
       onFlushPendingChanges={operations.flushPendingChanges}
-      showVersionHistory={showVersionHistory}
-      setShowVersionHistory={setShowVersionHistory}
-      events={eventLog?.events || []}
-      currentVersion={version}
-      onRevertToVersion={revertToVersion}
-      workspaceId={currentWorkspaceId}
     />
   );
 

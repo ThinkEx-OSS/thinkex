@@ -1,23 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Clock, User, Undo2, Calendar, AlertCircle, Camera, FolderPlus, Plus, Pencil, Trash2, FileText, RefreshCw, Folder, FolderInput } from "lucide-react";
-import type { WorkspaceEvent, SnapshotInfo } from "@/lib/workspace/events";
+import { Clock, User, Undo2, Calendar, Camera, FolderPlus, Plus, Pencil, Trash2, FileText, RefreshCw, Folder, FolderInput } from "lucide-react";
+import type { WorkspaceEvent } from "@/lib/workspace/events";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/lib/auth-client";
-import { useWorkspaceSnapshots } from "@/hooks/workspace/use-workspace-snapshots";
 
-interface VersionHistoryModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  events: WorkspaceEvent[];
-  currentVersion: number;
-  onRevertToVersion: (version: number) => void;
-  items?: any[]; // Add items to look up titles
-  workspaceId: string | null; // Add workspaceId to fetch snapshots
-}
 
 function getEventIcon(event: WorkspaceEvent) {
   const iconClass = "h-6 w-6 shrink-0";
@@ -202,29 +191,38 @@ function formatTime(timestamp: number): string {
 interface VersionHistoryContentProps {
   events: WorkspaceEvent[];
   currentVersion: number;
-  onRevertToVersion: (version: number) => void;
+  onRevertToVersion: (version: number) => Promise<void>;
+  onClose?: () => void;
   items?: any[];
-  workspaceId: string | null;
-  isOpen: boolean;
-  snapshots?: SnapshotInfo[];
-  isLoadingSnapshots?: boolean;
 }
 
 export function VersionHistoryContent({
   events,
   currentVersion,
   onRevertToVersion,
+  onClose,
   items,
-  workspaceId,
-  isOpen,
-  snapshots: snapshotsProp = [],
-  isLoadingSnapshots: isLoadingSnapshotsProp = false,
 }: VersionHistoryContentProps) {
   const { data: session } = useSession();
   const user = session?.user;
-  const [showNotSupportedDialog, setShowNotSupportedDialog] = useState(false);
-  const snapshots = snapshotsProp;
-  const isLoadingSnapshots = isLoadingSnapshotsProp;
+  const [confirmingVersion, setConfirmingVersion] = useState<number | null>(null);
+  const [isReverting, setIsReverting] = useState(false);
+
+  const handleRevert = async (eventVersion: number) => {
+    // Revert TO the state before this event (undo the event they clicked on)
+    const targetVersion = eventVersion - 1;
+    if (targetVersion < 1) return; // WORKSPACE_CREATED is v1, can't go before it
+    setIsReverting(true);
+    try {
+      await onRevertToVersion(targetVersion);
+      setConfirmingVersion(null);
+      onClose?.();
+    } catch {
+      // toast is handled by the hook
+    } finally {
+      setIsReverting(false);
+    }
+  };
 
   // Function to get display name - uses stored userName from event, or falls back to userId
   const getUserDisplayName = (event: WorkspaceEvent): string => {
@@ -257,87 +255,7 @@ export function VersionHistoryContent({
 
   return (
     <>
-      <div className="space-y-6">
-        {/* Snapshots Section */}
-        {isLoadingSnapshots ? (
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Camera className="h-4 w-4" />
-              Snapshots
-            </h3>
-            <div className="text-sm text-muted-foreground">Loading snapshots...</div>
-          </div>
-        ) : snapshots.length > 0 ? (
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Camera className="h-4 w-4" />
-              Snapshots
-            </h3>
-            <div className="space-y-2">
-              {snapshots.map((snapshot, index) => (
-                <div
-                  key={snapshot.id}
-                  className={cn(
-                    "group relative rounded-lg border p-4 transition-colors",
-                    index === 0
-                      ? "bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/20 ring-1 ring-blue-500/20"
-                      : "border-border bg-accent/10 hover:bg-accent/20"
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="text-2xl mt-0.5">📸</div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-sm">
-                          Snapshot v{snapshot.version}
-                        </span>
-                        {index === 0 && (
-                          <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded">
-                            Latest
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {formatTime(new Date(snapshot.createdAt).getTime())}
-                        </span>
-                        <span>
-                          {snapshot.eventCount} events captured
-                        </span>
-                      </div>
-                    </div>
-
-                    {index !== 0 && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => {
-                          setShowNotSupportedDialog(true);
-                        }}
-                      >
-                        <Undo2 className="h-4 w-4 mr-1" />
-                        Restore
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {/* Recent Events Section */}
-        <div className="space-y-2">
-          {snapshots.length > 0 && (
-            <h3 className="text-sm font-medium text-muted-foreground">
-              Recent Changes (since v{snapshots[0]?.version || 0})
-            </h3>
-          )}
-
+      <div className="space-y-2">
           {reversedEvents.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Clock className="h-12 w-12 mb-3 opacity-20" />
@@ -392,18 +310,37 @@ export function VersionHistoryContent({
                         </div>
                       </div>
 
-                      {eventVersion < currentVersion && !isWorkspaceCreated && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => {
-                            setShowNotSupportedDialog(true);
-                          }}
-                        >
-                          <Undo2 className="h-4 w-4 mr-1" />
-                          Revert
-                        </Button>
+                      {eventVersion > 1 && !isWorkspaceCreated && (
+                        confirmingVersion === eventVersion ? (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={isReverting}
+                              onClick={() => handleRevert(eventVersion)}
+                            >
+                              {isReverting ? "Reverting..." : "Revert"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={isReverting}
+                              onClick={() => setConfirmingVersion(null)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => setConfirmingVersion(eventVersion)}
+                          >
+                            <Undo2 className="h-4 w-4 mr-1" />
+                            Revert
+                          </Button>
+                        )
                       )}
                     </div>
                   </div>
@@ -411,122 +348,8 @@ export function VersionHistoryContent({
               })}
             </div>
           )}
-        </div>
       </div>
-      <RevertNotSupportedDialog
-        isOpen={showNotSupportedDialog}
-        onClose={() => setShowNotSupportedDialog(false)}
-      />
     </>
-  );
-}
-
-export function VersionHistoryModal({
-  isOpen,
-  onClose,
-  events,
-  currentVersion,
-  onRevertToVersion,
-  items,
-  workspaceId,
-}: VersionHistoryModalProps) {
-  const { data: snapshots = [], isLoading: isLoadingSnapshots } = useWorkspaceSnapshots(workspaceId, isOpen);
-
-  return (
-    <>
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent
-          className="max-w-2xl max-h-[80vh] border-white/20 bg-black/40 backdrop-blur-2xl shadow-2xl"
-          style={{
-            backdropFilter: "blur(24px)",
-            WebkitBackdropFilter: "blur(24px)",
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Version History
-              <span className="text-sm font-normal text-muted-foreground ml-2">
-                {snapshots.length > 0 && `${snapshots.length} snapshots • `}
-                {events.length} recent {events.length === 1 ? 'event' : 'events'}
-              </span>
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="h-[500px] overflow-y-auto pr-4">
-            <VersionHistoryContent
-              events={events}
-              currentVersion={currentVersion}
-              onRevertToVersion={onRevertToVersion}
-              items={items}
-              workspaceId={workspaceId}
-              isOpen={isOpen}
-              snapshots={snapshots}
-              isLoadingSnapshots={isLoadingSnapshots}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
-export function RevertNotSupportedDialog({
-  isOpen,
-  onClose,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-}) {
-  const emailSubject = encodeURIComponent("Feature Request: Version History Revert");
-  const emailBody = encodeURIComponent(`Hi,
-
-I'm interested in version history revert functionality.
-
-`);
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5 text-amber-500" />
-            Feature Not Available
-          </DialogTitle>
-          <DialogDescription asChild>
-            <div className="pt-2 space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Version history revert is currently under development.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Interested in this feature? Let us know at{" "}
-                <a
-                  href={`mailto:support@thinkex.app?subject=${emailSubject}&body=${emailBody}`}
-                  className="underline hover:text-amber-400 transition-colors text-amber-500"
-                >
-                  support@thinkex.app
-                </a>
-              </p>
-            </div>
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            onClick={onClose}
-          >
-            Close
-          </Button>
-          <Button
-            onClick={() => {
-              window.location.href = `mailto:support@thinkex.app?subject=${emailSubject}&body=${emailBody}`;
-            }}
-          >
-            I'm interested
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
 

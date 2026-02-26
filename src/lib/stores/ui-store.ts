@@ -26,7 +26,6 @@ interface UIState {
 
 
   // Modal state
-  showVersionHistory: boolean;
   showCreateWorkspaceModal: boolean;
   showSheetModal: boolean;
   showJsonView: boolean;
@@ -84,7 +83,6 @@ interface UIState {
 
   // Legacy compatibility - setOpenModalItemId is widely used, maps to openPanel replace mode
   setOpenModalItemId: (id: string | null) => void;
-  setShowVersionHistory: (show: boolean) => void;
   setShowCreateWorkspaceModal: (show: boolean) => void;
   setShowSheetModal: (show: boolean) => void;
 
@@ -156,7 +154,6 @@ const initialState = {
   itemPrompt: null,
   maximizedItemId: null,
 
-  showVersionHistory: false,
   showCreateWorkspaceModal: false,
   showSheetModal: false,
 
@@ -451,7 +448,6 @@ export const useUIStore = create<UIState>()(
           });
         },
 
-        setShowVersionHistory: (show) => set({ showVersionHistory: show }),
         setShowCreateWorkspaceModal: (show) => set({ showCreateWorkspaceModal: show }),
         setShowSheetModal: (show) => set({ showSheetModal: show }),
 
@@ -602,7 +598,6 @@ export const useUIStore = create<UIState>()(
             openPanelIds: [],
             itemPrompt: null,
             maximizedItemId: null,
-            showVersionHistory: false,
             showCreateWorkspaceModal: false,
             showSheetModal: false,
             selectedCardIds: newSelectedCardIds,
@@ -629,7 +624,6 @@ export const selectChatState = (state: UIState) => ({
 export const selectModalState = (state: UIState) => ({
   openPanelIds: state.openPanelIds,
   itemPrompt: state.itemPrompt,
-  showVersionHistory: state.showVersionHistory,
   showCreateWorkspaceModal: state.showCreateWorkspaceModal,
   showSheetModal: state.showSheetModal,
 });

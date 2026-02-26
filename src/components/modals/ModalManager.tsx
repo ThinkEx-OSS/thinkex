@@ -1,8 +1,6 @@
 import type { Item, ItemData } from "@/lib/workspace-state/types";
 import CardDetailModal from "./CardDetailModal";
 import PDFViewerModal from "./PDFViewerModal";
-import { VersionHistoryModal } from "@/components/workspace/VersionHistoryModal";
-import type { WorkspaceEvent } from "@/lib/workspace/events";
 import { useUIStore } from "@/lib/stores/ui-store";
 
 interface ModalManagerProps {
@@ -13,14 +11,6 @@ interface ModalManagerProps {
   onUpdateItem: (itemId: string, updates: Partial<Item>) => void;
   onUpdateItemData: (itemId: string, updater: (prev: ItemData) => ItemData) => void;
   onFlushPendingChanges: (itemId: string) => void;
-
-  // Version History Modal
-  showVersionHistory: boolean;
-  setShowVersionHistory: (show: boolean) => void;
-  events: WorkspaceEvent[];
-  currentVersion: number;
-  onRevertToVersion: (version: number) => Promise<void>;
-  workspaceId: string | null; // Add workspaceId to fetch snapshots
 }
 
 /**
@@ -33,12 +23,6 @@ export function ModalManager({
   onUpdateItem,
   onUpdateItemData,
   onFlushPendingChanges,
-  showVersionHistory,
-  setShowVersionHistory,
-  events,
-  currentVersion,
-  onRevertToVersion,
-  workspaceId,
 }: ModalManagerProps) {
   // Subscribe to modal state directly from store to avoid re-rendering parents
   const openPanelIds = useUIStore((state) => state.openPanelIds);
@@ -92,17 +76,6 @@ export function ModalManager({
           />
         )
       )}
-
-      {/* Version History Modal */}
-      <VersionHistoryModal
-        isOpen={showVersionHistory}
-        onClose={() => setShowVersionHistory(false)}
-        events={events}
-        currentVersion={currentVersion}
-        onRevertToVersion={onRevertToVersion}
-        items={items}
-        workspaceId={workspaceId}
-      />
     </>
   );
 }

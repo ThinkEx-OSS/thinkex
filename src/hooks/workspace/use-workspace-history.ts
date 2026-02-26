@@ -1,95 +1,54 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { EventResponse } from "@/lib/workspace/events";
+import { toast } from "sonner";
 
 /**
- * Hook for workspace version control (undo/redo/time-travel)
- * Works like Git - replay events to any point in history
+ * Hook for workspace version control (undo/revert)
+ * Calls the undo API to delete events above a target version,
+ * then invalidates the events query so state re-derives automatically.
  */
 export function useWorkspaceHistory(workspaceId: string | null) {
   const queryClient = useQueryClient();
 
-  /**
-   * Undo the last change (like git revert HEAD)
-   */
-  const undo = useCallback(() => {
-    if (!workspaceId) return;
-
-    const currentData = queryClient.getQueryData<EventResponse>([
-      "workspace",
-      workspaceId,
-      "events",
-    ]);
-
-    if (!currentData || currentData.events.length === 0) {
-      return;
-    }
-
-    // Remove last event (optimistic local undo)
-    const newEvents = currentData.events.slice(0, -1);
-    
-    queryClient.setQueryData<EventResponse>(
-      ["workspace", workspaceId, "events"],
-      {
-        events: newEvents,
-        version: currentData.version - 1,
-      }
-    );
-    
-    // Note: This is local only. For persistent undo, you'd emit a compensating event
-    // For now, this gives instant feedback and the next change will sync properly
-  }, [workspaceId, queryClient]);
-
-  /**
-   * Revert to a specific version (like git checkout <commit>)
-   */
   const revertToVersion = useCallback(
     async (targetVersion: number) => {
       if (!workspaceId) return;
 
-      const currentData = queryClient.getQueryData<EventResponse>([
-        "workspace",
-        workspaceId,
-        "events",
-      ]);
+      try {
+        const response = await fetch(
+          `/api/workspaces/${workspaceId}/events/undo`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ targetVersion }),
+          }
+        );
 
-      if (!currentData) return;
-
-      // Keep only events up to target version
-      const eventsToKeep = currentData.events.filter((_, idx) => idx <= targetVersion);
-
-      queryClient.setQueryData<EventResponse>(
-        ["workspace", workspaceId, "events"],
-        {
-          events: eventsToKeep,
-          version: targetVersion,
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || "Failed to revert");
         }
-      );
-      
-      // Note: This is local only. For persistent revert, emit compensating events
+
+        const data = await response.json();
+
+        await queryClient.invalidateQueries({
+          queryKey: ["workspace", workspaceId, "events"],
+        });
+
+        toast.success(
+          `Reverted ${data.deletedCount} ${data.deletedCount === 1 ? "change" : "changes"}`
+        );
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to revert";
+        toast.error(message);
+        throw error;
+      }
     },
     [workspaceId, queryClient]
   );
 
-  /**
-   * Check if undo is available
-   */
-  const canUndo = useCallback(() => {
-    if (!workspaceId) return false;
-
-    const currentData = queryClient.getQueryData<EventResponse>([
-      "workspace",
-      workspaceId,
-      "events",
-    ]);
-
-    return (currentData?.events.length ?? 0) > 1; // Can undo if more than 1 event (keep snapshot)
-  }, [workspaceId, queryClient]);
-
   return {
-    undo,
     revertToVersion,
-    canUndo: canUndo(),
   };
 }
-

@@ -442,10 +442,8 @@ export default function ShareWorkspaceDialog({
                 <VersionHistoryContent
                   events={events}
                   currentVersion={currentVersion || 0}
-                  onRevertToVersion={onRevertToVersion || (() => { })}
+                  onRevertToVersion={onRevertToVersion || (async () => { })}
                   items={workspace?.state?.items || []}
-                  workspaceId={workspace?.id || null}
-                  isOpen={open}
                 />
               </div>
             )
