@@ -33,10 +33,20 @@
   font-size: 1rem;
 }
 
-/* Reduce padding on code block headers */
-.streamdown-content [data-streamdown="code-block"]>div:first-child {
-  padding-top: 0.375rem;
-  padding-bottom: 0.375rem;
+/* Streamdown code block: language and buttons on same row */
+.streamdown-content [data-streamdown="code-block"] {
+  display: grid !important;
+  grid-template-areas: "header actions" "body body";
+}
+.streamdown-content [data-streamdown="code-block"] > [data-streamdown="code-block-header"] {
+  grid-area: header;
+}
+.streamdown-content [data-streamdown="code-block"] > div:nth-child(2) {
+  grid-area: actions;
+  margin-top: 0 !important;
+}
+.streamdown-content [data-streamdown="code-block"] > [data-streamdown="code-block-body"] {
+  grid-area: body;
 }
 
 /* Remove BlockNote editor background */

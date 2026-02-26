@@ -801,7 +801,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
       <div className="relative">
         <ComposerPrimitive.Input
           ref={inputRef}
-          placeholder="Ask anything or @mention context"
+          placeholder="Ask anything or @mention items"
           className="aui-composer-input max-h-32 w-full resize-none bg-transparent py-1.5 text-base text-sidebar-foreground outline-none placeholder:text-sidebar-foreground/60 focus:outline-none"
           rows={1}
           autoFocus
