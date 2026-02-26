@@ -271,33 +271,38 @@ export const IndentationFlexibleReplacer: Replacer = function* (content, find) {
   }
 };
 
+/**
+ * Normalizes common escape sequences that LLMs produce when double-escaping.
+ * e.g. literal \n → newline, \$ → $, \\ → \, \' → '
+ */
+export function unescapeString(str: string): string {
+  return str.replace(/\\(n|t|r|'|"|`|\\|\n|\$)/g, (match, capturedChar: string) => {
+    switch (capturedChar) {
+      case "n":
+        return "\n";
+      case "t":
+        return "\t";
+      case "r":
+        return "\r";
+      case "'":
+        return "'";
+      case '"':
+        return '"';
+      case "`":
+        return "`";
+      case "\\":
+        return "\\";
+      case "\n":
+        return "\n";
+      case "$":
+        return "$";
+      default:
+        return match;
+    }
+  });
+}
+
 export const EscapeNormalizedReplacer: Replacer = function* (content, find) {
-  const unescapeString = (str: string): string => {
-    return str.replace(/\\(n|t|r|'|"|`|\\|\n|\$)/g, (match, capturedChar: string) => {
-      switch (capturedChar) {
-        case "n":
-          return "\n";
-        case "t":
-          return "\t";
-        case "r":
-          return "\r";
-        case "'":
-          return "'";
-        case '"':
-          return '"';
-        case "`":
-          return "`";
-        case "\\":
-          return "\\";
-        case "\n":
-          return "\n";
-        case "$":
-          return "$";
-        default:
-          return match;
-      }
-    });
-  };
 
   const unescapedFind = unescapeString(find);
 

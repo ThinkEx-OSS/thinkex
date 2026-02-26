@@ -24,9 +24,9 @@ function extractTextFromBlockContent(content: any): string {
       if (node && node.type === "text" && typeof node.text === "string") {
         return node.text;
       }
-      // Handle inline math - extract LaTeX (use $$ for Streamdown compatibility)
+      // Handle inline math - extract LaTeX (use single $ for inline math)
       if (node && node.type === "inlineMath" && node.props && typeof node.props.latex === "string") {
-        return `$$${node.props.latex}$$`;
+        return `$${node.props.latex}$`;
       }
       // Handle other inline content types
       if (node && typeof node.text === "string") {

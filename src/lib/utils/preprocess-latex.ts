@@ -6,6 +6,9 @@
  * 1. Protects currency values ($19.99, $5, $1,000) from being parsed as math
  * 2. Converts \(...\) → $...$ and \[...\] → $$...$$ (remark-math doesn't support these)
  *
+ * Note: \$ (escaped currency) is handled natively by the markdown parser as a backslash
+ * escape — no special handling needed here.
+ *
  * Preserves code blocks (``` and inline `) so their contents are never modified.
  */
 

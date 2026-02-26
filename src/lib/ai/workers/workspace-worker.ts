@@ -9,7 +9,7 @@ import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import { getRandomCardColor } from "@/lib/workspace-state/colors";
 import { logger } from "@/lib/utils/logger";
 import type { Item, NoteData, PdfData, QuizData, QuizQuestion } from "@/lib/workspace-state/types";
-import { markdownToBlocks } from "@/lib/editor/markdown-to-blocks";
+import { markdownToBlocks, fixLLMDoubleEscaping } from "@/lib/editor/markdown-to-blocks";
 import { executeWorkspaceOperation } from "./common";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import { hasDuplicateName } from "@/lib/workspace/unique-name";
@@ -48,14 +48,16 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
         const cardsWithIds = await Promise.all(
             p.flashcardData.cards.map(async (card) => {
                 if (!card || typeof card !== "object") return null;
+                const front = fixLLMDoubleEscaping(card.front || "");
+                const back = fixLLMDoubleEscaping(card.back || "");
                 const [frontBlocks, backBlocks] = await Promise.all([
-                    markdownToBlocks(card.front || ""),
-                    markdownToBlocks(card.back || ""),
+                    markdownToBlocks(front),
+                    markdownToBlocks(back),
                 ]);
                 return {
                     id: generateItemId(),
-                    front: card.front || "",
-                    back: card.back || "",
+                    front,
+                    back,
                     frontBlocks,
                     backBlocks,
                 };
@@ -89,9 +91,10 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
         if (!p.quizData) throw new Error("Quiz data required for quiz creation");
         itemData = p.quizData;
     } else {
-        const blockContent = p.content ? await markdownToBlocks(p.content) : undefined;
+        const normalizedContent = p.content ? fixLLMDoubleEscaping(p.content) : "";
+        const blockContent = normalizedContent ? await markdownToBlocks(normalizedContent) : undefined;
         itemData = {
-            field1: p.content || "",
+            field1: normalizedContent,
             blockContent,
             ...(p.deepResearchData && {
                 deepResearch: {
@@ -515,6 +518,8 @@ export async function workspaceWorker(
                             contentOld = getNoteContentAsMarkdown(existingItem.data as NoteData);
                             contentNew = applyReplace(contentOld, oldStr, newStr, replaceAll);
                         }
+
+                        contentNew = fixLLMDoubleEscaping(contentNew);
 
                         logger.time("📝 [UPDATE-NOTE] markdownToBlocks conversion");
                         const blockContent = await markdownToBlocks(contentNew);

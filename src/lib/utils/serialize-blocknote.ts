@@ -125,7 +125,7 @@ function serializeInlineContent(content: any[] | undefined): string {
         }
 
         if (item.type === "inlineMath") {
-            return `$$${item.props.latex}$$`;
+            return `$${item.props.latex}$`;
         }
 
         if (item.type === "text") {

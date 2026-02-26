@@ -83,7 +83,7 @@ RULES:
 - Remove: conversational phrases, "I" statements, meta-commentary, filler
 - Keep: all factual content, lists, code blocks, examples, definitions, steps
 - Markdown: use headings (# ## ###), lists (- or 1.), **bold**, *italic*, > block quotes where appropriate
-- Math (same as main system): $$...$$ for inline and block. Currency: use plain $ with no closing $ (e.g. $19.99)
+- Math (same as main system): single $...$ for inline, $$...$$ for block. Currency: escape as \\$ (e.g. \\$19.99)
 - Start content with subheadings/text — DO NOT repeat the title in the body
 - If multiple fragments: concatenate into one cohesive note, preserving all content
 - Return ONLY the reformatted note (first line or # heading = title; rest = body). No preamble or footer.`;

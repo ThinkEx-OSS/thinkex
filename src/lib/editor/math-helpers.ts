@@ -1,74 +1,60 @@
 // Type definition to avoid dependency on server-util
 export type MathBlock = any;
 
+// Placeholder used by markdown-to-blocks to protect \$ before the markdown parser strips \.
+// Contains no $ so math regexes naturally skip it.
+export const CURRENCY_PLACEHOLDER = "\u0001CURRENCY_DOLLAR\u0001";
 
-/**
- * Regex pattern for matching Streamdown math: $$...$$
- * Matches $$ delimiters with content in between (non-greedy)
- */
-const MATH_REGEX = /\$\$([\s\S]+?)\$\$/g;
-
-/**
- * Regex to check if content is ONLY a single math expression (for block math detection)
- * Matches: optional whitespace + $$...$$ + optional whitespace
- */
+// $$...$$ as the only content of a paragraph → block (display) math
 const BLOCK_MATH_ONLY_REGEX = /^\s*\$\$([\s\S]+?)\$\$\s*$/;
 
+// Inline: $$...$$ (group 1) or $...$ (group 2)
+const COMBINED_MATH_REGEX = /\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g;
+
+// Bare currency ($5, $19.99, $1,000.50) — defensive fallback when AI forgets to escape.
+// Must not be preceded by another $ (avoids matching inside $$..$$).
+const BARE_CURRENCY_REGEX = /(?<!\$)\$(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)\b/g;
+
 /**
- * Converts math in blocks:
- * - Paragraphs with ONLY $$...$$ become block math
- * - $$...$$ within text becomes inlineMath
+ * Converts math delimiters in blocks to structured math elements.
+ * - Paragraph containing ONLY $$...$$ → block math
+ * - $$...$$ or $...$ inline → inlineMath content nodes
+ * - Bare currency ($5, $19.99) is protected from false-positive math matching
  */
 export function convertMathInBlocks(blocks: MathBlock[]): MathBlock[] {
     const result: MathBlock[] = [];
-
     for (const block of blocks) {
         const processed = processBlockForMath(block);
-        // processBlockForMath can return one block or an array of blocks
         if (Array.isArray(processed)) {
             result.push(...processed);
         } else {
             result.push(processed);
         }
     }
-
     return result;
 }
 
-/**
- * Process a single block for math conversion.
- * Returns the processed block(s) - may return multiple blocks if splitting is needed.
- */
 function processBlockForMath(block: MathBlock): MathBlock | MathBlock[] {
-    // Check if this is a paragraph that should become a math block
     if (block.type === "paragraph" && block.content && Array.isArray(block.content)) {
-        // Get the full text content of the paragraph
         const fullText = block.content
             .filter((item: any) => item.type === "text")
             .map((item: any) => item.text || "")
             .join("");
 
-        // Check if the paragraph contains ONLY a single math expression
-        // AND does not contain any non-text inline content (links, mentions, etc.)
+        // Only $$...$$ alone in a paragraph becomes block math (never single $)
         const hasNonTextContent = block.content.some((item: any) => item.type !== "text");
         const blockMathMatch = !hasNonTextContent && fullText.match(BLOCK_MATH_ONLY_REGEX);
         if (blockMathMatch) {
-            // Convert to block math
-            const latex = blockMathMatch[1].trim();
             return {
                 id: block.id,
                 type: "math",
-                props: {
-                    latex: latex,
-                },
+                props: { latex: blockMathMatch[1].trim() },
                 children: [],
             };
         }
 
-        // Otherwise, process inline math within the paragraph content
-        const { content: processedContent, changed: contentChanged } = processInlineMathInContent(block.content);
-
-        if (contentChanged) {
+        const { content: processedContent, changed } = processInlineMathInContent(block.content);
+        if (changed) {
             return {
                 ...block,
                 content: processedContent,
@@ -77,13 +63,11 @@ function processBlockForMath(block: MathBlock): MathBlock | MathBlock[] {
         }
     }
 
-    // For other block types, process their content for inline math
     let processedBlock = { ...block };
 
-    // Process inline content (for headings, list items, etc.)
     if (block.content && Array.isArray(block.content) && block.type !== "paragraph") {
-        const { content: processedContent, changed: contentChanged } = processInlineMathInContent(block.content);
-        if (contentChanged) {
+        const { content: processedContent, changed } = processInlineMathInContent(block.content);
+        if (changed) {
             processedBlock = { ...processedBlock, content: processedContent };
         }
     }
@@ -115,43 +99,27 @@ function processBlockForMath(block: MathBlock): MathBlock | MathBlock[] {
                         return item;
                     });
 
-                    return {
-                        ...cell,
-                        content: fullyProcessedContent,
-                    };
+                    return { ...cell, content: fullyProcessedContent };
                 });
 
-                return {
-                    ...row,
-                    cells: processedCells,
-                };
+                return { ...row, cells: processedCells };
             });
 
             const processedTableContent = Array.isArray(block.content)
                 ? processedRows
                 : { ...(block.content as any), rows: processedRows };
 
-            processedBlock = {
-                ...processedBlock,
-                content: processedTableContent,
-            };
+            processedBlock = { ...processedBlock, content: processedTableContent };
         }
     }
 
-    // Recursively process children
     if (block.children && Array.isArray(block.children) && block.children.length > 0) {
-        processedBlock = {
-            ...processedBlock,
-            children: processChildBlocks(block.children),
-        };
+        processedBlock = { ...processedBlock, children: processChildBlocks(block.children) };
     }
 
     return processedBlock;
 }
 
-/**
- * Process an array of child blocks recursively.
- */
 function processChildBlocks(blocks: MathBlock[]): MathBlock[] {
     const result: MathBlock[] = [];
     for (const block of blocks) {
@@ -166,19 +134,9 @@ function processChildBlocks(blocks: MathBlock[]): MathBlock[] {
 }
 
 /**
- * Processes Streamdown math patterns ($$...$$) in inline content array.
- * Splits text items that contain math and converts them to inlineMath elements.
- * Returns both the processed content and a flag indicating whether any changes were made.
- * 
- * Note: This is for inline math only - block math is handled at the block level.
- * 
- * Example:
- * Input: [{ type: "text", text: "The equation $$E=mc^2$$ is famous." }]
- * Output: [
- *   { type: "text", text: "The equation " },
- *   { type: "inlineMath", props: { latex: "E=mc^2" } },
- *   { type: "text", text: " is famous." }
- * ]
+ * Finds $...$ and $$...$$ math in inline content and converts to inlineMath nodes.
+ * Bare currency patterns ($5, $19.99) are stashed before matching so they aren't
+ * mis-identified as math delimiters.
  */
 function processInlineMathInContent(
     content: Array<{ type: string; text?: string;[key: string]: any }>
@@ -187,68 +145,50 @@ function processInlineMathInContent(
     let changed = false;
 
     for (const item of content) {
-        if (item.type === "text" && item.text) {
-            const text = item.text;
-            const parts: Array<{ type: string; text?: string; props?: { latex: string } }> = [];
-            let lastIndex = 0;
+        if (item.type !== "text" || !item.text) {
+            processed.push(item);
+            continue;
+        }
 
-            // Find all math matches
-            let match: RegExpExecArray | null;
-            MATH_REGEX.lastIndex = 0; // Reset regex
+        // Stash bare currency so the math regex skips them
+        const stash: string[] = [];
+        const text = item.text.replace(BARE_CURRENCY_REGEX, (m) => {
+            stash.push(m);
+            return `\x00BC${stash.length - 1}\x00`;
+        });
+        const unstash = (s: string) =>
+            s.replace(/\x00BC(\d+)\x00/g, (_, i) => stash[Number(i)]);
 
-            while ((match = MATH_REGEX.exec(text)) !== null) {
-                const matchStart = match.index;
-                const matchEnd = match.index + match[0].length;
-                const latex = match[1].trim();
+        // Preserve styles / other props on text fragments
+        const extraProps = Object.fromEntries(
+            Object.entries(item).filter(([k]) => k !== "type" && k !== "text")
+        );
 
-                // Add text before the math
-                if (matchStart > lastIndex) {
-                    const beforeText = text.substring(lastIndex, matchStart);
-                    if (beforeText) {
-                        parts.push({
-                            type: "text",
-                            text: beforeText,
-                            // Preserve other properties (styles, etc.)
-                            ...Object.fromEntries(
-                                Object.entries(item).filter(([key]) => key !== "type" && key !== "text")
-                            ),
-                        });
-                    }
-                }
+        const parts: any[] = [];
+        let lastIndex = 0;
+        let hasMath = false;
 
-                // Add inline math element
-                parts.push({
-                    type: "inlineMath",
-                    props: { latex },
-                });
+        COMBINED_MATH_REGEX.lastIndex = 0;
+        let match: RegExpExecArray | null;
+        while ((match = COMBINED_MATH_REGEX.exec(text)) !== null) {
+            const latex = (match[1] ?? match[2])?.trim();
+            if (!latex) continue;
+            hasMath = true;
 
-                lastIndex = matchEnd;
+            if (match.index > lastIndex) {
+                parts.push({ type: "text", text: unstash(text.slice(lastIndex, match.index)), ...extraProps });
             }
+            parts.push({ type: "inlineMath", props: { latex } });
+            lastIndex = match.index + match[0].length;
+        }
 
-            // Add remaining text after last match
+        if (hasMath) {
             if (lastIndex < text.length) {
-                const afterText = text.substring(lastIndex);
-                if (afterText) {
-                    parts.push({
-                        type: "text",
-                        text: afterText,
-                        // Preserve other properties
-                        ...Object.fromEntries(
-                            Object.entries(item).filter(([key]) => key !== "type" && key !== "text")
-                        ),
-                    });
-                }
+                parts.push({ type: "text", text: unstash(text.slice(lastIndex)), ...extraProps });
             }
-
-            // If we found math, use processed parts; otherwise keep original item
-            if (parts.length > 0) {
-                changed = true;
-                processed.push(...parts);
-            } else {
-                processed.push(item);
-            }
+            changed = true;
+            processed.push(...parts);
         } else {
-            // Non-text items are kept as-is
             processed.push(item);
         }
     }

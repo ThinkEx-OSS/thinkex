@@ -150,25 +150,29 @@ Wrong: "...flow of goods and services" <citation>Source Title</citation>.  (do N
 Markdown (GFM) with proper structure.
 
 MATH FORMATTING:
-- Use $$...$$ for all math expressions (both inline and block)
-- Inline math: $$E = mc^2$$ (on the same line as text)
+- Use single $...$ for inline math and $$...$$ for block math
+- Inline math: $E = mc^2$ (single dollar signs)
 - Block math: $$...$$ on separate lines for centered display:
   $$
   \\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}
   $$
-- Currency: escape the dollar sign as \\$ so it isn't parsed as math, e.g. \\$19.99, \\$5, \\$1,000
+- Currency: ALWAYS escape as \\$ so it is never parsed as math, e.g. \\$19.99, \\$5, \\$1,000
+- NEVER use \\$ inside math delimiters ($..$ or $$..$$). For dollar signs inside math, use \\\\text{\\$} or omit them entirely (just write the number)
 - Apply these rules to ALL tool calls (createNote, updateNote, flashcards, etc.)
-- Spacing: Use \\, for thin space in integrals: $$\\int f(x) \\, dx$$
+- Spacing: Use \\, for thin space in integrals: $\\int f(x) \\, dx$
 - Common patterns:
-  * Fractions: $$\\frac{a}{b}$$
-  * Square roots: $$\\sqrt{x}$$ or $$\\sqrt[n]{x}$$
-  * Greek letters: $$\\alpha, \\beta, \\gamma, \\pi$$
-  * Summations: $$\\sum_{i=1}^{n}$$
-  * Integrals: $$\\int_{a}^{b}$$
+  * Fractions: $\\frac{a}{b}$
+  * Square roots: $\\sqrt{x}$ or $\\sqrt[n]{x}$
+  * Greek letters: $\\alpha, \\beta, \\gamma, \\pi$
+  * Summations: $\\sum_{i=1}^{n}$
+  * Integrals: $\\int_{a}^{b}$
   * Matrices: $$\\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}$$
 
 Example - correct math and currency in one sentence:
-"The total cost is \\$49.99. The quadratic formula is $$x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$$."
+"The total cost is \\$49.99. The quadratic formula is $x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$."
+
+Example - currency near math (NEVER put \\$ inside $..$ delimiters):
+"The principal is \\$1,000 and interest rate $r = 0.05$, so interest is $1000 \\times 0.05 = 50$ dollars."
 
 Example - block math on its own lines:
 $$
