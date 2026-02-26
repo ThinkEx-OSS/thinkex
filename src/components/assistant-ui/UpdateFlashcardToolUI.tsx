@@ -157,17 +157,17 @@ export const UpdateFlashcardToolUI = makeAssistantToolUI<UpdateFlashcardArgs, Fl
         } else if (status.type === "running") {
             logger.debug("⏳ [UpdateFlashcardTool] Rendering loading state - status is running");
             content = <ToolUILoadingShell label="Adding flashcards to deck..." />;
-        } else if (status.type === "complete" && parsed && !parsed.success) {
+        } else if (status.type !== "running" && status.type === "complete" && parsed && !parsed.success) {
             content = (
                 <ToolUIErrorShell
-                    label="Trying to update flashcard deck"
+                    label="Failed to update flashcard deck"
                     message={parsed.message}
                 />
             );
-        } else if (status.type === "incomplete" && status.reason === "error") {
+        } else if (status.type !== "running" && status.type === "incomplete" && status.reason === "error") {
             content = (
                 <ToolUIErrorShell
-                    label="Trying to update flashcard deck"
+                    label="Failed to update flashcard deck"
                     message={parsed?.message}
                 />
             );

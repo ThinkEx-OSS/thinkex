@@ -119,17 +119,17 @@ export const UpdateQuizToolUI = makeAssistantToolUI<UpdateQuizArgs, QuizResult>(
       content = <UpdateQuizReceipt result={parsed} status={status} />;
     } else if (status.type === "running") {
       content = <ToolUILoadingShell label="Adding more questions..." />;
-    } else if (status.type === "complete" && parsed && !parsed.success) {
+    } else if (status.type !== "running" && status.type === "complete" && parsed && !parsed.success) {
       content = (
         <ToolUIErrorShell
-          label="Trying to add questions"
+          label="Failed to add questions"
           message={parsed.message}
         />
       );
-    } else if (status.type === "incomplete" && status.reason === "error") {
+    } else if (status.type !== "running" && status.type === "incomplete" && status.reason === "error") {
       content = (
         <ToolUIErrorShell
-          label="Trying to add questions"
+          label="Failed to add questions"
           message={parsed?.message}
         />
       );

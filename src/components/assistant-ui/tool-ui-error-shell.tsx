@@ -1,10 +1,10 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface ToolUIErrorShellProps {
-  /** Main label shown next to the spinner (e.g. "Trying to create note") */
+  /** Main label (e.g. "Failed to create note") */
   label: string;
   /** Optional error message with more details */
   message?: string;
@@ -13,29 +13,29 @@ export interface ToolUIErrorShellProps {
 
 /**
  * Shared error shell for assistant-ui tool UIs. Card-style layout with
- * spinner + label (+ optional message). Use when status.type === "incomplete" with error.
- * Matches the subtle styling of ToolUILoadingShell for consistency.
+ * error icon + label (+ optional message). Only show when status.type !== "running"
+ * (e.g. incomplete + error, or complete + !success).
  */
 export function ToolUIErrorShell({
   label,
+  message,
   className,
 }: ToolUIErrorShellProps) {
   return (
     <div
       className={cn(
-        "my-1 flex w-full items-center justify-between overflow-hidden rounded-md border border-border/50 bg-card/50 text-card-foreground shadow-sm px-2 py-2",
+        "my-1 flex w-full items-start gap-2 overflow-hidden rounded-md border border-destructive/30 bg-destructive/5 text-card-foreground px-2 py-2",
         className
       )}
     >
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <div className="flex size-4 items-center justify-center text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" />
-        </div>
-        <div className="flex flex-col min-w-0 flex-1">
-          <span className="text-xs font-medium truncate">
-            {label}
-          </span>
-        </div>
+      <div className="mt-0.5 flex size-4 shrink-0 items-center justify-center text-destructive">
+        <AlertCircle className="size-4" />
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-xs font-medium text-destructive/90">{label}</span>
+        {message && (
+          <span className="text-xs text-muted-foreground">{message}</span>
+        )}
       </div>
     </div>
   );

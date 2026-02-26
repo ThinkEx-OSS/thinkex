@@ -38,17 +38,17 @@ const DeleteCardInner: FC<{
         <p className="text-sm text-green-800 dark:text-green-200">Card deleted successfully</p>
       </div>
     );
-  } else if (status.type === "complete" && parsed && !parsed.success) {
+  } else if (status.type !== "running" && status.type === "complete" && parsed && !parsed.success) {
     content = (
       <ToolUIErrorShell
-        label="Trying to delete card"
+        label="Failed to delete card"
         message={parsed.message}
       />
     );
-  } else if (status.type === "incomplete" && status.reason === "error") {
+  } else if (status.type !== "running" && status.type === "incomplete" && status.reason === "error") {
     content = (
       <ToolUIErrorShell
-        label="Trying to delete card"
+        label="Failed to delete card"
         message={parsed?.message}
       />
     );

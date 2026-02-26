@@ -220,10 +220,10 @@ export const SelectCardsToolUI = makeAssistantToolUI<SelectCardsArgs, SelectCard
           )}
         </div>
       );
-    } else if (status.type === "incomplete" && status.reason === "error") {
+    } else if (status.type !== "running" && status.type === "incomplete" && status.reason === "error") {
       content = (
         <ToolUIErrorShell
-          label="Trying to select cards"
+          label="Failed to select cards"
           message="An error occurred"
         />
       );

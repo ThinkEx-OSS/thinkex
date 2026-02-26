@@ -42,11 +42,11 @@ export const ReadWorkspaceToolUI = makeAssistantToolUI<ReadArgs, ReadResult>({
                   ? `Reading "${args.itemName}"${pageInfo}`
                   : "Reading workspace item...";
             content = <ToolUILoadingShell label={label} />;
-        } else if (status.type === "complete" && result) {
+        } else if (status.type !== "running" && status.type === "complete" && result) {
             if (!result.success && result.message) {
                 content = (
                     <ToolUIErrorShell
-                        label="Workspace read"
+                        label="Workspace read failed"
                         message={result.message}
                     />
                 );
@@ -77,10 +77,10 @@ export const ReadWorkspaceToolUI = makeAssistantToolUI<ReadArgs, ReadResult>({
                     </div>
                 );
             }
-        } else if (status.type === "incomplete" && status.reason === "error") {
+        } else if (status.type !== "running" && status.type === "incomplete" && status.reason === "error") {
             content = (
                 <ToolUIErrorShell
-                    label="Workspace read"
+                    label="Workspace read failed"
                     message={(result as any)?.message ?? "Read failed"}
                 />
             );

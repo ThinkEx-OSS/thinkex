@@ -214,12 +214,13 @@ export const CreateQuizToolUI = makeAssistantToolUI<CreateQuizArgs, QuizResult>(
         } else if (status.type === "running") {
             content = <ToolUILoadingShell label="Generating quiz..." />;
         } else if (
-            (status.type === "incomplete" && status.reason === "error") ||
-            (status.type === "complete" && parsed && !parsed.success)
+            status.type !== "running" &&
+            ((status.type === "incomplete" && status.reason === "error") ||
+                (status.type === "complete" && parsed && !parsed.success))
         ) {
             content = (
                 <ToolUIErrorShell
-                    label="Trying to create quiz"
+                    label="Failed to create quiz"
                     message={parsed && !parsed.success ? parsed.message : undefined}
                 />
             );

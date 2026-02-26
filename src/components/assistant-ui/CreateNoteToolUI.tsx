@@ -250,10 +250,10 @@ export const CreateNoteToolUI = makeAssistantToolUI<CreateNoteArgs, WorkspaceRes
     } else if (status.type === "running") {
       logger.debug("⏳ [CreateNoteTool] Rendering loading state - status is running");
       content = <ToolUILoadingShell label="Creating note..." />;
-    } else if (status.type === "incomplete" && status.reason === "error") {
+    } else if (status.type !== "running" && status.type === "incomplete" && status.reason === "error") {
       content = (
         <ToolUIErrorShell
-          label="Trying to create note"
+          label="Failed to create note"
           message={parsed && !parsed.success ? parsed.message : undefined}
         />
       );

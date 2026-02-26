@@ -244,10 +244,10 @@ export const CreateFlashcardToolUI = makeAssistantToolUI<CreateFlashcardArgs, Fl
         } else if (status.type === "running") {
             logger.debug("⏳ [CreateFlashcardTool] Rendering loading state - status is running");
             content = <ToolUILoadingShell label="Generating flashcards..." />;
-        } else if (status.type === "incomplete" && status.reason === "error") {
+        } else if (status.type !== "running" && status.type === "incomplete" && status.reason === "error") {
             content = (
                 <ToolUIErrorShell
-                    label="Trying to create flashcards"
+                    label="Failed to create flashcards"
                     message={parsed && !parsed.success ? parsed.message : undefined}
                 />
             );

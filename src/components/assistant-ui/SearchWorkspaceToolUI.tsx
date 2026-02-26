@@ -43,11 +43,11 @@ export const SearchWorkspaceToolUI = makeAssistantToolUI<GrepArgs, GrepResult>({
 
         if (status.type === "running") {
             content = <ToolUILoadingShell label="Searching workspace..." />;
-        } else if (status.type === "complete" && result) {
+        } else if (status.type !== "running" && status.type === "complete" && result) {
             if (!result.success && result.message) {
                 content = (
                     <ToolUIErrorShell
-                        label="Workspace search"
+                        label="Workspace search failed"
                         message={result.message}
                     />
                 );
@@ -91,10 +91,10 @@ export const SearchWorkspaceToolUI = makeAssistantToolUI<GrepArgs, GrepResult>({
                     </div>
                 );
             }
-        } else if (status.type === "incomplete" && status.reason === "error") {
+        } else if (status.type !== "running" && status.type === "incomplete" && status.reason === "error") {
             content = (
                 <ToolUIErrorShell
-                    label="Workspace search"
+                    label="Workspace search failed"
                     message={(result as any)?.message ?? "Search failed"}
                 />
             );
