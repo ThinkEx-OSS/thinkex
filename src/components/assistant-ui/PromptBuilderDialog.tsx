@@ -24,7 +24,7 @@ import { useShallow } from "zustand/react/shallow";
 import type { Item } from "@/lib/workspace-state/types";
 import { useAui } from "@assistant-ui/react";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
-import { Brain, Play, ChevronUp, ChevronDown, ChevronRight, X, Circle, CircleDot, ArrowUpIcon, ArrowLeft, Check, Folder as FolderIcon } from "lucide-react";
+import { Brain, Play, ChevronUp, ChevronDown, ChevronRight, X, Circle, CircleDot, ArrowUpIcon, ArrowLeft, CheckCircle2, Folder as FolderIcon } from "lucide-react";
 import { CgNotes } from "react-icons/cg";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
@@ -349,9 +349,7 @@ export function PromptBuilderDialog({
                 onToggleExpand={handleToggleFolderExpand}
                 selectedIndicator={(isSelected) =>
                   isSelected ? (
-                    <div className="w-4 h-4 rounded-full bg-primary/20 border-2 border-primary flex-shrink-0 flex items-center justify-center">
-                      <Check className="size-2.5 text-primary" />
-                    </div>
+                    <CheckCircle2 className="size-4 text-primary flex-shrink-0" />
                   ) : undefined
                 }
               />

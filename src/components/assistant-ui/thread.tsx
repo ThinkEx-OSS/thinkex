@@ -715,14 +715,11 @@ const Composer: FC<ComposerProps> = ({ items }) => {
     }
   }, [mentionStartIndex, aui]);
 
-  // Handle mention selection - select item and close menu
+  // Handle mention selection - toggle item, keep menu open for multi-select
   const handleMentionSelect = useCallback((item: Item) => {
-    // Toggle item in context
     toggleCardSelection(item.id);
-    // Clear the @query from input and close menu
-    clearMentionQuery();
-    setMentionMenuOpen(false);
-  }, [toggleCardSelection, clearMentionQuery]);
+    // Don't close menu or clear query - allow selecting multiple items
+  }, [toggleCardSelection]);
 
   // Handle mention menu close - remove the @query from input
   const handleMentionMenuClose = useCallback((open: boolean) => {
@@ -944,6 +941,11 @@ const Composer: FC<ComposerProps> = ({ items }) => {
           items={items}
           onSelect={handleMentionSelect}
           selectedCardIds={selectedCardIds}
+          selectedIndicator={(isSelected) =>
+            isSelected ? (
+              <CheckCircle2 className="size-4 text-primary flex-shrink-0" />
+            ) : undefined
+          }
         />
       </div>
       <ComposerAction items={items} />
