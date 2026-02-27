@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { usePostHog } from 'posthog-js/react';
 import { cn } from "@/lib/utils";
 import ItemHeader from "@/components/workspace-canvas/ItemHeader";
-import { getCardColorCSS, getCardAccentColor, getDistinctCardColor, getIconColorFromCardColor, SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
+import { getCardColorCSS, getCardAccentColor, getDistinctCardColor, getIconColorFromCardColor, getIconColorFromCardColorWithOpacity, getLighterCardColor, SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
 import type { Item, NoteData, PdfData, FlashcardData, YouTubeData, ImageData } from "@/lib/workspace-state/types";
 import { SwatchesPicker, ColorResult } from "react-color";
 import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEditor";
@@ -593,7 +593,7 @@ function WorkspaceCard({
             data-has-preview={shouldShowPreview}
             className={`relative rounded-md scroll-mt-4 size-full flex flex-col overflow-hidden transition-all duration-200 cursor-pointer ${item.type === 'youtube' || item.type === 'image' || (item.type === 'pdf' && shouldShowPreview)
               ? 'p-0'
-              : 'p-4 border shadow-sm hover:border-foreground/30 hover:shadow-md focus-within:border-foreground/50'
+              : 'p-3 border shadow-sm hover:border-foreground/30 hover:shadow-md focus-within:border-foreground/50'
               }`}
             style={{
               backgroundColor: (item.type === 'youtube' || item.type === 'image') ? 'transparent' : (item.color ? getCardColorCSS(item.color, resolvedTheme === 'dark' ? 0.25 : 0.4) : 'var(--card)'),
@@ -760,6 +760,34 @@ function WorkspaceCard({
               </div>
             )}
 
+            {/* Type badge - rect in bottom-left corner (when card is small) */}
+            {(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio') && !shouldShowPreview && (
+              <span
+                className="absolute left-0 bottom-0 z-0 flex items-center gap-1.5 pl-2.5 pr-1.5 py-2 rounded-tr-md rounded-bl-md text-xs font-semibold uppercase tracking-wider w-max pointer-events-none"
+                style={{
+                  backgroundColor: getIconColorFromCardColorWithOpacity(item.color, resolvedTheme === 'dark', 0.3),
+                  color: getLighterCardColor(item.color, resolvedTheme === 'dark'),
+                }}
+              >
+                {item.type === 'note' ? (
+                  <><CgNotes className="h-5 w-5 shrink-0" /><span>Note</span></>
+                ) : item.type === 'pdf' ? (
+                  (item.data as PdfData)?.ocrStatus === 'processing' ? (
+                    <>
+                      <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
+                      <span>Extracting…</span>
+                    </>
+                  ) : (
+                    <><File className="h-5 w-5 shrink-0" /><span>PDF</span></>
+                  )
+                ) : item.type === 'quiz' ? (
+                  <><Brain className="h-5 w-5 shrink-0" /><span>Quiz</span></>
+                ) : (
+                  <><Mic className="h-5 w-5 shrink-0" /><span>Recording</span></>
+                )}
+              </span>
+            )}
+
             {/* Color Picker Dialog */}
             <Dialog open={isColorPickerOpen} onOpenChange={setIsColorPickerOpen}>
               <DialogContent
@@ -785,30 +813,6 @@ function WorkspaceCard({
             </Dialog>
 
             <div className={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio') && !shouldShowPreview ? "flex-1 flex flex-col relative" : "flex-shrink-0"}>
-              {/* Icon + type label - background layer, fixed position */}
-              {(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio') && !shouldShowPreview && (
-                <span
-                  className="absolute bottom-0 left-0 z-0 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider w-max pointer-events-none"
-                  style={{ color: getIconColorFromCardColor(item.color, resolvedTheme === 'dark') }}
-                >
-                  {item.type === 'note' ? (
-                    <><CgNotes className="h-8 w-8 shrink-0 -ml-1" style={{ color: getIconColorFromCardColor(item.color, resolvedTheme === 'dark') }} /><span>Note</span></>
-                  ) : item.type === 'pdf' ? (
-                    (item.data as PdfData)?.ocrStatus === 'processing' ? (
-                      <>
-                        <Loader2 className="h-8 w-8 shrink-0 -ml-1 animate-spin" style={{ color: getIconColorFromCardColor(item.color, resolvedTheme === 'dark') }} />
-                        <span>Extracting…</span>
-                      </>
-                    ) : (
-                      <><File className="h-8 w-8 shrink-0 -ml-1" style={{ color: getIconColorFromCardColor(item.color, resolvedTheme === 'dark') }} /><span>PDF</span></>
-                    )
-                  ) : item.type === 'quiz' ? (
-                    <><Brain className="h-8 w-8 shrink-0 -ml-1" style={{ color: getIconColorFromCardColor(item.color, resolvedTheme === 'dark') }} /><span>Quiz</span></>
-                  ) : (
-                    <><Mic className="h-8 w-8 shrink-0 -ml-1" style={{ color: getIconColorFromCardColor(item.color, resolvedTheme === 'dark') }} /><span>Recording</span></>
-                  )}
-                </span>
-              )}
               {/* Hide header for template items awaiting generation */}
               {item.type !== 'youtube' && item.type !== 'image' && !(item.type === 'pdf' && shouldShowPreview) && item.name !== "Update me" && (
                 <div className="relative z-10">

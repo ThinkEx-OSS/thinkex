@@ -236,9 +236,31 @@ export function getWhiteTintedColor(color: CardColor, whiteMix: number = 0.7, op
  * @param isDarkMode Whether the UI is in dark mode
  * @returns Hex color string for the icon
  */
-export function getIconColorFromCardColor(color: CardColor | string | undefined, isDarkMode: boolean): string {
+/**
+ * Get a lighter version of the card color (blended with white) for text/icons on colored backgrounds.
+ * Dark mode: 80% card, 20% white. Light mode: 25% white, 75% card.
+ */
+export function getLighterCardColor(color: CardColor | string | undefined, isDarkMode: boolean = false): string {
   const rgb = color ? hexToRgb(color) : null;
-  if (!rgb) return isDarkMode ? 'rgba(255,255,255,0.85)' : 'rgba(30,41,59,0.9)';
+  if (!rgb) return 'rgb(241, 245, 249)';
+
+  const whiteMix = isDarkMode ? 0.2 : 0.25;
+  const r = Math.round(whiteMix * 255 + (1 - whiteMix) * rgb.r);
+  const g = Math.round(whiteMix * 255 + (1 - whiteMix) * rgb.g);
+  const b = Math.round(whiteMix * 255 + (1 - whiteMix) * rgb.b);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+export function getIconColorFromCardColor(color: CardColor | string | undefined, isDarkMode: boolean): string {
+  return getIconColorFromCardColorWithOpacity(color, isDarkMode, 1);
+}
+
+/**
+ * Get icon color with opacity for use as badge/subtle backgrounds
+ */
+export function getIconColorFromCardColorWithOpacity(color: CardColor | string | undefined, isDarkMode: boolean, opacity: number): string {
+  const rgb = color ? hexToRgb(color) : null;
+  if (!rgb) return isDarkMode ? `rgba(255,255,255,${opacity * 0.85})` : `rgba(30,41,59,${opacity * 0.9})`;
 
   if (isDarkMode) {
     // Dark mode: blend with black - slightly darker
@@ -246,13 +268,13 @@ export function getIconColorFromCardColor(color: CardColor | string | undefined,
     const r = Math.round((1 - blackMix) * rgb.r);
     const g = Math.round((1 - blackMix) * rgb.g);
     const b = Math.round((1 - blackMix) * rgb.b);
-    return `rgb(${r}, ${g}, ${b})`;
+    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
   } else {
     // Light mode: blend with white - slightly more original card color
     const whiteMix = 0.35;
     const r = Math.round(whiteMix * 255 + (1 - whiteMix) * rgb.r);
     const g = Math.round(whiteMix * 255 + (1 - whiteMix) * rgb.g);
     const b = Math.round(whiteMix * 255 + (1 - whiteMix) * rgb.b);
-    return `rgb(${r}, ${g}, ${b})`;
+    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
   }
 }
