@@ -178,7 +178,8 @@
   "pnpm": {
     "overrides": {
       "@types/react": "19.2.2",
-      "@types/react-dom": "19.2.2"
+      "@types/react-dom": "19.2.2",
+      "react-grid-layout": "git+https://github.com/ThinkEx-OSS/react-grid-layout.git"
     }
   }
 }

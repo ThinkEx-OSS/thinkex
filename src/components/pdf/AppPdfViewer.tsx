@@ -7,7 +7,7 @@ import { ViewportPluginPackage, Viewport, useViewportCapability } from '@embedpd
 import { ScrollPluginPackage, Scroller, useScroll, useScrollCapability } from '@embedpdf/plugin-scroll/react';
 import { DocumentContent, DocumentManagerPluginPackage } from '@embedpdf/plugin-document-manager/react';
 import { RenderLayer, RenderPluginPackage } from '@embedpdf/plugin-render/react';
-import { ZoomPluginPackage, ZoomMode, ZoomGestureWrapper } from '@embedpdf/plugin-zoom/react';
+import { ZoomPluginPackage, ZoomMode, ZoomGestureWrapper, useZoom } from '@embedpdf/plugin-zoom/react';
 import { PanPluginPackage } from '@embedpdf/plugin-pan/react';
 
 import { SelectionPluginPackage, SelectionLayer, useSelectionCapability, SelectionSelectionMenuProps } from '@embedpdf/plugin-selection/react';
@@ -38,22 +38,38 @@ import { PdfPasswordPrompt } from './PdfPasswordPrompt';
 
 interface PdfSavedState {
   currentPage: number;
+  zoomLevel?: number;
+  scrollOffsetX?: number;
+  scrollOffsetY?: number;
 }
 
 const PDF_STATE_PREFIX = 'pdf-state-';
 
 /**
- * Persists the current page to localStorage and restores it on mount.
+ * Persists the current page, zoom level, and scroll offset to localStorage and restores page on mount.
  * Skips restore when a citation is navigating this PDF (citation takes priority).
  */
 const PdfStatePersister = ({ documentId, pdfSrc, itemId }: { documentId: string; pdfSrc: string; itemId?: string }) => {
   const { provides: scrollCapability } = useScrollCapability();
   const { state: scrollState } = useScroll(documentId);
+  const { state: zoomState } = useZoom(documentId);
   const [restored, setRestored] = useState(false);
   const skipNextSaveRef = useRef(false);
   const pendingRestorePageRef = useRef<number | null>(null);
+  // Track scroll offset via event listener (useScroll state only exposes currentPage/totalPages)
+  const scrollOffsetRef = useRef<{ x: number; y: number } | null>(null);
 
   const storageKey = `${PDF_STATE_PREFIX}${encodeURIComponent(pdfSrc)}`;
+
+  // Track scroll offset via event subscription (useScroll state doesn't expose scrollOffset)
+  useEffect(() => {
+    if (!scrollCapability) return;
+    const unsub = scrollCapability.onScroll((ev) => {
+      if (ev.documentId !== documentId) return;
+      scrollOffsetRef.current = ev.metrics.scrollOffset;
+    });
+    return unsub;
+  }, [scrollCapability, documentId]);
 
   // Determine target page on layout ready (but don't scroll here — scroll requests
   // emitted during onLayoutReady are lost because Viewport's useLayoutEffect subscription
@@ -99,7 +115,7 @@ const PdfStatePersister = ({ documentId, pdfSrc, itemId }: { documentId: string;
     scope?.scrollToPage({ pageNumber: page, behavior: 'instant' });
   }, [restored, scrollCapability, documentId]);
 
-  // Save current page to localStorage on page changes (after restoration)
+  // Save current page, zoom, and scroll offset to localStorage (after restoration)
   useEffect(() => {
     if (!restored) return;
     const page = scrollState?.currentPage;
@@ -109,12 +125,18 @@ const PdfStatePersister = ({ documentId, pdfSrc, itemId }: { documentId: string;
         return;
       }
       try {
-        localStorage.setItem(storageKey, JSON.stringify({ currentPage: page }));
+        const state: PdfSavedState = {
+          currentPage: page,
+          zoomLevel: zoomState?.currentZoomLevel,
+          scrollOffsetX: scrollOffsetRef.current?.x,
+          scrollOffsetY: scrollOffsetRef.current?.y,
+        };
+        localStorage.setItem(storageKey, JSON.stringify(state));
       } catch (e) {
         console.warn('[PdfStatePersister] Save failed:', e);
       }
     }
-  }, [restored, scrollState?.currentPage, storageKey]);
+  }, [restored, scrollState?.currentPage, zoomState?.currentZoomLevel, storageKey])
 
   return null;
 };
@@ -949,16 +971,16 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
                         {/* Viewport */}
                         <div className="flex-1 overflow-hidden relative">
                           <PdfSearchBar documentId={activeDocumentId} />
-                            <PdfInitialPageScroll
-                              documentId={activeDocumentId}
-                              initialPage={initialPage}
-                            />
-                            {itemId && (
-                              <>
-                                <PdfActivePageSync documentId={activeDocumentId} itemId={itemId} />
-                                <PdfCitationHighlightSync documentId={activeDocumentId} itemId={itemId} />
-                              </>
-                            )}
+                          <PdfInitialPageScroll
+                            documentId={activeDocumentId}
+                            initialPage={initialPage}
+                          />
+                          {itemId && (
+                            <>
+                              <PdfActivePageSync documentId={activeDocumentId} itemId={itemId} />
+                              <PdfCitationHighlightSync documentId={activeDocumentId} itemId={itemId} />
+                            </>
+                          )}
                           <CaptureOverlay documentId={activeDocumentId} />
                           <Viewport
                             documentId={activeDocumentId}
