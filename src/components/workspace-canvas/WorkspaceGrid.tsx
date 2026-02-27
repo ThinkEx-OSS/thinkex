@@ -1,5 +1,6 @@
 import { Responsive as ResponsiveGridLayout, type Layout, type LayoutItem, useContainerWidth } from "react-grid-layout";
-import { fastVerticalCompactor } from "react-grid-layout/extras";
+import { wrapCompactor, fastVerticalCompactor } from "react-grid-layout/extras";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useMemo, useCallback, useRef, useEffect, useState } from "react";
 import React from "react";
 import type { Item, CardType } from "@/lib/workspace-state/types";
@@ -69,6 +70,9 @@ export function WorkspaceGrid({
   onPDFUpload,
   setOpenModalItemId,
 }: WorkspaceGridProps) {
+  const useWrapCompactor = useFeatureFlagEnabled("wrap-compactor");
+  const compactor = useWrapCompactor ? wrapCompactor : fastVerticalCompactor;
+
   const layoutChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasUserInteractedRef = useRef<boolean>(false);
   const draggedItemIdRef = useRef<string | null>(null);
@@ -817,7 +821,7 @@ export function WorkspaceGrid({
           onResizeStart={handleResizeStart}
           onResizeStop={handleResizeStop}
           onBreakpointChange={handleBreakpointChange}
-          compactor={fastVerticalCompactor}
+          compactor={compactor}
         >
           {children}
         </ResponsiveGridLayout>
