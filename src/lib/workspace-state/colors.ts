@@ -229,3 +229,30 @@ export function getWhiteTintedColor(color: CardColor, whiteMix: number = 0.7, op
   
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
+
+/**
+ * Get icon color from card color - light tint in dark mode, dark tint in light mode
+ * @param color The card color (hex string)
+ * @param isDarkMode Whether the UI is in dark mode
+ * @returns Hex color string for the icon
+ */
+export function getIconColorFromCardColor(color: CardColor | string | undefined, isDarkMode: boolean): string {
+  const rgb = color ? hexToRgb(color) : null;
+  if (!rgb) return isDarkMode ? 'rgba(255,255,255,0.85)' : 'rgba(30,41,59,0.9)';
+
+  if (isDarkMode) {
+    // Dark mode: blend with black - slightly darker
+    const blackMix = 0.52;
+    const r = Math.round((1 - blackMix) * rgb.r);
+    const g = Math.round((1 - blackMix) * rgb.g);
+    const b = Math.round((1 - blackMix) * rgb.b);
+    return `rgb(${r}, ${g}, ${b})`;
+  } else {
+    // Light mode: blend with white - slightly more original card color
+    const whiteMix = 0.35;
+    const r = Math.round(whiteMix * 255 + (1 - whiteMix) * rgb.r);
+    const g = Math.round(whiteMix * 255 + (1 - whiteMix) * rgb.g);
+    const b = Math.round(whiteMix * 255 + (1 - whiteMix) * rgb.b);
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+}

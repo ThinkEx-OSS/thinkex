@@ -24,7 +24,8 @@ import { useShallow } from "zustand/react/shallow";
 import type { Item } from "@/lib/workspace-state/types";
 import { useAui } from "@assistant-ui/react";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
-import { FileText, Brain, Play, ChevronUp, ChevronDown, ChevronRight, X, Circle, CircleDot, ArrowUpIcon, ArrowLeft, Check, Folder as FolderIcon } from "lucide-react";
+import { Brain, Play, ChevronUp, ChevronDown, ChevronRight, X, Circle, CircleDot, ArrowUpIcon, ArrowLeft, Check, Folder as FolderIcon } from "lucide-react";
+import { CgNotes } from "react-icons/cg";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -103,7 +104,7 @@ const ACTION_CONFIG: Record<
   note: {
     label: "Create Note",
     prefix: "Make a note on ",
-    icon: FileText,
+    icon: CgNotes,
     description: "Select specific prompts and formats for your note.",
     hasTemplates: true,
     hasTopicSelector: true,

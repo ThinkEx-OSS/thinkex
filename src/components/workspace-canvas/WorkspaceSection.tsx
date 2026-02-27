@@ -41,7 +41,7 @@ import {
   ContextMenuSubTrigger,
 } from "@/components/ui/context-menu";
 
-import { FileText, Folder, Upload, Play, MoreHorizontal, Globe, Brain } from "lucide-react";
+import { Folder, Upload, Play, MoreHorizontal, Globe, Brain } from "lucide-react";
 import { LuBook } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";

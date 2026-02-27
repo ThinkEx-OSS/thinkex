@@ -5,7 +5,8 @@ import { useMemo } from "react";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { makeAssistantToolUI } from "@assistant-ui/react";
 import { useOptimisticToolUpdate } from "@/hooks/ai/use-optimistic-tool-update";
-import { X, Eye, FileText } from "lucide-react";
+import { X, Eye } from "lucide-react";
+import { CgNotes } from "react-icons/cg";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -67,7 +68,7 @@ const UpdateNoteReceipt = ({ args, result, status }: UpdateNoteReceiptProps) => 
             className={cn(status?.type === "complete" ? "text-blue-400" : "text-red-400")}
           >
             {status?.type === "complete" ? (
-              <FileText className="size-4" />
+              <CgNotes className="size-4" />
             ) : (
               <X className="size-4" />
             )}

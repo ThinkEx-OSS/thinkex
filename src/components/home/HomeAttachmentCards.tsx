@@ -1,6 +1,7 @@
 "use client";
 
-import { FileText, ImageIcon, Music, Link as LinkIcon, X, CheckCircle2, AlertCircle } from "lucide-react";
+import { ImageIcon, Music, Link as LinkIcon, X, CheckCircle2, AlertCircle } from "lucide-react";
+import { CgNotes } from "react-icons/cg";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { isYouTubeUrl } from "@/contexts/HomeAttachmentsContext";
@@ -9,7 +10,7 @@ import type { FileItem } from "@/contexts/HomeAttachmentsContext";
 function getFileIcon(file: File) {
   if (file.type.startsWith("image/")) return ImageIcon;
   if (file.type.startsWith("audio/")) return Music;
-  return FileText;
+  return CgNotes;
 }
 
 function truncate(str: string, maxLen: number) {

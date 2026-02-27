@@ -1,6 +1,7 @@
 import { QuizContent } from "./QuizContent";
 import { ImageCardContent } from "./ImageCardContent";
-import { MoreVertical, Trash2, Palette, CheckCircle2, FolderInput, FileText, Copy, X, Pencil, Columns, Link2, PanelRight, SplitSquareHorizontal, Loader2 } from "lucide-react";
+import { MoreVertical, Trash2, Palette, CheckCircle2, FolderInput, Copy, X, Pencil, Columns, Link2, PanelRight, SplitSquareHorizontal, Loader2, File, Brain, Mic } from "lucide-react";
+import { CgNotes } from "react-icons/cg";
 import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
 import { useCallback, useState, memo, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
@@ -9,7 +10,7 @@ import { toast } from "sonner";
 import { usePostHog } from 'posthog-js/react';
 import { cn } from "@/lib/utils";
 import ItemHeader from "@/components/workspace-canvas/ItemHeader";
-import { getCardColorCSS, getCardAccentColor, getDistinctCardColor, SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
+import { getCardColorCSS, getCardAccentColor, getDistinctCardColor, getIconColorFromCardColor, SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
 import type { Item, NoteData, PdfData, FlashcardData, YouTubeData, ImageData } from "@/lib/workspace-state/types";
 import { SwatchesPicker, ColorResult } from "react-color";
 import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEditor";
@@ -783,10 +784,34 @@ function WorkspaceCard({
               </DialogContent>
             </Dialog>
 
-            <div className={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio') && !shouldShowPreview ? "flex-1 flex flex-col" : "flex-shrink-0"}>
+            <div className={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio') && !shouldShowPreview ? "flex-1 flex flex-col relative" : "flex-shrink-0"}>
+              {/* Icon + type label - background layer, fixed position */}
+              {(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio') && !shouldShowPreview && (
+                <span
+                  className="absolute bottom-0 left-0 z-0 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider w-max pointer-events-none"
+                  style={{ color: getIconColorFromCardColor(item.color, resolvedTheme === 'dark') }}
+                >
+                  {item.type === 'note' ? (
+                    <><CgNotes className="h-8 w-8 shrink-0 -ml-1" style={{ color: getIconColorFromCardColor(item.color, resolvedTheme === 'dark') }} /><span>Note</span></>
+                  ) : item.type === 'pdf' ? (
+                    (item.data as PdfData)?.ocrStatus === 'processing' ? (
+                      <>
+                        <Loader2 className="h-8 w-8 shrink-0 -ml-1 animate-spin" style={{ color: getIconColorFromCardColor(item.color, resolvedTheme === 'dark') }} />
+                        <span>Extracting…</span>
+                      </>
+                    ) : (
+                      <><File className="h-8 w-8 shrink-0 -ml-1" style={{ color: getIconColorFromCardColor(item.color, resolvedTheme === 'dark') }} /><span>PDF</span></>
+                    )
+                  ) : item.type === 'quiz' ? (
+                    <><Brain className="h-8 w-8 shrink-0 -ml-1" style={{ color: getIconColorFromCardColor(item.color, resolvedTheme === 'dark') }} /><span>Quiz</span></>
+                  ) : (
+                    <><Mic className="h-8 w-8 shrink-0 -ml-1" style={{ color: getIconColorFromCardColor(item.color, resolvedTheme === 'dark') }} /><span>Recording</span></>
+                  )}
+                </span>
+              )}
               {/* Hide header for template items awaiting generation */}
               {item.type !== 'youtube' && item.type !== 'image' && !(item.type === 'pdf' && shouldShowPreview) && item.name !== "Update me" && (
-                <>
+                <div className="relative z-10">
                   <ItemHeader
                     id={item.id}
                     name={item.name}
@@ -810,27 +835,7 @@ function WorkspaceCard({
                       <SourcesDisplay sources={(item.data as NoteData).sources!} />
                     </div>
                   )}
-                </>
-              )}
-              {/* Subtle type label for narrow cards without preview; hover shows "EXPAND OR CLICK TO VIEW" */}
-              {(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio') && !shouldShowPreview && (
-                <span className={cn("block text-[10px] uppercase tracking-wider mt-auto w-max", resolvedTheme === 'dark' ? "text-muted-foreground/60" : "text-muted-foreground/40")}>
-                  <span className="relative inline-block flex items-center gap-1.5">
-                    <span className="transition-opacity duration-150 group-hover:opacity-0 flex items-center gap-1.5">
-                      {item.type === 'note' ? 'Note' : item.type === 'pdf' ? (
-                        (item.data as PdfData)?.ocrStatus === 'processing' ? (
-                          <>
-                            <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                            Extracting…
-                          </>
-                        ) : 'PDF'
-                      ) : item.type === 'quiz' ? 'Quiz' : 'Recording'}
-                    </span>
-                    <span className="absolute left-0 top-0 whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover:opacity-100 flex items-center">
-                      Expand or click to view
-                    </span>
-                  </span>
-                </span>
+                </div>
               )}
             </div>
 

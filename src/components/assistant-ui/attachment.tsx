@@ -1,7 +1,8 @@
 "use client";
 
 import React, { PropsWithChildren, useEffect, useState, useRef, type FC } from "react";
-import { XIcon, FileText, Link as LinkIcon, SearchIcon, Plus, Code as CodeIcon, GalleryHorizontalEnd, Loader2 } from "lucide-react";
+import { XIcon, Link as LinkIcon, SearchIcon, Plus, Code as CodeIcon, GalleryHorizontalEnd, Loader2 } from "lucide-react";
+import { CgNotes } from "react-icons/cg";
 import { LuPaperclip } from "react-icons/lu";
 import { toast } from "sonner";
 import {
@@ -235,7 +236,7 @@ const AttachmentThumb: FC = () => {
         className="aui-attachment-tile-image object-cover"
       />
       <AvatarFallback delayMs={isImage ? 200 : 0}>
-        <FileText className="aui-attachment-tile-fallback-icon size-6 text-sidebar-foreground/80" />
+        <CgNotes className="aui-attachment-tile-fallback-icon size-6 text-sidebar-foreground/80" />
       </AvatarFallback>
     </Avatar>
   );

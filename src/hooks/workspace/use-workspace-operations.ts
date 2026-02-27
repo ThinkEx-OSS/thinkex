@@ -14,7 +14,7 @@ import { logger } from "@/lib/utils/logger";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { getLayoutForBreakpoint, findNextAvailablePosition } from "@/lib/workspace-state/grid-layout-helpers";
 import { useRealtimeContextOptional } from "@/contexts/RealtimeContext";
-import { hasDuplicateName } from "@/lib/workspace/unique-name";
+import { hasDuplicateName, getNextUniqueDefaultName } from "@/lib/workspace/unique-name";
 
 /**
  * Return type for workspace operations
@@ -116,13 +116,8 @@ export function useWorkspaceOperations(
       logger.debug("🔧 [CREATE-ITEM] Initial data:", initialData);
       logger.debug("🔧 [CREATE-ITEM] Merged data:", mergedData);
 
-      const finalName = name || `New ${validType.charAt(0).toUpperCase() + validType.slice(1)}`;
       const folderId = activeFolderId ?? null;
-
-      if (hasDuplicateName(currentState.items, finalName, validType, folderId)) {
-        toast.error(`A ${validType} named "${finalName}" already exists in this folder`);
-        return "";
-      }
+      const finalName = name || getNextUniqueDefaultName(currentState.items, validType, folderId);
 
       const item: Item = {
         id,
@@ -179,12 +174,12 @@ export function useWorkspaceOperations(
         }
 
         const id = generateItemId();
-        const finalName = name || `New ${validType.charAt(0).toUpperCase() + validType.slice(1)}`;
         const folderId = activeFolderId ?? null;
-
-        // Check duplicate against existing + already-created in this batch
         const allItemsSoFar = [...currentState.items, ...itemsSoFar];
-        if (hasDuplicateName(allItemsSoFar, finalName, validType, folderId)) {
+        const finalName = name || getNextUniqueDefaultName(allItemsSoFar, validType, folderId);
+
+        // Check duplicate against existing + already-created in this batch (only when explicit name given)
+        if (name && hasDuplicateName(allItemsSoFar, finalName, validType, folderId)) {
           logger.warn(`🔧 [CREATE-ITEMS] Skipping duplicate: ${finalName} (${validType})`);
           return null;
         }

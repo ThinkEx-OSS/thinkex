@@ -3,7 +3,8 @@
 import { useEffect, useState, useMemo } from "react";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { makeAssistantToolUI } from "@assistant-ui/react";
-import { CheckIcon, X, Eye, FolderInput, FileText } from "lucide-react";
+import { CheckIcon, X, Eye, FolderInput } from "lucide-react";
+import { CgNotes } from "react-icons/cg";
 import { logger } from "@/lib/utils/logger";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Button } from "@/components/ui/button";
@@ -127,7 +128,7 @@ const CreateNoteReceipt = ({
             status?.type === "complete" ? "text-blue-400" : "text-red-400"
           )}>
             {status?.type === "complete" ? (
-              <FileText className="size-4" />
+              <CgNotes className="size-4" />
             ) : (
               <X className="size-4" />
             )}

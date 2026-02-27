@@ -4,7 +4,8 @@ import type React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Search, X, ChevronDown, FolderOpen, Plus, Upload, FileText, Folder as FolderIcon, Settings, Share2, Play, Brain, File, Newspaper, ImageIcon, Mic, PanelRight } from "lucide-react";
+import { Search, X, ChevronDown, FolderOpen, Plus, Upload, Folder as FolderIcon, Settings, Share2, Play, Brain, File, ImageIcon, Mic, PanelRight } from "lucide-react";
+import { CgNotes } from "react-icons/cg";
 import { LuBook, LuPanelLeftOpen } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
@@ -743,7 +744,7 @@ export function WorkspaceHeader({
                     className={cn(breadcrumbItemClass, "group pr-1")}
                   >
                     {/* Icon based on type */}
-                    {activeItems[0].type === 'note' && <FileText className="h-3.5 w-3.5 shrink-0 text-blue-400" />}
+                    {activeItems[0].type === 'note' && <CgNotes className="h-3.5 w-3.5 shrink-0 text-blue-400" />}
                     {activeItems[0].type === 'pdf' && <File className="h-3.5 w-3.5 shrink-0 text-red-400" />}
                     {activeItems[0].type === 'flashcard' && <PiCardsThreeBold className="h-3.5 w-3.5 shrink-0 text-purple-400 rotate-180" />}
                     {activeItems[0].type === 'youtube' && <Play className="h-3.5 w-3.5 shrink-0 text-red-500" />}

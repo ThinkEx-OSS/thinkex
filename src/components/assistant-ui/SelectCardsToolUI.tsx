@@ -6,7 +6,8 @@ import { useEffect, useMemo, useRef } from "react";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { CheckIcon, X, FileText } from "lucide-react";
+import { CheckIcon, X } from "lucide-react";
+import { CgNotes } from "react-icons/cg";
 import { cn } from "@/lib/utils";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-shell";
@@ -171,7 +172,7 @@ export const SelectCardsToolUI = makeAssistantToolUI<SelectCardsArgs, SelectCard
                   key={card.id}
                   className="flex items-center gap-2 rounded-md border border-border/50 bg-muted/30 px-2 py-1"
                 >
-                  <FileText className="size-3 text-muted-foreground" />
+                  <CgNotes className="size-3 text-muted-foreground" />
                   <div className="flex flex-col flex-1 min-w-0">
                     <span className="text-xs font-medium truncate">{card.name}</span>
                     {card.subtitle && (

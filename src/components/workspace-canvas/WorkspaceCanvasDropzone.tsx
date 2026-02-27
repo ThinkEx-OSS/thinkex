@@ -4,7 +4,7 @@ import { useDropzone } from "react-dropzone";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
-import { FileText } from "lucide-react";
+import { CgNotes } from "react-icons/cg";
 import { useCallback, useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import type { PdfData, ImageData, AudioData } from "@/lib/workspace-state/types";
@@ -531,7 +531,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/10 backdrop-blur-sm pointer-events-none">
           <div className="text-center space-y-4 p-8 rounded-lg bg-background/95 border-2 border-dashed border-primary shadow-lg">
             <div className="flex justify-center">
-              <FileText className="h-12 w-12 text-primary animate-bounce" />
+              <CgNotes className="h-12 w-12 text-primary animate-bounce" />
             </div>
             <div className="space-y-2">
               <h3 className="text-lg font-semibold text-foreground">

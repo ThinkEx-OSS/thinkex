@@ -4,13 +4,13 @@ import { useState, useMemo, useCallback } from "react";
 import {
   ChevronRight,
   Folder as FolderIcon,
-  FileText,
   File,
   Play,
   Brain,
   ImageIcon,
   Mic,
 } from "lucide-react";
+import { CgNotes } from "react-icons/cg";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import type { Item, CardType } from "@/lib/workspace-state/types";
@@ -20,7 +20,7 @@ import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 export function getCardTypeIcon(type: CardType) {
   switch (type) {
     case "note":
-      return <FileText className="size-3.5 text-blue-400" />;
+      return <CgNotes className="size-3.5 text-blue-400" />;
     case "pdf":
       return <File className="size-3.5 text-red-400" />;
     case "flashcard":
@@ -36,7 +36,7 @@ export function getCardTypeIcon(type: CardType) {
     case "audio":
       return <Mic className="size-3.5 text-orange-400" />;
     default:
-      return <FileText className="size-3.5 text-muted-foreground" />;
+      return <CgNotes className="size-3.5 text-muted-foreground" />;
   }
 }
 

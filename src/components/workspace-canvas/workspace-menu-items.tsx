@@ -1,7 +1,8 @@
 "use client";
 
 import type React from "react";
-import { FileText, Folder, Upload, Play, Brain, Mic, Newspaper } from "lucide-react";
+import { Folder, Upload, Play, Brain, Mic, Globe } from "lucide-react";
+import { CgNotes } from "react-icons/cg";
 import { LuBook } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
@@ -60,7 +61,7 @@ export function renderWorkspaceMenuItems({
         onSelect={callbacks.onCreateNote}
         className="flex items-center gap-2 cursor-pointer"
       >
-        <FileText className="size-4" />
+        <CgNotes className="size-4" />
         Note
       </MenuItem>
 
@@ -108,7 +109,7 @@ export function renderWorkspaceMenuItems({
         onSelect={callbacks.onWebsite}
         className="flex items-center gap-2 cursor-pointer"
       >
-        <Newspaper className="size-4" />
+        <Globe className="size-4" />
         Website
       </MenuItem>
 

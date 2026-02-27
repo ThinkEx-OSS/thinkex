@@ -26,7 +26,7 @@ import { SwatchesPicker, ColorResult } from "react-color";
 import { SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
 import { validateImportedJSON, generateImportPreview, type ValidationResult } from "@/lib/workspace/import-validation";
 import { Textarea } from "@/components/ui/textarea";
-import { Upload, FileText } from "lucide-react";
+import { Upload } from "lucide-react";
 import type { AgentState } from "@/lib/workspace-state/types";
 
 

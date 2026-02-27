@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { X, FileText, Highlighter, CheckIcon, Plus } from "lucide-react";
+import { X, Highlighter, CheckIcon, Plus } from "lucide-react";
+import { CgNotes } from "react-icons/cg";
 import { FaQuoteRight } from "react-icons/fa6";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -863,7 +864,7 @@ export default function AssistantTextSelectionManager({
     {
       id: "note",
       label: "Note",
-      icon: <FileText size={16} />,
+      icon: <CgNotes size={16} />,
       colorClass: "bg-green-600 hover:bg-green-700",
       onClick: handleCreateNote,
     },

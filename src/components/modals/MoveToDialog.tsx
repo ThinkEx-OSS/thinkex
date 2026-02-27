@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { ChevronRight, Folder as FolderIcon, FolderOpen, Check, FileText, File, Play, Brain, ImageIcon, Mic } from "lucide-react";
+import { ChevronRight, Folder as FolderIcon, FolderOpen, Check, File, Play, Brain, ImageIcon, Mic } from "lucide-react";
+import { CgNotes } from "react-icons/cg";
 import { PiCardsThreeBold } from "react-icons/pi";
 import {
   Dialog,
@@ -25,7 +26,7 @@ import { IconRenderer } from "@/hooks/use-icon-picker";
 function getCardTypeIcon(type: CardType) {
   switch (type) {
     case "note":
-      return <FileText className="size-3.5 text-blue-400" />;
+      return <CgNotes className="size-3.5 text-blue-400" />;
     case "pdf":
       return <File className="size-3.5 text-red-400" />;
     case "flashcard":
@@ -39,7 +40,7 @@ function getCardTypeIcon(type: CardType) {
     case "audio":
       return <Mic className="size-3.5 text-orange-400" />;
     default:
-      return <FileText className="size-3.5 text-muted-foreground" />;
+      return <CgNotes className="size-3.5 text-muted-foreground" />;
   }
 }
 

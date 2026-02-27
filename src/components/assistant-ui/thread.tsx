@@ -11,7 +11,6 @@ import {
   CopyIcon,
   CornerDownRight,
   File as FileIcon,
-  FileText,
   PencilIcon,
   PlusSquareIcon,
   RefreshCwIcon,
@@ -28,6 +27,7 @@ import { FaQuoteLeft, FaWandMagicSparkles, FaCheck } from "react-icons/fa6";
 import { LuSparkle } from "react-icons/lu";
 import { SiClaude, SiOpenai } from "react-icons/si";
 import { PiCardsThreeBold } from "react-icons/pi";
+import { CgNotes } from "react-icons/cg";
 import { cn } from "@/lib/utils";
 import {
   ActionBarPrimitive,
@@ -382,7 +382,7 @@ const SUGGESTION_ACTIONS = [
   },
   {
     title: "Note",
-    icon: FileText,
+    icon: CgNotes,
     iconClassName: "size-4 shrink-0 text-blue-400",
     action: "note" as PromptBuilderAction,
     useDialog: true,
@@ -462,7 +462,7 @@ const COMPOSER_FLOATING_ACTIONS = [
   {
     id: "note",
     label: "Note",
-    icon: FileText,
+    icon: CgNotes,
     iconClassName: "size-3.5 shrink-0 text-blue-400",
     action: "note" as PromptBuilderAction,
     useDialog: true,
@@ -1302,7 +1302,7 @@ const AssistantActionBar: FC = () => {
           disabled={isCreating}
           className="!px-1 gap-1 h-6 text-xs font-medium hover:bg-sidebar-accent"
         >
-          <FileText className={cn("h-3 w-3", isCreating && "animate-pulse")} />
+          <CgNotes className={cn("h-3 w-3", isCreating && "animate-pulse")} />
           <span>Save as Note</span>
         </Button>
       )}

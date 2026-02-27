@@ -1,7 +1,8 @@
 "use client";
 
 import { memo, useMemo, useCallback, useState, useEffect, useRef } from "react";
-import { ChevronRight, FileText, File, FolderOpen, Folder as FolderIcon, MoreVertical, Trash2, Pencil, FolderInput, Play, Brain, ImageIcon, Mic } from "lucide-react";
+import { ChevronRight, File, FolderOpen, Folder as FolderIcon, MoreVertical, Trash2, Pencil, FolderInput, Play, Brain, ImageIcon, Mic } from "lucide-react";
+import { CgNotes } from "react-icons/cg";
 import { PiCardsThreeBold } from "react-icons/pi";
 import {
     SidebarMenu,
@@ -48,7 +49,7 @@ import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 function getCardTypeIcon(type: CardType) {
     switch (type) {
         case "note":
-            return <FileText className="size-3.5 text-blue-400" />;
+            return <CgNotes className="size-3.5 text-blue-400" />;
         case "pdf":
             return <File className="size-3.5 text-red-400" />;
         case "flashcard":
@@ -64,7 +65,7 @@ function getCardTypeIcon(type: CardType) {
         case "audio":
             return <Mic className="size-3.5 text-orange-400" />;
         default:
-            return <FileText className="size-3.5 text-muted-foreground" />;
+            return <CgNotes className="size-3.5 text-muted-foreground" />;
     }
 }
 

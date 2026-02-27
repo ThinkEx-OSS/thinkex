@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Clock, User, Undo2, Calendar, Camera, FolderPlus, Plus, Pencil, Trash2, FileText, RefreshCw, Folder, FolderInput } from "lucide-react";
+import { Clock, User, Undo2, Calendar, Camera, FolderPlus, Plus, Pencil, Trash2, RefreshCw, Folder, FolderInput } from "lucide-react";
+import { CgNotes } from "react-icons/cg";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/lib/auth-client";
@@ -21,7 +22,7 @@ function getEventIcon(event: WorkspaceEvent) {
       return <Trash2 className={`${iconClass} text-red-500`} />;
     case 'GLOBAL_TITLE_SET':
     case 'GLOBAL_DESCRIPTION_SET':
-      return <FileText className={`${iconClass} text-blue-500`} />;
+      return <CgNotes className={`${iconClass} text-blue-500`} />;
     case 'BULK_ITEMS_UPDATED': {
       if (event.payload.items) {
         const itemCount = event.payload.items.length;
@@ -48,7 +49,7 @@ function getEventIcon(event: WorkspaceEvent) {
     case 'FOLDER_CREATED_WITH_ITEMS':
       return <Folder className={`${iconClass} text-amber-500`} />;
     default:
-      return <FileText className={`${iconClass} text-muted-foreground`} />;
+      return <CgNotes className={`${iconClass} text-muted-foreground`} />;
   }
 }
 
