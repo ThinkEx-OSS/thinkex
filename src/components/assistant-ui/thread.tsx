@@ -504,8 +504,13 @@ interface ComposerHoverWrapperProps {
   items: Item[];
 }
 
+const FLOATING_MENU_HIDE_DELAY_MS = 400;
+const FLOATING_MENU_RETRIGGER_GRACE_MS = 2000;
+
 const ComposerHoverWrapper: FC<ComposerHoverWrapperProps> = ({ items }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const retriggerGraceEndRef = useRef<number>(0);
   const aui = useAui();
   const [dialogAction, setDialogAction] = useState<PromptBuilderAction | null>(null);
   const isThreadEmpty = useAuiState(({ thread }) => thread?.isEmpty ?? true);
@@ -520,12 +525,52 @@ const ComposerHoverWrapper: FC<ComposerHoverWrapperProps> = ({ items }) => {
     [aui]
   );
 
+  const handleMouseEnter = useCallback(() => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+    setIsHovered(true);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    hideTimeoutRef.current = setTimeout(() => {
+      setIsHovered(false);
+      retriggerGraceEndRef.current = Date.now() + FLOATING_MENU_RETRIGGER_GRACE_MS;
+    }, FLOATING_MENU_HIDE_DELAY_MS);
+  }, []);
+
+  const handleRetriggerZoneEnter = useCallback(() => {
+    if (Date.now() < retriggerGraceEndRef.current && !isThreadEmpty && !hasComposerText) {
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+        hideTimeoutRef.current = null;
+      }
+      setIsHovered(true);
+    }
+  }, [isThreadEmpty, hasComposerText]);
+
+  useEffect(() => {
+    return () => {
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+    };
+  }, []);
+
   return (
-    <div
-      className="relative"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
+    <div className="relative">
+      {/* Invisible retrigger zone - sibling above composer; re-shows menu if user enters within grace period after hide */}
+      <div
+        className="absolute bottom-full left-0 right-0 h-14 -mb-2 z-10"
+        onMouseEnter={handleRetriggerZoneEnter}
+        onMouseLeave={handleMouseLeave}
+        aria-hidden
+      />
+      {/* Composer + floating menu - main hover zone */}
+      <div
+        className="relative"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
       {/* Floating buttons - appear above composer on hover */}
       <div
         className={cn(
@@ -575,6 +620,7 @@ const ComposerHoverWrapper: FC<ComposerHoverWrapperProps> = ({ items }) => {
           items={items}
         />
       )}
+      </div>
     </div>
   );
 };
