@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { withApiLogging } from "@/lib/with-api-logging";
 
 export const maxDuration = 10;
 
@@ -12,7 +13,7 @@ export const maxDuration = 10;
  * The client sends only the filename/metadata (tiny JSON payload),
  * receives a signed URL, then uploads the file directly to Supabase.
  */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   try {
     // Get authenticated user from Better Auth
     const session = await auth.api.getSession({
@@ -115,3 +116,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withApiLogging(handlePOST);

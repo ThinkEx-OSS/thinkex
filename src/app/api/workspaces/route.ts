@@ -8,6 +8,7 @@ import { db, workspaces } from "@/lib/db/client";
 import { workspaceCollaborators } from "@/lib/db/schema";
 import { eq, desc, asc, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireAuthWithUserInfo, withErrorHandling } from "@/lib/api/workspace-helpers";
+import { withApiLogging } from "@/lib/with-api-logging";
 
 /**
  * GET /api/workspaces
@@ -133,7 +134,10 @@ async function handleGET() {
   return NextResponse.json({ workspaces: workspaceList });
 }
 
-export const GET = withErrorHandling(handleGET, "GET /api/workspaces");
+export const GET = withErrorHandling(
+  withApiLogging(handleGET),
+  "GET /api/workspaces"
+);
 
 
 /**
@@ -315,4 +319,7 @@ async function handlePOST(request: NextRequest) {
   }, { status: 201 });
 }
 
-export const POST = withErrorHandling(handlePOST, "POST /api/workspaces");
+export const POST = withErrorHandling(
+  withApiLogging(handlePOST),
+  "POST /api/workspaces"
+);

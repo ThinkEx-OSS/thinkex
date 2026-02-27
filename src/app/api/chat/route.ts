@@ -5,6 +5,7 @@ import { PostHog } from "posthog-node";
 import { withTracing } from "@posthog/ai";
 import type { UIMessage } from "ai";
 import { logger } from "@/lib/utils/logger";
+import { withApiLogging } from "@/lib/with-api-logging";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { createChatTools } from "@/lib/ai/tools";
@@ -165,7 +166,7 @@ function buildSystemPrompt(baseSystem: string, urlContextUrls: string[]): string
   return parts.join('');
 }
 
-export async function POST(req: Request) {
+async function handlePOST(req: Request) {
   let workspaceId: string | null = null;
   let activeFolderId: string | undefined;
 
@@ -392,3 +393,5 @@ export async function POST(req: Request) {
     });
   }
 }
+
+export const POST = withApiLogging(handlePOST);
