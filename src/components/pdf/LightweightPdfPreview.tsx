@@ -58,7 +58,7 @@ function PdfSnapshotRenderer({
     const [displayScale, setDisplayScale] = useState(1);
     const mountedRef = useRef(true);
 
-    // Read saved page (0-indexed) from localStorage
+    // Read saved page (0-indexed), zoom level, and scroll offset from localStorage
     const savedPageIndex = useMemo(() => {
         try {
             const storageKey = `${PDF_STATE_PREFIX}${encodeURIComponent(pdfSrc)}`;
@@ -73,6 +73,32 @@ function PdfSnapshotRenderer({
         }
         return 0;
     }, [pdfSrc, pageCount]);
+
+    const savedZoomLevel = useMemo(() => {
+        try {
+            const storageKey = `${PDF_STATE_PREFIX}${encodeURIComponent(pdfSrc)}`;
+            const raw = localStorage.getItem(storageKey);
+            if (raw) {
+                const saved = JSON.parse(raw);
+                return (typeof saved.zoomLevel === 'number' && saved.zoomLevel > 0) ? saved.zoomLevel : null;
+            }
+        } catch (e) { /* ignore */ }
+        return null;
+    }, [pdfSrc]);
+
+    const savedScrollOffset = useMemo(() => {
+        try {
+            const storageKey = `${PDF_STATE_PREFIX}${encodeURIComponent(pdfSrc)}`;
+            const raw = localStorage.getItem(storageKey);
+            if (raw) {
+                const saved = JSON.parse(raw);
+                if (typeof saved.scrollOffsetX === 'number' && typeof saved.scrollOffsetY === 'number') {
+                    return { x: saved.scrollOffsetX, y: saved.scrollOffsetY };
+                }
+            }
+        } catch (e) { /* ignore */ }
+        return null;
+    }, [pdfSrc]);
 
     const savedPageRef = useRef(savedPageIndex);
     savedPageRef.current = savedPageIndex;
@@ -90,7 +116,11 @@ function PdfSnapshotRenderer({
 
                 const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
                 const renderDpr = Math.min(dpr, 2);
-                const scale = 0.5 * renderDpr;
+                // Use saved zoom level for rendering scale, clamped to a reasonable range
+                const baseScale = savedZoomLevel != null
+                    ? Math.max(0.1, Math.min(savedZoomLevel, 4))
+                    : 0.5;
+                const scale = baseScale * renderDpr;
                 setDisplayScale(renderDpr);
 
                 const renderScope = renderCapability.forDocument(documentId);
@@ -236,7 +266,10 @@ function PdfSnapshotRenderer({
         <div className={`relative overflow-hidden bg-[#1a1a1a] flex justify-center ${className || ''}`}>
             <div
                 className="h-full"
-                style={{ transform: `translateY(-${pageTopOffset / displayScale}px)` }}
+                style={{
+                    transform: `translateY(-${pageTopOffset / displayScale}px)`,
+                    ...(savedScrollOffset ? { marginLeft: `-${savedScrollOffset.x}px` } : {}),
+                }}
             >
                 <img
                     src={imageUrl}
