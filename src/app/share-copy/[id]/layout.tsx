@@ -2,15 +2,14 @@ import { Metadata } from "next";
 import { db, workspaces } from "@/lib/db/client";
 import { eq } from "drizzle-orm";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
+import { seoConfig, getPageTitle, getFullImageUrl } from "@/lib/seo-config";
 
 type Props = {
     params: Promise<{ id: string }>;
     children: React.ReactNode;
 };
 
-export async function generateMetadata(
-    { params }: Props
-): Promise<Metadata> {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const { id } = await params;
 
     // Fetch workspace basic info
@@ -21,9 +20,20 @@ export async function generateMetadata(
         .limit(1);
 
     if (!workspace[0]) {
+        const notFoundTitle = "Workspace Not Found";
+        const notFoundDesc = "The shared workspace could not be found.";
         return {
-            title: "Workspace Not Found",
-            description: "The shared workspace could not be found.",
+            title: getPageTitle(notFoundTitle),
+            description: notFoundDesc,
+            openGraph: {
+                title: getPageTitle(notFoundTitle),
+                description: notFoundDesc,
+                url: `${seoConfig.siteUrl}/share-copy/${id}`,
+                siteName: seoConfig.siteName,
+                images: [{ url: getFullImageUrl(), width: 1200, height: 630, alt: notFoundTitle }],
+                type: "website",
+            },
+            twitter: { card: "summary_large_image", title: getPageTitle(notFoundTitle), description: notFoundDesc },
         };
     }
 
@@ -31,11 +41,28 @@ export async function generateMetadata(
     const state = await loadWorkspaceState(id);
 
     const title = state.globalTitle || workspace[0].name || "Untitled Workspace";
+    const sharedTitle = `Shared Workspace: ${title}`;
     const description = workspace[0].description || "View and import this shared ThinkEx workspace.";
+    const fullTitle = getPageTitle(sharedTitle);
+    const url = `${seoConfig.siteUrl}/share-copy/${id}`;
 
     return {
-        title: `Shared Workspace: ${title}`,
-        description: description,
+        title: fullTitle,
+        description,
+        openGraph: {
+            title: fullTitle,
+            description,
+            url,
+            siteName: seoConfig.siteName,
+            images: [{ url: getFullImageUrl(), width: 1200, height: 630, alt: sharedTitle }],
+            type: "website",
+        },
+        twitter: {
+            card: "summary_large_image",
+            title: fullTitle,
+            description,
+            images: [getFullImageUrl()],
+        },
     };
 }
 
