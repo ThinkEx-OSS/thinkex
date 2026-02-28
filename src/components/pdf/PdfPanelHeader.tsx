@@ -190,11 +190,11 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
         </>
     );
 
-    if (renderInPortal && portalTarget && portalRightTarget) {
+    if (renderInPortal && (portalTarget || portalRightTarget)) {
         return (
             <>
-                {createPortal(captureButtonContent, portalTarget)}
-                {createPortal(pdfOptionsDropdownContent, portalRightTarget)}
+                {portalTarget && createPortal(captureButtonContent, portalTarget)}
+                {portalRightTarget && createPortal(pdfOptionsDropdownContent, portalRightTarget)}
             </>
         );
     }
