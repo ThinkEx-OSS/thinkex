@@ -591,12 +591,20 @@ export function getNoteContentAsMarkdown(data: NoteData): string {
 
 /**
  * Formats note details with FULL content (no truncation)
+ * Includes sources (URLs) when present so the agent can consider them in responses.
  */
 function formatNoteDetailsFull(data: NoteData): string[] {
     const lines: string[] = [];
     const content = getNoteContentAsMarkdown(data);
     if (content) {
         lines.push(`   - Content:\n${content}`);
+    }
+    if (data.sources && data.sources.length > 0) {
+        lines.push("");
+        lines.push("   Sources:");
+        for (const s of data.sources) {
+            lines.push(`     - ${s.title || s.url} | ${s.url}`);
+        }
     }
     return lines;
 }
