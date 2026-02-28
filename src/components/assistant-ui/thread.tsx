@@ -112,7 +112,6 @@ import { DropdownMenuSeparator, DropdownMenuLabel, DropdownMenuSub, DropdownMenu
 import { useShallow } from "zustand/react/shallow";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
-import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useCreateCardFromMessage } from "@/hooks/ai/use-create-card-from-message";
 import { extractUrls, createUrlFile } from "@/lib/attachments/url-utils";
@@ -638,14 +637,10 @@ const Composer: FC<ComposerProps> = ({ items }) => {
   const clearBlockNoteSelection = useUIStore((state) => state.clearBlockNoteSelection);
   const selectedCardIdsArray = useUIStore(useShallow(selectSelectedCardIdsArray));
   const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
-  const queryClient = useQueryClient();
 
   // Get workspace state and operations for PDF card creation
   const { state: workspaceState } = useWorkspaceState(currentWorkspaceId);
   const operations = useWorkspaceOperations(currentWorkspaceId, workspaceState);
-
-  // Debounce refetch timeout map (similar to CreateNoteToolUI pattern)
-  const refetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Watch for thread changes to auto-focus composer (built-in assistant-ui behavior)
   const mainThreadId = useAuiState(({ threads }) => (threads as any)?.mainThreadId);
@@ -827,8 +822,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
   const processPdfAttachmentsInBackground = async (
     pdfAttachments: any[],
     workspaceId: string,
-    operations: any,
-    queryClient: any
+    operations: any
   ) => {
     try {
       // Upload all PDFs
@@ -869,13 +863,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
 
         // Create all PDF cards atomically in a single event
         operations.createItems(pdfCardDefinitions);
-
-        // Debounced refetch of workspace events
-        setTimeout(() => {
-          queryClient.refetchQueries({
-            queryKey: ["workspace", workspaceId, "events"],
-          });
-        }, 100);
 
         // Show success toast
         toast.success(`${validResults.length} PDF card${validResults.length === 1 ? '' : 's'} created`);
@@ -925,7 +912,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
 
         // Process PDFs in background - don't block message sending
         if (pdfAttachments.length > 0 && currentWorkspaceId) {
-          processPdfAttachmentsInBackground(pdfAttachments, currentWorkspaceId, operations, queryClient);
+          processPdfAttachmentsInBackground(pdfAttachments, currentWorkspaceId, operations);
         }
 
         // Get selected cards for context
