@@ -36,6 +36,7 @@ import { AnonymousSessionHandler, SidebarCoordinator } from "@/components/layout
 import { PdfEngineWrapper } from "@/components/pdf/PdfEngineWrapper";
 import WorkspaceSettingsModal from "@/components/workspace/WorkspaceSettingsModal";
 import ShareWorkspaceDialog from "@/components/workspace/ShareWorkspaceDialog";
+import { VersionHistoryDialog } from "@/components/workspace/VersionHistoryModal";
 import { WorkspaceInstructionModal } from "@/components/onboarding/WorkspaceInstructionModal";
 import { RealtimeProvider } from "@/contexts/RealtimeContext";
 import { toast } from "sonner";
@@ -138,6 +139,7 @@ function DashboardContent({
   // Workspace settings/share modals (lifted so header can open them)
   const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
   const [showWorkspaceShare, setShowWorkspaceShare] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [assistantThreadRunning, setAssistantThreadRunning] = useState<boolean | null>(null);
 
   const instructionModal = useWorkspaceInstructionModal({
@@ -442,7 +444,7 @@ function DashboardContent({
 
   const handleShowHistory = useCallback(() => {
     posthog.capture("version-history-viewed", { workspace_id: currentWorkspaceId });
-    setShowWorkspaceShare(true); // Open share dialog instead of dedicated history modal
+    setShowVersionHistory(true);
   }, [posthog, currentWorkspaceId]);
 
   // Build the split view layout element (for panel+panel mode only)
@@ -577,6 +579,7 @@ function DashboardContent({
               }}
               onOpenSettings={() => setShowWorkspaceSettings(true)}
               onOpenShare={() => setShowWorkspaceShare(true)}
+              onShowHistory={handleShowHistory}
               isItemPanelOpen={viewMode === 'workspace+panel' || viewMode === 'panel+panel'}
               activeItems={(() => {
                 // Collect active items from panels + maximized
@@ -698,10 +701,14 @@ function DashboardContent({
         workspace={currentWorkspace}
         open={showWorkspaceShare}
         onOpenChange={setShowWorkspaceShare}
-        showHistoryTab={true}
+      />
+      <VersionHistoryDialog
+        open={showVersionHistory}
+        onOpenChange={setShowVersionHistory}
         events={eventLog?.events || []}
         currentVersion={version}
         onRevertToVersion={revertToVersion}
+        items={currentWorkspace?.state?.items || []}
       />
     </PdfEngineWrapper>
   );

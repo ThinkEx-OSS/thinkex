@@ -2,15 +2,37 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Clock, User, Undo2, Calendar, Camera, FolderPlus, Plus, Pencil, Trash2, RefreshCw, Folder, FolderInput } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Clock, Undo2, Camera, FolderPlus, Plus, Pencil, Trash2, Folder, FolderInput } from "lucide-react";
 import { CgNotes } from "react-icons/cg";
+import { BsFillGrid1X2Fill } from "react-icons/bs";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/lib/auth-client";
 
+function formatItemType(type: string): string {
+  const map: Record<string, string> = {
+    pdf: "PDF",
+    youtube: "video",
+    flashcard: "flashcard",
+    note: "note",
+    folder: "folder",
+    quiz: "quiz",
+    image: "image",
+    audio: "audio",
+  };
+  return map[type] ?? type.charAt(0).toUpperCase() + type.slice(1);
+}
+
 
 function getEventIcon(event: WorkspaceEvent) {
-  const iconClass = "h-6 w-6 shrink-0";
+  const iconClass = "h-5 w-5 shrink-0";
   switch (event.type) {
     case 'WORKSPACE_CREATED':
       return <FolderPlus className={`${iconClass} text-amber-500`} />;
@@ -31,7 +53,7 @@ function getEventIcon(event: WorkspaceEvent) {
           return <Trash2 className={`${iconClass} text-red-500`} />;
         }
       }
-      return <RefreshCw className={`${iconClass} text-slate-500`} />;
+      return <BsFillGrid1X2Fill className={`${iconClass} text-slate-500`} />;
     }
     case 'BULK_ITEMS_CREATED':
       return <Plus className={`${iconClass} text-emerald-500`} />;
@@ -60,7 +82,7 @@ function getEventDescription(event: WorkspaceEvent, items?: any[]): string {
       return title ? `Created workspace "${title}"` : 'Workspace created';
     }
     case 'ITEM_CREATED':
-      return `Created ${event.payload.item.type}: "${event.payload.item.name}"`;
+      return `Created ${formatItemType(event.payload.item.type)}: "${event.payload.item.name}"`;
     case 'ITEM_UPDATED': {
       // Prefer name stored in event payload, then lookup from items
       const itemTitle = event.payload.name ?? items?.find(item => item.id === event.payload.id)?.name ?? `item ${event.payload.id}`;
@@ -86,21 +108,25 @@ function getEventDescription(event: WorkspaceEvent, items?: any[]): string {
         if (prevCount !== undefined && prevCount > itemCount) {
           const deletedCount = prevCount - itemCount;
           return deletedCount === 1
-            ? 'Deleted 1 card'
-            : `Deleted ${deletedCount} cards`;
+            ? 'Deleted 1 item'
+            : `Deleted ${deletedCount} items`;
         }
-        // Legacy format: show total items updated
-        return `Updated ${itemCount} item${itemCount === 1 ? '' : 's'} (layout change)`;
+        // Legacy format: show total items updated (resized/moved on canvas)
+        return itemCount === 1
+          ? 'Resized or moved 1 item'
+          : `Resized or moved ${itemCount} items`;
       }
       // New format (layoutUpdates): show number of items whose layout changed
       const updateCount = event.payload.layoutUpdates?.length ?? 0;
-      return `Updated ${updateCount} item${updateCount === 1 ? '' : 's'} (layout change)`;
+      return updateCount === 1
+        ? 'Resized or moved 1 item'
+        : `Resized or moved ${updateCount} items`;
     }
     case 'BULK_ITEMS_CREATED': {
       const itemCount = event.payload.items.length;
       if (itemCount === 1) {
         const item = event.payload.items[0];
-        return `Created ${item.type}: "${item.name}"`;
+        return `Created ${formatItemType(item.type)}: "${item.name}"`;
       } else {
         // Group by type for more descriptive message
         const typeCounts = event.payload.items.reduce((acc, item) => {
@@ -109,13 +135,15 @@ function getEventDescription(event: WorkspaceEvent, items?: any[]): string {
         }, {} as Record<string, number>);
 
         const typeStrings = Object.entries(typeCounts).map(([type, count]) => {
-          return count === 1 ? `1 ${type}` : `${count} ${type}s`;
+          const label = formatItemType(type);
+          return count === 1 ? `1 ${label}` : `${count} ${label}s`;
         });
 
         if (typeStrings.length === 1) {
-          return `Created ${itemCount} ${event.payload.items[0].type}${itemCount === 1 ? '' : 's'}`;
+          const label = formatItemType(event.payload.items[0].type);
+          return `Created ${itemCount} ${label}${itemCount === 1 ? '' : 's'}`;
         } else {
-          return `Created ${itemCount} cards (${typeStrings.join(', ')})`;
+          return `Created ${itemCount} items (${typeStrings.join(', ')})`;
         }
       }
     }
@@ -256,15 +284,15 @@ export function VersionHistoryContent({
 
   return (
     <>
-      <div className="space-y-2">
+      <div className="min-w-0 space-y-1.5">
           {reversedEvents.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
               <Clock className="h-12 w-12 mb-3 opacity-20" />
               <p>No history yet</p>
               <p className="text-sm">Events will appear as you make changes</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-1.5">
               {reversedEvents.map((event) => {
                 const eventVersion = event.version ?? 0;
 
@@ -274,40 +302,32 @@ export function VersionHistoryContent({
                   <div
                     key={event.id}
                     className={cn(
-                      "group relative rounded-lg border p-4 hover:bg-accent/50 transition-colors",
+                      "group relative overflow-hidden rounded-lg border p-3 hover:bg-accent/50 transition-colors",
                       eventVersion === currentVersion && "bg-blue-500/10 border-blue-500/30 ring-1 ring-blue-500/20",
                       isWorkspaceCreated && "bg-amber-500/5 border-amber-500/20"
                     )}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5 flex items-center justify-center w-8 shrink-0">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex items-center justify-center w-6 shrink-0">
                         {getEventIcon(event)}
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-sm">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm font-medium min-w-0 truncate">
                             {getEventDescription(event, items)}
                           </span>
                           {eventVersion === currentVersion && (
-                            <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded">
+                            <span className="shrink-0 text-xs font-medium bg-blue-600 text-white px-2 py-0.5 rounded">
                               Current
                             </span>
                           )}
                         </div>
-
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {formatTime(event.timestamp)}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            {getUserDisplayName(event)}
-                          </span>
-                          <span className="text-muted-foreground/60">
-                            v{eventVersion}
-                          </span>
+                        <div className="flex items-center gap-2.5 text-xs text-muted-foreground mt-0.5">
+                          <span>{formatTime(event.timestamp)}</span>
+                          <span>·</span>
+                          <span className="truncate">{getUserDisplayName(event)}</span>
+                          <span className="text-muted-foreground/60 shrink-0">v{eventVersion}</span>
                         </div>
                       </div>
 
@@ -320,7 +340,7 @@ export function VersionHistoryContent({
                               disabled={isReverting}
                               onClick={() => handleRevert(eventVersion)}
                             >
-                              {isReverting ? "Reverting..." : "Revert"}
+                              {isReverting ? "Reverting…" : "Revert"}
                             </Button>
                             <Button
                               size="sm"
@@ -335,7 +355,7 @@ export function VersionHistoryContent({
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                             onClick={() => setConfirmingVersion(eventVersion)}
                           >
                             <Undo2 className="h-4 w-4 mr-1" />
@@ -354,3 +374,44 @@ export function VersionHistoryContent({
   );
 }
 
+export interface VersionHistoryDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  events: WorkspaceEvent[];
+  currentVersion: number;
+  onRevertToVersion: (version: number) => Promise<void>;
+  items?: any[];
+}
+
+export function VersionHistoryDialog({
+  open,
+  onOpenChange,
+  events,
+  currentVersion,
+  onRevertToVersion,
+  items = [],
+}: VersionHistoryDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg border backdrop-blur-2xl shadow-2xl">
+        <DialogHeader>
+          <DialogTitle>Version History</DialogTitle>
+          <DialogDescription>
+            Recent changes only. Click Revert to restore to a previous version.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="min-w-0 space-y-4">
+          <div className="max-h-[400px] min-w-0 overflow-y-auto overflow-x-hidden pr-2">
+            <VersionHistoryContent
+              events={events}
+              currentVersion={currentVersion}
+              onRevertToVersion={onRevertToVersion}
+              onClose={() => onOpenChange(false)}
+              items={items}
+            />
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Mail, Trash2, Loader2, History, Share2, Copy, Check } from "lucide-react";
+import { Mail, Trash2, Loader2, Share2, Copy, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,9 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
-import type { WorkspaceEvent } from "@/lib/workspace/events";
 import { useSession } from "@/lib/auth-client";
-import { VersionHistoryContent } from "@/components/workspace/VersionHistoryModal";
 
 interface Collaborator {
   id: string;
@@ -60,11 +58,6 @@ interface ShareWorkspaceDialogProps {
   workspaceIds?: string[]; // For bulk selection
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  // Version history props (optional, only for workspace routes)
-  showHistoryTab?: boolean;
-  events?: WorkspaceEvent[];
-  currentVersion?: number;
-  onRevertToVersion?: (version: number) => Promise<void>;
 }
 
 export default function ShareWorkspaceDialog({
@@ -72,14 +65,9 @@ export default function ShareWorkspaceDialog({
   workspaceIds,
   open,
   onOpenChange,
-  showHistoryTab = false,
-  events = [],
-  currentVersion = 0,
-  onRevertToVersion,
 }: ShareWorkspaceDialogProps) {
   const { data: session } = useSession();
   const isAnonymous = session?.user?.isAnonymous ?? false;
-  const [showHistory, setShowHistory] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [invitePermission, setInvitePermission] = useState<"viewer" | "editor">("editor");
   const [isInviting, setIsInviting] = useState(false);
@@ -123,7 +111,6 @@ export default function ShareWorkspaceDialog({
       }
     }
     if (open) {
-      setShowHistory(false);
       if (!isAnonymous) {
         loadFrequentCollaborators();
       } else {
@@ -133,7 +120,7 @@ export default function ShareWorkspaceDialog({
   }, [workspace, open, isBulk, isAnonymous]);
 
   useEffect(() => {
-    if (workspace && open && !isBulk && canInvite && !showHistory) {
+    if (workspace && open && !isBulk && canInvite) {
       setIsLoadingShareLink(true);
       setShareLinkUrl("");
       fetch(`/api/workspaces/${workspace.id}/share-link`, { method: "POST" })
@@ -146,7 +133,7 @@ export default function ShareWorkspaceDialog({
     } else {
       setShareLinkUrl("");
     }
-  }, [workspace, open, isBulk, canInvite, showHistory]);
+  }, [workspace, open, isBulk, canInvite]);
 
   const loadCollaborators = async () => {
     if (!workspace || isBulk) return;
@@ -395,9 +382,7 @@ export default function ShareWorkspaceDialog({
 
   const dialogTitle = isBulk
     ? `Share ${workspaceIds?.length} Workspaces`
-    : showHistory
-      ? "Version History"
-      : "Work together in real-time";
+    : "Work together in real-time";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -410,44 +395,12 @@ export default function ShareWorkspaceDialog({
       >
         <DialogHeader className="flex flex-row items-center justify-between gap-4 pr-12">
           <DialogTitle className="flex-1 min-w-0 truncate">{dialogTitle}</DialogTitle>
-          {!isBulk && showHistoryTab && (
-            <Button
-              variant={showHistory ? "secondary" : "ghost"}
-              size="sm"
-              className="h-8 gap-1.5 shrink-0"
-              onClick={() => setShowHistory(!showHistory)}
-            >
-              {showHistory ? (
-                <>
-                  <Share2 className="h-4 w-4" />
-                  Share
-                </>
-              ) : (
-                <>
-                  <History className="h-4 w-4" />
-                  Version history
-                </>
-              )}
-            </Button>
-          )}
         </DialogHeader>
         {isBulk && (
           <DialogDescription>Invite collaborators to all selected workspaces at once.</DialogDescription>
         )}
 
-        <div className="space-y-4">
-          {showHistory ? (
-            !isBulk && showHistoryTab && (
-              <div className="max-h-[400px] overflow-y-auto pr-2">
-                <VersionHistoryContent
-                  events={events}
-                  currentVersion={currentVersion || 0}
-                  onRevertToVersion={onRevertToVersion || (async () => { })}
-                  items={workspace?.state?.items || []}
-                />
-              </div>
-            )
-          ) : (
+        <div className="min-w-0 space-y-4">
             <div className="space-y-4">
               {isAnonymous && (
                 <div className="rounded-lg border bg-muted/50 p-3">
@@ -667,10 +620,9 @@ export default function ShareWorkspaceDialog({
                 </div>
               )}
             </div>
-          )}
         </div>
 
-        {!isBulk && canInvite && !showHistory && (
+        {!isBulk && canInvite && (
           <DialogFooter className="flex-col gap-3 sm:flex-row sm:items-end sm:gap-4 pt-4 border-t">
             <div className="flex flex-col gap-2 w-full">
               <p className="text-sm text-muted-foreground">Or, send a link to invite someone</p>

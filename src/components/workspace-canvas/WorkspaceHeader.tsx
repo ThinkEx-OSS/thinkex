@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Search, X, ChevronDown, FolderOpen, Plus, Upload, Folder as FolderIcon, Settings, Share2, Play, Brain, File, ImageIcon, Mic, PanelRight } from "lucide-react";
 import { CgNotes } from "react-icons/cg";
-import { LuBook, LuPanelLeftOpen } from "react-icons/lu";
+import { LuBook, LuCalendar, LuPanelLeftOpen } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -877,6 +877,27 @@ export function WorkspaceHeader({
               >
                 Share
               </Button>
+            )}
+
+            {/* Version History Button - hidden in compact mode */}
+            {!isCompactMode && onShowHistory && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={onShowHistory}
+                    className={cn(
+                      "h-8 w-8 flex items-center justify-center rounded-md transition-colors pointer-events-auto cursor-pointer",
+                      "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent"
+                    )}
+                    aria-label="Version history"
+                  >
+                    <LuCalendar className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  Version history
+                </TooltipContent>
+              </Tooltip>
             )}
 
             {/* Search Input */}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { MoreVertical, LogOut, Layers, User, Mail, Play, Users, Globe, Plus, Upload, Tag } from "lucide-react";
+import { MoreVertical, LogOut, Layers, User, Play, Users, Globe, Plus, Upload, Tag } from "lucide-react";
 import { useState, useCallback, memo } from "react";
 import { useSession, signOut } from "@/lib/auth-client";
 import { useRouter, usePathname } from "next/navigation";
@@ -380,17 +380,9 @@ function WorkspaceSidebar({
                   </DropdownMenu>
                 </div>
 
-                {/* Theme toggle & Support button */}
+                {/* Theme toggle */}
                 <div className="flex items-center gap-1.5 group-data-[collapsible=icon]:hidden">
                   <ThemeToggle />
-                  <SidebarMenuButton
-                    size="default"
-                    id="posthog-feedback-button"
-                    className="px-2 py-2 cursor-pointer gap-2"
-                  >
-                    <Mail className="h-5 w-5" />
-                    <span>Give feedback</span>
-                  </SidebarMenuButton>
                 </div>
               </div>
             </SidebarMenuItem>
