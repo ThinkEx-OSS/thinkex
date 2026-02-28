@@ -814,7 +814,7 @@ export function WorkspaceHeader({
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer px-3"
+                  className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer px-2"
                   aria-label="Open split view"
                   onClick={() => {
                     // Get the first active item and open it in panel mode (workspace+panel)
@@ -834,6 +834,8 @@ export function WorkspaceHeader({
                 Show workspace alongside this panel
               </TooltipContent>
             </Tooltip>
+
+            <div id="workspace-header-portal-right" className="flex items-center gap-2" />
 
             {/* Close Button */}
             <Tooltip>

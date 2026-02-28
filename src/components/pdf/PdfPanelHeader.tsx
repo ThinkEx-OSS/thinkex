@@ -64,11 +64,15 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
 
     const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 
+    const [portalRightTarget, setPortalRightTarget] = useState<HTMLElement | null>(null);
+
     useEffect(() => {
         if (renderInPortal) {
             setPortalTarget(document.getElementById("workspace-header-portal"));
+            setPortalRightTarget(document.getElementById("workspace-header-portal-right"));
         } else {
             setPortalTarget(null);
+            setPortalRightTarget(null);
         }
     }, [renderInPortal]);
     const { provides: zoomProvides, state: zoomState } = useZoom(documentId);
@@ -133,61 +137,64 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
 
 
 
+    const captureButtonContent = (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <button
+                    type="button"
+                    onClick={() => capture?.toggleMarqueeCapture()}
+                    className={captureState.isMarqueeCaptureActive ? "inline-flex h-8 w-8 items-center justify-center rounded-md bg-blue-600 text-white transition-colors cursor-pointer border border-blue-600" : buttonClass}
+                >
+                    <Camera className={iconClass} />
+                </button>
+            </TooltipTrigger>
+            <TooltipContent>{captureState.isMarqueeCaptureActive ? "Cancel Capture" : "Capture Area"}</TooltipContent>
+        </Tooltip>
+    );
+
+    const pdfOptionsDropdownContent = (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <button className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer border border-sidebar-border">
+                    <MoreHorizontal className="h-4 w-4" />
+                </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem onClick={onToggleThumbnails}>
+                    <LuLayoutList className="mr-2 h-4 w-4" />
+                    Thumbnail
+                </DropdownMenuItem>
+                {exportProvider && (
+                    <DropdownMenuItem onClick={() => exportProvider.download()}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Download PDF
+                    </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => zoomProvides?.requestZoom(ZoomMode.FitWidth)}>
+                    <Expand className="mr-2 h-4 w-4" />
+                    Fit to Width
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => rotateProvider?.rotateBackward()}>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Rotate Left
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+
     const controlsContent = (
         <>
-            {/* Capture Button */}
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <button
-                        type="button"
-                        onClick={() => capture?.toggleMarqueeCapture()}
-                        className={captureState.isMarqueeCaptureActive ? "inline-flex h-8 w-8 items-center justify-center rounded-md bg-blue-600 text-white transition-colors cursor-pointer border border-blue-600" : buttonClass}
-                    >
-                        <Camera className={iconClass} />
-                    </button>
-                </TooltipTrigger>
-                <TooltipContent>{captureState.isMarqueeCaptureActive ? "Cancel Capture" : "Capture Area"}</TooltipContent>
-            </Tooltip>
-
-            {/* PDF Options Dropdown */}
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <button className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer border border-sidebar-border">
-                        <MoreHorizontal className="h-4 w-4" />
-                    </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem onClick={onToggleThumbnails}>
-                        <LuLayoutList className="mr-2 h-4 w-4" />
-                        Thumbnail
-                    </DropdownMenuItem>
-                    {exportProvider && (
-                        <DropdownMenuItem onClick={() => exportProvider.download()}>
-                            <Download className="mr-2 h-4 w-4" />
-                            Download PDF
-                        </DropdownMenuItem>
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => zoomProvides?.requestZoom(ZoomMode.FitWidth)}>
-                        <Expand className="mr-2 h-4 w-4" />
-                        Fit to Width
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => rotateProvider?.rotateBackward()}>
-                        <RotateCcw className="mr-2 h-4 w-4" />
-                        Rotate Left
-                    </DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
+            {captureButtonContent}
+            {pdfOptionsDropdownContent}
         </>
     );
 
-
-
-    if (renderInPortal && portalTarget) {
+    if (renderInPortal && portalTarget && portalRightTarget) {
         return (
             <>
-                {createPortal(controlsContent, portalTarget)}
-
+                {createPortal(captureButtonContent, portalTarget)}
+                {createPortal(pdfOptionsDropdownContent, portalRightTarget)}
             </>
         );
     }
