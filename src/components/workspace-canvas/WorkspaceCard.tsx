@@ -1120,16 +1120,6 @@ function WorkspaceCard({
       {/* Right-Click Context Menu */}
       <ContextMenuContent className="w-48">
 
-        {/* Split View Actions */}
-
-        {viewMode === 'workspace+panel' && !openPanelIds.includes(item.id) && (
-          <ContextMenuItem onSelect={() => splitWithItem(item.id)}>
-            <SplitSquareHorizontal className="mr-2 h-4 w-4" />
-            <span>Double Panel</span>
-          </ContextMenuItem>
-        )}
-        <ContextMenuSeparator />
-
         <ContextMenuItem onSelect={() => setShowRenameDialog(true)}>
           <Pencil className="mr-2 h-4 w-4" />
           <span>Rename</span>
