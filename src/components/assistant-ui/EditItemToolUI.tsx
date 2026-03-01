@@ -18,6 +18,7 @@ import { ToolUIErrorShell } from "@/components/assistant-ui/tool-ui-error-shell"
 import { DiffViewer } from "@/components/assistant-ui/diff-viewer";
 import type { WorkspaceResult } from "@/lib/ai/tool-result-schemas";
 import { parseWorkspaceResult } from "@/lib/ai/tool-result-schemas";
+import type { Item } from "@/lib/workspace-state/types";
 
 type EditItemArgs = {
   itemName: string;
@@ -47,8 +48,8 @@ const EditItemReceipt = ({ args, result, status }: EditItemReceiptProps) => {
   const navigateToItem = useNavigateToItem();
 
   const card = useMemo(() => {
-    if (!result.itemId || !workspaceState?.items) return null;
-    return workspaceState.items.find((item: { id: string }) => item.id === result.itemId);
+    if (!result.itemId || !workspaceState?.items) return undefined;
+    return workspaceState.items.find((item: Item) => item.id === result.itemId);
   }, [result.itemId, workspaceState?.items]);
 
   const handleViewCard = () => {
@@ -149,7 +150,8 @@ export const EditItemToolUI = makeAssistantToolUI<EditItemArgs, WorkspaceResult>
     if (parsed?.success) {
       content = <EditItemReceipt args={args} result={parsed as EditItemResult} status={status} />;
     } else if (status.type === "running") {
-      content = <ToolUILoadingShell label="Editing..." />;
+      const itemName = args?.itemName;
+      content = <ToolUILoadingShell label={itemName ? `Editing "${itemName}"...` : "Editing..."} />;
     } else if (status.type === "complete" && parsed && !parsed.success) {
       content = <ToolUIErrorShell label="Failed to edit" message={parsed.message} />;
     } else if (status.type === "incomplete" && status.reason === "error") {

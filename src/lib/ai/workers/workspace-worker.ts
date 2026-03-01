@@ -1021,10 +1021,6 @@ export async function workspaceWorker(
                     }
 
                     const itemName = (changes.name ?? existingItem.name) as string;
-                    if (hasDuplicateName(currentState.items, itemName, existingItem.type, existingItem.folderId ?? null, params.itemId)) {
-                        return { success: false, message: `A ${existingItem.type} named "${itemName}" already exists in this folder` };
-                    }
-
                     const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: "agent", name: itemName }, userId);
                     const currentVersionResult = await db.execute(sql`
                         SELECT get_workspace_version(${params.workspaceId}::uuid) as version

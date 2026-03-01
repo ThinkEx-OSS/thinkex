@@ -21,8 +21,7 @@ import { initialState } from "@/lib/workspace-state/state";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import type { QuizResult } from "@/lib/ai/tool-result-schemas";
 import { parseQuizResult } from "@/lib/ai/tool-result-schemas";
-
-type CreateQuizArgs = Record<string, unknown>;
+import type { CreateQuizInput } from "@/lib/ai/tools/quiz-tools";
 
 interface CreateQuizReceiptProps {
     result: QuizResult;
@@ -42,12 +41,23 @@ const CreateQuizReceipt = ({ result, status, moveItemToFolder, allItems = [], wo
     // State for MoveToDialog
     const [showMoveDialog, setShowMoveDialog] = useState(false);
 
-    // Get the current item from workspace state
+    // Get the current item — try workspace state first, then allItems, then stub from result
     const currentItem = useMemo(() => {
         const targetId = result.itemId || result.quizId;
-        if (!targetId || !workspaceState?.items) return undefined;
-        return workspaceState.items.find((item: any) => item.id === targetId);
-    }, [result.itemId, result.quizId, workspaceState?.items]);
+        if (!targetId) return undefined;
+        const fromWorkspace = workspaceState?.items?.find((item: { id: string }) => item.id === targetId);
+        if (fromWorkspace) return fromWorkspace;
+        const fromAll = allItems.find((item: { id: string }) => item.id === targetId);
+        if (fromAll) return fromAll;
+        return {
+            id: targetId,
+            name: (result as { title?: string }).title ?? "Quiz",
+            type: "quiz" as const,
+            subtitle: "",
+            data: {},
+            folderId: undefined,
+        };
+    }, [result.itemId, result.quizId, result, workspaceState?.items, allItems]);
 
     // Get folder name if item is in a folder
     const folderName = useMemo(() => {
@@ -152,7 +162,7 @@ const CreateQuizReceipt = ({ result, status, moveItemToFolder, allItems = [], wo
     );
 };
 
-export const CreateQuizToolUI = makeAssistantToolUI<CreateQuizArgs, QuizResult>({
+export const CreateQuizToolUI = makeAssistantToolUI<CreateQuizInput, QuizResult>({
     toolName: "createQuiz",
     render: function CreateQuizUI({ args, result, status }) {
         const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);

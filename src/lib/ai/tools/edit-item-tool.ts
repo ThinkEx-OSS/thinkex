@@ -3,7 +3,8 @@ import { z } from "zod";
 import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
-import { loadStateForTool, resolveItem, getAvailableItemsList } from "./tool-utils";
+import { loadStateForTool, resolveItem } from "./tool-utils";
+import { getVirtualPath } from "@/lib/utils/virtual-workspace-fs";
 
 const EDITABLE_TYPES = ["note", "flashcard", "quiz"] as const;
 
@@ -112,6 +113,18 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                     };
                 }
 
+                const contentItems = state.items.filter((i) => i.type !== "folder");
+                const sameNameCandidates = contentItems.filter(
+                    (i) => i.name.toLowerCase().trim() === matchedItem.name.toLowerCase().trim()
+                );
+                if (sameNameCandidates.length > 1) {
+                    const paths = sameNameCandidates.map((c) => getVirtualPath(c, state.items)).join(", ");
+                    return {
+                        success: false,
+                        message: `Multiple items named "${matchedItem.name}". Disambiguate using path: ${paths}`,
+                    };
+                }
+
                 if (!EDITABLE_TYPES.includes(matchedItem.type as (typeof EDITABLE_TYPES)[number])) {
                     return {
                         success: false,
@@ -141,7 +154,7 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                 if (workerResult.success) {
                     return {
                         ...workerResult,
-                        itemName: matchedItem.name,
+                        itemName: newName ?? matchedItem.name,
                     };
                 }
 

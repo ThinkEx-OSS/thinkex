@@ -9,17 +9,31 @@ import { tool, zodSchema } from "ai";
 import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
-import type { QuizData, QuizQuestion } from "@/lib/workspace-state/types";
+import type { QuizQuestion } from "@/lib/workspace-state/types";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 
-const QuizQuestionSchema = z.object({
-    type: z.enum(["multiple_choice", "true_false"]),
-    questionText: z.string(),
-    options: z.array(z.string()).describe("4 options for multiple_choice, ['True','False'] for true_false"),
-    correctIndex: z.number().describe("0-based index of correct answer in options array"),
-    hint: z.string().optional(),
-    explanation: z.string(),
+export const QuizQuestionSchema = z
+    .object({
+        type: z.enum(["multiple_choice", "true_false"]),
+        questionText: z.string(),
+        options: z.array(z.string()).describe("4 options for multiple_choice, ['True','False'] for true_false"),
+        correctIndex: z.number().int().min(0).describe("0-based index of correct answer in options array"),
+        hint: z.string().optional(),
+        explanation: z.string(),
+    })
+    .refine(
+        (q) => {
+            const requiredCount = q.type === "true_false" ? 2 : 4;
+            return q.options.length === requiredCount && q.correctIndex < q.options.length;
+        },
+        { message: "multiple_choice needs 4 options; true_false needs 2; correctIndex must be < options.length" }
+    );
+
+const CreateQuizInputSchema = z.object({
+    title: z.string().nullish().describe("Short descriptive title for the quiz (defaults to 'Quiz' if not provided)"),
+    questions: z.array(QuizQuestionSchema).min(1).max(50).describe("Array of quiz questions. For multiple_choice: 4 options, 1 correct. For true_false: options ['True','False'], correctIndex 0=True 1=False."),
 });
+export type CreateQuizInput = z.infer<typeof CreateQuizInputSchema>;
 
 /**
  * Create the createQuiz tool - AI generates questions directly (like createFlashcards)
@@ -27,13 +41,8 @@ const QuizQuestionSchema = z.object({
 export function createQuizTool(ctx: WorkspaceToolContext) {
     return tool({
         description: "Create an interactive quiz.",
-        inputSchema: zodSchema(
-            z.object({
-                title: z.string().nullable().describe("Short descriptive title for the quiz (defaults to 'Quiz' if not provided)"),
-                questions: z.array(QuizQuestionSchema).min(1).max(50).describe("Array of quiz questions. For multiple_choice: 4 options, 1 correct. For true_false: options ['True','False'], correctIndex 0=True 1=False."),
-            })
-        ),
-        execute: async (input: { title?: string | null; questions: Array<{ type: "multiple_choice" | "true_false"; questionText: string; options: string[]; correctIndex: number; hint?: string; explanation: string }> }) => {
+        inputSchema: zodSchema(CreateQuizInputSchema),
+        execute: async (input: CreateQuizInput) => {
             const title = input.title || "Quiz";
             const rawQuestions = input.questions || [];
 
@@ -56,8 +65,8 @@ export function createQuizTool(ctx: WorkspaceToolContext) {
                     id: generateItemId(),
                     type: q.type,
                     questionText: q.questionText,
-                    options: q.options || [],
-                    correctIndex: q.correctIndex ?? 0,
+                    options: q.options,
+                    correctIndex: q.correctIndex,
                     hint: q.hint,
                     explanation: q.explanation || "No explanation provided.",
                 }));
