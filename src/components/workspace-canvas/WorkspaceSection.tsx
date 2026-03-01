@@ -51,6 +51,7 @@ import { UploadDialog } from "@/components/modals/UploadDialog";
 import { AudioRecordingIndicator } from "./AudioRecordingIndicator";
 import { getBestFrameForRatio } from "@/lib/workspace-state/aspect-ratios";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
+import { filterItemIdsForFolderCreation } from "@/lib/workspace-state/search";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
 import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
@@ -433,9 +434,21 @@ export function WorkspaceSection({
       return;
     }
 
+    // Prevent cycles: exclude active folder and its ancestors from selection
+    // (e.g. when searching, user could select the active folder or a parent folder)
+    const safeItemIds = filterItemIdsForFolderCreation(
+      selectedCardIdsArray,
+      activeFolderId,
+      state.items ?? []
+    );
+
+    if (safeItemIds.length === 0) {
+      toast.error("Cannot create folder: the current folder or its parent folders cannot be moved into a new folder. Deselect them and try again.");
+      return;
+    }
+
     // Create folder with items atomically in a single event
-    // This ensures the folder is created and items are moved in one operation
-    const folderId = operations.createFolderWithItems("New Folder", selectedCardIdsArray);
+    const folderId = operations.createFolderWithItems("New Folder", safeItemIds);
 
     // Clear the selection
     clearCardSelection();

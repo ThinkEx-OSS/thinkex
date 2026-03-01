@@ -190,25 +190,44 @@ async function handlePOST(
             .returning();
 
         // Send standard invitation email
+        const normalizedEmail = email.trim().toLowerCase();
+        const idempotencyKey = `invite-collab-${workspaceId}-${normalizedEmail}`;
         try {
-            // Use slug if available, otherwise fallback to id
             const identifier = ws.slug || workspaceId;
             const workspaceUrl = `https://thinkex.app/workspace/${identifier}`;
-            const { data, error } = await resend.emails.send({
-                from: 'ThinkEx <hello@thinkex.app>',
-                to: [email],
-                subject: `You've been invited to collaborate on ${ws.name || 'a workspace'}`,
-                react: InviteEmailTemplate({
-                    inviterName: currentUser.name || 'A user',
-                    workspaceName: ws.name || 'Workspace',
-                    workspaceUrl,
-                    permissionLevel,
-                }),
-
-            });
-            if (error) console.error("Failed to send invitation email:", error);
+            const { data, error } = await resend.emails.send(
+                {
+                    from: 'ThinkEx <hello@thinkex.app>',
+                    to: [email],
+                    subject: `You've been invited to collaborate on ${ws.name || 'a workspace'}`,
+                    react: InviteEmailTemplate({
+                        inviterName: currentUser.name || 'A user',
+                        workspaceName: ws.name || 'Workspace',
+                        workspaceUrl,
+                        permissionLevel,
+                    }),
+                },
+                { idempotencyKey }
+            );
+            if (error) {
+                console.error("Failed to send invitation email:", error);
+                return NextResponse.json(
+                    {
+                        collaborator: newCollaborator,
+                        warning: "Invite created but email failed to send. The collaborator was added successfully.",
+                    },
+                    { status: 201 }
+                );
+            }
         } catch (emailError) {
             console.error("Error sending invitation email:", emailError);
+            return NextResponse.json(
+                {
+                    collaborator: newCollaborator,
+                    warning: "Invite created but email failed to send. The collaborator was added successfully.",
+                },
+                { status: 201 }
+            );
         }
 
         return NextResponse.json({ collaborator: newCollaborator }, { status: 201 });
@@ -258,31 +277,37 @@ async function handlePOST(
     });
 
     // 3. Send Invite Email
+    const normalizedEmail = email.trim().toLowerCase();
+    const idempotencyKey = `invite-pending-${workspaceId}-${normalizedEmail}`;
+    let emailSent = false;
     try {
         const identifier = ws.slug || workspaceId;
-        // Append ?invite=token to the URL
         const workspaceUrl = `https://thinkex.app/workspace/${identifier}?invite=${token}`;
-
-        await resend.emails.send({
-            from: 'ThinkEx <hello@thinkex.app>',
-            to: [email],
-            subject: `You've been invited to collaborate on ${ws.name || 'a workspace'}`,
-            react: InviteEmailTemplate({
-                inviterName: currentUser.name || 'A user',
-                workspaceName: ws.name || 'Workspace',
-                workspaceUrl,
-            }),
-        });
+        const { error } = await resend.emails.send(
+            {
+                from: 'ThinkEx <hello@thinkex.app>',
+                to: [email],
+                subject: `You've been invited to collaborate on ${ws.name || 'a workspace'}`,
+                react: InviteEmailTemplate({
+                    inviterName: currentUser.name || 'A user',
+                    workspaceName: ws.name || 'Workspace',
+                    workspaceUrl,
+                }),
+            },
+            { idempotencyKey }
+        );
+        emailSent = !error;
+        if (error) console.error("Failed to send pending invitation email:", error);
     } catch (emailError) {
         console.error("Error sending pending invitation email:", emailError);
-        // We still return success as the invite was created
     }
 
     return NextResponse.json(
         {
             message: "Invitation sent to new user",
             pending: true,
-            email
+            email,
+            ...(emailSent ? {} : { warning: "Invite created but email failed to send. You may need to resend the invitation." }),
         },
         { status: 201 }
     );

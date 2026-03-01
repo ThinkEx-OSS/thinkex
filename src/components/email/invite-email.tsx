@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Html, Body } from '@react-email/components';
 
 const FONT =
     'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
@@ -22,15 +23,17 @@ export function InviteEmailTemplate({
     const roleText = permissionLevel === 'viewer' ? 'a Viewer' : 'an Editor';
 
     return (
-        <div style={{ backgroundColor: BG, margin: 0, padding: 0, width: '100%' }}>
-            <table
-                width="100%"
-                cellPadding={0}
-                cellSpacing={0}
-                style={{ borderCollapse: 'collapse' as const }}
-            >
-                <tr>
-                    <td align="center" style={{ padding: '40px 5%' }}>
+        <Html lang="en">
+            <Body style={{ backgroundColor: BG, margin: 0, padding: 0, width: '100%' }}>
+                <div style={{ backgroundColor: BG, margin: 0, padding: 0, width: '100%' }}>
+                    <table
+                        width="100%"
+                        cellPadding={0}
+                        cellSpacing={0}
+                        style={{ borderCollapse: 'collapse' as const }}
+                    >
+                        <tr>
+                            <td align="center" style={{ padding: '40px 5%' }}>
                         <table
                             cellPadding={0}
                             cellSpacing={0}
@@ -163,10 +166,12 @@ export function InviteEmailTemplate({
                                 </td>
                             </tr>
                         </table>
-                    </td>
-                </tr>
-            </table>
-        </div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </Body>
+        </Html>
     );
 }
 

@@ -25,18 +25,12 @@ function buildRegex(pattern: string): RegExp {
 export function createSearchWorkspaceTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Grep-like text search across workspace content (notes, flashcards, PDFs, quizzes, audio transcripts). Use when you need to find where a term or phrase appears. Pass the search pattern as `pattern` (plain text or regex).",
+            "Grep search across workspace (notes, flashcards, PDFs, quizzes, audio). Finds locations—use readWorkspace for full content. include: type filter (note, flashcard, pdf, quiz, audio). path: folder prefix or exact item path; for long items use exact path then readWorkspace(path, lineStart) on matches. Plain text or regex. Max 100 matches.",
         inputSchema: zodSchema(
             z.object({
-                pattern: z.string().describe("Search pattern (plain text or regex) — the term/phrase to find in workspace content"),
-                include: z
-                    .string()
-                    .optional()
-                    .describe('Filter by item type, e.g. "note", "flashcard", "pdf"'),
-                path: z
-                    .string()
-                    .optional()
-                    .describe("Virtual path prefix to scope search, e.g. Physics/ for items under Physics folder"),
+                pattern: z.string().describe("Search pattern (plain text or regex)"),
+                include: z.string().optional().describe('Item type: "note", "flashcard", "pdf", "quiz", "audio"'),
+                path: z.string().optional().describe("Folder prefix (Physics/) or exact item path (Physics/notes/File.md)"),
             })
         ),
         execute: async ({ pattern, include, path: pathPrefix }) => {

@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { createEvent } from "@/lib/workspace/events";
+import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 import type { PdfOcrResult } from "./fetch-and-ocr";
 
@@ -83,6 +84,7 @@ export async function persistPdfOcrResult(
   );
 
   await appendWorkspaceEvent(workspaceId, event);
+  checkAndCreateSnapshot(workspaceId).catch(() => {});
 }
 
 /**
@@ -114,4 +116,5 @@ export async function persistPdfOcrFailure(
   );
 
   await appendWorkspaceEvent(workspaceId, event);
+  checkAndCreateSnapshot(workspaceId).catch(() => {});
 }

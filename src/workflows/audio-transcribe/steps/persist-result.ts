@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { createEvent } from "@/lib/workspace/events";
+import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
 import type { TranscribeResult } from "./transcribe";
 
 /**
@@ -66,6 +67,7 @@ export async function persistAudioResult(
       );
     }
   }
+  checkAndCreateSnapshot(workspaceId).catch(() => {});
 }
 
 /**
@@ -128,4 +130,5 @@ export async function persistAudioFailure(
       );
     }
   }
+  checkAndCreateSnapshot(workspaceId).catch(() => {});
 }

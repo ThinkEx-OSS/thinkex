@@ -65,11 +65,14 @@ type WorkspaceEventBase =
   }
   | {
     type: 'BULK_ITEMS_UPDATED';
-    // Store only layout changes to minimize payload size (was storing full items array)
     payload: {
-      layoutUpdates: Array<{ id: string; x: number; y: number; w: number; h: number }>;
+      layoutUpdates?: Array<{ id: string; x: number; y: number; w: number; h: number }>;
       previousItemCount?: number;
-      // Legacy support: if items array is present, use it (for backwards compatibility)
+      /** IDs of items to delete – minimal payload for bulk delete (no item data sent) */
+      deletedIds?: string[];
+      /** New items to append – only the added items, not full list */
+      addedItems?: Item[];
+      /** @deprecated Legacy: full items array. Prefer deletedIds/addedItems. */
       items?: Item[];
     };
     timestamp: number;

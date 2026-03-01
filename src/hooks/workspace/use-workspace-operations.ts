@@ -15,6 +15,7 @@ import { useUIStore } from "@/lib/stores/ui-store";
 import { getLayoutForBreakpoint, findNextAvailablePosition } from "@/lib/workspace-state/grid-layout-helpers";
 import { useRealtimeContextOptional } from "@/contexts/RealtimeContext";
 import { hasDuplicateName, getNextUniqueDefaultName } from "@/lib/workspace/unique-name";
+import { filterItemIdsForFolderCreation } from "@/lib/workspace-state/search";
 
 /**
  * Return type for workspace operations
@@ -458,16 +459,30 @@ export function useWorkspaceOperations(
       }
 
       const previousItemCount = latestState.items.length;
+      const currentIds = new Set(latestState.items.map((i) => i.id));
+      const newIds = new Set(items.map((i) => i.id));
 
-      // Check if items were added or removed (e.g. bulk delete)
-      if (items.length !== previousItemCount) {
-        logger.debug("🔧 [BULK-UPDATE] Item count changed, using full update", { prev: previousItemCount, next: items.length });
-        const event = createEvent("BULK_ITEMS_UPDATED", {
-          layoutUpdates: [], // Not used when items is present
-          previousItemCount,
-          items // Send full items list for add/remove operations
-        }, userId, userName);
-        mutation.mutate(event);
+      // Send only what changed – no full item data (avoids huge payloads for textbooks)
+
+      // Count decreased: bulk delete – send only deletedIds
+      if (items.length < previousItemCount) {
+        const deletedIds = latestState.items
+          .filter((i) => !newIds.has(i.id))
+          .map((i) => i.id);
+        logger.debug("🔧 [BULK-UPDATE] Bulk delete, sending deletedIds only", { deletedIds });
+        mutation.mutate(
+          createEvent("BULK_ITEMS_UPDATED", { deletedIds, previousItemCount }, userId, userName)
+        );
+        return;
+      }
+
+      // Count increased: items added – send only the new items (typically 1–2)
+      if (items.length > previousItemCount) {
+        const addedItems = items.filter((i) => !currentIds.has(i.id));
+        logger.debug("🔧 [BULK-UPDATE] Items added, sending addedItems only", { count: addedItems.length });
+        mutation.mutate(
+          createEvent("BULK_ITEMS_UPDATED", { addedItems, previousItemCount }, userId, userName)
+        );
         return;
       }
 
@@ -534,12 +549,26 @@ export function useWorkspaceOperations(
 
   const createFolderWithItems = useCallback(
     (name: string, itemIds: string[], color?: CardColor): string => {
-      // Generate folder ID
-      const folderId = generateItemId();
-
       // Get active folder - auto-assign new folder to the currently viewed folder
       const activeFolderId = useUIStore.getState().activeFolderId;
-      logger.debug("📁 [FOLDER-CREATE-WITH-ITEMS] Active folder:", { activeFolderId });
+
+      // Prevent cycles: exclude active folder and its ancestors from selection
+      const safeItemIds = filterItemIdsForFolderCreation(
+        itemIds,
+        activeFolderId,
+        currentState.items ?? []
+      );
+
+      if (safeItemIds.length === 0) {
+        logger.warn("📁 [FOLDER-CREATE-WITH-ITEMS] No valid items after cycle filter, skipping");
+        toast.error("Cannot create folder: selected items would create a circular reference.");
+        return ""; // Return empty string since no folder was created
+      }
+
+      logger.debug("📁 [FOLDER-CREATE-WITH-ITEMS] Active folder:", { activeFolderId, safeItemIds });
+
+      // Generate folder ID
+      const folderId = generateItemId();
 
       const baseData = defaultDataFor('folder');
 
@@ -554,14 +583,14 @@ export function useWorkspaceOperations(
       };
 
       // Create single atomic event that creates folder and moves items
-      const event = createEvent("FOLDER_CREATED_WITH_ITEMS", { folder, itemIds }, userId, userName);
+      const event = createEvent("FOLDER_CREATED_WITH_ITEMS", { folder, itemIds: safeItemIds }, userId, userName);
 
       mutation.mutate(event);
 
-      logger.debug("📁 [FOLDER-CREATE-WITH-ITEMS] Created folder with items:", { folderId, name, itemCount: itemIds.length });
+      logger.debug("📁 [FOLDER-CREATE-WITH-ITEMS] Created folder with items:", { folderId, name, itemCount: safeItemIds.length });
 
       // Show success toast
-      toast.success(`Folder created with ${itemIds.length} item${itemIds.length === 1 ? '' : 's'}`);
+      toast.success(`Folder created with ${safeItemIds.length} item${safeItemIds.length === 1 ? '' : 's'}`);
 
       return folderId;
     },

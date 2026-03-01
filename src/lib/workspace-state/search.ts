@@ -230,3 +230,34 @@ export function isDescendantOf(folderId: string, potentialAncestorId: string, it
   return false;
 }
 
+/**
+ * Get all ancestor folder IDs for a folder (or empty set if null/root).
+ * Excludes the folder itself - returns only its ancestors.
+ * Used for cycle prevention when creating folders from selection.
+ */
+export function getAncestorFolderIds(folderId: string | null, items: Item[]): Set<string> {
+  if (!folderId) return new Set();
+  const path = getFolderPath(folderId, items);
+  // Ancestors are all folders in path except the last (the folder itself)
+  const ancestorItems = path.slice(0, -1);
+  return new Set(ancestorItems.map((f) => f.id));
+}
+
+/**
+ * Filter item IDs to exclude any that would create a cycle when creating a new folder
+ * inside parentFolderId and moving the selected items into it.
+ * Excludes: parentFolderId itself and any folder that is an ancestor of parentFolderId.
+ * (Moving the active folder or its ancestors into a child would create a cycle.)
+ */
+export function filterItemIdsForFolderCreation(
+  itemIds: string[],
+  parentFolderId: string | null,
+  items: Item[]
+): string[] {
+  if (!parentFolderId) return itemIds; // At root, no cycle possible
+
+  const idsToExclude = new Set([parentFolderId, ...getAncestorFolderIds(parentFolderId, items)]);
+
+  return itemIds.filter((id) => !idsToExclude.has(id));
+}
+
