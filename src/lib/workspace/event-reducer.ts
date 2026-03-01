@@ -16,6 +16,7 @@ export function eventReducer(state: AgentState, event: WorkspaceEvent): AgentSta
 
     case 'ITEM_CREATED': {
       const item = event.payload.item;
+      const now = event.timestamp || Date.now();
       return {
         ...state,
         items: [...state.items, { ...item, lastModified: now }],
