@@ -95,11 +95,19 @@ Your knowledge cutoff date is January 2025.
 <context>
 Selected cards are the primary context. When the user's message is ambiguous about what they mean, treat selected cards as likely referring to that — e.g. "this", "here", "that one".
 Selected cards provide paths and metadata only — use searchWorkspace or readWorkspace to fetch full content when needed.
-If no context is provided, explain how to select: hover + click checkmark, shift-click, drag-select, or use the selectCards tool.
+If no context is provided, explain how to select: hover + click checkmark, shift-click, or drag-select.
 Rely only on facts from fetched content. Do not invent or assume information.
 </context>
 
 <instructions>
+RESPONSE STYLE (critical):
+When editing workspace items (quizzes, flashcards, notes, etc.), speak to the user in plain language. Do NOT expose internal mechanics.
+- Never mention tool names (editItem, readWorkspace, searchWorkspace, etc.) or parameters (oldString, newString, etc.) in your chat response.
+- Never paste raw JSON, full question lists, or item content into the chat unless the user explicitly asks to see it.
+- Do not describe step-by-step reasoning (e.g. "Step 1: I read the quiz... Step 2: I called editItem..."). Just state the outcome.
+- Use simple, user-facing language: "I've updated the quiz with harder questions" or "I've added 3 new flashcards" — not "I performed an editItem operation with the following payload."
+If something fails, describe the problem in plain terms and what to try next. Do not expose error internals unless they help the user fix the issue.
+
 CORE BEHAVIORS:
 - First process native parts in the user's message (file attachments, images, etc.) — these are already in your context. Consider what the user is directly sending you before deciding whether to call tools.
 - Reference workspace items by path or name (never IDs)
@@ -120,7 +128,7 @@ When selected card metadata includes activePage=N, the user is currently viewing
 YOUTUBE: If user says "add a video" without a topic, infer from workspace context. Don't ask - just search.
 
 INLINE CITATIONS (highly recommended for most responses):
-Only in your chat response — never in item content (notes, flashcards, quizzes, etc.). Use sources param for tools; do not put <citation> tags in content passed to createNote, updateNote, addFlashcards, etc.
+Only in your chat response — never in item content (notes, flashcards, quizzes, etc.). Use sources param for tools; do not put <citation> tags in content passed to createNote, editItem, createFlashcards, etc.
 Use simple plain text only. Bare minimum for uniqueness. No math, LaTeX, or complex formatting inside citations.
 Output citation HTML: <citation>REF</citation> where REF is one of:
 
@@ -157,7 +165,7 @@ MATH FORMATTING:
   $$
 - Currency: ALWAYS escape as \\$ so it is never parsed as math, e.g. \\$19.99, \\$5, \\$1,000
 - NEVER use \\$ inside math delimiters ($..$ or $$..$$). For dollar signs inside math, use \\\\text{\\$} or omit them entirely (just write the number)
-- Apply these rules to ALL tool calls (createNote, updateNote, flashcards, etc.)
+- Apply these rules to ALL tool calls (createNote, editItem, createFlashcards, etc.)
 - Spacing: Use \\, for thin space in integrals: $\\int f(x) \\, dx$
 - Common patterns:
   * Fractions: $\\frac{a}{b}$
@@ -757,149 +765,56 @@ function formatImageDetailsFull(data: ImageData): string[] {
 
 
 /**
- * Formats flashcard details with FULL content
+ * Formats flashcard details as raw JSON (editable by editItem).
+ * Omit frontBlocks/backBlocks; they are derived from front/back on save.
  */
 function formatFlashcardDetailsFull(data: FlashcardData): string[] {
-    const lines: string[] = [];
-
-    // Handle migration case or legacy single card
     let cards: FlashcardItem[] = [];
     if (data.cards && data.cards.length > 0) {
         cards = data.cards;
     } else if (data.front || data.back || data.frontBlocks || data.backBlocks) {
-        // Construct single legacy card
-        cards = [{
-            id: 'legacy',
-            front: data.front || '',
-            back: data.back || '',
-            frontBlocks: data.frontBlocks,
-            backBlocks: data.backBlocks
-        }];
+        const front = data.frontBlocks
+            ? serializeBlockNote(data.frontBlocks as Block[])
+            : data.front || "";
+        const back = data.backBlocks
+            ? serializeBlockNote(data.backBlocks as Block[])
+            : data.back || "";
+        cards = [{ id: "legacy", front, back }];
     }
 
-    if (cards.length === 0) {
-        lines.push("   - (Empty Flashcard Deck)");
-        return lines;
-    }
-
-    lines.push(`   - Flashcard Deck (${cards.length} cards):`);
-
-    cards.forEach((card, i) => {
-        lines.push("");
-        lines.push(`   [Card ${i + 1}]`);
-
-        // Front
-        const frontContent = card.frontBlocks
-            ? serializeBlockNote(card.frontBlocks as Block[])
-            : card.front;
-
-        if (frontContent) {
-            lines.push(`   FRONT:`);
-            // Indent content for readability
-            lines.push(frontContent.split('\n').map(l => `      ${l}`).join('\n'));
-        }
-
-        // Back
-        const backContent = card.backBlocks
-            ? serializeBlockNote(card.backBlocks as Block[])
-            : card.back;
-
-        if (backContent) {
-            lines.push(`   BACK:`);
-            lines.push(backContent.split('\n').map(l => `      ${l}`).join('\n'));
-        }
-    });
-
-    return lines;
+    const payload = {
+        cards: cards.map((c) => ({
+            id: c.id,
+            front: c.frontBlocks ? serializeBlockNote(c.frontBlocks as Block[]) : c.front,
+            back: c.backBlocks ? serializeBlockNote(c.backBlocks as Block[]) : c.back,
+        })),
+    };
+    return [JSON.stringify(payload, null, 2)];
 }
 
 /**
- * Formats quiz details with FULL content
+ * Formats quiz details as raw JSON (editable by editItem).
+ * Session progress is shown at top (read-only); editItem only modifies the questions JSON.
  */
 function formatQuizDetailsFull(data: QuizData): string[] {
-    const lines: string[] = [];
-    const questions: QuizQuestion[] = data.questions || [];
+    const questions = data.questions || [];
     const session = data.session;
-    const totalQuestions = questions.length;
+    const lines: string[] = [];
 
-    const answered = session?.answeredQuestions || [];
-    const answeredCount = answered.length;
-
-    // Determine completion status:
-    // 1. All questions answered (answeredCount >= totalQuestions)
-    // 2. OR completedAt exists AND most questions answered (handles race condition)
-    //    But NOT if many questions were added after completion (answeredCount << totalQuestions)
-    const hasCompletedAt = !!session?.completedAt;
-    const mostQuestionsAnswered = answeredCount >= totalQuestions - 1; // Allow for off-by-one race
-    const questionsWereAdded = hasCompletedAt && answeredCount < totalQuestions * 0.9; // More than 10% new questions
-
-    const isCompleted = totalQuestions > 0 && (
-        answeredCount >= totalQuestions ||  // All answered
-        (hasCompletedAt && mostQuestionsAnswered && !questionsWereAdded)  // Has completedAt, almost done, no new Qs
-    );
-    const isNotStarted = answeredCount === 0;
-
-    let status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
-    if (isCompleted) {
-        status = "COMPLETED";
-    } else if (isNotStarted) {
-        status = "NOT_STARTED";
-    } else {
-        status = "IN_PROGRESS";
-    }
-
-    lines.push(`STATUS: ${status}`);
-
-    let correctCount = 0;
-    let incorrectCount = 0;
-    if (answeredCount > 0) {
-        correctCount = answered.filter(a => a.isCorrect).length;
-        incorrectCount = answeredCount - correctCount;
-    }
-
-    if (status === "NOT_STARTED") {
-        lines.push(`   - Questions: ${totalQuestions}`);
-    } else if (status === "IN_PROGRESS") {
-        const rawIndex = session?.currentIndex ?? answeredCount;
-        const currentIndex = totalQuestions > 0 ? Math.min(Math.max(rawIndex, 0), totalQuestions - 1) : 0;
-        lines.push(`   - Question: ${totalQuestions > 0 ? currentIndex + 1 : 0} of ${totalQuestions}`);
-        lines.push(`   - Score: ${correctCount} correct, ${incorrectCount} incorrect (${answeredCount} answered)`);
-    } else {
-        // COMPLETED
-        const percentage = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
-        lines.push(`   - Final Score: ${correctCount}/${totalQuestions} (${percentage}%)`);
-    }
-
-    // Only show answered questions list for COMPLETED status
-    if (status === "COMPLETED" && answeredCount > 0) {
+    if (session) {
+        const total = questions.length;
+        const answered = session.answeredQuestions?.length ?? 0;
+        const correct = session.answeredQuestions?.filter((a) => a.isCorrect).length ?? 0;
+        const completed = !!(session.completedAt && total > 0 && answered >= total);
+        lines.push("--- Progress (read-only) ---");
+        lines.push(`Current question: ${session.currentIndex + 1} of ${total || "?"}`);
+        lines.push(`Answered: ${answered} | Correct: ${correct}`);
+        lines.push(`Completed: ${completed ? "yes" : "no"}`);
         lines.push("");
-        lines.push("ALL ANSWERS:");
-
-        const answeredMap = new Map<string, boolean>();
-        answered.forEach(a => answeredMap.set(a.questionId, a.isCorrect));
-
-        questions.forEach((q, i) => {
-            const isCorrect = answeredMap.get(q.id);
-            const marker = isCorrect === true ? "✓" : isCorrect === false ? "✗" : "-";
-            lines.push(`   ${i + 1}. ${marker} ${truncateText(q.questionText, 60)}`);
-        });
     }
 
-    // Show current question for NOT_STARTED and IN_PROGRESS
-    if (status !== "COMPLETED") {
-        const rawIndex = session?.currentIndex ?? 0;
-        const currentIndex = totalQuestions > 0 ? Math.min(Math.max(rawIndex, 0), totalQuestions - 1) : 0;
-        const currentQ = questions[currentIndex];
-        if (currentQ) {
-            lines.push("");
-            lines.push("CURRENT QUESTION:");
-            lines.push(`   ${currentIndex + 1}. ${currentQ.questionText}`);
-            currentQ.options.forEach((opt, i) => {
-                lines.push(`      ${String.fromCharCode(65 + i)}) ${opt}`);
-            });
-        }
-    }
-
+    const payload = { questions };
+    lines.push(JSON.stringify(payload, null, 2));
     return lines;
 }
 
