@@ -157,7 +157,13 @@ export default function WorkspaceContent({
   // Listen for PDF OCR completion events
   // Workflow persists to DB on success/failure — invalidate to refetch (matches audio flow)
   useEffect(() => {
-    const handlePdfComplete = () => {
+    const handlePdfComplete = (e: Event) => {
+      const detail = (e as CustomEvent).detail as
+        | { itemId?: string; ocrError?: string; ocrStatus?: string }
+        | undefined;
+      if (detail?.ocrError) {
+        console.error("[PDF-processing-complete] OCR failed:", detail.ocrError);
+      }
       if (workspaceId) {
         queryClient.invalidateQueries({
           queryKey: ["workspace", workspaceId, "events"],

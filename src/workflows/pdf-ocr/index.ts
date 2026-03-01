@@ -76,7 +76,7 @@ export async function pdfOcrWorkflow(
         userId,
         `PDF OCR timed out after ${OCR_TIMEOUT}`
       );
-      throw new Error(`PDF OCR timed out after ${OCR_TIMEOUT}`);
+      return; // Don't throw — catch would cause a second persist
     }
 
     await persistPdfOcrResult(workspaceId, itemId, userId, result);

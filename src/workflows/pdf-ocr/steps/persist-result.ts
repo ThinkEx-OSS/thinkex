@@ -1,11 +1,52 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { createEvent } from "@/lib/workspace/events";
-import type { OcrPage } from "@/lib/pdf/azure-ocr";
+import type { WorkspaceEvent } from "@/lib/workspace/events";
+import type { PdfOcrResult } from "./fetch-and-ocr";
 
-export interface PdfOcrResult {
-  textContent: string;
-  ocrPages: OcrPage[];
+const APPEND_RESULT_REGEX = /\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i;
+
+/**
+ * Append an event to the workspace and check for version conflict.
+ * Throws on conflict so the workflow framework can retry.
+ */
+async function appendWorkspaceEvent(
+  workspaceId: string,
+  event: WorkspaceEvent
+): Promise<void> {
+  const versionResult = await db.execute(sql`
+    SELECT get_workspace_version(${workspaceId}::uuid) as version
+  `);
+  const baseVersion = versionResult[0]?.version ?? 0;
+
+  const appendResult = await db.execute(sql`
+    SELECT append_workspace_event(
+      ${workspaceId}::uuid,
+      ${event.id}::text,
+      ${event.type}::text,
+      ${JSON.stringify(event.payload)}::jsonb,
+      ${event.timestamp}::bigint,
+      ${event.userId}::text,
+      ${baseVersion}::integer,
+      NULL::text
+    ) as result
+  `);
+
+  const raw = appendResult[0]?.result as string | undefined;
+  if (raw) {
+    const match = raw.match(APPEND_RESULT_REGEX);
+    if (!match) {
+      throw new Error(
+        `append_workspace_event returned unexpected format: ${raw}`
+      );
+    }
+    const modified = match[2].toLowerCase();
+    if (modified === "t" || modified === "true") {
+      throw new Error(
+        `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${baseVersion}). Workflow will retry automatically.`
+      );
+    }
+  }
 }
 
 /**
@@ -37,29 +78,7 @@ export async function persistPdfOcrResult(
     userId
   );
 
-  const versionResult = await db.execute(sql`
-    SELECT get_workspace_version(${workspaceId}::uuid) as version
-  `);
-  const baseVersion = versionResult[0]?.version ?? 0;
-
-  const appendResult = await db.execute(sql`
-    SELECT append_workspace_event(
-      ${workspaceId}::uuid,
-      ${event.id}::text,
-      ${event.type}::text,
-      ${JSON.stringify(event.payload)}::jsonb,
-      ${event.timestamp}::bigint,
-      ${event.userId}::text,
-      ${baseVersion}::integer,
-      NULL::text
-    ) as result
-  `);
-
-  const raw = appendResult[0]?.result as string | undefined;
-  const match = raw?.match(/\((\d+),(t|f)\)/);
-  if (match && match[2] === "t") {
-    throw new Error("Workspace was modified by another user, please retry");
-  }
+  await appendWorkspaceEvent(workspaceId, event);
 }
 
 /**
@@ -90,27 +109,5 @@ export async function persistPdfOcrFailure(
     userId
   );
 
-  const versionResult = await db.execute(sql`
-    SELECT get_workspace_version(${workspaceId}::uuid) as version
-  `);
-  const baseVersion = versionResult[0]?.version ?? 0;
-
-  const appendResult = await db.execute(sql`
-    SELECT append_workspace_event(
-      ${workspaceId}::uuid,
-      ${event.id}::text,
-      ${event.type}::text,
-      ${JSON.stringify(event.payload)}::jsonb,
-      ${event.timestamp}::bigint,
-      ${event.userId}::text,
-      ${baseVersion}::integer,
-      NULL::text
-    ) as result
-  `);
-
-  const raw = appendResult[0]?.result as string | undefined;
-  const match = raw?.match(/\((\d+),(t|f)\)/);
-  if (match && match[2] === "t") {
-    throw new Error("Workspace was modified by another user, please retry");
-  }
+  await appendWorkspaceEvent(workspaceId, event);
 }
