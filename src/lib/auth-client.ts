@@ -1,5 +1,6 @@
 import { createAuthClient } from "better-auth/react";
 import { anonymousClient } from "better-auth/client/plugins";
+import { sentinelClient } from "@better-auth/infra/client";
 
 export const authClient = createAuthClient({
   baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || 
@@ -7,6 +8,7 @@ export const authClient = createAuthClient({
            (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"),
   plugins: [
     anonymousClient(),
+    sentinelClient(),
   ],
 });
 
