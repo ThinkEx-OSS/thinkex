@@ -1240,20 +1240,30 @@ const AssistantMessage: FC = () => {
   );
 };
 
-const CONTINUE_RESPONSE_CHAR_THRESHOLD = 250;
+const CONTINUE_RESPONSE_CHAR_THRESHOLD = 150;
+
+/** Sentence-ending punctuation that indicates an LLM likely finished naturally. */
+const ENDS_WITH_SENTENCE_PUNCTUATION = /[.!?]$/;
 
 const AssistantActionBar: FC = () => {
   const { createCard, isCreating } = useCreateCardFromMessage({ debounceMs: 300 });
   const message = useMessage();
   const api = useAssistantApi();
 
-  const textLength = useMemo(() => {
-    return message.content
-      .filter((part): part is { type: "text"; text: string } => part.type === "text")
-      .reduce((sum, part) => sum + (part.text?.length ?? 0), 0);
+  const { textLength, textContent, endsWithPunctuation } = useMemo(() => {
+    const textParts = message.content.filter(
+      (part): part is { type: "text"; text: string } => part.type === "text"
+    );
+    const length = textParts.reduce((sum, part) => sum + (part.text?.length ?? 0), 0);
+    const content = textParts.map((part) => part.text ?? "").join("\n\n");
+    const trimmed = content.trim();
+    const endsWithPunctuation = trimmed.length > 0 && ENDS_WITH_SENTENCE_PUNCTUATION.test(trimmed);
+    return { textLength: length, textContent: content, endsWithPunctuation };
   }, [message.content]);
 
-  const showContinueButton = textLength > 0 && textLength < CONTINUE_RESPONSE_CHAR_THRESHOLD;
+  const showContinueButton =
+    textLength > 0 &&
+    (textLength < CONTINUE_RESPONSE_CHAR_THRESHOLD || !endsWithPunctuation);
 
   const handleContinueClick = useCallback(() => {
     api?.thread().append({
@@ -1261,13 +1271,6 @@ const AssistantActionBar: FC = () => {
       content: [{ type: "text", text: "Continue" }],
     });
   }, [api]);
-
-  const textContent = useMemo(() => {
-    return message.content
-      .filter((part): part is { type: "text"; text: string } => part.type === "text")
-      .map((part) => part.text ?? "")
-      .join("\n\n");
-  }, [message.content]);
 
   const [copied, setCopied] = useState(false);
   const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
