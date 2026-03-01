@@ -15,9 +15,20 @@ const baseWorkspace = z
   })
   .passthrough();
 
-/** createNote, deleteCard, clearCardContent, updateCard */
+/** createNote, deleteCard, clearCardContent, editItem */
 export const WorkspaceResultSchema = baseWorkspace;
 export type WorkspaceResult = z.infer<typeof WorkspaceResultSchema>;
+
+/** editItem - extends WorkspaceResult with diff, filediff, cardCount, questionCount */
+export const EditItemResultSchema = baseWorkspace
+  .extend({
+    diff: z.string().optional(),
+    filediff: z.object({ additions: z.number(), deletions: z.number() }).optional(),
+    cardCount: z.number().optional(),
+    questionCount: z.number().optional(),
+  })
+  .passthrough();
+export type EditItemResult = z.infer<typeof EditItemResultSchema>;
 
 /** Coerce string or other non-object tool results to a safe WorkspaceResult. */
 function coerceToWorkspaceResult(input: unknown): WorkspaceResult {
@@ -53,7 +64,7 @@ export function parseSelectCardsResult(input: unknown): SelectCardsResult {
   return parseWithSchema(SelectCardsResultSchema, input, "SelectCardsResult");
 }
 
-/** createQuiz, updateQuiz */
+/** createQuiz */
 export const QuizResultSchema = baseWorkspace.extend({
   quizId: z.string().optional(),
   title: z.string().optional(),
@@ -85,7 +96,7 @@ export function parseQuizResult(input: unknown): QuizResult {
   return coerceToQuizResult(input);
 }
 
-/** createFlashcards, updateFlashcards */
+/** createFlashcards */
 export const FlashcardResultSchema = baseWorkspace.extend({
   title: z.string().optional(),
   cardCount: z.number().optional(),

@@ -9,13 +9,12 @@ import { createProcessUrlsTool } from "./process-urls";
 import { createExecuteCodeTool } from "./search-code";
 import {
     createNoteTool,
-    createUpdateNoteTool,
     createDeleteItemTool,
-    createSelectCardsTool,
     type WorkspaceToolContext,
 } from "./workspace-tools";
-import { createFlashcardsTool, createUpdateFlashcardsTool } from "./flashcard-tools";
-import { createQuizTool, createUpdateQuizTool } from "./quiz-tools";
+import { createEditItemTool } from "./edit-item-tool";
+import { createFlashcardsTool } from "./flashcard-tools";
+import { createQuizTool } from "./quiz-tools";
 import { createDeepResearchTool } from "./deep-research";
 import { createSearchYoutubeTool, createAddYoutubeVideoTool } from "./youtube-tools";
 // import { createSearchImagesTool, createAddImageTool } from "./image-tools";
@@ -65,18 +64,15 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
 
         // Workspace operations
         createNote: createNoteTool(ctx),
-        updateNote: createUpdateNoteTool(ctx),
+        editItem: createEditItemTool(ctx),
 
         deleteItem: createDeleteItemTool(ctx),
-        selectCards: createSelectCardsTool(ctx),
 
         // Flashcards
         createFlashcards: createFlashcardsTool(ctx),
-        updateFlashcards: createUpdateFlashcardsTool(ctx),
 
         // Quizzes
         createQuiz: createQuizTool(ctx),
-        updateQuiz: createUpdateQuizTool(ctx),
 
         // Deep research - commented out
         // ...(config.enableDeepResearch ? { deepResearch: createDeepResearchTool(ctx) } : {}),
