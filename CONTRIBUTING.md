@@ -42,13 +42,3 @@ cp .env.example .env
 pnpm db:push
 pnpm dev
 ```
-
-### Lint and type check
-
-| Command | Purpose |
-|---------|---------|
-| `pnpm lint` | ESLint: style, best practices, potential bugs. Uses [Next.js ESLint config](https://nextjs.org/docs/app/building-your-application/configuring/eslint). |
-| `pnpm tc` | TypeScript compiler: type-check only (`tsc --noEmit`). Catches type errors, no emit. |
-| `pnpm lint:fix` | Auto-fix lint issues where possible. |
-
-Use both before committing. Lint handles code style and patterns; `tc` ensures types are correct.
