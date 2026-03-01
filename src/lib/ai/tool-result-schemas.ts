@@ -60,8 +60,6 @@ export const QuizResultSchema = baseWorkspace.extend({
   questionCount: z.number().optional(),
   questionsAdded: z.number().optional(),
   totalQuestions: z.number().optional(),
-  difficulty: z.enum(["easy", "medium", "hard"]).optional(),
-  isContextBased: z.boolean().optional(),
 }).passthrough();
 
 export type QuizResult = z.infer<typeof QuizResultSchema>;

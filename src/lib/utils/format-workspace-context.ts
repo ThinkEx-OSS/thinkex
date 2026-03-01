@@ -859,10 +859,6 @@ function formatQuizDetailsFull(data: QuizData): string[] {
 
     if (status === "NOT_STARTED") {
         lines.push(`   - Questions: ${totalQuestions}`);
-        lines.push(`   - Difficulty: ${data.difficulty || "Medium"}`);
-        if (data.sourceCardNames?.length) {
-            lines.push(`   - Source: "${data.sourceCardNames.join('", "')}"`);
-        }
     } else if (status === "IN_PROGRESS") {
         const rawIndex = session?.currentIndex ?? answeredCount;
         const currentIndex = totalQuestions > 0 ? Math.min(Math.max(rawIndex, 0), totalQuestions - 1) : 0;
@@ -872,7 +868,6 @@ function formatQuizDetailsFull(data: QuizData): string[] {
         // COMPLETED
         const percentage = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
         lines.push(`   - Final Score: ${correctCount}/${totalQuestions} (${percentage}%)`);
-        lines.push(`   - Difficulty: ${data.difficulty || "Medium"}`);
     }
 
     // Only show answered questions list for COMPLETED status

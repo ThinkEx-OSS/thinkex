@@ -22,16 +22,9 @@ import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import type { QuizResult } from "@/lib/ai/tool-result-schemas";
 import { parseQuizResult } from "@/lib/ai/tool-result-schemas";
 
-type CreateQuizArgs = {
-    topic?: string;
-    difficulty?: "easy" | "medium" | "hard";
-    contextContent?: string;
-    sourceCardIds?: string[];
-    sourceCardNames?: string[];
-};
+type CreateQuizArgs = Record<string, unknown>;
 
 interface CreateQuizReceiptProps {
-    args: CreateQuizArgs;
     result: QuizResult;
     status: any;
     moveItemToFolder?: (itemId: string, folderId: string | null) => void;
@@ -41,13 +34,7 @@ interface CreateQuizReceiptProps {
     workspaceColor?: string | null;
 }
 
-const difficultyColors = {
-    easy: "bg-green-500/10 text-green-600",
-    medium: "bg-yellow-500/10 text-yellow-600",
-    hard: "bg-red-500/10 text-red-600",
-};
-
-const CreateQuizReceipt = ({ args, result, status, moveItemToFolder, allItems = [], workspaceName = "Workspace", workspaceIcon, workspaceColor }: CreateQuizReceiptProps) => {
+const CreateQuizReceipt = ({ result, status, moveItemToFolder, allItems = [], workspaceName = "Workspace", workspaceIcon, workspaceColor }: CreateQuizReceiptProps) => {
     const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
     const { state: workspaceState } = useWorkspaceState(workspaceId);
     const navigateToItem = useNavigateToItem();
@@ -81,8 +68,6 @@ const CreateQuizReceipt = ({ args, result, status, moveItemToFolder, allItems = 
             moveItemToFolder(targetId, folderId);
         }
     };
-
-    const difficulty = result.difficulty || args.difficulty || "medium";
 
     return (
         <>
@@ -201,7 +186,6 @@ export const CreateQuizToolUI = makeAssistantToolUI<CreateQuizArgs, QuizResult>(
         if (parsed?.success) {
             content = (
                 <CreateQuizReceipt
-                    args={args}
                     result={parsed}
                     status={status}
                     moveItemToFolder={operations.moveItemToFolder}

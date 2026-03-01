@@ -766,19 +766,20 @@ export async function workspaceWorker(
                     throw new Error("Item ID required for updateQuiz");
                 }
 
-                // Allow questionsToAdd to be at top level or nested in quizData (for backward compatibility)
                 const questionsToAdd = params.questionsToAdd || (params.quizData as any)?.questionsToAdd;
+                const hasQuestions = questionsToAdd && questionsToAdd.length > 0;
+                const hasTitle = !!params.title;
 
-                if (!questionsToAdd || questionsToAdd.length === 0) {
-                    throw new Error("Questions to add required for updateQuiz");
+                if (!hasQuestions && !hasTitle) {
+                    throw new Error("Either questions to add or a new title is required for updateQuiz");
                 }
 
-                logger.debug("🎯 [WORKSPACE-WORKER] Updating quiz with new questions:", {
+                logger.debug("🎯 [WORKSPACE-WORKER] Updating quiz:", {
                     itemId: params.itemId,
-                    questionsToAdd: questionsToAdd.length,
+                    questionsToAdd: questionsToAdd?.length ?? 0,
+                    titleUpdate: hasTitle,
                 });
 
-                // Use helper to load current state (duplicated logic removed)
                 const currentState = await loadWorkspaceState(params.workspaceId);
 
                 const existingItem = currentState.items.find((i: any) => i.id === params.itemId);
@@ -793,15 +794,12 @@ export async function workspaceWorker(
                 const existingData = existingItem.data as QuizData;
                 const existingQuestions = existingData?.questions || [];
 
-                // Merge existing questions with new questions
-                const updatedData: QuizData = {
-                    ...existingData,
-                    questions: [...existingQuestions, ...questionsToAdd],
-                };
+                const updatedData: QuizData = hasQuestions
+                    ? { ...existingData, questions: [...existingQuestions, ...questionsToAdd!] }
+                    : existingData;
 
-                const changes: any = { data: updatedData };
+                const changes: any = hasQuestions ? { data: updatedData } : {};
 
-                // Handle title update if provided
                 if (params.title) {
                     logger.debug("🎯 [UPDATE-QUIZ] Updating title:", params.title);
                     if (hasDuplicateName(currentState.items, params.title, existingItem.type, existingItem.folderId ?? null, params.itemId)) {
@@ -874,9 +872,11 @@ export async function workspaceWorker(
                 return {
                     success: true,
                     itemId: params.itemId,
-                    questionsAdded: questionsToAdd.length,
+                    questionsAdded: questionsToAdd?.length ?? 0,
                     totalQuestions: updatedData.questions.length,
-                    message: `Added ${questionsToAdd.length} question${questionsToAdd.length !== 1 ? 's' : ''} to quiz`,
+                    message: hasQuestions
+                        ? `Added ${questionsToAdd!.length} question${questionsToAdd!.length !== 1 ? "s" : ""} to quiz`
+                        : "Quiz title updated.",
                     event,
                     version: appendResult.version,
                 };

@@ -16,13 +16,7 @@ import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
 import type { QuizResult } from "@/lib/ai/tool-result-schemas";
 import { parseQuizResult } from "@/lib/ai/tool-result-schemas";
 
-type UpdateQuizArgs = {
-  quizId: string;
-  topic?: string;
-  contextContent?: string;
-  sourceCardIds?: string[];
-  sourceCardNames?: string[];
-};
+type UpdateQuizArgs = Record<string, unknown>;
 
 const UpdateQuizReceipt = ({ result, status }: { result: QuizResult; status: any }) => {
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
@@ -103,8 +97,6 @@ export const UpdateQuizToolUI = makeAssistantToolUI<UpdateQuizArgs, QuizResult>(
     let parsed: QuizResult | null = null;
     if (status.type === "complete" && result != null) {
       try {
-        // With the new Output.object() approach, the quiz worker returns clean structured data
-        // so we can parse normally without special streaming handling
         parsed = parseQuizResult(result);
       } catch (err) {
         // Log the error but don't throw - we'll show error state below
