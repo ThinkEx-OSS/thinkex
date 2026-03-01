@@ -899,8 +899,9 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         const currentText = composerState.text;
         const attachments = composerState.attachments || [];
 
-        // Prevent empty messages
-        if (!currentText.trim() && attachments.length === 0) {
+        // Prevent empty messages (allow send when reply or BlockNote selection provides context)
+        const hasReplyOrBlockNoteContext = replySelections.length > 0 || !!blockNoteSelection;
+        if (!currentText.trim() && attachments.length === 0 && !hasReplyOrBlockNoteContext) {
           return;
         }
 
@@ -919,7 +920,8 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         const selectedItems = items.filter((item) => selectedCardIds.has(item.id));
 
         // Combine all context: selected cards, reply texts, and user message
-        let modifiedText = currentText;
+        // Use placeholder when empty so AI SDK accepts (backend injects reply context into message)
+        let modifiedText = currentText.trim() || (hasReplyOrBlockNoteContext ? "Empty message" : "");
 
         // Attach per-request context as metadata via runConfig
         // This flows through as body.metadata.custom on the server
