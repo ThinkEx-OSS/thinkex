@@ -239,7 +239,11 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
               fetch("/api/pdf/ocr/start", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ fileUrl: r.fileUrl, itemId }),
+                body: JSON.stringify({
+                  fileUrl: r.fileUrl,
+                  itemId,
+                  workspaceId: currentWorkspaceId,
+                }),
               })
                 .then(async (res) => {
                   if (!res.ok) {

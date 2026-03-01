@@ -52,9 +52,19 @@ export async function persistAudioResult(
   `);
 
   const raw = appendResult[0]?.result as string | undefined;
-  const match = raw?.match(/\((\d+),(t|f)\)/);
-  if (match && match[2] === "t") {
-    throw new Error("Workspace was modified by another user, please retry");
+  if (raw) {
+    const match = raw.match(/\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i);
+    if (!match) {
+      throw new Error(
+        `append_workspace_event returned unexpected format: ${raw}`
+      );
+    }
+    const modified = match[2].toLowerCase();
+    if (modified === "t" || modified === "true") {
+      throw new Error(
+        `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${versionResult[0]?.version ?? 0}). Workflow will retry automatically.`
+      );
+    }
   }
 }
 
@@ -104,8 +114,18 @@ export async function persistAudioFailure(
   `);
 
   const raw = appendResult[0]?.result as string | undefined;
-  const match = raw?.match(/\((\d+),(t|f)\)/);
-  if (match && match[2] === "t") {
-    throw new Error("Workspace was modified by another user, please retry");
+  if (raw) {
+    const match = raw.match(/\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i);
+    if (!match) {
+      throw new Error(
+        `append_workspace_event returned unexpected format: ${raw}`
+      );
+    }
+    const modified = match[2].toLowerCase();
+    if (modified === "t" || modified === "true") {
+      throw new Error(
+        `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${versionResult[0]?.version ?? 0}). Workflow will retry automatically.`
+      );
+    }
   }
 }

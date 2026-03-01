@@ -155,33 +155,30 @@ export default function WorkspaceContent({
   }, [setActiveFolderId, onOpenFolder]);
 
   // Listen for PDF OCR completion events
+  // Workflow persists to DB on success/failure — invalidate to refetch (matches audio flow)
   useEffect(() => {
     const handlePdfComplete = (e: Event) => {
-      const { itemId, textContent, ocrPages, ocrStatus, ocrError } = (e as CustomEvent).detail;
-      if (!itemId) return;
-
-      const existingData = viewState.items.find((i) => i.id === itemId)?.data ?? {};
-
-      updateItem(itemId, {
-        data: {
-          ...existingData,
-          textContent,
-          ocrPages: ocrPages ?? [],
-          ocrStatus,
-          ...(ocrError && { ocrError }),
-        } as any,
-      });
+      const detail = (e as CustomEvent).detail as
+        | { itemId?: string; ocrError?: string; ocrStatus?: string }
+        | undefined;
+      if (detail?.ocrError) {
+        console.error("[PDF-processing-complete] OCR failed:", detail.ocrError);
+      }
+      if (workspaceId) {
+        queryClient.invalidateQueries({
+          queryKey: ["workspace", workspaceId, "events"],
+        });
+      }
     };
 
     window.addEventListener("pdf-processing-complete", handlePdfComplete);
     return () => {
       window.removeEventListener("pdf-processing-complete", handlePdfComplete);
     };
-  }, [updateItem, viewState.items]);
+  }, [workspaceId, queryClient]);
 
   // Auto-migrate legacy PDFs that have a fileUrl but no ocrPages.
-  // Kicks off the durable OCR workflow; the existing pdf-processing-complete
-  // listener above persists the result via updateItem when each workflow finishes.
+  // Kicks off the durable OCR workflow; the workflow persists the result to DB.
   const migratedIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!workspaceId) return;
@@ -205,7 +202,11 @@ export default function WorkspaceContent({
       fetch("/api/pdf/ocr/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileUrl: pdf.fileUrl, itemId: item.id }),
+        body: JSON.stringify({
+          fileUrl: pdf.fileUrl,
+          itemId: item.id,
+          workspaceId,
+        }),
       })
         .then(async (res) => {
           if (!res.ok) {

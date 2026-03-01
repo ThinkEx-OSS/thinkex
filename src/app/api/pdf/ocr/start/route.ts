@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { start } from "workflow/api";
 import { pdfOcrWorkflow } from "@/workflows/pdf-ocr";
+import { verifyWorkspaceAccess } from "@/lib/api/workspace-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +20,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const userId = session.user.id;
     const body = await req.json();
-    const { fileUrl, itemId } = body;
+    const { fileUrl, itemId, workspaceId } = body;
 
     if (!fileUrl || typeof fileUrl !== "string") {
       return NextResponse.json(
@@ -31,10 +33,19 @@ export async function POST(req: NextRequest) {
 
     if (!itemId || typeof itemId !== "string") {
       return NextResponse.json(
-        { error: "itemId is required for polling" },
+        { error: "itemId is required" },
         { status: 400 }
       );
     }
+
+    if (!workspaceId || typeof workspaceId !== "string") {
+      return NextResponse.json(
+        { error: "workspaceId is required" },
+        { status: 400 }
+      );
+    }
+
+    await verifyWorkspaceAccess(workspaceId, userId, "editor");
 
     // Validate URL origin to prevent SSRF
     const allowedHosts: string[] = [];
@@ -67,14 +78,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Start durable workflow; return immediately for client to poll
-    const run = await start(pdfOcrWorkflow, [fileUrl]);
+    // Start durable workflow; persists result to workspace on completion (survives reload)
+    const run = await start(pdfOcrWorkflow, [
+      fileUrl,
+      workspaceId,
+      itemId,
+      userId,
+    ]);
 
     return NextResponse.json({
       runId: run.runId,
       itemId,
     });
   } catch (error: unknown) {
+    if (error instanceof Response) return error;
     console.error("[PDF_OCR_START] Error:", error);
     return NextResponse.json(
       {
