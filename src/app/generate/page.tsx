@@ -235,7 +235,6 @@ function GenerateContent() {
 
       <div className="relative z-10 flex min-h-[60vh] flex-col items-center justify-center">
         <WorkspaceInstructionModal
-          mode="first-open"
           open={!error}
           canClose={false}
           showFallback={false}

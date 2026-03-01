@@ -5,10 +5,8 @@ import { Move, SquarePen, FileSearch, Youtube, Share2, ChevronLeft, ChevronRight
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
-import type { WorkspaceInstructionMode } from "@/hooks/workspace/use-workspace-instruction-modal";
 
 export interface WorkspaceInstructionModalProps {
-  mode: WorkspaceInstructionMode;
   open: boolean;
   canClose: boolean;
   showFallback: boolean;
@@ -212,7 +210,6 @@ function useCarousel(open: boolean) {
 }
 
 export function WorkspaceInstructionModal({
-  mode,
   open,
   canClose,
   showFallback,
@@ -255,7 +252,7 @@ export function WorkspaceInstructionModal({
       if (e.key === "Escape") {
         // Do not allow close while generating
         if (isGenerating) return;
-        if (mode === "first-open" && canClose) {
+        if (canClose) {
           onRequestClose?.();
         }
       }
@@ -263,7 +260,7 @@ export function WorkspaceInstructionModal({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, mode, canClose, isGenerating, showFallback, onRequestClose, onFallbackContinue]);
+  }, [open, canClose, isGenerating, showFallback, onRequestClose, onFallbackContinue]);
 
   if (!isVisible) return null;
 
@@ -440,7 +437,7 @@ export function WorkspaceInstructionModal({
                 </div>
 
                 {/* CTA — vertically centered in bottom bar */}
-                {mode === "first-open" && canClose && (
+                {canClose && (
                   <button
                     type="button"
                     onClick={onRequestClose}
