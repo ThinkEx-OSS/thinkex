@@ -191,6 +191,8 @@ export default function CreateWorkspaceModal({
 
                 if (response.ok) {
                   successCount++;
+                  const data = await response.json();
+                  if (data.warning) toast.warning(data.warning);
                 }
               } catch (err) {
                 console.error(`Failed to invite ${invite.email}`, err);

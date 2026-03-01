@@ -88,6 +88,8 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tabs": "1.1.13",
     "@radix-ui/react-tooltip": "1.2.8",
+    "@react-email/components": "^1.0.8",
+    "@react-email/render": "^2.0.4",
     "@shikijs/themes": "^3.22.0",
     "@shikijs/types": "^3.22.0",
     "@streamdown/code": "^1.0.3",

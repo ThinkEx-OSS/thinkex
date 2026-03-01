@@ -197,6 +197,8 @@ export default function ShareWorkspaceDialog({
 
           if (response.ok) {
             successCount++;
+            const data = await response.json();
+            if (data.warning) toast.warning(data.warning);
           }
         } catch (err) {
           console.error(`Failed to invite to ${id}`, err);
@@ -246,6 +248,8 @@ export default function ShareWorkspaceDialog({
 
           if (response.ok) {
             successCount++;
+            const data = await response.json();
+            if (data.warning) toast.warning(data.warning);
           }
         } catch (err) {
           console.error(`Failed to invite to ${id}`, err);
