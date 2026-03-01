@@ -458,16 +458,30 @@ export function useWorkspaceOperations(
       }
 
       const previousItemCount = latestState.items.length;
+      const currentIds = new Set(latestState.items.map((i) => i.id));
+      const newIds = new Set(items.map((i) => i.id));
 
-      // Check if items were added or removed (e.g. bulk delete)
-      if (items.length !== previousItemCount) {
-        logger.debug("🔧 [BULK-UPDATE] Item count changed, using full update", { prev: previousItemCount, next: items.length });
-        const event = createEvent("BULK_ITEMS_UPDATED", {
-          layoutUpdates: [], // Not used when items is present
-          previousItemCount,
-          items // Send full items list for add/remove operations
-        }, userId, userName);
-        mutation.mutate(event);
+      // Send only what changed – no full item data (avoids huge payloads for textbooks)
+
+      // Count decreased: bulk delete – send only deletedIds
+      if (items.length < previousItemCount) {
+        const deletedIds = latestState.items
+          .filter((i) => !newIds.has(i.id))
+          .map((i) => i.id);
+        logger.debug("🔧 [BULK-UPDATE] Bulk delete, sending deletedIds only", { deletedIds });
+        mutation.mutate(
+          createEvent("BULK_ITEMS_UPDATED", { deletedIds, previousItemCount }, userId, userName)
+        );
+        return;
+      }
+
+      // Count increased: items added – send only the new items (typically 1–2)
+      if (items.length > previousItemCount) {
+        const addedItems = items.filter((i) => !currentIds.has(i.id));
+        logger.debug("🔧 [BULK-UPDATE] Items added, sending addedItems only", { count: addedItems.length });
+        mutation.mutate(
+          createEvent("BULK_ITEMS_UPDATED", { addedItems, previousItemCount }, userId, userName)
+        );
         return;
       }
 

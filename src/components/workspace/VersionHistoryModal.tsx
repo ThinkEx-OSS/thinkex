@@ -13,6 +13,7 @@ import { Clock, Undo2, Camera, FolderPlus, Plus, Pencil, Trash2, Folder, FolderI
 import { CgNotes } from "react-icons/cg";
 import { BsFillGrid1X2Fill } from "react-icons/bs";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
+import type { Item } from "@/lib/workspace-state/types";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/lib/auth-client";
 
@@ -46,12 +47,9 @@ function getEventIcon(event: WorkspaceEvent) {
     case 'GLOBAL_DESCRIPTION_SET':
       return <CgNotes className={`${iconClass} text-blue-500`} />;
     case 'BULK_ITEMS_UPDATED': {
-      if (event.payload.items) {
-        const itemCount = event.payload.items.length;
-        const prevCount = event.payload.previousItemCount;
-        if (prevCount !== undefined && prevCount > itemCount) {
-          return <Trash2 className={`${iconClass} text-red-500`} />;
-        }
+      const p = event.payload as { deletedIds?: string[]; addedItems?: Item[]; items?: Item[]; previousItemCount?: number };
+      if (p.deletedIds?.length || (p.items && p.previousItemCount !== undefined && p.previousItemCount > p.items.length)) {
+        return <Trash2 className={`${iconClass} text-red-500`} />;
       }
       return <BsFillGrid1X2Fill className={`${iconClass} text-slate-500`} />;
     }
@@ -98,29 +96,24 @@ function getEventDescription(event: WorkspaceEvent, items?: any[]): string {
     case 'GLOBAL_DESCRIPTION_SET':
       return `Set description to "${event.payload.description}"`;
     case 'BULK_ITEMS_UPDATED': {
-      // Support both new format (layoutUpdates) and legacy format (items array)
-      // For new format (layoutUpdates), we can't determine deletions from layout changes alone
-      // Only check for deletions if we have the full items array (legacy format)
-      if (event.payload.items) {
-        // Legacy format: can check for deletions
-        const itemCount = event.payload.items.length;
-        const prevCount = event.payload.previousItemCount;
-        if (prevCount !== undefined && prevCount > itemCount) {
-          const deletedCount = prevCount - itemCount;
-          return deletedCount === 1
-            ? 'Deleted 1 item'
-            : `Deleted ${deletedCount} items`;
-        }
-        // Legacy format: show total items updated (resized/moved on canvas)
-        return itemCount === 1
-          ? 'Resized or moved 1 item'
-          : `Resized or moved ${itemCount} items`;
+      const p = event.payload as { deletedIds?: string[]; addedItems?: Item[]; items?: Item[]; layoutUpdates?: unknown[]; previousItemCount?: number };
+      if (p.deletedIds?.length) {
+        const n = p.deletedIds.length;
+        return n === 1 ? 'Deleted 1 item' : `Deleted ${n} items`;
       }
-      // New format (layoutUpdates): show number of items whose layout changed
-      const updateCount = event.payload.layoutUpdates?.length ?? 0;
-      return updateCount === 1
-        ? 'Resized or moved 1 item'
-        : `Resized or moved ${updateCount} items`;
+      if (p.addedItems?.length) {
+        const n = p.addedItems.length;
+        return n === 1 ? 'Added 1 item' : `Added ${n} items`;
+      }
+      if (p.items && p.previousItemCount !== undefined && p.previousItemCount > p.items.length) {
+        const n = p.previousItemCount - p.items.length;
+        return n === 1 ? 'Deleted 1 item' : `Deleted ${n} items`;
+      }
+      const layoutCount = p.layoutUpdates?.length ?? 0;
+      if (layoutCount > 0) {
+        return layoutCount === 1 ? 'Resized or moved 1 item' : `Resized or moved ${layoutCount} items`;
+      }
+      return 'Updated items';
     }
     case 'BULK_ITEMS_CREATED': {
       const itemCount = event.payload.items.length;

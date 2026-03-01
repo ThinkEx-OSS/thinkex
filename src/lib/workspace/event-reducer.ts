@@ -85,59 +85,65 @@ export function eventReducer(state: AgentState, event: WorkspaceEvent): AgentSta
       };
 
     case 'BULK_ITEMS_UPDATED': {
-      // Used for layout changes (drag/resize), reordering, and bulk delete
-      // Support both new format (layoutUpdates only) and legacy format (full items array)
-      if (event.payload.items) {
-        // Full items array format (used for bulk delete and item add/remove operations)
-        const newItems = event.payload.items;
+      const p = event.payload;
+      const now = event.timestamp || Date.now();
 
-        // Find folders that were deleted (existed in old state but not in new state)
-        const newItemIds = new Set(newItems.map(item => item.id));
+      // Bulk delete: send only deletedIds – no item data
+      if (p.deletedIds && p.deletedIds.length > 0) {
+        const deletedSet = new Set(p.deletedIds);
         const deletedFolderIds = new Set(
           state.items
-            .filter(item => item.type === 'folder' && !newItemIds.has(item.id))
-            .map(item => item.id)
+            .filter((i) => deletedSet.has(i.id) && i.type === 'folder')
+            .map((i) => i.id)
         );
-
-        // If any folders were deleted, clear folderId and layout on orphaned items
-        // This prevents items from pointing to non-existent folders
-        // Layout is cleared so items get fresh positioning in root (same as when moving to folder)
-        const cleanedItems = deletedFolderIds.size > 0
-          ? newItems.map(item =>
+        const remaining = state.items
+          .filter((i) => !deletedSet.has(i.id))
+          .map((item) =>
             item.folderId && deletedFolderIds.has(item.folderId)
-              ? { ...item, folderId: undefined, layout: undefined }
-              : item
-          )
-          : newItems;
+              ? { ...item, folderId: undefined, layout: undefined, lastModified: now }
+              : { ...item, lastModified: now }
+          );
+        return { ...state, items: remaining };
+      }
 
-        return {
-          ...state,
-          items: cleanedItems,
-        };
-      } else {
-        // New format: only layout changes - apply to existing items
-        const layoutMap = new Map(
-          event.payload.layoutUpdates.map(update => [update.id, update])
+      // Items added: send only addedItems
+      if (p.addedItems && p.addedItems.length > 0) {
+        const added = p.addedItems.map((item) => ({ ...item, lastModified: now }));
+        return { ...state, items: [...state.items, ...added] };
+      }
+
+      // Legacy: full items array (backwards compatibility)
+      if (p.items && p.items.length >= 0) {
+        const newItemIds = new Set(p.items.map((i) => i.id));
+        const deletedFolderIds = new Set(
+          state.items
+            .filter((i) => i.type === 'folder' && !newItemIds.has(i.id))
+            .map((i) => i.id)
         );
+        const cleanedItems = p.items.map((item) =>
+          item.folderId && deletedFolderIds.has(item.folderId)
+            ? { ...item, folderId: undefined, layout: undefined }
+            : item
+        );
+        return { ...state, items: cleanedItems };
+      }
+
+      // Layout-only: apply layout changes to existing items
+      const layoutUpdates = p.layoutUpdates ?? [];
+      if (layoutUpdates.length > 0) {
+        const layoutMap = new Map(layoutUpdates.map((u) => [u.id, u]));
         return {
           ...state,
-          items: state.items.map(item => {
-            const layoutUpdate = layoutMap.get(item.id);
-            if (layoutUpdate) {
-              return {
-                ...item,
-                layout: {
-                  x: layoutUpdate.x,
-                  y: layoutUpdate.y,
-                  w: layoutUpdate.w,
-                  h: layoutUpdate.h,
-                },
-              };
-            }
-            return item;
+          items: state.items.map((item) => {
+            const u = layoutMap.get(item.id);
+            return u
+              ? { ...item, layout: { x: u.x, y: u.y, w: u.w, h: u.h } }
+              : item;
           }),
         };
       }
+
+      return state;
     }
 
     case 'BULK_ITEMS_CREATED': {
