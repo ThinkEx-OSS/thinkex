@@ -7,7 +7,6 @@ interface HomeLayoutProps {
 /**
  * Simplified layout for home page.
  * No sidebar - uses a top bar navigation instead.
- * Background is handled by ParallaxBentoBackground in HomeContent.
  */
 export function HomeLayout({ children }: HomeLayoutProps) {
   return (

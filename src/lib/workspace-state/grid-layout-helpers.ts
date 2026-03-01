@@ -2,17 +2,26 @@ import type { Layout, LayoutItem } from "react-grid-layout";
 import type { Item, CardType, LayoutPosition, ResponsiveLayouts } from "./types";
 
 /**
+ * Canonical grid sizing model.
+ * A compact card (note/pdf/folder) is exactly 1 height unit.
+ */
+export const COMPACT_CARD_HEIGHT_UNITS = 1;
+export const GRID_ROW_HEIGHT_PX = 148;
+export const GRID_GAP_PX = 16;
+export const LEGACY_TO_BASE_HEIGHT_RATIO = 4;
+
+/**
  * Default dimensions for each card type in grid units
  */
 export const DEFAULT_CARD_DIMENSIONS: Record<CardType, { w: number; h: number }> = {
-  note: { w: 1, h: 4 },
-  pdf: { w: 1, h: 4 },
-  flashcard: { w: 2, h: 5 },
-  folder: { w: 1, h: 4 },
-  youtube: { w: 2, h: 7 },
-  quiz: { w: 2, h: 13 },
-  image: { w: 4, h: 10 },
-  audio: { w: 2, h: 10 },
+  note: { w: 1, h: COMPACT_CARD_HEIGHT_UNITS },
+  pdf: { w: 1, h: COMPACT_CARD_HEIGHT_UNITS },
+  flashcard: { w: 2, h: COMPACT_CARD_HEIGHT_UNITS },
+  folder: { w: 1, h: COMPACT_CARD_HEIGHT_UNITS },
+  youtube: { w: 2, h: 2 },
+  quiz: { w: 2, h: 3 },
+  image: { w: 4, h: 3 },
+  audio: { w: 2, h: 2 },
 };
 
 /**
@@ -26,6 +35,38 @@ function isLegacyLayout(layout: ResponsiveLayouts | LayoutPosition | undefined):
   return 'x' in layout && typeof layout.x === 'number';
 }
 
+function shouldMigrateLegacyScale(itemType: CardType, layout: LayoutPosition): boolean {
+  // Detect old 25px-row model values and migrate to the compact=1 model once.
+  // Thresholds are type-aware so migrated layouts won't be remigrated.
+  switch (itemType) {
+    case "note":
+    case "pdf":
+    case "folder":
+      return layout.h >= 4;
+    case "flashcard":
+      return layout.h >= 5;
+    case "youtube":
+      return layout.h >= 4;
+    case "quiz":
+      return layout.h >= 8;
+    case "audio":
+      return layout.h >= 8;
+    case "image":
+      return layout.h >= 7;
+    default:
+      return layout.h >= 8;
+  }
+}
+
+function migrateLegacyLayoutScale(itemType: CardType, layout: LayoutPosition): LayoutPosition {
+  if (!shouldMigrateLegacyScale(itemType, layout)) return layout;
+  return {
+    ...layout,
+    y: Math.max(0, Math.round(layout.y / LEGACY_TO_BASE_HEIGHT_RATIO)),
+    h: Math.max(COMPACT_CARD_HEIGHT_UNITS, Math.round(layout.h / LEGACY_TO_BASE_HEIGHT_RATIO)),
+  };
+}
+
 /**
  * Get the layout for a specific breakpoint from an item.
  * Handles backwards compatibility with old flat layout format.
@@ -33,13 +74,24 @@ function isLegacyLayout(layout: ResponsiveLayouts | LayoutPosition | undefined):
 export function getLayoutForBreakpoint(item: Item, breakpoint: 'lg' | 'xxs'): LayoutPosition | undefined {
   if (!item.layout) return undefined;
 
+  const normalize = (layout: LayoutPosition): LayoutPosition => {
+    const sanitized: LayoutPosition = {
+      x: Math.max(0, Math.round(layout.x)),
+      y: Math.max(0, Math.round(layout.y)),
+      w: Math.max(1, Math.round(layout.w)),
+      h: Math.max(COMPACT_CARD_HEIGHT_UNITS, Math.round(layout.h)),
+    };
+    return migrateLegacyLayoutScale(item.type, sanitized);
+  };
+
   if (isLegacyLayout(item.layout)) {
     // Old format - treat as 'lg' layout
-    return breakpoint === 'lg' ? item.layout : undefined;
+    return breakpoint === 'lg' ? normalize(item.layout) : undefined;
   }
 
   // New format - get the specific breakpoint
-  return item.layout[breakpoint];
+  const layout = item.layout[breakpoint];
+  return layout ? normalize(layout) : undefined;
 }
 
 export const DEFAULT_COLS = 4;
@@ -51,7 +103,7 @@ export function itemsToLayout(items: Item[], breakpoint: 'lg' | 'xxs' = 'lg'): L
   return items.map((item) => {
     const layout = getLayoutForBreakpoint(item, breakpoint);
 
-    // YouTube: resizable smaller but not larger than 2x7; at w=1 force h=4 (matches note compact)
+    // YouTube: resizable smaller but not larger than 2x2; at w=1 force compact height
     if (item.type === 'youtube') {
       return {
         i: item.id,
@@ -60,9 +112,9 @@ export function itemsToLayout(items: Item[], breakpoint: 'lg' | 'xxs' = 'lg'): L
         w: layout?.w ?? DEFAULT_CARD_DIMENSIONS[item.type].w,
         h: layout?.h ?? DEFAULT_CARD_DIMENSIONS[item.type].h,
         minW: 1,
-        minH: 4,
+        minH: COMPACT_CARD_HEIGHT_UNITS,
         maxW: 2,
-        maxH: 7,
+        maxH: 2,
       };
     }
 
@@ -75,9 +127,9 @@ export function itemsToLayout(items: Item[], breakpoint: 'lg' | 'xxs' = 'lg'): L
         w: layout?.w ?? DEFAULT_CARD_DIMENSIONS[item.type].w,
         h: layout?.h ?? DEFAULT_CARD_DIMENSIONS[item.type].h,
         minW: 1, // Allow narrow 1-column images
-        minH: 3, // Minimum height for 1-col images (fits 4:3 and 3:2 roughly)
+        minH: COMPACT_CARD_HEIGHT_UNITS,
         maxW: 4,
-        maxH: 20, // Increased to support tall/square images
+        maxH: 6,
       };
     }
 
@@ -90,9 +142,9 @@ export function itemsToLayout(items: Item[], breakpoint: 'lg' | 'xxs' = 'lg'): L
         w: layout?.w ?? DEFAULT_CARD_DIMENSIONS[item.type].w,
         h: layout?.h ?? DEFAULT_CARD_DIMENSIONS[item.type].h,
         minW: 1,
-        minH: 4,
+        minH: COMPACT_CARD_HEIGHT_UNITS,
         maxW: 4,
-        maxH: 25,
+        maxH: 7,
         anchor: true, // Anchor items act as obstacles but can be moved
       };
     }
@@ -105,9 +157,9 @@ export function itemsToLayout(items: Item[], breakpoint: 'lg' | 'xxs' = 'lg'): L
       w: layout?.w ?? DEFAULT_CARD_DIMENSIONS[item.type].w,
       h: layout?.h ?? DEFAULT_CARD_DIMENSIONS[item.type].h,
       minW: 1,
-      minH: 4,
+      minH: COMPACT_CARD_HEIGHT_UNITS,
       maxW: 4,
-      maxH: 25,
+      maxH: 7,
     };
   });
 }
@@ -141,7 +193,7 @@ export function findNextAvailablePosition(
     const ix = layout?.x ?? 0;
     const iy = layout?.y ?? 0;
     const iw = layout?.w ?? DEFAULT_CARD_DIMENSIONS[item.type]?.w ?? 1;
-    const ih = layout?.h ?? DEFAULT_CARD_DIMENSIONS[item.type]?.h ?? 4;
+    const ih = layout?.h ?? DEFAULT_CARD_DIMENSIONS[item.type]?.h ?? COMPACT_CARD_HEIGHT_UNITS;
     occupiedRects.push({ x: ix, y: iy, w: iw, h: ih });
     maxY = Math.max(maxY, iy + ih);
   });
@@ -178,7 +230,7 @@ export function findNextAvailablePosition(
 }
 
 /** Default height for all items in xxs (single-column) mode */
-export const XXS_DEFAULT_HEIGHT = 12;
+export const XXS_DEFAULT_HEIGHT = 3;
 
 /**
  * Generate missing layouts for items that don't have them.
@@ -268,8 +320,7 @@ export function recompactLayout(items: Item[], cols: number): Item[] {
 
   return sortedItems.map((item) => {
     const existingLayout = getLayoutForBreakpoint(item, 'lg');
-    // Use default dimensions as fallback to ensure quiz cards get height 13
-    const h = existingLayout?.h ?? DEFAULT_CARD_DIMENSIONS[item.type]?.h ?? 4;
+    const h = existingLayout?.h ?? DEFAULT_CARD_DIMENSIONS[item.type]?.h ?? COMPACT_CARD_HEIGHT_UNITS;
     const dimensions = existingLayout
       ? { w: Math.min(existingLayout.w, cols), h }
       : { w: DEFAULT_CARD_DIMENSIONS[item.type].w, h: DEFAULT_CARD_DIMENSIONS[item.type].h };

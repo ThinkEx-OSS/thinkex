@@ -1,12 +1,19 @@
 import { Responsive as ResponsiveGridLayout, type Layout, type LayoutItem, useContainerWidth } from "react-grid-layout";
-import { wrapCompactor, fastVerticalCompactor } from "react-grid-layout/extras";
-import { useFeatureFlagEnabled } from "posthog-js/react";
+import { wrapCompactor } from "react-grid-layout/extras";
 import { useMemo, useCallback, useRef, useEffect, useState } from "react";
 import React from "react";
 import type { Item, CardType } from "@/lib/workspace-state/types";
 import { GRID_FRAMES } from "@/lib/workspace-state/aspect-ratios";
 import type { CardColor } from "@/lib/workspace-state/colors";
-import { itemsToLayout, generateMissingLayouts, updateItemsWithLayout, hasLayoutChanged } from "@/lib/workspace-state/grid-layout-helpers";
+import {
+  COMPACT_CARD_HEIGHT_UNITS,
+  GRID_GAP_PX,
+  GRID_ROW_HEIGHT_PX,
+  itemsToLayout,
+  generateMissingLayouts,
+  updateItemsWithLayout,
+  hasLayoutChanged,
+} from "@/lib/workspace-state/grid-layout-helpers";
 import { isDescendantOf } from "@/lib/workspace-state/search";
 import { WorkspaceCard } from "./WorkspaceCard";
 import { FlashcardWorkspaceCard } from "./FlashcardWorkspaceCard";
@@ -70,9 +77,6 @@ export function WorkspaceGrid({
   onPDFUpload,
   setOpenModalItemId,
 }: WorkspaceGridProps) {
-  const useWrapCompactor = useFeatureFlagEnabled("wrap-compactor");
-  const compactor = useWrapCompactor ? wrapCompactor : fastVerticalCompactor;
-
   const layoutChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasUserInteractedRef = useRef<boolean>(false);
   const draggedItemIdRef = useRef<string | null>(null);
@@ -110,7 +114,7 @@ export function WorkspaceGrid({
   }, [allItems]);
 
   // Generate layouts for items that don't have them
-  // lg: 4 columns; xxs: 1 column with h=10 default for consistent single-column stacking
+  // lg: 4 columns; xxs: 1 column with compact-unit defaults for consistent stacking
   const itemsWithLayout = useMemo(() => {
     const withLg = generateMissingLayouts(items, 4);
     return generateMissingLayouts(withLg, 1, 'xxs');
@@ -501,7 +505,7 @@ export function WorkspaceGrid({
   }, [onDragStop, isFiltered, isTemporaryFilter, onGridDragStateChange, onUpdateAllItems, onMoveItem, onMoveItems, selectedCardIds]);
 
   // Handle resize to enforce constraints
-  // Note cards can transition between compact (w=1, h=4) and expanded (w>=2, h>=9) modes
+  // Cards snap to compact=1 base units to keep the grid stable.
   // based on EITHER width or height changes, allowing vertical-only resizing to trigger mode switches
   const handleResize = useCallback((layout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null, placeholder: LayoutItem | null, e: Event, element: HTMLElement | null) => {
 
@@ -541,26 +545,25 @@ export function WorkspaceGrid({
           newItem.w = closestFrame.w;
         }
       } else if (itemData.type === 'youtube') {
-        // At w=1: force h=4 (matches note compact). At w=2: force h=7
+        // At w=1: compact height. At w=2: expanded height.
         if (newItem.w === 1) {
-          newItem.h = 4;
+          newItem.h = COMPACT_CARD_HEIGHT_UNITS;
         } else {
-          newItem.h = 7;
+          newItem.h = 2;
         }
       } else if (itemData.type === 'folder' || itemData.type === 'flashcard') {
         // Folders and flashcards don't need minimum height enforcement - skip
       } else if (currentBreakpointRef.current !== 'xxs' && (itemData.type === 'note' || itemData.type === 'pdf' || itemData.type === 'quiz' || itemData.type === 'audio')) {
-        // Note, PDF, Quiz, and Audio (recording) cards: handle transitions between compact and expanded modes
-        // Note/Audio cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=9
-        // PDF cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=6
-        // Quiz cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=13
+        // Note, PDF, Quiz, and Audio cards:
+        // Compact mode: w=1, h=1
+        // Expanded mode: w>=2 with type-specific minimum heights in base units.
         const wasCompact = oldItem.w === 1;
         const widthChanged = oldItem.w !== newItem.w;
-        const minExpandedHeight = itemData.type === 'pdf' ? 6 : itemData.type === 'quiz' ? 13 : 9;
+        const minExpandedHeight = itemData.type === 'quiz' ? 3 : 2;
 
         // Check for mode transitions triggered by height-only resize
         if (!widthChanged) {
-          if (wasCompact && newItem.h > 4) {
+          if (wasCompact && newItem.h > COMPACT_CARD_HEIGHT_UNITS) {
             // Growing a compact card taller → expand to wide mode
             newItem.w = 2;
           } else if (!wasCompact && newItem.h < minExpandedHeight) {
@@ -573,7 +576,7 @@ export function WorkspaceGrid({
         if (newItem.w >= 2) {
           newItem.h = Math.max(newItem.h, minExpandedHeight);
         } else {
-          newItem.h = 4;
+          newItem.h = COMPACT_CARD_HEIGHT_UNITS;
         }
       }
 
@@ -671,8 +674,8 @@ export function WorkspaceGrid({
 
   // OPTIMIZED: Memoize array props to prevent ResponsiveGridLayout/DraggableCore re-renders
   // These arrays are recreated on every render, causing unnecessary re-renders
-  const margin = useMemo(() => [16, 16] as [number, number], []);
-  const containerPadding = useMemo(() => [16, 0] as [number, number], []);
+  const margin = useMemo(() => [GRID_GAP_PX, GRID_GAP_PX] as [number, number], []);
+  const containerPadding = useMemo(() => [GRID_GAP_PX, 0] as [number, number], []);
   const resizeHandles = useMemo(() => ['s', 'w', 'e', 'n', 'se', 'sw', 'ne', 'nw'] as Array<'s' | 'w' | 'e' | 'n' | 'se' | 'sw' | 'ne' | 'nw'>, []);
 
   // OPTIMIZED: Create stable Set reference check - only recreate if Set contents changed
@@ -777,7 +780,7 @@ export function WorkspaceGrid({
   const cols = useMemo(() => ({ lg: 4, xxs: 1 }), []);
 
   // Create layouts object for ResponsiveGridLayout with both breakpoints
-  // Always provide xxs layout (h=10 default) for consistent single-column stacking
+  // Always provide xxs layout for consistent single-column stacking
   const xxsLayout = useMemo(() => itemsToLayout(itemsWithLayout, 'xxs'), [itemsWithLayout]);
   const layouts = useMemo(() => ({
     lg: combinedLayout,
@@ -803,7 +806,7 @@ export function WorkspaceGrid({
           layouts={layouts}
           breakpoints={breakpoints}
           cols={cols}
-          rowHeight={25}
+          rowHeight={GRID_ROW_HEIGHT_PX}
           margin={margin}
           containerPadding={containerPadding}
 
@@ -821,7 +824,7 @@ export function WorkspaceGrid({
           onResizeStart={handleResizeStart}
           onResizeStop={handleResizeStop}
           onBreakpointChange={handleBreakpointChange}
-          compactor={compactor}
+          compactor={wrapCompactor}
         >
           {children}
         </ResponsiveGridLayout>

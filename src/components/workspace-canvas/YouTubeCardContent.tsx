@@ -111,7 +111,7 @@ export function YouTubeCardContent({ item, isPlaying, onTogglePlay }: YouTubeCar
       ) : (
         // Thumbnail view with play button (or playlist fallback)
         <div
-          className="relative w-full h-full cursor-pointer group"
+          className="relative w-full h-full min-h-0 overflow-hidden cursor-pointer group rounded-lg"
         // onClick is handled by parent WorkspaceCard
         >
           {thumbnailUrl ? (
@@ -119,7 +119,7 @@ export function YouTubeCardContent({ item, isPlaying, onTogglePlay }: YouTubeCar
               <img
                 src={thumbnailUrl}
                 alt={item.name || "YouTube Video"}
-                className="w-full h-full object-cover rounded-lg"
+                className="absolute inset-0 w-full h-full object-cover object-center rounded-lg"
               />
               {/* Dark overlay */}
               <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors rounded-lg" />

@@ -19,7 +19,7 @@ export const ASPECT_RATIOS = {
 };
 
 // Optimal grid dimensions for each aspect ratio
-// Based on: Row Height = 25px, Col Width ~160px, Gap = 16px
+// Based on: Row Height = 148px, Col Width ~160px, Gap = 16px
 // Grid Widths:
 // 1 col = 160px
 // 2 col = 336px
@@ -27,46 +27,24 @@ export const ASPECT_RATIOS = {
 // 4 col = 688px
 export const GRID_FRAMES: GridFrame[] = [
     // --- 1 COLUMN (160px) ---
-    { w: 1, h: 4, ratio: 1.08, label: "1:1" },   // 160x148
-    { w: 1, h: 3, ratio: 1.49, label: "4:3 / 3:2" }, // 160x107 - Compromise for Standard/Photo
-    { w: 1, h: 2, ratio: 2.42, label: "16:9" },  // 160x66 - Very wide, but mathematically closest to video? Actually 1.77 of 160 is 90px (h=2.5). 
-    // Let's check h=3 vs h=2 for video. h=3 is 160/107 = 1.49. h=2 is 160/66 = 2.42. 
-    // Video (1.77) is right in between. We'll offer h=3 as a "tall video" option and maybe h=2 for wide.
-    // Actually, let's stick to standard approx. 
+    { w: 1, h: 1, ratio: 1.08, label: "1:1" }, // 160x148
+    { w: 1, h: 2, ratio: 0.51, label: "Tall" }, // 160x312
 
     // --- 2 COLUMN (336px) ---
-    // Square
-    { w: 2, h: 8, ratio: 1.08, label: "1:1" },
-    // 4:3
-    { w: 2, h: 7, ratio: 1.24, label: "4:3" },
-    // 3:2
-    { w: 2, h: 6, ratio: 1.46, label: "3:2" },
-    // 16:9
-    { w: 2, h: 5, ratio: 1.77, label: "16:9" },
+    { w: 2, h: 2, ratio: 1.08, label: "1:1" }, // 336x312
+    { w: 2, h: 1, ratio: 2.27, label: "Wide" }, // 336x148
+    { w: 2, h: 3, ratio: 0.71, label: "Portrait" }, // 336x476
 
     // --- 3 COLUMN (512px) ---
-    // Square
-    { w: 3, h: 13, ratio: 0.99, label: "1:1" }, // 512x517
-    // 4:3
-    { w: 3, h: 10, ratio: 1.30, label: "4:3" }, // 512x394
-    // 3:2
-    { w: 3, h: 9, ratio: 1.45, label: "3:2" },  // 512x353
-    // 16:9
-    { w: 3, h: 8, ratio: 1.64, label: "16:9" }, // 512x312
-    // 1.91:1
-    { w: 3, h: 7, ratio: 1.88, label: "1.91:1" }, // 512x271
+    { w: 3, h: 3, ratio: 1.08, label: "1:1" }, // 512x476
+    { w: 3, h: 2, ratio: 1.64, label: "16:9-ish" }, // 512x312
+    { w: 3, h: 4, ratio: 0.8, label: "Portrait" }, // 512x640
 
     // --- 4 COLUMN (688px) ---
-    // Square
-    { w: 4, h: 17, ratio: 0.99, label: "1:1" }, // 688x681
-    // 4:3
-    { w: 4, h: 13, ratio: 1.30, label: "4:3" }, // 688x517
-    // 3:2
-    { w: 4, h: 11, ratio: 1.52, label: "3:2" }, // 688x435
-    // 16:9
-    { w: 4, h: 10, ratio: 1.75, label: "16:9" }, // 688x394
-    // 1.91:1
-    { w: 4, h: 9, ratio: 1.95, label: "1.91:1" } // 688x353
+    { w: 4, h: 4, ratio: 1.08, label: "1:1" }, // 688x640
+    { w: 4, h: 3, ratio: 1.44, label: "3:2-ish" }, // 688x476
+    { w: 4, h: 2, ratio: 2.21, label: "Wide" }, // 688x312
+    { w: 4, h: 5, ratio: 0.86, label: "Portrait" }, // 688x804
 ];
 
 /**
