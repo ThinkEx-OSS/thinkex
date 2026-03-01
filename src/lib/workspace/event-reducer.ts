@@ -16,7 +16,6 @@ export function eventReducer(state: AgentState, event: WorkspaceEvent): AgentSta
 
     case 'ITEM_CREATED': {
       const item = event.payload.item;
-      const now = event.timestamp || Date.now();
       return {
         ...state,
         items: [...state.items, { ...item, lastModified: now }],
@@ -100,8 +99,8 @@ export function eventReducer(state: AgentState, event: WorkspaceEvent): AgentSta
           .filter((i) => !deletedSet.has(i.id))
           .map((item) =>
             item.folderId && deletedFolderIds.has(item.folderId)
-              ? { ...item, folderId: undefined, layout: undefined, lastModified: now }
-              : { ...item, lastModified: now }
+              ? { ...item, folderId: undefined, layout: undefined }
+              : item
           );
         return { ...state, items: remaining };
       }
