@@ -557,15 +557,28 @@ Return:
           send({ type: "progress", data: { step: "flashcards", status: "done" } });
           send({ type: "progress", data: { step: "quiz", status: "done" } });
 
-          const questions: QuizQuestion[] = output.quiz.questions.map((q) => ({
-            id: generateItemId(),
-            type: q.type,
-            questionText: q.questionText,
-            options: q.options || [],
-            correctIndex: q.correctIndex ?? 0,
-            hint: q.hint,
-            explanation: q.explanation || "No explanation provided.",
-          }));
+          const questions: QuizQuestion[] = output.quiz.questions.map((q) => {
+            const type = q.type === "true_false" ? "true_false" : "multiple_choice";
+            let options = Array.isArray(q.options) ? q.options.map(String) : [];
+            const requiredCount = type === "true_false" ? 2 : 4;
+            if (options.length < requiredCount) {
+              options = [...options, ...Array(requiredCount - options.length).fill("(No option provided)")];
+            } else if (options.length > requiredCount) {
+              options = options.slice(0, requiredCount);
+            }
+            const correctIndex = typeof q.correctIndex === "number"
+              ? Math.max(0, Math.min(q.correctIndex, options.length - 1))
+              : 0;
+            return {
+              id: generateItemId(),
+              type,
+              questionText: String(q.questionText ?? ""),
+              options,
+              correctIndex,
+              hint: q.hint,
+              explanation: String(q.explanation ?? "No explanation provided."),
+            };
+          });
 
           return {
             note: { title: output.note.title, content: output.note.content, layout: AUTOGEN_LAYOUTS.note },

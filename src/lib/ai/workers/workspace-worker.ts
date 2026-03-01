@@ -869,7 +869,7 @@ export async function workspaceWorker(
 
                 logger.info("🎯 [WORKSPACE-WORKER] Updated quiz:", {
                     itemId: params.itemId,
-                    questionsAdded: questionsToAdd.length,
+                    questionsAdded: questionsToAdd?.length ?? 0,
                     totalQuestions: updatedData.questions.length,
                 });
 
