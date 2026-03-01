@@ -125,16 +125,16 @@ export function YouTubeCardContent({ item, isPlaying, onTogglePlay }: YouTubeCar
               <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors rounded-lg" />
               {/* Play button */}
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center shadow-lg transition-all group-hover:scale-110">
-                  <Play className="h-7 w-7 text-white fill-white ml-1" />
+                <div className="w-11 h-11 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center shadow-lg transition-all group-hover:scale-110">
+                  <Play className="h-5 w-5 text-white fill-white ml-1" />
                 </div>
               </div>
             </>
           ) : (
             // Fallback for playlists without thumbnails
             <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-red-500/10 to-red-600/10 rounded-lg border border-red-500/20">
-              <div className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center shadow-lg transition-all group-hover:scale-110 mb-3">
-                <Play className="h-8 w-8 text-white fill-white ml-1" />
+              <div className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center shadow-lg transition-all group-hover:scale-110 mb-3">
+                <Play className="h-6 w-6 text-white fill-white ml-1" />
               </div>
               <p className="text-sm font-medium text-foreground">YouTube Playlist</p>
               <p className="text-xs text-muted-foreground mt-1">Click to play</p>
