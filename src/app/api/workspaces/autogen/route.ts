@@ -45,12 +45,12 @@ const AVAILABLE_ICONS = [
 
 /** Layout positions for autogen items (matches desired workspace arrangement) */
 const AUTOGEN_LAYOUTS = {
-  youtube: { x: 0, y: 0, w: 2, h: 7 },
-  flashcard: { x: 2, y: 0, w: 2, h: 5 },
-  note: { x: 2, y: 5, w: 1, h: 4 },
-  quiz: { x: 0, y: 7, w: 2, h: 13 },
-  pdf: { w: 1, h: 4 },
-  image: { w: 2, h: 8 },
+  youtube: { x: 0, y: 0, w: 1, h: 1 },
+  flashcard: { x: 2, y: 0, w: 2, h: 1 },
+  note: { x: 2, y: 1, w: 1, h: 1 },
+  quiz: { x: 0, y: 2, w: 2, h: 3 },
+  pdf: { w: 1, h: 1 },
+  image: { w: 2, h: 2 },
 } as const;
 
 type FileUrlItem = { url: string; mediaType: string; filename?: string; fileSize?: number };

@@ -119,10 +119,10 @@ const FlashcardSideContent = memo(function FlashcardSideContent({
                 // Match ItemHeader note card title styling: text-base (1rem) font-medium (500)
                 fontSize: '1rem',
                 fontWeight: 500,
-                paddingTop: '1.5rem',
-                paddingBottom: '1.5rem',
-                paddingLeft: '1.5rem',
-                paddingRight: '1.5rem',
+                paddingTop: '0.75rem',
+                paddingBottom: '0.75rem',
+                paddingLeft: '0.75rem',
+                paddingRight: '0.75rem',
                 // Text rendering optimization - NO transforms here to avoid 3D context conflicts
                 WebkitFontSmoothing: 'antialiased',
                 MozOsxFontSmoothing: 'grayscale' as any,
@@ -599,7 +599,7 @@ export function FlashcardWorkspaceCard({
                                             textFallback={currentCard.front}
                                             isEditing={isEditingInModal}
                                             isScrollLocked={isScrollLocked}
-                                            className="p-4"
+                                            className="p-3"
                                         />
                                     }
                                     back={
@@ -608,7 +608,7 @@ export function FlashcardWorkspaceCard({
                                             textFallback={currentCard.back}
                                             isEditing={isEditingInModal}
                                             isScrollLocked={isScrollLocked}
-                                            className="p-4"
+                                            className="p-3"
                                         />
                                     }
                                     color={item.color}
