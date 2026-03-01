@@ -545,12 +545,8 @@ export function WorkspaceGrid({
           newItem.w = closestFrame.w;
         }
       } else if (itemData.type === 'youtube') {
-        // At w=1: compact height. At w=2: expanded height.
-        if (newItem.w === 1) {
-          newItem.h = COMPACT_CARD_HEIGHT_UNITS;
-        } else {
-          newItem.h = 2;
-        }
+        // Fixed at 1 width, 1 height
+        newItem.h = COMPACT_CARD_HEIGHT_UNITS;
       } else if (itemData.type === 'folder' || itemData.type === 'flashcard') {
         // Folders and flashcards don't need minimum height enforcement - skip
       } else if (currentBreakpointRef.current !== 'xxs' && (itemData.type === 'note' || itemData.type === 'pdf' || itemData.type === 'quiz' || itemData.type === 'audio')) {

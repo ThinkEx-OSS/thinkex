@@ -45,7 +45,7 @@ const AVAILABLE_ICONS = [
 
 /** Layout positions for autogen items (matches desired workspace arrangement) */
 const AUTOGEN_LAYOUTS = {
-  youtube: { x: 0, y: 0, w: 2, h: 2 },
+  youtube: { x: 0, y: 0, w: 1, h: 1 },
   flashcard: { x: 2, y: 0, w: 2, h: 1 },
   note: { x: 2, y: 1, w: 1, h: 1 },
   quiz: { x: 0, y: 2, w: 2, h: 3 },

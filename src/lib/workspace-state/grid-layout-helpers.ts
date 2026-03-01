@@ -18,7 +18,7 @@ export const DEFAULT_CARD_DIMENSIONS: Record<CardType, { w: number; h: number }>
   pdf: { w: 1, h: COMPACT_CARD_HEIGHT_UNITS },
   flashcard: { w: 2, h: COMPACT_CARD_HEIGHT_UNITS },
   folder: { w: 1, h: COMPACT_CARD_HEIGHT_UNITS },
-  youtube: { w: 2, h: 2 },
+  youtube: { w: 1, h: 1 },
   quiz: { w: 2, h: 3 },
   image: { w: 4, h: 3 },
   audio: { w: 2, h: 2 },
@@ -75,13 +75,18 @@ export function getLayoutForBreakpoint(item: Item, breakpoint: 'lg' | 'xxs'): La
   if (!item.layout) return undefined;
 
   const normalize = (layout: LayoutPosition): LayoutPosition => {
-    const sanitized: LayoutPosition = {
+    let sanitized: LayoutPosition = {
       x: Math.max(0, Math.round(layout.x)),
       y: Math.max(0, Math.round(layout.y)),
       w: Math.max(1, Math.round(layout.w)),
       h: Math.max(COMPACT_CARD_HEIGHT_UNITS, Math.round(layout.h)),
     };
-    return migrateLegacyLayoutScale(item.type, sanitized);
+    sanitized = migrateLegacyLayoutScale(item.type, sanitized);
+    // YouTube: clamp to 1x1 (legacy cards may have w=2)
+    if (item.type === 'youtube') {
+      sanitized = { ...sanitized, w: 1, h: COMPACT_CARD_HEIGHT_UNITS };
+    }
+    return sanitized;
   };
 
   if (isLegacyLayout(item.layout)) {
@@ -103,7 +108,7 @@ export function itemsToLayout(items: Item[], breakpoint: 'lg' | 'xxs' = 'lg'): L
   return items.map((item) => {
     const layout = getLayoutForBreakpoint(item, breakpoint);
 
-    // YouTube: resizable smaller but not larger than 2x2; at w=1 force compact height
+    // YouTube: fixed at 1x1; no resize handles
     if (item.type === 'youtube') {
       return {
         i: item.id,
@@ -113,8 +118,9 @@ export function itemsToLayout(items: Item[], breakpoint: 'lg' | 'xxs' = 'lg'): L
         h: layout?.h ?? DEFAULT_CARD_DIMENSIONS[item.type].h,
         minW: 1,
         minH: COMPACT_CARD_HEIGHT_UNITS,
-        maxW: 2,
-        maxH: 2,
+        maxW: 1,
+        maxH: COMPACT_CARD_HEIGHT_UNITS,
+        isResizable: false,
       };
     }
 

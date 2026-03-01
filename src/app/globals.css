@@ -966,6 +966,13 @@ body.marquee-selecting iframe {
   touch-action: none !important;
 }
 
+/* Hide resize handles when isResizable is false (e.g. YouTube cards)
+   react-grid-layout adds .react-resizable-hide to Resizable when isResizable: false */
+.react-resizable-hide .react-resizable-handle {
+  display: none !important;
+  pointer-events: none !important;
+}
+
 /* Improve resize handles for mobile */
 @media (max-width: 768px) {
   .react-grid-item>.react-resizable-handle {
