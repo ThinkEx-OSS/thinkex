@@ -4,6 +4,7 @@ import { sleep } from "workflow";
 import { fetchPdf } from "./steps/fetch-pdf";
 import { prepareOcrChunks } from "./steps/prepare-ocr-chunks";
 import { ocrChunk } from "./steps/ocr-chunk";
+import { persistPdfOcrResult, persistPdfOcrFailure } from "./steps/persist-result";
 
 const MAX_CONCURRENT_OCR = 5;
 const OCR_TIMEOUT = "5min"; // Per docs: Promise.race with sleep() for timeout
@@ -11,11 +12,19 @@ const OCR_TIMEOUT = "5min"; // Per docs: Promise.race with sleep() for timeout
 /**
  * Durable workflow for PDF OCR.
  * Each fetch, prepare, and OCR batch is a step — retriable and observable.
- * Uses timeout pattern per workflow docs (Promise.race with sleep).
+ * Persists result to workspace on success or failure (survives reload).
  *
  * @param fileUrl - URL of the PDF file (must be from allowed hosts)
+ * @param workspaceId - Workspace to update
+ * @param itemId - PDF card item ID
+ * @param userId - User ID for event attribution
  */
-export async function pdfOcrWorkflow(fileUrl: string) {
+export async function pdfOcrWorkflow(
+  fileUrl: string,
+  workspaceId: string,
+  itemId: string,
+  userId: string
+) {
   "use workflow";
 
   const runOcr = async (): Promise<{
@@ -54,14 +63,28 @@ export async function pdfOcrWorkflow(fileUrl: string) {
     return { textContent, ocrPages: allPages };
   };
 
-  const result = await Promise.race([
-    runOcr(),
-    sleep(OCR_TIMEOUT).then(() => ({ timedOut: true } as const)),
-  ]);
+  try {
+    const result = await Promise.race([
+      runOcr(),
+      sleep(OCR_TIMEOUT).then(() => ({ timedOut: true } as const)),
+    ]);
 
-  if ("timedOut" in result) {
-    throw new Error(`PDF OCR timed out after ${OCR_TIMEOUT}`);
+    if ("timedOut" in result) {
+      await persistPdfOcrFailure(
+        workspaceId,
+        itemId,
+        userId,
+        `PDF OCR timed out after ${OCR_TIMEOUT}`
+      );
+      throw new Error(`PDF OCR timed out after ${OCR_TIMEOUT}`);
+    }
+
+    await persistPdfOcrResult(workspaceId, itemId, userId, result);
+    return result;
+  } catch (err) {
+    const errorMessage =
+      err instanceof Error ? err.message : "PDF OCR failed";
+    await persistPdfOcrFailure(workspaceId, itemId, userId, errorMessage);
+    throw err;
   }
-
-  return result;
 }
