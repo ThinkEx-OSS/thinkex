@@ -32,20 +32,24 @@ async function appendWorkspaceEvent(
     ) as result
   `);
 
-  const raw = appendResult[0]?.result as string | undefined;
-  if (raw) {
-    const match = raw.match(APPEND_RESULT_REGEX);
-    if (!match) {
-      throw new Error(
-        `append_workspace_event returned unexpected format: ${raw}`
-      );
-    }
-    const modified = match[2].toLowerCase();
-    if (modified === "t" || modified === "true") {
-      throw new Error(
-        `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${baseVersion}). Workflow will retry automatically.`
-      );
-    }
+  if (!appendResult || appendResult.length === 0 || !appendResult[0]) {
+    throw new Error(
+      "append_workspace_event returned no result — database may have failed"
+    );
+  }
+
+  const raw = appendResult[0].result as string;
+  const match = raw.match(APPEND_RESULT_REGEX);
+  if (!match) {
+    throw new Error(
+      `append_workspace_event returned unexpected format: ${raw}`
+    );
+  }
+  const modified = match[2].toLowerCase();
+  if (modified === "t" || modified === "true") {
+    throw new Error(
+      `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${baseVersion}). Workflow will retry automatically.`
+    );
   }
 }
 
