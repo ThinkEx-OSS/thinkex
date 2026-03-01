@@ -11,6 +11,21 @@ export async function pollPdfOcr(runId: string, itemId: string): Promise<void> {
     );
     const data = await res.json();
 
+    if (data.status === "not_found" || res.status === 404) {
+      window.dispatchEvent(
+        new CustomEvent("pdf-processing-complete", {
+          detail: {
+            itemId,
+            textContent: "",
+            ocrPages: [],
+            ocrStatus: "failed" as const,
+            ocrError: data.error ?? "OCR run not found or expired",
+          },
+        })
+      );
+      return;
+    }
+
     if (data.status === "completed") {
       window.dispatchEvent(
         new CustomEvent("pdf-processing-complete", {

@@ -27,6 +27,12 @@ export async function GET(req: NextRequest) {
     }
 
     const run = getRun(runId);
+    if (!run) {
+      return NextResponse.json(
+        { status: "not_found", error: "Run not found or expired" },
+        { status: 404 }
+      );
+    }
     const status = await run.status;
 
     if (status === "completed") {
