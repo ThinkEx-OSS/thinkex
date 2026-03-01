@@ -288,6 +288,38 @@ const TextSelectionMenu = ({
   );
 };
 
+/** Intercepts Cmd/Ctrl+C when there's a PDF text selection and copies via embedpdf API (native copy doesn't work for canvas-rendered PDF text). */
+const PdfCopyKeyboardHandler = ({ documentId }: { documentId: string }) => {
+  const { provides: selectionCapability } = useSelectionCapability();
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
+        // Don't intercept when user is typing in an input/textarea
+        const el = document.activeElement;
+        if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as HTMLElement).isContentEditable)) {
+          return;
+        }
+
+        const scope = selectionCapability?.forDocument(documentId);
+        if (!scope) return;
+
+        const state = scope.getState();
+        if (!state?.selection) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+        scope.copyToClipboard();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [documentId, selectionCapability]);
+
+  return null;
+};
+
 // Subscribes to viewport scroll activity and calls onActivity (per embedpdf example)
 const PdfViewportActivityListener = ({ documentId, onActivity }: { documentId: string; onActivity: () => void }) => {
   const { provides: viewportCapability } = useViewportCapability();
@@ -970,6 +1002,7 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
 
                         {/* Viewport */}
                         <div className="flex-1 overflow-hidden relative">
+                          <PdfCopyKeyboardHandler documentId={activeDocumentId} />
                           <PdfSearchBar documentId={activeDocumentId} />
                           <PdfInitialPageScroll
                             documentId={activeDocumentId}
