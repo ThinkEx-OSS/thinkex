@@ -24,9 +24,10 @@ describe("preprocessLatex - currency and math", () => {
     });
 
     it("does NOT protect $127$ (math - dollar on both sides)", () => {
-      const result = preprocessLatex("The formula $127$ is wrong");
-      // $127$ would be treated as math - we don't protect it
-      expect(result).toContain("$");
+      const input = "The formula $127$ is wrong";
+      const result = preprocessLatex(input);
+      // $127$ is not currency (dollar on both sides), so we leave it unchanged
+      expect(result).toBe(input);
     });
   });
 

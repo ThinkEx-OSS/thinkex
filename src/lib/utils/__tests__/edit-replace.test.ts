@@ -28,12 +28,13 @@ describe("replace (edit/replace for oldString/newString)", () => {
     );
   });
 
-  it("matches content with \\r\\n when oldString has \\n (via replacers)", () => {
-    const content = "# Title\r\n\r\nHello world";
-    const normalized = content.replaceAll("\r\n", "\n");
-    expect(replace(normalized, "# Title\n\nHello world", "# Title\n\nHi")).toBe(
-      "# Title\n\nHi"
-    );
+  it("replace with normalized line endings (worker normalizes before calling)", () => {
+    const contentWithCrlf = "# Title\r\n\r\nHello world";
+    const oldStr = "# Title\n\nHello world";
+    // After normalizing both (as worker does), replace succeeds.
+    // Raw CRLF may or may not match depending on replacers; we always normalize.
+    const normalized = contentWithCrlf.replaceAll("\r\n", "\n");
+    expect(replace(normalized, oldStr, "# Title\n\nHi")).toBe("# Title\n\nHi");
   });
 
   it("throws when oldString not found", () => {
@@ -88,8 +89,11 @@ describe("unescapeString", () => {
 
 describe("trimDiff", () => {
   it("trims common indentation from diff lines", () => {
-    const diff = "--- a\n+++ b\n-  content\n+  new";
+    const diff = "--- a\n+++ b\n-    content\n+    new";
     const result = trimDiff(diff);
-    expect(result).toContain("content");
+    // trimDiff finds min leading whitespace (4) and trims that from each content line
+    expect(result).toContain("-content");
+    expect(result).toContain("+new");
+    expect(result).not.toContain("-    content");
   });
 });

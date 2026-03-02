@@ -11,7 +11,7 @@ function getSearchableDataText(item: Item): string {
   switch (type) {
     case "note": {
       const noteData = data as NoteData;
-      if (noteData.blockContent) {
+      if (Array.isArray(noteData.blockContent) && noteData.blockContent.length > 0) {
         const content = serializeBlockNote(noteData.blockContent as Block[]);
         if (content) return content;
       }

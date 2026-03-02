@@ -612,7 +612,7 @@ function formatNoteDetailsFull(data: NoteData): string[] {
         lines.push(content);
     }
     if (data.sources && data.sources.length > 0) {
-        lines.push("");
+        if (lines.length > 0) lines.push("");
         lines.push("Sources:");
         for (const s of data.sources) {
             lines.push(`  - ${s.title || s.url} | ${s.url}`);

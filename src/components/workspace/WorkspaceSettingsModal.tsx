@@ -302,8 +302,8 @@ export default function WorkspaceSettingsModal({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Workspace</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{workspace?.name}&quot;? This action
-              and will delete all data in this workspace. You can restore from version history if needed.
+              Are you sure you want to delete &quot;{workspace?.name}&quot;? This will
+              delete all data in this workspace. You can restore from version history if needed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

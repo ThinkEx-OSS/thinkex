@@ -83,13 +83,14 @@ describe("getNoteContentAsMarkdown", () => {
   });
 
   it("normalizes \\r\\n to \\n", () => {
-    const block = mkParagraph("line1");
+    // Use text with CRLF to exercise normalization path
+    const block = mkParagraph("line1\r\nline2");
     const data = {
       blockContent: [block],
     } as NoteData;
     const content = getNoteContentAsMarkdown(data);
     expect(content).not.toContain("\r\n");
-    expect(content).toBe("line1\n\n");
+    expect(content).toBe("line1\nline2\n\n");
   });
 });
 

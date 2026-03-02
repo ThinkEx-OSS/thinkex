@@ -50,12 +50,10 @@ describe("markdownToBlocks - currency and math pipeline", () => {
     expect(blocks.length).toBeGreaterThanOrEqual(1);
     const block = blocks[0];
     const content = (block as any)?.content;
-    if (Array.isArray(content)) {
-      const mathNode = content.find((c: any) => c.type === "inlineMath");
-      if (mathNode) {
-        expect(mathNode.props.latex).toBe("x^2");
-      }
-    }
+    expect(Array.isArray(content)).toBe(true);
+    const mathNode = content?.find((c: any) => c.type === "inlineMath");
+    expect(mathNode).toBeDefined();
+    expect(mathNode!.props.latex).toBe("x^2");
   });
 
   it("parses $$E=mc^2$$ as block math", async () => {
