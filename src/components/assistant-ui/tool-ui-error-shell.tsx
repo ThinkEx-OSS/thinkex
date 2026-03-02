@@ -3,12 +3,19 @@
 import { AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const MAX_MESSAGE_LENGTH = 120;
+
 export interface ToolUIErrorShellProps {
   /** Main label (e.g. "Failed to create note") */
   label: string;
   /** Optional error message with more details */
   message?: string;
   className?: string;
+}
+
+function truncateMessage(msg: string, maxLen: number = MAX_MESSAGE_LENGTH): string {
+  if (msg.length <= maxLen) return msg;
+  return msg.slice(0, maxLen).trim() + "…";
 }
 
 /**
@@ -34,7 +41,9 @@ export function ToolUIErrorShell({
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-xs font-medium text-destructive/90">{label}</span>
         {message && (
-          <span className="text-xs text-muted-foreground">{message}</span>
+          <span className="text-xs text-muted-foreground break-words">
+            {truncateMessage(message)}
+          </span>
         )}
       </div>
     </div>
