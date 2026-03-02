@@ -21,17 +21,9 @@ import { initialState } from "@/lib/workspace-state/state";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import type { QuizResult } from "@/lib/ai/tool-result-schemas";
 import { parseQuizResult } from "@/lib/ai/tool-result-schemas";
-
-type CreateQuizArgs = {
-    topic?: string;
-    difficulty?: "easy" | "medium" | "hard";
-    contextContent?: string;
-    sourceCardIds?: string[];
-    sourceCardNames?: string[];
-};
+import type { CreateQuizInput } from "@/lib/ai/tools/quiz-tools";
 
 interface CreateQuizReceiptProps {
-    args: CreateQuizArgs;
     result: QuizResult;
     status: any;
     moveItemToFolder?: (itemId: string, folderId: string | null) => void;
@@ -41,13 +33,7 @@ interface CreateQuizReceiptProps {
     workspaceColor?: string | null;
 }
 
-const difficultyColors = {
-    easy: "bg-green-500/10 text-green-600",
-    medium: "bg-yellow-500/10 text-yellow-600",
-    hard: "bg-red-500/10 text-red-600",
-};
-
-const CreateQuizReceipt = ({ args, result, status, moveItemToFolder, allItems = [], workspaceName = "Workspace", workspaceIcon, workspaceColor }: CreateQuizReceiptProps) => {
+const CreateQuizReceipt = ({ result, status, moveItemToFolder, allItems = [], workspaceName = "Workspace", workspaceIcon, workspaceColor }: CreateQuizReceiptProps) => {
     const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
     const { state: workspaceState } = useWorkspaceState(workspaceId);
     const navigateToItem = useNavigateToItem();
@@ -55,12 +41,23 @@ const CreateQuizReceipt = ({ args, result, status, moveItemToFolder, allItems = 
     // State for MoveToDialog
     const [showMoveDialog, setShowMoveDialog] = useState(false);
 
-    // Get the current item from workspace state
+    // Get the current item — try workspace state first, then allItems, then stub from result
     const currentItem = useMemo(() => {
         const targetId = result.itemId || result.quizId;
-        if (!targetId || !workspaceState?.items) return undefined;
-        return workspaceState.items.find((item: any) => item.id === targetId);
-    }, [result.itemId, result.quizId, workspaceState?.items]);
+        if (!targetId) return undefined;
+        const fromWorkspace = workspaceState?.items?.find((item: { id: string }) => item.id === targetId);
+        if (fromWorkspace) return fromWorkspace;
+        const fromAll = allItems.find((item: { id: string }) => item.id === targetId);
+        if (fromAll) return fromAll;
+        return {
+            id: targetId,
+            name: (result as { title?: string }).title ?? "Quiz",
+            type: "quiz" as const,
+            subtitle: "",
+            data: {},
+            folderId: undefined,
+        };
+    }, [result.itemId, result.quizId, result, workspaceState?.items, allItems]);
 
     // Get folder name if item is in a folder
     const folderName = useMemo(() => {
@@ -81,8 +78,6 @@ const CreateQuizReceipt = ({ args, result, status, moveItemToFolder, allItems = 
             moveItemToFolder(targetId, folderId);
         }
     };
-
-    const difficulty = result.difficulty || args.difficulty || "medium";
 
     return (
         <>
@@ -167,7 +162,7 @@ const CreateQuizReceipt = ({ args, result, status, moveItemToFolder, allItems = 
     );
 };
 
-export const CreateQuizToolUI = makeAssistantToolUI<CreateQuizArgs, QuizResult>({
+export const CreateQuizToolUI = makeAssistantToolUI<CreateQuizInput, QuizResult>({
     toolName: "createQuiz",
     render: function CreateQuizUI({ args, result, status }) {
         const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
@@ -201,7 +196,6 @@ export const CreateQuizToolUI = makeAssistantToolUI<CreateQuizArgs, QuizResult>(
         if (parsed?.success) {
             content = (
                 <CreateQuizReceipt
-                    args={args}
                     result={parsed}
                     status={status}
                     moveItemToFolder={operations.moveItemToFolder}

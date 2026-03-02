@@ -1,34 +1,57 @@
 /**
  * Quiz Tools
- * Tools for creating and updating quizzes in workspaces
+ * Tools for creating and updating quizzes in workspaces.
+ * Like flashcards, the AI generates quiz content directly in the tool call.
  */
 
 import { z } from "zod";
 import { tool, zodSchema } from "ai";
 import { logger } from "@/lib/utils/logger";
-import { quizWorker, workspaceWorker } from "@/lib/ai/workers";
+import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
-import type { QuizData } from "@/lib/workspace-state/types";
-import { loadStateForTool, resolveItem, getAvailableItemsList } from "./tool-utils";
+import type { QuizQuestion } from "@/lib/workspace-state/types";
+import { generateItemId } from "@/lib/workspace-state/item-helpers";
+
+export const QuizQuestionSchema = z
+    .object({
+        type: z.enum(["multiple_choice", "true_false"]),
+        questionText: z.string(),
+        options: z.array(z.string()).describe("4 options for multiple_choice, ['True','False'] for true_false"),
+        correctIndex: z.number().int().min(0).describe("0-based index of correct answer in options array"),
+        hint: z.string().optional(),
+        explanation: z.string(),
+    })
+    .refine(
+        (q) => {
+            const requiredCount = q.type === "true_false" ? 2 : 4;
+            return q.options.length === requiredCount && q.correctIndex < q.options.length;
+        },
+        { message: "multiple_choice needs 4 options; true_false needs 2; correctIndex must be < options.length" }
+    );
+
+const CreateQuizInputSchema = z.object({
+    title: z.string().nullish().describe("Short descriptive title for the quiz (defaults to 'Quiz' if not provided)"),
+    questions: z.array(QuizQuestionSchema).min(1).max(50).describe("Array of quiz questions. For multiple_choice: 4 options, 1 correct. For true_false: options ['True','False'], correctIndex 0=True 1=False."),
+});
+export type CreateQuizInput = z.infer<typeof CreateQuizInputSchema>;
 
 /**
- * Create the createQuiz tool
+ * Create the createQuiz tool - AI generates questions directly (like createFlashcards)
  */
 export function createQuizTool(ctx: WorkspaceToolContext) {
     return tool({
-        description: "Create an interactive quiz. Extract topic from user message. Use selected cards as context if available.",
-        inputSchema: zodSchema(
-            z.object({
-                topic: z.string().optional().describe("The topic or specific focus instructions for the quiz - extract from user's message"),
-                contextContent: z.string().optional().describe("Content from selected cards in system context if available"),
-                questionCount: z.number().int().min(1).max(50).optional().describe("The specific number of questions requested by the user, if provided"),
-                sourceCardIds: z.array(z.string()).optional().describe("IDs of source cards"),
-                sourceCardNames: z.array(z.string()).optional().describe("Names of source cards"),
-            })
-        ),
-        execute: async (input: { topic?: string; contextContent?: string; questionCount?: number; sourceCardIds?: string[]; sourceCardNames?: string[] }) => {
-            const { topic, contextContent, questionCount, sourceCardIds, sourceCardNames } = input;
-            logger.debug("🎯 [CREATE-QUIZ] Tool execution started:", { topic, questionCount, hasContext: !!contextContent });
+        description: "Create an interactive quiz.",
+        inputSchema: zodSchema(CreateQuizInputSchema),
+        execute: async (input: CreateQuizInput) => {
+            const title = input.title || "Quiz";
+            const rawQuestions = input.questions || [];
+
+            if (rawQuestions.length === 0) {
+                return {
+                    success: false,
+                    message: "At least one quiz question is required.",
+                };
+            }
 
             if (!ctx.workspaceId) {
                 return {
@@ -37,47 +60,25 @@ export function createQuizTool(ctx: WorkspaceToolContext) {
                 };
             }
 
-            if (!topic && !contextContent) {
-                return {
-                    success: false,
-                    message: "Either 'topic' or 'contextContent' must be provided",
-                };
-            }
-
             try {
+                const questions: QuizQuestion[] = rawQuestions.map((q) => ({
+                    id: generateItemId(),
+                    type: q.type,
+                    questionText: q.questionText,
+                    options: q.options,
+                    correctIndex: q.correctIndex,
+                    hint: q.hint,
+                    explanation: q.explanation || "No explanation provided.",
+                }));
 
-                logger.debug("🎯 [CREATE-QUIZ] Context provided:", {
-                    hasContext: !!contextContent,
-                    contextLength: contextContent?.length,
-                    sourceCardNames,
-                    sourceCardIds,
-                    questionCount,
-                    providedTopic: topic,
-                });
+                logger.debug("🎯 [CREATE-QUIZ] Creating quiz:", { title, questionCount: questions.length });
 
-                // Generate quiz using quizWorker
-                const quizResult = await quizWorker({
-                    topic: topic || undefined,
-                    contextContent,
-                    questionCount: questionCount ?? 5,
-                    sourceCardIds,
-                    sourceCardNames,
-                });
-
-                logger.debug("🎯 [CREATE-QUIZ] quizWorker returned:", {
-                    title: quizResult.title,
-                    questionCount: quizResult.questions?.length,
-                });
-
-                // Create quiz item in workspace
                 const workerResult = await workspaceWorker("create", {
                     workspaceId: ctx.workspaceId,
-                    title: quizResult.title,
+                    title,
                     itemType: "quiz",
                     quizData: {
-                        questions: quizResult.questions,
-                        sourceCardIds,
-                        sourceCardNames,
+                        questions,
                     },
                     folderId: ctx.activeFolderId,
                 });
@@ -90,10 +91,9 @@ export function createQuizTool(ctx: WorkspaceToolContext) {
                     success: true,
                     itemId: workerResult.itemId,
                     quizId: workerResult.itemId,
-                    title: quizResult.title,
-                    questionCount: quizResult.questions.length,
-                    isContextBased: !!contextContent,
-                    message: `Created quiz "${quizResult.title}" with ${quizResult.questions.length} questions.`,
+                    title,
+                    questionCount: questions.length,
+                    message: `Created quiz "${title}" with ${questions.length} questions.`,
                     event: workerResult.event,
                     version: workerResult.version,
                 };
@@ -108,190 +108,4 @@ export function createQuizTool(ctx: WorkspaceToolContext) {
     });
 }
 
-/**
- * Create the updateQuiz tool
- */
-export function createUpdateQuizTool(ctx: WorkspaceToolContext) {
-    return tool({
-        description: "Update quiz title and/or add more questions. Can use new topic, selected cards, or general knowledge.",
-        inputSchema: zodSchema(
-            z.object({
-                quizName: z.string().describe("The name of the quiz to update (will be matched using fuzzy search)"),
-                title: z.string().optional().describe("New title for the quiz. If not provided, the existing title will be preserved."),
-                topic: z.string().optional().describe("New topic for questions"),
-                contextContent: z.string().optional().describe("Content from newly selected cards in system context"),
-                questionCount: z.number().int().min(1).max(50).optional().describe("The specific number of questions to add, if provided"),
-                sourceCardIds: z.array(z.string()).optional().describe("IDs of source cards"),
-                sourceCardNames: z.array(z.string()).optional().describe("Names of source cards"),
-            })
-        ),
-        execute: async (input: { quizName: string; title?: string; topic?: string; contextContent?: string; questionCount?: number; sourceCardIds?: string[]; sourceCardNames?: string[] }) => {
-            const { quizName, title, topic: explicitTopic, contextContent, questionCount, sourceCardIds, sourceCardNames } = input;
-
-            logger.debug("🎯 [UPDATE-QUIZ] Tool execution started:", { quizName, explicitTopic, questionCount, title });
-
-            if (!ctx.workspaceId) {
-                return {
-                    success: false,
-                    message: "No workspace context available",
-                };
-            }
-
-            // Validate required quizName
-            if (!quizName) {
-                return {
-                    success: false,
-                    message: "Quiz name is required to identify which quiz to update.",
-                };
-            }
-
-            try {
-                // Load workspace state and fuzzy match the quiz by name
-                const accessResult = await loadStateForTool(ctx);
-                if (!accessResult.success) {
-                    return accessResult;
-                }
-
-                const { state } = accessResult;
-
-                // Resolve by virtual path or fuzzy name match
-                const quizItem = resolveItem(state.items, quizName, "quiz");
-
-                if (!quizItem) {
-                    const availableQuizzes = getAvailableItemsList(state.items, "quiz");
-                    logger.warn("❌ [UPDATE-QUIZ] Quiz not found:", {
-                        searchedName: quizName,
-                        availableQuizzes,
-                    });
-                    return {
-                        success: false,
-                        message: `Could not find quiz "${quizName}". ${availableQuizzes ? `Available quizzes: ${availableQuizzes}` : 'No quizzes found in workspace.'}`,
-                    };
-                }
-
-                const quizId = quizItem.id;
-
-                logger.debug("🎯 [UPDATE-QUIZ] Found quiz via fuzzy match:", {
-                    searchedName: quizName,
-                    matchedName: quizItem.name,
-                    matchedId: quizId,
-                });
-
-                // Title update is now handled in the main workspaceWorker("updateQuiz") call below
-                if (title) {
-                    logger.debug("🎯 [UPDATE-QUIZ] Will update title to:", title);
-                }
-
-                const currentQuizData = quizItem.data as QuizData;
-                const existingQuestions = currentQuizData.questions || [];
-                const session = currentQuizData.session;
-
-                logger.debug("✅ [UPDATE-QUIZ] Found quiz:", {
-                    id: quizItem.id,
-                    name: quizItem.name,
-                    questionCount: existingQuestions.length,
-                    hasSession: !!session,
-                    answeredCount: session?.answeredQuestions?.length,
-                });
-
-                // Build performance telemetry from answered questions
-                let performanceTelemetry;
-                if (session?.answeredQuestions && session.answeredQuestions.length > 0) {
-                    const weakAreas = session.answeredQuestions
-                        .filter(a => !a.isCorrect)
-                        .map(a => {
-                            const question = existingQuestions.find(q => q.id === a.questionId);
-                            return question ? {
-                                questionId: a.questionId,
-                                questionText: question.questionText,
-                                userSelectedOption: question.options?.[a.userAnswer] || "Unknown",
-                                correctOption: question.options?.[question.correctIndex] || "Unknown",
-                            } : null;
-                        })
-                        .filter((x): x is NonNullable<typeof x> => x !== null);
-
-                    const correctCount = session.answeredQuestions.filter(a => a.isCorrect).length;
-                    performanceTelemetry = {
-                        correctCount,
-                        incorrectCount: session.answeredQuestions.length - correctCount,
-                        totalAnswered: session.answeredQuestions.length,
-                        weakAreas,
-                    };
-                }
-
-                // Use context/topic provided by LLM, or default to quiz name for continuation
-                const topic = explicitTopic || quizItem.name;
-                const isBlankQuiz = existingQuestions.length === 0;
-
-                logger.debug("🎯 [UPDATE-QUIZ] Configuration:", {
-                    topic,
-                    hasContext: !!contextContent,
-                    questionCount,
-                    sourceCards: sourceCardNames,
-                    isBlankQuiz,
-                });
-
-                // For quizzes WITH existing questions: require explicit topic/context to add more
-                // For BLANK quizzes: always generate questions using the topic (even if just quiz name)
-                if (!isBlankQuiz && !explicitTopic && !contextContent && !sourceCardIds && questionCount === undefined) {
-                    return {
-                        success: true,
-                        quizId,
-                        message: title ? `Updated quiz title to "${title}".` : "Quiz updated successfully.",
-                    };
-                }
-
-                // For blank quizzes with generic name and no topic, provide helpful error
-                if (isBlankQuiz && !explicitTopic && !contextContent && !sourceCardIds && quizItem.name === "Quiz") {
-                    return {
-                        success: false,
-                        message: "Please specify a topic for the quiz (e.g., 'make this quiz about linear algebra').",
-                    };
-                }
-
-                // Generate new questions
-                const quizResult = await quizWorker({
-                    topic,
-                    contextContent,
-                    questionCount: questionCount ?? 5,
-                    existingQuestions,
-                    performanceTelemetry,
-                    sourceCardIds,
-                    sourceCardNames
-                });
-
-                // Update the quiz with new questions and optional title rename
-                const workerResult = await workspaceWorker("updateQuiz", {
-                    workspaceId: ctx.workspaceId,
-                    itemId: quizId,
-                    itemType: "quiz",
-                    title: title, // Pass title to rename
-                    questionsToAdd: quizResult.questions,
-                });
-
-                if (!workerResult.success) {
-                    return workerResult;
-                }
-
-                const totalQuestions = existingQuestions.length + quizResult.questions.length;
-                const message = isBlankQuiz
-                    ? `Populated quiz with ${quizResult.questions.length} questions about "${topic}".`
-                    : `Added ${quizResult.questions.length} new questions to the quiz.`;
-
-                return {
-                    ...workerResult,
-                    quizId,
-                    questionsAdded: quizResult.questions.length,
-                    totalQuestions,
-                    message,
-                };
-            } catch (error) {
-                logger.error("❌ [UPDATE-QUIZ] Error:", error);
-                return {
-                    success: false,
-                    message: `Error updating quiz: ${error instanceof Error ? error.message : String(error)}`,
-                };
-            }
-        },
-    });
-}
+// Edit functionality is in edit-item-tool.ts (editItem)

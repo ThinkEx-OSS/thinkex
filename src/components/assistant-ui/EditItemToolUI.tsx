@@ -6,7 +6,7 @@ import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { makeAssistantToolUI } from "@assistant-ui/react";
 import { useOptimisticToolUpdate } from "@/hooks/ai/use-optimistic-tool-update";
 import { X, Eye } from "lucide-react";
-import { CgNotes } from "react-icons/cg";
+import { Pencil } from "lucide-react";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -18,41 +18,54 @@ import { ToolUIErrorShell } from "@/components/assistant-ui/tool-ui-error-shell"
 import { DiffViewer } from "@/components/assistant-ui/diff-viewer";
 import type { WorkspaceResult } from "@/lib/ai/tool-result-schemas";
 import { parseWorkspaceResult } from "@/lib/ai/tool-result-schemas";
+import type { Item } from "@/lib/workspace-state/types";
 
-type UpdateNoteArgs = { noteName: string; oldString: string; newString: string; replaceAll?: boolean };
+type EditItemArgs = {
+  itemName: string;
+  oldString: string;
+  newString: string;
+  replaceAll?: boolean;
+  newName?: string;
+};
 
-interface UpdateNoteResult extends WorkspaceResult {
+interface EditItemResult extends WorkspaceResult {
   diff?: string;
   filediff?: { additions: number; deletions: number };
+  cardCount?: number;
+  questionCount?: number;
 }
 
-interface UpdateNoteReceiptProps {
-  args: UpdateNoteArgs;
-  result: UpdateNoteResult;
-  status: any;
+interface EditItemReceiptProps {
+  args: EditItemArgs;
+  result: EditItemResult;
+  status: { type: string };
 }
 
-const UpdateNoteReceipt = ({ args, result, status }: UpdateNoteReceiptProps) => {
+const EditItemReceipt = ({ args, result, status }: EditItemReceiptProps) => {
   const setOpenModalItemId = useUIStore((s) => s.setOpenModalItemId);
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const { state: workspaceState } = useWorkspaceState(workspaceId);
   const navigateToItem = useNavigateToItem();
 
-  // Get the card from workspace to show its title
   const card = useMemo(() => {
-    if (!result.itemId || !workspaceState?.items) return null;
-    return workspaceState.items.find((item: any) => item.id === result.itemId);
+    if (!result.itemId || !workspaceState?.items) return undefined;
+    return workspaceState.items.find((item: Item) => item.id === result.itemId);
   }, [result.itemId, workspaceState?.items]);
 
   const handleViewCard = () => {
     if (!result.itemId) return;
-    // Only open modal if item exists and navigation succeeds
     if (navigateToItem(result.itemId)) {
       setOpenModalItemId(result.itemId);
     }
   };
 
   const hasDiff = result.diff && result.diff.trim().length > 0;
+
+  const subtitle = useMemo(() => {
+    if (result.cardCount != null) return `${result.cardCount} cards`;
+    if (result.questionCount != null) return `${result.questionCount} questions`;
+    return "Item updated";
+  }, [result.cardCount, result.questionCount]);
 
   return (
     <div className="my-1 flex flex-col gap-2">
@@ -64,22 +77,20 @@ const UpdateNoteReceipt = ({ args, result, status }: UpdateNoteReceiptProps) => 
         onClick={status?.type === "complete" && result.itemId ? handleViewCard : undefined}
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div
-            className={cn(status?.type === "complete" ? "text-blue-400" : "text-red-400")}
-          >
+          <div className={cn(status?.type === "complete" ? "text-blue-400" : "text-red-400")}>
             {status?.type === "complete" ? (
-              <CgNotes className="size-4" />
+              <Pencil className="size-4" />
             ) : (
               <X className="size-4" />
             )}
           </div>
           <div className="flex flex-col min-w-0 flex-1">
             <span className="text-xs font-medium truncate">
-              {status?.type === "complete" ? (card?.name || "Card Updated") : "Update Cancelled"}
+              {status?.type === "complete"
+                ? String(card?.name ?? (result as { itemName?: string }).itemName ?? "Item Updated")
+                : "Edit Cancelled"}
             </span>
-            {status?.type === "complete" && (
-              <span className="text-[10px] text-muted-foreground">Note updated</span>
-            )}
+            {status?.type === "complete" && <span className="text-[10px] text-muted-foreground">{subtitle}</span>}
           </div>
         </div>
 
@@ -117,21 +128,19 @@ const UpdateNoteReceipt = ({ args, result, status }: UpdateNoteReceiptProps) => 
   );
 };
 
-export const UpdateNoteToolUI = makeAssistantToolUI<UpdateNoteArgs, WorkspaceResult>({
-  toolName: "updateNote",
-  render: function UpdateNoteUI({ args, result, status }) {
+export const EditItemToolUI = makeAssistantToolUI<EditItemArgs, WorkspaceResult>({
+  toolName: "editItem",
+  render: function EditItemUI({ args, result, status }) {
     const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
 
     useOptimisticToolUpdate(status, result as any, workspaceId);
 
-    // Don't try to parse while still running - wait for completion
     let parsed: WorkspaceResult | null = null;
     if (status.type === "complete" && result != null) {
       try {
         parsed = parseWorkspaceResult(result);
       } catch (err) {
-        // Log the error but don't throw - we'll show error state below
-        console.error("📝 [UpdateNoteTool] Failed to parse result:", err);
+        console.error("[EditItemTool] Failed to parse result:", err);
         parsed = null;
       }
     }
@@ -139,27 +148,18 @@ export const UpdateNoteToolUI = makeAssistantToolUI<UpdateNoteArgs, WorkspaceRes
     let content: ReactNode = null;
 
     if (parsed?.success) {
-      content = <UpdateNoteReceipt args={args} result={parsed as UpdateNoteResult} status={status} />;
+      content = <EditItemReceipt args={args} result={parsed as EditItemResult} status={status} />;
     } else if (status.type === "running") {
-      content = <ToolUILoadingShell label="Updating note..." />;
+      const itemName = args?.itemName;
+      content = <ToolUILoadingShell label={itemName ? `Editing "${itemName}"...` : "Editing..."} />;
     } else if (status.type === "complete" && parsed && !parsed.success) {
-      content = (
-        <ToolUIErrorShell
-          label="Failed to update note"
-          message={parsed.message}
-        />
-      );
+      content = <ToolUIErrorShell label="Failed to edit" message={parsed.message} />;
     } else if (status.type === "incomplete" && status.reason === "error") {
-      content = (
-        <ToolUIErrorShell
-          label="Failed to update note"
-          message={parsed?.message}
-        />
-      );
+      content = <ToolUIErrorShell label="Failed to edit" message={parsed?.message} />;
     }
 
     return (
-      <ToolUIErrorBoundary componentName="UpdateNote">
+      <ToolUIErrorBoundary componentName="EditItem">
         {content}
       </ToolUIErrorBoundary>
     );

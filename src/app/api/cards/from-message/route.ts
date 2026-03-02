@@ -21,8 +21,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = session.user.id;
-
     const body = await request.json();
     const { content, workspaceId, folderId, sources } = body;
 
