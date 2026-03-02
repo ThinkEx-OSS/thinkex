@@ -1245,6 +1245,9 @@ const CONTINUE_RESPONSE_CHAR_THRESHOLD = 150;
 /** Sentence-ending punctuation that indicates an LLM likely finished naturally. */
 const ENDS_WITH_SENTENCE_PUNCTUATION = /[.!?]$/;
 
+/** Trailing citation tags to strip before punctuation check (e.g. <citation>Source</citation>). */
+const TRAILING_CITATION_TAGS = /(?:\s*<citation>[\s\S]*?<\/citation>\s*)+$/;
+
 const AssistantActionBar: FC = () => {
   const { createCard, isCreating } = useCreateCardFromMessage({ debounceMs: 300 });
   const message = useMessage();
@@ -1257,7 +1260,10 @@ const AssistantActionBar: FC = () => {
     const length = textParts.reduce((sum, part) => sum + (part.text?.length ?? 0), 0);
     const content = textParts.map((part) => part.text ?? "").join("\n\n");
     const trimmed = content.trim();
-    const endsWithPunctuation = trimmed.length > 0 && ENDS_WITH_SENTENCE_PUNCTUATION.test(trimmed);
+    const withoutTrailingCitations = trimmed.replace(TRAILING_CITATION_TAGS, "").trim();
+    const endsWithPunctuation =
+      withoutTrailingCitations.length > 0 &&
+      ENDS_WITH_SENTENCE_PUNCTUATION.test(withoutTrailingCitations);
     return { textLength: length, textContent: content, endsWithPunctuation };
   }, [message.content]);
 
