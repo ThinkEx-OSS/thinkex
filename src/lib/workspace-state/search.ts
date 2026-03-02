@@ -1,4 +1,6 @@
 import type { Item, NoteData, PdfData } from "./types";
+import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
+import { type Block } from "@/components/editor/BlockNoteEditor";
 
 /**
  * Extracts searchable text from an item's data field
@@ -9,7 +11,11 @@ function getSearchableDataText(item: Item): string {
   switch (type) {
     case "note": {
       const noteData = data as NoteData;
-      return noteData.field1 || "";
+      if (noteData.blockContent) {
+        const content = serializeBlockNote(noteData.blockContent as Block[]);
+        if (content) return content;
+      }
+      return "";
     }
 
     case "pdf": {

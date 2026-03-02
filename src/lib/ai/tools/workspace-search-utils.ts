@@ -18,7 +18,7 @@ export function extractSearchableText(item: Item, items: Item[]): string {
             if (data.blockContent) {
                 return serializeBlockNote(data.blockContent as Block[]);
             }
-            return data.field1 ?? "";
+            return "";
         }
         case "flashcard": {
             const data = item.data as FlashcardData;

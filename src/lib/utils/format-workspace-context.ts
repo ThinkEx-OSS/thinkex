@@ -588,31 +588,34 @@ export function formatItemContent(
 
 /**
  * Extracts the note content as markdown. Uses same source as readWorkspace
- * (blockContent serialized, or field1 fallback) so edits match what the AI sees.
+ * (blockContent serialized) so edits match what the AI sees.
+ * Normalizes line endings to \n so readWorkspace output matches editItem search.
  */
 export function getNoteContentAsMarkdown(data: NoteData): string {
     if (data.blockContent) {
         const content = serializeBlockNote(data.blockContent as Block[]);
-        if (content) return content;
+        if (content) return content.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
     }
-    return data.field1 ?? "";
+    return "";
 }
 
 /**
- * Formats note details with FULL content (no truncation)
- * Includes sources (URLs) when present so the agent can consider them in responses.
+ * Formats note details with FULL content (no truncation).
+ * Outputs raw markdown directly so readWorkspace content matches exactly what editItem searches.
+ * Sources are appended after the content when present.
  */
 function formatNoteDetailsFull(data: NoteData): string[] {
     const lines: string[] = [];
     const content = getNoteContentAsMarkdown(data);
     if (content) {
-        lines.push(`   - Content:\n${content}`);
+        // Output raw content directly — editItem matches against this exact string
+        lines.push(content);
     }
     if (data.sources && data.sources.length > 0) {
         lines.push("");
-        lines.push("   Sources:");
+        lines.push("Sources:");
         for (const s of data.sources) {
-            lines.push(`     - ${s.title || s.url} | ${s.url}`);
+            lines.push(`  - ${s.title || s.url} | ${s.url}`);
         }
     }
     return lines;
