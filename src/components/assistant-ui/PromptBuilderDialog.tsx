@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef, type ComponentType } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, useId, type ComponentType } from "react";
 import {
   Dialog,
   DialogContent,
@@ -147,6 +147,7 @@ export function PromptBuilderDialog({
   const config = ACTION_CONFIG[action];
   const Icon = config.icon;
   const aui = useAui();
+  const formId = useId();
 
   const replySelections = useUIStore(useShallow(selectReplySelections));
   const selectedCardIdsArray = useUIStore(useShallow(selectSelectedCardIdsArray));
@@ -359,8 +360,9 @@ export function PromptBuilderDialog({
             </DialogFooter>
           </>
         ) : (
-          /* Form view */
-          <form onSubmit={handleFormSubmit} className="min-w-0 overflow-hidden">
+          /* Form view - DialogHeader, content, DialogFooter as direct children of DialogContent (like ShareWorkspaceDialog) */
+          <>
+        <form id={formId} onSubmit={handleFormSubmit} className="contents">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Icon
@@ -534,17 +536,18 @@ export function PromptBuilderDialog({
           )}
 
         </div>
+        </form>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" disabled={!hasValidTopic} className="gap-2">
+          <Button type="submit" form={formId} disabled={!hasValidTopic} className="gap-2">
             Send
             <ArrowUpIcon className="size-4" />
           </Button>
         </DialogFooter>
-        </form>
+          </>
         )}
       </DialogContent>
     </Dialog>

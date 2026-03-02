@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useId } from "react";
 import {
   Dialog,
   DialogClose,
@@ -31,6 +31,7 @@ export default function RenameDialog({
 }: RenameDialogProps) {
   const [renameValue, setRenameValue] = useState(currentName || "Untitled");
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const formId = useId();
 
   // Sync rename value when current name changes
   useEffect(() => {
@@ -93,10 +94,12 @@ export default function RenameDialog({
           </DialogDescription>
         </DialogHeader>
         <form
+          id={formId}
           onSubmit={(e) => {
             e.preventDefault();
             handleRename();
           }}
+          className="contents"
         >
           <div className="py-4">
             <Input
@@ -112,17 +115,17 @@ export default function RenameDialog({
               placeholder={getPlaceholder()}
             />
           </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button type="submit" disabled={!renameValue.trim()}>
-              Rename
-            </Button>
-          </DialogFooter>
         </form>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="outline">
+              Cancel
+            </Button>
+          </DialogClose>
+          <Button type="submit" form={formId} disabled={!renameValue.trim()}>
+            Rename
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
