@@ -10,6 +10,8 @@ import "./globals.css";
 import "katex/dist/katex.min.css";
 import { SpeedInsights } from "@vercel/speed-insights/next"
 
+const isDev = process.env.NODE_ENV === "development";
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://thinkex.app"),
   title: "ThinkEx",
@@ -40,8 +42,8 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/newfav.ico", sizes: "32x32" },
-      { url: "/thinkexdarkfav.svg", type: "image/svg+xml" },
+      { url: isDev ? "/favicon-dev.svg" : "/newfav.ico", sizes: "32x32" },
+      { url: isDev ? "/favicon-dev.svg" : "/thinkexdarkfav.svg", type: "image/svg+xml" },
     ],
     apple: "/apple-touch-icon.png",
   },

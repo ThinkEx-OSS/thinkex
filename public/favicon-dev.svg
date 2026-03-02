@@ -1,0 +1,12 @@
+<svg width="512" height="512" viewBox="-16 -16 544 544" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Blueprint style: white lines on blue background -->
+  <rect x="-16" y="-16" width="560" height="560" fill="#1976d2"/>
+  <rect x="8" y="333.818" width="123.636" height="170.182" rx="10.5818" fill="none" stroke="white" stroke-width="24"/>
+  <rect x="8" y="194.182" width="123.636" height="77.0909" rx="10.5818" fill="none" stroke="white" stroke-width="24"/>
+  <rect x="380.364" y="194.182" width="123.636" height="170.182" rx="10.5818" fill="none" stroke="white" stroke-width="24"/>
+  <rect x="380.364" y="426.909" width="123.636" height="77.0909" rx="10.5818" fill="none" stroke="white" stroke-width="24"/>
+  <rect x="372.364" width="139.636" height="139.636" rx="18.5818" fill="none" stroke="white" stroke-width="24"/>
+  <rect x="186.182" y="162.909" width="139.636" height="349.091" rx="18.5818" fill="none" stroke="white" stroke-width="24"/>
+  <rect x="186.182" width="139.636" height="116.364" rx="18.5818" fill="none" stroke="white" stroke-width="24"/>
+  <rect width="139.636" height="139.636" rx="18.5818" fill="none" stroke="white" stroke-width="24"/>
+</svg>
