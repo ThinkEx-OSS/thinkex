@@ -221,7 +221,7 @@ async function handlePOST(req: Request) {
     const selectedCardsContext = getSelectedCardsContext(body);
 
     // Get model ID and ensure it has the correct prefix for Gateway
-    let modelId = body.modelId || "gemini-2.5-flash";
+    let modelId = body.modelId || "gemini-3-flash-preview";
 
     // Auto-prefix with google/ if it looks like a gemini model and lacks prefix
     // This allows existing client code to work without changes

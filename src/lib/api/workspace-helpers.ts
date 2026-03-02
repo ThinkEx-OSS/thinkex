@@ -102,6 +102,19 @@ export async function verifyWorkspaceAccess(
 }
 
 /**
+ * Verify the current user owns the thread (threads are user-scoped).
+ * Call after verifyWorkspaceAccess when accessing a specific thread.
+ */
+export function verifyThreadOwnership(
+  thread: { userId: string },
+  userId: string
+): void {
+  if (thread.userId !== userId) {
+    throw NextResponse.json({ error: "Access denied" }, { status: 403 });
+  }
+}
+
+/**
  * Verify workspace ownership and return full workspace data
  * Throws NextResponse errors for unauthorized/not found cases
  */

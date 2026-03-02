@@ -4,6 +4,7 @@ import { chatThreads, chatMessages } from "@/lib/db/schema";
 import {
   requireAuth,
   verifyWorkspaceAccess,
+  verifyThreadOwnership,
 } from "@/lib/api/workspace-helpers";
 import { eq, and } from "drizzle-orm";
 
@@ -19,6 +20,7 @@ async function getThreadAndVerify(threadId: string, userId: string) {
   }
 
   await verifyWorkspaceAccess(thread.workspaceId, userId);
+  verifyThreadOwnership(thread, userId);
 
   return thread;
 }

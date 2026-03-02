@@ -4,6 +4,7 @@ import { chatThreads } from "@/lib/db/schema";
 import {
   requireAuth,
   verifyWorkspaceAccess,
+  verifyThreadOwnership,
 } from "@/lib/api/workspace-helpers";
 import { eq } from "drizzle-orm";
 
@@ -27,6 +28,7 @@ export async function setThreadArchived(
   }
 
   await verifyWorkspaceAccess(thread.workspaceId, userId, "editor");
+  verifyThreadOwnership(thread, userId);
 
   await db
     .update(chatThreads)

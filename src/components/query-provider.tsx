@@ -12,9 +12,9 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
         defaultOptions: {
           queries: {
             staleTime: 60_000, // 1 minute
-            refetchOnWindowFocus: false,   // <- was true
+            refetchOnWindowFocus: true,    // Keep in sync when switching tabs / multi-user
             refetchOnReconnect: false,     // <- avoid refetch storms on flaky networks
-            refetchOnMount: false,
+            refetchOnMount: true,    // Fresh data when navigating back to a page (collaborative)
             retry: 1,                      // reduce to 1 to avoid repeated large refetches
           },
           mutations: {
