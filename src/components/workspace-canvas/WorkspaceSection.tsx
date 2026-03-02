@@ -787,8 +787,8 @@ export function WorkspaceSection({
             <AlertDialogTitle>Delete {selectedCardIds.size === 1 ? 'Card' : 'Cards'}</AlertDialogTitle>
             <AlertDialogDescription>
               {selectedCardIds.size === 1
-                ? 'Are you sure you want to delete this card? This action cannot be undone.'
-                : `Are you sure you want to delete ${selectedCardIds.size} cards? This action cannot be undone.`
+                ? 'Are you sure you want to delete this card? You can restore from version history if needed.'
+                : `Are you sure you want to delete ${selectedCardIds.size} cards? You can restore from version history if needed.`
               }
             </AlertDialogDescription>
           </AlertDialogHeader>

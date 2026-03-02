@@ -519,8 +519,10 @@ export async function workspaceWorker(
                             if (existingItem.type !== "note") {
                                 throw new Error(`Item "${existingItem.name}" is not a note (type: ${existingItem.type})`);
                             }
-                            contentOld = getNoteContentAsMarkdown(existingItem.data as NoteData);
-                            contentNew = applyReplace(contentOld, oldStr, newStr, replaceAll);
+                            contentOld = normalizeLineEndings(getNoteContentAsMarkdown(existingItem.data as NoteData));
+                            const normOld = normalizeLineEndings(oldStr);
+                            const normNew = normalizeLineEndings(newStr);
+                            contentNew = applyReplace(contentOld, normOld, normNew, replaceAll);
                         }
 
                         contentNew = fixLLMDoubleEscaping(contentNew);
@@ -1006,8 +1008,10 @@ export async function workspaceWorker(
                         contentOld = "";
                         contentNew = newStr;
                     } else {
-                        contentOld = getNoteContentAsMarkdown(existingItem.data as NoteData);
-                        contentNew = applyReplace(contentOld, oldStr, newStr, replaceAll);
+                        contentOld = normalizeLineEndings(getNoteContentAsMarkdown(existingItem.data as NoteData));
+                        const normOld = normalizeLineEndings(oldStr);
+                        const normNew = normalizeLineEndings(newStr);
+                        contentNew = applyReplace(contentOld, normOld, normNew, replaceAll);
                     }
                     contentNew = fixLLMDoubleEscaping(contentNew);
                     const blockContent = await markdownToBlocks(contentNew);
@@ -1075,7 +1079,12 @@ export async function workspaceWorker(
                         })),
                     };
                     let serialized = JSON.stringify(payload, null, 2);
-                    serialized = applyReplace(serialized, oldStr, newStr, replaceAll);
+                    serialized = applyReplace(
+                        normalizeLineEndings(serialized),
+                        normalizeLineEndings(oldStr),
+                        normalizeLineEndings(newStr),
+                        replaceAll
+                    );
 
                     let parsed: { cards?: Array<{ id?: string; front?: string; back?: string }> };
                     try {
@@ -1139,7 +1148,12 @@ export async function workspaceWorker(
                     const questions = data.questions ?? [];
                     const payload = { questions };
                     let serialized = JSON.stringify(payload, null, 2);
-                    serialized = applyReplace(serialized, oldStr, newStr, replaceAll);
+                    serialized = applyReplace(
+                        normalizeLineEndings(serialized),
+                        normalizeLineEndings(oldStr),
+                        normalizeLineEndings(newStr),
+                        replaceAll
+                    );
 
                     let parsed: { questions?: QuizQuestion[] };
                     try {

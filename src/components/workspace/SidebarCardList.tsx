@@ -210,7 +210,7 @@ function SidebarItemButton({ item, allItems, workspaceName, workspaceIcon, works
                     <AlertDialogHeader>
                         <AlertDialogTitle>Delete {item.type === 'pdf' ? 'PDF' : item.type === 'flashcard' ? 'Flashcard' : 'Note'}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Are you sure you want to delete &quot;{item.name || 'Untitled'}&quot;? This action cannot be undone.
+                            Are you sure you want to delete &quot;{item.name || 'Untitled'}&quot;? You can restore from version history if needed.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -398,7 +398,7 @@ function SidebarRootItem({ item, allItems, workspaceName, workspaceIcon, workspa
                     <AlertDialogHeader>
                         <AlertDialogTitle>Delete {item.type === 'pdf' ? 'PDF' : item.type === 'flashcard' ? 'Flashcard' : 'Note'}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Are you sure you want to delete &quot;{item.name || 'Untitled'}&quot;? This action cannot be undone.
+                            Are you sure you want to delete &quot;{item.name || 'Untitled'}&quot;? You can restore from version history if needed.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

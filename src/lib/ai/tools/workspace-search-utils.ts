@@ -15,10 +15,10 @@ export function extractSearchableText(item: Item, items: Item[]): string {
     switch (item.type) {
         case "note": {
             const data = item.data as NoteData;
-            if (data.blockContent) {
+            if (Array.isArray(data.blockContent) && data.blockContent.length > 0) {
                 return serializeBlockNote(data.blockContent as Block[]);
             }
-            return data.field1 ?? "";
+            return "";
         }
         case "flashcard": {
             const data = item.data as FlashcardData;

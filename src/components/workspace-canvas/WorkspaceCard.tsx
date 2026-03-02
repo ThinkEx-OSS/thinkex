@@ -1074,7 +1074,7 @@ function WorkspaceCard({
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete Card</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you sure you want to delete &quot;{item.name || 'this card'}&quot;? This action cannot be undone.
+                  Are you sure you want to delete &quot;{item.name || 'this card'}&quot;? You can restore from version history if needed.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
