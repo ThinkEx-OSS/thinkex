@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import { useTheme } from "next-themes";
 import "mathlive";
 import "mathlive/fonts.css";
 
@@ -94,6 +95,7 @@ export function MathEditProvider({ children }: { children: React.ReactNode }) {
     const [currentLatex, setCurrentLatex] = useState("");
     const [title, setTitle] = useState("Edit Math");
     const onSaveRef = useRef<((latex: string) => void) | null>(null);
+    const { resolvedTheme } = useTheme();
 
     const containerRef = useRef<HTMLDivElement>(null);
     const mathfieldRef = useRef<MathfieldElement | null>(null);
@@ -140,10 +142,13 @@ export function MathEditProvider({ children }: { children: React.ReactNode }) {
         mf.style.minHeight = "60px";
         mf.style.fontSize = "1.25rem";
         mf.style.padding = "12px";
-        mf.style.backgroundColor = "rgba(255, 255, 255, 0.05)";
         mf.style.borderRadius = "8px";
-        mf.style.border = "1px solid rgba(255, 255, 255, 0.1)";
-        mf.style.color = "white";
+        // Theme-aware styling: dark mode uses light text, light mode uses dark text
+        const isDark = resolvedTheme === "dark";
+        mf.style.color = isDark ? "white" : "black";
+        mf.style.backgroundColor = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)";
+        mf.style.border = isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(0, 0, 0, 0.1)";
+        mf.style.setProperty("--latex-color", isDark ? "white" : "black");
 
         // Enable virtual keyboard
         mf.setAttribute("math-virtual-keyboard-policy", "auto");
@@ -166,7 +171,7 @@ export function MathEditProvider({ children }: { children: React.ReactNode }) {
         return () => {
             mf.removeEventListener("input", handleInput);
         };
-    }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [isOpen, resolvedTheme]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Handle keyboard shortcuts
     useEffect(() => {
@@ -260,6 +265,7 @@ export function MathEditDialog({
     const containerRef = useRef<HTMLDivElement>(null);
     const mathfieldRef = useRef<MathfieldElement | null>(null);
     const [currentLatex, setCurrentLatex] = useState(initialLatex);
+    const { resolvedTheme } = useTheme();
 
     // Reset latex when dialog opens with new initial value
     useEffect(() => {
@@ -283,10 +289,12 @@ export function MathEditDialog({
         mf.style.minHeight = "60px";
         mf.style.fontSize = "1.25rem";
         mf.style.padding = "12px";
-        mf.style.backgroundColor = "rgba(255, 255, 255, 0.05)";
         mf.style.borderRadius = "8px";
-        mf.style.border = "1px solid rgba(255, 255, 255, 0.1)";
-        mf.style.color = "white";
+        const isDark = resolvedTheme === "dark";
+        mf.style.color = isDark ? "white" : "black";
+        mf.style.backgroundColor = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)";
+        mf.style.border = isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(0, 0, 0, 0.1)";
+        mf.style.setProperty("--latex-color", isDark ? "white" : "black");
 
         // Enable virtual keyboard
         mf.setAttribute("math-virtual-keyboard-policy", "auto");
@@ -309,7 +317,7 @@ export function MathEditDialog({
         return () => {
             mf.removeEventListener("input", handleInput);
         };
-    }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [open, resolvedTheme]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleSave = useCallback(() => {
         const finalLatex = mathfieldRef.current?.value ?? currentLatex;
