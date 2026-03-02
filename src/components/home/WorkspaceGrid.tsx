@@ -399,7 +399,7 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
                 size="sm"
                 className="h-8 hover:bg-red-500/20 hover:text-red-400 text-red-400"
                 onClick={async () => {
-                  if (confirm(`Delete ${selectedIds.size} workspaces? This cannot be undone.`)) {
+                  if (confirm(`Delete ${selectedIds.size} workspaces? You can restore from version history if needed.`)) {
                     const ids = Array.from(selectedIds);
                     clearSelection(); // Clear UI first
 

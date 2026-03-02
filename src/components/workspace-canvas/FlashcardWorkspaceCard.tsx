@@ -654,7 +654,7 @@ export function FlashcardWorkspaceCard({
                             <AlertDialogHeader>
                                 <AlertDialogTitle>Delete Flashcard</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                    Are you sure you want to delete "{item.name || 'this flashcard'}"? This action cannot be undone.
+                                    Are you sure you want to delete "{item.name || 'this flashcard'}"? You can restore from version history if needed.
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>

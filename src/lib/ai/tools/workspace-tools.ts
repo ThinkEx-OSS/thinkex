@@ -74,7 +74,7 @@ export function createNoteTool(ctx: WorkspaceToolContext) {
  */
 export function createDeleteItemTool(ctx: WorkspaceToolContext) {
     return tool({
-        description: "Permanently delete a card/note from the workspace by name.",
+        description: "Delete a card/note from the workspace by name. Can be restored from version history.",
         inputSchema: zodSchema(
             z.object({
                 itemName: z.string().describe("Item name or virtual path (e.g. pdfs/Report.pdf) to delete"),
