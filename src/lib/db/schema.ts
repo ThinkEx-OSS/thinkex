@@ -301,14 +301,15 @@ export const chatThreads = pgTable("chat_threads", {
 		table.workspaceId.asc().nullsLast().op("uuid_ops"),
 		table.lastMessageAt.desc().nullsFirst().op("timestamptz_ops")
 	),
-	pgPolicy("Users can manage threads in their workspaces", {
+	pgPolicy("chat_threads_user_scoped", {
 		as: "permissive",
 		for: "all",
 		to: ["authenticated"],
-		using: sql`(EXISTS ( SELECT 1 FROM workspaces w
+		using: sql`((chat_threads.user_id = (auth.jwt() ->> 'sub'::text))
+   AND ((EXISTS ( SELECT 1 FROM workspaces w
    WHERE ((w.id = chat_threads.workspace_id) AND (w.user_id = (auth.jwt() ->> 'sub'::text)))))
    OR (EXISTS ( SELECT 1 FROM workspace_collaborators c
-   WHERE ((c.workspace_id = chat_threads.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))`,
+   WHERE ((c.workspace_id = chat_threads.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))))`,
 	}),
 ]);
 
@@ -356,16 +357,16 @@ export const workspaceItemReads = pgTable(
 			table.threadId.asc().nullsLast().op("uuid_ops"),
 			table.itemId.asc().nullsLast().op("text_ops")
 		),
-		pgPolicy("Users can manage reads for threads in their workspaces", {
+		pgPolicy("workspace_item_reads_user_scoped", {
 			as: "permissive",
 			for: "all",
 			to: ["authenticated"],
 			using: sql`(EXISTS ( SELECT 1 FROM chat_threads ct
    JOIN workspaces w ON w.id = ct.workspace_id
-   WHERE ((ct.id = workspace_item_reads.thread_id) AND (w.user_id = (auth.jwt() ->> 'sub'::text)))))
+   WHERE ((ct.id = workspace_item_reads.thread_id) AND (ct.user_id = (auth.jwt() ->> 'sub'::text)) AND (w.user_id = (auth.jwt() ->> 'sub'::text)))))
    OR (EXISTS ( SELECT 1 FROM chat_threads ct
    JOIN workspace_collaborators c ON c.workspace_id = ct.workspace_id
-   WHERE ((ct.id = workspace_item_reads.thread_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))`,
+   WHERE ((ct.id = workspace_item_reads.thread_id) AND (ct.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))`,
 		}),
 	]
 );

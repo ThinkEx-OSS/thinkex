@@ -34,7 +34,12 @@ export async function GET(req: NextRequest) {
         externalId: chatThreads.externalId,
       })
       .from(chatThreads)
-      .where(eq(chatThreads.workspaceId, workspaceId))
+      .where(
+        and(
+          eq(chatThreads.workspaceId, workspaceId),
+          eq(chatThreads.userId, userId)
+        )
+      )
       .orderBy(desc(chatThreads.lastMessageAt));
 
     return NextResponse.json({

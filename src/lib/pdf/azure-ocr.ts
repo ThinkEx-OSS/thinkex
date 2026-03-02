@@ -10,18 +10,32 @@ import { logger } from "@/lib/utils/logger";
 const MAX_BATCH_SIZE_BYTES = 30 * 1024 * 1024; // 30 MB
 /** Max concurrent OCR requests to Azure; prevents 408 timeouts from request flooding */
 const MAX_CONCURRENT_OCR = 5;
+
+function isBboxAnnotationEnabled(): boolean {
+  return process.env.OCR_BBOX_ANNOTATION !== "false";
+}
 const DEFAULT_MODEL = "mistral-document-ai-2512";
+
+/** Azure annotations (bbox/document) are limited to 8 pages per request. */
+const MAX_PAGES_WITH_ANNOTATION = 8;
 
 /**
  * Choose chunk size based on total page count.
  * Small PDFs: 1 page per chunk (max parallelism).
  * Large PDFs: bigger chunks to reduce API calls and rate-limit risk.
+ * When bbox annotation is enabled, caps at 8 pages (Azure/Mistral limit).
  */
-function getMaxPagesPerChunk(pageCount: number): number {
-  if (pageCount <= 10) return 1;
-  if (pageCount <= 30) return 3;
-  if (pageCount <= 100) return 6;
-  return 12;
+function getMaxPagesPerChunk(pageCount: number, withBboxAnnotation: boolean): number {
+  const base = (() => {
+    if (pageCount <= 10) return 1;
+    if (pageCount <= 30) return 3;
+    if (pageCount <= 100) return 6;
+    return 12;
+  })();
+  if (withBboxAnnotation && base > MAX_PAGES_WITH_ANNOTATION) {
+    return MAX_PAGES_WITH_ANNOTATION;
+  }
+  return base;
 }
 
 /** Rich OCR page data from Azure Document AI (stored in PdfData.ocrPages). Dimensions omitted. */
@@ -109,8 +123,10 @@ export async function ocrSingleChunk(base64Pdf: string): Promise<OcrPage[]> {
   }
 
   const documentUrl = `data:application/pdf;base64,${base64Pdf}`;
-  const includeImages = process.env.OCR_INCLUDE_IMAGES !== "false";
-  const body = {
+  const includeImages = process.env.OCR_INCLUDE_IMAGES === "true";
+  const bboxAnnotation = isBboxAnnotationEnabled();
+
+  const body: Record<string, unknown> = {
     model,
     document: {
       type: "document_url",
@@ -120,6 +136,22 @@ export async function ocrSingleChunk(base64Pdf: string): Promise<OcrPage[]> {
     include_image_base64: includeImages,
     table_format: null,
   };
+
+  if (bboxAnnotation) {
+    body.bbox_annotation_format = {
+      type: "json_schema",
+      json_schema: {
+        schema: {
+          properties: { description: { type: "string" } },
+          required: ["description"],
+          type: "object",
+          additionalProperties: false,
+        },
+        name: "bbox_annotation",
+        strict: true,
+      },
+    };
+  }
 
   const maxRetries = 1; // Retry 408 (timeout) and 429 (rate limit) once
   let lastError: Error | null = null;
@@ -213,7 +245,7 @@ export async function prepareOcrChunks(buffer: Buffer): Promise<{
     return { pageCount: 0, chunks: [] };
   }
 
-  const maxPages = getMaxPagesPerChunk(pageCount);
+  const maxPages = getMaxPagesPerChunk(pageCount, isBboxAnnotationEnabled());
   const ranges = getChunkRanges(pageCount, buffer, maxPages);
 
   const chunks: OcrChunkSpec[] = [];
@@ -260,7 +292,7 @@ export async function ocrPdfFromBuffer(
   }
 
   const maxPages =
-    options?.maxPagesPerBatch ?? getMaxPagesPerChunk(pageCount);
+    options?.maxPagesPerBatch ?? getMaxPagesPerChunk(pageCount, isBboxAnnotationEnabled());
   const ranges = getChunkRanges(pageCount, buffer, maxPages);
 
   logger.info("[PDF_OCR_AZURE] Start", {

@@ -6,6 +6,7 @@ import { chatThreads } from "@/lib/db/schema";
 import {
   requireAuth,
   verifyWorkspaceAccess,
+  verifyThreadOwnership,
 } from "@/lib/api/workspace-helpers";
 import { eq } from "drizzle-orm";
 
@@ -47,6 +48,7 @@ export async function POST(
     }
 
     await verifyWorkspaceAccess(thread.workspaceId, userId);
+    verifyThreadOwnership(thread, userId);
 
     let title = "New Chat";
 
