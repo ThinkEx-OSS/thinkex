@@ -47,6 +47,7 @@ function mkNoteItem(
     id: "note-1",
     name: "Test Note",
     type: "note",
+    subtitle: "",
     data: { blockContent } as NoteData,
     ...overrides,
   };

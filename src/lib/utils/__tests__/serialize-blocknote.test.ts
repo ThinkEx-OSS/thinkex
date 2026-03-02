@@ -2,31 +2,35 @@ import { describe, it, expect } from "vitest";
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
 
 /**
- * Minimal block structures - type-only import from BlockNoteEditor would work,
- * but we use plain objects to avoid pulling in React.
+ * Minimal block structures for testing. BlockNote Block type is strict; we use
+ * plain objects and cast to any to test serializeBlockNote runtime behavior.
  */
-const mkParagraph = (text: string) => ({
-  id: "p1",
-  type: "paragraph",
-  content: [{ type: "text", text, styles: {} }],
-  children: [],
-});
+const mkParagraph = (text: string) =>
+  ({
+    id: "p1",
+    type: "paragraph",
+    props: {},
+    content: [{ type: "text", text, styles: {} }],
+    children: [],
+  }) as any;
 
-const mkHeading = (level: number, text: string) => ({
-  id: "h1",
-  type: "heading",
-  props: { level },
-  content: [{ type: "text", text, styles: {} }],
-  children: [],
-});
+const mkHeading = (level: number, text: string) =>
+  ({
+    id: "h1",
+    type: "heading",
+    props: { level },
+    content: [{ type: "text", text, styles: {} }],
+    children: [],
+  }) as any;
 
-const mkMathBlock = (latex: string) => ({
-  id: "m1",
-  type: "math",
-  props: { latex },
-  content: "none",
-  children: [],
-});
+const mkMathBlock = (latex: string) =>
+  ({
+    id: "m1",
+    type: "math",
+    props: { latex },
+    content: "none",
+    children: [],
+  }) as any;
 
 describe("serializeBlockNote", () => {
   it("returns empty string for empty blocks", () => {
@@ -51,7 +55,7 @@ describe("serializeBlockNote", () => {
       mkParagraph("First"),
       mkParagraph("Second"),
     ];
-    const result = serializeBlockNote(blocks);
+    const result = serializeBlockNote(blocks as any);
     expect(result).toContain("# Note\n\n");
     expect(result).toContain("First\n\n");
     expect(result).toContain("Second\n\n");
@@ -59,7 +63,7 @@ describe("serializeBlockNote", () => {
 
   it("round-trip: serialized format is suitable for editItem oldString", () => {
     const blocks = [mkHeading(2, "Section"), mkParagraph("Content")];
-    const md = serializeBlockNote(blocks);
+    const md = serializeBlockNote(blocks as any);
     // No extra wrapper like "   - Content:" - raw markdown
     expect(md.startsWith("#")).toBe(true);
     expect(md).not.toMatch(/^\s*-\s*Content:/m);
