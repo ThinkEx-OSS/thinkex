@@ -163,7 +163,7 @@ const initialState = {
   searchQuery: '',
 
   activeFolderId: null,
-  selectedModelId: 'gemini-2.5-flash',
+  selectedModelId: 'gemini-3-flash-preview',
 
   // Text selection
   inMultiSelectMode: false,
