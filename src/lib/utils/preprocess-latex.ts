@@ -61,7 +61,8 @@ function preprocessCitations(markdown: string): string {
 
 // Currency pattern: $ followed by digits, optional commas/decimals — e.g. $5, $19.99, $1,000.50
 // Must NOT be preceded by another $ (to avoid matching inside $$...$$)
-const CURRENCY_REGEX = /(?<!\$)\$(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)\b/g;
+// Must NOT be followed by $ — e.g. $127$ or ($127$ or $127$. is math, not currency
+const CURRENCY_REGEX = /(?<!\$)\$(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)(?!\$)\b/g;
 
 export function preprocessLatex(markdown: string): string {
   if (!markdown) return markdown;

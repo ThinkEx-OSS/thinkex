@@ -13,7 +13,8 @@ const COMBINED_MATH_REGEX = /\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g;
 
 // Bare currency ($5, $19.99, $1,000.50) — defensive fallback when AI forgets to escape.
 // Must not be preceded by another $ (avoids matching inside $$..$$).
-const BARE_CURRENCY_REGEX = /(?<!\$)\$(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)\b/g;
+// Must not be followed by $ — e.g. $127$ or ($127$ or $127$. is math, not currency.
+const BARE_CURRENCY_REGEX = /(?<!\$)\$(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?)(?!\$)\b/g;
 
 /**
  * Converts math delimiters in blocks to structured math elements.
