@@ -3,8 +3,6 @@ import { tool, zodSchema } from "ai";
 import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
-import { loadStateForTool, resolveItem, getAvailableItemsList } from "./tool-utils";
-
 /**
  * Create the createFlashcards tool
  */
@@ -68,97 +66,4 @@ export function createFlashcardsTool(ctx: WorkspaceToolContext) {
     });
 }
 
-/**
- * Create the updateFlashcards tool
- */
-export function createUpdateFlashcardsTool(ctx: WorkspaceToolContext) {
-    return tool({
-        description: "Add more flashcards to an existing flashcard deck and/or update its title.",
-        inputSchema: zodSchema(
-            z.object({
-                deckName: z.string().describe("The name or ID of the flashcard deck to update"),
-                cards: z.array(
-                    z.object({
-                        front: z.string().describe("The question or term on the front of the card"),
-                        back: z.string().describe("The answer or definition on the back of the card"),
-                    })
-                ).optional().describe("Array of flashcard objects to add, each with 'front' and 'back' properties"),
-                title: z.string().optional().describe("New title for the flashcard deck. If not provided, the existing title will be preserved."),
-            })
-        ),
-        execute: async (input: { deckName: string; cards?: Array<{ front: string; back: string }>; title?: string }) => {
-            const deckName = input.deckName;
-            const cardsToAdd = input.cards || [];
-            const newTitle = input.title;
-
-            if (!deckName) {
-                return {
-                    success: false,
-                    message: "Deck name is required to identify which deck to update.",
-                };
-            }
-
-            if (cardsToAdd.length === 0 && !newTitle) {
-                return {
-                    success: false,
-                    message: "At least one flashcard must be provided OR a new title must be specified.",
-                };
-            }
-
-            if (!ctx.workspaceId) {
-                return {
-                    success: false,
-                    message: "No workspace context available",
-                };
-            }
-
-            try {
-                // Load workspace state (security is enforced by workspace-worker)
-                const accessResult = await loadStateForTool(ctx);
-                if (!accessResult.success) {
-                    return accessResult;
-                }
-
-                const { state } = accessResult;
-
-                // Resolve by virtual path or fuzzy name match
-                const matchedDeck = resolveItem(state.items, deckName, "flashcard");
-
-                if (!matchedDeck) {
-                    const availableDecks = getAvailableItemsList(state.items, "flashcard");
-                    return {
-                        success: false,
-                        message: `Could not find flashcard deck "${deckName}". ${availableDecks ? `Available decks: ${availableDecks}` : 'No flashcard decks found in workspace.'}`,
-                    };
-                }
-
-                // Optimized: Update both title and cards in a single worker call
-                const workerResult = await workspaceWorker("updateFlashcard", {
-                    workspaceId: ctx.workspaceId,
-                    itemId: matchedDeck.id,
-                    itemType: "flashcard",
-                    title: newTitle, // Pass title to rename
-                    flashcardData: { cardsToAdd },
-                });
-
-                if (workerResult.success) {
-                    return {
-                        ...workerResult,
-                        deckName: matchedDeck.name,
-                        cardsAdded: cardsToAdd.length,
-                        titleUpdated: !!newTitle,
-                        newTitle: newTitle || undefined,
-                    };
-                }
-
-                return workerResult;
-            } catch (error) {
-                logger.error("Error updating flashcards:", error);
-                return {
-                    success: false,
-                    message: `Error updating flashcards: ${error instanceof Error ? error.message : String(error)}`,
-                };
-            }
-        },
-    });
-}
+// Edit functionality is in edit-item-tool.ts (editItem)

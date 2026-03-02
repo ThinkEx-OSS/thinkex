@@ -8,7 +8,7 @@ import { createEvent } from "@/lib/workspace/events";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import { getRandomCardColor } from "@/lib/workspace-state/colors";
 import { logger } from "@/lib/utils/logger";
-import type { Item, NoteData, PdfData, QuizData, QuizQuestion } from "@/lib/workspace-state/types";
+import type { Item, NoteData, PdfData, QuizData, QuizQuestion, FlashcardData, FlashcardItem } from "@/lib/workspace-state/types";
 import { markdownToBlocks, fixLLMDoubleEscaping } from "@/lib/editor/markdown-to-blocks";
 import { executeWorkspaceOperation } from "./common";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
@@ -16,6 +16,8 @@ import { hasDuplicateName } from "@/lib/workspace/unique-name";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 import { replace as applyReplace, trimDiff, normalizeLineEndings } from "@/lib/utils/edit-replace";
 import { getNoteContentAsMarkdown } from "@/lib/utils/format-workspace-context";
+import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
+import type { Block } from "@/components/editor/BlockNoteEditor";
 
 /** Create params for a single item (used by create and bulkCreate). Exported for autogen. */
 export type CreateItemParams = {
@@ -183,7 +185,7 @@ function parseAppendResult(rawResult: string | any): { version: number; conflict
  * Operations are serialized per workspace to prevent version conflicts
  */
 export async function workspaceWorker(
-    action: "create" | "bulkCreate" | "update" | "delete" | "updateFlashcard" | "updateQuiz" | "updatePdfContent",
+    action: "create" | "bulkCreate" | "update" | "delete" | "edit" | "updateFlashcard" | "updateQuiz" | "updatePdfContent",
     params: {
         workspaceId: string;
         /** For bulkCreate: array of create params (no workspaceId). Items are built and appended as one BULK_ITEMS_CREATED event. */
@@ -197,6 +199,8 @@ export async function workspaceWorker(
         itemId?: string;
         /** Display name for diff header (e.g. note title) */
         itemName?: string;
+        /** Rename the item (edit action) */
+        newName?: string;
 
         itemType?: "note" | "flashcard" | "quiz" | "youtube" | "image" | "audio" | "pdf"; // Defaults to "note" if undefined
         pdfData?: {
@@ -766,19 +770,20 @@ export async function workspaceWorker(
                     throw new Error("Item ID required for updateQuiz");
                 }
 
-                // Allow questionsToAdd to be at top level or nested in quizData (for backward compatibility)
                 const questionsToAdd = params.questionsToAdd || (params.quizData as any)?.questionsToAdd;
+                const hasQuestions = questionsToAdd && questionsToAdd.length > 0;
+                const hasTitle = !!params.title;
 
-                if (!questionsToAdd || questionsToAdd.length === 0) {
-                    throw new Error("Questions to add required for updateQuiz");
+                if (!hasQuestions && !hasTitle) {
+                    throw new Error("Either questions to add or a new title is required for updateQuiz");
                 }
 
-                logger.debug("🎯 [WORKSPACE-WORKER] Updating quiz with new questions:", {
+                logger.debug("🎯 [WORKSPACE-WORKER] Updating quiz:", {
                     itemId: params.itemId,
-                    questionsToAdd: questionsToAdd.length,
+                    questionsToAdd: questionsToAdd?.length ?? 0,
+                    titleUpdate: hasTitle,
                 });
 
-                // Use helper to load current state (duplicated logic removed)
                 const currentState = await loadWorkspaceState(params.workspaceId);
 
                 const existingItem = currentState.items.find((i: any) => i.id === params.itemId);
@@ -793,15 +798,12 @@ export async function workspaceWorker(
                 const existingData = existingItem.data as QuizData;
                 const existingQuestions = existingData?.questions || [];
 
-                // Merge existing questions with new questions
-                const updatedData: QuizData = {
-                    ...existingData,
-                    questions: [...existingQuestions, ...questionsToAdd],
-                };
+                const updatedData: QuizData = hasQuestions
+                    ? { ...existingData, questions: [...existingQuestions, ...questionsToAdd!] }
+                    : existingData;
 
-                const changes: any = { data: updatedData };
+                const changes: any = hasQuestions ? { data: updatedData } : {};
 
-                // Handle title update if provided
                 if (params.title) {
                     logger.debug("🎯 [UPDATE-QUIZ] Updating title:", params.title);
                     if (hasDuplicateName(currentState.items, params.title, existingItem.type, existingItem.folderId ?? null, params.itemId)) {
@@ -867,16 +869,18 @@ export async function workspaceWorker(
 
                 logger.info("🎯 [WORKSPACE-WORKER] Updated quiz:", {
                     itemId: params.itemId,
-                    questionsAdded: questionsToAdd.length,
+                    questionsAdded: questionsToAdd?.length ?? 0,
                     totalQuestions: updatedData.questions.length,
                 });
 
                 return {
                     success: true,
                     itemId: params.itemId,
-                    questionsAdded: questionsToAdd.length,
+                    questionsAdded: questionsToAdd?.length ?? 0,
                     totalQuestions: updatedData.questions.length,
-                    message: `Added ${questionsToAdd.length} question${questionsToAdd.length !== 1 ? 's' : ''} to quiz`,
+                    message: hasQuestions
+                        ? `Added ${questionsToAdd!.length} question${questionsToAdd!.length !== 1 ? "s" : ""} to quiz`
+                        : "Quiz title updated.",
                     event,
                     version: appendResult.version,
                 };
@@ -966,6 +970,246 @@ export async function workspaceWorker(
                     event,
                     version: appendResult.version,
                 };
+            }
+
+            if (action === "edit") {
+                if (!params.itemId || !params.itemType) {
+                    throw new Error("Item ID and itemType required for edit");
+                }
+                if (params.oldString === undefined || params.newString === undefined) {
+                    throw new Error("oldString and newString required for edit");
+                }
+
+                const currentState = await loadWorkspaceState(params.workspaceId);
+                const existingItem = currentState.items.find((i: Item) => i.id === params.itemId);
+                if (!existingItem) {
+                    throw new Error(`Item not found with ID: ${params.itemId}`);
+                }
+
+                const rename = params.newName;
+                const replaceAll = !!params.replaceAll;
+                const oldStr = String(params.oldString);
+                const newStr = String(params.newString);
+
+                if (existingItem.type === "note") {
+                    const changes: Partial<Item> = {};
+                    if (rename) {
+                        if (hasDuplicateName(currentState.items, rename, "note", existingItem.folderId ?? null, params.itemId)) {
+                            return { success: false, message: `A note named "${rename}" already exists in this folder` };
+                        }
+                        changes.name = rename;
+                    }
+
+                    let contentOld = "";
+                    let contentNew = "";
+                    if (oldStr === "") {
+                        contentOld = "";
+                        contentNew = newStr;
+                    } else {
+                        contentOld = getNoteContentAsMarkdown(existingItem.data as NoteData);
+                        contentNew = applyReplace(contentOld, oldStr, newStr, replaceAll);
+                    }
+                    contentNew = fixLLMDoubleEscaping(contentNew);
+                    const blockContent = await markdownToBlocks(contentNew);
+                    changes.data = { field1: contentNew, blockContent } as NoteData;
+                    if (params.sources !== undefined) {
+                        (changes.data as NoteData).sources = params.sources;
+                    }
+
+                    if (Object.keys(changes).length === 0) {
+                        return { success: true, itemId: params.itemId, message: "No changes to update" };
+                    }
+
+                    const itemName = (changes.name ?? existingItem.name) as string;
+                    const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: "agent", name: itemName }, userId);
+                    const currentVersionResult = await db.execute(sql`
+                        SELECT get_workspace_version(${params.workspaceId}::uuid) as version
+                    `);
+                    const baseVersion = currentVersionResult[0]?.version || 0;
+                    const eventResult = await db.execute(sql`
+                        SELECT append_workspace_event(
+                            ${params.workspaceId}::uuid, ${event.id}::text, ${event.type}::text,
+                            ${JSON.stringify(event.payload)}::jsonb, ${event.timestamp}::bigint, ${event.userId}::text,
+                            ${baseVersion}::integer, NULL::text
+                        ) as result
+                    `);
+                    if (!eventResult?.length) throw new Error("Failed to update note");
+                    const appendResult = parseAppendResult(eventResult[0].result);
+                    if (appendResult.conflict) throw new Error("Workspace was modified by another user, please try again");
+
+                    const diffOutput = trimDiff(
+                        createPatch(params.itemName ?? "note", normalizeLineEndings(contentOld), normalizeLineEndings(contentNew))
+                    );
+                    let filediffAdditions = 0;
+                    let filediffDeletions = 0;
+                    for (const ch of diffLines(contentOld, contentNew)) {
+                        if (ch.added) filediffAdditions += ch.count || 0;
+                        if (ch.removed) filediffDeletions += ch.count || 0;
+                    }
+
+                    return {
+                        success: true,
+                        itemId: params.itemId,
+                        message: "Updated note successfully",
+                        event,
+                        version: appendResult.version,
+                        diff: diffOutput,
+                        filediff: { additions: filediffAdditions, deletions: filediffDeletions },
+                    };
+                }
+
+                if (existingItem.type === "flashcard") {
+                    const data = existingItem.data as FlashcardData;
+                    let cards: FlashcardItem[] = data.cards ?? [];
+                    if (cards.length === 0 && (data.front || data.back)) {
+                        const front = data.front ?? "";
+                        const back = data.back ?? "";
+                        cards = [{ id: "legacy", front, back }];
+                    }
+
+                    const payload = {
+                        cards: cards.map((c) => ({
+                            id: c.id,
+                            front: c.frontBlocks ? serializeBlockNote(c.frontBlocks as Block[]) : c.front,
+                            back: c.backBlocks ? serializeBlockNote(c.backBlocks as Block[]) : c.back,
+                        })),
+                    };
+                    let serialized = JSON.stringify(payload, null, 2);
+                    serialized = applyReplace(serialized, oldStr, newStr, replaceAll);
+
+                    let parsed: { cards?: Array<{ id?: string; front?: string; back?: string }> };
+                    try {
+                        parsed = JSON.parse(serialized);
+                    } catch (e) {
+                        const detail = e instanceof SyntaxError ? e.message : String(e);
+                        throw new Error(`Invalid JSON after edit: ${detail}. Ensure oldString matches exactly from readWorkspace.`);
+                    }
+                    if (!Array.isArray(parsed.cards)) {
+                        throw new Error("Invalid structure: cards must be an array.");
+                    }
+
+                    const newCards: FlashcardItem[] = await Promise.all(
+                        parsed.cards.map(async (c) => {
+                            const id = c.id ?? generateItemId();
+                            const front = String(c.front ?? "");
+                            const back = String(c.back ?? "");
+                            const [frontBlocks, backBlocks] = await Promise.all([markdownToBlocks(front), markdownToBlocks(back)]);
+                            return { id, front, back, frontBlocks, backBlocks };
+                        })
+                    );
+
+                    const changes: Partial<Item> = {
+                        data: { ...data, cards: newCards } as FlashcardData,
+                    };
+                    if (rename) {
+                        if (hasDuplicateName(currentState.items, rename, "flashcard", existingItem.folderId ?? null, params.itemId)) {
+                            return { success: false, message: `A flashcard deck named "${rename}" already exists in this folder` };
+                        }
+                        changes.name = rename;
+                    }
+
+                    const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: "agent", name: changes.name ?? existingItem.name }, userId);
+                    const currentVersionResult = await db.execute(sql`
+                        SELECT get_workspace_version(${params.workspaceId}::uuid) as version
+                    `);
+                    const baseVersion = currentVersionResult[0]?.version || 0;
+                    const eventResult = await db.execute(sql`
+                        SELECT append_workspace_event(
+                            ${params.workspaceId}::uuid, ${event.id}::text, ${event.type}::text,
+                            ${JSON.stringify(event.payload)}::jsonb, ${event.timestamp}::bigint, ${event.userId}::text,
+                            ${baseVersion}::integer, NULL::text
+                        ) as result
+                    `);
+                    if (!eventResult?.length) throw new Error("Failed to update flashcard deck");
+                    const appendResult = parseAppendResult(eventResult[0].result);
+                    if (appendResult.conflict) throw new Error("Workspace was modified by another user, please try again");
+
+                    return {
+                        success: true,
+                        itemId: params.itemId,
+                        message: `Updated flashcard deck (${newCards.length} cards)`,
+                        event,
+                        version: appendResult.version,
+                        cardCount: newCards.length,
+                    };
+                }
+
+                if (existingItem.type === "quiz") {
+                    const data = existingItem.data as QuizData;
+                    const questions = data.questions ?? [];
+                    const payload = { questions };
+                    let serialized = JSON.stringify(payload, null, 2);
+                    serialized = applyReplace(serialized, oldStr, newStr, replaceAll);
+
+                    let parsed: { questions?: QuizQuestion[] };
+                    try {
+                        parsed = JSON.parse(serialized);
+                    } catch (e) {
+                        const detail = e instanceof SyntaxError ? e.message : String(e);
+                        throw new Error(`Invalid JSON after edit: ${detail}. Ensure oldString matches exactly from readWorkspace.`);
+                    }
+                    if (!Array.isArray(parsed.questions)) {
+                        throw new Error("Invalid structure: questions must be an array.");
+                    }
+
+                    const validatedQuestions: QuizQuestion[] = parsed.questions.map((q, i) => {
+                        const id = q?.id ?? generateItemId();
+                        const type = q?.type === "true_false" ? "true_false" : "multiple_choice";
+                        const questionText = String(q?.questionText ?? "");
+                        const options = Array.isArray(q?.options) ? q.options.map(String) : [];
+                        const correctIndex = typeof q?.correctIndex === "number" ? Math.max(0, Math.min(q.correctIndex, options.length - 1)) : 0;
+                        if ((type === "multiple_choice" && options.length !== 4) || (type === "true_false" && options.length !== 2)) {
+                            throw new Error(`Question ${i + 1}: multiple_choice needs 4 options, true_false needs 2`);
+                        }
+                        return {
+                            id,
+                            type,
+                            questionText,
+                            options,
+                            correctIndex,
+                            hint: q?.hint,
+                            explanation: String(q?.explanation ?? ""),
+                        };
+                    });
+
+                    const updatedData: QuizData = { ...data, questions: validatedQuestions };
+                    if (data.session) updatedData.session = data.session;
+
+                    const changes: Partial<Item> = { data: updatedData };
+                    if (rename) {
+                        if (hasDuplicateName(currentState.items, rename, "quiz", existingItem.folderId ?? null, params.itemId)) {
+                            return { success: false, message: `A quiz named "${rename}" already exists in this folder` };
+                        }
+                        changes.name = rename;
+                    }
+
+                    const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: "agent", name: changes.name ?? existingItem.name }, userId);
+                    const currentVersionResult = await db.execute(sql`
+                        SELECT get_workspace_version(${params.workspaceId}::uuid) as version
+                    `);
+                    const baseVersion = currentVersionResult[0]?.version || 0;
+                    const eventResult = await db.execute(sql`
+                        SELECT append_workspace_event(
+                            ${params.workspaceId}::uuid, ${event.id}::text, ${event.type}::text,
+                            ${JSON.stringify(event.payload)}::jsonb, ${event.timestamp}::bigint, ${event.userId}::text,
+                            ${baseVersion}::integer, NULL::text
+                        ) as result
+                    `);
+                    if (!eventResult?.length) throw new Error("Failed to update quiz");
+                    const appendResult = parseAppendResult(eventResult[0].result);
+                    if (appendResult.conflict) throw new Error("Workspace was modified by another user, please try again");
+
+                    return {
+                        success: true,
+                        itemId: params.itemId,
+                        message: `Updated quiz (${validatedQuestions.length} questions)`,
+                        event,
+                        version: appendResult.version,
+                        questionCount: validatedQuestions.length,
+                    };
+                }
+
+                throw new Error(`Item type "${existingItem.type}" is not editable`);
             }
 
             if (action === "delete") {
