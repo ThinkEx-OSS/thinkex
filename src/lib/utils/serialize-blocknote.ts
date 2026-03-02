@@ -125,11 +125,12 @@ function serializeInlineContent(content: any[] | undefined): string {
         }
 
         if (item.type === "inlineMath") {
-            return `$${item.props.latex}$`;
+            const latex = (item.props?.latex as string) ?? "";
+            return `$${latex}$`;
         }
 
         if (item.type === "text") {
-            let text = item.text;
+            let text = (item.text as string) ?? "";
             const styles = item.styles || {};
 
             if (styles.bold) text = `**${text}**`;
