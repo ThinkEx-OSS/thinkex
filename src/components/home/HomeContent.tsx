@@ -392,7 +392,7 @@ export function HomeContent() {
                         </div>
                       ))}
                     </div>
-                    <span className="text-xs sm:text-sm font-medium text-muted-foreground">100+ daily active users</span>
+                    <span className="text-xs sm:text-sm font-medium text-muted-foreground">500+ daily active users</span>
                   </div>
                 </div>
 
