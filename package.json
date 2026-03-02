@@ -189,7 +189,7 @@
       "react-grid-layout": "git+https://github.com/ThinkEx-OSS/react-grid-layout.git"
     },
     "patchedDependencies": {
-      "@assistant-ui/react-ai-sdk": "patches/@assistant-ui__react-ai-sdk.patch"
+      "@assistant-ui/react@0.12.14": "patches/@assistant-ui__react@0.12.14.patch"
     }
   }
 }
