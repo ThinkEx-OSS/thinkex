@@ -24,7 +24,7 @@ export function createNoteTool(ctx: WorkspaceToolContext) {
         inputSchema: zodSchema(
             z.object({
                 title: z.string().describe("The title of the note card"),
-                content: z.string().describe("The markdown body content. DO NOT repeat title in content. Start with subheadings/text."),
+                content: z.string().describe("The markdown body content. CRITICAL: DO NOT repeat the title in content — the title is displayed separately. Start with subheadings or body text only."),
                 sources: z.array(
                     z.object({
                         title: z.string().describe("Title of the source page"),

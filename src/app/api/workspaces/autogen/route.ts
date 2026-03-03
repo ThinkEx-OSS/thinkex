@@ -304,7 +304,7 @@ FORMATTING (apply to note content, flashcard front/back text):
 - DIAGRAMS: Use \`\`\`mermaid blocks when a diagram would be helpful.
 
 Output:
-1. note: title + markdown content
+1. note: title + markdown content. CRITICAL: DO NOT repeat the title in the content. Content must start with subheadings or body text — the title field is already displayed separately.
 2. flashcards: title + 5-8 flashcard pairs (front, back)
 3. quiz: title + 5 quiz questions. Each question: type ("multiple_choice" or "true_false"), questionText, options (4 for MC, ["True","False"] for T/F), correctIndex (0-based), hint (optional), explanation. Focus on introductory/foundational concepts.`;
 
