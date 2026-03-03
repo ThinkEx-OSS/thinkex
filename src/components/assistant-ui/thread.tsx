@@ -124,7 +124,7 @@ const MODEL_PROVIDERS = [
     provider: "Gemini",
     icon: <LuSparkle className="size-3.5" />,
     models: [
-      { id: "gemini-3-pro-preview", name: "3.0 Pro", description: "Latest preview model" },
+      { id: "gemini-3.1-pro-preview", name: "3.1 Pro", description: "Latest preview model" },
       { id: "gemini-3-flash-preview", name: "3.0 Flash", description: "Latest fast preview model" },
       { id: "gemini-2.5-pro", name: "2.5 Pro", description: "Powerful & reliable" },
       { id: "gemini-2.5-flash", name: "2.5 Flash", description: "Fast & efficient" },
