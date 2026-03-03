@@ -96,6 +96,30 @@ describe("replace (edit/replace for oldString/newString)", () => {
     expect(result).toBe("{\"cards\":[{\"front\":\"A\",\"back\":\"B\"}]}");
   });
 
+  it("normalizes fenced JSON newString in JSON edit contexts", () => {
+    const content = "{\n  \"questions\": []\n}";
+    const oldTail = "[]\n}";
+    const fencedNew = "```json\n[\n  {\n    \"id\": \"q2\"\n  }\n]\n```";
+    const result = replace(content, oldTail, fencedNew);
+    expect(result).toContain('"id": "q2"');
+    expect(result).not.toContain("```");
+  });
+
+  it("normalizes line-prefixed newString in JSON edit contexts", () => {
+    const content = "{\n  \"questions\": []\n}";
+    const oldTail = "[]\n}";
+    const prefixedNew = [
+      "1: [",
+      "2:   {",
+      "3:     \"id\": \"q2\"",
+      "4:   }",
+      "5: ]",
+    ].join("\n");
+    const result = replace(content, oldTail, prefixedNew);
+    expect(result).toContain('"id": "q2"');
+    expect(result).not.toContain("1: [");
+  });
+
   it("supports appending a quiz question near end of JSON", () => {
     const content = [
       "{",

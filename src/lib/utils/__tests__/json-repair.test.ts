@@ -56,6 +56,13 @@ describe("parseJsonWithRepair", () => {
     expect(result.value.questions).toEqual([]);
   });
 
+  it("repairs fenced JSON without newline before closing fence", () => {
+    const result = parseJsonWithRepair<{ questions: unknown[] }>(
+      "```json\n{\"questions\":[]}```"
+    );
+    expect(result.value.questions).toEqual([]);
+  });
+
   it("removes basic comments", () => {
     const result = parseJsonWithRepair<{ name: string; items: number[] }>(`
       {

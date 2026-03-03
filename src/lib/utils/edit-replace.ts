@@ -465,9 +465,29 @@ function stripReadWorkspaceLinePrefixes(text: string): string {
 
 function unwrapSingleCodeFence(text: string): string {
   const trimmed = text.trim();
-  const match = trimmed.match(/^```[a-zA-Z0-9_-]*\n([\s\S]*?)\n```$/);
+  const match = trimmed.match(/^```[a-zA-Z0-9_-]*\n([\s\S]*?)\n?```$/);
   if (!match) return text;
   return match[1];
+}
+
+function normalizeReplacementText(content: string, newString: string): string {
+  let normalized = newString;
+  const contentLooksJson = /"questions"\s*:|"cards"\s*:|^\s*[\[{]/.test(content);
+
+  // Only unwrap full-value code fences for JSON-like content to avoid
+  // stripping intentional markdown code blocks in note edits.
+  if (contentLooksJson) {
+    const unwrapped = unwrapSingleCodeFence(normalized);
+    const unwrappedLooksJson = /^\s*[\[{]/.test(unwrapped.trim());
+    if (unwrapped !== normalized && unwrappedLooksJson) {
+      normalized = unwrapped;
+    }
+
+    // In JSON edit flows, model outputs may include readWorkspace line prefixes.
+    normalized = stripReadWorkspaceLinePrefixes(normalized);
+  }
+
+  return normalized;
 }
 
 function buildSearchCandidates(oldString: string): string[] {
@@ -488,6 +508,7 @@ export function replace(content: string, oldString: string, newString: string, r
     throw new Error("No changes to apply: oldString and newString are identical.");
   }
 
+  const replacementText = normalizeReplacementText(content, newString);
   let notFound = true;
 
   const searchCandidates = buildSearchCandidates(oldString);
@@ -509,11 +530,11 @@ export function replace(content: string, oldString: string, newString: string, r
         if (index === -1) continue;
         notFound = false;
         if (replaceAll) {
-          return content.replaceAll(search, newString);
+          return content.replaceAll(search, replacementText);
         }
         const lastIndex = content.lastIndexOf(search);
         if (index !== lastIndex) continue;
-        return content.substring(0, index) + newString + content.substring(index + search.length);
+        return content.substring(0, index) + replacementText + content.substring(index + search.length);
       }
     }
   }

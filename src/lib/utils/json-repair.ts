@@ -8,7 +8,7 @@ type ParsedJsonResult<T = unknown> = {
 
 function unwrapCodeFence(text: string): string {
   const trimmed = text.trim();
-  const match = trimmed.match(/^```[a-zA-Z0-9_-]*\n([\s\S]*?)\n```$/);
+  const match = trimmed.match(/^```[a-zA-Z0-9_-]*\n([\s\S]*?)\n?```$/);
   return match ? match[1] : text;
 }
 
