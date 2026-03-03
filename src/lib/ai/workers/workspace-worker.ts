@@ -15,6 +15,7 @@ import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import { hasDuplicateName } from "@/lib/workspace/unique-name";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 import { replace as applyReplace, trimDiff, normalizeLineEndings } from "@/lib/utils/edit-replace";
+import { parseJsonWithRepair } from "@/lib/utils/json-repair";
 import { getNoteContentAsMarkdown } from "@/lib/utils/format-workspace-context";
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
 import type { Block } from "@/components/editor/BlockNoteEditor";
@@ -1088,10 +1089,17 @@ export async function workspaceWorker(
 
                     let parsed: { cards?: Array<{ id?: string; front?: string; back?: string }> };
                     try {
-                        parsed = JSON.parse(serialized);
+                        const parsedResult = parseJsonWithRepair<{ cards?: Array<{ id?: string; front?: string; back?: string }> }>(
+                            serialized
+                        );
+                        parsed = parsedResult.value;
                     } catch (e) {
-                        const detail = e instanceof SyntaxError ? e.message : String(e);
-                        throw new Error(`Invalid JSON after edit: ${detail}. Ensure oldString matches exactly from readWorkspace.`);
+                        const detail = e instanceof Error ? e.message : String(e);
+                        throw new Error(
+                            `Invalid JSON after edit. The edited flashcard content is not valid JSON (even after repair). ` +
+                            `Try replacing a larger unique block, or use full rewrite with oldString='' and a complete {"cards":[...]} JSON object. ` +
+                            `Details: ${detail}`
+                        );
                     }
                     if (!Array.isArray(parsed.cards)) {
                         throw new Error("Invalid structure: cards must be an array.");
@@ -1157,10 +1165,15 @@ export async function workspaceWorker(
 
                     let parsed: { questions?: QuizQuestion[] };
                     try {
-                        parsed = JSON.parse(serialized);
+                        const parsedResult = parseJsonWithRepair<{ questions?: QuizQuestion[] }>(serialized);
+                        parsed = parsedResult.value;
                     } catch (e) {
-                        const detail = e instanceof SyntaxError ? e.message : String(e);
-                        throw new Error(`Invalid JSON after edit: ${detail}. Ensure oldString matches exactly from readWorkspace.`);
+                        const detail = e instanceof Error ? e.message : String(e);
+                        throw new Error(
+                            `Invalid JSON after edit. The edited quiz content is not valid JSON (even after repair). ` +
+                            `Only edit the {"questions":[...]} JSON, and replace a larger unique block (or do full rewrite with oldString=''). ` +
+                            `Details: ${detail}`
+                        );
                     }
                     if (!Array.isArray(parsed.questions)) {
                         throw new Error("Invalid structure: questions must be an array.");

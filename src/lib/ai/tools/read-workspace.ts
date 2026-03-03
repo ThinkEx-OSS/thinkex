@@ -4,8 +4,10 @@ import { loadStateForTool } from "./tool-utils";
 import { fuzzyMatchItem } from "./tool-utils";
 import { resolveItemByPath } from "./workspace-search-utils";
 import { formatItemContent } from "@/lib/utils/format-workspace-context";
+import { getNoteContentAsMarkdown } from "@/lib/utils/format-workspace-context";
 import { getVirtualPath } from "@/lib/utils/virtual-workspace-fs";
 import type { WorkspaceToolContext } from "./workspace-tools";
+import type { NoteData } from "@/lib/workspace-state/types";
 
 const DEFAULT_LIMIT = 500;
 const MAX_LIMIT = 2000;
@@ -122,7 +124,13 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
                     ? { pageStart, pageEnd }
                     : undefined;
 
-            const fullContent = formatItemContent(item, pdfPageRange);
+            // Keep note reads aligned with editItem matching source.
+            // editItem for notes matches against serialized markdown content only
+            // (without appended metadata blocks like Sources).
+            const fullContent =
+                item.type === "note"
+                    ? getNoteContentAsMarkdown(item.data as NoteData)
+                    : formatItemContent(item, pdfPageRange);
             const allLines = fullContent.split(/\r?\n/);
             const totalLines = allLines.length;
             const startIdx = Math.max(0, lineStart - 1);
