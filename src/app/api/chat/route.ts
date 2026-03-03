@@ -10,6 +10,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { createChatTools } from "@/lib/ai/tools";
 import type { GatewayProviderOptions } from "@ai-sdk/gateway";
+import { compressTextWithTTC } from "@/lib/ai/utils/ttc-compress";
 
 // Regex patterns as constants (compiled once, reused for all requests)
 const URL_CONTEXT_REGEX = /\[URL_CONTEXT:(.+?)\]/g;
@@ -240,6 +241,38 @@ async function handlePOST(req: Request) {
     // Inject selected cards + reply + BlockNote selection context into the last user message
     injectSelectionContext(cleanedMessages, body.metadata?.custom, selectedCardsContext);
 
+    // TTC middleware: compress system instructions + pruned chat history
+    // before forwarding to the final model provider.
+    let compressedSystemPrompt = finalSystemPrompt;
+    compressedSystemPrompt = await compressTextWithTTC(compressedSystemPrompt);
+
+    // Keep tool call/result payloads intact. Compress only natural-language
+    // user/assistant text that contributes most to prompt token usage.
+    for (let i = 0; i < cleanedMessages.length; i++) {
+      const msg = cleanedMessages[i] as any;
+      if (msg.role !== "user" && msg.role !== "assistant") continue;
+
+      if (Array.isArray(msg.content)) {
+        const nextContent = await Promise.all(
+          msg.content.map(async (part: any) => {
+            if (part?.type === "text" && typeof part.text === "string") {
+              const compressedText = await compressTextWithTTC(part.text);
+              return { ...part, text: compressedText };
+            }
+
+            return part;
+          })
+        );
+
+        cleanedMessages[i] = { ...msg, content: nextContent };
+      } else if (typeof msg.content === "string") {
+        cleanedMessages[i] = {
+          ...msg,
+          content: await compressTextWithTTC(msg.content),
+        };
+      }
+    }
+
     // Initialize PostHog client
     const posthogClient = new PostHog(process.env.POSTHOG_API_KEY || "disabled", {
       host: process.env.POSTHOG_HOST || "https://us.i.posthog.com",
@@ -303,7 +336,7 @@ async function handlePOST(req: Request) {
     const result = streamText({
       model: model,
       temperature: 1.0,
-      system: finalSystemPrompt,
+      system: compressedSystemPrompt,
       messages: cleanedMessages,
       stopWhen: stepCountIs(25),
       tools,
