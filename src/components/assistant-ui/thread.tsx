@@ -1240,36 +1240,29 @@ const AssistantMessage: FC = () => {
   );
 };
 
-const CONTINUE_RESPONSE_CHAR_THRESHOLD = 150;
-
-/** Sentence-ending punctuation that indicates an LLM likely finished naturally. */
-const ENDS_WITH_SENTENCE_PUNCTUATION = /[.!?]$/;
-
-/** Trailing citation tags to strip before punctuation check (e.g. <citation>Source</citation>). */
-const TRAILING_CITATION_TAGS = /(?:\s*<citation>[\s\S]*?<\/citation>\s*)+$/;
+/**
+ * Max characters above which we never show the Continue button.
+ * Long responses (citations, tables, mermaid, multi-paragraph) are assumed complete.
+ * We avoid punctuation-based heuristics since the agent often ends with
+ * <citation>, tables, mermaid blocks, etc.
+ */
+const CONTINUE_MAX_CHARS = 600;
 
 const AssistantActionBar: FC = () => {
   const { createCard, isCreating } = useCreateCardFromMessage({ debounceMs: 300 });
   const message = useMessage();
   const api = useAssistantApi();
 
-  const { textLength, textContent, endsWithPunctuation } = useMemo(() => {
+  const { textLength, textContent } = useMemo(() => {
     const textParts = message.content.filter(
       (part): part is { type: "text"; text: string } => part.type === "text"
     );
     const length = textParts.reduce((sum, part) => sum + (part.text?.length ?? 0), 0);
     const content = textParts.map((part) => part.text ?? "").join("\n\n");
-    const trimmed = content.trim();
-    const withoutTrailingCitations = trimmed.replace(TRAILING_CITATION_TAGS, "").trim();
-    const endsWithPunctuation =
-      withoutTrailingCitations.length > 0 &&
-      ENDS_WITH_SENTENCE_PUNCTUATION.test(withoutTrailingCitations);
-    return { textLength: length, textContent: content, endsWithPunctuation };
+    return { textLength: length, textContent: content };
   }, [message.content]);
 
-  const showContinueButton =
-    textLength > 0 &&
-    (textLength < CONTINUE_RESPONSE_CHAR_THRESHOLD || !endsWithPunctuation);
+  const showContinueButton = textLength > 0 && textLength < CONTINUE_MAX_CHARS;
 
   const handleContinueClick = useCallback(() => {
     api?.thread().append({
