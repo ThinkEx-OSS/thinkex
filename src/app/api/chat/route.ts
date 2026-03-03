@@ -344,7 +344,11 @@ async function handlePOST(req: Request) {
     });
 
     logger.debug("🔍 [CHAT-API] streamText returned, calling toUIMessageStreamResponse...");
-    const response = result.toUIMessageStreamResponse();
+    // Reuse incoming UI message IDs so the client updates in-place instead of
+    // appending duplicate assistant messages while streaming.
+    const response = result.toUIMessageStreamResponse({
+      originalMessages: messages,
+    });
     logger.debug("🔍 [CHAT-API] toUIMessageStreamResponse succeeded");
     return response;
 
