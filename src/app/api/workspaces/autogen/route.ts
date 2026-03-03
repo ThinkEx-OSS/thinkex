@@ -300,8 +300,8 @@ const NOTE_FLASHCARD_QUIZ_SYSTEM = `You generate a study note, a flashcard deck,
 
 FORMATTING (apply to note content, flashcard front/back text):
 - Use Markdown (GFM): headers, lists, bold/italic, code, links.
-- MATH: Use $$...$$ for all math (inline and block). Inline: $$E = mc^2$$ on the same line as text. Block: put $$...$$ on its own lines for centered display.
-  For currency use a single $ with no closing $ (e.g. $19.99).
+- MATH: Use single $...$ for inline math (e.g. $E = mc^2$) and $$...$$ for block math on separate lines for centered display. Currency: escape as \\$ (e.g. \\$19.99, \\$5) so it is never parsed as math.
+- DIAGRAMS: Use \`\`\`mermaid blocks when a diagram would be helpful.
 
 Output:
 1. note: title + markdown content
