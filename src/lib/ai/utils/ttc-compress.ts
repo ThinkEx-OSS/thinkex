@@ -1,3 +1,5 @@
+import { gzipSync } from "node:zlib";
+
 const TTC_COMPRESS_ENDPOINT = "https://api.thetokencompany.com/v1/compress";
 const TTC_MODEL = "bear-1.2";
 const TTC_AGGRESSIVENESS = 0.1;
@@ -19,19 +21,22 @@ export async function compressTextWithTTC(input: string): Promise<string> {
   }
 
   try {
+    const payload = JSON.stringify({
+      input,
+      model: TTC_MODEL,
+      compression_settings: {
+        aggressiveness: TTC_AGGRESSIVENESS,
+      },
+    });
+
     const response = await fetch(TTC_COMPRESS_ENDPOINT, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        "Content-Encoding": "gzip",
       },
-      body: JSON.stringify({
-        input,
-        model: TTC_MODEL,
-        compression_settings: {
-          aggressiveness: TTC_AGGRESSIVENESS,
-        },
-      }),
+      body: gzipSync(payload),
     });
 
     if (!response.ok) {
