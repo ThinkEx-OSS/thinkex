@@ -393,7 +393,7 @@ export default function ShareWorkspaceDialog({
 
   const dialogTitle = isBulk
     ? `Share ${workspaceIds?.length} Workspaces`
-    : "Work together in real-time";
+    : "Share your workspace";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -643,8 +643,6 @@ export default function ShareWorkspaceDialog({
           return (
             <DialogFooter className="flex-col gap-3 pt-4 border-t">
               <div className="flex flex-col gap-3 w-full">
-                <p className="text-sm text-muted-foreground">Or, send a link</p>
-
                 {/* Segmented toggle */}
                 <div className="flex rounded-lg bg-muted p-1 gap-1">
                   <button
@@ -656,7 +654,7 @@ export default function ShareWorkspaceDialog({
                       }`}
                   >
                     <Link2 className="h-3.5 w-3.5" />
-                    Collaborative Copy
+                    Collaborative
                   </button>
                   <button
                     type="button"
@@ -667,7 +665,7 @@ export default function ShareWorkspaceDialog({
                       }`}
                   >
                     <Files className="h-3.5 w-3.5" />
-                    Personal Copy
+                    Share as Copy
                   </button>
                 </div>
 
