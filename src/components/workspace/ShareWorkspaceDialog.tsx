@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Mail, Trash2, Loader2, Share2, Copy, Check } from "lucide-react";
+import { Mail, Trash2, Loader2, Share2, Copy, Check, Link2, Files } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -84,6 +84,9 @@ export default function ShareWorkspaceDialog({
   const [shareLinkUrl, setShareLinkUrl] = useState("");
   const [isLoadingShareLink, setIsLoadingShareLink] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Link mode toggle: collaborate (invite link) vs deepcopy
+  const [linkMode, setLinkMode] = useState<"collaborate" | "deepcopy">("collaborate");
 
   // Bulk mode check
   const isBulk = !!workspaceIds && workspaceIds.length > 1;
@@ -372,9 +375,13 @@ export default function ShareWorkspaceDialog({
   };
 
   const handleCopyShareLink = async () => {
-    if (shareLinkUrl) {
+    const deepCopyUrl = workspace
+      ? `${typeof window !== "undefined" ? window.location.origin : ""}/share-copy/${workspace.id}`
+      : "";
+    const urlToCopy = linkMode === "collaborate" ? shareLinkUrl : deepCopyUrl;
+    if (urlToCopy) {
       try {
-        await navigator.clipboard.writeText(shareLinkUrl);
+        await navigator.clipboard.writeText(urlToCopy);
         setCopied(true);
         toast.success("Link copied");
         setTimeout(() => setCopied(false), 2000);
@@ -405,88 +412,88 @@ export default function ShareWorkspaceDialog({
         )}
 
         <div className="min-w-0 space-y-4">
-            <div className="space-y-4">
-              {isAnonymous && (
-                <div className="rounded-lg border bg-muted/50 p-3">
-                  <p className="text-sm">
-                    Sign in to invite collaborators and manage access.
-                  </p>
-                  <div className="mt-2 flex gap-2">
-                    <Link href="/auth/sign-in" className="flex-1">
-                      <Button variant="outline" size="sm" className="w-full">
-                        Sign in
-                      </Button>
-                    </Link>
-                    <Link href="/auth/sign-up" className="flex-1">
-                      <Button size="sm" className="w-full">
-                        Sign up
-                      </Button>
-                    </Link>
-                  </div>
+          <div className="space-y-4">
+            {isAnonymous && (
+              <div className="rounded-lg border bg-muted/50 p-3">
+                <p className="text-sm">
+                  Sign in to invite collaborators and manage access.
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <Link href="/auth/sign-in" className="flex-1">
+                    <Button variant="outline" size="sm" className="w-full">
+                      Sign in
+                    </Button>
+                  </Link>
+                  <Link href="/auth/sign-up" className="flex-1">
+                    <Button size="sm" className="w-full">
+                      Sign up
+                    </Button>
+                  </Link>
                 </div>
+              </div>
+            )}
+
+            {/* Invite Form */}
+            <div className="space-y-3">
+
+              <div className="flex gap-2">
+                <Input
+                  id="invite-email"
+                  type="email"
+                  placeholder="name@example.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleInvite()}
+                  className="flex-1"
+                  disabled={!canInvite}
+                />
+                <div>
+                  <Select
+                    value={invitePermission}
+                    onValueChange={(val: "viewer" | "editor") => setInvitePermission(val)}
+                    disabled={!canInvite || isInviting}
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="z-[9999]">
+                      <SelectItem value="viewer">Viewer</SelectItem>
+                      <SelectItem value="editor">Editor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={handleInvite} disabled={isInviting || !inviteEmail.trim() || !canInvite}>
+                  {isInviting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Invite"}
+                </Button>
+              </div>
+              {!canInvite && (
+                <p className="text-xs text-red-400">
+                  You must be an editor or owner to invite others.
+                </p>
               )}
 
-              {/* Invite Form */}
-              <div className="space-y-3">
+            </div>
 
-                <div className="flex gap-2">
-                  <Input
-                    id="invite-email"
-                    type="email"
-                    placeholder="name@example.com"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleInvite()}
-                    className="flex-1"
-                    disabled={!canInvite}
-                  />
-                  <div>
-                    <Select
-                      value={invitePermission}
-                      onValueChange={(val: "viewer" | "editor") => setInvitePermission(val)}
-                      disabled={!canInvite || isInviting}
-                    >
-                      <SelectTrigger className="h-10">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="z-[9999]">
-                        <SelectItem value="viewer">Viewer</SelectItem>
-                        <SelectItem value="editor">Editor</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button onClick={handleInvite} disabled={isInviting || !inviteEmail.trim() || !canInvite}>
-                    {isInviting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Invite"}
-                  </Button>
-                </div>
-                {!canInvite && (
-                  <p className="text-xs text-red-400">
-                    You must be an editor or owner to invite others.
-                  </p>
-                )}
+            {/* Collaborators List - Only show for single workspace */}
+            {!isBulk && !isAnonymous && (
+              <div className="space-y-4">
 
-              </div>
-
-              {/* Collaborators List - Only show for single workspace */}
-              {!isBulk && !isAnonymous && (
-                <div className="space-y-4">
-
-                  <div className="space-y-2">
-                    {isLoadingCollaborators ? (
-                      <div className="flex items-center justify-center py-4">
-                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                      </div>
-                    ) : (
-                      <div className="space-y-2 max-h-64 overflow-y-auto">
-                        {/* Active Collaborators */}
-                        {collaborators.filter((c) => c.permissionLevel !== "owner").length === 0 ? (
-                          <p className="text-sm text-muted-foreground py-4 text-center">
-                            No collaborators yet. Invite someone above!
-                          </p>
-                        ) : (
-                          collaborators
-                            .filter((collab) => collab.permissionLevel !== "owner")
-                            .map((collab) => (
+                <div className="space-y-2">
+                  {isLoadingCollaborators ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {/* Active Collaborators */}
+                      {collaborators.filter((c) => c.permissionLevel !== "owner").length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center">
+                          No collaborators yet. Invite someone above!
+                        </p>
+                      ) : (
+                        collaborators
+                          .filter((collab) => collab.permissionLevel !== "owner")
+                          .map((collab) => (
                             <div
                               key={collab.id}
                               className="flex items-center justify-between p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
@@ -538,45 +545,45 @@ export default function ShareWorkspaceDialog({
                               </div>
                             </div>
                           ))
-                        )}
+                      )}
 
-                        {/* Pending Invites */}
-                        {!isLoadingCollaborators && invites.map((invite) => (
-                          <div key={invite.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50 border border-dashed">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                                <Mail className="h-4 w-4 text-muted-foreground" />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium truncate opacity-80">{invite.email}</p>
-                                <p className="text-xs text-muted-foreground">Invited as {invite.permissionLevel}</p>
-                              </div>
+                      {/* Pending Invites */}
+                      {!isLoadingCollaborators && invites.map((invite) => (
+                        <div key={invite.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50 border border-dashed">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                              <Mail className="h-4 w-4 text-muted-foreground" />
                             </div>
-                            {canManage && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 text-xs text-muted-foreground hover:text-red-400"
-                                onClick={() => handleRevokeInvite(invite.id)}
-                                disabled={isRevoking === invite.id}
-                              >
-                                {isRevoking === invite.id ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  "Revoke"
-                                )}
-                              </Button>
-                            )}
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate opacity-80">{invite.email}</p>
+                              <p className="text-xs text-muted-foreground">Invited as {invite.permissionLevel}</p>
+                            </div>
                           </div>
-                        ))}
+                          {canManage && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs text-muted-foreground hover:text-red-400"
+                              onClick={() => handleRevokeInvite(invite.id)}
+                              disabled={isRevoking === invite.id}
+                            >
+                              {isRevoking === invite.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                "Revoke"
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      ))}
 
-                        {/* Frequent collaborators inline */}
-                        {(() => {
-                          const availableQuickAdd = frequentCollaborators.filter(
-                            (fc) => !collaborators.some((c) => c.userId === fc.userId)
-                          );
-                          if (isLoadingFrequent || availableQuickAdd.length === 0) return null;
-                          return (
+                      {/* Frequent collaborators inline */}
+                      {(() => {
+                        const availableQuickAdd = frequentCollaborators.filter(
+                          (fc) => !collaborators.some((c) => c.userId === fc.userId)
+                        );
+                        if (isLoadingFrequent || availableQuickAdd.length === 0) return null;
+                        return (
                           <div className={`pt-2 mt-2 ${collaborators.filter((c) => c.permissionLevel !== "owner").length > 0 || invites.length > 0 ? "border-t border-border/50" : ""}`}>
                             <p className="text-xs text-muted-foreground mb-2 px-1">Quick add</p>
                             {availableQuickAdd.slice(0, 6).map((collab) => (
@@ -616,44 +623,86 @@ export default function ShareWorkspaceDialog({
                               </div>
                             ))}
                           </div>
-                          );
-                        })()}
-                      </div>
-                    )}
-                  </div>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {!isBulk && canInvite && (
-          <DialogFooter className="flex-col gap-3 sm:flex-row sm:items-end sm:gap-4 pt-4 border-t">
-            <div className="flex flex-col gap-2 w-full">
-              <p className="text-sm text-muted-foreground">Or, send a link to invite someone</p>
-              <div className="flex gap-2">
-                <Input
-                  readOnly
-                  value={shareLinkUrl}
-                  className="flex-1 font-mono text-sm bg-muted/50"
-                  placeholder={isLoadingShareLink ? "Loading..." : ""}
-                />
-                <Button
-                  onClick={handleCopyShareLink}
-                  disabled={!shareLinkUrl || isLoadingShareLink}
-                  className="shrink-0"
-                >
-                  {copied ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                  <span className="ml-2">Copy</span>
-                </Button>
+        {!isBulk && canInvite && (() => {
+          const deepCopyUrl = workspace
+            ? `${typeof window !== "undefined" ? window.location.origin : ""}/share-copy/${workspace.id}`
+            : "";
+          const activeUrl = linkMode === "collaborate" ? shareLinkUrl : deepCopyUrl;
+          const isActiveLoading = linkMode === "collaborate" && isLoadingShareLink;
+
+          return (
+            <DialogFooter className="flex-col gap-3 pt-4 border-t">
+              <div className="flex flex-col gap-3 w-full">
+                <p className="text-sm text-muted-foreground">Or, send a link</p>
+
+                {/* Segmented toggle */}
+                <div className="flex rounded-lg bg-muted p-1 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => { setLinkMode("collaborate"); setCopied(false); }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${linkMode === "collaborate"
+                      ? "bg-background text-foreground shadow-sm ring-1 ring-border/50"
+                      : "text-muted-foreground hover:text-foreground"
+                      }`}
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                    Collaborative Copy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setLinkMode("deepcopy"); setCopied(false); }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${linkMode === "deepcopy"
+                      ? "bg-background text-foreground shadow-sm ring-1 ring-border/50"
+                      : "text-muted-foreground hover:text-foreground"
+                      }`}
+                  >
+                    <Files className="h-3.5 w-3.5" />
+                    Personal Copy
+                  </button>
+                </div>
+
+                {/* Link + Copy */}
+                <div className="flex gap-2">
+                  <Input
+                    readOnly
+                    value={activeUrl}
+                    className="flex-1 font-mono text-sm bg-muted/50"
+                    placeholder={isActiveLoading ? "Loading..." : ""}
+                  />
+                  <Button
+                    onClick={handleCopyShareLink}
+                    disabled={!activeUrl || isActiveLoading}
+                    className="shrink-0"
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                    <span className="ml-2">Copy</span>
+                  </Button>
+                </div>
+
+                {/* Description */}
+                <p className="text-xs text-muted-foreground">
+                  {linkMode === "collaborate"
+                    ? "Adds them as a collaborator. Expires in 7 days."
+                    : "Recipient gets their own independent copy. Does not expire."}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">Your invite link expires in 7 days.</p>
-            </div>
-          </DialogFooter>
-        )}
+            </DialogFooter>
+          );
+        })()}
       </DialogContent>
     </Dialog>
   );
