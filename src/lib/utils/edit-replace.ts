@@ -443,41 +443,127 @@ export function trimDiff(diff: string): string {
   return trimmedLines.join("\n");
 }
 
+function stripReadWorkspaceLinePrefixes(text: string): string {
+  const lines = text.split("\n");
+  if (lines.length === 0) return text;
+
+  let prefixedCount = 0;
+  let nonEmptyCount = 0;
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    nonEmptyCount++;
+    if (/^\d+:\s/.test(line)) prefixedCount++;
+  }
+
+  // Only strip when this strongly looks like readWorkspace output.
+  const shouldStrip =
+    prefixedCount >= 2 && nonEmptyCount > 0 && prefixedCount / nonEmptyCount >= 0.6;
+  if (!shouldStrip) return text;
+
+  return lines.map((line) => line.replace(/^\d+:\s/, "")).join("\n");
+}
+
+function unwrapSingleCodeFence(text: string): string {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^```[a-zA-Z0-9_-]*\n([\s\S]*?)\n?```$/);
+  if (!match) return text;
+  return match[1];
+}
+
+function normalizeReplacementText(content: string, newString: string): string {
+  let normalized = newString;
+  const contentLooksJson = /"questions"\s*:|"cards"\s*:|^\s*[\[{]/.test(content);
+
+  // Only unwrap full-value code fences for JSON-like content to avoid
+  // stripping intentional markdown code blocks in note edits.
+  if (contentLooksJson) {
+    const unwrapped = unwrapSingleCodeFence(normalized);
+    const unwrappedLooksJson = /^\s*[\[{]/.test(unwrapped.trim());
+    if (unwrapped !== normalized && unwrappedLooksJson) {
+      normalized = unwrapped;
+    }
+
+    // In JSON edit flows, model outputs may include readWorkspace line prefixes.
+    normalized = stripReadWorkspaceLinePrefixes(normalized);
+  }
+
+  return normalized;
+}
+
+function buildSearchCandidates(oldString: string): string[] {
+  const candidates = new Set<string>();
+  const base = oldString;
+  const noFence = unwrapSingleCodeFence(base);
+  const noLines = stripReadWorkspaceLinePrefixes(base);
+  const noFenceNoLines = stripReadWorkspaceLinePrefixes(noFence);
+
+  for (const c of [base, noFence, noLines, noFenceNoLines]) {
+    if (c.length > 0) candidates.add(c);
+  }
+  return Array.from(candidates);
+}
+
 export function replace(content: string, oldString: string, newString: string, replaceAll = false): string {
   if (oldString === newString) {
     throw new Error("No changes to apply: oldString and newString are identical.");
   }
 
+  const replacementText = normalizeReplacementText(content, newString);
   let notFound = true;
 
-  for (const replacer of [
-    SimpleReplacer,
-    LineTrimmedReplacer,
-    BlockAnchorReplacer,
-    WhitespaceNormalizedReplacer,
-    IndentationFlexibleReplacer,
-    EscapeNormalizedReplacer,
-    TrimmedBoundaryReplacer,
-    ContextAwareReplacer,
-    MultiOccurrenceReplacer,
-  ]) {
-    for (const search of replacer(content, oldString)) {
-      const index = content.indexOf(search);
-      if (index === -1) continue;
-      notFound = false;
-      if (replaceAll) {
-        return content.replaceAll(search, newString);
+  const searchCandidates = buildSearchCandidates(oldString);
+
+  for (const candidate of searchCandidates) {
+    for (const replacer of [
+      SimpleReplacer,
+      LineTrimmedReplacer,
+      BlockAnchorReplacer,
+      WhitespaceNormalizedReplacer,
+      IndentationFlexibleReplacer,
+      EscapeNormalizedReplacer,
+      TrimmedBoundaryReplacer,
+      ContextAwareReplacer,
+      MultiOccurrenceReplacer,
+    ]) {
+      for (const search of replacer(content, candidate)) {
+        const index = content.indexOf(search);
+        if (index === -1) continue;
+        notFound = false;
+        if (replaceAll) {
+          return content.replaceAll(search, replacementText);
+        }
+        const lastIndex = content.lastIndexOf(search);
+        if (index !== lastIndex) continue;
+        return content.substring(0, index) + replacementText + content.substring(index + search.length);
       }
-      const lastIndex = content.lastIndexOf(search);
-      if (index !== lastIndex) continue;
-      return content.substring(0, index) + newString + content.substring(index + search.length);
     }
   }
 
   if (notFound) {
+    const compactOld = oldString.replace(/\s+/g, " ").trim();
+    const isLikelyTooShort = compactOld.length > 0 && compactOld.length <= 6;
+    const looksLikeTailToken = ["]", "}", "],", "},"].includes(compactOld);
+    const jsonLike = /"questions"\s*:|"cards"\s*:/.test(content);
+
+    const hints: string[] = [];
+    if (isLikelyTooShort || looksLikeTailToken) {
+      hints.push("oldString appears too short/ambiguous (for example: ']' or '}').");
+    }
+    if (jsonLike) {
+      hints.push(
+        "For quiz/flashcard JSON edits, include a larger unique block (3-8 lines) with field names near the target section."
+      );
+      hints.push("If you're appending, replace the final JSON tail (for example, '  ]\\n}') with a longer unique tail.");
+    }
+    hints.push("Do not include readWorkspace line prefixes like '12: '.");
+
     throw new Error(
-      "Could not find oldString in the file. It must match exactly, including whitespace, indentation, and line endings."
+      `Could not find oldString in the file. ${
+        hints.join(" ")
+      } Ensure the snippet is copied exactly from readWorkspace and is not truncated.`
     );
   }
-  throw new Error("Found multiple matches for oldString. Provide more surrounding context to make the match unique.");
+  throw new Error(
+    "Found multiple matches for oldString. oldString is likely too generic. Use a longer, unique snippet (3-8 lines with nearby field names/structure), or set replaceAll=true only when changing every occurrence is intentional."
+  );
 }

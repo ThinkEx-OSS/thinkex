@@ -75,6 +75,121 @@ describe("replace (edit/replace for oldString/newString)", () => {
       "# Note\n\n$$\n2x\n$$\n\nMore text"
     );
   });
+
+  it("handles oldString copied with readWorkspace line prefixes", () => {
+    const content = "{\n  \"questions\": [\n    {\"questionText\":\"Q1\"}\n  ]\n}";
+    const oldWithPrefixes = [
+      "1: {",
+      "2:   \"questions\": [",
+      "3:     {\"questionText\":\"Q1\"}",
+      "4:   ]",
+      "5: }",
+    ].join("\n");
+    const result = replace(content, oldWithPrefixes, "{\"questions\":[]}");
+    expect(result).toBe("{\"questions\":[]}");
+  });
+
+  it("handles oldString wrapped in code fences", () => {
+    const content = "{\n  \"cards\": []\n}";
+    const oldFenced = "```json\n{\n  \"cards\": []\n}\n```";
+    const result = replace(content, oldFenced, "{\"cards\":[{\"front\":\"A\",\"back\":\"B\"}]}");
+    expect(result).toBe("{\"cards\":[{\"front\":\"A\",\"back\":\"B\"}]}");
+  });
+
+  it("normalizes fenced JSON newString in JSON edit contexts", () => {
+    const content = "{\n  \"questions\": []\n}";
+    const oldTail = "[]\n}";
+    const fencedNew = "```json\n[\n  {\n    \"id\": \"q2\"\n  }\n]\n```";
+    const result = replace(content, oldTail, fencedNew);
+    expect(result).toContain('"id": "q2"');
+    expect(result).not.toContain("```");
+  });
+
+  it("normalizes line-prefixed newString in JSON edit contexts", () => {
+    const content = "{\n  \"questions\": []\n}";
+    const oldTail = "[]\n}";
+    const prefixedNew = [
+      "1: [",
+      "2:   {",
+      "3:     \"id\": \"q2\"",
+      "4:   }",
+      "5: ]",
+    ].join("\n");
+    const result = replace(content, oldTail, prefixedNew);
+    expect(result).toContain('"id": "q2"');
+    expect(result).not.toContain("1: [");
+  });
+
+  it("supports appending a quiz question near end of JSON", () => {
+    const content = [
+      "{",
+      '  "questions": [',
+      "    {",
+      '      "id": "q1",',
+      '      "type": "multiple_choice",',
+      '      "questionText": "Q1",',
+      '      "options": ["A", "B", "C", "D"],',
+      '      "correctIndex": 0,',
+      '      "explanation": "e1"',
+      "    }",
+      "  ]",
+      "}",
+    ].join("\n");
+
+    const oldTail = "  ]\n}";
+    const newTail = [
+      "    ,",
+      "    {",
+      '      "id": "q2",',
+      '      "type": "multiple_choice",',
+      '      "questionText": "Q2",',
+      '      "options": ["A", "B", "C", "D"],',
+      '      "correctIndex": 1,',
+      '      "explanation": "e2"',
+      "    }",
+      "  ]",
+      "}",
+    ].join("\n");
+
+    const result = replace(content, oldTail, newTail);
+    expect(result).toContain('"id": "q2"');
+    expect(result).toContain('"questionText": "Q2"');
+  });
+
+  it("supports appending a flashcard near end of JSON", () => {
+    const content = [
+      "{",
+      '  "cards": [',
+      "    {",
+      '      "id": "c1",',
+      '      "front": "f1",',
+      '      "back": "b1"',
+      "    }",
+      "  ]",
+      "}",
+    ].join("\n");
+
+    const oldTail = "  ]\n}";
+    const newTail = [
+      "    ,",
+      "    {",
+      '      "id": "c2",',
+      '      "front": "f2",',
+      '      "back": "b2"',
+      "    }",
+      "  ]",
+      "}",
+    ].join("\n");
+
+    const result = replace(content, oldTail, newTail);
+    expect(result).toContain('"id": "c2"');
+    expect(result).toContain('"front": "f2"');
+  });
+
+  it("preserves ambiguity error when multiple matches remain", () => {
+    const content = "foo\nfoo\nfoo";
+    expect(() => replace(content, "foo", "bar")).toThrow("multiple matches");
+  });
 });
 
 describe("unescapeString", () => {
