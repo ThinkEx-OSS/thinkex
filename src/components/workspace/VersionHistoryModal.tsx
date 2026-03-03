@@ -180,33 +180,26 @@ function getEventDescription(event: WorkspaceEvent, items?: any[]): string {
   }
 }
 
-function formatTime(timestamp: number): string {
-  const date = new Date(timestamp);
+function formatTime(timestamp: number | string | undefined | null): string {
+  const ts = Number(timestamp);
+  if (!Number.isFinite(ts)) return 'Unknown';
+  const date = new Date(ts);
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+
   const now = new Date();
-  const diff = now.getTime() - timestamp;
+  const diff = now.getTime() - date.getTime();
 
-  // Less than 1 minute
-  if (diff < 60000) {
-    return 'Just now';
-  }
-
-  // Less than 1 hour
+  if (diff < 60000) return 'Just now';
   if (diff < 3600000) {
     const mins = Math.floor(diff / 60000);
     return `${mins} ${mins === 1 ? 'minute' : 'minutes'} ago`;
   }
-
-  // Less than 24 hours
   if (diff < 86400000) {
     const hours = Math.floor(diff / 3600000);
     return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
   }
 
-  // More than 24 hours - show date
-  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 // Reusable version history content component

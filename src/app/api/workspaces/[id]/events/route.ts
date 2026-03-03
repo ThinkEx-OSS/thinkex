@@ -164,11 +164,11 @@ async function handleGET(
   const events: WorkspaceEvent[] = eventsData.map((e) => ({
     type: e.eventType,
     payload: e.payload,
-    timestamp: e.timestamp,
+    timestamp: Number.isFinite(Number(e.timestamp)) ? Number(e.timestamp) : Date.now(),
     userId: e.userId,
     userName: e.userName || undefined,
     id: e.eventId,
-    version: e.version,  // Include version from database
+    version: e.version,
   } as WorkspaceEvent));
   timings.transform = Date.now() - transformStart;
 
@@ -319,7 +319,7 @@ async function handlePOST(
     const events: WorkspaceEvent[] = currentEvents.map((e) => ({
       type: e.eventType,
       payload: e.payload,
-      timestamp: e.timestamp,
+      timestamp: Number.isFinite(Number(e.timestamp)) ? Number(e.timestamp) : Date.now(),
       userId: e.userId,
       userName: e.userName || undefined,
       id: e.eventId,
