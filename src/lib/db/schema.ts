@@ -328,6 +328,10 @@ export const chatMessages = pgTable("chat_messages", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
 		.defaultNow(),
 }, (table) => [
+	unique("chat_messages_thread_message_key").on(
+		table.threadId,
+		table.messageId
+	),
 	index("idx_chat_messages_thread").using(
 		"btree",
 		table.threadId.asc().nullsLast().op("uuid_ops")

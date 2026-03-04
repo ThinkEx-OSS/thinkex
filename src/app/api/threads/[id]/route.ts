@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
-import { chatThreads } from "@/lib/db/schema";
+import { chatThreads, chatMessages } from "@/lib/db/schema";
 import {
   requireAuth,
   verifyWorkspaceAccess,
   verifyThreadOwnership,
 } from "@/lib/api/workspace-helpers";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 async function getThreadAndVerify(
   id: string,
@@ -81,7 +81,25 @@ export async function PATCH(
     };
     if (title !== undefined) updates.title = String(title);
     if (headMessageId !== undefined) {
-      updates.headMessageId = headMessageId === null ? null : String(headMessageId);
+      if (headMessageId === null) {
+        updates.headMessageId = null;
+      } else {
+        const msgId = String(headMessageId);
+        const [existing] = await db
+          .select({ messageId: chatMessages.messageId })
+          .from(chatMessages)
+          .where(
+            and(eq(chatMessages.threadId, id), eq(chatMessages.messageId, msgId))
+          )
+          .limit(1);
+        if (!existing) {
+          return NextResponse.json(
+            { error: "headMessageId must reference an existing message in this thread" },
+            { status: 400 }
+          );
+        }
+        updates.headMessageId = msgId;
+      }
     }
 
     await db.update(chatThreads).set(updates).where(eq(chatThreads.id, id));

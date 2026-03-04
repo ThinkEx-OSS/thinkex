@@ -92,22 +92,24 @@ export async function POST(
 
     const thread = await getThreadAndVerify(id, userId);
 
-    await db.insert(chatMessages).values({
-      threadId: id,
-      messageId: String(messageId),
-      parentId: parentId ?? null,
-      format: String(format),
-      content: typeof content === "object" ? content : { raw: content },
-    });
+    await db.transaction(async (tx) => {
+      await tx.insert(chatMessages).values({
+        threadId: id,
+        messageId: String(messageId),
+        parentId: parentId ?? null,
+        format: String(format),
+        content: typeof content === "object" ? content : { raw: content },
+      });
 
-    await db
-      .update(chatThreads)
-      .set({
-        lastMessageAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        headMessageId: String(messageId),
-      })
-      .where(eq(chatThreads.id, id));
+      await tx
+        .update(chatThreads)
+        .set({
+          lastMessageAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          headMessageId: String(messageId),
+        })
+        .where(eq(chatThreads.id, id));
+    });
 
     return NextResponse.json({ ok: true });
   } catch (error) {
