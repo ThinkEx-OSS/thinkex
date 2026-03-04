@@ -606,7 +606,7 @@ export const useUIStore = create<UIState>()(
         }),
       }),
       {
-        name: 'thinkex-ui-preferences-v2',
+        name: 'thinkex-ui-preferences-v3',
         storage: createJSONStorage(() => localStorage),
         partialize: (state) => ({ selectedModelId: state.selectedModelId }),
       },

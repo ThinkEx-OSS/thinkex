@@ -99,6 +99,29 @@ export function useCustomThreadHistoryAdapter(): ThreadHistoryAdapter {
               );
             }
           },
+          async update(item: MessageFormatItem<TMessage>, localMessageId: string) {
+            const remoteId = aui.threadListItem().getState().remoteId;
+            if (!remoteId) return;
+
+            const encoded = formatAdapter.encode(item) as TStorageFormat;
+
+            const res = await fetch(
+              `/api/threads/${encodeURIComponent(remoteId)}/messages/${encodeURIComponent(localMessageId)}`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ content: encoded }),
+              }
+            );
+
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(
+                (err as { error?: string }).error ||
+                  `Failed to update message: ${res.status}`
+              );
+            }
+          },
           async load(): Promise<MessageFormatRepository<TMessage>> {
             const remoteId = aui.threadListItem().getState().remoteId;
             if (!remoteId) return { messages: [] };
@@ -110,9 +133,12 @@ export function useCustomThreadHistoryAdapter(): ThreadHistoryAdapter {
               throw new Error(`Failed to load messages: ${res.status}`);
             }
 
-            const { messages } = await res.json();
-            if (!Array.isArray(messages) || messages.length === 0) {
-              return { messages: [] };
+            const data = await res.json();
+            const messages = Array.isArray(data?.messages) ? data.messages : [];
+            const apiHeadId = data?.headId ?? null;
+
+            if (messages.length === 0) {
+              return { messages: [], headId: apiHeadId };
             }
 
             const filtered = messages.filter(
@@ -154,12 +180,23 @@ export function useCustomThreadHistoryAdapter(): ThreadHistoryAdapter {
               (d) => d.created_at
             ) as DecodedItem[];
 
+            // Prefer API headId (persisted branch tip); fallback to last message for linear threads.
+            const headId =
+              apiHeadId ??
+              (sorted.length > 0
+                ? formatAdapter.getId(sorted[sorted.length - 1]!.message)
+                : null);
+
             return {
               messages: sorted.map(({ parentId, message }) => ({
                 parentId,
                 message,
               })),
+              headId,
             };
+          },
+          reportTelemetry(_items, _options) {
+            // Optional: wire to Posthog, runs API, etc. Cloud uses runs.report().
           },
         };
       },

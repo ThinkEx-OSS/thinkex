@@ -39,7 +39,7 @@ export async function GET(
     const { searchParams } = new URL(req.url);
     const format = searchParams.get("format") ?? "ai-sdk/v6";
 
-    await getThreadAndVerify(id, userId);
+    const thread = await getThreadAndVerify(id, userId);
 
     const rows = await db
       .select()
@@ -55,7 +55,10 @@ export async function GET(
         created_at: r.createdAt,
       }));
 
-    return NextResponse.json({ messages });
+    return NextResponse.json({
+      messages,
+      headId: thread.headMessageId ?? undefined,
+    });
   } catch (error) {
     if (error instanceof Response) return error;
     console.error("[threads] messages GET error:", error);
@@ -89,21 +92,46 @@ export async function POST(
 
     const thread = await getThreadAndVerify(id, userId);
 
-    await db.insert(chatMessages).values({
-      threadId: id,
-      messageId: String(messageId),
-      parentId: parentId ?? null,
-      format: String(format),
-      content: typeof content === "object" ? content : { raw: content },
-    });
+    try {
+      await db.transaction(async (tx) => {
+        await tx.insert(chatMessages).values({
+          threadId: id,
+          messageId: String(messageId),
+          parentId: parentId ?? null,
+          format: String(format),
+          content: typeof content === "object" ? content : { raw: content },
+        });
 
-    await db
-      .update(chatThreads)
-      .set({
-        lastMessageAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
-      .where(eq(chatThreads.id, id));
+        // Only update headMessageId when appending to the current head
+        // (avoids overwriting explicit branch head set via PATCH)
+        const shouldUpdateHead =
+          thread.headMessageId == null ||
+          (parentId != null && parentId === thread.headMessageId);
+        const updates: {
+          lastMessageAt: string;
+          updatedAt: string;
+          headMessageId?: string;
+        } = {
+          lastMessageAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        if (shouldUpdateHead) updates.headMessageId = String(messageId);
+
+        await tx
+          .update(chatThreads)
+          .set(updates)
+          .where(eq(chatThreads.id, id));
+      });
+    } catch (txError: unknown) {
+      const err = txError as { code?: string };
+      if (err?.code === "23505") {
+        return NextResponse.json(
+          { error: "Message already exists (duplicate messageId)" },
+          { status: 409 }
+        );
+      }
+      throw txError;
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {

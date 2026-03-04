@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
-import { chatThreads } from "@/lib/db/schema";
+import { chatThreads, chatMessages } from "@/lib/db/schema";
 import {
   requireAuth,
   verifyWorkspaceAccess,
   verifyThreadOwnership,
 } from "@/lib/api/workspace-helpers";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 async function getThreadAndVerify(
   id: string,
@@ -72,16 +72,37 @@ export async function PATCH(
     const userId = await requireAuth();
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
-    const { title } = body;
+    const { title, headMessageId } = body;
 
     await getThreadAndVerify(id, userId, "editor");
 
-    if (title !== undefined) {
-      await db
-        .update(chatThreads)
-        .set({ title: String(title), updatedAt: new Date().toISOString() })
-        .where(eq(chatThreads.id, id));
+    const updates: Partial<{ title: string; headMessageId: string | null; updatedAt: string }> = {
+      updatedAt: new Date().toISOString(),
+    };
+    if (title !== undefined) updates.title = String(title);
+    if (headMessageId !== undefined) {
+      if (headMessageId === null) {
+        updates.headMessageId = null;
+      } else {
+        const msgId = String(headMessageId);
+        const [existing] = await db
+          .select({ messageId: chatMessages.messageId })
+          .from(chatMessages)
+          .where(
+            and(eq(chatMessages.threadId, id), eq(chatMessages.messageId, msgId))
+          )
+          .limit(1);
+        if (!existing) {
+          return NextResponse.json(
+            { error: "headMessageId must reference an existing message in this thread" },
+            { status: 400 }
+          );
+        }
+        updates.headMessageId = msgId;
+      }
     }
+
+    await db.update(chatThreads).set(updates).where(eq(chatThreads.id, id));
 
     return new Response(null, { status: 204 });
   } catch (error) {
