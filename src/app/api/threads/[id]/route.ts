@@ -72,16 +72,19 @@ export async function PATCH(
     const userId = await requireAuth();
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
-    const { title } = body;
+    const { title, headMessageId } = body;
 
     await getThreadAndVerify(id, userId, "editor");
 
-    if (title !== undefined) {
-      await db
-        .update(chatThreads)
-        .set({ title: String(title), updatedAt: new Date().toISOString() })
-        .where(eq(chatThreads.id, id));
+    const updates: Partial<{ title: string; headMessageId: string | null; updatedAt: string }> = {
+      updatedAt: new Date().toISOString(),
+    };
+    if (title !== undefined) updates.title = String(title);
+    if (headMessageId !== undefined) {
+      updates.headMessageId = headMessageId === null ? null : String(headMessageId);
     }
+
+    await db.update(chatThreads).set(updates).where(eq(chatThreads.id, id));
 
     return new Response(null, { status: 204 });
   } catch (error) {

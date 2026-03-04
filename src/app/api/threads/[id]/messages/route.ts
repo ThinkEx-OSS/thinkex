@@ -39,7 +39,7 @@ export async function GET(
     const { searchParams } = new URL(req.url);
     const format = searchParams.get("format") ?? "ai-sdk/v6";
 
-    await getThreadAndVerify(id, userId);
+    const thread = await getThreadAndVerify(id, userId);
 
     const rows = await db
       .select()
@@ -55,7 +55,10 @@ export async function GET(
         created_at: r.createdAt,
       }));
 
-    return NextResponse.json({ messages });
+    return NextResponse.json({
+      messages,
+      headId: thread.headMessageId ?? undefined,
+    });
   } catch (error) {
     if (error instanceof Response) return error;
     console.error("[threads] messages GET error:", error);
@@ -102,6 +105,7 @@ export async function POST(
       .set({
         lastMessageAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        headMessageId: String(messageId),
       })
       .where(eq(chatThreads.id, id));
 

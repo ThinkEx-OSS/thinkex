@@ -29,6 +29,13 @@
       "when": 1771686859689,
       "tag": "0003_elite_harrier",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1771800000000,
+      "tag": "0004_add_chat_threads_head_message_id",
+      "breakpoints": true
     }
   ]
 }

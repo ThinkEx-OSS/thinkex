@@ -287,6 +287,8 @@ export const chatThreads = pgTable("chat_threads", {
 		withTimezone: true,
 		mode: "string",
 	}).defaultNow(),
+	/** Tip of current branch for threaded conversations; used when loading history. */
+	headMessageId: text("head_message_id"),
 }, (table) => [
 	index("idx_chat_threads_workspace").using(
 		"btree",
