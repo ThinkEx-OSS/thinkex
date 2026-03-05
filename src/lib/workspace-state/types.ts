@@ -70,6 +70,8 @@ export interface YouTubeData {
   url: string; // YouTube video URL
   thumbnail?: string; // Optional thumbnail URL from oEmbed API
   progress?: number; // Where user left off (seconds)
+  /** Playback speed (e.g. 1, 1.25, 1.5). Persisted when opening/closing split view. */
+  playbackRate?: number;
 }
 
 export interface ImageData {
