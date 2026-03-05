@@ -202,7 +202,7 @@ const ToolGroupImpl: FC<
   });
 
   const isLastMessage = useAuiState(({ thread, message }) => {
-    const messages = (thread as { messages?: Array<{ id?: string }> })?.messages ?? [];
+    const messages = (thread as unknown as { messages?: Array<{ id?: string }> })?.messages ?? [];
     const idx = messages.findIndex((m) => m.id === message.id);
     return idx >= 0 && idx === messages.length - 1;
   });
