@@ -560,7 +560,7 @@ export const ComposerAddAttachment: FC = () => {
           className="sr-only"
           onChange={handleFileChange}
           multiple={true}
-          accept="image/*,video/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.md,.csv,.json"
+          accept="image/*,video/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.md,.csv,.json,.heic,.heif,.avif,.tiff,.tif"
         />
       </div>
     </>

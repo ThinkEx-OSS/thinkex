@@ -135,7 +135,7 @@ export function CreateImageDialog({
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop,
         accept: {
-            'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp']
+            'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.heic', '.heif', '.avif', '.tiff', '.tif']
         },
         maxFiles: 1,
         disabled: isUploading

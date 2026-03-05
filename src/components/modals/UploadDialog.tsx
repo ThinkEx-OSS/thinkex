@@ -223,7 +223,7 @@ export function UploadDialog({
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop,
         accept: {
-            'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'],
+            'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.heic', '.heif', '.avif', '.tiff', '.tif'],
             'application/pdf': ['.pdf'],
         },
         disabled: isUploading,

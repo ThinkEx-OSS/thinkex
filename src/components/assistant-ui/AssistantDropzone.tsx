@@ -141,7 +141,7 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
     noKeyboard: true, // Don't trigger on keyboard
     disabled: !currentWorkspaceId || !aui, // Disable if no workspace is selected or api is not available
     accept: {
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp'],
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.heic', '.heif', '.avif', '.tiff', '.tif'],
       'video/*': ['.mp4', '.webm', '.avi', '.mov', '.mkv'],
       'application/pdf': ['.pdf'],
       'application/msword': ['.doc'],

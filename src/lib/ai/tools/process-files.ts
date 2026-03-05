@@ -23,6 +23,10 @@ function getMediaTypeFromUrl(url: string): string {
     if (urlPath.endsWith('.png')) return 'image/png';
     if (urlPath.endsWith('.gif')) return 'image/gif';
     if (urlPath.endsWith('.webp')) return 'image/webp';
+    if (urlPath.endsWith('.heic')) return 'image/heic';
+    if (urlPath.endsWith('.heif')) return 'image/heif';
+    if (urlPath.endsWith('.avif')) return 'image/avif';
+    if (urlPath.match(/\.(tiff|tif)$/)) return 'image/tiff';
     if (urlPath.endsWith('.svg')) return 'image/svg+xml';
     if (urlPath.endsWith('.mp4')) return 'video/mp4';
     if (urlPath.endsWith('.mov')) return 'video/quicktime';
@@ -41,6 +45,10 @@ const IMAGE_MEDIA_TYPES = [
     'image/png',
     'image/gif',
     'image/webp',
+    'image/heic',
+    'image/heif',
+    'image/avif',
+    'image/tiff',
     'image/svg+xml',
 ];
 
