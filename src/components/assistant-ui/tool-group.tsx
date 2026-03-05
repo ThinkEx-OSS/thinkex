@@ -207,7 +207,7 @@ const ToolGroupImpl: FC<
     return idx >= 0 && idx === messages.length - 1;
   });
 
-  const [isManuallyOpen, setIsManuallyOpen] = useState(true);
+  const [isManuallyOpen, setIsManuallyOpen] = useState(isLastMessage);
   const isOpen = isToolGroupStreaming || isManuallyOpen;
 
   // Only auto-collapse when this message is no longer the last one (newer messages below)
