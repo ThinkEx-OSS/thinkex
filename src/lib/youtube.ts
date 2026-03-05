@@ -1,5 +1,33 @@
 import { logger } from "@/lib/utils/logger";
 
+/**
+ * Parse ISO 8601 duration (PT1H2M30S, PT15M33S, PT30S) to human-readable format.
+ */
+function parseDuration(isoDuration: string): string {
+    const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+    if (!match) return "";
+    const hours = parseInt(match[1] ?? "0", 10);
+    const minutes = parseInt(match[2] ?? "0", 10);
+    const seconds = parseInt(match[3] ?? "0", 10);
+    const parts: string[] = [];
+    if (hours > 0) parts.push(hours.toString());
+    parts.push(minutes.toString().padStart(hours > 0 ? 2 : 1, "0"));
+    parts.push(seconds.toString().padStart(2, "0"));
+    return parts.join(":");
+}
+
+/**
+ * Format view count to compact string (e.g. 1234567 -> "1.2M").
+ */
+function formatViewCount(count: string): string {
+    const n = parseInt(count, 10);
+    if (isNaN(n)) return "";
+    if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+    return n.toString();
+}
+
 interface YouTubeSearchResult {
     id: {
         videoId: string;
@@ -26,6 +54,14 @@ interface YouTubeSearchResponse {
     };
 }
 
+interface YouTubeVideosListResponse {
+    items?: Array<{
+        id: string;
+        contentDetails?: { duration?: string };
+        statistics?: { viewCount?: string };
+    }>;
+}
+
 export interface VideoResult {
     id: string;
     title: string;
@@ -34,6 +70,10 @@ export interface VideoResult {
     thumbnailUrl: string;
     publishedAt: string;
     url: string;
+    /** Human-readable duration (e.g. "12:34", "1:23:45") */
+    duration?: string;
+    /** View count as formatted string (e.g. "1.2M views") */
+    viewCount?: string;
 }
 
 /**
@@ -75,7 +115,7 @@ export async function searchVideos(query: string, maxResults = 5): Promise<Video
             return [];
         }
 
-        return data.items
+        const baseResults = data.items
             .filter(item => item.id.kind === "youtube#video")
             .map(item => ({
                 id: item.id.videoId,
@@ -86,6 +126,50 @@ export async function searchVideos(query: string, maxResults = 5): Promise<Video
                 publishedAt: item.snippet.publishedAt,
                 url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
             }));
+
+        if (baseResults.length === 0) return baseResults;
+
+        // Fetch duration and view count via videos.list
+        try {
+            const ids = baseResults.map(r => r.id).join(",");
+            const videosUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
+            videosUrl.searchParams.append("part", "contentDetails,statistics");
+            videosUrl.searchParams.append("id", ids);
+            videosUrl.searchParams.append("key", apiKey);
+
+            const videosResponse = await fetch(videosUrl.toString(), {
+                method: "GET",
+                headers: { Accept: "application/json" },
+            });
+
+            if (videosResponse.ok) {
+                const videosData = (await videosResponse.json()) as YouTubeVideosListResponse;
+                const detailsMap = new Map<string, { duration?: string; viewCount?: string }>();
+
+                for (const v of videosData.items ?? []) {
+                    const duration = v.contentDetails?.duration
+                        ? parseDuration(v.contentDetails.duration)
+                        : undefined;
+                    const viewCount = v.statistics?.viewCount
+                        ? formatViewCount(v.statistics.viewCount)
+                        : undefined;
+                    detailsMap.set(v.id, { duration, viewCount });
+                }
+
+                return baseResults.map(r => {
+                    const details = detailsMap.get(r.id);
+                    return {
+                        ...r,
+                        duration: details?.duration,
+                        viewCount: details?.viewCount,
+                    };
+                });
+            }
+        } catch (detailError) {
+            logger.warn("⚠️ [YOUTUBE] Failed to fetch video details, returning without duration/viewCount:", detailError);
+        }
+
+        return baseResults;
 
     } catch (error) {
         logger.error("❌ [YOUTUBE] Search failed:", error);

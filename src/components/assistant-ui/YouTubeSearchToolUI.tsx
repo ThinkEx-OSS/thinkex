@@ -22,6 +22,22 @@ import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 const ANIMATION_DURATION = 200;
 const SHIMMER_DURATION = 1000;
 
+/** Format ISO date to relative or short date (e.g. "2 weeks ago", "Mar 2024"). */
+function formatPublishedAt(iso: string): string {
+    try {
+        const date = new Date(iso);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+        if (diffDays < 30) return `${Math.floor(diffDays / 7)} week${Math.floor(diffDays / 7) === 1 ? "" : "s"} ago`;
+        if (diffDays < 365) return `${Math.floor(diffDays / 30)} month${Math.floor(diffDays / 30) === 1 ? "" : "s"} ago`;
+        return date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+    } catch {
+        return "";
+    }
+}
+
 /**
  * Root collapsible container that manages open/closed state and scroll lock.
  */
@@ -167,6 +183,8 @@ interface VideoResult {
     thumbnailUrl: string;
     publishedAt: string;
     url: string;
+    duration?: string;
+    viewCount?: string;
 }
 
 interface SearchYoutubeArgs {
@@ -291,19 +309,37 @@ const YouTubeSearchContent: FC<{
                                                 alt={video.title}
                                                 className="object-cover w-full h-full"
                                             />
+                                            {video.duration && (
+                                                <span
+                                                    className="absolute bottom-0.5 right-0.5 px-1 py-0.5 text-[10px] font-medium rounded bg-black/80 text-white"
+                                                    aria-label={`Duration: ${video.duration}`}
+                                                >
+                                                    {video.duration}
+                                                </span>
+                                            )}
                                         </div>
-                                        
+
                                         {/* Video Info */}
                                         <div className="flex flex-col min-w-0 flex-1">
                                             <h4 className="font-medium text-sm line-clamp-1 leading-tight text-foreground" title={video.title}>
                                                 {video.title}
                                             </h4>
-                                            <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-                                                <Youtube className="size-3" />
-                                                <span className="line-clamp-1">
-                                                    {video.channelTitle}
-                                                </span>
+                                            <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
+                                                <span className="line-clamp-1">{video.channelTitle}</span>
                                             </div>
+                                            {(video.viewCount || video.publishedAt) && (
+                                                <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
+                                                    {video.viewCount && (
+                                                        <span>{video.viewCount} views</span>
+                                                    )}
+                                                    {video.viewCount && video.publishedAt && (
+                                                        <span aria-hidden>•</span>
+                                                    )}
+                                                    {video.publishedAt && (
+                                                        <span>{formatPublishedAt(video.publishedAt)}</span>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
