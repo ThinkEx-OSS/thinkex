@@ -6,7 +6,9 @@
 /* Path to your installed `@blocknote/shadcn` package. */
 @source "../node_modules/@blocknote/shadcn";
 
-/* Streamdown markdown library - custom components handle styling, no @source needed */
+/* Streamdown - required for Tailwind v4 to include syntax highlighting classes */
+@source "../../node_modules/streamdown/dist/*.js";
+@source "../../node_modules/@streamdown/code/dist/*.js";
 
 /* Streamdown font sizes - smaller for chat context */
 .streamdown-content {
@@ -33,7 +35,7 @@
   font-size: 1rem;
 }
 
-/* Streamdown code block: language and buttons on same row */
+/* Streamdown code block: language and action buttons on same row (override default flex-col) */
 .streamdown-content [data-streamdown="code-block"] {
   display: grid !important;
   grid-template-areas: "header actions" "body body";
@@ -47,6 +49,7 @@
 }
 .streamdown-content [data-streamdown="code-block"] > [data-streamdown="code-block-body"] {
   grid-area: body;
+  padding-inline: 0;
 }
 
 /* Remove BlockNote editor background */

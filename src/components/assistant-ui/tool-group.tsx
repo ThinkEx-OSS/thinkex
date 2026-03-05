@@ -24,9 +24,9 @@ const ANIMATION_DURATION = 200;
 const toolGroupVariants = cva("aui-tool-group-root group/tool-group w-full", {
   variants: {
     variant: {
-      outline: "rounded-lg border border-border/50 p-0 mb-4 overflow-hidden",
+      outline: "rounded-lg border px-3 py-2 mb-4",
       ghost: "",
-      muted: "rounded-lg border border-muted-foreground/30 bg-muted/30 p-0 mb-4 overflow-hidden",
+      muted: "rounded-lg bg-muted/50 px-3 py-2 mb-4",
     },
   },
   defaultVariants: { variant: "outline" },
@@ -104,15 +104,14 @@ function ToolGroupTrigger({
   count: number;
   active?: boolean;
 }) {
-  const label = `${count} ${count === 1 ? "action" : "actions"}${active ? "" : " done"}`;
+  const noun = count === 1 ? "action" : "actions";
+  const label = active ? `Taking ${count} ${noun}` : `Took ${count} ${noun}`;
 
   return (
     <CollapsibleTrigger
       data-slot="tool-group-trigger"
       className={cn(
-        "aui-tool-group-trigger group/trigger flex items-center gap-2 text-sm transition-colors p-3 cursor-pointer hover:bg-accent",
-        "group-data-[variant=outline]/tool-group-root:w-full group-data-[variant=outline]/tool-group-root:px-4",
-        "group-data-[variant=muted]/tool-group-root:w-full group-data-[variant=muted]/tool-group-root:px-4",
+        "aui-tool-group-trigger group/trigger flex max-w-[75%] items-center gap-2 py-1 text-muted-foreground text-sm transition-colors hover:text-foreground cursor-pointer",
         className,
       )}
       {...props}
@@ -125,11 +124,7 @@ function ToolGroupTrigger({
       )}
       <span
         data-slot="tool-group-trigger-label"
-        className={cn(
-          "aui-tool-group-trigger-label-wrapper relative inline-block text-left font-medium leading-none",
-          "group-data-[variant=outline]/tool-group-root:grow",
-          "group-data-[variant=muted]/tool-group-root:grow",
-        )}
+        className="aui-tool-group-trigger-label-wrapper relative inline-block leading-none"
       >
         <span>{label}</span>
         {active && (
@@ -145,7 +140,7 @@ function ToolGroupTrigger({
       <ChevronDownIcon
         data-slot="tool-group-trigger-chevron"
         className={cn(
-          "aui-tool-group-trigger-chevron size-4 shrink-0",
+          "aui-tool-group-trigger-chevron mt-0.5 size-4 shrink-0",
           "transition-transform duration-(--animation-duration) ease-out",
           "group-data-[state=closed]/trigger:-rotate-90",
           "group-data-[state=open]/trigger:rotate-0",
@@ -164,7 +159,7 @@ function ToolGroupContent({
     <CollapsibleContent
       data-slot="tool-group-content"
       className={cn(
-        "aui-tool-group-content relative overflow-hidden text-sm outline-none",
+        "aui-tool-group-content relative overflow-hidden text-muted-foreground text-sm outline-none",
         "group/collapsible-content ease-out",
         "data-[state=closed]:animate-collapsible-up",
         "data-[state=open]:animate-collapsible-down",
@@ -172,19 +167,12 @@ function ToolGroupContent({
         "data-[state=closed]:pointer-events-none",
         "data-[state=open]:duration-(--animation-duration)",
         "data-[state=closed]:duration-(--animation-duration)",
+        "pt-2",
         className,
       )}
       {...props}
     >
-      <div
-        className={cn(
-          "flex flex-col gap-2 p-2",
-          "group-data-[variant=outline]/tool-group-root:border-t group-data-[variant=outline]/tool-group-root:border-border/50",
-          "group-data-[variant=muted]/tool-group-root:border-t",
-        )}
-      >
-        {children}
-      </div>
+      <div className="flex flex-col gap-1">{children}</div>
     </CollapsibleContent>
   );
 }
@@ -213,12 +201,32 @@ const ToolGroupImpl: FC<
     return lastIndex >= startIndex && lastIndex <= endIndex;
   });
 
-  // Default to open, user can manually toggle
-  const [open, setOpen] = useState(true);
+  const isLastMessage = useAuiState(({ thread, message }) => {
+    const messages = (thread as unknown as { messages?: Array<{ id?: string }> })?.messages ?? [];
+    const idx = messages.findIndex((m) => m.id === message.id);
+    return idx >= 0 && idx === messages.length - 1;
+  });
+
+  const [isManuallyOpen, setIsManuallyOpen] = useState(isLastMessage);
+  const isOpen = isToolGroupStreaming || isManuallyOpen;
+
+  // Only auto-collapse when this message is no longer the last one (newer messages below)
+  useEffect(() => {
+    if (!isLastMessage) {
+      setIsManuallyOpen(false);
+    }
+  }, [isLastMessage]);
+
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (isToolGroupStreaming && !open) return;
+      setIsManuallyOpen(open);
+    },
+    [isToolGroupStreaming],
+  );
 
   return (
-    // Auto-expand while streaming, auto-collapse when done
-    <ToolGroupRoot variant="outline" open={open} onOpenChange={setOpen}>
+    <ToolGroupRoot variant="ghost" open={isOpen} onOpenChange={handleOpenChange}>
       <ToolGroupTrigger count={toolCount} active={isToolGroupStreaming} />
       <ToolGroupContent aria-busy={isToolGroupStreaming}>
         {children}

@@ -4,6 +4,7 @@ import { useState, memo } from "react";
 import { X, ChevronDown, ChevronUp } from "lucide-react";
 import { BsArrowReturnRight } from "react-icons/bs";
 import { useUIStore } from "@/lib/stores/ui-store";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 /**
  * Displays reply selections as individual chips above the chat input.
@@ -37,34 +38,44 @@ function ReplyContextDisplayImpl() {
         } ${!showExpandButton ? "pr-7" : ""}`}
       >
         {replySelections.map((selection, index) => (
-          <div
-            key={`reply-${index}`}
-            className="relative group flex items-center gap-1.5 px-2 py-0.5 rounded-lg border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 transition-colors flex-shrink-0"
-          >
-            {/* Remove Button Container */}
-            <div className="w-4 h-4 flex-shrink-0 flex items-center justify-center">
-              {/* Blue arrow icon - visible by default, hidden on hover */}
-              <BsArrowReturnRight className="w-3 h-3 text-blue-500 transition-opacity duration-200 group-hover:opacity-0" />
-              {/* X icon - hidden by default, visible on hover */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  removeReplySelection(index);
-                }}
-                className="p-0.5 rounded transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center absolute hover:text-red-500"
-                title="Remove this reply"
+          <Tooltip key={`reply-${index}`}>
+            <TooltipTrigger asChild>
+              <div
+                className="relative group flex items-center gap-1.5 px-2 py-0.5 rounded-lg border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 transition-colors flex-shrink-0 cursor-default"
               >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
+                {/* Remove Button Container */}
+                <div className="w-4 h-4 flex-shrink-0 flex items-center justify-center">
+                  {/* Blue arrow icon - visible by default, hidden on hover */}
+                  <BsArrowReturnRight className="w-3 h-3 text-blue-500 transition-opacity duration-200 group-hover:opacity-0" />
+                  {/* X icon - hidden by default, visible on hover */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      removeReplySelection(index);
+                    }}
+                    className="p-0.5 rounded transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center absolute hover:text-red-500"
+                    title="Remove this reply"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
 
-            {/* Selection Text */}
-            <span className="text-xs max-w-[200px] truncate text-blue-700 dark:text-blue-300">
-              {truncateText(selection.text)}
-            </span>
-          </div>
+                {/* Selection Text */}
+                <span className="text-xs max-w-[200px] truncate text-blue-700 dark:text-blue-300">
+                  {selection.title ? (
+                    <>From "{truncateText(selection.title, 25)}": {truncateText(selection.text)}</>
+                  ) : (
+                    truncateText(selection.text)
+                  )}
+                </span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-sm whitespace-pre-wrap break-words">
+              {selection.title ? `From ${selection.title}: ${selection.text}` : selection.text}
+            </TooltipContent>
+          </Tooltip>
         ))}
       </div>
 

@@ -50,7 +50,7 @@ interface UIState {
   itemScrollLocked: Map<string, boolean>;
 
   // Reply selection state
-  replySelections: Array<{ text: string; messageContext?: string; userPrompt?: string }>;
+  replySelections: Array<{ text: string; messageContext?: string; userPrompt?: string; title?: string }>;
 
   // BlockNote text selection state
   blockNoteSelection: { cardId: string; cardName: string; text: string } | null;
@@ -124,7 +124,7 @@ interface UIState {
   toggleItemScrollLocked: (itemId: string) => void;
 
   // Actions - Reply selection
-  addReplySelection: (selection: { text: string; messageContext?: string; userPrompt?: string }) => void;
+  addReplySelection: (selection: { text: string; messageContext?: string; userPrompt?: string; title?: string }) => void;
   removeReplySelection: (index: number) => void;
   clearReplySelections: () => void;
 

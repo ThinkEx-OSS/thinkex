@@ -235,6 +235,12 @@ const ReasoningGroupImpl: ReasoningGroupComponent = ({
     return lastIndex >= startIndex && lastIndex <= endIndex;
   });
 
+  const isLastMessage = useAuiState(({ thread, message }) => {
+    const messages = (thread as unknown as { messages?: Array<{ id?: string }> })?.messages ?? [];
+    const idx = messages.findIndex((m) => m.id === message.id);
+    return idx >= 0 && idx === messages.length - 1;
+  });
+
   // Subscribe to reasoning text length so we re-run scroll effect on each stream chunk
   const reasoningTextSnapshot = useAuiState(({ message }) => {
     let len = 0;
@@ -274,6 +280,9 @@ const ReasoningGroupImpl: ReasoningGroupComponent = ({
     },
     [isReasoningStreaming],
   );
+
+  // Fully hide old reasoning (not in last message) - no trigger, no content
+  if (!isLastMessage) return null;
 
   return (
     <ReasoningRoot open={isOpen} onOpenChange={handleOpenChange}>
