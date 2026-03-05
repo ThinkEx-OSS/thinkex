@@ -261,7 +261,6 @@ const MarkdownTextImpl = (props: MarkdownTextProps) => {
         allowedTags={{ citation: [] }}
         animated={animateConfig}
         isAnimating={isRunning}
-        caret="block"
         className={cn(
           "streamdown-content size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
         )}
