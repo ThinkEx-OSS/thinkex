@@ -1157,24 +1157,22 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
       <div className="flex items-center gap-2">
         {!isAnonymous && <SpeechToTextButton />}
         <AuiIf condition={({ thread }) => !thread.isRunning}>
-          <ComposerPrimitive.Send asChild>
-            <TooltipIconButton
-              tooltip={hasUploading ? "Uploading attachments..." : "Send message"}
-              side="bottom"
-              type="submit"
-              variant="default"
-              size="icon"
-              className="aui-composer-send size-[34px] rounded-full p-1"
-              aria-label="Send message"
-              disabled={hasUploading}
-            >
-              {hasUploading ? (
-                <Loader2 className="aui-composer-send-icon size-4 text-background animate-spin" />
-              ) : (
-                <ArrowUpIcon className="aui-composer-send-icon size-4 text-background" />
-              )}
-            </TooltipIconButton>
-          </ComposerPrimitive.Send>
+          <TooltipIconButton
+            tooltip={hasUploading ? "Uploading attachments..." : "Send message"}
+            side="bottom"
+            type="submit"
+            variant="default"
+            size="icon"
+            className="aui-composer-send size-[34px] rounded-full p-1"
+            aria-label="Send message"
+            disabled={hasUploading}
+          >
+            {hasUploading ? (
+              <Loader2 className="aui-composer-send-icon size-4 text-background animate-spin" />
+            ) : (
+              <ArrowUpIcon className="aui-composer-send-icon size-4 text-background" />
+            )}
+          </TooltipIconButton>
         </AuiIf>
 
         <AuiIf condition={({ thread }) => thread.isRunning}>
@@ -2179,25 +2177,24 @@ const EditComposer: FC = () => {
                 Cancel
               </Button>
             </ComposerPrimitive.Cancel>
-            <ComposerPrimitive.Send asChild disabled={currentText === originalText || hasUploading}>
-              <Button
-                size="sm"
-                aria-label="Update message"
-                disabled={currentText === originalText || hasUploading}
-                className={cn(
-                  (currentText === originalText || hasUploading) && "opacity-50 cursor-not-allowed"
-                )}
-              >
-                {hasUploading ? (
-                  <>
-                    <Loader2 className="size-3.5 animate-spin mr-1.5" />
-                    Uploading...
-                  </>
-                ) : (
-                  "Update"
-                )}
-              </Button>
-            </ComposerPrimitive.Send>
+            <Button
+              type="submit"
+              size="sm"
+              aria-label="Update message"
+              disabled={currentText === originalText || hasUploading}
+              className={cn(
+                (currentText === originalText || hasUploading) && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {hasUploading ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                  Uploading...
+                </>
+              ) : (
+                "Update"
+              )}
+            </Button>
           </div>
         </div>
       </ComposerPrimitive.Root>
