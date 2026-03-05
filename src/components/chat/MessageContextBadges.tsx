@@ -4,6 +4,7 @@ import { memo } from "react";
 import { useAuiState } from "@assistant-ui/react";
 import { MdFormatColorText } from "react-icons/md";
 import { BsArrowReturnRight } from "react-icons/bs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type BlockNoteSelectionMeta = {
   cardId: string;
@@ -15,6 +16,7 @@ type ReplySelectionMeta = {
   text: string;
   messageContext?: string;
   userPrompt?: string;
+  title?: string;
 };
 
 type MessageCustomMetadata = {
@@ -43,27 +45,38 @@ function MessageContextBadgesImpl() {
   return (
     <div className="mb-2 flex flex-wrap gap-1.5">
       {blockNoteSelection && (
-        <div
-          className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5"
-          title={blockNoteSelection.text}
-        >
-          <MdFormatColorText className="h-3.5 w-3.5 shrink-0 text-primary/70" />
-          <span className="text-xs text-primary/90">
-            From "{blockNoteSelection.cardName}": {truncate(blockNoteSelection.text, 40)}
-          </span>
-        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 cursor-default">
+              <MdFormatColorText className="h-3.5 w-3.5 shrink-0 text-primary/70" />
+              <span className="text-xs text-primary/90">
+                From "{truncate(blockNoteSelection.cardName, 25)}": {truncate(blockNoteSelection.text, 40)}
+              </span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-sm whitespace-pre-wrap break-words">
+            {blockNoteSelection.text}
+          </TooltipContent>
+        </Tooltip>
       )}
       {replySelections?.map((sel, i) => (
-        <div
-          key={i}
-          className="inline-flex items-center gap-1.5 rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5"
-          title={sel.text}
-        >
-          <BsArrowReturnRight className="h-3.5 w-3.5 shrink-0 text-blue-500" />
-          <span className="text-xs text-blue-700 dark:text-blue-300">
-            {truncate(sel.text, 40)}
-          </span>
-        </div>
+        <Tooltip key={i}>
+          <TooltipTrigger asChild>
+            <div className="inline-flex items-center gap-1.5 rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 cursor-default">
+              <BsArrowReturnRight className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+              <span className="text-xs text-blue-700 dark:text-blue-300">
+                {sel.title ? (
+                  <>From "{truncate(sel.title, 25)}": {truncate(sel.text, 40)}</>
+                ) : (
+                  truncate(sel.text, 40)
+                )}
+              </span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-sm whitespace-pre-wrap break-words">
+            {sel.title ? `From ${sel.title}: ${sel.text}` : sel.text}
+          </TooltipContent>
+        </Tooltip>
       ))}
     </div>
   );

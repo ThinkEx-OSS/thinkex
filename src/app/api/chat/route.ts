@@ -105,7 +105,7 @@ function getSelectedCardsContext(body: any): string {
  */
 function injectSelectionContext(
   messages: any[],
-  metadata?: { replySelections?: Array<{ text: string }>; blockNoteSelection?: { cardName: string; text: string } },
+  metadata?: { replySelections?: Array<{ text: string; title?: string }>; blockNoteSelection?: { cardName: string; text: string } },
   selectedCardsContext?: string
 ): void {
   const parts: string[] = [];
@@ -115,11 +115,11 @@ function injectSelectionContext(
     parts.push(`[Selected cards context:\n${selectedCardsContext.trim()}]`);
   }
 
-  // Reply selections (quoted text from assistant messages)
+  // Reply selections (quoted text from assistant messages or PDF selections)
   if (metadata?.replySelections && metadata.replySelections.length > 0) {
     const quoted = metadata.replySelections
-      .map((sel) => `> ${sel.text}`)
-      .join("\n");
+      .map((sel) => (sel.title ? `> (from ${sel.title})\n> ${sel.text}` : `> ${sel.text}`))
+      .join("\n\n");
     parts.push(`[Referring to:\n${quoted}]`);
   }
 

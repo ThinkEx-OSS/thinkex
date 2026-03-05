@@ -202,9 +202,11 @@ const AnnotationSelectionMenu = ({
 const TextSelectionMenu = ({
   menuWrapperProps,
   placement,
-  documentId
-}: SelectionSelectionMenuProps & { documentId: string }) => {
+  documentId,
+  itemName,
+}: SelectionSelectionMenuProps & { documentId: string; itemName?: string }) => {
   const { provides: selectionCapability } = useSelectionCapability();
+  const { state: scrollState } = useScroll(documentId);
   const addReplySelection = useUIStore((state) => state.addReplySelection);
   const [copied, setCopied] = useState(false);
 
@@ -234,8 +236,13 @@ const TextSelectionMenu = ({
         const text = lines.join('\n');
 
         if (text && text.trim().length > 0) {
+          const page = scrollState?.currentPage;
+          const title = itemName
+            ? (page != null && page >= 1 ? `${itemName}, p. ${page}` : itemName)
+            : undefined;
           addReplySelection({
             text: text.trim(),
+            title,
           });
           scope.clear();
           toast.success("Added to context");
@@ -252,7 +259,7 @@ const TextSelectionMenu = ({
       console.error("Ask AI Error:", err);
       toast.error("Failed to add context");
     }
-  }, [selectionCapability, documentId, addReplySelection]);
+  }, [selectionCapability, documentId, addReplySelection, scrollState?.currentPage, itemName]);
 
   return (
     <Popover open>
@@ -1050,7 +1057,7 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
                                         pageIndex={pageIndex}
                                         background="rgba(147, 197, 253, 0.55)"
                                         selectionMenu={(props) => (
-                                          <TextSelectionMenu {...props} documentId={activeDocumentId} />
+                                          <TextSelectionMenu {...props} documentId={activeDocumentId} itemName={itemName} />
                                         )}
                                       />
                                       {/* Search highlight layer */}
