@@ -3,12 +3,15 @@
  * bypassing the Vercel 4.5MB serverless function body size limit.
  *
  * Flow:
- * 1. Client requests a signed upload URL from /api/upload-url (tiny JSON payload)
- * 2. Client uploads the file directly to Supabase using the signed URL
- * 3. Returns the public URL of the uploaded file
+ * 1. HEIC/HEIF images are converted to JPEG for browser compatibility
+ * 2. Client requests a signed upload URL from /api/upload-url (tiny JSON payload)
+ * 3. Client uploads the file directly to Supabase using the signed URL
+ * 4. Returns the public URL of the uploaded file
  *
  * Falls back to /api/upload-file for local storage mode.
  */
+
+import { convertHeicToJpegIfNeeded } from "./convert-heic";
 
 const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024; // 200MB
 
@@ -32,6 +35,9 @@ export async function uploadFileDirect(
 ): Promise<UploadResult> {
   const log = options?.log ?? false;
   const t0 = log ? performance.now() : 0;
+
+  // Convert HEIC/HEIF to JPEG for browser compatibility (Safari supports HEIC; Chrome/Firefox do not)
+  file = await convertHeicToJpegIfNeeded(file);
 
   if (file.size > MAX_FILE_SIZE_BYTES) {
     throw new Error(
