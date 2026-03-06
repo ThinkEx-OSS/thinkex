@@ -4,7 +4,7 @@ import type React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Search, X, ChevronDown, FolderOpen, Plus, Upload, Folder as FolderIcon, Settings, Share2, Play, Brain, File, ImageIcon, Mic, PanelRight } from "lucide-react";
+import { Search, X, ChevronDown, ChevronRight, FolderOpen, Plus, Upload, Folder as FolderIcon, Settings, Share2, Play, Brain, File, ImageIcon, Mic, PanelRight } from "lucide-react";
 import { CgNotes } from "react-icons/cg";
 import { LuBook, LuCalendar, LuPanelLeftOpen } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
@@ -561,7 +561,7 @@ export function WorkspaceHeader({
                 {isCompactMode ? (
                   /* Compact mode: Show dropdown with current folder only, full path in dropdown */
                   (<>
-                    <span className="text-sidebar-foreground/50 mx-1 font-bold text-sm">/</span>
+                    <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/50 mx-1 shrink-0" />
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
@@ -626,7 +626,7 @@ export function WorkspaceHeader({
                 ) : folderPath.length === 1 ? (
                   folderPath.map((folder) => (
                     <span key={folder.id} className="flex items-center gap-1.5">
-                      <span className="text-sidebar-foreground/50 mx-1 font-bold text-sm">/</span>
+                      <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/50 mx-1 shrink-0" />
                       <button
                         onClick={() => handleFolderClick(folder.id)}
                         data-breadcrumb-target="folder"
@@ -649,7 +649,7 @@ export function WorkspaceHeader({
                 ) : (
                   /* Show root, dropdown with all middle folders, and last for 2+ levels */
                   (<>
-                    <span className="text-sidebar-foreground/50 mx-1 font-bold text-sm">/</span>
+                    <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/50 mx-1 shrink-0" />
                     <HoverCard
                       open={ellipsisDropdownOpen}
                       onOpenChange={setEllipsisDropdownOpen}
@@ -694,7 +694,7 @@ export function WorkspaceHeader({
                         </div>
                       </HoverCardContent>
                     </HoverCard>
-                    <span className="text-sidebar-foreground/50 mx-1 font-bold text-sm">/</span>
+                    <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/50 mx-1 shrink-0" />
                     <button
                       onClick={() => handleFolderClick(folderPath[folderPath.length - 1].id)}
                       data-breadcrumb-target="folder"
@@ -722,7 +722,7 @@ export function WorkspaceHeader({
 
             {activeItems.length > 0 && viewMode !== 'workspace+panel' && (
               <div className="flex items-center gap-1.5 text-xs text-sidebar-foreground/70 min-w-0">
-                <span className="text-sidebar-foreground/50 mx-1 font-bold text-sm">/</span>
+                <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/50 mx-1 shrink-0" />
 
                 {activeItems.length === 1 ? (
                   // Single Active Item (Maximized or Single Panel) - Editable
@@ -807,8 +807,11 @@ export function WorkspaceHeader({
         {/* Right Side: Save Indicator + Search + Chat Button */}
         {activeItemMode === 'maximized' && activeItems.length === 1 ? (
           // Maximized Mode: Show Item Controls
+          // Portal divs only for PDF (PdfPanelHeader uses them); skip for notes to avoid double gap
           <div className="flex items-center gap-2 pointer-events-auto">
-            <div id="workspace-header-portal" className="flex items-center gap-2" />
+            {activeItems[0]?.type === "pdf" && (
+              <div id="workspace-header-portal" className="flex items-center gap-2" />
+            )}
 
             {/* Split View Button — transitions from focus to workspace+panel */}
             <Tooltip>
@@ -835,7 +838,9 @@ export function WorkspaceHeader({
               </TooltipContent>
             </Tooltip>
 
-            <div id="workspace-header-portal-right" className="flex items-center gap-2" />
+            {activeItems[0]?.type === "pdf" && (
+              <div id="workspace-header-portal-right" className="flex items-center gap-2" />
+            )}
 
             {/* Close Button */}
             <Tooltip>
