@@ -157,7 +157,7 @@
     "tailwind-merge": "^3.5.0",
     "thinkex": "link:",
     "tw-shimmer": "^0.4.6",
-    "workflow": "4.1.0-beta.60",
+    "workflow": "4.1.0-beta.63",
     "zod": "^4.3.6",
     "zustand": "^5.0.11"
   },
