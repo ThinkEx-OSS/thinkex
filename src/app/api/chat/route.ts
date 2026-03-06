@@ -347,6 +347,7 @@ async function handlePOST(req: Request) {
       google: googleConfig,
     };
 
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://thinkex.app";
     const result = streamText({
       model: model,
       temperature: 1.0,
@@ -355,6 +356,10 @@ async function handlePOST(req: Request) {
       stopWhen: stepCountIs(25),
       tools,
       providerOptions,
+      headers: {
+        "http-referer": appUrl,
+        "x-title": "ThinkEx",
+      },
       experimental_transform: smoothStream({ chunking: "word", delayInMs: 15 }),
       onFinish: ({ usage, finishReason }) => {
         const usageInfo = {
