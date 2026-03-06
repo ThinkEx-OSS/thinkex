@@ -330,6 +330,8 @@ async function handlePOST(req: Request) {
       gateway: {
         // Route Claude models through Vertex AI only
         ...(isClaudeModel ? { only: ["vertex"] } : {}),
+        // Universal fallback: try Gemini 2.5 Flash if primary fails
+        models: ["google/gemini-2.5-flash"],
         // Track usage per end-user for analytics
         ...(userId ? { user: userId } : {}),
         // Fail fast if provider doesn't start streaming within 30s (BYOK only)
