@@ -25,22 +25,35 @@ export function YouTubePanelContent({
   const videoId = extractYouTubeVideoId(youtubeData.url);
   const playlistId = extractYouTubePlaylistId(youtubeData.url);
   const startSeconds = youtubeData.progress ?? 0;
+  const savedPlaybackRate = youtubeData.playbackRate;
 
-  const saveProgressRef = useRef<((seconds: number) => void) | undefined>(undefined);
+  const saveStateRef = useRef<
+    (opts: { seconds: number; playbackRate?: number }) => void
+  >(undefined);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const saveProgress = useCallback(
-    (seconds: number) => {
+  const saveState = useCallback(
+    (opts: { seconds: number; playbackRate?: number }) => {
       onUpdateItemData((prev) => {
         const data = prev as YouTubeData;
-        if (data.progress === seconds) return prev;
-        return { ...data, progress: Math.floor(seconds) };
+        const next: YouTubeData = {
+          ...data,
+          progress: Math.floor(opts.seconds),
+          ...(opts.playbackRate != null && { playbackRate: opts.playbackRate }),
+        };
+        if (
+          next.progress === data.progress &&
+          next.playbackRate === data.playbackRate
+        ) {
+          return prev;
+        }
+        return next;
       });
     },
     [onUpdateItemData]
   );
 
-  saveProgressRef.current = saveProgress;
+  saveStateRef.current = saveState;
 
   const { containerRef, playerRef, isReady } = useYouTubePlayer({
     videoId: videoId ?? null,
@@ -67,8 +80,10 @@ export function YouTubePanelContent({
 
       if (state === YT.PlayerState.PAUSED || state === YT.PlayerState.ENDED) {
         try {
-          const currentTime = player.getCurrentTime();
-          saveProgressRef.current?.(currentTime);
+          saveStateRef.current?.({
+            seconds: player.getCurrentTime(),
+            playbackRate: player.getPlaybackRate?.(),
+          });
         } catch {
           // Player may be destroyed
         }
@@ -78,8 +93,10 @@ export function YouTubePanelContent({
           try {
             const currentPlayer = playerRef.current;
             if (currentPlayer?.getPlayerState?.() === YT.PlayerState.PLAYING) {
-              const currentTime = currentPlayer.getCurrentTime();
-              saveProgressRef.current?.(currentTime);
+              saveStateRef.current?.({
+                seconds: currentPlayer.getCurrentTime(),
+                playbackRate: currentPlayer.getPlaybackRate?.(),
+              });
             }
           } catch {
             // Player may be destroyed
@@ -89,11 +106,26 @@ export function YouTubePanelContent({
     }, []),
   });
 
-  // Style the iframe once ready
+  // Apply saved playback rate and style iframe once ready
   useEffect(() => {
     if (!isReady || !playerRef.current) return;
     try {
-      const iframe = playerRef.current.getIframe();
+      const player = playerRef.current;
+      if (
+        savedPlaybackRate != null &&
+        savedPlaybackRate > 0 &&
+        savedPlaybackRate !== 1 &&
+        player.setPlaybackRate
+      ) {
+        const rates = player.getAvailablePlaybackRates?.() ?? [];
+        const valid = rates.includes(savedPlaybackRate)
+          ? savedPlaybackRate
+          : [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].includes(savedPlaybackRate)
+            ? savedPlaybackRate
+            : 1;
+        player.setPlaybackRate(valid);
+      }
+      const iframe = player.getIframe();
       iframe.classList.add("w-full", "h-full", "rounded-lg");
       iframe.style.width = "100%";
       iframe.style.height = "100%";
@@ -108,12 +140,23 @@ export function YouTubePanelContent({
     }
   }, [isReady, playerRef]);
 
-  // Cleanup interval on unmount
+  // Cleanup interval and save final state on unmount (e.g. when closing split view)
   useEffect(() => {
     return () => {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
         progressIntervalRef.current = null;
+      }
+      try {
+        const player = playerRef.current;
+        if (player?.getCurrentTime != null) {
+          saveStateRef.current?.({
+            seconds: player.getCurrentTime(),
+            playbackRate: player.getPlaybackRate?.(),
+          });
+        }
+      } catch {
+        // Player may already be destroyed
       }
     };
   }, []);
