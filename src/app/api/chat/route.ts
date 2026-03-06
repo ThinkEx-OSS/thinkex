@@ -11,6 +11,7 @@ import { headers } from "next/headers";
 import { createChatTools } from "@/lib/ai/tools";
 import type { GatewayProviderOptions } from "@ai-sdk/gateway";
 import { compressTextWithTTC } from "@/lib/ai/utils/ttc-compress";
+import { verifyWorkspaceAccess } from "@/lib/api/workspace-helpers";
 
 // Regex patterns as constants (compiled once, reused for all requests)
 const URL_CONTEXT_REGEX = /\[URL_CONTEXT:(.+?)\]/g;
@@ -195,6 +196,17 @@ async function handlePOST(req: Request) {
     // AssistantChatTransport passes thread remoteId as body.id (see assistant-ui react-ai-sdk)
     const threadId = body.id ?? body.threadId ?? null;
 
+    // Resolve permission level for workspace (viewers get read-only tools only)
+    let permissionLevel: "owner" | "editor" | "viewer" | undefined;
+    if (workspaceId && userId) {
+      const accessInfo = await verifyWorkspaceAccess(workspaceId, userId, "viewer");
+      permissionLevel = accessInfo.permissionLevel;
+    } else if (workspaceId) {
+      permissionLevel = "viewer";
+    } else {
+      permissionLevel = undefined;
+    }
+
     // Convert messages
     let convertedMessages;
     try {
@@ -292,7 +304,7 @@ async function handlePOST(req: Request) {
       middleware: process.env.NODE_ENV === 'development' ? devToolsMiddleware() : [],
     });
 
-    // Create tools using the modular factory
+    // Create tools using the modular factory (viewers get read-only tools only)
     const tools = createChatTools({
       workspaceId,
       userId,
@@ -300,6 +312,7 @@ async function handlePOST(req: Request) {
       threadId,
       clientTools: body.tools,
       enableDeepResearch: false,
+      permissionLevel,
     });
 
     // Stream the response
@@ -412,6 +425,11 @@ async function handlePOST(req: Request) {
     return response;
 
   } catch (error) {
+    // Preserve 403/404 from workspace access verification
+    if (error instanceof Response) {
+      return error;
+    }
+
     const errorMessage = error instanceof Error ? error.message : String(error);
 
     // Detect timeout errors

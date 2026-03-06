@@ -30,6 +30,8 @@ export interface ChatToolsConfig {
     threadId?: string | null;
     clientTools?: Record<string, any>;
     enableDeepResearch?: boolean;
+    /** When 'viewer', state-modifying tools (create/edit/delete notes, flashcards, etc.) are excluded */
+    permissionLevel?: "owner" | "editor" | "viewer";
 }
 
 /**
@@ -51,7 +53,9 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
         logger.error("❌ frontendTools failed:", e);
     }
 
-    return {
+    const isViewOnly = config.permissionLevel === "viewer";
+
+    const readOnlyTools: Record<string, any> = {
         // File & URL processing
         processFiles: createProcessFilesTool(ctx),
         processUrls: createProcessUrlsTool(),
@@ -62,31 +66,23 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
         searchWorkspace: createSearchWorkspaceTool(ctx),
         readWorkspace: createReadWorkspaceTool(ctx),
 
-        // Workspace operations
-        createNote: createNoteTool(ctx),
-        editItem: createEditItemTool(ctx),
-
-        deleteItem: createDeleteItemTool(ctx),
-
-        // Flashcards
-        createFlashcards: createFlashcardsTool(ctx),
-
-        // Quizzes
-        createQuiz: createQuizTool(ctx),
-
-        // Deep research - commented out
-        // ...(config.enableDeepResearch ? { deepResearch: createDeepResearchTool(ctx) } : {}),
-
-        // YouTube
-        searchYoutube: createSearchYoutubeTool(),
-        addYoutubeVideo: createAddYoutubeVideoTool(ctx),
-
-        // Google Images
-        // searchImages: createSearchImagesTool(),
-        // addImage: createAddImageTool(ctx),
-
         // Client tools from frontend
         ...frontendClientTools,
+    };
+
+    const editorOnlyTools: Record<string, any> = {
+        searchYoutube: createSearchYoutubeTool(),
+        createNote: createNoteTool(ctx),
+        editItem: createEditItemTool(ctx),
+        deleteItem: createDeleteItemTool(ctx),
+        createFlashcards: createFlashcardsTool(ctx),
+        createQuiz: createQuizTool(ctx),
+        addYoutubeVideo: createAddYoutubeVideoTool(ctx),
+    };
+
+    return {
+        ...readOnlyTools,
+        ...(isViewOnly ? {} : editorOnlyTools),
     };
 }
 
