@@ -230,9 +230,9 @@ async function handlePOST(req: Request) {
       modelId = `google/${modelId}`;
     }
 
-    // Special handling for Claude Sonnet 4.5 -> actually run Gemini 3 Flash Preview
-    if (modelId === "anthropic/claude-sonnet-4.5") {
-      modelId = "google/gemini-3-flash-preview";
+    // Auto-prefix with anthropic/ if it looks like a Claude model and lacks prefix
+    if (modelId.includes("claude") && !modelId.startsWith("anthropic/")) {
+      modelId = `anthropic/${modelId}`;
     }
 
     // Build system prompt (identity, guidelines, URL hints — no selected cards)
@@ -325,14 +325,29 @@ async function handlePOST(req: Request) {
 
     // Prepare provider options
     // The Gateway passes these through to the specific provider
+    const isClaudeModel = modelId.includes("claude");
     let providerOptions: any = {
       gateway: {
-        // Example: route to google if you want to enforce it, though prefix handles it
-        // order: ['google'], 
-      } satisfies GatewayProviderOptions,
+        // Route Claude models through Vertex AI only
+        ...(isClaudeModel ? { only: ["vertex"] } : {}),
+        // Universal fallback: try Gemini 2.5 Flash if primary fails
+        models: ["google/gemini-2.5-flash"],
+        // Track usage per end-user for analytics
+        ...(userId ? { user: userId } : {}),
+        // Fail fast if provider doesn't start streaming within 30s (BYOK only)
+        providerTimeouts: {
+          byok: {
+            vertex: 30_000,
+            google: 30_000,
+            anthropic: 30_000,
+            openai: 30_000,
+          },
+        },
+      } as GatewayProviderOptions,
       google: googleConfig,
     };
 
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://thinkex.app";
     const result = streamText({
       model: model,
       temperature: 1.0,
@@ -341,6 +356,10 @@ async function handlePOST(req: Request) {
       stopWhen: stepCountIs(25),
       tools,
       providerOptions,
+      headers: {
+        "http-referer": appUrl,
+        "x-title": "ThinkEx",
+      },
       experimental_transform: smoothStream({ chunking: "word", delayInMs: 15 }),
       onFinish: ({ usage, finishReason }) => {
         const usageInfo = {
@@ -377,6 +396,13 @@ async function handlePOST(req: Request) {
     });
 
     logger.debug("🔍 [CHAT-API] streamText returned, calling toUIMessageStreamResponse...");
+    // Log which provider the Gateway actually used (resolves when stream completes)
+    void Promise.resolve((result as any).providerMetadata).then((meta: any) => {
+      const provider = meta?.gateway?.routing?.resolvedProvider ?? meta?.gateway?.routing?.finalProvider;
+      if (provider) {
+        logger.info("🔍 [CHAT-API] Gateway resolved provider:", provider);
+      }
+    });
     // Reuse incoming UI message IDs so the client updates in-place instead of
     // appending duplicate assistant messages while streaming.
     const response = result.toUIMessageStreamResponse({

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, SkipBack, SkipForward } from "lucide-react";
+import { LuMaximize2, LuMinimize2 } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 
 interface YouTubePlayerControlsProps {
@@ -429,9 +430,9 @@ export function YouTubePlayerControls({ playerRef, isReady, onAdjust }: YouTubeP
               aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
             >
               {isFullscreen ? (
-                <Minimize className="h-4 w-4" />
+                <LuMinimize2 className="h-4 w-4" />
               ) : (
-                <Maximize className="h-4 w-4" />
+                <LuMaximize2 className="h-4 w-4" />
               )}
             </button>
           </div>

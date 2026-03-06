@@ -265,6 +265,7 @@ export async function workspaceWorker(
                 throw new Error("User not authenticated");
             }
             const userId = session.user.id;
+            const userName = session.user.name || session.user.email || undefined;
 
             // Verify workspace access - owner OR editor collaborator
             const workspace = await db
@@ -309,7 +310,7 @@ export async function workspaceWorker(
                         message: `A ${item.type} named "${item.name}" already exists in this folder`,
                     };
                 }
-                const event = createEvent("ITEM_CREATED", { id: item.id, item }, userId);
+                const event = createEvent("ITEM_CREATED", { id: item.id, item }, userId, userName);
 
                 // For create operations, retry on version conflicts since creates are independent
                 // The database uses FOR UPDATE which serializes, but parallel creates may still
@@ -341,7 +342,7 @@ export async function workspaceWorker(
               ${event.timestamp}::bigint,
               ${event.userId}::text,
               ${baseVersion}::integer,
-              NULL::text
+              ${event.userName ?? null}::text
             ) as result
           `);
 
@@ -400,7 +401,7 @@ export async function workspaceWorker(
                 }
 
                 const items = await Promise.all(params.items.map((p) => buildItemFromCreateParams(p)));
-                const event = createEvent("BULK_ITEMS_CREATED", { items }, userId);
+                const event = createEvent("BULK_ITEMS_CREATED", { items }, userId, userName);
 
                 const currentVersionResult = await db.execute(sql`
                     SELECT get_workspace_version(${params.workspaceId}::uuid) as version
@@ -416,7 +417,7 @@ export async function workspaceWorker(
                         ${event.timestamp}::bigint,
                         ${event.userId}::text,
                         ${baseVersion}::integer,
-                        NULL::text
+                        ${event.userName ?? null}::text
                     ) as result
                 `);
 
@@ -588,7 +589,7 @@ export async function workspaceWorker(
                     }
 
                     logger.time("📝 [UPDATE-NOTE] Event creation");
-                    const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: 'agent', name: itemName }, userId);
+                    const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: 'agent', name: itemName }, userId, userName);
                     logger.timeEnd("📝 [UPDATE-NOTE] Event creation");
 
                     logger.time("📝 [UPDATE-NOTE] Get workspace version");
@@ -610,7 +611,7 @@ export async function workspaceWorker(
               ${event.timestamp}::bigint,
               ${event.userId}::text,
               ${baseVersion}::integer,
-              NULL::text
+              ${event.userName ?? null}::text
             ) as result
           `);
                     logger.timeEnd("📝 [UPDATE-NOTE] Append workspace event");
@@ -720,7 +721,7 @@ export async function workspaceWorker(
                     changes.name = params.title;
                 }
 
-                const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: 'agent', name: (changes.name ?? existingItem.name) }, userId);
+                const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: 'agent', name: (changes.name ?? existingItem.name) }, userId, userName);
 
                 const currentVersionResult = await db.execute(sql`
           SELECT get_workspace_version(${params.workspaceId}::uuid) as version
@@ -735,9 +736,9 @@ export async function workspaceWorker(
             ${event.type}::text,
             ${JSON.stringify(event.payload)}::jsonb,
             ${event.timestamp}::bigint,
-            ${event.userId}::text,
-            ${baseVersion}::integer,
-            NULL::text
+              ${event.userId}::text,
+              ${baseVersion}::integer,
+              ${event.userName ?? null}::text
           ) as result
         `);
 
@@ -818,7 +819,7 @@ export async function workspaceWorker(
                     changes.name = params.title;
                 }
 
-                const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: 'agent', name: (changes.name ?? existingItem.name) }, userId);
+                const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: 'agent', name: (changes.name ?? existingItem.name) }, userId, userName);
 
                 logger.debug("📝 [UPDATE-QUIZ-DB] Created event:", {
                     eventId: event.id,
@@ -844,7 +845,7 @@ export async function workspaceWorker(
             ${event.timestamp}::bigint,
             ${event.userId}::text,
             ${baseVersion}::integer,
-            NULL::text
+            ${event.userName ?? null}::text
           ) as result
         `);
 
@@ -931,7 +932,7 @@ export async function workspaceWorker(
                     changes.name = params.title;
                 }
 
-                const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: 'agent', name: (changes.name ?? existingItem.name) }, userId);
+                const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: 'agent', name: (changes.name ?? existingItem.name) }, userId, userName);
 
                 const currentVersionResult = await db.execute(sql`
           SELECT get_workspace_version(${params.workspaceId}::uuid) as version
@@ -945,9 +946,9 @@ export async function workspaceWorker(
             ${event.type}::text,
             ${JSON.stringify(event.payload)}::jsonb,
             ${event.timestamp}::bigint,
-            ${event.userId}::text,
-            ${baseVersion}::integer,
-            NULL::text
+              ${event.userId}::text,
+              ${baseVersion}::integer,
+              ${event.userName ?? null}::text
           ) as result
         `);
 
@@ -1026,7 +1027,7 @@ export async function workspaceWorker(
                     }
 
                     const itemName = (changes.name ?? existingItem.name) as string;
-                    const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: "agent", name: itemName }, userId);
+                    const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: "agent", name: itemName }, userId, userName);
                     const currentVersionResult = await db.execute(sql`
                         SELECT get_workspace_version(${params.workspaceId}::uuid) as version
                     `);
@@ -1035,7 +1036,7 @@ export async function workspaceWorker(
                         SELECT append_workspace_event(
                             ${params.workspaceId}::uuid, ${event.id}::text, ${event.type}::text,
                             ${JSON.stringify(event.payload)}::jsonb, ${event.timestamp}::bigint, ${event.userId}::text,
-                            ${baseVersion}::integer, NULL::text
+                            ${baseVersion}::integer, ${event.userName ?? null}::text
                         ) as result
                     `);
                     if (!eventResult?.length) throw new Error("Failed to update note");
@@ -1125,7 +1126,7 @@ export async function workspaceWorker(
                         changes.name = rename;
                     }
 
-                    const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: "agent", name: changes.name ?? existingItem.name }, userId);
+                    const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: "agent", name: changes.name ?? existingItem.name }, userId, userName);
                     const currentVersionResult = await db.execute(sql`
                         SELECT get_workspace_version(${params.workspaceId}::uuid) as version
                     `);
@@ -1134,7 +1135,7 @@ export async function workspaceWorker(
                         SELECT append_workspace_event(
                             ${params.workspaceId}::uuid, ${event.id}::text, ${event.type}::text,
                             ${JSON.stringify(event.payload)}::jsonb, ${event.timestamp}::bigint, ${event.userId}::text,
-                            ${baseVersion}::integer, NULL::text
+                            ${baseVersion}::integer, ${event.userName ?? null}::text
                         ) as result
                     `);
                     if (!eventResult?.length) throw new Error("Failed to update flashcard deck");
@@ -1210,7 +1211,7 @@ export async function workspaceWorker(
                         changes.name = rename;
                     }
 
-                    const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: "agent", name: changes.name ?? existingItem.name }, userId);
+                    const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: "agent", name: changes.name ?? existingItem.name }, userId, userName);
                     const currentVersionResult = await db.execute(sql`
                         SELECT get_workspace_version(${params.workspaceId}::uuid) as version
                     `);
@@ -1219,7 +1220,7 @@ export async function workspaceWorker(
                         SELECT append_workspace_event(
                             ${params.workspaceId}::uuid, ${event.id}::text, ${event.type}::text,
                             ${JSON.stringify(event.payload)}::jsonb, ${event.timestamp}::bigint, ${event.userId}::text,
-                            ${baseVersion}::integer, NULL::text
+                            ${baseVersion}::integer, ${event.userName ?? null}::text
                         ) as result
                     `);
                     if (!eventResult?.length) throw new Error("Failed to update quiz");
@@ -1246,7 +1247,7 @@ export async function workspaceWorker(
 
                 const currentState = await loadWorkspaceState(params.workspaceId);
                 const existingItem = currentState.items.find((i: any) => i.id === params.itemId);
-                const event = createEvent("ITEM_DELETED", { id: params.itemId, name: existingItem?.name }, userId);
+                const event = createEvent("ITEM_DELETED", { id: params.itemId, name: existingItem?.name }, userId, userName);
 
                 const currentVersionResult = await db.execute(sql`
           SELECT get_workspace_version(${params.workspaceId}::uuid) as version
@@ -1261,9 +1262,9 @@ export async function workspaceWorker(
             ${event.type}::text,
             ${JSON.stringify(event.payload)}::jsonb,
             ${event.timestamp}::bigint,
-            ${event.userId}::text,
-            ${baseVersion}::integer,
-            NULL::text
+              ${event.userId}::text,
+              ${baseVersion}::integer,
+              ${event.userName ?? null}::text
           ) as result
         `);
 

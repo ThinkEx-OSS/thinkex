@@ -124,6 +124,10 @@ export function MarqueeSelector({
     // Don't start if clicking on a card or interactive element
     const target = e.target as HTMLElement;
 
+    // Clear native text selection when clicking on workspace background
+    // (MarqueeSelector captures background clicks before they reach WorkspaceSection)
+    window.getSelection()?.removeAllRanges();
+
     // Check if clicking on any interactive or grid element
     if (
       target.closest('article') ||           // Card itself

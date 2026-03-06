@@ -25,7 +25,6 @@
 .DS_Store
 tmp/
 assistant-ui-main/
-assistant-ui-audit/
 *.pem
 
 # debug

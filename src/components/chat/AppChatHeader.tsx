@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { X, ChevronDown, Trash2, Edit2, Check, MessageSquarePlus } from "lucide-react";
 import { RiChatHistoryLine } from "react-icons/ri";
-import { LuMaximize, LuMinimize, LuPanelRightClose } from "react-icons/lu";
+import { LuMaximize2, LuMinimize2, LuPanelRightClose } from "react-icons/lu";
 import { useAui, useThreadListItem } from "@assistant-ui/react";
 import {
   DropdownMenu,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Kbd } from "@/components/ui/kbd";
 import { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { formatKeyboardShortcut } from "@/lib/utils/keyboard-shortcut";
@@ -386,20 +387,20 @@ export function AppChatHeader({
                   onClick={() => onToggleMaximize?.()}
                 >
                   {isMaximized ? (
-                    <LuMinimize className="h-4 w-4" />
+                    <LuMinimize2 className="h-4 w-4" />
                   ) : (
-                    <LuMaximize className="h-4 w-4" />
+                    <LuMaximize2 className="h-4 w-4" />
                   )}
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                {isMaximized ? "Minimize chat" : "Maximize chat"} <kbd className="ml-1 pointer-events-none inline-flex h-5 select-none items-center gap-1 font-mono text-sm font-medium text-muted-foreground opacity-100">{formatKeyboardShortcut('M')}</kbd>
+                {isMaximized ? "Minimize chat" : "Maximize chat"} <Kbd className="ml-1">{formatKeyboardShortcut('M')}</Kbd>
               </TooltipContent>
             </Tooltip>
           )}
 
-          {/* Collapse/Close buttons - Hide collapse when maximized */}
-          {typeof onCollapse === "function" && !isMaximized && (
+          {/* Collapse/Close button - collapse chat panel */}
+          {typeof onCollapse === "function" && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -412,7 +413,7 @@ export function AppChatHeader({
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                Toggle chat <kbd className="ml-1 pointer-events-none inline-flex h-5 select-none items-center gap-1 font-mono text-sm font-medium text-muted-foreground opacity-100">{formatKeyboardShortcut('J')}</kbd>
+                Toggle chat <Kbd className="ml-1">{formatKeyboardShortcut('J')}</Kbd>
               </TooltipContent>
             </Tooltip>
           )}

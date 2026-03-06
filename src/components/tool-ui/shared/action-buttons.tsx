@@ -2,6 +2,7 @@
 
 import type { Action } from "./schema";
 import { cn, Button } from "./_adapter";
+import { Kbd } from "@/components/ui/kbd";
 import { useActionButtons } from "./use-action-buttons";
 
 export interface ActionButtonsProps {
@@ -88,9 +89,9 @@ export function ActionButtons({
             )}
             {label}
             {action.shortcut && !action.isLoading && (
-              <kbd className="border-border bg-muted ml-2.5 hidden rounded-lg border px-2 py-0.5 font-mono text-xs font-medium sm:inline-block">
+              <Kbd className="ml-2.5 hidden sm:inline-flex">
                 {action.shortcut}
-              </kbd>
+              </Kbd>
             )}
           </Button>
         );

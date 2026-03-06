@@ -893,7 +893,7 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
       initialDocuments: [{ url: pdfSrc }],
     }),
     createPluginRegistration(ViewportPluginPackage, {
-      viewportGap: 10,
+      viewportGap: 0,
     }),
     createPluginRegistration(ScrollPluginPackage),
     createPluginRegistration(RenderPluginPackage),

@@ -19,15 +19,15 @@ vi.mock("next/headers", () => ({
 vi.mock("@/lib/auth", () => ({
   auth: {
     api: {
-      getSession: (...args: unknown[]) => mockGetSession(...args),
+      getSession: (...args: any[]) => mockGetSession(...args),
     },
   },
 }));
 
 vi.mock("@/lib/db/client", () => ({
   db: {
-    select: (...args: unknown[]) => mockSelect(...args),
-    execute: (...args: unknown[]) => mockExecute(...args),
+    select: (...args: any[]) => (mockSelect as (...a: any[]) => unknown).apply(null, args),
+    execute: (...args: any[]) => (mockExecute as (...a: any[]) => unknown).apply(null, args),
   },
   workspaces: {
     id: "id",
@@ -44,16 +44,16 @@ vi.mock("@/lib/db/schema", () => ({
 }));
 
 vi.mock("@/lib/workspace/state-loader", () => ({
-  loadWorkspaceState: (...args: unknown[]) => mockLoadWorkspaceState(...args),
+  loadWorkspaceState: (...args: any[]) => mockLoadWorkspaceState(...args),
 }));
 
 vi.mock("@/lib/editor/markdown-to-blocks", () => ({
-  markdownToBlocks: (...args: unknown[]) => mockMarkdownToBlocks(...args),
+  markdownToBlocks: (...args: any[]) => mockMarkdownToBlocks(...args),
   fixLLMDoubleEscaping: (s: string) => s,
 }));
 
 vi.mock("@/lib/workspace/events", () => ({
-  createEvent: (...args: unknown[]) => mockCreateEvent(...args),
+  createEvent: (...args: any[]) => mockCreateEvent(...args),
 }));
 
 vi.mock("@/lib/workspace/unique-name", () => ({

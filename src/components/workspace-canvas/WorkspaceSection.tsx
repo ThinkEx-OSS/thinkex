@@ -356,6 +356,10 @@ export function WorkspaceSection({
   const handleWorkspaceMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
 
+    // Clear native text selection when clicking anywhere in the workspace
+    // (Background clicks are handled by MarqueeSelector; this fires for card clicks etc.)
+    window.getSelection()?.removeAllRanges();
+
     // Don't blur if clicking directly on an input/textarea or button
     if (
       target.tagName === 'INPUT' ||
