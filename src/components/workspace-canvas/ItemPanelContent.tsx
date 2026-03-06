@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { X, Maximize, Minimize } from "lucide-react";
+import { X } from "lucide-react";
+import { LuMaximize2, LuMinimize2 } from "react-icons/lu";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
 import { formatKeyboardShortcut } from "@/lib/utils/keyboard-shortcut";
@@ -86,9 +87,9 @@ export function ItemPanelContent({
                                 onClick={onMaximize}
                             >
                                 {isMaximized ? (
-                                    <Minimize className="h-4 w-4" />
+                                    <LuMinimize2 className="h-4 w-4" />
                                 ) : (
-                                    <Maximize className="h-4 w-4" />
+                                    <LuMaximize2 className="h-4 w-4" />
                                 )}
                             </button>
                         </TooltipTrigger>

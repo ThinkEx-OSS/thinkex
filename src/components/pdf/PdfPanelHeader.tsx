@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef, memo, useLayoutEffect } from 'react';
 import { createPortal } from "react-dom";
-import { X, RotateCcw, Maximize, Minimize, ChevronUp, ChevronDown, MoreHorizontal, Expand, Shrink, Camera, Download } from 'lucide-react';
+import { X, RotateCcw, ChevronUp, ChevronDown, MoreHorizontal, Expand, Shrink, Camera, Download } from 'lucide-react';
+import { LuMaximize2 } from 'react-icons/lu';
 import { LuLayoutList } from "react-icons/lu";
 import { formatKeyboardShortcut } from '@/lib/utils/keyboard-shortcut';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -224,7 +225,7 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
                                 className={buttonClass}
                                 aria-label="Focus"
                             >
-                                <Maximize className={iconClass} />
+                                <LuMaximize2 className={iconClass} />
                             </button>
                         </TooltipTrigger>
                         <TooltipContent>Maximize</TooltipContent>
