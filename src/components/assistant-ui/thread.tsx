@@ -21,10 +21,10 @@ import {
   Bug,
   Brain,
   Play,
-  Globe,
+  Search,
 } from "lucide-react";
 import { FaQuoteLeft, FaWandMagicSparkles, FaCheck } from "react-icons/fa6";
-import { LuSparkle } from "react-icons/lu";
+import { LuBook, LuSparkle } from "react-icons/lu";
 import { SiClaude, SiOpenai } from "react-icons/si";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { CgNotes } from "react-icons/cg";
@@ -210,7 +210,7 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
             ref={viewportRef}
             turnAnchor="top"
             autoScroll={false}
-            className="aui-thread-viewport relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll px-4"
+            className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll px-4"
           >
             <AuiIf condition={({ thread }) => thread.isLoading}>
               <ThreadLoadingSkeleton />
@@ -227,11 +227,14 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
               }}
             />
 
-            <ThreadPrimitive.ViewportFooter className="aui-thread-viewport-footer sticky bottom-0 mx-auto mt-auto flex w-full max-w-[var(--thread-max-width)] flex-col gap-4 overflow-visible rounded-t-3xl bg-sidebar pb-3 md:pb-4">
+            <div className="sticky bottom-4 z-10 flex justify-center pt-4">
               <ThreadScrollToBottom />
-              <ComposerHoverWrapper items={items} />
-            </ThreadPrimitive.ViewportFooter>
+            </div>
           </ThreadPrimitive.Viewport>
+
+          <div className="aui-thread-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-shrink-0 flex-col gap-4 overflow-visible rounded-t-3xl bg-sidebar px-4 pb-3 md:pb-4">
+            <ComposerHoverWrapper items={items} />
+          </div>
         </ThreadPrimitive.Root>
       </MotionConfig>
     </LazyMotion>
@@ -245,7 +248,7 @@ const ThreadScrollToBottom: FC = () => {
         tooltip="Scroll to bottom"
         variant="outline"
         className={cn(
-          "aui-thread-scroll-to-bottom absolute -top-12 z-10 self-center rounded-xl p-4 disabled:invisible",
+          "aui-thread-scroll-to-bottom rounded-xl p-4 disabled:hidden",
           "bg-white/5 border-white/10 text-white/60",
           "hover:border-white/20 hover:bg-white/10 hover:text-white",
           "shadow-none",
@@ -341,10 +344,10 @@ interface ThreadSuggestionsProps {
 const SUGGESTION_ACTIONS = [
   {
     title: "Search",
-    icon: Globe,
+    icon: Search,
     iconClassName: "size-4 shrink-0 text-sky-500",
-    composerFill: "Search the web for ",
-    useDialog: false,
+    action: "search" as PromptBuilderAction,
+    useDialog: true,
   },
   {
     title: "Flashcards",
@@ -423,7 +426,7 @@ const ThreadSuggestions: FC<ThreadSuggestionsProps> = ({ items }) => {
                     handleTriggerFileInput();
                   } else if (suggestedAction.useDialog && "action" in suggestedAction && suggestedAction.action) {
                     setDialogAction(suggestedAction.action);
-                  } else if ("composerFill" in suggestedAction && suggestedAction.composerFill) {
+                  } else if ("composerFill" in suggestedAction && typeof suggestedAction.composerFill === "string") {
                     handleDirectFill(suggestedAction.composerFill);
                   }
                 }}
@@ -461,20 +464,14 @@ const COMPOSER_FLOATING_ACTIONS = [
     useDialog: true,
   },
   {
-    id: "flashcards",
-    label: "Flashcards",
-    icon: PiCardsThreeBold,
-    iconClassName: "size-3.5 shrink-0 text-purple-400 rotate-180",
-    action: "flashcards" as PromptBuilderAction,
-    useDialog: true,
-  },
-  {
-    id: "quiz",
-    label: "Quiz",
-    icon: Brain,
-    iconClassName: "size-3.5 shrink-0 text-green-400",
-    action: "quiz" as PromptBuilderAction,
-    useDialog: true,
+    id: "learn",
+    label: "Learn",
+    icon: LuBook,
+    iconClassName: "size-3.5 shrink-0 text-amber-500",
+    subActions: [
+      { id: "flashcards", label: "Flashcards", icon: PiCardsThreeBold, iconClassName: "size-4 text-purple-400 rotate-180", action: "flashcards" as PromptBuilderAction },
+      { id: "quiz", label: "Quiz", icon: Brain, iconClassName: "size-4 text-green-400", action: "quiz" as PromptBuilderAction },
+    ],
   },
   {
     id: "youtube",
@@ -487,9 +484,10 @@ const COMPOSER_FLOATING_ACTIONS = [
   {
     id: "search",
     label: "Search",
-    icon: Globe,
-    iconClassName: "size-3.5 text-sky-500",
-    composerFill: "Search the web for ",
+    icon: Search,
+    iconClassName: "size-3.5 text-teal-500",
+    action: "search" as PromptBuilderAction,
+    useDialog: true,
   },
 ];
 
@@ -556,6 +554,43 @@ const ComposerHoverWrapper: FC<ComposerHoverWrapperProps> = ({ items }) => {
       >
         <div className="flex flex-wrap items-center justify-center gap-0.5 rounded-xl border border-sidebar-border bg-sidebar-accent px-1.5 py-1 shadow-md dark:border-sidebar-border/15">
           {COMPOSER_FLOATING_ACTIONS.map((action) => {
+            if ("subActions" in action) {
+              // Learn button with dropdown
+              const Icon = action.icon;
+              return (
+                <DropdownMenu key={action.id}>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className={cn(
+                        "inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-normal",
+                        "text-sidebar-foreground transition-colors",
+                        "hover:bg-sidebar-foreground/10 dark:hover:bg-sidebar-foreground/15"
+                      )}
+                      aria-label={action.label}
+                    >
+                      <Icon className={action.iconClassName} />
+                      <span>{action.label}</span>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center" side="top" className="min-w-[140px]" sideOffset={4}>
+                    {(action.subActions ?? []).map((sub) => {
+                      const SubIcon = sub.icon;
+                      return (
+                        <DropdownMenuItem
+                          key={sub.id}
+                          onSelect={() => setDialogAction(sub.action)}
+                          className="flex cursor-pointer items-center gap-2"
+                        >
+                          <SubIcon className={sub.iconClassName} />
+                          {sub.label}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            }
             const Icon = action.icon;
             return (
               <button

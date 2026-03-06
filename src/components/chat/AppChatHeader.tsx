@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { X, ChevronDown, Trash2, Edit2, Check, MessageSquarePlus } from "lucide-react";
 import { RiChatHistoryLine } from "react-icons/ri";
-import { LuMaximize, LuMinimize, LuPanelRightClose } from "react-icons/lu";
+import { LuMaximize2, LuMinimize2, LuPanelRightClose } from "react-icons/lu";
 import { useAui, useThreadListItem } from "@assistant-ui/react";
 import {
   DropdownMenu,
@@ -386,9 +386,9 @@ export function AppChatHeader({
                   onClick={() => onToggleMaximize?.()}
                 >
                   {isMaximized ? (
-                    <LuMinimize className="h-4 w-4" />
+                    <LuMinimize2 className="h-4 w-4" />
                   ) : (
-                    <LuMaximize className="h-4 w-4" />
+                    <LuMaximize2 className="h-4 w-4" />
                   )}
                 </button>
               </TooltipTrigger>
@@ -398,8 +398,8 @@ export function AppChatHeader({
             </Tooltip>
           )}
 
-          {/* Collapse/Close buttons - Hide collapse when maximized */}
-          {typeof onCollapse === "function" && !isMaximized && (
+          {/* Collapse/Close button - collapse chat panel */}
+          {typeof onCollapse === "function" && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button

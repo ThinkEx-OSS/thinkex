@@ -17,6 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { WorkspaceItemPicker, getCardTypeIcon } from "@/components/chat/WorkspaceItemPicker";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useUIStore, selectReplySelections, selectSelectedCardIdsArray, selectBlockNoteSelection } from "@/lib/stores/ui-store";
@@ -24,7 +25,7 @@ import { useShallow } from "zustand/react/shallow";
 import type { Item } from "@/lib/workspace-state/types";
 import { useAui } from "@assistant-ui/react";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
-import { Brain, Play, ChevronUp, ChevronDown, ChevronRight, X, Circle, CircleDot, ArrowUpIcon, ArrowLeft, CheckCircle2, Folder as FolderIcon } from "lucide-react";
+import { Brain, Play, ChevronUp, ChevronDown, ChevronRight, X, Circle, CircleDot, ArrowUpIcon, ArrowLeft, CheckCircle2, Folder as FolderIcon, Search, FolderSearch, Globe, Sparkles } from "lucide-react";
 import { CgNotes } from "react-icons/cg";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
@@ -34,9 +35,24 @@ export type PromptBuilderAction =
   | "flashcards"
   | "youtube"
   | "quiz"
-  | "note";
+  | "note"
+  | "search";
 
 type NoteTemplate = "detailed" | "cheatsheet" | "short";
+
+type SearchSource = "workspace" | "web" | "deep_research";
+
+const SEARCH_SOURCES: {
+  id: SearchSource;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  iconClassName?: string;
+  comingSoon?: boolean;
+}[] = [
+  { id: "workspace", label: "Workspace", icon: FolderSearch, iconClassName: "text-amber-500" },
+  { id: "web", label: "Web", icon: Globe, iconClassName: "text-sky-500" },
+  { id: "deep_research", label: "Deep research", icon: Sparkles, iconClassName: "text-violet-500", comingSoon: true },
+];
 
 const NOTE_TEMPLATES: { id: NoteTemplate; label: string; description: string }[] = [
   { id: "detailed", label: "Detailed", description: "Comprehensive summary with key points and context." },
@@ -59,6 +75,7 @@ const ACTION_CONFIG: Record<
     countStep?: number;
     hasTopicSelector?: boolean;
     hasTemplates?: boolean;
+    hasSearchSource?: boolean;
     /** Override for simple input (when !hasTopicSelector) */
     inputLabel?: string;
     inputPlaceholder?: string;
@@ -93,7 +110,7 @@ const ACTION_CONFIG: Record<
     hasTopicSelector: true,
   },
   youtube: {
-    label: "Add YouTube Video",
+    label: "Find or Add YouTube Video",
     prefix: "Find a YouTube video on ",
     prefixForUrl: "Add this YouTube video to my workspace and summarize it.",
     icon: Play,
@@ -108,6 +125,16 @@ const ACTION_CONFIG: Record<
     description: "Select specific prompts and formats for your note.",
     hasTemplates: true,
     hasTopicSelector: true,
+  },
+  search: {
+    label: "Search",
+    prefix: "Search for ",
+    icon: Search,
+    description: "Search your workspace, the web, or run a deep research.",
+    hasTopicSelector: false,
+    hasSearchSource: true,
+    inputLabel: "What to search for",
+    inputPlaceholder: "e.g. photosynthesis, key concepts...",
   },
 };
 
@@ -161,6 +188,7 @@ export function PromptBuilderDialog({
   const [workspaceSearchQuery, setWorkspaceSearchQuery] = useState("");
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [noteTemplate, setNoteTemplate] = useState<NoteTemplate | null>(null);
+  const [searchSource, setSearchSource] = useState<SearchSource>("web");
 
   const topicInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
 
@@ -169,6 +197,7 @@ export function PromptBuilderDialog({
     if (open) {
       setCount(config.defaultCount ?? 10);
       setNoteTemplate(null);
+      setSearchSource("web");
       setTopicInput("");
       setWorkspaceSearchQuery("");
       setSelectedContextIds(new Set(selectedCardIds));
@@ -240,6 +269,15 @@ export function PromptBuilderDialog({
       const url = extractYouTubeUrl(topicInput)!;
       const prefix = (config as { prefixForUrl?: string }).prefixForUrl ?? "Add this YouTube video to my workspace.";
       parts.push(`${prefix} ${url}`);
+    } else if (action === "search") {
+      const topic = topicInput.trim() || "a topic";
+      const sourcePrefix =
+        searchSource === "workspace"
+          ? "Search my workspace for "
+          : searchSource === "web"
+            ? "Search the web for "
+            : "Search for "; // deep_research fallback (coming soon)
+      parts.push(sourcePrefix + topic);
     } else {
       const topicSource =
         topicInput.trim() ||
@@ -251,7 +289,7 @@ export function PromptBuilderDialog({
       if (tpl?.description) parts.push(tpl.description);
     }
     return parts.join(". ");
-  }, [config, action, count, topicInput, selectedContextIds.size, noteTemplate]);
+  }, [config, action, count, topicInput, selectedContextIds.size, noteTemplate, searchSource]);
 
   const hasValidTopic =
     (config.hasTopicSelector && (topicInput.trim().length > 0 || selectedContextIds.size > 0)) ||
@@ -269,14 +307,14 @@ export function PromptBuilderDialog({
       onBuild(builtPrompt);
     } else {
       // Select the chosen items in the workspace (like mention menu does)
-      if (selectedContextIds.size > 0) {
+      if (action !== "search" && selectedContextIds.size > 0) {
         selectMultipleCards(Array.from(selectedContextIds));
       }
       aui?.composer().setText(builtPrompt);
       focusComposerInput();
     }
     onOpenChange(false);
-  }, [builtPrompt, hasValidTopic, onBeforeSubmit, onBuild, aui, onOpenChange, selectedContextIds, selectMultipleCards]);
+  }, [action, builtPrompt, hasValidTopic, onBeforeSubmit, onBuild, aui, onOpenChange, selectedContextIds, selectMultipleCards]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -371,7 +409,8 @@ export function PromptBuilderDialog({
                 action === "flashcards" && "text-purple-400",
                 action === "youtube" && "text-red-500",
                 action === "quiz" && "text-green-400",
-                action === "note" && "text-blue-400"
+                action === "note" && "text-blue-400",
+                action === "search" && "text-sky-500"
               )}
             />
             {config.label}
@@ -379,6 +418,48 @@ export function PromptBuilderDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-2 min-w-0 overflow-x-hidden">
+          {/* Search: Source selector - card style like home action buttons */}
+          {config.hasSearchSource && (
+            <div className="space-y-2">
+              <Label>Search in</Label>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {SEARCH_SOURCES.map((src) => {
+                  const SrcIcon = src.icon;
+                  const isSelected = !src.comingSoon && searchSource === src.id;
+                  const card = (
+                    <button
+                      key={src.id}
+                      type="button"
+                      disabled={src.comingSoon}
+                      onClick={() => !src.comingSoon && setSearchSource(src.id)}
+                      className={cn(
+                        "flex w-full flex-col items-start justify-center gap-2 rounded-lg border px-3 py-4 text-left transition-colors",
+                        isSelected
+                          ? "border-primary bg-primary/5"
+                          : src.comingSoon
+                            ? "border-border opacity-60 cursor-not-allowed"
+                            : "border-sidebar-border hover:bg-accent/60 dark:hover:bg-accent/60"
+                      )}
+                    >
+                      <SrcIcon className={cn("size-5 shrink-0", src.iconClassName)} />
+                      <span className="font-medium text-sm">{src.label}</span>
+                    </button>
+                  );
+                  return src.comingSoon ? (
+                    <Tooltip key={src.id} delayDuration={0}>
+                      <TooltipTrigger asChild>
+                        <span className="block size-full min-w-0">{card}</span>
+                      </TooltipTrigger>
+                      <TooltipContent>Coming soon</TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    card
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Note: Templates section */}
           {config.hasTemplates && (
             <div className="space-y-2">
@@ -430,7 +511,7 @@ export function PromptBuilderDialog({
                     }
                   }}
                   placeholder={config.countPlaceholder}
-                  className="border-0 shadow-none focus-visible:ring-0"
+                  className="border-0 shadow-none focus-visible:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [appearance:textfield]"
                 />
                 <div className="flex flex-col pr-1">
                   <button

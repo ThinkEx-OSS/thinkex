@@ -161,7 +161,10 @@ function WorkspaceContextWrapperContent({
     >
       {/* Chat Header */}
       <AppChatHeader
-        onCollapse={() => setIsChatExpanded?.(false)}
+        onCollapse={() => {
+          if (isChatMaximized) setIsChatMaximized?.(false);
+          setIsChatExpanded?.(false);
+        }}
         isMaximized={isChatMaximized}
         onToggleMaximize={handleToggleMaximize}
       />
