@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Kbd } from "@/components/ui/kbd";
 import { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { formatKeyboardShortcut } from "@/lib/utils/keyboard-shortcut";
@@ -393,7 +394,7 @@ export function AppChatHeader({
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                {isMaximized ? "Minimize chat" : "Maximize chat"} <kbd className="ml-1 pointer-events-none inline-flex h-5 select-none items-center gap-1 font-mono text-sm font-medium text-muted-foreground opacity-100">{formatKeyboardShortcut('M')}</kbd>
+                {isMaximized ? "Minimize chat" : "Maximize chat"} <Kbd className="ml-1">{formatKeyboardShortcut('M')}</Kbd>
               </TooltipContent>
             </Tooltip>
           )}
@@ -412,7 +413,7 @@ export function AppChatHeader({
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                Toggle chat <kbd className="ml-1 pointer-events-none inline-flex h-5 select-none items-center gap-1 font-mono text-sm font-medium text-muted-foreground opacity-100">{formatKeyboardShortcut('J')}</kbd>
+                Toggle chat <Kbd className="ml-1">{formatKeyboardShortcut('J')}</Kbd>
               </TooltipContent>
             </Tooltip>
           )}

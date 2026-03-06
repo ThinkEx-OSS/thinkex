@@ -3,7 +3,7 @@
  */
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useRealtimeContextOptional } from "@/contexts/RealtimeContext";
 import { cn } from "@/lib/utils";
 
@@ -27,43 +27,46 @@ export function CollaboratorAvatars({
     }
 
     const visibleCollaborators = realtime.collaborators.slice(0, maxAvatars);
-    const remainingCount = Math.max(0, realtime.collaborators.length - maxAvatars);
+    const remainingCollaborators = realtime.collaborators.slice(maxAvatars);
+    const remainingCount = remainingCollaborators.length;
 
     return (
-        <TooltipProvider>
-            <div className={cn("flex items-center -space-x-2", className)}>
-                {visibleCollaborators.map((collaborator) => (
-                    <Tooltip key={collaborator.userId}>
-                        <TooltipTrigger asChild>
-                            <Avatar className="size-7 ring-2 ring-background cursor-default">
-                                <AvatarImage src={collaborator.userImage} alt={collaborator.userName} />
-                                <AvatarFallback className="text-[10px] bg-primary text-primary-foreground">
-                                    {getInitials(collaborator.userName)}
-                                </AvatarFallback>
-                            </Avatar>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="text-xs">
-                            <div className="font-medium">{collaborator.userName}</div>
-                        </TooltipContent>
-                    </Tooltip>
-                ))}
+        <div className={cn("flex items-center -space-x-2", className)}>
+            {visibleCollaborators.map((collaborator) => (
+                <Tooltip key={collaborator.userId}>
+                    <TooltipTrigger asChild>
+                        <Avatar className="size-7 ring-2 ring-background cursor-default">
+                            <AvatarImage src={collaborator.userImage} alt={collaborator.userName} />
+                            <AvatarFallback className="text-[10px] bg-primary text-primary-foreground">
+                                {getInitials(collaborator.userName)}
+                            </AvatarFallback>
+                        </Avatar>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                        <div className="font-medium">{collaborator.userName}</div>
+                    </TooltipContent>
+                </Tooltip>
+            ))}
 
-                {remainingCount > 0 && (
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Avatar className="size-7 ring-2 ring-background cursor-default">
-                                <AvatarFallback className="text-[10px] bg-muted text-muted-foreground">
-                                    +{remainingCount}
-                                </AvatarFallback>
-                            </Avatar>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="text-xs">
-                            {remainingCount} other collaborator{remainingCount > 1 ? 's' : ''}
-                        </TooltipContent>
-                    </Tooltip>
-                )}
-            </div>
-        </TooltipProvider>
+            {remainingCount > 0 && (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Avatar className="size-7 ring-2 ring-background cursor-default">
+                            <AvatarFallback className="text-[10px] bg-muted text-muted-foreground">
+                                +{remainingCount}
+                            </AvatarFallback>
+                        </Avatar>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                        <div className="space-y-1">
+                            {remainingCollaborators.map((c) => (
+                                <div key={c.userId} className="font-medium">{c.userName}</div>
+                            ))}
+                        </div>
+                    </TooltipContent>
+                </Tooltip>
+            )}
+        </div>
     );
 }
 

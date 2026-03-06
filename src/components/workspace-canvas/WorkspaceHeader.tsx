@@ -10,6 +10,7 @@ import { LuBook, LuCalendar, LuPanelLeftOpen } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Kbd } from "@/components/ui/kbd";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ThinkExLogo } from "@/components/ui/thinkex-logo";
 
@@ -469,7 +470,7 @@ export function WorkspaceHeader({
               <SidebarTrigger />
             </TooltipTrigger>
             <TooltipContent side="right">
-              Toggle Sidebar <kbd className="ml-1 pointer-events-none inline-flex h-5 select-none items-center gap-1 font-mono text-sm font-medium text-muted-foreground opacity-100">{formatKeyboardShortcut('S', true)}</kbd>
+              Toggle Sidebar <Kbd className="ml-1">{formatKeyboardShortcut('S', true)}</Kbd>
             </TooltipContent>
           </Tooltip>
 
@@ -814,29 +815,22 @@ export function WorkspaceHeader({
             )}
 
             {/* Split View Button — transitions from focus to workspace+panel */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer px-2"
-                  aria-label="Open split view"
-                  onClick={() => {
-                    // Get the first active item and open it in panel mode (workspace+panel)
-                    const itemId = activeItems[0]?.id;
-                    if (itemId) {
-                      openPanel(itemId, 'replace');
-                    }
-                  }}
-                >
-                  <LuPanelLeftOpen className="h-4 w-4" />
-                  <span className="text-xs font-medium">
-                    Split
-                  </span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                Show workspace alongside this panel
-              </TooltipContent>
-            </Tooltip>
+            <button
+              className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer px-2"
+              aria-label="Open split view"
+              onClick={() => {
+                // Get the first active item and open it in panel mode (workspace+panel)
+                const itemId = activeItems[0]?.id;
+                if (itemId) {
+                  openPanel(itemId, 'replace');
+                }
+              }}
+            >
+              <LuPanelLeftOpen className="h-4 w-4" />
+              <span className="text-xs font-medium">
+                Split
+              </span>
+            </button>
 
             {activeItems[0]?.type === "pdf" && (
               <div id="workspace-header-portal-right" className="flex items-center gap-2" />
@@ -968,7 +962,7 @@ export function WorkspaceHeader({
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  Search workspace <kbd className="ml-1 pointer-events-none inline-flex h-5 select-none items-center gap-1 font-mono text-sm font-medium text-muted-foreground opacity-100">{formatKeyboardShortcut('K')}</kbd>
+                  Search workspace <Kbd className="ml-1">{formatKeyboardShortcut('K')}</Kbd>
                 </TooltipContent>
               </Tooltip>
             )}
