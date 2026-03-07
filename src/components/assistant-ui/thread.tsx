@@ -104,7 +104,8 @@ import { ReplyContextDisplay } from "@/components/chat/ReplyContextDisplay";
 import { MessageContextBadges } from "@/components/chat/MessageContextBadges";
 import { MentionMenu } from "@/components/chat/MentionMenu";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import { useUIStore, selectReplySelections, selectSelectedCardIdsArray, selectBlockNoteSelection } from "@/lib/stores/ui-store";
+import { useUIStore, selectReplySelections, selectBlockNoteSelection } from "@/lib/stores/ui-store";
+import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { DropdownMenuSeparator, DropdownMenuLabel, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { useShallow } from "zustand/react/shallow";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
@@ -645,8 +646,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
   const blockNoteSelection = useUIStore(selectBlockNoteSelection);
   const clearReplySelections = useUIStore((state) => state.clearReplySelections);
   const clearBlockNoteSelection = useUIStore((state) => state.clearBlockNoteSelection);
-  const selectedCardIdsArray = useUIStore(useShallow(selectSelectedCardIdsArray));
-  const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
+  const { selectedCardIds } = useSelectedCardIds();
 
   // Get workspace state and operations for PDF card creation
   const { state: workspaceState } = useWorkspaceState(currentWorkspaceId);
@@ -1007,10 +1007,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
   useAui();
   const hasUploading = useAttachmentUploadStore((s) => s.uploadingIds.size > 0);
   const isAnonymous = session?.user?.isAnonymous ?? false;
-  const selectedCardIdsArray = useUIStore(
-    useShallow(selectSelectedCardIdsArray)
-  );
-  const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
+  const { selectedCardIds } = useSelectedCardIds();
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
 
   const [isWarningPopoverOpen, setIsWarningPopoverOpen] = useState(false);

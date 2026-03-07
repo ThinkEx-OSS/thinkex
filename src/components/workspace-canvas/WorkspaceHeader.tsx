@@ -834,7 +834,7 @@ export function WorkspaceHeader({
                 // Get the first active item and open it in panel mode (workspace+panel)
                 const itemId = activeItems[0]?.id;
                 if (itemId) {
-                  openPanel(itemId, 'replace');
+                  openPanel(itemId);
                 }
               }}
             >

@@ -72,7 +72,7 @@ interface UIState {
 
 
   // Actions - Panels & View Mode
-  openPanel: (itemId: string, mode: 'replace' | 'add') => void;
+  openPanel: (itemId: string) => void;
   splitWithItem: (itemId: string) => void; // Enter panel+panel mode from workspace+panel
   closePanel: (itemId: string) => void;
   closeAllPanels: () => void;
@@ -250,7 +250,10 @@ export const useUIStore = create<UIState>()(
           const newPanelAutoSelectedCardIds = new Set<string>();
           validIds.forEach(id => {
             newSelectedCardIds.add(id);
-            newPanelAutoSelectedCardIds.add(id);
+            // Don't overwrite: if user had explicitly selected (in selectedCardIds but not panelAuto),
+            // preserve that so it stays selected on close
+            const wasExplicitlySelected = state.selectedCardIds.has(id) && !state.panelAutoSelectedCardIds.has(id);
+            if (!wasExplicitlySelected) newPanelAutoSelectedCardIds.add(id);
           });
           state.panelAutoSelectedCardIds.forEach(id => {
             if (!validIds.includes(id)) newSelectedCardIds.delete(id);
@@ -278,40 +281,32 @@ export const useUIStore = create<UIState>()(
         }),
 
         // Panel actions
-        openPanel: (itemId, mode) => {
+        openPanel: (itemId) => {
           set((state) => {
             const newSelectedCardIds = new Set(state.selectedCardIds);
             const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
 
-            if (mode === 'replace') {
-              // In workspace+panel mode: replace the panel content
-              // If no panels open yet, enter workspace+panel mode
-              // Only skip if we're already in workspace+panel with this exact item
-              const isAlreadyOpen = state.viewMode === 'workspace+panel' && state.openPanelIds.length === 1 && state.openPanelIds[0] === itemId;
-              if (isAlreadyOpen) return {};
+            // In workspace+panel mode: replace the panel content
+            const isAlreadyOpen = state.viewMode === 'workspace+panel' && state.openPanelIds.length === 1 && state.openPanelIds[0] === itemId;
+            if (isAlreadyOpen) return {};
 
-              // Only track as auto-selected if user didn't already have it selected
-              const wasAlreadySelected = state.selectedCardIds.has(itemId);
+            // Clean up old auto-selected cards
+            state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
+            newPanelAutoSelectedCardIds.clear();
 
-              // Clean up old auto-selected cards
-              state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
-              newPanelAutoSelectedCardIds.clear();
+            // Add new item to selections
+            newSelectedCardIds.add(itemId);
+            // Only track as auto-selected if user didn't explicitly select it
+            const wasExplicitlySelected = state.selectedCardIds.has(itemId) && !state.panelAutoSelectedCardIds.has(itemId);
+            if (!wasExplicitlySelected) newPanelAutoSelectedCardIds.add(itemId);
 
-              // Add new item to selections
-              newSelectedCardIds.add(itemId);
-              if (!wasAlreadySelected) newPanelAutoSelectedCardIds.add(itemId);
-
-              return {
-                viewMode: 'workspace+panel' as ViewMode,
-                openPanelIds: [itemId],
-                maximizedItemId: null,
-                selectedCardIds: newSelectedCardIds,
-                panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-              };
-            }
-
-            // mode === 'add' — not used directly, use splitWithItem instead
-            return {};
+            return {
+              viewMode: 'workspace+panel' as ViewMode,
+              openPanelIds: [itemId],
+              maximizedItemId: null,
+              selectedCardIds: newSelectedCardIds,
+              panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
+            };
           });
         },
 
@@ -322,11 +317,11 @@ export const useUIStore = create<UIState>()(
             const existingId = state.openPanelIds[0];
             if (existingId === itemId) return {}; // Can't split with the same item
 
-            const wasAlreadySelected = state.selectedCardIds.has(itemId);
             const newSelectedCardIds = new Set(state.selectedCardIds);
             const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
             newSelectedCardIds.add(itemId);
-            if (!wasAlreadySelected) newPanelAutoSelectedCardIds.add(itemId);
+            const wasExplicitlySelected = state.selectedCardIds.has(itemId) && !state.panelAutoSelectedCardIds.has(itemId);
+            if (!wasExplicitlySelected) newPanelAutoSelectedCardIds.add(itemId);
 
             return {
               viewMode: 'panel+panel' as ViewMode,
@@ -344,9 +339,10 @@ export const useUIStore = create<UIState>()(
 
             const remaining = state.openPanelIds.filter(id => id !== itemId);
             const newSelectedCardIds = new Set(state.selectedCardIds);
+            const wasInPanelAuto = state.panelAutoSelectedCardIds.has(itemId);
 
             // Remove the closed item from auto-selected if it was auto-selected
-            if (state.panelAutoSelectedCardIds.has(itemId)) {
+            if (wasInPanelAuto) {
               newSelectedCardIds.delete(itemId);
             }
             const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
@@ -407,9 +403,6 @@ export const useUIStore = create<UIState>()(
           ...(id === null ? { openPanelIds: [] } : { openPanelIds: [id] }),
         }),
 
-        // Workspace Split View actions
-
-
         // Legacy compatibility — opens item in focus mode (maximized)
         setOpenModalItemId: (id) => {
           set((state) => {
@@ -430,9 +423,6 @@ export const useUIStore = create<UIState>()(
               const isAlreadyOpen = state.openPanelIds.length === 1 && state.openPanelIds[0] === id && state.maximizedItemId === id;
               if (isAlreadyOpen) return {};
 
-              // Only track as auto-selected if user didn't already have it selected
-              const wasAlreadySelected = state.selectedCardIds.has(id);
-
               const newSelectedCardIds = new Set(state.selectedCardIds);
               const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
 
@@ -440,9 +430,9 @@ export const useUIStore = create<UIState>()(
               state.panelAutoSelectedCardIds.forEach(aid => newSelectedCardIds.delete(aid));
               newPanelAutoSelectedCardIds.clear();
 
-              // Add to selections and track as auto-selected only if we're the ones selecting it
               newSelectedCardIds.add(id);
-              if (!wasAlreadySelected) newPanelAutoSelectedCardIds.add(id);
+              const wasExplicitlySelected = state.selectedCardIds.has(id) && !state.panelAutoSelectedCardIds.has(id);
+              if (!wasExplicitlySelected) newPanelAutoSelectedCardIds.add(id);
 
               return {
                 viewMode: 'focus' as ViewMode,

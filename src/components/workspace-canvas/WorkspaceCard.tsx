@@ -569,7 +569,7 @@ function WorkspaceCard({
 
   const handleReplacePanel = useCallback(() => {
     if (panelActionMenu) {
-      openPanel(panelActionMenu.itemId, 'replace');
+      openPanel(panelActionMenu.itemId);
       setPanelActionMenu(null);
     }
   }, [panelActionMenu, openPanel]);
@@ -869,6 +869,7 @@ function WorkspaceCard({
                     <LightweightPdfPreview
                       key={`preview-${maximizedItemId ?? 'none'}`}
                       pdfSrc={pdfData.fileUrl}
+                      title={item.name}
                       className="w-full h-full"
                     />
                   ) : (

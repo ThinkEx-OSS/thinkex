@@ -20,7 +20,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { WorkspaceItemPicker, getCardTypeIcon } from "@/components/chat/WorkspaceItemPicker";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useUIStore, selectReplySelections, selectSelectedCardIdsArray, selectBlockNoteSelection } from "@/lib/stores/ui-store";
+import { useUIStore, selectReplySelections, selectBlockNoteSelection } from "@/lib/stores/ui-store";
+import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { useShallow } from "zustand/react/shallow";
 import type { Item } from "@/lib/workspace-state/types";
 import { useAui } from "@assistant-ui/react";
@@ -177,8 +178,7 @@ export function PromptBuilderDialog({
   const formId = useId();
 
   const replySelections = useUIStore(useShallow(selectReplySelections));
-  const selectedCardIdsArray = useUIStore(useShallow(selectSelectedCardIdsArray));
-  const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
+  const { selectedCardIds } = useSelectedCardIds();
   const blockNoteSelection = useUIStore(selectBlockNoteSelection);
 
   const defaultCount = config.defaultCount ?? 10;
