@@ -1357,7 +1357,7 @@ const AssistantActionBar: FC = () => {
   );
 };
 
-const USER_MESSAGE_MAX_CHARS = 750;
+const USER_MESSAGE_MAX_CHARS = 250;
 
 const UserMessageTruncateContext = createContext<{
   maxChars: number;
