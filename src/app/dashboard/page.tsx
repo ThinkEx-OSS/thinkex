@@ -550,6 +550,9 @@ function DashboardContent({
             <WorkspaceHeader
               titleInputRef={titleInputRef as React.RefObject<HTMLInputElement>}
               currentWorkspaceId={currentWorkspaceId}
+              isSaving={isSaving}
+              lastSavedAt={lastSavedAt}
+              hasUnsavedChanges={hasUnsavedChanges}
               isDesktop={isDesktop}
               isChatExpanded={isChatExpanded}
               setIsChatExpanded={setIsChatExpanded}

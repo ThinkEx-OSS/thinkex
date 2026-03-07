@@ -4,7 +4,7 @@ import type React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Search, X, ChevronDown, ChevronRight, FolderOpen, Plus, Upload, Folder as FolderIcon, Settings, Share2, Play, Brain, File, ImageIcon, Mic, PanelRight } from "lucide-react";
+import { Search, X, ChevronDown, ChevronRight, FolderOpen, Plus, Upload, Folder as FolderIcon, Settings, Share2, Play, Brain, File, ImageIcon, Mic, PanelRight, Loader2 } from "lucide-react";
 import { CgNotes } from "react-icons/cg";
 import { LuBook, LuCalendar, LuPanelLeftOpen } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
@@ -15,7 +15,6 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ThinkExLogo } from "@/components/ui/thinkex-logo";
 
 import { formatKeyboardShortcut } from "@/lib/utils/keyboard-shortcut";
-import WorkspaceSaveIndicator from "@/components/workspace/WorkspaceSaveIndicator";
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { IconRenderer } from "@/hooks/use-icon-picker";
@@ -893,19 +892,25 @@ export function WorkspaceHeader({
               </Button>
             )}
 
-            {/* Version History Button - hidden in compact mode */}
+            {/* Version History + Save Indicator Button - hidden in compact mode */}
             {!isCompactMode && onShowHistory && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     onClick={onShowHistory}
+                    disabled={isSaving}
                     className={cn(
                       "h-8 w-8 flex items-center justify-center rounded-md transition-colors pointer-events-auto cursor-pointer",
-                      "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent"
+                      "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent",
+                      isSaving && "cursor-default"
                     )}
                     aria-label="Version history"
                   >
-                    <LuCalendar className="h-4 w-4" />
+                    {isSaving ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <LuCalendar className="h-4 w-4" />
+                    )}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
