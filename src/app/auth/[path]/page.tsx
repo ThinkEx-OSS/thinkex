@@ -78,7 +78,7 @@ export default async function AuthPage({
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center p-4 md:p-6 overflow-hidden">
       {/* Auth content */}
-      <div className="relative z-10 w-full max-w-sm flex flex-col items-center gap-1 rounded-xl shadow-2xl bg-background border border-border/40 p-6 md:p-8">
+      <div className="relative z-10 w-full max-w-sm flex flex-col items-center gap-6 rounded-xl shadow-2xl bg-background border border-border/40 p-6 md:p-8">
         {/* Logo - same as footer */}
         <div className="flex items-center justify-center w-fit">
           <ThinkExLogo size={32} />
