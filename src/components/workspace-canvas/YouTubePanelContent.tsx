@@ -6,6 +6,11 @@ import {
   extractYouTubeVideoId,
   extractYouTubePlaylistId,
 } from "@/lib/utils/youtube-url";
+import {
+  getYouTubeProgressKey,
+  getYouTubeProgress,
+  setYouTubeProgress,
+} from "@/lib/youtube-progress";
 import { useYouTubePlayer } from "@/hooks/use-youtube-player";
 
 const PROGRESS_SAVE_INTERVAL_MS = 10000; // Save every 10s while playing
@@ -18,14 +23,16 @@ interface YouTubePanelContentProps {
 
 export function YouTubePanelContent({
   item,
-  onUpdateItemData,
+  onUpdateItemData: _onUpdateItemData,
   isMaximized = false,
 }: YouTubePanelContentProps) {
   const youtubeData = item.data as YouTubeData;
   const videoId = extractYouTubeVideoId(youtubeData.url);
   const playlistId = extractYouTubePlaylistId(youtubeData.url);
-  const startSeconds = youtubeData.progress ?? 0;
-  const savedPlaybackRate = youtubeData.playbackRate;
+  const progressKey = getYouTubeProgressKey(videoId, playlistId);
+  const stored = getYouTubeProgress(progressKey);
+  const startSeconds = stored?.progress ?? 0;
+  const savedPlaybackRate = stored?.playbackRate;
 
   const saveStateRef = useRef<
     (opts: { seconds: number; playbackRate?: number }) => void
@@ -34,23 +41,9 @@ export function YouTubePanelContent({
 
   const saveState = useCallback(
     (opts: { seconds: number; playbackRate?: number }) => {
-      onUpdateItemData((prev) => {
-        const data = prev as YouTubeData;
-        const next: YouTubeData = {
-          ...data,
-          progress: Math.floor(opts.seconds),
-          ...(opts.playbackRate != null && { playbackRate: opts.playbackRate }),
-        };
-        if (
-          next.progress === data.progress &&
-          next.playbackRate === data.playbackRate
-        ) {
-          return prev;
-        }
-        return next;
-      });
+      setYouTubeProgress(progressKey, opts.seconds, opts.playbackRate);
     },
-    [onUpdateItemData]
+    [progressKey]
   );
 
   saveStateRef.current = saveState;
