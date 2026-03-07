@@ -71,8 +71,10 @@ interface WorkspaceSectionProps {
 
   // View state
   showJsonView: boolean;
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
+  /** @deprecated Search is now in command palette - workspace grid no longer filters by search */
+  searchQuery?: string;
+  /** @deprecated Search is now in command palette */
+  onSearchChange?: (query: string) => void;
 
   // Save state
   isSaving: boolean;
@@ -144,8 +146,6 @@ export function WorkspaceSection({
   currentSlug,
   state,
   showJsonView,
-  searchQuery,
-  onSearchChange,
   isSaving,
   lastSavedAt,
   hasUnsavedChanges,
@@ -699,7 +699,7 @@ export function WorkspaceSection({
                   deleteItem={deleteItem}
                   updateAllItems={updateAllItems}
                   getStatePreviewJSON={getStatePreviewJSON}
-                  searchQuery={searchQuery}
+                  searchQuery=""
                   columns={columns}
                   setOpenModalItemId={setOpenModalItemId}
                   scrollContainerRef={scrollAreaRef}

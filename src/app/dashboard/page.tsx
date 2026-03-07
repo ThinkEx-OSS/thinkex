@@ -216,13 +216,11 @@ function DashboardContent({
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const showJsonView = useUIStore((state) => state.showJsonView);
   const isChatExpanded = useUIStore((state) => state.isChatExpanded);
-  const searchQuery = useUIStore((state) => state.searchQuery);
   const isChatMaximized = useUIStore((state) => state.isChatMaximized);
   const workspacePanelSize = useUIStore((state) => state.workspacePanelSize);
   const showCreateWorkspaceModal = useUIStore((state) => state.showCreateWorkspaceModal);
   const setShowJsonView = useUIStore((state) => state.setShowJsonView);
   const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
-  const setSearchQuery = useUIStore((state) => state.setSearchQuery);
   const setIsChatMaximized = useUIStore((state) => state.setIsChatMaximized);
   const setOpenModalItemId = useUIStore((state) => state.setOpenModalItemId);
   const setShowCreateWorkspaceModal = useUIStore((state) => state.setShowCreateWorkspaceModal);
@@ -455,8 +453,6 @@ function DashboardContent({
             currentSlug={currentSlug}
             state={state}
             showJsonView={showJsonView}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
             isSaving={isSaving}
             lastSavedAt={lastSavedAt}
             hasUnsavedChanges={hasUnsavedChanges}
@@ -494,7 +490,7 @@ function DashboardContent({
         onFlushPendingChanges={operations.flushPendingChanges}
       />
     );
-  }, [viewMode, state.items, loadingCurrentWorkspace, isLoadingWorkspace, currentWorkspaceId, currentSlug, state, showJsonView, searchQuery, isSaving, lastSavedAt, hasUnsavedChanges, isChatMaximized, isDesktop, isChatExpanded, currentWorkspaceTitle, currentWorkspaceIcon, currentWorkspaceColor, operations, manualSave, setSearchQuery, setIsChatExpanded, setOpenModalItemId, handleShowHistory, titleInputRef, scrollAreaRef, getStatePreviewJSON]);
+  }, [viewMode, state.items, loadingCurrentWorkspace, isLoadingWorkspace, currentWorkspaceId, currentSlug, state, showJsonView, isSaving, lastSavedAt, hasUnsavedChanges, isChatMaximized, isDesktop, isChatExpanded, currentWorkspaceTitle, currentWorkspaceIcon, currentWorkspaceColor, operations, manualSave, setIsChatExpanded, setOpenModalItemId, handleShowHistory, titleInputRef, scrollAreaRef, getStatePreviewJSON]);
 
   // Build the single panel content (for workspace+panel mode)
   const panelContent = useMemo(() => {
@@ -553,8 +549,6 @@ function DashboardContent({
           !showJsonView && !isChatMaximized && currentWorkspaceId && !isLoadingWorkspace ? (
             <WorkspaceHeader
               titleInputRef={titleInputRef as React.RefObject<HTMLInputElement>}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
               currentWorkspaceId={currentWorkspaceId}
               isDesktop={isDesktop}
               isChatExpanded={isChatExpanded}
@@ -623,8 +617,6 @@ function DashboardContent({
             currentSlug={currentSlug}
             state={state}
             showJsonView={showJsonView}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
             isSaving={isSaving}
             lastSavedAt={lastSavedAt}
             hasUnsavedChanges={hasUnsavedChanges}
@@ -741,12 +733,6 @@ function DashboardView() {
 
     lastTrackedWorkspaceIdRef.current = currentWorkspaceId;
   }, [currentWorkspaceId, markWorkspaceOpened]);
-
-  // Reset search query when workspace changes
-  const setSearchQuery = useUIStore((state) => state.setSearchQuery);
-  useEffect(() => {
-    setSearchQuery('');
-  }, [currentWorkspaceId, setSearchQuery]);
 
   // Sync active folder with URL query param (?folder=<id>)
   // Reset folder/panels when workspace changes
