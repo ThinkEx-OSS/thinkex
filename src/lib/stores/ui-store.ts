@@ -290,13 +290,16 @@ export const useUIStore = create<UIState>()(
               const isAlreadyOpen = state.viewMode === 'workspace+panel' && state.openPanelIds.length === 1 && state.openPanelIds[0] === itemId;
               if (isAlreadyOpen) return {};
 
+              // Only track as auto-selected if user didn't already have it selected
+              const wasAlreadySelected = state.selectedCardIds.has(itemId);
+
               // Clean up old auto-selected cards
               state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
               newPanelAutoSelectedCardIds.clear();
 
               // Add new item to selections
               newSelectedCardIds.add(itemId);
-              newPanelAutoSelectedCardIds.add(itemId);
+              if (!wasAlreadySelected) newPanelAutoSelectedCardIds.add(itemId);
 
               return {
                 viewMode: 'workspace+panel' as ViewMode,
@@ -319,10 +322,11 @@ export const useUIStore = create<UIState>()(
             const existingId = state.openPanelIds[0];
             if (existingId === itemId) return {}; // Can't split with the same item
 
+            const wasAlreadySelected = state.selectedCardIds.has(itemId);
             const newSelectedCardIds = new Set(state.selectedCardIds);
             const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
             newSelectedCardIds.add(itemId);
-            newPanelAutoSelectedCardIds.add(itemId);
+            if (!wasAlreadySelected) newPanelAutoSelectedCardIds.add(itemId);
 
             return {
               viewMode: 'panel+panel' as ViewMode,
@@ -426,6 +430,9 @@ export const useUIStore = create<UIState>()(
               const isAlreadyOpen = state.openPanelIds.length === 1 && state.openPanelIds[0] === id && state.maximizedItemId === id;
               if (isAlreadyOpen) return {};
 
+              // Only track as auto-selected if user didn't already have it selected
+              const wasAlreadySelected = state.selectedCardIds.has(id);
+
               const newSelectedCardIds = new Set(state.selectedCardIds);
               const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
 
@@ -433,9 +440,9 @@ export const useUIStore = create<UIState>()(
               state.panelAutoSelectedCardIds.forEach(aid => newSelectedCardIds.delete(aid));
               newPanelAutoSelectedCardIds.clear();
 
-              // Add to selections and track as auto-selected
+              // Add to selections and track as auto-selected only if we're the ones selecting it
               newSelectedCardIds.add(id);
-              newPanelAutoSelectedCardIds.add(id);
+              if (!wasAlreadySelected) newPanelAutoSelectedCardIds.add(id);
 
               return {
                 viewMode: 'focus' as ViewMode,
