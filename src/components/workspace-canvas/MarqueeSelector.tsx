@@ -2,8 +2,8 @@
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useUIStore, selectSelectedCardIdsArray } from "@/lib/stores/ui-store";
-import { useShallow } from "zustand/react/shallow";
+import { useUIStore } from "@/lib/stores/ui-store";
+import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { createRectFromPoints, getIntersectingCards, type Rectangle } from "@/lib/utils/marquee-utils";
 import { useAutoScroll } from "@/hooks/ui/use-auto-scroll";
 
@@ -27,11 +27,7 @@ export function MarqueeSelector({
   const [marqueeRect, setMarqueeRect] = useState<Rectangle | null>(null);
 
   const selectMultipleCards = useUIStore((state) => state.selectMultipleCards);
-  // Use array selector with shallow comparison to prevent unnecessary re-renders and SSR issues
-  const selectedCardIdsArray = useUIStore(
-    useShallow(selectSelectedCardIdsArray)
-  );
-  const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
+  const { selectedCardIds } = useSelectedCardIds();
 
   const isDraggingRef = useRef(false);
   const startPointRef = useRef({ x: 0, y: 0 });

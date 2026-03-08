@@ -791,6 +791,7 @@ function SidebarCardList() {
     const { workspaces } = useWorkspaceContext();
     const activeFolderId = useUIStore((state) => state.activeFolderId);
     const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
+    const setOpenModalItemId = useUIStore((state) => state.setOpenModalItemId);
 
     // Get current workspace details
     const currentWorkspace = useMemo(() => {
@@ -893,15 +894,15 @@ function SidebarCardList() {
         [activeFolderId, setActiveFolderId]
     );
 
-    // Handle clicking on an item - open parent folders, set active folder, and scroll to card
+    // Handle clicking on an item - open parent folders, set active folder, and open the item's modal (matches Cmd+K)
     const handleItemClick = useCallback(
         (item: Item) => {
-            // If item is in a folder, open all parent folders and set the folder as active
-            if (item.folderId) {
-                // Get the path of all parent folders from root to the item's folder
-                const folderPath = getFolderPath(item.folderId, allItems);
+            // Skip folders - they use handleFolderClick
+            if (item.type === "folder") return;
 
-                // Open all folders in the path in the sidebar
+            // If item is in a folder, open all parent folders in the sidebar and set active folder
+            if (item.folderId) {
+                const folderPath = getFolderPath(item.folderId, allItems);
                 setOpenFolders((prev) => {
                     const next = new Set(prev);
                     folderPath.forEach((folder) => {
@@ -909,111 +910,15 @@ function SidebarCardList() {
                     });
                     return next;
                 });
-
-                // Set the item's folder as active so it's visible in the main view
                 setActiveFolderId(item.folderId);
             } else {
-                // If item is in root, clear any active folder (reveal only - no panel close)
                 setActiveFolderId(null);
             }
 
-            // Small delay to let the DOM update (folder filter and scroll)
-            setTimeout(() => {
-                const element = document.getElementById(`item-${item.id}`);
-                if (element) {
-                    // Find the scrollable container
-                    let container = element.parentElement;
-                    while (container && container !== document.body) {
-                        const style = window.getComputedStyle(container);
-                        if (style.overflowY === "auto" || style.overflowY === "scroll") {
-                            break;
-                        }
-                        container = container.parentElement;
-                    }
-
-                    // Function to add temporary highlight after scroll ends
-                    const addHighlight = () => {
-                        // Store original border styles
-                        const originalBorder = element.style.border;
-                        const originalBorderColor = element.style.borderColor;
-                        const originalBorderWidth = element.style.borderWidth;
-                        const originalBorderRadius = element.style.borderRadius;
-
-                        // Add highlight border with smooth animation (white, like selection)
-                        element.style.transition = 'border-color 0.3s ease-out, border-width 0.2s ease-out';
-                        element.style.borderColor = 'rgba(255, 255, 255, 0.8)';
-                        element.style.borderWidth = '3px';
-                        element.style.borderRadius = '0.375rem'; // rounded-md (6px)
-
-                        // Remove highlight after 1 second with fade out
-                        setTimeout(() => {
-                            element.style.borderColor = 'rgba(255, 255, 255, 0)';
-                            // Restore original styles after transition completes
-                            setTimeout(() => {
-                                element.style.border = originalBorder;
-                                element.style.borderColor = originalBorderColor;
-                                element.style.borderWidth = originalBorderWidth;
-                                element.style.borderRadius = originalBorderRadius;
-                                element.style.transition = '';
-                            }, 300);
-                        }, 1000);
-                    };
-
-                    let highlightTriggered = false;
-
-                    const triggerHighlight = () => {
-                        if (highlightTriggered) return;
-                        highlightTriggered = true;
-                        addHighlight();
-                    };
-
-                    // Use IntersectionObserver to detect when element is visible
-                    const observer = new IntersectionObserver(
-                        (entries) => {
-                            entries.forEach((entry) => {
-                                if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
-                                    triggerHighlight();
-                                    observer.disconnect();
-                                }
-                            });
-                        },
-                        {
-                            root: container !== document.body ? container : null,
-                            threshold: 0.5, // Trigger when 50% visible
-                        }
-                    );
-
-                    // Start observing
-                    observer.observe(element);
-
-                    // Fallback timeout in case observer doesn't fire (edge cases)
-                    setTimeout(() => {
-                        if (!highlightTriggered) {
-                            triggerHighlight();
-                            observer.disconnect();
-                        }
-                    }, 1000);
-
-                    if (container && container !== document.body) {
-                        const elementRect = element.getBoundingClientRect();
-                        const containerRect = container.getBoundingClientRect();
-                        const relativeTop = elementRect.top - containerRect.top;
-
-                        container.scrollTo({
-                            top:
-                                container.scrollTop +
-                                relativeTop -
-                                container.clientHeight / 2 +
-                                element.clientHeight / 2,
-                            behavior: "smooth",
-                        });
-                    } else {
-                        element.scrollIntoView({ behavior: "smooth", block: "center" });
-                    }
-                }
-            }, 150); // Slightly longer delay to ensure folder filter is applied
+            // Open the item in its detail modal (same as clicking the card)
+            setOpenModalItemId(item.id);
         },
-        [allItems, setActiveFolderId]
+        [allItems, setActiveFolderId, setOpenModalItemId]
     );
 
     if (isLoading) {

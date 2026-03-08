@@ -21,6 +21,7 @@ import { createSearchYoutubeTool, createAddYoutubeVideoTool } from "./youtube-to
 import { createWebSearchTool } from "./web-search";
 import { createSearchWorkspaceTool } from "./search-workspace";
 import { createReadWorkspaceTool } from "./read-workspace";
+import { createMagicFetchTool } from "./magic-fetch";
 import { logger } from "@/lib/utils/logger";
 
 export interface ChatToolsConfig {
@@ -30,6 +31,8 @@ export interface ChatToolsConfig {
     threadId?: string | null;
     clientTools?: Record<string, any>;
     enableDeepResearch?: boolean;
+    /** Experiment: enable magic_fetch tool (logs AI data requests to PostHog) */
+    enableMagicFetch?: boolean;
 }
 
 /**
@@ -80,6 +83,9 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
         // YouTube
         searchYoutube: createSearchYoutubeTool(),
         addYoutubeVideo: createAddYoutubeVideoTool(ctx),
+
+        // Experiment: magic_fetch (logs to PostHog via OpenTelemetry)
+        ...(config.enableMagicFetch ? { magicFetch: createMagicFetchTool(ctx) } : {}),
 
         // Google Images
         // searchImages: createSearchImagesTool(),

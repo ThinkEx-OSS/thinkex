@@ -43,11 +43,10 @@ export function ModalManager({
     // Flush any pending changes before closing
     onFlushPendingChanges(itemId);
 
-    // Clear maximized state first
-    setMaximizedItemId(null);
-
-    // Close the panel
+    // Close panel first (runs deselect logic) — must run before setMaximizedItemId
+    // so closePanel sees openPanelIds still populated
     closePanel(itemId);
+    setMaximizedItemId(null);
   };
 
   return (

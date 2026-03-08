@@ -9,8 +9,8 @@ import { filterItems } from "@/lib/workspace-state/search";
 import { useAutoScroll } from "@/hooks/ui/use-auto-scroll";
 import { WorkspaceGrid } from "./WorkspaceGrid";
 import type { LayoutItem } from "react-grid-layout";
-import { useUIStore, selectSelectedCardIdsArray } from "@/lib/stores/ui-store";
-import { useShallow } from "zustand/react/shallow";
+import { useUIStore } from "@/lib/stores/ui-store";
+import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { useAui } from "@assistant-ui/react";
 import { toast } from "sonner";
 
@@ -73,19 +73,7 @@ export default function WorkspaceContent({
   // Auto-scroll during drag operations (extracted to custom hook)
   const { handleDragStart: onDragStart, handleDragStop: onDragStop } = useAutoScroll(scrollContainerRef);
 
-  // Card selection state from UI store
-  // Use array selector with shallow comparison to prevent unnecessary re-renders and SSR issues
-  const selectedCardIdsArray = useUIStore(
-    useShallow(selectSelectedCardIdsArray)
-  );
-  // OPTIMIZED: Only recreate Set if array contents actually changed
-  // Create a stable string key for comparison (sorted to ensure order doesn't matter)
-  const selectedCardIdsKey = useMemo(() => {
-    return [...selectedCardIdsArray].sort().join(',');
-  }, [selectedCardIdsArray]);
-  const selectedCardIds = useMemo(() => {
-    return new Set(selectedCardIdsArray);
-  }, [selectedCardIdsKey]);
+  const { selectedCardIdsArray, selectedCardIds } = useSelectedCardIds();
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
 
 

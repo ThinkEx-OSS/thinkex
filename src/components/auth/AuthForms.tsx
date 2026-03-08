@@ -75,7 +75,7 @@ export function SignUpForm({ className, redirectTo, title, description, ...props
         try {
             await signIn.social({
                 provider: "google",
-                callbackURL: redirectTo || "/onboarding",
+                callbackURL: redirectTo || "/home",
             });
         } catch (error) {
             toast.error("Failed to sign in with Google");

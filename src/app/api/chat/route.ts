@@ -267,6 +267,7 @@ async function handlePOST(req: Request) {
       threadId,
       clientTools: body.tools,
       enableDeepResearch: false,
+      enableMagicFetch: true, // experiment: log AI data requests to PostHog
     });
 
     // Stream the response

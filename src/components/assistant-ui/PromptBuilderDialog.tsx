@@ -20,7 +20,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { WorkspaceItemPicker, getCardTypeIcon } from "@/components/chat/WorkspaceItemPicker";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useUIStore, selectReplySelections, selectSelectedCardIdsArray, selectBlockNoteSelection } from "@/lib/stores/ui-store";
+import { useUIStore, selectReplySelections, selectBlockNoteSelection } from "@/lib/stores/ui-store";
+import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { useShallow } from "zustand/react/shallow";
 import type { Item } from "@/lib/workspace-state/types";
 import { useAui } from "@assistant-ui/react";
@@ -177,11 +178,11 @@ export function PromptBuilderDialog({
   const formId = useId();
 
   const replySelections = useUIStore(useShallow(selectReplySelections));
-  const selectedCardIdsArray = useUIStore(useShallow(selectSelectedCardIdsArray));
-  const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
+  const { selectedCardIds } = useSelectedCardIds();
   const blockNoteSelection = useUIStore(selectBlockNoteSelection);
 
-  const [count, setCount] = useState(config.defaultCount ?? 10);
+  const defaultCount = config.defaultCount ?? 10;
+  const [countInput, setCountInput] = useState(String(defaultCount));
   const [selectedContextIds, setSelectedContextIds] = useState<Set<string>>(new Set());
   const [topicInput, setTopicInput] = useState("");
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
@@ -195,7 +196,7 @@ export function PromptBuilderDialog({
   // Initialize state when dialog opens
   useEffect(() => {
     if (open) {
-      setCount(config.defaultCount ?? 10);
+      setCountInput(String(config.defaultCount ?? 10));
       setNoteTemplate(null);
       setSearchSource("web");
       setTopicInput("");
@@ -205,7 +206,7 @@ export function PromptBuilderDialog({
     } else {
       setWorkspacePickerOpen(false);
     }
-  }, [open, selectedCardIds]);
+  }, [open, selectedCardIds, config.defaultCount]);
 
   useEffect(() => {
     if (workspaceSearchQuery.trim()) {
@@ -253,17 +254,28 @@ export function PromptBuilderDialog({
   }, [open]);
 
   const step = config.countStep ?? 1;
+  const resolveCount = useCallback(() => {
+    const trimmed = countInput.trim();
+    if (trimmed === "") return defaultCount;
+    const v = parseInt(trimmed, 10);
+    if (isNaN(v)) return defaultCount;
+    const snapped = Math.round(v / step) * step;
+    return Math.min(config.maxCount ?? 100, Math.max(config.minCount ?? 1, snapped));
+  }, [countInput, defaultCount, step, config.maxCount, config.minCount]);
+
   const incrementCount = useCallback(() => {
-    setCount((c) => Math.min(config.maxCount ?? 100, c + step));
-  }, [config.maxCount, step]);
+    const current = resolveCount();
+    setCountInput(String(Math.min(config.maxCount ?? 100, current + step)));
+  }, [config.maxCount, step, resolveCount]);
   const decrementCount = useCallback(() => {
-    setCount((c) => Math.max(config.minCount ?? 1, c - step));
-  }, [config.minCount, step]);
+    const current = resolveCount();
+    setCountInput(String(Math.max(config.minCount ?? 1, current - step)));
+  }, [config.minCount, step, resolveCount]);
 
   const builtPrompt = useMemo(() => {
     const parts: string[] = [];
     if (config.countLabel && (action === "flashcards" || action === "quiz")) {
-      parts.push(`Create ${count} ${action === "flashcards" ? "flashcards" : "quiz questions"}`);
+      parts.push(`Create ${resolveCount()} ${action === "flashcards" ? "flashcards" : "quiz questions"}`);
     }
     if (action === "youtube" && isYouTubeUrl(topicInput)) {
       const url = extractYouTubeUrl(topicInput)!;
@@ -289,7 +301,7 @@ export function PromptBuilderDialog({
       if (tpl?.description) parts.push(tpl.description);
     }
     return parts.join(". ");
-  }, [config, action, count, topicInput, selectedContextIds.size, noteTemplate, searchSource]);
+  }, [config, action, resolveCount, topicInput, selectedContextIds.size, noteTemplate, searchSource]);
 
   const hasValidTopic =
     (config.hasTopicSelector && (topicInput.trim().length > 0 || selectedContextIds.size > 0)) ||
@@ -500,16 +512,8 @@ export function PromptBuilderDialog({
                   type="number"
                   min={config.minCount}
                   max={config.maxCount}
-                  value={count}
-                  onChange={(e) => {
-                    const v = parseInt(e.target.value, 10);
-                    if (!isNaN(v)) {
-                      const step = config.countStep ?? 1;
-                      const snapped = Math.round(v / step) * step;
-                      const clamped = Math.min(config.maxCount ?? 100, Math.max(config.minCount ?? 1, snapped));
-                      setCount(clamped);
-                    }
-                  }}
+                  value={countInput}
+                  onChange={(e) => setCountInput(e.target.value)}
                   placeholder={config.countPlaceholder}
                   className="border-0 shadow-none focus-visible:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [appearance:textfield]"
                 />
