@@ -81,6 +81,7 @@ import { URLContextToolUI } from "@/components/assistant-ui/URLContextToolUI";
 import { WebSearchToolUI } from "@/components/assistant-ui/WebSearchToolUI";
 import { SearchWorkspaceToolUI } from "@/components/assistant-ui/SearchWorkspaceToolUI";
 import { ReadWorkspaceToolUI } from "@/components/assistant-ui/ReadWorkspaceToolUI";
+import { MagicFetchToolUI } from "@/components/assistant-ui/MagicFetchToolUI";
 
 import { DeleteCardToolUI } from "@/components/assistant-ui/DeleteCardToolUI";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
@@ -202,6 +203,7 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
         <WebSearchToolUI />
         <SearchWorkspaceToolUI />
         <ReadWorkspaceToolUI />
+        <MagicFetchToolUI />
         <ThreadPrimitive.Root
           className="aui-root aui-thread-root @container flex h-full flex-col bg-sidebar"
           style={{

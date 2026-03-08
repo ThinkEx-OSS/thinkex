@@ -45,7 +45,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { CardType, Item } from "@/lib/workspace-state/types";
-import { getFolderPath, searchItems } from "@/lib/workspace-state/search";
+import { getFolderPath, getSearchRank } from "@/lib/workspace-state/search";
 import { useMemo } from "react";
 import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";
 import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
@@ -64,7 +64,6 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandItem,
-  Command,
 } from "@/components/ui/command";
 
 interface WorkspaceHeaderProps {
@@ -1010,32 +1009,28 @@ export function WorkspaceHeader({
         onOpenChange={setIsSearchDialogOpen}
         title="Search workspace"
         description="Search notes, folders, and more..."
+        filter={(value, search) => {
+          const item = items.find((i) => i.id === value);
+          if (!item) return 0;
+          return getSearchRank(item, search ?? "");
+        }}
       >
-        <Command
-          filter={(value, search) => {
-            if (!search?.trim()) return 1;
-            const item = items.find((i) => i.id === value);
-            if (!item) return 0;
-            return searchItems([item], search).length > 0 ? 1 : 0;
-          }}
-        >
-          <CommandInput placeholder="Search workspace..." />
-          <CommandList>
-            <CommandEmpty>No results found.</CommandEmpty>
-            <CommandGroup heading="Results">
-              {(items ?? []).slice(0, 50).map((item) => (
-                <CommandItem
-                  key={item.id}
-                  value={item.id}
-                  onSelect={() => handleSearchSelect(item)}
-                >
-                  {getItemIcon(item.type)}
-                  <span className="truncate">{item.name}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+        <CommandInput placeholder="Search workspace..." />
+        <CommandList>
+          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandGroup heading="Results">
+            {(items ?? []).slice(0, 50).map((item) => (
+              <CommandItem
+                key={item.id}
+                value={item.id}
+                onSelect={() => handleSearchSelect(item)}
+              >
+                {getItemIcon(item.type)}
+                <span className="truncate">{item.name}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
       </CommandDialog>
       {/* Rename Dialog */}
       {

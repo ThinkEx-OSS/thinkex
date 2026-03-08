@@ -35,7 +35,6 @@ function getSearchableDataText(item: Item): string {
 function createFullSearchIndex(item: Item): string {
   const parts = [
     item.name,
-    item.subtitle,
     item.type,
     getSearchableDataText(item),
   ];
@@ -47,13 +46,12 @@ function createFullSearchIndex(item: Item): string {
 }
 
 /**
- * Creates a simple searchable index for an item (name only)
+ * Creates a simple searchable index for an item (name + type only)
  * Used for mentions menu search
  */
 function createSimpleSearchIndex(item: Item): string {
   const parts = [
     item.name,
-    item.subtitle,
     item.type,
   ];
 
@@ -61,6 +59,28 @@ function createSimpleSearchIndex(item: Item): string {
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
+}
+
+/**
+ * Returns search rank for an item: 2 = name match, 1 = content match, 0 = no match.
+ * Used for command palette to rank name matches above content matches.
+ */
+export function getSearchRank(item: Item, query: string): number {
+  if (!query?.trim()) return 1;
+
+  const normalizedQuery = query.toLowerCase().trim();
+  const queryTerms = normalizedQuery.split(/\s+/).filter((term) => term.length > 0);
+  if (queryTerms.length === 0) return 1;
+
+  const nameIndex = [item.name, item.type].filter(Boolean).join(" ").toLowerCase();
+  const fullIndex = createFullSearchIndex(item);
+
+  const allTermsInName = queryTerms.every((term) => nameIndex.includes(term));
+  const allTermsInFull = queryTerms.every((term) => fullIndex.includes(term));
+
+  if (allTermsInName) return 2;
+  if (allTermsInFull) return 1;
+  return 0;
 }
 
 /**
