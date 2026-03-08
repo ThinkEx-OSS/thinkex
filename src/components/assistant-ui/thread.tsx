@@ -81,6 +81,7 @@ import { URLContextToolUI } from "@/components/assistant-ui/URLContextToolUI";
 import { WebSearchToolUI } from "@/components/assistant-ui/WebSearchToolUI";
 import { SearchWorkspaceToolUI } from "@/components/assistant-ui/SearchWorkspaceToolUI";
 import { ReadWorkspaceToolUI } from "@/components/assistant-ui/ReadWorkspaceToolUI";
+import { MagicFetchToolUI } from "@/components/assistant-ui/MagicFetchToolUI";
 
 import { DeleteCardToolUI } from "@/components/assistant-ui/DeleteCardToolUI";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
@@ -104,7 +105,8 @@ import { ReplyContextDisplay } from "@/components/chat/ReplyContextDisplay";
 import { MessageContextBadges } from "@/components/chat/MessageContextBadges";
 import { MentionMenu } from "@/components/chat/MentionMenu";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import { useUIStore, selectReplySelections, selectSelectedCardIdsArray, selectBlockNoteSelection } from "@/lib/stores/ui-store";
+import { useUIStore, selectReplySelections, selectBlockNoteSelection } from "@/lib/stores/ui-store";
+import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { DropdownMenuSeparator, DropdownMenuLabel, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { useShallow } from "zustand/react/shallow";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
@@ -201,6 +203,7 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
         <WebSearchToolUI />
         <SearchWorkspaceToolUI />
         <ReadWorkspaceToolUI />
+        <MagicFetchToolUI />
         <ThreadPrimitive.Root
           className="aui-root aui-thread-root @container flex h-full flex-col bg-sidebar"
           style={{
@@ -228,7 +231,7 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
               }}
             />
 
-            <div className="sticky bottom-4 z-10 flex justify-center pt-4">
+            <div className="sticky bottom-4 z-10 flex justify-center pt-4 [&:has(button[disabled])]:hidden">
               <ThreadScrollToBottom />
             </div>
           </ThreadPrimitive.Viewport>
@@ -645,8 +648,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
   const blockNoteSelection = useUIStore(selectBlockNoteSelection);
   const clearReplySelections = useUIStore((state) => state.clearReplySelections);
   const clearBlockNoteSelection = useUIStore((state) => state.clearBlockNoteSelection);
-  const selectedCardIdsArray = useUIStore(useShallow(selectSelectedCardIdsArray));
-  const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
+  const { selectedCardIds } = useSelectedCardIds();
 
   // Get workspace state and operations for PDF card creation
   const { state: workspaceState } = useWorkspaceState(currentWorkspaceId);
@@ -1007,10 +1009,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
   useAui();
   const hasUploading = useAttachmentUploadStore((s) => s.uploadingIds.size > 0);
   const isAnonymous = session?.user?.isAnonymous ?? false;
-  const selectedCardIdsArray = useUIStore(
-    useShallow(selectSelectedCardIdsArray)
-  );
-  const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
+  const { selectedCardIds } = useSelectedCardIds();
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
 
   const [isWarningPopoverOpen, setIsWarningPopoverOpen] = useState(false);
@@ -1357,7 +1356,7 @@ const AssistantActionBar: FC = () => {
   );
 };
 
-const USER_MESSAGE_MAX_CHARS = 750;
+const USER_MESSAGE_MAX_CHARS = 250;
 
 const UserMessageTruncateContext = createContext<{
   maxChars: number;

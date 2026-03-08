@@ -32,11 +32,6 @@ export function PDFViewerModal({
   const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
 
-  // Check if card was already selected at the time of opening
-  // We access the store directly to avoid creating a subscription loop
-  // const currentSelectedIds = useUIStore.getState().selectedCardIds;
-  // const wasAlreadySelected = currentSelectedIds.has(item.id);
-
   // Auto-selection is handled by the URL sync mechanism (use-folder-url)
   // or by the manual open action (openPanel).
   // We no longer need to manually select it here, which avoids the infinite loop risk.

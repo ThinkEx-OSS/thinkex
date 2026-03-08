@@ -9,8 +9,8 @@ import WorkspaceHeader from "@/components/workspace-canvas/WorkspaceHeader";
 import SelectionActionBar from "./SelectionActionBar";
 import { WorkspaceSkeleton } from "@/components/workspace/WorkspaceSkeleton";
 import { MarqueeSelector } from "./MarqueeSelector";
-import { useUIStore, selectSelectedCardIdsArray } from "@/lib/stores/ui-store";
-import { useShallow } from "zustand/react/shallow";
+import { useUIStore } from "@/lib/stores/ui-store";
+import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { useSession } from "@/lib/auth-client";
 import { LoginGate } from "@/components/workspace/LoginGate";
 import { AccessDenied } from "@/components/workspace/AccessDenied";
@@ -71,8 +71,10 @@ interface WorkspaceSectionProps {
 
   // View state
   showJsonView: boolean;
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
+  /** @deprecated Search is now in command palette - workspace grid no longer filters by search */
+  searchQuery?: string;
+  /** @deprecated Search is now in command palette */
+  onSearchChange?: (query: string) => void;
 
   // Save state
   isSaving: boolean;
@@ -144,8 +146,6 @@ export function WorkspaceSection({
   currentSlug,
   state,
   showJsonView,
-  searchQuery,
-  onSearchChange,
   isSaving,
   lastSavedAt,
   hasUnsavedChanges,
@@ -184,10 +184,7 @@ export function WorkspaceSection({
 }: WorkspaceSectionProps) {
   // Card selection state from UI store
   // Use array selector with shallow comparison to prevent unnecessary re-renders and SSR issues
-  const selectedCardIdsArray = useUIStore(
-    useShallow(selectSelectedCardIdsArray)
-  );
-  const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
+  const { selectedCardIdsArray, selectedCardIds } = useSelectedCardIds();
   const clearCardSelection = useUIStore((state) => state.clearCardSelection);
   const openPanel = useUIStore((state) => state.openPanel);
   const { data: session } = useSession();
@@ -699,7 +696,7 @@ export function WorkspaceSection({
                   deleteItem={deleteItem}
                   updateAllItems={updateAllItems}
                   getStatePreviewJSON={getStatePreviewJSON}
-                  searchQuery={searchQuery}
+                  searchQuery=""
                   columns={columns}
                   setOpenModalItemId={setOpenModalItemId}
                   scrollContainerRef={scrollAreaRef}

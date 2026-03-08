@@ -5,7 +5,7 @@ import type { WorkspaceWithState, WorkspaceTemplate } from "@/lib/workspace-stat
 import type { CardColor } from "@/lib/workspace-state/colors";
 import { randomUUID } from "crypto";
 import { db, workspaces } from "@/lib/db/client";
-import { workspaceCollaborators } from "@/lib/db/schema";
+import { workspaceCollaborators, userProfiles } from "@/lib/db/schema";
 import { eq, desc, asc, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireAuthWithUserInfo, withErrorHandling } from "@/lib/api/workspace-helpers";
 import { withApiLogging } from "@/lib/with-api-logging";
@@ -16,6 +16,9 @@ import { withApiLogging } from "@/lib/with-api-logging";
  */
 async function handleGET() {
   const userId = await requireAuth();
+
+  // Lazy-create user profile if missing (replaces onboarding)
+  await db.insert(userProfiles).values({ userId }).onConflictDoNothing({ target: userProfiles.userId });
 
   // Get workspaces owned by user
   const ownedWorkspaces = await db

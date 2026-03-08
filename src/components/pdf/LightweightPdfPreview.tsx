@@ -13,6 +13,8 @@ const PDF_STATE_PREFIX = 'pdf-state-';
 interface LightweightPdfPreviewProps {
     pdfSrc: string;
     className?: string;
+    /** Item title to show above "Page x of x" when scroll is locked */
+    title?: string;
 }
 
 interface PdfSnapshotRendererProps {
@@ -20,6 +22,7 @@ interface PdfSnapshotRendererProps {
     pdfSrc: string;
     className?: string;
     pageCount: number;
+    title?: string;
 }
 
 function getErrorDetails(error: unknown): Record<string, unknown> {
@@ -46,6 +49,7 @@ function getErrorDetails(error: unknown): Record<string, unknown> {
 function PdfSnapshotRenderer({
     documentId,
     pdfSrc,
+    title,
     className,
     pageCount
 }: PdfSnapshotRendererProps) {
@@ -285,8 +289,19 @@ function PdfSnapshotRenderer({
                 />
             </div>
             {pageInfo && (
-                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-1 rounded-full bg-black/60 backdrop-blur-sm text-white/70 text-[10px]">
-                    Page {pageInfo.current} of {pageInfo.total}
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center bg-black/75 backdrop-blur-md rounded-2xl p-1 shadow-lg border border-white/10 pointer-events-none">
+                    {/* Page number row - matches AppPdfViewer PageControls */}
+                    <div className="min-w-[50px] text-center font-mono text-[10px] text-white/90 flex items-center justify-center px-1 h-5">
+                        <span>{pageInfo.current}</span>
+                        <span className="mx-0.5 opacity-50">/</span>
+                        <span>{pageInfo.total}</span>
+                    </div>
+                    {/* Document name - stacked below, matches AppPdfViewer */}
+                    {title && (
+                        <div className="max-w-[160px] px-1.5 pb-0.5 text-white/50 text-[9px] font-medium truncate text-center">
+                            {title}
+                        </div>
+                    )}
                 </div>
             )}
         </div>
@@ -297,7 +312,7 @@ function PdfSnapshotRenderer({
  * A lightweight PDF preview that renders a static image of the current page.
  * Uses minimal plugins (no interaction layers) for fast rendering.
  */
-export function LightweightPdfPreview({ pdfSrc, className }: LightweightPdfPreviewProps) {
+export function LightweightPdfPreview({ pdfSrc, title, className }: LightweightPdfPreviewProps) {
     const { engine, isLoading: engineLoading } = useEngineContext();
 
     // Minimal plugins - just enough to render a page image
@@ -342,6 +357,7 @@ export function LightweightPdfPreview({ pdfSrc, className }: LightweightPdfPrevi
                                     <PdfSnapshotRenderer
                                         documentId={activeDocumentId}
                                         pdfSrc={pdfSrc}
+                                        title={title}
                                         className={className}
                                         pageCount={documentState.document.pageCount || 1}
                                     />

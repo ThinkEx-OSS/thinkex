@@ -1,5 +1,5 @@
-import { AuthPageBackground } from "@/components/auth/AuthPageBackground";
 import { SignInForm, SignUpForm } from "@/components/auth/AuthForms";
+import { ThinkExLogo } from "@/components/ui/thinkex-logo";
 import { db } from "@/lib/db/client";
 import { workspaceInvites, workspaces, user } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -25,13 +25,9 @@ export default async function AuthPage({
 
   let redirectTo = redirect_url || callbackUrl;
 
-  // For sign-up, always route through onboarding, but preserve the final destination
-  if (path === "sign-up") {
-    if (redirectTo) {
-      redirectTo = `/onboarding?redirect_url=${encodeURIComponent(redirectTo)}`;
-    } else {
-      redirectTo = "/onboarding";
-    }
+  // For sign-up, go to home or preserve redirect_url (e.g. share links)
+  if (path === "sign-up" && !redirectTo) {
+    redirectTo = "/home";
   } else if (!redirectTo) {
     // For sign-in without a specific target, go to home
     redirectTo = "/home";
@@ -81,17 +77,15 @@ export default async function AuthPage({
 
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center p-4 md:p-6 overflow-hidden">
-      {/* Background with grid and cards */}
-      <AuthPageBackground />
-
       {/* Auth content */}
-      <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
-        {/* <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-center mb-6 text-foreground">
-          {title}
-        </h1> */}
+      <div className="relative z-10 w-full max-w-sm flex flex-col items-center gap-6 rounded-xl shadow-2xl bg-background border border-border/40 p-6 md:p-8">
+        {/* Logo - same as footer */}
+        <div className="flex items-center justify-center w-fit">
+          <ThinkExLogo size={32} />
+        </div>
 
         <div className="w-full flex justify-center">
-          <div className="w-full bg-background/60 backdrop-blur-md border border-blue-500/20 shadow-xl rounded-xl p-6 md:p-8">
+          <div className="w-full">
             {path === "sign-in" && <SignInForm redirectTo={redirectTo} title={title} description={description} />}
             {path === "sign-up" && <SignUpForm redirectTo={redirectTo} title={title} description={description} />}
           </div>

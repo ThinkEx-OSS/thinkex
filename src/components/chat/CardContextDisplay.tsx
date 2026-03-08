@@ -4,9 +4,9 @@ import { useState, useMemo, memo } from "react";
 
 import { X, ChevronDown, ChevronUp } from "lucide-react";
 import { MdFormatColorText } from "react-icons/md";
-import { useUIStore, selectSelectedCardIdsArray, selectBlockNoteSelection } from "@/lib/stores/ui-store";
+import { useUIStore, selectBlockNoteSelection } from "@/lib/stores/ui-store";
+import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useShallow } from "zustand/react/shallow";
 import type { Item } from "@/lib/workspace-state/types";
 
 interface CardContextDisplayProps {
@@ -18,11 +18,7 @@ interface CardContextDisplayProps {
  * Shows cards in a collapsible view - single line by default, expandable to show all.
  */
 function CardContextDisplayImpl({ items }: CardContextDisplayProps) {
-  // Use array selector with shallow comparison to prevent unnecessary re-renders and SSR issues
-  const selectedCardIdsArray = useUIStore(
-    useShallow(selectSelectedCardIdsArray)
-  );
-  const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
+  const { selectedCardIds } = useSelectedCardIds();
   const activePdfPageByItemId = useUIStore((state) => state.activePdfPageByItemId);
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
   const clearBlockNoteSelection = useUIStore((state) => state.clearBlockNoteSelection);

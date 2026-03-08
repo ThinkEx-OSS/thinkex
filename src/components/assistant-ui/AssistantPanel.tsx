@@ -8,8 +8,7 @@ import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import AppChatHeader from "@/components/chat/AppChatHeader";
 import { cn } from "@/lib/utils";
 import AssistantTextSelectionManager from "@/components/assistant-ui/AssistantTextSelectionManager";
-import { useUIStore, selectSelectedCardIdsArray } from "@/lib/stores/ui-store";
-import { useShallow } from "zustand/react/shallow";
+import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { useMemo, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
@@ -124,12 +123,7 @@ function WorkspaceContextWrapperContent({
   // Extract workspace items for context display
   const items = state?.items || [];
 
-  // Get selected card IDs from UI store
-  // Use array selector with shallow comparison to prevent unnecessary re-renders and SSR issues
-  const selectedCardIdsArray = useUIStore(
-    useShallow(selectSelectedCardIdsArray)
-  );
-  const selectedCardIds = useMemo(() => new Set(selectedCardIdsArray), [selectedCardIdsArray]);
+  const { selectedCardIds } = useSelectedCardIds();
 
   // Filter items to get only selected cards
   const selectedItems = useMemo(
