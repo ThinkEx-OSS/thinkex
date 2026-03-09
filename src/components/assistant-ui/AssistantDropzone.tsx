@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { emitOfficeDocumentRejected } from "@/components/modals/OfficeDocumentRejectedDialog";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
+import { isWordFile, isExcelFile, isPptxFile } from "@/lib/uploads/office-document-validation";
 
 interface AssistantDropzoneProps {
   children: React.ReactNode;

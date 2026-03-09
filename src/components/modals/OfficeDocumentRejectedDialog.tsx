@@ -74,7 +74,9 @@ export function OfficeDocumentRejectedDialog() {
 
   useEffect(() => {
     listeners.add(handleEvent);
-    return () => listeners.delete(handleEvent);
+    return () => {
+      listeners.delete(handleEvent);
+    };
   }, [handleEvent]);
 
   const sections = SECTIONS.filter((s) => {

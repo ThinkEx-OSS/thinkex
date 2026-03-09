@@ -29,7 +29,7 @@ async function handlePOST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { filename, contentType } = body;
+    const { filename, contentType = "" } = body;
 
     if (!filename || typeof filename !== 'string') {
       return NextResponse.json(
@@ -39,7 +39,6 @@ async function handlePOST(request: NextRequest) {
     }
 
     // Reject Office documents — convert to PDF at ilovepdf.com
-    const contentType = body.contentType || "";
     const convertUrl = getOfficeDocumentConvertUrlFromMeta(filename, contentType);
     if (convertUrl) {
       return NextResponse.json(

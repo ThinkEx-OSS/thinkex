@@ -212,7 +212,7 @@ async function handleGET(
     : (snapshotVersion || 0);
 
   // Strip ocrPages/textContent from PDF items — client doesn't need them for display
-  if (latestSnapshot?.state) stripPdfOcrFromState(latestSnapshot.state as { items?: unknown[] });
+  if (latestSnapshot?.state) stripPdfOcrFromState(latestSnapshot.state as { items?: Array<{ type?: string; data?: unknown }> });
   events.forEach(stripPdfOcrFromEventPayload);
 
   const response: EventResponse = {
