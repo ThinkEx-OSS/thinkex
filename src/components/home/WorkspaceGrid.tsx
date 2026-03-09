@@ -70,7 +70,7 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
         const element = document.querySelector(`[data-workspace-id="${workspace.id}"]`);
         if (element instanceof HTMLElement) {
           const color = workspace.color as CardColor | undefined;
-          const borderColor = color ? getCardAccentColor(color, 0.5) : 'var(--sidebar-border)';
+          const borderColor = color ? getCardAccentColor(color, 0.2) : 'var(--sidebar-border)';
           element.style.borderColor = borderColor;
         }
       });
@@ -175,7 +175,7 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
           {/* Existing Workspaces */}
           {filteredWorkspaces.map((workspace) => {
             const color = workspace.color as CardColor | undefined;
-            const borderColor = color ? getCardAccentColor(color, 0.5) : 'var(--sidebar-border)';
+            const borderColor = color ? getCardAccentColor(color, 0.2) : 'var(--sidebar-border)';
             const previewText = getPreviewText(workspace);
 
             return (
@@ -216,7 +216,7 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
                 )}
                 style={{
                   backgroundColor: 'hsl(var(--muted) / 0.4)',
-                  borderWidth: '1px',
+                  borderWidth: '2px',
                   borderStyle: 'solid',
                   borderColor: borderColor,
                 }}
@@ -291,7 +291,7 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
                     <div className="flex items-center justify-center h-full pt-8">
                       <IconRenderer
                         icon={workspace.icon}
-                        className="h-12 w-12 opacity-30 group-hover:opacity-40 group-hover:scale-110 transition-all duration-200"
+                        className="h-12 w-12 opacity-90 group-hover:opacity-100 group-hover:scale-110 transition-all duration-200"
                         style={{ color: workspace.color || "hsl(var(--primary))" }}
                       />
                     </div>
