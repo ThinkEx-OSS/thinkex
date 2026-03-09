@@ -71,8 +71,7 @@ interface WorkspaceSectionProps {
 
   // View state
   showJsonView: boolean;
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
+  onOpenSearch?: () => void;
 
   // Save state
   isSaving: boolean;
@@ -144,8 +143,7 @@ export function WorkspaceSection({
   currentSlug,
   state,
   showJsonView,
-  searchQuery,
-  onSearchChange,
+  onOpenSearch,
   isSaving,
   lastSavedAt,
   hasUnsavedChanges,
@@ -696,7 +694,6 @@ export function WorkspaceSection({
                   deleteItem={deleteItem}
                   updateAllItems={updateAllItems}
                   getStatePreviewJSON={getStatePreviewJSON}
-                  searchQuery={searchQuery}
                   columns={columns}
                   setOpenModalItemId={setOpenModalItemId}
                   scrollContainerRef={scrollAreaRef}

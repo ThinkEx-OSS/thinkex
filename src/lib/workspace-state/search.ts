@@ -267,3 +267,133 @@ export function filterItemIdsForFolderCreation(
   return itemIds.filter((id) => !idsToExclude.has(id));
 }
 
+export interface ContentMatchSnippet {
+  before: string;
+  match: string;
+  after: string;
+}
+
+export interface RankedSearchResult {
+  item: Item;
+  score: number;
+  matchType: string;
+  /** When matchType is "content", a snippet with the matching text and context */
+  contentSnippet?: ContentMatchSnippet | null;
+}
+
+const SCORE_EXACT_NAME = 1000;
+const SCORE_PREFIX_NAME = 800;
+const SCORE_TOKEN_NAME = 600;
+const SCORE_SUBSTRING_META = 400;
+const SCORE_CONTENT = 200;
+
+const SNIPPET_CONTEXT_CHARS = 40;
+
+/**
+ * Extracts a snippet from content text showing the matching query with surrounding context.
+ * Used for content-match results in the command palette.
+ */
+function getContentMatchSnippet(
+  contentText: string,
+  queryTerms: string[]
+): ContentMatchSnippet | null {
+  if (!contentText || queryTerms.length === 0) return null;
+
+  const contentLower = contentText.toLowerCase();
+  let bestStart = -1;
+  let bestEnd = -1;
+
+  // Find the first occurrence of the first query term
+  const firstTerm = queryTerms[0];
+  const idx = contentLower.indexOf(firstTerm);
+  if (idx === -1) return null;
+
+  bestStart = idx;
+  bestEnd = idx + firstTerm.length;
+
+  // Extend to include other query terms if they appear nearby (within ~80 chars)
+  for (let i = 1; i < queryTerms.length; i++) {
+    const term = queryTerms[i];
+    const termIdx = contentLower.indexOf(term, bestStart);
+    if (termIdx !== -1 && termIdx <= bestEnd + 60) {
+      bestEnd = Math.max(bestEnd, termIdx + term.length);
+    }
+  }
+
+  const beforeStart = Math.max(0, bestStart - SNIPPET_CONTEXT_CHARS);
+  const afterEnd = Math.min(contentText.length, bestEnd + SNIPPET_CONTEXT_CHARS);
+
+  const before = (beforeStart > 0 ? "…" : "") + contentText.slice(beforeStart, bestStart).trimStart();
+  const match = contentText.slice(bestStart, bestEnd);
+  const after = contentText.slice(bestEnd, afterEnd).trimEnd() + (afterEnd < contentText.length ? "…" : "");
+
+  return { before, match, after };
+}
+
+/**
+ * Ranks workspace items by search relevance for command palette.
+ * Name matches score higher than content matches.
+ */
+export function rankWorkspaceSearchResults(
+  items: Item[],
+  query: string
+): RankedSearchResult[] {
+  if (!Array.isArray(items) || items.length === 0) return [];
+  if (!query || !query.trim()) return [];
+
+  const normalizedQuery = query.toLowerCase().trim();
+  const queryTerms = normalizedQuery.split(/\s+/).filter((term) => term.length > 0);
+  if (queryTerms.length === 0) return [];
+
+  const results: RankedSearchResult[] = [];
+
+  for (const item of items) {
+    const nameLower = (item.name ?? "").toLowerCase().trim();
+    const subtitleLower = (item.subtitle ?? "").toLowerCase();
+    const typeLower = (item.type ?? "").toLowerCase();
+    const metaIndex = [nameLower, subtitleLower, typeLower].filter(Boolean).join(" ");
+    const contentText = getSearchableDataText(item).toLowerCase();
+
+    let score = 0;
+    let matchType = "";
+
+    // 1. Exact name match
+    if (nameLower === normalizedQuery) {
+      score = SCORE_EXACT_NAME;
+      matchType = "exact";
+    }
+    // 2. Prefix match on name
+    else if (nameLower.startsWith(normalizedQuery)) {
+      score = SCORE_PREFIX_NAME;
+      matchType = "prefix";
+    }
+    // 3. Token/word match on name (all query terms found in name)
+    else if (queryTerms.every((term) => nameLower.includes(term))) {
+      score = SCORE_TOKEN_NAME;
+      matchType = "token";
+    }
+    // 4. Substring on name + subtitle + type
+    else if (queryTerms.every((term) => metaIndex.includes(term))) {
+      score = SCORE_SUBSTRING_META;
+      matchType = "meta";
+    }
+    // 5. Content-text matches
+    else if (queryTerms.every((term) => contentText.includes(term))) {
+      score = SCORE_CONTENT;
+      matchType = "content";
+    }
+
+    if (score > 0) {
+      const rawContent = getSearchableDataText(item);
+      const contentSnippet =
+        matchType === "content" && rawContent
+          ? getContentMatchSnippet(rawContent, queryTerms)
+          : null;
+      results.push({ item, score, matchType, contentSnippet });
+    }
+  }
+
+  results.sort((a, b) => b.score - a.score);
+  return results.slice(0, 50);
+}
+

@@ -5,7 +5,7 @@ import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Plus, Copy, Check, Download, Upload } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import type { AgentState, Item, CardType } from "@/lib/workspace-state/types";
-import { filterItems } from "@/lib/workspace-state/search";
+import { filterItemsByFolder } from "@/lib/workspace-state/search";
 import { useAutoScroll } from "@/hooks/ui/use-auto-scroll";
 import { WorkspaceGrid } from "./WorkspaceGrid";
 import type { LayoutItem } from "react-grid-layout";
@@ -22,7 +22,6 @@ interface WorkspaceContentProps {
   deleteItem: (itemId: string) => void;
   updateAllItems: (items: Item[]) => void;
   getStatePreviewJSON: (s: AgentState | undefined) => Record<string, unknown>;
-  searchQuery?: string;
   columns: number; // Pass columns from layout state instead of calculating here
   setOpenModalItemId: (id: string | null) => void;
   scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
@@ -47,7 +46,6 @@ export default function WorkspaceContent({
   deleteItem,
   updateAllItems,
   getStatePreviewJSON,
-  searchQuery = "",
   columns, // Columns now passed from parent (calculated in use-layout-state)
   setOpenModalItemId,
   scrollContainerRef: externalScrollContainerRef,
@@ -130,10 +128,10 @@ export default function WorkspaceContent({
     }
   }, [viewState, getStatePreviewJSON, workspaceTitle]);
 
-  // Filter items based on search query and active folder
+  // Filter items by active folder (search is handled by WorkspaceSearchDialog)
   const filteredItems = useMemo(() => {
-    return filterItems(viewState.items, searchQuery, activeFolderId);
-  }, [viewState.items, searchQuery, activeFolderId]);
+    return filterItemsByFolder(viewState.items ?? [], activeFolderId ?? null);
+  }, [viewState.items, activeFolderId]);
 
   // Handle opening a folder (folders are now items with type: 'folder')
   // Uses setActiveFolderId to switch folder without closing panels; breadcrumb handles "navigate back"
@@ -382,14 +380,11 @@ export default function WorkspaceContent({
     onDragStop();
   }, [onDragStop]);
 
-  // Check if we're in a filtered/folder view with no items
-  const isFiltering = searchQuery.trim() !== '' || activeFolderId !== null;
-  // Temporary filters (search) should not save layouts, but folder views should
-  const isTemporaryFilter = searchQuery.trim() !== '';
+  // Check if we're in folder view with no items
+  const isFiltering = activeFolderId !== null;
 
-  // Show empty state if no items exist at all OR if filtering yields no results (and no search query)
-  // This allows users to see the "Drag and Drop" prompt when selecting a new empty folder
-  if ((viewState.items ?? []).length === 0 || (isFiltering && !searchQuery && filteredItems.length === 0)) {
+  // Show empty state if no items exist at all OR if folder filtering yields no results
+  if ((viewState.items ?? []).length === 0 || (isFiltering && filteredItems.length === 0)) {
     return (
       <div className={showJsonView ? "h-full w-full" : "flex-1 py-4 overflow-hidden"}>
         <div className={`${selectedCardIdsArray.length > 0 ? 'pb-20' : ''} size-full workspace-grid-container px-4 sm:px-6`}>
@@ -454,24 +449,6 @@ export default function WorkspaceContent({
     );
   }
 
-  // Show no results message if search has no matches
-  if (searchQuery && filteredItems.length === 0) {
-    return (
-      <div className={showJsonView ? "h-full w-full" : "flex-1 py-4 overflow-hidden"}>
-        <div className={`${selectedCardIdsArray.length > 0 ? 'pb-20' : ''} size-full workspace-grid-container px-4 sm:px-6`}>
-          <EmptyState className="w-full min-w-0 max-w-full">
-            <div className="mx-auto max-w-lg text-center px-6 py-10">
-              <h2 className="text-lg font-semibold text-foreground">No results found</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {`No items match "${searchQuery}". Try a different search term.`}
-              </p>
-            </div>
-          </EmptyState>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className={showJsonView ? "h-full w-full" : "py-4"}>
       {showJsonView ? (
@@ -519,11 +496,11 @@ export default function WorkspaceContent({
         </div>
       ) : (
         <WorkspaceGrid
-          key={searchQuery || activeFolderId ? 'filtered' : 'all'}
+          key={activeFolderId ?? 'root'}
           items={filteredItems}
           allItems={viewState.items}
           isFiltered={isFiltering}
-          isTemporaryFilter={isTemporaryFilter}
+          isTemporaryFilter={false}
           onDragStart={handleDragStart}
           onDragStop={handleDragStop}
           onUpdateItem={handleUpdateItem}
