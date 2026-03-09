@@ -81,6 +81,7 @@ import { WebSearchToolUI } from "@/components/assistant-ui/WebSearchToolUI";
 import { SearchWorkspaceToolUI } from "@/components/assistant-ui/SearchWorkspaceToolUI";
 import { ReadWorkspaceToolUI } from "@/components/assistant-ui/ReadWorkspaceToolUI";
 import { MagicFetchToolUI } from "@/components/assistant-ui/MagicFetchToolUI";
+import { AIFeedbackDialog } from "@/components/assistant-ui/AIFeedbackDialog";
 
 import { DeleteCardToolUI } from "@/components/assistant-ui/DeleteCardToolUI";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
@@ -110,6 +111,7 @@ import { DropdownMenuSeparator, DropdownMenuLabel, DropdownMenuSub, DropdownMenu
 import { useShallow } from "zustand/react/shallow";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import { toast } from "sonner";
 import { useCreateCardFromMessage } from "@/hooks/ai/use-create-card-from-message";
 import { extractUrls, createUrlFile } from "@/lib/attachments/url-utils";
@@ -989,6 +991,12 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
 
   const [isWarningPopoverOpen, setIsWarningPopoverOpen] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
+
+  // AI Debug button: always show in dev, only when feature flag enabled in prod
+  const isDev = process.env.NODE_ENV === "development";
+  const aiDebugFlagEnabled = useFeatureFlagEnabled("ai-debug-feedback");
+  const showAiDebugButton = isDev || aiDebugFlagEnabled === true;
 
   // Model selector state
   const selectedModelId = useUIStore((state) => state.selectedModelId);
@@ -1074,19 +1082,24 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-        {/* AI Debug Button - only in development */}
-        {process.env.NODE_ENV === "development" && (
+        {/* AI Debug Button - feature flag in prod, localhost debugger in dev */}
+        {showAiDebugButton && (
           <button
             type="button"
             className="flex items-center gap-1.5 px-1.5 py-1 rounded-md bg-red-500/10 hover:bg-red-500/20 transition-colors flex-shrink-0 text-xs font-normal text-red-500 hover:text-red-400 cursor-pointer border border-red-500/20"
             onClick={() => {
-              window.open("http://localhost:4983", "_blank");
+              if (process.env.NODE_ENV === "development") {
+                window.open("http://localhost:4983", "_blank");
+              } else {
+                setIsFeedbackDialogOpen(true);
+              }
             }}
           >
             <Bug className="w-3.5 h-3.5" />
             <span>AI Debug</span>
           </button>
         )}
+        <AIFeedbackDialog open={isFeedbackDialogOpen} onOpenChange={setIsFeedbackDialogOpen} />
         {/* Warning icon for anonymous users */}
         {isAnonymous && (
 

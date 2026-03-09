@@ -1,0 +1,97 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { usePostHog } from "posthog-js/react";
+import { toast } from "sonner";
+import { useAuiState } from "@assistant-ui/react";
+import { useWorkspaceStore } from "@/lib/stores/workspace-store";
+
+interface AIFeedbackDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function AIFeedbackDialog({ open, onOpenChange }: AIFeedbackDialogProps) {
+  const [feedback, setFeedback] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const posthog = usePostHog();
+
+  const threadListItemId = useAuiState(({ threadListItem }) => (threadListItem as { id?: string })?.id);
+  const mainThreadId = useAuiState(({ threads }) => (threads as { mainThreadId?: string })?.mainThreadId);
+  const threadId = threadListItemId ?? mainThreadId;
+  const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
+
+  const handleSubmit = useCallback(() => {
+    setIsSubmitting(true);
+
+    if (posthog) {
+      posthog.capture("ai-feedback-reported", {
+        feedback: feedback.trim(),
+        thread_id: threadId ?? undefined,
+        workspace_id: workspaceId ?? undefined,
+        source: "composer",
+      });
+    }
+
+    toast.success("Feedback submitted—thank you!");
+    setFeedback("");
+    onOpenChange(false);
+    setIsSubmitting(false);
+  }, [feedback, threadId, workspaceId, posthog, onOpenChange]);
+
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (!nextOpen && !isSubmitting) {
+        setFeedback("");
+      }
+      onOpenChange(nextOpen);
+    },
+    [onOpenChange, isSubmitting]
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Report AI Issue</DialogTitle>
+          <DialogDescription>
+            What went wrong with the AI? Your feedback helps us improve.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <Textarea
+            placeholder="Describe what went wrong (optional)..."
+            value={feedback}
+            onChange={(e) => setFeedback(e.target.value)}
+            rows={4}
+            className="resize-none"
+          />
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => handleOpenChange(false)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? "Submitting..." : "Submit Feedback"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
