@@ -259,8 +259,9 @@ export function PromptBuilderDialog({
     if (trimmed === "") return defaultCount;
     const v = parseInt(trimmed, 10);
     if (isNaN(v)) return defaultCount;
-    return Math.min(config.maxCount ?? 100, Math.max(config.minCount ?? 1, v));
-  }, [countInput, defaultCount, config.maxCount, config.minCount]);
+    const snapped = Math.round(v / step) * step;
+    return Math.min(config.maxCount ?? 100, Math.max(config.minCount ?? 1, snapped));
+  }, [countInput, defaultCount, step, config.maxCount, config.minCount]);
 
   const incrementCount = useCallback(() => {
     const current = resolveCount();
