@@ -294,6 +294,13 @@ async function handlePOST(req: Request) {
     // Prepare provider options
     // The Gateway passes these through to the specific provider
     const isClaudeModel = modelId.includes("claude");
+    const vertexProject = process.env.GOOGLE_VERTEX_PROJECT;
+    const vertexLocation = process.env.GOOGLE_VERTEX_LOCATION || "us-central1";
+    const vertexClientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+    const vertexPrivateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+    const hasVertexByok =
+      vertexProject && vertexClientEmail && vertexPrivateKey;
+
     let providerOptions: any = {
       gateway: {
         // Route Claude models through Vertex AI only
@@ -302,6 +309,22 @@ async function handlePOST(req: Request) {
         models: ["google/gemini-2.5-flash"],
         // Track usage per end-user for analytics
         ...(userId ? { user: userId } : {}),
+        // BYOK for Vertex: use GCP credentials so Claude (Haiku, etc.) bypasses Vercel balance
+        ...(isClaudeModel &&
+        hasVertexByok && {
+          byok: {
+            vertex: [
+              {
+                project: vertexProject!,
+                location: vertexLocation,
+                googleCredentials: {
+                  clientEmail: vertexClientEmail!,
+                  privateKey: vertexPrivateKey!,
+                },
+              },
+            ],
+          },
+        }),
         // Fail fast if provider doesn't start streaming within 30s (BYOK only)
         providerTimeouts: {
           byok: {
