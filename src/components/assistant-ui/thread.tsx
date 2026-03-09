@@ -248,19 +248,14 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
 const ThreadScrollToBottom: FC = () => {
   return (
     <ThreadPrimitive.ScrollToBottom asChild>
-      <TooltipIconButton
-        tooltip="Scroll to bottom"
+      <Button
         variant="outline"
-        className={cn(
-          "aui-thread-scroll-to-bottom rounded-xl p-4 disabled:hidden",
-          "bg-white/5 border-white/10 text-white/60",
-          "hover:border-white/20 hover:bg-white/10 hover:text-white",
-          "shadow-none",
-          "transition-[background-color,border-color,box-shadow,color] duration-300 ease-out"
-        )}
+        size="icon"
+        aria-label="Scroll to bottom"
+        className="aui-thread-scroll-to-bottom rounded-xl p-4 disabled:hidden"
       >
         <ArrowDownIcon />
-      </TooltipIconButton>
+      </Button>
     </ThreadPrimitive.ScrollToBottom>
   );
 };
