@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { FolderPlus, MoreVertical, Users, Trash2, Share2, X, CheckSquare } from "lucide-react";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import CreateWorkspaceModal from "@/components/workspace/CreateWorkspaceModal";
-import { useSession } from "@/lib/auth-client";
 import { IconRenderer } from "@/hooks/use-icon-picker";
 import { cn } from "@/lib/utils";
 import WorkspaceSettingsModal from "@/components/workspace/WorkspaceSettingsModal";
@@ -29,7 +28,6 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
   const router = useRouter();
   const { showCreateWorkspaceModal, setShowCreateWorkspaceModal } = useUIStore();
   const { workspaces, switchWorkspace, loadWorkspaces, deleteWorkspace, loadingWorkspaces } = useWorkspaceContext();
-  const { data: session } = useSession();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
 
@@ -45,8 +43,6 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
     );
   }, [workspaces, searchQuery]);
   const [settingsWorkspace, setSettingsWorkspace] = useState<WorkspaceWithState | null>(null);
-  const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
-  const hasAttemptedWelcomeWorkspace = useRef(false);
   const prefetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Multi-select state
@@ -99,36 +95,6 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
       // Error handling
     }
   };
-
-  // Lazy workspace creation for anonymous users
-  useEffect(() => {
-    const createWelcomeWorkspace = async () => {
-      if (!session?.user?.isAnonymous) return;
-      if (workspaces.length > 0) return; // Already has workspaces
-      if (isCreatingWorkspace) return; // Already creating
-      if (hasAttemptedWelcomeWorkspace.current) return; // Avoid retry loop
-
-      setIsCreatingWorkspace(true);
-      hasAttemptedWelcomeWorkspace.current = true;
-      try {
-        console.log("Welcome workspace creation disabled");
-        // const res = await fetch("/api/guest/create-welcome-workspace", {
-        //   method: "POST",
-        // });
-
-        // if (res.ok) {
-        //   // Reload workspaces to show the newly created one
-        //   await loadWorkspaces();
-        // }
-      } catch (error) {
-        console.error("Failed to create welcome workspace:", error);
-      } finally {
-        setIsCreatingWorkspace(false);
-      }
-    };
-
-    createWelcomeWorkspace();
-  }, [session, workspaces.length, loadWorkspaces]);
 
   // Format date helper
   const formatDate = (dateString: string | null | undefined) => {
@@ -205,14 +171,6 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
               New workspace
             </h3>
           </div>
-
-          {/* Loading state for anonymous users creating first workspace */}
-          {session?.user?.isAnonymous && workspaces.length === 0 && isCreatingWorkspace && (
-            <div className="relative rounded-md shadow-sm min-h-[180px] overflow-hidden flex flex-col items-center justify-center gap-3 bg-muted/40 border border-muted-foreground/20">
-              <div className="w-8 h-8 border-2 border-primary/30 border-t-primary animate-spin rounded-full" />
-              <p className="text-sm text-muted-foreground">Setting up your workspace...</p>
-            </div>
-          )}
 
           {/* Existing Workspaces */}
           {filteredWorkspaces.map((workspace) => {
