@@ -292,48 +292,13 @@ async function handlePOST(req: Request) {
     }
 
     // Prepare provider options
-    // The Gateway passes these through to the specific provider
-    const isClaudeModel = modelId.includes("claude");
-    const vertexProject = process.env.GOOGLE_VERTEX_PROJECT;
-    const vertexLocation = process.env.GOOGLE_VERTEX_LOCATION || "us-central1";
-    const vertexClientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-    const vertexPrivateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
-    const hasVertexByok =
-      vertexProject && vertexClientEmail && vertexPrivateKey;
-
+    // Claude routes to Anthropic via AI Gateway (consumes AI Gateway credits)
+    // Gemini routes to Google/Vertex; implicit caching works automatically
     let providerOptions: any = {
       gateway: {
-        // Route Claude models through Vertex AI only
-        ...(isClaudeModel ? { only: ["vertex"] } : {}),
-        // Universal fallback: try Gemini 2.5 Flash if primary fails
+        caching: "auto", // Cache markers for Anthropic; no-op for Google (implicit)
         models: ["google/gemini-2.5-flash"],
-        // Track usage per end-user for analytics
         ...(userId ? { user: userId } : {}),
-        // BYOK for Vertex: use GCP credentials so Claude (Haiku, etc.) bypasses Vercel balance
-        ...(isClaudeModel &&
-        hasVertexByok && {
-          byok: {
-            vertex: [
-              {
-                project: vertexProject!,
-                location: vertexLocation,
-                googleCredentials: {
-                  clientEmail: vertexClientEmail!,
-                  privateKey: vertexPrivateKey!,
-                },
-              },
-            ],
-          },
-        }),
-        // Fail fast if provider doesn't start streaming within 30s (BYOK only)
-        providerTimeouts: {
-          byok: {
-            vertex: 30_000,
-            google: 30_000,
-            anthropic: 30_000,
-            openai: 30_000,
-          },
-        },
       } as GatewayProviderOptions,
       google: googleConfig,
     };
