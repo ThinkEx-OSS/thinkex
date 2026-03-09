@@ -175,7 +175,6 @@ export default function WorkspaceContent({
       if (item.type !== "pdf") return false;
       const pdf = item.data as import("@/lib/workspace-state/types").PdfData;
       if (!pdf.fileUrl) return false;
-      if (pdf.ocrPages?.length) return false;
       if (pdf.ocrStatus === "processing" || pdf.ocrStatus === "complete") return false;
       if (migratedIdsRef.current.has(item.id)) return false;
       return true;
