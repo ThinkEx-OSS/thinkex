@@ -40,11 +40,12 @@ function ResizableHandle({
       data-slot="resizable-handle"
       className={cn(
         "relative z-30 flex w-px items-center justify-center outline-none data-[orientation=vertical]:h-px data-[orientation=vertical]:w-full [&[data-orientation=vertical]>div]:rotate-90",
-        "transition-shadow duration-150",
-        "[&[data-separator=hover]:not([data-orientation=vertical])]:shadow-[1px_0_0_0_var(--sidebar-border),2px_0_0_0_var(--sidebar-border),-1px_0_0_0_var(--sidebar-border),-2px_0_0_0_var(--sidebar-border)]",
-        "[&[data-separator=hover][data-orientation=vertical]]:shadow-[0_1px_0_0_var(--sidebar-border),0_2px_0_0_var(--sidebar-border),0_-1px_0_0_var(--sidebar-border),0_-2px_0_0_var(--sidebar-border)]",
-        "[&[data-separator=active]:not([data-orientation=vertical])]:shadow-[1px_0_0_0_var(--sidebar-border),2px_0_0_0_var(--sidebar-border),-1px_0_0_0_var(--sidebar-border),-2px_0_0_0_var(--sidebar-border)]",
-        "[&[data-separator=active][data-orientation=vertical]]:shadow-[0_1px_0_0_var(--sidebar-border),0_2px_0_0_var(--sidebar-border),0_-1px_0_0_var(--sidebar-border),0_-2px_0_0_var(--sidebar-border)]",
+        "border-transparent dark:border-sidebar-border",
+        "[&[data-separator=hover]]:border-muted-foreground [&[data-separator=active]]:border-muted-foreground",
+        "[&[data-separator=hover]:not([data-orientation=vertical])]:shadow-[0.5px_0_0_0_var(--muted-foreground),-0.5px_0_0_0_var(--muted-foreground)]",
+        "[&[data-separator=hover][data-orientation=vertical]]:shadow-[0_0.5px_0_0_var(--muted-foreground),0_-0.5px_0_0_var(--muted-foreground)]",
+        "[&[data-separator=active]:not([data-orientation=vertical])]:shadow-[0.5px_0_0_0_var(--muted-foreground),-0.5px_0_0_0_var(--muted-foreground)]",
+        "[&[data-separator=active][data-orientation=vertical]]:shadow-[0_0.5px_0_0_var(--muted-foreground),0_-0.5px_0_0_var(--muted-foreground)]",
         className
       )}
       {...props}

@@ -972,7 +972,7 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
 
                   {/* Error state (including password required) */}
                   {isError && (
-                    <div className="w-full h-full" style={{ minHeight: '300px', backgroundColor: '#1a1a1a' }}>
+                    <div className="w-full h-full" style={{ minHeight: '300px', backgroundColor: 'var(--sidebar)' }}>
                       <PdfPasswordPrompt documentState={documentState} pdfSrc={pdfSrc} />
                     </div>
                   )}
@@ -1025,7 +1025,7 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
                           <Viewport
                             documentId={activeDocumentId}
                             className="w-full h-full"
-                            style={{ backgroundColor: '#1a1a1a' }}
+                            style={{ backgroundColor: 'var(--sidebar)' }}
                           >
                             <ZoomGestureWrapper documentId={activeDocumentId}>
                               <Scroller
