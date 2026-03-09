@@ -1,5 +1,4 @@
 import {
-  ArrowDownIcon,
   ArrowUpIcon,
   CheckIcon,
   ChevronDown,
@@ -230,10 +229,6 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
                 AssistantMessage,
               }}
             />
-
-            <div className="sticky bottom-4 z-10 flex justify-center pt-4 has-[button[disabled]]:pt-0">
-              <ThreadScrollToBottom />
-            </div>
           </ThreadPrimitive.Viewport>
 
           <div className="aui-thread-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-shrink-0 flex-col gap-4 overflow-visible rounded-t-3xl bg-sidebar px-4 pb-3 md:pb-4">
@@ -242,21 +237,6 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
         </ThreadPrimitive.Root>
       </MotionConfig>
     </LazyMotion>
-  );
-};
-
-const ThreadScrollToBottom: FC = () => {
-  return (
-    <ThreadPrimitive.ScrollToBottom asChild>
-      <Button
-        variant="outline"
-        size="icon"
-        aria-label="Scroll to bottom"
-        className="aui-thread-scroll-to-bottom rounded-xl p-4 disabled:hidden"
-      >
-        <ArrowDownIcon />
-      </Button>
-    </ThreadPrimitive.ScrollToBottom>
   );
 };
 
