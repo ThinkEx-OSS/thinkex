@@ -7,25 +7,35 @@ import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
 import { getVirtualPath } from "@/lib/utils/virtual-workspace-fs";
 import { type Block } from "@/components/editor/BlockNoteEditor";
 
+export interface SearchableText {
+    /** Path and title lines (1-2 lines). Matches here use matchKind, not lineNum. */
+    header: string;
+    /** Body content. Line numbers align with readWorkspace(path, lineStart). */
+    content: string;
+}
+
 /**
  * Extract plain text from an item for searching (grep).
- * Includes virtual path and item title as the first lines (so path-based names like "Summary- Lecture #1" match),
- * then content. Returns empty string for types with no searchable content.
+ * Returns header (path, title) and content separately so grep line numbers align with readWorkspace.
+ * Header matches use matchKind (path/title); content matches use 1-based lineNum.
  */
-export function extractSearchableText(item: Item, items: Item[]): string {
+export function extractSearchableText(item: Item, items: Item[]): SearchableText {
     const title = item.name?.trim() ?? "";
     const virtualPath = getVirtualPath(item, items);
     const header = [virtualPath, title].filter(Boolean).join("\n");
-    const withHeader = (content: string) =>
-        content ? (header ? `${header}\n${content}` : content) : header;
+
+    const body = (content: string): SearchableText => ({
+        header,
+        content: content ?? "",
+    });
 
     switch (item.type) {
         case "note": {
             const data = item.data as NoteData;
             if (Array.isArray(data.blockContent) && data.blockContent.length > 0) {
-                return withHeader(serializeBlockNote(data.blockContent as Block[]));
+                return body(serializeBlockNote(data.blockContent as Block[]));
             }
-            return header;
+            return { header, content: "" };
         }
         case "flashcard": {
             const data = item.data as FlashcardData;
@@ -42,14 +52,14 @@ export function extractSearchableText(item: Item, items: Item[]): string {
                     return `${front}\n${back}`;
                 })
                 .join("\n\n");
-            return withHeader(content);
+            return body(content);
         }
         case "pdf": {
             const data = item.data as PdfData;
             const content = data.ocrPages?.length
                 ? data.ocrPages.map((p) => p.markdown).filter(Boolean).join("\n\n")
                 : data.textContent ?? "";
-            return withHeader(content);
+            return body(content);
         }
         case "quiz": {
             const data = item.data as QuizData;
@@ -60,7 +70,7 @@ export function extractSearchableText(item: Item, items: Item[]): string {
                         `${q.questionText}\n${q.options?.join("\n") ?? ""}\n${q.explanation ?? ""}`
                 )
                 .join("\n\n");
-            return withHeader(content);
+            return body(content);
         }
         case "audio": {
             const data = item.data as AudioData;
@@ -73,14 +83,14 @@ export function extractSearchableText(item: Item, items: Item[]): string {
                         .join("\n")
                 );
             }
-            return withHeader(parts.join("\n"));
+            return body(parts.join("\n"));
         }
         case "image":
         case "youtube":
         case "folder":
-            return header || item.name;
+            return { header: header || (item.name ?? "") || "", content: "" };
         default:
-            return header;
+            return { header, content: "" };
     }
 }
 

@@ -25,7 +25,7 @@ function buildRegex(pattern: string): RegExp {
 export function createSearchWorkspaceTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Grep search across workspace (notes, flashcards, PDFs, quizzes, audio). Searches both item titles and content—use readWorkspace for full content. include: type filter (note, flashcard, pdf, quiz, audio). path: folder prefix or exact item path; for long items use exact path then readWorkspace(path, lineStart) on matches. Plain text or regex. Max 100 matches.",
+            "Grep search across workspace. All types (notes, flashcards, PDFs, quizzes, audio, image, youtube) match on path/title; the five content types also search body. Line numbers for content matches align with readWorkspace(path, lineStart). include: type filter (note, flashcard, pdf, quiz, audio). path: folder prefix or exact path; for long items use readWorkspace(path, lineStart) on matches. Plain text or regex. Max 100 matches.",
         inputSchema: zodSchema(
             z.object({
                 pattern: z.string().describe("Search pattern (plain text or regex)"),
@@ -58,25 +58,43 @@ export function createSearchWorkspaceTool(ctx: WorkspaceToolContext) {
             }
 
             const regex = buildRegex(pattern);
-            const matches: { path: string; itemName: string; itemType: string; lineNum: number; lineText: string }[] = [];
+            type Match = { path: string; itemName: string; itemType: string; lineNum: number | null; matchKind?: "path" | "title"; lineText: string };
+            const matches: Match[] = [];
 
             for (const item of items) {
-                const text = extractSearchableText(item, state.items);
-                if (!text) continue;
+                const { header, content } = extractSearchableText(item, state.items);
+                const vpath = getVirtualPath(item, state.items);
 
-                const lines = text.split(/\r?\n/);
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i];
+                const truncate = (s: string) =>
+                    s.length > MAX_LINE_LENGTH ? s.substring(0, MAX_LINE_LENGTH) + "..." : s;
+
+                const headerLines = header ? header.split(/\r?\n/).filter(Boolean) : [];
+                for (let i = 0; i < headerLines.length; i++) {
+                    const line = headerLines[i]!;
                     if (regex.test(line)) {
                         regex.lastIndex = 0;
-                        const truncated =
-                            line.length > MAX_LINE_LENGTH ? line.substring(0, MAX_LINE_LENGTH) + "..." : line;
                         matches.push({
-                            path: getVirtualPath(item, state.items),
+                            path: vpath,
+                            itemName: item.name,
+                            itemType: item.type,
+                            lineNum: null,
+                            matchKind: i === 0 ? "path" : "title",
+                            lineText: truncate(line),
+                        });
+                    }
+                }
+
+                const contentLines = content ? content.split(/\r?\n/) : [];
+                for (let i = 0; i < contentLines.length; i++) {
+                    const line = contentLines[i]!;
+                    if (regex.test(line)) {
+                        regex.lastIndex = 0;
+                        matches.push({
+                            path: vpath,
                             itemName: item.name,
                             itemType: item.type,
                             lineNum: i + 1,
-                            lineText: truncated,
+                            lineText: truncate(line),
                         });
                     }
                 }
@@ -104,7 +122,8 @@ export function createSearchWorkspaceTool(ctx: WorkspaceToolContext) {
                     currentPath = m.path;
                     outputLines.push(`${m.path}:`);
                 }
-                outputLines.push(`  Line ${m.lineNum}: ${m.lineText}`);
+                const loc = m.lineNum != null ? `Line ${m.lineNum}` : (m.matchKind === "path" ? "Path" : "Title");
+                outputLines.push(`  ${loc}: ${m.lineText}`);
             }
             if (truncated) {
                 outputLines.push("");
