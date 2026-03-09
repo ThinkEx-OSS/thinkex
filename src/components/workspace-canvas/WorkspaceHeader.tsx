@@ -45,7 +45,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { CardType, Item } from "@/lib/workspace-state/types";
-import { getFolderPath, getSearchRank } from "@/lib/workspace-state/search";
+import { getFolderPath } from "@/lib/workspace-state/search";
 import { useMemo } from "react";
 import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";
 import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
@@ -57,21 +57,10 @@ import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { getBestFrameForRatio } from "@/lib/workspace-state/aspect-ratios";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
 import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
-import {
-  CommandDialog,
-  CommandInput,
-  CommandList,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-} from "@/components/ui/command";
-
 interface WorkspaceHeaderProps {
   titleInputRef: React.RefObject<HTMLInputElement | null>;
-  /** @deprecated Search is now in command palette dialog - no longer filters workspace grid */
-  searchQuery?: string;
-  /** @deprecated Search is now in command palette dialog */
-  onSearchChange?: (query: string) => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
   // Save indicator props
   isSaving?: boolean;
   lastSavedAt?: Date | null;
@@ -121,8 +110,8 @@ interface WorkspaceHeaderProps {
 
 export function WorkspaceHeader({
   titleInputRef,
-  searchQuery: _searchQuery,
-  onSearchChange: _onSearchChange,
+  searchQuery,
+  onSearchChange,
   isSaving,
   lastSavedAt,
   hasUnsavedChanges,
@@ -158,7 +147,8 @@ export function WorkspaceHeader({
   onUpdateActiveItem,
 }: WorkspaceHeaderProps) {
   const router = useRouter();
-  const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [isNewMenuOpen, setIsNewMenuOpen] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [renamingTarget, setRenamingTarget] = useState<{ id: string, type: 'folder' | 'item' } | null>(null);
@@ -172,6 +162,7 @@ export function WorkspaceHeader({
   const openAudioDialog = useAudioRecordingStore((s) => s.openDialog);
   const closeAudioDialog = useAudioRecordingStore((s) => s.closeDialog);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const pathname = usePathname();
   const isWorkspaceRoute = pathname.startsWith("/workspace");
 
@@ -202,30 +193,6 @@ export function WorkspaceHeader({
 
   // Compact mode when space is tight (item panel open + chat expanded)
   const isCompactMode = isItemPanelOpen && isChatExpanded;
-
-  const handleSearchSelect = useCallback((item: Item) => {
-    if (item.type === "folder") {
-      onNavigateToFolder?.(item.id);
-    } else {
-      if (item.folderId) onNavigateToFolder?.(item.folderId);
-      setOpenModalItemId?.(item.id);
-    }
-    setIsSearchDialogOpen(false);
-  }, [onNavigateToFolder, setOpenModalItemId]);
-
-  const getItemIcon = (type: Item["type"]) => {
-    switch (type) {
-      case "note": return <CgNotes className="h-4 w-4 shrink-0 text-blue-400" />;
-      case "pdf": return <File className="h-4 w-4 shrink-0 text-red-400" />;
-      case "folder": return <FolderIcon className="h-4 w-4 shrink-0 text-amber-400" />;
-      case "flashcard": return <PiCardsThreeBold className="h-4 w-4 shrink-0 text-purple-400" />;
-      case "youtube": return <Play className="h-4 w-4 shrink-0 text-red-500" />;
-      case "quiz": return <Brain className="h-4 w-4 shrink-0 text-green-400" />;
-      case "image": return <ImageIcon className="h-4 w-4 shrink-0 text-emerald-500" />;
-      case "audio": return <Mic className="h-4 w-4 shrink-0 text-orange-400" />;
-      default: return <File className="h-4 w-4 shrink-0 text-muted-foreground" />;
-    }
-  };
 
   // Handle folder click - switch folder or rename if already active (and no panel open)
   const handleFolderClick = useCallback((folderId: string) => {
@@ -270,6 +237,13 @@ export function WorkspaceHeader({
       renameInputRef.current.select();
     }
   }, [showRenameDialog]);
+
+  // Auto-focus search input when expanded
+  useEffect(() => {
+    if (isSearchExpanded && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isSearchExpanded]);
 
   // Listen for drag hover events on breadcrumb elements
   useEffect(() => {
@@ -317,12 +291,13 @@ export function WorkspaceHeader({
     };
   }, []);
 
-  // Handle keyboard shortcut Cmd/Ctrl+K to open search dialog
+  // Handle keyboard shortcut Cmd/Ctrl+K to expand search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+K / Ctrl+K - Expand and focus search
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setIsSearchDialogOpen(true);
+        setIsSearchExpanded(true);
       }
     };
 
@@ -331,6 +306,19 @@ export function WorkspaceHeader({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
+
+  // Handle search input blur - collapse if empty
+  const handleSearchBlur = () => {
+    setIsFocused(false);
+    if (!searchQuery) {
+      setIsSearchExpanded(false);
+    }
+  };
+
+  // Handle search icon click
+  const handleSearchIconClick = () => {
+    setIsSearchExpanded(true);
+  };
 
   const handleYouTubeCreate = useCallback((url: string, name: string, thumbnail?: string) => {
     if (addItem) {
@@ -918,25 +906,71 @@ export function WorkspaceHeader({
               </Tooltip>
             )}
 
-            {/* Search Button - opens command palette dialog */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => setIsSearchDialogOpen(true)}
+            {/* Search Input */}
+            {isSearchExpanded ? (
+              <div className="relative w-24" data-tour="search-bar">
+                <Search
                   className={cn(
-                    "h-8 w-8 flex items-center justify-center rounded-md transition-colors pointer-events-auto cursor-pointer",
-                    "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent"
+                    "absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 pointer-events-none z-10",
+                    isFocused ? "text-sidebar-foreground" : "text-sidebar-foreground/70"
                   )}
-                  data-tour="search-bar"
-                  aria-label="Search workspace"
-                >
-                  <Search className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                Search workspace <Kbd className="ml-1">{formatKeyboardShortcut('K')}</Kbd>
-              </TooltipContent>
-            </Tooltip>
+                />
+                <input
+                  ref={(node) => {
+                    searchInputRef.current = node;
+                    if (titleInputRef) {
+                      (titleInputRef as React.MutableRefObject<HTMLInputElement | null>).current = node;
+                    }
+                  }}
+                  value={searchQuery}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    onSearchChange(e.target.value);
+                  }}
+                  onFocus={() => setIsFocused(true)}
+                  onBlur={handleSearchBlur}
+                  placeholder="Search..."
+                  className={cn(
+                    "w-full h-8 pl-9 outline-none rounded-md text-sm pointer-events-auto box-border",
+                    searchQuery ? "pr-8" : "pr-3",
+                    "border border-sidebar-border text-sidebar-foreground/70 placeholder:text-sidebar-foreground/50 transition-colors",
+                    isFocused
+                      ? "text-sidebar-foreground bg-accent"
+                      : "hover:text-sidebar-foreground hover:bg-accent"
+                  )}
+                />
+                {/* Clear button - only show when there's text */}
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      onSearchChange('');
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:scale-110 transition-all duration-200 pointer-events-auto z-10 cursor-pointer"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleSearchIconClick}
+                    className={cn(
+                      "h-8 w-8 flex items-center justify-center rounded-md transition-colors pointer-events-auto cursor-pointer",
+                      "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent"
+                    )}
+                    data-tour="search-bar"
+                    aria-label="Search workspace"
+                  >
+                    <Search className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  Search workspace <Kbd className="ml-1">{formatKeyboardShortcut('K')}</Kbd>
+                </TooltipContent>
+              </Tooltip>
+            )}
 
             {/* New Button */}
             {addItem && (
@@ -1003,35 +1037,6 @@ export function WorkspaceHeader({
           </div>
         )}
       </div>
-      {/* Search Command Palette Dialog */}
-      <CommandDialog
-        open={isSearchDialogOpen}
-        onOpenChange={setIsSearchDialogOpen}
-        title="Search workspace"
-        description="Search notes, folders, and more..."
-        filter={(value, search) => {
-          const item = items.find((i) => i.id === value);
-          if (!item) return 0;
-          return getSearchRank(item, search ?? "");
-        }}
-      >
-        <CommandInput placeholder="Search workspace..." />
-        <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup heading="Results">
-            {(items ?? []).slice(0, 50).map((item) => (
-              <CommandItem
-                key={item.id}
-                value={item.id}
-                onSelect={() => handleSearchSelect(item)}
-              >
-                {getItemIcon(item.type)}
-                <span className="truncate">{item.name}</span>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </CommandList>
-      </CommandDialog>
       {/* Rename Dialog */}
       {
         (onRenameFolder || onUpdateActiveItem) && (
