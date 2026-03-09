@@ -268,6 +268,45 @@ describe("workspaceWorker edit end-to-end paths", () => {
     expect(result.message).toMatch(/Invalid JSON after edit/i);
   });
 
+  it("rename-only: updates note name without touching content", async () => {
+    const noteContent = "Original note content";
+    mockLoadWorkspaceState.mockResolvedValue({
+      items: [
+        {
+          id: "note-1",
+          type: "note",
+          name: "My Note",
+          subtitle: "",
+          data: { field1: noteContent, blockContent: [] },
+        },
+      ],
+      globalTitle: "",
+      workspaceId: "ws-1",
+    });
+
+    mockExecute
+      .mockResolvedValueOnce([{ version: 1 }]) // get_workspace_version
+      .mockResolvedValueOnce([{ result: "(2,f)" }]); // append_workspace_event
+
+    const result = await workspaceWorker("edit", {
+      workspaceId: "ws-1",
+      itemId: "note-1",
+      itemType: "note",
+      itemName: "My Note",
+      oldString: "",
+      newString: "",
+      newName: "Renamed Note",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.message).toMatch(/Updated note successfully/);
+    expect(mockMarkdownToBlocks).not.toHaveBeenCalled();
+    expect(mockCreateEvent).toHaveBeenCalled();
+    const eventPayload = mockCreateEvent.mock.calls[0][1] as { id: string; changes: Record<string, unknown> };
+    expect(eventPayload.id).toBe("note-1");
+    expect(eventPayload.changes).toEqual({ name: "Renamed Note" });
+  });
+
   it("fails with clear message when oldString is ambiguous", async () => {
     mockLoadWorkspaceState.mockResolvedValue({
       items: [

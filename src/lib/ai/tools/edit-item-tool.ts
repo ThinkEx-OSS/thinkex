@@ -15,7 +15,7 @@ const EDITABLE_TYPES = ["note", "flashcard", "quiz"] as const;
 export function createEditItemTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Edit a note, flashcard deck, or quiz. You must use readWorkspace at least once before editing. QUIZZES: readWorkspace may show '--- Progress (read-only) ---' at the top. That block is READ-ONLY. Never include it in oldString or newString. Only edit the {\"questions\":[...]} JSON. FULL REWRITE: oldString='' and newString=entire new content (quizzes: only the JSON). TARGETED EDIT: oldString must match exactly. When copying from readWorkspace: strip the line number prefix (e.g. '1: ' → the part after the space is the content). For notes, content starts at line 1 — no header to skip. Match exact whitespace, indentation, newlines. Do NOT minify JSON. Edit FAILS if oldString not found or matches multiple times — add more context or use replaceAll.",
+            "Edit a note, flashcard deck, or quiz. You must use readWorkspace at least once before editing. RENAME ONLY: To rename without editing content, pass oldString='', newString='', and newName='new name'. QUIZZES: readWorkspace may show '--- Progress (read-only) ---' at the top. That block is READ-ONLY. Never include it in oldString or newString. Only edit the {\"questions\":[...]} JSON. FULL REWRITE: oldString='' and newString=entire new content (quizzes: only the JSON). TARGETED EDIT: oldString must match exactly. When copying from readWorkspace: strip the line number prefix (e.g. '1: ' → the part after the space is the content). For notes, content starts at line 1 — no header to skip. Match exact whitespace, indentation, newlines. Do NOT minify JSON. Edit FAILS if oldString not found or matches multiple times — add more context or use replaceAll.",
         inputSchema: zodSchema(
             z
                 .object({
@@ -64,21 +64,22 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                 };
             }
 
-            if (oldString === undefined || oldString === null) {
+            const isRenameOnly = Boolean(newName) && (oldString === undefined || oldString === null || oldString === "") && (newString === undefined || newString === null || newString === "");
+            if (!isRenameOnly && (oldString === undefined || oldString === null)) {
                 return {
                     success: false,
-                    message: "oldString is required. Use '' for full rewrite.",
+                    message: "oldString is required. Use '' for full rewrite, or for rename-only pass oldString='', newString='', and newName.",
                 };
             }
 
-            if (newString === undefined || newString === null) {
+            if (!isRenameOnly && (newString === undefined || newString === null)) {
                 return {
                     success: false,
-                    message: "newString is required.",
+                    message: "newString is required. For rename-only, pass oldString='', newString='', and newName.",
                 };
             }
 
-            if (oldString === newString) {
+            if (oldString === newString && !isRenameOnly) {
                 return {
                     success: false,
                     message: "No changes to apply: oldString and newString are identical.",

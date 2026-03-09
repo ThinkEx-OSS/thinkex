@@ -980,7 +980,11 @@ export async function workspaceWorker(
                 if (!params.itemId || !params.itemType) {
                     throw new Error("Item ID and itemType required for edit");
                 }
-                if (params.oldString === undefined || params.newString === undefined) {
+                const isRenameOnly =
+                    params.newName &&
+                    (params.oldString === undefined || params.oldString === "") &&
+                    (params.newString === undefined || params.newString === "");
+                if (!isRenameOnly && (params.oldString === undefined || params.newString === undefined)) {
                     throw new Error("oldString and newString required for edit");
                 }
 
@@ -992,8 +996,8 @@ export async function workspaceWorker(
 
                 const rename = params.newName;
                 const replaceAll = !!params.replaceAll;
-                const oldStr = String(params.oldString);
-                const newStr = String(params.newString);
+                const oldStr = String(params.oldString ?? "");
+                const newStr = String(params.newString ?? "");
 
                 if (existingItem.type === "note") {
                     const changes: Partial<Item> = {};
@@ -1006,20 +1010,26 @@ export async function workspaceWorker(
 
                     let contentOld = "";
                     let contentNew = "";
-                    if (oldStr === "") {
+                    if (isRenameOnly) {
                         contentOld = "";
-                        contentNew = newStr;
+                        contentNew = "";
+                        // Skip content update - only apply rename via changes.name above
                     } else {
-                        contentOld = normalizeLineEndings(getNoteContentAsMarkdown(existingItem.data as NoteData));
-                        const normOld = normalizeLineEndings(oldStr);
-                        const normNew = normalizeLineEndings(newStr);
-                        contentNew = applyReplace(contentOld, normOld, normNew, replaceAll);
-                    }
-                    contentNew = fixLLMDoubleEscaping(contentNew);
-                    const blockContent = await markdownToBlocks(contentNew);
-                    changes.data = { field1: contentNew, blockContent } as NoteData;
-                    if (params.sources !== undefined) {
-                        (changes.data as NoteData).sources = params.sources;
+                        if (oldStr === "") {
+                            contentOld = "";
+                            contentNew = newStr;
+                        } else {
+                            contentOld = normalizeLineEndings(getNoteContentAsMarkdown(existingItem.data as NoteData));
+                            const normOld = normalizeLineEndings(oldStr);
+                            const normNew = normalizeLineEndings(newStr);
+                            contentNew = applyReplace(contentOld, normOld, normNew, replaceAll);
+                        }
+                        contentNew = fixLLMDoubleEscaping(contentNew);
+                        const blockContent = await markdownToBlocks(contentNew);
+                        changes.data = { field1: contentNew, blockContent } as NoteData;
+                        if (params.sources !== undefined) {
+                            (changes.data as NoteData).sources = params.sources;
+                        }
                     }
 
                     if (Object.keys(changes).length === 0) {
@@ -1081,12 +1091,14 @@ export async function workspaceWorker(
                         })),
                     };
                     let serialized = JSON.stringify(payload, null, 2);
-                    serialized = applyReplace(
-                        normalizeLineEndings(serialized),
-                        normalizeLineEndings(oldStr),
-                        normalizeLineEndings(newStr),
-                        replaceAll
-                    );
+                    if (!isRenameOnly) {
+                        serialized = applyReplace(
+                            normalizeLineEndings(serialized),
+                            normalizeLineEndings(oldStr),
+                            normalizeLineEndings(newStr),
+                            replaceAll
+                        );
+                    }
 
                     let parsed: { cards?: Array<{ id?: string; front?: string; back?: string }> };
                     try {
@@ -1157,12 +1169,14 @@ export async function workspaceWorker(
                     const questions = data.questions ?? [];
                     const payload = { questions };
                     let serialized = JSON.stringify(payload, null, 2);
-                    serialized = applyReplace(
-                        normalizeLineEndings(serialized),
-                        normalizeLineEndings(oldStr),
-                        normalizeLineEndings(newStr),
-                        replaceAll
-                    );
+                    if (!isRenameOnly) {
+                        serialized = applyReplace(
+                            normalizeLineEndings(serialized),
+                            normalizeLineEndings(oldStr),
+                            normalizeLineEndings(newStr),
+                            replaceAll
+                        );
+                    }
 
                     let parsed: { questions?: QuizQuestion[] };
                     try {

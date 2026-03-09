@@ -133,6 +133,30 @@ describe("createEditItemTool", () => {
     expect(result.itemName).toBe("Renamed Note");
   });
 
+  it("supports rename-only with oldString='' and newString=''", async () => {
+    const tool: any = createEditItemTool(ctx);
+    const result = await tool.execute({
+      itemName: "My Note",
+      oldString: "",
+      newString: "",
+      newName: "Renamed Note",
+    });
+
+    expect(mockWorkspaceWorker).toHaveBeenCalledWith(
+      "edit",
+      expect.objectContaining({
+        workspaceId: "ws-1",
+        itemId: "note-1",
+        itemType: "note",
+        oldString: "",
+        newString: "",
+        newName: "Renamed Note",
+      })
+    );
+    expect(result.success).toBe(true);
+    expect(result.itemName).toBe("Renamed Note");
+  });
+
   it("passes through worker failures", async () => {
     mockWorkspaceWorker.mockResolvedValueOnce({
       success: false,
