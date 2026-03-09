@@ -29,6 +29,15 @@ import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button
 import { cn } from "@/lib/utils";
 import { useAttachmentUploadStore } from "@/lib/stores/attachment-upload-store";
 import { useUIStore } from "@/lib/stores/ui-store";
+import { emitOfficeDocumentRejected } from "@/components/modals/OfficeDocumentRejectedDialog";
+import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
+import {
+  isWordFile,
+  isExcelFile,
+  isPptxFile,
+  isOfficeDocument,
+} from "@/lib/uploads/office-document-validation";
+import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
 import { FaCheck } from "react-icons/fa";
 
 const useFileSrc = (file: File | undefined) => {
@@ -463,7 +472,7 @@ export const ComposerAddAttachment: FC = () => {
 
 
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -479,24 +488,50 @@ export const ComposerAddAttachment: FC = () => {
         style: { color: '#fff' },
         duration: 5000,
       });
-      // Reset input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
-    // Validate each file
+    // Validate each file (size + reject Office documents)
     const validFiles: File[] = [];
     const oversizedFiles: string[] = [];
+    const officeWord: string[] = [];
+    const officeExcel: string[] = [];
+    const officePowerpoint: string[] = [];
 
     fileArray.forEach((file) => {
       if (file.size > MAX_FILE_SIZE_BYTES) {
         oversizedFiles.push(`${file.name} (${(file.size / (1024 * 1024)).toFixed(1)}MB)`);
+      } else if (isOfficeDocument(file)) {
+        if (isWordFile(file)) officeWord.push(file.name);
+        else if (isExcelFile(file)) officeExcel.push(file.name);
+        else officePowerpoint.push(file.name);
       } else {
         validFiles.push(file);
       }
     });
+
+    if (officeWord.length > 0 || officeExcel.length > 0 || officePowerpoint.length > 0) {
+      emitOfficeDocumentRejected({
+        word: officeWord.length ? officeWord : undefined,
+        excel: officeExcel.length ? officeExcel : undefined,
+        powerpoint: officePowerpoint.length ? officePowerpoint : undefined,
+      });
+    }
+
+    // Reject password-protected PDFs (so other files still upload)
+    let filesToAdd = validFiles;
+    if (validFiles.length > 0) {
+      const pdfFiles = validFiles.filter((f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"));
+      if (pdfFiles.length > 0) {
+        const { valid: unprotectedPdfs, rejected: protectedNames } = await filterPasswordProtectedPdfs(pdfFiles);
+        if (protectedNames.length > 0) {
+          emitPasswordProtectedPdf(protectedNames);
+        }
+        const nonPdfFiles = validFiles.filter((f) => f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf"));
+        filesToAdd = [...nonPdfFiles, ...unprotectedPdfs];
+      }
+    }
 
     // Show error for oversized files
     if (oversizedFiles.length > 0) {
@@ -509,20 +544,19 @@ export const ComposerAddAttachment: FC = () => {
       );
     }
 
-    // Add valid files
-    if (validFiles.length > 0) {
-      validFiles.forEach((file) => {
+    // Add valid files (non–Office-doc, non–password-protected) — others still upload successfully
+    if (filesToAdd.length > 0) {
+      filesToAdd.forEach((file) => {
         aui.composer().addAttachment(file);
       });
 
-      if (validFiles.length < fileArray.length) {
-        toast.success(`${validFiles.length} file${validFiles.length > 1 ? 's' : ''} added successfully`, {
+      if (filesToAdd.length < fileArray.length) {
+        toast.success(`${filesToAdd.length} file${filesToAdd.length > 1 ? 's' : ''} added successfully`, {
           style: { color: '#fff' },
         });
       }
     }
 
-    // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -560,7 +594,7 @@ export const ComposerAddAttachment: FC = () => {
           className="sr-only"
           onChange={handleFileChange}
           multiple={true}
-          accept="image/*,video/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.md,.csv,.json,.heic,.heif,.avif,.tiff,.tif"
+          accept="image/*,video/*,.pdf,.txt,.md,.csv,.json,.heic,.heif,.avif,.tiff,.tif"
         />
       </div>
     </>

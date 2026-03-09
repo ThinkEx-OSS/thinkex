@@ -12,6 +12,14 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
+import {
+  isOfficeDocument,
+  isWordFile,
+  isExcelFile,
+  isPptxFile,
+} from "@/lib/uploads/office-document-validation";
+import { emitOfficeDocumentRejected } from "@/components/modals/OfficeDocumentRejectedDialog";
+import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
 
 const MAX_TOTAL_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
@@ -88,11 +96,24 @@ export function HomeAttachmentsProvider({ children }: { children: ReactNode }) {
   const addFiles = useCallback(async (newFiles: File[]) => {
     if (newFiles.length === 0) return;
 
-    const pdfFiles = newFiles.filter(
+    // Reject Office documents — show dialog, don't add
+    const officeWord = newFiles.filter(isWordFile).map((f) => f.name);
+    const officeExcel = newFiles.filter(isExcelFile).map((f) => f.name);
+    const officePowerpoint = newFiles.filter(isPptxFile).map((f) => f.name);
+    if (officeWord.length > 0 || officeExcel.length > 0 || officePowerpoint.length > 0) {
+      emitOfficeDocumentRejected({
+        word: officeWord.length ? officeWord : undefined,
+        excel: officeExcel.length ? officeExcel : undefined,
+        powerpoint: officePowerpoint.length ? officePowerpoint : undefined,
+      });
+    }
+    const withoutOffice = newFiles.filter((f) => !isOfficeDocument(f));
+
+    const pdfFiles = withoutOffice.filter(
       (f) =>
         f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf")
     );
-    const nonPdfFiles = newFiles.filter(
+    const nonPdfFiles = withoutOffice.filter(
       (f) =>
         f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf")
     );
@@ -100,9 +121,7 @@ export function HomeAttachmentsProvider({ children }: { children: ReactNode }) {
     const { valid: validPdfs, rejected: protectedNames } =
       await filterPasswordProtectedPdfs(pdfFiles);
     if (protectedNames.length > 0) {
-      toast.error(
-        `Password-protected PDFs cannot be uploaded: ${protectedNames.join(", ")}`
-      );
+      emitPasswordProtectedPdf(protectedNames);
     }
     const toAdd = [...validPdfs, ...nonPdfFiles];
     if (toAdd.length === 0) return;

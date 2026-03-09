@@ -6,6 +6,9 @@ import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Upload } from "lucide-react";
 import { useCallback, useState, useRef } from "react";
 import { toast } from "sonner";
+import { emitOfficeDocumentRejected } from "@/components/modals/OfficeDocumentRejectedDialog";
+import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
+import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
 
 interface AssistantDropzoneProps {
   children: React.ReactNode;
@@ -87,11 +90,27 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
         return;
       }
 
+      // Reject password-protected PDFs so other files still upload
+      let filesToAdd = validFiles;
+      const pdfFiles = validFiles.filter((f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"));
+      if (pdfFiles.length > 0) {
+        const { valid: unprotectedPdfs, rejected: protectedNames } = await filterPasswordProtectedPdfs(pdfFiles);
+        if (protectedNames.length > 0) {
+          emitPasswordProtectedPdf(protectedNames);
+        }
+        const nonPdfFiles = validFiles.filter((f) => f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf"));
+        filesToAdd = [...nonPdfFiles, ...unprotectedPdfs];
+      }
+
+      if (filesToAdd.length === 0) {
+        return;
+      }
+
       isProcessingRef.current = true;
 
       try {
         // Add each file to the composer
-        const addPromises = validFiles.map(async (file) => {
+        const addPromises = filesToAdd.map(async (file) => {
           try {
             await aui.composer().addAttachment(file);
           } catch (error) {
@@ -107,8 +126,8 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
         await Promise.allSettled(addPromises);
 
         // Show success message if some files were rejected
-        if (validFiles.length < acceptedFiles.length) {
-          toast.success(`${validFiles.length} file${validFiles.length > 1 ? 's' : ''} added successfully`, {
+        if (filesToAdd.length < acceptedFiles.length) {
+          toast.success(`${filesToAdd.length} file${filesToAdd.length > 1 ? 's' : ''} added successfully`, {
             style: { color: '#fff' },
           });
         }
@@ -144,12 +163,6 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
       'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.heic', '.heif', '.avif', '.tiff', '.tif'],
       'video/*': ['.mp4', '.webm', '.avi', '.mov', '.mkv'],
       'application/pdf': ['.pdf'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'application/vnd.ms-powerpoint': ['.ppt'],
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
-      'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
       'text/plain': ['.txt'],
       'text/markdown': ['.md'],
       'text/csv': ['.csv'],
@@ -167,16 +180,24 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
       setIsDragging(false);
       handleDragEnd();
 
-      // Show error for rejected files
       if (fileRejections.length > 0) {
-        const rejectedFileNames = fileRejections.map(rejection => rejection.file.name);
-        toast.error(
-          `The following file${rejectedFileNames.length > 1 ? 's are' : ' is'} not supported:\n${rejectedFileNames.join('\n')}\n\nSupported: Images, Videos, PDFs, Office documents, Text files`,
-          {
-            style: { color: '#fff' },
-            duration: 5000,
-          }
-        );
+        const wordFiles = fileRejections.filter((r) => isWordFile(r.file));
+        const excelFiles = fileRejections.filter((r) => isExcelFile(r.file));
+        const pptxFiles = fileRejections.filter((r) => isPptxFile(r.file));
+        const hasOffice = wordFiles.length > 0 || excelFiles.length > 0 || pptxFiles.length > 0;
+        if (hasOffice) {
+          emitOfficeDocumentRejected({
+            word: wordFiles.length ? wordFiles.map((r) => r.file.name) : undefined,
+            excel: excelFiles.length ? excelFiles.map((r) => r.file.name) : undefined,
+            powerpoint: pptxFiles.length ? pptxFiles.map((r) => r.file.name) : undefined,
+          });
+        } else {
+          const rejectedFileNames = fileRejections.map((r) => r.file.name);
+          toast.error(
+            `The following file${rejectedFileNames.length > 1 ? "s are" : " is"} not supported:\n${rejectedFileNames.join("\n")}\n\nSupported: Images, Videos, PDFs, Text files`,
+            { style: { color: "#fff" }, duration: 5000 }
+          );
+        }
       }
     },
   });

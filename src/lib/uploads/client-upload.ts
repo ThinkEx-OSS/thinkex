@@ -12,6 +12,13 @@
  */
 
 import { convertHeicToJpegIfNeeded } from "./convert-heic";
+import { isOfficeDocument } from "./office-document-validation";
+import {
+  isWordFile,
+  isExcelFile,
+  isPptxFile,
+} from "./office-document-validation";
+import { emitOfficeDocumentRejected } from "@/components/modals/OfficeDocumentRejectedDialog";
 
 const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024; // 200MB
 
@@ -57,6 +64,13 @@ export async function uploadFileDirect(
 
   if (!urlResponse.ok) {
     const errorData = await urlResponse.json().catch(() => ({}));
+    if (urlResponse.status === 400 && isOfficeDocument(file)) {
+      emitOfficeDocumentRejected({
+        word: isWordFile(file) ? [file.name] : undefined,
+        excel: isExcelFile(file) ? [file.name] : undefined,
+        powerpoint: isPptxFile(file) ? [file.name] : undefined,
+      });
+    }
     throw new Error(
       errorData.error || `Failed to get upload URL: ${urlResponse.statusText}`
     );
@@ -131,6 +145,13 @@ async function uploadViaApiRoute(file: File): Promise<UploadResult> {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    if (response.status === 400 && isOfficeDocument(file)) {
+      emitOfficeDocumentRejected({
+        word: isWordFile(file) ? [file.name] : undefined,
+        excel: isExcelFile(file) ? [file.name] : undefined,
+        powerpoint: isPptxFile(file) ? [file.name] : undefined,
+      });
+    }
     throw new Error(
       errorData.error || `Upload failed: ${response.statusText}`
     );

@@ -13,7 +13,13 @@ import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
 import { uploadPdfToStorage } from "@/lib/uploads/pdf-upload-with-ocr";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
+import {
+  isWordFile,
+  isExcelFile,
+  isPptxFile,
+} from "@/lib/uploads/office-document-validation";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
+import { emitOfficeDocumentRejected } from "@/components/modals/OfficeDocumentRejectedDialog";
 
 interface WorkspaceCanvasDropzoneProps {
   children: React.ReactNode;
@@ -516,16 +522,24 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
       setIsDragging(false);
       handleDragEnd();
 
-      // Show error for rejected files
       if (fileRejections.length > 0) {
-        const rejectedFileNames = fileRejections.map(rejection => rejection.file.name);
-        toast.error(
-          `Only PDF, image, and audio files can be dropped.\nRejected: ${rejectedFileNames.join(', ')}`,
-          {
-            style: { color: '#fff' },
-            duration: 5000,
-          }
-        );
+        const wordFiles = fileRejections.filter((r) => isWordFile(r.file));
+        const excelFiles = fileRejections.filter((r) => isExcelFile(r.file));
+        const pptxFiles = fileRejections.filter((r) => isPptxFile(r.file));
+        const hasOffice = wordFiles.length > 0 || excelFiles.length > 0 || pptxFiles.length > 0;
+        if (hasOffice) {
+          emitOfficeDocumentRejected({
+            word: wordFiles.length ? wordFiles.map((r) => r.file.name) : undefined,
+            excel: excelFiles.length ? excelFiles.map((r) => r.file.name) : undefined,
+            powerpoint: pptxFiles.length ? pptxFiles.map((r) => r.file.name) : undefined,
+          });
+        } else {
+          const rejectedFileNames = fileRejections.map((r) => r.file.name);
+          toast.error(
+            `Only PDF, image, and audio files can be dropped.\nRejected: ${rejectedFileNames.join(", ")}`,
+            { style: { color: "#fff" }, duration: 5000 }
+          );
+        }
       }
     },
   });

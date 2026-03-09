@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { withApiLogging } from "@/lib/with-api-logging";
+import { getOfficeDocumentConvertUrlFromMeta } from "@/lib/uploads/office-document-validation";
 
 export const maxDuration = 10;
 
@@ -33,6 +34,19 @@ async function handlePOST(request: NextRequest) {
     if (!filename || typeof filename !== 'string') {
       return NextResponse.json(
         { error: "Filename is required" },
+        { status: 400 }
+      );
+    }
+
+    // Reject Office documents — convert to PDF at ilovepdf.com
+    const contentType = body.contentType || "";
+    const convertUrl = getOfficeDocumentConvertUrlFromMeta(filename, contentType);
+    if (convertUrl) {
+      return NextResponse.json(
+        {
+          error: "Word, Excel, and PowerPoint files are not supported. Convert to PDF first.",
+          convertUrl,
+        },
         { status: 400 }
       );
     }

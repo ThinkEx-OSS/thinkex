@@ -5,7 +5,14 @@ import type {
 } from "@assistant-ui/react";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
 import { isPasswordProtectedPdf } from "@/lib/uploads/pdf-validation";
+import {
+  isOfficeDocument,
+  isWordFile,
+  isExcelFile,
+  isPptxFile,
+} from "@/lib/uploads/office-document-validation";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
+import { emitOfficeDocumentRejected } from "@/components/modals/OfficeDocumentRejectedDialog";
 import { useAttachmentUploadStore } from "@/lib/stores/attachment-upload-store";
 
 const getUploadStore = () => useAttachmentUploadStore.getState();
@@ -21,7 +28,7 @@ const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB to match server limit
  */
 export class SupabaseAttachmentAdapter implements AttachmentAdapter {
   accept =
-    "image/*,video/*,audio/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.md,.csv,.json,.mp3,.wav,.ogg,.aac,.flac,.aiff,.webm,.m4a";
+    "image/*,video/*,audio/*,.pdf,.txt,.md,.csv,.json,.mp3,.wav,.ogg,.aac,.flac,.aiff,.webm,.m4a";
 
   // Map of attachment ID → upload promise (started eagerly in add())
   private pendingUploads = new Map<string, Promise<string>>();
@@ -30,6 +37,18 @@ export class SupabaseAttachmentAdapter implements AttachmentAdapter {
     if (file.size > MAX_FILE_SIZE_BYTES) {
       throw new Error(
         `File size exceeds ${MAX_FILE_SIZE_BYTES / (1024 * 1024)}MB limit`
+      );
+    }
+
+    // Reject Office documents — convert to PDF at ilovepdf.com
+    if (isOfficeDocument(file)) {
+      const word = isWordFile(file) ? [file.name] : undefined;
+      const excel = isExcelFile(file) ? [file.name] : undefined;
+      const powerpoint = isPptxFile(file) ? [file.name] : undefined;
+      emitOfficeDocumentRejected({ word, excel, powerpoint });
+      const format = word ? "Word" : excel ? "Excel" : "PowerPoint";
+      throw new Error(
+        `"${file.name}" is a ${format} file. ${format} files are not supported. Convert to PDF first.`
       );
     }
 
