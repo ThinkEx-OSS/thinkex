@@ -9,16 +9,23 @@ import { type Block } from "@/components/editor/BlockNoteEditor";
 
 /**
  * Extract plain text from an item for searching (grep).
- * Returns empty string for types with no searchable content.
+ * Includes virtual path and item title as the first lines (so path-based names like "Summary- Lecture #1" match),
+ * then content. Returns empty string for types with no searchable content.
  */
 export function extractSearchableText(item: Item, items: Item[]): string {
+    const title = item.name?.trim() ?? "";
+    const virtualPath = getVirtualPath(item, items);
+    const header = [virtualPath, title].filter(Boolean).join("\n");
+    const withHeader = (content: string) =>
+        content ? (header ? `${header}\n${content}` : content) : header;
+
     switch (item.type) {
         case "note": {
             const data = item.data as NoteData;
             if (Array.isArray(data.blockContent) && data.blockContent.length > 0) {
-                return serializeBlockNote(data.blockContent as Block[]);
+                return withHeader(serializeBlockNote(data.blockContent as Block[]));
             }
-            return "";
+            return header;
         }
         case "flashcard": {
             const data = item.data as FlashcardData;
@@ -28,30 +35,32 @@ export function extractSearchableText(item: Item, items: Item[]): string {
                     : data.front || data.back
                         ? [{ id: "legacy", front: data.front ?? "", back: data.back ?? "", frontBlocks: data.frontBlocks, backBlocks: data.backBlocks }]
                         : [];
-            return cards
+            const content = cards
                 .map((c) => {
                     const front = c.frontBlocks ? serializeBlockNote(c.frontBlocks as Block[]) : c.front;
                     const back = c.backBlocks ? serializeBlockNote(c.backBlocks as Block[]) : c.back;
                     return `${front}\n${back}`;
                 })
                 .join("\n\n");
+            return withHeader(content);
         }
         case "pdf": {
             const data = item.data as PdfData;
-            if (data.ocrPages?.length) {
-                return data.ocrPages.map((p) => p.markdown).filter(Boolean).join("\n\n");
-            }
-            return data.textContent ?? "";
+            const content = data.ocrPages?.length
+                ? data.ocrPages.map((p) => p.markdown).filter(Boolean).join("\n\n")
+                : data.textContent ?? "";
+            return withHeader(content);
         }
         case "quiz": {
             const data = item.data as QuizData;
             const questions = data.questions ?? [];
-            return questions
+            const content = questions
                 .map(
                     (q) =>
                         `${q.questionText}\n${q.options?.join("\n") ?? ""}\n${q.explanation ?? ""}`
                 )
                 .join("\n\n");
+            return withHeader(content);
         }
         case "audio": {
             const data = item.data as AudioData;
@@ -64,14 +73,14 @@ export function extractSearchableText(item: Item, items: Item[]): string {
                         .join("\n")
                 );
             }
-            return parts.join("\n");
+            return withHeader(parts.join("\n"));
         }
         case "image":
         case "youtube":
         case "folder":
-            return item.name;
+            return header || item.name;
         default:
-            return "";
+            return header;
     }
 }
 

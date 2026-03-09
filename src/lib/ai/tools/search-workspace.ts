@@ -25,7 +25,7 @@ function buildRegex(pattern: string): RegExp {
 export function createSearchWorkspaceTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Grep search across workspace (notes, flashcards, PDFs, quizzes, audio). Finds locations—use readWorkspace for full content. include: type filter (note, flashcard, pdf, quiz, audio). path: folder prefix or exact item path; for long items use exact path then readWorkspace(path, lineStart) on matches. Plain text or regex. Max 100 matches.",
+            "Grep search across workspace (notes, flashcards, PDFs, quizzes, audio). Searches both item titles and content—use readWorkspace for full content. include: type filter (note, flashcard, pdf, quiz, audio). path: folder prefix or exact item path; for long items use exact path then readWorkspace(path, lineStart) on matches. Plain text or regex. Max 100 matches.",
         inputSchema: zodSchema(
             z.object({
                 pattern: z.string().describe("Search pattern (plain text or regex)"),

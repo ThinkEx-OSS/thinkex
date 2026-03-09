@@ -106,6 +106,34 @@ describe("createEditItemTool", () => {
     expect(result.message).toMatch(/not editable/);
   });
 
+  it("allows PDF rename-only and rejects PDF content edits", async () => {
+    const pdfItem = { id: "pdf-1", type: "pdf", name: "Syllabus.pdf", data: { fileUrl: "x", filename: "Syllabus.pdf" } };
+    mockResolveItem.mockReturnValueOnce(pdfItem);
+    mockLoadStateForTool.mockResolvedValueOnce({ success: true, state: { items: [pdfItem] } });
+
+    const tool: any = createEditItemTool(ctx);
+    const contentEditResult = await tool.execute({ itemName: "Syllabus.pdf", oldString: "foo", newString: "bar" });
+    expect(contentEditResult.success).toBe(false);
+    expect(contentEditResult.message).toMatch(/rename only|can only be renamed/i);
+
+    mockResolveItem.mockReturnValueOnce(pdfItem);
+    mockLoadStateForTool.mockResolvedValueOnce({ success: true, state: { items: [pdfItem] } });
+    mockWorkspaceWorker.mockResolvedValueOnce({ success: true, itemId: "pdf-1", message: "Renamed PDF" });
+
+    const renameResult = await tool.execute({
+      itemName: "Syllabus.pdf",
+      oldString: "",
+      newString: "",
+      newName: "Course Syllabus.pdf",
+    });
+    expect(renameResult.success).toBe(true);
+    expect(renameResult.itemName).toBe("Course Syllabus.pdf");
+    expect(mockWorkspaceWorker).toHaveBeenLastCalledWith(
+      "edit",
+      expect.objectContaining({ itemId: "pdf-1", itemType: "pdf", newName: "Course Syllabus.pdf" })
+    );
+  });
+
   it("calls workspaceWorker edit and returns renamed itemName", async () => {
     const tool: any = createEditItemTool(ctx);
     const result = await tool.execute({

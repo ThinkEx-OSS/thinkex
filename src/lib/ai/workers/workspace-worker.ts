@@ -1251,6 +1251,41 @@ export async function workspaceWorker(
                     };
                 }
 
+                if (existingItem.type === "pdf") {
+                    if (!isRenameOnly || !rename) {
+                        return {
+                            success: false,
+                            message: "PDFs can only be renamed. Use oldString='', newString='', and newName='new name'.",
+                        };
+                    }
+                    if (hasDuplicateName(currentState.items, rename, "pdf", existingItem.folderId ?? null, params.itemId)) {
+                        return { success: false, message: `A PDF named "${rename}" already exists in this folder` };
+                    }
+                    const changes: Partial<Item> = { name: rename };
+                    const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: "agent", name: rename }, userId, userName);
+                    const currentVersionResult = await db.execute(sql`
+                        SELECT get_workspace_version(${params.workspaceId}::uuid) as version
+                    `);
+                    const baseVersion = currentVersionResult[0]?.version || 0;
+                    const eventResult = await db.execute(sql`
+                        SELECT append_workspace_event(
+                            ${params.workspaceId}::uuid, ${event.id}::text, ${event.type}::text,
+                            ${JSON.stringify(event.payload)}::jsonb, ${event.timestamp}::bigint, ${event.userId}::text,
+                            ${baseVersion}::integer, ${event.userName ?? null}::text
+                        ) as result
+                    `);
+                    if (!eventResult?.length) throw new Error("Failed to update PDF");
+                    const appendResult = parseAppendResult(eventResult[0].result);
+                    if (appendResult.conflict) throw new Error("Workspace was modified by another user, please try again");
+                    return {
+                        success: true,
+                        itemId: params.itemId,
+                        message: `Renamed PDF to "${rename}"`,
+                        event,
+                        version: appendResult.version,
+                    };
+                }
+
                 throw new Error(`Item type "${existingItem.type}" is not editable`);
             }
 
