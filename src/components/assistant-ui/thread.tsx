@@ -231,7 +231,7 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
               }}
             />
 
-            <div className="sticky bottom-4 z-10 flex justify-center pt-4">
+            <div className="sticky bottom-4 z-10 flex justify-center pt-4 has-[button[disabled]]:pt-0">
               <ThreadScrollToBottom />
             </div>
           </ThreadPrimitive.Viewport>
