@@ -20,7 +20,7 @@ const getBaseURL = () => {
 };
 
 import { eq } from "drizzle-orm";
-import { workspaces, workspaceEvents } from "@/lib/db/schema";
+import { workspaces, workspaceEvents, userProfiles } from "@/lib/db/schema";
 
 const baseURL = getBaseURL();
 
@@ -28,6 +28,19 @@ export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
   }),
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          try {
+            await db.insert(userProfiles).values({ userId: user.id }).onConflictDoNothing({ target: userProfiles.userId });
+          } catch (err) {
+            console.error("[auth] Failed to create user profile:", err);
+          }
+        },
+      },
+    },
+  },
   socialProviders: {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID as string,
