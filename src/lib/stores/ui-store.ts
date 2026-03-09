@@ -29,7 +29,6 @@ interface UIState {
   showCreateWorkspaceModal: boolean;
   showSheetModal: boolean;
   showJsonView: boolean;
-  searchQuery: string;
 
   activeFolderId: string | null; // Active folder for filtering
   selectedModelId: string; // Selected AI model ID
@@ -89,7 +88,6 @@ interface UIState {
 
   // Actions - UI Preferences
   setShowJsonView: (show: boolean) => void;
-  setSearchQuery: (query: string) => void;
 
   setActiveFolderId: (folderId: string | null) => void;
   /** Atomic: close panels, clear folder, deselect panel cards. Use when panel is focused and user navigates back. */
@@ -160,7 +158,6 @@ const initialState = {
 
   // UI Preferences
   showJsonView: false,
-  searchQuery: '',
 
   activeFolderId: null,
   selectedModelId: 'gemini-3-flash-preview',
@@ -450,7 +447,6 @@ export const useUIStore = create<UIState>()(
 
         // UI Preferences actions
         setShowJsonView: (show) => set({ showJsonView: show }),
-        setSearchQuery: (query) => set({ searchQuery: query }),
 
         setSelectedModelId: (modelId) => set({ selectedModelId: modelId }),
 
@@ -641,7 +637,6 @@ export const selectSecondaryOpenModalItemId = (state: UIState) => state.openPane
 
 export const selectUIPreferences = (state: UIState) => ({
   showJsonView: state.showJsonView,
-  searchQuery: state.searchQuery,
 });
 
 export const selectTextSelectionState = (state: UIState) => ({

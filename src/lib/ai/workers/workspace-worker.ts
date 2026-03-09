@@ -980,7 +980,11 @@ export async function workspaceWorker(
                 if (!params.itemId || !params.itemType) {
                     throw new Error("Item ID and itemType required for edit");
                 }
-                if (params.oldString === undefined || params.newString === undefined) {
+                const isRenameOnly =
+                    params.newName &&
+                    (params.oldString === undefined || params.oldString === "") &&
+                    (params.newString === undefined || params.newString === "");
+                if (!isRenameOnly && (params.oldString === undefined || params.newString === undefined)) {
                     throw new Error("oldString and newString required for edit");
                 }
 
@@ -992,8 +996,8 @@ export async function workspaceWorker(
 
                 const rename = params.newName;
                 const replaceAll = !!params.replaceAll;
-                const oldStr = String(params.oldString);
-                const newStr = String(params.newString);
+                const oldStr = String(params.oldString ?? "");
+                const newStr = String(params.newString ?? "");
 
                 if (existingItem.type === "note") {
                     const changes: Partial<Item> = {};
@@ -1006,20 +1010,26 @@ export async function workspaceWorker(
 
                     let contentOld = "";
                     let contentNew = "";
-                    if (oldStr === "") {
+                    if (isRenameOnly) {
                         contentOld = "";
-                        contentNew = newStr;
+                        contentNew = "";
+                        // Skip content update - only apply rename via changes.name above
                     } else {
-                        contentOld = normalizeLineEndings(getNoteContentAsMarkdown(existingItem.data as NoteData));
-                        const normOld = normalizeLineEndings(oldStr);
-                        const normNew = normalizeLineEndings(newStr);
-                        contentNew = applyReplace(contentOld, normOld, normNew, replaceAll);
-                    }
-                    contentNew = fixLLMDoubleEscaping(contentNew);
-                    const blockContent = await markdownToBlocks(contentNew);
-                    changes.data = { field1: contentNew, blockContent } as NoteData;
-                    if (params.sources !== undefined) {
-                        (changes.data as NoteData).sources = params.sources;
+                        if (oldStr === "") {
+                            contentOld = "";
+                            contentNew = newStr;
+                        } else {
+                            contentOld = normalizeLineEndings(getNoteContentAsMarkdown(existingItem.data as NoteData));
+                            const normOld = normalizeLineEndings(oldStr);
+                            const normNew = normalizeLineEndings(newStr);
+                            contentNew = applyReplace(contentOld, normOld, normNew, replaceAll);
+                        }
+                        contentNew = fixLLMDoubleEscaping(contentNew);
+                        const blockContent = await markdownToBlocks(contentNew);
+                        changes.data = { field1: contentNew, blockContent } as NoteData;
+                        if (params.sources !== undefined) {
+                            (changes.data as NoteData).sources = params.sources;
+                        }
                     }
 
                     if (Object.keys(changes).length === 0) {
@@ -1081,12 +1091,14 @@ export async function workspaceWorker(
                         })),
                     };
                     let serialized = JSON.stringify(payload, null, 2);
-                    serialized = applyReplace(
-                        normalizeLineEndings(serialized),
-                        normalizeLineEndings(oldStr),
-                        normalizeLineEndings(newStr),
-                        replaceAll
-                    );
+                    if (!isRenameOnly) {
+                        serialized = applyReplace(
+                            normalizeLineEndings(serialized),
+                            normalizeLineEndings(oldStr),
+                            normalizeLineEndings(newStr),
+                            replaceAll
+                        );
+                    }
 
                     let parsed: { cards?: Array<{ id?: string; front?: string; back?: string }> };
                     try {
@@ -1157,12 +1169,14 @@ export async function workspaceWorker(
                     const questions = data.questions ?? [];
                     const payload = { questions };
                     let serialized = JSON.stringify(payload, null, 2);
-                    serialized = applyReplace(
-                        normalizeLineEndings(serialized),
-                        normalizeLineEndings(oldStr),
-                        normalizeLineEndings(newStr),
-                        replaceAll
-                    );
+                    if (!isRenameOnly) {
+                        serialized = applyReplace(
+                            normalizeLineEndings(serialized),
+                            normalizeLineEndings(oldStr),
+                            normalizeLineEndings(newStr),
+                            replaceAll
+                        );
+                    }
 
                     let parsed: { questions?: QuizQuestion[] };
                     try {
@@ -1234,6 +1248,41 @@ export async function workspaceWorker(
                         event,
                         version: appendResult.version,
                         questionCount: validatedQuestions.length,
+                    };
+                }
+
+                if (existingItem.type === "pdf") {
+                    if (!isRenameOnly || !rename) {
+                        return {
+                            success: false,
+                            message: "PDFs can only be renamed. Use oldString='', newString='', and newName='new name'.",
+                        };
+                    }
+                    if (hasDuplicateName(currentState.items, rename, "pdf", existingItem.folderId ?? null, params.itemId)) {
+                        return { success: false, message: `A PDF named "${rename}" already exists in this folder` };
+                    }
+                    const changes: Partial<Item> = { name: rename };
+                    const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: "agent", name: rename }, userId, userName);
+                    const currentVersionResult = await db.execute(sql`
+                        SELECT get_workspace_version(${params.workspaceId}::uuid) as version
+                    `);
+                    const baseVersion = currentVersionResult[0]?.version || 0;
+                    const eventResult = await db.execute(sql`
+                        SELECT append_workspace_event(
+                            ${params.workspaceId}::uuid, ${event.id}::text, ${event.type}::text,
+                            ${JSON.stringify(event.payload)}::jsonb, ${event.timestamp}::bigint, ${event.userId}::text,
+                            ${baseVersion}::integer, ${event.userName ?? null}::text
+                        ) as result
+                    `);
+                    if (!eventResult?.length) throw new Error("Failed to update PDF");
+                    const appendResult = parseAppendResult(eventResult[0].result);
+                    if (appendResult.conflict) throw new Error("Workspace was modified by another user, please try again");
+                    return {
+                        success: true,
+                        itemId: params.itemId,
+                        message: `Renamed PDF to "${rename}"`,
+                        event,
+                        version: appendResult.version,
                     };
                 }
 

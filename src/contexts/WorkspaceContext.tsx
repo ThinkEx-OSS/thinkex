@@ -1,12 +1,11 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
+import React, { createContext, useContext, useState, useCallback, useMemo } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import { useSession } from "@/lib/auth-client";
 
 /**
  * Simplified WorkspaceContext - ONLY manages workspace list
@@ -43,10 +42,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-  const { data: session } = useSession();
   const queryClient = useQueryClient();
-
-  const [isCreatingWelcomeWorkspace, setIsCreatingWelcomeWorkspace] = useState(false);
 
   // Derive current slug synchronously from pathname (no useEffect delay)
   const currentSlug = useMemo(() => {
@@ -127,38 +123,6 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const loadWorkspaces = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
   }, [queryClient]);
-
-  // Create welcome workspace for anonymous users
-  const createWelcomeWorkspace = useCallback(async () => {
-    if (isCreatingWelcomeWorkspace) return;
-
-    setIsCreatingWelcomeWorkspace(true);
-    try {
-      console.log("Welcome workspace creation disabled");
-      // const response = await fetch("/api/guest/create-welcome-workspace", {
-      //   method: "POST",
-      // });
-
-      // if (response.ok) {
-      //   const data = await response.json();
-      //   // Reload workspaces to get the new one
-      //   await loadWorkspaces();
-      //   // Redirect to home (workspace is created but user goes to home)
-      //   router.push("/home");
-      // } else {
-      //   console.error("[WORKSPACE CONTEXT] Failed to create welcome workspace");
-      // }
-    } catch (error) {
-      console.error("[WORKSPACE CONTEXT] Error creating welcome workspace:", error);
-    } finally {
-      setIsCreatingWelcomeWorkspace(false);
-    }
-  }, [isCreatingWelcomeWorkspace, loadWorkspaces, router]);
-
-  // TanStack Query automatically fetches on mount, no need for manual trigger
-
-  // Note: Welcome workspace creation is now handled lazily in WorkspaceGrid
-  // This prevents jarring dashboard flash and provides better UX
 
   // Switch workspace
   const switchWorkspace = useCallback(

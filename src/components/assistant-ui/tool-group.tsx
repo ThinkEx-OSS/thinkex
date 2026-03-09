@@ -225,6 +225,12 @@ const ToolGroupImpl: FC<
     [isToolGroupStreaming],
   );
 
+  // Only group when there are more than 1 consecutive tool call.
+  // IMPORTANT: this check must stay *after* hooks to avoid conditional hook calls.
+  if (toolCount <= 1) {
+    return <>{children}</>;
+  }
+
   return (
     <ToolGroupRoot variant="ghost" open={isOpen} onOpenChange={handleOpenChange}>
       <ToolGroupTrigger count={toolCount} active={isToolGroupStreaming} />

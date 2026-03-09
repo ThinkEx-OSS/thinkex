@@ -106,6 +106,34 @@ describe("createEditItemTool", () => {
     expect(result.message).toMatch(/not editable/);
   });
 
+  it("allows PDF rename-only and rejects PDF content edits", async () => {
+    const pdfItem = { id: "pdf-1", type: "pdf", name: "Syllabus.pdf", data: { fileUrl: "x", filename: "Syllabus.pdf" } };
+    mockResolveItem.mockReturnValueOnce(pdfItem);
+    mockLoadStateForTool.mockResolvedValueOnce({ success: true, state: { items: [pdfItem] } });
+
+    const tool: any = createEditItemTool(ctx);
+    const contentEditResult = await tool.execute({ itemName: "Syllabus.pdf", oldString: "foo", newString: "bar" });
+    expect(contentEditResult.success).toBe(false);
+    expect(contentEditResult.message).toMatch(/rename only|can only be renamed/i);
+
+    mockResolveItem.mockReturnValueOnce(pdfItem);
+    mockLoadStateForTool.mockResolvedValueOnce({ success: true, state: { items: [pdfItem] } });
+    mockWorkspaceWorker.mockResolvedValueOnce({ success: true, itemId: "pdf-1", message: "Renamed PDF" });
+
+    const renameResult = await tool.execute({
+      itemName: "Syllabus.pdf",
+      oldString: "",
+      newString: "",
+      newName: "Course Syllabus.pdf",
+    });
+    expect(renameResult.success).toBe(true);
+    expect(renameResult.itemName).toBe("Course Syllabus.pdf");
+    expect(mockWorkspaceWorker).toHaveBeenLastCalledWith(
+      "edit",
+      expect.objectContaining({ itemId: "pdf-1", itemType: "pdf", newName: "Course Syllabus.pdf" })
+    );
+  });
+
   it("calls workspaceWorker edit and returns renamed itemName", async () => {
     const tool: any = createEditItemTool(ctx);
     const result = await tool.execute({
@@ -126,6 +154,30 @@ describe("createEditItemTool", () => {
         oldString: "old",
         newString: "new",
         replaceAll: true,
+        newName: "Renamed Note",
+      })
+    );
+    expect(result.success).toBe(true);
+    expect(result.itemName).toBe("Renamed Note");
+  });
+
+  it("supports rename-only with oldString='' and newString=''", async () => {
+    const tool: any = createEditItemTool(ctx);
+    const result = await tool.execute({
+      itemName: "My Note",
+      oldString: "",
+      newString: "",
+      newName: "Renamed Note",
+    });
+
+    expect(mockWorkspaceWorker).toHaveBeenCalledWith(
+      "edit",
+      expect.objectContaining({
+        workspaceId: "ws-1",
+        itemId: "note-1",
+        itemType: "note",
+        oldString: "",
+        newString: "",
         newName: "Renamed Note",
       })
     );

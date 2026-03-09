@@ -82,7 +82,7 @@ export function PasswordProtectedPdfDialog() {
           <Button variant="outline" onClick={() => setOpen(false)}>
             Close
           </Button>
-          <Button asChild>
+          <Button asChild onClick={() => setOpen(false)}>
             <a href={UNLOCK_URL} target="_blank" rel="noopener noreferrer">
               Unlock PDF
               <ExternalLink className="ml-2 size-4" />

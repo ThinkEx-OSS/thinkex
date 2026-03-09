@@ -1,6 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { WorkspaceEvent, EventResponse } from "@/lib/workspace/events";
 import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
+
+/** Strip ocrPages/textContent from PDF items — client doesn't need them for display. */
+function stripPdfOcrFromItem(item: { type?: string; data?: unknown }): void {
+  if (item?.type === "pdf" && item.data && typeof item.data === "object") {
+    const d = item.data as Record<string, unknown>;
+    delete d.ocrPages;
+    delete d.textContent;
+  }
+}
+
+function stripPdfOcrFromState(state: { items?: Array<{ type?: string; data?: unknown }> } | undefined): void {
+  state?.items?.forEach(stripPdfOcrFromItem);
+}
+
+function stripPdfOcrFromEventPayload(event: WorkspaceEvent): void {
+  const p = event.payload as Record<string, unknown>;
+  if (event.type === "ITEM_CREATED" && p?.item) stripPdfOcrFromItem(p.item as { type?: string; data?: unknown });
+  if (event.type === "ITEM_UPDATED") {
+    const changes = p?.changes as Record<string, unknown> | undefined;
+    if (changes?.data && typeof changes.data === "object") {
+      const d = changes.data as Record<string, unknown>;
+      delete d.ocrPages;
+      delete d.textContent;
+    }
+  }
+  if (event.type === "BULK_ITEMS_UPDATED") {
+    (p?.addedItems as Array<{ type?: string; data?: unknown }> | undefined)?.forEach(stripPdfOcrFromItem);
+    (p?.items as Array<{ type?: string; data?: unknown }> | undefined)?.forEach(stripPdfOcrFromItem);
+  }
+  if (event.type === "WORKSPACE_SNAPSHOT" && p?.items) {
+    (p.items as Array<{ type?: string; data?: unknown }>).forEach(stripPdfOcrFromItem);
+  }
+}
+
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import { hasDuplicateName } from "@/lib/workspace/unique-name";
 import { db, workspaceEvents } from "@/lib/db/client";
@@ -177,6 +211,10 @@ async function handleGET(
     ? Math.max(...eventsData.map(e => e.version))
     : (snapshotVersion || 0);
 
+  // Strip ocrPages/textContent from PDF items — client doesn't need them for display
+  if (latestSnapshot?.state) stripPdfOcrFromState(latestSnapshot.state as { items?: Array<{ type?: string; data?: unknown }> });
+  events.forEach(stripPdfOcrFromEventPayload);
+
   const response: EventResponse = {
     events,
     version: maxVersion,
@@ -324,6 +362,7 @@ async function handlePOST(
       userName: e.userName || undefined,
       id: e.eventId,
     } as WorkspaceEvent));
+    events.forEach(stripPdfOcrFromEventPayload);
 
     const totalTime = Date.now() - startTime;
     timings.total = totalTime;

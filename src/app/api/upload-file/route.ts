@@ -5,6 +5,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import {
+  isOfficeDocument,
+  getOfficeDocumentConvertUrl,
+} from "@/lib/uploads/office-document-validation";
 
 export const maxDuration = 30;
 
@@ -61,8 +65,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Accept all file types (removed image-only restriction)
-    // File type validation can be done client-side if needed
+    // Reject Office documents — convert to PDF at ilovepdf.com
+    const convertUrl = getOfficeDocumentConvertUrl(file);
+    if (convertUrl) {
+      return NextResponse.json(
+        {
+          error: "Word, Excel, and PowerPoint files are not supported. Convert to PDF first.",
+          convertUrl,
+        },
+        { status: 400 }
+      );
+    }
 
     // Validate file size (50MB limit)
     const maxSize = 50 * 1024 * 1024; // 50MB

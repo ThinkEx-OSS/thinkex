@@ -19,6 +19,7 @@ import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useAui } from "@assistant-ui/react";
 import { toast } from "sonner";
+import { focusComposerInput } from "@/lib/utils/composer-utils";
 
 // PDF Plugin imports
 import { useZoom, ZoomMode } from '@embedpdf/plugin-zoom/react';
@@ -113,6 +114,10 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
 
                 // Turn off capture mode
                 captureRef.current?.toggleMarqueeCapture();
+
+                // Focus composer similar to reply flow — expand chat if collapsed, then focus input
+                useUIStore.getState().setIsChatExpanded(true);
+                focusComposerInput();
 
             } catch (error) {
                 console.error("Failed to add capture attachment:", error);

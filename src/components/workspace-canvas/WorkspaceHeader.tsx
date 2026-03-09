@@ -59,8 +59,7 @@ import { renderWorkspaceMenuItems } from "./workspace-menu-items";
 import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
 interface WorkspaceHeaderProps {
   titleInputRef: React.RefObject<HTMLInputElement | null>;
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
+  onOpenSearch?: () => void;
   // Save indicator props
   isSaving?: boolean;
   lastSavedAt?: Date | null;
@@ -110,8 +109,7 @@ interface WorkspaceHeaderProps {
 
 export function WorkspaceHeader({
   titleInputRef,
-  searchQuery,
-  onSearchChange,
+  onOpenSearch,
   isSaving,
   lastSavedAt,
   hasUnsavedChanges,
@@ -147,8 +145,6 @@ export function WorkspaceHeader({
   onUpdateActiveItem,
 }: WorkspaceHeaderProps) {
   const router = useRouter();
-  const [isFocused, setIsFocused] = useState(false);
-  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [isNewMenuOpen, setIsNewMenuOpen] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [renamingTarget, setRenamingTarget] = useState<{ id: string, type: 'folder' | 'item' } | null>(null);
@@ -162,7 +158,6 @@ export function WorkspaceHeader({
   const openAudioDialog = useAudioRecordingStore((s) => s.openDialog);
   const closeAudioDialog = useAudioRecordingStore((s) => s.closeDialog);
   const renameInputRef = useRef<HTMLInputElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const pathname = usePathname();
   const isWorkspaceRoute = pathname.startsWith("/workspace");
 
@@ -238,13 +233,6 @@ export function WorkspaceHeader({
     }
   }, [showRenameDialog]);
 
-  // Auto-focus search input when expanded
-  useEffect(() => {
-    if (isSearchExpanded && searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  }, [isSearchExpanded]);
-
   // Listen for drag hover events on breadcrumb elements
   useEffect(() => {
     const handleDragHover = (e: Event) => {
@@ -290,35 +278,6 @@ export function WorkspaceHeader({
       window.removeEventListener('folder-drag-hover', handleDragHover);
     };
   }, []);
-
-  // Handle keyboard shortcut Cmd/Ctrl+K to expand search
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd+K / Ctrl+K - Expand and focus search
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setIsSearchExpanded(true);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
-
-  // Handle search input blur - collapse if empty
-  const handleSearchBlur = () => {
-    setIsFocused(false);
-    if (!searchQuery) {
-      setIsSearchExpanded(false);
-    }
-  };
-
-  // Handle search icon click
-  const handleSearchIconClick = () => {
-    setIsSearchExpanded(true);
-  };
 
   const handleYouTubeCreate = useCallback((url: string, name: string, thumbnail?: string) => {
     if (addItem) {
@@ -906,71 +865,25 @@ export function WorkspaceHeader({
               </Tooltip>
             )}
 
-            {/* Search Input */}
-            {isSearchExpanded ? (
-              <div className="relative w-24" data-tour="search-bar">
-                <Search
+            {/* Search - opens command palette */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => onOpenSearch?.()}
                   className={cn(
-                    "absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200 pointer-events-none z-10",
-                    isFocused ? "text-sidebar-foreground" : "text-sidebar-foreground/70"
+                    "h-8 w-8 flex items-center justify-center rounded-md transition-colors pointer-events-auto cursor-pointer",
+                    "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent"
                   )}
-                />
-                <input
-                  ref={(node) => {
-                    searchInputRef.current = node;
-                    if (titleInputRef) {
-                      (titleInputRef as React.MutableRefObject<HTMLInputElement | null>).current = node;
-                    }
-                  }}
-                  value={searchQuery}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                    onSearchChange(e.target.value);
-                  }}
-                  onFocus={() => setIsFocused(true)}
-                  onBlur={handleSearchBlur}
-                  placeholder="Search..."
-                  className={cn(
-                    "w-full h-8 pl-9 outline-none rounded-md text-sm pointer-events-auto box-border",
-                    searchQuery ? "pr-8" : "pr-3",
-                    "border border-sidebar-border text-sidebar-foreground/70 placeholder:text-sidebar-foreground/50 transition-colors",
-                    isFocused
-                      ? "text-sidebar-foreground bg-accent"
-                      : "hover:text-sidebar-foreground hover:bg-accent"
-                  )}
-                />
-                {/* Clear button - only show when there's text */}
-                {searchQuery && (
-                  <button
-                    onClick={() => {
-                      onSearchChange('');
-                    }}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:scale-110 transition-all duration-200 pointer-events-auto z-10 cursor-pointer"
-                    aria-label="Clear search"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            ) : (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={handleSearchIconClick}
-                    className={cn(
-                      "h-8 w-8 flex items-center justify-center rounded-md transition-colors pointer-events-auto cursor-pointer",
-                      "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent"
-                    )}
-                    data-tour="search-bar"
-                    aria-label="Search workspace"
-                  >
-                    <Search className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  Search workspace <Kbd className="ml-1">{formatKeyboardShortcut('K')}</Kbd>
-                </TooltipContent>
-              </Tooltip>
-            )}
+                  data-tour="search-bar"
+                  aria-label="Search workspace"
+                >
+                  <Search className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                Search workspace <Kbd className="ml-1">{formatKeyboardShortcut('K')}</Kbd>
+              </TooltipContent>
+            </Tooltip>
 
             {/* New Button */}
             {addItem && (

@@ -5,6 +5,12 @@ import { useHomeAttachments } from "@/contexts/HomeAttachmentsContext";
 import { Upload } from "lucide-react";
 import { useCallback } from "react";
 import { toast } from "sonner";
+import { emitOfficeDocumentRejected } from "@/components/modals/OfficeDocumentRejectedDialog";
+import {
+  isWordFile,
+  isExcelFile,
+  isPptxFile,
+} from "@/lib/uploads/office-document-validation";
 import { cn } from "@/lib/utils";
 
 interface HomeHeroDropzoneProps {
@@ -61,8 +67,20 @@ export function HomeHeroDropzone({ children, onFilesDropped }: HomeHeroDropzoneP
     },
     onDropRejected: (fileRejections) => {
       if (fileRejections.length > 0) {
-        const names = fileRejections.map((r) => r.file.name).join(", ");
-        toast.error(`Only PDF, image, and audio files are supported. Rejected: ${names}`);
+        const wordFiles = fileRejections.filter((r) => isWordFile(r.file));
+        const excelFiles = fileRejections.filter((r) => isExcelFile(r.file));
+        const pptxFiles = fileRejections.filter((r) => isPptxFile(r.file));
+        const hasOffice = wordFiles.length > 0 || excelFiles.length > 0 || pptxFiles.length > 0;
+        if (hasOffice) {
+          emitOfficeDocumentRejected({
+            word: wordFiles.length ? wordFiles.map((r) => r.file.name) : undefined,
+            excel: excelFiles.length ? excelFiles.map((r) => r.file.name) : undefined,
+            powerpoint: pptxFiles.length ? pptxFiles.map((r) => r.file.name) : undefined,
+          });
+        } else {
+          const names = fileRejections.map((r) => r.file.name).join(", ");
+          toast.error(`Only PDF, image, and audio files are supported. Rejected: ${names}`);
+        }
       }
     },
   });

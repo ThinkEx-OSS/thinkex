@@ -428,7 +428,7 @@ export function PromptBuilderDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2 min-w-0 overflow-x-hidden">
+        <div className="space-y-4 py-2 min-w-0">
           {/* Search: Source selector - card style like home action buttons */}
           {config.hasSearchSource && (
             <div className="space-y-2">
@@ -540,7 +540,7 @@ export function PromptBuilderDialog({
 
           {/* Workspace context - separate dialog for picker (scroll works, no layout shift) */}
           {config.hasTopicSelector && items.length > 0 && (
-            <div className="space-y-2 min-w-0 overflow-hidden">
+            <div className="space-y-2 min-w-0">
               <Label>Workspace context</Label>
               <Input
                 placeholder={

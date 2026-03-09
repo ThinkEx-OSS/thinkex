@@ -249,7 +249,7 @@ function PdfSnapshotRenderer({
 
     if (isRendering) {
         return (
-            <div className={`flex items-center justify-center bg-[#1a1a1a] ${className || ''}`}>
+            <div className={`flex items-center justify-center bg-sidebar ${className || ''}`}>
                 <div className="flex items-center gap-2 text-white/40">
                     <Loader2 size={16} className="animate-spin" />
                     <span className="text-xs">Rendering...</span>
@@ -260,14 +260,14 @@ function PdfSnapshotRenderer({
 
     if (!imageUrl) {
         return (
-            <div className={`flex items-center justify-center bg-[#1a1a1a] ${className || ''}`}>
+            <div className={`flex items-center justify-center bg-sidebar ${className || ''}`}>
                 <div className="text-white/40 text-xs">PDF Preview</div>
             </div>
         );
     }
 
     return (
-        <div className={`relative overflow-hidden bg-[#1a1a1a] flex justify-center ${className || ''}`}>
+        <div className={`relative overflow-hidden bg-sidebar flex justify-center ${className || ''}`}>
             <div
                 className="h-full"
                 style={{
@@ -329,7 +329,7 @@ export function LightweightPdfPreview({ pdfSrc, title, className }: LightweightP
 
     if (engineLoading || !engine) {
         return (
-            <div className={`flex items-center justify-center bg-[#1a1a1a] ${className || ''}`}>
+            <div className={`flex items-center justify-center bg-sidebar ${className || ''}`}>
                 <div className="flex items-center gap-2 text-white/40">
                     <Loader2 size={16} className="animate-spin" />
                     <span className="text-xs">Loading...</span>
@@ -346,7 +346,7 @@ export function LightweightPdfPreview({ pdfSrc, title, className }: LightweightP
                         {({ isLoading, isLoaded, documentState }) => (
                             <>
                                 {isLoading && (
-                                    <div className={`flex items-center justify-center bg-[#1a1a1a] ${className || ''}`}>
+                                    <div className={`flex items-center justify-center bg-sidebar ${className || ''}`}>
                                         <div className="flex items-center gap-2 text-white/40">
                                             <Loader2 size={16} className="animate-spin" />
                                             <span className="text-xs">Loading PDF...</span>
@@ -366,7 +366,7 @@ export function LightweightPdfPreview({ pdfSrc, title, className }: LightweightP
                         )}
                     </DocumentContent>
                 ) : (
-                    <div className={`flex items-center justify-center bg-[#1a1a1a] ${className || ''}`}>
+                    <div className={`flex items-center justify-center bg-sidebar ${className || ''}`}>
                         <div className="flex items-center gap-2 text-white/40">
                             <Loader2 size={16} className="animate-spin" />
                             <span className="text-xs">Initializing...</span>

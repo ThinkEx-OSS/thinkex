@@ -19,6 +19,12 @@ import { cn } from "@/lib/utils";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
+import { emitOfficeDocumentRejected } from "@/components/modals/OfficeDocumentRejectedDialog";
+import {
+  isWordFile,
+  isExcelFile,
+  isPptxFile,
+} from "@/lib/uploads/office-document-validation";
 
 interface UploadDialogProps {
     open: boolean;
@@ -227,6 +233,21 @@ export function UploadDialog({
             'application/pdf': ['.pdf'],
         },
         disabled: isUploading,
+        onDropRejected: (fileRejections) => {
+            if (fileRejections.length > 0) {
+                const wordFiles = fileRejections.filter((r) => isWordFile(r.file));
+                const excelFiles = fileRejections.filter((r) => isExcelFile(r.file));
+                const pptxFiles = fileRejections.filter((r) => isPptxFile(r.file));
+                const hasOffice = wordFiles.length > 0 || excelFiles.length > 0 || pptxFiles.length > 0;
+                if (hasOffice) {
+                    emitOfficeDocumentRejected({
+                        word: wordFiles.length ? wordFiles.map((r) => r.file.name) : undefined,
+                        excel: excelFiles.length ? excelFiles.map((r) => r.file.name) : undefined,
+                        powerpoint: pptxFiles.length ? pptxFiles.map((r) => r.file.name) : undefined,
+                    });
+                }
+            }
+        },
     });
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {

@@ -5,9 +5,8 @@ import { useSession, signIn } from "@/lib/auth-client";
 import { SidebarProvider } from "@/components/ui/sidebar";
 
 /**
- * Handles anonymous session creation and workspace access.
- * Creates anonymous session if needed, workspace creation happens lazily in WorkspaceGrid.
- * No loading screen - renders children immediately.
+ * Handles anonymous session creation.
+ * Creates anonymous session if needed. No loading screen - renders children immediately.
  */
 export function AnonymousSessionHandler({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = useSession();
