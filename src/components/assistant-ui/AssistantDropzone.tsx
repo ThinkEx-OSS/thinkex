@@ -93,17 +93,25 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
 
       // Reject password-protected PDFs so other files still upload
       let filesToAdd = validFiles;
+      let rejectedPdfs: File[] = [];
       const pdfFiles = validFiles.filter((f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"));
       if (pdfFiles.length > 0) {
         const { valid: unprotectedPdfs, rejected: protectedNames } = await filterPasswordProtectedPdfs(pdfFiles);
         if (protectedNames.length > 0) {
           emitPasswordProtectedPdf(protectedNames);
+          // Track rejected PDFs to clean up processingFilesRef
+          rejectedPdfs = pdfFiles.filter((f) => protectedNames.includes(f.name));
         }
         const nonPdfFiles = validFiles.filter((f) => f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf"));
         filesToAdd = [...nonPdfFiles, ...unprotectedPdfs];
       }
 
       if (filesToAdd.length === 0) {
+        // Clean up processingFilesRef for rejected files before returning
+        rejectedPdfs.forEach((file) => {
+          const fileKey = getFileKey(file);
+          processingFilesRef.current.delete(fileKey);
+        });
         return;
       }
 
