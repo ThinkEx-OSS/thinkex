@@ -50,7 +50,7 @@ function MessageContextBadgesImpl() {
             <div className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 cursor-default">
               <MdFormatColorText className="h-3.5 w-3.5 shrink-0 text-primary/70" />
               <span className="text-xs text-primary/90">
-                From "{truncate(blockNoteSelection.cardName, 25)}": {truncate(blockNoteSelection.text, 40)}
+                {truncate(blockNoteSelection.text, 40)}
               </span>
             </div>
           </TooltipTrigger>
@@ -65,16 +65,12 @@ function MessageContextBadgesImpl() {
             <div className="inline-flex items-center gap-1.5 rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 cursor-default">
               <BsArrowReturnRight className="h-3.5 w-3.5 shrink-0 text-blue-500" />
               <span className="text-xs text-blue-700 dark:text-blue-300">
-                {sel.title ? (
-                  <>From "{truncate(sel.title, 25)}": {truncate(sel.text, 40)}</>
-                ) : (
-                  truncate(sel.text, 40)
-                )}
+                {truncate(sel.text, 40)}
               </span>
             </div>
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-sm whitespace-pre-wrap break-words">
-            {sel.title ? `From ${sel.title}: ${sel.text}` : sel.text}
+            {sel.text}
           </TooltipContent>
         </Tooltip>
       ))}

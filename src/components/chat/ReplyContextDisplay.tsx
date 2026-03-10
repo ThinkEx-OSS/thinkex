@@ -64,16 +64,12 @@ function ReplyContextDisplayImpl() {
 
                 {/* Selection Text */}
                 <span className="text-xs max-w-[200px] truncate text-blue-700 dark:text-blue-300">
-                  {selection.title ? (
-                    <>From "{truncateText(selection.title, 25)}": {truncateText(selection.text)}</>
-                  ) : (
-                    truncateText(selection.text)
-                  )}
+                  {truncateText(selection.text)}
                 </span>
               </div>
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-sm whitespace-pre-wrap break-words">
-              {selection.title ? `From ${selection.title}: ${selection.text}` : selection.text}
+              {selection.text}
             </TooltipContent>
           </Tooltip>
         ))}
