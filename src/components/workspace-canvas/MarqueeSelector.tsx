@@ -266,7 +266,7 @@ export function MarqueeSelector({
   // Render marquee via portal to escape stacking context and appear above sidebar
   const marqueeElement = isSelecting && displayRect && displayRect.width > 0 && displayRect.height > 0 ? (
     <div
-      className="fixed border-2 border-blue-500 bg-blue-500/10 pointer-events-none z-[100] flex items-center justify-center"
+      className="fixed border-2 border-blue-500 dark:border-blue-400 bg-blue-500/10 dark:bg-blue-400/20 pointer-events-none z-[100] flex items-center justify-center"
       style={{
         left: `${scrollContainerRef.current ? scrollContainerRef.current.getBoundingClientRect().left + displayRect.left : 0}px`,
         top: `${scrollContainerRef.current ? scrollContainerRef.current.getBoundingClientRect().top + displayRect.top : 0}px`,
@@ -275,7 +275,7 @@ export function MarqueeSelector({
       }}
     >
       {displayRect.width > 120 && displayRect.height > 30 && (
-        <span className="text-white text-sm font-medium select-none whitespace-nowrap animate-pulse">
+        <span className="text-blue-900 dark:text-blue-100 text-sm font-medium select-none whitespace-nowrap animate-pulse">
           Select items in workspace
         </span>
       )}
