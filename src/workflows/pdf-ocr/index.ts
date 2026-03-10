@@ -6,7 +6,7 @@ import { prepareOcrChunks } from "./steps/prepare-ocr-chunks";
 import { ocrChunk } from "./steps/ocr-chunk";
 import { persistPdfOcrResult, persistPdfOcrFailure } from "./steps/persist-result";
 
-const MAX_CONCURRENT_OCR = 5;
+const MAX_CONCURRENT_OCR = 9;
 const OCR_TIMEOUT = "5min"; // Per docs: Promise.race with sleep() for timeout
 
 /**
@@ -47,7 +47,7 @@ export async function pdfOcrWorkflow(
         batch.map((chunk) => ocrChunk(chunk.base64, chunk.start, chunk.end))
       );
 
-      for (const pages of batchResults) {
+      for (const { pages } of batchResults) {
         for (const p of pages) {
           allPages.push(rewriteOcrPageImageIds(p, globalIndex));
           globalIndex++;

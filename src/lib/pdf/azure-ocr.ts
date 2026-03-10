@@ -8,8 +8,8 @@ import { PDFDocument } from "pdf-lib";
 import { logger } from "@/lib/utils/logger";
 
 const MAX_BATCH_SIZE_BYTES = 30 * 1024 * 1024; // 30 MB
-/** Max concurrent OCR requests to Azure; prevents 408 timeouts from request flooding */
-const MAX_CONCURRENT_OCR = 5;
+/** Max concurrent OCR requests; scale with deployment count (3 per deployment with round-robin) */
+const MAX_CONCURRENT_OCR = 9;
 
 function isBboxAnnotationEnabled(): boolean {
   return process.env.OCR_BBOX_ANNOTATION !== "false";
@@ -18,6 +18,54 @@ const DEFAULT_MODEL = "mistral-document-ai-2512";
 
 /** Azure annotations (bbox/document) are limited to 8 pages per request. */
 const MAX_PAGES_WITH_ANNOTATION = 8;
+
+/** OCR config: same endpoint/key, model selects deployment. Each deployment has its own rate limit. */
+interface OcrConfig {
+  endpoint: string;
+  apiKey: string;
+  model: string;
+}
+
+/** Round-robin index for distributing OCR calls across deployments */
+let ocrConfigIndex = 0;
+
+/**
+ * Collect OCR configs from env. Azure Mistral Document AI uses ONE endpoint/key;
+ * deployment is selected via the "model" field in the request body.
+ * Primary: AZURE_DOCUMENT_AI_MODEL (default). Additional: AZURE_DOCUMENT_AI_MODEL_2, MODEL_3, etc.
+ */
+function getOcrConfigs(): OcrConfig[] {
+  const endpoint = process.env.AZURE_DOCUMENT_AI_ENDPOINT;
+  const apiKey = process.env.AZURE_DOCUMENT_AI_API_KEY;
+  const defaultModel = process.env.AZURE_DOCUMENT_AI_MODEL ?? DEFAULT_MODEL;
+
+  if (!endpoint || !apiKey) return [];
+
+  const configs: OcrConfig[] = [];
+
+  // Primary deployment
+  configs.push({ endpoint, apiKey, model: defaultModel });
+
+  // Additional deployments: MODEL_2, MODEL_3, ... (same endpoint/key, different model = different deployment)
+  for (let i = 2; i <= 10; i++) {
+    const model = process.env[`AZURE_DOCUMENT_AI_MODEL_${i}`];
+    if (model) {
+      configs.push({ endpoint, apiKey, model });
+    }
+  }
+
+  return configs;
+}
+
+/** Get next config from pool (round-robin). Returns config + index for observability. */
+function getNextOcrConfig(): OcrConfig & { index: number } {
+  const pool = getOcrConfigs();
+  if (pool.length === 0) {
+    throw new Error("AZURE_DOCUMENT_AI_API_KEY and AZURE_DOCUMENT_AI_ENDPOINT must be set");
+  }
+  const idx = ocrConfigIndex++ % pool.length;
+  return { ...pool[idx], index: idx };
+}
 
 /**
  * Choose chunk size based on total page count.
@@ -106,28 +154,24 @@ interface AzureOcrResponse {
   [key: string]: unknown;
 }
 
+/** Result of ocrSingleChunk including endpoint index for observability */
+export interface OcrChunkResult {
+  pages: OcrPage[];
+  endpointIndex: number;
+}
+
 /**
  * Call Azure Document AI OCR endpoint with a base64-encoded PDF chunk.
+ * Round-robins the model parameter across deployments (same endpoint/key).
+ * Returns pages + endpointIndex for workflow observability.
  * Exported for use in workflow steps (single chunk = single step).
  */
-export async function ocrSingleChunk(base64Pdf: string): Promise<OcrPage[]> {
-  const apiKey = process.env.AZURE_DOCUMENT_AI_API_KEY;
-  const endpoint = process.env.AZURE_DOCUMENT_AI_ENDPOINT;
-  const model =
-    process.env.AZURE_DOCUMENT_AI_MODEL ?? DEFAULT_MODEL;
-
-  if (!apiKey || !endpoint) {
-    throw new Error(
-      "AZURE_DOCUMENT_AI_API_KEY and AZURE_DOCUMENT_AI_ENDPOINT must be set"
-    );
-  }
-
+export async function ocrSingleChunk(base64Pdf: string): Promise<OcrChunkResult> {
   const documentUrl = `data:application/pdf;base64,${base64Pdf}`;
   const includeImages = process.env.OCR_INCLUDE_IMAGES === "true";
   const bboxAnnotation = isBboxAnnotationEnabled();
 
-  const body: Record<string, unknown> = {
-    model,
+  const baseBody: Record<string, unknown> = {
     document: {
       type: "document_url",
       document_name: "chunk",
@@ -138,7 +182,7 @@ export async function ocrSingleChunk(base64Pdf: string): Promise<OcrPage[]> {
   };
 
   if (bboxAnnotation) {
-    body.bbox_annotation_format = {
+    baseBody.bbox_annotation_format = {
       type: "json_schema",
       json_schema: {
         schema: {
@@ -153,9 +197,17 @@ export async function ocrSingleChunk(base64Pdf: string): Promise<OcrPage[]> {
     };
   }
 
-  const maxRetries = 1; // Retry 408 (timeout) and 429 (rate limit) once
+  const pool = getOcrConfigs();
+  if (pool.length === 0) {
+    throw new Error("AZURE_DOCUMENT_AI_API_KEY and AZURE_DOCUMENT_AI_ENDPOINT must be set");
+  }
+
+  const maxAttempts = pool.length > 1 ? pool.length + 1 : 2;
   let lastError: Error | null = null;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const { endpoint, apiKey, model, index: endpointIndex } = getNextOcrConfig();
+    const body = { ...baseBody, model };
     const res = await fetch(endpoint, {
       method: "POST",
       headers: {
@@ -169,7 +221,7 @@ export async function ocrSingleChunk(base64Pdf: string): Promise<OcrPage[]> {
       const json = (await res.json()) as AzureOcrResponse;
       const rawPages = json.pages ?? [];
 
-      return rawPages.map((p, i) => {
+      const pages = rawPages.map((p, i) => {
         const page: OcrPage = {
           index: p.index ?? i,
           markdown: p.markdown ?? "",
@@ -181,14 +233,19 @@ export async function ocrSingleChunk(base64Pdf: string): Promise<OcrPage[]> {
         if (p.tables?.length) page.tables = p.tables;
         return page;
       });
+      return { pages, endpointIndex };
     }
 
     const errText = await res.text();
     lastError = new Error(`Azure OCR failed (${res.status}): ${errText}`);
 
-    if ((res.status === 408 || res.status === 429) && attempt < maxRetries) {
+    if (res.status === 408 || res.status === 429) {
       const delayMs = 3000 * (attempt + 1);
-      logger.warn("[PDF_OCR_AZURE] Retry after", res.status, { attempt, delayMs });
+      logger.warn("[PDF_OCR_AZURE] Retry after", res.status, {
+        attempt,
+        delayMs,
+        endpointIndex,
+      });
       await new Promise((r) => setTimeout(r, delayMs));
     } else {
       throw lastError;
@@ -324,10 +381,11 @@ export async function ocrPdfFromBuffer(
           pages: `${start}-${end}`,
           chunkSizeKB: chunkSizeKB.toFixed(0),
         });
-        const pages = await ocrSingleChunk(base64);
+        const { pages, endpointIndex } = await ocrSingleChunk(base64);
         logger.debug("[PDF_OCR_AZURE] Chunk done", {
           pages: `${start}-${end}`,
           extractedPages: pages.length,
+          endpointIndex,
         });
         return { start, end, pages };
       })
