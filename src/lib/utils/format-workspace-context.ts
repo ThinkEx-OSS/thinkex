@@ -163,7 +163,7 @@ MATH FORMATTING:
   $$
   \\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}
   $$
-- Currency: ALWAYS escape as \\$ so it is never parsed as math, e.g. \\$19.99, \\$5, \\$1,000
+- Currency (CRITICAL): ALWAYS escape dollar signs as \\$ so they are never parsed as math. Examples: \\$5, \\$19.99, \\$1,000, \\$100k, \\$100M
 - NEVER use \\$ inside math delimiters ($..$ or $$..$$). For dollar signs inside math, use \\\\text{\\$} or omit them entirely (just write the number)
 - Apply these rules to ALL tool calls (createNote, editItem, createFlashcards, etc.)
 - Spacing: Use \\, for thin space in integrals: $\\int f(x) \\, dx$
@@ -179,7 +179,7 @@ Example - correct math and currency in one sentence:
 "The total cost is \\$49.99. The quadratic formula is $x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$."
 
 Example - currency near math (NEVER put \\$ inside $..$ delimiters):
-"The principal is \\$1,000 and interest rate $r = 0.05$, so interest is $1000 \\times 0.05 = 50$ dollars."
+"The principal is \\$1,000 and interest rate $r = 0.05$, so interest is $1000 \\times 0.05 = 50$ dollars. Budget: \\$100k revenue, \\$100M target."
 
 Example - block math on its own lines:
 $$
