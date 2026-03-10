@@ -50,6 +50,7 @@
 .streamdown-content [data-streamdown="code-block"] > [data-streamdown="code-block-body"] {
   grid-area: body;
   padding-inline: 0;
+  overflow-x: auto !important;
 }
 
 /* Remove BlockNote editor background */
