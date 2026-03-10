@@ -50,6 +50,15 @@ export const metadata: Metadata = {
   },
 };
 
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "ThinkEx",
+  url: "https://thinkex.app",
+  description:
+    "Interact with sources, control AI context, and synthesize information in a workspace built for how you actually think.",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -58,6 +67,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="subpixel-antialiased bg-background text-foreground">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(websiteJsonLd).replace(/</g, "\\u003c"),
+          }}
+        />
         <LazyAppProviders>
           <HelmetProviderWrapper>
             <PostHogProvider>
