@@ -38,6 +38,13 @@ describe("convertMathInBlocks - currency and math", () => {
       expect(text).toBe("Total: $1,000.50");
     });
 
+    it("leaves $100k and $100M as plain text (k/M suffixes)", () => {
+      const blocks = [mkParagraph("Budget: $100k revenue $100M target.")];
+      const result = convertMathInBlocks(blocks);
+      const text = (result[0] as any).content[0].text;
+      expect(text).toBe("Budget: $100k revenue $100M target.");
+    });
+
     it("does NOT treat $127$ as currency (dollar both sides = math)", () => {
       const blocks = [mkParagraph("Value $127$ dollars")];
       const result = convertMathInBlocks(blocks);

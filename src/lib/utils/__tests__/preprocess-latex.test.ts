@@ -23,6 +23,11 @@ describe("preprocessLatex - currency and math", () => {
       expect(result).toBe("Items: $5, $19.99, and $1,000");
     });
 
+    it("preserves $100k and $100M (k/M suffixes)", () => {
+      const result = preprocessLatex("Budget: $100k revenue $100M target.");
+      expect(result).toBe("Budget: $100k revenue $100M target.");
+    });
+
     it("does NOT protect $127$ (math - dollar on both sides)", () => {
       const input = "The formula $127$ is wrong";
       const result = preprocessLatex(input);
