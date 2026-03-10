@@ -562,7 +562,7 @@ function SidebarFolderItem({
                         <div
                             onClick={handleChevronClick}
                             className={cn(
-                                "px-1 py-2 rounded flex items-center justify-center flex-shrink-0 relative z-10 group/chevron cursor-pointer w-6",
+                                "px-1 py-2 rounded flex items-center justify-center flex-shrink-0 relative z-10 group/chevron cursor-default w-6",
                                 !isActive && "hover:bg-primary/10"
                             )}
                             aria-label={isOpen ? "Collapse" : "Expand"}
