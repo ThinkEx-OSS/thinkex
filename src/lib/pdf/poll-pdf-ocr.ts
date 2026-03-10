@@ -1,4 +1,4 @@
-const POLL_INTERVAL_MS = 2000; // 2 seconds
+const POLL_INTERVAL_MS = 1000; // 1 second
 
 /**
  * Polls the PDF OCR status endpoint until the workflow completes or fails.
