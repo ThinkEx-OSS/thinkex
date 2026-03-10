@@ -455,27 +455,18 @@ No cards selected.
     const processItem = (item: Item) => {
         if (processedIds.has(item.id)) return;
         processedIds.add(item.id);
-
-        if (item.type === "folder") {
-            effectiveItems.push(item);
-            if (allItems) {
-                const children = allItems.filter((child) => child.folderId === item.id);
-                children.forEach((child) => processItem(child));
-            }
-        } else {
-            effectiveItems.push(item);
-        }
+        // Treat folders like normal cards: include path/name only, no expansion
+        effectiveItems.push(item);
     };
 
     selectedItems.forEach((item) => processItem(item));
 
-    const contentItems = effectiveItems.filter((i) => i.type !== "folder");
-    const entries = contentItems.map((item) =>
+    const entries = effectiveItems.map((item) =>
         formatItemMetadata(item, allItems ?? effectiveItems, activePdfPages)
     );
 
     return `<context>
-SELECTED CARDS (${contentItems.length}) — paths and metadata. Use searchWorkspace or readWorkspace to fetch content when needed.
+SELECTED CARDS (${effectiveItems.length}) — paths and metadata. Use searchWorkspace or readWorkspace to fetch content when needed.
 
 ${entries.join("\n")}
 </context>`;
