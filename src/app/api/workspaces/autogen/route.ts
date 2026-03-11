@@ -16,6 +16,8 @@ import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import type { Item, QuizQuestion } from "@/lib/workspace-state/types";
 import { CANVAS_CARD_COLORS } from "@/lib/workspace-state/colors";
 import { logger } from "@/lib/utils/logger";
+import { start } from "workflow/api";
+import { pdfOcrWorkflow } from "@/workflows/pdf-ocr";
 
 const MAX_TITLE_LENGTH = 60;
 const LOG_TRUNCATE = 400;
@@ -346,6 +348,7 @@ export async function POST(request: NextRequest) {
 
       const autogenStart = Date.now();
       const timings: Record<string, number> = {};
+      let workspace: typeof workspaces.$inferSelect | undefined;
 
       try {
         const userId = user!.userId;
@@ -382,6 +385,8 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        const pdfFileUrls = (fileUrls ?? []).filter((f) => f.mediaType === "application/pdf");
+        const imageFileUrls = (fileUrls ?? []).filter((f) => f.mediaType?.startsWith("image/"));
         const hasParts = (fileUrls?.length ?? 0) > 0 || (links?.length ?? 0) > 0;
         logger.info("[AUTOGEN] Start", {
           userId,
@@ -389,46 +394,13 @@ export async function POST(request: NextRequest) {
           fileCount: fileUrls?.length ?? 0,
           linkCount: links?.length ?? 0,
           promptLength: prompt.length,
+          pdfCount: pdfFileUrls.length,
         });
 
-        // 1. Search phase: flash-lite decides if we need web search, runs it if yes
+        // ── Phase 0: Create workspace + PDF items immediately so OCR can start ──
         send({ type: "phase", data: { stage: "understanding" } });
-        const phase1Start = Date.now();
-        const { searchContext, sources: searchSources } = await runSearchPhase(
-          prompt,
-          hasParts,
-          send
-        );
 
-        // Mark "understanding" (and any search) phase complete so progress bar advances
-        send({ type: "progress", data: { step: "understanding", status: "done" } });
-
-        // 2. Distillation agent (streaming, no tools—avoids Gemini 2.5 tools+JSON limitation)
-        const distilled = await runDistillationAgent(
-          prompt,
-          fileUrls ?? [],
-          links ?? [],
-          searchContext,
-          searchSources,
-          send
-        );
-
-        const { metadata, contentSummary, youtubeSearchTerm } = distilled;
-        const { title, icon, color } = metadata;
-
-        logger.debug("[AUTOGEN] Content-generation prompts", {
-          contentSummaryLength: contentSummary?.length ?? 0,
-          contentSummaryPreview: truncateForLog(contentSummary ?? ""),
-          youtubeSearchTerm: youtubeSearchTerm ?? "",
-        });
-
-        timings.metadataMs = Date.now() - phase1Start;
-        logger.info("[AUTOGEN] Distillation done", { ms: timings.metadataMs, title, sourcesCount: distilled.sources?.length ?? 0 });
-
-        send({ type: "metadata", data: { title, icon, color } });
-
-        // 2. Create workspace
-        const phase2Start = Date.now();
+        const phase0Start = Date.now();
         const maxSortData = await db
           .select({ sortOrder: workspaces.sortOrder })
           .from(workspaces)
@@ -438,23 +410,22 @@ export async function POST(request: NextRequest) {
 
         const newSortOrder = (maxSortData[0]?.sortOrder ?? -1) + 1;
 
-        let workspace;
+        // workspace is declared above the try block for catch-block cleanup
         let attempts = 0;
         const MAX_ATTEMPTS = 5;
 
+        // Create workspace with placeholder name (updated after distillation)
         while (attempts < MAX_ATTEMPTS) {
           try {
-            const slug = generateSlug(title);
+            const slug = generateSlug("New Workspace");
             [workspace] = await db
               .insert(workspaces)
               .values({
                 userId,
-                name: title,
+                name: "New Workspace",
                 description: "",
                 template: "blank",
                 isPublic: false,
-                icon,
-                color,
                 sortOrder: newSortOrder,
                 slug,
               })
@@ -478,11 +449,9 @@ export async function POST(request: NextRequest) {
           return;
         }
 
-        timings.workspaceCreateMs = Date.now() - phase2Start;
-        logger.info("[AUTOGEN] Workspace created", { ms: timings.workspaceCreateMs, workspaceId: workspace.id, slug: workspace.slug });
-
         const workspaceId = workspace.id;
-        send({ type: "workspace", data: { id: workspace.id, slug: workspace.slug || "", name: workspace.name } });
+        timings.workspaceCreateMs = Date.now() - phase0Start;
+        logger.info("[AUTOGEN] Workspace created (placeholder)", { ms: timings.workspaceCreateMs, workspaceId });
 
         // Create WORKSPACE_CREATED event
         try {
@@ -491,7 +460,7 @@ export async function POST(request: NextRequest) {
               ${workspaceId}::uuid,
               ${randomUUID()}::text,
               ${"WORKSPACE_CREATED"}::text,
-              ${JSON.stringify({ title, description: "" })}::jsonb,
+              ${JSON.stringify({ title: "New Workspace", description: "" })}::jsonb,
               ${Date.now()}::bigint,
               ${userId}::text,
               0::integer,
@@ -502,7 +471,106 @@ export async function POST(request: NextRequest) {
           logger.error("[AUTOGEN] Error creating WORKSPACE_CREATED event:", eventError);
         }
 
-        // 3. Generate content: note + flashcards + quiz in one LLM call, youtube in parallel
+        // Create PDF items and kick off OCR immediately
+        // Seed with known content-item positions so PDFs are placed around them (matching pre-restructuring layout)
+        const hasYouTubeLink = links?.some(isYouTubeUrl);
+        const pdfItemLayouts: Pick<Item, "type" | "layout">[] = [
+          { type: "note", layout: AUTOGEN_LAYOUTS.note as Item["layout"] },
+          { type: "flashcard", layout: AUTOGEN_LAYOUTS.flashcard as Item["layout"] },
+          { type: "quiz", layout: AUTOGEN_LAYOUTS.quiz as Item["layout"] },
+          // YouTube may or may not be found later, but if user provided a YT link we know it'll be there
+          ...(hasYouTubeLink ? [{ type: "youtube" as const, layout: AUTOGEN_LAYOUTS.youtube as Item["layout"] }] : []),
+        ];
+        if (pdfFileUrls.length > 0) {
+          const pdfCreateParams: CreateItemParams[] = [];
+          for (const pdf of pdfFileUrls) {
+            const position = findNextAvailablePosition(pdfItemLayouts as Item[], "pdf", 4, "", "", AUTOGEN_LAYOUTS.pdf.w, AUTOGEN_LAYOUTS.pdf.h);
+            const pdfItemId = generateItemId();
+            const title = (pdf.filename ?? "document").replace(/\.pdf$/i, "");
+            pdfCreateParams.push({
+              id: pdfItemId,
+              title,
+              itemType: "pdf",
+              pdfData: {
+                fileUrl: pdf.url,
+                filename: pdf.filename ?? "document.pdf",
+                fileSize: pdf.fileSize,
+                ocrStatus: "processing" as const,
+              },
+              layout: position,
+            });
+            pdfItemLayouts.push({ type: "pdf", layout: position });
+          }
+
+          const pdfBulkResult = await workspaceWorker("bulkCreate", { workspaceId, items: pdfCreateParams });
+          if ((pdfBulkResult as { success?: boolean }).success) {
+            // Fire-and-forget: start durable OCR workflow for each PDF
+            for (const param of pdfCreateParams) {
+              if (!param.id || !param.pdfData?.fileUrl) continue;
+              start(pdfOcrWorkflow, [param.pdfData.fileUrl, workspaceId, param.id, userId]).catch((err) => {
+                logger.warn("[AUTOGEN] Failed to start PDF OCR workflow", {
+                  itemId: param.id,
+                  error: err instanceof Error ? err.message : String(err),
+                });
+                // Mark as failed so it doesn't stay stuck in "processing" forever
+                workspaceWorker("updatePdfContent", {
+                  workspaceId,
+                  itemId: param.id!,
+                  pdfTextContent: "",
+                  pdfOcrPages: [],
+                  pdfOcrStatus: "failed" as const,
+                }).catch(() => {});
+              });
+            }
+            logger.info("[AUTOGEN] PDF items created + OCR workflows started", { count: pdfCreateParams.length });
+          } else {
+            logger.warn("[AUTOGEN] PDF bulk create failed (non-blocking)", { error: (pdfBulkResult as { message?: string }).message });
+          }
+        }
+
+        // ── Phase 1: Search + Distillation (runs in parallel with OCR) ──
+        const phase1Start = Date.now();
+        const { searchContext, sources: searchSources } = await runSearchPhase(
+          prompt,
+          hasParts,
+          send
+        );
+
+        send({ type: "progress", data: { step: "understanding", status: "done" } });
+
+        const distilled = await runDistillationAgent(
+          prompt,
+          fileUrls ?? [],
+          links ?? [],
+          searchContext,
+          searchSources,
+          send
+        );
+
+        const { metadata, contentSummary, youtubeSearchTerm } = distilled;
+        const { title, icon, color } = metadata;
+
+        timings.metadataMs = Date.now() - phase1Start;
+        logger.info("[AUTOGEN] Distillation done", { ms: timings.metadataMs, title, sourcesCount: distilled.sources?.length ?? 0 });
+
+        send({ type: "metadata", data: { title, icon, color } });
+
+        // Update workspace with real metadata (name, icon, color, slug)
+        try {
+          const newSlug = generateSlug(title);
+          await db
+            .update(workspaces)
+            .set({ name: title, icon, color, slug: newSlug })
+            .where(eq(workspaces.id, workspaceId));
+          workspace = { ...workspace, name: title, icon, color, slug: newSlug };
+          logger.info("[AUTOGEN] Workspace metadata updated", { title, icon, color, slug: newSlug });
+        } catch (updateError) {
+          logger.warn("[AUTOGEN] Failed to update workspace metadata (non-blocking):", updateError);
+        }
+
+        send({ type: "workspace", data: { id: workspace.id, slug: workspace.slug || "", name: workspace.name } });
+
+        // ── Phase 2: Generate content (note + flashcards + quiz + youtube) ──
         const phase3Start = Date.now();
         const QuizQuestionSchema = z.object({
           type: z.enum(["multiple_choice", "true_false"]),
@@ -535,14 +603,7 @@ export async function POST(request: NextRequest) {
               description: "Study note, flashcard deck, and quiz for the same topic",
               schema: NOTE_FLASHCARD_QUIZ_SCHEMA,
             }),
-            prompt: `Create study materials about the following content:
-
-${contentSummary}
-
-Return:
-1. note: a short title and markdown content for a study note.
-2. flashcards: a title and 5-8 flashcard pairs (front, back) on the same topic.
-3. quiz: a title and 5 quiz questions (multiple_choice or true_false) covering introductory concepts.`,
+            prompt: `Create study materials about the following content:\n\n${contentSummary}\n\nReturn:\n1. note: a short title and markdown content for a study note.\n2. flashcards: a title and 5-8 flashcard pairs (front, back) on the same topic.\n3. quiz: a title and 5 quiz questions (multiple_choice or true_false) covering introductory concepts.`,
             onError: ({ error }) => logger.error("[AUTOGEN] NoteFlashcardsQuiz stream error:", error),
           });
 
@@ -608,27 +669,10 @@ Return:
         logger.info("[AUTOGEN] Content generation done", { ms: timings.contentGenerationMs });
 
         const { note, flashcards, quiz: quizContent } = noteFlashcardQuizResult;
-        logger.debug("[AUTOGEN] Generated content", {
-          note: {
-            title: note.title,
-            contentLength: note.content.length,
-            contentPreview: truncateForLog(note.content),
-          },
-          flashcards: {
-            title: flashcards.title,
-            cardCount: flashcards.cards.length,
-            firstCardFront: flashcards.cards[0]?.front ? truncateForLog(flashcards.cards[0].front, 120) : undefined,
-          },
-          quiz: {
-            title: quizContent.title,
-            questionCount: quizContent.questions.length,
-          },
-          youtube: youtubeResult ? { title: youtubeResult.title, url: youtubeResult.url?.slice(0, 50) + "..." } : null,
-        });
 
-        // Build create params for bulk create
+        // ── Phase 3: Bulk create content items (note, flashcard, quiz, youtube, images) ──
         const phase4Start = Date.now();
-        const createParams: CreateItemParams[] = [
+        const contentCreateParams: CreateItemParams[] = [
           {
             title: note.title,
             content: note.content,
@@ -641,31 +685,25 @@ Return:
           ...(youtubeResult ? [{ title: youtubeResult.title, itemType: "youtube" as const, youtubeData: { url: youtubeResult.url }, layout: youtubeResult.layout }] : []),
         ];
 
-        const pdfFileUrls = (fileUrls ?? []).filter((f) => f.mediaType === "application/pdf");
-        const imageFileUrls = (fileUrls ?? []).filter((f) => f.mediaType?.startsWith("image/"));
-        const itemsForLayout: Pick<Item, "type" | "layout">[] = [
+        // Images: compute layout positions accounting for PDF items already created
+        const existingItemsForLayout: Pick<Item, "type" | "layout">[] = [
           { type: "note", layout: note.layout },
           { type: "flashcard", layout: flashcards.layout },
           { type: "quiz", layout: quizContent.layout },
           ...(youtubeResult ? [{ type: "youtube" as const, layout: youtubeResult.layout }] : []),
+          ...pdfItemLayouts,
         ];
-        for (const pdf of pdfFileUrls) {
-          const position = findNextAvailablePosition(itemsForLayout as Item[], "pdf", 4, "", "", AUTOGEN_LAYOUTS.pdf.w, AUTOGEN_LAYOUTS.pdf.h);
-          const title = (pdf.filename ?? "document").replace(/\.pdf$/i, "");
-          createParams.push({ title, itemType: "pdf", pdfData: { fileUrl: pdf.url, filename: pdf.filename ?? "document.pdf", fileSize: pdf.fileSize }, layout: position });
-          itemsForLayout.push({ type: "pdf", layout: position });
-        }
         for (const img of imageFileUrls) {
-          const position = findNextAvailablePosition(itemsForLayout as Item[], "image", 4, "", "", AUTOGEN_LAYOUTS.image.w, AUTOGEN_LAYOUTS.image.h);
-          const title = (img.filename ?? "image").replace(/\.(png|jpe?g|gif|webp|svg)$/i, "") || "Image";
-          createParams.push({ title, itemType: "image", imageData: { url: img.url, altText: title }, layout: position });
-          itemsForLayout.push({ type: "image", layout: position });
+          const position = findNextAvailablePosition(existingItemsForLayout as Item[], "image", 4, "", "", AUTOGEN_LAYOUTS.image.w, AUTOGEN_LAYOUTS.image.h);
+          const imgTitle = (img.filename ?? "image").replace(/\.(png|jpe?g|gif|webp|svg)$/i, "") || "Image";
+          contentCreateParams.push({ title: imgTitle, itemType: "image", imageData: { url: img.url, altText: imgTitle }, layout: position });
+          existingItemsForLayout.push({ type: "image", layout: position });
         }
 
-        const bulkResult = await workspaceWorker("bulkCreate", { workspaceId, items: createParams });
+        const bulkResult = await workspaceWorker("bulkCreate", { workspaceId, items: contentCreateParams });
 
         timings.bulkCreateMs = Date.now() - phase4Start;
-        logger.info("[AUTOGEN] Bulk create done", { ms: timings.bulkCreateMs, itemCount: createParams.length });
+        logger.info("[AUTOGEN] Content bulk create done", { ms: timings.bulkCreateMs, itemCount: contentCreateParams.length });
 
         if (!(bulkResult as { success?: boolean }).success) {
           const errMsg =
@@ -699,6 +737,14 @@ Return:
         const msg = error instanceof Error ? error.message : "Unknown error";
         logger.error("[AUTOGEN] Error", { message: msg, totalMs, timings: Object.keys(timings).length ? timings : undefined });
         send({ type: "error", data: { message: msg } });
+
+        // Clean up orphan workspace if it was created before the error
+        if (workspace?.id) {
+          db.delete(workspaces)
+            .where(eq(workspaces.id, workspace.id))
+            .then(() => logger.info("[AUTOGEN] Cleaned up orphan workspace", { workspaceId: workspace!.id }))
+            .catch((cleanupErr) => logger.warn("[AUTOGEN] Failed to clean up orphan workspace", { workspaceId: workspace!.id, error: cleanupErr }));
+        }
       } finally {
         controller.close();
       }

@@ -22,10 +22,11 @@ import type { Block } from "@/components/editor/BlockNoteEditor";
 
 /** Create params for a single item (used by create and bulkCreate). Exported for autogen. */
 export type CreateItemParams = {
+    id?: string; // Optional pre-generated item ID (if not provided, one is generated)
     title?: string;
     content?: string;
     itemType?: "note" | "flashcard" | "quiz" | "youtube" | "image" | "audio" | "pdf";
-    pdfData?: { fileUrl: string; filename: string; fileSize?: number };
+    pdfData?: { fileUrl: string; filename: string; fileSize?: number; textContent?: string; ocrPages?: PdfData["ocrPages"]; ocrStatus?: PdfData["ocrStatus"] };
     flashcardData?: { cards?: { front: string; back: string }[] };
     quizData?: QuizData;
     youtubeData?: { url: string };
@@ -41,7 +42,7 @@ export type CreateItemParams = {
  * Build an Item from create params. Used by both create and bulkCreate.
  */
 async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
-    const itemId = generateItemId();
+    const itemId = p.id || generateItemId();
     const itemType = p.itemType || "note";
 
     let itemData: any;
@@ -89,6 +90,9 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
             fileUrl: p.pdfData.fileUrl,
             filename: p.pdfData.filename || "document.pdf",
             fileSize: p.pdfData.fileSize,
+            ...(p.pdfData.textContent != null && { textContent: p.pdfData.textContent }),
+            ...(p.pdfData.ocrPages != null && { ocrPages: p.pdfData.ocrPages }),
+            ...(p.pdfData.ocrStatus != null && { ocrStatus: p.pdfData.ocrStatus }),
         };
     } else if (itemType === "quiz") {
         if (!p.quizData) throw new Error("Quiz data required for quiz creation");
@@ -435,6 +439,7 @@ export async function workspaceWorker(
                     success: true,
                     message: `Bulk created ${items.length} items successfully`,
                     version: appendResult.version,
+                    itemIds: items.map((i) => i.id),
                 };
             }
 
