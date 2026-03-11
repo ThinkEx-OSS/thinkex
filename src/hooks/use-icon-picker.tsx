@@ -4,6 +4,103 @@ import { useMemo, useState } from "react";
 import * as HeroIcons from "@heroicons/react/20/solid";
 import React from "react";
 
+/** Curated workspace-relevant icons (no arrows, X marks, UI controls, etc.) */
+const WORKSPACE_ICON_WHITELIST: (keyof typeof HeroIcons)[] = [
+  "AcademicCapIcon",
+  "ArchiveBoxIcon",
+  "BanknotesIcon",
+  "BeakerIcon",
+  "BoltIcon",
+  "BookOpenIcon",
+  "BookmarkIcon",
+  "BookmarkSquareIcon",
+  "BriefcaseIcon",
+  "BugAntIcon",
+  "BuildingLibraryIcon",
+  "BuildingOffice2Icon",
+  "BuildingOfficeIcon",
+  "BuildingStorefrontIcon",
+  "CalculatorIcon",
+  "CalendarIcon",
+  "CalendarDaysIcon",
+  "CameraIcon",
+  "ChartBarIcon",
+  "ChartBarSquareIcon",
+  "ChartPieIcon",
+  "ChatBubbleLeftIcon",
+  "ClipboardDocumentIcon",
+  "ClipboardDocumentCheckIcon",
+  "ClockIcon",
+  "CogIcon",
+  "CpuChipIcon",
+  "CloudIcon",
+  "CodeBracketIcon",
+  "CodeBracketSquareIcon",
+  "CommandLineIcon",
+  "ComputerDesktopIcon",
+  "DocumentChartBarIcon",
+  "DocumentDuplicateIcon",
+  "DocumentIcon",
+  "DocumentTextIcon",
+  "DocumentMagnifyingGlassIcon",
+  "EnvelopeIcon",
+  "EyeIcon",
+  "FilmIcon",
+  "FingerPrintIcon",
+  "FireIcon",
+  "FlagIcon",
+  "FolderIcon",
+  "FolderOpenIcon",
+  "FolderPlusIcon",
+  "GiftIcon",
+  "GlobeAltIcon",
+  "HeartIcon",
+  "HomeIcon",
+  "HomeModernIcon",
+  "InboxIcon",
+  "InboxStackIcon",
+  "KeyIcon",
+  "LanguageIcon",
+  "LifebuoyIcon",
+  "LightBulbIcon",
+  "LinkIcon",
+  "MagnifyingGlassIcon",
+  "MapIcon",
+  "MapPinIcon",
+  "MegaphoneIcon",
+  "MicrophoneIcon",
+  "MusicalNoteIcon",
+  "NewspaperIcon",
+  "PaintBrushIcon",
+  "PaperClipIcon",
+  "PencilSquareIcon",
+  "PhotoIcon",
+  "PresentationChartBarIcon",
+  "PresentationChartLineIcon",
+  "PrinterIcon",
+  "PuzzlePieceIcon",
+  "RocketLaunchIcon",
+  "RssIcon",
+  "ScaleIcon",
+  "ServerIcon",
+  "ServerStackIcon",
+  "ShareIcon",
+  "ShieldCheckIcon",
+  "SparklesIcon",
+  "StarIcon",
+  "SwatchIcon",
+  "TableCellsIcon",
+  "TagIcon",
+  "TicketIcon",
+  "TrophyIcon",
+  "UserGroupIcon",
+  "UserIcon",
+  "UsersIcon",
+  "VideoCameraIcon",
+  "WalletIcon",
+  "WrenchIcon",
+];
+
 export type IconInfo = {
   // the name of the component
   name: string;
@@ -19,12 +116,16 @@ export const useIconPicker = (): {
 } => {
   const icons: IconInfo[] = useMemo(
     () =>
-      Object.entries(HeroIcons).map(([iconName, IconComponent]) => ({
-        name: iconName,
-        // split the icon name at capital letters and join them with a space
-        friendly_name: iconName.match(/[A-Z][a-z]+/g)?.join(" ") ?? iconName,
-        Component: IconComponent,
-      })),
+      WORKSPACE_ICON_WHITELIST.map((iconName) => {
+        const IconComponent = HeroIcons[iconName];
+        return {
+          name: iconName,
+          friendly_name:
+            iconName.match(/[A-Z][a-z]+/g)?.join(" ").replace(/ Icon$/, "") ??
+            iconName,
+          Component: IconComponent,
+        };
+      }),
     []
   );
 
