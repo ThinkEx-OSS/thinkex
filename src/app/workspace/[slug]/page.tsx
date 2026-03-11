@@ -28,11 +28,11 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
   return (
     <InviteGuard>
       <DashboardShell />
-      <AnnouncementPopup
+      {/* <AnnouncementPopup
         featureKey="workspace-icons-march-11-2026"
         items={ANNOUNCEMENT_ITEMS}
         ctaLabel="Got it"
-      />
+      /> */}
     </InviteGuard>
   );
 }
