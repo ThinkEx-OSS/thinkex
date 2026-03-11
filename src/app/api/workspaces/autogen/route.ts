@@ -15,6 +15,10 @@ import { findNextAvailablePosition } from "@/lib/workspace-state/grid-layout-hel
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import type { Item, QuizQuestion } from "@/lib/workspace-state/types";
 import { CANVAS_CARD_COLORS } from "@/lib/workspace-state/colors";
+import {
+  WORKSPACE_ICON_NAMES,
+  formatIconForStorage,
+} from "@/lib/workspace-icons";
 import { logger } from "@/lib/utils/logger";
 import { start } from "workflow/api";
 import { pdfOcrWorkflow } from "@/workflows/pdf-ocr";
@@ -27,24 +31,6 @@ function truncateForLog(s: string, max = LOG_TRUNCATE): string {
   return s.slice(0, max) + "...";
 }
 
-// HeroIcons that make sense as workspace topics (study, projects, subjects). No UI/settings/redundant.
-const AVAILABLE_ICONS = [
-  "AcademicCapIcon", "ArchiveBoxIcon", "AtSymbolIcon", "BanknotesIcon", "BeakerIcon", "BellIcon", "BoltIcon",
-  "BookOpenIcon", "BookmarkIcon", "BriefcaseIcon", "BugAntIcon", "BuildingLibraryIcon", "BuildingOfficeIcon", "BuildingStorefrontIcon",
-  "CakeIcon", "CalculatorIcon", "CalendarDaysIcon", "CalendarIcon", "CameraIcon", "ChartBarIcon", "ChartPieIcon",
-  "ChatBubbleLeftIcon", "CircleStackIcon", "ClipboardDocumentIcon", "ClockIcon", "CloudIcon", "CodeBracketIcon",
-  "CommandLineIcon", "ComputerDesktopIcon", "CpuChipIcon", "CreditCardIcon", "CubeIcon",
-  "CurrencyDollarIcon", "CurrencyEuroIcon", "CurrencyPoundIcon", "CurrencyYenIcon",
-  "DocumentIcon", "DocumentTextIcon", "EnvelopeIcon", "FilmIcon", "FireIcon", "FlagIcon", "FolderIcon", "FolderOpenIcon",
-  "GiftIcon", "GlobeAltIcon", "GlobeAmericasIcon", "GlobeAsiaAustraliaIcon", "GlobeEuropeAfricaIcon", "HashtagIcon", "HeartIcon",
-  "HomeIcon", "InboxIcon", "LanguageIcon", "LightBulbIcon", "LinkIcon", "MapIcon", "MapPinIcon", "MegaphoneIcon",
-  "MicrophoneIcon", "MusicalNoteIcon", "NewspaperIcon", "PaintBrushIcon", "PaperAirplaneIcon", "PencilIcon", "PhotoIcon",
-  "PlayCircleIcon", "PlayIcon", "PresentationChartLineIcon", "PuzzlePieceIcon", "QuestionMarkCircleIcon", "RadioIcon",
-  "RectangleStackIcon", "RocketLaunchIcon", "RssIcon", "ScaleIcon", "ServerIcon", "ShareIcon",
-  "ShoppingBagIcon", "ShoppingCartIcon", "SparklesIcon", "SpeakerWaveIcon", "Square2StackIcon", "Squares2X2Icon",
-  "StarIcon", "TableCellsIcon", "TagIcon", "TrophyIcon", "TvIcon", "UserGroupIcon", "UsersIcon", "VideoCameraIcon", "ViewColumnsIcon",
-  "WrenchIcon",
-];
 
 /** Layout positions for autogen items (matches desired workspace arrangement) */
 const AUTOGEN_LAYOUTS = {
@@ -239,7 +225,7 @@ You are a workspace content distiller. The user provides content (prompt, files,
 
 <constraints>
 - If CONTEXT FROM WEB SEARCH or CONTEXT FROM REFERENCE LINKS is provided below, ground your response in it.
-- Icons must be one of: ${AVAILABLE_ICONS.join(", ")}
+- Icons must be one of: ${WORKSPACE_ICON_NAMES.join(", ")}
 </constraints>
 
 <example>
@@ -263,7 +249,13 @@ Output shape: metadata (title: "Python Data Analysis", icon: "ChartBarIcon", col
   if (!title) title = "New Workspace";
 
   let icon = meta.icon;
-  if (!icon || !AVAILABLE_ICONS.includes(icon)) icon = "FolderIcon";
+  if (
+    !icon ||
+    !WORKSPACE_ICON_NAMES.includes(icon as (typeof WORKSPACE_ICON_NAMES)[number])
+  ) {
+    icon = "Folder";
+  }
+  icon = formatIconForStorage(icon);
 
   let color = meta.color;
   if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {

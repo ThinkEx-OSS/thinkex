@@ -2,17 +2,18 @@
 
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Command, CommandInput } from "@/components/ui/command";
 import {
-  Command,
-  CommandEmpty,
-  CommandInput,
-  CommandList,
-} from "@/components/ui/command";
-import { useIconPicker } from "@/hooks/use-icon-picker";
+  useIconPicker,
+  getIconNameFromStored,
+  formatIconForStorage,
+} from "@/hooks/use-icon-picker";
 import { cn } from "@/lib/utils";
 
 interface IconPickerProps {
+  /** Stored value (e.g. "lucide:Folder" or legacy "Folder") */
   value?: string | null;
+  /** Called with formatted value for storage, or null to clear */
   onSelect: (icon: string | null) => void;
   children: React.ReactNode;
   className?: string;
@@ -28,11 +29,11 @@ export function IconPicker({
   const { search, setSearch, icons } = useIconPicker();
 
   const handleSelect = (iconName: string) => {
-    // If clicking the same icon, clear it
-    if (value === iconName) {
+    const currentName = getIconNameFromStored(value);
+    if (currentName === iconName) {
       onSelect(null);
     } else {
-      onSelect(iconName);
+      onSelect(formatIconForStorage(iconName));
     }
     setOpen(false);
   };
@@ -69,20 +70,23 @@ export function IconPicker({
           <DialogHeader>
             <DialogTitle>Choose an Icon</DialogTitle>
           </DialogHeader>
-          <Command>
+          <Command shouldFilter={false}>
             <CommandInput
               placeholder="Search icons..."
               value={search}
               onValueChange={setSearch}
             />
-            <CommandList>
-              <CommandEmpty>No icons found.</CommandEmpty>
-            </CommandList>
             <div className="mt-2 max-h-[360px] overflow-y-auto">
+              {icons.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  No icons found.
+                </p>
+              ) : (
               <div className="grid grid-cols-8 gap-1">
                 {icons.map((icon) => {
                   const IconComponent = icon.Component;
-                  const isSelected = value === icon.name;
+                  const isSelected =
+                    getIconNameFromStored(value) === icon.name;
                   return (
                     <button
                       key={icon.name}
@@ -104,6 +108,7 @@ export function IconPicker({
                   );
                 })}
               </div>
+              )}
             </div>
           </Command>
         </DialogContent>

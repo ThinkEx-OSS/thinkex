@@ -26,7 +26,11 @@ import {
 import { SwatchesPicker, ColorResult } from "react-color";
 import { SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
-import { useIconPicker } from "@/hooks/use-icon-picker";
+import {
+  useIconPicker,
+  getIconNameFromStored,
+  formatIconForStorage,
+} from "@/hooks/use-icon-picker";
 import { IconRenderer } from "@/hooks/use-icon-picker";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { cn } from "@/lib/utils";
@@ -79,18 +83,19 @@ function WorkspaceItem({
 
   const handleIconChange = useCallback(
     async (icon: string | null) => {
+      const stored = icon ? formatIconForStorage(icon) : null;
       try {
         const response = await fetch(`/api/workspaces/${workspace.id}`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ icon }),
+          body: JSON.stringify({ icon: stored }),
         });
 
         if (response.ok) {
           // Optimistically update just this workspace locally
-          updateWorkspaceLocal(workspace.id, { icon });
+          updateWorkspaceLocal(workspace.id, { icon: stored });
           setIsPickerOpen(false);
         }
       } catch (error) {
@@ -125,8 +130,7 @@ function WorkspaceItem({
 
   const handleSelectIcon = useCallback(
     (iconName: string) => {
-      // If clicking the same icon, clear it
-      if (workspace.icon === iconName) {
+      if (getIconNameFromStored(workspace.icon) === iconName) {
         handleIconChange(null);
       } else {
         handleIconChange(iconName);
@@ -214,7 +218,9 @@ function WorkspaceItem({
                           <div className="grid grid-cols-8 gap-1 max-h-[300px] overflow-y-auto">
                             {icons.map((icon) => {
                               const IconComponent = icon.Component;
-                              const isSelected = workspace.icon === icon.name;
+                              const isSelected =
+                                getIconNameFromStored(workspace.icon) ===
+                                icon.name;
                               return (
                                 <button
                                   key={icon.name}
