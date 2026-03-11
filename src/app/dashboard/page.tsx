@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { usePostHog } from 'posthog-js/react';
 import type { AgentState, PdfData, WorkspaceWithState } from "@/lib/workspace-state/types";
 import { initialState } from "@/lib/workspace-state/state";
 import { useScrollHeader } from "@/hooks/ui/use-scroll-header";
@@ -61,7 +60,6 @@ function DashboardContent({
   loadingCurrentWorkspace,
 }: DashboardContentProps) {
   const router = useRouter();
-  const posthog = usePostHog();
   const { data: session } = useSession();
 
   const currentWorkspaceId = currentWorkspace?.id || null;
@@ -166,9 +164,8 @@ function DashboardContent({
   // Manual save is now just a no-op since events auto-persist
   // But we keep it for the UI save button
   const manualSave = useCallback(async () => {
-    posthog.capture('manual-save-clicked', { workspace_id: currentWorkspaceId });
     updateLastSaved(new Date());
-  }, [updateLastSaved, currentWorkspaceId, posthog]);
+  }, [updateLastSaved, currentWorkspaceId]);
 
   // Update save status based on mutation status
   useEffect(() => {
@@ -440,9 +437,8 @@ function DashboardContent({
   );
 
   const handleShowHistory = useCallback(() => {
-    posthog.capture("version-history-viewed", { workspace_id: currentWorkspaceId });
     setShowVersionHistory(true);
-  }, [posthog, currentWorkspaceId]);
+  }, [currentWorkspaceId]);
 
   // Build the split view layout element (for panel+panel mode only)
   const splitViewContent = useMemo(() => {

@@ -7,7 +7,6 @@ import { useCallback, useState, memo, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
-import { usePostHog } from 'posthog-js/react';
 import { cn } from "@/lib/utils";
 import ItemHeader from "@/components/workspace-canvas/ItemHeader";
 import { getCardColorCSS, getCardAccentColor, getDistinctCardColor, getIconColorFromCardColor, getIconColorFromCardColorWithOpacity, getLighterCardColor, SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
@@ -206,7 +205,6 @@ function WorkspaceCard({
   existingColors,
   onMoveItem,
 }: WorkspaceCardProps) {
-  const posthog = usePostHog();
   const { resolvedTheme } = useTheme();
 
   // Subscribe directly to this card's selection state from the store
@@ -331,21 +329,19 @@ function WorkspaceCard({
 
   // Handle color change from color picker
   const handleColorChange = useCallback((color: ColorResult) => {
-    posthog.capture('card-color-changed', { card_id: item.id, new_color: color.hex });
     onUpdateItem(item.id, { color: color.hex as CardColor });
     setIsColorPickerOpen(false);
-  }, [item.id, onUpdateItem, posthog]);
+  }, [item.id, onUpdateItem]);
 
   const handleDelete = useCallback(() => {
     setShowDeleteDialog(true);
   }, []);
 
   const handleDeleteConfirm = useCallback(() => {
-    posthog.capture('card-deleted', { card_id: item.id, card_name: item.name });
     onDeleteItem(item.id);
     setShowDeleteDialog(false);
     toast.success("Card deleted successfully");
-  }, [item.id, onDeleteItem, item.name, posthog]);
+  }, [item.id, onDeleteItem, item.name]);
 
   const handleRename = useCallback((newName: string) => {
     onUpdateItem(item.id, { name: newName });

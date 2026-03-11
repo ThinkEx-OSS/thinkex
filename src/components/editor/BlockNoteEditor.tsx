@@ -1,6 +1,5 @@
 "use client"; // this registers <BlockNoteEditor> as a Client Component
 
-import { usePostHog } from 'posthog-js/react';
 // Using system fonts instead of custom fonts
 import { filterSuggestionItems } from "@blocknote/core/extensions";
 import { en } from "@blocknote/core/locales";
@@ -57,7 +56,6 @@ let maxConcurrentInitializations = 0;
 export default function BlockNoteEditor({ initialContent, onChange, readOnly, cardName, cardId, lastSource, autofocus, sources }: BlockNoteEditorProps) {
   const isInitialMount = useRef(true);
   const previousInitialContent = useRef<string | undefined>(undefined);
-  const posthog = usePostHog();
   const initStartTime = useRef<number | null>(null);
 
   // Get current workspace ID
@@ -347,7 +345,6 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
     const blockMathItem = {
       title: "Block Math",
       onItemClick: () => {
-        posthog.capture('editor_slash_menu_item_selected', { item_title: 'Block Math', item_group: 'Math' });
         editor.insertBlocks(
           [
             {
@@ -373,7 +370,6 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
     const inlineMathItem = {
       title: "Inline Math",
       onItemClick: () => {
-        posthog.capture('editor_slash_menu_item_selected', { item_title: 'Inline Math', item_group: 'Math' });
         editor.insertInlineContent([
           {
             type: "inlineMath",
@@ -412,7 +408,6 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
       {
         title: "Inline Math",
         onItemClick: () => {
-          posthog.capture('editor_inline_math_inserted');
           editor.insertInlineContent([
             {
               type: "inlineMath",

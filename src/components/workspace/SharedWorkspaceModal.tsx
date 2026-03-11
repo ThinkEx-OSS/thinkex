@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
-import { usePostHog } from 'posthog-js/react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +39,6 @@ export default function SharedWorkspaceModal({
   workspaceId,
 }: SharedWorkspaceModalProps) {
   const router = useRouter();
-  const posthog = usePostHog();
   const [workspaceData, setWorkspaceData] = useState<SharedWorkspaceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -120,13 +118,6 @@ export default function SharedWorkspaceModal({
       }
 
       const { workspace } = await response.json();
-
-      posthog.capture('workspace-created-from-share', {
-        workspace_id: workspace.id,
-        workspace_slug: workspace.slug,
-        shared_workspace_id: workspaceId,
-        imported_items_count: workspaceData.workspace.state?.items?.length || 0,
-      });
 
       toast.success("Workspace created successfully");
       

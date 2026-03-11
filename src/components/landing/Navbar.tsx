@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
 import { useState, useEffect } from "react";
-import { usePostHog } from 'posthog-js/react';
 import { useSession } from "@/lib/auth-client";
 import {
   DropdownMenu,
@@ -22,7 +21,6 @@ export function Navbar() {
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [heroCtaVisible, setHeroCtaVisible] = useState(true);
-  const posthog = usePostHog();
   const { data: session, isPending } = useSession();
 
   useEffect(() => {
@@ -136,7 +134,6 @@ export function Navbar() {
                   >
                     <Button
                       asChild
-                      onClick={() => posthog.capture('navbar-get-started-clicked', { location: 'desktop' })}
                       size="default"
                       className="rounded-md bg-foreground font-medium text-background transition-all hover:bg-foreground/90"
                     >
@@ -151,7 +148,6 @@ export function Navbar() {
                 <>
                   <Button
                     asChild
-                    onClick={() => posthog.capture('navbar-dashboard-clicked', { location: 'desktop' })}
                     size="sm"
                     variant="outline"
                     className="rounded-md font-medium transition-all hover:bg-foreground/5"
@@ -240,7 +236,6 @@ export function Navbar() {
                       <DropdownMenuItem asChild>
                         <Link
                           href="/home"
-                          onClick={() => posthog.capture('navbar-get-started-clicked', { location: 'mobile' })}
                           className="cursor-pointer"
                         >
                           Get Started
@@ -254,7 +249,6 @@ export function Navbar() {
                       <DropdownMenuItem asChild>
                         <Link
                           href="/home"
-                          onClick={() => posthog.capture('navbar-dashboard-clicked', { location: 'mobile' })}
                           className="cursor-pointer"
                         >
                           Dashboard

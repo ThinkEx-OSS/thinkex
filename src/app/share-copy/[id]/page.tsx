@@ -6,7 +6,6 @@ import { useSession, signIn } from "@/lib/auth-client";
 import SharedWorkspaceModal from "@/components/workspace/SharedWorkspaceModal";
 import { AuthPageBackground } from "@/components/auth/AuthPageBackground";
 import { Loader2 } from "lucide-react";
-import { usePostHog } from 'posthog-js/react';
 import type { AgentState } from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
 
@@ -33,7 +32,6 @@ interface SharedWorkspaceData {
 export default function SharePage() {
   const params = useParams();
   const router = useRouter();
-  const posthog = usePostHog();
   const { data: session, isPending } = useSession();
   const workspaceId = params?.id as string;
 
@@ -103,12 +101,6 @@ export default function SharePage() {
         if (!createRes.ok) throw new Error("Failed to create workspace copy");
         const { workspace } = await createRes.json();
 
-        // 3. Track and Redirect
-        posthog.capture('workspace-imported-anonymous', {
-          workspace_id: workspace.id,
-          source_workspace_id: workspaceId,
-        });
-
         window.location.href = `/workspace/${workspace.slug}`;
 
       } catch (error) {
@@ -119,7 +111,7 @@ export default function SharePage() {
     };
 
     performImport();
-  }, [session, isPending, workspaceId, posthog]);
+  }, [session, isPending, workspaceId]);
 
   // Error state with retry button
   if (errorMessage) {

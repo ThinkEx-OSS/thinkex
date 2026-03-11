@@ -11,10 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { usePostHog } from "posthog-js/react";
 import { toast } from "sonner";
-import { useAuiState } from "@assistant-ui/react";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 
 interface AIFeedbackDialogProps {
   open: boolean;
@@ -24,30 +21,15 @@ interface AIFeedbackDialogProps {
 export function AIFeedbackDialog({ open, onOpenChange }: AIFeedbackDialogProps) {
   const [feedback, setFeedback] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const posthog = usePostHog();
-
-  const threadListItemId = useAuiState(({ threadListItem }) => (threadListItem as { id?: string })?.id);
-  const mainThreadId = useAuiState(({ threads }) => (threads as { mainThreadId?: string })?.mainThreadId);
-  const threadId = threadListItemId ?? mainThreadId;
-  const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
 
   const handleSubmit = useCallback(() => {
     setIsSubmitting(true);
-
-    if (posthog) {
-      posthog.capture("ai-feedback-reported", {
-        feedback: feedback.trim(),
-        thread_id: threadId ?? undefined,
-        workspace_id: workspaceId ?? undefined,
-        source: "composer",
-      });
-    }
 
     toast.success("Feedback submitted—thank you!");
     setFeedback("");
     onOpenChange(false);
     setIsSubmitting(false);
-  }, [feedback, threadId, workspaceId, posthog, onOpenChange]);
+  }, [feedback, onOpenChange]);
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {

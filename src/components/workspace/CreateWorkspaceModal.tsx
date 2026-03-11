@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { usePostHog } from 'posthog-js/react';
 import { useCreateWorkspace } from "@/hooks/workspace/use-create-workspace";
 import { useSession } from "@/lib/auth-client";
 import {
@@ -59,7 +58,6 @@ export default function CreateWorkspaceModal({
   initialData,
 }: CreateWorkspaceModalProps) {
   const router = useRouter();
-  const posthog = usePostHog();
   const { data: session } = useSession();
   const createWorkspace = useCreateWorkspace();
   const [name, setName] = useState(initialData?.name || "");
@@ -162,19 +160,6 @@ export default function CreateWorkspaceModal({
       },
       {
         onSuccess: async ({ workspace }) => {
-
-          posthog.capture('workspace-created', {
-            workspace_id: workspace.id,
-            workspace_slug: workspace.slug,
-            template: importMode === "template" ? selectedTemplate : "imported",
-            import_mode: importMode,
-            has_icon: !!selectedIcon,
-            has_color: !!selectedColor,
-            color: selectedColor,
-            imported_items_count: importMode === "json" && validationResult?.data ? validationResult.data.items.length : 0,
-            pending_invites_count: pendingInvites.length,
-          });
-
           // Send pending invites if any
           if (pendingInvites.length > 0) {
             let successCount = 0;
