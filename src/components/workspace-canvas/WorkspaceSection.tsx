@@ -388,8 +388,8 @@ export function WorkspaceSection({
     const remainingItems = state.items.filter(item => !selectedCardIds.has(item.id));
     const deletedCount = selectedCardIds.size;
     updateAllItems(remainingItems);
-    clearCardSelection();
     setShowDeleteDialog(false);
+    clearCardSelection();
     if (deletedCount > 0) {
       toast.success(`Deleted ${deletedCount} card${deletedCount > 1 ? 's' : ''}`);
     }
