@@ -65,6 +65,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Security: Validate against a whitelist of allowed MIME types
+    const allowedMimeTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'image/heic',
+      'image/heif',
+      'image/avif',
+      'image/tiff',
+      'image/svg+xml',
+      'text/plain',
+      'text/markdown',
+      'application/json',
+      'application/zip',
+      'video/mp4',
+      'video/webm',
+      // Allow Office docs briefly so the conversion prompt below works properly
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    ];
+
+    if (!allowedMimeTypes.includes(file.type)) {
+      return NextResponse.json(
+        { error: `File type ${file.type || 'unknown'} is not allowed. Only safe images, videos, and documents are permitted.` },
+        { status: 400 }
+      );
+    }
+
+
     // Reject Office documents — convert to PDF at ilovepdf.com
     const convertUrl = getOfficeDocumentConvertUrl(file);
     if (convertUrl) {

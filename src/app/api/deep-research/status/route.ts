@@ -1,6 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
 import { logger } from "@/lib/utils/logger";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+
 // Initialize client
 const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 if (!apiKey) {
@@ -16,12 +19,21 @@ export const dynamic = 'force-dynamic';
  * Returns current state: status, thoughts, report content, and any errors
  */
 export async function GET(req: NextRequest) {
-    const searchParams = req.nextUrl.searchParams;
-    const interactionId = searchParams.get("interactionId");
-    if (!interactionId) {
-        return NextResponse.json({ error: "interactionId is required" }, { status: 400 });
-    }
     try {
+        const session = await auth.api.getSession({
+            headers: await headers(),
+        });
+
+        if (!session) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const searchParams = req.nextUrl.searchParams;
+        const interactionId = searchParams.get("interactionId");
+        if (!interactionId) {
+            return NextResponse.json({ error: "interactionId is required" }, { status: 400 });
+        }
+
         // Get the interaction without streaming - this returns the current state
         const interaction = await client.interactions.get(interactionId);
         // DEBUG: Log the entire raw interaction object (optional, kept minimal)
