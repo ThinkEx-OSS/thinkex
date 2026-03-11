@@ -171,6 +171,145 @@ export const WORKSPACE_ICON_NAMES = [
   "Wrench",
 ] as const;
 
+/** Search aliases for icon picker. Keys: icon names, values: extra search terms (e.g. "math", "bio"). */
+export const ICON_SEARCH_ALIASES: Record<string, string[]> = {
+  // Math & data
+  Calculator: ["math", "numbers", "calc"],
+  PieChart: ["math", "chart", "graph", "data"],
+  BarChart2: ["math", "chart", "graph", "data", "stats"],
+  ChartBarBig: ["math", "chart", "graph", "data"],
+  ChartLine: ["math", "chart", "graph", "data"],
+  Gauge: ["math", "meter", "stats"],
+  Scale: ["math", "balance", "weight"],
+  Table: ["math", "data", "spreadsheet"],
+
+  // Bio & science
+  Atom: ["science", "physics", "chemistry"],
+  Beaker: ["science", "bio", "biology", "chemistry", "lab"],
+  Bug: ["bio", "biology", "insect"],
+  Dna: ["bio", "biology", "science", "genetics"],
+  Droplets: ["science", "chemistry", "water", "bio"],
+  FlaskConical: ["science", "chemistry", "lab", "bio"],
+  Leaf: ["bio", "nature", "plant", "eco"],
+  LeafyGreen: ["bio", "nature", "plant"],
+  Microscope: ["science", "bio", "lab"],
+  Pipette: ["science", "chemistry", "lab", "bio"],
+  Satellite: ["science", "space", "physics"],
+  Sprout: ["bio", "nature", "plant", "eco"],
+  Telescope: ["science", "space", "physics"],
+  TestTube: ["science", "chemistry", "lab", "bio"],
+  TestTubes: ["science", "chemistry", "lab", "bio"],
+  Wheat: ["bio", "nature", "plant", "food"],
+
+  // Health & medicine
+  Heart: ["health", "medical", "love"],
+  HeartPulse: ["health", "medical"],
+  Hospital: ["health", "medical"],
+  Pill: ["health", "medical", "medicine"],
+  PillBottle: ["health", "medical", "medicine"],
+  Stethoscope: ["health", "medical", "doctor"],
+  Syringe: ["health", "medical", "medicine", "vaccine"],
+
+  // Education & learning
+  Book: ["edu", "education", "study", "read", "english", "literature"],
+  BookOpen: ["edu", "education", "study", "read", "english", "literature"],
+  BookOpenCheck: ["edu", "education", "study", "english"],
+  BookOpenText: ["edu", "education", "study", "english", "literature"],
+  BookText: ["edu", "education", "study", "english", "literature", "writing"],
+  Brain: ["edu", "learning", "thinking", "mind", "psychology"],
+  GraduationCap: ["edu", "education", "school", "graduation"],
+  Library: ["edu", "education", "read", "books", "english", "literature"],
+  LibraryBig: ["edu", "education", "read", "english"],
+  Lightbulb: ["idea", "learning", "thinking", "psychology"],
+  Notebook: ["edu", "study", "notes", "english", "writing"],
+  School: ["edu", "education"],
+  University: ["edu", "education", "college"],
+  Backpack: ["edu", "school", "travel"],
+  Pencil: ["english", "writing", "essay", "literature"],
+  SquarePen: ["english", "writing", "essay", "edit"],
+  Newspaper: ["english", "literature", "news", "journalism"],
+  ScrollText: ["english", "literature", "history", "ancient", "writing"],
+  Languages: ["english", "language", "spanish", "french", "foreign"],
+  Church: ["history", "religious", "medieval", "social"],
+  Gavel: ["law", "justice", "civics", "politics", "government"],
+  Landmark: ["history", "civics", "government", "monument"],
+
+  // Tech & dev
+  Bot: ["tech", "ai", "code"],
+  Code: ["tech", "programming", "dev"],
+  Code2: ["tech", "programming", "dev"],
+  Cpu: ["tech", "computer", "hardware"],
+  Database: ["tech", "data", "storage"],
+  GitBranch: ["tech", "code", "git"],
+  GitCommit: ["tech", "code", "git"],
+  Microchip: ["tech", "computer", "hardware"],
+  Monitor: ["tech", "computer", "screen"],
+  Server: ["tech", "cloud", "hosting"],
+  Terminal: ["tech", "code", "command"],
+  Ruler: ["measure", "design"],
+  DraftingCompass: ["math", "design", "draw"],
+
+  // Business & finance
+  Banknote: ["money", "finance", "business", "economics"],
+  Briefcase: ["business", "work"],
+  Building: ["business", "office"],
+  Building2: ["business", "office"],
+  Factory: ["business", "industrial"],
+  Store: ["business", "shop", "economics"],
+  Wallet: ["money", "finance", "economics"],
+  Warehouse: ["business", "storage"],
+
+  // Media & creative
+  Camera: ["photo", "media", "art", "photography"],
+  Film: ["video", "media", "movie"],
+  Headphones: ["audio", "music", "media", "listening"],
+  Image: ["photo", "media", "picture", "art"],
+  Music: ["audio", "media", "music"],
+  Mic: ["audio", "recording", "media", "music", "speech"],
+  Video: ["media", "movie"],
+  Paintbrush: ["art", "design", "creative", "painting"],
+  Palette: ["art", "design", "color", "painting"],
+  Shapes: ["art", "design", "graphics", "geometry"],
+
+  // Docs & productivity
+  File: ["document", "doc"],
+  FileAudio: ["audio", "document"],
+  FileCode: ["code", "document"],
+  FileImage: ["image", "document"],
+  FileText: ["document", "text"],
+  Clipboard: ["copy", "paste", "document"],
+  ClipboardCheck: ["done", "checklist"],
+  ClipboardList: ["list", "checklist"],
+  Calendar: ["schedule", "date", "time"],
+  CalendarDays: ["schedule", "date"],
+  Clock: ["time", "schedule"],
+  Presentation: ["slides", "present"],
+  Printer: ["print"],
+
+  // Sports & PE
+  Dumbbell: ["pe", "gym", "fitness", "sports", "exercise"],
+  Fish: ["pe", "sport", "swimming", "aquatic"],
+  PawPrint: ["pe", "sports", "animal"],
+  Anchor: ["nautical", "sailing", "boat"],
+  Trophy: ["sports", "pe", "win", "award"],
+
+  // Other
+  Folder: ["storage", "organize"],
+  Globe: ["world", "international", "web", "geography", "earth"],
+  Map: ["location", "travel", "geography"],
+  MapPin: ["location", "pin", "geography"],
+  Mountain: ["geography", "nature", "earth"],
+  LandPlot: ["geography", "land", "earth"],
+  Mail: ["email", "message"],
+  MessageCircle: ["chat", "message"],
+  Rocket: ["launch", "space", "start"],
+  ShieldCheck: ["security", "verified"],
+  Target: ["goal", "aim"],
+  Flag: ["civics", "country", "nation", "government"],
+  Users: ["team", "people"],
+  User: ["person", "profile"],
+};
+
 const ICON_LIBRARY = "lucide";
 
 /**

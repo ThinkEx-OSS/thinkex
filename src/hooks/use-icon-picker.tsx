@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import * as LucideIcons from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import React from "react";
-import { WORKSPACE_ICON_NAMES, formatIconForStorage } from "@/lib/workspace-icons";
+import { WORKSPACE_ICON_NAMES, formatIconForStorage, ICON_SEARCH_ALIASES } from "@/lib/workspace-icons";
 
 export { formatIconForStorage };
 
@@ -172,10 +172,15 @@ export const useIconPicker = (): {
     return icons.filter((icon) => {
       if (search === "") return true;
       const searchLower = search.toLowerCase();
-      return (
+      const matchesName =
         icon.name.toLowerCase().includes(searchLower) ||
-        icon.friendly_name.toLowerCase().includes(searchLower)
-      );
+        icon.friendly_name.toLowerCase().includes(searchLower);
+      const aliases = ICON_SEARCH_ALIASES[icon.name];
+      const matchesAlias =
+        aliases?.some(
+          (a) => a.includes(searchLower) || searchLower.includes(a)
+        ) ?? false;
+      return matchesName || matchesAlias;
     });
   }, [icons, search]);
 
