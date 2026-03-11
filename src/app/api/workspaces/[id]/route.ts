@@ -91,9 +91,18 @@ async function handlePATCH(
   if (icon !== undefined) updateData.icon = icon;
   if (color !== undefined) updateData.color = color;
 
-  // If name is being updated, regenerate slug
+  // Only regenerate slug when the name actually changed (icon/color updates shouldn't change URL)
+  let nameChanged = false;
   if (name !== undefined) {
-    let newSlug = generateSlug(name);
+    const [current] = await db
+      .select({ name: workspaces.name })
+      .from(workspaces)
+      .where(eq(workspaces.id, id))
+      .limit(1);
+    nameChanged = !!current && current.name !== name;
+  }
+  if (nameChanged) {
+    let newSlug = generateSlug(name!);
     
     // Check for slug conflicts and resolve them
     let counter = 1;

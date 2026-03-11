@@ -2,13 +2,26 @@
 
 import { useMemo, useState } from "react";
 import * as LucideIcons from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import React from "react";
 import { WORKSPACE_ICON_NAMES, formatIconForStorage } from "@/lib/workspace-icons";
 
 export { formatIconForStorage };
 
-/** Curated workspace-relevant Lucide icon names (from lib) */
+/**
+ * Root cause: lucide-react exports icon components (ForwardRefExoticComponent objects)
+ * alongside helpers (Icon, createLucideIcon) that have incompatible types. Our whitelist
+ * only contains real icon names, so we restrict lookups to it and use type assertion.
+ */
 const WORKSPACE_ICON_WHITELIST = WORKSPACE_ICON_NAMES;
+const WHITELIST_SET = new Set<string>(WORKSPACE_ICON_NAMES);
+
+/** Resolve a Lucide icon component. Returns undefined if name not in whitelist or missing. */
+function getWhitelistedIcon(name: string): LucideIcon | undefined {
+  if (!WHITELIST_SET.has(name)) return undefined;
+  const raw = LucideIcons[name as keyof typeof LucideIcons];
+  return raw != null ? (raw as LucideIcon) : undefined;
+}
 
 /**
  * Extract icon name from stored value for picker comparison.
@@ -126,7 +139,7 @@ const HEROICON_TO_LUCIDE: Record<string, keyof typeof LucideIcons> = {
 export type IconInfo = {
   name: string;
   friendly_name: string;
-  Component: React.ComponentType<{ className?: string; [key: string]: unknown }>;
+  Component: LucideIcon;
 };
 
 export const useIconPicker = (): {
@@ -136,19 +149,21 @@ export const useIconPicker = (): {
 } => {
   const icons: IconInfo[] = useMemo(
     () =>
-      WORKSPACE_ICON_WHITELIST.map((iconName) => {
-        const IconComponent =
-          LucideIcons[iconName as keyof typeof LucideIcons];
-        return {
-          name: iconName,
-          friendly_name:
-            iconName
-              .replace(/([A-Z])/g, " $1")
-              .trim()
-              .replace(/^./, (c) => c.toUpperCase()) ?? iconName,
-          Component: IconComponent,
-        };
-      }).filter((icon): icon is IconInfo => !!icon.Component),
+      WORKSPACE_ICON_WHITELIST.flatMap((iconName) => {
+        const Component = getWhitelistedIcon(iconName);
+        if (!Component) return [];
+        return [
+          {
+            name: iconName,
+            friendly_name:
+              iconName
+                .replace(/([A-Z])/g, " $1")
+                .trim()
+                .replace(/^./, (c) => c.toUpperCase()) ?? iconName,
+            Component,
+          },
+        ];
+      }),
     []
   );
 
@@ -190,12 +205,10 @@ export const IconRenderer = ({
     iconName = HEROICON_TO_LUCIDE[icon] ?? icon;
   }
 
-  const IconComponent = LucideIcons[iconName as keyof typeof LucideIcons];
-
+  const IconComponent = getWhitelistedIcon(iconName);
   if (!IconComponent) {
     return <DefaultIcon data-slot="icon" className={className} {...rest} />;
   }
-
   return (
     <IconComponent data-slot="icon" className={className} {...rest} />
   );
