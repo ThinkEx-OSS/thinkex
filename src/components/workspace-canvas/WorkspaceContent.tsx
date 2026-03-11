@@ -316,11 +316,7 @@ export default function WorkspaceContent({
       // Show error for oversized files
       if (oversizedFiles.length > 0) {
         toast.error(
-          `The following PDF${oversizedFiles.length > 1 ? 's' : ''} exceed${oversizedFiles.length === 1 ? 's' : ''} the ${MAX_FILE_SIZE_MB}MB limit:\n${oversizedFiles.join('\n')}`,
-          {
-            style: { color: '#fff' },
-            duration: 5000,
-          }
+          `The following PDF${oversizedFiles.length > 1 ? 's' : ''} exceed${oversizedFiles.length === 1 ? 's' : ''} the ${MAX_FILE_SIZE_MB}MB limit:\n${oversizedFiles.join('\n')}`
         );
       }
 
@@ -336,10 +332,7 @@ export default function WorkspaceContent({
       const totalSize = validFiles.reduce((sum, f) => sum + f.size, 0);
       if (totalSize > MAX_COMBINED_BYTES) {
         const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(1);
-        toast.error(`Total file size (${totalSizeMB}MB) exceeds the 100MB combined limit`, {
-          style: { color: '#fff' },
-          duration: 5000,
-        });
+        toast.error(`Total file size (${totalSizeMB}MB) exceeds the 100MB combined limit`);
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }

@@ -471,8 +471,7 @@ export function WorkspaceSection({
     }
 
     const uploadToastId = toast.loading(
-      `Uploading ${unprotectedFiles.length} PDF${unprotectedFiles.length > 1 ? 's' : ''}...`,
-      { style: { color: '#fff' } }
+      `Uploading ${unprotectedFiles.length} PDF${unprotectedFiles.length > 1 ? 's' : ''}...`
     );
 
     const uploadResults = await Promise.all(

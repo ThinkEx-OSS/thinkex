@@ -107,7 +107,6 @@ export function CreateWebsiteDialog({
                     toast.warning("Note created with issues", {
                         id: toastId,
                         description: result.warning,
-                        duration: 6000,
                     });
                 } else {
                     toast.success("Website note created!", {

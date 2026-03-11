@@ -83,9 +83,7 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
   // BlockNote expects: (file: File, blockId?: string) => Promise<string | Record<string, any>>
   const blockNoteUploadFile = useCallback(async (file: File, blockId?: string) => {
     // Show loading toast
-    const toastId = toast.loading('Uploading image...', {
-      style: { color: 'var(--foreground)' },
-    });
+    const toastId = toast.loading('Uploading image...');
 
     try {
       // Upload the image (don't show toast in uploadFile since we're handling it here)
@@ -95,7 +93,6 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
       // Show success toast
       toast.success('Image uploaded successfully!', {
         id: toastId,
-        style: { color: 'var(--foreground)' },
       });
 
       return url;
@@ -104,7 +101,6 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
       const errorMessage = error instanceof Error ? error.message : 'Failed to upload image';
       toast.error(errorMessage, {
         id: toastId,
-        style: { color: 'var(--foreground)' },
       });
       throw error;
     }

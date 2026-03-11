@@ -484,10 +484,7 @@ export const ComposerAddAttachment: FC = () => {
 
     // Check file count limit
     if (fileArray.length > MAX_FILES) {
-      toast.error(`You can only upload up to ${MAX_FILES} files at once. You selected ${fileArray.length} files.`, {
-        style: { color: '#fff' },
-        duration: 5000,
-      });
+      toast.error(`You can only upload up to ${MAX_FILES} files at once. You selected ${fileArray.length} files.`);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -536,11 +533,7 @@ export const ComposerAddAttachment: FC = () => {
     // Show error for oversized files
     if (oversizedFiles.length > 0) {
       toast.error(
-        `The following file${oversizedFiles.length > 1 ? 's' : ''} exceed${oversizedFiles.length === 1 ? 's' : ''} the ${MAX_FILE_SIZE_MB}MB limit:\n${oversizedFiles.join('\n')}`,
-        {
-          style: { color: '#fff' },
-          duration: 5000,
-        }
+        `The following file${oversizedFiles.length > 1 ? 's' : ''} exceed${oversizedFiles.length === 1 ? 's' : ''} the ${MAX_FILE_SIZE_MB}MB limit:\n${oversizedFiles.join('\n')}`
       );
     }
 
@@ -551,9 +544,7 @@ export const ComposerAddAttachment: FC = () => {
       });
 
       if (filesToAdd.length < fileArray.length) {
-        toast.success(`${filesToAdd.length} file${filesToAdd.length > 1 ? 's' : ''} added successfully`, {
-          style: { color: '#fff' },
-        });
+        toast.success(`${filesToAdd.length} file${filesToAdd.length > 1 ? 's' : ''} added successfully`);
       }
     }
 

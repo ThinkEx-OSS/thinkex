@@ -43,10 +43,7 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
 
       // Check file count limit
       if (acceptedFiles.length > MAX_FILES) {
-        toast.error(`You can only upload up to ${MAX_FILES} files at once. You dropped ${acceptedFiles.length} files.`, {
-          style: { color: '#fff' },
-          duration: 5000,
-        });
+        toast.error(`You can only upload up to ${MAX_FILES} files at once. You dropped ${acceptedFiles.length} files.`);
         return;
       }
 
@@ -79,11 +76,7 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
       // Show error for oversized files
       if (oversizedFiles.length > 0) {
         toast.error(
-          `The following file${oversizedFiles.length > 1 ? 's' : ''} exceed${oversizedFiles.length === 1 ? 's' : ''} the ${MAX_FILE_SIZE_MB}MB limit:\n${oversizedFiles.join('\n')}`,
-          {
-            style: { color: '#fff' },
-            duration: 5000,
-          }
+          `The following file${oversizedFiles.length > 1 ? 's' : ''} exceed${oversizedFiles.length === 1 ? 's' : ''} the ${MAX_FILE_SIZE_MB}MB limit:\n${oversizedFiles.join('\n')}`
         );
       }
 
@@ -136,9 +129,7 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
 
         // Show success message if some files were rejected
         if (filesToAdd.length < acceptedFiles.length) {
-          toast.success(`${filesToAdd.length} file${filesToAdd.length > 1 ? 's' : ''} added successfully`, {
-            style: { color: '#fff' },
-          });
+          toast.success(`${filesToAdd.length} file${filesToAdd.length > 1 ? 's' : ''} added successfully`);
         }
       } finally {
         // Clear processing state after all operations complete
@@ -203,8 +194,7 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
         } else {
           const rejectedFileNames = fileRejections.map((r) => r.file.name);
           toast.error(
-            `The following file${rejectedFileNames.length > 1 ? "s are" : " is"} not supported:\n${rejectedFileNames.join("\n")}\n\nSupported: Images, Videos, PDFs, Text files`,
-            { style: { color: "#fff" }, duration: 5000 }
+            `The following file${rejectedFileNames.length > 1 ? "s are" : " is"} not supported:\n${rejectedFileNames.join("\n")}\n\nSupported: Images, Videos, PDFs, Text files`
           );
         }
       }

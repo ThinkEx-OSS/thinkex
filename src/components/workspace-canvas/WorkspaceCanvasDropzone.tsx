@@ -55,9 +55,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
       if (!currentWorkspaceId) {
-        toast.error("No workspace selected", {
-          style: { color: '#fff' },
-        });
+        toast.error("No workspace selected");
         return;
       }
 
@@ -94,11 +92,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
       // Show error for oversized files
       if (oversizedFiles.length > 0) {
         toast.error(
-          `The following PDF${oversizedFiles.length > 1 ? 's' : ''} exceed${oversizedFiles.length === 1 ? 's' : ''} the ${MAX_FILE_SIZE_MB}MB limit:\n${oversizedFiles.join('\n')}`,
-          {
-            style: { color: '#fff' },
-            duration: 5000,
-          }
+          `The following PDF${oversizedFiles.length > 1 ? 's' : ''} exceed${oversizedFiles.length === 1 ? 's' : ''} the ${MAX_FILE_SIZE_MB}MB limit:\n${oversizedFiles.join('\n')}`
         );
       }
 
@@ -110,10 +104,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
       const totalSize = validFiles.reduce((sum, f) => sum + f.size, 0);
       if (totalSize > MAX_COMBINED_BYTES) {
         const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(1);
-        toast.error(`Total file size (${totalSizeMB}MB) exceeds the 100MB combined limit`, {
-          style: { color: '#fff' },
-          duration: 5000,
-        });
+        toast.error(`Total file size (${totalSizeMB}MB) exceeds the 100MB combined limit`);
         validFiles.forEach(f => processingFilesRef.current.delete(getFileKey(f)));
         return;
       }
@@ -142,10 +133,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
 
       // Show loading toast
       const loadingToastId = toast.loading(
-        `Uploading ${filteredFiles.length} file${filteredFiles.length > 1 ? 's' : ''}...`,
-        {
-          style: { color: '#fff' },
-        }
+        `Uploading ${filteredFiles.length} file${filteredFiles.length > 1 ? 's' : ''}...`
       );
 
       try {
@@ -449,20 +437,14 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
           // Show success toast
           const totalCreated = validResults.length;
           toast.success(
-            `${totalCreated} card${totalCreated > 1 ? 's' : ''} created successfully`,
-            {
-              style: { color: '#fff' },
-            }
+            `${totalCreated} card${totalCreated > 1 ? 's' : ''} created successfully`
           );
         }
 
         // Show error if some files failed to upload
         const failedCount = filteredFiles.length - validResults.length;
         if (failedCount > 0) {
-          toast.error(`Failed to upload ${failedCount} file${failedCount > 1 ? 's' : ''}`, {
-            style: { color: '#fff' },
-            duration: 5000,
-          });
+          toast.error(`Failed to upload ${failedCount} file${failedCount > 1 ? 's' : ''}`);
         }
       } finally {
         // Dismiss loading toast if it's still showing (in case of unexpected errors)
@@ -536,8 +518,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
         } else {
           const rejectedFileNames = fileRejections.map((r) => r.file.name);
           toast.error(
-            `Only PDF, image, and audio files can be dropped.\nRejected: ${rejectedFileNames.join(", ")}`,
-            { style: { color: "#fff" }, duration: 5000 }
+            `Only PDF, image, and audio files can be dropped.\nRejected: ${rejectedFileNames.join(", ")}`
           );
         }
       }
