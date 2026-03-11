@@ -137,7 +137,8 @@ export const useIconPicker = (): {
   const icons: IconInfo[] = useMemo(
     () =>
       WORKSPACE_ICON_WHITELIST.map((iconName) => {
-        const IconComponent = LucideIcons[iconName];
+        const IconComponent =
+          LucideIcons[iconName as keyof typeof LucideIcons];
         return {
           name: iconName,
           friendly_name:
@@ -147,7 +148,7 @@ export const useIconPicker = (): {
               .replace(/^./, (c) => c.toUpperCase()) ?? iconName,
           Component: IconComponent,
         };
-      }),
+      }).filter((icon): icon is IconInfo => !!icon.Component),
     []
   );
 

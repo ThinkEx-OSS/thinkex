@@ -98,7 +98,7 @@ export function IconPicker({
                       className={cn(
                         "flex items-center justify-center aspect-square p-2 cursor-pointer rounded-md transition-colors border",
                         isSelected
-                          ? "bg-primary text-primary-foreground border-primary"
+                          ? "bg-accent border-accent-foreground/40"
                           : "hover:bg-accent border-transparent"
                       )}
                       title={icon.friendly_name}

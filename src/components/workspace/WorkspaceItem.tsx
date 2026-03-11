@@ -19,9 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Command,
-  CommandEmpty,
   CommandInput,
-  CommandList,
 } from "@/components/ui/command";
 import { SwatchesPicker, ColorResult } from "react-color";
 import { SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
@@ -205,48 +203,51 @@ function WorkspaceItem({
                     </TabsList>
 
                     <TabsContent value="icon" className="p-2 m-0">
-                      <Command>
+                      <Command shouldFilter={false}>
                         <CommandInput
                           placeholder="Search icons..."
                           value={search}
                           onValueChange={setSearch}
                         />
-                        <CommandList>
-                          <CommandEmpty>No icons found.</CommandEmpty>
-                        </CommandList>
                         <div className="p-2">
-                          <div className="grid grid-cols-8 gap-1 max-h-[300px] overflow-y-auto">
-                            {icons.map((icon) => {
-                              const IconComponent = icon.Component;
-                              const isSelected =
-                                getIconNameFromStored(workspace.icon) ===
-                                icon.name;
-                              return (
-                                <button
-                                  key={icon.name}
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleSelectIcon(icon.name);
-                                  }}
-                                  className={cn(
-                                    "flex items-center justify-center aspect-square p-2 cursor-pointer rounded-md transition-colors border",
-                                    isSelected
-                                      ? "bg-primary text-primary-foreground border-primary"
-                                      : "hover:bg-accent border-transparent"
-                                  )}
-                                  title={icon.friendly_name}
-                                >
-                                  <IconComponent
-                                    className="size-5"
-                                    style={{
-                                      color: workspace.color || undefined,
+                          {icons.length === 0 ? (
+                            <p className="py-6 text-center text-sm text-muted-foreground">
+                              No icons found.
+                            </p>
+                          ) : (
+                            <div className="grid grid-cols-8 gap-1 max-h-[300px] overflow-y-auto">
+                              {icons.map((icon) => {
+                                const IconComponent = icon.Component;
+                                const isSelected =
+                                  getIconNameFromStored(workspace.icon) ===
+                                  icon.name;
+                                return (
+                                  <button
+                                    key={icon.name}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSelectIcon(icon.name);
                                     }}
-                                  />
-                                </button>
-                              );
-                            })}
-                          </div>
+                                    className={cn(
+                                      "flex items-center justify-center aspect-square p-2 cursor-pointer rounded-md transition-colors border",
+                                      isSelected
+                                        ? "bg-accent border-accent-foreground/40"
+                                        : "hover:bg-accent border-transparent"
+                                    )}
+                                    title={icon.friendly_name}
+                                  >
+                                    <IconComponent
+                                      className="size-5"
+                                      style={{
+                                        color: workspace.color || undefined,
+                                      }}
+                                    />
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       </Command>
                     </TabsContent>
