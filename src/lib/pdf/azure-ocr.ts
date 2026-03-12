@@ -9,7 +9,7 @@ import { logger } from "@/lib/utils/logger";
 
 const MAX_BATCH_SIZE_BYTES = 30 * 1024 * 1024; // 30 MB
 /** Max concurrent OCR requests; scale with deployment count (3 per deployment with round-robin) */
-const MAX_CONCURRENT_OCR = 9;
+const MAX_CONCURRENT_OCR = 5;
 
 function isBboxAnnotationEnabled(): boolean {
   return process.env.OCR_BBOX_ANNOTATION !== "false";
