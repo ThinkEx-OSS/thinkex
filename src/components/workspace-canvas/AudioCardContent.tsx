@@ -117,6 +117,7 @@ export function AudioCardContent({ item, isCompact = false, isScrollLocked = fal
       <div className="flex flex-col items-center justify-center gap-3 h-full p-6 text-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         <p className="text-sm text-muted-foreground">Uploading audio...</p>
+        <p className="text-xs text-muted-foreground/80">Don&apos;t close — upload in progress</p>
       </div>
     );
   }
@@ -131,7 +132,10 @@ export function AudioCardContent({ item, isCompact = false, isScrollLocked = fal
         <div>
           <p className="text-sm font-medium text-foreground">Analyzing audio...</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Generating transcript and summary with Gemini
+            Generating transcript and summary
+          </p>
+          <p className="text-xs text-muted-foreground/80 mt-1">
+            Safe to close — transcript ready when you return
           </p>
         </div>
       </div>
