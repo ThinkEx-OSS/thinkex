@@ -8,7 +8,7 @@ import { PDFDocument } from "pdf-lib";
 import { logger } from "@/lib/utils/logger";
 
 const MAX_BATCH_SIZE_BYTES = 30 * 1024 * 1024; // 30 MB
-/** Max concurrent OCR requests; scale with deployment count (3 per deployment with round-robin) */
+/** Max concurrent OCR requests; scale with deployment count */
 const MAX_CONCURRENT_OCR = 5;
 
 function isBboxAnnotationEnabled(): boolean {
@@ -25,9 +25,6 @@ interface OcrConfig {
   apiKey: string;
   model: string;
 }
-
-/** Round-robin index for distributing OCR calls across deployments */
-let ocrConfigIndex = 0;
 
 /**
  * Collect OCR configs from env. Azure Mistral Document AI uses ONE endpoint/key;
@@ -55,16 +52,6 @@ function getOcrConfigs(): OcrConfig[] {
   }
 
   return configs;
-}
-
-/** Get next config from pool (round-robin). Returns config + index for observability. */
-function getNextOcrConfig(): OcrConfig & { index: number } {
-  const pool = getOcrConfigs();
-  if (pool.length === 0) {
-    throw new Error("AZURE_DOCUMENT_AI_API_KEY and AZURE_DOCUMENT_AI_ENDPOINT must be set");
-  }
-  const idx = ocrConfigIndex++ % pool.length;
-  return { ...pool[idx], index: idx };
 }
 
 /**
@@ -160,9 +147,126 @@ export interface OcrChunkResult {
   endpointIndex: number;
 }
 
+/** Supported image MIME types for Azure Document AI (image_url) */
+const IMAGE_MIME_TYPES: Record<string, string> = {
+  "image/jpeg": "image/jpeg",
+  "image/jpg": "image/jpeg",
+  "image/png": "image/png",
+  "image/gif": "image/gif",
+  "image/webp": "image/webp",
+  "image/tiff": "image/tiff",
+  "image/tif": "image/tiff",
+};
+
+/**
+ * Call Azure Document AI OCR endpoint with a base64-encoded image.
+ * Uses image_url (not document_url) per Azure docs. Returns a single "page" for images.
+ * Exported for use in image OCR workflow steps.
+ */
+export async function ocrSingleImage(
+  base64Image: string,
+  mimeType: string
+): Promise<OcrChunkResult> {
+  const resolvedMime = IMAGE_MIME_TYPES[mimeType?.toLowerCase()] ?? mimeType ?? "image/jpeg";
+  const imageUrl = `data:${resolvedMime};base64,${base64Image}`;
+
+  const includeImages = process.env.OCR_INCLUDE_IMAGES === "true";
+  const bboxAnnotation = isBboxAnnotationEnabled();
+
+  const baseBody: Record<string, unknown> = {
+    document: {
+      type: "image_url",
+      image_url: imageUrl,
+    },
+    include_image_base64: includeImages,
+    table_format: null,
+  };
+
+  if (bboxAnnotation) {
+    baseBody.bbox_annotation_format = {
+      type: "json_schema",
+      json_schema: {
+        schema: {
+          properties: { description: { type: "string" } },
+          required: ["description"],
+          type: "object",
+          additionalProperties: false,
+        },
+        name: "bbox_annotation",
+        strict: true,
+      },
+    };
+  }
+
+  const pool = getOcrConfigs();
+  if (pool.length === 0) {
+    throw new Error("AZURE_DOCUMENT_AI_API_KEY and AZURE_DOCUMENT_AI_ENDPOINT must be set");
+  }
+
+  const retriesPerDeployment = pool.length === 1 ? 2 : 1;
+  let lastError: Error | null = null;
+  const start = Math.floor(Math.random() * pool.length);
+
+  for (let deployIdx = 0; deployIdx < pool.length; deployIdx++) {
+    const actualIdx = (start + deployIdx) % pool.length;
+    const { endpoint, apiKey, model } = pool[actualIdx];
+    const endpointIndex = actualIdx;
+    const body = { ...baseBody, model };
+
+    for (let attempt = 0; attempt <= retriesPerDeployment; attempt++) {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        const json = (await res.json()) as AzureOcrResponse;
+        const rawPages = json.pages ?? [];
+
+        const pages = rawPages.map((p, i) => {
+          const page: OcrPage = {
+            index: p.index ?? i,
+            markdown: p.markdown ?? "",
+          };
+          if (p.images?.length) page.images = p.images;
+          if (p.footer) page.footer = p.footer;
+          if (p.header) page.header = p.header;
+          if (p.hyperlinks?.length) page.hyperlinks = p.hyperlinks;
+          if (p.tables?.length) page.tables = p.tables;
+          return page;
+        });
+        return { pages, endpointIndex };
+      }
+
+      const errText = await res.text();
+      lastError = new Error(`Azure image OCR failed (${res.status}): ${errText}`);
+
+      if ((res.status === 408 || res.status === 429) && attempt < retriesPerDeployment) {
+        const baseMs = 2000 * Math.pow(2, attempt);
+        const delayMs = Math.min(30000, baseMs) + Math.random() * 1000;
+        logger.warn("[IMAGE_OCR_AZURE] Retry same deployment after", res.status, {
+          deployIdx,
+          attempt,
+          delayMs: Math.round(delayMs),
+        });
+        await new Promise((r) => setTimeout(r, delayMs));
+      } else if (res.status !== 408 && res.status !== 429) {
+        throw lastError;
+      } else {
+        break;
+      }
+    }
+  }
+  throw lastError;
+}
+
 /**
  * Call Azure Document AI OCR endpoint with a base64-encoded PDF chunk.
- * Round-robins the model parameter across deployments (same endpoint/key).
+ * Tries each deployment in order; retries same deployment on 408/429 (with exponential backoff) before switching.
  * Returns pages + endpointIndex for workflow observability.
  * Exported for use in workflow steps (single chunk = single step).
  */
@@ -202,53 +306,62 @@ export async function ocrSingleChunk(base64Pdf: string): Promise<OcrChunkResult>
     throw new Error("AZURE_DOCUMENT_AI_API_KEY and AZURE_DOCUMENT_AI_ENDPOINT must be set");
   }
 
-  const maxAttempts = pool.length > 1 ? pool.length + 1 : 2;
+  const retriesPerDeployment = pool.length === 1 ? 2 : 1;
   let lastError: Error | null = null;
+  const start = Math.floor(Math.random() * pool.length);
 
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const { endpoint, apiKey, model, index: endpointIndex } = getNextOcrConfig();
+  for (let deployIdx = 0; deployIdx < pool.length; deployIdx++) {
+    const actualIdx = (start + deployIdx) % pool.length;
+    const { endpoint, apiKey, model } = pool[actualIdx];
+    const endpointIndex = actualIdx;
     const body = { ...baseBody, model };
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(body),
-    });
 
-    if (res.ok) {
-      const json = (await res.json()) as AzureOcrResponse;
-      const rawPages = json.pages ?? [];
-
-      const pages = rawPages.map((p, i) => {
-        const page: OcrPage = {
-          index: p.index ?? i,
-          markdown: p.markdown ?? "",
-        };
-        if (p.images?.length) page.images = p.images;
-        if (p.footer) page.footer = p.footer;
-        if (p.header) page.header = p.header;
-        if (p.hyperlinks?.length) page.hyperlinks = p.hyperlinks;
-        if (p.tables?.length) page.tables = p.tables;
-        return page;
+    for (let attempt = 0; attempt <= retriesPerDeployment; attempt++) {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
       });
-      return { pages, endpointIndex };
-    }
 
-    const errText = await res.text();
-    lastError = new Error(`Azure OCR failed (${res.status}): ${errText}`);
+      if (res.ok) {
+        const json = (await res.json()) as AzureOcrResponse;
+        const rawPages = json.pages ?? [];
 
-    if (res.status === 408 || res.status === 429) {
-      const delayMs = 3000 * (attempt + 1);
-      logger.warn("[PDF_OCR_AZURE] Retry after", res.status, {
-        attempt,
-        delayMs,
-        endpointIndex,
-      });
-      await new Promise((r) => setTimeout(r, delayMs));
-    } else {
-      throw lastError;
+        const pages = rawPages.map((p, i) => {
+          const page: OcrPage = {
+            index: p.index ?? i,
+            markdown: p.markdown ?? "",
+          };
+          if (p.images?.length) page.images = p.images;
+          if (p.footer) page.footer = p.footer;
+          if (p.header) page.header = p.header;
+          if (p.hyperlinks?.length) page.hyperlinks = p.hyperlinks;
+          if (p.tables?.length) page.tables = p.tables;
+          return page;
+        });
+        return { pages, endpointIndex };
+      }
+
+      const errText = await res.text();
+      lastError = new Error(`Azure OCR failed (${res.status}): ${errText}`);
+
+      if ((res.status === 408 || res.status === 429) && attempt < retriesPerDeployment) {
+        const baseMs = 2000 * Math.pow(2, attempt);
+        const delayMs = Math.min(30000, baseMs) + Math.random() * 1000;
+        logger.warn("[PDF_OCR_AZURE] Retry same deployment after", res.status, {
+          deployIdx,
+          attempt,
+          delayMs: Math.round(delayMs),
+        });
+        await new Promise((r) => setTimeout(r, delayMs));
+      } else if (res.status !== 408 && res.status !== 429) {
+        throw lastError;
+      } else {
+        break;
+      }
     }
   }
   throw lastError;

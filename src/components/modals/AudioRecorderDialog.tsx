@@ -172,10 +172,10 @@ export function AudioRecorderDialog({
             </DialogTitle>
             <DialogDescription>
               {isRecording
-              ? "You can close this dialog, recording continues in the background."
-              : audioBlob
-                ? ""
-                : "Generate AI-powered summaries, transcripts, and timestamps from your audio"}
+                ? "You can minimize this dialog — recording continues. Don't close the tab or put your computer to sleep, or you'll lose the recording."
+                : audioBlob
+                  ? "Use your recording now or re-record. Closing the tab will discard it."
+                  : "Generate AI-powered summaries, transcripts, and timestamps from your audio"}
             </DialogDescription>
           </DialogHeader>
 
