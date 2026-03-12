@@ -54,7 +54,6 @@ import { CollaboratorAvatars } from "@/components/workspace/CollaboratorAvatars"
 import { UploadDialog } from "@/components/modals/UploadDialog";
 import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
-import { getBestFrameForRatio } from "@/lib/workspace-state/aspect-ratios";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
 import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
 interface WorkspaceHeaderProps {
@@ -369,34 +368,10 @@ export function WorkspaceHeader({
     }
   }, [addItem, onItemCreated]);
 
-  const handleImageCreate = useCallback(async (url: string, name: string) => {
+  const handleImageCreate = useCallback((url: string, name: string) => {
     if (!addItem) return;
 
-    // Attempt to load image to get dimensions for adaptive layout
-    let initialLayout = undefined;
-    try {
-      const img = new window.Image();
-      const dimensionsPromise = new Promise<{ width: number, height: number }>((resolve, reject) => {
-        img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-        img.onerror = reject;
-        // Handle duplicate image load
-        if (img.complete) {
-          resolve({ width: img.naturalWidth, height: img.naturalHeight });
-        }
-        img.src = url;
-      });
-
-      // Timeout after 2 seconds to avoid hanging
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject("Timeout"), 2000));
-
-      const { width, height } = await Promise.race([dimensionsPromise, timeoutPromise]) as { width: number, height: number };
-      const bestFrame = getBestFrameForRatio(width, height);
-      initialLayout = { w: bestFrame.w, h: bestFrame.h };
-    } catch (e) {
-      console.warn("Could not detect image dimensions, using defaults", e);
-    }
-
-    addItem('image', name, { url, altText: name }, initialLayout);
+    addItem('image', name, { url, altText: name });
     toast.success("Image added to workspace");
     setIsNewMenuOpen(false);
   }, [addItem]);

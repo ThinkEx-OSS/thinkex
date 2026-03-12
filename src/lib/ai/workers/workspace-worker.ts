@@ -8,7 +8,7 @@ import { createEvent } from "@/lib/workspace/events";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import { getRandomCardColor } from "@/lib/workspace-state/colors";
 import { logger } from "@/lib/utils/logger";
-import type { Item, NoteData, PdfData, QuizData, QuizQuestion, FlashcardData, FlashcardItem } from "@/lib/workspace-state/types";
+import type { Item, NoteData, PdfData, ImageData, QuizData, QuizQuestion, FlashcardData, FlashcardItem } from "@/lib/workspace-state/types";
 import { markdownToBlocks, fixLLMDoubleEscaping } from "@/lib/editor/markdown-to-blocks";
 import { executeWorkspaceOperation } from "./common";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
@@ -30,7 +30,7 @@ export type CreateItemParams = {
     flashcardData?: { cards?: { front: string; back: string }[] };
     quizData?: QuizData;
     youtubeData?: { url: string };
-    imageData?: { url: string; altText?: string; caption?: string };
+    imageData?: { url: string; altText?: string; caption?: string; textContent?: string; ocrStatus?: ImageData["ocrStatus"]; ocrError?: string; ocrPages?: ImageData["ocrPages"] };
     audioData?: { fileUrl: string; filename: string; fileSize?: number; mimeType?: string; duration?: number };
     deepResearchData?: { prompt: string; interactionId: string };
     sources?: Array<{ title: string; url: string; favicon?: string }>;
@@ -73,7 +73,14 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
         itemData = { url: p.youtubeData.url };
     } else if (itemType === "image") {
         if (!p.imageData?.url) throw new Error("Image data required for image card creation");
-        itemData = { url: p.imageData.url, altText: p.imageData.altText, caption: p.imageData.caption };
+        itemData = {
+            url: p.imageData.url,
+            altText: p.imageData.altText,
+            caption: p.imageData.caption,
+            ...(p.imageData.textContent != null && { textContent: p.imageData.textContent }),
+            ...(p.imageData.ocrPages != null && { ocrPages: p.imageData.ocrPages }),
+            ...(p.imageData.ocrStatus != null && { ocrStatus: p.imageData.ocrStatus }),
+        };
     } else if (itemType === "audio") {
         if (!p.audioData?.fileUrl) throw new Error("Audio data required for audio card creation");
         itemData = {
@@ -190,7 +197,7 @@ function parseAppendResult(rawResult: string | any): { version: number; conflict
  * Operations are serialized per workspace to prevent version conflicts
  */
 export async function workspaceWorker(
-    action: "create" | "bulkCreate" | "update" | "delete" | "edit" | "updateFlashcard" | "updateQuiz" | "updatePdfContent",
+    action: "create" | "bulkCreate" | "update" | "delete" | "edit" | "updateFlashcard" | "updateQuiz" | "updatePdfContent" | "updateImageContent",
     params: {
         workspaceId: string;
         /** For bulkCreate: array of create params (no workspaceId). Items are built and appended as one BULK_ITEMS_CREATED event. */
@@ -230,6 +237,9 @@ export async function workspaceWorker(
             altText?: string;
             caption?: string;
         };
+        imageTextContent?: string;
+        imageOcrPages?: ImageData["ocrPages"];
+        imageOcrStatus?: "complete" | "failed";
         audioData?: {
             fileUrl: string;
             filename: string;
@@ -976,6 +986,75 @@ export async function workspaceWorker(
                     success: true,
                     itemId: params.itemId,
                     message: `Cached text content for PDF "${existingItem.name}" (${contentLen} chars)`,
+                    event,
+                    version: appendResult.version,
+                };
+            }
+
+            if (action === "updateImageContent") {
+                if (!params.itemId) {
+                    throw new Error("Item ID required for image content update");
+                }
+                if (params.imageOcrStatus !== "failed" && !params.imageTextContent && !params.imageOcrPages?.length) {
+                    throw new Error("Text content or OCR pages required for image content update (or ocrStatus: failed)");
+                }
+
+                const currentState = await loadWorkspaceState(params.workspaceId);
+                const existingItem = currentState.items.find((i: any) => i.id === params.itemId);
+                if (!existingItem) {
+                    throw new Error(`Image not found with ID: ${params.itemId}`);
+                }
+                if (existingItem.type !== "image") {
+                    throw new Error(`Item "${existingItem.name}" is not an image (type: ${existingItem.type})`);
+                }
+
+                const existingData = existingItem.data as ImageData;
+                const textContent =
+                    params.imageTextContent ??
+                    (params.imageOcrPages?.length
+                        ? params.imageOcrPages.map((p) => p.markdown ?? "").filter(Boolean).join("\n\n")
+                        : undefined);
+                const updatedData: ImageData = {
+                    ...existingData,
+                    ...(textContent != null && { textContent }),
+                    ...(params.imageOcrPages != null && { ocrPages: params.imageOcrPages }),
+                    ...(params.imageOcrStatus != null && { ocrStatus: params.imageOcrStatus }),
+                };
+
+                const changes: Partial<Item> = { data: updatedData };
+                const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: "agent", name: existingItem.name }, userId, userName);
+
+                const currentVersionResult = await db.execute(sql`
+          SELECT get_workspace_version(${params.workspaceId}::uuid) as version
+        `);
+                const baseVersion = currentVersionResult[0]?.version || 0;
+
+                const eventResult = await db.execute(sql`
+          SELECT append_workspace_event(
+            ${params.workspaceId}::uuid,
+            ${event.id}::text,
+            ${event.type}::text,
+            ${JSON.stringify(event.payload)}::jsonb,
+            ${event.timestamp}::bigint,
+            ${event.userId}::text,
+            ${baseVersion}::integer,
+            ${event.userName ?? null}::text
+          ) as result
+        `);
+
+                if (!eventResult || eventResult.length === 0) {
+                    throw new Error("Failed to update image content: database returned no result");
+                }
+
+                const appendResult = parseAppendResult(eventResult[0].result);
+                if (appendResult.conflict) {
+                    throw new Error("Workspace was modified by another user, please try again");
+                }
+
+                return {
+                    success: true,
+                    itemId: params.itemId,
+                    message: params.imageOcrStatus === "failed" ? "Marked image OCR as failed" : `Cached OCR content for image "${existingItem.name}"`,
                     event,
                     version: appendResult.version,
                 };

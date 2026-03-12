@@ -49,7 +49,6 @@ import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
 import { UploadDialog } from "@/components/modals/UploadDialog";
 import { AudioRecordingIndicator } from "./AudioRecordingIndicator";
-import { getBestFrameForRatio } from "@/lib/workspace-state/aspect-ratios";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 import { filterItemIdsForFolderCreation } from "@/lib/workspace-state/search";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
@@ -241,38 +240,13 @@ export function WorkspaceSection({
     }
   }, [addItem]);
 
-  const handleImageCreate = useCallback(async (url: string, name: string) => {
+  const handleImageCreate = useCallback((url: string, name: string) => {
     if (!operations) return;
-
-    // Attempt to load image to get dimensions for adaptive layout
-    let initialLayout = undefined;
-    try {
-      const img = new Image();
-      const dimensionsPromise = new Promise<{ width: number, height: number }>((resolve, reject) => {
-        img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-        img.onerror = reject;
-        // Handle duplicate image load
-        if (img.complete) {
-          resolve({ width: img.naturalWidth, height: img.naturalHeight });
-        }
-        img.src = url;
-      });
-
-      // Timeout after 2 seconds to avoid hanging
-      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject("Timeout"), 2000));
-
-      const { width, height } = await Promise.race([dimensionsPromise, timeoutPromise]) as { width: number, height: number };
-      const bestFrame = getBestFrameForRatio(width, height);
-      initialLayout = { w: bestFrame.w, h: bestFrame.h };
-    } catch (e) {
-      console.warn("Could not detect image dimensions, using defaults", e);
-    }
 
     operations.createItems([{
       type: 'image',
       name,
       initialData: { url, altText: name },
-      initialLayout
     }]);
 
     toast.success("Image added to workspace");

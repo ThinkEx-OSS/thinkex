@@ -4,7 +4,6 @@ import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useMemo, useCallback, useRef, useEffect, useState } from "react";
 import React from "react";
 import type { Item, CardType } from "@/lib/workspace-state/types";
-import { GRID_FRAMES } from "@/lib/workspace-state/aspect-ratios";
 import type { CardColor } from "@/lib/workspace-state/colors";
 import { itemsToLayout, generateMissingLayouts, updateItemsWithLayout, hasLayoutChanged } from "@/lib/workspace-state/grid-layout-helpers";
 import { isDescendantOf } from "@/lib/workspace-state/search";
@@ -512,34 +511,7 @@ export function WorkspaceGrid({
 
     if (itemData) {
       if (itemData.type === 'image') {
-        const defaultHeightMap: Record<number, number> = { 2: 5, 3: 8, 4: 10 };
-        const reverseHeightMap: Record<number, number> = { 5: 2, 8: 3, 10: 4 };
-
-        // Check if width changed
-        if (oldItem.w !== newItem.w) {
-          // Width-driven resize: Snap height to match closest frame for this width
-          // Default to video ratio (16:9) if no exact match found
-          const targetFrame = GRID_FRAMES.find(f => f.w === newItem.w && Math.abs(f.ratio - 1.77) < 0.1)
-            || GRID_FRAMES.find(f => f.w === newItem.w);
-
-          if (targetFrame) {
-            newItem.h = targetFrame.h;
-          } else {
-            // Fallback for non-standard widths (e.g. 3): maintain approx 16:9
-            newItem.h = Math.round(newItem.w * 2.5); // Rough approximation
-          }
-        }
-        // Height-driven resize: Snap width to match height (User dragging bottom handle)
-        else if (oldItem.h !== newItem.h) {
-          // Find the frame with the closest height to the new height
-          // This allows snapping to different aspect ratios (Square, 4:3, 16:9, etc)
-          const closestFrame = GRID_FRAMES.reduce((prev, curr) =>
-            Math.abs(curr.h - newItem.h) < Math.abs(prev.h - newItem.h) ? curr : prev
-          );
-
-          newItem.h = closestFrame.h;
-          newItem.w = closestFrame.w;
-        }
+        // No aspect ratio snapping - free resize within min/max bounds
       } else if (itemData.type === 'youtube') {
         // At w=1: force h=4 (matches note compact). At w=2: force h=7
         if (newItem.w === 1) {

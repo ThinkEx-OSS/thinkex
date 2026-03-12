@@ -783,6 +783,7 @@ function formatYouTubeDetailsFull(data: YouTubeData): string[] {
 
 /**
  * Formats Image details with FULL content
+ * If OCR content is available, includes extracted text like PDFs.
  */
 function formatImageDetailsFull(data: ImageData): string[] {
     const lines: string[] = [];
@@ -791,12 +792,30 @@ function formatImageDetailsFull(data: ImageData): string[] {
         lines.push(`   - URL: ${data.url}`);
     }
 
-    if (data.altText) {
-        lines.push(`   - Alt Text: ${data.altText}`);
-    }
-
-    if (data.caption) {
-        lines.push(`   - Caption: ${data.caption}`);
+    if (data.ocrPages?.length) {
+        lines.push(`   - Extracted Content (${data.ocrPages.length} page${data.ocrPages.length !== 1 ? "s" : ""}):`);
+        for (const page of data.ocrPages) {
+            if (page.header) lines.push(`     Header: ${page.header}`);
+            const rawMd = page.markdown ?? "";
+            const md = replaceOcrPlaceholders(
+                rawMd,
+                page.tables as Array<{ id?: string; content?: string }> | undefined,
+                page.images as OcrImage[] | undefined
+            );
+            for (const line of md.split(/\r?\n/)) {
+                lines.push(`     ${line}`);
+            }
+            if (page.footer) lines.push(`     Footer: ${page.footer}`);
+        }
+    } else if (data.ocrStatus === "processing") {
+        lines.push(`   - (Content is being extracted. Please wait a moment and try readWorkspace or processFiles again.)`);
+    } else {
+        if (data.altText) {
+            lines.push(`   - Alt Text: ${data.altText}`);
+        }
+        if (data.caption) {
+            lines.push(`   - Caption: ${data.caption}`);
+        }
     }
 
     return lines;

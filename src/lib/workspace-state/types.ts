@@ -78,6 +78,18 @@ export interface ImageData {
   url: string;      // The source URL of the image
   altText?: string; // Optional accessibility text
   caption?: string; // Optional caption
+  textContent?: string;
+  ocrStatus?: "complete" | "failed" | "processing";
+  ocrError?: string;
+  ocrPages?: Array<{
+    index: number;
+    markdown: string;
+    images?: unknown[];
+    footer?: string | null;
+    header?: string | null;
+    hyperlinks?: unknown[];
+    tables?: unknown[];
+  }>;
 }
 
 // Quiz Types

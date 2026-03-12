@@ -22,6 +22,7 @@ import {
 import { logger } from "@/lib/utils/logger";
 import { start } from "workflow/api";
 import { pdfOcrWorkflow } from "@/workflows/pdf-ocr";
+import { imageOcrWorkflow } from "@/workflows/image-ocr";
 
 const MAX_TITLE_LENGTH = 60;
 const LOG_TRUNCATE = 400;
@@ -385,6 +386,7 @@ export async function POST(request: NextRequest) {
           linkCount: links?.length ?? 0,
           promptLength: prompt.length,
           pdfCount: pdfFileUrls.length,
+          imageCount: imageFileUrls.length,
         });
 
         // ── Phase 0: Create workspace + PDF items immediately so OCR can start ──
@@ -461,8 +463,8 @@ export async function POST(request: NextRequest) {
           logger.error("[AUTOGEN] Error creating WORKSPACE_CREATED event:", eventError);
         }
 
-        // Create PDF items and kick off OCR immediately
-        // Seed with known content-item positions so PDFs are placed around them (matching pre-restructuring layout)
+        // Create PDF and image items immediately so OCR can start (runs in parallel with Phase 1)
+        // Seed with known content-item positions so files are placed around them (matching pre-restructuring layout)
         const hasYouTubeLink = links?.some(isYouTubeUrl);
         const pdfItemLayouts: Pick<Item, "type" | "layout">[] = [
           { type: "note", layout: AUTOGEN_LAYOUTS.note as Item["layout"] },
@@ -470,30 +472,47 @@ export async function POST(request: NextRequest) {
           // YouTube may or may not be found later, but if user provided a YT link we know it'll be there
           ...(hasYouTubeLink ? [{ type: "youtube" as const, layout: AUTOGEN_LAYOUTS.youtube as Item["layout"] }] : []),
         ];
-        if (pdfFileUrls.length > 0) {
-          const pdfCreateParams: CreateItemParams[] = [];
-          for (const pdf of pdfFileUrls) {
-            const position = findNextAvailablePosition(pdfItemLayouts as Item[], "pdf", 4, "", "", AUTOGEN_LAYOUTS.pdf.w, AUTOGEN_LAYOUTS.pdf.h);
-            const pdfItemId = generateItemId();
-            const title = (pdf.filename ?? "document").replace(/\.pdf$/i, "");
-            pdfCreateParams.push({
-              id: pdfItemId,
-              title,
-              itemType: "pdf",
-              pdfData: {
-                fileUrl: pdf.url,
-                filename: pdf.filename ?? "document.pdf",
-                fileSize: pdf.fileSize,
-                ocrStatus: "processing" as const,
-              },
-              layout: position,
-            });
-            pdfItemLayouts.push({ type: "pdf", layout: position });
-          }
 
-          const pdfBulkResult = await workspaceWorker("bulkCreate", { workspaceId, items: pdfCreateParams });
-          if ((pdfBulkResult as { success?: boolean }).success) {
-            // Fire-and-forget: start durable OCR workflow for each PDF
+        const pdfCreateParams: CreateItemParams[] = [];
+        for (const pdf of pdfFileUrls) {
+          const position = findNextAvailablePosition(pdfItemLayouts as Item[], "pdf", 4, "", "", AUTOGEN_LAYOUTS.pdf.w, AUTOGEN_LAYOUTS.pdf.h);
+          const pdfItemId = generateItemId();
+          const title = (pdf.filename ?? "document").replace(/\.pdf$/i, "");
+          pdfCreateParams.push({
+            id: pdfItemId,
+            title,
+            itemType: "pdf",
+            pdfData: {
+              fileUrl: pdf.url,
+              filename: pdf.filename ?? "document.pdf",
+              fileSize: pdf.fileSize,
+              ocrStatus: "processing" as const,
+            },
+            layout: position,
+          });
+          pdfItemLayouts.push({ type: "pdf", layout: position });
+        }
+
+        const imageCreateParams: CreateItemParams[] = [];
+        for (const img of imageFileUrls) {
+          const position = findNextAvailablePosition(pdfItemLayouts as Item[], "image", 4, "", "", AUTOGEN_LAYOUTS.image.w, AUTOGEN_LAYOUTS.image.h);
+          const imgTitle = (img.filename ?? "image").replace(/\.(png|jpe?g|gif|webp|svg)$/i, "") || "Image";
+          const imgItemId = generateItemId();
+          imageCreateParams.push({
+            id: imgItemId,
+            title: imgTitle,
+            itemType: "image",
+            imageData: { url: img.url, altText: imgTitle, ocrStatus: "processing" as const },
+            layout: position,
+          });
+          pdfItemLayouts.push({ type: "image", layout: position });
+        }
+
+        const fileCreateParams = [...pdfCreateParams, ...imageCreateParams];
+        if (fileCreateParams.length > 0) {
+          const fileBulkResult = await workspaceWorker("bulkCreate", { workspaceId, items: fileCreateParams });
+          if ((fileBulkResult as { success?: boolean }).success) {
+            // Fire-and-forget: start PDF OCR workflows
             for (const param of pdfCreateParams) {
               if (!param.id || !param.pdfData?.fileUrl) continue;
               start(pdfOcrWorkflow, [param.pdfData.fileUrl, workspaceId, param.id, userId]).catch((err) => {
@@ -501,7 +520,6 @@ export async function POST(request: NextRequest) {
                   itemId: param.id,
                   error: err instanceof Error ? err.message : String(err),
                 });
-                // Mark as failed so it doesn't stay stuck in "processing" forever
                 workspaceWorker("updatePdfContent", {
                   workspaceId,
                   itemId: param.id!,
@@ -511,9 +529,27 @@ export async function POST(request: NextRequest) {
                 }).catch(() => {});
               });
             }
-            logger.info("[AUTOGEN] PDF items created + OCR workflows started", { count: pdfCreateParams.length });
+            // Fire-and-forget: start image OCR workflows
+            for (const param of imageCreateParams) {
+              if (!param.id || !param.imageData?.url) continue;
+              start(imageOcrWorkflow, [param.imageData.url, workspaceId, param.id, userId]).catch((err) => {
+                logger.warn("[AUTOGEN] Failed to start image OCR workflow", {
+                  itemId: param.id,
+                  error: err instanceof Error ? err.message : String(err),
+                });
+                workspaceWorker("updateImageContent", {
+                  workspaceId,
+                  itemId: param.id,
+                  imageOcrStatus: "failed" as const,
+                }).catch(() => {});
+              });
+            }
+            logger.info("[AUTOGEN] PDF and image items created + OCR workflows started", {
+              pdfCount: pdfCreateParams.length,
+              imageCount: imageCreateParams.length,
+            });
           } else {
-            logger.warn("[AUTOGEN] PDF bulk create failed (non-blocking)", { error: (pdfBulkResult as { message?: string }).message });
+            logger.warn("[AUTOGEN] File bulk create failed (non-blocking)", { error: (fileBulkResult as { message?: string }).message });
           }
         }
 
@@ -653,7 +689,7 @@ export async function POST(request: NextRequest) {
 
         const { note, quiz: quizContent } = noteQuizResult;
 
-        // ── Phase 3: Bulk create content items (note, quiz, youtube, images) ──
+        // ── Phase 3: Bulk create content items (note, quiz, youtube); images already created in Phase 0 ──
         const phase4Start = Date.now();
         const contentCreateParams: CreateItemParams[] = [
           {
@@ -666,20 +702,6 @@ export async function POST(request: NextRequest) {
           { title: quizContent.title, itemType: "quiz", quizData: { questions: quizContent.questions }, layout: quizContent.layout },
           ...(youtubeResult ? [{ title: youtubeResult.title, itemType: "youtube" as const, youtubeData: { url: youtubeResult.url }, layout: youtubeResult.layout }] : []),
         ];
-
-        // Images: compute layout positions accounting for PDF items already created
-        const existingItemsForLayout: Pick<Item, "type" | "layout">[] = [
-          { type: "note", layout: note.layout },
-          { type: "quiz", layout: quizContent.layout },
-          ...(youtubeResult ? [{ type: "youtube" as const, layout: youtubeResult.layout }] : []),
-          ...pdfItemLayouts,
-        ];
-        for (const img of imageFileUrls) {
-          const position = findNextAvailablePosition(existingItemsForLayout as Item[], "image", 4, "", "", AUTOGEN_LAYOUTS.image.w, AUTOGEN_LAYOUTS.image.h);
-          const imgTitle = (img.filename ?? "image").replace(/\.(png|jpe?g|gif|webp|svg)$/i, "") || "Image";
-          contentCreateParams.push({ title: imgTitle, itemType: "image", imageData: { url: img.url, altText: imgTitle }, layout: position });
-          existingItemsForLayout.push({ type: "image", layout: position });
-        }
 
         const bulkResult = await workspaceWorker("bulkCreate", { workspaceId, items: contentCreateParams });
 

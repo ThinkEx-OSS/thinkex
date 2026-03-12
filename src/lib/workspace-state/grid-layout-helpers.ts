@@ -66,7 +66,7 @@ export function itemsToLayout(items: Item[], breakpoint: 'lg' | 'xxs' = 'lg'): L
       };
     }
 
-    // Images: flexible aspect ratios with width-driven height snapping
+    // Images: free resize within min/max bounds
     if (item.type === 'image') {
       return {
         i: item.id,

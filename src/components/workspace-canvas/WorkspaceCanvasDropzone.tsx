@@ -8,7 +8,7 @@ import { CgNotes } from "react-icons/cg";
 import { useCallback, useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import type { PdfData, ImageData, AudioData } from "@/lib/workspace-state/types";
-import { getBestFrameForRatio, type GridFrame } from "@/lib/workspace-state/aspect-ratios";
+import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
 import { uploadPdfToStorage } from "@/lib/uploads/pdf-upload-with-ocr";
@@ -283,94 +283,19 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
 
           toast.dismiss(loadingToastId);
 
-          // Create image cards with aspect ratio detection
+          // Create image cards with default dimensions
           if (imageResults.length > 0) {
-            // Helper to get image dimensions
-            const getImageDimensions = (url: string): Promise<{ width: number; height: number }> => {
-              return new Promise((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-                img.onerror = reject;
-                img.src = url;
-              });
-            };
-
-            // Process images to get dimensions before creating cards
-            const imageDefinitionsPromises = imageResults.map(async (result) => {
-              const imageData: Partial<ImageData> = {
+            const { w, h } = DEFAULT_CARD_DIMENSIONS.image;
+            const imageCardDefinitions = imageResults.map((result) => ({
+              type: 'image' as const,
+              name: result.name,
+              initialData: {
                 url: result.fileUrl,
                 altText: result.name,
-              };
+              } as Partial<ImageData>,
+              initialLayout: { w, h },
+            }));
 
-              let layout = undefined;
-
-              try {
-                // Get dimensions to determine aspect ratio
-                const { width, height } = await getImageDimensions(result.fileUrl);
-                // Use the small frame (w:2) for initial drops, relying on resize logic to scale up if needed
-                const bestFrame = getBestFrameForRatio(width, height);
-
-                // Construct layout object
-                if (bestFrame) {
-                  // Create standard RGL layout object
-                  // Note: We only set the 'lg' breakpoint here. 
-                  // The system will handle the responsive mapping.
-                  // However, createItems/createItem doesn't accept a layout object directly in its simplified signature.
-                  // We might need to rely on the default size if we can't pass layout.
-
-                  // Actually, createItems takes `initialData`. 
-                  // The `useWorkspaceOperations.createItems` implementation might need adjustment to accept `layout`.
-                  // But wait, the `Item` type has a `layout` property.
-
-                  // Let's modify the return type here to match what createItems expects.
-                  // createItems takes `Partial<Item>[]` effectively (name, type, initialData).
-                  // If we need to pass layout, we'll need to check if createItems supports it.
-
-                  // Looking at `use-workspace-operations.ts` (from memory):
-                  // createItems(items: { type: CardType; name?: string; initialData?: any }[])
-                  // It doesn't seem to support passing layout directly in the current definition.
-
-                  // Workaround: We can't easily pass layout without modifying `createItems`.
-                  // BUT, we defined default dimensions in `grid-layout-helpers.ts`.
-                  // To do "adaptive" sizing per item, we really need custom layout support.
-
-                  // Let's assume for now we will modify createItems or use a workaround.
-                  // Or actually, `createItems` might accept extra properties.
-                  // Let's check `use-workspace-operations.ts` content later if this fails.
-                  // For now, I will assume we can pass `layout` or `w`/`h` if I modify the type def there.
-
-                  // Actually, a safer bet is to just let them be created with defaults (4x10) 
-                  // and then immediately update them? That's glitchy.
-
-                  // Wait, I can't modify `createItems` easily right now without checking it.
-                  // Let's look at `use-workspace-operations` again.
-
-                  // WAIT! I already checked `use-workspace-operations.ts` earlier. 
-                  // It takes `definitions: { type: CardType; name?: string; initialData?: Partial<Item['data']> }[]`.
-                  // It constructs the item using `createItem` logic usually.
-
-                  // I will pass `initialLayout` property in the definition and update `use-workspace-operations` to use it.
-                  return {
-                    type: 'image' as const,
-                    name: result.name,
-                    initialData: imageData,
-                    initialLayout: { w: bestFrame.w, h: bestFrame.h } // Passing custom property
-                  };
-                }
-              } catch (e) {
-                console.error("Failed to load image for dimensions:", e);
-              }
-
-              return {
-                type: 'image' as const,
-                name: result.name,
-                initialData: imageData,
-              };
-            });
-
-            const imageCardDefinitions = await Promise.all(imageDefinitionsPromises);
-
-            // @ts-ignore - We are passing extra 'initialLayout' that we'll handle in createItems
             const imageCreatedIds = operations.createItems(imageCardDefinitions);
             // Use shared hook to handle navigation/selection for images
             handleCreatedItems(imageCreatedIds);
