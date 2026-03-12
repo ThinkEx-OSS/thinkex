@@ -2,7 +2,7 @@
 
 import { useState, useMemo, memo } from "react";
 
-import { X, ChevronDown, ChevronUp } from "lucide-react";
+import { X, ChevronDown, ChevronUp, Eye } from "lucide-react";
 import { MdFormatColorText } from "react-icons/md";
 import { useUIStore, selectBlockNoteSelection } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
@@ -20,17 +20,30 @@ interface CardContextDisplayProps {
 function CardContextDisplayImpl({ items }: CardContextDisplayProps) {
   const { selectedCardIds } = useSelectedCardIds();
   const activePdfPageByItemId = useUIStore((state) => state.activePdfPageByItemId);
+  const openPanelIds = useUIStore((state) => state.openPanelIds);
+  const maximizedItemId = useUIStore((state) => state.maximizedItemId);
+
+  const viewingItemIds = useMemo(() => {
+    const ids = new Set(openPanelIds);
+    if (maximizedItemId) ids.add(maximizedItemId);
+    return ids;
+  }, [openPanelIds, maximizedItemId]);
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
   const clearBlockNoteSelection = useUIStore((state) => state.clearBlockNoteSelection);
   const blockNoteSelection = useUIStore(selectBlockNoteSelection);
 
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Filter to only selected items - memoized to prevent recalculation
-  const selectedItems = useMemo(
-    () => items.filter((item) => selectedCardIds.has(item.id)),
-    [items, selectedCardIds]
-  );
+  // Filter to selected items, with currently viewing ones first
+  const selectedItems = useMemo(() => {
+    const filtered = items.filter((item) => selectedCardIds.has(item.id));
+    return [...filtered].sort((a, b) => {
+      const aViewing = viewingItemIds.has(a.id) ? 1 : 0;
+      const bViewing = viewingItemIds.has(b.id) ? 1 : 0;
+      if (aViewing !== bViewing) return bViewing - aViewing; // viewing first
+      return 0; // preserve original order within each group
+    });
+  }, [items, selectedCardIds, viewingItemIds]);
 
 
   // Show expand button if there are more than 3 items total (selection + cards)
@@ -94,14 +107,20 @@ function CardContextDisplayImpl({ items }: CardContextDisplayProps) {
             key={item.id}
             className="relative group flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-border bg-sidebar-accent hover:bg-accent transition-colors flex-shrink-0"
           >
-            {/* Color Indicator / Remove Button Container */}
-            <div className="w-2 h-2 flex-shrink-0 flex items-center justify-center">
-              {/* Color circle - visible by default, hidden on hover */}
-              {item.color && (
-                <div
-                  className="w-2 h-2 rounded-full transition-opacity duration-200 group-hover:opacity-0"
-                  style={{ backgroundColor: item.color }}
-                />
+            {/* Color / Viewing Indicator / Remove Button Container */}
+            <div className="w-3 h-3 flex-shrink-0 flex items-center justify-center relative">
+              {/* Eye when viewing, else color circle - visible by default, hidden on hover */}
+              {viewingItemIds.has(item.id) ? (
+                <span title="Currently viewing" className="flex items-center justify-center">
+                  <Eye className="w-3 h-3 text-muted-foreground transition-opacity duration-200 group-hover:opacity-0" />
+                </span>
+              ) : (
+                item.color && (
+                  <div
+                    className="w-2 h-2 rounded-full transition-opacity duration-200 group-hover:opacity-0"
+                    style={{ backgroundColor: item.color }}
+                  />
+                )
               )}
               {/* X icon - hidden by default, visible on hover */}
               <button

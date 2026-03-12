@@ -4,7 +4,7 @@
 
 import type { Item, NoteData, PdfData, FlashcardData, FlashcardItem, QuizData, AudioData } from "@/lib/workspace-state/types";
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
-import { getVirtualPath } from "@/lib/utils/virtual-workspace-fs";
+import { getVirtualPath } from "@/lib/utils/workspace-fs";
 import { type Block } from "@/components/editor/BlockNoteEditor";
 
 export interface SearchableText {

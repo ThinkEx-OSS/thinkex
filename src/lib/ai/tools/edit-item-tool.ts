@@ -4,7 +4,7 @@ import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
 import { loadStateForTool, resolveItem } from "./tool-utils";
-import { getVirtualPath } from "@/lib/utils/virtual-workspace-fs";
+import { getVirtualPath } from "@/lib/utils/workspace-fs";
 
 const EDITABLE_TYPES = ["note", "flashcard", "quiz", "pdf"] as const;
 

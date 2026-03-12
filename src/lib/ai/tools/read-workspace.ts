@@ -5,7 +5,7 @@ import { fuzzyMatchItem } from "./tool-utils";
 import { resolveItemByPath } from "./workspace-search-utils";
 import { formatItemContent } from "@/lib/utils/format-workspace-context";
 import { getNoteContentAsMarkdown } from "@/lib/utils/format-workspace-context";
-import { getVirtualPath } from "@/lib/utils/virtual-workspace-fs";
+import { getVirtualPath } from "@/lib/utils/workspace-fs";
 import type { WorkspaceToolContext } from "./workspace-tools";
 import type { NoteData } from "@/lib/workspace-state/types";
 
