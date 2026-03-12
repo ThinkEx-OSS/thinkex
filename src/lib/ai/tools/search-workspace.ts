@@ -2,7 +2,7 @@ import { tool, zodSchema } from "ai";
 import { z } from "zod";
 import { loadStateForTool } from "./tool-utils";
 import { extractSearchableText } from "./workspace-search-utils";
-import { getVirtualPath } from "@/lib/utils/virtual-workspace-fs";
+import { getVirtualPath } from "@/lib/utils/workspace-fs";
 import type { WorkspaceToolContext } from "./workspace-tools";
 import type { Item } from "@/lib/workspace-state/types";
 

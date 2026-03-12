@@ -108,7 +108,7 @@ const CitationRenderer = memo(
 
     const handleWorkspaceItemClick = () => {
       if (!workspaceState?.items || !title) return;
-      // Resolve by virtual path first (e.g. "pdfs/Syllabus.pdf") — AI may cite using paths from <virtual-workspace>
+      // Resolve by virtual path first (e.g. "pdfs/Syllabus.pdf") — AI may cite using paths from <workspace>
       const items = workspaceState.items;
       const byPath = resolveItemByPath(items, title);
       const item =

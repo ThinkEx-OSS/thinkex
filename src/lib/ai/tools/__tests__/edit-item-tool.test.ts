@@ -14,7 +14,7 @@ vi.mock("@/lib/ai/tools/tool-utils", () => ({
   resolveItem: (...args: unknown[]) => mockResolveItem(...args),
 }));
 
-vi.mock("@/lib/utils/virtual-workspace-fs", () => ({
+vi.mock("@/lib/utils/workspace-fs", () => ({
   getVirtualPath: (...args: unknown[]) => mockGetVirtualPath(...args),
 }));
 
