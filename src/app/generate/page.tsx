@@ -19,12 +19,11 @@ const PROGRESS_LABELS: Record<string, string> = {
   workspace: "Creating your workspace...",
   note: "Creating your note...",
   quiz: "Creating your quiz...",
-  flashcards: "Creating your flashcards...",
   youtube: "Adding a video...",
   complete: "Done! Opening your workspace...",
 };
 
-const PROGRESS_STEPS = ["understanding", "metadata", "workspace", "note", "quiz", "flashcards", "youtube"] as const;
+const PROGRESS_STEPS = ["understanding", "metadata", "workspace", "note", "quiz", "youtube"] as const;
 
 function GenerateContent() {
   const router = useRouter();
@@ -143,13 +142,10 @@ function GenerateContent() {
               } else if (stage === "distillation" && p.metadata && typeof (p.metadata as Record<string, unknown>).title === "string") {
                 const t = (p.metadata as Record<string, unknown>).title as string;
                 if (t) applyIfNotAborted(() => setProgressText(`Workspace: ${t}...`));
-              } else if (stage === "noteFlashcards") {
+              } else if (stage === "noteQuiz") {
                 const note = p.note as Record<string, unknown> | undefined;
-                const fc = p.flashcards as Record<string, unknown> | undefined;
                 if (typeof note?.title === "string" && note.title) {
                   applyIfNotAborted(() => setProgressText(`Creating note: ${note.title}...`));
-                } else if (typeof fc?.title === "string" && fc.title) {
-                  applyIfNotAborted(() => setProgressText(`Creating flashcards: ${fc.title}...`));
                 }
               }
             } else if (ev.type === "metadata") {
@@ -157,7 +153,7 @@ function GenerateContent() {
               applyIfNotAborted(() => setProgressText(PROGRESS_LABELS.workspace));
             } else if (ev.type === "workspace") {
               setCompletedSteps((s) => (s.includes("workspace") ? s : [...s, "workspace"]));
-              applyIfNotAborted(() => setProgressText("Creating your note, quiz, flashcards, and video..."));
+              applyIfNotAborted(() => setProgressText("Creating your note, quiz, and video..."));
             } else if (ev.type === "progress" && ev.data?.step) {
               const step = ev.data.step;
               setCompletedSteps((s) => (s.includes(step) ? s : [...s, step]));

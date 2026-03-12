@@ -35,8 +35,7 @@ function truncateForLog(s: string, max = LOG_TRUNCATE): string {
 /** Layout positions for autogen items (matches desired workspace arrangement) */
 const AUTOGEN_LAYOUTS = {
   youtube: { x: 0, y: 0, w: 2, h: 7 },
-  flashcard: { x: 2, y: 0, w: 2, h: 5 },
-  note: { x: 2, y: 5, w: 1, h: 4 },
+  note: { x: 2, y: 0, w: 2, h: 9 },
   quiz: { x: 0, y: 7, w: 2, h: 13 },
   pdf: { w: 1, h: 4 },
   image: { w: 2, h: 8 },
@@ -119,7 +118,7 @@ const DISTILLED_SCHEMA = z.object({
   }),
   contentSummary: z
     .string()
-    .describe("Comprehensive summary of the content for creating study note, flashcards, and quiz. Include key concepts, facts, and structure. 200-800 words."),
+    .describe("Comprehensive summary of the content for creating study note and quiz. Include key concepts, facts, and structure. 200-800 words."),
   youtubeSearchTerm: z.string().describe("Broad, general search query for finding a related YouTube video (e.g. 'Emacs tutorial for beginners' not 'CMSC 216 UNIX Emacs project grading')."),
 });
 
@@ -219,7 +218,7 @@ You are a workspace content distiller. The user provides content (prompt, files,
 
 <task>
 1. Generate workspace metadata: a short title (5-6 words), an icon from the list, and a hex color.
-2. Write a content summary (200-800 words) with key concepts, facts, and structure for notes, flashcards, and quiz.
+2. Write a content summary (200-800 words) with key concepts, facts, and structure for notes and quiz.
 3. Produce a YouTube search term: broad, 2-5 common words (e.g. "Emacs tutorial beginners"). Do NOT use course codes, assignment names, or narrow phrasing.
 </task>
 
@@ -289,27 +288,26 @@ Output shape: metadata (title: "Python Data Analysis", icon: "ChartBarIcon", col
   return result;
 }
 
-/** System prompt for note + flashcard + quiz generation. Aligns with formatWorkspaceContext FORMATTING (markdown, math, mermaid). */
-const NOTE_FLASHCARD_QUIZ_SYSTEM = `You generate a study note, a flashcard deck, and a quiz for ThinkEx. All must be on the same topic and use consistent formatting.
+/** System prompt for note + quiz generation. Aligns with formatWorkspaceContext FORMATTING (markdown, math, mermaid). */
+const NOTE_QUIZ_SYSTEM = `You generate a study note and a quiz for ThinkEx. Both must be on the same topic and use consistent formatting.
 
-FORMATTING (apply to note content, flashcard front/back text):
+FORMATTING (apply to note content):
 - Use Markdown (GFM): headers, lists, bold/italic, code, links.
 - MATH: Use single $...$ for inline math (e.g. $E = mc^2$) and $$...$$ for block math on separate lines for centered display. Currency (CRITICAL): always escape as \\$ (e.g. \\$5, \\$19.99, \\$100k, \\$100M) so it is never parsed as math.
 - DIAGRAMS: Use \`\`\`mermaid blocks when a diagram would be helpful.
 
 Output:
 1. note: title + markdown content. CRITICAL: DO NOT repeat the title in the content. Content must start with subheadings or body text — the title field is already displayed separately.
-2. flashcards: title + 5-8 flashcard pairs (front, back)
-3. quiz: title + 5 quiz questions. Each question: type ("multiple_choice" or "true_false"), questionText, options (4 for MC, ["True","False"] for T/F), correctIndex (0-based), hint (optional), explanation. Focus on introductory/foundational concepts.`;
+2. quiz: title + 5 quiz questions. Each question: type ("multiple_choice" or "true_false"), questionText, options (4 for MC, ["True","False"] for T/F), correctIndex (0-based), hint (optional), explanation. Focus on introductory/foundational concepts.`;
 
 type StreamEvent =
   | { type: "phase"; data: { stage: "understanding" } }
   | { type: "metadata"; data: { title: string; icon: string; color: string } }
-  | { type: "partial"; data: { stage: "metadata" | "distillation" | "noteFlashcards"; partial: unknown } }
+  | { type: "partial"; data: { stage: "metadata" | "distillation" | "noteQuiz"; partial: unknown } }
   | { type: "toolCall"; data: { toolName: string; query?: string; status: string } }
   | { type: "toolResult"; data: { toolName: string; status: string } }
   | { type: "workspace"; data: { id: string; slug: string; name: string } }
-  | { type: "progress"; data: { step: "understanding" | "note" | "quiz" | "flashcards" | "youtube"; status: "done" } }
+  | { type: "progress"; data: { step: "understanding" | "note" | "quiz" | "youtube"; status: "done" } }
   | { type: "complete"; data: { workspace: { id: string; slug: string; name: string } } }
   | { type: "error"; data: { message: string } };
 
@@ -468,7 +466,6 @@ export async function POST(request: NextRequest) {
         const hasYouTubeLink = links?.some(isYouTubeUrl);
         const pdfItemLayouts: Pick<Item, "type" | "layout">[] = [
           { type: "note", layout: AUTOGEN_LAYOUTS.note as Item["layout"] },
-          { type: "flashcard", layout: AUTOGEN_LAYOUTS.flashcard as Item["layout"] },
           { type: "quiz", layout: AUTOGEN_LAYOUTS.quiz as Item["layout"] },
           // YouTube may or may not be found later, but if user provided a YT link we know it'll be there
           ...(hasYouTubeLink ? [{ type: "youtube" as const, layout: AUTOGEN_LAYOUTS.youtube as Item["layout"] }] : []),
@@ -562,7 +559,7 @@ export async function POST(request: NextRequest) {
 
         send({ type: "workspace", data: { id: workspace.id, slug: workspace.slug || "", name: workspace.name } });
 
-        // ── Phase 2: Generate content (note + flashcards + quiz + youtube) ──
+        // ── Phase 2: Generate content (note + quiz + youtube) ──
         const phase3Start = Date.now();
         const QuizQuestionSchema = z.object({
           type: z.enum(["multiple_choice", "true_false"]),
@@ -572,42 +569,37 @@ export async function POST(request: NextRequest) {
           hint: z.string().optional(),
           explanation: z.string(),
         });
-        const NOTE_FLASHCARD_QUIZ_SCHEMA = z.object({
+        const NOTE_QUIZ_SCHEMA = z.object({
           note: z.object({ title: z.string(), content: z.string() }),
-          flashcards: z.object({
-            title: z.string(),
-            cards: z.array(z.object({ front: z.string(), back: z.string() })).min(5).max(12),
-          }),
           quiz: z.object({
             title: z.string(),
             questions: z.array(QuizQuestionSchema).min(5).max(10),
           }),
         });
 
-        const noteFlashcardQuizFn = async () => {
-          type OutputType = z.infer<typeof NOTE_FLASHCARD_QUIZ_SCHEMA>;
+        const noteQuizFn = async () => {
+          type OutputType = z.infer<typeof NOTE_QUIZ_SCHEMA>;
           let output: OutputType | undefined;
           const { partialOutputStream } = streamText({
             model: google("gemini-2.5-flash"),
-            system: NOTE_FLASHCARD_QUIZ_SYSTEM,
+            system: NOTE_QUIZ_SYSTEM,
             output: Output.object({
-              name: "NoteFlashcardsQuiz",
-              description: "Study note, flashcard deck, and quiz for the same topic",
-              schema: NOTE_FLASHCARD_QUIZ_SCHEMA,
+              name: "NoteQuiz",
+              description: "Study note and quiz for the same topic",
+              schema: NOTE_QUIZ_SCHEMA,
             }),
-            prompt: `Create study materials about the following content:\n\n${contentSummary}\n\nReturn:\n1. note: a short title and markdown content for a study note.\n2. flashcards: a title and 5-8 flashcard pairs (front, back) on the same topic.\n3. quiz: a title and 5 quiz questions (multiple_choice or true_false) covering introductory concepts.`,
-            onError: ({ error }) => logger.error("[AUTOGEN] NoteFlashcardsQuiz stream error:", error),
+            prompt: `Create study materials about the following content:\n\n${contentSummary}\n\nReturn:\n1. note: a short title and markdown content for a study note.\n2. quiz: a title and 5 quiz questions (multiple_choice or true_false) covering introductory concepts.`,
+            onError: ({ error }) => logger.error("[AUTOGEN] NoteQuiz stream error:", error),
           });
 
           for await (const partial of partialOutputStream) {
             output = partial as OutputType;
-            send({ type: "partial", data: { stage: "noteFlashcards", partial } });
+            send({ type: "partial", data: { stage: "noteQuiz", partial } });
           }
 
-          if (!output?.note || !output?.flashcards || !output?.quiz) throw new Error("Failed to generate note, flashcards, or quiz");
+          if (!output?.note || !output?.quiz) throw new Error("Failed to generate note or quiz");
 
           send({ type: "progress", data: { step: "note", status: "done" } });
-          send({ type: "progress", data: { step: "flashcards", status: "done" } });
           send({ type: "progress", data: { step: "quiz", status: "done" } });
 
           const questions: QuizQuestion[] = output.quiz.questions.map((q) => {
@@ -635,15 +627,14 @@ export async function POST(request: NextRequest) {
 
           return {
             note: { title: output.note.title, content: output.note.content, layout: AUTOGEN_LAYOUTS.note },
-            flashcards: { title: output.flashcards.title, cards: output.flashcards.cards, layout: AUTOGEN_LAYOUTS.flashcard },
             quiz: { title: output.quiz.title, questions, layout: AUTOGEN_LAYOUTS.quiz },
           };
         };
 
         const youtubeUrlFromLinks = links?.find(isYouTubeUrl);
 
-        const [noteFlashcardQuizResult, youtubeResult] = await Promise.all([
-          noteFlashcardQuizFn(),
+        const [noteQuizResult, youtubeResult] = await Promise.all([
+          noteQuizFn(),
           (async () => {
             if (youtubeUrlFromLinks) {
               send({ type: "progress", data: { step: "youtube", status: "done" } });
@@ -660,9 +651,9 @@ export async function POST(request: NextRequest) {
         timings.contentGenerationMs = Date.now() - phase3Start;
         logger.info("[AUTOGEN] Content generation done", { ms: timings.contentGenerationMs });
 
-        const { note, flashcards, quiz: quizContent } = noteFlashcardQuizResult;
+        const { note, quiz: quizContent } = noteQuizResult;
 
-        // ── Phase 3: Bulk create content items (note, flashcard, quiz, youtube, images) ──
+        // ── Phase 3: Bulk create content items (note, quiz, youtube, images) ──
         const phase4Start = Date.now();
         const contentCreateParams: CreateItemParams[] = [
           {
@@ -672,7 +663,6 @@ export async function POST(request: NextRequest) {
             layout: note.layout,
             ...((distilled.sources?.length ?? 0) > 0 && { sources: distilled.sources }),
           },
-          { title: flashcards.title, itemType: "flashcard", flashcardData: { cards: flashcards.cards }, layout: flashcards.layout },
           { title: quizContent.title, itemType: "quiz", quizData: { questions: quizContent.questions }, layout: quizContent.layout },
           ...(youtubeResult ? [{ title: youtubeResult.title, itemType: "youtube" as const, youtubeData: { url: youtubeResult.url }, layout: youtubeResult.layout }] : []),
         ];
@@ -680,7 +670,6 @@ export async function POST(request: NextRequest) {
         // Images: compute layout positions accounting for PDF items already created
         const existingItemsForLayout: Pick<Item, "type" | "layout">[] = [
           { type: "note", layout: note.layout },
-          { type: "flashcard", layout: flashcards.layout },
           { type: "quiz", layout: quizContent.layout },
           ...(youtubeResult ? [{ type: "youtube" as const, layout: youtubeResult.layout }] : []),
           ...pdfItemLayouts,
