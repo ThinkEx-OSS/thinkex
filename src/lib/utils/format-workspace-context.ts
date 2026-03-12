@@ -792,7 +792,10 @@ function formatImageDetailsFull(data: ImageData): string[] {
         lines.push(`   - URL: ${data.url}`);
     }
 
-    if (data.ocrPages?.length) {
+    if (data.ocrStatus === "failed" || data.ocrError) {
+        const errMsg = data.ocrError ? `: ${String(data.ocrError).slice(0, 200)}` : "";
+        lines.push(`   - OCR failed${errMsg}`);
+    } else if (data.ocrPages?.length) {
         lines.push(`   - Extracted Content (${data.ocrPages.length} page${data.ocrPages.length !== 1 ? "s" : ""}):`);
         for (const page of data.ocrPages) {
             if (page.header) lines.push(`     Header: ${page.header}`);
@@ -808,7 +811,7 @@ function formatImageDetailsFull(data: ImageData): string[] {
             if (page.footer) lines.push(`     Footer: ${page.footer}`);
         }
     } else if (data.ocrStatus === "processing") {
-        lines.push(`   - (Content is being extracted. Please wait a moment and try readWorkspace or processFiles again.)`);
+        lines.push(`   - (Content is being extracted. Please wait a moment and try readWorkspace again.)`);
     } else {
         if (data.altText) {
             lines.push(`   - Alt Text: ${data.altText}`);

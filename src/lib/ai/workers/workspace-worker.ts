@@ -80,6 +80,7 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
             ...(p.imageData.textContent != null && { textContent: p.imageData.textContent }),
             ...(p.imageData.ocrPages != null && { ocrPages: p.imageData.ocrPages }),
             ...(p.imageData.ocrStatus != null && { ocrStatus: p.imageData.ocrStatus }),
+            ...(p.imageData.ocrError != null && { ocrError: p.imageData.ocrError }),
         };
     } else if (itemType === "audio") {
         if (!p.audioData?.fileUrl) throw new Error("Audio data required for audio card creation");
@@ -240,6 +241,7 @@ export async function workspaceWorker(
         imageTextContent?: string;
         imageOcrPages?: ImageData["ocrPages"];
         imageOcrStatus?: "complete" | "failed";
+        imageOcrError?: string;
         audioData?: {
             fileUrl: string;
             filename: string;
@@ -995,7 +997,7 @@ export async function workspaceWorker(
                 if (!params.itemId) {
                     throw new Error("Item ID required for image content update");
                 }
-                if (params.imageOcrStatus !== "failed" && !params.imageTextContent && !params.imageOcrPages?.length) {
+                if (params.imageOcrStatus !== "failed" && params.imageTextContent === undefined && params.imageOcrPages === undefined) {
                     throw new Error("Text content or OCR pages required for image content update (or ocrStatus: failed)");
                 }
 
@@ -1019,6 +1021,7 @@ export async function workspaceWorker(
                     ...(textContent != null && { textContent }),
                     ...(params.imageOcrPages != null && { ocrPages: params.imageOcrPages }),
                     ...(params.imageOcrStatus != null && { ocrStatus: params.imageOcrStatus }),
+                    ...(params.imageOcrError != null && { ocrError: params.imageOcrError }),
                 };
 
                 const changes: Partial<Item> = { data: updatedData };

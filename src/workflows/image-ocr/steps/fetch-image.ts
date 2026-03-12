@@ -2,6 +2,15 @@ import { fetch } from "workflow";
 
 const MAX_IMAGE_SIZE_BYTES = 30 * 1024 * 1024; // 30 MB (Mistral limit)
 
+/** OCR-supported MIME types (reject SVG, HEIC/HEIF, AVIF, etc.) */
+const OCR_SUPPORTED_MIMES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/tiff",
+]);
+
 /** Map URL extension to MIME type for fallback when Content-Type is missing */
 const EXT_TO_MIME: Record<string, string> = {
   jpg: "image/jpeg",
@@ -40,6 +49,9 @@ export async function fetchImage(
   let mimeType = res.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() ?? "";
   if (!mimeType.startsWith("image/")) {
     mimeType = mimeFromUrl(fileUrl);
+  }
+  if (!OCR_SUPPORTED_MIMES.has(mimeType)) {
+    throw new Error(`Unsupported image format for OCR: ${mimeType}. Use JPEG, PNG, GIF, WebP, or TIFF.`);
   }
 
   const contentLength = res.headers.get("content-length");

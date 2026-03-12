@@ -21,7 +21,7 @@ import { filterItemIdsForFolderCreation } from "@/lib/workspace-state/search";
  * Return type for workspace operations
  */
 export interface WorkspaceOperations {
-  createItem: (type: CardType, name?: string, initialData?: Partial<Item['data']>) => string;
+  createItem: (type: CardType, name?: string, initialData?: Partial<Item['data']>, initialLayout?: { w: number; h: number }) => string;
   createItems: (items: Array<{ type: CardType; name?: string; initialData?: Partial<Item['data']>; initialLayout?: { w: number; h: number } }>) => string[];
   updateItem: (id: string, changes: Partial<Item>, source?: 'user' | 'agent') => void;
   updateItemData: (itemId: string, updater: (prev: Item['data']) => Item['data'], source?: 'user' | 'agent') => void;
@@ -90,7 +90,7 @@ export function useWorkspaceOperations(
   }, []);
 
   const createItem = useCallback(
-    (type: CardType, name?: string, initialData?: Partial<Item['data']>) => {
+    (type: CardType, name?: string, initialData?: Partial<Item['data']>, initialLayout?: { w: number; h: number }) => {
       // Validate type is a valid CardType
       logger.debug("🔧 [CREATE-ITEM] Received type:", type, "typeof:", typeof type, "value:", JSON.stringify(type));
 
@@ -120,6 +120,23 @@ export function useWorkspaceOperations(
       const folderId = activeFolderId ?? null;
       const finalName = name || getNextUniqueDefaultName(currentState.items, validType, folderId);
 
+      let layout: Item["layout"] = undefined;
+      if (initialLayout) {
+        const itemsInView = currentState.items.filter(item =>
+          activeFolderId ? item.folderId === activeFolderId : !item.folderId
+        );
+        const position = findNextAvailablePosition(
+          itemsInView,
+          validType,
+          4,
+          finalName,
+          "",
+          initialLayout.w,
+          initialLayout.h
+        );
+        layout = { lg: position };
+      }
+
       const item: Item = {
         id,
         type: validType,
@@ -128,6 +145,7 @@ export function useWorkspaceOperations(
         data: mergedData as ItemData,
         color: getRandomCardColor(), // Assign random color to new cards
         folderId: activeFolderId ?? undefined, // Auto-assign to active folder
+        ...(layout && { layout }),
       };
 
       const event = createEvent("ITEM_CREATED", { id, item }, userId, userName);

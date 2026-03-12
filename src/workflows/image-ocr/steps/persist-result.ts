@@ -80,7 +80,7 @@ export async function persistImageOcrResult(
           textContent: result.textContent ?? "",
           ocrPages: result.ocrPages ?? [],
           ocrStatus: "complete" as const,
-          ocrError: undefined,
+          ocrError: null,
         },
       },
       source: "agent",
@@ -110,9 +110,10 @@ export async function persistImageOcrFailure(
       id: itemId,
       changes: {
         data: {
+          textContent: "",
+          ocrPages: [],
           ocrStatus: "failed" as const,
           ocrError: error,
-          ocrPages: [],
         },
       },
       source: "agent",

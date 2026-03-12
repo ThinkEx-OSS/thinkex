@@ -3,6 +3,7 @@ import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { AgentState, Item, CardType, PdfData } from "@/lib/workspace-state/types";
+import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import type { WorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import WorkspaceContent from "./WorkspaceContent";
 import WorkspaceHeader from "@/components/workspace-canvas/WorkspaceHeader";
@@ -247,6 +248,7 @@ export function WorkspaceSection({
       type: 'image',
       name,
       initialData: { url, altText: name },
+      initialLayout: DEFAULT_CARD_DIMENSIONS.image,
     }]);
 
     toast.success("Image added to workspace");

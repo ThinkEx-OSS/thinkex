@@ -473,11 +473,11 @@ export async function POST(request: NextRequest) {
         // Create PDF and image items immediately so OCR can start (runs in parallel with Phase 1)
         // Seed with known content-item positions so files are placed around them (matching pre-restructuring layout)
         const hasYouTubeLink = links?.some(isYouTubeUrl);
+        // Always reserve YouTube footprint so a later searched YouTube item (AUTOGEN_LAYOUTS.youtube) never overlaps early PDFs/images
         const pdfItemLayouts: Pick<Item, "type" | "layout">[] = [
           { type: "note", layout: AUTOGEN_LAYOUTS.note as Item["layout"] },
           { type: "quiz", layout: AUTOGEN_LAYOUTS.quiz as Item["layout"] },
-          // YouTube may or may not be found later, but if user provided a YT link we know it'll be there
-          ...(hasYouTubeLink ? [{ type: "youtube" as const, layout: AUTOGEN_LAYOUTS.youtube as Item["layout"] }] : []),
+          { type: "youtube", layout: AUTOGEN_LAYOUTS.youtube as Item["layout"] },
         ];
 
         const pdfCreateParams: CreateItemParams[] = [];
@@ -540,14 +540,16 @@ export async function POST(request: NextRequest) {
             for (const param of imageCreateParams) {
               if (!param.id || !param.imageData?.url) continue;
               start(imageOcrWorkflow, [param.imageData.url, workspaceId, param.id, userId]).catch((err) => {
+                const errMsg = err instanceof Error ? err.message : String(err);
                 logger.warn("[AUTOGEN] Failed to start image OCR workflow", {
                   itemId: param.id,
-                  error: err instanceof Error ? err.message : String(err),
+                  error: errMsg,
                 });
                 workspaceWorker("updateImageContent", {
                   workspaceId,
                   itemId: param.id,
                   imageOcrStatus: "failed" as const,
+                  imageOcrError: errMsg,
                 }).catch(() => {});
               });
             }
@@ -679,15 +681,22 @@ export async function POST(request: NextRequest) {
         const [noteQuizResult, youtubeResult] = await Promise.all([
           noteQuizFn(),
           (async () => {
-            if (youtubeUrlFromLinks) {
+            try {
+              if (youtubeUrlFromLinks) {
+                send({ type: "progress", data: { step: "youtube", status: "done" } });
+                return { title: "YouTube Video", url: youtubeUrlFromLinks, layout: AUTOGEN_LAYOUTS.youtube };
+              }
+              const videos = await searchVideos(youtubeSearchTerm, 3);
+              const video = videos[0];
+              if (!video) return null;
               send({ type: "progress", data: { step: "youtube", status: "done" } });
-              return { title: "YouTube Video", url: youtubeUrlFromLinks, layout: AUTOGEN_LAYOUTS.youtube };
+              return { title: video.title, url: video.url, layout: AUTOGEN_LAYOUTS.youtube };
+            } catch (err) {
+              logger.warn("[AUTOGEN] YouTube search failed", {
+                error: err instanceof Error ? err.message : String(err),
+              });
+              return null;
             }
-            const videos = await searchVideos(youtubeSearchTerm, 3);
-            const video = videos[0];
-            if (!video) return null;
-            send({ type: "progress", data: { step: "youtube", status: "done" } });
-            return { title: video.title, url: video.url, layout: AUTOGEN_LAYOUTS.youtube };
           })(),
         ]);
 

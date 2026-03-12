@@ -45,6 +45,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { CardType, Item } from "@/lib/workspace-state/types";
+import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import { getFolderPath } from "@/lib/workspace-state/search";
 import { useMemo } from "react";
 import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";
@@ -371,7 +372,7 @@ export function WorkspaceHeader({
   const handleImageCreate = useCallback((url: string, name: string) => {
     if (!addItem) return;
 
-    addItem('image', name, { url, altText: name });
+    addItem('image', name, { url, altText: name }, DEFAULT_CARD_DIMENSIONS.image);
     toast.success("Image added to workspace");
     setIsNewMenuOpen(false);
   }, [addItem]);

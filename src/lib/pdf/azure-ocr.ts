@@ -205,10 +205,12 @@ export async function ocrSingleImage(
 
   const retriesPerDeployment = pool.length === 1 ? 2 : 1;
   let lastError: Error | null = null;
+  const start = Math.floor(Math.random() * pool.length);
 
   for (let deployIdx = 0; deployIdx < pool.length; deployIdx++) {
-    const { endpoint, apiKey, model } = pool[deployIdx];
-    const endpointIndex = deployIdx;
+    const actualIdx = (start + deployIdx) % pool.length;
+    const { endpoint, apiKey, model } = pool[actualIdx];
+    const endpointIndex = actualIdx;
     const body = { ...baseBody, model };
 
     for (let attempt = 0; attempt <= retriesPerDeployment; attempt++) {
@@ -306,10 +308,12 @@ export async function ocrSingleChunk(base64Pdf: string): Promise<OcrChunkResult>
 
   const retriesPerDeployment = pool.length === 1 ? 2 : 1;
   let lastError: Error | null = null;
+  const start = Math.floor(Math.random() * pool.length);
 
   for (let deployIdx = 0; deployIdx < pool.length; deployIdx++) {
-    const { endpoint, apiKey, model } = pool[deployIdx];
-    const endpointIndex = deployIdx;
+    const actualIdx = (start + deployIdx) % pool.length;
+    const { endpoint, apiKey, model } = pool[actualIdx];
+    const endpointIndex = actualIdx;
     const body = { ...baseBody, model };
 
     for (let attempt = 0; attempt <= retriesPerDeployment; attempt++) {
