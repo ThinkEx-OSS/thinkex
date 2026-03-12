@@ -97,7 +97,7 @@ function HeroAttachmentsSection({
     if (files && files.length > 0) {
       const isPdf = Array.from(files).some(file => file.type === "application/pdf");
       if (isPdf && !pastedText) {
-        onPastedText("Analyze this document and extract its core concepts. Create a detailed study guide summarizing the main ideas, pull out the key terminology into flashcards, and generate a practice quiz to test my understanding.");
+        onPastedText("Analyze this document and extract its core concepts. Create a detailed study guide summarizing the main ideas and generate a practice quiz to test my understanding.");
       }
       addFiles(Array.from(files));
       onRequestShowPromptInput();
@@ -107,7 +107,7 @@ function HeroAttachmentsSection({
 
   const handleAddLink = (url: string) => {
     if (!pastedText) {
-      onPastedText("Analyze this content and extract its core concepts. Create a detailed study guide summarizing the main ideas, pull out the key terminology into flashcards, and generate a practice quiz to test my understanding.");
+      onPastedText("Analyze this content and extract its core concepts. Create a detailed study guide summarizing the main ideas and generate a practice quiz to test my understanding.");
     }
     addLink(url);
     onRequestShowPromptInput();
