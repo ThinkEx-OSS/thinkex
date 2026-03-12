@@ -30,7 +30,15 @@ export function WorkspaceRuntimeProvider({
   const activeFolderId = useUIStore((state) => state.activeFolderId);
   const selectedCardIdsSet = useUIStore((state) => state.selectedCardIds);
   const activePdfPageByItemId = useUIStore((state) => state.activePdfPageByItemId);
+  const openPanelIds = useUIStore((state) => state.openPanelIds);
+  const maximizedItemId = useUIStore((state) => state.maximizedItemId);
   const { state: workspaceState } = useWorkspaceState(workspaceId);
+
+  const viewingItemIds = useMemo(() => {
+    const ids = new Set(openPanelIds);
+    if (maximizedItemId) ids.add(maximizedItemId);
+    return ids;
+  }, [openPanelIds, maximizedItemId]);
 
   const selectedCardsContext = useMemo(() => {
     if (!workspaceState?.items || selectedCardIdsSet.size === 0) {
@@ -48,9 +56,10 @@ export function WorkspaceRuntimeProvider({
     return formatSelectedCardsMetadata(
       selectedItems,
       workspaceState.items,
-      activePdfPageByItemId
+      activePdfPageByItemId,
+      viewingItemIds
     );
-  }, [workspaceState?.items, selectedCardIdsSet, activePdfPageByItemId]);
+  }, [workspaceState?.items, selectedCardIdsSet, activePdfPageByItemId, viewingItemIds]);
 
   const handleChatError = useCallback((error: Error) => {
     console.error("[Chat Error]", error);
