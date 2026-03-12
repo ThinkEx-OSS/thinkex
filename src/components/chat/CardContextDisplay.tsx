@@ -111,7 +111,9 @@ function CardContextDisplayImpl({ items }: CardContextDisplayProps) {
             <div className="w-3 h-3 flex-shrink-0 flex items-center justify-center relative">
               {/* Eye when viewing, else color circle - visible by default, hidden on hover */}
               {viewingItemIds.has(item.id) ? (
-                <Eye className="w-3 h-3 text-muted-foreground transition-opacity duration-200 group-hover:opacity-0" title="Currently viewing" />
+                <span title="Currently viewing" className="flex items-center justify-center">
+                  <Eye className="w-3 h-3 text-muted-foreground transition-opacity duration-200 group-hover:opacity-0" />
+                </span>
               ) : (
                 item.color && (
                   <div
