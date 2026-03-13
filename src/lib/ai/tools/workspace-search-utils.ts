@@ -2,7 +2,7 @@
  * Shared utilities for workspace grep and read tools.
  */
 
-import type { Item, NoteData, PdfData, FlashcardData, FlashcardItem, QuizData, AudioData } from "@/lib/workspace-state/types";
+import type { Item, NoteData, PdfData, FlashcardData, FlashcardItem, QuizData, AudioData, WebsiteData } from "@/lib/workspace-state/types";
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
 import { getVirtualPath } from "@/lib/utils/workspace-fs";
 import { type Block } from "@/components/editor/BlockNoteEditor";
@@ -84,6 +84,16 @@ export function extractSearchableText(item: Item, items: Item[]): SearchableText
                 );
             }
             return body(parts.join("\n"));
+        }
+        case "website": {
+            const data = item.data as WebsiteData;
+            const url = data.url || "";
+            let domain = "";
+            try {
+                domain = new URL(url).hostname.replace(/^www\./, "");
+            } catch {}
+            const content = `URL: ${url}\nDomain: ${domain}`;
+            return body(content);
         }
         case "image":
         case "youtube":

@@ -13,6 +13,7 @@ export const DEFAULT_CARD_DIMENSIONS: Record<CardType, { w: number; h: number }>
   quiz: { w: 2, h: 13 },
   image: { w: 4, h: 10 },
   audio: { w: 2, h: 10 },
+  website: { w: 1, h: 4 },
 };
 
 /**
@@ -94,6 +95,18 @@ export function itemsToLayout(items: Item[], breakpoint: 'lg' | 'xxs' = 'lg'): L
         maxW: 4,
         maxH: 25,
         anchor: true, // Anchor items act as obstacles but can be moved
+      };
+    }
+
+    // Website cards are not resizable - fixed size, draggable only
+    if (item.type === 'website') {
+      return {
+        i: item.id,
+        x: layout?.x ?? 0,
+        y: layout?.y ?? 0,
+        w: layout?.w ?? DEFAULT_CARD_DIMENSIONS[item.type].w,
+        h: layout?.h ?? DEFAULT_CARD_DIMENSIONS[item.type].h,
+        isResizable: false, // Not resizable
       };
     }
 

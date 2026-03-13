@@ -4,7 +4,7 @@ import type React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Search, X, ChevronDown, ChevronRight, FolderOpen, Plus, Upload, Folder as FolderIcon, Settings, Share2, Play, Brain, File, ImageIcon, Mic, PanelRight, Loader2 } from "lucide-react";
+import { Search, X, ChevronDown, ChevronRight, FolderOpen, Plus, Upload, Folder as FolderIcon, Settings, Share2, Play, Brain, File, ImageIcon, Mic, PanelRight, Loader2, ExternalLink } from "lucide-react";
 import { CgNotes } from "react-icons/cg";
 import { LuBook, LuCalendar, LuPanelLeftOpen } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
@@ -374,6 +374,12 @@ export function WorkspaceHeader({
 
     addItem('image', name, { url, altText: name }, DEFAULT_CARD_DIMENSIONS.image);
     toast.success("Image added to workspace");
+    setIsNewMenuOpen(false);
+  }, [addItem]);
+
+  const handleWebsiteCreate = useCallback((url: string, name: string, favicon?: string) => {
+    if (!addItem) return;
+    addItem("website", name, { url, favicon }, DEFAULT_CARD_DIMENSIONS.website);
     setIsNewMenuOpen(false);
   }, [addItem]);
 
@@ -748,6 +754,21 @@ export function WorkspaceHeader({
               <div id="workspace-header-portal" className="flex items-center gap-2" />
             )}
 
+            {/* Open Button - only for website cards */}
+            {activeItems[0]?.type === "website" && (() => {
+              const websiteData = activeItems[0].data as import("@/lib/workspace-state/types").WebsiteData;
+              return (
+                <button
+                  className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer px-2"
+                  aria-label="Open link in new tab"
+                  onClick={() => window.open(websiteData.url, '_blank', 'noopener,noreferrer')}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span className="text-xs font-medium">Open</span>
+                </button>
+              );
+            })()}
+
             {/* Split View Button — transitions from focus to workspace+panel */}
             <button
               className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer px-2"
@@ -771,21 +792,14 @@ export function WorkspaceHeader({
             )}
 
             {/* Close Button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Close"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer"
-                  onClick={() => onCloseActiveItem?.(activeItems[0]?.id)}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                Close item
-              </TooltipContent>
-            </Tooltip>
+            <button
+              type="button"
+              aria-label="Close"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer"
+              onClick={() => onCloseActiveItem?.(activeItems[0]?.id)}
+            >
+              <X className="h-4 w-4" />
+            </button>
 
 
             {setIsChatExpanded ? (
@@ -971,22 +985,11 @@ export function WorkspaceHeader({
         onCreate={handleYouTubeCreate}
       />
       {/* Website Dialog */}
-      {
-        currentWorkspaceId && (
-          <CreateWebsiteDialog
-            open={showWebsiteDialog}
-            onOpenChange={setShowWebsiteDialog}
-            workspaceId={currentWorkspaceId}
-            folderId={activeFolderId || undefined}
-            onNoteCreated={(noteId) => {
-              // Invalidate workspace events cache to trigger refetch
-              void queryClient.invalidateQueries({
-                queryKey: ["workspace", currentWorkspaceId, "events"],
-              });
-            }}
-          />
-        )
-      }
+      <CreateWebsiteDialog
+        open={showWebsiteDialog}
+        onOpenChange={setShowWebsiteDialog}
+        onCreate={handleWebsiteCreate}
+      />
       {/* Upload Dialog (PDF + Image) */}
       {onPDFUpload && (
         <UploadDialog

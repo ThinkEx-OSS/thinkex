@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, ExternalLink } from "lucide-react";
 import { LuMaximize2, LuMinimize2 } from "react-icons/lu";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
@@ -10,6 +10,7 @@ import ItemHeader from "@/components/workspace-canvas/ItemHeader";
 import CardRenderer from "@/components/workspace-canvas/CardRenderer";
 import LazyAppPdfViewer from "@/components/pdf/LazyAppPdfViewer";
 import { YouTubePanelContent } from "@/components/workspace-canvas/YouTubePanelContent";
+import { WebsitePanelContent } from "@/components/workspace-canvas/WebsitePanelContent";
 import { PdfPanelHeader } from "@/components/pdf/PdfPanelHeader";
 import { getCardColorCSS, getCardAccentColor, getWhiteTintedColor } from "@/lib/workspace-state/colors";
 import type { Item, ItemData, PdfData } from "@/lib/workspace-state/types";
@@ -45,6 +46,7 @@ export function ItemPanelContent({
 
     const isPdf = item.type === 'pdf';
     const isYouTube = item.type === 'youtube';
+    const isWebsite = item.type === 'website';
     const pdfData = item.data as PdfData;
 
     // PDF-specific state
@@ -77,6 +79,21 @@ export function ItemPanelContent({
                     />
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* Open Button - only for website cards */}
+                    {isWebsite && (() => {
+                        const websiteData = item.data as import("@/lib/workspace-state/types").WebsiteData;
+                        return (
+                            <button
+                                type="button"
+                                aria-label="Open"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+                                onClick={() => window.open(websiteData.url, '_blank', 'noopener,noreferrer')}
+                            >
+                                <ExternalLink className="h-4 w-4" />
+                            </button>
+                        );
+                    })()}
+
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <button
@@ -98,22 +115,14 @@ export function ItemPanelContent({
                         </TooltipContent>
                     </Tooltip>
 
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <button
-                                type="button"
-                                aria-label="Close"
-                                title="Close"
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
-                                onClick={onClose}
-                            >
-                                <X className="h-4 w-4" />
-                            </button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            Close
-                        </TooltipContent>
-                    </Tooltip>
+                    <button
+                        type="button"
+                        aria-label="Close"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+                        onClick={onClose}
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
 
 
 
@@ -146,14 +155,14 @@ export function ItemPanelContent({
                 transformOrigin: 'center',
             }}
         >
-            {/* Header - PDF has integrated controls, YouTube and others use standard header.
+            {/* Header - PDF has integrated controls, YouTube/Website and others use standard header.
                 When maximized, the header is integrated into the WorkspaceHeader, so we hide it here. */}
             {!isPdf && !isMaximized && renderStandardHeader()}
 
             {/* Content */}
             <div
-                className={`${isPdf || isYouTube ? "flex-1 flex flex-col min-h-0" : "flex-1 overflow-y-auto modal-scrollable flex flex-col"}`}
-                style={!isPdf && !isYouTube ? {
+                className={`${isPdf || isYouTube || isWebsite ? "flex-1 flex flex-col min-h-0" : "flex-1 overflow-y-auto modal-scrollable flex flex-col"}`}
+                style={!isPdf && !isYouTube && !isWebsite ? {
                     ['--scrollbar-color' as string]: item.color
                         ? getWhiteTintedColor(item.color, 0.7, 0.2)
                         : "rgba(255, 255, 255, 0.2)",
@@ -198,6 +207,11 @@ export function ItemPanelContent({
                     <YouTubePanelContent
                         item={item}
                         onUpdateItemData={onUpdateItemData}
+                        isMaximized={isMaximized}
+                    />
+                ) : isWebsite ? (
+                    <WebsitePanelContent
+                        item={item}
                         isMaximized={isMaximized}
                     />
                 ) : (

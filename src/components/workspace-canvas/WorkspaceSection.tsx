@@ -254,6 +254,16 @@ export function WorkspaceSection({
     toast.success("Image added to workspace");
   }, [operations]);
 
+  const handleWebsiteCreate = useCallback((url: string, name: string, favicon?: string) => {
+    if (!operations) return;
+    operations.createItems([{
+      type: 'website',
+      name,
+      initialData: { url, favicon },
+      initialLayout: DEFAULT_CARD_DIMENSIONS.website,
+    }]);
+  }, [operations]);
+
   // Handle smart upload from context menu: try clipboard paste first, then open dialog
   const handleUploadMenuItemClick = useCallback(async () => {
     try {
@@ -794,19 +804,11 @@ export function WorkspaceSection({
       )}
 
       {/* Website Dialog */}
-      {currentWorkspaceId && (
-        <CreateWebsiteDialog
-          open={showWebsiteDialog}
-          onOpenChange={setShowWebsiteDialog}
-          workspaceId={currentWorkspaceId}
-          folderId={activeFolderId || undefined}
-          onNoteCreated={(noteId) => {
-            void queryClient.invalidateQueries({
-              queryKey: ["workspace", currentWorkspaceId, "events"],
-            });
-          }}
-        />
-      )}
+      <CreateWebsiteDialog
+        open={showWebsiteDialog}
+        onOpenChange={setShowWebsiteDialog}
+        onCreate={handleWebsiteCreate}
+      />
       {/* Audio Recorder Dialog */}
       <AudioRecorderDialog
         open={showAudioDialog}

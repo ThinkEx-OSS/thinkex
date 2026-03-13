@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useMemo, useCallback, useState, useEffect, useRef } from "react";
-import { ChevronRight, File, FolderOpen, Folder as FolderIcon, MoreVertical, Trash2, Pencil, FolderInput, Play, Brain, ImageIcon, Mic } from "lucide-react";
+import { ChevronRight, File, FolderOpen, Folder as FolderIcon, MoreVertical, Trash2, Pencil, FolderInput, Play, Brain, ImageIcon, Mic, Globe } from "lucide-react";
 import { CgNotes } from "react-icons/cg";
 import { PiCardsThreeBold } from "react-icons/pi";
 import {
@@ -64,6 +64,8 @@ function getCardTypeIcon(type: CardType) {
             return <ImageIcon className="size-3.5 text-emerald-500" />;
         case "audio":
             return <Mic className="size-3.5 text-orange-400" />;
+        case "website":
+            return <Globe className="size-3.5 text-sky-400" />;
         default:
             return <CgNotes className="size-3.5 text-muted-foreground" />;
     }
