@@ -94,7 +94,7 @@ export function useWorkspaceOperations(
       // Validate type is a valid CardType
       logger.debug("🔧 [CREATE-ITEM] Received type:", type, "typeof:", typeof type, "value:", JSON.stringify(type));
 
-      const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube", "image", "audio", "website"];
+      const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube", "quiz", "image", "audio", "website"];
       const validType = validTypes.includes(type) ? type : "note";
 
       if (validType !== type) {
@@ -185,7 +185,7 @@ export function useWorkspaceOperations(
       // Create all items
       const createdItems: Item[] = items.map(({ type, name, initialData, initialLayout }) => {
         // Validate type is a valid CardType
-        const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube", "image", "audio", "website"];
+        const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube", "quiz", "image", "audio", "website"];
         const validType = validTypes.includes(type) ? type : "note";
 
         if (validType !== type) {
