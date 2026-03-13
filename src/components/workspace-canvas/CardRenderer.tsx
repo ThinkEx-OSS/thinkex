@@ -108,6 +108,28 @@ export function CardRenderer(props: {
     return <AudioCardContent item={item} />;
   }
 
+  if (item.type === "website") {
+    // Website cards are rendered via WebsitePanelContent in the panel;
+    // this fallback is for generic/modal context
+    const websiteData = item.data as import("@/lib/workspace-state/types").WebsiteData;
+    let hostname = '';
+    try { hostname = new URL(websiteData.url).hostname.replace(/^www\./, ''); } catch {}
+    return (
+      <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 p-8">
+        {websiteData.favicon ? (
+          <img src={websiteData.favicon} alt="" className="size-16 rounded-lg" />
+        ) : (
+          <div className="size-16 rounded-lg bg-muted flex items-center justify-center">
+            <span className="text-2xl font-bold text-muted-foreground">{hostname.charAt(0).toUpperCase()}</span>
+          </div>
+        )}
+        {hostname && (
+          <span className="text-sm text-muted-foreground">{hostname}</span>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="mt-4 p-4 rounded-lg bg-muted/30 text-center">
       <p className="text-sm text-muted-foreground">

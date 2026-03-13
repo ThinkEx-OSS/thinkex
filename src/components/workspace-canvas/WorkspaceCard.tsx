@@ -1,6 +1,6 @@
 import { QuizContent } from "./QuizContent";
 import { ImageCardContent } from "./ImageCardContent";
-import { MoreVertical, Trash2, Palette, CheckCircle2, FolderInput, Copy, X, Pencil, Columns, Link2, PanelRight, SplitSquareHorizontal, Loader2, File, Brain, Mic, AlertCircle } from "lucide-react";
+import { MoreVertical, Trash2, Palette, CheckCircle2, FolderInput, Copy, X, Pencil, Columns, Link2, PanelRight, SplitSquareHorizontal, Loader2, File, Brain, Mic, AlertCircle, Globe } from "lucide-react";
 import { CgNotes } from "react-icons/cg";
 import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
 import { useCallback, useState, memo, useRef, useEffect, useMemo } from "react";
@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ItemHeader from "@/components/workspace-canvas/ItemHeader";
 import { getCardColorCSS, getCardAccentColor, getDistinctCardColor, getIconColorFromCardColor, getIconColorFromCardColorWithOpacity, getLighterCardColor, SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
-import type { Item, NoteData, PdfData, FlashcardData, YouTubeData, ImageData } from "@/lib/workspace-state/types";
+import type { Item, NoteData, PdfData, FlashcardData, YouTubeData, ImageData, WebsiteData } from "@/lib/workspace-state/types";
 import { SwatchesPicker, ColorResult } from "react-color";
 import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEditor";
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
@@ -757,7 +757,7 @@ function WorkspaceCard({
             )}
 
             {/* Type badge - rect in bottom-left corner (when card is small) */}
-            {(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio') && !shouldShowPreview && (
+            {(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio' || item.type === 'website') && !shouldShowPreview && (
               <span
                 className="absolute left-0 bottom-0 z-0 flex items-center gap-1.5 pl-2.5 pr-1.5 py-2 rounded-tr-md rounded-bl-md text-xs font-semibold uppercase tracking-wider w-max pointer-events-none"
                 style={{
@@ -780,6 +780,48 @@ function WorkspaceCard({
                   )
                 ) : item.type === 'quiz' ? (
                   <><Brain className="h-5 w-5 shrink-0" /><span>Quiz</span></>
+                ) : item.type === 'website' ? (
+                  (() => {
+                    const websiteData = item.data as WebsiteData;
+                    const favicon = websiteData.favicon;
+                    let hostname = '';
+                    try { hostname = new URL(websiteData.url).hostname.replace(/^www\./, ''); } catch {}
+                    const fallbackId = `fallback-${item.id}`;
+                    const faviconId = `favicon-${item.id}`;
+                    return (
+                      <>
+                        {favicon && (
+                          <img 
+                            id={faviconId}
+                            src={favicon} 
+                            alt="" 
+                            className="h-5 w-5 shrink-0 rounded" 
+                            onLoad={(e) => {
+                              // Hide default globe icons (they stay 16x16 even with sz=64)
+                              if (e.currentTarget.naturalHeight === 16) {
+                                e.currentTarget.style.display = 'none';
+                                const fallback = document.getElementById(fallbackId);
+                                if (fallback) fallback.style.display = 'flex';
+                              }
+                            }}
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const fallback = document.getElementById(fallbackId);
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                        )}
+                        <div 
+                          id={fallbackId}
+                          className="h-5 w-5 shrink-0 flex items-center justify-center" 
+                          style={{ display: favicon ? 'none' : 'flex' }}
+                        >
+                          <Globe className="h-5 w-5 shrink-0" />
+                        </div>
+                        <span>Website</span>
+                      </>
+                    );
+                  })()
                 ) : (
                   <><Mic className="h-5 w-5 shrink-0" /><span>Recording</span></>
                 )}
@@ -1028,6 +1070,7 @@ function WorkspaceCard({
             {!isOpenInPanel && item.type === 'image' && (
               <ImageCardContent item={item} />
             )}
+
 
             {/* Audio Content - render audio player and transcript */}
             {!isOpenInPanel && item.type === 'audio' && shouldShowPreview && (

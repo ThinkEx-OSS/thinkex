@@ -1,6 +1,6 @@
 import type { CardColor } from './colors';
 
-export type CardType = "note" | "pdf" | "flashcard" | "folder" | "youtube" | "quiz" | "image" | "audio";
+export type CardType = "note" | "pdf" | "flashcard" | "folder" | "youtube" | "quiz" | "image" | "audio" | "website";
 
 /**
  * Source attribution for notes created from web search or deep research
@@ -147,7 +147,12 @@ export interface AudioData {
   error?: string;           // Error message if processing failed
 }
 
-export type ItemData = NoteData | PdfData | FlashcardData | FolderData | YouTubeData | QuizData | ImageData | AudioData;
+export interface WebsiteData {
+  url: string;       // The website URL to embed
+  favicon?: string;  // Favicon URL (e.g. from Google's favicon API)
+}
+
+export type ItemData = NoteData | PdfData | FlashcardData | FolderData | YouTubeData | QuizData | ImageData | AudioData | WebsiteData;
 
 // =====================================================
 // FOLDER TYPES (DEPRECATED)
