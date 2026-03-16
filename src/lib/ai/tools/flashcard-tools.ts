@@ -3,11 +3,12 @@ import { tool, zodSchema } from "ai";
 import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
+import { withSanitizedModelOutput } from "./tool-utils";
 /**
  * Create the createFlashcards tool
  */
 export function createFlashcardsTool(ctx: WorkspaceToolContext) {
-    return tool({
+    return withSanitizedModelOutput(tool({
         description: "Create a new flashcard deck.",
         inputSchema: zodSchema(
             z.object({
@@ -63,7 +64,7 @@ export function createFlashcardsTool(ctx: WorkspaceToolContext) {
                 };
             }
         },
-    });
+    }));
 }
 
 // Edit functionality is in edit-item-tool.ts (editItem)

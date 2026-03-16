@@ -4,7 +4,7 @@ import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import type { Item } from "@/lib/workspace-state/types";
-import { loadStateForTool, resolveItem, getAvailableItemsList } from "./tool-utils";
+import { loadStateForTool, resolveItem, getAvailableItemsList, withSanitizedModelOutput } from "./tool-utils";
 
 // Note: Edit functionality is in edit-item-tool.ts (editItem)
 
@@ -19,7 +19,7 @@ export interface WorkspaceToolContext {
  * Create the createNote tool
  */
 export function createNoteTool(ctx: WorkspaceToolContext) {
-    return tool({
+    return withSanitizedModelOutput(tool({
         description: "Create a note card.",
         inputSchema: zodSchema(
             z.object({
@@ -66,14 +66,14 @@ export function createNoteTool(ctx: WorkspaceToolContext) {
                 folderId: ctx.activeFolderId,
             });
         },
-    });
+    }));
 }
 
 /**
  * Create the deleteItem tool
  */
 export function createDeleteItemTool(ctx: WorkspaceToolContext) {
-    return tool({
+    return withSanitizedModelOutput(tool({
         description: "Delete a card/note from the workspace by name. Can be restored from version history.",
         inputSchema: zodSchema(
             z.object({
@@ -137,5 +137,5 @@ export function createDeleteItemTool(ctx: WorkspaceToolContext) {
                 };
             }
         },
-    });
+    }));
 }

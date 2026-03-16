@@ -8,6 +8,47 @@ import type { WorkspaceToolContext } from "./workspace-tools";
 import { resolveItemByPath } from "./workspace-search-utils";
 
 /**
+ * Sanitize tool results for the model's context window.
+ *
+ * Strips fields that are only needed by the client (cache updates, IDs) or
+ * redundant with the `message` string. The client still receives the full
+ * execute() output via the stream, so useOptimisticToolUpdate works unchanged.
+ *
+ * Uses AI SDK's `toModelOutput` — supported at runtime (v6.0.97+) but not
+ * yet in public type definitions, hence the type assertion.
+ */
+/** Fields to strip from tool results before sending to the model. */
+const MODEL_STRIP_FIELDS = new Set([
+    "event",           // full workspace event — large, client-only (cache update)
+    "version",         // workspace version number — client-only (cache update)
+    "itemId",          // internal ID — model references items by name
+    "quizId",          // alias for itemId
+    "noteId",          // alias for itemId
+    "interactionId",   // deep research internal ID
+    "cardCount",       // redundant with message
+    "questionCount",   // redundant with message
+    "deletedItem",     // redundant with message
+    "itemName",        // redundant with message
+    "title",           // redundant with message
+]);
+
+export function withSanitizedModelOutput<T extends Record<string, any>>(toolDef: T): T {
+    (toolDef as any).toModelOutput = ({ output }: { output: any }) => {
+        if (output && typeof output === "object") {
+            const sanitized: Record<string, any> = {};
+            for (const key of Object.keys(output)) {
+                if (!MODEL_STRIP_FIELDS.has(key)) {
+                    sanitized[key] = output[key];
+                }
+            }
+            return { type: "json" as const, value: sanitized };
+        }
+        return { type: "json" as const, value: output };
+    };
+    return toolDef;
+}
+
+/**
  * Load workspace state for tool operations
  * Security is enforced by workspace-worker, so we just load state here
  */
