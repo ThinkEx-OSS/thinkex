@@ -5,10 +5,12 @@ import type { JSONContent } from "@tiptap/core"
 import {
   EditorContent,
   EditorContext,
+  findParentNodeClosestToPos,
   useEditor,
   useEditorState,
 } from "@tiptap/react"
 import type { Editor } from "@tiptap/react"
+import { BubbleMenu } from "@tiptap/react/menus"
 
 // --- Tiptap Core Extensions ---
 import { StarterKit } from "@tiptap/starter-kit"
@@ -75,6 +77,7 @@ import type { TextAlign as TextAlignType } from "@/components/tiptap-ui/text-ali
 
 // --- Icons ---
 import { ArrowLeft, Highlighter, AlignLeft, AlignCenter, Code2, Trash2, Table as TableIcon, Settings } from "lucide-react"
+import { FaQuoteRight } from "react-icons/fa6"
 
 // --- Hooks ---
 import { useIsBreakpoint } from "@/hooks/use-is-breakpoint"
@@ -86,6 +89,9 @@ import { ThemeToggle } from "@/components/tiptap-templates/simple/theme-toggle"
 
 // --- Lib ---
 import { cn, handleImageUpload, MAX_FILE_SIZE } from "@/lib/tiptap-utils"
+import { useUIStore } from "@/lib/stores/ui-store"
+import { focusComposerInput } from "@/lib/utils/composer-utils"
+import { toast } from "sonner"
 
 // --- Math Edit Dialog (MathLive) ---
 import { MathEditDialog } from "@/components/editor/MathEditDialog"
@@ -183,6 +189,15 @@ function HeadingMenuItem({ editor, level }: { editor: Editor | null; level: Leve
 
   if (!isVisible) return null
 
+  const fontSizes: Record<Level, string> = {
+    1: "24px",
+    2: "20px",
+    3: "18px",
+    4: "16px",
+    5: "14px",
+    6: "12px",
+  }
+
   return (
     <DropdownMenuItem
       disabled={!canToggle}
@@ -193,6 +208,7 @@ function HeadingMenuItem({ editor, level }: { editor: Editor | null; level: Leve
     >
       <Icon className="size-4" />
       <span>{label}</span>
+      <span className="ml-auto text-xs text-muted-foreground">{fontSizes[level]}</span>
     </DropdownMenuItem>
   )
 }
@@ -665,6 +681,54 @@ function TableControls({ editor }: { editor: Editor | null }) {
   )
 }
 
+function AskAiBubbleMenu({ editor }: { editor: Editor | null }) {
+  const addReplySelection = useUIStore((state) => state.addReplySelection)
+
+  const handleAskAI = useCallback(() => {
+    if (!editor) return
+
+    const { from, to, empty } = editor.state.selection
+    if (empty) return
+
+    const text = editor.state.doc.textBetween(from, to, "\n", "\n").trim()
+    if (!text) return
+
+    addReplySelection({ text })
+    editor.chain().focus().run()
+    toast.success("Added to context")
+    focusComposerInput()
+  }, [editor, addReplySelection])
+
+  if (!editor) return null
+
+  return (
+    <BubbleMenu
+      editor={editor}
+      updateDelay={250}
+      options={{
+        placement: "bottom-end",
+        offset: 6,
+        shift: {
+          padding: 8,
+        },
+      }}
+    >
+      <div className="flex items-center rounded-full border bg-popover p-0.5 text-popover-foreground shadow-lg">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={handleAskAI}
+          className="h-8 rounded-full px-3 text-xs font-medium text-blue-400 hover:text-blue-300"
+        >
+          <FaQuoteRight className="size-3.5" />
+          <span>Ask AI</span>
+        </Button>
+      </div>
+    </BubbleMenu>
+  )
+}
+
 const MainToolbarContent = ({
   editor,
   onHighlighterClick,
@@ -976,6 +1040,8 @@ export function SimpleEditor({
             />
           )}
         </div>
+
+        <AskAiBubbleMenu editor={editor} />
 
         <EditorContent
           editor={editor}

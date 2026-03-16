@@ -23,7 +23,8 @@ import { SearchPluginPackage, SearchLayer, useSearch } from '@embedpdf/plugin-se
 import { MatchFlag } from '@embedpdf/models';
 import { ExportPluginPackage } from '@embedpdf/plugin-export/react';
 
-import { Loader2, ChevronLeft, ChevronRight, Copy, Sparkles, Check, Trash2, Search, X as XIcon, ArrowUp, ArrowDown } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, Copy, Check, Trash2, Search, X as XIcon, ArrowUp, ArrowDown } from 'lucide-react';
+import { FaQuoteRight } from "react-icons/fa6";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { toast } from "sonner";
@@ -286,7 +287,7 @@ const TextSelectionMenu = ({
             onClick={handleAskAI}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-full hover:bg-muted transition-colors text-xs font-medium text-blue-400 hover:text-blue-300"
           >
-            <Sparkles size={12} />
+            <FaQuoteRight size={12} />
             Ask AI
           </button>
         </div>
