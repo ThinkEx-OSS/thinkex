@@ -1,4 +1,4 @@
-import type { AgentState, Item, NoteData, PdfData, FlashcardData, FlashcardItem, YouTubeData, QuizData, QuizQuestion, ImageData, AudioData } from "@/lib/workspace-state/types";
+import type { AgentState, Item, NoteData, PdfData, FlashcardData, FlashcardItem, YouTubeData, QuizData, QuizQuestion, ImageData, AudioData, DocumentData } from "@/lib/workspace-state/types";
 import { serializeBlockNote } from "./serialize-blocknote";
 import { type Block } from "@/components/editor/BlockNoteEditor";
 import { getVirtualPath } from "./workspace-fs";
@@ -583,6 +583,9 @@ export function formatItemContent(
         case "audio":
             lines.push(...formatAudioDetailsFull(item.data as AudioData));
             break;
+        case "document":
+            lines.push(...formatDocumentDetailsFull(item.data as DocumentData));
+            break;
         default:
             break;
     }
@@ -878,6 +881,15 @@ function formatQuizDetailsFull(data: QuizData): string[] {
     const payload = { questions };
     lines.push(JSON.stringify(payload, null, 2));
     return lines;
+}
+
+/**
+ * Formats document details — raw markdown content for readWorkspace/editItem.
+ */
+function formatDocumentDetailsFull(data: DocumentData): string[] {
+    const md = data.markdown?.trim();
+    if (!md) return [];
+    return [md];
 }
 
 /**

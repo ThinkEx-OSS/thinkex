@@ -1,4 +1,4 @@
-import type { CardType, ItemData, NoteData, PdfData, FlashcardData, FolderData, YouTubeData, QuizData, ImageData, AudioData, WebsiteData } from "./types";
+import type { CardType, ItemData, NoteData, PdfData, FlashcardData, FolderData, YouTubeData, QuizData, ImageData, AudioData, WebsiteData, DocumentData } from "./types";
 
 /**
  * Generate a unique item ID
@@ -38,6 +38,8 @@ export function defaultDataFor(type: CardType): ItemData {
       return { questions: [] } as QuizData;
     case "website":
       return { url: "" } as WebsiteData;
+    case "document":
+      return { markdown: "" } as DocumentData;
     default: {
       const exhaustiveCheck: never = type;
       return exhaustiveCheck;

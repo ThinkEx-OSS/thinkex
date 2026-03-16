@@ -6,7 +6,7 @@ import type { WorkspaceToolContext } from "./workspace-tools";
 import { loadStateForTool, resolveItem } from "./tool-utils";
 import { getVirtualPath } from "@/lib/utils/workspace-fs";
 
-const EDITABLE_TYPES = ["note", "flashcard", "quiz", "pdf"] as const;
+const EDITABLE_TYPES = ["note", "flashcard", "quiz", "pdf", "document"] as const;
 
 /**
  * Create the editItem tool - unified edit for notes, flashcards, quizzes, and PDFs.
@@ -16,7 +16,7 @@ const EDITABLE_TYPES = ["note", "flashcard", "quiz", "pdf"] as const;
 export function createEditItemTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Edit a note, flashcard deck, quiz, or PDF. You must use readWorkspace at least once before editing. PDFs: RENAME ONLY — pass oldString='', newString='', and newName='new name'. PDF content cannot be edited. RENAME ONLY (notes/flashcards/quizzes): same pattern to rename without editing content. QUIZZES: readWorkspace may show '--- Progress (read-only) ---' at the top. That block is READ-ONLY. Never include it in oldString or newString. Only edit the {\"questions\":[...]} JSON. FULL REWRITE: oldString='' and newString=entire new content (quizzes: only the JSON). TARGETED EDIT: oldString must match exactly. When copying from readWorkspace: strip the line number prefix (e.g. '1: ' → the part after the space is the content). For notes, content starts at line 1 — no header to skip. Match exact whitespace, indentation, newlines. Do NOT minify JSON. Edit FAILS if oldString not found or matches multiple times — add more context or use replaceAll.",
+            "Edit a note, document, flashcard deck, quiz, or PDF. You must use readWorkspace at least once before editing. DOCUMENTS: content is markdown — edit exactly like notes. PDFs: RENAME ONLY — pass oldString='', newString='', and newName='new name'. PDF content cannot be edited. RENAME ONLY (notes/documents/flashcards/quizzes): same pattern to rename without editing content. QUIZZES: readWorkspace may show '--- Progress (read-only) ---' at the top. That block is READ-ONLY. Never include it in oldString or newString. Only edit the {\"questions\":[...]} JSON. FULL REWRITE: oldString='' and newString=entire new content (quizzes: only the JSON). TARGETED EDIT: oldString must match exactly. When copying from readWorkspace: strip the line number prefix (e.g. '1: ' → the part after the space is the content). For notes and documents, content starts at line 1 — no header to skip. Match exact whitespace, indentation, newlines. Do NOT minify JSON. Edit FAILS if oldString not found or matches multiple times — add more context or use replaceAll.",
         inputSchema: zodSchema(
             z
                 .object({
@@ -130,7 +130,7 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                 if (!EDITABLE_TYPES.includes(matchedItem.type as (typeof EDITABLE_TYPES)[number])) {
                     return {
                         success: false,
-                        message: `Item "${matchedItem.name}" is not editable (type: ${matchedItem.type}). Only notes, flashcards, quizzes, and PDFs can be edited.`,
+                        message: `Item "${matchedItem.name}" is not editable (type: ${matchedItem.type}). Only notes, documents, flashcards, quizzes, and PDFs can be edited.`,
                     };
                 }
 
@@ -151,7 +151,7 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                 const workerResult = await workspaceWorker("edit", {
                     workspaceId: ctx.workspaceId,
                     itemId: matchedItem.id,
-                    itemType: matchedItem.type as "note" | "flashcard" | "quiz" | "pdf",
+                    itemType: matchedItem.type as "note" | "flashcard" | "quiz" | "pdf" | "document",
                     itemName: matchedItem.name,
                     oldString,
                     newString,

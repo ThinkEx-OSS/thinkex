@@ -7,15 +7,17 @@ import { useTheme } from "next-themes";
 import "mathlive";
 import "mathlive/fonts.css";
 
-// MathfieldElement interface
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
 interface MathfieldElement extends HTMLElement {
     value: string;
     focus(): void;
     blur(): void;
 }
 
-// Context for the shared math edit dialog
-interface MathEditContextValue {
+export interface MathEditContextValue {
     openDialog: (params: {
         initialLatex: string;
         onSave: (latex: string) => void;
@@ -24,15 +26,114 @@ interface MathEditContextValue {
     closeDialog: () => void;
 }
 
+// ---------------------------------------------------------------------------
+// Shared MathLive dialog UI (single implementation, used by both consumers)
+// ---------------------------------------------------------------------------
+
+interface MathDialogUIProps {
+    open: boolean;
+    title: string;
+    initialLatex: string;
+    onSave: (latex: string) => void;
+    onClose: () => void;
+}
+
+function MathDialogUI({ open, title, initialLatex, onSave, onClose }: MathDialogUIProps) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const mathfieldRef = useRef<MathfieldElement | null>(null);
+    const { resolvedTheme } = useTheme();
+
+    // Ref to always read the freshest MathLive value on save
+    const onSaveRef = useRef(onSave);
+    useEffect(() => { onSaveRef.current = onSave; }, [onSave]);
+
+    // Create / tear-down the <math-field> when the dialog opens
+    useEffect(() => {
+        if (!open || !containerRef.current) return;
+
+        containerRef.current.innerHTML = "";
+
+        const mf = document.createElement("math-field") as MathfieldElement;
+        mf.value = initialLatex;
+        mf.style.display = "block";
+        mf.style.width = "100%";
+        mf.style.minHeight = "60px";
+        mf.style.fontSize = "1.25rem";
+        mf.style.padding = "12px";
+        mf.style.borderRadius = "8px";
+
+        const isDark = resolvedTheme === "dark";
+        mf.style.color = isDark ? "white" : "black";
+        mf.style.backgroundColor = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
+        mf.style.border = isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(0,0,0,0.1)";
+        mf.style.setProperty("--latex-color", isDark ? "white" : "black");
+
+        mf.setAttribute("math-virtual-keyboard-policy", "auto");
+        mf.setAttribute("virtual-keyboard-mode", "onfocus");
+
+        containerRef.current.appendChild(mf);
+        mathfieldRef.current = mf;
+
+        requestAnimationFrame(() => mf?.focus());
+
+        return () => { mathfieldRef.current = null; };
+    }, [open, initialLatex, resolvedTheme]);
+
+    const handleSave = useCallback(() => {
+        const latex = mathfieldRef.current?.value ?? initialLatex;
+        onSaveRef.current(latex);
+        onClose();
+    }, [initialLatex, onClose]);
+
+    // Keyboard shortcuts
+    useEffect(() => {
+        if (!open) return;
+
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); onClose(); }
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); handleSave(); }
+        };
+
+        document.addEventListener("keydown", onKey, true);
+        return () => document.removeEventListener("keydown", onKey, true);
+    }, [open, handleSave, onClose]);
+
+    if (!open) return null;
+
+    return (
+        <div
+            className="fixed inset-0 z-[100] flex items-center justify-center"
+            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+        >
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative z-10 w-full max-w-[500px] mx-4 bg-popover text-popover-foreground rounded-lg border shadow-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold">{title}</h2>
+                    <button onClick={onClose} className="rounded-sm opacity-70 hover:opacity-100 transition-opacity">
+                        <X className="h-4 w-4" />
+                        <span className="sr-only">Close</span>
+                    </button>
+                </div>
+                <div ref={containerRef} className="min-h-[80px]" />
+                <div className="flex justify-end gap-2 mt-4">
+                    <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                    <Button onClick={handleSave}>Save</Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Context + Provider (used by BlockNote's MathBlock / InlineMath)
+// ---------------------------------------------------------------------------
+
 export const MathEditContext = createContext<MathEditContextValue | null>(null);
 
-// Hook to access the math edit context
 export function useMathEdit() {
-    const context = useContext(MathEditContext);
-    if (!context) {
-        throw new Error("useMathEdit must be used within a MathEditProvider");
-    }
-    return context;
+    const ctx = useContext(MathEditContext);
+    if (!ctx) throw new Error("useMathEdit must be used within a MathEditProvider");
+    return ctx;
 }
 
 // Hook to auto-open math dialog when a new empty math element is created
@@ -44,209 +145,70 @@ export function useAutoOpenMathDialog(
 ) {
     const dialogOpenedRef = useRef(false);
     const onSaveRef = useRef(onSave);
-    
-    // Get the math edit context (may be null if provider not wrapped)
-    // Always call useContext unconditionally to follow Rules of Hooks
     const mathEdit = useContext(MathEditContext);
 
-    // Keep onSaveRef up to date
-    useEffect(() => {
-        onSaveRef.current = onSave;
-    }, [onSave]);
+    useEffect(() => { onSaveRef.current = onSave; }, [onSave]);
 
-    // Auto-open dialog when a new empty math element is created
     useEffect(() => {
-        // Only open if:
-        // 1. Element is editable (not read-only)
-        // 2. Math edit context is available
-        // 3. LaTeX is empty or just whitespace (newly created element)
-        // 4. Dialog hasn't been opened yet for this instance
         let timeoutId: ReturnType<typeof setTimeout> | undefined;
-        
-        if (
-            !isReadOnly &&
-            mathEdit &&
-            !latex.trim() &&
-            !dialogOpenedRef.current
-        ) {
+
+        if (!isReadOnly && mathEdit && !latex.trim() && !dialogOpenedRef.current) {
             dialogOpenedRef.current = true;
-            // Use setTimeout to ensure the dialog opens after the component is fully mounted
             timeoutId = setTimeout(() => {
-                mathEdit.openDialog({
-                    initialLatex: "",
-                    onSave: onSaveRef.current,
-                    title,
-                });
+                mathEdit.openDialog({ initialLatex: "", onSave: onSaveRef.current, title });
             }, 0);
         }
 
-        // Cleanup: clear timeout if component unmounts or dependencies change
-        return () => {
-            if (timeoutId) {
-                clearTimeout(timeoutId);
-            }
-        };
+        return () => { if (timeoutId) clearTimeout(timeoutId); };
     }, [isReadOnly, mathEdit, latex, title]);
 }
 
-// Provider component that renders a single shared MathEditDialog
 export function MathEditProvider({ children }: { children: React.ReactNode }) {
-    const [isOpen, setIsOpen] = useState(false);
-    const [currentLatex, setCurrentLatex] = useState("");
-    const [title, setTitle] = useState("Edit Math");
+    const [state, setState] = useState<{
+        open: boolean;
+        latex: string;
+        title: string;
+    }>({ open: false, latex: "", title: "Edit Math" });
     const onSaveRef = useRef<((latex: string) => void) | null>(null);
-    const { resolvedTheme } = useTheme();
-
-    const containerRef = useRef<HTMLDivElement>(null);
-    const mathfieldRef = useRef<MathfieldElement | null>(null);
 
     const openDialog = useCallback(
         (params: { initialLatex: string; onSave: (latex: string) => void; title?: string }) => {
-            setCurrentLatex(params.initialLatex);
             onSaveRef.current = params.onSave;
-            setTitle(params.title || "Edit Math");
-            setIsOpen(true);
+            setState({ open: true, latex: params.initialLatex, title: params.title || "Edit Math" });
         },
         []
     );
 
     const closeDialog = useCallback(() => {
-        setIsOpen(false);
+        setState((s) => ({ ...s, open: false }));
         onSaveRef.current = null;
     }, []);
 
-    const handleSave = useCallback(() => {
-        const finalLatex = mathfieldRef.current?.value ?? currentLatex;
-        if (onSaveRef.current) {
-            onSaveRef.current(finalLatex);
-        }
-        closeDialog();
-    }, [currentLatex, closeDialog]);
-
-    const handleCancel = useCallback(() => {
+    const handleSave = useCallback((latex: string) => {
+        onSaveRef.current?.(latex);
         closeDialog();
     }, [closeDialog]);
 
-    // Create mathfield when dialog opens
-    useEffect(() => {
-        if (!isOpen || !containerRef.current) return;
-
-        // Clear any existing content
-        containerRef.current.innerHTML = "";
-
-        // Create new mathfield
-        const mf = document.createElement("math-field") as MathfieldElement;
-        mf.value = currentLatex;
-        mf.style.display = "block";
-        mf.style.width = "100%";
-        mf.style.minHeight = "60px";
-        mf.style.fontSize = "1.25rem";
-        mf.style.padding = "12px";
-        mf.style.borderRadius = "8px";
-        // Theme-aware styling: dark mode uses light text, light mode uses dark text
-        const isDark = resolvedTheme === "dark";
-        mf.style.color = isDark ? "white" : "black";
-        mf.style.backgroundColor = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)";
-        mf.style.border = isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(0, 0, 0, 0.1)";
-        mf.style.setProperty("--latex-color", isDark ? "white" : "black");
-
-        // Enable virtual keyboard
-        mf.setAttribute("math-virtual-keyboard-policy", "auto");
-        mf.setAttribute("virtual-keyboard-mode", "onfocus");
-
-        containerRef.current.appendChild(mf);
-        mathfieldRef.current = mf;
-
-        // Focus after a frame
-        requestAnimationFrame(() => {
-            mf?.focus();
-        });
-
-        // Handle input
-        const handleInput = () => {
-            setCurrentLatex(mf.value);
-        };
-        mf.addEventListener("input", handleInput);
-
-        return () => {
-            mf.removeEventListener("input", handleInput);
-        };
-    }, [isOpen, resolvedTheme]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Handle keyboard shortcuts
-    useEffect(() => {
-        if (!isOpen) return;
-
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === "Escape") {
-                e.preventDefault();
-                e.stopPropagation();
-                handleCancel();
-            }
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                handleSave();
-            }
-        };
-
-        document.addEventListener("keydown", handleKeyDown, true);
-        return () => {
-            document.removeEventListener("keydown", handleKeyDown, true);
-        };
-    }, [isOpen, handleSave, handleCancel]);
-
-    const contextValue: MathEditContextValue = {
-        openDialog,
-        closeDialog,
-    };
+    const contextValue: MathEditContextValue = { openDialog, closeDialog };
 
     return (
         <MathEditContext.Provider value={contextValue}>
             {children}
-
-            {/* Single shared dialog instance */}
-            {isOpen && (
-                <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center"
-                    onClick={(e) => {
-                        if (e.target === e.currentTarget) handleCancel();
-                    }}
-                >
-                    {/* Overlay - clicking closes the dialog */}
-                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCancel} />
-
-                    {/* Dialog */}
-                    <div className="relative z-10 w-full max-w-[500px] mx-4 bg-popover text-popover-foreground rounded-lg border shadow-lg p-6">
-                        {/* Header */}
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-semibold">{title}</h2>
-                            <button
-                                onClick={handleCancel}
-                                className="rounded-sm opacity-70 hover:opacity-100 transition-opacity"
-                            >
-                                <X className="h-4 w-4" />
-                                <span className="sr-only">Close</span>
-                            </button>
-                        </div>
-
-                        {/* Math field container */}
-                        <div ref={containerRef} className="min-h-[80px]" />
-
-                        {/* Footer */}
-                        <div className="flex justify-end gap-2 mt-4">
-                            <Button variant="ghost" onClick={handleCancel}>
-                                Cancel
-                            </Button>
-                            <Button onClick={handleSave}>Save</Button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <MathDialogUI
+                open={state.open}
+                title={state.title}
+                initialLatex={state.latex}
+                onSave={handleSave}
+                onClose={closeDialog}
+            />
         </MathEditContext.Provider>
     );
 }
 
-// Legacy standalone dialog (for backwards compatibility if needed)
+// ---------------------------------------------------------------------------
+// Standalone dialog (used by TipTap SimpleEditor via props, no context needed)
+// ---------------------------------------------------------------------------
+
 export interface MathEditDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -255,139 +217,24 @@ export interface MathEditDialogProps {
     title?: string;
 }
 
-export function MathEditDialog({
-    open,
-    onOpenChange,
-    initialLatex,
-    onSave,
-    title = "Edit Math",
-}: MathEditDialogProps) {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const mathfieldRef = useRef<MathfieldElement | null>(null);
-    const [currentLatex, setCurrentLatex] = useState(initialLatex);
-    const { resolvedTheme } = useTheme();
+export function MathEditDialog({ open, onOpenChange, initialLatex, onSave, title = "Edit Math" }: MathEditDialogProps) {
+    const handleSave = useCallback(
+        (latex: string) => { onSave(latex); onOpenChange(false); },
+        [onSave, onOpenChange]
+    );
 
-    // Reset latex when dialog opens with new initial value
-    useEffect(() => {
-        if (open) {
-            setCurrentLatex(initialLatex);
-        }
-    }, [open, initialLatex]);
-
-    // Create mathfield when dialog opens
-    useEffect(() => {
-        if (!open || !containerRef.current) return;
-
-        // Clear any existing content
-        containerRef.current.innerHTML = "";
-
-        // Create new mathfield
-        const mf = document.createElement("math-field") as MathfieldElement;
-        mf.value = currentLatex;
-        mf.style.display = "block";
-        mf.style.width = "100%";
-        mf.style.minHeight = "60px";
-        mf.style.fontSize = "1.25rem";
-        mf.style.padding = "12px";
-        mf.style.borderRadius = "8px";
-        const isDark = resolvedTheme === "dark";
-        mf.style.color = isDark ? "white" : "black";
-        mf.style.backgroundColor = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)";
-        mf.style.border = isDark ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(0, 0, 0, 0.1)";
-        mf.style.setProperty("--latex-color", isDark ? "white" : "black");
-
-        // Enable virtual keyboard
-        mf.setAttribute("math-virtual-keyboard-policy", "auto");
-        mf.setAttribute("virtual-keyboard-mode", "onfocus");
-
-        containerRef.current.appendChild(mf);
-        mathfieldRef.current = mf;
-
-        // Focus after a frame
-        requestAnimationFrame(() => {
-            mf?.focus();
-        });
-
-        // Handle input
-        const handleInput = () => {
-            setCurrentLatex(mf.value);
-        };
-        mf.addEventListener("input", handleInput);
-
-        return () => {
-            mf.removeEventListener("input", handleInput);
-        };
-    }, [open, resolvedTheme]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    const handleSave = useCallback(() => {
-        const finalLatex = mathfieldRef.current?.value ?? currentLatex;
-        onSave(finalLatex);
-        onOpenChange(false);
-    }, [currentLatex, onSave, onOpenChange]);
-
-    const handleCancel = useCallback(() => {
-        onOpenChange(false);
-    }, [onOpenChange]);
-
-    // Handle keyboard shortcuts
-    useEffect(() => {
-        if (!open) return;
-
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === "Escape") {
-                e.preventDefault();
-                e.stopPropagation();
-                handleCancel();
-            }
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                handleSave();
-            }
-        };
-
-        document.addEventListener("keydown", handleKeyDown, true);
-        return () => {
-            document.removeEventListener("keydown", handleKeyDown, true);
-        };
-    }, [open, handleSave, handleCancel]);
-
-    if (!open) return null;
+    const handleClose = useCallback(
+        () => onOpenChange(false),
+        [onOpenChange]
+    );
 
     return (
-        <div
-            className="fixed inset-0 z-[100] flex items-center justify-center"
-            onClick={(e) => {
-                if (e.target === e.currentTarget) handleCancel();
-            }}
-        >
-            {/* Overlay - clicking closes the dialog */}
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleCancel} />
-
-            {/* Dialog */}
-            <div className="relative z-10 w-full max-w-[500px] mx-4 bg-popover text-popover-foreground rounded-lg border shadow-lg p-6">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold">{title}</h2>
-                    <button
-                        onClick={handleCancel}
-                        className="rounded-sm opacity-70 hover:opacity-100 transition-opacity"
-                    >
-                        <X className="h-4 w-4" />
-                        <span className="sr-only">Close</span>
-                    </button>
-                </div>
-
-                {/* Math field container */}
-                <div ref={containerRef} className="min-h-[80px]" />
-
-                {/* Footer */}
-                <div className="flex justify-end gap-2 mt-4">
-                    <Button variant="ghost" onClick={handleCancel}>
-                        Cancel
-                    </Button>
-                    <Button onClick={handleSave}>Save</Button>
-                </div>
-            </div>
-        </div>
+        <MathDialogUI
+            open={open}
+            title={title}
+            initialLatex={initialLatex}
+            onSave={handleSave}
+            onClose={handleClose}
+        />
     );
 }

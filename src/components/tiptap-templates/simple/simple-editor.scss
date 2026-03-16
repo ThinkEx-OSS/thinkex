@@ -1,0 +1,231 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
+
+.simple-editor-wrapper {
+  --tt-toolbar-height: 44px;
+  --tt-theme-text: var(--tt-gray-light-900);
+
+  .dark & {
+    --tt-theme-text: var(--tt-gray-dark-900);
+  }
+
+  color: var(--tt-theme-text);
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.tiptap.ProseMirror {
+  font-family: "DM Sans", sans-serif;
+}
+
+/* Mathematics extension styles */
+.tiptap.ProseMirror .tiptap-mathematics-render {
+  padding: 0 0.25rem;
+  border-radius: 0.25rem;
+
+  &--editable {
+    cursor: pointer;
+    transition: background 0.2s;
+
+    &:hover {
+      background: hsl(var(--muted));
+    }
+  }
+
+  &[data-type="inline-math"] {
+    display: inline-block;
+  }
+
+  &[data-type="block-math"] {
+    display: block;
+    margin: 1rem 0;
+    padding: 0 1rem;
+    text-align: center;
+    font-size: 1.25rem;
+  }
+
+  &.inline-math-error,
+  &.block-math-error {
+    background: hsl(var(--destructive) / 0.1);
+    color: hsl(var(--destructive));
+    border: 1px solid hsl(var(--destructive) / 0.5);
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+  }
+}
+
+/* Table styling */
+.tiptap.ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 1rem 0;
+  overflow: hidden;
+}
+
+.tiptap.ProseMirror table td,
+.tiptap.ProseMirror table th {
+  min-width: 1em;
+  border: 1px solid var(--border);
+  padding: 0.5rem;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.tiptap.ProseMirror table th {
+  font-weight: 600;
+  text-align: left;
+}
+
+.tiptap.ProseMirror table .selectedCell:after {
+  z-index: 2;
+  position: absolute;
+  content: "";
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 123, 255, 0.2);
+  pointer-events: none;
+}
+
+.tiptap.ProseMirror table .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background-color: var(--primary);
+  pointer-events: all;
+  cursor: col-resize;
+  z-index: 10;
+}
+
+.tiptap.ProseMirror table .column-resize-handle:hover {
+  background-color: var(--primary);
+  opacity: 1;
+}
+
+.tiptap.ProseMirror table p {
+  margin: 0;
+}
+
+.simple-editor-wrapper {
+  width: 100vw;
+  height: 100vh;
+  overflow: auto;
+}
+
+.simple-editor-wrapper-embedded {
+  width: 100%;
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+}
+
+.simple-editor-content {
+  max-width: 648px;
+  width: 100%;
+  margin: 0 auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.simple-editor-content-embedded {
+  max-width: none;
+  min-height: 0;
+}
+
+.simple-editor-content .tiptap.ProseMirror.simple-editor {
+  flex: 1;
+  padding: 3rem 3rem 30vh;
+}
+
+.simple-editor-content-embedded .tiptap.ProseMirror.simple-editor {
+  min-height: 100%;
+  padding: 0.75rem 1.5rem 8rem;
+}
+
+/* Images: always centered via resize container */
+.tiptap.ProseMirror [data-resize-container][data-node="image"] {
+  justify-content: center;
+}
+
+.tiptap.ProseMirror img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Image resize handles — hidden by default, visible on hover */
+.tiptap.ProseMirror [data-resize-handle] {
+  width: 10px;
+  height: 10px;
+  background: var(--primary, hsl(217, 91%, 60%));
+  border: 2px solid white;
+  border-radius: 50%;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+
+  &[data-resize-handle='top-left'] { cursor: nwse-resize; }
+  &[data-resize-handle='top-right'] { cursor: nesw-resize; }
+  &[data-resize-handle='bottom-left'] { cursor: nesw-resize; }
+  &[data-resize-handle='bottom-right'] { cursor: nwse-resize; }
+}
+
+/* Show handles on hover over the wrapper or when actively resizing */
+.tiptap.ProseMirror [data-resize-wrapper]:hover [data-resize-handle],
+.tiptap.ProseMirror [data-resize-state='true'] [data-resize-handle] {
+  opacity: 1;
+}
+
+/* Outline when actively resizing */
+.tiptap.ProseMirror [data-resize-state='true'] [data-resize-wrapper] {
+  outline: 2px solid var(--primary, hsl(217, 91%, 60%));
+  border-radius: 0.125rem;
+}
+
+/* Links: blue instead of brand purple */
+.tiptap.ProseMirror a {
+  color: hsl(217, 91%, 60%);
+  text-decoration: underline;
+  cursor: pointer;
+
+  &:hover {
+    color: hsl(217, 91%, 50%);
+  }
+}
+
+.dark .tiptap.ProseMirror a {
+  color: hsl(217, 91%, 65%);
+
+  &:hover {
+    color: hsl(217, 91%, 75%);
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .simple-editor-content .tiptap.ProseMirror.simple-editor {
+    padding: 1rem 1.5rem 30vh;
+  }
+
+  .simple-editor-content-embedded .tiptap.ProseMirror.simple-editor {
+    padding: 1rem 1rem 7rem;
+  }
+}
+
+/* Placeholder styling - only show on first line when editor is empty */
+.tiptap.ProseMirror p.is-editor-empty:first-child::before {
+  color: hsl(var(--muted-foreground));
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  opacity: 0.6;
+}

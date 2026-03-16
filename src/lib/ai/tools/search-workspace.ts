@@ -25,11 +25,11 @@ function buildRegex(pattern: string): RegExp {
 export function createSearchWorkspaceTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Grep search across workspace. All types (notes, flashcards, PDFs, quizzes, audio, image, youtube) match on path/title; the five content types also search body. Line numbers for content matches align with readWorkspace(path, lineStart). include: type filter (note, flashcard, pdf, quiz, audio). path: folder prefix or exact path; for long items use readWorkspace(path, lineStart) on matches. Plain text or regex. Max 100 matches.",
+            "Grep search across workspace. All types (notes, documents, flashcards, PDFs, quizzes, audio, image, youtube) match on path/title; the six content types also search body. Line numbers for content matches align with readWorkspace(path, lineStart). include: type filter (note, document, flashcard, pdf, quiz, audio). path: folder prefix or exact path; for long items use readWorkspace(path, lineStart) on matches. Plain text or regex. Max 100 matches.",
         inputSchema: zodSchema(
             z.object({
                 pattern: z.string().describe("Search pattern (plain text or regex)"),
-                include: z.string().optional().describe('Item type: "note", "flashcard", "pdf", "quiz", "audio"'),
+                include: z.string().optional().describe('Item type: "note", "document", "flashcard", "pdf", "quiz", "audio"'),
                 path: z.string().optional().describe("Folder prefix (Physics/) or exact item path (Physics/notes/File.md)"),
             })
         ),

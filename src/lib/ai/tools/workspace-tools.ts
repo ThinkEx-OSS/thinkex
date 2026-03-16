@@ -70,6 +70,52 @@ export function createNoteTool(ctx: WorkspaceToolContext) {
 }
 
 /**
+ * Create the createDocument tool
+ */
+export function createDocumentTool(ctx: WorkspaceToolContext) {
+    return tool({
+        description: "Create a document card. Documents use a rich TipTap editor with full markdown support (headings, lists, tables, math, etc.). Use this for longer-form structured content.",
+        inputSchema: zodSchema(
+            z.object({
+                title: z.string().describe("The title of the document card"),
+                content: z.string().describe("The markdown body content. CRITICAL: DO NOT repeat the title in content — the title is displayed separately. Start with subheadings or body text only."),
+            })
+        ),
+        execute: async ({ title, content }) => {
+            if (!title || typeof title !== 'string') {
+                return {
+                    success: false,
+                    message: "Title is required and must be a string",
+                };
+            }
+            if (content === undefined || content === null || typeof content !== 'string') {
+                return {
+                    success: false,
+                    message: "Content is required and must be a string",
+                };
+            }
+
+            logger.debug("🎯 [ORCHESTRATOR] Delegating to Workspace Worker (create document):", { title, contentLength: content.length });
+
+            if (!ctx.workspaceId) {
+                return {
+                    success: false,
+                    message: "No workspace context available",
+                };
+            }
+
+            return await workspaceWorker("create", {
+                workspaceId: ctx.workspaceId,
+                title,
+                content,
+                itemType: "document",
+                folderId: ctx.activeFolderId,
+            });
+        },
+    });
+}
+
+/**
  * Create the deleteItem tool
  */
 export function createDeleteItemTool(ctx: WorkspaceToolContext) {

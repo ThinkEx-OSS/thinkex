@@ -1,6 +1,6 @@
 import type { CardColor } from './colors';
 
-export type CardType = "note" | "pdf" | "flashcard" | "folder" | "youtube" | "quiz" | "image" | "audio" | "website";
+export type CardType = "note" | "pdf" | "flashcard" | "folder" | "youtube" | "quiz" | "image" | "audio" | "website" | "document";
 
 /**
  * Source attribution for notes created from web search or deep research
@@ -152,7 +152,11 @@ export interface WebsiteData {
   favicon?: string;  // Favicon URL (e.g. from Google's favicon API)
 }
 
-export type ItemData = NoteData | PdfData | FlashcardData | FolderData | YouTubeData | QuizData | ImageData | AudioData | WebsiteData;
+export interface DocumentData {
+  markdown?: string;
+}
+
+export type ItemData = NoteData | PdfData | FlashcardData | FolderData | YouTubeData | QuizData | ImageData | AudioData | WebsiteData | DocumentData;
 
 // =====================================================
 // FOLDER TYPES (DEPRECATED)

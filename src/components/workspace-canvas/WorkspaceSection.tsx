@@ -720,6 +720,14 @@ export function WorkspaceSection({
                     }
                   }
                 },
+                onCreateDocument: () => {
+                  if (addItem) {
+                    const itemId = addItem("document");
+                    if (handleCreatedItems && itemId) {
+                      handleCreatedItems([itemId]);
+                    }
+                  }
+                },
                 onCreateFolder: () => { if (addItem) addItem("folder"); },
                 onUpload: () => handleUploadMenuItemClick(),
                 onAudio: () => openAudioDialog(),

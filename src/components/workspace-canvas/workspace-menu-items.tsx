@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { Folder, Upload, Play, Brain, Mic, Globe } from "lucide-react";
+import { Folder, Upload, Play, Brain, Mic, Globe, FileText } from "lucide-react";
 import { CgNotes } from "react-icons/cg";
 import { LuBook } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
@@ -11,6 +11,7 @@ import { toast } from "sonner";
 
 export interface WorkspaceMenuCallbacks {
   onCreateNote: () => void;
+  onCreateDocument: () => void;
   onCreateFolder: () => void;
   onUpload: () => void;
   onAudio: () => void;
@@ -63,6 +64,14 @@ export function renderWorkspaceMenuItems({
       >
         <CgNotes className="size-4" />
         Note
+      </MenuItem>
+
+      <MenuItem
+        onSelect={callbacks.onCreateDocument}
+        className="flex items-center gap-2 cursor-pointer"
+      >
+        <FileText className="size-4" />
+        Document
       </MenuItem>
 
       <MenuItem

@@ -907,6 +907,14 @@ export function WorkspaceHeader({
                           }
                         }
                       },
+                      onCreateDocument: () => {
+                        if (addItem) {
+                          const itemId = addItem("document");
+                          if (onItemCreated && itemId) {
+                            onItemCreated([itemId]);
+                          }
+                        }
+                      },
                       onCreateFolder: () => { if (addItem) addItem("folder"); },
                       onUpload: () => { setShowUploadDialog(true); setIsNewMenuOpen(false); },
                       onAudio: () => { openAudioDialog(); setIsNewMenuOpen(false); },

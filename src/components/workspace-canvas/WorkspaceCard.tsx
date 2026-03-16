@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ItemHeader from "@/components/workspace-canvas/ItemHeader";
 import { getCardColorCSS, getCardAccentColor, getDistinctCardColor, getIconColorFromCardColor, getIconColorFromCardColorWithOpacity, getLighterCardColor, SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
-import type { Item, NoteData, PdfData, FlashcardData, YouTubeData, ImageData, WebsiteData } from "@/lib/workspace-state/types";
+import type { Item, NoteData, PdfData, FlashcardData, YouTubeData, ImageData, WebsiteData, DocumentData } from "@/lib/workspace-state/types";
 import { SwatchesPicker, ColorResult } from "react-color";
 import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEditor";
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
@@ -19,6 +19,7 @@ import { DeepResearchCardContent } from "./DeepResearchCardContent";
 import { AudioCardContent } from "./AudioCardContent";
 import LazyAppPdfViewer from "@/components/pdf/LazyAppPdfViewer";
 import { LightweightPdfPreview } from "@/components/pdf/LightweightPdfPreview";
+import { StreamdownMarkdown } from "@/components/ui/streamdown-markdown";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUIStore, selectItemScrollLocked } from "@/lib/stores/ui-store";
@@ -206,6 +207,9 @@ function WorkspaceCard({
   onMoveItem,
 }: WorkspaceCardProps) {
   const { resolvedTheme } = useTheme();
+  const documentPreviewText = item.type === 'document'
+    ? (((item.data as DocumentData).markdown || "").trim() || "Start writing...")
+    : "";
 
   // Subscribe directly to this card's selection state from the store
   // This prevents full grid re-renders when selection changes
@@ -607,7 +611,7 @@ function WorkspaceCard({
             {!isOpenInPanel && (
               <div className={`absolute top-3 right-3 z-20 flex items-center gap-2 ${isEditingTitle ? '' : 'opacity-0 group-hover:opacity-100'}`}>
                 {/* Scroll Lock/Unlock Button - Hidden for YouTube, image, quiz, and narrow note/PDF cards */}
-                {item.type !== 'youtube' && item.type !== 'image' && item.type !== 'quiz' && !(item.type === 'note' && !shouldShowPreview) && !(item.type === 'pdf' && !shouldShowPreview) && !(item.type === 'audio' && !shouldShowPreview) && (
+                {item.type !== 'youtube' && item.type !== 'image' && item.type !== 'quiz' && !(item.type === 'note' && !shouldShowPreview) && !(item.type === 'pdf' && !shouldShowPreview) && !(item.type === 'audio' && !shouldShowPreview) && !(item.type === 'document' && !shouldShowPreview) && (
                   <button
                     type="button"
                     aria-label={isScrollLocked ? 'Click to unlock scroll' : 'Click to lock scroll'}
@@ -757,7 +761,7 @@ function WorkspaceCard({
             )}
 
             {/* Type badge - rect in bottom-left corner (when card is small) */}
-            {(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio' || item.type === 'website') && !shouldShowPreview && (
+            {(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio' || item.type === 'website' || item.type === 'document') && !shouldShowPreview && (
               <span
                 className="absolute left-0 bottom-0 z-0 flex items-center gap-1.5 pl-2.5 pr-1.5 py-2 rounded-tr-md rounded-bl-md text-xs font-semibold uppercase tracking-wider w-max pointer-events-none"
                 style={{
@@ -822,6 +826,8 @@ function WorkspaceCard({
                       </>
                     );
                   })()
+                ) : item.type === 'document' ? (
+                  <><File className="h-5 w-5 shrink-0" /><span>Doc</span></>
                 ) : (
                   <><Mic className="h-5 w-5 shrink-0" /><span>Recording</span></>
                 )}
@@ -852,7 +858,7 @@ function WorkspaceCard({
               </DialogContent>
             </Dialog>
 
-            <div className={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio') && !shouldShowPreview ? "flex-1 flex flex-col relative" : "flex-shrink-0"}>
+            <div className={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio' || item.type === 'document') && !shouldShowPreview ? "flex-1 flex flex-col relative" : "flex-shrink-0"}>
               {/* Hide header for template items awaiting generation */}
               {item.type !== 'youtube' && item.type !== 'image' && !(item.type === 'pdf' && shouldShowPreview) && item.name !== "Update me" && (
                 <div className="relative z-10">
@@ -864,11 +870,11 @@ function WorkspaceCard({
                     onNameChange={handleNameChange}
                     onNameCommit={handleNameCommit}
                     onSubtitleChange={handleSubtitleChange}
-                    readOnly={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio') && !shouldShowPreview}
+                    readOnly={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio' || item.type === 'document') && !shouldShowPreview}
                     noMargin={true}
                     onTitleFocus={handleTitleFocus}
                     onTitleBlur={handleTitleBlur}
-                    allowWrap={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio') && !shouldShowPreview}
+                    allowWrap={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio' || item.type === 'document') && !shouldShowPreview}
                   />
 
 
@@ -1079,6 +1085,20 @@ function WorkspaceCard({
               </div>
             )}
 
+            {!isOpenInPanel && item.type === 'document' && shouldShowPreview && documentPreviewText && (
+              <div
+                className={`flex-1 min-h-0 px-3 pb-3 overflow-y-scroll ${isScrollLocked ? 'pointer-events-none' : ''}`}
+                style={{ 
+                  pointerEvents: isScrollLocked ? 'none' : 'auto',
+                  scrollbarGutter: 'stable'
+                }}
+              >
+                <StreamdownMarkdown className="text-sm leading-6">
+                  {documentPreviewText}
+                </StreamdownMarkdown>
+              </div>
+            )}
+
             {/* Deep Research Note - render streaming UI when research is in progress */}
             {item.type === 'note' && (() => {
               const noteData = item.data as NoteData;
@@ -1257,6 +1277,11 @@ export const WorkspaceCardMemoized = memo(WorkspaceCard, (prevProps, nextProps) 
     if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
   }
   if (prevProps.item.type === 'audio' && nextProps.item.type === 'audio') {
+    const prevData = prevProps.item.data;
+    const nextData = nextProps.item.data;
+    if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
+  }
+  if (prevProps.item.type === 'document' && nextProps.item.type === 'document') {
     const prevData = prevProps.item.data;
     const nextData = nextProps.item.data;
     if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
