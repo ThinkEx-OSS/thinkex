@@ -34,7 +34,7 @@ const MODEL_STRIP_FIELDS = new Set([
 
 export function withSanitizedModelOutput<T extends Record<string, any>>(toolDef: T): T {
     (toolDef as any).toModelOutput = ({ output }: { output: any }) => {
-        if (output && typeof output === "object") {
+        if (output && typeof output === "object" && !Array.isArray(output)) {
             const sanitized: Record<string, any> = {};
             for (const key of Object.keys(output)) {
                 if (!MODEL_STRIP_FIELDS.has(key)) {
