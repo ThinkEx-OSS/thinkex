@@ -10,6 +10,7 @@ import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
 import type { QuizQuestion } from "@/lib/workspace-state/types";
+import { withSanitizedModelOutput } from "./tool-utils";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 
 export const QuizQuestionSchema = z
@@ -39,7 +40,7 @@ export type CreateQuizInput = z.infer<typeof CreateQuizInputSchema>;
  * Create the createQuiz tool - AI generates questions directly (like createFlashcards)
  */
 export function createQuizTool(ctx: WorkspaceToolContext) {
-    return tool({
+    return withSanitizedModelOutput(tool({
         description: "Create an interactive quiz.",
         inputSchema: zodSchema(CreateQuizInputSchema),
         execute: async (input: CreateQuizInput) => {
@@ -105,7 +106,7 @@ export function createQuizTool(ctx: WorkspaceToolContext) {
                 };
             }
         },
-    });
+    }));
 }
 
 // Edit functionality is in edit-item-tool.ts (editItem)

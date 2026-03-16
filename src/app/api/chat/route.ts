@@ -194,10 +194,22 @@ async function handlePOST(req: Request) {
     // AssistantChatTransport passes thread remoteId as body.id (see assistant-ui react-ai-sdk)
     const threadId = body.id ?? body.threadId ?? null;
 
-    // Convert messages
+    // Create tools using the modular factory (before convertToModelMessages so
+    // toModelOutput can sanitize historical tool results for the model)
+    const tools = createChatTools({
+      workspaceId,
+      userId,
+      activeFolderId,
+      threadId,
+      clientTools: body.tools,
+      enableDeepResearch: false,
+      enableMagicFetch: true, // experiment: log AI data requests to PostHog
+    });
+
+    // Convert messages (pass tools so toModelOutput strips event from historical tool results)
     let convertedMessages;
     try {
-      convertedMessages = await convertToModelMessages(messages);
+      convertedMessages = await convertToModelMessages(messages, { tools });
     } catch (convertError) {
       logger.error("❌ [CHAT-API] convertToModelMessages FAILED:", {
         error: convertError instanceof Error ? convertError.message : String(convertError),
@@ -257,17 +269,6 @@ async function handlePOST(req: Request) {
         },
       }),
       middleware: process.env.NODE_ENV === 'development' ? devToolsMiddleware() : [],
-    });
-
-    // Create tools using the modular factory
-    const tools = createChatTools({
-      workspaceId,
-      userId,
-      activeFolderId,
-      threadId,
-      clientTools: body.tools,
-      enableDeepResearch: false,
-      enableMagicFetch: true, // experiment: log AI data requests to PostHog
     });
 
     // Stream the response

@@ -4,6 +4,7 @@ import { logger } from "@/lib/utils/logger";
 import { searchVideos } from "@/lib/youtube";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
+import { withSanitizedModelOutput } from "./tool-utils";
 
 /**
  * Create the searchYoutube tool
@@ -39,7 +40,7 @@ export function createSearchYoutubeTool() {
  * Create the addYoutubeVideo tool
  */
 export function createAddYoutubeVideoTool(ctx: WorkspaceToolContext) {
-    return tool({
+    return withSanitizedModelOutput(tool({
         description: "Add a YouTube video to the workspace. Prefer videos under 1 hour for better engagement.",
         inputSchema: zodSchema(
             z.object({
@@ -67,5 +68,5 @@ export function createAddYoutubeVideoTool(ctx: WorkspaceToolContext) {
                 folderId: ctx.activeFolderId,
             });
         },
-    });
+    }));
 }
