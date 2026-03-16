@@ -20,6 +20,32 @@ import { getNoteContentAsMarkdown } from "@/lib/utils/format-workspace-context";
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
 import type { Block } from "@/components/editor/BlockNoteEditor";
 
+/**
+ * Returns the event to include in the tool result, or undefined if the event
+ * should be omitted entirely from the tool result.
+ *
+ * ITEM_UPDATED events that carry blockContent are omitted because:
+ *   1. Zero token cost — no event JSON enters the AI SDK conversation history,
+ *      preventing O(n²) token growth when the AI makes serial note edits.
+ *   2. Correct UI rendering — useOptimisticToolUpdate skips the cache update
+ *      when result.event is undefined, so the Supabase broadcast delivers the
+ *      full event (with blockContent) without being deduplicated against a stale
+ *      cache entry. Without this, the editor would show old blocks until a refresh.
+ *
+ * The full event is always persisted to the DB regardless of what this returns.
+ */
+function eventForToolResult(event: WorkspaceEvent): WorkspaceEvent | undefined {
+    if (event.type === "ITEM_UPDATED") {
+        const data = (event.payload.changes as any)?.data;
+        if (!data || !("blockContent" in data)) return event;
+        return undefined;
+    }
+    // ITEM_CREATED: keep the full event so the optimistic cache shows the new note
+    // immediately with correct block rendering. The create event appears only once
+    // in conversation history so its token cost is fixed, not O(n²).
+    return event;
+}
+
 /** Create params for a single item (used by create and bulkCreate). Exported for autogen. */
 export type CreateItemParams = {
     id?: string; // Optional pre-generated item ID (if not provided, one is generated)
@@ -406,7 +432,7 @@ export async function workspaceWorker(
                     itemId: item.id,
                     message: `Created ${item.type} "${item.name}" successfully`,
                     cardCount,
-                    event,
+                    event: eventForToolResult(event),
                     version: appendResult.version,
                 };
             }
@@ -660,7 +686,7 @@ export async function workspaceWorker(
                         success: true,
                         itemId: params.itemId,
                         message: `Updated note successfully`,
-                        event,
+                        event: eventForToolResult(event),
                         version: appendResult.version,
                     };
                     if (diffOutput) {
@@ -781,7 +807,7 @@ export async function workspaceWorker(
                     itemId: params.itemId,
                     cardsAdded: newCards.length,
                     message: `Added ${newCards.length} card${newCards.length !== 1 ? 's' : ''} to flashcard deck${params.title ? ` and renamed to "${params.title}"` : ''}`,
-                    event,
+                    event: eventForToolResult(event),
                     version: appendResult.version,
                 };
             }
@@ -902,7 +928,7 @@ export async function workspaceWorker(
                     message: hasQuestions
                         ? `Added ${questionsToAdd!.length} question${questionsToAdd!.length !== 1 ? "s" : ""} to quiz`
                         : "Quiz title updated.",
-                    event,
+                    event: eventForToolResult(event),
                     version: appendResult.version,
                 };
             }
@@ -988,7 +1014,7 @@ export async function workspaceWorker(
                     success: true,
                     itemId: params.itemId,
                     message: `Cached text content for PDF "${existingItem.name}" (${contentLen} chars)`,
-                    event,
+                    event: eventForToolResult(event),
                     version: appendResult.version,
                 };
             }
@@ -1058,7 +1084,7 @@ export async function workspaceWorker(
                     success: true,
                     itemId: params.itemId,
                     message: params.imageOcrStatus === "failed" ? "Marked image OCR as failed" : `Cached OCR content for image "${existingItem.name}"`,
-                    event,
+                    event: eventForToolResult(event),
                     version: appendResult.version,
                 };
             }
@@ -1154,7 +1180,7 @@ export async function workspaceWorker(
                         success: true,
                         itemId: params.itemId,
                         message: "Updated note successfully",
-                        event,
+                        event: eventForToolResult(event),
                         version: appendResult.version,
                         diff: diffOutput,
                         filediff: { additions: filediffAdditions, deletions: filediffDeletions },
@@ -1245,7 +1271,7 @@ export async function workspaceWorker(
                         success: true,
                         itemId: params.itemId,
                         message: `Updated flashcard deck (${newCards.length} cards)`,
-                        event,
+                        event: eventForToolResult(event),
                         version: appendResult.version,
                         cardCount: newCards.length,
                     };
@@ -1332,7 +1358,7 @@ export async function workspaceWorker(
                         success: true,
                         itemId: params.itemId,
                         message: `Updated quiz (${validatedQuestions.length} questions)`,
-                        event,
+                        event: eventForToolResult(event),
                         version: appendResult.version,
                         questionCount: validatedQuestions.length,
                     };
@@ -1368,7 +1394,7 @@ export async function workspaceWorker(
                         success: true,
                         itemId: params.itemId,
                         message: `Renamed PDF to "${rename}"`,
-                        event,
+                        event: eventForToolResult(event),
                         version: appendResult.version,
                     };
                 }
@@ -1419,7 +1445,7 @@ export async function workspaceWorker(
                     success: true,
                     itemId: params.itemId,
                     message: `Deleted note successfully`,
-                    event,
+                    event: eventForToolResult(event),
                     version: appendResult.version,
                 };
             }
