@@ -87,7 +87,7 @@ import { useCursorVisibility } from "@/hooks/use-cursor-visibility"
 import { ThemeToggle } from "@/components/tiptap-templates/simple/theme-toggle"
 
 // --- Lib ---
-import { cn, handleImageUpload, MAX_FILE_SIZE } from "@/lib/tiptap-utils"
+import { cn, extractSelectionTextForAskAI, handleImageUpload, MAX_FILE_SIZE } from "@/lib/tiptap-utils"
 import { useUIStore } from "@/lib/stores/ui-store"
 import { focusComposerInput } from "@/lib/utils/composer-utils"
 import { toast } from "sonner"
@@ -709,10 +709,10 @@ function AskAiBubbleMenu({ editor }: { editor: Editor | null }) {
   const handleAskAI = useCallback(() => {
     if (!editor) return
 
-    const { from, to, empty } = editor.state.selection
+    const { empty } = editor.state.selection
     if (empty) return
 
-    const text = editor.state.doc.textBetween(from, to, "\n", "\n").trim()
+    const text = extractSelectionTextForAskAI(editor)
     if (!text) return
 
     addReplySelection({ text })
@@ -727,6 +727,12 @@ function AskAiBubbleMenu({ editor }: { editor: Editor | null }) {
     <BubbleMenu
       editor={editor}
       updateDelay={250}
+      shouldShow={({ state }) => {
+        const { selection } = state
+        if (selection.empty) return false
+        // Show for text, node (math/image), and cell (table) selections
+        return true
+      }}
       options={{
         placement: "bottom-end",
         offset: 6,

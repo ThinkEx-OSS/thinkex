@@ -352,6 +352,76 @@ export function selectionWithinConvertibleTypes(
 }
 
 /**
+ * Extracts text from the current selection for Ask AI, handling math nodes
+ * and tables correctly. textBetween() skips atom nodes (math) and doesn't
+ * handle CellSelection well.
+ */
+export function extractSelectionTextForAskAI(editor: Editor | null): string | null {
+  if (!editor) return null
+
+  const { selection, doc } = editor.state
+  if (selection.empty) return null
+
+  // NodeSelection — e.g. math node clicked/selected
+  if (selection instanceof NodeSelection) {
+    const node = selection.node
+    if (!node) return null
+    const name = node.type.name
+    if (name === "inlineMath") {
+      const latex = node.attrs?.latex
+      return typeof latex === "string" ? `$${latex}$` : ""
+    }
+    if (name === "blockMath") {
+      const latex = node.attrs?.latex
+      return typeof latex === "string" ? `$$\n${latex}\n$$` : ""
+    }
+    return node.textContent?.trim() || `[${name}]`
+  }
+
+  // CellSelection — table cells
+  if (selection instanceof CellSelection) {
+    const parts: string[] = []
+    selection.forEachCell((node: PMNode) => {
+      const text = node.textContent?.trim()
+      if (text) parts.push(text)
+    })
+    return parts.join("\t") || null
+  }
+
+  // TextSelection / AllSelection — traverse and include math LaTeX
+  const { from, to } = selection
+  const parts: string[] = []
+  let lastBlockEnd = -1
+
+  doc.nodesBetween(from, to, (node, pos) => {
+    const endPos = pos + node.nodeSize
+
+    if (node.type.name === "inlineMath") {
+      const latex = node.attrs?.latex
+      if (typeof latex === "string") parts.push(`$${latex}$`)
+      return false
+    }
+    if (node.type.name === "blockMath") {
+      const latex = node.attrs?.latex
+      if (typeof latex === "string") parts.push(`$$\n${latex}\n$$`)
+      return false
+    }
+    if (node.isText) {
+      parts.push(node.text || "")
+      return false
+    }
+    if (node.isBlock && lastBlockEnd >= 0 && pos > lastBlockEnd) {
+      parts.push("\n")
+    }
+    if (node.isBlock) lastBlockEnd = endPos
+    return true
+  })
+
+  const text = parts.join("").trim()
+  return text || null
+}
+
+/**
  * Handles image upload with progress tracking and abort capability.
  * Uploads to Supabase storage via the uploadFile utility.
  * @param file The file to upload
