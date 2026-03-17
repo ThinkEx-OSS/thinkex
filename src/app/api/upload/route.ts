@@ -17,8 +17,6 @@ import { join } from "path";
 import { existsSync } from "fs";
 import { randomBytes } from "crypto";
 import { getOfficeDocumentConvertUrl } from "@/lib/uploads/office-document-validation";
-import { db } from "@/lib/db/client";
-import { extensionUploads } from "@/lib/db/schema";
 
 export const maxDuration = 30;
 
@@ -146,15 +144,6 @@ export async function POST(request: NextRequest) {
         );
       }
     }
-
-    await db.insert(extensionUploads).values({
-      id: publicId,
-      userId: session.user.id,
-      storagePath,
-      storageType,
-      originalFilename: file.name || undefined,
-      mimeType: file.type || undefined,
-    });
 
     return NextResponse.json({
       id: publicId,

@@ -443,26 +443,6 @@ export function trimDiff(diff: string): string {
   return trimmedLines.join("\n");
 }
 
-function stripReadWorkspaceLinePrefixes(text: string): string {
-  const lines = text.split("\n");
-  if (lines.length === 0) return text;
-
-  let prefixedCount = 0;
-  let nonEmptyCount = 0;
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    nonEmptyCount++;
-    if (/^\d+:\s/.test(line)) prefixedCount++;
-  }
-
-  // Only strip when this strongly looks like readWorkspace output.
-  const shouldStrip =
-    prefixedCount >= 2 && nonEmptyCount > 0 && prefixedCount / nonEmptyCount >= 0.6;
-  if (!shouldStrip) return text;
-
-  return lines.map((line) => line.replace(/^\d+:\s/, "")).join("\n");
-}
-
 function unwrapSingleCodeFence(text: string): string {
   const trimmed = text.trim();
   const match = trimmed.match(/^```[a-zA-Z0-9_-]*\n([\s\S]*?)\n?```$/);
@@ -476,15 +456,12 @@ function normalizeReplacementText(content: string, newString: string): string {
 
   // Only unwrap full-value code fences for JSON-like content to avoid
   // stripping intentional markdown code blocks in note edits.
-  if (contentLooksJson) {
+    if (contentLooksJson) {
     const unwrapped = unwrapSingleCodeFence(normalized);
     const unwrappedLooksJson = /^\s*[\[{]/.test(unwrapped.trim());
     if (unwrapped !== normalized && unwrappedLooksJson) {
       normalized = unwrapped;
     }
-
-    // In JSON edit flows, model outputs may include readWorkspace line prefixes.
-    normalized = stripReadWorkspaceLinePrefixes(normalized);
   }
 
   return normalized;
@@ -494,10 +471,8 @@ function buildSearchCandidates(oldString: string): string[] {
   const candidates = new Set<string>();
   const base = oldString;
   const noFence = unwrapSingleCodeFence(base);
-  const noLines = stripReadWorkspaceLinePrefixes(base);
-  const noFenceNoLines = stripReadWorkspaceLinePrefixes(noFence);
 
-  for (const c of [base, noFence, noLines, noFenceNoLines]) {
+  for (const c of [base, noFence]) {
     if (c.length > 0) candidates.add(c);
   }
   return Array.from(candidates);
@@ -555,7 +530,6 @@ export function replace(content: string, oldString: string, newString: string, r
       );
       hints.push("If you're appending, replace the final JSON tail (for example, '  ]\\n}') with a longer unique tail.");
     }
-    hints.push("Do not include readWorkspace line prefixes like '12: '.");
 
     throw new Error(
       `Could not find oldString in the file. ${

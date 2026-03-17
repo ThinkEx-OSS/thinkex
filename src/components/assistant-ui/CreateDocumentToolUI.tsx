@@ -22,6 +22,8 @@ import { initialState } from "@/lib/workspace-state/state";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import type { WorkspaceResult } from "@/lib/ai/tool-result-schemas";
 import { parseWorkspaceResult } from "@/lib/ai/tool-result-schemas";
+import { logger } from "@/lib/utils/logger";
+import type { Item } from "@/lib/workspace-state/types";
 
 type CreateDocumentArgs = { title: string; content: string };
 
@@ -30,7 +32,7 @@ interface CreateDocumentReceiptProps {
   result: WorkspaceResult;
   status: { type?: string };
   moveItemToFolder?: (itemId: string, folderId: string | null) => void;
-  allItems?: unknown[];
+  allItems?: Item[];
   workspaceName?: string;
   workspaceIcon?: string | null;
   workspaceColor?: string | null;
@@ -207,7 +209,7 @@ export const CreateDocumentToolUI =
             result={parsed}
             status={status}
             moveItemToFolder={operations.moveItemToFolder}
-            allItems={workspaceState?.items || []}
+            allItems={(workspaceState?.items ?? []) as Item[]}
             workspaceName={
               currentWorkspace?.name ||
               workspaceState?.globalTitle ||

@@ -76,19 +76,6 @@ describe("replace (edit/replace for oldString/newString)", () => {
     );
   });
 
-  it("handles oldString copied with readWorkspace line prefixes", () => {
-    const content = "{\n  \"questions\": [\n    {\"questionText\":\"Q1\"}\n  ]\n}";
-    const oldWithPrefixes = [
-      "1: {",
-      "2:   \"questions\": [",
-      "3:     {\"questionText\":\"Q1\"}",
-      "4:   ]",
-      "5: }",
-    ].join("\n");
-    const result = replace(content, oldWithPrefixes, "{\"questions\":[]}");
-    expect(result).toBe("{\"questions\":[]}");
-  });
-
   it("handles oldString wrapped in code fences", () => {
     const content = "{\n  \"cards\": []\n}";
     const oldFenced = "```json\n{\n  \"cards\": []\n}\n```";
@@ -103,21 +90,6 @@ describe("replace (edit/replace for oldString/newString)", () => {
     const result = replace(content, oldTail, fencedNew);
     expect(result).toContain('"id": "q2"');
     expect(result).not.toContain("```");
-  });
-
-  it("normalizes line-prefixed newString in JSON edit contexts", () => {
-    const content = "{\n  \"questions\": []\n}";
-    const oldTail = "[]\n}";
-    const prefixedNew = [
-      "1: [",
-      "2:   {",
-      "3:     \"id\": \"q2\"",
-      "4:   }",
-      "5: ]",
-    ].join("\n");
-    const result = replace(content, oldTail, prefixedNew);
-    expect(result).toContain('"id": "q2"');
-    expect(result).not.toContain("1: [");
   });
 
   it("supports appending a quiz question near end of JSON", () => {
