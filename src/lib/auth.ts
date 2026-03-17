@@ -59,6 +59,9 @@ export const auth = betterAuth({
     ...(process.env.NEXT_PUBLIC_APP_URL ? [process.env.NEXT_PUBLIC_APP_URL] : []),
     ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
     ...(process.env.NEXT_PUBLIC_VERCEL_URL ? [`https://${process.env.NEXT_PUBLIC_VERCEL_URL}`] : []),
+    // Chrome extension support
+    ...(process.env.CHROME_EXTENSION_ID ? [`chrome-extension://${process.env.CHROME_EXTENSION_ID}`] : []),
+    ...(process.env.NODE_ENV === "development" ? ["chrome-extension://*"] : []),
   ],
   // Session configuration - 30 days for better user experience
   session: {
