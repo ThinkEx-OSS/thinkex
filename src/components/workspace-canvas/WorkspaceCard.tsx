@@ -9,7 +9,7 @@ import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ItemHeader from "@/components/workspace-canvas/ItemHeader";
-import { getCardColorCSS, getCardAccentColor, getDistinctCardColor, getIconColorFromCardColor, getIconColorFromCardColorWithOpacity, getLighterCardColor, SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
+import { getCardColorCSS, getCardAccentColor, getDistinctCardColor, getCardColorWithBlackMix, getIconColorFromCardColor, getIconColorFromCardColorWithOpacity, getLighterCardColor, SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
 import type { Item, NoteData, PdfData, FlashcardData, YouTubeData, ImageData, WebsiteData, DocumentData } from "@/lib/workspace-state/types";
 import { SwatchesPicker, ColorResult } from "react-color";
 import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEditor";
@@ -765,8 +765,8 @@ function WorkspaceCard({
               <span
                 className="absolute left-0 bottom-0 z-0 flex items-center gap-1.5 pl-2.5 pr-1.5 py-2 rounded-tr-md rounded-bl-md text-xs font-semibold uppercase tracking-wider w-max pointer-events-none"
                 style={{
-                  backgroundColor: getIconColorFromCardColorWithOpacity(item.color, resolvedTheme === 'dark', 0.3),
-                  color: getLighterCardColor(item.color, resolvedTheme === 'dark'),
+                  backgroundColor: getIconColorFromCardColorWithOpacity(item.color, resolvedTheme === 'dark', resolvedTheme === 'dark' ? 0.3 : 0.55),
+                  color: resolvedTheme === 'dark' ? getLighterCardColor(item.color, true, 0) : getCardColorWithBlackMix(item.color, 0.18),
                 }}
               >
                 {item.type === 'note' ? (

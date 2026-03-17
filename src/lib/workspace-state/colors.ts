@@ -239,15 +239,31 @@ export function getWhiteTintedColor(color: CardColor, whiteMix: number = 0.7, op
 /**
  * Get a lighter version of the card color (blended with white) for text/icons on colored backgrounds.
  * Dark mode: 80% card, 20% white. Light mode: 25% white, 75% card.
+ * @param whiteMixOverride Optional override for white blend (0-1). Use lower values (e.g. 0.08) in light mode for stronger, less washed-out icon/text.
  */
-export function getLighterCardColor(color: CardColor | string | undefined, isDarkMode: boolean = false): string {
+export function getLighterCardColor(color: CardColor | string | undefined, isDarkMode: boolean = false, whiteMixOverride?: number): string {
   const rgb = color ? hexToRgb(color) : null;
   if (!rgb) return 'rgb(241, 245, 249)';
 
-  const whiteMix = isDarkMode ? 0.2 : 0.25;
+  const whiteMix = whiteMixOverride !== undefined ? whiteMixOverride : (isDarkMode ? 0.2 : 0.25);
   const r = Math.round(whiteMix * 255 + (1 - whiteMix) * rgb.r);
   const g = Math.round(whiteMix * 255 + (1 - whiteMix) * rgb.g);
   const b = Math.round(whiteMix * 255 + (1 - whiteMix) * rgb.b);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+/**
+ * Get card color blended with a bit of black (darkens the color).
+ * @param color The card color (hex string)
+ * @param blackMix Amount of black to mix (0-1). 0.15–0.2 gives a subtle darkening.
+ */
+export function getCardColorWithBlackMix(color: CardColor | string | undefined, blackMix: number = 0.15): string {
+  const rgb = color ? hexToRgb(color) : null;
+  if (!rgb) return 'rgb(30, 41, 59)';
+
+  const r = Math.round((1 - blackMix) * rgb.r);
+  const g = Math.round((1 - blackMix) * rgb.g);
+  const b = Math.round((1 - blackMix) * rgb.b);
   return `rgb(${r}, ${g}, ${b})`;
 }
 
