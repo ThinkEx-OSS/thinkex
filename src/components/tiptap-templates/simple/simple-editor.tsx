@@ -25,7 +25,6 @@ import { Selection } from "@tiptap/extensions"
 import { Mathematics } from "@tiptap/extension-mathematics"
 import { TableKit } from "@tiptap/extension-table"
 import { Markdown } from "@tiptap/markdown"
-import { Placeholder } from "@tiptap/extension-placeholder"
 import { CustomCodeBlock } from "@/components/tiptap-node/code-block-node/code-block-extension"
 import "katex/dist/katex.min.css"
 
@@ -118,7 +117,7 @@ interface SimpleEditorProps {
   showThemeToggle?: boolean
 }
 
-const HEADING_LEVELS: Level[] = [1, 2, 3, 4]
+const HEADING_LEVELS: Level[] = [1, 2, 3]
 const LIST_TYPES: ListType[] = ["bulletList", "orderedList", "taskList"]
 const INLINE_MARKS: Mark[] = ["bold", "italic", "underline"]
 const SCRIPT_MARKS: Mark[] = ["superscript", "subscript"]
@@ -231,6 +230,29 @@ function ListMenuItem({ editor, type }: { editor: Editor | null; type: ListType 
     >
       <Icon className="size-4" />
       <span>{label}</span>
+    </DropdownMenuItem>
+  )
+}
+
+function ParagraphMenuItem({ editor }: { editor: Editor | null }) {
+  if (!editor) return null
+
+  const isActive = editor.isActive("paragraph")
+  const canToggle =
+    !isActive &&
+    (editor.can().setNode("paragraph") || editor.can().clearNodes())
+
+  return (
+    <DropdownMenuItem
+      disabled={!canToggle && !isActive}
+      onSelect={() => {
+        editor.chain().focus().clearNodes().run()
+      }}
+      className={cn(isActive && "bg-accent")}
+    >
+      <AlignLeft className="size-4 shrink-0 text-muted-foreground" />
+      <span>Paragraph</span>
+      <span className="ml-auto text-xs text-muted-foreground">16px</span>
     </DropdownMenuItem>
   )
 }
@@ -406,8 +428,8 @@ function BlocksDropdown({ editor }: { editor: Editor | null }) {
       triggerLabel = activeList.label
     }
   } else if (activeState?.isParagraph) {
-    activeItem = { label: "Paragraph", Icon: AlignLeft as any }
-    TriggerIcon = AlignLeft as any
+    activeItem = { label: "Paragraph", Icon: AlignLeft }
+    TriggerIcon = AlignLeft
     triggerLabel = "Paragraph"
   }
 
@@ -427,11 +449,11 @@ function BlocksDropdown({ editor }: { editor: Editor | null }) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
-        <DropdownMenuLabel>Headings</DropdownMenuLabel>
         <DropdownMenuGroup>
           {HEADING_LEVELS.map((level) => (
             <HeadingMenuItem key={level} editor={editor} level={level} />
           ))}
+          <ParagraphMenuItem editor={editor} />
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Lists</DropdownMenuLabel>
@@ -937,16 +959,6 @@ export function SimpleEditor({
         markedOptions: {
           gfm: true,
         },
-      }),
-      Placeholder.configure({
-        placeholder: ({ node }) => {
-          if (node.type.name === 'heading') {
-            return 'Heading...'
-          }
-          return 'Start typing...'
-        },
-        showOnlyWhenEditable: true,
-        showOnlyCurrent: false,
       }),
     ],
     ...(contentType === "markdown" && typeof content === "string"
