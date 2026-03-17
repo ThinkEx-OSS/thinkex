@@ -90,23 +90,6 @@
   pointer-events: none;
 }
 
-.tiptap.ProseMirror table .column-resize-handle {
-  position: absolute;
-  right: -2px;
-  top: 0;
-  bottom: -2px;
-  width: 4px;
-  background-color: var(--primary);
-  pointer-events: all;
-  cursor: col-resize;
-  z-index: 10;
-}
-
-.tiptap.ProseMirror table .column-resize-handle:hover {
-  background-color: var(--primary);
-  opacity: 1;
-}
-
 .tiptap.ProseMirror table p {
   margin: 0;
 }

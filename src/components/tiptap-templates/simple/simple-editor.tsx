@@ -951,7 +951,7 @@ export function SimpleEditor({
       }),
       TableKit.configure({
         table: {
-          resizable: true,
+          resizable: false,
         },
       }),
       ImageUploadNode.configure({
