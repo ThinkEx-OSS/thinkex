@@ -32,24 +32,32 @@ export function usePdfUpload() {
         setState((prev) => ({ ...prev, isUploading: true, error: null }));
 
         try {
+            const pdfFiles = files.filter(
+                (file) => file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
+            );
+            const officeFiles = files.filter(
+                (file) => file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")
+            );
+
             // Reject password-protected PDFs
-            const { valid: unprotectedFiles, rejected: protectedNames } = await filterPasswordProtectedPdfs(files);
+            const { valid: unprotectedFiles, rejected: protectedNames } = await filterPasswordProtectedPdfs(pdfFiles);
             if (protectedNames.length > 0) {
                 emitPasswordProtectedPdf(protectedNames);
             }
-            if (unprotectedFiles.length === 0) {
+            const filesToUpload = [...unprotectedFiles, ...officeFiles];
+            if (filesToUpload.length === 0) {
                 setState((prev) => ({ ...prev, isUploading: false }));
                 return [];
             }
 
-            const uploadPromises = unprotectedFiles.map(async (file) => {
-                const { url: fileUrl, filename } = await uploadFileDirect(file);
+            const uploadPromises = filesToUpload.map(async (file) => {
+                const { url: fileUrl, filename, displayName } = await uploadFileDirect(file);
 
                 return {
                     fileUrl,
                     filename: filename || file.name,
                     fileSize: file.size,
-                    name: file.name.replace(/\.pdf$/i, ""),
+                    name: displayName.replace(/\.pdf$/i, ""),
                 };
             });
 

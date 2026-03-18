@@ -19,11 +19,9 @@ import { cn } from "@/lib/utils";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
-import { emitOfficeDocumentRejected } from "@/components/modals/OfficeDocumentRejectedDialog";
 import {
-  isWordFile,
-  isExcelFile,
-  isPptxFile,
+  isOfficeDocument,
+  OFFICE_DOCUMENT_ACCEPT,
 } from "@/lib/uploads/office-document-validation";
 
 interface UploadDialogProps {
@@ -109,9 +107,11 @@ export function UploadDialog({
         const pdfFiles = files.filter(file =>
             file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
         );
+        const officeFiles = files.filter((file) => isOfficeDocument(file));
+        const documentFiles = [...officeFiles];
 
-        if (pdfFiles.length === 0) {
-            toast.error('No valid PDF files found');
+        if (pdfFiles.length === 0 && officeFiles.length === 0) {
+            toast.error('No valid document files found');
             return;
         }
 
@@ -120,20 +120,22 @@ export function UploadDialog({
         if (protectedNames.length > 0) {
             emitPasswordProtectedPdf(protectedNames);
         }
-        if (unprotectedPdfs.length === 0) {
+        documentFiles.push(...unprotectedPdfs);
+
+        if (documentFiles.length === 0) {
             return;
         }
 
         // Check individual file size limit (50MB per file)
         const maxIndividualSize = 50 * 1024 * 1024;
-        const oversizedFiles = unprotectedPdfs.filter(file => file.size > maxIndividualSize);
+        const oversizedFiles = documentFiles.filter(file => file.size > maxIndividualSize);
         if (oversizedFiles.length > 0) {
             toast.error(`${oversizedFiles.length} file(s) exceed the 50MB individual limit`);
             return;
         }
 
         // Check combined size limit (100MB total)
-        const totalSize = unprotectedPdfs.reduce((sum, file) => sum + file.size, 0);
+        const totalSize = documentFiles.reduce((sum, file) => sum + file.size, 0);
         const maxCombinedSize = 100 * 1024 * 1024;
         if (totalSize > maxCombinedSize) {
             const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(1);
@@ -143,12 +145,12 @@ export function UploadDialog({
 
         setIsUploading(true);
         try {
-            await onPDFUpload(unprotectedPdfs);
-            toast.success(`${unprotectedPdfs.length} PDF${unprotectedPdfs.length > 1 ? 's' : ''} uploaded successfully`);
+            await onPDFUpload(documentFiles);
+            toast.success(`${documentFiles.length} document${documentFiles.length > 1 ? 's' : ''} uploaded successfully`);
             onOpenChange(false);
         } catch (error) {
             console.error('Error uploading PDFs:', error);
-            toast.error('Failed to upload PDF files');
+            toast.error('Failed to upload document files');
         } finally {
             setIsUploading(false);
         }
@@ -214,15 +216,15 @@ export function UploadDialog({
         if (acceptedFiles.length === 0) return;
 
         const imageFiles = acceptedFiles.filter(f => f.type.startsWith('image/'));
-        const pdfFiles = acceptedFiles.filter(f =>
-            f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
+        const documentFiles = acceptedFiles.filter(f =>
+            !f.type.startsWith('image/')
         );
 
         if (imageFiles.length > 0) {
             uploadImageFiles(imageFiles);
         }
-        if (pdfFiles.length > 0) {
-            handlePDFFiles(pdfFiles);
+        if (documentFiles.length > 0) {
+            handlePDFFiles(documentFiles);
         }
     }, [uploadImageFiles, handlePDFFiles]);
 
@@ -231,23 +233,9 @@ export function UploadDialog({
         accept: {
             'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.heic', '.heif', '.avif', '.tiff', '.tif'],
             'application/pdf': ['.pdf'],
+            ...OFFICE_DOCUMENT_ACCEPT,
         },
         disabled: isUploading,
-        onDropRejected: (fileRejections) => {
-            if (fileRejections.length > 0) {
-                const wordFiles = fileRejections.filter((r) => isWordFile(r.file));
-                const excelFiles = fileRejections.filter((r) => isExcelFile(r.file));
-                const pptxFiles = fileRejections.filter((r) => isPptxFile(r.file));
-                const hasOffice = wordFiles.length > 0 || excelFiles.length > 0 || pptxFiles.length > 0;
-                if (hasOffice) {
-                    emitOfficeDocumentRejected({
-                        word: wordFiles.length ? wordFiles.map((r) => r.file.name) : undefined,
-                        excel: excelFiles.length ? excelFiles.map((r) => r.file.name) : undefined,
-                        powerpoint: pptxFiles.length ? pptxFiles.map((r) => r.file.name) : undefined,
-                    });
-                }
-            }
-        },
     });
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -268,7 +256,7 @@ export function UploadDialog({
                         Upload
                     </DialogTitle>
                     <DialogDescription>
-                        Drag and drop PDFs or images, paste from clipboard, or enter a URL.
+                        Drag and drop PDFs, Office docs, or images, paste from clipboard, or enter a URL.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -290,7 +278,7 @@ export function UploadDialog({
                             {isUploading ? "Uploading..." : isDragActive ? "Drop files here" : "Click or drag files here"}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                            Supports PDF, PNG, JPG, GIF, WebP
+                            Supports PDF, Word, Excel, PowerPoint, PNG, JPG, GIF, WebP
                         </p>
                     </div>
 

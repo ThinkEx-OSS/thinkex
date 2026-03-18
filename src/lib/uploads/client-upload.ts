@@ -13,23 +13,68 @@
 
 import { convertHeicToJpegIfNeeded } from "./convert-heic";
 import { isOfficeDocument } from "./office-document-validation";
-import {
-  isWordFile,
-  isExcelFile,
-  isPptxFile,
-} from "./office-document-validation";
-import { emitOfficeDocumentRejected } from "@/components/modals/OfficeDocumentRejectedDialog";
 
 const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024; // 200MB
+const OFFICE_UPLOAD_HEADER = "X-Experimental-Office";
 
 interface UploadResult {
   url: string;
   filename: string;
+  contentType: string;
+  displayName: string;
+  originalUrl?: string;
+  originalFilename?: string;
+  wasConverted?: boolean;
 }
 
 export interface UploadFileDirectOptions {
   /** Enable timing and step logs for debugging (e.g. PDF upload flow) */
   log?: boolean;
+}
+
+function getConvertedPdfName(filename: string): string {
+  return filename.replace(/\.[^/.]+$/, "") + ".pdf";
+}
+
+async function convertOfficeUpload(
+  filename: string,
+  url: string,
+  originalFilename: string
+): Promise<UploadResult> {
+  const response = await fetch("/api/office-conversion/convert-to-pdf", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      file_path: filename,
+      file_url: url,
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      (typeof data.error === "string" && data.error) ||
+        `Conversion failed: ${response.statusText}`
+    );
+  }
+
+  if (typeof data.pdf_url !== "string" || data.pdf_url.length === 0) {
+    throw new Error("No PDF URL returned from conversion");
+  }
+
+  return {
+    url: data.pdf_url,
+    filename:
+      typeof data.pdf_path === "string" && data.pdf_path.length > 0
+        ? data.pdf_path
+        : getConvertedPdfName(originalFilename),
+    contentType: "application/pdf",
+    displayName: getConvertedPdfName(originalFilename),
+    originalUrl: url,
+    originalFilename: filename,
+    wasConverted: true,
+  };
 }
 
 /**
@@ -52,10 +97,15 @@ export async function uploadFileDirect(
     );
   }
 
+  const shouldConvertOffice = isOfficeDocument(file);
+
   // Step 1: Request a signed upload URL from our API (small JSON payload)
   const urlResponse = await fetch("/api/upload-url", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(shouldConvertOffice ? { [OFFICE_UPLOAD_HEADER]: "true" } : {}),
+    },
     body: JSON.stringify({
       filename: file.name,
       contentType: file.type || "application/octet-stream",
@@ -64,13 +114,6 @@ export async function uploadFileDirect(
 
   if (!urlResponse.ok) {
     const errorData = await urlResponse.json().catch(() => ({}));
-    if (urlResponse.status === 400 && isOfficeDocument(file)) {
-      emitOfficeDocumentRejected({
-        word: isWordFile(file) ? [file.name] : undefined,
-        excel: isExcelFile(file) ? [file.name] : undefined,
-        powerpoint: isPptxFile(file) ? [file.name] : undefined,
-      });
-    }
     throw new Error(
       errorData.error || `Failed to get upload URL: ${urlResponse.statusText}`
     );
@@ -90,11 +133,16 @@ export async function uploadFileDirect(
       const t = performance.now() - t0;
       console.info(`[PDF_UPLOAD] Local fallback upload: ${t.toFixed(0)}ms`);
     }
+
+    if (shouldConvertOffice) {
+      return convertOfficeUpload(result.filename, result.url, file.name);
+    }
+
     return result;
   }
 
   // Step 2: Upload file directly to Supabase using the signed URL
-  const { signedUrl, token, publicUrl, path } = urlData;
+  const { signedUrl, publicUrl, path } = urlData;
   const tPut = log ? performance.now() : 0;
 
   const uploadResponse = await fetch(signedUrl, {
@@ -109,7 +157,11 @@ export async function uploadFileDirect(
     // If direct upload fails, try the API route as fallback (for small files)
     if (file.size <= 4 * 1024 * 1024) {
       console.warn("Direct upload failed, falling back to API route for small file");
-      return uploadViaApiRoute(file);
+      const result = await uploadViaApiRoute(file);
+      if (shouldConvertOffice) {
+        return convertOfficeUpload(result.filename, result.url, file.name);
+      }
+      return result;
     }
     throw new Error(
       `Direct upload failed: ${uploadResponse.statusText}`
@@ -124,9 +176,15 @@ export async function uploadFileDirect(
     );
   }
 
+  if (shouldConvertOffice) {
+    return convertOfficeUpload(path, publicUrl, file.name);
+  }
+
   return {
     url: publicUrl,
     filename: path,
+    contentType: file.type || "application/octet-stream",
+    displayName: file.name,
   };
 }
 
@@ -137,21 +195,18 @@ export async function uploadFileDirect(
 async function uploadViaApiRoute(file: File): Promise<UploadResult> {
   const formData = new FormData();
   formData.append("file", file);
+  const shouldConvertOffice = isOfficeDocument(file);
 
   const response = await fetch("/api/upload-file", {
     method: "POST",
+    headers: shouldConvertOffice
+      ? { [OFFICE_UPLOAD_HEADER]: "true" }
+      : undefined,
     body: formData,
   });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    if (response.status === 400 && isOfficeDocument(file)) {
-      emitOfficeDocumentRejected({
-        word: isWordFile(file) ? [file.name] : undefined,
-        excel: isExcelFile(file) ? [file.name] : undefined,
-        powerpoint: isPptxFile(file) ? [file.name] : undefined,
-      });
-    }
     throw new Error(
       errorData.error || `Upload failed: ${response.statusText}`
     );
@@ -161,5 +216,7 @@ async function uploadViaApiRoute(file: File): Promise<UploadResult> {
   return {
     url: data.url,
     filename: data.filename,
+    contentType: file.type || "application/octet-stream",
+    displayName: file.name,
   };
 }

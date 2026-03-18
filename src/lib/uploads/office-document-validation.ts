@@ -11,6 +11,26 @@ export const CONVERT_URLS = {
 
 export type OfficeDocumentType = keyof typeof CONVERT_URLS;
 
+export const OFFICE_DOCUMENT_ACCEPT = {
+  "application/msword": [".doc"],
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+  "application/vnd.ms-excel": [".xls"],
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+  "application/vnd.ms-powerpoint": [".ppt"],
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
+} as const;
+
+export const OFFICE_DOCUMENT_ACCEPT_STRING = [
+  ...[
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".ppt",
+    ".pptx",
+  ],
+].join(",");
+
 // Word: .doc, .docx
 const WORD_MIMES = [
   "application/msword",

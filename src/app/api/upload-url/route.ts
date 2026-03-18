@@ -38,17 +38,9 @@ async function handlePOST(request: NextRequest) {
       );
     }
 
-    // Reject Office documents — convert to PDF at ilovepdf.com
     const convertUrl = getOfficeDocumentConvertUrlFromMeta(filename, contentType);
-    if (convertUrl) {
-      return NextResponse.json(
-        {
-          error: "Word, Excel, and PowerPoint files are not supported. Convert to PDF first.",
-          convertUrl,
-        },
-        { status: 400 }
-      );
-    }
+    const isExperimentalOffice = request.headers.get("x-experimental-office") === "true";
+    const isOfficeUpload = isExperimentalOffice || convertUrl !== null;
 
     const storageType = process.env.STORAGE_TYPE || 'supabase';
 
@@ -91,7 +83,10 @@ async function handlePOST(request: NextRequest) {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 15);
     const sanitizedName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const storagePath = `${timestamp}-${random}-${sanitizedName}`;
+    // FastAPI convert expects file_path under "uploads/" prefix
+    const storagePath = isOfficeUpload
+      ? `uploads/${timestamp}-${random}-${sanitizedName}`
+      : `${timestamp}-${random}-${sanitizedName}`;
 
     // Create a signed upload URL (valid for 5 minutes)
     const { data, error } = await supabase.storage
