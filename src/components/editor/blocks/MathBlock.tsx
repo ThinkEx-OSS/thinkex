@@ -8,7 +8,7 @@ import { MathEditContext } from "../MathEditDialog";
 import "./math-block.css";
 
 // Component for rendering the math block - respects read-only state
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const MathBlockContent = memo(function MathBlockContent(props: any) {
   const { block, editor } = props;
   const latex = block.props.latex || "";
@@ -113,7 +113,7 @@ const MathBlockContent = memo(function MathBlockContent(props: any) {
 });
 
 // Component for rendering math block in external HTML (for AI compatibility)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function MathBlockExternalHTML(props: any) {
   const latex = props.block.props.latex || "";
   // Render as a div with LaTeX in a data attribute and visible format (use $$ for Streamdown compatibility)

@@ -101,10 +101,8 @@ export async function POST(request: NextRequest) {
 
 
     // Reject Office documents — convert to PDF at ilovepdf.com
-    // Allow when X-Experimental-Office: true (for experimental upload + FastAPI convert flow)
-    const isExperimentalOffice = request.headers.get("x-experimental-office") === "true";
     const convertUrl = getOfficeDocumentConvertUrl(file);
-    const isOfficeUpload = isExperimentalOffice || convertUrl !== null;
+    const isOfficeUpload = convertUrl !== null;
 
     // Validate file size (50MB limit)
     const maxSize = 50 * 1024 * 1024; // 50MB

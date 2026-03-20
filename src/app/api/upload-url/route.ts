@@ -39,8 +39,7 @@ async function handlePOST(request: NextRequest) {
     }
 
     const convertUrl = getOfficeDocumentConvertUrlFromMeta(filename, contentType);
-    const isExperimentalOffice = request.headers.get("x-experimental-office") === "true";
-    const isOfficeUpload = isExperimentalOffice || convertUrl !== null;
+    const isOfficeUpload = convertUrl !== null;
 
     const storageType = process.env.STORAGE_TYPE || 'supabase';
 

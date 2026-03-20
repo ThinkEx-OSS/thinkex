@@ -15,7 +15,6 @@ import { convertHeicToJpegIfNeeded } from "./convert-heic";
 import { isOfficeDocument } from "./office-document-validation";
 
 const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024; // 200MB
-const OFFICE_UPLOAD_HEADER = "X-Experimental-Office";
 
 interface UploadResult {
   url: string;
@@ -72,7 +71,7 @@ async function convertOfficeUpload(
     contentType: "application/pdf",
     displayName: getConvertedPdfName(originalFilename),
     originalUrl: url,
-    originalFilename: filename,
+    originalFilename,
     wasConverted: true,
   };
 }
@@ -104,7 +103,6 @@ export async function uploadFileDirect(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(shouldConvertOffice ? { [OFFICE_UPLOAD_HEADER]: "true" } : {}),
     },
     body: JSON.stringify({
       filename: file.name,
@@ -195,13 +193,9 @@ export async function uploadFileDirect(
 async function uploadViaApiRoute(file: File): Promise<UploadResult> {
   const formData = new FormData();
   formData.append("file", file);
-  const shouldConvertOffice = isOfficeDocument(file);
 
   const response = await fetch("/api/upload-file", {
     method: "POST",
-    headers: shouldConvertOffice
-      ? { [OFFICE_UPLOAD_HEADER]: "true" }
-      : undefined,
     body: formData,
   });
 

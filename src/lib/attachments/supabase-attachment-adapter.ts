@@ -4,6 +4,7 @@ import type {
   CompleteAttachment,
 } from "@assistant-ui/react";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
+import { isOfficeDocument } from "@/lib/uploads/office-document-validation";
 import { isPasswordProtectedPdf } from "@/lib/uploads/pdf-validation";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 import { useAttachmentUploadStore } from "@/lib/stores/attachment-upload-store";
@@ -48,12 +49,7 @@ export class SupabaseAttachmentAdapter implements AttachmentAdapter {
     let type: "image" | "document" | "file" = "file";
     if (file.type.startsWith("image/")) {
       type = "image";
-    } else if (
-      file.type === "application/pdf" ||
-      file.type.includes("document") ||
-      file.type.includes("spreadsheet") ||
-      file.type.includes("presentation")
-    ) {
+    } else if (file.type === "application/pdf" || isOfficeDocument(file)) {
       type = "document";
     }
 

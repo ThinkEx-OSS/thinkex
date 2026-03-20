@@ -270,7 +270,7 @@ const MarkdownTextImpl = (props: MarkdownTextProps) => {
           a: (props: AnchorHTMLAttributes<HTMLAnchorElement> & { node?: any }) => (
             <MarkdownLink {...props} />
           ),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           citation: (props: any) => (
             <CitationRenderer>{props.children}</CitationRenderer>
           ),

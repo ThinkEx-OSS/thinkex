@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import type { PdfData } from "@/lib/workspace-state/types";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
+import { isOfficeDocument } from "@/lib/uploads/office-document-validation";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 
@@ -36,7 +37,7 @@ export function usePdfUpload() {
                 (file) => file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
             );
             const officeFiles = files.filter(
-                (file) => file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")
+                (file) => isOfficeDocument(file)
             );
 
             // Reject password-protected PDFs

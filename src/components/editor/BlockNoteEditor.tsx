@@ -174,7 +174,7 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
 
           if (selection && selection.blocks && selection.blocks.length > 0) {
             // Extract text from selection (cast to any to handle BlockNote's complex types)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             const text = extractTextFromSelection(selection as any);
 
             if (text && text.trim().length > 0) {
@@ -339,7 +339,7 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
   }, [editor, initialContent, lastSource]);
 
   // Get math menu items (used in both AI and non-AI modes)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const getMathMenuItems = (editor: any): DefaultReactSuggestionItem[] => {
     // Add Block Math item
     const blockMathItem = {
@@ -394,7 +394,7 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
   };
 
   // Get custom slash menu items (for non-AI mode)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const getCustomSlashMenuItems = (editor: any): DefaultReactSuggestionItem[] => {
     const defaultItems = getDefaultReactSlashMenuItems(editor);
     const mathItems = getMathMenuItems(editor);
@@ -402,7 +402,7 @@ export default function BlockNoteEditor({ initialContent, onChange, readOnly, ca
   };
 
   // Get inline math menu items
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const getInlineMathMenuItems = (editor: any): DefaultReactSuggestionItem[] => {
     return [
       {
