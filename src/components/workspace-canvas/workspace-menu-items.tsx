@@ -76,13 +76,10 @@ export function renderWorkspaceMenuItems({
       {showUpload && (
         <MenuItem
           onSelect={callbacks.onUpload}
-          className="flex items-center gap-2 cursor-pointer p-2"
+          className="flex items-center gap-2 cursor-pointer"
         >
           <Upload className="size-4" />
-          <div className="flex items-center justify-between w-full">
-            <span>Upload</span>
-            <span className="text-xs text-muted-foreground">PDF/Image</span>
-          </div>
+          Upload
         </MenuItem>
       )}
 

@@ -3,34 +3,70 @@
  * These are rejected — users can convert to PDF at iLovePDF.
  */
 
+const OFFICE_DOCUMENT_DEFINITIONS = {
+  word: {
+    convertUrl: "https://www.ilovepdf.com/word_to_pdf",
+    mimeMap: {
+      "application/msword": [".doc"],
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+    },
+  },
+  excel: {
+    convertUrl: "https://www.ilovepdf.com/excel_to_pdf",
+    mimeMap: {
+      "application/vnd.ms-excel": [".xls"],
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+    },
+  },
+  powerpoint: {
+    convertUrl: "https://www.ilovepdf.com/powerpoint_to_pdf",
+    mimeMap: {
+      "application/vnd.ms-powerpoint": [".ppt"],
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
+    },
+  },
+} as const;
+
+type OfficeMimeMap = Record<string, readonly string[]>;
+
+function getMimeMapMimes(mimeMap: OfficeMimeMap): string[] {
+  return Object.keys(mimeMap);
+}
+
+function getMimeMapExtensions(mimeMap: OfficeMimeMap): string[] {
+  return Object.values(mimeMap).flatMap((extensions) => [...extensions]);
+}
+
 export const CONVERT_URLS = {
-  word: "https://www.ilovepdf.com/word_to_pdf",
-  excel: "https://www.ilovepdf.com/excel_to_pdf",
-  powerpoint: "https://www.ilovepdf.com/powerpoint_to_pdf",
+  word: OFFICE_DOCUMENT_DEFINITIONS.word.convertUrl,
+  excel: OFFICE_DOCUMENT_DEFINITIONS.excel.convertUrl,
+  powerpoint: OFFICE_DOCUMENT_DEFINITIONS.powerpoint.convertUrl,
 } as const;
 
 export type OfficeDocumentType = keyof typeof CONVERT_URLS;
 
+export const OFFICE_DOCUMENT_ACCEPT = Object.assign(
+  {},
+  ...Object.values(OFFICE_DOCUMENT_DEFINITIONS).map(({ mimeMap }) => mimeMap)
+) as Record<string, readonly string[]>;
+
+export const OFFICE_DOCUMENT_ACCEPT_STRING = Object.values(
+  OFFICE_DOCUMENT_ACCEPT
+)
+  .flatMap((extensions) => [...extensions])
+  .join(",");
+
 // Word: .doc, .docx
-const WORD_MIMES = [
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-];
-const WORD_EXTS = [".doc", ".docx"];
+const WORD_MIMES = getMimeMapMimes(OFFICE_DOCUMENT_DEFINITIONS.word.mimeMap);
+const WORD_EXTS = getMimeMapExtensions(OFFICE_DOCUMENT_DEFINITIONS.word.mimeMap);
 
 // Excel: .xls, .xlsx
-const EXCEL_MIMES = [
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-];
-const EXCEL_EXTS = [".xls", ".xlsx"];
+const EXCEL_MIMES = getMimeMapMimes(OFFICE_DOCUMENT_DEFINITIONS.excel.mimeMap);
+const EXCEL_EXTS = getMimeMapExtensions(OFFICE_DOCUMENT_DEFINITIONS.excel.mimeMap);
 
 // PowerPoint: .ppt, .pptx
-const PPTX_MIMES = [
-  "application/vnd.ms-powerpoint",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-];
-const PPTX_EXTS = [".ppt", ".pptx"];
+const PPTX_MIMES = getMimeMapMimes(OFFICE_DOCUMENT_DEFINITIONS.powerpoint.mimeMap);
+const PPTX_EXTS = getMimeMapExtensions(OFFICE_DOCUMENT_DEFINITIONS.powerpoint.mimeMap);
 
 function checkFile(
   file: File,

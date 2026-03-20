@@ -390,7 +390,7 @@ export default function WorkspaceContent({
                 multiple
                 className="sr-only"
                 onChange={handleFileChange}
-                accept="application/pdf,.pdf"
+                accept="application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
               />
 
               {/* Drag and Drop Prompt — native label for instant file picker */}
@@ -402,7 +402,7 @@ export default function WorkspaceContent({
                 <h3 className="text-base font-medium text-foreground mb-2">
                   {activeFolderId
                     ? `This folder is empty`
-                    : "Drag and drop PDFs here"}
+                    : "Drag and drop PDFs or Office docs here"}
                 </h3>
               </label>
 

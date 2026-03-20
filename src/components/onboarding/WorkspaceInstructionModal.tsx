@@ -278,7 +278,7 @@ export function WorkspaceInstructionModal({
       aria-modal="true"
       aria-label="Workspace instruction"
     >
-      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+      { }
       <div
         onClick={() => { pause(); onUserInteracted?.(); }}
         className={cn(

@@ -16,7 +16,7 @@ type TabsContextType<T extends string> = {
   registerTrigger: (value: T, node: HTMLElement | null) => void;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const TabsContext = React.createContext<TabsContextType<any> | undefined>(
   undefined,
 );

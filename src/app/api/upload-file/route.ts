@@ -102,15 +102,7 @@ export async function POST(request: NextRequest) {
 
     // Reject Office documents — convert to PDF at ilovepdf.com
     const convertUrl = getOfficeDocumentConvertUrl(file);
-    if (convertUrl) {
-      return NextResponse.json(
-        {
-          error: "Word, Excel, and PowerPoint files are not supported. Convert to PDF first.",
-          convertUrl,
-        },
-        { status: 400 }
-      );
-    }
+    const isOfficeUpload = convertUrl !== null;
 
     // Validate file size (50MB limit)
     const maxSize = 50 * 1024 * 1024; // 50MB
@@ -127,9 +119,10 @@ export async function POST(request: NextRequest) {
     const originalName = file.name;
     // Sanitize filename: remove spaces and special chars, keep only alphanumeric, dots, hyphens, underscores
     const sanitizedName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const filename = `${timestamp}-${random}-${sanitizedName}`;
-
     const storageType = getStorageType();
+    const filename = storageType === 'supabase' && isOfficeUpload
+      ? `uploads/${timestamp}-${random}-${sanitizedName}`
+      : `${timestamp}-${random}-${sanitizedName}`;
     let publicUrl: string;
 
     if (storageType === 'local') {

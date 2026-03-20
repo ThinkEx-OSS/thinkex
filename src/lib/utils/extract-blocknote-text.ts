@@ -4,17 +4,17 @@
  */
 
 // Use any for flexibility with BlockNote's complex types
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 type BlockNoteBlock = any;
 
 // Use any for flexibility with BlockNote's Selection type
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 type BlockNoteSelection = any;
 
 /**
  * Extracts text from a single block's content array
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function extractTextFromBlockContent(content: any): string {
   if (!Array.isArray(content)) return "";
 
@@ -77,7 +77,7 @@ function extractTextFromBlock(block: BlockNoteBlock): string {
  * @param selection - BlockNote Selection object with blocks array
  * @returns Extracted plain text, trimmed
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export function extractTextFromSelection(selection: any): string {
   if (!selection || !selection.blocks || !Array.isArray(selection.blocks)) {
     return "";

@@ -167,7 +167,7 @@ const EditorCopyButton = memo(function EditorCopyButton({ text }: { text: string
 
 // ─── Main Code Block Render ─────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const CodeBlockRender = memo(function CodeBlockRender(props: any) {
     const { block, editor, contentRef } = props;
     const rawLanguage = block.props.language || "text";
@@ -225,7 +225,7 @@ const CodeBlockRender = memo(function CodeBlockRender(props: any) {
     );
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function CodeBlockExternalHTML(props: any) {
     const language = props.block.props.language || "text";
     return (

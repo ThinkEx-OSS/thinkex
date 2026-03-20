@@ -8,7 +8,7 @@ import { MathEditContext } from "../MathEditDialog";
 import "../blocks/math-block.css";
 
 // Component for rendering inline math - respects read-only state
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const InlineMathContent = memo(function InlineMathContent({ inlineContent, editor, updateInlineContent }: any) {
   const latex = inlineContent.props.latex || "";
   const isReadOnly = !editor.isEditable;
@@ -116,7 +116,7 @@ const InlineMathContent = memo(function InlineMathContent({ inlineContent, edito
 });
 
 // Component for rendering inline math in external HTML (for AI compatibility)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function InlineMathExternalHTML(props: any) {
   const latex = props.inlineContent.props.latex || "";
   // Render as a span with LaTeX in a data attribute and visible format (use $$ for Streamdown compatibility)
