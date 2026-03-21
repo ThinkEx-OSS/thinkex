@@ -8,7 +8,6 @@ import { HelmetProviderWrapper } from "@/components/providers/HelmetProviderWrap
 import LazyAppProviders from "@/components/providers/LazyAppProviders";
 import "./globals.css";
 import "katex/dist/katex.min.css";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AgentationDev } from "@/components/AgentationDev";
 
 const isDev = process.env.NODE_ENV === "development";
@@ -79,7 +78,6 @@ export default function RootLayout({
               <QueryProvider>
                 <Providers>
                   {children}
-                  <SpeedInsights />
                   <AgentationDev />
                 </Providers>
               </QueryProvider>
