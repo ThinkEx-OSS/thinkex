@@ -14,6 +14,10 @@ import {
   isNodeTypeSelected,
   isExtensionAvailable,
 } from "@/lib/tiptap-utils"
+import {
+  hasNodeBackgroundChainCommands,
+  hasToggleNodeBackgroundColor,
+} from "./node-background-commands"
 
 // --- Icons ---
 import { Highlighter } from "lucide-react"
@@ -177,7 +181,11 @@ export function canColorHighlight(
     if (!isExtensionAvailable(editor, ["nodeBackground"])) return false
 
     try {
-      return editor.can().toggleNodeBackgroundColor("test")
+      const commands = editor.can()
+
+      if (!hasToggleNodeBackgroundColor(commands)) return false
+
+      return commands.toggleNodeBackgroundColor("test")
     } catch {
       return false
     }
@@ -232,7 +240,11 @@ export function removeHighlight(
   if (mode === "mark") {
     return editor.chain().focus().unsetMark("highlight").run()
   } else {
-    return editor.chain().focus().unsetNodeBackgroundColor().run()
+    const chain = editor.chain().focus()
+
+    if (!hasNodeBackgroundChainCommands(chain)) return false
+
+    return chain.unsetNodeBackgroundColor().run()
   }
 }
 
@@ -332,11 +344,11 @@ export function useColorHighlight(config: UseColorHighlightConfig) {
 
       return true
     } else {
-      const success = editor
-        .chain()
-        .focus()
-        .toggleNodeBackgroundColor(actualColor)
-        .run()
+      const chain = editor.chain().focus()
+
+      if (!hasNodeBackgroundChainCommands(chain)) return false
+
+      const success = chain.toggleNodeBackgroundColor(actualColor).run()
 
       if (success) {
         onApplied?.({ color: actualColor, label, mode })

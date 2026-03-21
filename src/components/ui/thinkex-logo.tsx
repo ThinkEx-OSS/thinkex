@@ -1,5 +1,6 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import Image from "next/image";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -10,12 +11,32 @@ interface ThinkExLogoProps {
   priority?: boolean;
 }
 
-export function ThinkExLogo({ size = 24, className, priority }: ThinkExLogoProps) {
+export function ThinkExLogo({
+  size = 24,
+  className,
+  priority,
+}: ThinkExLogoProps) {
   const { resolvedTheme } = useTheme();
-  // Default to dark when undefined (SSR/pre-hydration) - app defaults to dark
-  const isDark = resolvedTheme !== "light";
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
-  const src = isDark ? "/newlogothinkex-dark.svg" : "/newlogothinkex-light.svg";
+  if (!mounted) {
+    return (
+      <span
+        aria-hidden="true"
+        className={cn("inline-block shrink-0", className)}
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+
+  const src =
+    resolvedTheme === "dark"
+      ? "/newlogothinkex-dark.svg"
+      : "/newlogothinkex-light.svg";
 
   return (
     <Image

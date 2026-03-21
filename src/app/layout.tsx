@@ -5,7 +5,7 @@ import { Providers } from "@/components/providers";
 import { QueryProvider } from "@/components/query-provider";
 import { PostHogProvider } from "@/components/providers/PostHogProvider";
 import { HelmetProviderWrapper } from "@/components/providers/HelmetProviderWrapper";
-import LazyAppProviders from "@/components/providers/LazyAppProviders";
+import AppProviders from "@/components/providers/AppProviders";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { AgentationDev } from "@/components/AgentationDev";
@@ -43,7 +43,10 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: isDev ? "/favicon-dev.svg" : "/newfav.ico", sizes: "32x32" },
-      { url: isDev ? "/favicon-dev.svg" : "/thinkexdarkfav.svg", type: "image/svg+xml" },
+      {
+        url: isDev ? "/favicon-dev.svg" : "/thinkexdarkfav.svg",
+        type: "image/svg+xml",
+      },
     ],
     apple: "/apple-touch-icon.png",
   },
@@ -72,7 +75,7 @@ export default function RootLayout({
             __html: JSON.stringify(websiteJsonLd).replace(/</g, "\\u003c"),
           }}
         />
-        <LazyAppProviders>
+        <AppProviders>
           <HelmetProviderWrapper>
             <PostHogProvider>
               <QueryProvider>
@@ -83,7 +86,7 @@ export default function RootLayout({
               </QueryProvider>
             </PostHogProvider>
           </HelmetProviderWrapper>
-        </LazyAppProviders>
+        </AppProviders>
       </body>
     </html>
   );
