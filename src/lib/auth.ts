@@ -2,7 +2,6 @@ import { betterAuth } from "better-auth/minimal";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { anonymous } from "better-auth/plugins";
-import { dash } from "@better-auth/infra";
 import { db } from "@/lib/db/client";
 
 // Determine the base URL - prioritize explicit config, then Vercel URL, then localhost
@@ -115,7 +114,6 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    dash(),
     anonymous({
       onLinkAccount: async ({ anonymousUser, newUser }) => {
         // If the IDs are different (linking to existing account), we need to migrate the workspaces
