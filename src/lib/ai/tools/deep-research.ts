@@ -4,12 +4,13 @@ import { z } from "zod";
 import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
+import { withSanitizedModelOutput } from "./tool-utils";
 
 /**
  * Create the deepResearch tool
  */
 export function createDeepResearchTool(ctx: WorkspaceToolContext) {
-    return tool({
+    return withSanitizedModelOutput(tool({
         description: "Perform deep, multi-step research. Creates a research card that streams progress.",
         inputSchema: zodSchema(
             z.object({
@@ -75,5 +76,5 @@ export function createDeepResearchTool(ctx: WorkspaceToolContext) {
                 };
             }
         },
-    });
+    }));
 }

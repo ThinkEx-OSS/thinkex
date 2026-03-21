@@ -4,15 +4,9 @@ import type {
   CompleteAttachment,
 } from "@assistant-ui/react";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
+import { isOfficeDocument } from "@/lib/uploads/office-document-validation";
 import { isPasswordProtectedPdf } from "@/lib/uploads/pdf-validation";
-import {
-  isOfficeDocument,
-  isWordFile,
-  isExcelFile,
-  isPptxFile,
-} from "@/lib/uploads/office-document-validation";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
-import { emitOfficeDocumentRejected } from "@/components/modals/OfficeDocumentRejectedDialog";
 import { useAttachmentUploadStore } from "@/lib/stores/attachment-upload-store";
 
 const getUploadStore = () => useAttachmentUploadStore.getState();
@@ -28,27 +22,18 @@ const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB to match server limit
  */
 export class SupabaseAttachmentAdapter implements AttachmentAdapter {
   accept =
-    "image/*,video/*,audio/*,.pdf,.txt,.md,.csv,.json,.mp3,.wav,.ogg,.aac,.flac,.aiff,.webm,.m4a";
+    "image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.json,.mp3,.wav,.ogg,.aac,.flac,.aiff,.webm,.m4a";
 
   // Map of attachment ID → upload promise (started eagerly in add())
-  private pendingUploads = new Map<string, Promise<string>>();
+  private pendingUploads = new Map<
+    string,
+    Promise<Awaited<ReturnType<typeof uploadFileDirect>>>
+  >();
 
   async add({ file }: { file: File }): Promise<PendingAttachment> {
     if (file.size > MAX_FILE_SIZE_BYTES) {
       throw new Error(
         `File size exceeds ${MAX_FILE_SIZE_BYTES / (1024 * 1024)}MB limit`
-      );
-    }
-
-    // Reject Office documents — convert to PDF at ilovepdf.com
-    if (isOfficeDocument(file)) {
-      const word = isWordFile(file) ? [file.name] : undefined;
-      const excel = isExcelFile(file) ? [file.name] : undefined;
-      const powerpoint = isPptxFile(file) ? [file.name] : undefined;
-      emitOfficeDocumentRejected({ word, excel, powerpoint });
-      const format = word ? "Word" : excel ? "Excel" : "PowerPoint";
-      throw new Error(
-        `"${file.name}" is a ${format} file. ${format} files are not supported. Convert to PDF first.`
       );
     }
 
@@ -64,12 +49,7 @@ export class SupabaseAttachmentAdapter implements AttachmentAdapter {
     let type: "image" | "document" | "file" = "file";
     if (file.type.startsWith("image/")) {
       type = "image";
-    } else if (
-      file.type === "application/pdf" ||
-      file.type.includes("document") ||
-      file.type.includes("spreadsheet") ||
-      file.type.includes("presentation")
-    ) {
+    } else if (file.type === "application/pdf" || isOfficeDocument(file)) {
       type = "document";
     }
 
@@ -78,7 +58,6 @@ export class SupabaseAttachmentAdapter implements AttachmentAdapter {
     // Start upload immediately in background (optimistic)
     getUploadStore().addUploading(id);
     const uploadPromise = uploadFileDirect(file)
-      .then((r) => r.url)
       .finally(() => {
         getUploadStore().removeUploading(id);
       });
@@ -101,22 +80,22 @@ export class SupabaseAttachmentAdapter implements AttachmentAdapter {
     // If it wasn't started (shouldn't happen), start it now as fallback
     let uploadPromise = this.pendingUploads.get(attachment.id);
     if (!uploadPromise) {
-      uploadPromise = uploadFileDirect(file).then((r) => r.url);
+      uploadPromise = uploadFileDirect(file);
     }
 
-    const url = await uploadPromise;
+    const uploadResult = await uploadPromise;
     this.pendingUploads.delete(attachment.id);
 
     return {
       id: attachment.id,
       type: attachment.type,
-      name: attachment.name,
-      contentType: file.type || "application/octet-stream",
+      name: uploadResult.displayName,
+      contentType: uploadResult.contentType,
       content: [
         {
           type: "file",
-          data: url,
-          mimeType: file.type || "application/octet-stream",
+          data: uploadResult.url,
+          mimeType: uploadResult.contentType,
         },
       ],
       status: { type: "complete" },

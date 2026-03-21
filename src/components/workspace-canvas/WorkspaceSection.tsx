@@ -447,28 +447,49 @@ export function WorkspaceSection({
       throw new Error('Workspace operations not available');
     }
 
+    const pdfFiles = files.filter(
+      (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+    );
+    const officeFiles = files.filter(
+      (file) => file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')
+    );
+
     // Reject password-protected PDFs
-    const { valid: unprotectedFiles, rejected: protectedNames } = await filterPasswordProtectedPdfs(files);
+    const { valid: unprotectedFiles, rejected: protectedNames } = await filterPasswordProtectedPdfs(pdfFiles);
     if (protectedNames.length > 0) {
       emitPasswordProtectedPdf(protectedNames);
     }
-    if (unprotectedFiles.length === 0) {
+    const filesToUpload = [...unprotectedFiles, ...officeFiles];
+    if (filesToUpload.length === 0) {
       return;
     }
 
     const uploadToastId = toast.loading(
-      `Uploading ${unprotectedFiles.length} PDF${unprotectedFiles.length > 1 ? 's' : ''}...`
+      `Uploading ${filesToUpload.length} document${filesToUpload.length > 1 ? 's' : ''}...`
     );
 
     const uploadResults = await Promise.all(
-      unprotectedFiles.map(async (file) => {
+      filesToUpload.map(async (file) => {
         try {
-          const { url, filename, fileSize } = await uploadPdfToStorage(file);
+          const isPdfFile = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+          if (isPdfFile) {
+            const { url, filename, fileSize } = await uploadPdfToStorage(file);
+            return {
+              file,
+              fileUrl: url,
+              filename,
+              displayName: file.name,
+              fileSize,
+            };
+          }
+
+          const result = await uploadFileDirect(file);
           return {
             file,
-            fileUrl: url,
-            filename,
-            fileSize,
+            fileUrl: result.url,
+            filename: result.filename,
+            displayName: result.displayName,
+            fileSize: file.size,
           };
         } catch (err) {
           toast.error(`Failed to upload ${file.name}: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -482,9 +503,9 @@ export function WorkspaceSection({
     const validUploads = uploadResults.filter((r): r is NonNullable<typeof r> => r !== null);
     if (validUploads.length === 0) return;
 
-    const pdfCardDefinitions = validUploads.map(({ file, fileUrl, filename, fileSize }) => ({
+    const pdfCardDefinitions = validUploads.map(({ fileUrl, filename, displayName, fileSize }) => ({
       type: 'pdf' as const,
-      name: file.name.replace(/\.pdf$/i, ''),
+      name: displayName.replace(/\.pdf$/i, ''),
       initialData: {
         fileUrl,
         filename,

@@ -6,10 +6,9 @@ import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Upload } from "lucide-react";
 import { useCallback, useState, useRef } from "react";
 import { toast } from "sonner";
-import { emitOfficeDocumentRejected } from "@/components/modals/OfficeDocumentRejectedDialog";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
-import { isWordFile, isExcelFile, isPptxFile } from "@/lib/uploads/office-document-validation";
+import { OFFICE_DOCUMENT_ACCEPT } from "@/lib/uploads/office-document-validation";
 
 interface AssistantDropzoneProps {
   children: React.ReactNode;
@@ -163,6 +162,7 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
       'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.heic', '.heif', '.avif', '.tiff', '.tif'],
       'video/*': ['.mp4', '.webm', '.avi', '.mov', '.mkv'],
       'application/pdf': ['.pdf'],
+      ...OFFICE_DOCUMENT_ACCEPT,
       'text/plain': ['.txt'],
       'text/markdown': ['.md'],
       'text/csv': ['.csv'],
@@ -181,22 +181,10 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
       handleDragEnd();
 
       if (fileRejections.length > 0) {
-        const wordFiles = fileRejections.filter((r) => isWordFile(r.file));
-        const excelFiles = fileRejections.filter((r) => isExcelFile(r.file));
-        const pptxFiles = fileRejections.filter((r) => isPptxFile(r.file));
-        const hasOffice = wordFiles.length > 0 || excelFiles.length > 0 || pptxFiles.length > 0;
-        if (hasOffice) {
-          emitOfficeDocumentRejected({
-            word: wordFiles.length ? wordFiles.map((r) => r.file.name) : undefined,
-            excel: excelFiles.length ? excelFiles.map((r) => r.file.name) : undefined,
-            powerpoint: pptxFiles.length ? pptxFiles.map((r) => r.file.name) : undefined,
-          });
-        } else {
-          const rejectedFileNames = fileRejections.map((r) => r.file.name);
-          toast.error(
-            `The following file${rejectedFileNames.length > 1 ? "s are" : " is"} not supported:\n${rejectedFileNames.join("\n")}\n\nSupported: Images, Videos, PDFs, Text files`
-          );
-        }
+        const rejectedFileNames = fileRejections.map((r) => r.file.name);
+        toast.error(
+          `The following file${rejectedFileNames.length > 1 ? "s are" : " is"} not supported:\n${rejectedFileNames.join("\n")}\n\nSupported: Images, Videos, PDFs, Office docs, Text files`
+        );
       }
     },
   });

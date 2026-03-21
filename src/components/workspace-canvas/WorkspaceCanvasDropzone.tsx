@@ -13,13 +13,8 @@ import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
 import { uploadPdfToStorage } from "@/lib/uploads/pdf-upload-with-ocr";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
-import {
-  isWordFile,
-  isExcelFile,
-  isPptxFile,
-} from "@/lib/uploads/office-document-validation";
+import { OFFICE_DOCUMENT_ACCEPT } from "@/lib/uploads/office-document-validation";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
-import { emitOfficeDocumentRejected } from "@/components/modals/OfficeDocumentRejectedDialog";
 
 interface WorkspaceCanvasDropzoneProps {
   children: React.ReactNode;
@@ -47,10 +42,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
     return `${file.name}-${file.size}-${file.lastModified}`;
   };
 
-  const uploadFileToStorage = async (file: File): Promise<{ url: string; filename: string }> => {
-    const result = await uploadFileDirect(file);
-    return { url: result.url, filename: result.filename };
-  };
+  const uploadFileToStorage = async (file: File) => uploadFileDirect(file);
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
@@ -182,6 +174,8 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
         const nonPdfResults: Array<{
           fileUrl: string;
           filename: string;
+          contentType: string;
+          displayName: string;
           fileSize: number;
           name: string;
           originalFile: File;
@@ -189,12 +183,14 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
         if (nonPdfFiles.length > 0) {
           const uploadPromises = nonPdfFiles.map(async (file) => {
             try {
-              const { url, filename } = await uploadFileToStorage(file);
+              const result = await uploadFileToStorage(file);
               return {
-                fileUrl: url,
-                filename: file.name,
+                fileUrl: result.url,
+                filename: result.filename,
+                contentType: result.contentType,
+                displayName: result.displayName,
                 fileSize: file.size,
-                name: file.name.replace(/\.pdf$/i, ''),
+                name: result.displayName.replace(/\.pdf$/i, ''),
                 originalFile: file,
               };
             } catch (error) {
@@ -208,11 +204,31 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
           nonPdfResults.push(...results.filter((r): r is NonNullable<typeof r> => r !== null));
         }
 
-        const validResults = [...pdfResults, ...nonPdfResults];
+        const convertedPdfResults = nonPdfResults
+          .filter((r) => r.contentType === 'application/pdf')
+          .map((r) => ({
+            fileUrl: r.fileUrl,
+            filename: r.filename,
+            fileSize: r.fileSize,
+            name: r.name,
+            pdfData: {
+              fileUrl: r.fileUrl,
+              filename: r.filename,
+              fileSize: r.fileSize,
+              ocrStatus: "processing" as const,
+              ocrPages: [],
+            } as Partial<PdfData>,
+          }));
+        pdfResults.push(...convertedPdfResults);
+
+        const remainingNonPdfResults = nonPdfResults.filter(
+          (r) => r.contentType !== 'application/pdf'
+        );
+        const validResults = [...pdfResults, ...remainingNonPdfResults];
         if (validResults.length > 0) {
           const imageResults: typeof nonPdfResults = [];
           const audioResults: typeof nonPdfResults = [];
-          nonPdfResults.forEach((r) => {
+          remainingNonPdfResults.forEach((r) => {
             if (r.originalFile.type.startsWith('audio/')) audioResults.push(r);
             else imageResults.push(r);
           });
@@ -400,6 +416,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
     disabled: !currentWorkspaceId, // Disable if no workspace is selected
     accept: {
       'application/pdf': ['.pdf'],
+      ...OFFICE_DOCUMENT_ACCEPT,
       'image/png': ['.png'],
       'image/jpeg': ['.jpg', '.jpeg'],
       'image/gif': ['.gif'],
@@ -430,22 +447,10 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
       handleDragEnd();
 
       if (fileRejections.length > 0) {
-        const wordFiles = fileRejections.filter((r) => isWordFile(r.file));
-        const excelFiles = fileRejections.filter((r) => isExcelFile(r.file));
-        const pptxFiles = fileRejections.filter((r) => isPptxFile(r.file));
-        const hasOffice = wordFiles.length > 0 || excelFiles.length > 0 || pptxFiles.length > 0;
-        if (hasOffice) {
-          emitOfficeDocumentRejected({
-            word: wordFiles.length ? wordFiles.map((r) => r.file.name) : undefined,
-            excel: excelFiles.length ? excelFiles.map((r) => r.file.name) : undefined,
-            powerpoint: pptxFiles.length ? pptxFiles.map((r) => r.file.name) : undefined,
-          });
-        } else {
-          const rejectedFileNames = fileRejections.map((r) => r.file.name);
-          toast.error(
-            `Only PDF, image, and audio files can be dropped.\nRejected: ${rejectedFileNames.join(", ")}`
-          );
-        }
+        const rejectedFileNames = fileRejections.map((r) => r.file.name);
+        toast.error(
+          `Only PDF, Office, image, and audio files can be dropped.\nRejected: ${rejectedFileNames.join(", ")}`
+        );
       }
     },
   });
@@ -466,7 +471,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
                 Create Card
               </h3>
               <p className="text-sm text-muted-foreground">
-                Drop PDF, image, or audio files here to create cards
+                Drop PDF, Office, image, or audio files here to create cards
               </p>
             </div>
           </div>

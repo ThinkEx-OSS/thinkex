@@ -3,7 +3,7 @@ import { z } from "zod";
 import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
-import { loadStateForTool, resolveItem } from "./tool-utils";
+import { loadStateForTool, resolveItem, withSanitizedModelOutput } from "./tool-utils";
 import { getVirtualPath } from "@/lib/utils/workspace-fs";
 
 const EDITABLE_TYPES = ["note", "flashcard", "quiz", "pdf", "document"] as const;
@@ -14,7 +14,7 @@ const EDITABLE_TYPES = ["note", "flashcard", "quiz", "pdf", "document"] as const
  * PDFs support RENAME ONLY: oldString='', newString='', newName='new name'.
  */
 export function createEditItemTool(ctx: WorkspaceToolContext) {
-    return tool({
+    return withSanitizedModelOutput(tool({
         description:
             "Edit a note, document, flashcard deck, quiz, or PDF. You must use readWorkspace at least once before editing. DOCUMENTS: content is markdown — edit exactly like notes. PDFs: RENAME ONLY — pass oldString='', newString='', and newName='new name'. PDF content cannot be edited. RENAME ONLY (notes/documents/flashcards/quizzes): same pattern to rename without editing content. QUIZZES: readWorkspace may show '--- Progress (read-only) ---' at the top. That block is READ-ONLY. Never include it in oldString or newString. Only edit the {\"questions\":[...]} JSON. FULL REWRITE: oldString='' and newString=entire new content (quizzes: only the JSON). TARGETED EDIT: oldString must match exactly. Copy the content from readWorkspace as-is (it has no line prefixes). Match exact whitespace, indentation, newlines. Do NOT minify JSON. Edit FAILS if oldString not found or matches multiple times — add more context or use replaceAll.",
         inputSchema: zodSchema(
@@ -176,5 +176,5 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                 };
             }
         },
-    });
+    }));
 }

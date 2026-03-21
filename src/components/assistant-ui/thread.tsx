@@ -95,6 +95,7 @@ import {
 import { AssistantLoader } from "@/components/assistant-ui/assistant-loader";
 import { File as FileComponent } from "@/components/assistant-ui/file";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
+import { isOfficeDocument } from "@/lib/uploads/office-document-validation";
 import { Sources } from "@/components/assistant-ui/sources";
 import { Image } from "@/components/assistant-ui/image";
 import { Reasoning, ReasoningGroup } from "@/components/assistant-ui/reasoning";
@@ -821,13 +822,13 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         const file = attachment.file;
         if (!file) return null;
 
-        const { url: fileUrl, filename } = await uploadFileDirect(file);
+        const { url: fileUrl, filename, displayName } = await uploadFileDirect(file);
 
         return {
           fileUrl,
           filename: filename || file.name,
           fileSize: file.size,
-          name: file.name.replace(/\.pdf$/i, ''),
+          name: displayName.replace(/\.pdf$/i, ''),
         };
       });
 
@@ -899,7 +900,11 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         // Detect PDF attachments for background processing
         const pdfAttachments = attachments.filter((att) => {
           const file = att.file;
-          return file && (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'));
+          return file && (
+            file.type === 'application/pdf' ||
+            file.name.toLowerCase().endsWith('.pdf') ||
+            isOfficeDocument(file)
+          );
         });
 
         // Process PDFs in background - don't block message sending

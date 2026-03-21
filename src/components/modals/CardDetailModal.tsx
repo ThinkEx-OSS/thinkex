@@ -46,7 +46,7 @@ export function CardDetailModal({
   // or by the manual open action (openPanel).
   // We no longer need to manually select it here.
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
 
   // Handle escape key
   const handleEscape = useCallback(

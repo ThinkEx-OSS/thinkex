@@ -129,7 +129,7 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
             unsubscribe();
         };
         // Only re-subscribe when documentId changes (capture scope depends on it)
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, [documentId]);
 
 

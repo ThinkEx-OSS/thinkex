@@ -5,12 +5,7 @@ import { useHomeAttachments } from "@/contexts/HomeAttachmentsContext";
 import { Upload } from "lucide-react";
 import { useCallback } from "react";
 import { toast } from "sonner";
-import { emitOfficeDocumentRejected } from "@/components/modals/OfficeDocumentRejectedDialog";
-import {
-  isWordFile,
-  isExcelFile,
-  isPptxFile,
-} from "@/lib/uploads/office-document-validation";
+import { OFFICE_DOCUMENT_ACCEPT } from "@/lib/uploads/office-document-validation";
 import { cn } from "@/lib/utils";
 
 interface HomeHeroDropzoneProps {
@@ -47,6 +42,7 @@ export function HomeHeroDropzone({ children, onFilesDropped }: HomeHeroDropzoneP
     noKeyboard: true,
     accept: {
       "application/pdf": [".pdf"],
+      ...OFFICE_DOCUMENT_ACCEPT,
       "image/png": [".png"],
       "image/jpeg": [".jpg", ".jpeg"],
       "image/gif": [".gif"],
@@ -67,20 +63,8 @@ export function HomeHeroDropzone({ children, onFilesDropped }: HomeHeroDropzoneP
     },
     onDropRejected: (fileRejections) => {
       if (fileRejections.length > 0) {
-        const wordFiles = fileRejections.filter((r) => isWordFile(r.file));
-        const excelFiles = fileRejections.filter((r) => isExcelFile(r.file));
-        const pptxFiles = fileRejections.filter((r) => isPptxFile(r.file));
-        const hasOffice = wordFiles.length > 0 || excelFiles.length > 0 || pptxFiles.length > 0;
-        if (hasOffice) {
-          emitOfficeDocumentRejected({
-            word: wordFiles.length ? wordFiles.map((r) => r.file.name) : undefined,
-            excel: excelFiles.length ? excelFiles.map((r) => r.file.name) : undefined,
-            powerpoint: pptxFiles.length ? pptxFiles.map((r) => r.file.name) : undefined,
-          });
-        } else {
-          const names = fileRejections.map((r) => r.file.name).join(", ");
-          toast.error(`Only PDF, image, and audio files are supported. Rejected: ${names}`);
-        }
+        const names = fileRejections.map((r) => r.file.name).join(", ");
+        toast.error(`Only PDF, Office, image, and audio files are supported. Rejected: ${names}`);
       }
     },
   });
@@ -103,7 +87,7 @@ export function HomeHeroDropzone({ children, onFilesDropped }: HomeHeroDropzoneP
             <div className="space-y-2">
               <h3 className="text-lg font-semibold text-foreground">Drop files here</h3>
               <p className="text-sm text-muted-foreground">
-                PDF, image, or audio — same as the Upload button
+                PDF, Office, image, or audio — same as the Upload button
               </p>
             </div>
           </div>

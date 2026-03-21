@@ -29,14 +29,7 @@ import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button
 import { cn } from "@/lib/utils";
 import { useAttachmentUploadStore } from "@/lib/stores/attachment-upload-store";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { emitOfficeDocumentRejected } from "@/components/modals/OfficeDocumentRejectedDialog";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
-import {
-  isWordFile,
-  isExcelFile,
-  isPptxFile,
-  isOfficeDocument,
-} from "@/lib/uploads/office-document-validation";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
 import { FaCheck } from "react-icons/fa";
 
@@ -492,29 +485,14 @@ export const ComposerAddAttachment: FC = () => {
     // Validate each file (size + reject Office documents)
     const validFiles: File[] = [];
     const oversizedFiles: string[] = [];
-    const officeWord: string[] = [];
-    const officeExcel: string[] = [];
-    const officePowerpoint: string[] = [];
 
     fileArray.forEach((file) => {
       if (file.size > MAX_FILE_SIZE_BYTES) {
         oversizedFiles.push(`${file.name} (${(file.size / (1024 * 1024)).toFixed(1)}MB)`);
-      } else if (isOfficeDocument(file)) {
-        if (isWordFile(file)) officeWord.push(file.name);
-        else if (isExcelFile(file)) officeExcel.push(file.name);
-        else officePowerpoint.push(file.name);
       } else {
         validFiles.push(file);
       }
     });
-
-    if (officeWord.length > 0 || officeExcel.length > 0 || officePowerpoint.length > 0) {
-      emitOfficeDocumentRejected({
-        word: officeWord.length ? officeWord : undefined,
-        excel: officeExcel.length ? officeExcel : undefined,
-        powerpoint: officePowerpoint.length ? officePowerpoint : undefined,
-      });
-    }
 
     // Reject password-protected PDFs (so other files still upload)
     let filesToAdd = validFiles;
@@ -585,7 +563,7 @@ export const ComposerAddAttachment: FC = () => {
           className="sr-only"
           onChange={handleFileChange}
           multiple={true}
-          accept="image/*,video/*,.pdf,.txt,.md,.csv,.json,.heic,.heif,.avif,.tiff,.tif"
+          accept="image/*,video/*,.pdf,.txt,.md,.csv,.json,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.heic,.heif,.avif,.tiff,.tif"
         />
       </div>
     </>

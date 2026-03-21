@@ -12,13 +12,6 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
-import {
-  isOfficeDocument,
-  isWordFile,
-  isExcelFile,
-  isPptxFile,
-} from "@/lib/uploads/office-document-validation";
-import { emitOfficeDocumentRejected } from "@/components/modals/OfficeDocumentRejectedDialog";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
 
@@ -96,24 +89,11 @@ export function HomeAttachmentsProvider({ children }: { children: ReactNode }) {
   const addFiles = useCallback(async (newFiles: File[]) => {
     if (newFiles.length === 0) return;
 
-    // Reject Office documents — show dialog, don't add
-    const officeWord = newFiles.filter(isWordFile).map((f) => f.name);
-    const officeExcel = newFiles.filter(isExcelFile).map((f) => f.name);
-    const officePowerpoint = newFiles.filter(isPptxFile).map((f) => f.name);
-    if (officeWord.length > 0 || officeExcel.length > 0 || officePowerpoint.length > 0) {
-      emitOfficeDocumentRejected({
-        word: officeWord.length ? officeWord : undefined,
-        excel: officeExcel.length ? officeExcel : undefined,
-        powerpoint: officePowerpoint.length ? officePowerpoint : undefined,
-      });
-    }
-    const withoutOffice = newFiles.filter((f) => !isOfficeDocument(f));
-
-    const pdfFiles = withoutOffice.filter(
+    const pdfFiles = newFiles.filter(
       (f) =>
         f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf")
     );
-    const nonPdfFiles = withoutOffice.filter(
+    const nonPdfFiles = newFiles.filter(
       (f) =>
         f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf")
     );
@@ -152,12 +132,8 @@ export function HomeAttachmentsProvider({ children }: { children: ReactNode }) {
     toast.success(`Added ${newItems.length} file${newItems.length > 1 ? "s" : ""} — uploading...`);
 
     newItems.forEach((item) => {
-      const mediaType =
-        item.file.type ||
-        (item.file.name.endsWith(".pdf") ? "application/pdf" : "application/octet-stream");
-
       const promise = uploadFileDirect(item.file)
-        .then(({ url }) => {
+        .then((uploadResult) => {
           setFileItems((prev) => {
             const existing = prev.find((i) => i.id === item.id);
             if (!existing) return prev;
@@ -167,9 +143,9 @@ export function HomeAttachmentsProvider({ children }: { children: ReactNode }) {
                     ...i,
                     status: "ready" as const,
                     result: {
-                      url,
-                      mediaType,
-                      filename: i.file.name,
+                      url: uploadResult.url,
+                      mediaType: uploadResult.contentType,
+                      filename: uploadResult.displayName,
                       fileSize: i.file.size,
                     },
                   }

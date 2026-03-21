@@ -39,11 +39,11 @@ export type MermaidDiagramProps = SyntaxHighlighterProps & {
 export const MermaidDiagram: FC<MermaidDiagramProps> = ({
   code,
   className,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   node: _node,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   components: _components,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   language: _language,
 }) => {
   const ref = useRef<HTMLPreElement>(null);

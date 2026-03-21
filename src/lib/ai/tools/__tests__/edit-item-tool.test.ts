@@ -9,10 +9,14 @@ vi.mock("@/lib/ai/workers", () => ({
   workspaceWorker: (...args: unknown[]) => mockWorkspaceWorker(...args),
 }));
 
-vi.mock("@/lib/ai/tools/tool-utils", () => ({
-  loadStateForTool: (...args: unknown[]) => mockLoadStateForTool(...args),
-  resolveItem: (...args: unknown[]) => mockResolveItem(...args),
-}));
+vi.mock("@/lib/ai/tools/tool-utils", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/ai/tools/tool-utils")>();
+  return {
+    ...actual,
+    loadStateForTool: (...args: unknown[]) => mockLoadStateForTool(...args),
+    resolveItem: (...args: unknown[]) => mockResolveItem(...args),
+  };
+});
 
 vi.mock("@/lib/utils/workspace-fs", () => ({
   getVirtualPath: (...args: unknown[]) => mockGetVirtualPath(...args),
