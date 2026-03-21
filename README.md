@@ -70,9 +70,6 @@ ThinkEx can be self hosted for local development. The setup uses Docker for Post
 *   **Required API Keys:**
     *   **Google AI**: API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
         *   `GOOGLE_GENERATIVE_AI_API_KEY`
-    *   **Assistant UI**: API key and base URL from [Assistant Cloud](https://cloud.assistant-ui.com/)
-        *   `NEXT_PUBLIC_ASSISTANT_BASE_URL`
-        *   `ASSISTANT_API_KEY`
 *   **Optional API Keys:**
     *   **Google OAuth**: Get credentials from [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (for OAuth login)
         *   `GOOGLE_CLIENT_ID`
