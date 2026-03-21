@@ -4,7 +4,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Users, Github, Sparkles } from "lucide-react";
-// import { BackgroundCard, cardColors, type BackgroundCardData } from "./BackgroundCard";
 import { FloatingWorkspaceCards } from "./FloatingWorkspaceCards";
 import {
   HoverCard,
