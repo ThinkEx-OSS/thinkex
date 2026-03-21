@@ -1,6 +1,6 @@
 "use client";
 
-import { Streamdown } from "streamdown";
+import { Streamdown, type CodeHighlighterPlugin } from "streamdown";
 import { createCodePlugin } from "@streamdown/code";
 import { mermaid } from "@streamdown/mermaid";
 import { createMathPlugin } from "@streamdown/math";
@@ -14,8 +14,8 @@ const math = createMathPlugin({ singleDollarTextMath: true });
 
 // Create code plugin with one-dark-pro theme
 const code = createCodePlugin({
-  themes: ['one-dark-pro', 'one-dark-pro'],
-});
+  themes: ["one-dark-pro", "one-dark-pro"],
+}) as CodeHighlighterPlugin;
 
 interface StreamdownMarkdownProps {
   children: string;
