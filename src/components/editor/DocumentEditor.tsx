@@ -50,7 +50,6 @@ import { useBlockquote } from "@/components/tiptap-ui/blockquote-button"
 import { useCodeBlock } from "@/components/tiptap-ui/code-block-button"
 import { useMark } from "@/components/tiptap-ui/mark-button"
 import { useTextAlign } from "@/components/tiptap-ui/text-align-button"
-import { useImageUpload } from "@/components/tiptap-ui/image-upload-button"
 import {
   ColorHighlightPopover,
   ColorHighlightPopoverContent,
@@ -84,7 +83,7 @@ import { useWindowSize } from "@/hooks/use-window-size"
 import { useCursorVisibility } from "@/hooks/use-cursor-visibility"
 
 // --- Components ---
-import { ThemeToggle } from "@/components/tiptap-templates/simple/theme-toggle"
+import { EditorThemeToggle } from "@/components/editor/EditorThemeToggle"
 
 // --- Lib ---
 import { cn, extractSelectionTextForAskAI, handleImageUpload, MAX_FILE_SIZE } from "@/lib/tiptap-utils"
@@ -96,15 +95,15 @@ import { toast } from "sonner"
 import { MathEditDialog } from "@/components/editor/MathEditDialog"
 
 // --- Styles ---
-import "@/components/tiptap-templates/simple/simple-editor.scss"
+import "@/components/editor/document-editor.scss"
 
-export interface SimpleEditorUpdate {
+export interface DocumentEditorUpdate {
   json: JSONContent
   text: string
   markdown: string
 }
 
-interface SimpleEditorProps {
+interface DocumentEditorProps {
   autofocus?: boolean
   className?: string
   content?: JSONContent | string
@@ -113,7 +112,7 @@ interface SimpleEditorProps {
   editorClassName?: string
   embedded?: boolean
   lastSource?: "user" | "agent"
-  onUpdate?: (update: SimpleEditorUpdate) => void
+  onUpdate?: (update: DocumentEditorUpdate) => void
   showThemeToggle?: boolean
 }
 
@@ -617,21 +616,6 @@ function AlignDropdown({ editor }: { editor: Editor | null }) {
   )
 }
 
-function ImageToolbarButton({ editor }: { editor: Editor | null }) {
-  const { isVisible, handleImage, Icon } = useImageUpload({ editor })
-
-  if (!isVisible) return null
-
-  return (
-    <ToolbarIconButton
-      title="Upload Image"
-      onClick={handleImage}
-    >
-      <Icon className="tiptap-button-icon" />
-    </ToolbarIconButton>
-  )
-}
-
 function TableControls({ editor }: { editor: Editor | null }) {
   const isInTable = useEditorState({
     editor,
@@ -709,14 +693,14 @@ function AskAiBubbleMenu({ editor }: { editor: Editor | null }) {
   const handleAskAI = useCallback(() => {
     if (!editor) return
 
-    const { empty } = editor.state.selection
+    const { empty, to } = editor.state.selection
     if (empty) return
 
     const text = extractSelectionTextForAskAI(editor)
     if (!text) return
 
     addReplySelection({ text })
-    editor.chain().focus().run()
+    editor.chain().focus().setTextSelection(to).run()
     toast.success("Added to context")
     focusComposerInput()
   }, [editor, addReplySelection])
@@ -726,12 +710,11 @@ function AskAiBubbleMenu({ editor }: { editor: Editor | null }) {
   return (
     <BubbleMenu
       editor={editor}
-      updateDelay={250}
+      updateDelay={100}
       shouldShow={({ state }) => {
         const { selection } = state
         if (selection.empty) return false
-        // Show for text, node (math/image), and cell (table) selections
-        return true
+        return Boolean(extractSelectionTextForAskAI(editor)?.trim())
       }}
       options={{
         placement: "bottom-end",
@@ -739,15 +722,16 @@ function AskAiBubbleMenu({ editor }: { editor: Editor | null }) {
         shift: {
           padding: 8,
         },
+        inline: true,
       }}
     >
-      <div className="flex items-center rounded-full border bg-popover p-0.5 text-popover-foreground shadow-lg">
+      <div className="flex items-center rounded-full p-0.5">
         <Button
           type="button"
-          variant="ghost"
+          variant="default"
           size="sm"
           onClick={handleAskAI}
-          className="h-8 rounded-full px-3 text-xs font-medium text-blue-400 hover:text-blue-300"
+          className="h-8 rounded-full border-0 !bg-blue-500 px-3 text-xs font-medium !text-white shadow-sm transition-colors hover:!bg-blue-600 hover:!text-white"
         >
           <FaQuoteRight className="size-3.5" />
           <span>Ask AI</span>
@@ -785,18 +769,15 @@ const MainToolbarContent = ({
         )}
       </ToolbarGroup>
       <ToolbarGroup>
-          <MathDropdown editor={editor} />
+        <MathDropdown editor={editor} />
         <AlignDropdown editor={editor} />
-      </ToolbarGroup>
-      <ToolbarGroup>
-        <ImageToolbarButton editor={editor} />
       </ToolbarGroup>
       <TableControls editor={editor} />
       {showThemeToggle ? (
         <>
           <Separator orientation="vertical" className="h-5" />
           <ToolbarGroup>
-            <ThemeToggle />
+            <EditorThemeToggle />
           </ToolbarGroup>
         </>
       ) : null}
@@ -823,7 +804,7 @@ const MobileToolbarContent = ({
   </div>
 )
 
-export function SimpleEditor({
+export function DocumentEditor({
   autofocus = false,
   className,
   content,
@@ -834,7 +815,7 @@ export function SimpleEditor({
   lastSource,
   onUpdate,
   showThemeToggle = true,
-}: SimpleEditorProps = {}) {
+}: DocumentEditorProps = {}) {
   const isMobile = useIsBreakpoint()
   const { height } = useWindowSize()
   const [mobileView, setMobileView] = useState<"main" | "highlighter">(

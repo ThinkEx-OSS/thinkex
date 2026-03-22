@@ -8,7 +8,7 @@ import { Moon } from "lucide-react"
 import { Sun } from "lucide-react"
 import { useEffect, useState } from "react"
 
-export function ThemeToggle() {
+export function EditorThemeToggle() {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false)
 
   useEffect(() => {

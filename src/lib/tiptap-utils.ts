@@ -375,7 +375,7 @@ export function extractSelectionTextForAskAI(editor: Editor | null): string | nu
       const latex = node.attrs?.latex
       return typeof latex === "string" ? `$$\n${latex}\n$$` : ""
     }
-    return node.textContent?.trim() || `[${name}]`
+    return node.textContent?.trim() || null
   }
 
   // CellSelection — table cells

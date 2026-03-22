@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState, useEffect } from "react";
 import type { Item, ItemData, FlashcardData, FlashcardItem } from "@/lib/workspace-state/types";
-import { DynamicBlockNoteEditor } from "@/components/editor/DynamicBlockNoteEditor";
+import { LazyBlockNoteEditor } from "@/components/editor/LazyBlockNoteEditor";
 import { PreviewBlock } from "@/components/editor/BlockNotePreview";
 import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEditor";
 import { Plus, Trash2 } from "lucide-react";
@@ -179,7 +179,7 @@ export function FlashcardContent({ item, onUpdateData }: FlashcardContentProps) 
                                             className="rounded-lg border border-foreground/15 bg-foreground/5 min-h-[150px] shadow-inner dark:border-white/15 dark:bg-white/5"
                                             style={{ backdropFilter: 'blur(8px)' }}
                                         >
-                                            <DynamicBlockNoteEditor
+                                            <LazyBlockNoteEditor
                                                 initialContent={getBlocks(card.frontBlocks as Block[] || [], card.front)}
                                                 onChange={(blocks) => updateCard(card.id, {
                                                     frontBlocks: blocks,
@@ -239,7 +239,7 @@ export function FlashcardContent({ item, onUpdateData }: FlashcardContentProps) 
                                             className="rounded-lg border border-foreground/15 bg-foreground/5 min-h-[150px] shadow-inner dark:border-white/15 dark:bg-white/5"
                                             style={{ backdropFilter: 'blur(8px)' }}
                                         >
-                                            <DynamicBlockNoteEditor
+                                            <LazyBlockNoteEditor
                                                 initialContent={getBlocks(card.backBlocks as Block[] || [], card.back)}
                                                 onChange={(blocks) => updateCard(card.id, {
                                                     backBlocks: blocks,

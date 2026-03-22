@@ -206,7 +206,7 @@ export function MathEditProvider({ children }: { children: React.ReactNode }) {
 }
 
 // ---------------------------------------------------------------------------
-// Standalone dialog (used by TipTap SimpleEditor via props, no context needed)
+// Standalone dialog (used by the TipTap document editor via props, no context needed)
 // ---------------------------------------------------------------------------
 
 export interface MathEditDialogProps {
