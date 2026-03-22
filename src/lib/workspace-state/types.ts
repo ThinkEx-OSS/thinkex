@@ -154,6 +154,7 @@ export interface WebsiteData {
 
 export interface DocumentData {
   markdown?: string;
+  sources?: Source[];
 }
 
 export type ItemData = NoteData | PdfData | FlashcardData | FolderData | YouTubeData | QuizData | ImageData | AudioData | WebsiteData | DocumentData;

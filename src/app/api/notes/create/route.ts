@@ -33,12 +33,13 @@ export async function POST(req: Request) {
 
         const { workspaceId, title, content, folderId } = result.data;
 
-        logger.info("📝 [API] Creating note via manual confirmation:", { workspaceId, title });
+        logger.info("📝 [API] Creating document via legacy note endpoint:", { workspaceId, title });
 
         const workerResult = await workspaceWorker("create", {
             workspaceId,
             title,
             content,
+            itemType: "document",
             folderId,
         });
 

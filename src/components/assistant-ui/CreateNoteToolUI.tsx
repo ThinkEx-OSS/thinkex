@@ -3,8 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { makeAssistantToolUI } from "@assistant-ui/react";
-import { CheckIcon, X, Eye, FolderInput } from "lucide-react";
-import { CgNotes } from "react-icons/cg";
+import { X, Eye, FolderInput, FileText } from "lucide-react";
 import { logger } from "@/lib/utils/logger";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Button } from "@/components/ui/button";
@@ -128,18 +127,18 @@ const CreateNoteReceipt = ({
             status?.type === "complete" ? "text-blue-400" : "text-red-400"
           )}>
             {status?.type === "complete" ? (
-              <CgNotes className="size-4" />
+              <FileText className="size-4" />
             ) : (
               <X className="size-4" />
             )}
           </div>
           <div className="flex flex-col min-w-0 flex-1">
             <span className="text-xs font-medium truncate">
-              {status?.type === "complete" ? args.title : "Note Creation Cancelled"}
+              {status?.type === "complete" ? args.title : "Document Creation Cancelled"}
             </span>
             {status?.type === "complete" && (
               <span className="text-[10px] text-muted-foreground">
-                {folderName ? `In ${folderName}` : "Note created"}
+                {folderName ? `In ${folderName}` : "Document created"}
               </span>
             )}
           </div>
@@ -250,11 +249,11 @@ export const CreateNoteToolUI = makeAssistantToolUI<CreateNoteArgs, WorkspaceRes
       );
     } else if (status.type === "running") {
       logger.debug("⏳ [CreateNoteTool] Rendering loading state - status is running");
-      content = <ToolUILoadingShell label="Creating note..." />;
+      content = <ToolUILoadingShell label="Creating document..." />;
     } else if (status.type === "incomplete" && status.reason === "error") {
       content = (
         <ToolUIErrorShell
-          label="Failed to create note"
+          label="Failed to create document"
           message={parsed && !parsed.success ? parsed.message : undefined}
         />
       );

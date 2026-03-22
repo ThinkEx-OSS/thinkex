@@ -735,7 +735,7 @@ export function WorkspaceSection({
               callbacks: {
                 onCreateNote: () => {
                   if (addItem) {
-                    const itemId = addItem("note");
+                    const itemId = addItem("document");
                     if (handleCreatedItems && itemId) {
                       handleCreatedItems([itemId]);
                     }
@@ -865,4 +865,3 @@ export function WorkspaceSection({
     </div>
   );
 }
-

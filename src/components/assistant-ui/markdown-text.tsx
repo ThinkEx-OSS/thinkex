@@ -114,11 +114,11 @@ const CitationRenderer = memo(
       const items = workspaceState.items;
       const byPath = resolveItemByPath(items, title);
       const item =
-        byPath && (byPath.type === "note" || byPath.type === "pdf")
+        byPath && (byPath.type === "note" || byPath.type === "document" || byPath.type === "pdf")
           ? byPath
           : items.find(
               (i) =>
-                (i.type === "note" || i.type === "pdf") &&
+                (i.type === "note" || i.type === "document" || i.type === "pdf") &&
                 titleNorm(i.name) === titleNorm(title)
             );
       if (!item) return;

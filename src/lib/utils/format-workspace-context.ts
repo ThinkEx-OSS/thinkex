@@ -175,17 +175,19 @@ MATH FORMATTING:
   $$
   \\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}
   $$
+- Use raw LaTeX only inside math. Never use HTML tags or HTML entities in math (for example: <span>, &amp;, &lt;, &gt;, &nbsp;)
 - Currency (CRITICAL): ALWAYS escape dollar signs as \\$ so they are never parsed as math. Examples: \\$5, \\$19.99, \\$1,000, \\$100k, \\$100M
 - NEVER use \\$ inside math delimiters ($..$ or $$..$$). For dollar signs inside math, use \\\\text{\\$} or omit them entirely (just write the number)
 - Apply these rules to ALL tool calls (createNote, editItem, createFlashcards, etc.)
 - Spacing: Use \\, for thin space in integrals: $\\int f(x) \\, dx$
+- Use \\\\text{...} for words/units inside math
 - Common patterns:
   * Fractions: $\\frac{a}{b}$
   * Square roots: $\\sqrt{x}$ or $\\sqrt[n]{x}$
   * Greek letters: $\\alpha, \\beta, \\gamma, \\pi$
   * Summations: $\\sum_{i=1}^{n}$
   * Integrals: $\\int_{a}^{b}$
-  * Matrices: $$\\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}$$
+  * Matrices: $$\\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}$$ (use literal & for columns and \\\\ for rows; never &amp;)
 
 Example - correct math and currency in one sentence:
 "The total cost is \\$49.99. The quadratic formula is $x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$."

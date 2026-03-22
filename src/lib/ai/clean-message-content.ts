@@ -15,7 +15,7 @@ export interface ProcessedContent {
 export function processMessageContent(rawContent: string): ProcessedContent {
   // If the content is empty, return defaults
   if (!rawContent || !rawContent.trim()) {
-    return { title: "New Note", content: "" };
+    return { title: "New Document", content: "" };
   }
 
   let title: string;
@@ -36,7 +36,7 @@ export function processMessageContent(rawContent: string): ProcessedContent {
       content = content.substring(firstLineBreak + 1).trim();
     } else {
       // Single line of content
-      title = content || "New Note";
+      title = content || "New Document";
       content = "";
     }
   }
@@ -67,7 +67,7 @@ export function processMessageContent(rawContent: string): ProcessedContent {
   }
 
   return {
-    title: title || "New Note",
+    title: title || "New Document",
     content: content
   };
 }

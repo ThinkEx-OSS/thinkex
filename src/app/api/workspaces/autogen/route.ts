@@ -296,10 +296,12 @@ FORMATTING (apply to note content — same as normal chat note/tool content):
 - Markdown (GFM) with proper structure: headers, lists, bold/italic, code, links.
 - MATH FORMATTING:
   - Use single $...$ for inline math and $$...$$ for block math. Block math: $$...$$ on separate lines for centered display.
+  - Use raw LaTeX only inside math. Never use HTML tags or HTML entities in math (for example: <span>, &amp;, &lt;, &gt;, &nbsp;).
   - Currency (CRITICAL): ALWAYS escape dollar signs as \\$ so they are never parsed as math. Examples: \\$5, \\$19.99, \\$1,000, \\$100k, \\$100M.
   - NEVER use \\$ inside math delimiters ($..$ or $$..$$). For dollar signs inside math, use \\\\text{\\$} or omit them entirely.
   - Spacing: Use \\, for thin space in integrals: $\\int f(x) \\, dx$.
-  - Common patterns: fractions $\\frac{a}{b}$, roots $\\sqrt{x}$, Greek $\\alpha, \\beta, \\pi$, sums $\\sum_{i=1}^{n}$, integrals $\\int_{a}^{b}$, matrices $$\\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}$$.
+  - Use \\\\text{...} for words/units inside math.
+  - Common patterns: fractions $\\frac{a}{b}$, roots $\\sqrt{x}$, Greek $\\alpha, \\beta, \\pi$, sums $\\sum_{i=1}^{n}$, integrals $\\int_{a}^{b}$, matrices $$\\begin{bmatrix} a & b \\\\ c & d \\end{bmatrix}$$ (use literal & for columns and \\\\ for rows; never &amp;).
 - Do NOT use mermaid or other diagram code blocks in the note content.
 
 Output:
@@ -475,7 +477,7 @@ export async function POST(request: NextRequest) {
         const hasYouTubeLink = links?.some(isYouTubeUrl);
         // Always reserve YouTube footprint so a later searched YouTube item (AUTOGEN_LAYOUTS.youtube) never overlaps early PDFs/images
         const pdfItemLayouts: Pick<Item, "type" | "layout">[] = [
-          { type: "note", layout: AUTOGEN_LAYOUTS.note as Item["layout"] },
+          { type: "document", layout: AUTOGEN_LAYOUTS.note as Item["layout"] },
           { type: "quiz", layout: AUTOGEN_LAYOUTS.quiz as Item["layout"] },
           { type: "youtube", layout: AUTOGEN_LAYOUTS.youtube as Item["layout"] },
         ];
@@ -711,9 +713,8 @@ export async function POST(request: NextRequest) {
           {
             title: note.title,
             content: note.content,
-            itemType: "note",
+            itemType: "document",
             layout: note.layout,
-            ...((distilled.sources?.length ?? 0) > 0 && { sources: distilled.sources }),
           },
           { title: quizContent.title, itemType: "quiz", quizData: { questions: quizContent.questions }, layout: quizContent.layout },
           ...(youtubeResult ? [{ title: youtubeResult.title, itemType: "youtube" as const, youtubeData: { url: youtubeResult.url }, layout: youtubeResult.layout }] : []),

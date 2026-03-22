@@ -107,6 +107,12 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
   const getPreviewText = (workspace: WorkspaceWithState) => {
     if (workspace.state?.items && workspace.state.items.length > 0) {
       const firstItem = workspace.state.items[0];
+      if (firstItem.type === "document") {
+        const documentData = firstItem.data as { markdown?: string };
+        if (documentData.markdown) {
+          return documentData.markdown.split("\n").slice(0, 3).join("\n");
+        }
+      }
       if (firstItem.type === "note") {
         const noteData = firstItem.data as { field1?: string; blockContent?: unknown };
         if (noteData.field1) {

@@ -20,6 +20,7 @@ import { useSession } from "@/lib/auth-client";
 function formatItemType(type: string): string {
   const map: Record<string, string> = {
     pdf: "PDF",
+    document: "document",
     youtube: "video",
     flashcard: "flashcard",
     note: "note",

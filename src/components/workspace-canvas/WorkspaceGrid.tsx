@@ -521,9 +521,9 @@ export function WorkspaceGrid({
         }
       } else if (itemData.type === 'folder' || itemData.type === 'flashcard') {
         // Folders and flashcards don't need minimum height enforcement - skip
-      } else if (currentBreakpointRef.current !== 'xxs' && (itemData.type === 'note' || itemData.type === 'pdf' || itemData.type === 'quiz' || itemData.type === 'audio')) {
-        // Note, PDF, Quiz, and Audio (recording) cards: handle transitions between compact and expanded modes
-        // Note/Audio cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=9
+      } else if (currentBreakpointRef.current !== 'xxs' && (itemData.type === 'note' || itemData.type === 'document' || itemData.type === 'pdf' || itemData.type === 'quiz' || itemData.type === 'audio')) {
+        // Note, Document, PDF, Quiz, and Audio (recording) cards: handle transitions between compact and expanded modes
+        // Note/Document/Audio cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=9
         // PDF cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=6
         // Quiz cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=13
         const wasCompact = oldItem.w === 1;

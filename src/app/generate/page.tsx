@@ -17,7 +17,7 @@ const PROGRESS_LABELS: Record<string, string> = {
   understanding: "Understanding content...",
   metadata: "Generating workspace title...",
   workspace: "Creating your workspace...",
-  note: "Creating your note...",
+  note: "Creating your document...",
   quiz: "Creating your quiz...",
   youtube: "Adding a video...",
   complete: "Done! Opening your workspace...",
@@ -145,7 +145,7 @@ function GenerateContent() {
               } else if (stage === "noteQuiz") {
                 const note = p.note as Record<string, unknown> | undefined;
                 if (typeof note?.title === "string" && note.title) {
-                  applyIfNotAborted(() => setProgressText(`Creating note: ${note.title}...`));
+                  applyIfNotAborted(() => setProgressText(`Creating document: ${note.title}...`));
                 }
               }
             } else if (ev.type === "metadata") {

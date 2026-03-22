@@ -107,7 +107,10 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
         itemData = p.quizData;
     } else if (itemType === "document") {
         const normalizedContent = p.content ? fixLLMDoubleEscaping(p.content) : "";
-        itemData = { markdown: normalizedContent } as DocumentData;
+        itemData = {
+            markdown: normalizedContent,
+            ...(p.sources?.length && { sources: p.sources }),
+        } as DocumentData;
     } else {
         const normalizedContent = p.content ? fixLLMDoubleEscaping(p.content) : "";
         const blockContent = normalizedContent ? await markdownToBlocks(normalizedContent) : undefined;
@@ -127,6 +130,7 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
     }
 
     const defaultNames: Record<string, string> = {
+        document: "New Document",
         youtube: "YouTube Video",
         image: "Image",
         quiz: "New Quiz",
@@ -138,7 +142,7 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
     return {
         id: itemId,
         type: itemType,
-        name: p.title || defaultNames[itemType] || "New Note",
+        name: p.title || defaultNames[itemType] || "New Document",
         subtitle: "",
         data: itemData,
         color: getRandomCardColor(),

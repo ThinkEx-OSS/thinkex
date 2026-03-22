@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { X, Highlighter, CheckIcon, Plus } from "lucide-react";
-import { CgNotes } from "react-icons/cg";
+import { X, Highlighter, Plus, FileText } from "lucide-react";
 import { FaQuoteRight } from "react-icons/fa6";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -628,19 +627,19 @@ export default function AssistantTextSelectionManager({
     highlightUserPrompts.current.clear();
   }, [exitMultiSelectMode, setTooltipVisible, removeMarkerElement]);
 
-  // Handle creating a note from current selection or highlights
+  // Handle creating a document from current selection or highlights
   const handleCreateNote = useCallback(async () => {
     if (!workspaceId) {
       toast.error("No workspace selected");
       return;
     }
 
-    // If there's a current selection and not in multi-mode, create note via agent
+    // If there's a current selection and not in multi-mode, create document via agent
     if (currentSelection && !inMultiMode) {
       try {
         setIsProcessing(true);
 
-        // Call the API endpoint that uses the workspace worker (same as createNote tool)
+        // Call the API endpoint that creates a rich-text document
         // Get the current active folder ID
         const activeFolderId = useUIStore.getState().activeFolderId;
 
@@ -658,7 +657,7 @@ export default function AssistantTextSelectionManager({
 
         if (!response.ok) {
           const error = await response.json();
-          throw new Error(error.error || "Failed to create note");
+          throw new Error(error.error || "Failed to create document");
         }
 
         const result = await response.json();
@@ -675,11 +674,11 @@ export default function AssistantTextSelectionManager({
         window.getSelection()?.removeAllRanges();
         setTooltipVisible(false);
 
-        toast.success("Note created!");
+        toast.success("Document created!");
       } catch (error) {
-        console.error("Error creating note:", error);
+        console.error("Error creating document:", error);
         toast.error(
-          error instanceof Error ? error.message : "Failed to create note"
+          error instanceof Error ? error.message : "Failed to create document"
         );
       } finally {
         setIsProcessing(false);
@@ -719,11 +718,11 @@ export default function AssistantTextSelectionManager({
     await handleCreateNote();
   }, [handleCreateNote]);
 
-  // Handle submitting multi selections - create note via agent
+  // Handle submitting multi selections - create document via agent
   const handleSubmitMultiSelections = useCallback(async () => {
     if (multiSelectionsForDialog.length === 0 || !workspaceId) return;
 
-    const toastId = toast.loading("Creating note...");
+    const toastId = toast.loading("Creating document...");
     setShowMultiSelectDialog(false); // Close immediately for snappier UX
     setIsSubmittingMulti(true);
     try {
@@ -745,7 +744,7 @@ export default function AssistantTextSelectionManager({
         combinedContent = `${combinedContent}\n\n---\n\n**Notes:**\n${multiSelectAnnotation.trim()}`;
       }
 
-      // Call the API endpoint that uses the workspace worker (same as createNote tool)
+      // Call the API endpoint that creates a rich-text document
       // Get the current active folder ID
       const activeFolderId = useUIStore.getState().activeFolderId;
 
@@ -763,7 +762,7 @@ export default function AssistantTextSelectionManager({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Failed to create note");
+        throw new Error(error.error || "Failed to create document");
       }
 
       const result = await response.json();
@@ -776,7 +775,7 @@ export default function AssistantTextSelectionManager({
       }
 
       toast.success(
-        `Note created with ${multiSelectionsForDialog.length} selection${multiSelectionsForDialog.length > 1 ? 's' : ''}!`,
+        `Document created with ${multiSelectionsForDialog.length} selection${multiSelectionsForDialog.length > 1 ? 's' : ''}!`,
         { id: toastId }
       );
 
@@ -786,9 +785,9 @@ export default function AssistantTextSelectionManager({
       // clearAllHighlights already handles marker cleanup
       clearAllHighlights();
     } catch (error) {
-      console.error("Error creating note:", error);
+      console.error("Error creating document:", error);
       toast.error(
-        error instanceof Error ? error.message : "Failed to create note"
+        error instanceof Error ? error.message : "Failed to create document"
         ,
         { id: toastId }
       );
@@ -853,7 +852,7 @@ export default function AssistantTextSelectionManager({
 
   // Define tooltip actions - always show multi-mode actions when expanded
   const tooltipActions: TooltipAction[] = [
-    // Multi-mode actions: Reply (add more), Note (create note), Clear all
+    // Multi-mode actions: Reply (add more), Document, Clear all
     {
       id: "reply",
       label: "Reply",
@@ -863,8 +862,8 @@ export default function AssistantTextSelectionManager({
     },
     {
       id: "note",
-      label: "Note",
-      icon: <CgNotes size={16} />,
+      label: "Document",
+      icon: <FileText size={16} />,
       colorClass: "bg-green-600 hover:bg-green-700",
       onClick: handleCreateNote,
     },

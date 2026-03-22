@@ -35,7 +35,7 @@ export async function POST(req: Request) {
 
         const { urls, workspaceId, folderId } = parseResult.data;
 
-        logger.info("📝 [API] Creating note from URLs:", { workspaceId, urlCount: urls.length });
+        logger.info("📝 [API] Creating document from URLs via legacy note endpoint:", { workspaceId, urlCount: urls.length });
 
         // Dynamically import UrlProcessor to avoid circular dependencies
         const { UrlProcessor } = await import("@/lib/ai/utils/url-processor");
@@ -130,12 +130,13 @@ Make sure to:
             sources = validResults.map(r => ({ title: r.title, url: r.url }));
         }
 
-        // Create the note using workspace worker
+        // Create the document using workspace worker
         const workerResult = await workspaceWorker("create", {
             workspaceId,
             title,
             content,
             sources,
+            itemType: "document",
             folderId,
         });
 
@@ -146,7 +147,7 @@ Make sure to:
             });
         }
 
-        logger.info("📝 [API] Note created from URLs successfully:", { itemId: workerResult.itemId });
+        logger.info("📝 [API] Document created from URLs successfully:", { itemId: workerResult.itemId });
 
         // Include warning about failed URLs in the success response
         const responseData: any = { ...workerResult };

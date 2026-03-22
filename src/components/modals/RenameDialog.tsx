@@ -71,6 +71,8 @@ export default function RenameDialog({
         return "YouTube";
       case "folder":
         return "Folder";
+      case "document":
+        return "Document";
       case "note":
       default:
         return "Note";

@@ -4,10 +4,8 @@ import type React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Search, X, ChevronDown, ChevronRight, FolderOpen, Plus, Upload, Folder as FolderIcon, Settings, Share2, Play, Brain, File, ImageIcon, Mic, PanelRight, Loader2, ExternalLink } from "lucide-react";
-import { CgNotes } from "react-icons/cg";
+import { Search, X, ChevronDown, ChevronRight, FolderOpen, Plus, Upload, Settings, Share2, PanelRight, Loader2, ExternalLink } from "lucide-react";
 import { LuBook, LuCalendar, LuPanelLeftOpen } from "react-icons/lu";
-import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Kbd } from "@/components/ui/kbd";
@@ -16,6 +14,7 @@ import { ThinkExLogo } from "@/components/ui/thinkex-logo";
 
 import { formatKeyboardShortcut } from "@/lib/utils/keyboard-shortcut";
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
+import { WorkspaceItemTypeIcon } from "@/components/workspace/WorkspaceItemTypeIcon";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { IconRenderer } from "@/hooks/use-icon-picker";
 import ItemHeader from "@/components/workspace-canvas/ItemHeader"; // Import ItemHeader
@@ -685,14 +684,7 @@ export function WorkspaceHeader({
                     className={cn(breadcrumbItemClass, "group pr-1")}
                   >
                     {/* Icon based on type */}
-                    {activeItems[0].type === 'note' && <CgNotes className="h-3.5 w-3.5 shrink-0 text-blue-400" />}
-                    {activeItems[0].type === 'pdf' && <File className="h-3.5 w-3.5 shrink-0 text-red-400" />}
-                    {activeItems[0].type === 'flashcard' && <PiCardsThreeBold className="h-3.5 w-3.5 shrink-0 text-purple-400 rotate-180" />}
-                    {activeItems[0].type === 'youtube' && <Play className="h-3.5 w-3.5 shrink-0 text-red-500" />}
-                    {activeItems[0].type === 'quiz' && <Brain className="h-3.5 w-3.5 shrink-0 text-green-400" />}
-                    {activeItems[0].type === 'image' && <ImageIcon className="h-3.5 w-3.5 shrink-0 text-emerald-500" />}
-                    {activeItems[0].type === 'audio' && <Mic className="h-3.5 w-3.5 shrink-0 text-orange-400" />}
-                    {activeItems[0].type === 'folder' && <FolderIcon className="h-3.5 w-3.5 shrink-0 text-amber-400" />}
+                    <WorkspaceItemTypeIcon type={activeItems[0].type} className="h-3.5 w-3.5 shrink-0" />
 
                     <span className="truncate text-sidebar-foreground max-w-[300px]" title={activeItems[0].name}>
                       {activeItems[0].name}
@@ -901,7 +893,7 @@ export function WorkspaceHeader({
                     callbacks: {
                       onCreateNote: () => {
                         if (addItem) {
-                          const itemId = addItem("note");
+                          const itemId = addItem("document");
                           if (onItemCreated && itemId) {
                             onItemCreated([itemId]);
                           }
@@ -1034,5 +1026,3 @@ export function WorkspaceHeader({
 }
 
 export default WorkspaceHeader;
-
-

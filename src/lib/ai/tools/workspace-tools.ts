@@ -20,10 +20,10 @@ export interface WorkspaceToolContext {
  */
 export function createNoteTool(ctx: WorkspaceToolContext) {
     return withSanitizedModelOutput(tool({
-        description: "Create a note card.",
+        description: "Legacy alias for creating a document card.",
         inputSchema: zodSchema(
             z.object({
-                title: z.string().describe("The title of the note card"),
+                title: z.string().describe("The title of the document card"),
                 content: z.string().describe("The markdown body content. CRITICAL: DO NOT repeat the title in content — the title is displayed separately. Start with subheadings or body text only."),
                 sources: z.array(
                     z.object({
@@ -49,7 +49,7 @@ export function createNoteTool(ctx: WorkspaceToolContext) {
                 };
             }
 
-            logger.debug("🎯 [ORCHESTRATOR] Delegating to Workspace Worker (create note):", { title, contentLength: content.length, sourcesCount: sources?.length });
+            logger.debug("🎯 [ORCHESTRATOR] Delegating to Workspace Worker (legacy create note -> document):", { title, contentLength: content.length, sourcesCount: sources?.length });
 
             if (!ctx.workspaceId) {
                 return {
@@ -63,6 +63,7 @@ export function createNoteTool(ctx: WorkspaceToolContext) {
                 title,
                 content,
                 sources,
+                itemType: "document",
                 folderId: ctx.activeFolderId,
             });
         },
@@ -79,9 +80,16 @@ export function createDocumentTool(ctx: WorkspaceToolContext) {
             z.object({
                 title: z.string().describe("The title of the document card"),
                 content: z.string().describe("The markdown body content. CRITICAL: DO NOT repeat the title in content — the title is displayed separately. Start with subheadings or body text only."),
+                sources: z.array(
+                    z.object({
+                        title: z.string().describe("Title of the source page"),
+                        url: z.string().describe("URL of the source"),
+                        favicon: z.string().optional().describe("Optional favicon URL"),
+                    })
+                ).optional().describe("Optional sources from web search or deep research"),
             })
         ),
-        execute: async ({ title, content }) => {
+        execute: async ({ title, content, sources }) => {
             if (!title || typeof title !== 'string') {
                 return {
                     success: false,
@@ -108,6 +116,7 @@ export function createDocumentTool(ctx: WorkspaceToolContext) {
                 workspaceId: ctx.workspaceId,
                 title,
                 content,
+                sources,
                 itemType: "document",
                 folderId: ctx.activeFolderId,
             });

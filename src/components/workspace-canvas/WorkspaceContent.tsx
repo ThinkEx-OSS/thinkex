@@ -416,14 +416,14 @@ export default function WorkspaceContent({
                 </div>
               </div>
 
-              {/* Manual Note Creation */}
+              {/* Manual Document Creation */}
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">Create your first item to get started</p>
                 <button
                   onClick={() => {
-                    const itemId = addItem("note");
+                    const itemId = addItem("document");
                     if (itemId) {
-                      toast.success("New note created");
+                      toast.success("New document created");
                       if (onItemCreated) {
                         onItemCreated([itemId]);
                       }
@@ -432,7 +432,7 @@ export default function WorkspaceContent({
                   className="inline-flex items-center gap-2 px-6 py-3 text-base font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 hover:scale-105 transition-all duration-200 active:scale-95 cursor-pointer"
                 >
                   <Plus className="size-5" />
-                  New Note
+                  New Document
                 </button>
               </div>
             </div>

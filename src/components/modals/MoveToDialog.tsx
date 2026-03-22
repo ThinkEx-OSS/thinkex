@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { ChevronRight, Folder as FolderIcon, FolderOpen, Check, File, Play, Brain, ImageIcon, Mic } from "lucide-react";
-import { CgNotes } from "react-icons/cg";
-import { PiCardsThreeBold } from "react-icons/pi";
+import { ChevronRight, Folder as FolderIcon, FolderOpen, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,29 +17,13 @@ import { cn } from "@/lib/utils";
 import type { Item, CardType } from "@/lib/workspace-state/types";
 import { getChildFolders, isDescendantOf } from "@/lib/workspace-state/search";
 import { IconRenderer } from "@/hooks/use-icon-picker";
+import { WorkspaceItemTypeIcon } from "@/components/workspace/WorkspaceItemTypeIcon";
 
 /**
  * Get icon for card type (non-folder items)
  */
 function getCardTypeIcon(type: CardType) {
-  switch (type) {
-    case "note":
-      return <CgNotes className="size-3.5 text-blue-400" />;
-    case "pdf":
-      return <File className="size-3.5 text-red-400" />;
-    case "flashcard":
-      return <PiCardsThreeBold className="size-3.5 text-purple-400 rotate-180" />;
-    case "quiz":
-      return <Brain className="size-3.5 text-green-400" />;
-    case "youtube":
-      return <Play className="size-3.5 text-red-500" />;
-    case "image":
-      return <ImageIcon className="size-3.5 text-emerald-500" />;
-    case "audio":
-      return <Mic className="size-3.5 text-orange-400" />;
-    default:
-      return <CgNotes className="size-3.5 text-muted-foreground" />;
-  }
+  return <WorkspaceItemTypeIcon type={type} className="size-3.5" />;
 }
 
 interface MoveToDialogProps {
@@ -440,4 +422,3 @@ export default function MoveToDialog({
     </Dialog>
   );
 }
-

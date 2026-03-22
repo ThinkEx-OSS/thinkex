@@ -1,6 +1,6 @@
 import { QuizContent } from "./QuizContent";
 import { ImageCardContent } from "./ImageCardContent";
-import { MoreVertical, Trash2, Palette, CheckCircle2, FolderInput, Copy, X, Pencil, Columns, Link2, PanelRight, SplitSquareHorizontal, Loader2, File, Brain, Mic, AlertCircle, Globe } from "lucide-react";
+import { MoreVertical, Trash2, Palette, CheckCircle2, FolderInput, Copy, X, Pencil, Columns, Link2, PanelRight, SplitSquareHorizontal, Loader2, File, FileText, Brain, Mic, AlertCircle, Globe } from "lucide-react";
 import { CgNotes } from "react-icons/cg";
 import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
 import { useCallback, useState, memo, useRef, useEffect, useMemo } from "react";
@@ -827,7 +827,7 @@ function WorkspaceCard({
                     );
                   })()
                 ) : item.type === 'document' ? (
-                  <><File className="h-5 w-5 shrink-0" /><span>Doc</span></>
+                  <><FileText className="h-5 w-5 shrink-0" /><span>DOC</span></>
                 ) : (
                   <><Mic className="h-5 w-5 shrink-0" /><span>Recording</span></>
                 )}
@@ -1311,4 +1311,3 @@ export const WorkspaceCardMemoized = memo(WorkspaceCard, (prevProps, nextProps) 
 
 // Export both the memoized version and original for backwards compatibility
 export { WorkspaceCardMemoized as WorkspaceCard };
-
