@@ -66,6 +66,7 @@
     "@lottiefiles/dotlottie-react": "^0.18.2",
     "@opentelemetry/api-logs": "^0.212.0",
     "@opentelemetry/exporter-logs-otlp-http": "^0.212.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.212.0",
     "@opentelemetry/resources": "^2.6.0",
     "@opentelemetry/sdk-logs": "^0.212.0",
     "@posthog/ai": "^7.12.2",
