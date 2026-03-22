@@ -1,6 +1,6 @@
 /**
  * Processes message content to extract a title and clean up the content
- * Similar to how the createNote tool processes input
+ * Similar to how the createDocument tool processes input
  */
 
 export interface ProcessedContent {
@@ -10,7 +10,7 @@ export interface ProcessedContent {
 
 /**
  * Processes message content to extract a title and clean up the content
- * Replicates the behavior of the createNote tool
+ * Replicates the behavior of the createDocument tool
  */
 export function processMessageContent(rawContent: string): ProcessedContent {
   // If the content is empty, return defaults

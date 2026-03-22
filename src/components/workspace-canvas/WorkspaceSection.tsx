@@ -733,14 +733,6 @@ export function WorkspaceSection({
           <ContextMenuContent className="w-56">
             {renderWorkspaceMenuItems({
               callbacks: {
-                onCreateNote: () => {
-                  if (addItem) {
-                    const itemId = addItem("document");
-                    if (handleCreatedItems && itemId) {
-                      handleCreatedItems([itemId]);
-                    }
-                  }
-                },
                 onCreateDocument: () => {
                   if (addItem) {
                     const itemId = addItem("document");

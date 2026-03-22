@@ -891,14 +891,6 @@ export function WorkspaceHeader({
                 <DropdownMenuContent align="end" className="w-56" sideOffset={8}>
                   {renderWorkspaceMenuItems({
                     callbacks: {
-                      onCreateNote: () => {
-                        if (addItem) {
-                          const itemId = addItem("document");
-                          if (onItemCreated && itemId) {
-                            onItemCreated([itemId]);
-                          }
-                        }
-                      },
                       onCreateDocument: () => {
                         if (addItem) {
                           const itemId = addItem("document");

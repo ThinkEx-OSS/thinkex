@@ -216,13 +216,13 @@ describe("withSanitizedModelOutput", () => {
 
   // ── Realistic tool output scenarios ─────────────────────
 
-  it("sanitizes a realistic createNote result", () => {
+  it("sanitizes a realistic createDocument result", () => {
     const toModelOutput = getToModelOutput({});
     const result = toModelOutput({
       output: {
         success: true,
         itemId: "item_abc123",
-        message: 'Created note "Research Summary" successfully',
+        message: 'Created document "Research Summary" successfully',
         cardCount: undefined,
         event: {
           id: "evt_xyz",
@@ -231,8 +231,8 @@ describe("withSanitizedModelOutput", () => {
             item: {
               id: "item_abc123",
               name: "Research Summary",
-              type: "note",
-              data: { field1: "# Long markdown...", blockContent: [{ type: "paragraph", content: [{ type: "text", text: "lots of data" }] }] },
+              type: "document",
+              data: { markdown: "# Long markdown..." },
             },
           },
           timestamp: 1710000000000,
@@ -243,7 +243,7 @@ describe("withSanitizedModelOutput", () => {
     });
     expect(result.value).toEqual({
       success: true,
-      message: 'Created note "Research Summary" successfully',
+      message: 'Created document "Research Summary" successfully',
     });
   });
 

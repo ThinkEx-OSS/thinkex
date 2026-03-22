@@ -67,7 +67,6 @@ import Link from "next/link";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
 import { CreateQuizToolUI } from "@/components/assistant-ui/CreateQuizToolUI";
-import { CreateNoteToolUI } from "@/components/assistant-ui/CreateNoteToolUI";
 import { CreateDocumentToolUI } from "@/components/assistant-ui/CreateDocumentToolUI";
 import { CreateFlashcardToolUI } from "@/components/assistant-ui/CreateFlashcardToolUI";
 import { EditItemToolUI } from "@/components/assistant-ui/EditItemToolUI";
@@ -190,7 +189,6 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
       <MotionConfig reducedMotion="user">
         {/* Register tool UI - this component mounts and registers the UI with the assistant runtime */}
         <CreateQuizToolUI />
-        <CreateNoteToolUI />
         <CreateDocumentToolUI />
         <CreateFlashcardToolUI />
         <EditItemToolUI />

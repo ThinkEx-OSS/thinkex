@@ -8,7 +8,6 @@ import { createProcessFilesTool } from "./process-files";
 import { createProcessUrlsTool } from "./process-urls";
 import { createExecuteCodeTool } from "./search-code";
 import {
-    createNoteTool,
     createDocumentTool,
     createDeleteItemTool,
     type WorkspaceToolContext,
@@ -66,7 +65,6 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
         readWorkspace: createReadWorkspaceTool(ctx),
 
         // Workspace operations
-        createNote: createNoteTool(ctx),
         createDocument: createDocumentTool(ctx),
         editItem: createEditItemTool(ctx),
 

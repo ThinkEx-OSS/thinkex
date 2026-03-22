@@ -63,7 +63,7 @@ export async function POST(req: Request) {
             .map((r, i) => `URL ${i + 1}: ${r.url}\nTitle: ${r.title}\nContent:\n${r.content}\n---`)
             .join("\n\n");
 
-        const promptText = `Analyze the content from the following website content and create a comprehensive study note.
+        const promptText = `Analyze the content from the following website content and create a comprehensive study document.
 
 ${contentToAnalyze}
 

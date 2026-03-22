@@ -16,65 +16,10 @@ export interface WorkspaceToolContext {
 }
 
 /**
- * Create the createNote tool
- */
-export function createNoteTool(ctx: WorkspaceToolContext) {
-    return withSanitizedModelOutput(tool({
-        description: "Legacy alias for creating a document card.",
-        inputSchema: zodSchema(
-            z.object({
-                title: z.string().describe("The title of the document card"),
-                content: z.string().describe("The markdown body content. CRITICAL: DO NOT repeat the title in content — the title is displayed separately. Start with subheadings or body text only."),
-                sources: z.array(
-                    z.object({
-                        title: z.string().describe("Title of the source page"),
-                        url: z.string().describe("URL of the source"),
-                        favicon: z.string().optional().describe("Optional favicon URL"),
-                    })
-                ).optional().describe("Optional sources from web search or deep research"),
-            })
-        ),
-        execute: async ({ title, content, sources }) => {
-            // Validate inputs before use
-            if (!title || typeof title !== 'string') {
-                return {
-                    success: false,
-                    message: "Title is required and must be a string",
-                };
-            }
-            if (content === undefined || content === null || typeof content !== 'string') {
-                return {
-                    success: false,
-                    message: "Content is required and must be a string",
-                };
-            }
-
-            logger.debug("🎯 [ORCHESTRATOR] Delegating to Workspace Worker (legacy create note -> document):", { title, contentLength: content.length, sourcesCount: sources?.length });
-
-            if (!ctx.workspaceId) {
-                return {
-                    success: false,
-                    message: "No workspace context available",
-                };
-            }
-
-            return await workspaceWorker("create", {
-                workspaceId: ctx.workspaceId,
-                title,
-                content,
-                sources,
-                itemType: "document",
-                folderId: ctx.activeFolderId,
-            });
-        },
-    }));
-}
-
-/**
  * Create the createDocument tool
  */
 export function createDocumentTool(ctx: WorkspaceToolContext) {
-    return tool({
+    return withSanitizedModelOutput(tool({
         description: "Create a document card. Documents use a rich TipTap editor with full markdown support (headings, lists, tables, math, etc.). Use this for longer-form structured content.",
         inputSchema: zodSchema(
             z.object({
@@ -103,7 +48,11 @@ export function createDocumentTool(ctx: WorkspaceToolContext) {
                 };
             }
 
-            logger.debug("🎯 [ORCHESTRATOR] Delegating to Workspace Worker (create document):", { title, contentLength: content.length });
+            logger.debug("🎯 [ORCHESTRATOR] Delegating to Workspace Worker (create document):", {
+                title,
+                contentLength: content.length,
+                sourcesCount: sources?.length,
+            });
 
             if (!ctx.workspaceId) {
                 return {
@@ -121,7 +70,7 @@ export function createDocumentTool(ctx: WorkspaceToolContext) {
                 folderId: ctx.activeFolderId,
             });
         },
-    });
+    }));
 }
 
 /**
@@ -129,7 +78,7 @@ export function createDocumentTool(ctx: WorkspaceToolContext) {
  */
 export function createDeleteItemTool(ctx: WorkspaceToolContext) {
     return withSanitizedModelOutput(tool({
-        description: "Delete a card/note from the workspace by name. Can be restored from version history.",
+        description: "Delete a workspace item by name. Can be restored from version history.",
         inputSchema: zodSchema(
             z.object({
                 itemName: z.string().describe("Item name or virtual path (e.g. pdfs/Report.pdf) to delete"),

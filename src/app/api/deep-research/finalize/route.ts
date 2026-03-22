@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
         logger.debug("[DEEP-RESEARCH-FINALIZE] Processing:", { itemId, reportLength: report.length });
 
         // Use workspaceWorker update action - this handles:
-        // 1. markdownToBlocks conversion (same as createNote/updateCard tools)
+        // 1. markdownToBlocks conversion (same as document creation/update tools)
         // 2. Storing field1 (raw markdown) and blockContent (formatted blocks)
         // 3. Event emission for real-time sync
         const result = await workspaceWorker("update", {

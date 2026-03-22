@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 const MAX_MESSAGE_LENGTH = 120;
 
 export interface ToolUIErrorShellProps {
-  /** Main label (e.g. "Failed to create note") */
+  /** Main label (e.g. "Failed to create document") */
   label: string;
   /** Optional error message with more details */
   message?: string;

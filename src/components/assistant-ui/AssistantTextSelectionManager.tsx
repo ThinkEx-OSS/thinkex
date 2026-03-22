@@ -628,7 +628,7 @@ export default function AssistantTextSelectionManager({
   }, [exitMultiSelectMode, setTooltipVisible, removeMarkerElement]);
 
   // Handle creating a document from current selection or highlights
-  const handleCreateNote = useCallback(async () => {
+  const handleCreateDocument = useCallback(async () => {
     if (!workspaceId) {
       toast.error("No workspace selected");
       return;
@@ -715,8 +715,8 @@ export default function AssistantTextSelectionManager({
 
   // Process all accumulated highlights - open dialog (kept for backwards compatibility)
   const processBatchHighlights = useCallback(async () => {
-    await handleCreateNote();
-  }, [handleCreateNote]);
+    await handleCreateDocument();
+  }, [handleCreateDocument]);
 
   // Handle submitting multi selections - create document via agent
   const handleSubmitMultiSelections = useCallback(async () => {
@@ -861,11 +861,11 @@ export default function AssistantTextSelectionManager({
       onClick: handleReply,
     },
     {
-      id: "note",
+      id: "document",
       label: "Document",
       icon: <FileText size={16} />,
       colorClass: "bg-green-600 hover:bg-green-700",
-      onClick: handleCreateNote,
+      onClick: handleCreateDocument,
     },
     {
       id: "clear",

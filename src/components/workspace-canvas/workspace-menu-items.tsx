@@ -9,7 +9,6 @@ import { toast } from "sonner";
 
 
 export interface WorkspaceMenuCallbacks {
-  onCreateNote: () => void;
   onCreateDocument: () => void;
   onCreateFolder: () => void;
   onUpload: () => void;
