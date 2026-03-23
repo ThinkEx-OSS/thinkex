@@ -8,7 +8,7 @@ import { useTheme } from "next-themes";
 // Base cards for landing page
 const BASE_CARDS: FloatingCardData[] = [
     // Column 1ish - The Origins of Light at top for visibility
-    { type: 'youtube', youtubeUrl: 'https://youtu.be/tGVnBAHLApA', thumbnailUrl: 'https://img.youtube.com/vi/tGVnBAHLApA/sddefault.jpg' }, // New video
+    { type: 'youtube', thumbnailUrl: '/youtube-thumbnail-1.jpg' },
     { type: 'note', title: 'Product Vision 2025', color: '#3B82F6' },
     { type: 'note', title: 'Tech Stack Decision Log', color: '#E11D48' },
     { type: 'flashcard', content: 'What is the primary function of the hippocampus?', color: '#EF4444' },
@@ -26,7 +26,7 @@ const BASE_CARDS: FloatingCardData[] = [
     { type: 'folder', title: 'Cognitive Science', itemCount: 24, color: '#14B8A6' },
 
     // Column 4ish
-    { type: 'youtube', youtubeUrl: 'https://www.youtube.com/watch?v=WUvTyaaNkzM', thumbnailUrl: 'https://img.youtube.com/vi/WUvTyaaNkzM/sddefault.jpg' },
+    { type: 'youtube', thumbnailUrl: '/youtube-thumbnail-3.jpg' },
     { type: 'folder', title: 'Archive 2024', itemCount: 156, color: '#6366F1' },
     { type: 'pdf', title: 'User_Interview_Script_v2.pdf', color: '#6366F1' },
     { type: 'folder', title: 'Neurology Resources', itemCount: 18, color: '#8B5CF6' },
@@ -41,7 +41,7 @@ const EXTRA_CARDS: FloatingCardData[] = [
     { type: 'quiz', title: 'JavaScript Basics', content: 'What is a closure?', color: '#8B5CF6' },
     { type: 'note', title: 'Project Roadmap Q1', color: '#EC4899' },
     { type: 'folder', title: 'Design System', itemCount: 67, color: '#14B8A6' },
-    { type: 'youtube', youtubeUrl: 'https://www.youtube.com/watch?v=P6FORpg0KVo', thumbnailUrl: 'https://img.youtube.com/vi/P6FORpg0KVo/sddefault.jpg' },
+    { type: 'youtube', thumbnailUrl: '/youtube-thumbnail-2.jpg' },
     { type: 'flashcard', content: 'Explain the concept of recursion', color: '#EF4444' },
     { type: 'note', title: 'Team Meeting Notes', color: '#F97316' },
     { type: 'pdf', title: 'System_Architecture.pdf', color: '#6366F1', aspectRatio: '1/1.1' },

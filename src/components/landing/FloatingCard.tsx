@@ -18,8 +18,8 @@ export interface FloatingCardData {
     aspectRatio?: string;
     // rotation removed
     itemCount?: number; // For folders
-    youtubeUrl?: string; // For YouTube cards
-    thumbnailUrl?: string; // For YouTube cards (pre-calculated)
+    /** Local or remote image for decorative video-style cards */
+    thumbnailUrl?: string;
 }
 
 interface FloatingCardProps {
@@ -249,21 +249,21 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
                     {data.thumbnailUrl ? (
                         <Image
                             src={data.thumbnailUrl}
-                            alt="YouTube Thumbnail"
+                            alt=""
                             fill
-                            className="object-cover opacity-80"
+                            className="object-cover opacity-45"
                             sizes="(max-width: 768px) 50vw, 33vw"
                         />
                     ) : (
                         <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: bodyBgColor }}>
-                            <Play className="w-8 h-8 text-muted dark:text-muted-foreground" />
+                            <Play className="w-8 h-8 text-muted/75 dark:text-muted-foreground/75" />
                         </div>
                     )}
 
                     {/* Overlay Play Button */}
-                    <div className="absolute inset-0 flex items-center justify-center bg-foreground/20">
-                        <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
-                            <Play className="w-5 h-5 text-foreground ml-0.5 fill-foreground dark:text-white dark:fill-white" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-foreground/10">
+                        <div className="w-10 h-10 rounded-full bg-red-600/85 flex items-center justify-center shadow-lg">
+                            <Play className="w-5 h-5 ml-0.5 text-white fill-white" />
                         </div>
                     </div>
                 </div>
