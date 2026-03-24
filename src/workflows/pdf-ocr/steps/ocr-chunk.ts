@@ -17,3 +17,6 @@ export async function ocrChunk(
 
   return ocrSingleChunk(base64);
 }
+
+// OCR retries are handled inside the Azure client with longer cooldown-aware backoff.
+ocrChunk.maxRetries = 0;

@@ -12,3 +12,6 @@ export async function ocrImage(
   const { pages } = await ocrSingleImage(base64, mimeType);
   return { pages };
 }
+
+// OCR retries are handled inside the Azure client with longer cooldown-aware backoff.
+ocrImage.maxRetries = 0;
