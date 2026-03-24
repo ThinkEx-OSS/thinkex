@@ -162,6 +162,7 @@
     "streamdown": "^2.5.0",
     "tailwind-merge": "^3.5.0",
     "tw-shimmer": "^0.4.6",
+    "unicodeit": "^0.7.5",
     "workflow": "4.1.0-beta.63",
     "zod": "^4.3.6",
     "zustand": "^5.0.12"

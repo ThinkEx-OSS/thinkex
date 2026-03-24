@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Search, X, ChevronDown, ChevronRight, FolderOpen, Plus, Upload, Settings, Share2, PanelRight, Loader2, ExternalLink } from "lucide-react";
@@ -43,10 +43,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import type { CardType, Item } from "@/lib/workspace-state/types";
+import type { CardType, DocumentData, Item } from "@/lib/workspace-state/types";
+import {
+  exportMarkdownToGoogleDoc,
+  getGoogleOAuthClientId,
+} from "@/lib/exportToGoogleDocs";
 import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import { getFolderPath } from "@/lib/workspace-state/search";
-import { useMemo } from "react";
 import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";
 import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
 import { useQueryClient } from "@tanstack/react-query";
@@ -56,6 +59,24 @@ import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
 import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
+
+const EMPTY_ITEMS: Item[] = [];
+
+function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 48 48"
+      {...props}
+    >
+      <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917" />
+      <path fill="#FF3D00" d="m6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691" />
+      <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.9 11.9 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44" />
+      <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917" />
+    </svg>
+  );
+}
+
 interface WorkspaceHeaderProps {
   titleInputRef: React.RefObject<HTMLInputElement | null>;
   onOpenSearch?: () => void;
@@ -102,6 +123,9 @@ interface WorkspaceHeaderProps {
   onMinimizeActiveItem?: () => void;
   onMaximizeActiveItem?: (itemId: string | null) => void;
   onUpdateActiveItem?: (itemId: string, updates: Partial<Item>) => void;
+  /** Flush pending saves and read latest document markdown from workspace cache (avoids stale export). */
+  getDocumentMarkdownForExport?: (itemId: string) => string;
+  googleLoginHint?: string | null;
 }
 
 
@@ -128,13 +152,13 @@ export function WorkspaceHeader({
   setOpenModalItemId,
   activeFolderName,
   activeFolderColor,
-  items = [],
+  items = EMPTY_ITEMS,
   onRenameFolder,
   onOpenSettings,
   onOpenShare,
   isItemPanelOpen = false,
 
-  activeItems = [],
+  activeItems = EMPTY_ITEMS,
   activeItemMode = null,
   onCloseActiveItem,
   onNavigateToRoot,
@@ -142,6 +166,8 @@ export function WorkspaceHeader({
   onMinimizeActiveItem,
   onMaximizeActiveItem,
   onUpdateActiveItem,
+  getDocumentMarkdownForExport,
+  googleLoginHint,
 }: WorkspaceHeaderProps) {
   const router = useRouter();
   const [isNewMenuOpen, setIsNewMenuOpen] = useState(false);
@@ -153,6 +179,9 @@ export function WorkspaceHeader({
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showQuizDialog, setShowQuizDialog] = useState(false);
   const [showFlashcardsDialog, setShowFlashcardsDialog] = useState(false);
+  const [googleExportLoading, setGoogleExportLoading] = useState(false);
+  const [showExportFallbackDialog, setShowExportFallbackDialog] = useState(false);
+  const [blockedExportUrl, setBlockedExportUrl] = useState<string | null>(null);
   const showAudioDialog = useAudioRecordingStore((s) => s.isDialogOpen);
   const openAudioDialog = useAudioRecordingStore((s) => s.openDialog);
   const closeAudioDialog = useAudioRecordingStore((s) => s.closeDialog);
@@ -366,7 +395,7 @@ export function WorkspaceHeader({
       toast.dismiss(loadingToastId);
       toast.error(error.message || "Failed to upload audio");
     }
-  }, [addItem, onItemCreated]);
+  }, [addItem, currentWorkspaceId, onItemCreated]);
 
   const handleImageCreate = useCallback((url: string, name: string) => {
     if (!addItem) return;
@@ -761,6 +790,60 @@ export function WorkspaceHeader({
               );
             })()}
 
+            {activeItems[0]?.type === "document" && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer px-2 disabled:pointer-events-none disabled:opacity-50"
+                    aria-label="Export"
+                    disabled={googleExportLoading}
+                  >
+                    {googleExportLoading ? (
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                    ) : null}
+                    <span className="text-xs font-medium">Export</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40" sideOffset={8}>
+                  <DropdownMenuItem
+                    disabled={googleExportLoading}
+                    onClick={async () => {
+                      const item = activeItems[0];
+                      if (!item || item.type !== "document") return;
+                      if (!getGoogleOAuthClientId()) {
+                        toast.error(
+                          "Set NEXT_PUBLIC_GOOGLE_CLIENT_ID in your environment to export to Google Docs."
+                        );
+                        return;
+                      }
+                      setGoogleExportLoading(true);
+                      try {
+                        const md =
+                          getDocumentMarkdownForExport?.(item.id) ??
+                          ((item.data as DocumentData).markdown ?? "");
+                        const result = await exportMarkdownToGoogleDoc(md, item.name, {
+                          loginHint: googleLoginHint,
+                        });
+                        setBlockedExportUrl(result.url);
+                        setShowExportFallbackDialog(true);
+                      } catch (e) {
+                        toast.error(
+                          e instanceof Error ? e.message : "Could not export to Google Docs"
+                        );
+                      } finally {
+                        setGoogleExportLoading(false);
+                      }
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <GoogleIcon className="h-4 w-4 shrink-0" />
+                    Google Docs
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
             {/* Split View Button — transitions from focus to workspace+panel */}
             <button
               className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer px-2"
@@ -970,6 +1053,60 @@ export function WorkspaceHeader({
           </Dialog>
         )
       }
+      <Dialog
+        open={showExportFallbackDialog}
+        onOpenChange={(open) => {
+          setShowExportFallbackDialog(open);
+          if (!open) {
+            setBlockedExportUrl(null);
+          }
+        }}
+      >
+        <DialogContent onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>Open Exported Document</DialogTitle>
+            <DialogDescription>
+              Your export is ready. Use the link below to open the Google Doc.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            {blockedExportUrl ? (
+              <a
+                href={blockedExportUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary underline underline-offset-4 break-all"
+              >
+                {blockedExportUrl}
+              </a>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowExportFallbackDialog(false);
+                setBlockedExportUrl(null);
+              }}
+            >
+              Close
+            </Button>
+            {blockedExportUrl ? (
+              <Button asChild>
+                <a
+                  href={blockedExportUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2"
+                >
+                  <GoogleIcon className="h-4 w-4 shrink-0" />
+                  Open Google Docs
+                </a>
+              </Button>
+            ) : null}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {/* YouTube Dialog */}
       <CreateYouTubeDialog
         open={showYouTubeDialog}

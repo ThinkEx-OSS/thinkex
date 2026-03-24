@@ -1,10 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { AgentState, PdfData, WorkspaceWithState } from "@/lib/workspace-state/types";
+import type { AgentState, DocumentData, PdfData, WorkspaceWithState } from "@/lib/workspace-state/types";
+import type { EventResponse } from "@/lib/workspace/events";
+import { replayEvents } from "@/lib/workspace/event-reducer";
 import { initialState } from "@/lib/workspace-state/state";
 import { useScrollHeader } from "@/hooks/ui/use-scroll-header";
 import { useKeyboardShortcuts } from "@/hooks/ui/use-keyboard-shortcuts";
@@ -125,6 +128,29 @@ function DashboardContent({
 
   // Workspace operations (emits events with optimistic updates)
   const operations = useWorkspaceOperations(currentWorkspaceId, state);
+  const queryClient = useQueryClient();
+
+  const getDocumentMarkdownForExport = useCallback(
+    (itemId: string) => {
+      operations.flushPendingChanges(itemId);
+      if (!currentWorkspaceId) return "";
+      const cache = queryClient.getQueryData<EventResponse>([
+        "workspace",
+        currentWorkspaceId,
+        "events",
+      ]);
+      if (!cache?.events) return "";
+      const latest = replayEvents(
+        cache.events,
+        currentWorkspaceId,
+        cache.snapshot?.state
+      );
+      const item = latest.items.find((i) => i.id === itemId);
+      if (!item || item.type !== "document") return "";
+      return (item.data as DocumentData).markdown ?? "";
+    },
+    [currentWorkspaceId, operations, queryClient]
+  );
 
   // Version control (history only)
   const { revertToVersion: revertToVersionRaw } = useWorkspaceHistory(currentWorkspaceId);
@@ -166,7 +192,7 @@ function DashboardContent({
   // But we keep it for the UI save button
   const manualSave = useCallback(async () => {
     updateLastSaved(new Date());
-  }, [updateLastSaved, currentWorkspaceId]);
+  }, [updateLastSaved]);
 
   // Update save status based on mutation status
   useEffect(() => {
@@ -289,14 +315,17 @@ function DashboardContent({
     }
   }, [state?.items, showJsonView, setShowJsonView]);
 
-  const getStatePreviewJSON = (s: AgentState | undefined): Record<string, unknown> => {
-    const snapshot = (s ?? initialState) as AgentState;
-    const { globalTitle, items } = snapshot;
-    return {
-      globalTitle: globalTitle ?? initialState.globalTitle,
-      items: items ?? initialState.items,
-    };
-  };
+  const getStatePreviewJSON = useCallback(
+    (s: AgentState | undefined): Record<string, unknown> => {
+      const snapshot = (s ?? initialState) as AgentState;
+      const { globalTitle, items } = snapshot;
+      return {
+        globalTitle: globalTitle ?? initialState.globalTitle,
+        items: items ?? initialState.items,
+      };
+    },
+    []
+  );
 
 
   // CopilotKit actions removed - now using Assistant-UI directly
@@ -459,7 +488,7 @@ function DashboardContent({
 
   const handleShowHistory = useCallback(() => {
     setShowVersionHistory(true);
-  }, [currentWorkspaceId]);
+  }, []);
 
   // Build the split view layout element (for panel+panel mode only)
   const splitViewContent = useMemo(() => {
@@ -513,7 +542,7 @@ function DashboardContent({
         onFlushPendingChanges={operations.flushPendingChanges}
       />
     );
-  }, [viewMode, state.items, loadingCurrentWorkspace, isLoadingWorkspace, currentWorkspaceId, currentSlug, state, showJsonView, isSaving, lastSavedAt, hasUnsavedChanges, isChatMaximized, isDesktop, isChatExpanded, currentWorkspaceTitle, currentWorkspaceIcon, currentWorkspaceColor, operations, manualSave, setSearchDialogOpen, setIsChatExpanded, setOpenModalItemId, handleShowHistory, titleInputRef, scrollAreaRef, getStatePreviewJSON]);
+  }, [viewMode, loadingCurrentWorkspace, isLoadingWorkspace, currentWorkspaceId, currentSlug, state, showJsonView, isSaving, lastSavedAt, hasUnsavedChanges, isChatMaximized, isDesktop, isChatExpanded, currentWorkspaceTitle, currentWorkspaceIcon, currentWorkspaceColor, operations, manualSave, setSearchDialogOpen, setIsChatExpanded, setOpenModalItemId, handleShowHistory, titleInputRef, scrollAreaRef, getStatePreviewJSON]);
 
   // Build the single panel content (for workspace+panel mode)
   const panelContent = useMemo(() => {
@@ -633,6 +662,8 @@ function DashboardContent({
               onMinimizeActiveItem={() => setMaximizedItemId(null)}
               onMaximizeActiveItem={(id) => setMaximizedItemId(id)}
               onUpdateActiveItem={operations.updateItem}
+              getDocumentMarkdownForExport={getDocumentMarkdownForExport}
+              googleLoginHint={session?.user?.email ?? null}
             />
           ) : undefined
         }
