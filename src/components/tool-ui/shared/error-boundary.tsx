@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { capturePosthogException } from "@/lib/posthog-capture-exception";
 
 export interface ToolUIErrorBoundaryProps {
   componentName: string;
@@ -29,6 +30,11 @@ export class ToolUIErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error(`[${this.props.componentName}] render error:`, error, errorInfo);
+    capturePosthogException(error, {
+      error_boundary: "tool_ui",
+      component_name: this.props.componentName,
+      component_stack: errorInfo.componentStack,
+    });
     this.props.onError?.(error, errorInfo);
   }
 

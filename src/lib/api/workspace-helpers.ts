@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db, workspaces } from "@/lib/db/client";
 import { workspaceCollaborators } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
+import { withServerObservability } from "@/lib/with-server-observability";
 
 /**
  * Get authenticated user from session
@@ -146,19 +147,9 @@ export function withErrorHandling<T extends any[]>(
   handler: (...args: T) => Promise<NextResponse>,
   routeName: string
 ) {
-  return async (...args: T): Promise<NextResponse> => {
-    try {
-      return await handler(...args);
-    } catch (error) {
-      // If error is already a Response/NextResponse, return it
-      if (error instanceof Response) {
-        return error as NextResponse;
-      }
-
-      console.error(`Error in ${routeName}:`, error);
-      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-    }
-  };
+  return withServerObservability(handler as (...args: [Request, ...unknown[]]) => Promise<NextResponse>, {
+    routeName,
+  }) as (...args: T) => Promise<NextResponse>;
 }
 
 /**

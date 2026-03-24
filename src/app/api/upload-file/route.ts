@@ -9,6 +9,7 @@ import {
   isOfficeDocument,
   getOfficeDocumentConvertUrl,
 } from "@/lib/uploads/office-document-validation";
+import { withServerObservability } from "@/lib/with-server-observability";
 
 export const maxDuration = 30;
 
@@ -38,7 +39,7 @@ async function saveFileLocally(file: File, filename: string): Promise<string> {
   return `${baseUrl}/api/files/${filename}`;
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withServerObservability(async function POST(request: NextRequest) {
   try {
     // Get authenticated user from Better Auth
     const session = await auth.api.getSession({
@@ -196,4 +197,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { routeName: "POST /api/upload-file" });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { getRun } from "workflow/api";
+import { withServerObservability } from "@/lib/with-server-observability";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
  * GET /api/pdf/ocr/status?runId=xxx
  * Poll workflow status. Returns { status, result? } when completed or { status, error? } when failed.
  */
-export async function GET(req: NextRequest) {
+export const GET = withServerObservability(async function GET(req: NextRequest) {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -81,4 +82,4 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { routeName: "GET /api/pdf/ocr/status" });

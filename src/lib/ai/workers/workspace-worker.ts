@@ -32,7 +32,6 @@ export type CreateItemParams = {
     youtubeData?: { url: string };
     imageData?: { url: string; altText?: string; caption?: string; textContent?: string; ocrStatus?: ImageData["ocrStatus"]; ocrError?: string; ocrPages?: ImageData["ocrPages"] };
     audioData?: { fileUrl: string; filename: string; fileSize?: number; mimeType?: string; duration?: number };
-    deepResearchData?: { prompt: string; interactionId: string };
     sources?: Array<{ title: string; url: string; favicon?: string }>;
     folderId?: string;
     layout?: { x: number; y: number; w: number; h: number };
@@ -111,14 +110,6 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
         itemData = {
             field1: normalizedContent,
             blockContent,
-            ...(p.deepResearchData && {
-                deepResearch: {
-                    prompt: p.deepResearchData.prompt,
-                    interactionId: p.deepResearchData.interactionId,
-                    status: "researching",
-                    thoughts: [],
-                },
-            }),
             ...(p.sources?.length && { sources: p.sources }),
         };
     }
@@ -249,12 +240,7 @@ export async function workspaceWorker(
             mimeType?: string;
             duration?: number;
         };
-        // Optional: deep research metadata to attach to a note
-        deepResearchData?: {
-            prompt: string;
-            interactionId: string;
-        };
-        // Optional: sources from web search or deep research
+        // Optional: sources from web search
         sources?: Array<{
             title: string;
             url: string;

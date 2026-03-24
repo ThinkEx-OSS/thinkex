@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { ocrPdfFromBuffer } from "@/lib/pdf/azure-ocr";
 import { logger } from "@/lib/utils/logger";
+import { withServerObservability } from "@/lib/with-server-observability";
 
 export const dynamic = "force-dynamic";
 const MAX_PDF_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
@@ -12,7 +13,7 @@ const MAX_PDF_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
  * Receives a PDF file URL (Supabase or local), fetches it, runs Azure Mistral Document AI OCR,
  * returns extracted text and page data.
  */
-export async function POST(req: NextRequest) {
+export const POST = withServerObservability(async function POST(req: NextRequest) {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -126,4 +127,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { routeName: "POST /api/pdf/ocr" });

@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { start } from "workflow/api";
 import { pdfOcrWorkflow } from "@/workflows/pdf-ocr";
 import { verifyWorkspaceAccess } from "@/lib/api/workspace-helpers";
+import { withServerObservability } from "@/lib/with-server-observability";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
  * POST /api/pdf/ocr/start
  * Validates URL, starts durable PDF OCR workflow, returns runId and itemId for polling.
  */
-export async function POST(req: NextRequest) {
+export const POST = withServerObservability(async function POST(req: NextRequest) {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -101,4 +102,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { routeName: "POST /api/pdf/ocr/start" });

@@ -15,7 +15,6 @@ import { SwatchesPicker, ColorResult } from "react-color";
 import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEditor";
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
 import { BlockNotePreview } from "@/components/editor/BlockNotePreview";
-import { DeepResearchCardContent } from "./DeepResearchCardContent";
 import { AudioCardContent } from "./AudioCardContent";
 import LazyAppPdfViewer from "@/components/pdf/LazyAppPdfViewer";
 import { LightweightPdfPreview } from "@/components/pdf/LightweightPdfPreview";
@@ -529,17 +528,6 @@ function WorkspaceCard({
       e.preventDefault();
       e.stopPropagation();
       return;
-    }
-
-    // Prevent opening panel for notes with active deep research
-    if (item.type === 'note') {
-      const noteData = item.data as NoteData;
-      if (noteData.deepResearch && noteData.deepResearch.status !== 'complete') {
-        e.preventDefault();
-        e.stopPropagation();
-        toast.info("Research in progress - please wait for it to complete");
-        return;
-      }
     }
 
     // YouTube cards open in panel (same as notes/PDFs) - no special handling, fall through
@@ -1079,23 +1067,6 @@ function WorkspaceCard({
               </div>
             )}
 
-            {/* Deep Research Note - render streaming UI when research is in progress */}
-            {item.type === 'note' && (() => {
-              const noteData = item.data as NoteData;
-              if (noteData.deepResearch && noteData.deepResearch.status !== 'complete') {
-                return (
-                  <div className="flex-1 min-h-0 overflow-hidden">
-                    <DeepResearchCardContent
-                      item={item}
-                      onUpdateItem={onUpdateItem}
-                      isScrollLocked={isScrollLocked}
-                    />
-                  </div>
-                );
-              }
-              return null;
-            })()}
-
             {/* Active in Panel Overlay */}
             {isOpenInPanel && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-card/95 backdrop-blur-[1px] animate-in fade-in duration-200 select-none cursor-pointer group/overlay">
@@ -1286,4 +1257,3 @@ export const WorkspaceCardMemoized = memo(WorkspaceCard, (prevProps, nextProps) 
 
 // Export both the memoized version and original for backwards compatibility
 export { WorkspaceCardMemoized as WorkspaceCard };
-

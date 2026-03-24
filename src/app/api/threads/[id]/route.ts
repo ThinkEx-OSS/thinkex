@@ -7,6 +7,7 @@ import {
   verifyThreadOwnership,
 } from "@/lib/api/workspace-helpers";
 import { eq, and } from "drizzle-orm";
+import { withServerObservability } from "@/lib/with-server-observability";
 
 async function getThreadAndVerify(
   id: string,
@@ -33,7 +34,7 @@ async function getThreadAndVerify(
  * GET /api/threads/[id]
  * Fetch a single thread
  */
-export async function GET(
+export const GET = withServerObservability(async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -58,13 +59,13 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+}, { routeName: "GET /api/threads/[id]" });
 
 /**
  * PATCH /api/threads/[id]
  * Update thread (e.g. rename)
  */
-export async function PATCH(
+export const PATCH = withServerObservability(async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -113,13 +114,13 @@ export async function PATCH(
       { status: 500 }
     );
   }
-}
+}, { routeName: "PATCH /api/threads/[id]" });
 
 /**
  * DELETE /api/threads/[id]
  * Delete a thread (and its messages via cascade)
  */
-export async function DELETE(
+export const DELETE = withServerObservability(async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -140,4 +141,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-}
+}, { routeName: "DELETE /api/threads/[id]" });

@@ -15,7 +15,6 @@ import {
 import { createEditItemTool } from "./edit-item-tool";
 import { createFlashcardsTool } from "./flashcard-tools";
 import { createQuizTool } from "./quiz-tools";
-import { createDeepResearchTool } from "./deep-research";
 import { createSearchYoutubeTool, createAddYoutubeVideoTool } from "./youtube-tools";
 // import { createSearchImagesTool, createAddImageTool } from "./image-tools";
 import { createWebSearchTool } from "./web-search";
@@ -30,7 +29,6 @@ export interface ChatToolsConfig {
     activeFolderId?: string;
     threadId?: string | null;
     clientTools?: Record<string, any>;
-    enableDeepResearch?: boolean;
     /** Experiment: enable magic_fetch tool (logs AI data requests to PostHog) */
     enableMagicFetch?: boolean;
 }
@@ -76,9 +74,6 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
 
         // Quizzes
         createQuiz: createQuizTool(ctx),
-
-        // Deep research - commented out
-        // ...(config.enableDeepResearch ? { deepResearch: createDeepResearchTool(ctx) } : {}),
 
         // YouTube
         searchYoutube: createSearchYoutubeTool(),

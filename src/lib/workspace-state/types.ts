@@ -3,7 +3,7 @@ import type { CardColor } from './colors';
 export type CardType = "note" | "pdf" | "flashcard" | "folder" | "youtube" | "quiz" | "image" | "audio" | "website";
 
 /**
- * Source attribution for notes created from web search or deep research
+ * Source attribution for notes created from web search.
  */
 export interface Source {
   title: string;  // Title of the source page
@@ -14,16 +14,8 @@ export interface Source {
 export interface NoteData {
   field1?: string; // textarea - legacy plain text format
   blockContent?: unknown; // BlockNote JSON blocks - new rich-text format
-  // Optional: Sources from web search or deep research
+  // Optional: Sources from web search
   sources?: Source[];
-  // Optional: Deep Research metadata (when this note is a research result)
-  deepResearch?: {
-    prompt: string;           // Original research prompt
-    interactionId: string;    // Google Deep Research interaction ID
-    status: "researching" | "complete" | "failed";
-    thoughts: string[];       // Streaming thought summaries
-    error?: string;           // Error message if failed
-  };
 }
 
 export interface PdfData {
