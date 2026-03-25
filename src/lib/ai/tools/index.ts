@@ -15,7 +15,6 @@ import { createEditItemTool } from "./edit-item-tool";
 import { createFlashcardsTool } from "./flashcard-tools";
 import { createQuizTool } from "./quiz-tools";
 import { createSearchYoutubeTool, createAddYoutubeVideoTool } from "./youtube-tools";
-// import { createSearchImagesTool, createAddImageTool } from "./image-tools";
 import { createWebSearchTool } from "./web-search";
 import { createSearchWorkspaceTool } from "./search-workspace";
 import { createReadWorkspaceTool } from "./read-workspace";

@@ -2,7 +2,7 @@ import React, { RefObject, useState, useMemo, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type { AgentState, Item, CardType, PdfData, ImageData } from "@/lib/workspace-state/types";
+import type { AgentState, Item, CardType } from "@/lib/workspace-state/types";
 import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import type { WorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import WorkspaceContent from "./WorkspaceContent";
@@ -64,8 +64,6 @@ import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceFilePicker } from "@/hooks/workspace/use-workspace-file-picker";
-import { startOcrProcessing } from "@/lib/ocr/client";
-import type { OcrCandidate } from "@/lib/ocr/types";
 import { startAudioProcessing } from "@/lib/audio/start-audio-processing";
 import { startAssetProcessing } from "@/lib/uploads/start-asset-processing";
 import {
@@ -258,52 +256,6 @@ export function WorkspaceSection({
       addItem("youtube", name, { url, thumbnail });
     }
   }, [addItem]);
-
-  const startWorkspaceOcr = useCallback((candidates: OcrCandidate[]) => {
-    if (!currentWorkspaceId || candidates.length === 0) return;
-    startOcrProcessing(currentWorkspaceId, candidates).catch((error) => {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to start OCR";
-      console.error("[WORKSPACE_OCR] Failed to start OCR:", error);
-      toast.error(`Failed to start OCR: ${errorMessage}`);
-
-      candidates.forEach((candidate) => {
-        if (candidate.itemType !== "image" || !operations) return;
-        operations.updateItemData(candidate.itemId, (prev) => ({
-          ...prev,
-          ocrStatus: "failed",
-          ocrError: errorMessage,
-          ocrPages: [],
-        }));
-      });
-    });
-  }, [currentWorkspaceId, operations]);
-
-  const handleImageCreate = useCallback((url: string, name: string) => {
-    if (!operations) return;
-
-    const createdIds = operations.createItems([{
-      type: 'image',
-      name,
-      initialData: {
-        url,
-        altText: name,
-        ocrStatus: "processing" as const,
-        ocrPages: [],
-      } as Partial<ImageData>,
-      initialLayout: DEFAULT_CARD_DIMENSIONS.image,
-    }], {
-      showSuccessToast: false,
-    });
-
-    handleCreatedItems(createdIds);
-    const itemId = createdIds[0];
-    if (itemId) {
-      startWorkspaceOcr([{ itemId, itemType: "image", fileUrl: url }]);
-    }
-
-    toast.success("Image added to workspace");
-  }, [handleCreatedItems, operations, startWorkspaceOcr]);
 
   const handleWebsiteCreate = useCallback((url: string, name: string, favicon?: string) => {
     if (!operations) return;
@@ -535,40 +487,9 @@ export function WorkspaceSection({
     onFilesSelected: handlePDFUpload,
   });
 
-  // Handle smart upload from context menu: try clipboard paste first, then open file picker
-  const handleUploadMenuItemClick = useCallback(async () => {
-    try {
-      // Check for clipboard permissions/content
-      const clipboardItems = await navigator.clipboard.read();
-      let imageBlob: Blob | null = null;
-
-      for (const item of clipboardItems) {
-        const imageType = item.types.find(t => t.startsWith('image/'));
-        if (imageType) {
-          imageBlob = await item.getType(imageType);
-          break;
-        }
-      }
-
-      if (imageBlob) {
-        // Found an image! Upload it directly.
-        const toastId = toast.loading("Pasting image from clipboard...");
-
-        const file = new File([imageBlob], "pasted-image.png", { type: imageBlob.type });
-        const result = await uploadFileDirect(file);
-        toast.dismiss(toastId);
-
-        // Create the card using the new URL
-        await handleImageCreate(result.url, "Pasted Image");
-        return;
-      }
-    } catch (e) {
-      // Fallback to file picker if clipboard access fails or no image found
-      console.debug("Clipboard read failed or empty, falling back to file picker", e);
-    }
-
+  const handleUploadMenuItemClick = useCallback(() => {
     openFilePicker();
-  }, [handleImageCreate, openFilePicker]);
+  }, [openFilePicker]);
   const handleAudioReady = useCallback(async (file: File) => {
     if (!addItem) return;
 

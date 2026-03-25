@@ -16,27 +16,18 @@ export const HOME_FILE_UPLOAD_ACCEPT = {
   "image/avif": [".avif"],
   "image/tiff": [".tiff", ".tif"],
   "image/svg+xml": [".svg"],
-  "audio/mpeg": [".mp3"],
-  "audio/wav": [".wav"],
-  "audio/ogg": [".ogg"],
-  "audio/aac": [".aac"],
-  "audio/flac": [".flac"],
-  "audio/aiff": [".aiff"],
-  "audio/webm": [".webm"],
-  "audio/mp4": [".m4a"],
 } as const;
 
 export const HOME_FILE_UPLOAD_ACCEPT_STRING = [
   "application/pdf",
   OFFICE_DOCUMENT_ACCEPT_STRING,
   "image/*",
-  "audio/*",
 ].join(",");
 
 export const HOME_FILE_UPLOAD_REJECT_MESSAGE =
-  "Only documents, images, and audio files are supported.";
+  "Only documents and image files are supported.";
 
-export const HOME_FILE_UPLOAD_DESCRIPTION = "Documents, images, and audio files";
+export const HOME_FILE_UPLOAD_DESCRIPTION = "Documents and image files";
 
 export function isStudyDocumentFile(file: File): boolean {
   return (

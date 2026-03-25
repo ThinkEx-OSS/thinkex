@@ -57,7 +57,6 @@ import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
 import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
 import { useWorkspaceFilePicker } from "@/hooks/workspace/use-workspace-file-picker";
-import { startOcrProcessing } from "@/lib/ocr/client";
 import { startAudioProcessing } from "@/lib/audio/start-audio-processing";
 interface WorkspaceHeaderProps {
   titleInputRef: React.RefObject<HTMLInputElement | null>;
@@ -343,29 +342,6 @@ export function WorkspaceHeader({
       toast.dismiss(loadingToastId);
       toast.error(error.message || "Failed to upload audio");
     }
-  }, [addItem, currentWorkspaceId, onItemCreated]);
-
-  const handleImageCreate = useCallback((url: string, name: string) => {
-    if (!addItem) return;
-
-    const itemId = addItem(
-      'image',
-      name,
-      { url, altText: name, ocrStatus: "processing", ocrPages: [] },
-      DEFAULT_CARD_DIMENSIONS.image
-    );
-    if (onItemCreated && itemId) {
-      onItemCreated([itemId]);
-    }
-    if (currentWorkspaceId && itemId) {
-      startOcrProcessing(currentWorkspaceId, [
-        { itemId, itemType: "image", fileUrl: url },
-      ]).catch((error) => {
-        console.error("[WORKSPACE_HEADER] Failed to start image OCR:", error);
-      });
-    }
-    toast.success("Image added to workspace");
-    setIsNewMenuOpen(false);
   }, [addItem, currentWorkspaceId, onItemCreated]);
 
   const handleWebsiteCreate = useCallback((url: string, name: string, favicon?: string) => {

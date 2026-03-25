@@ -14,23 +14,14 @@ export const WORKSPACE_FILE_UPLOAD_ACCEPT = {
   "image/heif": [".heif"],
   "image/avif": [".avif"],
   "image/tiff": [".tiff", ".tif"],
-  "audio/mpeg": [".mp3"],
-  "audio/wav": [".wav"],
-  "audio/ogg": [".ogg"],
-  "audio/aac": [".aac"],
-  "audio/flac": [".flac"],
-  "audio/aiff": [".aiff"],
-  "audio/webm": [".webm"],
-  "audio/mp4": [".m4a"],
 } as const;
 
 export const WORKSPACE_FILE_UPLOAD_ACCEPT_STRING = [
   "application/pdf",
   OFFICE_DOCUMENT_ACCEPT_STRING,
   "image/*",
-  "audio/*",
 ]
   .filter(Boolean)
   .join(",");
 
-export const WORKSPACE_FILE_UPLOAD_DESCRIPTION = "documents, images, or audio";
+export const WORKSPACE_FILE_UPLOAD_DESCRIPTION = "documents or images";

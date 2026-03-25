@@ -22,7 +22,7 @@ const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB to match server limit
  */
 export class SupabaseAttachmentAdapter implements AttachmentAdapter {
   accept =
-    "image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.json,.mp3,.wav,.ogg,.aac,.flac,.aiff,.webm,.m4a";
+    "image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.json";
 
   // Map of attachment ID → upload promise (started eagerly in add())
   private pendingUploads = new Map<
