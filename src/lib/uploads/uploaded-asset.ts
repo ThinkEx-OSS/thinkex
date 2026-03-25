@@ -43,12 +43,19 @@ function getBaseName(filename: string): string {
   return filename.replace(/\.[^/.]+$/, "");
 }
 
+function getResolvedContentType(params: {
+  contentType: string;
+  originalFile?: File;
+}): string {
+  return params.contentType || params.originalFile?.type || "";
+}
+
 function inferAssetKind(params: {
   contentType: string;
   displayName: string;
   originalFile?: File;
 }): UploadedAssetKind {
-  const resolvedType = params.originalFile?.type || params.contentType || "";
+  const resolvedType = getResolvedContentType(params);
 
   if (resolvedType.startsWith("audio/")) {
     return "audio";
@@ -71,7 +78,8 @@ export function createUploadedAsset(params: {
 }): UploadedAsset {
   const kind = inferAssetKind(params);
   const name = getBaseName(params.displayName);
-  const resolvedType = params.originalFile?.type || params.contentType || "application/octet-stream";
+  const resolvedType =
+    getResolvedContentType(params) || "application/octet-stream";
 
   return {
     kind,

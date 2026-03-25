@@ -74,6 +74,7 @@ export function HomePromptInput({ shouldFocus, initialValue, onInitialValueAppli
   const [typedPrefix, setTypedPrefix] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const typingKeyRef = useRef(0);
+  const isCreateDisabled = !value.trim() || isSubmitting || hasUploading;
 
   // Shuffle options with random start for variety
   const shuffledOptions = useMemo(() => {
@@ -308,7 +309,7 @@ export function HomePromptInput({ shouldFocus, initialValue, onInitialValueAppli
 
 
           <TooltipIconButton
-            tooltip="Create workspace"
+            tooltip={hasUploading ? "Wait for files to finish processing" : "Create workspace"}
             side="bottom"
             type="submit"
             variant="default"
@@ -317,7 +318,7 @@ export function HomePromptInput({ shouldFocus, initialValue, onInitialValueAppli
               "size-[34px] rounded-full p-1 absolute right-3 md:right-4",
               isExpanded ? "bottom-3 md:bottom-4" : "top-1/2 -translate-y-1/2"
             )}
-            disabled={!value.trim() || isSubmitting}
+            disabled={isCreateDisabled}
             onClick={(e) => e.stopPropagation()}
             aria-label="Create workspace"
           >

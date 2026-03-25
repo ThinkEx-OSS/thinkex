@@ -48,6 +48,18 @@ export async function pollAudioProcessing(runId: string, itemId: string): Promis
         return;
       }
 
+      if (data.status === "cancelled") {
+        window.dispatchEvent(
+          new CustomEvent("audio-processing-complete", {
+            detail: {
+              itemId,
+              error: data.error || "Processing cancelled",
+            },
+          })
+        );
+        return;
+      }
+
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     } catch (err) {
       dispatchError(

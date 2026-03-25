@@ -82,6 +82,11 @@ export async function pollOcrRun(
       return;
     }
 
+    if (data.status === "cancelled") {
+      emitFailure(data.error || "OCR cancelled");
+      return;
+    }
+
     await new Promise<void>((resolve) => {
       const timeoutId = window.setTimeout(() => {
         signal?.removeEventListener("abort", handleAbort);

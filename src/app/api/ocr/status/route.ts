@@ -23,39 +23,40 @@ export const GET = withServerObservability(async function GET(req: NextRequest) 
       );
     }
 
-    const run = getRun(runId) as ReturnType<typeof getRun> & {
-      exists: Promise<boolean>;
-    };
+    const run = getRun(runId);
     if (!(await run.exists)) {
       return NextResponse.json(
         { status: "not_found", error: "Run not found or expired" },
         { status: 404 }
       );
     }
-
     const status = await run.status;
 
     if (status === "completed") {
       return NextResponse.json({ status: "completed" });
     }
 
-    if (status === "failed") {
+    if (status === "failed" || status === "cancelled") {
       let errorMessage = "OCR failed";
-      try {
-        await run.returnValue;
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : String(error ?? "OCR failed");
-        errorMessage = message.includes("Vercel API") ? "OCR failed" : message;
+      if (status === "cancelled") {
+        errorMessage = "OCR cancelled";
+      } else {
+        try {
+          await run.returnValue;
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error ?? "OCR failed");
+          errorMessage = message.includes("Vercel API") ? "OCR failed" : message;
+        }
       }
 
       return NextResponse.json({
-        status: "failed",
+        status,
         error: errorMessage,
       });
     }
 
-    return NextResponse.json({ status: "running" });
+    return NextResponse.json({ status });
   } catch (error: unknown) {
     return NextResponse.json(
       {

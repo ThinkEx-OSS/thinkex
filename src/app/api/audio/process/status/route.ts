@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     }
 
     const run = getRun(runId);
-    if (!run) {
+    if (!(await run.exists)) {
       return NextResponse.json(
         { status: "not_found", error: "Run not found or expired" },
         { status: 404 }
@@ -62,21 +62,26 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    if (status === "failed") {
+    if (status === "failed" || status === "cancelled") {
       let errorMessage = "Processing failed";
-      try {
-        await run.returnValue;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err ?? "Processing failed");
-        errorMessage = msg.includes("Vercel API") ? "Processing failed" : msg;
+      if (status === "cancelled") {
+        errorMessage = "Processing cancelled";
+      } else {
+        try {
+          await run.returnValue;
+        } catch (err) {
+          const msg =
+            err instanceof Error ? err.message : String(err ?? "Processing failed");
+          errorMessage = msg.includes("Vercel API") ? "Processing failed" : msg;
+        }
       }
       return NextResponse.json({
-        status: "failed",
+        status,
         error: errorMessage,
       });
     }
 
-    return NextResponse.json({ status: "running" });
+    return NextResponse.json({ status });
   } catch (error: unknown) {
     console.error("[AUDIO_PROCESS_STATUS] Error:", error);
     return NextResponse.json(
