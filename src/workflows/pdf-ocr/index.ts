@@ -8,7 +8,7 @@ import {
   persistPdfOcrFailure,
 } from "./steps";
 
-const OCR_TIMEOUT = "5min"; // Per docs: Promise.race with sleep() for timeout
+const OCR_TIMEOUT = "7min"; // Per docs: Promise.race with sleep() for timeout
 
 /**
  * Durable workflow for PDF OCR.

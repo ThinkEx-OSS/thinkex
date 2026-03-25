@@ -1,6 +1,4 @@
 import { logger } from "@/lib/utils/logger";
-
-const REQUEST_TIMEOUT_MS = Number(process.env.MISTRAL_OCR_TIMEOUT_MS ?? 120_000);
 const MAX_ATTEMPTS = 4;
 const RATE_LIMIT_BASE_DELAY_MS = 20_000;
 const RATE_LIMIT_MAX_DELAY_MS = 120_000;
@@ -163,7 +161,6 @@ export async function callMistralOcr(
     documentType,
     documentHost,
     documentUrlPreview,
-    requestTimeoutMs: REQUEST_TIMEOUT_MS,
   });
 
   let lastError: Error | null = null;
@@ -171,8 +168,6 @@ export async function callMistralOcr(
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const body = { ...baseBody, model };
     const startedAt = Date.now();
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     let response: Response;
 
     logger.info(`${logLabel} Request start`, {
@@ -193,40 +188,24 @@ export async function callMistralOcr(
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify(body),
-        signal: controller.signal,
       });
     } catch (error) {
-      clearTimeout(timeout);
       const durationMs = Date.now() - startedAt;
 
-      if (error instanceof Error && error.name === "AbortError") {
-        lastError = new Error(
-          `${errorLabel}: request timed out after ${REQUEST_TIMEOUT_MS}ms`
-        );
-        logger.error(`${logLabel} Request timeout`, {
-          attempt,
-          durationMs,
-          endpoint,
-          model,
-          documentType,
-          documentHost,
-        });
-      } else {
-        lastError =
-          error instanceof Error ? error : new Error(String(error ?? errorLabel));
-        logger.error(`${logLabel} Request failed before response`, {
-          attempt,
-          durationMs,
-          endpoint,
-          model,
-          documentType,
-          documentHost,
-          error:
-            error instanceof Error
-              ? { name: error.name, message: error.message }
-              : String(error),
-        });
-      }
+      lastError =
+        error instanceof Error ? error : new Error(String(error ?? errorLabel));
+      logger.error(`${logLabel} Request failed before response`, {
+        attempt,
+        durationMs,
+        endpoint,
+        model,
+        documentType,
+        documentHost,
+        error:
+          error instanceof Error
+            ? { name: error.name, message: error.message }
+            : String(error),
+      });
 
       if (attempt >= MAX_ATTEMPTS) break;
 
@@ -238,8 +217,6 @@ export async function callMistralOcr(
       });
       await sleepMs(delayMs);
       continue;
-    } finally {
-      clearTimeout(timeout);
     }
 
     const durationMs = Date.now() - startedAt;
