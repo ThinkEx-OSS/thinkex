@@ -20,6 +20,7 @@ import { parseJsonWithRepair } from "@/lib/utils/json-repair";
 import { getNoteContentAsMarkdown } from "@/lib/utils/format-workspace-context";
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
 import type { Block } from "@/components/editor/BlockNoteEditor";
+import { buildPdfDataFromUpload } from "@/lib/pdf/pdf-item";
 
 /** Create params for a single item (used by create and bulkCreate). Exported for autogen. */
 export type CreateItemParams = {
@@ -27,7 +28,14 @@ export type CreateItemParams = {
     title?: string;
     content?: string;
     itemType?: "note" | "flashcard" | "quiz" | "youtube" | "image" | "audio" | "pdf";
-    pdfData?: { fileUrl: string; filename: string; fileSize?: number; ocrPages?: PdfData["ocrPages"]; ocrStatus?: PdfData["ocrStatus"] };
+    pdfData?: {
+        fileUrl: string;
+        filename: string;
+        fileSize?: number;
+        ocrPages?: PdfData["ocrPages"];
+        ocrStatus?: PdfData["ocrStatus"];
+        ocrError?: string;
+    };
     flashcardData?: { cards?: { front: string; back: string }[] };
     quizData?: QuizData;
     youtubeData?: { url: string };
@@ -94,11 +102,16 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
     } else if (itemType === "pdf") {
         if (!p.pdfData?.fileUrl) throw new Error("PDF data required for pdf card creation");
         itemData = {
-            fileUrl: p.pdfData.fileUrl,
-            filename: p.pdfData.filename || "document.pdf",
-            fileSize: p.pdfData.fileSize,
+            ...buildPdfDataFromUpload({
+                fileUrl: p.pdfData.fileUrl,
+                filename: p.pdfData.filename || "document.pdf",
+                contentType: "application/pdf",
+                fileSize: p.pdfData.fileSize,
+                displayName: p.pdfData.filename || "document.pdf",
+            }),
             ...(p.pdfData.ocrPages != null && { ocrPages: p.pdfData.ocrPages }),
             ...(p.pdfData.ocrStatus != null && { ocrStatus: p.pdfData.ocrStatus }),
+            ...(p.pdfData.ocrError != null && { ocrError: p.pdfData.ocrError }),
         };
     } else if (itemType === "quiz") {
         if (!p.quizData) throw new Error("Quiz data required for quiz creation");
@@ -212,7 +225,8 @@ export async function workspaceWorker(
             fileSize?: number;
         };
         pdfOcrPages?: PdfData["ocrPages"]; // Full OCR page data from Mistral OCR
-        pdfOcrStatus?: "complete" | "failed"; // OCR run status
+        pdfOcrStatus?: "complete" | "failed" | "processing"; // OCR run status
+        pdfOcrError?: string;
         flashcardData?: {
             cards?: { front: string; back: string }[]; // For creating flashcards
             cardsToAdd?: { front: string; back: string }[]; // For updating flashcards (appending)
@@ -895,7 +909,11 @@ export async function workspaceWorker(
                     throw new Error("Item ID required for PDF content update");
                 }
                 // OCR pages may be omitted only when OCR explicitly failed; otherwise callers must provide the full page array.
-                if (params.pdfOcrStatus !== "failed" && (params.pdfOcrPages === undefined || params.pdfOcrPages.length === 0)) {
+                if (
+                    params.pdfOcrStatus != null &&
+                    params.pdfOcrStatus !== "failed" &&
+                    (params.pdfOcrPages === undefined || params.pdfOcrPages.length === 0)
+                ) {
                     throw new Error("OCR pages required for PDF content update (or ocrStatus: failed)");
                 }
 
@@ -913,6 +931,7 @@ export async function workspaceWorker(
                     ...existingData,
                     ...(params.pdfOcrPages != null && { ocrPages: params.pdfOcrPages }),
                     ...(params.pdfOcrStatus != null && { ocrStatus: params.pdfOcrStatus }),
+                    ...(params.pdfOcrError != null && { ocrError: params.pdfOcrError }),
                 };
 
                 const changes: Partial<Item> = { data: updatedData };

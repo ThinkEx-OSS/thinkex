@@ -47,6 +47,34 @@ export function eventReducer(state: AgentState, event: WorkspaceEvent): AgentSta
       };
     }
 
+    case 'BULK_ITEMS_PATCHED': {
+      const now = event.timestamp || Date.now();
+      const updateMap = new Map(
+        event.payload.updates.map((update) => [update.id, update])
+      );
+
+      return {
+        ...state,
+        items: state.items.map((item) => {
+          const update = updateMap.get(item.id);
+          if (!update) return item;
+
+          return {
+            ...item,
+            ...update.changes,
+            data: update.changes.data
+              ? {
+                  ...item.data,
+                  ...update.changes.data,
+                }
+              : item.data,
+            lastSource: update.source,
+            lastModified: now,
+          };
+        }),
+      };
+    }
+
     case 'ITEM_DELETED': {
       const deletedItemId = event.payload.id;
       const deletedItem = state.items.find(item => item.id === deletedItemId);
@@ -324,4 +352,3 @@ export function validateEvents(events: WorkspaceEvent[]): {
     errors,
   };
 }
-

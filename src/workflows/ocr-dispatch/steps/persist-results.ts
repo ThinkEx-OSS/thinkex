@@ -3,18 +3,10 @@ import { db } from "@/lib/db/client";
 import { createEvent } from "@/lib/workspace/events";
 import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
-import type { OcrPage } from "@/lib/pdf/mistral-ocr";
+import type { OcrItemResult } from "@/lib/ocr/types";
 
 const APPEND_RESULT_REGEX = /\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i;
 
-export interface ImageOcrResult {
-  ocrPages: OcrPage[];
-}
-
-/**
- * Append an event to the workspace and check for version conflict.
- * Throws on conflict so the workflow framework can retry.
- */
 async function appendWorkspaceEvent(
   workspaceId: string,
   event: WorkspaceEvent
@@ -50,6 +42,7 @@ async function appendWorkspaceEvent(
       `append_workspace_event returned unexpected format: ${raw}`
     );
   }
+
   const modified = match[2].toLowerCase();
   if (modified === "t" || modified === "true") {
     throw new Error(
@@ -58,62 +51,33 @@ async function appendWorkspaceEvent(
   }
 }
 
-/**
- * Persist image OCR result to workspace as ITEM_UPDATED event.
- * Durable step — retriable.
- */
-export async function persistImageOcrResult(
+export async function persistOcrResults(
   workspaceId: string,
-  itemId: string,
   userId: string,
-  result: ImageOcrResult
+  results: OcrItemResult[]
 ): Promise<void> {
   "use step";
 
   const event = createEvent(
-    "ITEM_UPDATED",
+    "BULK_ITEMS_PATCHED",
     {
-      id: itemId,
-      changes: {
-        data: {
-          ocrPages: result.ocrPages ?? [],
-          ocrStatus: "complete" as const,
-          ocrError: null,
+      updates: results.map((result) => ({
+        id: result.itemId,
+        changes: {
+          data: result.ok
+            ? {
+                ocrPages: result.pages,
+                ocrStatus: "complete" as const,
+                ocrError: undefined,
+              }
+            : {
+                ocrPages: [],
+                ocrStatus: "failed" as const,
+                ocrError: result.error,
+              },
         },
-      },
-      source: "agent",
-    },
-    userId
-  );
-
-  await appendWorkspaceEvent(workspaceId, event);
-  checkAndCreateSnapshot(workspaceId).catch(() => {});
-}
-
-/**
- * Persist image OCR failure to workspace.
- * Durable step — retriable.
- */
-export async function persistImageOcrFailure(
-  workspaceId: string,
-  itemId: string,
-  userId: string,
-  error: string
-): Promise<void> {
-  "use step";
-
-  const event = createEvent(
-    "ITEM_UPDATED",
-    {
-      id: itemId,
-      changes: {
-        data: {
-          ocrPages: [],
-          ocrStatus: "failed" as const,
-          ocrError: error,
-        },
-      },
-      source: "agent",
+        source: "agent" as const,
+      })),
     },
     userId
   );

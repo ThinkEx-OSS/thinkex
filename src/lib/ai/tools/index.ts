@@ -4,7 +4,6 @@
  */
 
 import { frontendTools } from "@assistant-ui/react-ai-sdk";
-import { createProcessFilesTool } from "./process-files";
 import { createProcessUrlsTool } from "./process-urls";
 import { createExecuteCodeTool } from "./search-code";
 import {
@@ -53,8 +52,7 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
     }
 
     return {
-        // File & URL processing
-        processFiles: createProcessFilesTool(ctx),
+        // URL processing
         processUrls: createProcessUrlsTool(),
 
         // Search & code execution

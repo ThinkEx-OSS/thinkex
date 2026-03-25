@@ -20,7 +20,7 @@ export interface NoteData {
 
 export interface PdfData {
   fileUrl: string; // Supabase storage URL
-  filename: string; // original filename
+  filename: string; // stored filename/path
   fileSize?: number; // optional file size in bytes
   ocrStatus?: "complete" | "failed" | "processing";
   ocrError?: string;

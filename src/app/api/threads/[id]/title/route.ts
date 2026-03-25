@@ -11,7 +11,7 @@ import {
 import { eq } from "drizzle-orm";
 import { withServerObservability } from "@/lib/with-server-observability";
 
-/** Model ID used for processFiles and other lightweight tasks */
+/** Model ID used for lightweight background text tasks */
 const GEMINI_FLASH_LITE_MODEL = "gemini-2.5-flash-lite";
 
 function extractTextFromMessage(msg: { content?: unknown[] }): string {
@@ -25,7 +25,7 @@ function extractTextFromMessage(msg: { content?: unknown[] }): string {
 
 /**
  * POST /api/threads/[id]/title
- * Generate a title from messages using Gemini Flash Lite (same model as processFiles).
+ * Generate a title from messages using Gemini Flash Lite.
  * Body: { messages: ThreadMessage[] }
  */
 export const POST = withServerObservability(async function POST(

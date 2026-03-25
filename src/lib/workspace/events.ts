@@ -32,6 +32,21 @@ type WorkspaceEventBase =
     id: string;
   }
   | {
+    type: 'BULK_ITEMS_PATCHED';
+    payload: {
+      updates: Array<{
+        id: string;
+        changes: Partial<Item>;
+        source?: 'user' | 'agent';
+        name?: string;
+      }>;
+    };
+    timestamp: number;
+    userId: string;
+    userName?: string;
+    id: string;
+  }
+  | {
     type: 'ITEM_DELETED';
     payload: { id: string; name?: string };
     timestamp: number;
@@ -205,4 +220,3 @@ export function createEvent<T extends WorkspaceEvent['type']>(
     id: crypto.randomUUID(),
   } as Extract<WorkspaceEvent, { type: T }>;
 }
-

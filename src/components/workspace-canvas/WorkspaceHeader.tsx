@@ -57,6 +57,8 @@ import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
 import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
 import { useWorkspaceFilePicker } from "@/hooks/workspace/use-workspace-file-picker";
+import { startOcrProcessing } from "@/lib/ocr/client";
+import { startAudioProcessing } from "@/lib/audio/start-audio-processing";
 interface WorkspaceHeaderProps {
   titleInputRef: React.RefObject<HTMLInputElement | null>;
   onOpenSearch?: () => void;
@@ -326,42 +328,15 @@ export function WorkspaceHeader({
       toast.dismiss(loadingToastId);
       toast.success("Audio uploaded — analyzing with Gemini...");
 
-      // Kick off durable workflow and poll for completion
-      fetch("/api/audio/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      if (currentWorkspaceId && itemId) {
+        void startAudioProcessing({
+          workspaceId: currentWorkspaceId,
+          itemId,
           fileUrl,
           filename: file.name,
           mimeType: file.type || "audio/webm",
-          itemId,
-          workspaceId: currentWorkspaceId,
-        }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.runId && data.itemId) {
-            import("@/lib/audio/poll-audio-processing").then(({ pollAudioProcessing }) =>
-              pollAudioProcessing(data.runId, data.itemId)
-            );
-          } else {
-            window.dispatchEvent(
-              new CustomEvent("audio-processing-complete", {
-                detail: { itemId, error: data.error || "Processing failed" },
-              })
-            );
-          }
-        })
-        .catch((err) => {
-          window.dispatchEvent(
-            new CustomEvent("audio-processing-complete", {
-              detail: {
-                itemId,
-                error: err.message || "Processing failed",
-              },
-            })
-          );
         });
+      }
     } catch (error: any) {
       toast.dismiss(loadingToastId);
       toast.error(error.message || "Failed to upload audio");
@@ -371,10 +346,25 @@ export function WorkspaceHeader({
   const handleImageCreate = useCallback((url: string, name: string) => {
     if (!addItem) return;
 
-    addItem('image', name, { url, altText: name }, DEFAULT_CARD_DIMENSIONS.image);
+    const itemId = addItem(
+      'image',
+      name,
+      { url, altText: name, ocrStatus: "processing", ocrPages: [] },
+      DEFAULT_CARD_DIMENSIONS.image
+    );
+    if (onItemCreated && itemId) {
+      onItemCreated([itemId]);
+    }
+    if (currentWorkspaceId && itemId) {
+      startOcrProcessing(currentWorkspaceId, [
+        { itemId, itemType: "image", fileUrl: url },
+      ]).catch((error) => {
+        console.error("[WORKSPACE_HEADER] Failed to start image OCR:", error);
+      });
+    }
     toast.success("Image added to workspace");
     setIsNewMenuOpen(false);
-  }, [addItem]);
+  }, [addItem, currentWorkspaceId, onItemCreated]);
 
   const handleWebsiteCreate = useCallback((url: string, name: string, favicon?: string) => {
     if (!addItem) return;
@@ -387,7 +377,6 @@ export function WorkspaceHeader({
     inputProps: fileInputProps,
     openFilePicker,
   } = useWorkspaceFilePicker({
-    onImageCreate: handleImageCreate,
     onDocumentUpload: onPDFUpload,
   });
 

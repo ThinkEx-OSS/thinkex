@@ -2,7 +2,7 @@ import React, { RefObject, useState, useMemo, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type { AgentState, Item, CardType, PdfData } from "@/lib/workspace-state/types";
+import type { AgentState, Item, CardType, PdfData, ImageData } from "@/lib/workspace-state/types";
 import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import type { WorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import WorkspaceContent from "./WorkspaceContent";
@@ -16,8 +16,14 @@ import { useSession } from "@/lib/auth-client";
 import { LoginGate } from "@/components/workspace/LoginGate";
 import { AccessDenied } from "@/components/workspace/AccessDenied";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
-import { uploadPdfToStorage } from "@/lib/uploads/pdf-upload-with-ocr";
-import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
+import {
+  buildWorkspaceItemDefinitionsFromAssets,
+} from "@/lib/uploads/uploaded-asset";
+import {
+  getFileSizeLabel,
+  prepareWorkspaceUploadSelection,
+  uploadSelectedFiles,
+} from "@/lib/uploads/upload-selection";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 
 import MoveToDialog from "@/components/modals/MoveToDialog";
@@ -58,6 +64,16 @@ import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceFilePicker } from "@/hooks/workspace/use-workspace-file-picker";
+import { startOcrProcessing } from "@/lib/ocr/client";
+import type { OcrCandidate } from "@/lib/ocr/types";
+import { startAudioProcessing } from "@/lib/audio/start-audio-processing";
+import { startAssetProcessing } from "@/lib/uploads/start-asset-processing";
+import {
+  getDocumentUploadFailureMessage,
+  getDocumentUploadLoadingMessage,
+  getDocumentUploadPartialMessage,
+  getDocumentUploadSuccessMessage,
+} from "@/lib/uploads/upload-feedback";
 
 interface WorkspaceSectionProps {
   // Loading states
@@ -234,24 +250,47 @@ export function WorkspaceSection({
     return workspaces.find(w => w.id === currentWorkspaceId) || null;
   }, [currentWorkspaceId, workspaces]);
 
+  // Use reactive navigation hook for auto-scroll/selection
+  const { handleCreatedItems } = useReactiveNavigation(state);
+
   const handleYouTubeCreate = useCallback((url: string, name: string, thumbnail?: string) => {
     if (addItem) {
       addItem("youtube", name, { url, thumbnail });
     }
   }, [addItem]);
 
+  const startWorkspaceOcr = useCallback((candidates: OcrCandidate[]) => {
+    if (!currentWorkspaceId || candidates.length === 0) return;
+    startOcrProcessing(currentWorkspaceId, candidates).catch((error) => {
+      console.error("[WORKSPACE_OCR] Failed to start OCR:", error);
+    });
+  }, [currentWorkspaceId]);
+
   const handleImageCreate = useCallback((url: string, name: string) => {
     if (!operations) return;
 
-    operations.createItems([{
+    const createdIds = operations.createItems([{
       type: 'image',
       name,
-      initialData: { url, altText: name },
+      initialData: {
+        url,
+        altText: name,
+        ocrStatus: "processing" as const,
+        ocrPages: [],
+      } as Partial<ImageData>,
       initialLayout: DEFAULT_CARD_DIMENSIONS.image,
-    }]);
+    }], {
+      showSuccessToast: false,
+    });
+
+    handleCreatedItems(createdIds);
+    const itemId = createdIds[0];
+    if (itemId) {
+      startWorkspaceOcr([{ itemId, itemType: "image", fileUrl: url }]);
+    }
 
     toast.success("Image added to workspace");
-  }, [operations]);
+  }, [handleCreatedItems, operations, startWorkspaceOcr]);
 
   const handleWebsiteCreate = useCallback((url: string, name: string, favicon?: string) => {
     if (!operations) return;
@@ -268,7 +307,6 @@ export function WorkspaceSection({
     inputProps: fileInputProps,
     openFilePicker,
   } = useWorkspaceFilePicker({
-    onImageCreate: handleImageCreate,
     onDocumentUpload: handlePDFUpload,
   });
 
@@ -448,134 +486,73 @@ export function WorkspaceSection({
     // Note: FolderCard auto-focuses the title when name is "New Folder"
   };
 
-  // Handle PDF upload from BottomActionBar
+  // Handle file upload from workspace pickers/empty states
   async function handlePDFUpload(files: File[]) {
     if (!operations || !currentWorkspaceId) {
       throw new Error('Workspace operations not available');
     }
 
-    const pdfFiles = files.filter(
-      (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-    );
-    const officeFiles = files.filter(
-      (file) => file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')
-    );
+    const MAX_FILE_SIZE_MB = 50;
+    const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+    const oversizedFiles = files.filter((file) => file.size > MAX_FILE_SIZE_BYTES);
+    const validFiles = files.filter((file) => file.size <= MAX_FILE_SIZE_BYTES);
 
-    // Reject password-protected PDFs
-    const { valid: unprotectedFiles, rejected: protectedNames } = await filterPasswordProtectedPdfs(pdfFiles);
-    if (protectedNames.length > 0) {
-      emitPasswordProtectedPdf(protectedNames);
+    if (oversizedFiles.length > 0) {
+      toast.error(
+        `The following file${oversizedFiles.length > 1 ? "s" : ""} exceed${oversizedFiles.length === 1 ? "s" : ""} the ${MAX_FILE_SIZE_MB}MB limit:\n${oversizedFiles
+          .map((file) => getFileSizeLabel(file))
+          .join("\n")}`
+      );
     }
-    const filesToUpload = [...unprotectedFiles, ...officeFiles];
+
+    if (validFiles.length === 0) {
+      return;
+    }
+
+    const { acceptedFiles: filesToUpload, protectedPdfNames } =
+      await prepareWorkspaceUploadSelection(validFiles);
+    if (protectedPdfNames.length > 0) {
+      emitPasswordProtectedPdf(protectedPdfNames);
+    }
     if (filesToUpload.length === 0) {
       return;
     }
 
-    const uploadToastId = toast.loading(
-      `Uploading ${filesToUpload.length} document${filesToUpload.length > 1 ? 's' : ''}...`
-    );
-
-    const uploadResults = await Promise.all(
-      filesToUpload.map(async (file) => {
-        try {
-          const isPdfFile = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-          if (isPdfFile) {
-            const { url, filename, fileSize } = await uploadPdfToStorage(file);
-            return {
-              file,
-              fileUrl: url,
-              filename,
-              displayName: file.name,
-              fileSize,
-            };
-          }
-
-          const result = await uploadFileDirect(file);
-          return {
-            file,
-            fileUrl: result.url,
-            filename: result.filename,
-            displayName: result.displayName,
-            fileSize: file.size,
-          };
-        } catch (err) {
-          toast.error(`Failed to upload ${file.name}: ${err instanceof Error ? err.message : 'Unknown error'}`);
-          return null;
-        }
-      })
-    );
+    const uploadToastId = toast.loading(getDocumentUploadLoadingMessage(filesToUpload.length));
+    const { uploads, failedFiles } = await uploadSelectedFiles(filesToUpload);
 
     toast.dismiss(uploadToastId);
 
-    const validUploads = uploadResults.filter((r): r is NonNullable<typeof r> => r !== null);
-    if (validUploads.length === 0) return;
+    if (uploads.length === 0) return;
 
-    const pdfCardDefinitions = validUploads.map(({ fileUrl, filename, displayName, fileSize }) => ({
-      type: 'pdf' as const,
-      name: displayName.replace(/\.pdf$/i, ''),
-      initialData: {
-        fileUrl,
-        filename,
-        fileSize,
-        ocrStatus: 'processing' as const,
-        ocrPages: [],
-      } as Partial<PdfData>,
-    }));
+    const itemDefinitions = buildWorkspaceItemDefinitionsFromAssets(uploads, {
+      imageLayout: DEFAULT_CARD_DIMENSIONS.image,
+    });
 
-    const createdIds = operations.createItems(pdfCardDefinitions);
+    const createdIds = operations.createItems(itemDefinitions, {
+      showSuccessToast: false,
+    });
     handleCreatedItems(createdIds);
 
-    // Run OCR via workflow; poller dispatches pdf-processing-complete
-    validUploads.forEach((r, i) => {
-      const itemId = createdIds[i];
-      if (!itemId) return;
-      fetch("/api/pdf/ocr/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileUrl: r.fileUrl,
-          itemId,
-          workspaceId: currentWorkspaceId,
-        }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.runId && data.itemId) {
-            import("@/lib/pdf/poll-pdf-ocr").then(({ pollPdfOcr }) =>
-              pollPdfOcr(data.runId, data.itemId)
-            );
-          } else {
-            window.dispatchEvent(
-              new CustomEvent("pdf-processing-complete", {
-                detail: {
-                  itemId,
-                  ocrPages: [],
-                  ocrStatus: "failed" as const,
-                  ocrError: data.error || "Failed to start OCR",
-                },
-              })
-            );
-          }
-        })
-        .catch((err) => {
-          window.dispatchEvent(
-            new CustomEvent("pdf-processing-complete", {
-              detail: {
-                itemId,
-                ocrPages: [],
-                ocrStatus: "failed" as const,
-                ocrError: err.message || "Failed to start OCR",
-              },
-            })
-          );
-        });
+    void startAssetProcessing({
+      workspaceId: currentWorkspaceId,
+      assets: uploads,
+      itemIds: createdIds,
+      onOcrError: (error) => {
+        console.error("[WORKSPACE_PROCESSING] Failed to start processing:", error);
+      },
     });
+
+    if (uploads.length > 0 && failedFiles.length === 0) {
+      toast.success(getDocumentUploadSuccessMessage(uploads.length));
+    } else if (uploads.length > 0) {
+      toast.warning(
+        getDocumentUploadPartialMessage(uploads.length, failedFiles.length)
+      );
+    } else if (failedFiles.length > 0) {
+      toast.error(getDocumentUploadFailureMessage(failedFiles.length));
+    }
   }
-
-
-  // Use reactive navigation hook for auto-scroll/selection
-  const { handleCreatedItems } = useReactiveNavigation(state);
-
   const handleAudioReady = useCallback(async (file: File) => {
     if (!addItem) return;
 
@@ -612,41 +589,15 @@ export function WorkspaceSection({
       toast.dismiss(loadingToastId);
       toast.success("Audio uploaded \u2014 analyzing with Gemini...");
 
-      fetch("/api/audio/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      if (currentWorkspaceId && itemId) {
+        void startAudioProcessing({
+          workspaceId: currentWorkspaceId,
+          itemId,
           fileUrl,
           filename: file.name,
           mimeType: file.type || "audio/webm",
-          itemId,
-          workspaceId: currentWorkspaceId,
-        }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.runId && data.itemId) {
-            import("@/lib/audio/poll-audio-processing").then(({ pollAudioProcessing }) =>
-              pollAudioProcessing(data.runId, data.itemId)
-            );
-          } else {
-            window.dispatchEvent(
-              new CustomEvent("audio-processing-complete", {
-                detail: { itemId, error: data.error || "Processing failed" },
-              })
-            );
-          }
-        })
-        .catch((err) => {
-          window.dispatchEvent(
-            new CustomEvent("audio-processing-complete", {
-              detail: {
-                itemId,
-                error: err.message || "Processing failed",
-              },
-            })
-          );
         });
+      }
     } catch (error: any) {
       toast.dismiss(loadingToastId);
       toast.error(error.message || "Failed to upload audio");

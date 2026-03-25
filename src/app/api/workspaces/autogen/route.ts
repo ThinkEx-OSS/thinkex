@@ -21,8 +21,14 @@ import {
 } from "@/lib/workspace-icons";
 import { logger } from "@/lib/utils/logger";
 import { start } from "workflow/api";
-import { pdfOcrWorkflow } from "@/workflows/pdf-ocr";
-import { imageOcrWorkflow } from "@/workflows/image-ocr";
+import { isAllowedOcrFileUrl } from "@/lib/ocr/url-validation";
+import { ocrDispatchWorkflow } from "@/workflows/ocr-dispatch";
+import {
+  buildOcrCandidatesFromAssets,
+  buildWorkspaceItemDefinitionFromAsset,
+  createUploadedAsset,
+  type UploadedAsset,
+} from "@/lib/uploads/uploaded-asset";
 
 const MAX_TITLE_LENGTH = 60;
 const LOG_TRUNCATE = 400;
@@ -42,7 +48,13 @@ const AUTOGEN_LAYOUTS = {
   image: { w: 2, h: 8 },
 } as const;
 
-type FileUrlItem = { url: string; mediaType: string; filename?: string; fileSize?: number };
+type FileUrlItem = {
+  url: string;
+  mediaType: string;
+  filename?: string;
+  storagePath?: string;
+  fileSize?: number;
+};
 
 type UserMessagePart =
   | { type: "text"; text: string }
@@ -83,31 +95,6 @@ function buildUserMessage(
     parts.push({ type: "file", data: ytUrl, mediaType: "video/mp4" });
   }
   return { role: "user", content: parts };
-}
-
-const ALLOWED_URL_HOSTS = (() => {
-  const hosts = ["supabase.co", "supabase.in"];
-  try {
-    const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (typeof envUrl === "string" && envUrl) {
-      hosts.push(new URL(envUrl).hostname);
-    }
-  } catch {
-    /* ignore */
-  }
-  return hosts;
-})();
-
-function isAllowedFileUrl(url: string | undefined): boolean {
-  if (!url || typeof url !== "string") return false;
-  try {
-    const u = new URL(url);
-    return ALLOWED_URL_HOSTS.some(
-      (h) => u.hostname === h || u.hostname.endsWith(`.${h}`)
-    );
-  } catch {
-    return false;
-  }
 }
 
 /** Schema for main agent distillation when user has attachments */
@@ -374,7 +361,7 @@ export async function POST(request: NextRequest) {
 
         // Validate file URLs to prevent SSRF
         if (fileUrls?.length) {
-          const invalid = fileUrls.filter((f) => !f?.url || !isAllowedFileUrl(f.url));
+          const invalid = fileUrls.filter((f) => !f?.url || !isAllowedOcrFileUrl(f.url));
           if (invalid.length > 0) {
             logger.warn("[AUTOGEN] Rejected: invalid file URLs", { invalidCount: invalid.length });
             send({ type: "error", data: { message: "One or more file URLs are not allowed" } });
@@ -383,7 +370,9 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        const pdfFileUrls = (fileUrls ?? []).filter((f) => f.mediaType === "application/pdf");
+        const documentFileUrls = (fileUrls ?? []).filter(
+          (f) => f.mediaType === "application/pdf"
+        );
         const imageFileUrls = (fileUrls ?? []).filter((f) => f.mediaType?.startsWith("image/"));
         const hasParts = (fileUrls?.length ?? 0) > 0 || (links?.length ?? 0) > 0;
         logger.info("[AUTOGEN] Start", {
@@ -392,7 +381,7 @@ export async function POST(request: NextRequest) {
           fileCount: fileUrls?.length ?? 0,
           linkCount: links?.length ?? 0,
           promptLength: prompt.length,
-          pdfCount: pdfFileUrls.length,
+          pdfCount: documentFileUrls.length,
           imageCount: imageFileUrls.length,
         });
 
@@ -472,7 +461,6 @@ export async function POST(request: NextRequest) {
 
         // Create PDF and image items immediately so OCR can start (runs in parallel with Phase 1)
         // Seed with known content-item positions so files are placed around them (matching pre-restructuring layout)
-        const hasYouTubeLink = links?.some(isYouTubeUrl);
         // Always reserve YouTube footprint so a later searched YouTube item (AUTOGEN_LAYOUTS.youtube) never overlaps early PDFs/images
         const pdfItemLayouts: Pick<Item, "type" | "layout">[] = [
           { type: "note", layout: AUTOGEN_LAYOUTS.note as Item["layout"] },
@@ -480,36 +468,52 @@ export async function POST(request: NextRequest) {
           { type: "youtube", layout: AUTOGEN_LAYOUTS.youtube as Item["layout"] },
         ];
 
+        const documentAssets: UploadedAsset[] = documentFileUrls.map((pdf) =>
+          createUploadedAsset({
+            fileUrl: pdf.url,
+            filename: pdf.storagePath ?? pdf.filename ?? "document",
+            contentType: pdf.mediaType,
+            fileSize: pdf.fileSize,
+            displayName: pdf.filename ?? "document",
+          })
+        );
+        const imageAssets: UploadedAsset[] = imageFileUrls.map((img) =>
+          createUploadedAsset({
+            fileUrl: img.url,
+            filename: img.storagePath ?? img.filename ?? "image",
+            contentType: img.mediaType,
+            fileSize: img.fileSize,
+            displayName: img.filename ?? "image",
+          })
+        );
+
         const pdfCreateParams: CreateItemParams[] = [];
-        for (const pdf of pdfFileUrls) {
+        for (const asset of documentAssets) {
           const position = findNextAvailablePosition(pdfItemLayouts as Item[], "pdf", 4, "", "", AUTOGEN_LAYOUTS.pdf.w, AUTOGEN_LAYOUTS.pdf.h);
           const pdfItemId = generateItemId();
-          const title = (pdf.filename ?? "document").replace(/\.pdf$/i, "");
+          const itemDefinition = buildWorkspaceItemDefinitionFromAsset(asset);
+          if (itemDefinition.type !== "pdf") continue;
           pdfCreateParams.push({
             id: pdfItemId,
-            title,
+            title: asset.name,
             itemType: "pdf",
-            pdfData: {
-              fileUrl: pdf.url,
-              filename: pdf.filename ?? "document.pdf",
-              fileSize: pdf.fileSize,
-              ocrStatus: "processing" as const,
-            },
+            pdfData: itemDefinition.initialData as CreateItemParams["pdfData"],
             layout: position,
           });
           pdfItemLayouts.push({ type: "pdf", layout: position });
         }
 
         const imageCreateParams: CreateItemParams[] = [];
-        for (const img of imageFileUrls) {
+        for (const asset of imageAssets) {
           const position = findNextAvailablePosition(pdfItemLayouts as Item[], "image", 4, "", "", AUTOGEN_LAYOUTS.image.w, AUTOGEN_LAYOUTS.image.h);
-          const imgTitle = (img.filename ?? "image").replace(/\.(png|jpe?g|gif|webp|svg)$/i, "") || "Image";
           const imgItemId = generateItemId();
+          const itemDefinition = buildWorkspaceItemDefinitionFromAsset(asset);
+          if (itemDefinition.type !== "image") continue;
           imageCreateParams.push({
             id: imgItemId,
-            title: imgTitle,
+            title: asset.name || "Image",
             itemType: "image",
-            imageData: { url: img.url, altText: imgTitle, ocrStatus: "processing" as const },
+            imageData: itemDefinition.initialData as CreateItemParams["imageData"],
             layout: position,
           });
           pdfItemLayouts.push({ type: "image", layout: position });
@@ -519,40 +523,48 @@ export async function POST(request: NextRequest) {
         if (fileCreateParams.length > 0) {
           const fileBulkResult = await workspaceWorker("bulkCreate", { workspaceId, items: fileCreateParams });
           if ((fileBulkResult as { success?: boolean }).success) {
-            // Fire-and-forget: start PDF OCR workflows
-            for (const param of pdfCreateParams) {
-              if (!param.id || !param.pdfData?.fileUrl) continue;
-              start(pdfOcrWorkflow, [param.pdfData.fileUrl, workspaceId, param.id, userId]).catch((err) => {
-                logger.warn("[AUTOGEN] Failed to start PDF OCR workflow", {
-                  itemId: param.id,
-                  error: err instanceof Error ? err.message : String(err),
-                });
-                workspaceWorker("updatePdfContent", {
-                  workspaceId,
-                  itemId: param.id!,
-                  pdfOcrPages: [],
-                  pdfOcrStatus: "failed" as const,
-                }).catch(() => {});
-              });
-            }
-            // Fire-and-forget: start image OCR workflows
-            for (const param of imageCreateParams) {
-              if (!param.id || !param.imageData?.url) continue;
-              start(imageOcrWorkflow, [param.imageData.url, workspaceId, param.id, userId]).catch((err) => {
+            const ocrCandidates = buildOcrCandidatesFromAssets(
+              [...documentAssets, ...imageAssets],
+              [
+                ...pdfCreateParams.map((param) => param.id),
+                ...imageCreateParams.map((param) => param.id),
+              ]
+            );
+
+            if (ocrCandidates.length > 0) {
+              start(ocrDispatchWorkflow, [ocrCandidates, workspaceId, userId]).catch((err) => {
                 const errMsg = err instanceof Error ? err.message : String(err);
-                logger.warn("[AUTOGEN] Failed to start image OCR workflow", {
-                  itemId: param.id,
+                logger.warn("[AUTOGEN] Failed to start OCR dispatch workflow", {
                   error: errMsg,
+                  candidateCount: ocrCandidates.length,
                 });
-                workspaceWorker("updateImageContent", {
-                  workspaceId,
-                  itemId: param.id,
-                  imageOcrStatus: "failed" as const,
-                  imageOcrError: errMsg,
-                }).catch(() => {});
+
+                Promise.allSettled([
+                  ...pdfCreateParams
+                    .filter((param) => !!param.id)
+                    .map((param) =>
+                      workspaceWorker("updatePdfContent", {
+                        workspaceId,
+                        itemId: param.id!,
+                        pdfOcrPages: [],
+                        pdfOcrStatus: "failed" as const,
+                      })
+                    ),
+                  ...imageCreateParams
+                    .filter((param) => !!param.id)
+                    .map((param) =>
+                      workspaceWorker("updateImageContent", {
+                        workspaceId,
+                        itemId: param.id!,
+                        imageOcrStatus: "failed" as const,
+                        imageOcrError: errMsg,
+                      })
+                    ),
+                ]).catch(() => {});
               });
             }
-            logger.info("[AUTOGEN] PDF and image items created + OCR workflows started", {
+
+            logger.info("[AUTOGEN] File items created + OCR dispatch started", {
               pdfCount: pdfCreateParams.length,
               imageCount: imageCreateParams.length,
             });

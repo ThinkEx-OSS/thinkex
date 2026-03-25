@@ -6,6 +6,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import {
+  getPreferredUploadContentType,
   isOfficeDocument,
   getOfficeDocumentConvertUrl,
 } from "@/lib/uploads/office-document-validation";
@@ -66,6 +67,11 @@ export const POST = withServerObservability(async function POST(request: NextReq
       );
     }
 
+    const uploadContentType = getPreferredUploadContentType(
+      file.name,
+      file.type || "application/octet-stream"
+    );
+
     // Security: Validate against a whitelist of allowed MIME types
     const allowedMimeTypes = [
       'application/pdf',
@@ -93,9 +99,9 @@ export const POST = withServerObservability(async function POST(request: NextReq
       "application/vnd.openxmlformats-officedocument.presentationml.presentation"
     ];
 
-    if (!allowedMimeTypes.includes(file.type)) {
+    if (!allowedMimeTypes.includes(uploadContentType)) {
       return NextResponse.json(
-        { error: `File type ${file.type || 'unknown'} is not allowed. Only safe images, videos, and documents are permitted.` },
+        { error: `File type ${uploadContentType || 'unknown'} is not allowed. Only safe images, videos, and documents are permitted.` },
         { status: 400 }
       );
     }
@@ -163,6 +169,7 @@ export const POST = withServerObservability(async function POST(request: NextReq
         .from(bucketName)
         .upload(filename, file, {
           cacheControl: '3600',
+          contentType: uploadContentType,
           upsert: false,
         });
 

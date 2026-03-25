@@ -3,24 +3,35 @@
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
+import { WORKSPACE_FILE_UPLOAD_ACCEPT_STRING } from "@/lib/uploads/workspace-upload-config";
 
 export const WORKSPACE_FILE_INPUT_ACCEPT =
-  "image/*,.png,.jpg,.jpeg,.gif,.webp,.heic,.heif,.avif,.tiff,.tif,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx";
+  WORKSPACE_FILE_UPLOAD_ACCEPT_STRING;
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 
 interface UseWorkspaceFilePickerOptions {
-  onImageCreate: (url: string, name: string) => void;
+  onImageUpload?: (images: Array<{ url: string; name: string }>) => void;
   onDocumentUpload?: (files: File[]) => Promise<void>;
 }
 
 export function useWorkspaceFilePicker({
-  onImageCreate,
+  onImageUpload,
   onDocumentUpload,
 }: UseWorkspaceFilePickerOptions) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const uploadFiles = useCallback(async (files: File[]) => {
     if (files.length === 0) {
+      return;
+    }
+
+    if (onDocumentUpload) {
+      try {
+        await onDocumentUpload(files);
+      } catch (error) {
+        console.error("Document upload failed:", error);
+        toast.error("Failed to add files");
+      }
       return;
     }
 
@@ -52,7 +63,6 @@ export function useWorkspaceFilePicker({
         const file = uploadableImageFiles[index];
         if (result.status === "fulfilled") {
           uploadedCount += 1;
-          onImageCreate(result.value.url, result.value.name);
           return;
         }
 
@@ -61,6 +71,19 @@ export function useWorkspaceFilePicker({
       });
 
       toast.dismiss(toastId);
+
+      const uploadedImages = results
+        .filter(
+          (
+            result
+          ): result is PromiseFulfilledResult<{ url: string; name: string }> =>
+            result.status === "fulfilled"
+        )
+        .map((result) => result.value);
+
+      if (uploadedImages.length > 0 && onImageUpload) {
+        onImageUpload(uploadedImages);
+      }
 
       const skippedCount = oversizedFiles.length;
       if (uploadedCount > 0 && failedUploads.length === 0 && skippedCount === 0) {
@@ -87,19 +110,9 @@ export function useWorkspaceFilePicker({
     }
 
     if (documentFiles.length > 0) {
-      if (!onDocumentUpload) {
-        toast.error("Document upload not available");
-        return;
-      }
-
-      try {
-        await onDocumentUpload(documentFiles);
-      } catch (error) {
-        console.error("Document upload failed:", error);
-        toast.error("Failed to upload document files");
-      }
+      toast.error("Document upload not available");
     }
-  }, [onDocumentUpload, onImageCreate]);
+  }, [onDocumentUpload, onImageUpload]);
 
   const handleFileInputChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);

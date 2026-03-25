@@ -74,7 +74,6 @@ import { EditItemToolUI } from "@/components/assistant-ui/EditItemToolUI";
 import { YouTubeSearchToolUI } from "@/components/assistant-ui/YouTubeSearchToolUI";
 import { AddYoutubeVideoToolUI } from "@/components/assistant-ui/AddYoutubeVideoToolUI";
 import { ExecuteCodeToolUI } from "@/components/assistant-ui/ExecuteCodeToolUI";
-import { FileProcessingToolUI } from "@/components/assistant-ui/FileProcessingToolUI";
 import { URLContextToolUI } from "@/components/assistant-ui/URLContextToolUI";
 import { WebSearchToolUI } from "@/components/assistant-ui/WebSearchToolUI";
 import { SearchWorkspaceToolUI } from "@/components/assistant-ui/SearchWorkspaceToolUI";
@@ -92,14 +91,13 @@ import {
 } from "@/components/assistant-ui/attachment";
 import { AssistantLoader } from "@/components/assistant-ui/assistant-loader";
 import { File as FileComponent } from "@/components/assistant-ui/file";
-import { uploadFileDirect } from "@/lib/uploads/client-upload";
 import { isOfficeDocument } from "@/lib/uploads/office-document-validation";
 import { Sources } from "@/components/assistant-ui/sources";
 import { Image } from "@/components/assistant-ui/image";
 import { Reasoning, ReasoningGroup } from "@/components/assistant-ui/reasoning";
 import { ToolGroup } from "@/components/assistant-ui/tool-group";
 
-import type { Item, PdfData } from "@/lib/workspace-state/types";
+import type { Item } from "@/lib/workspace-state/types";
 import { CardContextDisplay } from "@/components/chat/CardContextDisplay";
 import { ReplyContextDisplay } from "@/components/chat/ReplyContextDisplay";
 import { MessageContextBadges } from "@/components/chat/MessageContextBadges";
@@ -118,6 +116,16 @@ import { extractUrls, createUrlFile } from "@/lib/attachments/url-utils";
 import { filterItems } from "@/lib/workspace-state/search";
 import { useSession } from "@/lib/auth-client";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
+import {
+  buildWorkspaceItemDefinitionsFromAssets,
+} from "@/lib/uploads/uploaded-asset";
+import { uploadSelectedFiles } from "@/lib/uploads/upload-selection";
+import { startAssetProcessing } from "@/lib/uploads/start-asset-processing";
+import {
+  getDocumentUploadFailureMessage,
+  getDocumentUploadPartialMessage,
+  getDocumentUploadSuccessMessage,
+} from "@/lib/uploads/upload-feedback";
 import { SpeechToTextButton } from "@/components/assistant-ui/SpeechToTextButton";
 import { PromptBuilderDialog, type PromptBuilderAction } from "@/components/assistant-ui/PromptBuilderDialog";
 
@@ -198,7 +206,6 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
         <YouTubeSearchToolUI />
         <AddYoutubeVideoToolUI />
         <ExecuteCodeToolUI />
-        <FileProcessingToolUI />
         <URLContextToolUI />
         <WebSearchToolUI />
         <SearchWorkspaceToolUI />
@@ -813,51 +820,40 @@ const Composer: FC<ComposerProps> = ({ items }) => {
     operations: any
   ) => {
     try {
-      // Upload all PDFs
-      const uploadPromises = pdfAttachments.map(async (attachment) => {
-        const file = attachment.file;
-        if (!file) return null;
+      const files = pdfAttachments
+        .map((attachment) => attachment.file)
+        .filter((file): file is File => !!file);
+      const { uploads, failedFiles } = await uploadSelectedFiles(files);
 
-        const { url: fileUrl, filename, displayName } = await uploadFileDirect(file);
-
-        return {
-          fileUrl,
-          filename: filename || file.name,
-          fileSize: file.size,
-          name: displayName.replace(/\.pdf$/i, ''),
-        };
-      });
-
-      const uploadResults = await Promise.all(uploadPromises);
-
-      // Filter out any null results (files that couldn't be processed)
-      const validResults = uploadResults.filter((result): result is NonNullable<typeof result> => result !== null);
-
-      if (validResults.length > 0) {
-        // Collect all PDF card data and create in a single batch event
-        const pdfCardDefinitions = validResults.map((result) => {
-          const pdfData: Partial<PdfData> = {
-            fileUrl: result.fileUrl,
-            filename: result.filename,
-            fileSize: result.fileSize,
-          };
-
-          return {
-            type: 'pdf' as const,
-            name: result.name,
-            initialData: pdfData,
-          };
+      if (uploads.length > 0) {
+        const pdfCardDefinitions = buildWorkspaceItemDefinitionsFromAssets(uploads);
+        const createdIds = operations.createItems(pdfCardDefinitions, {
+          showSuccessToast: false,
         });
 
-        // Create all PDF cards atomically in a single event
-        operations.createItems(pdfCardDefinitions);
+        void startAssetProcessing({
+          workspaceId,
+          assets: uploads,
+          itemIds: createdIds,
+          onOcrError: (error) => {
+            console.error("Error starting assistant file processing:", error);
+          },
+        });
 
         // Show success toast
-        toast.success(`${validResults.length} PDF card${validResults.length === 1 ? '' : 's'} created`);
+        if (failedFiles.length === 0) {
+          toast.success(getDocumentUploadSuccessMessage(uploads.length));
+        } else {
+          toast.warning(
+            getDocumentUploadPartialMessage(uploads.length, failedFiles.length)
+          );
+        }
+      } else {
+        toast.error(getDocumentUploadFailureMessage(failedFiles.length || files.length));
       }
     } catch (error) {
       console.error('Error creating PDF cards in background:', error);
-      toast.error('Failed to create PDF cards');
+      toast.error(getDocumentUploadFailureMessage(pdfAttachments.length));
     }
   };
 
@@ -1368,7 +1364,7 @@ const UserMessageText: FC = () => {
     text = text.slice(0, truncateCtx.maxChars).trim() + "...";
   }
 
-  // Process file markers: [FILE_URL:url|mediaType:type|filename:name] or [FILE_DATA:data|mediaType:type|filename:name]
+  // Parse inline attachment markers: [FILE_URL:url|mediaType:type|filename:name] or [FILE_DATA:data|mediaType:type|filename:name]
   const fileUrlRegex = /\[FILE_URL:([^|]+)\|mediaType:([^|]*)\|filename:([^\]]*)\]/g;
   const fileDataRegex = /\[FILE_DATA:([^|]+)\|mediaType:([^|]*)\|filename:([^\]]*)\]/g;
 
@@ -1881,7 +1877,7 @@ const parseUrlMarkers = (text: string): {
   return { cleanText, urls };
 };
 
-// Parse file markers from text and extract file information
+// Parse inline attachment markers from text and extract file information
 const parseFileMarkers = (text: string): {
   cleanText: string;
   files: Array<{ urlOrData: string; mediaType: string; filename: string; isData: boolean }>

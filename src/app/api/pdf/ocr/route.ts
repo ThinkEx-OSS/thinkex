@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { ocrPdfFromUrl } from "@/lib/pdf/mistral-ocr";
 import { logger } from "@/lib/utils/logger";
 import { withServerObservability } from "@/lib/with-server-observability";
+import { isAllowedOcrFileUrl } from "@/lib/ocr/url-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -33,33 +34,8 @@ export const POST = withServerObservability(async function POST(req: NextRequest
 
     const t0 = Date.now();
 
-    // Validate URL origin to prevent SSRF
-    const allowedHosts: string[] = [];
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      allowedHosts.push(new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname);
-    }
-    if (process.env.NEXT_PUBLIC_APP_URL) {
-      allowedHosts.push(new URL(process.env.NEXT_PUBLIC_APP_URL).hostname);
-    }
-    allowedHosts.push("localhost", "127.0.0.1");
-
-    let parsedUrl: URL;
-    try {
-      parsedUrl = new URL(fileUrl);
-    } catch {
+    if (!isAllowedOcrFileUrl(fileUrl)) {
       return NextResponse.json({ error: "Invalid fileUrl" }, { status: 400 });
-    }
-
-    if (
-      !allowedHosts.some(
-        (host) =>
-          parsedUrl.hostname === host || parsedUrl.hostname.endsWith(`.${host}`)
-      )
-    ) {
-      return NextResponse.json(
-        { error: "fileUrl origin is not allowed" },
-        { status: 400 }
-      );
     }
 
     let pathname: string;

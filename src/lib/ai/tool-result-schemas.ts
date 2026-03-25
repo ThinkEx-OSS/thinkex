@@ -128,7 +128,7 @@ export function parseFlashcardResult(input: unknown): FlashcardResult {
   return coerceToFlashcardResult(input);
 }
 
-/** searchWeb, executeCode, processFiles – result is markdown string */
+/** webSearch, executeCode – result is markdown string */
 export function parseStringResult(input: unknown): string {
   return parseWithSchema(z.string(), input, "StringResult");
 }
