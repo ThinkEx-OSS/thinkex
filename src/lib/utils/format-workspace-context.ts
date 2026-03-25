@@ -134,7 +134,8 @@ Use webSearch when: temporal cues ("today", "latest", "current"), real-time data
 Use internal knowledge for: creative writing, coding, general concepts, summarizing provided content.
 If the information is time-sensitive, niche, or uncertain, prefer webSearch.
 
-PDF: Always try readWorkspace first for workspace PDFs (pageStart/pageEnd for page ranges). If content is not yet extracted, then call processFiles — do not ask the user. IMPORTANT — when to use processFiles for images: Only call processFiles with pdfImageRefs when you encounter image placeholders (e.g. img-0.jpeg, p5-img-0.jpeg) in the output returned by readWorkspace — these are images embedded inside PDFs that you cannot see. Do NOT call processFiles for image file parts attached to the user's message; those images are already visible to you in context.
+PDF: Always try readWorkspace first for workspace PDFs (pageStart/pageEnd for page ranges). If content is not yet extracted, then call processFiles — do not ask the user.
+PDF VISUALS: PDF OCR in this workspace gives you textual structure from the PDF, including normal text and inline tables, but not visual understanding of charts, figures, diagrams, or screenshots embedded in the PDF. Do not claim you can see those visuals unless the user has separately attached a screenshot/image of that region. If the user needs help with a chart or figure from a PDF, tell them to open the PDF and use the camera button to add a screenshot of that area to chat.
 When selected card metadata includes (currently viewing) or activePage=N (for PDFs), the user has that item or page open. Prioritize these for ambiguous references ("this", "here", "this page", "what I'm looking at") and tailor responses to that context.
 
 YOUTUBE: If user says "add a video" without a topic, infer from workspace context. Don't ask - just search.
@@ -639,8 +640,7 @@ export function formatOcrPagesAsMarkdown(ocrPages: PdfData["ocrPages"]): string 
         const rawMd = page.markdown ?? "";
         const md = replaceOcrPlaceholders(
             rawMd,
-            page.tables as Array<{ id?: string; content?: string }> | undefined,
-            page.images as OcrImage[] | undefined
+            page.tables as Array<{ id?: string; content?: string }> | undefined
         );
         for (const line of md.split(/\r?\n/)) lines.push(line);
         if (page.footer) lines.push(`Footer: ${page.footer}`);
@@ -649,18 +649,10 @@ export function formatOcrPagesAsMarkdown(ocrPages: PdfData["ocrPages"]): string 
     return lines.join("\n").trimEnd();
 }
 
-/** Image shape from OCR (image_annotation is JSON string from bbox annotation). */
-interface OcrImage {
-    id?: string;
-    image_annotation?: string;
-    [key: string]: unknown;
-}
-
-/** Replaces table placeholders [id](id) with table content. Replaces image placeholders ![id](id) with [Image: description] when bbox annotation is present. */
+/** Replaces table placeholders [id](id) with table content. */
 function replaceOcrPlaceholders(
     markdown: string,
-    tables?: Array<{ id?: string; content?: string }>,
-    images?: OcrImage[]
+    tables?: Array<{ id?: string; content?: string }>
 ): string {
     let out = markdown;
 
@@ -674,27 +666,6 @@ function replaceOcrPlaceholders(
         );
     }
 
-    for (const img of images ?? []) {
-        const id = img.id;
-        if (!id) continue;
-        let replacement = `![${id}](${id})`;
-        if (img.image_annotation) {
-            try {
-                const parsed = JSON.parse(img.image_annotation) as { description?: string };
-                const desc = parsed?.description;
-                if (typeof desc === "string" && desc.trim()) {
-                    replacement = `[Image: ${desc.trim()}]`;
-                }
-            } catch {
-                /* keep placeholder if parsing fails */
-            }
-        }
-        out = out.replace(
-            new RegExp(`!\\[${escapeRegex(id)}\\]\\(${escapeRegex(id)}\\)`, "g"),
-            replacement
-        );
-    }
-
     return out;
 }
 
@@ -704,7 +675,7 @@ function escapeRegex(s: string): string {
 
 /**
  * Formats PDF details with FULL content
- * If cached textContent/ocrPages are available, include them so the agent can reason about the PDF
+ * If OCR pages are available, include them so the agent can reason about the PDF
  * without needing to call processFiles.
  * OCR pages output markdown as proper lines (one line per line) instead of JSON blobs.
  * Image and table placeholders are mapped to actual content when available.
@@ -751,8 +722,7 @@ function formatPdfDetailsFull(
             const rawMd = page.markdown ?? "";
             const md = replaceOcrPlaceholders(
                 rawMd,
-                page.tables as Array<{ id?: string; content?: string }> | undefined,
-                page.images as OcrImage[] | undefined
+                page.tables as Array<{ id?: string; content?: string }> | undefined
             );
             for (const line of md.split(/\r?\n/)) {
                 lines.push(`     ${line}`);
@@ -802,8 +772,7 @@ function formatImageDetailsFull(data: ImageData): string[] {
             const rawMd = page.markdown ?? "";
             const md = replaceOcrPlaceholders(
                 rawMd,
-                page.tables as Array<{ id?: string; content?: string }> | undefined,
-                page.images as OcrImage[] | undefined
+                page.tables as Array<{ id?: string; content?: string }> | undefined
             );
             for (const line of md.split(/\r?\n/)) {
                 lines.push(`     ${line}`);

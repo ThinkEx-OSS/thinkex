@@ -1,5 +1,6 @@
 import type { Item, NoteData, PdfData } from "./types";
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
+import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
 import { type Block } from "@/components/editor/BlockNoteEditor";
 
 /**
@@ -20,7 +21,7 @@ function getSearchableDataText(item: Item): string {
 
     case "pdf": {
       const pdfData = data as PdfData;
-      return pdfData.textContent ?? "";
+      return getOcrPagesTextContent(pdfData.ocrPages);
     }
 
     default:
@@ -396,4 +397,3 @@ export function rankWorkspaceSearchResults(
   results.sort((a, b) => b.score - a.score);
   return results.slice(0, 50);
 }
-

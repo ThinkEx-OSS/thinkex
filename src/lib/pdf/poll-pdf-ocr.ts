@@ -16,7 +16,6 @@ export async function pollPdfOcr(runId: string, itemId: string): Promise<void> {
         new CustomEvent("pdf-processing-complete", {
           detail: {
             itemId,
-            textContent: "",
             ocrPages: [],
             ocrStatus: "failed" as const,
             ocrError: data.error ?? "OCR run not found or expired",
@@ -31,7 +30,6 @@ export async function pollPdfOcr(runId: string, itemId: string): Promise<void> {
         new CustomEvent("pdf-processing-complete", {
           detail: {
             itemId,
-            textContent: data.result?.textContent ?? "",
             ocrPages: data.result?.ocrPages ?? [],
             ocrStatus: "complete" as const,
           },
@@ -45,7 +43,6 @@ export async function pollPdfOcr(runId: string, itemId: string): Promise<void> {
         new CustomEvent("pdf-processing-complete", {
           detail: {
             itemId,
-            textContent: "",
             ocrPages: [],
             ocrStatus: "failed" as const,
             ocrError: data.error || "OCR failed",

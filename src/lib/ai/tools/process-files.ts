@@ -133,10 +133,9 @@ async function processSupabaseFiles(supabaseUrls: string[]): Promise<string> {
 /**
  * Run OCR on a PDF via the /api/pdf/ocr endpoint.
  * Reuses the same upload+extract logic as workspace dropzone/upload flows.
- * Returns extracted text and pages, or null on failure.
+ * Returns extracted pages, or null on failure.
  */
 async function runOcrForPdfUrl(fileUrl: string): Promise<{
-    textContent: string;
     ocrPages: PdfData["ocrPages"];
 } | null> {
     const baseUrl =
@@ -159,7 +158,7 @@ async function runOcrForPdfUrl(fileUrl: string): Promise<{
     });
 
     const json = await res.json();
-    if (!res.ok || json.error || !json.textContent) {
+    if (!res.ok || json.error || !json.ocrPages?.length) {
         logger.warn("📁 [FILE_TOOL] OCR failed for PDF:", {
             url: fileUrl.slice(0, 80),
             error: json.error || res.statusText,
@@ -168,76 +167,8 @@ async function runOcrForPdfUrl(fileUrl: string): Promise<{
     }
 
     return {
-        textContent: json.textContent,
         ocrPages: json.ocrPages ?? undefined,
     };
-}
-
-type PdfImageRef = { pdfName: string; imageId: string };
-
-/**
- * Process images extracted from PDF OCR (resolve placeholder refs like img-0.jpeg or p5-img-0.jpeg to base64).
- */
-async function processPdfImages(
-    pdfImageRefs: PdfImageRef[],
-    stateItems: Item[]
-): Promise<string> {
-    const fileInfos: Array<{ filename: string; mediaType: string; data: string }> = [];
-
-    for (const ref of pdfImageRefs) {
-        const pdfItem = resolveItem(stateItems, ref.pdfName, "pdf");
-        if (!pdfItem || pdfItem.type !== "pdf") continue;
-
-        const pdfData = pdfItem.data as PdfData;
-        const ocrPages = pdfData.ocrPages ?? [];
-
-        for (const page of ocrPages) {
-            const images = (page.images ?? []) as Array<{ id?: string; image_base64?: string; imageBase64?: string }>;
-            const img = images.find((i) => i.id === ref.imageId);
-            if (!img) continue;
-
-            const base64 = img.image_base64 ?? img.imageBase64;
-            if (!base64 || typeof base64 !== "string") continue;
-
-            const dataUrl =
-                base64.startsWith("data:") ? base64 : `data:image/png;base64,${base64}`;
-            const lower = ref.imageId.toLowerCase();
-            const mediaType = lower.match(/\.(jpe?g|png|gif|webp)$/)
-                ? (lower.endsWith(".png") ? "image/png"
-                    : lower.match(/\.jpe?g$/) ? "image/jpeg"
-                        : lower.endsWith(".gif") ? "image/gif"
-                            : "image/webp")
-                : "image/png";
-
-            fileInfos.push({ filename: ref.imageId, mediaType, data: dataUrl });
-            break;
-        }
-    }
-
-    if (fileInfos.length === 0) {
-        return "No PDF images could be found. Ensure the PDF was OCR'd with images (OCR_INCLUDE_IMAGES not false) and the imageId matches the placeholder (e.g. img-0.jpeg or p5-img-0.jpeg).";
-    }
-
-    const fileListText = fileInfos.map((f, i) => `${i + 1}. ${f.filename} (from PDF)`).join("\n");
-    const { defaultInstruction, outputFormat } = buildFileProcessingPrompt(fileInfos);
-    const batchPrompt = `Analyze the following ${fileInfos.length} image(s) extracted from PDFs:\n${fileListText}\n\n${defaultInstruction}\n\n${outputFormat}`;
-
-    const messageContent: Array<{ type: "text"; text: string } | { type: "file"; data: string; mediaType: string; filename?: string }> = [
-        { type: "text", text: batchPrompt },
-        ...fileInfos.map((f) => ({
-            type: "file" as const,
-            data: f.data,
-            mediaType: f.mediaType,
-            filename: f.filename,
-        })),
-    ];
-
-    const { text: batchAnalysis } = await generateText({
-        model: google("gemini-2.5-flash-lite"),
-        messages: [{ role: "user", content: messageContent }],
-    });
-
-    return batchAnalysis;
 }
 
 /**
@@ -272,19 +203,15 @@ async function processYouTubeVideo(youtubeUrl: string): Promise<string> {
  */
 export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
     return tool({
-        description: "Process and analyze files including PDFs, images, documents, and videos. Handles Supabase storage URLs (files uploaded to your workspace), YouTube videos, and images embedded in PDFs. Use pdfImageRefs ONLY for image placeholders (e.g. img-0.jpeg) that appear in readWorkspace output — NOT for image file parts in the user's message (those are already visible). Use processFiles for: file URLs, video URLs, workspace file names (fuzzy matched), or pdfImageRefs from readWorkspace. For workspace PDFs without extracted content, processFiles extracts and caches the result; if extraction fails it falls back to Gemini via the file URL. If a PDF is still extracting, respond that the user should wait. If a PDF has cached content it will be returned automatically — set forceReprocess to true to bypass the cache. Cloud storage URLs only.",
+        description: "Process and analyze files including PDFs, images, documents, and videos. Handles Supabase storage URLs (files uploaded to your workspace) and YouTube videos. Use processFiles for: file URLs, video URLs, or workspace file names (fuzzy matched). For workspace PDFs without extracted content, processFiles extracts and caches the result; if extraction fails it falls back to Gemini via the file URL. If a PDF is still extracting, respond that the user should wait. If a PDF has cached content it will be returned automatically — set forceReprocess to true to bypass the cache. Cloud storage URLs only.",
         inputSchema: zodSchema(
             z.object({
                 urls: z.array(z.string()).optional().describe("Array of file/video URLs to process (Supabase storage URLs or YouTube URLs)"),
                 fileNames: z.array(z.string()).optional().describe("Workspace item names or virtual paths (e.g. 'Annual Report' or pdfs/Annual Report.pdf)"),
-                pdfImageRefs: z.array(z.object({
-                    pdfName: z.string().describe("PDF name or virtual path (e.g. pdfs/Syllabus.pdf)"),
-                    imageId: z.string().describe("Image placeholder ID from PDF (e.g. img-0.jpeg)"),
-                })).optional().describe("Images from PDFs — map placeholder names to base64 for analysis"),
                 forceReprocess: z.boolean().optional().describe("Set to true to bypass cached PDF content and re-analyze the file"),
             })
         ),
-        execute: async ({ urls, fileNames: fileNamesInput, pdfImageRefs, forceReprocess: forceReprocessInput }) => {
+        execute: async ({ urls, fileNames: fileNamesInput, forceReprocess: forceReprocessInput }) => {
             let urlList = urls || [];
             const fileNames = fileNamesInput || [];
             const forceReprocess = forceReprocessInput === true;
@@ -308,8 +235,7 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
                                     if (matchedItem.type === 'pdf') {
                                         const pdfData = matchedItem.data as PdfData;
 
-                                        // Use cached content only when we have actual OCR (ocrPages); textContent alone may be from Gemini/summary
-                                        if (pdfData.ocrPages?.length && pdfData.textContent && !forceReprocess) {
+                                        if (pdfData.ocrPages?.length && !forceReprocess) {
                                             const formatted = formatOcrPagesAsMarkdown(pdfData.ocrPages);
                                             logger.debug(`📁 [FILE_TOOL] Using cached OCR content for "${name}" (${formatted.length} chars)`);
                                             cachedResults.push(`**${matchedItem.name}** (cached):\n\n${formatted}`);
@@ -327,9 +253,7 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
                                             // Try OCR first (reuses upload+extract logic); fall back to Supabase URL if OCR fails
                                             const ocrResult = await runOcrForPdfUrl(pdfData.fileUrl);
                                             if (ocrResult) {
-                                                const formatted = ocrResult.ocrPages?.length
-                                                    ? formatOcrPagesAsMarkdown(ocrResult.ocrPages)
-                                                    : ocrResult.textContent;
+                                                const formatted = formatOcrPagesAsMarkdown(ocrResult.ocrPages);
                                                 logger.debug(`📁 [FILE_TOOL] OCR extracted content for "${name}" (${formatted.length} chars)`);
                                                 cachedResults.push(`**${matchedItem.name}** (extracted):\n\n${formatted}`);
                                                 // Persist OCR result so future calls use cached content
@@ -337,7 +261,6 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
                                                     await workspaceWorker("updatePdfContent", {
                                                         workspaceId: ctx.workspaceId!,
                                                         itemId: matchedItem.id,
-                                                        pdfTextContent: ocrResult.textContent,
                                                         pdfOcrPages: ocrResult.ocrPages,
                                                         pdfOcrStatus: "complete",
                                                     });
@@ -380,26 +303,8 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
                 }
             }
 
-            // Handle PDF image refs (placeholders like img-0.jpeg from OCR)
-            const pdfImageResults: string[] = [];
-            if (pdfImageRefs && pdfImageRefs.length > 0 && ctx?.workspaceId) {
-                try {
-                    const accessResult = await loadStateForTool(ctx);
-                    if (accessResult.success) {
-                        const result = await processPdfImages(
-                            pdfImageRefs,
-                            accessResult.state.items
-                        );
-                        pdfImageResults.push(result);
-                    }
-                } catch (e) {
-                    logger.error("📁 [FILE_TOOL] Error processing PDF images:", e);
-                    pdfImageResults.push(`Error processing PDF images: ${e instanceof Error ? e.message : String(e)}`);
-                }
-            }
-
             // If all requested files had cached content and no other work, return early
-            if (cachedResults.length > 0 && urlList.length === 0 && pdfImageResults.length === 0) {
+            if (cachedResults.length > 0 && urlList.length === 0) {
                 return cachedResults.join('\n\n---\n\n');
             }
 
@@ -407,14 +312,8 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
                 return "Error: 'urls' must be an array.";
             }
 
-            // If only pdfImageRefs and/or cached content: combine both when present
-            if (urlList.length === 0 && (cachedResults.length > 0 || pdfImageResults.length > 0)) {
-                const parts = [...cachedResults, ...pdfImageResults].filter(Boolean);
-                return parts.join("\n\n---\n\n");
-            }
-
             if (urlList.length === 0) {
-                return "No file URLs provided (and no file names or pdfImageRefs could be resolved).";
+                return "No file URLs provided (and no file names could be resolved).";
             }
 
             if (urlList.length > 20) {
@@ -433,7 +332,7 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
             if (supabaseUrls.length === 0 && youtubeUrls.length === 0) {
                 return skippedLocal.length > 0
                     ? "Local file URLs (/api/files/...) are not supported. Use Supabase storage URLs (files uploaded to your workspace) or YouTube URLs."
-                    : "No file URLs provided (and no file names or pdfImageRefs could be resolved).";
+                    : "No file URLs provided (and no file names could be resolved).";
             }
 
             const fileResults: string[] = [];
@@ -480,15 +379,11 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
                 fileResults.push(...results.filter((r): r is string => r !== null));
             }
 
-            // Never persist Gemini analysis to PDF items — only Azure OCR (runOcrForPdfUrl) writes ocrPages/textContent
+            // Never persist Gemini analysis to PDF items — only OCR extraction (runOcrForPdfUrl) writes ocrPages
 
             // Prepend cached results if we had a mix of cached + freshly processed
             if (cachedResults.length > 0) {
                 fileResults.unshift(...cachedResults);
-            }
-
-            if (pdfImageResults.length > 0) {
-                fileResults.push(...pdfImageResults);
             }
 
             if (fileResults.length === 0) {

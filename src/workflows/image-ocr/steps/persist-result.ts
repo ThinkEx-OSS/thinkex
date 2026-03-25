@@ -3,12 +3,11 @@ import { db } from "@/lib/db/client";
 import { createEvent } from "@/lib/workspace/events";
 import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
-import type { OcrPage } from "@/lib/pdf/azure-ocr";
+import type { OcrPage } from "@/lib/pdf/mistral-ocr";
 
 const APPEND_RESULT_REGEX = /\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i;
 
 export interface ImageOcrResult {
-  textContent: string;
   ocrPages: OcrPage[];
 }
 
@@ -77,7 +76,6 @@ export async function persistImageOcrResult(
       id: itemId,
       changes: {
         data: {
-          textContent: result.textContent ?? "",
           ocrPages: result.ocrPages ?? [],
           ocrStatus: "complete" as const,
           ocrError: null,
@@ -110,7 +108,6 @@ export async function persistImageOcrFailure(
       id: itemId,
       changes: {
         data: {
-          textContent: "",
           ocrPages: [],
           ocrStatus: "failed" as const,
           ocrError: error,

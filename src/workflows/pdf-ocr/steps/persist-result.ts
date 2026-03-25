@@ -72,7 +72,6 @@ export async function persistPdfOcrResult(
       id: itemId,
       changes: {
         data: {
-          textContent: result.textContent ?? "",
           ocrPages: result.ocrPages ?? [],
           ocrStatus: "complete" as const,
           ocrError: undefined,

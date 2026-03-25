@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import type { WorkspaceEvent, EventResponse } from "@/lib/workspace/events";
 import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
 
-/** Strip ocrPages/textContent from PDF items — client doesn't need them for display. */
+/** Strip ocrPages from PDF items — client doesn't need them for display. */
 function stripPdfOcrFromItem(item: { type?: string; data?: unknown }): void {
   if (item?.type === "pdf" && item.data && typeof item.data === "object") {
     const d = item.data as Record<string, unknown>;
     delete d.ocrPages;
-    delete d.textContent;
   }
 }
 
@@ -23,7 +22,6 @@ function stripPdfOcrFromEventPayload(event: WorkspaceEvent): void {
     if (changes?.data && typeof changes.data === "object") {
       const d = changes.data as Record<string, unknown>;
       delete d.ocrPages;
-      delete d.textContent;
     }
   }
   if (event.type === "BULK_ITEMS_UPDATED") {
@@ -211,7 +209,7 @@ async function handleGET(
     ? Math.max(...eventsData.map(e => e.version))
     : (snapshotVersion || 0);
 
-  // Strip ocrPages/textContent from PDF items — client doesn't need them for display
+  // Strip ocrPages from PDF items — client doesn't need them for display
   if (latestSnapshot?.state) stripPdfOcrFromState(latestSnapshot.state as { items?: Array<{ type?: string; data?: unknown }> });
   events.forEach(stripPdfOcrFromEventPayload);
 
@@ -392,4 +390,3 @@ async function handlePOST(
 }
 
 export const POST = withErrorHandling(handlePOST, "POST /api/workspaces/[id]/events");
-

@@ -15,7 +15,7 @@ const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB to match server limit
 
 /**
  * Custom attachment adapter that uploads files to our own Supabase storage
- * via the existing /api/upload-file endpoint, instead of assistant-ui's cloud storage.
+ * using our direct signed-upload flow, instead of assistant-ui's cloud storage.
  *
  * Uploads start optimistically in add() so the file is uploading while the user
  * types their message. By the time send() is called, the upload is often already done.

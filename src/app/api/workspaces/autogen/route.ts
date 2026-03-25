@@ -530,7 +530,6 @@ export async function POST(request: NextRequest) {
                 workspaceWorker("updatePdfContent", {
                   workspaceId,
                   itemId: param.id!,
-                  pdfTextContent: "",
                   pdfOcrPages: [],
                   pdfOcrStatus: "failed" as const,
                 }).catch(() => {});

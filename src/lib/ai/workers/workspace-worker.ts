@@ -9,6 +9,7 @@ import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import { getRandomCardColor } from "@/lib/workspace-state/colors";
 import { logger } from "@/lib/utils/logger";
 import type { Item, NoteData, PdfData, ImageData, QuizData, QuizQuestion, FlashcardData, FlashcardItem } from "@/lib/workspace-state/types";
+import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
 import { markdownToBlocks, fixLLMDoubleEscaping } from "@/lib/editor/markdown-to-blocks";
 import { executeWorkspaceOperation } from "./common";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
@@ -26,11 +27,11 @@ export type CreateItemParams = {
     title?: string;
     content?: string;
     itemType?: "note" | "flashcard" | "quiz" | "youtube" | "image" | "audio" | "pdf";
-    pdfData?: { fileUrl: string; filename: string; fileSize?: number; textContent?: string; ocrPages?: PdfData["ocrPages"]; ocrStatus?: PdfData["ocrStatus"] };
+    pdfData?: { fileUrl: string; filename: string; fileSize?: number; ocrPages?: PdfData["ocrPages"]; ocrStatus?: PdfData["ocrStatus"] };
     flashcardData?: { cards?: { front: string; back: string }[] };
     quizData?: QuizData;
     youtubeData?: { url: string };
-    imageData?: { url: string; altText?: string; caption?: string; textContent?: string; ocrStatus?: ImageData["ocrStatus"]; ocrError?: string; ocrPages?: ImageData["ocrPages"] };
+    imageData?: { url: string; altText?: string; caption?: string; ocrStatus?: ImageData["ocrStatus"]; ocrError?: string; ocrPages?: ImageData["ocrPages"] };
     audioData?: { fileUrl: string; filename: string; fileSize?: number; mimeType?: string; duration?: number };
     sources?: Array<{ title: string; url: string; favicon?: string }>;
     folderId?: string;
@@ -76,7 +77,6 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
             url: p.imageData.url,
             altText: p.imageData.altText,
             caption: p.imageData.caption,
-            ...(p.imageData.textContent != null && { textContent: p.imageData.textContent }),
             ...(p.imageData.ocrPages != null && { ocrPages: p.imageData.ocrPages }),
             ...(p.imageData.ocrStatus != null && { ocrStatus: p.imageData.ocrStatus }),
             ...(p.imageData.ocrError != null && { ocrError: p.imageData.ocrError }),
@@ -97,7 +97,6 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
             fileUrl: p.pdfData.fileUrl,
             filename: p.pdfData.filename || "document.pdf",
             fileSize: p.pdfData.fileSize,
-            ...(p.pdfData.textContent != null && { textContent: p.pdfData.textContent }),
             ...(p.pdfData.ocrPages != null && { ocrPages: p.pdfData.ocrPages }),
             ...(p.pdfData.ocrStatus != null && { ocrStatus: p.pdfData.ocrStatus }),
         };
@@ -212,8 +211,7 @@ export async function workspaceWorker(
             filename: string;
             fileSize?: number;
         };
-        pdfTextContent?: string; // For caching extracted PDF text content
-        pdfOcrPages?: PdfData["ocrPages"]; // Full OCR page data from Azure Document AI
+        pdfOcrPages?: PdfData["ocrPages"]; // Full OCR page data from Mistral OCR
         pdfOcrStatus?: "complete" | "failed"; // OCR run status
         flashcardData?: {
             cards?: { front: string; back: string }[]; // For creating flashcards
@@ -229,7 +227,6 @@ export async function workspaceWorker(
             altText?: string;
             caption?: string;
         };
-        imageTextContent?: string;
         imageOcrPages?: ImageData["ocrPages"];
         imageOcrStatus?: "complete" | "failed";
         imageOcrError?: string;
@@ -897,8 +894,8 @@ export async function workspaceWorker(
                 if (!params.itemId) {
                     throw new Error("Item ID required for PDF content update");
                 }
-                if (!params.pdfTextContent && !params.pdfOcrPages?.length) {
-                    throw new Error("Text content or OCR pages required for PDF content update");
+                if (!params.pdfOcrPages?.length) {
+                    throw new Error("OCR pages required for PDF content update");
                 }
 
                 const currentState = await loadWorkspaceState(params.workspaceId);
@@ -911,14 +908,8 @@ export async function workspaceWorker(
                 }
 
                 const existingData = existingItem.data as PdfData;
-                const textContent =
-                    params.pdfTextContent ??
-                    (params.pdfOcrPages?.length
-                        ? params.pdfOcrPages.map((p) => p.markdown ?? "").filter(Boolean).join("\n\n")
-                        : undefined);
                 const updatedData: PdfData = {
                     ...existingData,
-                    ...(textContent != null && { textContent }),
                     ...(params.pdfOcrPages != null && { ocrPages: params.pdfOcrPages }),
                     ...(params.pdfOcrStatus != null && { ocrStatus: params.pdfOcrStatus }),
                 };
@@ -964,8 +955,8 @@ export async function workspaceWorker(
                     throw new Error("Workspace was modified by another user, please try again");
                 }
 
-                const contentLen = textContent?.length ?? 0;
-                logger.info("📄 [WORKSPACE-WORKER] Updated PDF text content:", {
+                const contentLen = getOcrPagesTextContent(params.pdfOcrPages).length;
+                logger.info("📄 [WORKSPACE-WORKER] Updated PDF OCR content:", {
                     itemId: params.itemId,
                     contentLength: contentLen,
                 });
@@ -973,7 +964,7 @@ export async function workspaceWorker(
                 return {
                     success: true,
                     itemId: params.itemId,
-                    message: `Cached text content for PDF "${existingItem.name}" (${contentLen} chars)`,
+                    message: `Cached OCR content for PDF "${existingItem.name}" (${contentLen} chars)`,
                     event,
                     version: appendResult.version,
                 };
@@ -983,8 +974,8 @@ export async function workspaceWorker(
                 if (!params.itemId) {
                     throw new Error("Item ID required for image content update");
                 }
-                if (params.imageOcrStatus !== "failed" && params.imageTextContent === undefined && params.imageOcrPages === undefined) {
-                    throw new Error("Text content or OCR pages required for image content update (or ocrStatus: failed)");
+                if (params.imageOcrStatus !== "failed" && params.imageOcrPages === undefined) {
+                    throw new Error("OCR pages required for image content update (or ocrStatus: failed)");
                 }
 
                 const currentState = await loadWorkspaceState(params.workspaceId);
@@ -997,14 +988,8 @@ export async function workspaceWorker(
                 }
 
                 const existingData = existingItem.data as ImageData;
-                const textContent =
-                    params.imageTextContent ??
-                    (params.imageOcrPages?.length
-                        ? params.imageOcrPages.map((p) => p.markdown ?? "").filter(Boolean).join("\n\n")
-                        : undefined);
                 const updatedData: ImageData = {
                     ...existingData,
-                    ...(textContent != null && { textContent }),
                     ...(params.imageOcrPages != null && { ocrPages: params.imageOcrPages }),
                     ...(params.imageOcrStatus != null && { ocrStatus: params.imageOcrStatus }),
                     ...(params.imageOcrError != null && { ocrError: params.imageOcrError }),

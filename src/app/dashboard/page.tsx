@@ -417,7 +417,6 @@ function DashboardContent({
                     new CustomEvent("pdf-processing-complete", {
                       detail: {
                         itemId,
-                        textContent: "",
                         ocrPages: [],
                         ocrStatus: "failed" as const,
                         ocrError: err instanceof Error ? err.message : "Failed to start OCR polling",
@@ -430,7 +429,6 @@ function DashboardContent({
                 new CustomEvent("pdf-processing-complete", {
                   detail: {
                     itemId,
-                    textContent: "",
                     ocrPages: [],
                     ocrStatus: "failed" as const,
                     ocrError: data.error || "Failed to start OCR",
@@ -444,7 +442,6 @@ function DashboardContent({
               new CustomEvent("pdf-processing-complete", {
                 detail: {
                   itemId,
-                  textContent: "",
                   ocrPages: [],
                   ocrStatus: "failed" as const,
                   ocrError: err.message || "Failed to start OCR",

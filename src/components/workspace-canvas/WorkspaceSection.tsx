@@ -48,7 +48,6 @@ import { PiCardsThreeBold } from "react-icons/pi";
 import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
-import { UploadDialog } from "@/components/modals/UploadDialog";
 import { AudioRecordingIndicator } from "./AudioRecordingIndicator";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 import { filterItemIdsForFolderCreation } from "@/lib/workspace-state/search";
@@ -58,6 +57,7 @@ import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
 import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceFilePicker } from "@/hooks/workspace/use-workspace-file-picker";
 
 interface WorkspaceSectionProps {
   // Loading states
@@ -217,7 +217,6 @@ export function WorkspaceSection({
 
   // Workspace settings and share modal state
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
   const [showQuizDialog, setShowQuizDialog] = useState(false);
   const [showFlashcardsDialog, setShowFlashcardsDialog] = useState(false);
@@ -264,7 +263,16 @@ export function WorkspaceSection({
     }]);
   }, [operations]);
 
-  // Handle smart upload from context menu: try clipboard paste first, then open dialog
+  const {
+    fileInputRef,
+    inputProps: fileInputProps,
+    openFilePicker,
+  } = useWorkspaceFilePicker({
+    onImageCreate: handleImageCreate,
+    onDocumentUpload: handlePDFUpload,
+  });
+
+  // Handle smart upload from context menu: try clipboard paste first, then open file picker
   const handleUploadMenuItemClick = useCallback(async () => {
     try {
       // Check for clipboard permissions/content
@@ -292,13 +300,12 @@ export function WorkspaceSection({
         return;
       }
     } catch (e) {
-      // Fallback to dialog if clipboard access fails or no image found
-      console.debug("Clipboard read failed or empty, falling back to dialog", e);
+      // Fallback to file picker if clipboard access fails or no image found
+      console.debug("Clipboard read failed or empty, falling back to file picker", e);
     }
 
-    // If no image found or error, open the upload dialog
-    setShowUploadDialog(true);
-  }, [handleImageCreate]);
+    openFilePicker();
+  }, [handleImageCreate, openFilePicker]);
 
   // Handle delete request (from button or keyboard)
   const handleDeleteRequest = () => {
@@ -332,7 +339,7 @@ export function WorkspaceSection({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedCardIds]);
+  }, [handleDeleteRequest, selectedCardIds]);
 
   const handleWorkspaceMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
@@ -442,7 +449,7 @@ export function WorkspaceSection({
   };
 
   // Handle PDF upload from BottomActionBar
-  const handlePDFUpload = async (files: File[]) => {
+  async function handlePDFUpload(files: File[]) {
     if (!operations || !currentWorkspaceId) {
       throw new Error('Workspace operations not available');
     }
@@ -542,7 +549,6 @@ export function WorkspaceSection({
               new CustomEvent("pdf-processing-complete", {
                 detail: {
                   itemId,
-                  textContent: "",
                   ocrPages: [],
                   ocrStatus: "failed" as const,
                   ocrError: data.error || "Failed to start OCR",
@@ -556,7 +562,6 @@ export function WorkspaceSection({
             new CustomEvent("pdf-processing-complete", {
               detail: {
                 itemId,
-                textContent: "",
                 ocrPages: [],
                 ocrStatus: "failed" as const,
                 ocrError: err.message || "Failed to start OCR",
@@ -565,7 +570,7 @@ export function WorkspaceSection({
           );
         });
     });
-  };
+  }
 
 
   // Use reactive navigation hook for auto-scroll/selection
@@ -646,7 +651,7 @@ export function WorkspaceSection({
       toast.dismiss(loadingToastId);
       toast.error(error.message || "Failed to upload audio");
     }
-  }, [addItem, handleCreatedItems]);
+  }, [addItem, currentWorkspaceId, handleCreatedItems]);
 
   // Get search params for invite check
   const searchParams = useSearchParams();
@@ -658,6 +663,10 @@ export function WorkspaceSection({
       data-tour="workspace-canvas"
       onMouseDown={handleWorkspaceMouseDown}
     >
+      <input
+        ref={fileInputRef}
+        {...fileInputProps}
+      />
       {/* WorkspaceHeader is now rendered in DashboardLayout above the sidebar */}
 
       {/* Modal Manager - Renders over content */}
@@ -814,16 +823,6 @@ export function WorkspaceSection({
         onCreate={handleYouTubeCreate}
       />
 
-      {/* Upload Dialog (PDF + Image) */}
-      {operations && currentWorkspaceId && (
-        <UploadDialog
-          open={showUploadDialog}
-          onOpenChange={setShowUploadDialog}
-          onImageCreate={handleImageCreate}
-          onPDFUpload={handlePDFUpload}
-        />
-      )}
-
       {/* Website Dialog */}
       <CreateWebsiteDialog
         open={showWebsiteDialog}
@@ -857,4 +856,3 @@ export function WorkspaceSection({
     </div>
   );
 }
-

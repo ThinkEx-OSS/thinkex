@@ -69,6 +69,7 @@
     "@heroicons/react": "^2.2.0",
     "@hookform/resolvers": "^5.2.2",
     "@lottiefiles/dotlottie-react": "^0.18.7",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.200.0",
     "@posthog/ai": "^7.9.2",
     "@posthog/nextjs-config": "^1.8.23",
     "@radix-ui/react-accordion": "^1.2.12",

@@ -1,6 +1,5 @@
-import type { OcrPage } from "@/lib/pdf/azure-ocr";
+import type { OcrPage } from "@/lib/pdf/mistral-ocr";
 import { sleep } from "workflow";
-import { fetchImage } from "./steps/fetch-image";
 import { ocrImage } from "./steps/ocr-image";
 import {
   persistImageOcrResult,
@@ -12,7 +11,7 @@ const OCR_TIMEOUT = "2min";
 
 /**
  * Durable workflow for image OCR.
- * Fetches image, runs Azure Mistral Document AI OCR, persists result to workspace.
+ * Runs Mistral OCR against the stored image URL and persists result to workspace.
  *
  * @param fileUrl - URL of the image file (must be from allowed hosts)
  * @param workspaceId - Workspace to update
@@ -28,20 +27,14 @@ export async function imageOcrWorkflow(
   "use workflow";
 
   const runOcr = async (): Promise<ImageOcrResult> => {
-    const { base64, mimeType } = await fetchImage(fileUrl);
-    const { pages } = await ocrImage(base64, mimeType);
+    const { pages } = await ocrImage(fileUrl);
 
     const ocrPages: OcrPage[] = pages.map((p, i) => ({
       ...p,
       index: i,
     }));
 
-    const textContent = ocrPages
-      .map((p) => p.markdown)
-      .filter(Boolean)
-      .join("\n\n");
-
-    return { textContent, ocrPages };
+    return { ocrPages };
   };
 
   try {

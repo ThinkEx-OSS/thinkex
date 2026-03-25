@@ -40,10 +40,9 @@ export const GET = withServerObservability(async function GET(req: NextRequest) 
       // Workflow persists to DB before returning; we prefer run.returnValue for immediate data.
       // If Vercel API returns invalid response (e.g. missing "key" field), fall back to empty result —
       // client invalidates workspace and refetches real data from DB.
-      let result: { textContent: string; ocrPages: Array<{ index: number; markdown: string; [key: string]: unknown }> } = { textContent: "", ocrPages: [] };
+      let result: { ocrPages: Array<{ index: number; markdown: string; [key: string]: unknown }> } = { ocrPages: [] };
       try {
         const r = (await run.returnValue) as typeof result;
-        if (r?.textContent !== undefined) result.textContent = r.textContent ?? "";
         if (r?.ocrPages) result.ocrPages = r.ocrPages ?? [];
       } catch (_) {
         // Vercel Workflow API can throw "Invalid response from Vercel API, missing key field"
@@ -51,7 +50,7 @@ export const GET = withServerObservability(async function GET(req: NextRequest) 
       }
       return NextResponse.json({
         status: "completed",
-        result: { textContent: result.textContent, ocrPages: result.ocrPages },
+        result: { ocrPages: result.ocrPages },
       });
     }
 

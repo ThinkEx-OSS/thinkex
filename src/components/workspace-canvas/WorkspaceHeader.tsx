@@ -52,11 +52,11 @@ import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";
 import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { CollaboratorAvatars } from "@/components/workspace/CollaboratorAvatars";
-import { UploadDialog } from "@/components/modals/UploadDialog";
 import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
 import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
+import { useWorkspaceFilePicker } from "@/hooks/workspace/use-workspace-file-picker";
 interface WorkspaceHeaderProps {
   titleInputRef: React.RefObject<HTMLInputElement | null>;
   onOpenSearch?: () => void;
@@ -151,7 +151,6 @@ export function WorkspaceHeader({
   const [renameValue, setRenameValue] = useState("");
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
   const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showQuizDialog, setShowQuizDialog] = useState(false);
   const [showFlashcardsDialog, setShowFlashcardsDialog] = useState(false);
   const showAudioDialog = useAudioRecordingStore((s) => s.isDialogOpen);
@@ -367,7 +366,7 @@ export function WorkspaceHeader({
       toast.dismiss(loadingToastId);
       toast.error(error.message || "Failed to upload audio");
     }
-  }, [addItem, onItemCreated]);
+  }, [addItem, currentWorkspaceId, onItemCreated]);
 
   const handleImageCreate = useCallback((url: string, name: string) => {
     if (!addItem) return;
@@ -383,6 +382,20 @@ export function WorkspaceHeader({
     setIsNewMenuOpen(false);
   }, [addItem]);
 
+  const {
+    fileInputRef,
+    inputProps: fileInputProps,
+    openFilePicker,
+  } = useWorkspaceFilePicker({
+    onImageCreate: handleImageCreate,
+    onDocumentUpload: onPDFUpload,
+  });
+
+  const handleUploadPickerOpen = useCallback(() => {
+    openFilePicker();
+    setIsNewMenuOpen(false);
+  }, [openFilePicker]);
+
   // Close popover when folder path changes
   useEffect(() => {
     setEllipsisDropdownOpen(false);
@@ -390,6 +403,10 @@ export function WorkspaceHeader({
 
   return (
     <div className="relative py-2 z-20 bg-sidebar">
+      <input
+        ref={fileInputRef}
+        {...fileInputProps}
+      />
       {/* Main container with flex layout */}
       <div className="flex items-center justify-between w-full px-3">
         {/* Left Side: Sidebar Toggle + Navigation Arrows + Breadcrumbs */}
@@ -908,7 +925,7 @@ export function WorkspaceHeader({
                         }
                       },
                       onCreateFolder: () => { if (addItem) addItem("folder"); },
-                      onUpload: () => { setShowUploadDialog(true); setIsNewMenuOpen(false); },
+                      onUpload: handleUploadPickerOpen,
                       onAudio: () => { openAudioDialog(); setIsNewMenuOpen(false); },
                       onYouTube: () => { setShowYouTubeDialog(true); setIsNewMenuOpen(false); },
                       onWebsite: () => { setShowWebsiteDialog(true); setIsNewMenuOpen(false); },
@@ -990,15 +1007,6 @@ export function WorkspaceHeader({
         onOpenChange={setShowWebsiteDialog}
         onCreate={handleWebsiteCreate}
       />
-      {/* Upload Dialog (PDF + Image) */}
-      {onPDFUpload && (
-        <UploadDialog
-          open={showUploadDialog}
-          onOpenChange={setShowUploadDialog}
-          onImageCreate={handleImageCreate}
-          onPDFUpload={onPDFUpload}
-        />
-      )}
       {/* Audio Recorder Dialog */}
       <AudioRecorderDialog
         open={showAudioDialog}
@@ -1026,5 +1034,3 @@ export function WorkspaceHeader({
 }
 
 export default WorkspaceHeader;
-
-

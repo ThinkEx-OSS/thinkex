@@ -225,7 +225,6 @@ function getFileType(url: string): { type: 'video' | 'pdf' | 'image' | 'document
 export const FileProcessingToolUI = makeAssistantToolUI<{
     urls?: string[];
     fileNames?: string[];
-    pdfImageRefs?: Array<{ pdfName: string; imageId: string }>;
     forceReprocess?: boolean;
 }, string>({
     toolName: "processFiles",
@@ -264,17 +263,12 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
 
         // Parse args
         let urls: string[] = [];
-        let pdfImageRefs: Array<{ pdfName: string; imageId: string }> = [];
-
         // Use the actual tool parameters
         if (args?.urls && Array.isArray(args.urls)) {
             urls = args.urls;
         }
-        if (args?.pdfImageRefs && Array.isArray(args.pdfImageRefs)) {
-            pdfImageRefs = args.pdfImageRefs;
-        }
 
-        const fileCount = urls.length + (args?.fileNames?.length ?? 0) + pdfImageRefs.length;
+        const fileCount = urls.length + (args?.fileNames?.length ?? 0);
 
         // Debug parsed data
         if (typeof window !== 'undefined') {
@@ -332,17 +326,6 @@ export const FileProcessingToolUI = makeAssistantToolUI<{
                                                     <span className="text-xs break-all">{name}</span>
                                                     <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
                                                         workspace
-                                                    </Badge>
-                                                </div>
-                                            ))}
-                                            {pdfImageRefs.map((ref, index) => (
-                                                <div key={`pdfimg-${index}`} className="flex items-center gap-2">
-                                                    <ImageIcon className="h-3 w-3" />
-                                                    <span className="text-xs break-all">
-                                                        {ref.imageId} <span className="text-muted-foreground">from {ref.pdfName}</span>
-                                                    </span>
-                                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
-                                                        PDF image
                                                     </Badge>
                                                 </div>
                                             ))}

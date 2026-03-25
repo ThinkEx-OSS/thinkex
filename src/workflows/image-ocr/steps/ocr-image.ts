@@ -1,17 +1,15 @@
-import { ocrSingleImage } from "@/lib/pdf/azure-ocr";
+import { ocrImageFromUrl } from "@/lib/pdf/mistral-ocr";
 
 /**
- * Step: Run Azure OCR on a single image.
+ * Step: Run Mistral OCR on a single image URL.
  */
 export async function ocrImage(
-  base64: string,
-  mimeType: string
-): Promise<{ pages: Awaited<ReturnType<typeof ocrSingleImage>>["pages"] }> {
+  fileUrl: string
+): Promise<Awaited<ReturnType<typeof ocrImageFromUrl>>> {
   "use step";
 
-  const { pages } = await ocrSingleImage(base64, mimeType);
-  return { pages };
+  return await ocrImageFromUrl(fileUrl);
 }
 
-// OCR retries are handled inside the Azure client with longer cooldown-aware backoff.
+// OCR retries are handled inside the Mistral client with longer cooldown-aware backoff.
 ocrImage.maxRetries = 0;

@@ -210,7 +210,6 @@ export default function WorkspaceContent({
               new CustomEvent("pdf-processing-complete", {
                 detail: {
                   itemId: item.id,
-                  textContent: "",
                   ocrPages: [],
                   ocrStatus: "failed" as const,
                   ocrError: data.error || "Failed to start OCR",
@@ -224,7 +223,6 @@ export default function WorkspaceContent({
             new CustomEvent("pdf-processing-complete", {
               detail: {
                 itemId: item.id,
-                textContent: "",
                 ocrPages: [],
                 ocrStatus: "failed" as const,
                 ocrError: err.message || "Failed to start legacy PDF OCR",

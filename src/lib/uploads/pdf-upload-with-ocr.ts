@@ -4,21 +4,19 @@
  * Use uploadPdfToStorage + runOcrFromUrl for non-blocking UI (add item after upload, OCR in background).
  */
 
-import type { OcrPage } from "@/lib/pdf/azure-ocr";
+import type { OcrPage } from "@/lib/pdf/mistral-ocr";
 import { uploadFileDirect } from "./client-upload";
 
 export interface PdfUploadWithOcrResult {
   fileUrl: string;
   filename: string;
   fileSize: number;
-  textContent: string;
   ocrPages: OcrPage[];
   ocrStatus: "complete" | "failed";
   ocrError?: string;
 }
 
 export interface OcrResult {
-  textContent: string;
   ocrPages: OcrPage[];
   ocrStatus: "complete" | "failed";
   ocrError?: string;
@@ -46,14 +44,12 @@ export async function runOcrFromUrl(fileUrl: string): Promise<OcrResult> {
   const json = await res.json();
   if (!res.ok) {
     return {
-      textContent: "",
       ocrPages: [],
       ocrStatus: "failed",
       ocrError: json.error || "OCR failed",
     };
   }
   return {
-    textContent: json.textContent ?? "",
     ocrPages: json.ocrPages ?? [],
     ocrStatus: "complete",
   };
@@ -83,7 +79,6 @@ export async function uploadPdfAndRunOcr(
       fileUrl,
       filename: filename || file.name,
       fileSize: file.size,
-      textContent: "",
       ocrPages: [],
       ocrStatus: "failed",
       ocrError: ocrJson.error || "OCR failed",
@@ -94,7 +89,6 @@ export async function uploadPdfAndRunOcr(
     fileUrl,
     filename: filename || file.name,
     fileSize: file.size,
-    textContent: ocrJson.textContent ?? "",
     ocrPages: ocrJson.ocrPages ?? [],
     ocrStatus: "complete",
   };
