@@ -348,7 +348,12 @@ function DashboardContent({
 
       toast.dismiss(uploadToastId);
 
-      if (uploads.length === 0) return;
+      if (uploads.length === 0) {
+        if (failedFiles.length > 0) {
+          toast.error(getDocumentUploadFailureMessage(failedFiles.length));
+        }
+        return;
+      }
 
       const pdfCardDefinitions = buildWorkspaceItemDefinitionsFromAssets(uploads);
 
@@ -372,8 +377,6 @@ function DashboardContent({
         toast.warning(
           getDocumentUploadPartialMessage(uploads.length, failedFiles.length)
         );
-      } else if (failedFiles.length > 0) {
-        toast.error(getDocumentUploadFailureMessage(failedFiles.length));
       }
     },
     [operations, currentWorkspaceId, handleCreatedItems]

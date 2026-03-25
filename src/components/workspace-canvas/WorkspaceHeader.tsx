@@ -335,6 +335,8 @@ export function WorkspaceHeader({
           fileUrl,
           filename: file.name,
           mimeType: file.type || "audio/webm",
+        }).catch((processingError) => {
+          console.error("[WORKSPACE_HEADER] Failed to start audio processing:", processingError);
         });
       }
     } catch (error: any) {
@@ -377,7 +379,7 @@ export function WorkspaceHeader({
     inputProps: fileInputProps,
     openFilePicker,
   } = useWorkspaceFilePicker({
-    onDocumentUpload: onPDFUpload,
+    onFilesSelected: onPDFUpload,
   });
 
   const handleUploadPickerOpen = useCallback(() => {

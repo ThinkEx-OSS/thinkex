@@ -21,7 +21,7 @@ export interface MistralOcrResponse {
 }
 
 export interface MistralOcrConfig {
-  endpoint: string;
+  ocrEndpoint: string;
   apiKey: string;
   model: string;
 }
@@ -147,7 +147,7 @@ export async function callMistralOcr(
   errorLabel: string,
   logLabel: string
 ): Promise<MistralOcrCallResult> {
-  const { endpoint, apiKey, model } = config;
+  const { ocrEndpoint, apiKey, model } = config;
   const { documentHost, documentType, documentUrlPreview } =
     getDocumentMetadata(baseBody);
 
@@ -156,7 +156,7 @@ export async function callMistralOcr(
   }
 
   logger.info(`${logLabel} Request init`, {
-    endpoint,
+    endpoint: ocrEndpoint,
     model,
     documentType,
     documentHost,
@@ -173,7 +173,7 @@ export async function callMistralOcr(
     logger.info(`${logLabel} Request start`, {
       attempt,
       maxAttempts: MAX_ATTEMPTS,
-      endpoint,
+      endpoint: ocrEndpoint,
       model,
       documentType,
       documentHost,
@@ -181,7 +181,7 @@ export async function callMistralOcr(
     });
 
     try {
-      response = await fetch(endpoint, {
+      response = await fetch(ocrEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -197,7 +197,7 @@ export async function callMistralOcr(
       logger.error(`${logLabel} Request failed before response`, {
         attempt,
         durationMs,
-        endpoint,
+        endpoint: ocrEndpoint,
         model,
         documentType,
         documentHost,

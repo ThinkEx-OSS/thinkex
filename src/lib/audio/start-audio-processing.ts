@@ -31,7 +31,7 @@ export async function startAudioProcessing(params: {
     });
 
     const data = await res.json().catch(() => ({}));
-    if (data.runId && data.itemId) {
+    if (res.ok && data.runId && data.itemId) {
       const { pollAudioProcessing } = await import(
         "@/lib/audio/poll-audio-processing"
       );
@@ -42,7 +42,9 @@ export async function startAudioProcessing(params: {
     emitAudioProcessingComplete({
       itemId: params.itemId,
       error:
-        (typeof data.error === "string" && data.error) || "Processing failed",
+        (typeof data.error === "string" && data.error) ||
+        res.statusText ||
+        "Processing failed",
     });
   } catch (error) {
     emitAudioProcessingComplete({

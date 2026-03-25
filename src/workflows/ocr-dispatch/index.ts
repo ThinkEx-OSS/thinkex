@@ -78,16 +78,28 @@ export async function ocrDispatchWorkflow(
       errorMessage,
     });
 
-    await persistOcrResults(
-      workspaceId,
-      userId,
-      candidates.map((candidate) => ({
-        itemId: candidate.itemId,
-        itemType: candidate.itemType,
-        ok: false as const,
-        error: errorMessage,
-      }))
-    );
+    try {
+      await persistOcrResults(
+        workspaceId,
+        userId,
+        candidates.map((candidate) => ({
+          itemId: candidate.itemId,
+          itemType: candidate.itemType,
+          ok: false as const,
+          error: errorMessage,
+        }))
+      );
+    } catch (persistError) {
+      logger.error("[OCR_DISPATCH_WORKFLOW] Failed to persist OCR failure results", {
+        workspaceId,
+        userId,
+        candidateCount: candidates.length,
+        persistError:
+          persistError instanceof Error
+            ? persistError.message
+            : "Unknown persistence error",
+      });
+    }
 
     throw error;
   }

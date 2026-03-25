@@ -47,8 +47,7 @@ export function ItemPanelContent({
     const isPdf = item.type === 'pdf';
     const isYouTube = item.type === 'youtube';
     const isWebsite = item.type === 'website';
-    const pdfData = item.data as PdfData;
-    const pdfPreviewUrl = pdfData.fileUrl;
+    const pdfPreviewUrl = isPdf ? (item.data as PdfData).fileUrl : undefined;
     const showStandardHeader = isPdf ? !pdfPreviewUrl : !isMaximized;
 
     // PDF-specific state

@@ -24,11 +24,11 @@ import { start } from "workflow/api";
 import { isAllowedOcrFileUrl } from "@/lib/ocr/url-validation";
 import { ocrDispatchWorkflow } from "@/workflows/ocr-dispatch";
 import {
-  buildOcrCandidatesFromAssets,
   buildWorkspaceItemDefinitionFromAsset,
   createUploadedAsset,
   type UploadedAsset,
 } from "@/lib/uploads/uploaded-asset";
+import { startAssetProcessing } from "@/lib/uploads/start-asset-processing";
 
 const MAX_TITLE_LENGTH = 60;
 const LOG_TRUNCATE = 400;
@@ -523,23 +523,29 @@ export async function POST(request: NextRequest) {
         if (fileCreateParams.length > 0) {
           const fileBulkResult = await workspaceWorker("bulkCreate", { workspaceId, items: fileCreateParams });
           if ((fileBulkResult as { success?: boolean }).success) {
-            const ocrCandidates = buildOcrCandidatesFromAssets(
-              [...documentAssets, ...imageAssets],
-              [
+            await startAssetProcessing({
+              workspaceId,
+              assets: [...documentAssets, ...imageAssets],
+              itemIds: [
                 ...pdfCreateParams.map((param) => param.id),
                 ...imageCreateParams.map((param) => param.id),
-              ]
-            );
-
-            if (ocrCandidates.length > 0) {
-              start(ocrDispatchWorkflow, [ocrCandidates, workspaceId, userId]).catch((err) => {
+              ],
+              startOcrProcessingFn: async (processingWorkspaceId, candidates) => {
+                await start(ocrDispatchWorkflow, [
+                  candidates,
+                  processingWorkspaceId,
+                  userId,
+                ]);
+              },
+              onOcrError: (err) => {
                 const errMsg = err instanceof Error ? err.message : String(err);
-                logger.warn("[AUTOGEN] Failed to start OCR dispatch workflow", {
+                logger.warn("[AUTOGEN] Failed to start asset processing", {
+                  workspaceId,
                   error: errMsg,
-                  candidateCount: ocrCandidates.length,
+                  fileItemCount: fileCreateParams.length,
                 });
 
-                Promise.allSettled([
+                void Promise.allSettled([
                   ...pdfCreateParams
                     .filter((param) => !!param.id)
                     .map((param) =>
@@ -548,6 +554,7 @@ export async function POST(request: NextRequest) {
                         itemId: param.id!,
                         pdfOcrPages: [],
                         pdfOcrStatus: "failed" as const,
+                        pdfOcrError: errMsg,
                       })
                     ),
                   ...imageCreateParams
@@ -560,11 +567,40 @@ export async function POST(request: NextRequest) {
                         imageOcrError: errMsg,
                       })
                     ),
-                ]).catch(() => {});
-              });
-            }
+                ]).then((results) => {
+                  const failedUpdates = results
+                    .map((result, index) => ({ result, index }))
+                    .filter(
+                      (
+                        entry
+                      ): entry is {
+                        result: PromiseRejectedResult;
+                        index: number;
+                      } => entry.result.status === "rejected"
+                    )
+                    .map(({ result, index }) => ({
+                      index,
+                      error:
+                        result.reason instanceof Error
+                          ? result.reason.message
+                          : String(result.reason),
+                    }));
 
-            logger.info("[AUTOGEN] File items created + OCR dispatch started", {
+                  if (failedUpdates.length > 0) {
+                    logger.error(
+                      "[AUTOGEN] Failed to mark asset-processing items as failed after startup error",
+                      {
+                        workspaceId,
+                        error: errMsg,
+                        failedUpdates,
+                      }
+                    );
+                  }
+                });
+              },
+            });
+
+            logger.info("[AUTOGEN] File items created + asset processing started", {
               pdfCount: pdfCreateParams.length,
               imageCount: imageCreateParams.length,
             });

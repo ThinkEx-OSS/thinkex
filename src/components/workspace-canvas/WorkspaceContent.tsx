@@ -14,9 +14,6 @@ import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { useAui } from "@assistant-ui/react";
 import { toast } from "sonner";
 import { OCR_COMPLETE_EVENT, startOcrProcessing } from "@/lib/ocr/client";
-import { isAllowedOcrFileUrl } from "@/lib/ocr/url-validation";
-import type { OcrCandidate } from "@/lib/ocr/types";
-import { getPdfSourceUrl } from "@/lib/pdf/pdf-item";
 import {
   WORKSPACE_FILE_UPLOAD_ACCEPT_STRING,
   WORKSPACE_FILE_UPLOAD_DESCRIPTION,
@@ -170,42 +167,6 @@ export default function WorkspaceContent({
       window.removeEventListener(OCR_COMPLETE_EVENT, handleOcrComplete);
     };
   }, [workspaceId, queryClient]);
-
-  // Auto-migrate legacy OCR-able items that have uploaded file URLs but no OCR result yet.
-  // Kicks off the shared OCR workflow; the workflow persists the result to DB.
-  const migratedIdsRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (!workspaceId) return;
-
-    const legacyCandidates: OcrCandidate[] = viewState.items.flatMap((item): OcrCandidate[] => {
-      if (migratedIdsRef.current.has(item.id)) return [];
-
-      if (item.type === "pdf") {
-        const pdf = item.data as import("@/lib/workspace-state/types").PdfData;
-        const sourceUrl = getPdfSourceUrl(pdf);
-        if (!sourceUrl || !isAllowedOcrFileUrl(sourceUrl)) return [];
-        if (pdf.ocrStatus === "processing" || pdf.ocrStatus === "complete") return [];
-        return [{ itemId: item.id, itemType: "file" as const, fileUrl: sourceUrl }];
-      }
-
-      if (item.type === "image") {
-        const image = item.data as import("@/lib/workspace-state/types").ImageData;
-        if (!image.url || !isAllowedOcrFileUrl(image.url)) return [];
-        if (image.ocrStatus === "processing" || image.ocrStatus === "complete") return [];
-        return [{ itemId: item.id, itemType: "image" as const, fileUrl: image.url }];
-      }
-
-      return [];
-    });
-
-    if (legacyCandidates.length === 0) return;
-
-    legacyCandidates.forEach((candidate) => migratedIdsRef.current.add(candidate.itemId));
-
-    startOcrProcessing(workspaceId, legacyCandidates).catch((error) => {
-      console.error("[OCR_MIGRATION] Failed to start legacy OCR:", error);
-    });
-  }, [viewState.items, workspaceId]);
 
   // Listen for audio processing completion events
   useEffect(() => {

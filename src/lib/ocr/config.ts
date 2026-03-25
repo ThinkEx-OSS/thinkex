@@ -3,7 +3,7 @@ const DEFAULT_OCR_ENDPOINT = "https://api.mistral.ai/v1/ocr";
 
 export interface OcrConfig {
   apiBaseUrl: string;
-  endpoint: string;
+  // Canonical direct OCR endpoint used for non-batch requests.
   ocrEndpoint: string;
   batchJobsEndpoint: string;
   apiKey: string;
@@ -21,7 +21,6 @@ export function getOcrConfig(): OcrConfig {
 
   return {
     apiBaseUrl,
-    endpoint: ocrEndpoint,
     ocrEndpoint,
     batchJobsEndpoint: `${apiBaseUrl}/v1/batch/jobs`,
     apiKey,

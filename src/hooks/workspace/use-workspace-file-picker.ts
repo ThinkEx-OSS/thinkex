@@ -11,12 +11,13 @@ const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 
 interface UseWorkspaceFilePickerOptions {
   onImageUpload?: (images: Array<{ url: string; name: string }>) => void;
-  onDocumentUpload?: (files: File[]) => Promise<void>;
+  /** Handles every selected file, including PDFs, Office docs, images, and audio. */
+  onFilesSelected?: (files: File[]) => Promise<void>;
 }
 
 export function useWorkspaceFilePicker({
   onImageUpload,
-  onDocumentUpload,
+  onFilesSelected,
 }: UseWorkspaceFilePickerOptions) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -25,11 +26,11 @@ export function useWorkspaceFilePicker({
       return;
     }
 
-    if (onDocumentUpload) {
+    if (onFilesSelected) {
       try {
-        await onDocumentUpload(files);
+        await onFilesSelected(files);
       } catch (error) {
-        console.error("Document upload failed:", error);
+        console.error("File upload failed:", error);
         toast.error("Failed to add files");
       }
       return;
@@ -112,7 +113,7 @@ export function useWorkspaceFilePicker({
     if (documentFiles.length > 0) {
       toast.error("Document upload not available");
     }
-  }, [onDocumentUpload, onImageUpload]);
+  }, [onFilesSelected, onImageUpload]);
 
   const handleFileInputChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);

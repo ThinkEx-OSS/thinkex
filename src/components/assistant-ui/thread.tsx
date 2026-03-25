@@ -819,8 +819,9 @@ const Composer: FC<ComposerProps> = ({ items }) => {
     workspaceId: string,
     operations: any
   ) => {
+    let files: File[] = [];
     try {
-      const files = pdfAttachments
+      files = pdfAttachments
         .map((attachment) => attachment.file)
         .filter((file): file is File => !!file);
       const { uploads, failedFiles } = await uploadSelectedFiles(files);
@@ -853,7 +854,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
       }
     } catch (error) {
       console.error('Error creating PDF cards in background:', error);
-      toast.error(getDocumentUploadFailureMessage(pdfAttachments.length));
+      toast.error(getDocumentUploadFailureMessage(files.length || pdfAttachments.length));
     }
   };
 

@@ -262,9 +262,22 @@ export function WorkspaceSection({
   const startWorkspaceOcr = useCallback((candidates: OcrCandidate[]) => {
     if (!currentWorkspaceId || candidates.length === 0) return;
     startOcrProcessing(currentWorkspaceId, candidates).catch((error) => {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to start OCR";
       console.error("[WORKSPACE_OCR] Failed to start OCR:", error);
+      toast.error(`Failed to start OCR: ${errorMessage}`);
+
+      candidates.forEach((candidate) => {
+        if (candidate.itemType !== "image" || !operations) return;
+        operations.updateItemData(candidate.itemId, (prev) => ({
+          ...prev,
+          ocrStatus: "failed",
+          ocrError: errorMessage,
+          ocrPages: [],
+        }));
+      });
     });
-  }, [currentWorkspaceId]);
+  }, [currentWorkspaceId, operations]);
 
   const handleImageCreate = useCallback((url: string, name: string) => {
     if (!operations) return;
@@ -301,49 +314,6 @@ export function WorkspaceSection({
       initialLayout: DEFAULT_CARD_DIMENSIONS.website,
     }]);
   }, [operations]);
-
-  const {
-    fileInputRef,
-    inputProps: fileInputProps,
-    openFilePicker,
-  } = useWorkspaceFilePicker({
-    onDocumentUpload: handlePDFUpload,
-  });
-
-  // Handle smart upload from context menu: try clipboard paste first, then open file picker
-  const handleUploadMenuItemClick = useCallback(async () => {
-    try {
-      // Check for clipboard permissions/content
-      const clipboardItems = await navigator.clipboard.read();
-      let imageBlob: Blob | null = null;
-
-      for (const item of clipboardItems) {
-        const imageType = item.types.find(t => t.startsWith('image/'));
-        if (imageType) {
-          imageBlob = await item.getType(imageType);
-          break;
-        }
-      }
-
-      if (imageBlob) {
-        // Found an image! Upload it directly.
-        const toastId = toast.loading("Pasting image from clipboard...");
-
-        const file = new File([imageBlob], "pasted-image.png", { type: imageBlob.type });
-        const result = await uploadFileDirect(file);
-        toast.dismiss(toastId);
-
-        // Create the card using the new URL
-        await handleImageCreate(result.url, "Pasted Image");
-        return;
-      }
-    } catch (e) {
-      // Fallback to file picker if clipboard access fails or no image found
-      console.debug("Clipboard read failed or empty, falling back to file picker", e);
-    }
-
-    openFilePicker();
-  }, [handleImageCreate, openFilePicker]);
 
   // Handle delete request (from button or keyboard)
   const handleDeleteRequest = React.useCallback(() => {
@@ -487,7 +457,7 @@ export function WorkspaceSection({
   };
 
   // Handle file upload from workspace pickers/empty states
-  async function handlePDFUpload(files: File[]) {
+  const handlePDFUpload = useCallback(async (files: File[]) => {
     if (!operations || !currentWorkspaceId) {
       throw new Error('Workspace operations not available');
     }
@@ -523,7 +493,12 @@ export function WorkspaceSection({
 
     toast.dismiss(uploadToastId);
 
-    if (uploads.length === 0) return;
+    if (uploads.length === 0) {
+      if (failedFiles.length > 0) {
+        toast.error(getDocumentUploadFailureMessage(failedFiles.length));
+      }
+      return;
+    }
 
     const itemDefinitions = buildWorkspaceItemDefinitionsFromAssets(uploads, {
       imageLayout: DEFAULT_CARD_DIMENSIONS.image,
@@ -543,16 +518,57 @@ export function WorkspaceSection({
       },
     });
 
-    if (uploads.length > 0 && failedFiles.length === 0) {
+    if (failedFiles.length === 0) {
       toast.success(getDocumentUploadSuccessMessage(uploads.length));
-    } else if (uploads.length > 0) {
+    } else {
       toast.warning(
         getDocumentUploadPartialMessage(uploads.length, failedFiles.length)
       );
-    } else if (failedFiles.length > 0) {
-      toast.error(getDocumentUploadFailureMessage(failedFiles.length));
     }
-  }
+  }, [currentWorkspaceId, handleCreatedItems, operations]);
+
+  const {
+    fileInputRef,
+    inputProps: fileInputProps,
+    openFilePicker,
+  } = useWorkspaceFilePicker({
+    onFilesSelected: handlePDFUpload,
+  });
+
+  // Handle smart upload from context menu: try clipboard paste first, then open file picker
+  const handleUploadMenuItemClick = useCallback(async () => {
+    try {
+      // Check for clipboard permissions/content
+      const clipboardItems = await navigator.clipboard.read();
+      let imageBlob: Blob | null = null;
+
+      for (const item of clipboardItems) {
+        const imageType = item.types.find(t => t.startsWith('image/'));
+        if (imageType) {
+          imageBlob = await item.getType(imageType);
+          break;
+        }
+      }
+
+      if (imageBlob) {
+        // Found an image! Upload it directly.
+        const toastId = toast.loading("Pasting image from clipboard...");
+
+        const file = new File([imageBlob], "pasted-image.png", { type: imageBlob.type });
+        const result = await uploadFileDirect(file);
+        toast.dismiss(toastId);
+
+        // Create the card using the new URL
+        await handleImageCreate(result.url, "Pasted Image");
+        return;
+      }
+    } catch (e) {
+      // Fallback to file picker if clipboard access fails or no image found
+      console.debug("Clipboard read failed or empty, falling back to file picker", e);
+    }
+
+    openFilePicker();
+  }, [handleImageCreate, openFilePicker]);
   const handleAudioReady = useCallback(async (file: File) => {
     if (!addItem) return;
 

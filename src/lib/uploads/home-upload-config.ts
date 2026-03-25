@@ -31,14 +31,12 @@ export const HOME_FILE_UPLOAD_ACCEPT_STRING = [
   OFFICE_DOCUMENT_ACCEPT_STRING,
   "image/*",
   "audio/*",
-]
-  .filter(Boolean)
-  .join(",");
+].join(",");
 
 export const HOME_FILE_UPLOAD_REJECT_MESSAGE =
-  "Documents, images, and audio files are supported.";
+  "Only documents, images, and audio files are supported.";
 
-export const HOME_FILE_UPLOAD_DESCRIPTION = "Documents, images, or audio";
+export const HOME_FILE_UPLOAD_DESCRIPTION = "Documents, images, and audio files";
 
 export function isStudyDocumentFile(file: File): boolean {
   return (

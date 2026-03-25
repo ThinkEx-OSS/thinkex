@@ -7,6 +7,7 @@ const MAX_FILE_URL_LEN = 4096;
 const CONVERSION_RETRYABLE_STATUSES = new Set([502, 503, 504]);
 const MAX_CONVERSION_ATTEMPTS = 3;
 const CONVERSION_RETRY_DELAYS_MS = [1200, 2500];
+const RETRY_JITTER_RATIO = 0.2;
 
 function isValidStoragePath(filePath: string): boolean {
   return STORAGE_PATH_PATTERN.test(filePath);
@@ -57,6 +58,7 @@ export async function requestDocumentPdfConversion(
   fileUrl: string
 ): Promise<{ pdfUrl: string; pdfPath: string }> {
   const fastapi = getFastAPIClient();
+  let lastError: string | null = null;
 
   for (let attempt = 1; attempt <= MAX_CONVERSION_ATTEMPTS; attempt += 1) {
     const { data, error, status } = await fastapi.post<{
@@ -82,25 +84,32 @@ export async function requestDocumentPdfConversion(
       CONVERSION_RETRYABLE_STATUSES.has(status) &&
       attempt < MAX_CONVERSION_ATTEMPTS;
 
+    lastError = error;
+
     if (!shouldRetry) {
-      throw new Error(error);
+      break;
     }
 
     const delayMs =
       CONVERSION_RETRY_DELAYS_MS[attempt - 1] ??
       CONVERSION_RETRY_DELAYS_MS[CONVERSION_RETRY_DELAYS_MS.length - 1];
+    const jitterMs = Math.round(
+      (Math.random() * 2 - 1) * delayMs * RETRY_JITTER_RATIO
+    );
+    const jitteredDelayMs = Math.max(0, delayMs + jitterMs);
 
     logger.warn("[document-conversion] Retrying conversion request after transient FastAPI error", {
       attempt,
       nextAttempt: attempt + 1,
       status,
       delayMs,
+      jitteredDelayMs,
       filePath,
       error,
     });
 
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    await new Promise((resolve) => setTimeout(resolve, jitteredDelayMs));
   }
 
-  throw new Error("Document conversion failed after retries");
+  throw new Error(lastError || "Document conversion failed after retries");
 }

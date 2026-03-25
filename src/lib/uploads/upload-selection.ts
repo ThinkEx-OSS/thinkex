@@ -78,7 +78,8 @@ export async function uploadSelectedFiles(files: File[]): Promise<{
     files.map(async (file) => {
       try {
         return await uploadSelectedFile(file);
-      } catch {
+      } catch (error) {
+        console.error(`Upload failed for "${file.name}":`, error);
         return null;
       }
     })

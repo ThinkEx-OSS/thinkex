@@ -48,14 +48,13 @@ function inferAssetKind(params: {
   displayName: string;
   originalFile?: File;
 }): UploadedAssetKind {
-  const originalType = params.originalFile?.type ?? "";
-  const fallbackType = params.contentType ?? "";
+  const resolvedType = params.originalFile?.type || params.contentType || "";
 
-  if (originalType.startsWith("audio/") || fallbackType.startsWith("audio/")) {
+  if (resolvedType.startsWith("audio/")) {
     return "audio";
   }
 
-  if (originalType.startsWith("image/") || fallbackType.startsWith("image/")) {
+  if (resolvedType.startsWith("image/")) {
     return "image";
   }
 
@@ -72,6 +71,7 @@ export function createUploadedAsset(params: {
 }): UploadedAsset {
   const kind = inferAssetKind(params);
   const name = getBaseName(params.displayName);
+  const resolvedType = params.originalFile?.type || params.contentType || "application/octet-stream";
 
   return {
     kind,
@@ -79,7 +79,7 @@ export function createUploadedAsset(params: {
     filename: params.filename,
     displayName: params.displayName,
     fileSize: params.fileSize,
-    contentType: params.contentType || "application/octet-stream",
+    contentType: resolvedType,
     name,
     ...(params.originalFile ? { originalFile: params.originalFile } : {}),
   };
@@ -143,6 +143,12 @@ export function buildOcrCandidatesFromAssets(
   assets: UploadedAsset[],
   itemIds: Array<string | undefined>
 ): OcrCandidate[] {
+  if (assets.length !== itemIds.length) {
+    throw new Error(
+      `Expected assets and itemIds to align, received ${assets.length} assets and ${itemIds.length} itemIds`
+    );
+  }
+
   const candidates: OcrCandidate[] = [];
 
   itemIds.forEach((itemId, index) => {

@@ -256,7 +256,7 @@ export function HomeAttachmentsProvider({ children }: { children: ReactNode }) {
 
   const awaitAllUploads = useCallback(() => {
     const promises = Array.from(uploadPromisesRef.current.values());
-    return Promise.all(promises).then(() => {});
+    return Promise.allSettled(promises).then(() => {});
   }, []);
 
   const getFileItems = useCallback(() => fileItemsRef.current, []);

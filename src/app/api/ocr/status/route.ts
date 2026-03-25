@@ -23,8 +23,10 @@ export const GET = withServerObservability(async function GET(req: NextRequest) 
       );
     }
 
-    const run = getRun(runId);
-    if (!run) {
+    const run = getRun(runId) as ReturnType<typeof getRun> & {
+      exists: Promise<boolean>;
+    };
+    if (!(await run.exists)) {
       return NextResponse.json(
         { status: "not_found", error: "Run not found or expired" },
         { status: 404 }

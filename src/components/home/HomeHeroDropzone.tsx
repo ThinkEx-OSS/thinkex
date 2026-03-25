@@ -20,7 +20,7 @@ interface HomeHeroDropzoneProps {
 
 /**
  * Dropzone for the entire home page.
- * Accepts PDF, image, and audio files — same as the Upload button.
+ * Accepts documents (PDF & Office), images, and audio — same as the Upload button.
  * Works even when the prompt input is collapsed.
  */
 export function HomeHeroDropzone({ children, onFilesDropped }: HomeHeroDropzoneProps) {

@@ -43,7 +43,7 @@ export const POST = withServerObservability(async function POST(req: NextRequest
       pathname = new URL(fileUrl).pathname;
     } catch {
       return NextResponse.json(
-        { error: "URL does not point to a PDF file" },
+        { error: "Invalid URL" },
         { status: 400 }
       );
     }
