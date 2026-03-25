@@ -62,7 +62,17 @@ export const POST = withServerObservability(async function POST(req: NextRequest
       );
     }
 
-    if (!fileUrl.toLowerCase().includes(".pdf")) {
+    let pathname: string;
+    try {
+      pathname = new URL(fileUrl).pathname;
+    } catch {
+      return NextResponse.json(
+        { error: "URL does not point to a PDF file" },
+        { status: 400 }
+      );
+    }
+
+    if (!pathname.toLowerCase().endsWith(".pdf")) {
       return NextResponse.json(
         { error: "URL does not point to a PDF file" },
         { status: 400 }

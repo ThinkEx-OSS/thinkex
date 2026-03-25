@@ -13,10 +13,14 @@ export default function GlobalError({
 }) {
     useEffect(() => {
         console.error(error);
-        capturePosthogException(error, {
-            error_boundary: "next_global_error",
-            ...(error.digest ? { digest: error.digest } : {}),
-        });
+        try {
+            capturePosthogException(error, {
+                error_boundary: "next_global_error",
+                ...(error.digest ? { digest: error.digest } : {}),
+            });
+        } catch (telemetryError) {
+            console.error("Failed to capture global error in PostHog:", telemetryError);
+        }
     }, [error]);
 
     return (

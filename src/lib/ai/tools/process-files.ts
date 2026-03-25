@@ -278,8 +278,8 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
                                         }
                                     } else if (matchedItem.type === 'youtube') {
                                         // Handle YouTube items if we want to support them via name too
-                                        const ytData = matchedItem.data as any; // Cast to avoid full import cycle if possible, or just use 'any' safely
-                                        if (ytData.url) {
+                                        const ytData = matchedItem.data as YouTubeItemData;
+                                        if (ytData && ytData.url) {
                                             urlList.push(ytData.url);
                                             logger.debug(`📁 [FILE_TOOL] Resolved video name "${name}" to URL: ${ytData.url}`);
                                         }
@@ -393,4 +393,8 @@ export function createProcessFilesTool(ctx?: WorkspaceToolContext) {
             return fileResults.join('\n\n---\n\n');
         },
     });
+}
+interface YouTubeItemData {
+    url?: string;
+    title?: string;
 }

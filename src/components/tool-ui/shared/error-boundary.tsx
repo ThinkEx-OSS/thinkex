@@ -30,11 +30,15 @@ export class ToolUIErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error(`[${this.props.componentName}] render error:`, error, errorInfo);
-    capturePosthogException(error, {
-      error_boundary: "tool_ui",
-      component_name: this.props.componentName,
-      component_stack: errorInfo.componentStack,
-    });
+    try {
+      capturePosthogException(error, {
+        error_boundary: "tool_ui",
+        component_name: this.props.componentName,
+        component_stack: errorInfo.componentStack,
+      });
+    } catch (telemetryError) {
+      console.error(`[${this.props.componentName}] failed to capture PostHog exception:`, telemetryError);
+    }
     this.props.onError?.(error, errorInfo);
   }
 
@@ -51,4 +55,3 @@ export class ToolUIErrorBoundary extends React.Component<
     return this.props.children;
   }
 }
-

@@ -6,9 +6,9 @@ import {
   flushPostHogServer,
 } from "@/lib/posthog-server";
 
-type RouteHandler<TArgs extends [Request, ...unknown[]], TReturn = Response> = (
+type RouteHandler<TArgs extends [Request, ...unknown[]]> = (
   ...args: TArgs
-) => Promise<TReturn>;
+) => Promise<Response>;
 
 type ObservabilityProperties = Record<string, string | number | boolean | undefined>;
 
@@ -30,12 +30,11 @@ function getResponseStatus(response: Response | undefined): number | undefined {
 
 export function withServerObservability<
   TArgs extends [Request, ...unknown[]],
-  TReturn = Response,
 >(
-  handler: RouteHandler<TArgs, TReturn>,
+  handler: RouteHandler<TArgs>,
   options: ServerObservabilityOptions<TArgs>,
-): RouteHandler<TArgs, TReturn> {
-  return async (...args: TArgs): Promise<TReturn> => {
+): RouteHandler<TArgs> {
+  return async (...args: TArgs): Promise<Response> => {
     const [request] = args;
     const startedAt = Date.now();
     const method = request.method;
@@ -56,7 +55,7 @@ export function withServerObservability<
           route_name: options.routeName,
           method,
           path,
-          status: getResponseStatus(response as Response),
+          status: getResponseStatus(response),
           duration_ms: Date.now() - startedAt,
           ...metadata?.properties,
         },
@@ -77,7 +76,7 @@ export function withServerObservability<
           },
         });
 
-        return error as TReturn;
+        return error;
       }
 
       capturePostHogServerException(error, {
@@ -108,7 +107,7 @@ export function withServerObservability<
       return NextResponse.json(
         { error: "Internal server error" },
         { status: 500 },
-      ) as TReturn;
+      );
     }
   };
 }

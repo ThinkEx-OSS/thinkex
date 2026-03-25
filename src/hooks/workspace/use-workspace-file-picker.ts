@@ -6,6 +6,7 @@ import { uploadFileDirect } from "@/lib/uploads/client-upload";
 
 export const WORKSPACE_FILE_INPUT_ACCEPT =
   "image/*,.png,.jpg,.jpeg,.gif,.webp,.heic,.heif,.avif,.tiff,.tif,application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx";
+const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 
 interface UseWorkspaceFilePickerOptions {
   onImageCreate: (url: string, name: string) => void;
@@ -31,26 +32,57 @@ export function useWorkspaceFilePicker({
         `Uploading ${imageFiles.length} image${imageFiles.length > 1 ? "s" : ""}...`
       );
 
-      try {
-        const results = await Promise.all(
-          imageFiles.map(async (file) => {
-            const result = await uploadFileDirect(file);
-            return {
-              url: result.url,
-              name: file.name.split(".").slice(0, -1).join(".") || "Image",
-            };
-          })
-        );
+      const oversizedFiles = imageFiles.filter((file) => file.size > MAX_FILE_SIZE_BYTES);
+      const uploadableImageFiles = imageFiles.filter((file) => file.size <= MAX_FILE_SIZE_BYTES);
 
-        results.forEach(({ url, name }) => onImageCreate(url, name));
-        toast.dismiss(toastId);
+      const results = await Promise.allSettled(
+        uploadableImageFiles.map(async (file) => {
+          const result = await uploadFileDirect(file);
+          return {
+            url: result.url,
+            name: file.name.split(".").slice(0, -1).join(".") || "Image",
+          };
+        })
+      );
+
+      let uploadedCount = 0;
+      const failedUploads: string[] = [];
+
+      results.forEach((result, index) => {
+        const file = uploadableImageFiles[index];
+        if (result.status === "fulfilled") {
+          uploadedCount += 1;
+          onImageCreate(result.value.url, result.value.name);
+          return;
+        }
+
+        failedUploads.push(file.name);
+        console.error(`Image upload failed for "${file.name}":`, result.reason);
+      });
+
+      toast.dismiss(toastId);
+
+      const skippedCount = oversizedFiles.length;
+      if (uploadedCount > 0 && failedUploads.length === 0 && skippedCount === 0) {
         toast.success(
-          `${imageFiles.length} image${imageFiles.length > 1 ? "s" : ""} uploaded successfully`
+          `${uploadedCount} image${uploadedCount > 1 ? "s" : ""} uploaded successfully`
         );
-      } catch (error) {
-        console.error("Image upload failed:", error);
-        toast.dismiss(toastId);
-        toast.error("Failed to upload image files");
+      } else {
+        const parts: string[] = [];
+        if (uploadedCount > 0) {
+          parts.push(`${uploadedCount} uploaded`);
+        }
+        if (skippedCount > 0) {
+          parts.push(`${skippedCount} skipped for exceeding ${MAX_FILE_SIZE_BYTES / (1024 * 1024)}MB`);
+          console.error("Skipped oversized image uploads:", oversizedFiles.map((file) => file.name));
+        }
+        if (failedUploads.length > 0) {
+          parts.push(`${failedUploads.length} failed`);
+        }
+
+        toast[uploadedCount > 0 ? "warning" : "error"](
+          parts.length > 0 ? `Image upload completed: ${parts.join(", ")}` : "Failed to upload image files"
+        );
       }
     }
 

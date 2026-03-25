@@ -38,27 +38,18 @@ export const GET = withServerObservability(async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const userId = await requireAuth();
-    const { id } = await params;
+  const userId = await requireAuth();
+  const { id } = await params;
 
-    const thread = await getThreadAndVerify(id, userId);
+  const thread = await getThreadAndVerify(id, userId);
 
-    return NextResponse.json({
-      id: thread.id,
-      remoteId: thread.id,
-      status: thread.isArchived ? "archived" : "regular",
-      title: thread.title ?? undefined,
-      externalId: thread.externalId ?? undefined,
-    });
-  } catch (error) {
-    if (error instanceof Response) return error;
-    console.error("[threads] GET [id] error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({
+    id: thread.id,
+    remoteId: thread.id,
+    status: thread.isArchived ? "archived" : "regular",
+    title: thread.title ?? undefined,
+    externalId: thread.externalId ?? undefined,
+  });
 }, { routeName: "GET /api/threads/[id]" });
 
 /**

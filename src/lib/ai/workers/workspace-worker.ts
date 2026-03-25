@@ -894,8 +894,9 @@ export async function workspaceWorker(
                 if (!params.itemId) {
                     throw new Error("Item ID required for PDF content update");
                 }
-                if (!params.pdfOcrPages?.length) {
-                    throw new Error("OCR pages required for PDF content update");
+                // OCR pages may be omitted only when OCR explicitly failed; otherwise callers must provide the full page array.
+                if (params.pdfOcrStatus !== "failed" && (params.pdfOcrPages === undefined || params.pdfOcrPages.length === 0)) {
+                    throw new Error("OCR pages required for PDF content update (or ocrStatus: failed)");
                 }
 
                 const currentState = await loadWorkspaceState(params.workspaceId);
@@ -974,6 +975,7 @@ export async function workspaceWorker(
                 if (!params.itemId) {
                     throw new Error("Item ID required for image content update");
                 }
+                // OCR pages may be omitted only when OCR explicitly failed; otherwise callers must provide the full page array.
                 if (params.imageOcrStatus !== "failed" && params.imageOcrPages === undefined) {
                     throw new Error("OCR pages required for image content update (or ocrStatus: failed)");
                 }

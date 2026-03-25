@@ -15,9 +15,14 @@ interface OcrConfig {
 }
 
 function getOcrConfig(): OcrConfig {
+  const apiKey = process.env.MISTRAL_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("MISTRAL_API_KEY is required for Mistral OCR");
+  }
+
   return {
     endpoint: process.env.MISTRAL_OCR_ENDPOINT ?? DEFAULT_ENDPOINT,
-    apiKey: process.env.MISTRAL_API_KEY ?? "",
+    apiKey,
     model: process.env.MISTRAL_OCR_MODEL ?? DEFAULT_MODEL,
   };
 }
@@ -44,7 +49,7 @@ function buildBaseBody(document: Record<string, unknown>): Record<string, unknow
 }
 
 function normalizeOcrPage(page: OcrPage, globalPageIndex: number): OcrPage {
-  return { ...page, index: globalPageIndex };
+  return { ...page, index: globalPageIndex + 1 };
 }
 
 function buildOcrResult(pages: OcrPage[]): OcrResult {
@@ -54,6 +59,11 @@ function buildOcrResult(pages: OcrPage[]): OcrResult {
 }
 
 export async function ocrImageFromUrl(fileUrl: string): Promise<OcrResult> {
+  const t0 = Date.now();
+  logger.info("[IMAGE_OCR_MISTRAL] URL OCR start", {
+    fileUrl,
+  });
+
   const { pages } = await callMistralOcr(
     getOcrConfig(),
     buildBaseBody({
@@ -64,7 +74,16 @@ export async function ocrImageFromUrl(fileUrl: string): Promise<OcrResult> {
     "[IMAGE_OCR_MISTRAL]"
   );
 
-  return buildOcrResult(pages);
+  const result = buildOcrResult(pages);
+
+  logger.info("[IMAGE_OCR_MISTRAL] Complete", {
+    fileUrl,
+    pageCount: result.pages.length,
+    totalMs: Date.now() - t0,
+    source: "image_url",
+  });
+
+  return result;
 }
 
 export async function ocrPdfFromUrl(fileUrl: string): Promise<OcrResult> {

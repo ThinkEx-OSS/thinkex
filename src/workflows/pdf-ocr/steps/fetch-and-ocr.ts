@@ -21,7 +21,14 @@ export async function fetchAndOcrPdf(fileUrl: string): Promise<PdfOcrResult> {
     fileHost = "invalid-url";
   }
 
-  if (!fileUrl.toLowerCase().includes(".pdf")) {
+  let pathname: string;
+  try {
+    pathname = new URL(fileUrl).pathname;
+  } catch {
+    throw new Error("URL does not point to a PDF file");
+  }
+
+  if (!pathname.toLowerCase().endsWith(".pdf")) {
     throw new Error("URL does not point to a PDF file");
   }
 

@@ -308,11 +308,11 @@ export function WorkspaceSection({
   }, [handleImageCreate, openFilePicker]);
 
   // Handle delete request (from button or keyboard)
-  const handleDeleteRequest = () => {
+  const handleDeleteRequest = React.useCallback(() => {
     if (selectedCardIds.size > 0) {
       setShowDeleteDialog(true);
     }
-  };
+  }, [selectedCardIds.size, setShowDeleteDialog]);
 
   // Handle keyboard shortcuts for deletion
   React.useEffect(() => {
