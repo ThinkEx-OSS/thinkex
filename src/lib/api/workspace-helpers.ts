@@ -143,13 +143,13 @@ export async function verifyWorkspaceOwnershipWithData(
 /**
  * Wrapper for API route handlers with error handling
  */
-export function withErrorHandling<T extends any[]>(
+export function withErrorHandling<T extends [Request, ...unknown[]]>(
   handler: (...args: T) => Promise<NextResponse>,
   routeName: string
 ) {
-  return withServerObservability(handler as (...args: [Request, ...unknown[]]) => Promise<NextResponse>, {
+  return withServerObservability(handler, {
     routeName,
-  }) as (...args: T) => Promise<NextResponse>;
+  });
 }
 
 /**
