@@ -4,7 +4,6 @@
  */
 
 import { frontendTools } from "@assistant-ui/react-ai-sdk";
-import { createProcessFilesTool } from "./process-files";
 import { createProcessUrlsTool } from "./process-urls";
 import { createExecuteCodeTool } from "./search-code";
 import {
@@ -15,7 +14,6 @@ import {
 import { createEditItemTool } from "./edit-item-tool";
 import { createFlashcardsTool } from "./flashcard-tools";
 import { createQuizTool } from "./quiz-tools";
-import { createDeepResearchTool } from "./deep-research";
 import { createSearchYoutubeTool, createAddYoutubeVideoTool } from "./youtube-tools";
 import { createWebSearchTool } from "./web-search";
 import { createSearchWorkspaceTool } from "./search-workspace";
@@ -29,7 +27,6 @@ export interface ChatToolsConfig {
     activeFolderId?: string;
     threadId?: string | null;
     clientTools?: Record<string, any>;
-    enableDeepResearch?: boolean;
     /** Experiment: enable magic_fetch tool (logs AI data requests to PostHog) */
     enableMagicFetch?: boolean;
 }
@@ -54,8 +51,7 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
     }
 
     return {
-        // File & URL processing
-        processFiles: createProcessFilesTool(ctx),
+        // URL processing
         processUrls: createProcessUrlsTool(),
 
         // Search & code execution
@@ -75,9 +71,6 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
 
         // Quizzes
         createQuiz: createQuizTool(ctx),
-
-        // Deep research - commented out
-        // ...(config.enableDeepResearch ? { deepResearch: createDeepResearchTool(ctx) } : {}),
 
         // YouTube
         searchYoutube: createSearchYoutubeTool(),

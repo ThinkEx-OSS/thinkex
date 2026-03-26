@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { setThreadArchived } from "@/lib/api/thread-archive";
+import { withServerObservability } from "@/lib/with-server-observability";
 
 /**
  * POST /api/threads/[id]/archive
  * Archive a thread
  */
-export async function POST(
+export const POST = withServerObservability(async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -20,4 +21,4 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+}, { routeName: "POST /api/threads/[id]/archive" });

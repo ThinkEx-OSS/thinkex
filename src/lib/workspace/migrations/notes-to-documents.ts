@@ -30,6 +30,7 @@ export function migrateNoteItem(item: Item): { item: Item; report: NoteMigration
   }
 
   const noteData = item.data as NoteData;
+  const legacyDeepResearch = (noteData as NoteData & { deepResearch?: unknown }).deepResearch;
   const markdown = getNoteContentAsMarkdown(noteData);
   const migratedData: DocumentData = {
     markdown,
@@ -47,7 +48,7 @@ export function migrateNoteItem(item: Item): { item: Item; report: NoteMigration
       itemName: item.name,
       markdownLength: markdown.length,
       droppedSources: 0,
-      droppedDeepResearch: Boolean(noteData.deepResearch),
+      droppedDeepResearch: Boolean(legacyDeepResearch),
     },
   };
 }

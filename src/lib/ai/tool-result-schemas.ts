@@ -128,23 +128,7 @@ export function parseFlashcardResult(input: unknown): FlashcardResult {
   return coerceToFlashcardResult(input);
 }
 
-/** deepResearch */
-export const DeepResearchResultSchema = z
-  .object({
-    interactionId: z.string().optional(),
-    noteId: z.string().optional(),
-    message: z.string().optional(),
-    error: z.string().optional(),
-  })
-  .passthrough();
-
-export type DeepResearchResult = z.infer<typeof DeepResearchResultSchema>;
-
-export function parseDeepResearchResult(input: unknown): DeepResearchResult {
-  return parseWithSchema(DeepResearchResultSchema, input, "DeepResearchResult");
-}
-
-/** searchWeb, executeCode, processFiles – result is markdown string */
+/** webSearch, executeCode – result is markdown string */
 export function parseStringResult(input: unknown): string {
   return parseWithSchema(z.string(), input, "StringResult");
 }

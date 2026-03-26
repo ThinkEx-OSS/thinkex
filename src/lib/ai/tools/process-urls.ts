@@ -13,7 +13,7 @@ import { logger } from "@/lib/utils/logger";
  */
 export function createProcessUrlsTool() {
     return tool({
-        description: "Analyze web pages using Google's URL Context API. Extracts content, key information, and metadata from regular web URLs (http/https). Use this for web pages, articles, documentation, and other web content. For files (PDFs, images, documents) or videos, use the processFiles tool instead.",
+        description: "Analyze web pages using Google's URL Context API. Extracts content, key information, and metadata from regular web URLs (http/https). Use this for web pages, articles, documentation, and other web content. This tool does not handle uploaded files or videos.",
         inputSchema: zodSchema(
             z.object({
                 jsonInput: z.string().describe("JSON string containing an object with 'urls' (array of web URLs). Example: '{\"urls\": [\"https://example.com\"]}'"),
@@ -60,8 +60,8 @@ export function createProcessUrlsTool() {
             );
 
             if (fileUrls.length > 0) {
-                logger.warn("🔗 [URL_TOOL] File/video URLs detected, suggesting processFiles tool:", fileUrls);
-                return `Error: This tool only handles web URLs. Please use the processFiles tool for file URLs (${fileUrls.join(', ')})`;
+                logger.warn("🔗 [URL_TOOL] File/video URLs detected for web URL tool:", fileUrls);
+                return `Error: This tool only handles regular web URLs, not uploaded files or video URLs (${fileUrls.join(', ')})`;
             }
 
             try {

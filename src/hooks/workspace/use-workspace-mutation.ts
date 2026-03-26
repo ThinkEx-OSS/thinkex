@@ -208,9 +208,25 @@ export function useWorkspaceMutation(workspaceId: string | null, options: Worksp
           const payload = event.payload;
           const changesData = payload?.changes?.data;
           if (changesData && "ocrStatus" in changesData && changesData.ocrStatus) {
-            console.log("[OCR/UPDATE] ITEM_UPDATED persisted:", {
+            logger.debug("[OCR/UPDATE] ITEM_UPDATED persisted", {
               itemId: payload.id,
               ocrStatus: changesData.ocrStatus,
+              version: data.version,
+            });
+          }
+        }
+        if (event.type === "BULK_ITEMS_PATCHED") {
+          const ocrUpdates = event.payload.updates.filter((update) => {
+            const dataChanges = update.changes?.data as { ocrStatus?: string } | undefined;
+            return !!dataChanges?.ocrStatus;
+          });
+          if (ocrUpdates.length > 0) {
+            logger.debug("[OCR/UPDATE] BULK_ITEMS_PATCHED persisted", {
+              itemIds: ocrUpdates.map((update) => update.id),
+              statuses: ocrUpdates.map(
+                (update) =>
+                  (update.changes?.data as { ocrStatus?: string } | undefined)?.ocrStatus
+              ),
               version: data.version,
             });
           }
@@ -425,4 +441,3 @@ export function useWorkspaceMutation(workspaceId: string | null, options: Worksp
     },
   });
 }
-

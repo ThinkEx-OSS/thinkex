@@ -2,6 +2,7 @@
  * Shared utilities for workspace grep and read tools.
  */
 
+import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
 import type { Item, NoteData, PdfData, FlashcardData, FlashcardItem, QuizData, AudioData, WebsiteData, DocumentData } from "@/lib/workspace-state/types";
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
 import { getVirtualPath } from "@/lib/utils/workspace-fs";
@@ -56,10 +57,7 @@ export function extractSearchableText(item: Item, items: Item[]): SearchableText
         }
         case "pdf": {
             const data = item.data as PdfData;
-            const content = data.ocrPages?.length
-                ? data.ocrPages.map((p) => p.markdown).filter(Boolean).join("\n\n")
-                : data.textContent ?? "";
-            return body(content);
+            return body(getOcrPagesTextContent(data.ocrPages));
         }
         case "quiz": {
             const data = item.data as QuizData;

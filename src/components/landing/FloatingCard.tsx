@@ -28,8 +28,8 @@ export interface FloatingCardData {
   aspectRatio?: string;
   // rotation removed
   itemCount?: number; // For folders
-  youtubeUrl?: string; // For YouTube cards
-  thumbnailUrl?: string; // For YouTube cards (pre-calculated)
+  /** Local or remote image for decorative video-style cards */
+  thumbnailUrl?: string;
 }
 
 interface FloatingCardProps {

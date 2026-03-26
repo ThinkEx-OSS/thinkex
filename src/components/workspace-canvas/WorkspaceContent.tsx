@@ -13,6 +13,11 @@ import { useUIStore } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { useAui } from "@assistant-ui/react";
 import { toast } from "sonner";
+import { OCR_COMPLETE_EVENT, startOcrProcessing } from "@/lib/ocr/client";
+import {
+  WORKSPACE_FILE_UPLOAD_ACCEPT_STRING,
+  WORKSPACE_FILE_UPLOAD_DESCRIPTION,
+} from "@/lib/uploads/workspace-upload-config";
 
 interface WorkspaceContentProps {
   viewState: AgentState;
@@ -140,15 +145,15 @@ export default function WorkspaceContent({
     onOpenFolder?.(folderId);
   }, [setActiveFolderId, onOpenFolder]);
 
-  // Listen for PDF OCR completion events
-  // Workflow persists to DB on success/failure — invalidate to refetch (matches audio flow)
+  // Listen for OCR completion events.
+  // The workflow persists to DB on success/failure, so the client just invalidates.
   useEffect(() => {
-    const handlePdfComplete = (e: Event) => {
+    const handleOcrComplete = (e: Event) => {
       const detail = (e as CustomEvent).detail as
-        | { itemId?: string; ocrError?: string; ocrStatus?: string }
+        | { itemIds?: string[]; error?: string; status?: string }
         | undefined;
-      if (detail?.ocrError) {
-        console.error("[PDF-processing-complete] OCR failed:", detail.ocrError);
+      if (detail?.error) {
+        console.error("[OCR-processing-complete] OCR failed:", detail.error);
       }
       if (workspaceId) {
         queryClient.invalidateQueries({
@@ -157,83 +162,11 @@ export default function WorkspaceContent({
       }
     };
 
-    window.addEventListener("pdf-processing-complete", handlePdfComplete);
+    window.addEventListener(OCR_COMPLETE_EVENT, handleOcrComplete);
     return () => {
-      window.removeEventListener("pdf-processing-complete", handlePdfComplete);
+      window.removeEventListener(OCR_COMPLETE_EVENT, handleOcrComplete);
     };
   }, [workspaceId, queryClient]);
-
-  // Auto-migrate legacy PDFs that have a fileUrl but no ocrPages.
-  // Kicks off the durable OCR workflow; the workflow persists the result to DB.
-  const migratedIdsRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (!workspaceId) return;
-
-    const legacyPdfs = viewState.items.filter((item) => {
-      if (item.type !== "pdf") return false;
-      const pdf = item.data as import("@/lib/workspace-state/types").PdfData;
-      if (!pdf.fileUrl) return false;
-      if (pdf.ocrStatus === "processing" || pdf.ocrStatus === "complete") return false;
-      if (migratedIdsRef.current.has(item.id)) return false;
-      return true;
-    });
-
-    if (legacyPdfs.length === 0) return;
-
-    for (const item of legacyPdfs) {
-      migratedIdsRef.current.add(item.id);
-      const pdf = item.data as import("@/lib/workspace-state/types").PdfData;
-
-      fetch("/api/pdf/ocr/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileUrl: pdf.fileUrl,
-          itemId: item.id,
-          workspaceId,
-        }),
-      })
-        .then(async (res) => {
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: res.statusText }));
-            throw new Error((err as { error?: string }).error ?? `OCR start failed: ${res.status}`);
-          }
-          return res.json();
-        })
-        .then((data) => {
-          if (data.runId && data.itemId) {
-            import("@/lib/pdf/poll-pdf-ocr").then(({ pollPdfOcr }) =>
-              pollPdfOcr(data.runId, data.itemId)
-            );
-          } else {
-            window.dispatchEvent(
-              new CustomEvent("pdf-processing-complete", {
-                detail: {
-                  itemId: item.id,
-                  textContent: "",
-                  ocrPages: [],
-                  ocrStatus: "failed" as const,
-                  ocrError: data.error || "Failed to start OCR",
-                },
-              })
-            );
-          }
-        })
-        .catch((err) => {
-          window.dispatchEvent(
-            new CustomEvent("pdf-processing-complete", {
-              detail: {
-                itemId: item.id,
-                textContent: "",
-                ocrPages: [],
-                ocrStatus: "failed" as const,
-                ocrError: err.message || "Failed to start legacy PDF OCR",
-              },
-            })
-          );
-        });
-    }
-  }, [viewState.items, workspaceId]);
 
   // Listen for audio processing completion events
   useEffect(() => {
@@ -316,7 +249,7 @@ export default function WorkspaceContent({
       // Show error for oversized files
       if (oversizedFiles.length > 0) {
         toast.error(
-          `The following PDF${oversizedFiles.length > 1 ? 's' : ''} exceed${oversizedFiles.length === 1 ? 's' : ''} the ${MAX_FILE_SIZE_MB}MB limit:\n${oversizedFiles.join('\n')}`
+          `The following file${oversizedFiles.length > 1 ? 's' : ''} exceed${oversizedFiles.length === 1 ? 's' : ''} the ${MAX_FILE_SIZE_MB}MB limit:\n${oversizedFiles.join('\n')}`
         );
       }
 
@@ -344,12 +277,12 @@ export default function WorkspaceContent({
         try {
           await onPDFUpload(validFiles);
         } catch (error) {
-          console.error("Failed to upload PDFs:", error);
-          toast.error("Failed to upload PDFs");
+          console.error("Failed to upload files:", error);
+          toast.error("Failed to add files");
         }
       } else {
         console.error("onPDFUpload handler not available");
-        toast.error("PDF upload not available");
+        toast.error("File upload not available");
       }
 
       // Reset input
@@ -390,7 +323,7 @@ export default function WorkspaceContent({
                 multiple
                 className="sr-only"
                 onChange={handleFileChange}
-                accept="application/pdf,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                accept={WORKSPACE_FILE_UPLOAD_ACCEPT_STRING}
               />
 
               {/* Drag and Drop Prompt — native label for instant file picker */}
@@ -402,8 +335,11 @@ export default function WorkspaceContent({
                 <h3 className="text-base font-medium text-foreground mb-2">
                   {activeFolderId
                     ? `This folder is empty`
-                    : "Drag and drop PDFs or Office docs here"}
+                    : "This workspace is empty"}
                 </h3>
+                <p className="text-sm text-muted-foreground">
+                  Add {WORKSPACE_FILE_UPLOAD_DESCRIPTION} here, or click to choose files.
+                </p>
               </label>
 
               {/* Divider */}

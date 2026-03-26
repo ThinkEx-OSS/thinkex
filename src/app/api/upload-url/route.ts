@@ -2,8 +2,8 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
-import { withApiLogging } from "@/lib/with-api-logging";
 import { getOfficeDocumentConvertUrlFromMeta } from "@/lib/uploads/office-document-validation";
+import { withServerObservability } from "@/lib/with-server-observability";
 
 export const maxDuration = 10;
 
@@ -124,4 +124,6 @@ async function handlePOST(request: NextRequest) {
   }
 }
 
-export const POST = withApiLogging(handlePOST);
+export const POST = withServerObservability(handlePOST, {
+  routeName: "POST /api/upload-url",
+});

@@ -3,15 +3,12 @@
 import { FloatingCard, type FloatingCardData } from "./FloatingCard";
 import { cn } from "@/lib/utils";
 import { useRef, useState, useEffect } from "react";
+import { useTheme } from "next-themes";
 
 // Base cards for landing page
 const BASE_CARDS: FloatingCardData[] = [
   // Column 1ish - The Origins of Light at top for visibility
-  {
-    type: "youtube",
-    youtubeUrl: "https://youtu.be/tGVnBAHLApA",
-    thumbnailUrl: "https://img.youtube.com/vi/tGVnBAHLApA/sddefault.jpg",
-  }, // New video
+  { type: "youtube", thumbnailUrl: "/youtube-thumbnail-1.jpg" },
   { type: "note", title: "Product Vision 2025", color: "#3B82F6" },
   { type: "note", title: "Tech Stack Decision Log", color: "#E11D48" },
   {
@@ -53,19 +50,10 @@ const BASE_CARDS: FloatingCardData[] = [
   },
 
   // Column 4ish
-  {
-    type: "youtube",
-    youtubeUrl: "https://www.youtube.com/watch?v=WUvTyaaNkzM",
-    thumbnailUrl: "https://img.youtube.com/vi/WUvTyaaNkzM/sddefault.jpg",
-  },
+  { type: "youtube", thumbnailUrl: "/youtube-thumbnail-3.jpg" },
   { type: "folder", title: "Archive 2024", itemCount: 156, color: "#6366F1" },
   { type: "pdf", title: "User_Interview_Script_v2.pdf", color: "#6366F1" },
-  {
-    type: "folder",
-    title: "Neurology Resources",
-    itemCount: 18,
-    color: "#8B5CF6",
-  },
+  { type: "folder", title: "Neurology Resources", itemCount: 18, color: "#8B5CF6" },
 ];
 
 // Additional cards for home route only
@@ -96,11 +84,7 @@ const EXTRA_CARDS: FloatingCardData[] = [
   },
   { type: "note", title: "Project Roadmap Q1", color: "#EC4899" },
   { type: "folder", title: "Design System", itemCount: 67, color: "#14B8A6" },
-  {
-    type: "youtube",
-    youtubeUrl: "https://www.youtube.com/watch?v=P6FORpg0KVo",
-    thumbnailUrl: "https://img.youtube.com/vi/P6FORpg0KVo/sddefault.jpg",
-  },
+  { type: "youtube", thumbnailUrl: "/youtube-thumbnail-2.jpg" },
   {
     type: "flashcard",
     content: "Explain the concept of recursion",
@@ -188,6 +172,7 @@ export function FloatingWorkspaceCards({
   includeExtraCards = false,
   clearerBackground = false,
 }: FloatingWorkspaceCardsProps) {
+  const { resolvedTheme } = useTheme();
   const cards = includeExtraCards
     ? [...BASE_CARDS, ...EXTRA_CARDS]
     : BASE_CARDS;
@@ -224,8 +209,12 @@ export function FloatingWorkspaceCards({
         className={cn(
           "absolute inset-0 w-[120%] -ml-[10%] -mt-[5%] columns-2 md:columns-3 lg:columns-6 gap-4 md:gap-6 lg:gap-8 transition-transform duration-800 ease-out pointer-events-none",
           clearerBackground
-            ? "opacity-70 dark:opacity-50"
-            : "opacity-50 dark:opacity-30",
+            ? resolvedTheme === "dark"
+              ? "opacity-50"
+              : "opacity-70"
+            : resolvedTheme === "dark"
+              ? "opacity-30"
+              : "opacity-50",
           className,
         )}
         style={{
@@ -234,7 +223,7 @@ export function FloatingWorkspaceCards({
       >
         {cards.map((card, index) => (
           <FloatingCard
-            key={`${card.type}-${card.title ?? card.content ?? card.thumbnailUrl ?? card.youtubeUrl ?? "card"}-${index}`}
+            key={`${card.type}-${card.title ?? card.content ?? card.thumbnailUrl ?? "card"}-${index}`}
             data={card}
             className="w-full mb-6 md:mb-8"
           />

@@ -7,6 +7,7 @@ import {
   verifyThreadOwnership,
 } from "@/lib/api/workspace-helpers";
 import { eq, and } from "drizzle-orm";
+import { withServerObservability } from "@/lib/with-server-observability";
 
 async function getThreadAndVerify(threadId: string, userId: string) {
   const [thread] = await db
@@ -29,7 +30,7 @@ async function getThreadAndVerify(threadId: string, userId: string) {
  * PATCH /api/threads/[id]/messages/[messageId]
  * Update an existing message (e.g. step timestamps/duration from useExternalHistory)
  */
-export async function PATCH(
+export const PATCH = withServerObservability(async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; messageId: string }> }
 ) {
@@ -74,4 +75,4 @@ export async function PATCH(
       { status: 500 }
     );
   }
-}
+}, { routeName: "PATCH /api/threads/[id]/messages/[messageId]" });

@@ -485,7 +485,7 @@
   --font-geist: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-inter: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-outfit: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --background: oklch(0.97 0.028 85);
+  --background: oklch(0.96 0.028 85);
   --foreground: oklch(0.22 0.01 0);
   --popover: oklch(0.98 0.025 85);
   --popover-foreground: oklch(0.22 0.01 0);

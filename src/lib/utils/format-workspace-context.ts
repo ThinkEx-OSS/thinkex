@@ -1,7 +1,8 @@
-import type { AgentState, Item, NoteData, PdfData, FlashcardData, FlashcardItem, YouTubeData, QuizData, QuizQuestion, ImageData, AudioData, DocumentData } from "@/lib/workspace-state/types";
+import type { AgentState, Item, NoteData, PdfData, FlashcardData, FlashcardItem, YouTubeData, QuizData, QuizQuestion, ImageData, AudioData, DocumentData, WebsiteData } from "@/lib/workspace-state/types";
 import { serializeBlockNote } from "./serialize-blocknote";
 import { type Block } from "@/components/editor/BlockNoteEditor";
 import { getVirtualPath } from "./workspace-fs";
+import { getPdfSourceUrl } from "@/lib/pdf/pdf-item";
 
 /**
  * Formats item metadata only (no content). Used for workspace context in system prompt.
@@ -57,7 +58,7 @@ function formatItemMetadata(
 /**
  * Formats the workspace as paths and metadata only (no content).
  * Replaces per-card context registration — send this once in workspace context.
- * Content is available via selected cards context or tools (processFiles, etc.).
+ * Content is available via selected cards context or on-demand workspace tools.
  */
 export function formatWorkspaceFS(state: AgentState): string {
     const { items = [] } = state;
@@ -134,20 +135,21 @@ Use webSearch when: temporal cues ("today", "latest", "current"), real-time data
 Use internal knowledge for: creative writing, coding, general concepts, summarizing provided content.
 If the information is time-sensitive, niche, or uncertain, prefer webSearch.
 
-PDF: Always try readWorkspace first for workspace PDFs (pageStart/pageEnd for page ranges). If content is not yet extracted, then call processFiles — do not ask the user. IMPORTANT — when to use processFiles for images: Only call processFiles with pdfImageRefs when you encounter image placeholders (e.g. img-0.jpeg, p5-img-0.jpeg) in the output returned by readWorkspace — these are images embedded inside PDFs that you cannot see. Do NOT call processFiles for image file parts attached to the user's message; those images are already visible to you in context.
+PDF: Always try readWorkspace first for workspace PDFs (pageStart/pageEnd for page ranges). If content is not yet extracted, tell the user it is still being prepared and try again shortly.
+PDF VISUALS: PDF OCR in this workspace gives you textual structure from the PDF, including normal text and inline tables, but not visual understanding of charts, figures, diagrams, or screenshots embedded in the PDF. Do not claim you can see those visuals unless the user has separately attached a screenshot/image of that region. If the user needs help with a chart or figure from a PDF, tell them to open the PDF and use the camera button in the top right of the open pdf panelto add a screenshot of that area to chat.
 When selected card metadata includes (currently viewing) or activePage=N (for PDFs), the user has that item or page open. Prioritize these for ambiguous references ("this", "here", "this page", "what I'm looking at") and tailor responses to that context.
 
 YOUTUBE: If user says "add a video" without a topic, infer from workspace context. Don't ask - just search.
 
 INLINE CITATIONS (highly recommended for most responses):
-Only in your chat response — never in item content (documents, flashcards, quizzes, etc.). Use sources param for tools; do not put <citation> tags in content passed to createDocument, editItem, createFlashcards, etc.
+Only in your chat response — never in item content (notes, documents, flashcards, quizzes, etc.). Use sources params for tools when available; do not put <citation> tags in content passed to createDocument, createNote, editItem, createFlashcards, etc.
 Use simple plain text only. Bare minimum for uniqueness. No math, LaTeX, or complex formatting inside citations.
 Output citation HTML: <citation>REF</citation> where REF is one of:
 
 - Web URL: <citation>https://example.com/article</citation>
-- Workspace document: <citation>Document Title</citation> — or virtual path: <citation>documents/My Document.md</citation>
-- Workspace + quote: <citation>Document Title | exact excerpt</citation> — pipe with spaces; only when you have the exact text
-- PDF: <citation>PDF Title | p. 5</citation> or <citation>PDF Title | exact excerpt | p. 5</citation> — when citing PDFs, include page numbers whenever available (1-indexed). Quote is optional. Virtual path is OK: <citation>pdfs/MyFile.pdf | p. 3</citation>. If page is unknown, <citation>PDF Title</citation> is acceptable.
+- Workspace item: <citation>Document Title</citation> — or virtual path: <citation>documents/My Document.md</citation> / <citation>notes/My Note.md</citation>
+- Workspace + excerpt: <citation>Document Title | exact excerpt</citation> — pipe with spaces; only when you have the exact text
+- PDF: <citation>PDF Title | p. 5</citation> or <citation>PDF Title | exact excerpt | p. 5</citation> — when citing PDFs, include page numbers whenever available (1-indexed). Excerpt is optional. Virtual path is OK: <citation>pdfs/MyFile.pdf | p. 3</citation>. If page is unknown, <citation>PDF Title</citation> is acceptable.
 
 Examples (plain text only):
 - <citation>https://en.wikipedia.org/wiki/Supply_chain</citation>
@@ -157,7 +159,7 @@ Examples (plain text only):
 - <citation>Math 240 Textbook | limit definition | p. 42</citation>
 - <citation>pdfs/Syllabus.pdf | p. 3</citation>
 
-NEVER HALLUCINATE QUOTES: Only include a quote when you have the exact excerpt. If unsure, use <citation>Title</citation> without a quote.
+NEVER HALLUCINATE CITATIONS: Only include a citation when you have the exact excerpt. If unsure, use <citation>Title</citation> without an excerpt.
 PDF CITATIONS: Include page numbers whenever available. If you don't know the page, cite by title only.
 
 CRITICAL — Punctuation: Put the period or comma BEFORE the citation.
@@ -238,6 +240,9 @@ function formatItem(item: Item, index: number): string {
         case "image":
             lines.push(...formatImageDetails(item.data as ImageData));
             break;
+        case "website":
+            lines.push(...formatWebsiteDetails(item.data as WebsiteData));
+            break;
     }
 
     return lines.join("\n");
@@ -273,6 +278,15 @@ function formatFlashcardDetails(data: FlashcardData): string[] {
 function formatImageDetails(data: ImageData): string[] {
     const details = [];
     if (data.altText) details.push(`Alt: ${data.altText}`);
+    return details.length > 0 ? [`   - ${details.join(", ")}`] : [];
+}
+
+/**
+ * Formats Website-specific details
+ */
+function formatWebsiteDetails(data: WebsiteData): string[] {
+    const details = [];
+    if (data.url) details.push(`URL: ${data.url}`);
     return details.length > 0 ? [`   - ${details.join(", ")}`] : [];
 }
 
@@ -389,8 +403,9 @@ function extractRichContent(item: Item): RichContent {
     // For PDF cards, include the PDF URL as an "image" (file)
     if (item.type === "pdf") {
         const pdfData = item.data as PdfData;
-        if (pdfData.fileUrl) {
-            richContent.images.push(pdfData.fileUrl);
+        const pdfSourceUrl = getPdfSourceUrl(pdfData);
+        if (pdfSourceUrl) {
+            richContent.images.push(pdfSourceUrl);
         }
     }
 
@@ -587,6 +602,8 @@ export function formatItemContent(
             break;
         case "document":
             lines.push(...formatDocumentDetailsFull(item.data as DocumentData));
+        case "website":
+            lines.push(...formatWebsiteDetailsFull(item.data as WebsiteData));
             break;
         default:
             break;
@@ -632,7 +649,7 @@ function formatNoteDetailsFull(data: NoteData): string[] {
 
 /**
  * Formats OCR pages as markdown matching readWorkspace output.
- * Exported for processFiles to return OCR content in the same format.
+ * Exported so OCR-derived content can be rendered in the same format everywhere.
  */
 export function formatOcrPagesAsMarkdown(ocrPages: PdfData["ocrPages"]): string {
     if (!ocrPages?.length) return "";
@@ -644,8 +661,7 @@ export function formatOcrPagesAsMarkdown(ocrPages: PdfData["ocrPages"]): string 
         const rawMd = page.markdown ?? "";
         const md = replaceOcrPlaceholders(
             rawMd,
-            page.tables as Array<{ id?: string; content?: string }> | undefined,
-            page.images as OcrImage[] | undefined
+            page.tables as Array<{ id?: string; content?: string }> | undefined
         );
         for (const line of md.split(/\r?\n/)) lines.push(line);
         if (page.footer) lines.push(`Footer: ${page.footer}`);
@@ -654,18 +670,10 @@ export function formatOcrPagesAsMarkdown(ocrPages: PdfData["ocrPages"]): string 
     return lines.join("\n").trimEnd();
 }
 
-/** Image shape from OCR (image_annotation is JSON string from bbox annotation). */
-interface OcrImage {
-    id?: string;
-    image_annotation?: string;
-    [key: string]: unknown;
-}
-
-/** Replaces table placeholders [id](id) with table content. Replaces image placeholders ![id](id) with [Image: description] when bbox annotation is present. */
+/** Replaces table placeholders [id](id) with table content. */
 function replaceOcrPlaceholders(
     markdown: string,
-    tables?: Array<{ id?: string; content?: string }>,
-    images?: OcrImage[]
+    tables?: Array<{ id?: string; content?: string }>
 ): string {
     let out = markdown;
 
@@ -679,27 +687,6 @@ function replaceOcrPlaceholders(
         );
     }
 
-    for (const img of images ?? []) {
-        const id = img.id;
-        if (!id) continue;
-        let replacement = `![${id}](${id})`;
-        if (img.image_annotation) {
-            try {
-                const parsed = JSON.parse(img.image_annotation) as { description?: string };
-                const desc = parsed?.description;
-                if (typeof desc === "string" && desc.trim()) {
-                    replacement = `[Image: ${desc.trim()}]`;
-                }
-            } catch {
-                /* keep placeholder if parsing fails */
-            }
-        }
-        out = out.replace(
-            new RegExp(`!\\[${escapeRegex(id)}\\]\\(${escapeRegex(id)}\\)`, "g"),
-            replacement
-        );
-    }
-
     return out;
 }
 
@@ -709,8 +696,8 @@ function escapeRegex(s: string): string {
 
 /**
  * Formats PDF details with FULL content
- * If cached textContent/ocrPages are available, include them so the agent can reason about the PDF
- * without needing to call processFiles.
+ * If OCR pages are available, include them so the agent can reason about the PDF
+ * without needing any separate file-processing tool.
  * OCR pages output markdown as proper lines (one line per line) instead of JSON blobs.
  * Image and table placeholders are mapped to actual content when available.
  * Optionally filter by pageStart/pageEnd (1-indexed, inclusive).
@@ -726,8 +713,9 @@ function formatPdfDetailsFull(
         lines.push(`   - Filename: ${data.filename}`);
     }
 
-    if (data.fileUrl) {
-        lines.push(`   - URL: ${data.fileUrl}`);
+    const sourceUrl = getPdfSourceUrl(data);
+    if (sourceUrl) {
+        lines.push(`   - URL: ${sourceUrl}`);
     }
 
     if (data.ocrPages?.length) {
@@ -756,8 +744,7 @@ function formatPdfDetailsFull(
             const rawMd = page.markdown ?? "";
             const md = replaceOcrPlaceholders(
                 rawMd,
-                page.tables as Array<{ id?: string; content?: string }> | undefined,
-                page.images as OcrImage[] | undefined
+                page.tables as Array<{ id?: string; content?: string }> | undefined
             );
             for (const line of md.split(/\r?\n/)) {
                 lines.push(`     ${line}`);
@@ -765,9 +752,9 @@ function formatPdfDetailsFull(
             if (page.footer) lines.push(`     Footer: ${page.footer}`);
         }
     } else if (data.ocrStatus === "processing") {
-        lines.push(`   - (Content is being extracted. Please wait a moment and try readWorkspace or processFiles again.)`);
+        lines.push(`   - (Content is being extracted. Please wait a moment and try readWorkspace again.)`);
     } else {
-        lines.push(`   - (Content not yet extracted. You must call the processFiles tool to extract it — do not ask the user to do this.)`);
+        lines.push(`   - (Content not yet extracted. Ask the user to try again in a moment.)`);
     }
 
     return lines;
@@ -807,8 +794,7 @@ function formatImageDetailsFull(data: ImageData): string[] {
             const rawMd = page.markdown ?? "";
             const md = replaceOcrPlaceholders(
                 rawMd,
-                page.tables as Array<{ id?: string; content?: string }> | undefined,
-                page.images as OcrImage[] | undefined
+                page.tables as Array<{ id?: string; content?: string }> | undefined
             );
             for (const line of md.split(/\r?\n/)) {
                 lines.push(`     ${line}`);
@@ -922,6 +908,27 @@ function formatAudioDetailsFull(data: AudioData): string[] {
         }
     } else {
         lines.push(`   - (No timeline segments available)`);
+    }
+
+    return lines;
+}
+
+/**
+ * Formats website details with FULL content
+ */
+function formatWebsiteDetailsFull(data: WebsiteData): string[] {
+    const lines: string[] = [];
+
+    if (data.url) {
+        lines.push(`   - URL: ${data.url}`);
+        try {
+            const parsed = new URL(data.url);
+            lines.push(`   - Domain: ${parsed.hostname.replace(/^www\./, "")}`);
+        } catch {
+            // Ignore invalid URLs
+        }
+    } else {
+        lines.push(`   - (No website URL available)`);
     }
 
     return lines;

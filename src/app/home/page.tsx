@@ -1,5 +1,4 @@
-"use client";
-
+import { Suspense } from "react";
 import { SEO } from "@/components/seo/SEO";
 import { MobileWarning } from "@/components/ui/MobileWarning";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
@@ -22,9 +21,17 @@ export function HomeShell() {
     <>
       <MobileWarning />
       <AnonymousSessionHandler>
-        <WorkspaceProvider>
-          <HomePageContent />
-        </WorkspaceProvider>
+        <Suspense
+          fallback={
+            <div className="flex min-h-[60vh] items-center justify-center">
+              Loading...
+            </div>
+          }
+        >
+          <WorkspaceProvider>
+            <HomePageContent />
+          </WorkspaceProvider>
+        </Suspense>
       </AnonymousSessionHandler>
     </>
   );

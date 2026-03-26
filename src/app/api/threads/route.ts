@@ -6,12 +6,13 @@ import {
   verifyWorkspaceAccess,
 } from "@/lib/api/workspace-helpers";
 import { eq, and, desc } from "drizzle-orm";
+import { withServerObservability } from "@/lib/with-server-observability";
 
 /**
  * GET /api/threads?workspaceId=xxx
  * List threads for a workspace
  */
-export async function GET(req: NextRequest) {
+export const GET = withServerObservability(async function GET(req: NextRequest) {
   try {
     const userId = await requireAuth();
     const { searchParams } = new URL(req.url);
@@ -58,13 +59,13 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { routeName: "GET /api/threads" });
 
 /**
  * POST /api/threads
  * Create a new thread
  */
-export async function POST(req: NextRequest) {
+export const POST = withServerObservability(async function POST(req: NextRequest) {
   try {
     const userId = await requireAuth();
     const body = await req.json().catch(() => ({}));
@@ -108,4 +109,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { routeName: "POST /api/threads" });

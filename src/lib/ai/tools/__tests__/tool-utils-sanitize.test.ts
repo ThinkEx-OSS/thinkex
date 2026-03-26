@@ -311,22 +311,4 @@ describe("withSanitizedModelOutput", () => {
     });
   });
 
-  it("sanitizes a realistic deepResearch result", () => {
-    const toModelOutput = getToModelOutput({});
-    const result = toModelOutput({
-      output: {
-        success: true,
-        itemId: "note-dr",
-        noteId: "note-dr",
-        interactionId: "int_abc",
-        message: "Deep research started and note created.",
-        event: { id: "evt_dr", type: "ITEM_CREATED", payload: {} },
-        version: 51,
-      },
-    });
-    expect(result.value).toEqual({
-      success: true,
-      message: "Deep research started and note created.",
-    });
-  });
 });

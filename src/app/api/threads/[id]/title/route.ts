@@ -9,8 +9,9 @@ import {
   verifyThreadOwnership,
 } from "@/lib/api/workspace-helpers";
 import { eq } from "drizzle-orm";
+import { withServerObservability } from "@/lib/with-server-observability";
 
-/** Model ID used for processFiles and other lightweight tasks */
+/** Model ID used for lightweight background text tasks */
 const GEMINI_FLASH_LITE_MODEL = "gemini-2.5-flash-lite";
 
 function extractTextFromMessage(msg: { content?: unknown[] }): string {
@@ -24,10 +25,10 @@ function extractTextFromMessage(msg: { content?: unknown[] }): string {
 
 /**
  * POST /api/threads/[id]/title
- * Generate a title from messages using Gemini Flash Lite (same model as processFiles).
+ * Generate a title from messages using Gemini Flash Lite.
  * Body: { messages: ThreadMessage[] }
  */
-export async function POST(
+export const POST = withServerObservability(async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -100,4 +101,4 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+}, { routeName: "POST /api/threads/[id]/title" });
