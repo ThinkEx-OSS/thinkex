@@ -1,5 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# Claude Code
+CLAUDE.md
+
 # dependencies
 /node_modules
 .pnpm-store
