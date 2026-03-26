@@ -1,5 +1,4 @@
 import { Sidebar, SidebarInset, useSidebar } from "@/components/ui/sidebar";
-import { GridPattern } from "@/components/ui/shadcn-io/grid-pattern";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import WorkspaceSidebar from "@/components/workspace-canvas/WorkspaceSidebar";
 import { AssistantPanel } from "@/components/assistant-ui/AssistantPanel";
@@ -41,7 +40,7 @@ interface DashboardLayoutProps {
 
 /**
  * Main dashboard layout component.
- * Handles the overall structure including sidebars, grid pattern, and layout animations.
+ * Handles the overall structure including sidebars and layout animations.
  */
 export function DashboardLayout({
   currentWorkspaceId,
@@ -86,13 +85,6 @@ export function DashboardLayout({
 
   const content = (
     <div className="h-screen flex w-full">
-      <GridPattern
-        width={30}
-        height={30}
-        className="opacity-10"
-        id="dashboard-grid-pattern"
-      />
-
       {/* MAXIMIZED MODE: Show only chat (workspace completely hidden) */}
       {effectiveChatMaximized ? (
         <div className="relative flex-1 h-full z-10">
