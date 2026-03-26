@@ -7,7 +7,6 @@ import { logger } from "@/lib/utils/logger";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { createChatTools } from "@/lib/ai/tools";
-import type { GatewayProviderOptions } from "@ai-sdk/gateway";
 import { getPostHogServerClient } from "@/lib/posthog-server";
 import { withServerObservability } from "@/lib/with-server-observability";
 
@@ -290,15 +289,22 @@ async function handlePOST(req: Request) {
       googleConfig.thinkingConfig.thinkingLevel = "minimal";
     }
 
-    // Prepare provider options
-    // Claude routes to Anthropic via AI Gateway (consumes AI Gateway credits)
-    // Gemini routes to Google/Vertex; implicit caching works automatically
-    let providerOptions: any = {
-      gateway: {
-        caching: "auto", // Cache markers for Anthropic; no-op for Google (implicit)
-        models: ["google/gemini-2.5-flash"],
-        ...(userId ? { user: userId } : {}),
-      } as GatewayProviderOptions,
+    // Prepare provider options.
+    // Prefer Bedrock first for Claude models, then fall back to Anthropic.
+    // Non-Claude models stay on their native providers.
+    const gatewayOptions: any = {
+      caching: "auto",
+      models: [modelId],
+      ...(userId ? { user: userId } : {}),
+    };
+
+    if (modelId.startsWith("anthropic/")) {
+      gatewayOptions.order = ["bedrock", "anthropic"];
+      gatewayOptions.only = ["bedrock", "anthropic"];
+    }
+
+    const providerOptions: any = {
+      gateway: gatewayOptions,
       google: googleConfig,
     };
 
