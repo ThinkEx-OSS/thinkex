@@ -321,6 +321,7 @@ async function handlePOST(req: Request) {
         "http-referer": appUrl,
         "x-title": "ThinkEx",
       },
+      experimental_telemetry: { isEnabled: true },
       experimental_transform: smoothStream({ chunking: "word", delayInMs: 15 }),
       onFinish: ({ usage, finishReason }) => {
         const usageInfo = {
