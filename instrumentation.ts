@@ -1,37 +1,28 @@
+import type { Instrumentation } from "next";
 import {
-  BatchLogRecordProcessor,
-  LoggerProvider,
-} from '@opentelemetry/sdk-logs'
-import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http'
-import { logs } from '@opentelemetry/api-logs'
-import { resourceFromAttributes } from '@opentelemetry/resources'
+  capturePostHogServerException,
+  flushPostHogServer,
+} from "@/lib/posthog-server";
 
-const posthogHost = process.env.POSTHOG_HOST || 'https://us.i.posthog.com'
-const posthogToken =
-  process.env.POSTHOG_PROJECT_TOKEN || process.env.NEXT_PUBLIC_POSTHOG_KEY
+export function register() {}
 
-// Create LoggerProvider outside register() so it can be exported and flushed in route handlers
-export const loggerProvider = new LoggerProvider({
-  resource: resourceFromAttributes({
-    'service.name': process.env.NEXT_PUBLIC_APP_URL?.replace(/^https?:\/\//, '') || 'thinkex',
-  }),
-  processors: posthogToken
-    ? [
-        new BatchLogRecordProcessor(
-          new OTLPLogExporter({
-            url: `${posthogHost}/i/v1/logs`,
-            headers: {
-              Authorization: `Bearer ${posthogToken}`,
-              'Content-Type': 'application/json',
-            },
-          })
-        ),
-      ]
-    : [],
-})
+export const onRequestError: Instrumentation.onRequestError = async (
+  error,
+  request,
+  context,
+) => {
+  capturePostHogServerException(error, {
+    properties: {
+      source: "instrumentation.onRequestError",
+      path: request.path,
+      method: request.method,
+      router_kind: context.routerKind,
+      route_path: context.routePath,
+      route_type: context.routeType,
+      render_source: context.renderSource,
+      revalidate_reason: context.revalidateReason,
+    },
+  });
 
-export function register() {
-  if (process.env.NEXT_RUNTIME === 'nodejs' && posthogToken) {
-    logs.setGlobalLoggerProvider(loggerProvider)
-  }
-}
+  await flushPostHogServer();
+};

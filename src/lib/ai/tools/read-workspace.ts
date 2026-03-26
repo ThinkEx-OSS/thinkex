@@ -16,7 +16,7 @@ const MAX_LINE_LENGTH = 2000;
 export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Read content of a workspace item (note, flashcard deck, PDF summary, quiz) by path or name. Contents are returned with each line prefixed by its line number as <line>: <content>. For example, if content is 'foo', you receive '1: foo'. Quizzes include progress at the top when started (current question, score). By default returns up to 500 lines. Use lineStart (1-indexed) to read later sections. For PDFs: pageStart and pageEnd for page ranges. Use searchWorkspace to find content in large items. Any line longer than 2000 characters is truncated. Avoid tiny repeated slices; read a larger window.",
+            "Read content of a workspace item by path or name. Works for notes, flashcards, PDFs, quizzes, images, audio, websites, and YouTube cards when readable content or metadata exists. Contents are returned with each line prefixed by its line number as <line>: <content>. For example, if content is 'foo', you receive '1: foo'. Quizzes include progress at the top when started (current question, score). By default returns up to 500 lines. Use lineStart (1-indexed) to read later sections. For PDFs: pageStart and pageEnd for page ranges. Use searchWorkspace to find content in large items. Any line longer than 2000 characters is truncated. Avoid tiny repeated slices; read a larger window.",
         inputSchema: zodSchema(
             z.object({
                 path: z
@@ -115,7 +115,7 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
             if (item.type === "folder") {
                 return {
                     success: false,
-                    message: "Folders have no readable content. Use path to a note, flashcard, PDF, or quiz.",
+                    message: "Folders have no readable content. Use path to a note, flashcard, PDF, quiz, image, audio, website, or YouTube item.",
                 };
             }
 

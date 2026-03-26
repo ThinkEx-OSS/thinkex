@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { Item, AudioData, AudioSegment } from "@/lib/workspace-state/types";
 import { cn } from "@/lib/utils";
+import { startAudioProcessing } from "@/lib/audio/start-audio-processing";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -75,39 +76,13 @@ export function AudioCardContent({ item, isCompact = false, isScrollLocked = fal
       })
     );
 
-    fetch("/api/audio/process", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        fileUrl: audioData.fileUrl,
-        filename: audioData.filename,
-        mimeType: audioData.mimeType || "audio/webm",
-        itemId: item.id,
-        workspaceId,
-      }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.runId && data.itemId) {
-          import("@/lib/audio/poll-audio-processing").then(({ pollAudioProcessing }) =>
-            pollAudioProcessing(data.runId, data.itemId)
-          );
-        } else {
-          window.dispatchEvent(
-            new CustomEvent("audio-processing-complete", {
-              detail: { itemId: item.id, error: data.error || "Processing failed" },
-            })
-          );
-        }
-      })
-      .catch((err) => {
-        window.dispatchEvent(
-          new CustomEvent("audio-processing-complete", {
-            detail: { itemId: item.id, error: err.message || "Processing failed" },
-          })
-        );
-      })
-      .finally(() => setIsRetrying(false));
+    startAudioProcessing({
+      workspaceId,
+      itemId: item.id,
+      fileUrl: audioData.fileUrl,
+      filename: audioData.filename,
+      mimeType: audioData.mimeType || "audio/webm",
+    }).finally(() => setIsRetrying(false));
   }, [audioData.fileUrl, audioData.filename, audioData.mimeType, item.id, workspaceId, isRetrying]);
 
   // ── Loading / Error states ──────────────────────────────────────────────

@@ -58,7 +58,7 @@ function GenerateContent() {
     isRedirectingRef.current = false;
     setProgressText("Understanding content...");
 
-    let fileUrls: Array<{ url: string; mediaType: string; filename?: string; fileSize?: number }> = [];
+    let fileUrls: Array<{ url: string; mediaType: string; filename?: string; storagePath?: string; fileSize?: number }> = [];
     let links: string[] = [];
     try {
       const stored = sessionStorage.getItem(ATTACHMENTS_SESSION_KEY);

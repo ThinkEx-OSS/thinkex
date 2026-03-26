@@ -1,15 +1,15 @@
 import { gateway } from "ai";
 import { streamText, smoothStream, convertToModelMessages, pruneMessages, stepCountIs, wrapLanguageModel, tool } from "ai";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
-import { PostHog } from "posthog-node";
 import { withTracing } from "@posthog/ai";
 import type { UIMessage } from "ai";
 import { logger } from "@/lib/utils/logger";
-import { withApiLogging } from "@/lib/with-api-logging";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { createChatTools } from "@/lib/ai/tools";
 import type { GatewayProviderOptions } from "@ai-sdk/gateway";
+import { getPostHogServerClient } from "@/lib/posthog-server";
+import { withServerObservability } from "@/lib/with-server-observability";
 
 // Regex patterns as constants (compiled once, reused for all requests)
 const URL_CONTEXT_REGEX = /\[URL_CONTEXT:(.+?)\]/g;
@@ -202,7 +202,6 @@ async function handlePOST(req: Request) {
       activeFolderId,
       threadId,
       clientTools: body.tools,
-      enableDeepResearch: false,
       enableMagicFetch: true, // experiment: log AI data requests to PostHog
     });
 
@@ -252,22 +251,21 @@ async function handlePOST(req: Request) {
     // Inject selected cards + reply + BlockNote selection context into the last user message
     injectSelectionContext(cleanedMessages, body.metadata?.custom, selectedCardsContext);
 
-    // Initialize PostHog client
-    const posthogClient = new PostHog(process.env.POSTHOG_API_KEY || "disabled", {
-      host: process.env.POSTHOG_HOST || "https://us.i.posthog.com",
-      disabled: !process.env.POSTHOG_API_KEY,
-    });
+    const posthogClient = getPostHogServerClient();
+    const tracedModel = posthogClient
+      ? withTracing(gateway(modelId) as any, posthogClient, {
+          posthogDistinctId: userId || "anonymous",
+          posthogProperties: {
+            workspaceId,
+            activeFolderId,
+            modelId,
+          },
+        })
+      : (gateway(modelId) as any);
 
     // Use AI Gateway
     const model = wrapLanguageModel({
-      model: withTracing(gateway(modelId) as any, posthogClient, {
-        posthogDistinctId: userId || "anonymous",
-        posthogProperties: {
-          workspaceId,
-          activeFolderId,
-          modelId,
-        },
-      }),
+      model: tracedModel,
       middleware: process.env.NODE_ENV === 'development' ? devToolsMiddleware() : [],
     });
 
@@ -414,4 +412,6 @@ async function handlePOST(req: Request) {
   }
 }
 
-export const POST = withApiLogging(handlePOST);
+export const POST = withServerObservability(handlePOST, {
+  routeName: "POST /api/chat",
+});

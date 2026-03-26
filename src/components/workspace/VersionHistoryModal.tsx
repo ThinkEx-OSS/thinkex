@@ -41,6 +41,8 @@ function getEventIcon(event: WorkspaceEvent) {
       return <Plus className={`${iconClass} text-emerald-500`} />;
     case 'ITEM_UPDATED':
       return <Pencil className={`${iconClass} text-amber-500`} />;
+    case 'BULK_ITEMS_PATCHED':
+      return <Pencil className={`${iconClass} text-amber-500`} />;
     case 'ITEM_DELETED':
       return <Trash2 className={`${iconClass} text-red-500`} />;
     case 'GLOBAL_TITLE_SET':
@@ -85,6 +87,25 @@ function getEventDescription(event: WorkspaceEvent, items?: any[]): string {
       // Prefer name stored in event payload, then lookup from items
       const itemTitle = event.payload.name ?? items?.find(item => item.id === event.payload.id)?.name ?? `item ${event.payload.id}`;
       return `Updated "${itemTitle}"`;
+    }
+    case 'BULK_ITEMS_PATCHED': {
+      const updates = event.payload.updates ?? [];
+      const count = updates.length;
+
+      if (count === 0) {
+        return "Updated items";
+      }
+
+      if (count === 1) {
+        const update = updates[0];
+        const itemTitle =
+          update?.name ??
+          items?.find(item => item.id === update?.id)?.name ??
+          `item ${update?.id}`;
+        return `Updated "${itemTitle}"`;
+      }
+
+      return `Updated ${count} items`;
     }
     case 'ITEM_DELETED': {
       // Prefer name stored in event payload (included when event was created)

@@ -56,6 +56,7 @@ export function HomeAttachmentCards({
         const Icon = getFileIcon(item.file);
         const isUploading = item.status === "uploading";
         const isError = item.status === "error";
+        const displayName = item.result?.filename || item.file.name;
         return (
           <div
             key={item.id}
@@ -79,8 +80,8 @@ export function HomeAttachmentCards({
                 ) : (
                   <Icon className="size-4 shrink-0 text-muted-foreground" />
                 )}
-                <span className="truncate text-sm" title={item.file.name}>
-                  {truncate(item.file.name, 24)}
+                <span className="truncate text-sm" title={displayName}>
+                  {truncate(displayName, 24)}
                 </span>
                 <button
                   type="button"

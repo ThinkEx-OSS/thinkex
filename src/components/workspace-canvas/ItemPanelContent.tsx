@@ -47,7 +47,8 @@ export function ItemPanelContent({
     const isPdf = item.type === 'pdf';
     const isYouTube = item.type === 'youtube';
     const isWebsite = item.type === 'website';
-    const pdfData = item.data as PdfData;
+    const pdfPreviewUrl = isPdf ? (item.data as PdfData).fileUrl : undefined;
+    const showStandardHeader = isPdf ? !pdfPreviewUrl : !isMaximized;
 
     // PDF-specific state
     const [showThumbnails, setShowThumbnails] = useState(false);
@@ -157,21 +158,21 @@ export function ItemPanelContent({
         >
             {/* Header - PDF has integrated controls, YouTube/Website and others use standard header.
                 When maximized, the header is integrated into the WorkspaceHeader, so we hide it here. */}
-            {!isPdf && !isMaximized && renderStandardHeader()}
+            {showStandardHeader && renderStandardHeader()}
 
             {/* Content */}
             <div
-                className={`${isPdf || isYouTube || isWebsite ? "flex-1 flex flex-col min-h-0" : "flex-1 overflow-y-auto modal-scrollable flex flex-col"}`}
-                style={!isPdf && !isYouTube && !isWebsite ? {
+                className={`${(isPdf && pdfPreviewUrl) || isYouTube || isWebsite ? "flex-1 flex flex-col min-h-0" : "flex-1 overflow-y-auto modal-scrollable flex flex-col"}`}
+                style={(!isPdf || !pdfPreviewUrl) && !isYouTube && !isWebsite ? {
                     ['--scrollbar-color' as string]: item.color
                         ? getWhiteTintedColor(item.color, 0.7, 0.2)
                         : "rgba(255, 255, 255, 0.2)",
                 } : undefined}
             >
-                {isPdf && pdfData?.fileUrl ? (
+                {isPdf && pdfPreviewUrl ? (
                     <div className="w-full flex-1 min-h-0 flex flex-col">
                         <LazyAppPdfViewer
-                            pdfSrc={pdfData.fileUrl}
+                            pdfSrc={pdfPreviewUrl}
                             showThumbnails={showThumbnails}
                             itemName={item.name}
                             itemId={item.id}

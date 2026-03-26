@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Mic, Square, Upload, Loader2, Pause, Play } from "lucide-react";
 import {
   Dialog,
@@ -24,21 +24,6 @@ import { Button } from "@/components/ui/button";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { cn } from "@/lib/utils";
 import { AudioWaveform } from "@/components/workspace-canvas/AudioWaveform";
-
-const ACCEPTED_AUDIO_TYPES = [
-  "audio/mp3",
-  "audio/mpeg",
-  "audio/wav",
-  "audio/ogg",
-  "audio/aac",
-  "audio/flac",
-  "audio/aiff",
-  "audio/webm",
-  "audio/mp4",
-  "audio/x-m4a",
-];
-
-const ACCEPTED_EXTENSIONS = ".mp3,.wav,.ogg,.aac,.flac,.aiff,.webm,.m4a";
 
 interface AudioRecorderDialogProps {
   open: boolean;
@@ -68,7 +53,6 @@ export function AudioRecorderDialog({
   const resumeRecording = useAudioRecordingStore((s) => s.resumeRecording);
   const resetRecording = useAudioRecordingStore((s) => s.resetRecording);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
 
@@ -103,27 +87,6 @@ export function AudioRecorderDialog({
     setIsSubmitting(false);
     onOpenChange(false);
   }, [isRecording, audioBlob, resetRecording, onOpenChange]);
-
-  const handleFileSelect = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      if (
-        !ACCEPTED_AUDIO_TYPES.includes(file.type) &&
-        !file.name.match(/\.(mp3|wav|ogg|aac|flac|aiff|webm|m4a)$/i)
-      ) {
-        return;
-      }
-
-      setIsSubmitting(true);
-      onAudioReady(file);
-      resetRecording();
-      setIsSubmitting(false);
-      onOpenChange(false);
-    },
-    [onAudioReady, resetRecording, onOpenChange]
-  );
 
   const handleSubmitRecording = useCallback(() => {
     if (!audioBlob) return;
@@ -313,34 +276,6 @@ export function AudioRecorderDialog({
               <p className="text-sm text-destructive text-center">{error}</p>
             )}
 
-            {/* Divider + File Upload */}
-            {!isRecording && !audioBlob && (
-              <>
-                <div className="flex items-center gap-3 w-full">
-                  <div className="flex-1 h-px bg-border" />
-                  <span className="text-xs text-muted-foreground">or</span>
-                  <div className="flex-1 h-px bg-border" />
-                </div>
-
-                <Button asChild variant="outline" className="gap-2">
-                  <label htmlFor="audio-recorder-file-upload" className="cursor-pointer">
-                    <Upload className="h-4 w-4" />
-                    Upload Audio File
-                  </label>
-                </Button>
-                <input
-                  id="audio-recorder-file-upload"
-                  ref={fileInputRef}
-                  type="file"
-                  accept={ACCEPTED_EXTENSIONS}
-                  onChange={handleFileSelect}
-                  className="sr-only"
-                />
-                <p className="text-xs text-muted-foreground text-center">
-                  MP3, WAV, OGG, AAC, FLAC, AIFF, WebM, M4A
-                </p>
-              </>
-            )}
           </div>
 
           <DialogFooter>

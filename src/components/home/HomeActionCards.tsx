@@ -78,7 +78,7 @@ export function HomeActionCards({ onUpload, onLink, onPasteText, onRecord, isLoa
             <ActionCard
                 icon={<Upload className="h-6 w-6" />}
                 title="Upload"
-                subtitle="PDF, Image, Audio"
+                subtitle="Documents, Images"
                 onClick={onUpload}
                 isLoading={isLoading}
                 hoverVariant="upload"

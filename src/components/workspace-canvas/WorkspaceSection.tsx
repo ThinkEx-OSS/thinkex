@@ -2,7 +2,7 @@ import React, { RefObject, useState, useMemo, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type { AgentState, Item, CardType, PdfData } from "@/lib/workspace-state/types";
+import type { AgentState, Item, CardType } from "@/lib/workspace-state/types";
 import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import type { WorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import WorkspaceContent from "./WorkspaceContent";
@@ -16,8 +16,14 @@ import { useSession } from "@/lib/auth-client";
 import { LoginGate } from "@/components/workspace/LoginGate";
 import { AccessDenied } from "@/components/workspace/AccessDenied";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
-import { uploadPdfToStorage } from "@/lib/uploads/pdf-upload-with-ocr";
-import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
+import {
+  buildWorkspaceItemDefinitionsFromAssets,
+} from "@/lib/uploads/uploaded-asset";
+import {
+  getFileSizeLabel,
+  prepareWorkspaceUploadSelection,
+  uploadSelectedFiles,
+} from "@/lib/uploads/upload-selection";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 
 import MoveToDialog from "@/components/modals/MoveToDialog";
@@ -48,7 +54,6 @@ import { PiCardsThreeBold } from "react-icons/pi";
 import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
-import { UploadDialog } from "@/components/modals/UploadDialog";
 import { AudioRecordingIndicator } from "./AudioRecordingIndicator";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 import { filterItemIdsForFolderCreation } from "@/lib/workspace-state/search";
@@ -58,6 +63,15 @@ import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
 import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceFilePicker } from "@/hooks/workspace/use-workspace-file-picker";
+import { startAudioProcessing } from "@/lib/audio/start-audio-processing";
+import { startAssetProcessing } from "@/lib/uploads/start-asset-processing";
+import {
+  getDocumentUploadFailureMessage,
+  getDocumentUploadLoadingMessage,
+  getDocumentUploadPartialMessage,
+  getDocumentUploadSuccessMessage,
+} from "@/lib/uploads/upload-feedback";
 
 interface WorkspaceSectionProps {
   // Loading states
@@ -217,7 +231,6 @@ export function WorkspaceSection({
 
   // Workspace settings and share modal state
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
   const [showQuizDialog, setShowQuizDialog] = useState(false);
   const [showFlashcardsDialog, setShowFlashcardsDialog] = useState(false);
@@ -235,24 +248,14 @@ export function WorkspaceSection({
     return workspaces.find(w => w.id === currentWorkspaceId) || null;
   }, [currentWorkspaceId, workspaces]);
 
+  // Use reactive navigation hook for auto-scroll/selection
+  const { handleCreatedItems } = useReactiveNavigation(state);
+
   const handleYouTubeCreate = useCallback((url: string, name: string, thumbnail?: string) => {
     if (addItem) {
       addItem("youtube", name, { url, thumbnail });
     }
   }, [addItem]);
-
-  const handleImageCreate = useCallback((url: string, name: string) => {
-    if (!operations) return;
-
-    operations.createItems([{
-      type: 'image',
-      name,
-      initialData: { url, altText: name },
-      initialLayout: DEFAULT_CARD_DIMENSIONS.image,
-    }]);
-
-    toast.success("Image added to workspace");
-  }, [operations]);
 
   const handleWebsiteCreate = useCallback((url: string, name: string, favicon?: string) => {
     if (!operations) return;
@@ -264,48 +267,12 @@ export function WorkspaceSection({
     }]);
   }, [operations]);
 
-  // Handle smart upload from context menu: try clipboard paste first, then open dialog
-  const handleUploadMenuItemClick = useCallback(async () => {
-    try {
-      // Check for clipboard permissions/content
-      const clipboardItems = await navigator.clipboard.read();
-      let imageBlob: Blob | null = null;
-
-      for (const item of clipboardItems) {
-        const imageType = item.types.find(t => t.startsWith('image/'));
-        if (imageType) {
-          imageBlob = await item.getType(imageType);
-          break;
-        }
-      }
-
-      if (imageBlob) {
-        // Found an image! Upload it directly.
-        const toastId = toast.loading("Pasting image from clipboard...");
-
-        const file = new File([imageBlob], "pasted-image.png", { type: imageBlob.type });
-        const result = await uploadFileDirect(file);
-        toast.dismiss(toastId);
-
-        // Create the card using the new URL
-        await handleImageCreate(result.url, "Pasted Image");
-        return;
-      }
-    } catch (e) {
-      // Fallback to dialog if clipboard access fails or no image found
-      console.debug("Clipboard read failed or empty, falling back to dialog", e);
-    }
-
-    // If no image found or error, open the upload dialog
-    setShowUploadDialog(true);
-  }, [handleImageCreate]);
-
   // Handle delete request (from button or keyboard)
-  const handleDeleteRequest = () => {
+  const handleDeleteRequest = React.useCallback(() => {
     if (selectedCardIds.size > 0) {
       setShowDeleteDialog(true);
     }
-  };
+  }, [selectedCardIds.size, setShowDeleteDialog]);
 
   // Handle keyboard shortcuts for deletion
   React.useEffect(() => {
@@ -332,7 +299,7 @@ export function WorkspaceSection({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedCardIds]);
+  }, [handleDeleteRequest, selectedCardIds]);
 
   const handleWorkspaceMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
@@ -441,136 +408,88 @@ export function WorkspaceSection({
     // Note: FolderCard auto-focuses the title when name is "New Folder"
   };
 
-  // Handle PDF upload from BottomActionBar
-  const handlePDFUpload = async (files: File[]) => {
+  // Handle file upload from workspace pickers/empty states
+  const handlePDFUpload = useCallback(async (files: File[]) => {
     if (!operations || !currentWorkspaceId) {
       throw new Error('Workspace operations not available');
     }
 
-    const pdfFiles = files.filter(
-      (file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-    );
-    const officeFiles = files.filter(
-      (file) => file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')
-    );
+    const MAX_FILE_SIZE_MB = 50;
+    const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+    const oversizedFiles = files.filter((file) => file.size > MAX_FILE_SIZE_BYTES);
+    const validFiles = files.filter((file) => file.size <= MAX_FILE_SIZE_BYTES);
 
-    // Reject password-protected PDFs
-    const { valid: unprotectedFiles, rejected: protectedNames } = await filterPasswordProtectedPdfs(pdfFiles);
-    if (protectedNames.length > 0) {
-      emitPasswordProtectedPdf(protectedNames);
+    if (oversizedFiles.length > 0) {
+      toast.error(
+        `The following file${oversizedFiles.length > 1 ? "s" : ""} exceed${oversizedFiles.length === 1 ? "s" : ""} the ${MAX_FILE_SIZE_MB}MB limit:\n${oversizedFiles
+          .map((file) => getFileSizeLabel(file))
+          .join("\n")}`
+      );
     }
-    const filesToUpload = [...unprotectedFiles, ...officeFiles];
+
+    if (validFiles.length === 0) {
+      return;
+    }
+
+    const { acceptedFiles: filesToUpload, protectedPdfNames } =
+      await prepareWorkspaceUploadSelection(validFiles);
+    if (protectedPdfNames.length > 0) {
+      emitPasswordProtectedPdf(protectedPdfNames);
+    }
     if (filesToUpload.length === 0) {
       return;
     }
 
-    const uploadToastId = toast.loading(
-      `Uploading ${filesToUpload.length} document${filesToUpload.length > 1 ? 's' : ''}...`
-    );
-
-    const uploadResults = await Promise.all(
-      filesToUpload.map(async (file) => {
-        try {
-          const isPdfFile = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-          if (isPdfFile) {
-            const { url, filename, fileSize } = await uploadPdfToStorage(file);
-            return {
-              file,
-              fileUrl: url,
-              filename,
-              displayName: file.name,
-              fileSize,
-            };
-          }
-
-          const result = await uploadFileDirect(file);
-          return {
-            file,
-            fileUrl: result.url,
-            filename: result.filename,
-            displayName: result.displayName,
-            fileSize: file.size,
-          };
-        } catch (err) {
-          toast.error(`Failed to upload ${file.name}: ${err instanceof Error ? err.message : 'Unknown error'}`);
-          return null;
-        }
-      })
-    );
+    const uploadToastId = toast.loading(getDocumentUploadLoadingMessage(filesToUpload.length));
+    const { uploads, failedFiles } = await uploadSelectedFiles(filesToUpload);
 
     toast.dismiss(uploadToastId);
 
-    const validUploads = uploadResults.filter((r): r is NonNullable<typeof r> => r !== null);
-    if (validUploads.length === 0) return;
+    if (uploads.length === 0) {
+      if (failedFiles.length > 0) {
+        toast.error(getDocumentUploadFailureMessage(failedFiles.length));
+      }
+      return;
+    }
 
-    const pdfCardDefinitions = validUploads.map(({ fileUrl, filename, displayName, fileSize }) => ({
-      type: 'pdf' as const,
-      name: displayName.replace(/\.pdf$/i, ''),
-      initialData: {
-        fileUrl,
-        filename,
-        fileSize,
-        ocrStatus: 'processing' as const,
-        ocrPages: [],
-      } as Partial<PdfData>,
-    }));
+    const itemDefinitions = buildWorkspaceItemDefinitionsFromAssets(uploads, {
+      imageLayout: DEFAULT_CARD_DIMENSIONS.image,
+    });
 
-    const createdIds = operations.createItems(pdfCardDefinitions);
+    const createdIds = operations.createItems(itemDefinitions, {
+      showSuccessToast: false,
+    });
     handleCreatedItems(createdIds);
 
-    // Run OCR via workflow; poller dispatches pdf-processing-complete
-    validUploads.forEach((r, i) => {
-      const itemId = createdIds[i];
-      if (!itemId) return;
-      fetch("/api/pdf/ocr/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileUrl: r.fileUrl,
-          itemId,
-          workspaceId: currentWorkspaceId,
-        }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.runId && data.itemId) {
-            import("@/lib/pdf/poll-pdf-ocr").then(({ pollPdfOcr }) =>
-              pollPdfOcr(data.runId, data.itemId)
-            );
-          } else {
-            window.dispatchEvent(
-              new CustomEvent("pdf-processing-complete", {
-                detail: {
-                  itemId,
-                  textContent: "",
-                  ocrPages: [],
-                  ocrStatus: "failed" as const,
-                  ocrError: data.error || "Failed to start OCR",
-                },
-              })
-            );
-          }
-        })
-        .catch((err) => {
-          window.dispatchEvent(
-            new CustomEvent("pdf-processing-complete", {
-              detail: {
-                itemId,
-                textContent: "",
-                ocrPages: [],
-                ocrStatus: "failed" as const,
-                ocrError: err.message || "Failed to start OCR",
-              },
-            })
-          );
-        });
+    void startAssetProcessing({
+      workspaceId: currentWorkspaceId,
+      assets: uploads,
+      itemIds: createdIds,
+      onOcrError: (error) => {
+        console.error("[WORKSPACE_PROCESSING] Failed to start processing:", error);
+      },
     });
-  };
 
+    if (failedFiles.length === 0) {
+      toast.success(getDocumentUploadSuccessMessage(uploads.length));
+    } else {
+      toast.warning(
+        getDocumentUploadPartialMessage(uploads.length, failedFiles.length)
+      );
+    }
+  }, [currentWorkspaceId, handleCreatedItems, operations]);
 
-  // Use reactive navigation hook for auto-scroll/selection
-  const { handleCreatedItems } = useReactiveNavigation(state);
+  const {
+    fileInputRef,
+    inputProps: fileInputProps,
+    openFilePicker,
+  } = useWorkspaceFilePicker({
+    onFilesSelected: handlePDFUpload,
+  });
 
+  const handleUploadMenuItemClick = useCallback(() => {
+    openFilePicker();
+  }, [openFilePicker]);
   const handleAudioReady = useCallback(async (file: File) => {
     if (!addItem) return;
 
@@ -607,46 +526,20 @@ export function WorkspaceSection({
       toast.dismiss(loadingToastId);
       toast.success("Audio uploaded \u2014 analyzing with Gemini...");
 
-      fetch("/api/audio/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      if (currentWorkspaceId && itemId) {
+        void startAudioProcessing({
+          workspaceId: currentWorkspaceId,
+          itemId,
           fileUrl,
           filename: file.name,
           mimeType: file.type || "audio/webm",
-          itemId,
-          workspaceId: currentWorkspaceId,
-        }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.runId && data.itemId) {
-            import("@/lib/audio/poll-audio-processing").then(({ pollAudioProcessing }) =>
-              pollAudioProcessing(data.runId, data.itemId)
-            );
-          } else {
-            window.dispatchEvent(
-              new CustomEvent("audio-processing-complete", {
-                detail: { itemId, error: data.error || "Processing failed" },
-              })
-            );
-          }
-        })
-        .catch((err) => {
-          window.dispatchEvent(
-            new CustomEvent("audio-processing-complete", {
-              detail: {
-                itemId,
-                error: err.message || "Processing failed",
-              },
-            })
-          );
         });
+      }
     } catch (error: any) {
       toast.dismiss(loadingToastId);
       toast.error(error.message || "Failed to upload audio");
     }
-  }, [addItem, handleCreatedItems]);
+  }, [addItem, currentWorkspaceId, handleCreatedItems]);
 
   // Get search params for invite check
   const searchParams = useSearchParams();
@@ -658,6 +551,10 @@ export function WorkspaceSection({
       data-tour="workspace-canvas"
       onMouseDown={handleWorkspaceMouseDown}
     >
+      <input
+        ref={fileInputRef}
+        {...fileInputProps}
+      />
       {/* WorkspaceHeader is now rendered in DashboardLayout above the sidebar */}
 
       {/* Modal Manager - Renders over content */}
@@ -814,16 +711,6 @@ export function WorkspaceSection({
         onCreate={handleYouTubeCreate}
       />
 
-      {/* Upload Dialog (PDF + Image) */}
-      {operations && currentWorkspaceId && (
-        <UploadDialog
-          open={showUploadDialog}
-          onOpenChange={setShowUploadDialog}
-          onImageCreate={handleImageCreate}
-          onPDFUpload={handlePDFUpload}
-        />
-      )}
-
       {/* Website Dialog */}
       <CreateWebsiteDialog
         open={showWebsiteDialog}
@@ -857,4 +744,3 @@ export function WorkspaceSection({
     </div>
   );
 }
-

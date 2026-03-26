@@ -160,7 +160,6 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
     disabled: !currentWorkspaceId || !aui, // Disable if no workspace is selected or api is not available
     accept: {
       'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.heic', '.heif', '.avif', '.tiff', '.tif'],
-      'video/*': ['.mp4', '.webm', '.avi', '.mov', '.mkv'],
       'application/pdf': ['.pdf'],
       ...OFFICE_DOCUMENT_ACCEPT,
       'text/plain': ['.txt'],
@@ -183,7 +182,7 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
       if (fileRejections.length > 0) {
         const rejectedFileNames = fileRejections.map((r) => r.file.name);
         toast.error(
-          `The following file${rejectedFileNames.length > 1 ? "s are" : " is"} not supported:\n${rejectedFileNames.join("\n")}\n\nSupported: Images, Videos, PDFs, Office docs, Text files`
+          `The following file${rejectedFileNames.length > 1 ? "s are" : " is"} not supported:\n${rejectedFileNames.join("\n")}\n\nSupported: Images, PDFs, Office docs, Text files`
         );
       }
     },

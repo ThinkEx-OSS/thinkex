@@ -13,7 +13,10 @@ import {
 import { toast } from "sonner";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
-import { uploadFileDirect } from "@/lib/uploads/client-upload";
+import {
+  isPdfFile,
+  uploadSelectedFile,
+} from "@/lib/uploads/upload-selection";
 
 const MAX_TOTAL_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
 const MAX_LINKS = 5;
@@ -26,6 +29,7 @@ export type FileUploadResult = {
   url: string;
   mediaType: string;
   filename?: string;
+  storagePath?: string;
   fileSize?: number;
 };
 
@@ -89,21 +93,17 @@ export function HomeAttachmentsProvider({ children }: { children: ReactNode }) {
   const addFiles = useCallback(async (newFiles: File[]) => {
     if (newFiles.length === 0) return;
 
-    const pdfFiles = newFiles.filter(
-      (f) =>
-        f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf")
-    );
-    const nonPdfFiles = newFiles.filter(
-      (f) =>
-        f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf")
-    );
+    const pdfFiles = newFiles.filter(isPdfFile);
 
     const { valid: validPdfs, rejected: protectedNames } =
       await filterPasswordProtectedPdfs(pdfFiles);
     if (protectedNames.length > 0) {
       emitPasswordProtectedPdf(protectedNames);
     }
-    const toAdd = [...validPdfs, ...nonPdfFiles];
+    const validPdfSet = new Set(validPdfs);
+    const toAdd = newFiles.filter(
+      (file) => !isPdfFile(file) || validPdfSet.has(file)
+    );
     if (toAdd.length === 0) return;
 
     const newItems: FileItem[] = toAdd.map((file) => ({
@@ -129,10 +129,10 @@ export function HomeAttachmentsProvider({ children }: { children: ReactNode }) {
     });
     if (!didAdd) return;
 
-    toast.success(`Added ${newItems.length} file${newItems.length > 1 ? "s" : ""} — uploading...`);
+    toast.success(`Added ${newItems.length} file${newItems.length > 1 ? "s" : ""}`);
 
-    newItems.forEach((item) => {
-      const promise = uploadFileDirect(item.file)
+    const uploadPromises = newItems.map((item) => {
+      const promise = uploadSelectedFile(item.file)
         .then((uploadResult) => {
           setFileItems((prev) => {
             const existing = prev.find((i) => i.id === item.id);
@@ -143,9 +143,10 @@ export function HomeAttachmentsProvider({ children }: { children: ReactNode }) {
                     ...i,
                     status: "ready" as const,
                     result: {
-                      url: uploadResult.url,
+                      url: uploadResult.fileUrl,
                       mediaType: uploadResult.contentType,
                       filename: uploadResult.displayName,
+                      storagePath: uploadResult.filename,
                       fileSize: i.file.size,
                     },
                   }
@@ -171,13 +172,34 @@ export function HomeAttachmentsProvider({ children }: { children: ReactNode }) {
             fileItemsRef.current = next;
             return next;
           });
-          toast.error(`Failed to upload ${item.file.name}`);
+          throw err;
         })
         .finally(() => {
           uploadPromisesRef.current.delete(item.id);
         });
 
       uploadPromisesRef.current.set(item.id, promise);
+      return promise;
+    });
+
+    void Promise.allSettled(uploadPromises).then((results) => {
+      const failedCount = results.filter(
+        (result) => result.status === "rejected"
+      ).length;
+
+      if (failedCount === 0) return;
+
+      const successCount = results.length - failedCount;
+      if (successCount === 0) {
+        toast.error(
+          `Couldn't upload ${failedCount} file${failedCount > 1 ? "s" : ""}`
+        );
+        return;
+      }
+
+      toast.error(
+        `Uploaded ${successCount} file${successCount > 1 ? "s" : ""}. ${failedCount} failed.`
+      );
     });
   }, []);
 
@@ -234,7 +256,7 @@ export function HomeAttachmentsProvider({ children }: { children: ReactNode }) {
 
   const awaitAllUploads = useCallback(() => {
     const promises = Array.from(uploadPromisesRef.current.values());
-    return Promise.all(promises).then(() => {});
+    return Promise.allSettled(promises).then(() => {});
   }, []);
 
   const getFileItems = useCallback(() => fileItemsRef.current, []);
