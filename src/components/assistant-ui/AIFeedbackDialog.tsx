@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { posthog } from "@/lib/posthog-client";
 import { toast } from "sonner";
 
 interface AIFeedbackDialogProps {
@@ -24,6 +25,12 @@ export function AIFeedbackDialog({ open, onOpenChange }: AIFeedbackDialogProps) 
 
   const handleSubmit = useCallback(() => {
     setIsSubmitting(true);
+
+    const trimmedFeedback = feedback.trim();
+
+    posthog.capture("ai_debug_feedback_submitted", {
+      feedback_text: trimmedFeedback,
+    });
 
     toast.success("Feedback submitted—thank you!");
     setFeedback("");
