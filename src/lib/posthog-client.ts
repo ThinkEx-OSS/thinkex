@@ -1,7 +1,7 @@
 import posthog from "posthog-js";
 
-const projectToken = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-const apiHost = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
+const projectToken = process.env.NEXT_PUBLIC_POSTHOG_TOKEN;
+const apiHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 const uiHost = "https://us.posthog.com";
 
 const sdkDefaultsVersion = "2026-01-30";
@@ -15,7 +15,7 @@ export function initPostHog(): void {
   }
 
   posthog.init(projectToken, {
-    api_host: apiHost,
+    ...(apiHost ? { api_host: apiHost } : {}),
     ui_host: uiHost,
     defaults: sdkDefaultsVersion,
     person_profiles: "identified_only",

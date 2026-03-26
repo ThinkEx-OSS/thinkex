@@ -2,17 +2,15 @@ import "server-only";
 
 import { PostHog } from "posthog-node";
 
-const defaultPostHogHost = "https://us.i.posthog.com";
 const POSTHOG_CAPTURED_ERROR = Symbol.for("thinkex.posthog.captured");
 
-const apiKey = process.env.POSTHOG_API_KEY;
+const projectToken = process.env.POSTHOG_PROJECT_TOKEN;
 
 function normalizeHost(value: string | undefined): string | undefined {
   return value?.trim().replace(/\/+$/, "");
 }
 
-export const posthogServerHost =
-  normalizeHost(process.env.POSTHOG_HOST) ?? defaultPostHogHost;
+export const posthogServerHost = normalizeHost(process.env.POSTHOG_HOST);
 
 let posthogServerClient: PostHog | null | undefined;
 
@@ -39,14 +37,16 @@ export function getPostHogServerClient(): PostHog | null {
     return posthogServerClient;
   }
 
-  if (!apiKey) {
+  if (!projectToken) {
     posthogServerClient = null;
     return posthogServerClient;
   }
 
-  posthogServerClient = new PostHog(apiKey, {
-    host: posthogServerHost,
+  posthogServerClient = new PostHog(projectToken, {
     disabled: false,
+    flushAt: 1,
+    flushInterval: 0,
+    ...(posthogServerHost ? { host: posthogServerHost } : {}),
   });
 
   return posthogServerClient;
