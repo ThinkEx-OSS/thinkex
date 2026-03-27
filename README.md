@@ -70,17 +70,15 @@ ThinkEx can be self hosted for local development. The setup uses Docker for Post
 *   **Required API Keys:**
     *   **Google AI**: API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
         *   `GOOGLE_GENERATIVE_AI_API_KEY`
-    *   **Assistant UI**: API key and base URL from [Assistant Cloud](https://cloud.assistant-ui.com/)
-        *   `NEXT_PUBLIC_ASSISTANT_BASE_URL`
-        *   `ASSISTANT_API_KEY`
 *   **Optional API Keys:**
     *   **Google OAuth**: Get credentials from [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (for OAuth login)
         *   `GOOGLE_CLIENT_ID`
         *   `GOOGLE_CLIENT_SECRET`
     *   **Supabase**: Project URL and keys from [Supabase](https://supabase.com) (for file storage, alternative to local storage)
         *   `NEXT_PUBLIC_SUPABASE_URL`
-        *   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_OR_ANON_KEY`
+        *   `NEXT_PUBLIC_SUPABASE_ANON_KEY`
         *   `SUPABASE_SERVICE_ROLE_KEY`
+    *   **Other optional keys** (web scraping, OCR, external conversion service): see [`.env.example`](.env.example) (`FIRECRAWL_API_KEY`, `MISTRAL_API_KEY`, `FASTAPI_*`, `SCRAPING_MODE`, etc.)
 
 #### Automated Setup
 
@@ -144,7 +142,7 @@ Access ThinkEx at [http://localhost:3000](http://localhost:3000)
       # For local PostgreSQL:
       DATABASE_URL=postgresql://user:password@localhost:5432/thinkex
       ```
-    *   **Better Auth**: Generate `BETTER_AUTH_SECRET` with `openssl rand -base64 32`
+    *   **Better Auth**: Generate `BETTER_AUTH_SECRET` with `openssl rand -base64 32`. For a public URL (not localhost), set `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL` to that origin.
     *   **Google OAuth**: Get credentials from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
     *   **Supabase**: Your Supabase project URL and keys (for file storage, if using Supabase storage)
     *   **Google AI**: API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
@@ -176,12 +174,9 @@ ThinkEx supports two storage backends for file uploads:
 - Set `STORAGE_TYPE=supabase` in your `.env` file
 - Configure Supabase credentials:
   - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
-  - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_OR_ANON_KEY`: Anon key from Supabase
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Anon (public) key from Supabase
   - `SUPABASE_SERVICE_ROLE_KEY`: Service role key from Supabase
 - Create a storage bucket named `file-upload` and set it to **Public**
-
-
-
 
 ## Contributing
 

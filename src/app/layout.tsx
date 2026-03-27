@@ -5,7 +5,7 @@ import Script from "next/script";
 import { Providers } from "@/components/providers";
 import { QueryProvider } from "@/components/query-provider";
 import { PostHogProvider } from "@/components/providers/PostHogProvider";
-import LazyAppProviders from "@/components/providers/LazyAppProviders";
+import AppProviders from "@/components/providers/AppProviders";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 
@@ -80,13 +80,13 @@ export default function RootLayout({
             __html: JSON.stringify(websiteJsonLd).replace(/</g, "\\u003c"),
           }}
         />
-        <LazyAppProviders>
+        <AppProviders>
           <PostHogProvider>
             <QueryProvider>
               <Providers>{children}</Providers>
             </QueryProvider>
           </PostHogProvider>
-        </LazyAppProviders>
+        </AppProviders>
       </body>
     </html>
   );

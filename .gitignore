@@ -18,6 +18,8 @@
 /.next/
 /out/
 
+public/.well-known/workflow/
+
 # production
 /build
 
