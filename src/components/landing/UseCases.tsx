@@ -1,6 +1,7 @@
 "use client";
 
-import { BookOpen, FlaskConical, PenTool, LayoutTemplate, Folder, FileText, Sparkles, Table as TableIcon, Kanban, Youtube } from "lucide-react";
+import { BookOpen, FlaskConical, PenTool, LayoutTemplate, Folder, FileText, Sparkles, Table as TableIcon, Kanban } from "lucide-react";
+import { YouTubeMark } from "@/components/icons/YouTubeMark";
 import { getCardAccentColor } from "@/lib/workspace-state/colors";
 import type { CardColor } from "@/lib/workspace-state/colors";
 
@@ -133,7 +134,7 @@ export function UseCases() {
                                                         case 'ai':
                                                             return <Sparkles className="w-4 h-4 opacity-70" />;
                                                         case 'youtube':
-                                                            return <Youtube className="w-4 h-4 opacity-70" />;
+                                                            return <YouTubeMark className="w-4 h-4 opacity-70" />;
                                                         default:
                                                             return <div className="w-2 h-2 rounded-full bg-current opacity-70" />;
                                                     }

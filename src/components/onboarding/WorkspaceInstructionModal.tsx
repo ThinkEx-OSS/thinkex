@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Move, SquarePen, FileSearch, Youtube, Share2, ChevronLeft, ChevronRight, X, ArrowRight } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ElementType } from "react";
+import { Move, SquarePen, FileSearch, Share2, ChevronLeft, ChevronRight, X, ArrowRight } from "lucide-react";
+import { YouTubeMark } from "@/components/icons/YouTubeMark";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -27,7 +28,7 @@ export interface WorkspaceInstructionModalProps {
 }
 
 interface Step {
-  icon: typeof Move;
+  icon: ElementType<{ className?: string }>;
   label: string;
   video?: { dark: string; light: string };
 }
@@ -57,7 +58,7 @@ const STEPS: Step[] = [
     video: { dark: `${VIDEO_BASE}/step-2-generate-card-dark-2.mp4`, light: `${VIDEO_BASE}/step-2-generate-card-light-2.mp4` },
   },
   {
-    icon: Youtube,
+    icon: YouTubeMark,
     label: "Paste or drag YouTube links next to your notes",
     video: { dark: `${VIDEO_BASE}/step-4-youtube-dark.mp4`, light: `${VIDEO_BASE}/step-4-youtube-light.mp4` },
   },
