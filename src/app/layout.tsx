@@ -1,15 +1,13 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 
 // Using system fonts instead of custom fonts
 import { Providers } from "@/components/providers";
 import { QueryProvider } from "@/components/query-provider";
 import { PostHogProvider } from "@/components/providers/PostHogProvider";
-import { HelmetProviderWrapper } from "@/components/providers/HelmetProviderWrapper";
 import LazyAppProviders from "@/components/providers/LazyAppProviders";
 import "./globals.css";
 import "katex/dist/katex.min.css";
-import { SpeedInsights } from "@vercel/speed-insights/next";
-import { AgentationDev } from "@/components/AgentationDev";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -66,6 +64,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {isDev && (
+          <Script
+            src="//unpkg.com/react-grab/dist/index.global.js"
+            crossOrigin="anonymous"
+            strategy="beforeInteractive"
+          />
+        )}
+      </head>
       <body className="subpixel-antialiased bg-background text-foreground">
         <script
           type="application/ld+json"
@@ -74,17 +81,11 @@ export default function RootLayout({
           }}
         />
         <LazyAppProviders>
-          <HelmetProviderWrapper>
-            <PostHogProvider>
-              <QueryProvider>
-                <Providers>
-                  {children}
-                  <SpeedInsights />
-                  <AgentationDev />
-                </Providers>
-              </QueryProvider>
-            </PostHogProvider>
-          </HelmetProviderWrapper>
+          <PostHogProvider>
+            <QueryProvider>
+              <Providers>{children}</Providers>
+            </QueryProvider>
+          </PostHogProvider>
         </LazyAppProviders>
       </body>
     </html>
