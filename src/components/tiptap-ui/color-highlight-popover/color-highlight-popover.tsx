@@ -19,10 +19,6 @@ import {
   PopoverContent,
 } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
 // --- Tiptap UI ---

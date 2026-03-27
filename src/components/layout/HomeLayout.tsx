@@ -7,6 +7,7 @@ interface HomeLayoutProps {
 /**
  * Simplified layout for home page.
  * No sidebar - uses a top bar navigation instead.
+ * Home content manages its own layout and hero sections.
  */
 export function HomeLayout({ children }: HomeLayoutProps) {
   return (

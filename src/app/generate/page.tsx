@@ -58,7 +58,7 @@ function GenerateContent() {
     isRedirectingRef.current = false;
     setProgressText("Understanding content...");
 
-    let fileUrls: Array<{ url: string; mediaType: string; filename?: string; fileSize?: number }> = [];
+    let fileUrls: Array<{ url: string; mediaType: string; filename?: string; storagePath?: string; fileSize?: number }> = [];
     let links: string[] = [];
     try {
       const stored = sessionStorage.getItem(ATTACHMENTS_SESSION_KEY);
@@ -226,7 +226,7 @@ function GenerateContent() {
     <div className="relative min-h-screen w-full">
       {/* Floating card background — fixed so it covers viewport behind modal */}
       <div className="fixed inset-0 z-[1] select-none pointer-events-none">
-        <FloatingWorkspaceCards bottomGradientHeight="50%" includeExtraCards clearerBackground />
+        <FloatingWorkspaceCards bottomGradientHeight="50%" clearerBackground />
       </div>
 
       <div className="relative z-10 flex min-h-[60vh] flex-col items-center justify-center">

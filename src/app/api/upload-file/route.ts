@@ -6,9 +6,11 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import {
+  getPreferredUploadContentType,
   isOfficeDocument,
   getOfficeDocumentConvertUrl,
 } from "@/lib/uploads/office-document-validation";
+import { withServerObservability } from "@/lib/with-server-observability";
 
 export const maxDuration = 30;
 
@@ -38,7 +40,7 @@ async function saveFileLocally(file: File, filename: string): Promise<string> {
   return `${baseUrl}/api/files/${filename}`;
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withServerObservability(async function POST(request: NextRequest) {
   try {
     // Get authenticated user from Better Auth
     const session = await auth.api.getSession({
@@ -64,6 +66,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const uploadContentType = getPreferredUploadContentType(
+      file.name,
+      file.type || "application/octet-stream"
+    );
 
     // Security: Validate against a whitelist of allowed MIME types
     const allowedMimeTypes = [
@@ -92,9 +99,9 @@ export async function POST(request: NextRequest) {
       "application/vnd.openxmlformats-officedocument.presentationml.presentation"
     ];
 
-    if (!allowedMimeTypes.includes(file.type)) {
+    if (!allowedMimeTypes.includes(uploadContentType)) {
       return NextResponse.json(
-        { error: `File type ${file.type || 'unknown'} is not allowed. Only safe images, videos, and documents are permitted.` },
+        { error: `File type ${uploadContentType || 'unknown'} is not allowed. Only safe images, videos, and documents are permitted.` },
         { status: 400 }
       );
     }
@@ -162,6 +169,7 @@ export async function POST(request: NextRequest) {
         .from(bucketName)
         .upload(filename, file, {
           cacheControl: '3600',
+          contentType: uploadContentType,
           upsert: false,
         });
 
@@ -196,4 +204,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+}, { routeName: "POST /api/upload-file" });

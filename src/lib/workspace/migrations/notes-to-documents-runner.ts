@@ -32,7 +32,6 @@ export interface MigrationSummary {
   migratedNotes: number;
   emptyMarkdownNotes: number;
   droppedSourcesCount: number;
-  droppedDeepResearchCount: number;
   results: WorkspaceMigrationRunResult[];
   failures: Array<{ workspace?: WorkspaceMigrationTarget; error: string }>;
 }
@@ -228,7 +227,6 @@ export async function runNotesToDocumentsMigration(
     migratedNotes: 0,
     emptyMarkdownNotes: 0,
     droppedSourcesCount: 0,
-    droppedDeepResearchCount: 0,
     results: [],
     failures: [],
   };
@@ -241,7 +239,6 @@ export async function runNotesToDocumentsMigration(
       summary.migratedNotes += result.report.migratedCount;
       summary.emptyMarkdownNotes += result.report.emptyMarkdownCount;
       summary.droppedSourcesCount += result.report.droppedSourcesCount;
-      summary.droppedDeepResearchCount += result.report.droppedDeepResearchCount;
       summary.results.push(result);
     } catch (error) {
       const message = error instanceof DuplicateWorkspaceSlugError

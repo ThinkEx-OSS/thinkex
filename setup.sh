@@ -357,7 +357,7 @@ echo -e "${YELLOW}Optional API Keys:${RESET}"
 echo "   - GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET (for OAuth login)"
 echo "   - Supabase credentials (if using Supabase storage):"
 echo "     * NEXT_PUBLIC_SUPABASE_URL"
-echo "     * NEXT_PUBLIC_SUPABASE_PUBLISHABLE_OR_ANON_KEY"
+echo "     * NEXT_PUBLIC_SUPABASE_ANON_KEY"
 echo "     * SUPABASE_SERVICE_ROLE_KEY"
 echo ""
 if [ "$USE_DOCKER_POSTGRES" = true ]; then

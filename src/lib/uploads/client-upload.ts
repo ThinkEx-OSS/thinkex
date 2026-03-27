@@ -6,24 +6,24 @@
  * 1. HEIC/HEIF images are converted to JPEG for browser compatibility
  * 2. Client requests a signed upload URL from /api/upload-url (tiny JSON payload)
  * 3. Client uploads the file directly to Supabase using the signed URL
- * 4. Returns the public URL of the uploaded file
+ * 4. Returns the public URL of the original uploaded file
  *
  * Falls back to /api/upload-file for local storage mode.
  */
 
 import { convertHeicToJpegIfNeeded } from "./convert-heic";
-import { isOfficeDocument } from "./office-document-validation";
+import {
+  getPreferredUploadContentType,
+  isOfficeDocument,
+} from "./office-document-validation";
 
 const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024; // 200MB
 
-interface UploadResult {
+export interface UploadResult {
   url: string;
   filename: string;
   contentType: string;
   displayName: string;
-  originalUrl?: string;
-  originalFilename?: string;
-  wasConverted?: boolean;
 }
 
 export interface UploadFileDirectOptions {
@@ -62,17 +62,16 @@ async function convertOfficeUpload(
     throw new Error("No PDF URL returned from conversion");
   }
 
+  const convertedName = getConvertedPdfName(originalFilename);
+
   return {
     url: data.pdf_url,
     filename:
       typeof data.pdf_path === "string" && data.pdf_path.length > 0
         ? data.pdf_path
-        : getConvertedPdfName(originalFilename),
+        : convertedName,
     contentType: "application/pdf",
-    displayName: getConvertedPdfName(originalFilename),
-    originalUrl: url,
-    originalFilename,
-    wasConverted: true,
+    displayName: convertedName,
   };
 }
 
@@ -96,7 +95,11 @@ export async function uploadFileDirect(
     );
   }
 
-  const shouldConvertOffice = isOfficeDocument(file);
+  const isOfficeUpload = isOfficeDocument(file);
+  const uploadContentType = getPreferredUploadContentType(
+    file.name,
+    file.type || "application/octet-stream"
+  );
 
   // Step 1: Request a signed upload URL from our API (small JSON payload)
   const urlResponse = await fetch("/api/upload-url", {
@@ -106,7 +109,7 @@ export async function uploadFileDirect(
     },
     body: JSON.stringify({
       filename: file.name,
-      contentType: file.type || "application/octet-stream",
+      contentType: uploadContentType,
     }),
   });
 
@@ -132,7 +135,7 @@ export async function uploadFileDirect(
       console.info(`[PDF_UPLOAD] Local fallback upload: ${t.toFixed(0)}ms`);
     }
 
-    if (shouldConvertOffice) {
+    if (isOfficeUpload) {
       return convertOfficeUpload(result.filename, result.url, file.name);
     }
 
@@ -146,7 +149,7 @@ export async function uploadFileDirect(
   const uploadResponse = await fetch(signedUrl, {
     method: "PUT",
     headers: {
-      "Content-Type": file.type || "application/octet-stream",
+      "Content-Type": uploadContentType,
     },
     body: file,
   });
@@ -156,7 +159,7 @@ export async function uploadFileDirect(
     if (file.size <= 4 * 1024 * 1024) {
       console.warn("Direct upload failed, falling back to API route for small file");
       const result = await uploadViaApiRoute(file);
-      if (shouldConvertOffice) {
+      if (isOfficeUpload) {
         return convertOfficeUpload(result.filename, result.url, file.name);
       }
       return result;
@@ -174,14 +177,14 @@ export async function uploadFileDirect(
     );
   }
 
-  if (shouldConvertOffice) {
+  if (isOfficeUpload) {
     return convertOfficeUpload(path, publicUrl, file.name);
   }
 
   return {
     url: publicUrl,
     filename: path,
-    contentType: file.type || "application/octet-stream",
+    contentType: uploadContentType,
     displayName: file.name,
   };
 }
@@ -210,7 +213,10 @@ async function uploadViaApiRoute(file: File): Promise<UploadResult> {
   return {
     url: data.url,
     filename: data.filename,
-    contentType: file.type || "application/octet-stream",
+    contentType: getPreferredUploadContentType(
+      file.name,
+      file.type || "application/octet-stream"
+    ),
     displayName: file.name,
   };
 }

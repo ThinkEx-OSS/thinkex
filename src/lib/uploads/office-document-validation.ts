@@ -1,6 +1,6 @@
 /**
  * Validation for Office documents (Word, Excel, PowerPoint).
- * These are rejected — users can convert to PDF at iLovePDF.
+ * These are accepted and converted to PDF for workspace viewing.
  */
 
 const OFFICE_DOCUMENT_DEFINITIONS = {
@@ -49,6 +49,14 @@ export const OFFICE_DOCUMENT_ACCEPT = Object.assign(
   {},
   ...Object.values(OFFICE_DOCUMENT_DEFINITIONS).map(({ mimeMap }) => mimeMap)
 ) as Record<string, readonly string[]>;
+
+const OFFICE_MIME_BY_EXTENSION = Object.fromEntries(
+  Object.values(OFFICE_DOCUMENT_DEFINITIONS).flatMap(({ mimeMap }) =>
+    Object.entries(mimeMap).flatMap(([mime, extensions]) =>
+      [...extensions].map((extension) => [extension, mime] as const)
+    )
+  )
+) as Record<string, string>;
 
 export const OFFICE_DOCUMENT_ACCEPT_STRING = Object.values(
   OFFICE_DOCUMENT_ACCEPT
@@ -132,6 +140,22 @@ export function isOfficeDocumentByName(filename: string): boolean {
 
 export function isOfficeDocumentByMime(contentType: string): boolean {
   return isWordByMime(contentType) || isExcelByMime(contentType) || isPptxByMime(contentType);
+}
+
+export function getCanonicalOfficeMimeType(filename: string): string | null {
+  const lowerName = filename.toLowerCase();
+  const matchedExtension = Object.keys(OFFICE_MIME_BY_EXTENSION).find((extension) =>
+    lowerName.endsWith(extension)
+  );
+
+  return matchedExtension ? OFFICE_MIME_BY_EXTENSION[matchedExtension] : null;
+}
+
+export function getPreferredUploadContentType(
+  filename: string,
+  contentType: string
+): string {
+  return getCanonicalOfficeMimeType(filename) || contentType || "application/octet-stream";
 }
 
 /** Get convert URL for a file, or null if not an office document */

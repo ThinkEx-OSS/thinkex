@@ -22,7 +22,10 @@ import { filterItemIdsForFolderCreation } from "@/lib/workspace-state/search";
  */
 export interface WorkspaceOperations {
   createItem: (type: CardType, name?: string, initialData?: Partial<Item['data']>, initialLayout?: { w: number; h: number }) => string;
-  createItems: (items: Array<{ type: CardType; name?: string; initialData?: Partial<Item['data']>; initialLayout?: { w: number; h: number } }>) => string[];
+  createItems: (
+    items: Array<{ type: CardType; name?: string; initialData?: Partial<Item['data']>; initialLayout?: { w: number; h: number } }>,
+    options?: { showSuccessToast?: boolean }
+  ) => string[];
   updateItem: (id: string, changes: Partial<Item>, source?: 'user' | 'agent') => void;
   updateItemData: (itemId: string, updater: (prev: Item['data']) => Item['data'], source?: 'user' | 'agent') => void;
   deleteItem: (id: string) => void;
@@ -158,7 +161,10 @@ export function useWorkspaceOperations(
   );
 
   const createItems = useCallback(
-    (items: Array<{ type: CardType; name?: string; initialData?: Partial<Item['data']>; initialLayout?: { w: number; h: number } }>): string[] => {
+    (
+      items: Array<{ type: CardType; name?: string; initialData?: Partial<Item['data']>; initialLayout?: { w: number; h: number } }>,
+      options?: { showSuccessToast?: boolean }
+    ): string[] => {
       if (items.length === 0) {
         return [];
       }
@@ -263,8 +269,10 @@ export function useWorkspaceOperations(
       mutation.mutate(event);
 
       // Show success toast with count
-      const itemCount = createdItems.length;
-      toast.success(`${itemCount} card${itemCount === 1 ? '' : 's'} created`);
+      if (options?.showSuccessToast !== false) {
+        const itemCount = createdItems.length;
+        toast.success(`${itemCount} card${itemCount === 1 ? '' : 's'} created`);
+      }
 
       // Return array of created item IDs
       return createdItems.map(item => item.id);
@@ -812,4 +820,3 @@ export function useWorkspaceOperations(
     error: mutation.error,
   };
 }
-

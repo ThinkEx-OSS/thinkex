@@ -5,8 +5,12 @@ import { useHomeAttachments } from "@/contexts/HomeAttachmentsContext";
 import { Upload } from "lucide-react";
 import { useCallback } from "react";
 import { toast } from "sonner";
-import { OFFICE_DOCUMENT_ACCEPT } from "@/lib/uploads/office-document-validation";
 import { cn } from "@/lib/utils";
+import {
+  HOME_FILE_UPLOAD_ACCEPT,
+  HOME_FILE_UPLOAD_DESCRIPTION,
+  HOME_FILE_UPLOAD_REJECT_MESSAGE,
+} from "@/lib/uploads/home-upload-config";
 
 interface HomeHeroDropzoneProps {
   children: React.ReactNode;
@@ -16,7 +20,7 @@ interface HomeHeroDropzoneProps {
 
 /**
  * Dropzone for the entire home page.
- * Accepts PDF, image, and audio files — same as the Upload button.
+ * Accepts documents (PDF & Office), images, and audio — same as the Upload button.
  * Works even when the prompt input is collapsed.
  */
 export function HomeHeroDropzone({ children, onFilesDropped }: HomeHeroDropzoneProps) {
@@ -40,31 +44,11 @@ export function HomeHeroDropzone({ children, onFilesDropped }: HomeHeroDropzoneP
     onDrop,
     noClick: true,
     noKeyboard: true,
-    accept: {
-      "application/pdf": [".pdf"],
-      ...OFFICE_DOCUMENT_ACCEPT,
-      "image/png": [".png"],
-      "image/jpeg": [".jpg", ".jpeg"],
-      "image/gif": [".gif"],
-      "image/webp": [".webp"],
-      "image/heic": [".heic"],
-      "image/heif": [".heif"],
-      "image/avif": [".avif"],
-      "image/tiff": [".tiff", ".tif"],
-      "image/svg+xml": [".svg"],
-      "audio/mpeg": [".mp3"],
-      "audio/wav": [".wav"],
-      "audio/ogg": [".ogg"],
-      "audio/aac": [".aac"],
-      "audio/flac": [".flac"],
-      "audio/aiff": [".aiff"],
-      "audio/webm": [".webm"],
-      "audio/mp4": [".m4a"],
-    },
+    accept: HOME_FILE_UPLOAD_ACCEPT,
     onDropRejected: (fileRejections) => {
       if (fileRejections.length > 0) {
         const names = fileRejections.map((r) => r.file.name).join(", ");
-        toast.error(`Only PDF, Office, image, and audio files are supported. Rejected: ${names}`);
+        toast.error(`${HOME_FILE_UPLOAD_REJECT_MESSAGE} Rejected: ${names}`);
       }
     },
   });
@@ -87,7 +71,7 @@ export function HomeHeroDropzone({ children, onFilesDropped }: HomeHeroDropzoneP
             <div className="space-y-2">
               <h3 className="text-lg font-semibold text-foreground">Drop files here</h3>
               <p className="text-sm text-muted-foreground">
-                PDF, Office, image, or audio — same as the Upload button
+                {HOME_FILE_UPLOAD_DESCRIPTION} only
               </p>
             </div>
           </div>

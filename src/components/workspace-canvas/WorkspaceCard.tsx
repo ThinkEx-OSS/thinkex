@@ -1,6 +1,6 @@
 import { QuizContent } from "./QuizContent";
 import { ImageCardContent } from "./ImageCardContent";
-import { MoreVertical, Trash2, Palette, CheckCircle2, FolderInput, Copy, X, Pencil, Columns, Link2, PanelRight, SplitSquareHorizontal, Loader2, File, FileText, Brain, Mic, AlertCircle, Globe } from "lucide-react";
+import { MoreVertical, Trash2, Palette, CheckCircle2, FolderInput, Copy, X, Pencil, Columns, Link2, PanelRight, SplitSquareHorizontal, Loader2, File, FileText, Brain, Mic, Globe } from "lucide-react";
 import { CgNotes } from "react-icons/cg";
 import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
 import { useCallback, useState, memo, useRef, useEffect, useMemo } from "react";
@@ -15,12 +15,10 @@ import { SwatchesPicker, ColorResult } from "react-color";
 import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEditor";
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
 import { BlockNotePreview } from "@/components/editor/BlockNotePreview";
-import { DeepResearchCardContent } from "./DeepResearchCardContent";
 import { AudioCardContent } from "./AudioCardContent";
 import LazyAppPdfViewer from "@/components/pdf/LazyAppPdfViewer";
 import { LightweightPdfPreview } from "@/components/pdf/LightweightPdfPreview";
 import { StreamdownMarkdown } from "@/components/ui/streamdown-markdown";
-
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUIStore, selectItemScrollLocked } from "@/lib/stores/ui-store";
 import { Flashcard } from "react-quizlet-flashcard";
@@ -535,17 +533,6 @@ function WorkspaceCard({
       return;
     }
 
-    // Prevent opening panel for notes with active deep research
-    if (item.type === 'note') {
-      const noteData = item.data as NoteData;
-      if (noteData.deepResearch && noteData.deepResearch.status !== 'complete') {
-        e.preventDefault();
-        e.stopPropagation();
-        toast.info("Research in progress - please wait for it to complete");
-        return;
-      }
-    }
-
     // YouTube cards open in panel (same as notes/PDFs) - no special handling, fall through
 
     // If this card is already open in panel mode, close it instead of re-opening
@@ -775,10 +762,8 @@ function WorkspaceCard({
                   (item.data as PdfData)?.ocrStatus === 'processing' ? (
                     <>
                       <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
-                      <span>Extracting…</span>
+                      <span>Reading...</span>
                     </>
-                  ) : (item.data as PdfData)?.ocrStatus === 'failed' ? (
-                    <><AlertCircle className="h-5 w-5 shrink-0" /><span>Failed</span></>
                   ) : (
                     <><File className="h-5 w-5 shrink-0" /><span>PDF</span></>
                   )
@@ -900,6 +885,7 @@ function WorkspaceCard({
             {!isOpenInPanel && item.type === 'pdf' && shouldShowPreview && (() => {
               const pdfData = item.data as PdfData;
               const isOcrProcessing = pdfData?.ocrStatus === 'processing';
+              const pdfPreviewUrl = pdfData.fileUrl;
 
               return (
                 <div
@@ -914,21 +900,21 @@ function WorkspaceCard({
                   ) : isScrollLocked || maximizedItemId === item.id ? (
                     <LightweightPdfPreview
                       key={`preview-${maximizedItemId ?? 'none'}`}
-                      pdfSrc={pdfData.fileUrl}
+                      pdfSrc={pdfPreviewUrl}
                       title={item.name}
                       className="w-full h-full"
                     />
                   ) : (
-                    <LazyAppPdfViewer pdfSrc={pdfData.fileUrl} itemId={item.id} itemName={item.name} />
+                    <LazyAppPdfViewer pdfSrc={pdfPreviewUrl} itemId={item.id} itemName={item.name} />
                   )}
                   {/* OCR processing indicator overlay */}
-                  {isOcrProcessing && (
+                  {isOcrProcessing && pdfPreviewUrl && (
                     <div
                       className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-2 py-2 px-3 bg-primary/90 text-primary-foreground text-xs font-medium"
                       style={{ color: 'inherit' }}
                     >
                       <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
-                      Extracting…
+                      Reading...
                     </div>
                   )}
                 </div>
@@ -1098,24 +1084,6 @@ function WorkspaceCard({
                 </StreamdownMarkdown>
               </div>
             )}
-
-            {/* Deep Research Note - render streaming UI when research is in progress */}
-            {item.type === 'note' && (() => {
-              const noteData = item.data as NoteData;
-              if (noteData.deepResearch && noteData.deepResearch.status !== 'complete') {
-                return (
-                  <div className="flex-1 min-h-0 overflow-hidden">
-                    <DeepResearchCardContent
-                      item={item}
-                      onUpdateItem={onUpdateItem}
-                      isScrollLocked={isScrollLocked}
-                    />
-                  </div>
-                );
-              }
-              return null;
-            })()}
-
             {/* Active in Panel Overlay */}
             {isOpenInPanel && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-card/95 backdrop-blur-[1px] animate-in fade-in duration-200 select-none cursor-pointer group/overlay">

@@ -8,7 +8,6 @@ import { db, workspaces } from "@/lib/db/client";
 import { workspaceCollaborators } from "@/lib/db/schema";
 import { eq, desc, asc, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireAuthWithUserInfo, withErrorHandling } from "@/lib/api/workspace-helpers";
-import { withApiLogging } from "@/lib/with-api-logging";
 
 /**
  * GET /api/workspaces
@@ -138,7 +137,7 @@ async function handleGET() {
 }
 
 export const GET = withErrorHandling(
-  withApiLogging(handleGET),
+  handleGET,
   "GET /api/workspaces"
 );
 
@@ -323,6 +322,6 @@ async function handlePOST(request: NextRequest) {
 }
 
 export const POST = withErrorHandling(
-  withApiLogging(handlePOST),
+  handlePOST,
   "POST /api/workspaces"
 );

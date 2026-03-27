@@ -197,7 +197,6 @@ async function main(): Promise<void> {
           migratedNotes: migration.report.migratedCount,
           emptyMarkdownCount: migration.report.emptyMarkdownCount,
           droppedSourcesCount: migration.report.droppedSourcesCount,
-          droppedDeepResearchCount: migration.report.droppedDeepResearchCount,
         },
         emptyMarkdownNotes: emptyMarkdown.map((item) => ({
           id: item.id,

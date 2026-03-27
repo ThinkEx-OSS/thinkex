@@ -25,12 +25,6 @@ function mkNote(overrides: Partial<Item> = {}): Item {
       blockContent: [mkParagraph("Hello world")],
       field1: "ignored",
       sources: [{ title: "Source", url: "https://example.com" }],
-      deepResearch: {
-        prompt: "research",
-        interactionId: "dr-1",
-        status: "complete",
-        thoughts: [],
-      },
     } as NoteData,
     ...overrides,
   };
@@ -54,7 +48,6 @@ describe("notes-to-documents migration", () => {
       sources: [{ title: "Source", url: "https://example.com" }],
     });
     expect(report.droppedSources).toBe(0);
-    expect(report.droppedDeepResearch).toBe(true);
   });
 
   it("migrates an empty BlockNote note to an empty markdown document", () => {

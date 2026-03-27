@@ -5,11 +5,9 @@ import Script from "next/script";
 import { Providers } from "@/components/providers";
 import { QueryProvider } from "@/components/query-provider";
 import { PostHogProvider } from "@/components/providers/PostHogProvider";
-import { HelmetProviderWrapper } from "@/components/providers/HelmetProviderWrapper";
 import AppProviders from "@/components/providers/AppProviders";
 import "./globals.css";
 import "katex/dist/katex.min.css";
-import { AgentationDev } from "@/components/AgentationDev";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -69,6 +67,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {isDev && (
+          <Script
+            src="//unpkg.com/react-grab/dist/index.global.js"
+            crossOrigin="anonymous"
+            strategy="beforeInteractive"
+          />
+        )}
+      </head>
       <body className="subpixel-antialiased bg-background text-foreground">
         <script
           type="application/ld+json"
@@ -77,20 +84,11 @@ export default function RootLayout({
           }}
         />
         <AppProviders>
-          <HelmetProviderWrapper>
-            <PostHogProvider>
-              <QueryProvider>
-                <Providers>
-                  <Script
-                    src="https://accounts.google.com/gsi/client"
-                    strategy="afterInteractive"
-                  />
-                  {children}
-                  <AgentationDev />
-                </Providers>
-              </QueryProvider>
-            </PostHogProvider>
-          </HelmetProviderWrapper>
+          <PostHogProvider>
+            <QueryProvider>
+              <Providers>{children}</Providers>
+            </QueryProvider>
+          </PostHogProvider>
         </AppProviders>
       </body>
     </html>

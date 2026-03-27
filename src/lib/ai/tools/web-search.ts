@@ -103,7 +103,7 @@ export async function executeWebSearch(query: string): Promise<WebSearchResult> 
     const { text, providerMetadata } = await generateText({
         model: google('gemini-2.5-flash-lite'),
         tools: {
-            googleSearch: google.tools.googleSearch({ mode: 'MODE_UNSPECIFIED' }),
+            googleSearch: google.tools.googleSearch({}),
         },
         prompt: `Search the web for current, accurate information about: ${query}
 

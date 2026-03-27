@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { capturePosthogException } from "@/lib/posthog-capture-exception";
 
 export default function Error({
     error,
@@ -11,8 +12,11 @@ export default function Error({
     reset: () => void;
 }) {
     useEffect(() => {
-        // Log the error to an error reporting service
         console.error(error);
+        capturePosthogException(error, {
+            error_boundary: "next_app_error",
+            ...(error.digest ? { digest: error.digest } : {}),
+        });
     }, [error]);
 
     return (

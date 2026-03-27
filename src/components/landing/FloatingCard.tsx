@@ -28,8 +28,8 @@ export interface FloatingCardData {
   aspectRatio?: string;
   // rotation removed
   itemCount?: number; // For folders
-  youtubeUrl?: string; // For YouTube cards
-  thumbnailUrl?: string; // For YouTube cards (pre-calculated)
+  /** Local or remote image for decorative video-style cards */
+  thumbnailUrl?: string;
 }
 
 interface FloatingCardProps {
@@ -283,6 +283,7 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
               src={data.thumbnailUrl}
               alt="YouTube Thumbnail"
               fill
+              loading="eager"
               className="object-cover opacity-80"
               sizes="(max-width: 768px) 50vw, 33vw"
             />

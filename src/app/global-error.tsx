@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-// Using system fonts instead of custom fonts
+import { capturePosthogException } from "@/lib/posthog-capture-exception";
 
 export default function GlobalError({
     error,
@@ -13,6 +13,14 @@ export default function GlobalError({
 }) {
     useEffect(() => {
         console.error(error);
+        try {
+            capturePosthogException(error, {
+                error_boundary: "next_global_error",
+                ...(error.digest ? { digest: error.digest } : {}),
+            });
+        } catch (telemetryError) {
+            console.error("Failed to capture global error in PostHog:", telemetryError);
+        }
     }, [error]);
 
     return (

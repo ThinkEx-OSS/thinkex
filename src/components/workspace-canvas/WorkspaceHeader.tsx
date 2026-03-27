@@ -3,9 +3,9 @@
 import type React from "react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { Search, X, ChevronDown, ChevronRight, FolderOpen, Plus, Upload, Settings, Share2, PanelRight, Loader2, ExternalLink } from "lucide-react";
-import { LuBook, LuCalendar, LuPanelLeftOpen } from "react-icons/lu";
+import { usePathname } from "next/navigation";
+import { Search, X, ChevronDown, ChevronRight, FolderOpen, Plus, Settings, Share2, PanelRight, Loader2, ExternalLink } from "lucide-react";
+import { LuCalendar, LuPanelLeftOpen } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Kbd } from "@/components/ui/kbd";
@@ -52,14 +52,11 @@ import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpe
 import { getFolderPath } from "@/lib/workspace-state/search";
 import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";
 import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
-import { useQueryClient } from "@tanstack/react-query";
 import { CollaboratorAvatars } from "@/components/workspace/CollaboratorAvatars";
-import { UploadDialog } from "@/components/modals/UploadDialog";
 import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
 import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
-
 const EMPTY_ITEMS: Item[] = [];
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -76,6 +73,8 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+import { useWorkspaceFilePicker } from "@/hooks/workspace/use-workspace-file-picker";
+import { startAudioProcessing } from "@/lib/audio/start-audio-processing";
 
 interface WorkspaceHeaderProps {
   titleInputRef: React.RefObject<HTMLInputElement | null>;
@@ -169,14 +168,12 @@ export function WorkspaceHeader({
   getDocumentMarkdownForExport,
   googleLoginHint,
 }: WorkspaceHeaderProps) {
-  const router = useRouter();
   const [isNewMenuOpen, setIsNewMenuOpen] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [renamingTarget, setRenamingTarget] = useState<{ id: string, type: 'folder' | 'item' } | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
   const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showQuizDialog, setShowQuizDialog] = useState(false);
   const [showFlashcardsDialog, setShowFlashcardsDialog] = useState(false);
   const [googleExportLoading, setGoogleExportLoading] = useState(false);
@@ -193,9 +190,6 @@ export function WorkspaceHeader({
   const [hoveredBreadcrumbTarget, setHoveredBreadcrumbTarget] = useState<string | null>(null); // 'root' or folderId
   const isDraggingRef = useRef(false);
   const [ellipsisDropdownOpen, setEllipsisDropdownOpen] = useState(false);
-
-  // React Query client for cache invalidation
-  const queryClient = useQueryClient();
 
   // Consistent breadcrumb item styling
   const breadcrumbItemClass = "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-accent cursor-pointer px-2 py-1.5 -mx-2 -my-1.5";
@@ -355,61 +349,41 @@ export function WorkspaceHeader({
       toast.dismiss(loadingToastId);
       toast.success("Audio uploaded — analyzing with Gemini...");
 
-      // Kick off durable workflow and poll for completion
-      fetch("/api/audio/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      if (currentWorkspaceId && itemId) {
+        void startAudioProcessing({
+          workspaceId: currentWorkspaceId,
+          itemId,
           fileUrl,
           filename: file.name,
           mimeType: file.type || "audio/webm",
-          itemId,
-          workspaceId: currentWorkspaceId,
-        }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.runId && data.itemId) {
-            import("@/lib/audio/poll-audio-processing").then(({ pollAudioProcessing }) =>
-              pollAudioProcessing(data.runId, data.itemId)
-            );
-          } else {
-            window.dispatchEvent(
-              new CustomEvent("audio-processing-complete", {
-                detail: { itemId, error: data.error || "Processing failed" },
-              })
-            );
-          }
-        })
-        .catch((err) => {
-          window.dispatchEvent(
-            new CustomEvent("audio-processing-complete", {
-              detail: {
-                itemId,
-                error: err.message || "Processing failed",
-              },
-            })
-          );
+        }).catch((processingError) => {
+          console.error("[WORKSPACE_HEADER] Failed to start audio processing:", processingError);
         });
+      }
     } catch (error: any) {
       toast.dismiss(loadingToastId);
       toast.error(error.message || "Failed to upload audio");
     }
   }, [addItem, currentWorkspaceId, onItemCreated]);
 
-  const handleImageCreate = useCallback((url: string, name: string) => {
-    if (!addItem) return;
-
-    addItem('image', name, { url, altText: name }, DEFAULT_CARD_DIMENSIONS.image);
-    toast.success("Image added to workspace");
-    setIsNewMenuOpen(false);
-  }, [addItem]);
-
   const handleWebsiteCreate = useCallback((url: string, name: string, favicon?: string) => {
     if (!addItem) return;
     addItem("website", name, { url, favicon }, DEFAULT_CARD_DIMENSIONS.website);
     setIsNewMenuOpen(false);
   }, [addItem]);
+
+  const {
+    fileInputRef,
+    inputProps: fileInputProps,
+    openFilePicker,
+  } = useWorkspaceFilePicker({
+    onFilesSelected: onPDFUpload,
+  });
+
+  const handleUploadPickerOpen = useCallback(() => {
+    openFilePicker();
+    setIsNewMenuOpen(false);
+  }, [openFilePicker]);
 
   // Close popover when folder path changes
   useEffect(() => {
@@ -418,6 +392,10 @@ export function WorkspaceHeader({
 
   return (
     <div className="relative py-2 z-20 bg-sidebar">
+      <input
+        ref={fileInputRef}
+        {...fileInputProps}
+      />
       {/* Main container with flex layout */}
       <div className="flex items-center justify-between w-full px-3">
         {/* Left Side: Sidebar Toggle + Navigation Arrows + Breadcrumbs */}
@@ -983,7 +961,7 @@ export function WorkspaceHeader({
                         }
                       },
                       onCreateFolder: () => { if (addItem) addItem("folder"); },
-                      onUpload: () => { setShowUploadDialog(true); setIsNewMenuOpen(false); },
+                      onUpload: handleUploadPickerOpen,
                       onAudio: () => { openAudioDialog(); setIsNewMenuOpen(false); },
                       onYouTube: () => { setShowYouTubeDialog(true); setIsNewMenuOpen(false); },
                       onWebsite: () => { setShowWebsiteDialog(true); setIsNewMenuOpen(false); },
@@ -1119,15 +1097,6 @@ export function WorkspaceHeader({
         onOpenChange={setShowWebsiteDialog}
         onCreate={handleWebsiteCreate}
       />
-      {/* Upload Dialog (PDF + Image) */}
-      {onPDFUpload && (
-        <UploadDialog
-          open={showUploadDialog}
-          onOpenChange={setShowUploadDialog}
-          onImageCreate={handleImageCreate}
-          onPDFUpload={onPDFUpload}
-        />
-      )}
       {/* Audio Recorder Dialog */}
       <AudioRecorderDialog
         open={showAudioDialog}

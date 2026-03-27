@@ -60,7 +60,6 @@ function printSummary(summary: MigrationSummary, execute: boolean): void {
   console.log(`Migrated notes: ${summary.migratedNotes}`);
   console.log(`Empty markdown notes: ${summary.emptyMarkdownNotes}`);
   console.log(`Dropped sources: ${summary.droppedSourcesCount}`);
-  console.log(`Dropped deep research: ${summary.droppedDeepResearchCount}`);
 
   for (const result of summary.results) {
     const { workspace, report, wroteSnapshot } = result;

@@ -34,6 +34,10 @@ import {
 } from "@/contexts/HomeAttachmentsContext";
 import { LinkInputDialog } from "./LinkInputDialog";
 import { HomeHeroDropzone } from "./HomeHeroDropzone";
+import {
+  HOME_FILE_UPLOAD_ACCEPT_STRING,
+  isStudyDocumentFile,
+} from "@/lib/uploads/home-upload-config";
 
 // Context for section visibility - allows child components to know when to focus
 const SectionVisibilityContext = createContext<{
@@ -47,8 +51,6 @@ import { HomeActionCards } from "./HomeActionCards";
 import { RecordWorkspaceDialog } from "@/components/modals/RecordWorkspaceDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { Footer } from "@/components/landing/Footer";
-
-const ACCEPT_FILES = "application/pdf,image/*,audio/*";
 
 interface HeroAttachmentsSectionProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -115,13 +117,9 @@ function HeroAttachmentsSection({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      const isPdf = Array.from(files).some(
-        (file) => file.type === "application/pdf",
-      );
-      if (isPdf && !pastedText) {
-        onPastedText(
-          "Analyze this document and extract its core concepts. Create a detailed study guide summarizing the main ideas and generate a practice quiz to test my understanding.",
-        );
+      const hasDocument = Array.from(files).some(isStudyDocumentFile);
+      if (hasDocument && !pastedText) {
+        onPastedText("Analyze this document and extract its core concepts. Create a detailed study guide summarizing the main ideas and generate a practice quiz to test my understanding.");
       }
       addFiles(Array.from(files));
       onRequestShowPromptInput();
@@ -166,7 +164,7 @@ function HeroAttachmentsSection({
         id={uploadInputId}
         ref={fileInputRef}
         type="file"
-        accept={ACCEPT_FILES}
+        accept={HOME_FILE_UPLOAD_ACCEPT_STRING}
         multiple
         className="sr-only"
         onChange={handleFileChange}
@@ -376,7 +374,6 @@ export function HomeContent() {
             <div className="absolute inset-x-0 top-0 h-[185vh] z-0 select-none overflow-hidden">
               <FloatingWorkspaceCards
                 bottomGradientHeight="40%"
-                includeExtraCards={true}
               />
             </div>
 

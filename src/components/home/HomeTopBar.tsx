@@ -34,7 +34,7 @@ export function HomeTopBar({ scrollY, searchQuery, onSearchChange }: HomeTopBarP
       {/* Left: Logo */}
       <Link href="/home" className="flex items-center gap-2 group">
         <div className="relative h-6 w-6 flex items-center justify-center transition-transform group-hover:scale-105">
-          <ThinkExLogo size={24} />
+          <ThinkExLogo size={24} priority />
         </div>
         <span className="text-lg font-medium whitespace-nowrap">ThinkEx</span>
       </Link>

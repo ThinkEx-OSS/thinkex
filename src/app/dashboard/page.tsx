@@ -44,12 +44,23 @@ import { RealtimeProvider } from "@/contexts/RealtimeContext";
 import { toast } from "sonner";
 import { InviteGuard } from "@/components/workspace/InviteGuard";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
-import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
-import { uploadFileDirect } from "@/lib/uploads/client-upload";
-import { uploadPdfToStorage } from "@/lib/uploads/pdf-upload-with-ocr";
-import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 import { useFolderUrl } from "@/hooks/ui/use-folder-url";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
+import {
+  buildWorkspaceItemDefinitionsFromAssets,
+} from "@/lib/uploads/uploaded-asset";
+import {
+  prepareWorkspaceUploadSelection,
+  uploadSelectedFiles,
+} from "@/lib/uploads/upload-selection";
+import { startAssetProcessing } from "@/lib/uploads/start-asset-processing";
+import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
+import {
+  getDocumentUploadFailureMessage,
+  getDocumentUploadLoadingMessage,
+  getDocumentUploadPartialMessage,
+  getDocumentUploadSuccessMessage,
+} from "@/lib/uploads/upload-feedback";
 
 // Main dashboard content component
 interface DashboardContentProps {
@@ -352,136 +363,50 @@ function DashboardContent({
         throw new Error("Workspace not available");
       }
 
-      const pdfFiles = files.filter(
-        (file) => file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
-      );
-      const officeFiles = files.filter(
-        (file) => file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")
-      );
-
-      // Reject password-protected PDFs
-      const { valid: unprotectedFiles, rejected: protectedNames } = await filterPasswordProtectedPdfs(pdfFiles);
-      if (protectedNames.length > 0) {
-        emitPasswordProtectedPdf(protectedNames);
+      const { acceptedFiles: filesToUpload, protectedPdfNames } =
+        await prepareWorkspaceUploadSelection(files);
+      if (protectedPdfNames.length > 0) {
+        emitPasswordProtectedPdf(protectedPdfNames);
       }
-      const filesToUpload = [...unprotectedFiles, ...officeFiles];
       if (filesToUpload.length === 0) {
         return;
       }
 
-      const uploadToastId = toast.loading(
-        `Uploading ${filesToUpload.length} document${filesToUpload.length > 1 ? "s" : ""}...`
-      );
-
-      const uploadResults = await Promise.all(
-        filesToUpload.map(async (file) => {
-          try {
-            const isPdfFile = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-            if (isPdfFile) {
-              const { url, filename, fileSize } = await uploadPdfToStorage(file);
-              return { file, fileUrl: url, filename, displayName: file.name, fileSize };
-            }
-
-            const result = await uploadFileDirect(file);
-            return {
-              file,
-              fileUrl: result.url,
-              filename: result.filename,
-              displayName: result.displayName,
-              fileSize: file.size,
-            };
-          } catch (err) {
-            toast.error(`Failed to upload ${file.name}: ${err instanceof Error ? err.message : "Unknown error"}`);
-            return null;
-          }
-        })
-      );
+      const uploadToastId = toast.loading(getDocumentUploadLoadingMessage(filesToUpload.length));
+      const { uploads, failedFiles } = await uploadSelectedFiles(filesToUpload);
 
       toast.dismiss(uploadToastId);
 
-      const validUploads = uploadResults.filter((r): r is NonNullable<typeof r> => r !== null);
-      if (validUploads.length === 0) return;
+      if (uploads.length === 0) {
+        if (failedFiles.length > 0) {
+          toast.error(getDocumentUploadFailureMessage(failedFiles.length));
+        }
+        return;
+      }
 
-      const pdfCardDefinitions = validUploads.map(({ fileUrl, filename, displayName, fileSize }) => ({
-        type: "pdf" as const,
-        name: displayName.replace(/\.pdf$/i, ""),
-        initialData: {
-          fileUrl,
-          filename,
-          fileSize,
-          ocrStatus: "processing" as const,
-          ocrPages: [],
-        } as Partial<PdfData>,
-      }));
+      const pdfCardDefinitions = buildWorkspaceItemDefinitionsFromAssets(uploads);
 
-      const createdIds = operations.createItems(pdfCardDefinitions);
+      const createdIds = operations.createItems(pdfCardDefinitions, {
+        showSuccessToast: false,
+      });
       handleCreatedItems(createdIds);
 
-      // Run OCR via workflow; poller dispatches pdf-processing-complete
-      validUploads.forEach((r, i) => {
-        const itemId = createdIds[i];
-        if (!itemId) return;
-        fetch("/api/pdf/ocr/start", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileUrl: r.fileUrl,
-            itemId,
-            workspaceId: currentWorkspaceId,
-          }),
-        })
-          .then(async (res) => {
-            if (!res.ok) {
-              const err = await res.json().catch(() => ({ error: res.statusText }));
-              throw new Error((err as { error?: string }).error ?? `OCR start failed: ${res.status}`);
-            }
-            return res.json();
-          })
-          .then((data) => {
-            if (data.runId && data.itemId) {
-              import("@/lib/pdf/poll-pdf-ocr")
-                .then(({ pollPdfOcr }) => pollPdfOcr(data.runId, data.itemId))
-                .catch((err) => {
-                  window.dispatchEvent(
-                    new CustomEvent("pdf-processing-complete", {
-                      detail: {
-                        itemId,
-                        textContent: "",
-                        ocrPages: [],
-                        ocrStatus: "failed" as const,
-                        ocrError: err instanceof Error ? err.message : "Failed to start OCR polling",
-                      },
-                    })
-                  );
-                });
-            } else {
-              window.dispatchEvent(
-                new CustomEvent("pdf-processing-complete", {
-                  detail: {
-                    itemId,
-                    textContent: "",
-                    ocrPages: [],
-                    ocrStatus: "failed" as const,
-                    ocrError: data.error || "Failed to start OCR",
-                  },
-                })
-              );
-            }
-          })
-          .catch((err) => {
-            window.dispatchEvent(
-              new CustomEvent("pdf-processing-complete", {
-                detail: {
-                  itemId,
-                  textContent: "",
-                  ocrPages: [],
-                  ocrStatus: "failed" as const,
-                  ocrError: err.message || "Failed to start OCR",
-                },
-              })
-            );
-          });
+      void startAssetProcessing({
+        workspaceId: currentWorkspaceId,
+        assets: uploads,
+        itemIds: createdIds,
+        onOcrError: (error) => {
+          console.error("[DASHBOARD_PROCESSING] Failed to start processing:", error);
+        },
       });
+
+      if (uploads.length > 0 && failedFiles.length === 0) {
+        toast.success(getDocumentUploadSuccessMessage(uploads.length));
+      } else if (uploads.length > 0) {
+        toast.warning(
+          getDocumentUploadPartialMessage(uploads.length, failedFiles.length)
+        );
+      }
     },
     [operations, currentWorkspaceId, handleCreatedItems]
   );

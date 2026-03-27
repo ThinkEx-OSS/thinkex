@@ -3,7 +3,7 @@ import type { CardColor } from './colors';
 export type CardType = "note" | "pdf" | "flashcard" | "folder" | "youtube" | "quiz" | "image" | "audio" | "website" | "document";
 
 /**
- * Source attribution for notes created from web search or deep research
+ * Source attribution for notes created from web search.
  */
 export interface Source {
   title: string;  // Title of the source page
@@ -14,29 +14,19 @@ export interface Source {
 export interface NoteData {
   field1?: string; // textarea - legacy plain text format
   blockContent?: unknown; // BlockNote JSON blocks - new rich-text format
-  // Optional: Sources from web search or deep research
+  // Optional: Sources from web search
   sources?: Source[];
-  // Optional: Deep Research metadata (when this note is a research result)
-  deepResearch?: {
-    prompt: string;           // Original research prompt
-    interactionId: string;    // Google Deep Research interaction ID
-    status: "researching" | "complete" | "failed";
-    thoughts: string[];       // Streaming thought summaries
-    error?: string;           // Error message if failed
-  };
 }
 
 export interface PdfData {
   fileUrl: string; // Supabase storage URL
-  filename: string; // original filename
+  filename: string; // stored filename/path
   fileSize?: number; // optional file size in bytes
-  textContent?: string; // cached extracted text content (avoids reprocessing)
   ocrStatus?: "complete" | "failed" | "processing";
   ocrError?: string;
   ocrPages?: Array<{
     index: number;
     markdown: string;
-    images?: unknown[];
     footer?: string | null;
     header?: string | null;
     hyperlinks?: unknown[];
@@ -78,13 +68,11 @@ export interface ImageData {
   url: string;      // The source URL of the image
   altText?: string; // Optional accessibility text
   caption?: string; // Optional caption
-  textContent?: string;
   ocrStatus?: "complete" | "failed" | "processing";
   ocrError?: string;
   ocrPages?: Array<{
     index: number;
     markdown: string;
-    images?: unknown[];
     footer?: string | null;
     header?: string | null;
     hyperlinks?: unknown[];

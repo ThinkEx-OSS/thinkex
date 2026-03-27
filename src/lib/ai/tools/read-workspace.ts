@@ -16,7 +16,7 @@ const MAX_LINE_LENGTH = 2000;
 export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Read content of a workspace item (note, document, flashcard deck, PDF summary, quiz) by path or name. Content is always raw — no line number prefixes. Copy text directly into editItem oldString. The response includes rangeNote: 'Full content' when returning the entire item, or 'Lines X–Y of Z' (and 'has more' if there is more). Use lineStart (1-indexed) to read later sections. For PDFs: pageStart and pageEnd for page ranges. Use searchWorkspace to find content in large items. Quizzes include progress at the top when started. Any line longer than 2000 characters is truncated. Avoid tiny repeated slices; read a larger window.",
+            "Read content of a workspace item by path or name. Works for notes, documents, flashcards, PDFs, quizzes, images, audio, websites, and YouTube cards when readable content or metadata exists. Content is returned as raw lines with no line-number prefixes, so it can be copied directly into editItem oldString. The response includes rangeNote: 'Full content' when returning the entire item, or 'Lines X–Y of Z' (and 'has more' if there is more). Use lineStart (1-indexed) to read later sections. For PDFs: pageStart and pageEnd for page ranges. Use searchWorkspace to find content in large items. Quizzes include progress at the top when started. Any line longer than 2000 characters is truncated. Avoid tiny repeated slices; read a larger window.",
         inputSchema: zodSchema(
             z.object({
                 path: z
@@ -115,7 +115,7 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
             if (item.type === "folder") {
                 return {
                     success: false,
-                    message: "Folders have no readable content. Use path to a note, flashcard, PDF, or quiz.",
+                    message: "Folders have no readable content. Use path to a note, document, flashcard, PDF, quiz, image, audio, website, or YouTube item.",
                 };
             }
 

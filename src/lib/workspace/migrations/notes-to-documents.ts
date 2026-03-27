@@ -6,7 +6,6 @@ export interface NoteMigrationItemReport {
   itemName: string;
   markdownLength: number;
   droppedSources: number;
-  droppedDeepResearch: boolean;
 }
 
 export interface WorkspaceNoteMigrationReport {
@@ -15,7 +14,6 @@ export interface WorkspaceNoteMigrationReport {
   migratedCount: number;
   emptyMarkdownCount: number;
   droppedSourcesCount: number;
-  droppedDeepResearchCount: number;
   items: NoteMigrationItemReport[];
 }
 
@@ -47,7 +45,6 @@ export function migrateNoteItem(item: Item): { item: Item; report: NoteMigration
       itemName: item.name,
       markdownLength: markdown.length,
       droppedSources: 0,
-      droppedDeepResearch: Boolean(noteData.deepResearch),
     },
   };
 }
@@ -71,7 +68,6 @@ export function migrateWorkspaceState(state: AgentState): WorkspaceMigrationResu
     migratedCount: itemReports.length,
     emptyMarkdownCount: itemReports.filter((item) => item.markdownLength === 0).length,
     droppedSourcesCount: itemReports.reduce((sum, item) => sum + item.droppedSources, 0),
-    droppedDeepResearchCount: itemReports.filter((item) => item.droppedDeepResearch).length,
     items: itemReports,
   };
 

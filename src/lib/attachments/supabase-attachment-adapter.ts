@@ -15,14 +15,14 @@ const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB to match server limit
 
 /**
  * Custom attachment adapter that uploads files to our own Supabase storage
- * via the existing /api/upload-file endpoint, instead of assistant-ui's cloud storage.
+ * using our direct signed-upload flow, instead of assistant-ui's cloud storage.
  *
  * Uploads start optimistically in add() so the file is uploading while the user
  * types their message. By the time send() is called, the upload is often already done.
  */
 export class SupabaseAttachmentAdapter implements AttachmentAdapter {
   accept =
-    "image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.json,.mp3,.wav,.ogg,.aac,.flac,.aiff,.webm,.m4a";
+    "image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.json";
 
   // Map of attachment ID → upload promise (started eagerly in add())
   private pendingUploads = new Map<

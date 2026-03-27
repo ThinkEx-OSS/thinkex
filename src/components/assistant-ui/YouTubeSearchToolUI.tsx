@@ -1,7 +1,8 @@
 "use client";
 
 import { makeAssistantToolUI, useAui, useScrollLock } from "@assistant-ui/react";
-import { Loader2, Plus, Youtube, Check, ChevronDownIcon } from "lucide-react";
+import { Loader2, Plus, Check, ChevronDownIcon } from "lucide-react";
+import { YouTubeMark } from "@/components/icons/YouTubeMark";
 import { Button } from "@/components/ui/button";
 import { useState, useRef, useCallback, useEffect, type FC, type PropsWithChildren } from "react";
 import { toast } from "sonner";
@@ -263,7 +264,7 @@ const YouTubeSearchContent: FC<{
                         {isRunning ? (
                             <Loader2 className="size-4 animate-spin" />
                         ) : (
-                            <Youtube className="size-4" />
+                            <YouTubeMark className="size-4" />
                         )}
                     </div>
                     <div className="flex flex-col min-w-0 flex-1">

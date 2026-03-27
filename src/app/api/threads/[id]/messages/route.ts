@@ -7,6 +7,7 @@ import {
   verifyThreadOwnership,
 } from "@/lib/api/workspace-helpers";
 import { eq, and, desc } from "drizzle-orm";
+import { withServerObservability } from "@/lib/with-server-observability";
 
 async function getThreadAndVerify(id: string, userId: string) {
   const [thread] = await db
@@ -29,7 +30,7 @@ async function getThreadAndVerify(id: string, userId: string) {
  * GET /api/threads/[id]/messages?format=ai-sdk/v6
  * Load messages for a thread. Format filter is strict (ai-sdk/v6 only).
  */
-export async function GET(
+export const GET = withServerObservability(async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -67,13 +68,13 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+}, { routeName: "GET /api/threads/[id]/messages" });
 
 /**
  * POST /api/threads/[id]/messages
  * Append a message to a thread
  */
-export async function POST(
+export const POST = withServerObservability(async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -142,4 +143,4 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+}, { routeName: "POST /api/threads/[id]/messages" });

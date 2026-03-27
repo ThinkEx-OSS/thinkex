@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Users, Github, Sparkles } from "lucide-react";
+import { GitHubMark } from "@/components/icons/GitHubMark";
 import { FloatingWorkspaceCards } from "./FloatingWorkspaceCards";
 import {
   HoverCard,
@@ -52,9 +52,10 @@ export function Hero() {
               href="https://github.com/thinkex-oss/thinkex"
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="ThinkEx on GitHub"
               className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-violet-500/10 text-violet-600 hover:bg-violet-500/20 transition-colors cursor-pointer"
             >
-              <Github className="h-4 w-4 md:h-5 md:w-5" />
+              <GitHubMark className="h-4 w-4 md:h-5 md:w-5 shrink-0 fill-current" />
             </a>
           </div>
 
