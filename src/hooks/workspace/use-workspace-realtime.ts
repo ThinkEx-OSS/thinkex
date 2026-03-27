@@ -43,7 +43,7 @@ export function useWorkspaceRealtime(
 ): WorkspaceRealtimeReturn {
     const queryClient = useQueryClient();
     const channelRef = useRef<RealtimeChannel | null>(null);
-    const { currentUserId, onStatusChange, onRemoteEvent } = options;
+    const { onStatusChange, onRemoteEvent } = options;
     const [isConnected, setIsConnected] = useState(false);
 
     // Clean up channel on unmount or workspaceId change
@@ -86,12 +86,6 @@ export function useWorkspaceRealtime(
 
             if (!event || !event.id) {
                 console.warn('[REALTIME] Invalid event payload:', payload);
-                return;
-            }
-
-            // Skip our own events (though self: false should handle this)
-            if (currentUserId && event.userId === currentUserId) {
-                console.log('[REALTIME] Skipping own event');
                 return;
             }
 
@@ -148,7 +142,7 @@ export function useWorkspaceRealtime(
         });
 
         return cleanup;
-    }, [workspaceId, currentUserId, queryClient, cleanup, onStatusChange, onRemoteEvent]);
+    }, [workspaceId, queryClient, cleanup, onStatusChange, onRemoteEvent]);
 
     // Broadcast an event to other clients
     const broadcastEvent = useCallback(async (event: WorkspaceEvent) => {
