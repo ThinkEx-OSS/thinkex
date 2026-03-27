@@ -6,11 +6,6 @@ import { Navbar } from "@/components/landing/Navbar";
 import { Hero } from "@/components/landing/Hero";
 
 // Dynamic imports for below-the-fold components
-// const TheProblem = dynamic(
-//   () => import("@/components/landing/TheProblem").then((mod) => mod.TheProblem),
-//   { ssr: true }
-// );
-
 const FourWays = dynamic(
   () => import("@/components/landing/FourWays").then((mod) => mod.FourWays),
   { ssr: true }
@@ -69,7 +64,6 @@ export default function LandingPage() {
       <div className="relative z-10">
         <Navbar />
         <Hero />
-        {/* <TheProblem /> */}
         <FourWays />
         <UseCases />
         <Comparison />
