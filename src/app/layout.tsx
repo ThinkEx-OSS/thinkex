@@ -86,7 +86,13 @@ export default function RootLayout({
         <AppProviders>
           <PostHogProvider>
             <QueryProvider>
-              <Providers>{children}</Providers>
+              <Providers>
+                <Script
+                  src="https://accounts.google.com/gsi/client"
+                  strategy="afterInteractive"
+                />
+                {children}
+              </Providers>
             </QueryProvider>
           </PostHogProvider>
         </AppProviders>
