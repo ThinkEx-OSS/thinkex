@@ -9,7 +9,7 @@ tags: javascript, loops, optimization, caching
 
 Cache object property lookups in hot paths.
 
-**Incorrect (3 lookups × N iterations):**
+**Incorrect (repeated property traversal and length reads on every iteration):**
 
 ```typescript
 for (let i = 0; i < arr.length; i++) {
@@ -17,7 +17,7 @@ for (let i = 0; i < arr.length; i++) {
 }
 ```
 
-**Correct (1 lookup total):**
+**Correct (property access and length cached before the loop):**
 
 ```typescript
 const value = obj.config.settings.value

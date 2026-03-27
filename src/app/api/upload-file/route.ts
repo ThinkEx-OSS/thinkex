@@ -22,7 +22,7 @@ const getStorageType = (): 'supabase' | 'local' => {
 
 // Local file storage helper
 async function saveFileLocally(file: File, filename: string): Promise<string> {
-  const uploadsDir = process.env.UPLOADS_DIR || join(process.cwd(), 'uploads');
+  const uploadsDir = process.env.UPLOADS_DIR || join(/*turbopackIgnore: true*/ process.cwd(), 'uploads');
 
   // Ensure uploads directory exists
   if (!existsSync(uploadsDir)) {

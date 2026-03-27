@@ -9,6 +9,10 @@ import { hasDuplicateName } from "@/lib/workspace/unique-name";
 import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
 import { buildPdfDataFromUpload } from "@/lib/pdf/pdf-item";
 import { getRandomCardColor } from "@/lib/workspace-state/colors";
+import { filterOcrCandidates } from "@/lib/ocr/dispatch";
+import { isAllowedOcrFileUrl } from "@/lib/ocr/url-validation";
+import { ocrDispatchWorkflow } from "@/workflows/ocr-dispatch";
+import { start } from "workflow/api";
 import type { Item } from "@/lib/workspace-state/types";
 import type { OcrCandidate } from "@/lib/ocr/types";
 
@@ -189,29 +193,24 @@ async function handlePOST(
     console.error("[import] Realtime broadcast error:", err);
   }
 
-  // Trigger OCR for all items
-  const candidates: OcrCandidate[] = items.map((item) => ({
+  // Trigger OCR for all items — invoke workflow directly, no self-HTTP
+  const rawCandidates: OcrCandidate[] = items.map((item) => ({
     itemId: item.id,
     itemType: "file" as const,
     fileUrl: (item.data as { fileUrl: string }).fileUrl,
   }));
+  const candidates = filterOcrCandidates(rawCandidates).filter((c) =>
+    isAllowedOcrFileUrl(c.fileUrl)
+  );
 
   let ocrRunId: string | null = null;
-  try {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-    const ocrResponse = await fetch(`${appUrl}/api/ocr/start`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", cookie: request.headers.get("cookie") ?? "" },
-      body: JSON.stringify({ workspaceId: id, candidates }),
-    });
-    if (ocrResponse.ok) {
-      const ocrData = await ocrResponse.json();
-      ocrRunId = ocrData.runId ?? null;
-    } else {
-      console.error(`[import] OCR start failed: ${ocrResponse.status}`);
+  if (candidates.length > 0) {
+    try {
+      const run = await start(ocrDispatchWorkflow, [candidates, id, userId]);
+      ocrRunId = run.runId ?? null;
+    } catch (err) {
+      console.error("[import] OCR workflow start error:", err);
     }
-  } catch (err) {
-    console.error("[import] OCR start error:", err);
   }
 
   return NextResponse.json({

@@ -1,0 +1,15 @@
+{
+  "stepFiles": [
+    "/Users/ishaanchakraborty/Desktop/Github_Repos/ThinkEx Repos/thinkex/node_modules/.pnpm/workflow@4.2.0-beta.72_@nestjs+common@11.1.14_reflect-metadata@0.2.2_rxjs@7.8.2__@nestj_3fbf118dee4d91d3cd161d2add974235/node_modules/workflow/dist/stdlib.js",
+    "/Users/ishaanchakraborty/Desktop/Github_Repos/ThinkEx Repos/thinkex/src/workflows/audio-transcribe/steps/download-and-upload.ts",
+    "/Users/ishaanchakraborty/Desktop/Github_Repos/ThinkEx Repos/thinkex/src/workflows/audio-transcribe/steps/persist-result.ts",
+    "/Users/ishaanchakraborty/Desktop/Github_Repos/ThinkEx Repos/thinkex/src/workflows/audio-transcribe/steps/transcribe.ts",
+    "/Users/ishaanchakraborty/Desktop/Github_Repos/ThinkEx Repos/thinkex/src/workflows/ocr-dispatch/steps/persist-results.ts",
+    "/Users/ishaanchakraborty/Desktop/Github_Repos/ThinkEx Repos/thinkex/src/workflows/ocr-dispatch/steps/run-ocr.ts"
+  ],
+  "workflowFiles": [
+    "/Users/ishaanchakraborty/Desktop/Github_Repos/ThinkEx Repos/thinkex/src/workflows/audio-transcribe/index.ts",
+    "/Users/ishaanchakraborty/Desktop/Github_Repos/ThinkEx Repos/thinkex/src/workflows/ocr-dispatch/index.ts"
+  ],
+  "serdeOnlyFiles": []
+}

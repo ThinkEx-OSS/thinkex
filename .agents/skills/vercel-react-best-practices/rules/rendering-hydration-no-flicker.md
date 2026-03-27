@@ -50,7 +50,7 @@ function ThemeWrapper({ children }: { children: ReactNode }) {
 
 Component first renders with default value (`light`), then updates after hydration, causing a visible flash of incorrect content.
 
-**Correct (no flicker, no hydration mismatch):**
+**Incorrect (hydration mismatch):**
 
 ```tsx
 function ThemeWrapper({ children }: { children: ReactNode }) {
@@ -77,6 +77,44 @@ function ThemeWrapper({ children }: { children: ReactNode }) {
 }
 ```
 
-The inline script executes synchronously before showing the element, ensuring the DOM already has the correct value. No flickering, no hydration mismatch.
+The script mutates `#theme-wrapper`'s `className` before React hydrates, so the live DOM no longer matches the server-rendered HTML. React logs a hydration mismatch warning and may overwrite the class.
 
-This pattern is especially useful for theme toggles, user preferences, authentication states, and any client-only data that should render immediately without flashing default values.
+**Correct (no flicker, no hydration mismatch):**
+
+Place a blocking script in the `<head>` of the root layout so it runs on `document.documentElement` before React mounts. Apply the theme class via CSS that targets the `<html>` element. Add `suppressHydrationWarning` on `<html>` so React ignores the class difference between server and client.
+
+```tsx
+// app/layout.tsx (Server Component)
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('theme') || 'light';
+                  document.documentElement.classList.add(theme);
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body>{children}</body>
+    </html>
+  )
+}
+```
+
+```tsx
+// ThemeWrapper — no script needed; reads theme from <html> via CSS
+function ThemeWrapper({ children }: { children: ReactNode }) {
+  return <div className="theme-wrapper">{children}</div>
+}
+```
+
+The script executes synchronously before the browser paints and before React hydrates. `suppressHydrationWarning` on `<html>` tells React to accept the class added by the script without logging a mismatch. `ThemeWrapper` remains a pure Server Component with no client-side mutations.
+
+This pattern is especially useful for theme toggles, user preferences, and any client-only data that should render immediately without flashing default values.

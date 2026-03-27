@@ -1,0 +1,7 @@
+{
+  "workflowFiles": [
+    "/Users/ishaanchakraborty/Desktop/Github_Repos/ThinkEx Repos/thinkex/src/workflows/audio-transcribe/index.ts",
+    "/Users/ishaanchakraborty/Desktop/Github_Repos/ThinkEx Repos/thinkex/src/workflows/ocr-dispatch/index.ts"
+  ],
+  "serdeOnlyFiles": []
+}

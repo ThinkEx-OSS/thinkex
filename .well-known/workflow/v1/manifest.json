@@ -1,0 +1,118 @@
+{
+  "version": "1.0.0",
+  "steps": {
+    "src/workflows/ocr-dispatch/steps/run-ocr.ts": {
+      "executeOcrRun": {
+        "stepId": "step//./src/workflows/ocr-dispatch/steps/run-ocr//executeOcrRun"
+      }
+    },
+    "node_modules/.pnpm/workflow@4.2.0-beta.72_@nestjs+common@11.1.14_reflect-metadata@0.2.2_rxjs@7.8.2__@nestj_3fbf118dee4d91d3cd161d2add974235/node_modules/workflow/dist/stdlib.js": {
+      "fetch": {
+        "stepId": "step//workflow@4.2.0-beta.72//fetch"
+      }
+    },
+    "src/workflows/audio-transcribe/steps/download-and-upload.ts": {
+      "downloadAndUploadToGemini": {
+        "stepId": "step//./src/workflows/audio-transcribe/steps/download-and-upload//downloadAndUploadToGemini"
+      }
+    },
+    "src/workflows/audio-transcribe/steps/persist-result.ts": {
+      "persistAudioFailure": {
+        "stepId": "step//./src/workflows/audio-transcribe/steps/persist-result//persistAudioFailure"
+      },
+      "persistAudioResult": {
+        "stepId": "step//./src/workflows/audio-transcribe/steps/persist-result//persistAudioResult"
+      }
+    },
+    "node_modules/.pnpm/workflow@4.2.0-beta.72_@nestjs+common@11.1.14_reflect-metadata@0.2.2_rxjs@7.8.2__@nestj_3fbf118dee4d91d3cd161d2add974235/node_modules/workflow/dist/internal/builtins.js": {
+      "__builtin_response_array_buffer": {
+        "stepId": "__builtin_response_array_buffer"
+      },
+      "__builtin_response_json": {
+        "stepId": "__builtin_response_json"
+      },
+      "__builtin_response_text": {
+        "stepId": "__builtin_response_text"
+      }
+    },
+    "src/workflows/audio-transcribe/steps/transcribe.ts": {
+      "transcribeWithGemini": {
+        "stepId": "step//./src/workflows/audio-transcribe/steps/transcribe//transcribeWithGemini"
+      }
+    },
+    "src/workflows/ocr-dispatch/steps/persist-results.ts": {
+      "persistOcrResults": {
+        "stepId": "step//./src/workflows/ocr-dispatch/steps/persist-results//persistOcrResults"
+      }
+    }
+  },
+  "workflows": {
+    "src/workflows/audio-transcribe/index.ts": {
+      "audioTranscribeWorkflow": {
+        "workflowId": "workflow//./src/workflows/audio-transcribe/index//audioTranscribeWorkflow",
+        "graph": {
+          "nodes": [
+            {
+              "id": "start",
+              "type": "workflowStart",
+              "data": {
+                "label": "Start: audioTranscribeWorkflow",
+                "nodeKind": "workflow_start"
+              }
+            },
+            {
+              "id": "end",
+              "type": "workflowEnd",
+              "data": {
+                "label": "Return",
+                "nodeKind": "workflow_end"
+              }
+            }
+          ],
+          "edges": [
+            {
+              "id": "e_start_end",
+              "source": "start",
+              "target": "end",
+              "type": "default"
+            }
+          ]
+        }
+      }
+    },
+    "src/workflows/ocr-dispatch/index.ts": {
+      "ocrDispatchWorkflow": {
+        "workflowId": "workflow//./src/workflows/ocr-dispatch/index//ocrDispatchWorkflow",
+        "graph": {
+          "nodes": [
+            {
+              "id": "start",
+              "type": "workflowStart",
+              "data": {
+                "label": "Start: ocrDispatchWorkflow",
+                "nodeKind": "workflow_start"
+              }
+            },
+            {
+              "id": "end",
+              "type": "workflowEnd",
+              "data": {
+                "label": "Return",
+                "nodeKind": "workflow_end"
+              }
+            }
+          ],
+          "edges": [
+            {
+              "id": "e_start_end",
+              "source": "start",
+              "target": "end",
+              "type": "default"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "classes": {}
+}

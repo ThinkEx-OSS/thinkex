@@ -28,7 +28,11 @@ export default function RootLayout({ children }) {
 
 **Correct (loads after hydration):**
 
+Extract the deferred import into a Client Component — `dynamic` with `{ ssr: false }` requires a client context and cannot be used directly in a Server Component like `RootLayout`.
+
 ```tsx
+// AnalyticsClient.tsx
+'use client'
 import dynamic from 'next/dynamic'
 
 const Analytics = dynamic(
@@ -36,12 +40,21 @@ const Analytics = dynamic(
   { ssr: false }
 )
 
+export function AnalyticsClient() {
+  return <Analytics />
+}
+```
+
+```tsx
+// layout.tsx (Server Component)
+import { AnalyticsClient } from './AnalyticsClient'
+
 export default function RootLayout({ children }) {
   return (
     <html>
       <body>
         {children}
-        <Analytics />
+        <AnalyticsClient />
       </body>
     </html>
   )

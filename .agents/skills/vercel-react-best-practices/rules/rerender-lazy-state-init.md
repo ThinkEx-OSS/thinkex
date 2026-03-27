@@ -35,10 +35,13 @@ function UserProfile() {
 
 ```tsx
 function FilteredList({ items }: { items: Item[] }) {
-  // buildSearchIndex() runs ONLY on initial render
+  // buildSearchIndex() runs ONLY on initial render.
+  // NOTE: items must be stable (e.g. defined outside the component or memoized)
+  // because the lazy initializer captures it once and does not re-run when items changes.
+  // If items can change after mount, use useMemo instead of useState lazy init.
   const [searchIndex, setSearchIndex] = useState(() => buildSearchIndex(items))
   const [query, setQuery] = useState('')
-  
+
   return <SearchResults index={searchIndex} query={query} />
 }
 
