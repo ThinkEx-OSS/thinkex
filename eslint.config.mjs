@@ -1,23 +1,20 @@
-import { defineConfig, globalIgnores } from 'eslint/config';
-import nextVitals from 'eslint-config-next/core-web-vitals';
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+import prettier from "eslint-config-prettier/flat";
 
-const eslintConfig = defineConfig([
+export default defineConfig([
   ...nextVitals,
+  ...nextTs,
+  prettier,
   globalIgnores([
-    '.next/**',
-    'out/**',
-    'build/**',
-    'next-env.d.ts',
-    'assistant-ui-main/**',
-    'node_modules/**',
-    '.pnpm-store/**',
-    'tmp/**',
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "assistant-ui-main/**",
+    "node_modules/**",
+    ".pnpm-store/**",
+    "tmp/**",
   ]),
-  {
-    rules: {
-      "max-lines": ["error", { max: 300, skipBlankLines: true, skipComments: true }],
-    },
-  },
 ]);
-
-export default eslintConfig;
