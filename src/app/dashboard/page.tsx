@@ -1,13 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { AgentState, DocumentData, PdfData, WorkspaceWithState } from "@/lib/workspace-state/types";
-import type { EventResponse } from "@/lib/workspace/events";
-import { replayEvents } from "@/lib/workspace/event-reducer";
+import type { AgentState, PdfData, WorkspaceWithState } from "@/lib/workspace-state/types";
 import { initialState } from "@/lib/workspace-state/state";
 import { useScrollHeader } from "@/hooks/ui/use-scroll-header";
 import { useKeyboardShortcuts } from "@/hooks/ui/use-keyboard-shortcuts";
@@ -139,29 +136,6 @@ function DashboardContent({
 
   // Workspace operations (emits events with optimistic updates)
   const operations = useWorkspaceOperations(currentWorkspaceId, state);
-  const queryClient = useQueryClient();
-
-  const getDocumentMarkdownForExport = useCallback(
-    (itemId: string) => {
-      operations.flushPendingChanges(itemId);
-      if (!currentWorkspaceId) return "";
-      const cache = queryClient.getQueryData<EventResponse>([
-        "workspace",
-        currentWorkspaceId,
-        "events",
-      ]);
-      if (!cache?.events) return "";
-      const latest = replayEvents(
-        cache.events,
-        currentWorkspaceId,
-        cache.snapshot?.state
-      );
-      const item = latest.items.find((i) => i.id === itemId);
-      if (!item || item.type !== "document") return "";
-      return (item.data as DocumentData).markdown ?? "";
-    },
-    [currentWorkspaceId, operations, queryClient]
-  );
 
   // Version control (history only)
   const { revertToVersion: revertToVersionRaw } = useWorkspaceHistory(currentWorkspaceId);
@@ -587,7 +561,7 @@ function DashboardContent({
               onMinimizeActiveItem={() => setMaximizedItemId(null)}
               onMaximizeActiveItem={(id) => setMaximizedItemId(id)}
               onUpdateActiveItem={operations.updateItem}
-              getDocumentMarkdownForExport={getDocumentMarkdownForExport}
+              getDocumentMarkdownForExport={operations.getDocumentMarkdownForExport}
               googleLoginHint={session?.user?.email ?? null}
             />
           ) : undefined

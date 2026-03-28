@@ -797,9 +797,9 @@ export function WorkspaceHeader({
                       }
                       setGoogleExportLoading(true);
                       try {
-                        const md =
-                          getDocumentMarkdownForExport?.(item.id) ??
-                          ((item.data as DocumentData).markdown ?? "");
+                        const md = getDocumentMarkdownForExport
+                          ? getDocumentMarkdownForExport(item.id)
+                          : ((item.data as DocumentData).markdown ?? "");
                         const result = await exportMarkdownToGoogleDoc(md, item.name, {
                           loginHint: googleLoginHint,
                         });

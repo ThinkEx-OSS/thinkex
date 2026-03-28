@@ -17,6 +17,7 @@ export interface MigrationRunOptions {
   workspaceId?: string;
   workspaceSlug?: string;
   limit?: number;
+  progressEvery?: number;
   logger?: Pick<typeof console, "log" | "error" | "warn">;
 }
 
@@ -221,6 +222,7 @@ export async function runNotesToDocumentsMigration(
   const logger = options.logger ?? console;
   const targets = await resolveTargets(options);
   const execute = Boolean(options.execute);
+  const progressEvery = Math.max(1, options.progressEvery ?? 25);
   const summary: MigrationSummary = {
     processedWorkspaces: 0,
     changedWorkspaces: 0,
@@ -250,6 +252,16 @@ export async function runNotesToDocumentsMigration(
           : String(error);
       logger.error(`[notes-to-documents] Failed workspace ${workspace.id}: ${message}`);
       summary.failures.push({ workspace, error: message });
+    }
+
+    if (
+      summary.processedWorkspaces === targets.length ||
+      summary.processedWorkspaces % progressEvery === 0
+    ) {
+      logger.log(
+        `[notes-to-documents] Progress ${summary.processedWorkspaces}/${targets.length} ` +
+          `changed=${summary.changedWorkspaces} migratedNotes=${summary.migratedNotes} failures=${summary.failures.length}`,
+      );
     }
   }
 
