@@ -160,7 +160,7 @@ export function DashboardLayout({
                   </div>
                 </ResizablePanel>
 
-                <ResizableHandle id="split-handle" />
+                <ResizableHandle id="split-handle" className="border-r border-sidebar-border" />
 
                 {/* Right: item panel (full height) */}
                 <ResizablePanel
@@ -208,7 +208,7 @@ export function DashboardLayout({
           {/* Chat Section - Only when expanded and workspace exists */}
           {effectiveChatExpanded && (
             <>
-              <ResizableHandle id="workspace-chat-handle" />
+              <ResizableHandle id="workspace-chat-handle" className="border-r border-sidebar-border" />
               <ResizablePanel
                 id="chat-panel"
                 defaultSize={`${PANEL_DEFAULTS.CHAT}%`}
