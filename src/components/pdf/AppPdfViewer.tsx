@@ -5,7 +5,7 @@ import { EmbedPDF } from '@embedpdf/core/react';
 import { useEngineContext } from '@embedpdf/engines/react';
 import { ViewportPluginPackage, Viewport, useViewportCapability } from '@embedpdf/plugin-viewport/react';
 import { ScrollPluginPackage, Scroller, useScroll, useScrollCapability } from '@embedpdf/plugin-scroll/react';
-import { DocumentContent, DocumentManagerPluginPackage, useDocumentManagerCapability } from '@embedpdf/plugin-document-manager/react';
+import { DocumentContent, DocumentManagerPluginPackage } from '@embedpdf/plugin-document-manager/react';
 import { RenderLayer, RenderPluginPackage } from '@embedpdf/plugin-render/react';
 import { ZoomPluginPackage, ZoomMode, ZoomGestureWrapper, useZoom } from '@embedpdf/plugin-zoom/react';
 import { PanPluginPackage } from '@embedpdf/plugin-pan/react';
@@ -23,7 +23,7 @@ import { SearchPluginPackage, SearchLayer, useSearch } from '@embedpdf/plugin-se
 import { MatchFlag } from '@embedpdf/models';
 import { ExportPluginPackage } from '@embedpdf/plugin-export/react';
 
-import { Loader2, ChevronLeft, ChevronRight, Copy, Check, Trash2, Search, X as XIcon, ArrowUp, ArrowDown, AlertCircle } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, Copy, Check, Trash2, Search, X as XIcon, ArrowUp, ArrowDown } from 'lucide-react';
 import { FaQuoteRight } from "react-icons/fa6";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { useMemo, ReactNode, useState, useEffect, useRef, useCallback } from 'react';
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { AnnotationToolbar } from './AnnotationToolbar';
+import { PdfPasswordPrompt } from './PdfPasswordPrompt';
 
 // ─────────────────────────────────────────────────────────
 // PDF State Persistence
@@ -44,56 +45,6 @@ interface PdfSavedState {
 }
 
 const PDF_STATE_PREFIX = 'pdf-state-';
-const PDF_ERROR_PASSWORD = 4;
-
-const PdfErrorState = ({
-  documentId,
-  documentState,
-}: {
-  documentId: string;
-  documentState: {
-    name?: string | null;
-    error?: string | null;
-    errorCode?: number | null;
-  };
-}) => {
-  const { provides } = useDocumentManagerCapability();
-  const isPasswordError = documentState.errorCode === PDF_ERROR_PASSWORD;
-
-  return (
-    <div className="flex h-full items-center justify-center p-8">
-      <div className="w-full max-w-sm text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-destructive/20">
-          <AlertCircle className="h-6 w-6 text-destructive" />
-        </div>
-        <h3 className="mt-4 text-base font-semibold text-sidebar-foreground">
-          {isPasswordError ? "Password-protected PDFs aren't supported" : "Error loading document"}
-        </h3>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {isPasswordError
-            ? "This PDF is password protected and can't be opened in ThinkEx."
-            : documentState.error || "An unknown error occurred"}
-        </p>
-        {documentState.name && (
-          <p className="mt-1 text-xs text-muted-foreground/70">
-            {documentState.name}
-          </p>
-        )}
-        {documentState.errorCode && (
-          <p className="mt-1 text-xs text-muted-foreground/70">
-            Error code: {documentState.errorCode}
-          </p>
-        )}
-        <button
-          onClick={() => provides?.closeDocument(documentId)}
-          className="mt-4 inline-flex items-center gap-2 rounded-md border border-sidebar-border bg-sidebar-accent px-4 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent/80"
-        >
-          Close Document
-        </button>
-      </div>
-    </div>
-  );
-};
 
 /**
  * Persists the current page, zoom level, and scroll offset to localStorage and restores page on mount.
@@ -1023,7 +974,7 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
                   {/* Error state (including password required) */}
                   {isError && (
                     <div className="w-full h-full" style={{ minHeight: '300px', backgroundColor: 'var(--sidebar)' }}>
-                      <PdfErrorState documentId={activeDocumentId} documentState={documentState} />
+                      <PdfPasswordPrompt documentState={documentState} pdfSrc={pdfSrc} />
                     </div>
                   )}
 

@@ -12,61 +12,6 @@ import { AudioCardContent } from "./AudioCardContent";
 
 import { QuizContent } from "./QuizContent";
 
-function blocksToPlainText(blocks: Block[]): string {
-  if (!blocks || blocks.length === 0) return "";
-  return blocks
-    .map((block) => {
-      const blockData = block as { content?: Array<{ text?: string }> };
-      if (blockData.content && Array.isArray(blockData.content)) {
-        return blockData.content
-          .map((item) => item.text || "")
-          .join("");
-      }
-      return "";
-    })
-    .join("\n");
-}
-
-function NoteCardRenderer({
-  item,
-  noteData,
-  onUpdateData,
-}: {
-  item: Item;
-  noteData: NoteData;
-  onUpdateData: (updater: (prev: ItemData) => ItemData) => void;
-}) {
-  const initialBlocks = useMemo(() => {
-    if (noteData.blockContent) {
-      return noteData.blockContent as unknown as Block[];
-    }
-
-    return [
-      {
-        type: "paragraph",
-        content: [{ type: "text", text: noteData.field1 || "", styles: {} }],
-      },
-    ] as unknown as Block[];
-  }, [noteData.blockContent, noteData.field1]);
-
-  return (
-    <LazyBlockNoteEditor
-      key={item.id}
-      initialContent={initialBlocks}
-      cardName={item.name}
-      cardId={item.id}
-      lastSource={item.lastSource}
-      autofocus={true}
-      sources={noteData.sources}
-      onChange={(blocks) => {
-        onUpdateData(() => ({
-          blockContent: blocks,
-          field1: blocksToPlainText(blocks),
-        }));
-      }}
-    />
-  );
-}
 
 export function CardRenderer(props: {
   item: Item;
@@ -78,12 +23,50 @@ export function CardRenderer(props: {
 
   if (item.type === "note") {
     const noteData = item.data as NoteData;
+
+    const blocksToPlainText = (blocks: Block[]): string => {
+      if (!blocks || blocks.length === 0) return "";
+      return blocks
+        .map((block) => {
+          const blockData = block as { content?: Array<{ text?: string }> };
+          if (blockData.content && Array.isArray(blockData.content)) {
+            return blockData.content
+              .map((item) => item.text || "")
+              .join("");
+          }
+          return "";
+        })
+        .join("\n");
+    };
+
+    const initialBlocks = useMemo(() => {
+      // Check for block content from updated data or fallback to field1
+      if (noteData.blockContent) {
+        return noteData.blockContent as unknown as Block[];
+      }
+      return [{
+        type: "paragraph",
+        content: [{ type: "text", text: noteData.field1 || "", styles: {} }]
+      }] as unknown as Block[];
+    }, [noteData.blockContent, noteData.field1, item.id, item.lastSource]);
     return (
-      <NoteCardRenderer
-        item={item}
-        noteData={noteData}
-        onUpdateData={onUpdateData}
-      />
+      <>
+        <LazyBlockNoteEditor
+          key={item.id}
+          initialContent={initialBlocks}
+          cardName={item.name}
+          cardId={item.id}
+          lastSource={item.lastSource}
+          autofocus={true}
+          sources={noteData.sources}
+          onChange={(blocks) => {
+            onUpdateData(() => ({
+              blockContent: blocks,
+              field1: blocksToPlainText(blocks),
+            }));
+          }}
+        />
+      </>
     );
   }
 

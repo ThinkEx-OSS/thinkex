@@ -5,7 +5,7 @@ import {
   unstable_useRemoteThreadListRuntime as useRemoteThreadListRuntime,
 } from "@assistant-ui/react";
 import { useChatRuntime, AssistantChatTransport } from "@assistant-ui/react-ai-sdk";
-import { createContext, useCallback, useContext, useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { AssistantAvailableProvider } from "@/contexts/AssistantAvailabilityContext";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { toast } from "sonner";
@@ -21,54 +21,6 @@ interface WorkspaceRuntimeProviderProps {
 
 import { ImageSearchToolUI } from "@/components/assistant-ui/ImageSearchToolUI";
 import { AddImageToolUI } from "@/components/assistant-ui/AddImageToolUI";
-
-const WorkspaceChatRuntimeContext = createContext<{
-  transport: AssistantChatTransport;
-  handleChatError: (error: Error) => void;
-} | null>(null);
-
-function useWorkspaceChatRuntimeFromContext() {
-  const context = useContext(WorkspaceChatRuntimeContext);
-
-  if (!context) {
-    throw new Error("useWorkspaceChatRuntimeFromContext must be used within WorkspaceChatRuntimeContext");
-  }
-
-  return useChatRuntime({
-    transport: context.transport,
-    onError: context.handleChatError,
-    toCreateMessage: toCreateMessageWithContext,
-  });
-}
-
-function WorkspaceChatRuntimeHook() {
-  return useWorkspaceChatRuntimeFromContext();
-}
-
-function WorkspaceRuntimeHost({
-  workspaceId,
-  children,
-}: WorkspaceRuntimeProviderProps) {
-  const threadListAdapter = useMemo(
-    () => createThreadListAdapter(workspaceId),
-    [workspaceId]
-  );
-
-  const runtime = useRemoteThreadListRuntime({
-    runtimeHook: WorkspaceChatRuntimeHook,
-    adapter: threadListAdapter,
-  });
-
-  return (
-    <AssistantRuntimeProvider runtime={runtime}>
-      <AssistantAvailableProvider>
-        {children}
-        <ImageSearchToolUI />
-        <AddImageToolUI />
-      </AssistantAvailableProvider>
-    </AssistantRuntimeProvider>
-  );
-}
 
 export function WorkspaceRuntimeProvider({
   workspaceId,
@@ -150,6 +102,11 @@ export function WorkspaceRuntimeProvider({
     }
   }, []);
 
+  const threadListAdapter = useMemo(
+    () => createThreadListAdapter(workspaceId),
+    [workspaceId]
+  );
+
   const transport = useMemo(
     () =>
       new AssistantChatTransport({
@@ -164,11 +121,23 @@ export function WorkspaceRuntimeProvider({
     [workspaceId, selectedModelId, activeFolderId, selectedCardsContext]
   );
 
+  const runtime = useRemoteThreadListRuntime({
+    runtimeHook: () =>
+      useChatRuntime({
+        transport,
+        onError: handleChatError,
+        toCreateMessage: toCreateMessageWithContext,
+      }),
+    adapter: threadListAdapter,
+  });
+
   return (
-    <WorkspaceChatRuntimeContext.Provider value={{ transport, handleChatError }}>
-      <WorkspaceRuntimeHost workspaceId={workspaceId}>
+    <AssistantRuntimeProvider runtime={runtime}>
+      <AssistantAvailableProvider>
         {children}
-      </WorkspaceRuntimeHost>
-    </WorkspaceChatRuntimeContext.Provider>
+        <ImageSearchToolUI />
+        <AddImageToolUI />
+      </AssistantAvailableProvider>
+    </AssistantRuntimeProvider>
   );
 }

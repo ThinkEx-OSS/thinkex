@@ -61,25 +61,17 @@ const DeleteCardInner: FC<{
 
 DeleteCardInner.displayName = "DeleteCardInner";
 
-function DeleteCardToolUIRender({
-  status,
-  result,
-}: {
-  status: { type: string; reason?: string };
-  result: unknown;
-}) {
-  const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-
-  useOptimisticToolUpdate(status, result as any, currentWorkspaceId);
-
-  return (
-    <ToolUIErrorBoundary componentName="DeleteCard">
-      <DeleteCardInner result={result} status={status} />
-    </ToolUIErrorBoundary>
-  );
-}
-
 export const DeleteCardToolUI = makeAssistantToolUI({
   toolName: "deleteCard",
-  render: DeleteCardToolUIRender,
+  render: ({ status, result }) => {
+    const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+
+    useOptimisticToolUpdate(status, result as any, currentWorkspaceId);
+
+    return (
+      <ToolUIErrorBoundary componentName="DeleteCard">
+        <DeleteCardInner result={result} status={status} />
+      </ToolUIErrorBoundary>
+    );
+  },
 });
