@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://thinkex.app">
-    <img alt="ThinkEx" src="public/newreadmeimage.svg" width="500" />
+    <img alt="ThinkEx" src="public/readmelogo.svg" width="500" />
   </a>
 </p>
 
