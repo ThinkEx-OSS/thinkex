@@ -413,30 +413,6 @@ export function HomeContent() {
                 {/* Hero Glow Effect */}
                 <HeroGlow />
 
-                {/* Social proof */}
-                <div className="mb-12 flex flex-wrap items-center justify-center gap-3 text-xs sm:text-sm relative z-10">
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/10 text-sidebar-foreground">
-                    <div className="flex -space-x-2">
-                      {[
-                        "bg-gradient-to-br from-blue-400 to-blue-600",
-                        "bg-gradient-to-br from-emerald-400 to-emerald-600",
-                        "bg-gradient-to-br from-amber-400 to-amber-600",
-                        "bg-gradient-to-br from-rose-400 to-rose-600",
-                      ].map((gradient, i) => (
-                        <div
-                          key={gradient}
-                          className={`w-5 h-5 rounded-full ${gradient} flex items-center justify-center text-white text-[9px] font-medium shadow-sm`}
-                        >
-                          {["T", "J", "A", "M"][i]}
-                        </div>
-                      ))}
-                    </div>
-                    <span className="text-xs sm:text-sm font-medium text-muted-foreground">
-                      500+ daily active users
-                    </span>
-                  </div>
-                </div>
-
                 {/* Dynamic tagline with mask wipe animation */}
                 <div className="mb-10 relative z-10">
                   <DynamicTagline />
