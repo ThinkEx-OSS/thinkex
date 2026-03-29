@@ -1,5 +1,4 @@
 import type { Instrumentation } from "next";
-import { BraintrustExporter } from "@braintrust/otel";
 import { registerOTel } from "@vercel/otel";
 import {
   capturePostHogServerException,
@@ -7,13 +6,7 @@ import {
 } from "@/lib/posthog-server";
 
 export function register() {
-  registerOTel({
-    serviceName: "thinkex",
-    traceExporter: new BraintrustExporter({
-      parent: "project_name:thinkex",
-      filterAISpans: true,
-    }),
-  });
+  registerOTel({ serviceName: "thinkex" });
 }
 
 export const onRequestError: Instrumentation.onRequestError = async (

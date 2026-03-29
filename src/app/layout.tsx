@@ -69,18 +69,11 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         {isDev && (
-          <>
-            <Script
-              src="//unpkg.com/react-grab/dist/index.global.js"
-              crossOrigin="anonymous"
-              strategy="beforeInteractive"
-            />
-            <Script
-              src="//unpkg.com/react-scan/dist/auto.global.js"
-              crossOrigin="anonymous"
-              strategy="beforeInteractive"
-            />
-          </>
+          <Script
+            src="//unpkg.com/react-grab/dist/index.global.js"
+            crossOrigin="anonymous"
+            strategy="beforeInteractive"
+          />
         )}
       </head>
       <body className="subpixel-antialiased bg-background text-foreground">
