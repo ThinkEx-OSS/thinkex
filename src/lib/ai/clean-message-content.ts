@@ -1,6 +1,6 @@
 /**
  * Processes message content to extract a title and clean up the content
- * Similar to how the createNote tool processes input
+ * Similar to how the createDocument tool processes input
  */
 
 export interface ProcessedContent {
@@ -10,12 +10,12 @@ export interface ProcessedContent {
 
 /**
  * Processes message content to extract a title and clean up the content
- * Replicates the behavior of the createNote tool
+ * Replicates the behavior of the createDocument tool
  */
 export function processMessageContent(rawContent: string): ProcessedContent {
   // If the content is empty, return defaults
   if (!rawContent || !rawContent.trim()) {
-    return { title: "New Note", content: "" };
+    return { title: "New Document", content: "" };
   }
 
   let title: string;
@@ -36,7 +36,7 @@ export function processMessageContent(rawContent: string): ProcessedContent {
       content = content.substring(firstLineBreak + 1).trim();
     } else {
       // Single line of content
-      title = content || "New Note";
+      title = content || "New Document";
       content = "";
     }
   }
@@ -67,7 +67,7 @@ export function processMessageContent(rawContent: string): ProcessedContent {
   }
 
   return {
-    title: title || "New Note",
+    title: title || "New Document",
     content: content
   };
 }

@@ -88,7 +88,7 @@ export function CardDetailModal({
   // Render as modal overlay (default)
   return (
     <div
-      className="absolute inset-0 z-30 flex items-center justify-center overflow-hidden card-detail-modal bg-background border-t border-sidebar-border"
+      className="absolute inset-0 z-30 flex items-center justify-center overflow-hidden card-detail-modal bg-background"
     >
       {/* Backdrop with blur */}
       <div

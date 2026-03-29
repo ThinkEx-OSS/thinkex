@@ -1,6 +1,6 @@
 "use client";
 
-import { Streamdown } from "streamdown";
+import { Streamdown, type CodeHighlighterPlugin } from "streamdown";
 import "streamdown/styles.css";
 import { createCodePlugin } from "@streamdown/code";
 import { mermaid } from "@streamdown/mermaid";
@@ -32,7 +32,9 @@ import { preprocessLatex } from "@/lib/utils/preprocess-latex";
 import { cn } from "@/lib/utils";
 
 const math = createMathPlugin({ singleDollarTextMath: true });
-const code = createCodePlugin({ themes: ["one-dark-pro", "one-dark-pro"] });
+const code = createCodePlugin({
+  themes: ["one-dark-pro", "one-dark-pro"],
+}) as CodeHighlighterPlugin;
 
 /** Parse page number from citation ref (e.g. "Title | quote | p. 5" or "Title | p. 5"). */
 function parseCitationPage(ref: string): { title: string; quote?: string; pageNumber?: number } {
@@ -112,11 +114,11 @@ const CitationRenderer = memo(
       const items = workspaceState.items;
       const byPath = resolveItemByPath(items, title);
       const item =
-        byPath && (byPath.type === "note" || byPath.type === "pdf")
+        byPath && (byPath.type === "note" || byPath.type === "document" || byPath.type === "pdf")
           ? byPath
           : items.find(
               (i) =>
-                (i.type === "note" || i.type === "pdf") &&
+                (i.type === "note" || i.type === "document" || i.type === "pdf") &&
                 titleNorm(i.name) === titleNorm(title)
             );
       if (!item) return;

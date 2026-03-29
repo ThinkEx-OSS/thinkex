@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceMutation } from "./use-workspace-mutation";
 import { createEvent, type EventResponse } from "@/lib/workspace/events";
 import { replayEvents } from "@/lib/workspace/event-reducer";
-import type { Item, ItemData, CardType, AgentState } from "@/lib/workspace-state/types";
+import type { Item, ItemData, CardType, AgentState, DocumentData } from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import { defaultDataFor } from "@/lib/workspace-state/item-helpers";
@@ -33,6 +33,7 @@ export interface WorkspaceOperations {
   setGlobalTitle: (title: string) => void;
 
   flushPendingChanges: (itemId: string) => void;
+  getDocumentMarkdownForExport: (itemId: string) => string;
   // Folder operations
   createFolder: (name: string, color?: CardColor) => string;
   createFolderWithItems: (name: string, itemIds: string[], color?: CardColor) => string;
@@ -79,6 +80,49 @@ export function useWorkspaceOperations(
   const pendingItemChangesRef = useRef<Map<string, Partial<Item>>>(new Map());
   const pendingItemDataUpdatersRef = useRef<Map<string, (prev: Item['data']) => Item['data']>>(new Map());
 
+  const getLatestItemFromState = useCallback(
+    (itemId: string) => {
+      if (workspaceId) {
+        const cacheData = queryClient.getQueryData<EventResponse>([
+          "workspace",
+          workspaceId,
+          "events",
+        ]);
+        if (cacheData?.events) {
+          const latestState = replayEvents(cacheData.events, workspaceId, cacheData.snapshot?.state);
+          const cachedItem = latestState.items.find((item) => item.id === itemId);
+          if (cachedItem) {
+            return cachedItem;
+          }
+        }
+      }
+
+      return currentState.items.find((item) => item.id === itemId);
+    },
+    [workspaceId, queryClient, currentState.items]
+  );
+
+  const getLatestItemWithPendingChanges = useCallback(
+    (itemId: string) => {
+      const item = getLatestItemFromState(itemId);
+      if (!item) return undefined;
+
+      const pendingChanges = pendingItemChangesRef.current.get(itemId);
+      const itemWithPendingChanges = pendingChanges ? { ...item, ...pendingChanges } : item;
+
+      const pendingUpdater = pendingItemDataUpdatersRef.current.get(itemId);
+      if (!pendingUpdater) {
+        return itemWithPendingChanges;
+      }
+
+      return {
+        ...itemWithPendingChanges,
+        data: pendingUpdater(itemWithPendingChanges.data),
+      };
+    },
+    [getLatestItemFromState]
+  );
+
   // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
@@ -97,7 +141,7 @@ export function useWorkspaceOperations(
       // Validate type is a valid CardType
       logger.debug("🔧 [CREATE-ITEM] Received type:", type, "typeof:", typeof type, "value:", JSON.stringify(type));
 
-      const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube", "quiz", "image", "audio", "website"];
+      const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube", "quiz", "image", "audio", "website", "document"];
       const validType = validTypes.includes(type) ? type : "note";
 
       if (validType !== type) {
@@ -191,7 +235,7 @@ export function useWorkspaceOperations(
       // Create all items
       const createdItems: Item[] = items.map(({ type, name, initialData, initialLayout }) => {
         // Validate type is a valid CardType
-        const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube", "quiz", "image", "audio", "website"];
+        const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube", "quiz", "image", "audio", "website", "document"];
         const validType = validTypes.includes(type) ? type : "note";
 
         if (validType !== type) {
@@ -759,7 +803,7 @@ export function useWorkspaceOperations(
 
         const pendingChanges = pendingItemChangesRef.current.get(itemId);
         if (pendingChanges) {
-          const item = currentState.items.find(i => i.id === itemId);
+          const item = getLatestItemFromState(itemId);
           const name = (pendingChanges as Partial<Item>).name ?? item?.name;
           logger.debug("💾 [FLUSH] Sending pending updateItem changes:", { itemId, changes: pendingChanges });
           const event = createEvent("ITEM_UPDATED", { id: itemId, changes: pendingChanges, name }, userId, userName);
@@ -777,7 +821,7 @@ export function useWorkspaceOperations(
         const pendingUpdater = pendingItemDataUpdatersRef.current.get(itemId);
         if (pendingUpdater) {
           // Get the latest item state
-          const latestItem = currentState.items.find(item => item.id === itemId);
+          const latestItem = getLatestItemFromState(itemId);
           if (latestItem) {
             logger.debug("💾 [FLUSH] Sending pending updateItemData changes:", { itemId });
             const newData = pendingUpdater(latestItem.data);
@@ -795,7 +839,16 @@ export function useWorkspaceOperations(
         }
       }
     },
-    [currentState, mutation, userId, userName]
+    [getLatestItemFromState, mutation, userId, userName]
+  );
+
+  const getDocumentMarkdownForExport = useCallback(
+    (itemId: string) => {
+      const item = getLatestItemWithPendingChanges(itemId);
+      if (!item || item.type !== "document") return "";
+      return (item.data as DocumentData).markdown ?? "";
+    },
+    [getLatestItemWithPendingChanges]
   );
 
   return {
@@ -807,6 +860,7 @@ export function useWorkspaceOperations(
     updateAllItems,
     setGlobalTitle,
     flushPendingChanges,
+    getDocumentMarkdownForExport,
     // Folder operations
     createFolder,
     createFolderWithItems,

@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  createContext,
+  useContext,
+} from "react";
 import Image from "next/image";
 import { HomePromptInput } from "./HomePromptInput";
 import { DynamicTagline } from "./DynamicTagline";
@@ -21,7 +28,10 @@ import {
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
-import { HomeAttachmentsProvider, useHomeAttachments } from "@/contexts/HomeAttachmentsContext";
+import {
+  HomeAttachmentsProvider,
+  useHomeAttachments,
+} from "@/contexts/HomeAttachmentsContext";
 import { LinkInputDialog } from "./LinkInputDialog";
 import { HomeHeroDropzone } from "./HomeHeroDropzone";
 import {
@@ -64,7 +74,16 @@ async function getClipboardImage(): Promise<File | null> {
       for (const type of item.types) {
         if (type.startsWith("image/")) {
           const blob = await item.getType(type);
-          const ext = type === "image/png" ? "png" : type === "image/jpeg" || type === "image/jpg" ? "jpg" : type === "image/gif" ? "gif" : type === "image/webp" ? "webp" : "png";
+          const ext =
+            type === "image/png"
+              ? "png"
+              : type === "image/jpeg" || type === "image/jpg"
+                ? "jpg"
+                : type === "image/gif"
+                  ? "gif"
+                  : type === "image/webp"
+                    ? "webp"
+                    : "png";
           return new File([blob], `image-${Date.now()}.${ext}`, { type });
         }
       }
@@ -88,7 +107,8 @@ function HeroAttachmentsSection({
   onPastedText,
   onClearPastedText,
 }: HeroAttachmentsSectionProps) {
-  const { addFiles, addLink, canAddMoreLinks, canAddYouTube } = useHomeAttachments();
+  const { addFiles, addLink, canAddMoreLinks, canAddYouTube } =
+    useHomeAttachments();
 
   const handleUpload = () => fileInputRef.current?.click();
 
@@ -109,7 +129,9 @@ function HeroAttachmentsSection({
 
   const handleAddLink = (url: string) => {
     if (!pastedText) {
-      onPastedText("Analyze this content and extract its core concepts. Create a detailed study guide summarizing the main ideas and generate a practice quiz to test my understanding.");
+      onPastedText(
+        "Analyze this content and extract its core concepts. Create a detailed study guide summarizing the main ideas and generate a practice quiz to test my understanding.",
+      );
     }
     addLink(url);
     onRequestShowPromptInput();
@@ -130,7 +152,9 @@ function HeroAttachmentsSection({
       }
     } catch {
       onRequestShowPromptInput();
-      toast.error("Could not read clipboard. Check permissions or try pasting manually.");
+      toast.error(
+        "Could not read clipboard. Check permissions or try pasting manually.",
+      );
     }
   };
 
@@ -177,7 +201,9 @@ function HeroAttachmentsSection({
 
 export function HomeContent() {
   const router = useRouter();
-  const setShouldOpenOnWorkspaceLoad = useAudioRecordingStore((s) => s.setShouldOpenOnWorkspaceLoad);
+  const setShouldOpenOnWorkspaceLoad = useAudioRecordingStore(
+    (s) => s.setShouldOpenOnWorkspaceLoad,
+  );
   const [scrollY, setScrollY] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [heroVisible, setHeroVisible] = useState(true);
@@ -225,16 +251,20 @@ export function HomeContent() {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.target === heroEl) {
-            setHeroVisible(entry.isIntersecting && entry.intersectionRatio > 0.5);
+            setHeroVisible(
+              entry.isIntersecting && entry.intersectionRatio > 0.5,
+            );
           } else if (entry.target === workspacesEl) {
-            setWorkspacesVisible(entry.isIntersecting && entry.intersectionRatio > 0.3);
+            setWorkspacesVisible(
+              entry.isIntersecting && entry.intersectionRatio > 0.3,
+            );
           }
         });
       },
       {
         root: scrollRef.current,
         threshold: [0.3, 0.5],
-      }
+      },
     );
 
     observer.observe(heroEl);
@@ -271,7 +301,10 @@ export function HomeContent() {
   }, []);
 
   const scrollToWorkspaces = useCallback(() => {
-    workspacesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    workspacesRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   }, []);
 
   const handleRecordInNewWorkspace = () => {
@@ -289,10 +322,11 @@ export function HomeContent() {
           router.push(`/workspace/${workspace.slug}`);
         },
         onError: (err) => {
-          const msg = err instanceof Error ? err.message : "Something went wrong";
+          const msg =
+            err instanceof Error ? err.message : "Something went wrong";
           toast.error("Could not create workspace", { description: msg });
         },
-      }
+      },
     );
   };
 
@@ -332,12 +366,14 @@ export function HomeContent() {
       {/* Scrollable Content */}
       <HomeAttachmentsProvider>
         <HomeHeroDropzone onFilesDropped={() => setShowPromptInput(true)}>
-          <div ref={scrollRef} className="relative h-full w-full overflow-y-auto">
+          <div
+            ref={scrollRef}
+            className="relative h-full w-full overflow-y-auto"
+          >
             {/* Floating Card Background with spotlight reveal effect */}
             <div className="absolute inset-x-0 top-0 h-[185vh] z-0 select-none overflow-hidden">
               <FloatingWorkspaceCards
                 bottomGradientHeight="40%"
-                includeExtraCards={true}
               />
             </div>
 
@@ -345,7 +381,8 @@ export function HomeContent() {
             <div
               className="fixed bottom-0 left-0 right-0 h-[40vh] pointer-events-none z-[5]"
               style={{
-                background: 'linear-gradient(to bottom, transparent 0%, hsl(var(--background)) 100%)',
+                background:
+                  "linear-gradient(to bottom, transparent 0%, var(--background) 100%)",
               }}
             />
 
@@ -355,7 +392,7 @@ export function HomeContent() {
                 "fixed bottom-8 left-1/2 -translate-x-1/2 z-[20] transition-all duration-300 ease-out",
                 showScrollHint && hasWorkspaces
                   ? "opacity-100 translate-y-0"
-                  : "opacity-0 translate-y-2 pointer-events-none"
+                  : "opacity-0 translate-y-2 pointer-events-none",
               )}
             >
               <button
@@ -394,7 +431,9 @@ export function HomeContent() {
                         </div>
                       ))}
                     </div>
-                    <span className="text-xs sm:text-sm font-medium text-muted-foreground">500+ daily active users</span>
+                    <span className="text-xs sm:text-sm font-medium text-muted-foreground">
+                      500+ daily active users
+                    </span>
                   </div>
                 </div>
 
@@ -420,11 +459,16 @@ export function HomeContent() {
             </div>
 
             {/* Workspaces Section - Allow scrolling within */}
-            <div ref={workspacesRef} className="relative z-10 px-6 pb-8 pt-8 min-h-screen bg-gradient-to-b from-transparent via-background to-background">
+            <div
+              ref={workspacesRef}
+              className="relative z-10 px-6 pb-8 pt-8 min-h-screen bg-gradient-to-b from-transparent via-background to-background"
+            >
               <div className="w-full max-w-6xl mx-auto h-full">
                 {/* Your Workspaces */}
                 <div className="bg-sidebar backdrop-blur-xl border border-border/50 rounded-2xl p-6 shadow-2xl">
-                  <h2 className="text-lg font-normal text-muted-foreground mb-4">Recent workspaces</h2>
+                  <h2 className="text-lg font-normal text-muted-foreground mb-4">
+                    Recent workspaces
+                  </h2>
                   <WorkspaceGrid searchQuery={searchQuery} />
                 </div>
               </div>

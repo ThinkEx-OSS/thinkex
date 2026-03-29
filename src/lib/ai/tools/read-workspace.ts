@@ -7,7 +7,7 @@ import { formatItemContent } from "@/lib/utils/format-workspace-context";
 import { getNoteContentAsMarkdown } from "@/lib/utils/format-workspace-context";
 import { getVirtualPath } from "@/lib/utils/workspace-fs";
 import type { WorkspaceToolContext } from "./workspace-tools";
-import type { NoteData } from "@/lib/workspace-state/types";
+import type { NoteData, DocumentData } from "@/lib/workspace-state/types";
 
 const DEFAULT_LIMIT = 500;
 const MAX_LIMIT = 2000;
@@ -16,7 +16,7 @@ const MAX_LINE_LENGTH = 2000;
 export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Read content of a workspace item by path or name. Works for notes, flashcards, PDFs, quizzes, images, audio, websites, and YouTube cards when readable content or metadata exists. Contents are returned with each line prefixed by its line number as <line>: <content>. For example, if content is 'foo', you receive '1: foo'. Quizzes include progress at the top when started (current question, score). By default returns up to 500 lines. Use lineStart (1-indexed) to read later sections. For PDFs: pageStart and pageEnd for page ranges. Use searchWorkspace to find content in large items. Any line longer than 2000 characters is truncated. Avoid tiny repeated slices; read a larger window.",
+            "Read content of a workspace item by path or name. Works for notes, documents, flashcards, PDFs, quizzes, images, audio, websites, and YouTube cards when readable content or metadata exists. Content is returned as raw lines with no line-number prefixes, so it can be copied directly into editItem oldString. The response includes rangeNote: 'Full content' when returning the entire item, or 'Lines X–Y of Z' (and 'has more' if there is more). Use lineStart (1-indexed) to read later sections. For PDFs: pageStart and pageEnd for page ranges. Use searchWorkspace to find content in large items. Quizzes include progress at the top when started. Any line longer than 2000 characters is truncated. Avoid tiny repeated slices; read a larger window.",
         inputSchema: zodSchema(
             z.object({
                 path: z
@@ -115,7 +115,7 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
             if (item.type === "folder") {
                 return {
                     success: false,
-                    message: "Folders have no readable content. Use path to a note, flashcard, PDF, quiz, image, audio, website, or YouTube item.",
+                    message: "Folders have no readable content. Use path to a note, document, flashcard, PDF, quiz, image, audio, website, or YouTube item.",
                 };
             }
 
@@ -130,24 +130,30 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
             const fullContent =
                 item.type === "note"
                     ? getNoteContentAsMarkdown(item.data as NoteData)
-                    : formatItemContent(item, pdfPageRange);
+                    : item.type === "document"
+                        ? ((item.data as DocumentData).markdown ?? "")
+                        : formatItemContent(item, pdfPageRange);
             const allLines = fullContent.split(/\r?\n/);
             const totalLines = allLines.length;
             const startIdx = Math.max(0, lineStart - 1);
             const cappedLimit = Math.min(limit, MAX_LIMIT);
             const slice = allLines.slice(startIdx, startIdx + cappedLimit);
             const content = slice
-                .map((line, i) => {
-                    const lineNum = startIdx + 1 + i;
-                    const truncated =
-                        line.length > MAX_LINE_LENGTH
-                            ? line.substring(0, MAX_LINE_LENGTH) + "..."
-                            : line;
-                    return `${lineNum}: ${truncated}`;
-                })
+                .map((line) =>
+                    line.length > MAX_LINE_LENGTH
+                        ? line.substring(0, MAX_LINE_LENGTH) + "..."
+                        : line
+                )
                 .join("\n");
             const lineEnd = startIdx + slice.length;
             const hasMore = lineEnd < totalLines;
+
+            const rangeNote =
+                !hasMore && startIdx === 0 && slice.length === totalLines
+                    ? "Full content"
+                    : hasMore
+                      ? `Lines ${startIdx + 1}–${lineEnd} of ${totalLines} (has more)`
+                      : `Lines ${startIdx + 1}–${lineEnd} of ${totalLines}`;
 
             const vpath = getVirtualPath(item, items);
 
@@ -161,6 +167,7 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
                 lineStart: startIdx + 1,
                 lineEnd,
                 hasMore,
+                rangeNote,
                 ...(hasMore && { nextLineStart: lineEnd + 1 }),
                 ...(item.type === "pdf" &&
                     Array.isArray((item.data as { ocrPages?: unknown[] })?.ocrPages) && {

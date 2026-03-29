@@ -4,40 +4,17 @@ import { useState, useMemo, useCallback } from "react";
 import {
   ChevronRight,
   Folder as FolderIcon,
-  File,
-  Play,
-  Brain,
-  ImageIcon,
-  Mic,
 } from "lucide-react";
-import { CgNotes } from "react-icons/cg";
-import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import type { Item, CardType } from "@/lib/workspace-state/types";
 import { getChildFolders, searchItemsByName } from "@/lib/workspace-state/search";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
+import { WorkspaceItemTypeIcon } from "@/components/workspace/WorkspaceItemTypeIcon";
 
 export function getCardTypeIcon(type: CardType) {
-  switch (type) {
-    case "note":
-      return <CgNotes className="size-3.5 text-blue-400" />;
-    case "pdf":
-      return <File className="size-3.5 text-red-400" />;
-    case "flashcard":
-      return <PiCardsThreeBold className="size-3.5 text-purple-400 rotate-180" />;
-    case "quiz":
-      return <Brain className="size-3.5 text-green-400" />;
-    case "youtube":
-      return <Play className="size-3.5 text-red-500" />;
-    case "folder":
-      return <FolderIcon className="size-3.5 text-amber-500" />;
-    case "image":
-      return <ImageIcon className="size-3.5 text-emerald-500" />;
-    case "audio":
-      return <Mic className="size-3.5 text-orange-400" />;
-    default:
-      return <CgNotes className="size-3.5 text-muted-foreground" />;
-  }
+  return type === "folder"
+    ? <FolderIcon className="size-3.5 text-amber-400" />
+    : <WorkspaceItemTypeIcon type={type} className="size-3.5" />;
 }
 
 interface FolderTreeItemProps {

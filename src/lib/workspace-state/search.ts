@@ -1,4 +1,4 @@
-import type { Item, NoteData, PdfData } from "./types";
+import type { Item, NoteData, PdfData, DocumentData } from "./types";
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
 import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
 import { type Block } from "@/components/editor/BlockNoteEditor";
@@ -22,6 +22,11 @@ function getSearchableDataText(item: Item): string {
     case "pdf": {
       const pdfData = data as PdfData;
       return getOcrPagesTextContent(pdfData.ocrPages);
+    }
+
+    case "document": {
+      const documentData = data as DocumentData;
+      return documentData.markdown ?? "";
     }
 
     default:

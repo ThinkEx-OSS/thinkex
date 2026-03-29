@@ -4,7 +4,7 @@ import { logger } from "@/lib/utils/logger";
 import { headers } from "next/headers";
 import { z } from "zod";
 
-const createNoteSchema = z.object({
+const createDocumentRequestSchema = z.object({
     workspaceId: z.string().uuid(),
     title: z.string().min(1),
     content: z.string().optional(),
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const result = createNoteSchema.safeParse(body);
+        const result = createDocumentRequestSchema.safeParse(body);
 
         if (!result.success) {
             return new Response(JSON.stringify({ error: "Invalid request body", details: result.error }), {
@@ -33,12 +33,13 @@ export async function POST(req: Request) {
 
         const { workspaceId, title, content, folderId } = result.data;
 
-        logger.info("📝 [API] Creating note via manual confirmation:", { workspaceId, title });
+        logger.info("📝 [API] Creating document via legacy note endpoint:", { workspaceId, title });
 
         const workerResult = await workspaceWorker("create", {
             workspaceId,
             title,
             content,
+            itemType: "document",
             folderId,
         });
 
@@ -55,7 +56,7 @@ export async function POST(req: Request) {
         });
 
     } catch (error) {
-        logger.error("❌ [API] Error creating note:", error);
+        logger.error("❌ [API] Error creating document:", error);
         return new Response(JSON.stringify({ error: "Internal server error" }), {
             status: 500,
             headers: { "Content-Type": "application/json" },

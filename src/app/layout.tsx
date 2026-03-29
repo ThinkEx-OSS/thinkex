@@ -42,7 +42,10 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: isDev ? "/favicon-dev.svg" : "/newfav.ico", sizes: "32x32" },
-      { url: isDev ? "/favicon-dev.svg" : "/thinkexdarkfav.svg", type: "image/svg+xml" },
+      {
+        url: isDev ? "/favicon-dev.svg" : "/thinkexdarkfav.svg",
+        type: "image/svg+xml",
+      },
     ],
     apple: "/apple-touch-icon.png",
   },
@@ -83,7 +86,13 @@ export default function RootLayout({
         <AppProviders>
           <PostHogProvider>
             <QueryProvider>
-              <Providers>{children}</Providers>
+              <Providers>
+                <Script
+                  src="https://accounts.google.com/gsi/client"
+                  strategy="afterInteractive"
+                />
+                {children}
+              </Providers>
             </QueryProvider>
           </PostHogProvider>
         </AppProviders>

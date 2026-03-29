@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { AgentState, WorkspaceWithState } from "@/lib/workspace-state/types";
+import type { AgentState, PdfData, WorkspaceWithState } from "@/lib/workspace-state/types";
 import { initialState } from "@/lib/workspace-state/state";
 import { useScrollHeader } from "@/hooks/ui/use-scroll-header";
 import { useKeyboardShortcuts } from "@/hooks/ui/use-keyboard-shortcuts";
@@ -177,7 +177,7 @@ function DashboardContent({
   // But we keep it for the UI save button
   const manualSave = useCallback(async () => {
     updateLastSaved(new Date());
-  }, [updateLastSaved, currentWorkspaceId]);
+  }, [updateLastSaved]);
 
   // Update save status based on mutation status
   useEffect(() => {
@@ -300,14 +300,17 @@ function DashboardContent({
     }
   }, [state?.items, showJsonView, setShowJsonView]);
 
-  const getStatePreviewJSON = (s: AgentState | undefined): Record<string, unknown> => {
-    const snapshot = (s ?? initialState) as AgentState;
-    const { globalTitle, items } = snapshot;
-    return {
-      globalTitle: globalTitle ?? initialState.globalTitle,
-      items: items ?? initialState.items,
-    };
-  };
+  const getStatePreviewJSON = useCallback(
+    (s: AgentState | undefined): Record<string, unknown> => {
+      const snapshot = (s ?? initialState) as AgentState;
+      const { globalTitle, items } = snapshot;
+      return {
+        globalTitle: globalTitle ?? initialState.globalTitle,
+        items: items ?? initialState.items,
+      };
+    },
+    []
+  );
 
 
   // CopilotKit actions removed - now using Assistant-UI directly
@@ -384,7 +387,7 @@ function DashboardContent({
 
   const handleShowHistory = useCallback(() => {
     setShowVersionHistory(true);
-  }, [currentWorkspaceId]);
+  }, []);
 
   // Build the split view layout element (for panel+panel mode only)
   const splitViewContent = useMemo(() => {
@@ -438,7 +441,7 @@ function DashboardContent({
         onFlushPendingChanges={operations.flushPendingChanges}
       />
     );
-  }, [viewMode, state.items, loadingCurrentWorkspace, isLoadingWorkspace, currentWorkspaceId, currentSlug, state, showJsonView, isSaving, lastSavedAt, hasUnsavedChanges, isChatMaximized, isDesktop, isChatExpanded, currentWorkspaceTitle, currentWorkspaceIcon, currentWorkspaceColor, operations, manualSave, setSearchDialogOpen, setIsChatExpanded, setOpenModalItemId, handleShowHistory, titleInputRef, scrollAreaRef, getStatePreviewJSON]);
+  }, [viewMode, loadingCurrentWorkspace, isLoadingWorkspace, currentWorkspaceId, currentSlug, state, showJsonView, isSaving, lastSavedAt, hasUnsavedChanges, isChatMaximized, isDesktop, isChatExpanded, currentWorkspaceTitle, currentWorkspaceIcon, currentWorkspaceColor, operations, manualSave, setSearchDialogOpen, setIsChatExpanded, setOpenModalItemId, handleShowHistory, titleInputRef, scrollAreaRef, getStatePreviewJSON]);
 
   // Build the single panel content (for workspace+panel mode)
   const panelContent = useMemo(() => {
@@ -558,6 +561,8 @@ function DashboardContent({
               onMinimizeActiveItem={() => setMaximizedItemId(null)}
               onMaximizeActiveItem={(id) => setMaximizedItemId(id)}
               onUpdateActiveItem={operations.updateItem}
+              getDocumentMarkdownForExport={operations.getDocumentMarkdownForExport}
+              googleLoginHint={session?.user?.email ?? null}
             />
           ) : undefined
         }

@@ -97,10 +97,10 @@ export function useTextSelectionAgent(operations: WorkspaceOperations): TextSele
       // Use markdown content if available, otherwise fallback to plain text
       const content = markdownContent || text;
       
-      // Create a simple note card with the content
-      await operations.createItem("note", "New Highlight", { field1: content });
+      // Create a simple document card with the content
+      await operations.createItem("document", "New Highlight", { markdown: content });
       
-      toast.success("Highlight saved to note");
+      toast.success("Highlight saved to document");
     } catch (error) {
       console.error("Error creating instant note:", error);
       toast.error("Failed to save highlight");
@@ -115,11 +115,11 @@ export function useTextSelectionAgent(operations: WorkspaceOperations): TextSele
       // Combine all markdown content with proper formatting
       const combinedContent = combineMarkdownSelections(markdownContents);
       
-      // Create a simple note card with all the content
-      await operations.createItem("note", "New Highlight", { field1: combinedContent });
+      // Create a simple document card with all the content
+      await operations.createItem("document", "New Highlight", { markdown: combinedContent });
       
       const count = selections.length;
-      toast.success(`Saved ${count} highlight${count === 1 ? '' : 's'} to note`);
+      toast.success(`Saved ${count} highlight${count === 1 ? '' : 's'} to document`);
     } catch (error) {
       console.error("Error creating card from selections:", error);
       toast.error("Failed to save highlights");

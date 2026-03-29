@@ -8,7 +8,7 @@ import { createEvent } from "@/lib/workspace/events";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import { getRandomCardColor } from "@/lib/workspace-state/colors";
 import { logger } from "@/lib/utils/logger";
-import type { Item, NoteData, PdfData, ImageData, QuizData, QuizQuestion, FlashcardData, FlashcardItem } from "@/lib/workspace-state/types";
+import type { Item, NoteData, PdfData, ImageData, QuizData, QuizQuestion, FlashcardData, FlashcardItem, DocumentData } from "@/lib/workspace-state/types";
 import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
 import { markdownToBlocks, fixLLMDoubleEscaping } from "@/lib/editor/markdown-to-blocks";
 import { executeWorkspaceOperation } from "./common";
@@ -27,7 +27,7 @@ export type CreateItemParams = {
     id?: string; // Optional pre-generated item ID (if not provided, one is generated)
     title?: string;
     content?: string;
-    itemType?: "note" | "flashcard" | "quiz" | "youtube" | "image" | "audio" | "pdf";
+    itemType?: "note" | "flashcard" | "quiz" | "youtube" | "image" | "audio" | "pdf" | "document";
     pdfData?: {
         fileUrl: string;
         filename: string;
@@ -116,6 +116,12 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
     } else if (itemType === "quiz") {
         if (!p.quizData) throw new Error("Quiz data required for quiz creation");
         itemData = p.quizData;
+    } else if (itemType === "document") {
+        const normalizedContent = p.content ? fixLLMDoubleEscaping(p.content) : "";
+        itemData = {
+            markdown: normalizedContent,
+            ...(p.sources?.length && { sources: p.sources }),
+        } as DocumentData;
     } else {
         const normalizedContent = p.content ? fixLLMDoubleEscaping(p.content) : "";
         const blockContent = normalizedContent ? await markdownToBlocks(normalizedContent) : undefined;
@@ -127,6 +133,7 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
     }
 
     const defaultNames: Record<string, string> = {
+        document: "New Document",
         youtube: "YouTube Video",
         image: "Image",
         quiz: "New Quiz",
@@ -138,7 +145,7 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
     return {
         id: itemId,
         type: itemType,
-        name: p.title || defaultNames[itemType] || "New Note",
+        name: p.title || defaultNames[itemType] || "New Document",
         subtitle: "",
         data: itemData,
         color: getRandomCardColor(),
@@ -218,7 +225,7 @@ export async function workspaceWorker(
         /** Rename the item (edit action) */
         newName?: string;
 
-        itemType?: "note" | "flashcard" | "quiz" | "youtube" | "image" | "audio" | "pdf"; // Defaults to "note" if undefined
+        itemType?: "note" | "flashcard" | "quiz" | "youtube" | "image" | "audio" | "pdf" | "document"; // Defaults to "note" if undefined
         pdfData?: {
             fileUrl: string;
             filename: string;
@@ -1327,6 +1334,91 @@ export async function workspaceWorker(
                         event,
                         version: appendResult.version,
                         questionCount: validatedQuestions.length,
+                    };
+                }
+
+                if (existingItem.type === "document") {
+                    const changes: Partial<Item> = {};
+                    const docData = existingItem.data as DocumentData;
+                    if (rename) {
+                        if (hasDuplicateName(currentState.items, rename, "document", existingItem.folderId ?? null, params.itemId)) {
+                            return { success: false, message: `A document named "${rename}" already exists in this folder` };
+                        }
+                        changes.name = rename;
+                    }
+
+                    let contentOld = "";
+                    let contentNew = "";
+                    if (isRenameOnly) {
+                        contentOld = "";
+                        contentNew = "";
+                    } else {
+                        if (oldStr === "") {
+                            contentOld = "";
+                            contentNew = newStr;
+                        } else {
+                            contentOld = normalizeLineEndings(docData.markdown ?? "");
+                            const normOld = normalizeLineEndings(oldStr);
+                            const normNew = normalizeLineEndings(newStr);
+                            contentNew = applyReplace(contentOld, normOld, normNew, replaceAll);
+                        }
+                        contentNew = fixLLMDoubleEscaping(contentNew);
+                        changes.data = {
+                            markdown: contentNew,
+                            ...(params.sources !== undefined
+                                ? { sources: params.sources }
+                                : docData.sources != null
+                                  ? { sources: docData.sources }
+                                  : {}),
+                        } as DocumentData;
+                    }
+
+                    if (params.sources !== undefined && !changes.data) {
+                        changes.data = {
+                            ...docData,
+                            sources: params.sources,
+                        } as DocumentData;
+                    }
+
+                    if (Object.keys(changes).length === 0) {
+                        return { success: true, itemId: params.itemId, message: "No changes to update" };
+                    }
+
+                    const itemName = (changes.name ?? existingItem.name) as string;
+                    const event = createEvent("ITEM_UPDATED", { id: params.itemId, changes, source: "agent", name: itemName }, userId, userName);
+                    const currentVersionResult = await db.execute(sql`
+                        SELECT get_workspace_version(${params.workspaceId}::uuid) as version
+                    `);
+                    const baseVersion = currentVersionResult[0]?.version || 0;
+                    const eventResult = await db.execute(sql`
+                        SELECT append_workspace_event(
+                            ${params.workspaceId}::uuid, ${event.id}::text, ${event.type}::text,
+                            ${JSON.stringify(event.payload)}::jsonb, ${event.timestamp}::bigint, ${event.userId}::text,
+                            ${baseVersion}::integer, ${event.userName ?? null}::text
+                        ) as result
+                    `);
+                    if (!eventResult?.length) throw new Error("Failed to update document");
+                    const appendResult = parseAppendResult(eventResult[0].result);
+                    if (appendResult.conflict) throw new Error("Workspace was modified by another user, please try again");
+
+                    const diffOutput = trimDiff(
+                        createPatch(params.itemName ?? "document", normalizeLineEndings(contentOld), normalizeLineEndings(contentNew))
+                    );
+                    let filediffAdditions = 0;
+                    let filediffDeletions = 0;
+                    for (const ch of diffLines(contentOld, contentNew)) {
+                        if (ch.added) filediffAdditions += ch.count || 0;
+                        if (ch.removed) filediffDeletions += ch.count || 0;
+                    }
+
+                    return {
+                        success: true,
+                        itemId: params.itemId,
+                        message: "Updated document successfully",
+                        event,
+                        version: appendResult.version,
+                        diff: diffOutput,
+                        filediff: { additions: filediffAdditions, deletions: filediffDeletions },
                     };
                 }
 

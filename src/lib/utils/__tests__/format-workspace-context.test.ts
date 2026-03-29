@@ -113,7 +113,7 @@ describe("formatItemContent (readWorkspace format) matches getNoteContentAsMarkd
     expect(formatted.trimEnd()).toBe(rawContent.trimEnd());
   });
 
-  it("oldString copied from readWorkspace (strip line numbers) can be used in replace", () => {
+  it("oldString copied from readWorkspace (raw content, no prefixes) can be used in replace", () => {
     const blockContent = [
       mkHeading(1, "My Note"),
       mkParagraph("First para"),
@@ -122,24 +122,8 @@ describe("formatItemContent (readWorkspace format) matches getNoteContentAsMarkd
     const item = mkNoteItem(blockContent);
     const rawContent = getNoteContentAsMarkdown(item.data as NoteData);
 
-    // Simulate readWorkspace: split into lines, add "N: " prefix
-    const lines = rawContent.split(/\r?\n/);
-    const numbered = lines.map((line, i) => `${i + 1}: ${line}`).join("\n");
-
-    // Simulate AI stripping line numbers: take content after "N: " from each line
-    const stripped = numbered
-      .split("\n")
-      .map((l) => l.replace(/^\d+:\s*/, ""))
-      .join("\n");
-
-    expect(stripped).toBe(rawContent);
-
-    // Now apply replace - must succeed
-    const newContent = replace(
-      rawContent,
-      "First para",
-      "Updated para"
-    );
+    // readWorkspace returns raw content with no line prefixes — copy directly into oldString
+    const newContent = replace(rawContent, "First para", "Updated para");
     expect(newContent).toContain("Updated para");
     expect(newContent).not.toContain("First para");
   });

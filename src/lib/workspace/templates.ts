@@ -36,12 +36,11 @@ export const WORKSPACE_TEMPLATES: TemplateDefinition[] = [
         items: [
           {
             id: "sample-note-1",
-            type: "note",
+            type: "document",
             name: "Update me", // Special name triggers generating skeleton in UI
             subtitle: "",
             data: {
-              blockContent: [], // Empty content for generating state
-              field1: "",
+              markdown: "",
             },
             color: sampleColors[0],
             layout: { x: 2, y: 5, w: 1, h: 4 },

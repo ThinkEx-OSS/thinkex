@@ -11,7 +11,7 @@ const BlockNoteEditor = dynamic(() => import("./BlockNoteEditor"), {
   ssr: false,
 });
 
-interface DynamicBlockNoteEditorProps {
+interface LazyBlockNoteEditorProps {
   initialContent?: Block[];
   onChange?: (blocks: Block[]) => void;
   readOnly?: boolean;
@@ -22,9 +22,8 @@ interface DynamicBlockNoteEditorProps {
   sources?: Array<{ url: string; title: string }>;
 }
 
-export function DynamicBlockNoteEditor({ initialContent, onChange, readOnly, cardName, cardId, lastSource, autofocus, sources }: DynamicBlockNoteEditorProps) {
+export function LazyBlockNoteEditor({ initialContent, onChange, readOnly, cardName, cardId, lastSource, autofocus, sources }: LazyBlockNoteEditorProps) {
   return <BlockNoteEditor initialContent={initialContent} onChange={onChange} readOnly={readOnly} cardName={cardName} cardId={cardId} lastSource={lastSource} autofocus={autofocus} sources={sources} />;
 }
 
-export default DynamicBlockNoteEditor;
-
+export default LazyBlockNoteEditor;

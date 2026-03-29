@@ -1,9 +1,7 @@
 "use client";
 
 import { memo, useMemo, useCallback, useState, useEffect, useRef } from "react";
-import { ChevronRight, File, FolderOpen, Folder as FolderIcon, MoreVertical, Trash2, Pencil, FolderInput, Play, Brain, ImageIcon, Mic, Globe } from "lucide-react";
-import { CgNotes } from "react-icons/cg";
-import { PiCardsThreeBold } from "react-icons/pi";
+import { ChevronRight, FolderOpen, Folder as FolderIcon, MoreVertical, Trash2, Pencil, FolderInput } from "lucide-react";
 import {
     SidebarMenu,
     SidebarMenuItem,
@@ -42,33 +40,13 @@ import { toast } from "sonner";
 import MoveToDialog from "@/components/modals/MoveToDialog";
 import RenameDialog from "@/components/modals/RenameDialog";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { WorkspaceItemTypeIcon } from "@/components/workspace/WorkspaceItemTypeIcon";
 
 /**
  * Get icon for card type
  */
 function getCardTypeIcon(type: CardType) {
-    switch (type) {
-        case "note":
-            return <CgNotes className="size-3.5 text-blue-400" />;
-        case "pdf":
-            return <File className="size-3.5 text-red-400" />;
-        case "flashcard":
-            return <PiCardsThreeBold className="size-3.5 text-purple-400 rotate-180" />;
-        case "quiz":
-            return <Brain className="size-3.5 text-green-400" />;
-        case "youtube":
-            return <Play className="size-3.5 text-red-500" />;
-        case "folder":
-            return <FolderIcon className="size-3.5 text-amber-400" />;
-        case "image":
-            return <ImageIcon className="size-3.5 text-emerald-500" />;
-        case "audio":
-            return <Mic className="size-3.5 text-orange-400" />;
-        case "website":
-            return <Globe className="size-3.5 text-sky-400" />;
-        default:
-            return <CgNotes className="size-3.5 text-muted-foreground" />;
-    }
+    return <WorkspaceItemTypeIcon type={type} className="size-3.5" />;
 }
 
 /**

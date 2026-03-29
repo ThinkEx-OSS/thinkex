@@ -1,15 +1,17 @@
 "use client";
 
-import type { Item, ItemData, NoteData, PdfData, FlashcardData, YouTubeData, ImageData } from "@/lib/workspace-state/types";
+import type { Item, ItemData, NoteData, PdfData, FlashcardData, YouTubeData, ImageData, DocumentData } from "@/lib/workspace-state/types";
 import { useMemo } from "react";
-import { DynamicBlockNoteEditor } from "@/components/editor/DynamicBlockNoteEditor";
+import { LazyBlockNoteEditor } from "@/components/editor/LazyBlockNoteEditor";
 import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEditor";
+import { DocumentEditor } from "@/components/editor/DocumentEditor";
 import FlashcardContent from "./FlashcardContent";
 import YouTubeCardContent from "./YouTubeCardContent";
 import ImageCardContent from "./ImageCardContent";
 import { AudioCardContent } from "./AudioCardContent";
 
 import { QuizContent } from "./QuizContent";
+
 
 export function CardRenderer(props: {
   item: Item;
@@ -49,7 +51,7 @@ export function CardRenderer(props: {
     }, [noteData.blockContent, noteData.field1, item.id, item.lastSource]);
     return (
       <>
-        <DynamicBlockNoteEditor
+        <LazyBlockNoteEditor
           key={item.id}
           initialContent={initialBlocks}
           cardName={item.name}
@@ -126,6 +128,28 @@ export function CardRenderer(props: {
         {hostname && (
           <span className="text-sm text-muted-foreground">{hostname}</span>
         )}
+      </div>
+    );
+  }
+
+  if (item.type === "document") {
+    const documentData = item.data as DocumentData;
+    const md = documentData.markdown?.trim() || "";
+    return (
+      <div className="flex flex-col">
+        <DocumentEditor
+          autofocus={true}
+          content={md || undefined}
+          contentType={md ? "markdown" : undefined}
+          embedded={true}
+          lastSource={item.lastSource}
+          showThemeToggle={false}
+          onUpdate={({ markdown }) => {
+            onUpdateData(() => ({
+              markdown,
+            }));
+          }}
+        />
       </div>
     );
   }

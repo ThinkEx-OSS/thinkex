@@ -1,0 +1,39 @@
+"use client";
+
+import { File, FileText, Folder as FolderIcon, Globe, ImageIcon, Mic, Play, Brain } from "lucide-react";
+import { CgNotes } from "react-icons/cg";
+import { PiCardsThreeBold } from "react-icons/pi";
+import type { CardType } from "@/lib/workspace-state/types";
+import { cn } from "@/lib/utils";
+
+interface WorkspaceItemTypeIconProps {
+  type: CardType;
+  className?: string;
+}
+
+export function WorkspaceItemTypeIcon({ type, className }: WorkspaceItemTypeIconProps) {
+  switch (type) {
+    case "note":
+      return <CgNotes className={cn("text-blue-400", className)} />;
+    case "document":
+      return <FileText className={cn("text-sky-400", className)} />;
+    case "pdf":
+      return <File className={cn("text-red-400", className)} />;
+    case "flashcard":
+      return <PiCardsThreeBold className={cn("rotate-180 text-purple-400", className)} />;
+    case "quiz":
+      return <Brain className={cn("text-green-400", className)} />;
+    case "youtube":
+      return <Play className={cn("text-red-500", className)} />;
+    case "folder":
+      return <FolderIcon className={cn("text-amber-400", className)} />;
+    case "image":
+      return <ImageIcon className={cn("text-emerald-500", className)} />;
+    case "audio":
+      return <Mic className={cn("text-orange-400", className)} />;
+    case "website":
+      return <Globe className={cn("text-sky-400", className)} />;
+    default:
+      return <CgNotes className={cn("text-muted-foreground", className)} />;
+  }
+}

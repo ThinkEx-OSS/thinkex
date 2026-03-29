@@ -66,7 +66,7 @@ export function SplitViewLayout({
                     </div>
                 </ResizablePanel>
 
-                <ResizableHandle id="split-handle" className="border-r border-sidebar-border" />
+                <ResizableHandle id="split-handle" />
 
                 {/* Right: Item Panel */}
                 <ResizablePanel
@@ -127,7 +127,7 @@ export function SplitViewLayout({
                     />
                 </ResizablePanel>
 
-                <ResizableHandle id="split-panel-handle" className="border-r border-sidebar-border" />
+                <ResizableHandle id="split-panel-handle" />
 
                 {/* Right Panel */}
                 <ResizablePanel

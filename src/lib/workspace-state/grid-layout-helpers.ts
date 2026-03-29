@@ -14,6 +14,7 @@ export const DEFAULT_CARD_DIMENSIONS: Record<CardType, { w: number; h: number }>
   image: { w: 2, h: 5 },
   audio: { w: 2, h: 10 },
   website: { w: 1, h: 4 },
+  document: { w: 1, h: 4 },
 };
 
 /**

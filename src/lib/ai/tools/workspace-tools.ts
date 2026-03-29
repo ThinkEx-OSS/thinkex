@@ -16,14 +16,14 @@ export interface WorkspaceToolContext {
 }
 
 /**
- * Create the createNote tool
+ * Create the createDocument tool
  */
-export function createNoteTool(ctx: WorkspaceToolContext) {
+export function createDocumentTool(ctx: WorkspaceToolContext) {
     return withSanitizedModelOutput(tool({
-        description: "Create a note card.",
+        description: "Create a document card. Documents use a rich TipTap editor with full markdown support (headings, lists, tables, math, etc.). Use this for longer-form structured content.",
         inputSchema: zodSchema(
             z.object({
-                title: z.string().describe("The title of the note card"),
+                title: z.string().describe("The title of the document card"),
                 content: z.string().describe("The markdown body content. CRITICAL: DO NOT repeat the title in content — the title is displayed separately. Start with subheadings or body text only."),
                 sources: z.array(
                     z.object({
@@ -35,7 +35,6 @@ export function createNoteTool(ctx: WorkspaceToolContext) {
             })
         ),
         execute: async ({ title, content, sources }) => {
-            // Validate inputs before use
             if (!title || typeof title !== 'string') {
                 return {
                     success: false,
@@ -49,7 +48,11 @@ export function createNoteTool(ctx: WorkspaceToolContext) {
                 };
             }
 
-            logger.debug("🎯 [ORCHESTRATOR] Delegating to Workspace Worker (create note):", { title, contentLength: content.length, sourcesCount: sources?.length });
+            logger.debug("🎯 [ORCHESTRATOR] Delegating to Workspace Worker (create document):", {
+                title,
+                contentLength: content.length,
+                sourcesCount: sources?.length,
+            });
 
             if (!ctx.workspaceId) {
                 return {
@@ -63,6 +66,7 @@ export function createNoteTool(ctx: WorkspaceToolContext) {
                 title,
                 content,
                 sources,
+                itemType: "document",
                 folderId: ctx.activeFolderId,
             });
         },
@@ -74,7 +78,7 @@ export function createNoteTool(ctx: WorkspaceToolContext) {
  */
 export function createDeleteItemTool(ctx: WorkspaceToolContext) {
     return withSanitizedModelOutput(tool({
-        description: "Delete a card/note from the workspace by name. Can be restored from version history.",
+        description: "Delete a workspace item by name. Can be restored from version history.",
         inputSchema: zodSchema(
             z.object({
                 itemName: z.string().describe("Item name or virtual path (e.g. pdfs/Report.pdf) to delete"),

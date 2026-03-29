@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
 interface ThinkExLogoProps {
@@ -10,16 +9,14 @@ interface ThinkExLogoProps {
   priority?: boolean;
 }
 
-export function ThinkExLogo({ size = 24, className, priority }: ThinkExLogoProps) {
-  const { resolvedTheme } = useTheme();
-  // Default to dark when undefined (SSR/pre-hydration) - app defaults to dark
-  const isDark = resolvedTheme !== "light";
-
-  const src = isDark ? "/newlogothinkex-dark.svg" : "/newlogothinkex-light.svg";
-
+export function ThinkExLogo({
+  size = 24,
+  className,
+  priority,
+}: ThinkExLogoProps) {
   return (
     <Image
-      src={src}
+      src="/newlogothinkex.svg"
       alt="ThinkEx Logo"
       width={size}
       height={size}

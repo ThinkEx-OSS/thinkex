@@ -13,7 +13,6 @@ export const seoConfig = {
   siteName: "ThinkEx",
   author: "ThinkEx",
   defaultImage: "/opengraph.png",
-  themeColor: "#5227FF",
 } as const;
 
 export const getPageTitle = (title?: string): string => {
@@ -27,4 +26,3 @@ export const getFullImageUrl = (image?: string): string => {
   if (imagePath.startsWith("http")) return imagePath;
   return `${seoConfig.siteUrl}${imagePath}`;
 };
-

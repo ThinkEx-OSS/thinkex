@@ -36,9 +36,7 @@ export const metadata: Metadata = {
     title: "ThinkEx",
   },
   applicationName: "ThinkEx",
-  themeColor: seoConfig.themeColor,
   other: {
-    "msapplication-TileColor": seoConfig.themeColor,
     "msapplication-config": "/browserconfig.xml",
   },
 };

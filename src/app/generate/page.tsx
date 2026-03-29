@@ -17,13 +17,13 @@ const PROGRESS_LABELS: Record<string, string> = {
   understanding: "Understanding content...",
   metadata: "Generating workspace title...",
   workspace: "Creating your workspace...",
-  note: "Creating your note...",
+  document: "Creating your document...",
   quiz: "Creating your quiz...",
   youtube: "Adding a video...",
   complete: "Done! Opening your workspace...",
 };
 
-const PROGRESS_STEPS = ["understanding", "metadata", "workspace", "note", "quiz", "youtube"] as const;
+const PROGRESS_STEPS = ["understanding", "metadata", "workspace", "document", "quiz", "youtube"] as const;
 
 function GenerateContent() {
   const router = useRouter();
@@ -142,10 +142,10 @@ function GenerateContent() {
               } else if (stage === "distillation" && p.metadata && typeof (p.metadata as Record<string, unknown>).title === "string") {
                 const t = (p.metadata as Record<string, unknown>).title as string;
                 if (t) applyIfNotAborted(() => setProgressText(`Workspace: ${t}...`));
-              } else if (stage === "noteQuiz") {
-                const note = p.note as Record<string, unknown> | undefined;
-                if (typeof note?.title === "string" && note.title) {
-                  applyIfNotAborted(() => setProgressText(`Creating note: ${note.title}...`));
+              } else if (stage === "documentQuiz") {
+                const document = p.document as Record<string, unknown> | undefined;
+                if (typeof document?.title === "string" && document.title) {
+                  applyIfNotAborted(() => setProgressText(`Creating document: ${document.title}...`));
                 }
               }
             } else if (ev.type === "metadata") {
@@ -153,7 +153,7 @@ function GenerateContent() {
               applyIfNotAborted(() => setProgressText(PROGRESS_LABELS.workspace));
             } else if (ev.type === "workspace") {
               setCompletedSteps((s) => (s.includes("workspace") ? s : [...s, "workspace"]));
-              applyIfNotAborted(() => setProgressText("Creating your note, quiz, and video..."));
+              applyIfNotAborted(() => setProgressText("Creating your document, quiz, and video..."));
             } else if (ev.type === "progress" && ev.data?.step) {
               const step = ev.data.step;
               setCompletedSteps((s) => (s.includes(step) ? s : [...s, step]));
@@ -226,7 +226,7 @@ function GenerateContent() {
     <div className="relative min-h-screen w-full">
       {/* Floating card background — fixed so it covers viewport behind modal */}
       <div className="fixed inset-0 z-[1] select-none pointer-events-none">
-        <FloatingWorkspaceCards bottomGradientHeight="50%" includeExtraCards clearerBackground />
+        <FloatingWorkspaceCards bottomGradientHeight="50%" clearerBackground />
       </div>
 
       <div className="relative z-10 flex min-h-[60vh] flex-col items-center justify-center">

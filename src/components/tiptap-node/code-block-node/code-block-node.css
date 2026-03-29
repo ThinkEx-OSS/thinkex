@@ -1,0 +1,41 @@
+/* TipTap Custom Code Block Node Styles */
+
+/* Editable code content area */
+.tiptap-code-block-pre {
+  margin: 0;
+  padding: 16px;
+  overflow-x: auto;
+  min-height: 40px;
+}
+
+.tiptap-code-block-code {
+  padding: 0 16px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  tab-size: 2;
+  white-space: pre;
+  color: hsl(var(--foreground));
+}
+
+/* Code content area scrollbar */
+.tiptap-code-block-pre::-webkit-scrollbar {
+  height: 6px;
+}
+
+.tiptap-code-block-pre::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tiptap-code-block-pre::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+
+/* Remove default TipTap code block styling when our custom node view is active */
+.tiptap-code-block-node pre {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
