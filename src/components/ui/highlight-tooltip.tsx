@@ -651,13 +651,6 @@ export function HighlightTooltip({
     };
   }, [visible, onHide]);
 
-  if (typeof window === "undefined") return null;
-
-  // Don't render if position is invalid (0,0 means not set yet)
-  // However, if we have a referenceElement, Floating UI will position it, so we can render
-  const hasValidPosition = position.x !== 0 || position.y !== 0;
-  const hasReference = !!referenceElement; // DOM element or Range
-
   // Track unmounting state
   useEffect(() => {
     isUnmountingRef.current = false;
@@ -682,6 +675,13 @@ export function HighlightTooltip({
       }
     };
   }, [refs]);
+
+  if (typeof window === "undefined") return null;
+
+  // Don't render if position is invalid (0,0 means not set yet)
+  // However, if we have a referenceElement, Floating UI will position it, so we can render
+  const hasValidPosition = position.x !== 0 || position.y !== 0;
+  const hasReference = !!referenceElement; // DOM element or Range
 
   return createPortal(
     shouldRender && (hasValidPosition || hasReference) ? (
@@ -883,4 +883,3 @@ export function HighlightTooltip({
     document.body
   );
 }
-

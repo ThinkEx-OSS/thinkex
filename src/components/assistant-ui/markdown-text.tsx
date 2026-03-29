@@ -78,89 +78,91 @@ function extractCitationText(children: ReactNode): string {
  * SurfSense-style citation renderer.
  * Content is the ref itself: urlciteN (URL), or Title, or Title|quote (workspace).
  */
-const CitationRenderer = memo(
-  ({ children }: { children?: ReactNode }) => {
-    const ref = extractCitationText(children);
-    if (!ref) return null;
+function CitationRendererImpl({ children }: { children?: ReactNode }) {
+  const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
+  const { state: workspaceState } = useWorkspaceState(workspaceId);
+  const navigateToItem = useNavigateToItem();
+  const setOpenModalItemId = useUIStore((s) => s.setOpenModalItemId);
+  const setCitationHighlightQuery = useUIStore((s) => s.setCitationHighlightQuery);
 
-    // URL placeholder (from preprocess): render as direct link
-    const url = getCitationUrl(ref);
-    if (url) {
-      return <UrlCitation url={url} />;
-    }
+  const ref = extractCitationText(children);
+  if (!ref) return null;
 
-    // Direct URL (in case preprocess didn't run, e.g. edge case)
-    if (ref.startsWith("http://") || ref.startsWith("https://")) {
-      return <UrlCitation url={ref} />;
-    }
-
-    // Workspace citation: Title, Title|quote, or Title|quote|p. 5 (with optional page)
-    const parsed = parseCitationPage(ref);
-    const { title: parsedTitle, quote: parsedQuote, pageNumber } = parsed;
-    const title = parsedTitle;
-    const quote = parsedQuote;
-
-    const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
-    const { state: workspaceState } = useWorkspaceState(workspaceId);
-    const navigateToItem = useNavigateToItem();
-    const setOpenModalItemId = useUIStore((s) => s.setOpenModalItemId);
-    // Normalize for matching: trim, lowercase, strip .pdf (model may include it; items often don't)
-    const titleNorm = (s: string) => s.trim().toLowerCase().replace(/\.pdf$/i, "");
-    const setCitationHighlightQuery = useUIStore((s) => s.setCitationHighlightQuery);
-
-    const handleWorkspaceItemClick = () => {
-      if (!workspaceState?.items || !title) return;
-      // Resolve by virtual path first (e.g. "pdfs/Syllabus.pdf") — AI may cite using paths from <workspace>
-      const items = workspaceState.items;
-      const byPath = resolveItemByPath(items, title);
-      const item =
-        byPath && (byPath.type === "note" || byPath.type === "document" || byPath.type === "pdf")
-          ? byPath
-          : items.find(
-              (i) =>
-                (i.type === "note" || i.type === "document" || i.type === "pdf") &&
-                titleNorm(i.name) === titleNorm(title)
-            );
-      if (!item) return;
-      // Set citation highlight: for PDFs with page, or when we have a quote to search
-      if (quote?.trim() || (pageNumber != null && item.type === "pdf")) {
-        setCitationHighlightQuery({
-          itemId: item.id,
-          query: quote?.trim() ?? "",
-          ...(pageNumber != null && { pageNumber }),
-        });
-      }
-      navigateToItem(item.id, { silent: true });
-      setOpenModalItemId(item.id);
-    };
-
-    // For path-like refs (e.g. pdfs/Syllabus.pdf), show basename in badge
-    const displayTitle = title.includes("/") ? title.split("/").pop() ?? title : title;
-    const badgeLabel =
-      displayTitle.slice(0, 20) + (displayTitle.length > 20 ? "…" : "") +
-      (pageNumber != null ? ` · p.${pageNumber}` : "");
-
-    return (
-      <InlineCitation>
-        <Badge
-          variant="secondary"
-          className="ml-0.5 px-1.5 py-0 rounded-full text-[10px] font-medium cursor-pointer hover:bg-secondary/80"
-          onClick={handleWorkspaceItemClick}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              handleWorkspaceItemClick();
-            }
-          }}
-        >
-          {badgeLabel}
-        </Badge>
-      </InlineCitation>
-    );
+  // URL placeholder (from preprocess): render as direct link
+  const url = getCitationUrl(ref);
+  if (url) {
+    return <UrlCitation url={url} />;
   }
-);
+
+  // Direct URL (in case preprocess didn't run, e.g. edge case)
+  if (ref.startsWith("http://") || ref.startsWith("https://")) {
+    return <UrlCitation url={ref} />;
+  }
+
+  // Workspace citation: Title, Title|quote, or Title|quote|p. 5 (with optional page)
+  const parsed = parseCitationPage(ref);
+  const { title: parsedTitle, quote: parsedQuote, pageNumber } = parsed;
+  const title = parsedTitle;
+  const quote = parsedQuote;
+
+  // Normalize for matching: trim, lowercase, strip .pdf (model may include it; items often don't)
+  const titleNorm = (s: string) => s.trim().toLowerCase().replace(/\.pdf$/i, "");
+
+  const handleWorkspaceItemClick = () => {
+    if (!workspaceState?.items || !title) return;
+    // Resolve by virtual path first (e.g. "pdfs/Syllabus.pdf") — AI may cite using paths from <workspace>
+    const items = workspaceState.items;
+    const byPath = resolveItemByPath(items, title);
+    const item =
+      byPath && (byPath.type === "note" || byPath.type === "document" || byPath.type === "pdf")
+        ? byPath
+        : items.find(
+            (i) =>
+              (i.type === "note" || i.type === "document" || i.type === "pdf") &&
+              titleNorm(i.name) === titleNorm(title)
+          );
+    if (!item) return;
+    // Set citation highlight: for PDFs with page, or when we have a quote to search
+    if (quote?.trim() || (pageNumber != null && item.type === "pdf")) {
+      setCitationHighlightQuery({
+        itemId: item.id,
+        query: quote?.trim() ?? "",
+        ...(pageNumber != null && { pageNumber }),
+      });
+    }
+    navigateToItem(item.id, { silent: true });
+    setOpenModalItemId(item.id);
+  };
+
+  // For path-like refs (e.g. pdfs/Syllabus.pdf), show basename in badge
+  const displayTitle = title.includes("/") ? title.split("/").pop() ?? title : title;
+  const badgeLabel =
+    displayTitle.slice(0, 20) + (displayTitle.length > 20 ? "…" : "") +
+    (pageNumber != null ? ` · p.${pageNumber}` : "");
+
+  return (
+    <InlineCitation>
+      <Badge
+        variant="secondary"
+        className="ml-0.5 px-1.5 py-0 rounded-full text-[10px] font-medium cursor-pointer hover:bg-secondary/80"
+        onClick={handleWorkspaceItemClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleWorkspaceItemClick();
+          }
+        }}
+      >
+        {badgeLabel}
+      </Badge>
+    </InlineCitation>
+  );
+}
+
+const CitationRenderer = memo(CitationRendererImpl);
+CitationRenderer.displayName = "CitationRenderer";
 CitationRenderer.displayName = "CitationRenderer";
 
 /** Props from assistant-ui when used as Text component, or optional when used directly (e.g. in Reasoning) */

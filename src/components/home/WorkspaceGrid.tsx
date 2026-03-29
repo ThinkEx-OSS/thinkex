@@ -77,25 +77,6 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
     }, 0);
   };
 
-  const handleBulkDelete = async () => {
-    if (!confirm(`Are you sure you want to delete ${selectedIds.size} workspaces?`)) return;
-
-    // In a real app, use a bulk delete API. Here we loop (as per plan).
-    // We can use Promise.all but context might not support concurrent optimistic updates well?
-    // Let's try Promise.all.
-    const { deleteWorkspace } = useWorkspaceContext(); // We need to access this from context properly
-    // The hook provides deleteWorkspace, but we destructuring it inside the component is fine?
-    // Wait, useWorkspaceContext is called at the top: const { workspaces, switchWorkspace, loadWorkspaces } = useWorkspaceContext();
-    // I need to add deleteWorkspace to that destructuring.
-
-    try {
-      // Implementation detail: we need to import deleteWorkspace from context above
-      // For now, I'll update the destructuring in a separate chunk or assume I can access it
-    } catch (e) {
-      // Error handling
-    }
-  };
-
   // Format date helper
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "";
