@@ -79,7 +79,6 @@ import { ReadWorkspaceToolUI } from "@/components/assistant-ui/ReadWorkspaceTool
 import { MagicFetchToolUI } from "@/components/assistant-ui/MagicFetchToolUI";
 import { AIFeedbackDialog } from "@/components/assistant-ui/AIFeedbackDialog";
 
-import { DeleteCardToolUI } from "@/components/assistant-ui/DeleteCardToolUI";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { useAttachmentUploadStore } from "@/lib/stores/attachment-upload-store";
 import {
@@ -198,8 +197,6 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
         <CreateDocumentToolUI />
         <CreateFlashcardToolUI />
         <EditItemToolUI />
-
-        <DeleteCardToolUI />
 
         <YouTubeSearchToolUI />
         <AddYoutubeVideoToolUI />
