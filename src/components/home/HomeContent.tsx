@@ -5,26 +5,17 @@ import {
   useRef,
   useEffect,
   useCallback,
-  createContext,
-  useContext,
 } from "react";
-import Image from "next/image";
 import { HomePromptInput } from "./HomePromptInput";
 import { DynamicTagline } from "./DynamicTagline";
 import { WorkspaceGrid } from "./WorkspaceGrid";
 import { HomeTopBar } from "./HomeTopBar";
-import { FloatingWorkspaceCards } from "@/components/landing/FloatingWorkspaceCards";
+import { FloatingWorkspaceCards } from "@/components/background/FloatingWorkspaceCards";
 import { HeroGlow } from "./HeroGlow";
-import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ChevronDown } from "lucide-react";
 import { useCreateWorkspace } from "@/hooks/workspace/use-create-workspace";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
@@ -39,18 +30,10 @@ import {
   isStudyDocumentFile,
 } from "@/lib/uploads/home-upload-config";
 
-// Context for section visibility - allows child components to know when to focus
-const SectionVisibilityContext = createContext<{
-  heroVisible: boolean;
-  workspacesVisible: boolean;
-}>({ heroVisible: true, workspacesVisible: false });
-
-export const useSectionVisibility = () => useContext(SectionVisibilityContext);
-
 import { HomeActionCards } from "./HomeActionCards";
 import { RecordWorkspaceDialog } from "@/components/modals/RecordWorkspaceDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
-import { Footer } from "@/components/landing/Footer";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 
 interface HeroAttachmentsSectionProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -218,7 +201,6 @@ export function HomeContent() {
   const [pastedText, setPastedText] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [workspacesVisible, setWorkspacesVisible] = useState(false);
   const [showScrollHint, setShowScrollHint] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -237,7 +219,7 @@ export function HomeContent() {
     };
 
     const el = scrollRef.current;
-    el?.addEventListener("scroll", handleScroll);
+    el?.addEventListener("scroll", handleScroll, { passive: true });
     return () => el?.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -253,10 +235,6 @@ export function HomeContent() {
           if (entry.target === heroEl) {
             setHeroVisible(
               entry.isIntersecting && entry.intersectionRatio > 0.5,
-            );
-          } else if (entry.target === workspacesEl) {
-            setWorkspacesVisible(
-              entry.isIntersecting && entry.intersectionRatio > 0.3,
             );
           }
         });
@@ -452,7 +430,7 @@ export function HomeContent() {
 
             {/* Footer */}
             <div className="relative z-10">
-              <Footer />
+              <SiteFooter />
             </div>
           </div>
         </HomeHeroDropzone>
