@@ -42,8 +42,6 @@ import {
 
 import type { FC } from "react";
 import { createContext, useContext } from "react";
-import { LazyMotion, MotionConfig, domAnimation } from "motion/react";
-import * as m from "motion/react-m";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -137,58 +135,56 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
   const viewportRef = useRef<HTMLDivElement>(null);
 
   return (
-    <LazyMotion features={domAnimation}>
-      <MotionConfig reducedMotion="user">
-        {/* Register tool UI - this component mounts and registers the UI with the assistant runtime */}
-        <CreateQuizToolUI />
-        <CreateDocumentToolUI />
-        <CreateFlashcardToolUI />
-        <EditItemToolUI />
+    <>
+      {/* Register tool UI - this component mounts and registers the UI with the assistant runtime */}
+      <CreateQuizToolUI />
+      <CreateDocumentToolUI />
+      <CreateFlashcardToolUI />
+      <EditItemToolUI />
 
-        <YouTubeSearchToolUI />
-        <AddYoutubeVideoToolUI />
-        <ExecuteCodeToolUI />
-        <URLContextToolUI />
-        <WebSearchToolUI />
-        <SearchWorkspaceToolUI />
-        <ReadWorkspaceToolUI />
-        <MagicFetchToolUI />
-        <ThreadPrimitive.Root
-          className="aui-root aui-thread-root @container flex h-full flex-col bg-sidebar"
-          style={{
-            ["--thread-max-width" as string]: "50rem",
-          }}
+      <YouTubeSearchToolUI />
+      <AddYoutubeVideoToolUI />
+      <ExecuteCodeToolUI />
+      <URLContextToolUI />
+      <WebSearchToolUI />
+      <SearchWorkspaceToolUI />
+      <ReadWorkspaceToolUI />
+      <MagicFetchToolUI />
+      <ThreadPrimitive.Root
+        className="aui-root aui-thread-root @container flex h-full flex-col bg-sidebar"
+        style={{
+          ["--thread-max-width" as string]: "50rem",
+        }}
+      >
+        <ThreadPrimitive.Viewport
+          ref={viewportRef}
+          turnAnchor="top"
+          autoScroll={false}
+          className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll px-4"
         >
-          <ThreadPrimitive.Viewport
-            ref={viewportRef}
-            turnAnchor="top"
-            autoScroll={false}
-            className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll px-4"
+          <AuiIf condition={({ thread }) => thread.isLoading}>
+            <ThreadLoadingSkeleton />
+          </AuiIf>
+          <AuiIf
+            condition={({ thread }) => thread.isEmpty && !thread.isLoading}
           >
-            <AuiIf condition={({ thread }) => thread.isLoading}>
-              <ThreadLoadingSkeleton />
-            </AuiIf>
-            <AuiIf
-              condition={({ thread }) => thread.isEmpty && !thread.isLoading}
-            >
-              <ThreadWelcome items={items} />
-            </AuiIf>
+            <ThreadWelcome items={items} />
+          </AuiIf>
 
-            <ThreadPrimitive.Messages
-              components={{
-                UserMessage,
-                EditComposer,
-                AssistantMessage,
-              }}
-            />
-          </ThreadPrimitive.Viewport>
+          <ThreadPrimitive.Messages
+            components={{
+              UserMessage,
+              EditComposer,
+              AssistantMessage,
+            }}
+          />
+        </ThreadPrimitive.Viewport>
 
-          <div className="aui-thread-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-shrink-0 flex-col gap-4 overflow-visible rounded-t-3xl bg-sidebar px-4 pb-3 md:pb-4">
-            <ComposerHoverWrapper items={items} />
-          </div>
-        </ThreadPrimitive.Root>
-      </MotionConfig>
-    </LazyMotion>
+        <div className="aui-thread-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-shrink-0 flex-col gap-4 overflow-visible rounded-t-3xl bg-sidebar px-4 pb-3 md:pb-4">
+          <ComposerHoverWrapper items={items} />
+        </div>
+      </ThreadPrimitive.Root>
+    </>
   );
 };
 
@@ -235,32 +231,15 @@ const ThreadWelcome: FC<ThreadWelcomeProps> = ({ items }) => {
     <div className="aui-thread-welcome-root mx-auto my-auto flex w-full max-w-[var(--thread-max-width)] flex-grow flex-col">
       <div className="aui-thread-welcome-center flex w-full flex-grow flex-col items-center justify-center">
         <div className="aui-thread-welcome-message flex size-full flex-col justify-center px-8">
-          <m.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="aui-thread-welcome-message-motion-0 text-6xl font-light text-muted-foreground/40 text-center mb-2 flex justify-center mr-48"
-          >
+          <div className="aui-thread-welcome-message-motion-0 text-6xl font-light text-muted-foreground/40 text-center mb-2 flex justify-center mr-48">
             <FaQuoteLeft />
-          </m.div>
-          <m.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ delay: 0.05 }}
-            className="aui-thread-welcome-message-motion-1 text-2xl font-light italic text-center"
-          >
+          </div>
+          <div className="aui-thread-welcome-message-motion-1 text-2xl font-light italic text-center">
             I think, therefore I am
-          </m.div>
-          <m.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ delay: 0.1 }}
-            className="aui-thread-welcome-message-motion-2 text-lg text-muted-foreground/70 text-center mt-2"
-          >
+          </div>
+          <div className="aui-thread-welcome-message-motion-2 text-lg text-muted-foreground/70 text-center mt-2">
             — René Descartes
-          </m.div>
+          </div>
         </div>
       </div>
       <ThreadSuggestions items={items} />
@@ -341,11 +320,7 @@ const ThreadSuggestions: FC<ThreadSuggestionsProps> = ({ items }) => {
         {SUGGESTION_ACTIONS.map((suggestedAction, index) => {
           const Icon = suggestedAction.icon;
           return (
-            <m.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              transition={{ delay: 0.05 * index }}
+            <div
               key={`suggested-action-${suggestedAction.title}-${index}`}
               className="aui-thread-welcome-suggestion-display"
             >
@@ -379,7 +354,7 @@ const ThreadSuggestions: FC<ThreadSuggestionsProps> = ({ items }) => {
                   {suggestedAction.title}
                 </span>
               </Button>
-            </m.div>
+            </div>
           );
         })}
       </div>

@@ -3,7 +3,14 @@
 import { useState, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { FolderPlus, MoreVertical, Users, Trash2, Share2, X, CheckSquare } from "lucide-react";
+import {
+  FolderPlus,
+  MoreVertical,
+  Users,
+  Trash2,
+  Share2,
+  X,
+} from "lucide-react";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import CreateWorkspaceModal from "@/components/workspace/CreateWorkspaceModal";
@@ -12,10 +19,12 @@ import { cn } from "@/lib/utils";
 import WorkspaceSettingsModal from "@/components/workspace/WorkspaceSettingsModal";
 import ShareWorkspaceDialog from "@/components/workspace/ShareWorkspaceDialog";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
-import { getCardColorCSS, getCardAccentColor, type CardColor } from "@/lib/workspace-state/colors";
+import {
+  getCardAccentColor,
+  type CardColor,
+} from "@/lib/workspace-state/colors";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 
 import { WorkspaceGridSkeleton } from "@/components/home/WorkspaceGridSkeleton";
@@ -26,23 +35,27 @@ interface WorkspaceGridProps {
 
 export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
   const router = useRouter();
-  const { showCreateWorkspaceModal, setShowCreateWorkspaceModal } = useUIStore();
-  const { workspaces, switchWorkspace, loadWorkspaces, deleteWorkspace, loadingWorkspaces } = useWorkspaceContext();
+  const { showCreateWorkspaceModal, setShowCreateWorkspaceModal } =
+    useUIStore();
+  const {
+    workspaces,
+    switchWorkspace,
+    loadWorkspaces,
+    deleteWorkspace,
+    loadingWorkspaces,
+  } = useWorkspaceContext();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
-
-
 
   // Filter workspaces based on search query
   const filteredWorkspaces = useMemo(() => {
     const trimmedQuery = searchQuery.trim();
     if (!trimmedQuery) return workspaces;
     const query = trimmedQuery.toLowerCase();
-    return workspaces.filter((w) =>
-      w.name.toLowerCase().includes(query)
-    );
+    return workspaces.filter((w) => w.name.toLowerCase().includes(query));
   }, [workspaces, searchQuery]);
-  const [settingsWorkspace, setSettingsWorkspace] = useState<WorkspaceWithState | null>(null);
+  const [settingsWorkspace, setSettingsWorkspace] =
+    useState<WorkspaceWithState | null>(null);
   const prefetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Multi-select state
@@ -67,40 +80,29 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
     // We need to manually reset these because they were set via inline styles
     setTimeout(() => {
       filteredWorkspaces.forEach((workspace) => {
-        const element = document.querySelector(`[data-workspace-id="${workspace.id}"]`);
+        const element = document.querySelector(
+          `[data-workspace-id="${workspace.id}"]`,
+        );
         if (element instanceof HTMLElement) {
           const color = workspace.color as CardColor | undefined;
-          const borderColor = color ? getCardAccentColor(color, 0.2) : 'var(--sidebar-border)';
+          const borderColor = color
+            ? getCardAccentColor(color, 0.2)
+            : "var(--sidebar-border)";
           element.style.borderColor = borderColor;
         }
       });
     }, 0);
   };
 
-  const handleBulkDelete = async () => {
-    if (!confirm(`Are you sure you want to delete ${selectedIds.size} workspaces?`)) return;
-
-    // In a real app, use a bulk delete API. Here we loop (as per plan).
-    // We can use Promise.all but context might not support concurrent optimistic updates well?
-    // Let's try Promise.all.
-    const { deleteWorkspace } = useWorkspaceContext(); // We need to access this from context properly
-    // The hook provides deleteWorkspace, but we destructuring it inside the component is fine?
-    // Wait, useWorkspaceContext is called at the top: const { workspaces, switchWorkspace, loadWorkspaces } = useWorkspaceContext();
-    // I need to add deleteWorkspace to that destructuring.
-
-    try {
-      // Implementation detail: we need to import deleteWorkspace from context above
-      // For now, I'll update the destructuring in a separate chunk or assume I can access it
-    } catch (e) {
-      // Error handling
-    }
-  };
-
   // Format date helper
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "";
     const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   };
 
   // Get preview text from workspace
@@ -114,7 +116,10 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
         }
       }
       if (firstItem.type === "note") {
-        const noteData = firstItem.data as { field1?: string; blockContent?: unknown };
+        const noteData = firstItem.data as {
+          field1?: string;
+          blockContent?: unknown;
+        };
         if (noteData.field1) {
           return noteData.field1.split("\n").slice(0, 3).join("\n");
         }
@@ -124,7 +129,10 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
     return "";
   };
 
-  const handleSettingsClick = (e: React.MouseEvent | React.KeyboardEvent, workspace: WorkspaceWithState) => {
+  const handleSettingsClick = (
+    e: React.MouseEvent | React.KeyboardEvent,
+    workspace: WorkspaceWithState,
+  ) => {
     e.stopPropagation();
     setSettingsWorkspace(workspace);
     setShowSettingsModal(true);
@@ -163,7 +171,7 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
               "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background",
               "flex flex-col items-center justify-center gap-3",
               "bg-background/30 border-2 border-dashed border-sidebar-border/60",
-              "hover:border-solid hover:border-primary/50 hover:bg-background/50"
+              "hover:border-solid hover:border-primary/50 hover:bg-background/50",
             )}
           >
             {/* Centered Icon */}
@@ -181,7 +189,9 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
           {/* Existing Workspaces */}
           {filteredWorkspaces.map((workspace) => {
             const color = workspace.color as CardColor | undefined;
-            const borderColor = color ? getCardAccentColor(color, 0.2) : 'var(--sidebar-border)';
+            const borderColor = color
+              ? getCardAccentColor(color, 0.2)
+              : "var(--sidebar-border)";
             const previewText = getPreviewText(workspace);
 
             return (
@@ -197,46 +207,51 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
                     switchWorkspace(workspace.slug || workspace.id);
                   }
                 }}
-                onKeyDown={(e) => handleKeyDown(e, () => {
-                  if (isSelectionMode) {
-                    // We need a synthetic event or just call the logic
-                    // toggleSelection expects a MouseEvent, but we can extract logic or mock it
-                    // Let's refactor toggleSelection slightly or just pass a mock
-                    const newSelected = new Set(selectedIds);
-                    if (newSelected.has(workspace.id)) {
-                      newSelected.delete(workspace.id);
+                onKeyDown={(e) =>
+                  handleKeyDown(e, () => {
+                    if (isSelectionMode) {
+                      // We need a synthetic event or just call the logic
+                      // toggleSelection expects a MouseEvent, but we can extract logic or mock it
+                      // Let's refactor toggleSelection slightly or just pass a mock
+                      const newSelected = new Set(selectedIds);
+                      if (newSelected.has(workspace.id)) {
+                        newSelected.delete(workspace.id);
+                      } else {
+                        newSelected.add(workspace.id);
+                      }
+                      setSelectedIds(newSelected);
                     } else {
-                      newSelected.add(workspace.id);
+                      switchWorkspace(workspace.slug || workspace.id);
                     }
-                    setSelectedIds(newSelected);
-                  } else {
-                    switchWorkspace(workspace.slug || workspace.id);
-                  }
-                })}
+                  })
+                }
                 className={cn(
                   "group relative rounded-md shadow-sm min-h-[180px] overflow-hidden",
                   "hover:shadow-lg",
                   "transition-all duration-200 text-left cursor-pointer",
                   "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background",
-                  "flex flex-col"
+                  "flex flex-col",
                 )}
                 style={{
-                  backgroundColor: 'hsl(var(--muted) / 0.4)',
-                  borderWidth: '2px',
-                  borderStyle: 'solid',
+                  backgroundColor: "hsl(var(--muted) / 0.4)",
+                  borderWidth: "2px",
+                  borderStyle: "solid",
                   borderColor: borderColor,
                 }}
                 onMouseEnter={(e) => {
                   // Debounce prefetching to prevent spam when sweeping across grid
                   prefetchTimeoutRef.current = setTimeout(() => {
-                    router.prefetch(`/workspace/${workspace.slug || workspace.id}`);
+                    router.prefetch(
+                      `/workspace/${workspace.slug || workspace.id}`,
+                    );
                   }, 100); // 100ms delay
 
                   if (!selectedIds.has(workspace.id)) {
-                    const isDark = document.documentElement.classList.contains('dark');
+                    const isDark =
+                      document.documentElement.classList.contains("dark");
                     e.currentTarget.style.borderColor = isDark
-                      ? 'hsl(0 0% 75%)'
-                      : 'hsl(25 15% 25%)';
+                      ? "hsl(0 0% 75%)"
+                      : "hsl(25 15% 25%)";
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -255,7 +270,9 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
                 <div
                   className={cn(
                     "absolute top-3 left-3 z-30 transition-opacity duration-200",
-                    selectedIds.has(workspace.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                    selectedIds.has(workspace.id)
+                      ? "opacity-100"
+                      : "opacity-0 group-hover:opacity-100",
                   )}
                   onClick={(e) => e.stopPropagation()} // Stop propagation from div wrapper
                 >
@@ -298,14 +315,19 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
                       <IconRenderer
                         icon={workspace.icon}
                         className="h-12 w-12 opacity-90 group-hover:opacity-100 group-hover:scale-110 transition-all duration-200"
-                        style={{ color: workspace.color || "hsl(var(--primary))" }}
+                        style={{
+                          color: workspace.color || "hsl(var(--primary))",
+                        }}
                       />
                     </div>
                   )}
                 </div>
 
                 {/* Bottom section with title, date, menu, and avatar */}
-                <div className="flex flex-col justify-end px-4 pb-3 pt-2 relative" style={{ minHeight: '70px' }}>
+                <div
+                  className="flex flex-col justify-end px-4 pb-3 pt-2 relative"
+                  style={{ minHeight: "70px" }}
+                >
                   {/* Title */}
                   <h3 className="font-normal text-base text-foreground truncate mb-1 leading-6">
                     {workspace.name}
@@ -333,75 +355,73 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
       </div>
 
       {/* Bulk Action Bar */}
-      {typeof document !== 'undefined' && createPortal(
-        <AnimatePresence>
-          {selectedIds.size > 0 && (
-            <motion.div
-              initial={{ y: 100, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 100, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-full shadow-xl border border-border/20"
-            >
-              <div className="flex items-center gap-2 pr-4 border-r border-background/20 mr-2">
-                <div className="bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                  {selectedIds.size}
-                </div>
-                <span className="text-sm font-medium whitespace-nowrap">Selected</span>
+      {typeof document !== "undefined" &&
+        selectedIds.size > 0 &&
+        createPortal(
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-foreground text-background px-4 py-2 rounded-full shadow-xl border border-border/20">
+            <div className="flex items-center gap-2 pr-4 border-r border-background/20 mr-2">
+              <div className="bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                {selectedIds.size}
               </div>
+              <span className="text-sm font-medium whitespace-nowrap">
+                Selected
+              </span>
+            </div>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 hover:bg-background/20 hover:text-background text-background/90"
-                onClick={() => setShowShareDialog(true)}
-              >
-                <Share2 className="h-4 w-4 mr-2" />
-                Share
-              </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 hover:bg-background/20 hover:text-background text-background/90"
+              onClick={() => setShowShareDialog(true)}
+            >
+              <Share2 className="h-4 w-4 mr-2" />
+              Share
+            </Button>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 hover:bg-red-500/20 hover:text-red-400 text-red-400"
-                onClick={async () => {
-                  if (confirm(`Delete ${selectedIds.size} workspaces? You can restore from version history if needed.`)) {
-                    const ids = Array.from(selectedIds);
-                    clearSelection(); // Clear UI first
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 hover:bg-red-500/20 hover:text-red-400 text-red-400"
+              onClick={async () => {
+                if (
+                  confirm(
+                    `Delete ${selectedIds.size} workspaces? You can restore from version history if needed.`,
+                  )
+                ) {
+                  const ids = Array.from(selectedIds);
+                  clearSelection(); // Clear UI first
 
-                    let successCount = 0;
-                    for (const id of ids) {
-                      try {
-                        await deleteWorkspace(id);
-                        successCount++;
-                      } catch (err) {
-                        console.error(`Failed to delete ${id}`, err);
-                      }
-                    }
-
-                    if (successCount > 0) {
-                      toast.success(`Deleted ${successCount} workspaces`);
+                  let successCount = 0;
+                  for (const id of ids) {
+                    try {
+                      await deleteWorkspace(id);
+                      successCount++;
+                    } catch (err) {
+                      console.error(`Failed to delete ${id}`, err);
                     }
                   }
-                }}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </Button>
 
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 ml-2 hover:bg-background/20 hover:text-background rounded-full"
-                onClick={clearSelection}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </motion.div>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
+                  if (successCount > 0) {
+                    toast.success(`Deleted ${successCount} workspaces`);
+                  }
+                }
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 ml-2 hover:bg-background/20 hover:text-background rounded-full"
+              onClick={clearSelection}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>,
+          document.body,
+        )}
 
       {/* Settings Modal */}
       <WorkspaceSettingsModal
