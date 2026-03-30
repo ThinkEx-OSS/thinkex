@@ -15,7 +15,7 @@ const baseWorkspace = z
   })
   .passthrough();
 
-/** createDocument, deleteCard, clearCardContent, editItem */
+/** createDocument, clearCardContent, editItem */
 export const WorkspaceResultSchema = baseWorkspace;
 export type WorkspaceResult = z.infer<typeof WorkspaceResultSchema>;
 
