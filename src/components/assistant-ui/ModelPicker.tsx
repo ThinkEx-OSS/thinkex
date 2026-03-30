@@ -69,15 +69,24 @@ function ModelDropdownItem({
   provider,
   model,
   isSelected,
+  isHoverOpen,
+  onHoverOpenChange,
   onSelect,
 }: {
   provider: ModelProvider;
   model: ModelConfig;
   isSelected: boolean;
+  isHoverOpen: boolean;
+  onHoverOpenChange: (open: boolean) => void;
   onSelect: () => void;
 }) {
   return (
-    <HoverCard openDelay={120} closeDelay={80}>
+    <HoverCard
+      open={isHoverOpen}
+      onOpenChange={onHoverOpenChange}
+      openDelay={120}
+      closeDelay={0}
+    >
       <HoverCardTrigger asChild>
         <DropdownMenuItem
           onSelect={(event) => {
@@ -240,6 +249,7 @@ export function ModelPicker() {
   const selectedModelId = useUIStore((state) => state.selectedModelId);
   const setSelectedModelId = useUIStore((state) => state.setSelectedModelId);
   const [isOpen, setIsOpen] = useState(false);
+  const [hoveredModelId, setHoveredModelId] = useState<string | null>(null);
 
   const selectedModel = useMemo(
     () =>
@@ -252,6 +262,9 @@ export function ModelPicker() {
       open={isOpen}
       onOpenChange={(open) => {
         setIsOpen(open);
+        if (!open) {
+          setHoveredModelId(null);
+        }
         if (!open) {
           focusComposerInput();
         }
@@ -283,8 +296,13 @@ export function ModelPicker() {
                 provider={group.provider}
                 model={model}
                 isSelected={selectedModelId === model.id}
+                isHoverOpen={hoveredModelId === model.id}
+                onHoverOpenChange={(open) => {
+                  setHoveredModelId(open ? model.id : null);
+                }}
                 onSelect={() => {
                   setSelectedModelId(model.id);
+                  setHoveredModelId(null);
                   setIsOpen(false);
                   focusComposerInput();
                 }}
