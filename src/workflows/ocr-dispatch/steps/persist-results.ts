@@ -1,5 +1,4 @@
 import { sql } from "drizzle-orm";
-import { createClient } from "@supabase/supabase-js";
 import { db } from "@/lib/db/client";
 import { createEvent } from "@/lib/workspace/events";
 import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
@@ -11,7 +10,7 @@ const APPEND_RESULT_REGEX = /\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i;
 async function appendWorkspaceEvent(
   workspaceId: string,
   event: WorkspaceEvent
-): Promise<number> {
+): Promise<void> {
   const versionResult = await db.execute(sql`
     SELECT get_workspace_version(${workspaceId}::uuid) as version
   `);
@@ -50,8 +49,6 @@ async function appendWorkspaceEvent(
       `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${baseVersion}). Workflow will retry automatically.`
     );
   }
-
-  return parseInt(match[1], 10);
 }
 
 export async function persistOcrResults(
@@ -85,24 +82,6 @@ export async function persistOcrResults(
     userId
   );
 
-  const version = await appendWorkspaceEvent(workspaceId, event);
+  await appendWorkspaceEvent(workspaceId, event);
   checkAndCreateSnapshot(workspaceId).catch(() => {});
-
-  // Broadcast to connected clients so the workspace updates live without a reload.
-  try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (supabaseUrl && serviceRoleKey) {
-      const supabase = createClient(supabaseUrl, serviceRoleKey);
-      const channel = supabase.channel(`workspace:${workspaceId}:events`);
-      await channel.send({
-        type: "broadcast",
-        event: "workspace_event",
-        payload: { ...event, version },
-      });
-      await supabase.removeChannel(channel);
-    }
-  } catch (err) {
-    console.error("[persistOcrResults] Realtime broadcast error:", err);
-  }
 }

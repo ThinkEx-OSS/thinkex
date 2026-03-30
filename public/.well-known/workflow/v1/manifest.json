@@ -1,21 +1,6 @@
 {
   "version": "1.0.0",
   "steps": {
-    "src/workflows/ocr-dispatch/steps/run-ocr.ts": {
-      "executeOcrRun": {
-        "stepId": "step//./src/workflows/ocr-dispatch/steps/run-ocr//executeOcrRun"
-      }
-    },
-    "src/workflows/audio-transcribe/steps/transcribe.ts": {
-      "transcribeWithGemini": {
-        "stepId": "step//./src/workflows/audio-transcribe/steps/transcribe//transcribeWithGemini"
-      }
-    },
-    "node_modules/.pnpm/workflow@4.2.0-beta.72_@nestjs+common@11.1.14_reflect-metadata@0.2.2_rxjs@7.8.2__@nestj_a84b896189ca9d9b9f062c3c1a598553/node_modules/workflow/dist/stdlib.js": {
-      "fetch": {
-        "stepId": "step//workflow@4.2.0-beta.72//fetch"
-      }
-    },
     "node_modules/.pnpm/workflow@4.2.0-beta.72_@nestjs+common@11.1.14_reflect-metadata@0.2.2_rxjs@7.8.2__@nestj_a84b896189ca9d9b9f062c3c1a598553/node_modules/workflow/dist/internal/builtins.js": {
       "__builtin_response_array_buffer": {
         "stepId": "__builtin_response_array_buffer"
@@ -27,9 +12,24 @@
         "stepId": "__builtin_response_text"
       }
     },
-    "src/workflows/ocr-dispatch/steps/persist-results.ts": {
-      "persistOcrResults": {
-        "stepId": "step//./src/workflows/ocr-dispatch/steps/persist-results//persistOcrResults"
+    "src/workflows/audio-transcribe/steps/transcribe.ts": {
+      "transcribeWithGemini": {
+        "stepId": "step//./src/workflows/audio-transcribe/steps/transcribe//transcribeWithGemini"
+      }
+    },
+    "src/workflows/ocr-dispatch/steps/run-ocr.ts": {
+      "executeOcrRun": {
+        "stepId": "step//./src/workflows/ocr-dispatch/steps/run-ocr//executeOcrRun"
+      }
+    },
+    "src/workflows/audio-transcribe/steps/download-and-upload.ts": {
+      "downloadAndUploadToGemini": {
+        "stepId": "step//./src/workflows/audio-transcribe/steps/download-and-upload//downloadAndUploadToGemini"
+      }
+    },
+    "node_modules/.pnpm/workflow@4.2.0-beta.72_@nestjs+common@11.1.14_reflect-metadata@0.2.2_rxjs@7.8.2__@nestj_a84b896189ca9d9b9f062c3c1a598553/node_modules/workflow/dist/stdlib.js": {
+      "fetch": {
+        "stepId": "step//workflow@4.2.0-beta.72//fetch"
       }
     },
     "src/workflows/audio-transcribe/steps/persist-result.ts": {
@@ -40,9 +40,9 @@
         "stepId": "step//./src/workflows/audio-transcribe/steps/persist-result//persistAudioResult"
       }
     },
-    "src/workflows/audio-transcribe/steps/download-and-upload.ts": {
-      "downloadAndUploadToGemini": {
-        "stepId": "step//./src/workflows/audio-transcribe/steps/download-and-upload//downloadAndUploadToGemini"
+    "src/workflows/ocr-dispatch/steps/persist-results.ts": {
+      "persistOcrResults": {
+        "stepId": "step//./src/workflows/ocr-dispatch/steps/persist-results//persistOcrResults"
       }
     }
   },

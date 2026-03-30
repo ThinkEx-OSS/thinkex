@@ -32,7 +32,7 @@ export function useWorkspaceEvents(workspaceId: string | null) {
     staleTime: 1000 * 30, // 30 seconds - allows instant workspace switches
     gcTime: 1000 * 60 * 10, // 10 minutes - cache inactive workspaces
     refetchInterval: false, // DISABLE POLLING - use event-based updates only
-    refetchOnWindowFocus: false, // Realtime broadcasts handle live updates; avoid stale refetch racing the broadcast
+    refetchOnWindowFocus: 'always', // Refetch on tab focus as a safety net for server-side imports
   });
 }
 
