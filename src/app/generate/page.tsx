@@ -10,7 +10,7 @@ import { HomeLayout } from "@/components/layout/HomeLayout";
 import { AnonymousSessionHandler } from "@/components/layout/SessionHandler";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { MobileWarning } from "@/components/ui/MobileWarning";
-import { FloatingWorkspaceCards } from "@/components/landing/FloatingWorkspaceCards";
+import { FloatingWorkspaceCards } from "@/components/background/FloatingWorkspaceCards";
 import { ATTACHMENTS_SESSION_KEY } from "@/contexts/HomeAttachmentsContext";
 
 const PROGRESS_LABELS: Record<string, string> = {
@@ -177,7 +177,7 @@ function GenerateContent() {
               applyIfNotAborted(() => setError(ev.data!.message!));
               return;
             }
-          } catch (_) {
+          } catch {
             // Skip malformed lines
           }
         }

@@ -16,8 +16,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AccountModal } from "@/components/auth/AccountModal";
 
-import { toast } from "sonner";
-
 export function UserProfileDropdown() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -38,7 +36,7 @@ export function UserProfileDropdown() {
 
   const handleSignOut = useCallback(async () => {
     await signOut();
-    router.push("/");
+    router.push("/home");
   }, [router]);
 
   // Anonymous user: show sign in/up buttons
