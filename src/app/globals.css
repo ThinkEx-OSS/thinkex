@@ -1,3 +1,6 @@
+@import '../styles/_variables.scss';
+@import '../styles/_keyframe-animations.scss';
+
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -447,6 +450,7 @@
 :root {
   /* Prevent scroll bounce effect */
   overscroll-behavior: none;
+  color-scheme: light;
 
   /* Light mode: eggshell / cream warm palette */
   --card: oklch(0.98 0.025 85);
@@ -489,6 +493,7 @@
 
 /* Dark mode variables - applied when system prefers dark */
 .dark {
+  color-scheme: dark;
   --background: oklch(0.18 0 0);
   --foreground: oklch(0.984 0.003 247.858);
   --card: hsl(0 0% 12%);

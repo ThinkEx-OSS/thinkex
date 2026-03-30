@@ -89,6 +89,12 @@ export function useWorkspaceRealtime(
                 return;
             }
 
+            // Skip our own events (though self: false should handle this)
+            if (currentUserId && event.userId === currentUserId) {
+                console.log('[REALTIME] Skipping own event');
+                return;
+            }
+
             // Notify callback
             onRemoteEvent?.(event);
 
@@ -142,7 +148,7 @@ export function useWorkspaceRealtime(
         });
 
         return cleanup;
-    }, [workspaceId, queryClient, cleanup, onStatusChange, onRemoteEvent]);
+    }, [workspaceId, currentUserId, queryClient, cleanup, onStatusChange, onRemoteEvent]);
 
     // Broadcast an event to other clients
     const broadcastEvent = useCallback(async (event: WorkspaceEvent) => {
