@@ -21,9 +21,8 @@ import {
   Play,
   Search,
 } from "lucide-react";
-import { FaQuoteLeft, FaWandMagicSparkles, FaCheck } from "react-icons/fa6";
-import { LuBook, LuSparkle } from "react-icons/lu";
-import { SiClaude, SiOpenai } from "react-icons/si";
+import { FaQuoteLeft, FaWandMagicSparkles } from "react-icons/fa6";
+import { LuBook } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { CgNotes } from "react-icons/cg";
 import { cn } from "@/lib/utils";
@@ -40,7 +39,6 @@ import {
   useMessagePartText,
   useAuiState,
 } from "@assistant-ui/react";
-
 
 import type { FC } from "react";
 import { createContext, useContext } from "react";
@@ -84,7 +82,7 @@ import { useAttachmentUploadStore } from "@/lib/stores/attachment-upload-store";
 import {
   ComposerAttachments,
   ComposerAddAttachment,
-  UserMessageAttachments
+  UserMessageAttachments,
 } from "@/components/assistant-ui/attachment";
 import { AssistantLoader } from "@/components/assistant-ui/assistant-loader";
 import { File as FileComponent } from "@/components/assistant-ui/file";
@@ -100,9 +98,12 @@ import { ReplyContextDisplay } from "@/components/chat/ReplyContextDisplay";
 import { MessageContextBadges } from "@/components/chat/MessageContextBadges";
 import { MentionMenu } from "@/components/chat/MentionMenu";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import { useUIStore, selectReplySelections, selectBlockNoteSelection } from "@/lib/stores/ui-store";
+import {
+  useUIStore,
+  selectReplySelections,
+  selectBlockNoteSelection,
+} from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
-import { DropdownMenuSeparator, DropdownMenuLabel, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { useShallow } from "zustand/react/shallow";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
@@ -113,9 +114,7 @@ import { extractUrls, createUrlFile } from "@/lib/attachments/url-utils";
 import { filterItems } from "@/lib/workspace-state/search";
 import { useSession } from "@/lib/auth-client";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
-import {
-  buildWorkspaceItemDefinitionsFromAssets,
-} from "@/lib/uploads/uploaded-asset";
+import { buildWorkspaceItemDefinitionsFromAssets } from "@/lib/uploads/uploaded-asset";
 import { uploadSelectedFiles } from "@/lib/uploads/upload-selection";
 import { startAssetProcessing } from "@/lib/uploads/start-asset-processing";
 import {
@@ -124,63 +123,11 @@ import {
   getDocumentUploadSuccessMessage,
 } from "@/lib/uploads/upload-feedback";
 import { SpeechToTextButton } from "@/components/assistant-ui/SpeechToTextButton";
-import { PromptBuilderDialog, type PromptBuilderAction } from "@/components/assistant-ui/PromptBuilderDialog";
-
-// Available AI models grouped by provider
-const MODEL_PROVIDERS = [
-  {
-    provider: "Gemini",
-    icon: <LuSparkle className="size-3.5" />,
-    models: [
-      { id: "gemini-3.1-pro-preview", name: "3.1 Pro", description: "Latest preview model" },
-      { id: "gemini-3-flash-preview", name: "3.0 Flash", description: "Latest fast preview model" },
-      { id: "gemini-2.5-pro", name: "2.5 Pro", description: "Powerful & reliable" },
-      { id: "gemini-2.5-flash", name: "2.5 Flash", description: "Fast & efficient" },
-    ],
-  },
-  {
-    provider: "Claude",
-    icon: <SiClaude className="size-3.5" />,
-    models: [
-      { id: "anthropic/claude-sonnet-4.5", name: "Sonnet 4.5", description: "Agent-optimized, coding & research" },
-      { id: "anthropic/claude-haiku-4.5", name: "Haiku 4.5", description: "Fast & affordable" },
-    ],
-  },
-  {
-    provider: "ChatGPT",
-    icon: <SiOpenai className="size-3.5" />,
-    models: [
-      { id: "openai/gpt-5-chat", name: "GPT-5", description: "Latest OpenAI model" },
-    ],
-  },
-];
-
-// Flat list for lookups
-const ALL_MODELS = MODEL_PROVIDERS.flatMap((p) =>
-  p.models.map((m) => ({ ...m, provider: p.provider, providerIcon: p.icon }))
-);
-
-// Helper function to get the appropriate icon for a model
-function getModelIcon(modelId: string) {
-  if (modelId.includes("claude")) {
-    return <SiClaude className="size-3.5" />;
-  }
-  if (modelId.includes("openai") || modelId.includes("gpt")) {
-    return <SiOpenai className="size-3.5" />;
-  }
-  return <LuSparkle className="size-3.5" />;
-}
-
-// Get display name for selected model (provider + short name)
-function getModelDisplayName(modelId: string): string {
-  const model = ALL_MODELS.find((m) => m.id === modelId);
-  if (!model) return modelId;
-  // For ChatGPT models, just show the model name (e.g., "GPT-5" instead of "ChatGPT GPT-5")
-  if (model.provider === "ChatGPT") {
-    return model.name;
-  }
-  return `${model.provider} ${model.name}`;
-}
+import {
+  PromptBuilderDialog,
+  type PromptBuilderAction,
+} from "@/components/assistant-ui/PromptBuilderDialog";
+import { ModelPicker } from "@/components/assistant-ui/ModelPicker";
 
 interface ThreadProps {
   items?: Item[];
@@ -221,7 +168,9 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
             <AuiIf condition={({ thread }) => thread.isLoading}>
               <ThreadLoadingSkeleton />
             </AuiIf>
-            <AuiIf condition={({ thread }) => thread.isEmpty && !thread.isLoading}>
+            <AuiIf
+              condition={({ thread }) => thread.isEmpty && !thread.isLoading}
+            >
               <ThreadWelcome items={items} />
             </AuiIf>
 
@@ -369,14 +318,16 @@ const SUGGESTION_ACTIONS = [
 
 const ThreadSuggestions: FC<ThreadSuggestionsProps> = ({ items }) => {
   const aui = useAui();
-  const [dialogAction, setDialogAction] = useState<PromptBuilderAction | null>(null);
+  const [dialogAction, setDialogAction] = useState<PromptBuilderAction | null>(
+    null,
+  );
 
   const handleDirectFill = useCallback(
     (action: string) => {
       aui?.composer()?.setText(action);
       focusComposerInput(true);
     },
-    [aui]
+    [aui],
   );
 
   const handleTriggerFileInput = useCallback(() => {
@@ -404,11 +355,21 @@ const ThreadSuggestions: FC<ThreadSuggestionsProps> = ({ items }) => {
                 className="aui-thread-welcome-suggestion h-auto w-full flex-1 flex-wrap items-center justify-start gap-2 rounded-lg border border-sidebar-border px-5 py-4 text-left text-sm dark:hover:bg-accent/60"
                 aria-label={suggestedAction.title}
                 onClick={() => {
-                  if ("triggerFileInput" in suggestedAction && suggestedAction.triggerFileInput) {
+                  if (
+                    "triggerFileInput" in suggestedAction &&
+                    suggestedAction.triggerFileInput
+                  ) {
                     handleTriggerFileInput();
-                  } else if (suggestedAction.useDialog && "action" in suggestedAction && suggestedAction.action) {
+                  } else if (
+                    suggestedAction.useDialog &&
+                    "action" in suggestedAction &&
+                    suggestedAction.action
+                  ) {
                     setDialogAction(suggestedAction.action);
-                  } else if ("composerFill" in suggestedAction && typeof suggestedAction.composerFill === "string") {
+                  } else if (
+                    "composerFill" in suggestedAction &&
+                    typeof suggestedAction.composerFill === "string"
+                  ) {
                     handleDirectFill(suggestedAction.composerFill);
                   }
                 }}
@@ -451,8 +412,20 @@ const COMPOSER_FLOATING_ACTIONS = [
     icon: LuBook,
     iconClassName: "size-3.5 shrink-0 text-amber-500",
     subActions: [
-      { id: "flashcards", label: "Flashcards", icon: PiCardsThreeBold, iconClassName: "size-4 text-purple-400 rotate-180", action: "flashcards" as PromptBuilderAction },
-      { id: "quiz", label: "Quiz", icon: Brain, iconClassName: "size-4 text-green-400", action: "quiz" as PromptBuilderAction },
+      {
+        id: "flashcards",
+        label: "Flashcards",
+        icon: PiCardsThreeBold,
+        iconClassName: "size-4 text-purple-400 rotate-180",
+        action: "flashcards" as PromptBuilderAction,
+      },
+      {
+        id: "quiz",
+        label: "Quiz",
+        icon: Brain,
+        iconClassName: "size-4 text-green-400",
+        action: "quiz" as PromptBuilderAction,
+      },
     ],
   },
   {
@@ -483,9 +456,13 @@ const ComposerHoverWrapper: FC<ComposerHoverWrapperProps> = ({ items }) => {
   const [isHovered, setIsHovered] = useState(false);
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const aui = useAui();
-  const [dialogAction, setDialogAction] = useState<PromptBuilderAction | null>(null);
+  const [dialogAction, setDialogAction] = useState<PromptBuilderAction | null>(
+    null,
+  );
   const isThreadEmpty = useAuiState(({ thread }) => thread?.isEmpty ?? true);
-  const composerText = useAuiState((s) => (s as { composer?: { text?: string } })?.composer?.text ?? "");
+  const composerText = useAuiState(
+    (s) => (s as { composer?: { text?: string } })?.composer?.text ?? "",
+  );
   const hasComposerText = Boolean(composerText?.trim());
 
   const handleDirectFill = useCallback(
@@ -493,7 +470,7 @@ const ComposerHoverWrapper: FC<ComposerHoverWrapperProps> = ({ items }) => {
       aui?.composer()?.setText(fill);
       focusComposerInput(true);
     },
-    [aui]
+    [aui],
   );
 
   const handleMouseEnter = useCallback(() => {
@@ -524,92 +501,104 @@ const ComposerHoverWrapper: FC<ComposerHoverWrapperProps> = ({ items }) => {
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-      {/* Floating buttons - appear above composer on hover */}
-      <div
-        className={cn(
-          "absolute bottom-full left-0 right-0 z-20 flex justify-center gap-0.5 pb-2",
-          "transition-opacity duration-150 ease-out",
-          !isThreadEmpty && isHovered && !hasComposerText
-            ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none"
-        )}
-      >
-        <div className="flex flex-wrap items-center justify-center gap-0.5 rounded-xl border border-sidebar-border bg-sidebar-accent px-1.5 py-1 shadow-md dark:border-sidebar-border/15">
-          {COMPOSER_FLOATING_ACTIONS.map((action) => {
-            if ("subActions" in action) {
-              // Learn button with dropdown
+        {/* Floating buttons - appear above composer on hover */}
+        <div
+          className={cn(
+            "absolute bottom-full left-0 right-0 z-20 flex justify-center gap-0.5 pb-2",
+            "transition-opacity duration-150 ease-out",
+            !isThreadEmpty && isHovered && !hasComposerText
+              ? "opacity-100 pointer-events-auto"
+              : "opacity-0 pointer-events-none",
+          )}
+        >
+          <div className="flex flex-wrap items-center justify-center gap-0.5 rounded-xl border border-sidebar-border bg-sidebar-accent px-1.5 py-1 shadow-md dark:border-sidebar-border/15">
+            {COMPOSER_FLOATING_ACTIONS.map((action) => {
+              if ("subActions" in action) {
+                // Learn button with dropdown
+                const Icon = action.icon;
+                return (
+                  <DropdownMenu key={action.id}>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className={cn(
+                          "inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-normal",
+                          "text-sidebar-foreground transition-colors",
+                          "hover:bg-sidebar-foreground/10 dark:hover:bg-sidebar-foreground/15",
+                        )}
+                        aria-label={action.label}
+                      >
+                        <Icon className={action.iconClassName} />
+                        <span>{action.label}</span>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="center"
+                      side="top"
+                      className="min-w-[140px]"
+                      sideOffset={4}
+                    >
+                      {(action.subActions ?? []).map((sub) => {
+                        const SubIcon = sub.icon;
+                        return (
+                          <DropdownMenuItem
+                            key={sub.id}
+                            onSelect={() => setDialogAction(sub.action)}
+                            className="flex cursor-pointer items-center gap-2"
+                          >
+                            <SubIcon className={sub.iconClassName} />
+                            {sub.label}
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                );
+              }
               const Icon = action.icon;
               return (
-                <DropdownMenu key={action.id}>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className={cn(
-                        "inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-normal",
-                        "text-sidebar-foreground transition-colors",
-                        "hover:bg-sidebar-foreground/10 dark:hover:bg-sidebar-foreground/15"
-                      )}
-                      aria-label={action.label}
-                    >
-                      <Icon className={action.iconClassName} />
-                      <span>{action.label}</span>
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="center" side="top" className="min-w-[140px]" sideOffset={4}>
-                    {(action.subActions ?? []).map((sub) => {
-                      const SubIcon = sub.icon;
-                      return (
-                        <DropdownMenuItem
-                          key={sub.id}
-                          onSelect={() => setDialogAction(sub.action)}
-                          className="flex cursor-pointer items-center gap-2"
-                        >
-                          <SubIcon className={sub.iconClassName} />
-                          {sub.label}
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <button
+                  key={action.id}
+                  type="button"
+                  onClick={() => {
+                    if (
+                      action.useDialog &&
+                      "action" in action &&
+                      action.action
+                    ) {
+                      setDialogAction(action.action);
+                    } else if (
+                      "composerFill" in action &&
+                      typeof action.composerFill === "string"
+                    ) {
+                      handleDirectFill(action.composerFill);
+                    }
+                  }}
+                  className={cn(
+                    "inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-normal",
+                    "text-sidebar-foreground transition-colors",
+                    "hover:bg-sidebar-foreground/10 dark:hover:bg-sidebar-foreground/15",
+                  )}
+                  aria-label={action.label}
+                >
+                  <Icon className={action.iconClassName} />
+                  <span>{action.label}</span>
+                </button>
               );
-            }
-            const Icon = action.icon;
-            return (
-              <button
-                key={action.id}
-                type="button"
-                onClick={() => {
-                  if (action.useDialog && "action" in action && action.action) {
-                    setDialogAction(action.action);
-                  } else if ("composerFill" in action && typeof action.composerFill === "string") {
-                    handleDirectFill(action.composerFill);
-                  }
-                }}
-                className={cn(
-                  "inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-normal",
-                  "text-sidebar-foreground transition-colors",
-                  "hover:bg-sidebar-foreground/10 dark:hover:bg-sidebar-foreground/15"
-                )}
-                aria-label={action.label}
-              >
-                <Icon className={action.iconClassName} />
-                <span>{action.label}</span>
-              </button>
-            );
-          })}
+            })}
+          </div>
         </div>
-      </div>
 
-      <Composer items={items} />
+        <Composer items={items} />
 
-      {dialogAction && (
-        <PromptBuilderDialog
-          open={!!dialogAction}
-          onOpenChange={(open) => !open && setDialogAction(null)}
-          action={dialogAction}
-          items={items}
-        />
-      )}
+        {dialogAction && (
+          <PromptBuilderDialog
+            open={!!dialogAction}
+            onOpenChange={(open) => !open && setDialogAction(null)}
+            action={dialogAction}
+            items={items}
+          />
+        )}
       </div>
     </div>
   );
@@ -620,12 +609,18 @@ interface ComposerProps {
 }
 
 const Composer: FC<ComposerProps> = ({ items }) => {
-  const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+  const currentWorkspaceId = useWorkspaceStore(
+    (state) => state.currentWorkspaceId,
+  );
   const aui = useAui();
   const replySelections = useUIStore(useShallow(selectReplySelections));
   const blockNoteSelection = useUIStore(selectBlockNoteSelection);
-  const clearReplySelections = useUIStore((state) => state.clearReplySelections);
-  const clearBlockNoteSelection = useUIStore((state) => state.clearBlockNoteSelection);
+  const clearReplySelections = useUIStore(
+    (state) => state.clearReplySelections,
+  );
+  const clearBlockNoteSelection = useUIStore(
+    (state) => state.clearBlockNoteSelection,
+  );
   const { selectedCardIds } = useSelectedCardIds();
 
   // Get workspace state and operations for PDF card creation
@@ -633,7 +628,9 @@ const Composer: FC<ComposerProps> = ({ items }) => {
   const operations = useWorkspaceOperations(currentWorkspaceId, workspaceState);
 
   // Watch for thread changes to auto-focus composer (built-in assistant-ui behavior)
-  const mainThreadId = useAuiState(({ threads }) => (threads as any)?.mainThreadId);
+  const mainThreadId = useAuiState(
+    ({ threads }) => (threads as any)?.mainThreadId,
+  );
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Auto-focus composer when thread changes
@@ -650,60 +647,75 @@ const Composer: FC<ComposerProps> = ({ items }) => {
   // Mention menu state
   const [mentionMenuOpen, setMentionMenuOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
-  const [mentionStartIndex, setMentionStartIndex] = useState<number | null>(null);
+  const [mentionStartIndex, setMentionStartIndex] = useState<number | null>(
+    null,
+  );
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
 
   // Handle input changes for @ mention detection
-  const handleInput = useCallback((e: React.FormEvent<HTMLTextAreaElement>) => {
-    const textarea = e.currentTarget;
-    const value = textarea.value;
-    const cursorPos = textarea.selectionStart ?? 0;
+  const handleInput = useCallback(
+    (e: React.FormEvent<HTMLTextAreaElement>) => {
+      const textarea = e.currentTarget;
+      const value = textarea.value;
+      const cursorPos = textarea.selectionStart ?? 0;
 
-    // Check if we're currently tracking a mention
-    if (mentionStartIndex !== null) {
-      // Extract the query from @ to cursor
-      const query = value.slice(mentionStartIndex + 1, cursorPos);
+      // Check if we're currently tracking a mention
+      if (mentionStartIndex !== null) {
+        // Extract the query from @ to cursor
+        const query = value.slice(mentionStartIndex + 1, cursorPos);
 
-      // Check if we've moved before the @ or if there's a space/newline after @
-      if (cursorPos <= mentionStartIndex || query.includes(' ') || query.includes('\n')) {
+        // Check if we've moved before the @ or if there's a space/newline after @
+        if (
+          cursorPos <= mentionStartIndex ||
+          query.includes(" ") ||
+          query.includes("\n")
+        ) {
+          setMentionMenuOpen(false);
+          setMentionStartIndex(null);
+          setMentionQuery("");
+        } else {
+          setMentionQuery(query);
+        }
+      }
+    },
+    [mentionStartIndex],
+  );
+
+  // Handle keydown for @ detection and menu control
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      const textarea = e.currentTarget;
+
+      // Detect @ key
+      if (e.key === "@" && !mentionMenuOpen) {
+        const cursorPos = textarea.selectionStart ?? 0;
+        // Check if @ is at start or preceded by whitespace
+        const charBefore = cursorPos > 0 ? textarea.value[cursorPos - 1] : " ";
+        if (charBefore === " " || charBefore === "\n" || cursorPos === 0) {
+          setMentionMenuOpen(true);
+          setMentionStartIndex(cursorPos);
+          setMentionQuery("");
+        }
+      }
+
+      // Close menu on Escape
+      if (e.key === "Escape" && mentionMenuOpen) {
+        e.preventDefault();
         setMentionMenuOpen(false);
         setMentionStartIndex(null);
         setMentionQuery("");
-      } else {
-        setMentionQuery(query);
       }
-    }
-  }, [mentionStartIndex]);
 
-  // Handle keydown for @ detection and menu control
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    const textarea = e.currentTarget;
-
-    // Detect @ key
-    if (e.key === '@' && !mentionMenuOpen) {
-      const cursorPos = textarea.selectionStart ?? 0;
-      // Check if @ is at start or preceded by whitespace
-      const charBefore = cursorPos > 0 ? textarea.value[cursorPos - 1] : ' ';
-      if (charBefore === ' ' || charBefore === '\n' || cursorPos === 0) {
-        setMentionMenuOpen(true);
-        setMentionStartIndex(cursorPos);
-        setMentionQuery("");
+      // Prevent default behavior when menu is open for arrow keys and Enter
+      if (
+        mentionMenuOpen &&
+        ["ArrowUp", "ArrowDown", "Enter"].includes(e.key)
+      ) {
+        e.preventDefault();
       }
-    }
-
-    // Close menu on Escape
-    if (e.key === 'Escape' && mentionMenuOpen) {
-      e.preventDefault();
-      setMentionMenuOpen(false);
-      setMentionStartIndex(null);
-      setMentionQuery("");
-    }
-
-    // Prevent default behavior when menu is open for arrow keys and Enter
-    if (mentionMenuOpen && ['ArrowUp', 'ArrowDown', 'Enter'].includes(e.key)) {
-      e.preventDefault();
-    }
-  }, [mentionMenuOpen]);
+    },
+    [mentionMenuOpen],
+  );
 
   // Clear the @query from input (extracted for reuse)
   const clearMentionQuery = useCallback(() => {
@@ -716,9 +728,11 @@ const Composer: FC<ComposerProps> = ({ items }) => {
 
       // Find where the query ends (current text after @ until space/newline or end)
       let queryEndIndex = mentionStartIndex;
-      while (queryEndIndex < currentValue.length &&
-        currentValue[queryEndIndex] !== ' ' &&
-        currentValue[queryEndIndex] !== '\n') {
+      while (
+        queryEndIndex < currentValue.length &&
+        currentValue[queryEndIndex] !== " " &&
+        currentValue[queryEndIndex] !== "\n"
+      ) {
         queryEndIndex++;
       }
 
@@ -747,18 +761,24 @@ const Composer: FC<ComposerProps> = ({ items }) => {
   }, [mentionStartIndex, aui]);
 
   // Handle mention selection - toggle item, keep menu open for multi-select
-  const handleMentionSelect = useCallback((item: Item) => {
-    toggleCardSelection(item.id);
-    // Don't close menu or clear query - allow selecting multiple items
-  }, [toggleCardSelection]);
+  const handleMentionSelect = useCallback(
+    (item: Item) => {
+      toggleCardSelection(item.id);
+      // Don't close menu or clear query - allow selecting multiple items
+    },
+    [toggleCardSelection],
+  );
 
   // Handle mention menu close - remove the @query from input
-  const handleMentionMenuClose = useCallback((open: boolean) => {
-    if (!open) {
-      clearMentionQuery();
-    }
-    setMentionMenuOpen(open);
-  }, [clearMentionQuery]);
+  const handleMentionMenuClose = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        clearMentionQuery();
+      }
+      setMentionMenuOpen(open);
+    },
+    [clearMentionQuery],
+  );
 
   const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const clipboardData = e.clipboardData;
@@ -771,7 +791,9 @@ const Composer: FC<ComposerProps> = ({ items }) => {
       e.preventDefault();
       // Add the first file (or prioritize images if multiple files) as an attachment
       // It will be uploaded when the message is sent
-      const imageFile = files.find((file: File) => file.type.startsWith('image/'));
+      const imageFile = files.find((file: File) =>
+        file.type.startsWith("image/"),
+      );
       const fileToUpload = imageFile || files[0];
 
       if (fileToUpload) {
@@ -785,8 +807,12 @@ const Composer: FC<ComposerProps> = ({ items }) => {
     }
 
     // Also check clipboard items for image data (e.g., screenshots)
-    const clipboardItems = Array.from(clipboardData.items) as DataTransferItem[];
-    const imageItem = clipboardItems.find((item: DataTransferItem) => item.type.startsWith('image/'));
+    const clipboardItems = Array.from(
+      clipboardData.items,
+    ) as DataTransferItem[];
+    const imageItem = clipboardItems.find((item: DataTransferItem) =>
+      item.type.startsWith("image/"),
+    );
 
     if (imageItem) {
       e.preventDefault();
@@ -803,7 +829,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
     }
 
     // Check if clipboard contains a URL (logic removed)
-
   };
 
   /**
@@ -812,7 +837,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
   const processPdfAttachmentsInBackground = async (
     pdfAttachments: any[],
     workspaceId: string,
-    operations: any
+    operations: any,
   ) => {
     let files: File[] = [];
     try {
@@ -822,7 +847,8 @@ const Composer: FC<ComposerProps> = ({ items }) => {
       const { uploads, failedFiles } = await uploadSelectedFiles(files);
 
       if (uploads.length > 0) {
-        const pdfCardDefinitions = buildWorkspaceItemDefinitionsFromAssets(uploads);
+        const pdfCardDefinitions =
+          buildWorkspaceItemDefinitionsFromAssets(uploads);
         const createdIds = operations.createItems(pdfCardDefinitions, {
           showSuccessToast: false,
         });
@@ -841,15 +867,19 @@ const Composer: FC<ComposerProps> = ({ items }) => {
           toast.success(getDocumentUploadSuccessMessage(uploads.length));
         } else {
           toast.warning(
-            getDocumentUploadPartialMessage(uploads.length, failedFiles.length)
+            getDocumentUploadPartialMessage(uploads.length, failedFiles.length),
           );
         }
       } else {
-        toast.error(getDocumentUploadFailureMessage(failedFiles.length || files.length));
+        toast.error(
+          getDocumentUploadFailureMessage(failedFiles.length || files.length),
+        );
       }
     } catch (error) {
-      console.error('Error creating PDF cards in background:', error);
-      toast.error(getDocumentUploadFailureMessage(files.length || pdfAttachments.length));
+      console.error("Error creating PDF cards in background:", error);
+      toast.error(
+        getDocumentUploadFailureMessage(files.length || pdfAttachments.length),
+      );
     }
   };
 
@@ -880,32 +910,46 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         const attachments = composerState.attachments || [];
 
         // Prevent empty messages (allow send when reply or BlockNote selection provides context)
-        const hasReplyOrBlockNoteContext = replySelections.length > 0 || !!blockNoteSelection;
-        if (!currentText.trim() && attachments.length === 0 && !hasReplyOrBlockNoteContext) {
+        const hasReplyOrBlockNoteContext =
+          replySelections.length > 0 || !!blockNoteSelection;
+        if (
+          !currentText.trim() &&
+          attachments.length === 0 &&
+          !hasReplyOrBlockNoteContext
+        ) {
           return;
         }
 
         // Detect PDF attachments for background processing
         const pdfAttachments = attachments.filter((att) => {
           const file = att.file;
-          return file && (
-            file.type === 'application/pdf' ||
-            file.name.toLowerCase().endsWith('.pdf') ||
-            isOfficeDocument(file)
+          return (
+            file &&
+            (file.type === "application/pdf" ||
+              file.name.toLowerCase().endsWith(".pdf") ||
+              isOfficeDocument(file))
           );
         });
 
         // Process PDFs in background - don't block message sending
         if (pdfAttachments.length > 0 && currentWorkspaceId) {
-          processPdfAttachmentsInBackground(pdfAttachments, currentWorkspaceId, operations);
+          processPdfAttachmentsInBackground(
+            pdfAttachments,
+            currentWorkspaceId,
+            operations,
+          );
         }
 
         // Get selected cards for context
-        const selectedItems = items.filter((item) => selectedCardIds.has(item.id));
+        const selectedItems = items.filter((item) =>
+          selectedCardIds.has(item.id),
+        );
 
         // Combine all context: selected cards, reply texts, and user message
         // Use placeholder when empty so AI SDK accepts (backend injects reply context into message)
-        let modifiedText = currentText.trim() || (hasReplyOrBlockNoteContext ? "Empty message" : "");
+        let modifiedText =
+          currentText.trim() ||
+          (hasReplyOrBlockNoteContext ? "Empty message" : "");
 
         // Attach per-request context as metadata via runConfig
         // This flows through as body.metadata.custom on the server
@@ -918,9 +962,13 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         if (blockNoteSelection) {
           customMetadata.blockNoteSelection = blockNoteSelection;
         }
-        aui?.composer()?.setRunConfig(
-          Object.keys(customMetadata).length > 0 ? { custom: customMetadata } : {}
-        );
+        aui
+          ?.composer()
+          ?.setRunConfig(
+            Object.keys(customMetadata).length > 0
+              ? { custom: customMetadata }
+              : {},
+          );
 
         // Set the modified text and send
         aui?.composer()?.setText(modifiedText);
@@ -993,16 +1041,6 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
   const aiDebugFlagEnabled = useFeatureFlagEnabled("ai-debug-feedback");
   const showAiDebugButton = isDev || aiDebugFlagEnabled === true;
 
-  // Model selector state
-  const selectedModelId = useUIStore((state) => state.selectedModelId);
-  const setSelectedModelId = useUIStore((state) => state.setSelectedModelId);
-  const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
-
-  const selectedModel = useMemo(
-    () => ALL_MODELS.find((m) => m.id === selectedModelId) || ALL_MODELS[4],
-    [selectedModelId]
-  );
-
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
@@ -1024,59 +1062,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
         <div className="relative z-0">
           <ComposerAddAttachment />
         </div>
-        {/* Model Selector Button */}
-        <DropdownMenu open={isModelSelectorOpen} onOpenChange={(open) => {
-          setIsModelSelectorOpen(open);
-          if (!open) {
-            focusComposerInput();
-          }
-        }}>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="flex items-center gap-1.5 pl-0 pr-1.5 py-1 rounded-md bg-sidebar-accent hover:bg-accent transition-colors flex-shrink-0 text-xs font-normal text-muted-foreground hover:text-foreground cursor-pointer"
-            >
-              {getModelIcon(selectedModel.id)}
-              <span>{getModelDisplayName(selectedModel.id)}</span>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="top" className="w-44" onCloseAutoFocus={(e) => e.preventDefault()}>
-            {MODEL_PROVIDERS.map((group) => (
-              <DropdownMenuSub key={group.provider}>
-                <DropdownMenuSubTrigger className="cursor-pointer gap-2">
-                  {group.icon}
-                  <span>{group.provider}</span>
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-44">
-                  {group.models.map((model) => {
-                    const isSelected = selectedModelId === model.id;
-                    return (
-                      <DropdownMenuItem
-                        key={model.id}
-                        onClick={() => {
-                          setSelectedModelId(model.id);
-                          setIsModelSelectorOpen(false);
-                          focusComposerInput();
-                        }}
-                        title={model.description}
-                        aria-label={model.description ?? model.name}
-                        className={cn(
-                          "cursor-pointer",
-                          isSelected && "bg-accent/50"
-                        )}
-                      >
-                        {isSelected && (
-                          <FaCheck className="size-3 text-sidebar-foreground/80" />
-                        )}
-                        <span>{model.name}</span>
-                      </DropdownMenuItem>
-                    );
-                  })}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <ModelPicker />
         {/* AI Debug Button - feature flag in prod, localhost debugger in dev */}
         {showAiDebugButton && (
           <button
@@ -1094,16 +1080,21 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
             <span>AI Debug</span>
           </button>
         )}
-        <AIFeedbackDialog open={isFeedbackDialogOpen} onOpenChange={setIsFeedbackDialogOpen} />
+        <AIFeedbackDialog
+          open={isFeedbackDialogOpen}
+          onOpenChange={setIsFeedbackDialogOpen}
+        />
         {/* Warning icon for anonymous users */}
         {isAnonymous && (
-
-          <Popover open={isWarningPopoverOpen} onOpenChange={(open) => {
-            setIsWarningPopoverOpen(open);
-            if (!open) {
-              focusComposerInput();
-            }
-          }}>
+          <Popover
+            open={isWarningPopoverOpen}
+            onOpenChange={(open) => {
+              setIsWarningPopoverOpen(open);
+              if (!open) {
+                focusComposerInput();
+              }
+            }}
+          >
             <PopoverTrigger asChild>
               <button
                 type="button"
@@ -1207,7 +1198,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
           </ComposerPrimitive.Cancel>
         </AuiIf>
       </div>
-    </div >
+    </div>
   );
 };
 
@@ -1257,12 +1248,14 @@ const AssistantMessage: FC = () => {
 };
 
 const AssistantActionBar: FC = () => {
-  const { createCard, isCreating } = useCreateCardFromMessage({ debounceMs: 300 });
+  const { createCard, isCreating } = useCreateCardFromMessage({
+    debounceMs: 300,
+  });
   const { content } = useMessage();
 
   const textContent = useMemo(() => {
     const textParts = content.filter(
-      (part): part is { type: "text"; text: string } => part.type === "text"
+      (part): part is { type: "text"; text: string } => part.type === "text",
     );
     return textParts.map((part) => part.text ?? "").join("\n\n");
   }, [content]);
@@ -1323,13 +1316,20 @@ const UserMessageText: FC = () => {
   let text = parseSelectedCardsMarkers(rawText);
 
   // Truncate by character count when collapsed and over threshold
-  if (truncateCtx && !truncateCtx.expanded && truncateCtx.maxChars < Infinity && text.length > truncateCtx.maxChars) {
+  if (
+    truncateCtx &&
+    !truncateCtx.expanded &&
+    truncateCtx.maxChars < Infinity &&
+    text.length > truncateCtx.maxChars
+  ) {
     text = text.slice(0, truncateCtx.maxChars).trim() + "...";
   }
 
   // Parse inline attachment markers: [FILE_URL:url|mediaType:type|filename:name] or [FILE_DATA:data|mediaType:type|filename:name]
-  const fileUrlRegex = /\[FILE_URL:([^|]+)\|mediaType:([^|]*)\|filename:([^\]]*)\]/g;
-  const fileDataRegex = /\[FILE_DATA:([^|]+)\|mediaType:([^|]*)\|filename:([^\]]*)\]/g;
+  const fileUrlRegex =
+    /\[FILE_URL:([^|]+)\|mediaType:([^|]*)\|filename:([^\]]*)\]/g;
+  const fileDataRegex =
+    /\[FILE_DATA:([^|]+)\|mediaType:([^|]*)\|filename:([^\]]*)\]/g;
 
   // Process URL markers: [URL_CONTEXT:url]
   const urlContextRegex = /\[URL_CONTEXT:([^\]]+)\]/g;
@@ -1381,8 +1381,8 @@ const UserMessageText: FC = () => {
 
   // Combine and sort all markers by position
   const allMarkers = [
-    ...fileMarkers.map(m => ({ ...m, type: 'file' as const })),
-    ...urlMarkers.map(m => ({ ...m, type: 'url' as const })),
+    ...fileMarkers.map((m) => ({ ...m, type: "file" as const })),
+    ...urlMarkers.map((m) => ({ ...m, type: "url" as const })),
   ].sort((a, b) => a.index - b.index);
 
   // Build content parts (text segments, file chips, and URL chips)
@@ -1404,7 +1404,7 @@ const UserMessageText: FC = () => {
     }
 
     // Add file or URL chip
-    if (marker.type === 'file') {
+    if (marker.type === "file") {
       contentParts.push({
         type: "file",
         content: "",
@@ -1414,7 +1414,7 @@ const UserMessageText: FC = () => {
           filename: marker.filename,
         },
       });
-    } else if (marker.type === 'url') {
+    } else if (marker.type === "url") {
       contentParts.push({
         type: "url",
         content: "",
@@ -1441,7 +1441,8 @@ const UserMessageText: FC = () => {
   }
 
   // Check if the message contains the reply marker
-  const { cleanText: regularContent, replies: replyTexts } = parseReplyMarkers(text);
+  const { cleanText: regularContent, replies: replyTexts } =
+    parseReplyMarkers(text);
 
   if (replyTexts.length > 0) {
     // Find the marker index to filter file/URL markers
@@ -1449,11 +1450,11 @@ const UserMessageText: FC = () => {
     const markerIndex = text.indexOf(replyMarker);
 
     // Process regular content for file and URL markers (only markers before reply marker)
-    const regularFileMarkers = fileMarkers.filter(m => m.index < markerIndex);
-    const regularUrlMarkers = urlMarkers.filter(m => m.index < markerIndex);
+    const regularFileMarkers = fileMarkers.filter((m) => m.index < markerIndex);
+    const regularUrlMarkers = urlMarkers.filter((m) => m.index < markerIndex);
     const regularAllMarkers = [
-      ...regularFileMarkers.map(m => ({ ...m, type: 'file' as const })),
-      ...regularUrlMarkers.map(m => ({ ...m, type: 'url' as const })),
+      ...regularFileMarkers.map((m) => ({ ...m, type: "file" as const })),
+      ...regularUrlMarkers.map((m) => ({ ...m, type: "url" as const })),
     ].sort((a, b) => a.index - b.index);
 
     const regularContentParts: Array<{
@@ -1472,14 +1473,17 @@ const UserMessageText: FC = () => {
 
         // Add text before marker
         if (relativeIndex > regularLastIndex) {
-          const textBefore = regularContent.substring(regularLastIndex, relativeIndex);
+          const textBefore = regularContent.substring(
+            regularLastIndex,
+            relativeIndex,
+          );
           if (textBefore.trim()) {
             regularContentParts.push({ type: "text", content: textBefore });
           }
         }
 
         // Add file or URL chip
-        if (marker.type === 'file') {
+        if (marker.type === "file") {
           regularContentParts.push({
             type: "file",
             content: "",
@@ -1489,7 +1493,7 @@ const UserMessageText: FC = () => {
               filename: marker.filename,
             },
           });
-        } else if (marker.type === 'url') {
+        } else if (marker.type === "url") {
           regularContentParts.push({
             type: "url",
             content: "",
@@ -1557,7 +1561,7 @@ const UserMessageText: FC = () => {
                 let displayUrl = part.urlInfo.url;
                 try {
                   const urlObj = new URL(part.urlInfo.url);
-                  displayUrl = urlObj.hostname.replace('www.', '');
+                  displayUrl = urlObj.hostname.replace("www.", "");
                 } catch {
                   // Keep original URL if parsing fails
                 }
@@ -1574,7 +1578,11 @@ const UserMessageText: FC = () => {
                   </a>
                 );
               }
-              return <span key={index} className="whitespace-pre-wrap">{part.content}</span>;
+              return (
+                <span key={index} className="whitespace-pre-wrap">
+                  {part.content}
+                </span>
+              );
             })}
           </div>
         )}
@@ -1606,7 +1614,7 @@ const UserMessageText: FC = () => {
             let displayUrl = part.urlInfo.url;
             try {
               const urlObj = new URL(part.urlInfo.url);
-              displayUrl = urlObj.hostname.replace('www.', '');
+              displayUrl = urlObj.hostname.replace("www.", "");
             } catch {
               // Keep original URL if parsing fails
             }
@@ -1623,7 +1631,11 @@ const UserMessageText: FC = () => {
               </a>
             );
           }
-          return <span key={index} className="whitespace-pre-wrap">{part.content}</span>;
+          return (
+            <span key={index} className="whitespace-pre-wrap">
+              {part.content}
+            </span>
+          );
         })}
       </div>
     );
@@ -1640,9 +1652,12 @@ const UserMessage: FC = () => {
   const textLength = useMemo(
     () =>
       message.content
-        .filter((part): part is { type: "text"; text: string } => part.type === "text")
+        .filter(
+          (part): part is { type: "text"; text: string } =>
+            part.type === "text",
+        )
         .reduce((sum, part) => sum + (part.text?.length ?? 0), 0),
-    [message.content]
+    [message.content],
   );
 
   const showExpand = textLength > USER_MESSAGE_MAX_CHARS;
@@ -1653,7 +1668,7 @@ const UserMessage: FC = () => {
       expanded,
       showExpand,
     }),
-    [expanded, showExpand]
+    [expanded, showExpand],
   );
 
   return (
@@ -1683,7 +1698,11 @@ const UserMessage: FC = () => {
                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                     aria-label={expanded ? "Show less" : "Show more"}
                   >
-                    {expanded ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+                    {expanded ? (
+                      <ChevronUp className="size-3.5" />
+                    ) : (
+                      <ChevronDown className="size-3.5" />
+                    )}
                     {expanded ? "Show less" : "Show more"}
                   </button>
                 </div>
@@ -1711,7 +1730,9 @@ const UserActionBar: FC = () => {
 
   const textContent = useMemo(() => {
     return message.content
-      .filter((part): part is { type: "text"; text: string } => part.type === "text")
+      .filter(
+        (part): part is { type: "text"; text: string } => part.type === "text",
+      )
       .map((part) => part.text ?? "")
       .join("\n\n");
   }, [message.content]);
@@ -1743,7 +1764,9 @@ const UserActionBar: FC = () => {
 };
 
 // Shared utility function for parsing reply markers from text
-const parseReplyMarkers = (text: string): { cleanText: string; replies: string[] } => {
+const parseReplyMarkers = (
+  text: string,
+): { cleanText: string; replies: string[] } => {
   const replyMarker = "[[REPLY_MARKER]]";
   const markerIndex = text.indexOf(replyMarker);
 
@@ -1752,12 +1775,15 @@ const parseReplyMarkers = (text: string): { cleanText: string; replies: string[]
     const cleanText = text.substring(0, markerIndex).trim();
     const replyContent = text.substring(markerIndex + replyMarker.length);
     const endMarkerIndex = replyContent.indexOf(replyMarker);
-    const extractedReplies = endMarkerIndex !== -1
-      ? replyContent.substring(0, endMarkerIndex)
-      : replyContent;
+    const extractedReplies =
+      endMarkerIndex !== -1
+        ? replyContent.substring(0, endMarkerIndex)
+        : replyContent;
 
     // Split replies by pipe separator
-    const replyTexts = extractedReplies.split('|').filter(r => r.trim().length > 0);
+    const replyTexts = extractedReplies
+      .split("|")
+      .filter((r) => r.trim().length > 0);
 
     return { cleanText, replies: replyTexts };
   }
@@ -1778,8 +1804,10 @@ const parseSelectedCardsMarkers = (text: string): string => {
     if (endMarkerIndex !== -1) {
       // Remove the entire block including markers
       const beforeMarker = text.substring(0, markerIndex).trim();
-      const afterBlock = afterFirstMarker.substring(endMarkerIndex + cardsMarker.length).trim();
-      return (beforeMarker + ' ' + afterBlock).trim();
+      const afterBlock = afterFirstMarker
+        .substring(endMarkerIndex + cardsMarker.length)
+        .trim();
+      return (beforeMarker + " " + afterBlock).trim();
     } else {
       // No end marker found, remove from first marker onwards
       return text.substring(0, markerIndex).trim();
@@ -1790,7 +1818,9 @@ const parseSelectedCardsMarkers = (text: string): string => {
 };
 
 // Shared utility function for parsing selected cards markers from text and extracting the content
-const parseSelectedCardsMarkersWithExtraction = (text: string): { cleanText: string; cardsContext: string } => {
+const parseSelectedCardsMarkersWithExtraction = (
+  text: string,
+): { cleanText: string; cardsContext: string } => {
   const cardsMarker = "[[SELECTED_CARDS_MARKER]]";
   const markerIndex = text.indexOf(cardsMarker);
 
@@ -1799,29 +1829,36 @@ const parseSelectedCardsMarkersWithExtraction = (text: string): { cleanText: str
     const cleanText = text.substring(0, markerIndex).trim();
     const cardsContent = text.substring(markerIndex + cardsMarker.length);
     const endMarkerIndex = cardsContent.indexOf(cardsMarker);
-    const extractedCardsContext = endMarkerIndex !== -1
-      ? cardsContent.substring(0, endMarkerIndex)
-      : cardsContent;
+    const extractedCardsContext =
+      endMarkerIndex !== -1
+        ? cardsContent.substring(0, endMarkerIndex)
+        : cardsContent;
 
     // Clean up the remaining text after the end marker
-    const afterBlock = endMarkerIndex !== -1
-      ? cardsContent.substring(endMarkerIndex + cardsMarker.length).trim()
-      : "";
+    const afterBlock =
+      endMarkerIndex !== -1
+        ? cardsContent.substring(endMarkerIndex + cardsMarker.length).trim()
+        : "";
 
     const finalCleanText = afterBlock
-      ? (cleanText + ' ' + afterBlock).trim()
+      ? (cleanText + " " + afterBlock).trim()
       : cleanText;
 
-    return { cleanText: finalCleanText, cardsContext: extractedCardsContext.trim() };
+    return {
+      cleanText: finalCleanText,
+      cardsContext: extractedCardsContext.trim(),
+    };
   }
 
   return { cleanText: text, cardsContext: "" };
 };
 
 // Parse URL context markers from text and extract URL information
-const parseUrlMarkers = (text: string): {
+const parseUrlMarkers = (
+  text: string,
+): {
   cleanText: string;
-  urls: string[]
+  urls: string[];
 } => {
   const urlRegex = /\[URL_CONTEXT:(.+?)\]/g;
   const urls: string[] = [];
@@ -1831,29 +1868,48 @@ const parseUrlMarkers = (text: string): {
   while ((match = urlRegex.exec(text)) !== null) {
     urls.push(match[1]);
     // Remove the marker from clean text
-    cleanText = cleanText.replace(match[0], '');
+    cleanText = cleanText.replace(match[0], "");
   }
 
   // Clean up any extra whitespace
-  cleanText = cleanText.replace(/\s+/g, ' ').trim();
+  cleanText = cleanText.replace(/\s+/g, " ").trim();
 
   return { cleanText, urls };
 };
 
 // Parse inline attachment markers from text and extract file information
-const parseFileMarkers = (text: string): {
+const parseFileMarkers = (
+  text: string,
+): {
   cleanText: string;
-  files: Array<{ urlOrData: string; mediaType: string; filename: string; isData: boolean }>
+  files: Array<{
+    urlOrData: string;
+    mediaType: string;
+    filename: string;
+    isData: boolean;
+  }>;
 } => {
-  const fileUrlRegex = /\[FILE_URL:([^|]+)\|mediaType:([^|]*)\|filename:([^\]]*)\]/g;
-  const fileDataRegex = /\[FILE_DATA:([^|]+)\|mediaType:([^|]*)\|filename:([^\]]*)\]/g;
+  const fileUrlRegex =
+    /\[FILE_URL:([^|]+)\|mediaType:([^|]*)\|filename:([^\]]*)\]/g;
+  const fileDataRegex =
+    /\[FILE_DATA:([^|]+)\|mediaType:([^|]*)\|filename:([^\]]*)\]/g;
 
-  const files: Array<{ urlOrData: string; mediaType: string; filename: string; isData: boolean }> = [];
+  const files: Array<{
+    urlOrData: string;
+    mediaType: string;
+    filename: string;
+    isData: boolean;
+  }> = [];
   let cleanText = text;
 
   // Find and extract FILE_URL markers
   let match;
-  const urlMatches: Array<{ match: string; url: string; mediaType: string; filename: string }> = [];
+  const urlMatches: Array<{
+    match: string;
+    url: string;
+    mediaType: string;
+    filename: string;
+  }> = [];
   while ((match = fileUrlRegex.exec(text)) !== null) {
     urlMatches.push({
       match: match[0],
@@ -1864,7 +1920,12 @@ const parseFileMarkers = (text: string): {
   }
 
   // Find and extract FILE_DATA markers
-  const dataMatches: Array<{ match: string; data: string; mediaType: string; filename: string }> = [];
+  const dataMatches: Array<{
+    match: string;
+    data: string;
+    mediaType: string;
+    filename: string;
+  }> = [];
   while ((match = fileDataRegex.exec(text)) !== null) {
     dataMatches.push({
       match: match[0],
@@ -1876,15 +1937,27 @@ const parseFileMarkers = (text: string): {
 
   // Combine and sort by position in text
   const allMatches = [
-    ...urlMatches.map(m => ({ ...m, index: text.indexOf(m.match), isData: false })),
-    ...dataMatches.map(m => ({ ...m, index: text.indexOf(m.match), isData: true })),
+    ...urlMatches.map((m) => ({
+      ...m,
+      index: text.indexOf(m.match),
+      isData: false,
+    })),
+    ...dataMatches.map((m) => ({
+      ...m,
+      index: text.indexOf(m.match),
+      isData: true,
+    })),
   ].sort((a, b) => b.index - a.index); // Sort in reverse to remove from end to start
 
   // Remove markers from text (in reverse order to maintain indices)
   for (const fileMatch of allMatches) {
-    cleanText = cleanText.substring(0, fileMatch.index) + cleanText.substring(fileMatch.index + fileMatch.match.length);
+    cleanText =
+      cleanText.substring(0, fileMatch.index) +
+      cleanText.substring(fileMatch.index + fileMatch.match.length);
     files.push({
-      urlOrData: fileMatch.isData ? (fileMatch as typeof dataMatches[0]).data : (fileMatch as typeof urlMatches[0]).url,
+      urlOrData: fileMatch.isData
+        ? (fileMatch as (typeof dataMatches)[0]).data
+        : (fileMatch as (typeof urlMatches)[0]).url,
       mediaType: fileMatch.mediaType,
       filename: fileMatch.filename,
       isData: fileMatch.isData,
@@ -1898,14 +1971,22 @@ const parseFileMarkers = (text: string): {
 };
 
 // Convert base64 data URL to File object
-const dataUrlToFile = async (dataUrl: string, filename: string, mediaType: string): Promise<File> => {
+const dataUrlToFile = async (
+  dataUrl: string,
+  filename: string,
+  mediaType: string,
+): Promise<File> => {
   const response = await fetch(dataUrl);
   const blob = await response.blob();
   return new File([blob], filename, { type: mediaType });
 };
 
 // Convert URL to File object
-const urlToFile = async (url: string, filename: string, mediaType: string): Promise<File> => {
+const urlToFile = async (
+  url: string,
+  filename: string,
+  mediaType: string,
+): Promise<File> => {
   const response = await fetch(url);
   const blob = await response.blob();
   return new File([blob], filename, { type: mediaType });
@@ -1921,7 +2002,10 @@ const EditComposer: FC = () => {
   const aui = useAui();
   const hasUploading = useAttachmentUploadStore((s) => s.uploadingIds.size > 0);
   const messageAttachments = useAuiState(
-    useShallow(({ message }) => (message as { attachments?: unknown[] })?.attachments || [])
+    useShallow(
+      ({ message }) =>
+        (message as { attachments?: unknown[] })?.attachments || [],
+    ),
   );
   const hasParsedRef = useRef(false);
   const hasAttachmentsRestoredRef = useRef(false);
@@ -1942,13 +2026,17 @@ const EditComposer: FC = () => {
     if (!composerState || !composerState.text) return;
 
     // Parse file markers first (they're in the text)
-    const { cleanText: textWithoutFiles, files } = parseFileMarkers(composerState.text);
+    const { cleanText: textWithoutFiles, files } = parseFileMarkers(
+      composerState.text,
+    );
 
     // Parse URL markers from the cleaned text
-    const { cleanText: textWithoutUrls, urls } = parseUrlMarkers(textWithoutFiles);
+    const { cleanText: textWithoutUrls, urls } =
+      parseUrlMarkers(textWithoutFiles);
 
     // Parse selected cards markers and extract the context content
-    const { cleanText: textWithoutCards, cardsContext } = parseSelectedCardsMarkersWithExtraction(textWithoutUrls);
+    const { cleanText: textWithoutCards, cardsContext } =
+      parseSelectedCardsMarkersWithExtraction(textWithoutUrls);
 
     // Then parse reply markers from the cleaned text
     const { cleanText, replies } = parseReplyMarkers(textWithoutCards);
@@ -1985,21 +2073,36 @@ const EditComposer: FC = () => {
 
               if (fileInfo.isData) {
                 // Handle base64 data URL
-                const dataUrl = fileInfo.urlOrData.startsWith('data:')
+                const dataUrl = fileInfo.urlOrData.startsWith("data:")
                   ? fileInfo.urlOrData
                   : `data:${fileInfo.mediaType};base64,${fileInfo.urlOrData}`;
-                file = await dataUrlToFile(dataUrl, fileInfo.filename, fileInfo.mediaType);
+                file = await dataUrlToFile(
+                  dataUrl,
+                  fileInfo.filename,
+                  fileInfo.mediaType,
+                );
               } else {
                 // Handle URL - check if it's a URL_CONTEXT or regular URL
-                if (fileInfo.urlOrData.startsWith('http://') || fileInfo.urlOrData.startsWith('https://')) {
-                  file = await urlToFile(fileInfo.urlOrData, fileInfo.filename, fileInfo.mediaType);
+                if (
+                  fileInfo.urlOrData.startsWith("http://") ||
+                  fileInfo.urlOrData.startsWith("https://")
+                ) {
+                  file = await urlToFile(
+                    fileInfo.urlOrData,
+                    fileInfo.filename,
+                    fileInfo.mediaType,
+                  );
                 } else {
                   // Might be a URL_CONTEXT marker, try creating URL file
                   try {
                     file = createUrlFile(fileInfo.urlOrData);
                   } catch {
                     // If that fails, try as regular URL
-                    file = await urlToFile(fileInfo.urlOrData, fileInfo.filename, fileInfo.mediaType);
+                    file = await urlToFile(
+                      fileInfo.urlOrData,
+                      fileInfo.filename,
+                      fileInfo.mediaType,
+                    );
                   }
                 }
               }
@@ -2021,13 +2124,21 @@ const EditComposer: FC = () => {
       // Only restore if we haven't already restored files from markers
       // or if there are no file markers but there are message attachments
       if (composerAttachments.length === 0 || files.length === 0) {
-        (messageAttachments as Array<{ content?: Array<{ type: string;[key: string]: unknown }> }>).forEach((attachment) => {
+        (
+          messageAttachments as Array<{
+            content?: Array<{ type: string; [key: string]: unknown }>;
+          }>
+        ).forEach((attachment) => {
           if (attachment.content) {
             // Check if it's a URL attachment
-            const urlContent = attachment.content.find((c: { type: string;[key: string]: unknown }) =>
-              c.type === "text" &&
-              typeof (c as { type: "text"; text: string }).text === "string" &&
-              (c as { type: "text"; text: string }).text.startsWith("[URL_CONTEXT:")
+            const urlContent = attachment.content.find(
+              (c: { type: string; [key: string]: unknown }) =>
+                c.type === "text" &&
+                typeof (c as { type: "text"; text: string }).text ===
+                  "string" &&
+                (c as { type: "text"; text: string }).text.startsWith(
+                  "[URL_CONTEXT:",
+                ),
             );
             if (urlContent && urlContent.type === "text") {
               const textContent = urlContent as { type: "text"; text: string };
@@ -2069,21 +2180,27 @@ const EditComposer: FC = () => {
           let modifiedText = currentText;
           if (parsedUrls.length > 0) {
             // Add URL markers to the text
-            const urlMarkers = parsedUrls.map(url => `[URL_CONTEXT:${url}]`).join(' ');
+            const urlMarkers = parsedUrls
+              .map((url) => `[URL_CONTEXT:${url}]`)
+              .join(" ");
             modifiedText = `${urlMarkers} ${currentText}`.trim();
           }
 
           // Re-add selected cards markers from parsed cards context (stored in state)
           if (parsedCardsContext) {
             const cardsMarker = "[[SELECTED_CARDS_MARKER]]";
-            modifiedText = modifiedText + `\n\n${cardsMarker}${parsedCardsContext}${cardsMarker}`;
+            modifiedText =
+              modifiedText +
+              `\n\n${cardsMarker}${parsedCardsContext}${cardsMarker}`;
           }
 
           // Re-add reply markers from parsed replies (stored in state)
           if (parsedReplies.length > 0) {
-            const replyTexts = parsedReplies.join('|');
+            const replyTexts = parsedReplies.join("|");
             const specialMarker = "[[REPLY_MARKER]]";
-            modifiedText = modifiedText + `\n\n${specialMarker}${replyTexts}${specialMarker}`;
+            modifiedText =
+              modifiedText +
+              `\n\n${specialMarker}${replyTexts}${specialMarker}`;
           }
 
           // Set the modified text and send
@@ -2131,7 +2248,7 @@ const EditComposer: FC = () => {
                 let displayUrl = url;
                 try {
                   const urlObj = new URL(url);
-                  displayUrl = urlObj.hostname.replace('www.', '');
+                  displayUrl = urlObj.hostname.replace("www.", "");
                 } catch {
                   // Keep original URL if parsing fails
                 }
@@ -2168,7 +2285,8 @@ const EditComposer: FC = () => {
               aria-label="Update message"
               disabled={currentText === originalText || hasUploading}
               className={cn(
-                (currentText === originalText || hasUploading) && "opacity-50 cursor-not-allowed"
+                (currentText === originalText || hasUploading) &&
+                  "opacity-50 cursor-not-allowed",
               )}
             >
               {hasUploading ? (
