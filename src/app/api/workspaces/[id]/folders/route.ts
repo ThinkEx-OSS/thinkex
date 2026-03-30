@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loadWorkspaceFolders } from "@/lib/workspace/state-loader";
+import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import { requireAuth, verifyWorkspaceAccess, withErrorHandling } from "@/lib/api/workspace-helpers";
 
 /**
@@ -17,7 +17,8 @@ async function handleGET(
 
   await verifyWorkspaceAccess(id, userId, "viewer");
 
-  const folders = await loadWorkspaceFolders(id);
+  const state = await loadWorkspaceState(id);
+  const folders = state.items.filter((item) => item.type === "folder");
 
   return NextResponse.json({ folders });
 }
