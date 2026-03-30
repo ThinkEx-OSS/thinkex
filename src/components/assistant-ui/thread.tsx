@@ -8,6 +8,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
+  CornerDownRight,
   File as FileIcon,
   PencilIcon,
   PlusSquareIcon,
@@ -36,6 +37,7 @@ import {
   MessagePrimitive,
   ThreadPrimitive,
   useAui,
+  useAssistantApi,
   useMessage,
   useMessagePartText,
   useAuiState,
@@ -79,6 +81,7 @@ import { ReadWorkspaceToolUI } from "@/components/assistant-ui/ReadWorkspaceTool
 import { MagicFetchToolUI } from "@/components/assistant-ui/MagicFetchToolUI";
 import { AIFeedbackDialog } from "@/components/assistant-ui/AIFeedbackDialog";
 
+import { DeleteCardToolUI } from "@/components/assistant-ui/DeleteCardToolUI";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { useAttachmentUploadStore } from "@/lib/stores/attachment-upload-store";
 import {
@@ -197,6 +200,8 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
         <CreateDocumentToolUI />
         <CreateFlashcardToolUI />
         <EditItemToolUI />
+
+        <DeleteCardToolUI />
 
         <YouTubeSearchToolUI />
         <AddYoutubeVideoToolUI />
@@ -1256,16 +1261,36 @@ const AssistantMessage: FC = () => {
   );
 };
 
+/**
+ * Max characters above which we never show the Continue button.
+ * Long responses (citations, tables, mermaid, multi-paragraph) are assumed complete.
+ * We avoid punctuation-based heuristics since the agent often ends with
+ * <citation>, tables, mermaid blocks, etc.
+ */
+const CONTINUE_MAX_CHARS = 600;
+
 const AssistantActionBar: FC = () => {
   const { createCard, isCreating } = useCreateCardFromMessage({ debounceMs: 300 });
-  const { content } = useMessage();
+  const message = useMessage();
+  const api = useAssistantApi();
 
-  const textContent = useMemo(() => {
-    const textParts = content.filter(
+  const { textLength, textContent } = useMemo(() => {
+    const textParts = message.content.filter(
       (part): part is { type: "text"; text: string } => part.type === "text"
     );
-    return textParts.map((part) => part.text ?? "").join("\n\n");
-  }, [content]);
+    const length = textParts.reduce((sum, part) => sum + (part.text?.length ?? 0), 0);
+    const content = textParts.map((part) => part.text ?? "").join("\n\n");
+    return { textLength: length, textContent: content };
+  }, [message.content]);
+
+  const showContinueButton = textLength > 0 && textLength < CONTINUE_MAX_CHARS;
+
+  const handleContinueClick = useCallback(() => {
+    api?.thread().append({
+      role: "user",
+      content: [{ type: "text", text: "Continue" }],
+    });
+  }, [api]);
 
   const [copied, setCopied] = useState(false);
   const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -1292,16 +1317,29 @@ const AssistantActionBar: FC = () => {
           <RefreshCwIcon />
         </TooltipIconButton>
       </ActionBarPrimitive.Reload>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={createCard}
-        disabled={isCreating}
-        className="!px-1 gap-1 h-6 text-xs font-medium hover:bg-sidebar-accent"
-      >
-        <CgNotes className={cn("h-3 w-3", isCreating && "animate-pulse")} />
-        <span>Save as Note</span>
-      </Button>
+      {showContinueButton ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleContinueClick}
+          className="!px-1 gap-1 h-6 text-xs font-medium hover:bg-sidebar-accent"
+          title="Continue response"
+        >
+          <CornerDownRight className="h-3 w-3" />
+          <span>Continue</span>
+        </Button>
+      ) : (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={createCard}
+          disabled={isCreating}
+          className="!px-1 gap-1 h-6 text-xs font-medium hover:bg-sidebar-accent"
+        >
+          <CgNotes className={cn("h-3 w-3", isCreating && "animate-pulse")} />
+          <span>Save as Note</span>
+        </Button>
+      )}
     </ActionBarPrimitive.Root>
   );
 };

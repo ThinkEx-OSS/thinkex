@@ -5,17 +5,26 @@ import {
   useRef,
   useEffect,
   useCallback,
+  createContext,
+  useContext,
 } from "react";
+import Image from "next/image";
 import { HomePromptInput } from "./HomePromptInput";
 import { DynamicTagline } from "./DynamicTagline";
 import { WorkspaceGrid } from "./WorkspaceGrid";
 import { HomeTopBar } from "./HomeTopBar";
-import { FloatingWorkspaceCards } from "@/components/background/FloatingWorkspaceCards";
+import { FloatingWorkspaceCards } from "@/components/landing/FloatingWorkspaceCards";
 import { HeroGlow } from "./HeroGlow";
+import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ChevronDown } from "lucide-react";
 import { useCreateWorkspace } from "@/hooks/workspace/use-create-workspace";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
@@ -30,10 +39,18 @@ import {
   isStudyDocumentFile,
 } from "@/lib/uploads/home-upload-config";
 
+// Context for section visibility - allows child components to know when to focus
+const SectionVisibilityContext = createContext<{
+  heroVisible: boolean;
+  workspacesVisible: boolean;
+}>({ heroVisible: true, workspacesVisible: false });
+
+export const useSectionVisibility = () => useContext(SectionVisibilityContext);
+
 import { HomeActionCards } from "./HomeActionCards";
 import { RecordWorkspaceDialog } from "@/components/modals/RecordWorkspaceDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
-import { SiteFooter } from "@/components/layout/SiteFooter";
+import { Footer } from "@/components/landing/Footer";
 
 interface HeroAttachmentsSectionProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -201,6 +218,7 @@ export function HomeContent() {
   const [pastedText, setPastedText] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [workspacesVisible, setWorkspacesVisible] = useState(false);
   const [showScrollHint, setShowScrollHint] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -219,7 +237,7 @@ export function HomeContent() {
     };
 
     const el = scrollRef.current;
-    el?.addEventListener("scroll", handleScroll, { passive: true });
+    el?.addEventListener("scroll", handleScroll);
     return () => el?.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -235,6 +253,10 @@ export function HomeContent() {
           if (entry.target === heroEl) {
             setHeroVisible(
               entry.isIntersecting && entry.intersectionRatio > 0.5,
+            );
+          } else if (entry.target === workspacesEl) {
+            setWorkspacesVisible(
+              entry.isIntersecting && entry.intersectionRatio > 0.3,
             );
           }
         });
@@ -391,6 +413,30 @@ export function HomeContent() {
                 {/* Hero Glow Effect */}
                 <HeroGlow />
 
+                {/* Social proof */}
+                <div className="mb-12 flex flex-wrap items-center justify-center gap-3 text-xs sm:text-sm relative z-10">
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/10 text-sidebar-foreground">
+                    <div className="flex -space-x-2">
+                      {[
+                        "bg-gradient-to-br from-blue-400 to-blue-600",
+                        "bg-gradient-to-br from-emerald-400 to-emerald-600",
+                        "bg-gradient-to-br from-amber-400 to-amber-600",
+                        "bg-gradient-to-br from-rose-400 to-rose-600",
+                      ].map((gradient, i) => (
+                        <div
+                          key={gradient}
+                          className={`w-5 h-5 rounded-full ${gradient} flex items-center justify-center text-white text-[9px] font-medium shadow-sm`}
+                        >
+                          {["T", "J", "A", "M"][i]}
+                        </div>
+                      ))}
+                    </div>
+                    <span className="text-xs sm:text-sm font-medium text-muted-foreground">
+                      500+ daily active users
+                    </span>
+                  </div>
+                </div>
+
                 {/* Dynamic tagline with mask wipe animation */}
                 <div className="mb-10 relative z-10">
                   <DynamicTagline />
@@ -430,7 +476,7 @@ export function HomeContent() {
 
             {/* Footer */}
             <div className="relative z-10">
-              <SiteFooter />
+              <Footer />
             </div>
           </div>
         </HomeHeroDropzone>

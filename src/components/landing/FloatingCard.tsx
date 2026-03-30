@@ -21,12 +21,14 @@ export type BackgroundCardType =
 export interface FloatingCardData {
   type: BackgroundCardType;
   title?: string;
-  content?: string;
+  content?: string; // For notes/flashcards
   color?: CardColor;
   width?: string;
   height?: string;
   aspectRatio?: string;
-  itemCount?: number;
+  // rotation removed
+  itemCount?: number; // For folders
+  /** Local or remote image for decorative video-style cards */
   thumbnailUrl?: string;
 }
 
@@ -36,8 +38,8 @@ interface FloatingCardProps {
 }
 
 export function FloatingCard({ data, className }: FloatingCardProps) {
-  const baseColor = data.color || "#3B82F6";
-  const borderColor = getCardAccentColor(baseColor, 0.8);
+  const baseColor = data.color || "#3B82F6"; // Default blue
+  const borderColor = getCardAccentColor(baseColor, 0.8); // Bright borders
   const themedCardStyle = {
     "--floating-card-bg-light": getCardColorCSS(baseColor, 0.4),
     "--floating-card-bg-dark": getCardColorCSS(baseColor, 0.3),
@@ -48,6 +50,7 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
     "--floating-card-header-bg": getCardColorCSS(baseColor, 0.2),
   } as CSSProperties;
 
+  // Render specific card types
   if (data.type === "folder") {
     return (
       <div className={cn("relative group mb-4 break-inside-avoid", className)}>
@@ -59,6 +62,7 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
               : themedCardStyle
           }
         >
+          {/* Folder Tab */}
           <div
             className="absolute top-0 left-0 h-[10%] w-[35%] rounded-t-md border border-b-0 [background-color:var(--floating-card-tab-bg)] [border-color:var(--floating-card-border)]"
             style={{
@@ -67,6 +71,7 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
             }}
           />
 
+          {/* Main Body */}
           <div
             className="absolute top-[10%] left-0 right-0 bottom-0 rounded-md rounded-tl-none border p-4 flex flex-col pt-[15%] [background-color:var(--floating-card-bg-light)] [border-color:var(--floating-card-border)] dark:[background-color:var(--floating-card-bg-dark)]"
             style={{
@@ -74,6 +79,7 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
               borderWidth: "1px",
             }}
           >
+            {/* Folder Content Mimic */}
             <h3 className="font-medium text-sm md:text-base mb-1 truncate text-muted dark:text-muted-foreground">
               {data.title || "New Folder"}
             </h3>
@@ -93,6 +99,7 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
           className="w-full aspect-[1.2] rounded-md border p-4 flex flex-col overflow-hidden select-none shadow-sm [background-color:var(--floating-card-bg-light)] [border-color:var(--floating-card-border)] dark:[background-color:var(--floating-card-bg-dark)]"
           style={themedCardStyle}
         >
+          {/* Quiz Header */}
           <div className="flex items-center gap-2 mb-3 pb-2 border-b">
             <CheckSquare className="w-4 h-4" style={{ color: baseColor }} />
             <h3 className="font-semibold text-xs md:text-sm truncate text-muted dark:text-muted-foreground">
@@ -100,10 +107,12 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
             </h3>
           </div>
 
+          {/* Question */}
           <p className="text-xs mb-3 line-clamp-2 text-muted dark:text-muted-foreground">
             {data.content || "What is the correct answer?"}
           </p>
 
+          {/* Answer Options */}
           <div className="space-y-1.5 flex-1">
             {["A", "B", "C", "D"].map((option, i) => (
               <div
@@ -149,6 +158,7 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
           className="relative w-full aspect-[1.4] select-none"
           style={{ marginBottom: "6px" }}
         >
+          {/* Stack Tabs - behind */}
           <div
             className="absolute left-1 right-1 rounded-b-md z-0"
             style={{
@@ -168,6 +178,7 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
             }}
           />
 
+          {/* Main Card */}
           <div
             className="absolute inset-0 rounded-md border flex items-center justify-center p-6 text-center shadow-sm [background-color:var(--floating-card-bg-light)] [border-color:var(--floating-card-border)] dark:[background-color:var(--floating-card-bg-dark)]"
             style={themedCardStyle}
@@ -177,6 +188,7 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
             </p>
           </div>
 
+          {/* Controls Mimic */}
           <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-4 px-4">
             <ChevronLeft className="w-4 h-4 text-muted dark:text-muted-foreground" />
             <div className="px-2 py-0.5 rounded-full bg-muted/50 dark:bg-muted-foreground/20 text-[10px] text-muted dark:text-muted-foreground">
@@ -199,17 +211,20 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
             ...(data.aspectRatio ? { aspectRatio: data.aspectRatio } : {}),
           }}
         >
+          {/* Color strip at top if needed, or just border */}
           <div className="flex items-center justify-between mb-3 pb-2 border-b">
             <h3 className="font-semibold text-xs md:text-sm truncate w-3/4 text-muted dark:text-muted-foreground">
               {data.title || "Untitled Note"}
             </h3>
           </div>
 
+          {/* Content Lines */}
           <div className="space-y-2 opacity-80">
             <div className="h-2 w-full bg-muted/30 dark:bg-muted-foreground/30 rounded-sm" />
             <div className="h-2 w-5/6 bg-muted/30 dark:bg-muted-foreground/30 rounded-sm" />
             <div className="h-2 w-4/6 bg-muted/30 dark:bg-muted-foreground/30 rounded-sm" />
             <div className="h-2 w-full bg-muted/30 dark:bg-muted-foreground/30 rounded-sm" />
+            {/* More fake text */}
             <div className="h-2 w-3/4 bg-muted/30 dark:bg-muted-foreground/30 rounded-sm mt-4" />
             <div className="h-2 w-1/2 bg-muted/30 dark:bg-muted-foreground/30 rounded-sm" />
           </div>
@@ -228,6 +243,7 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
             ...(data.aspectRatio ? { aspectRatio: data.aspectRatio } : {}),
           }}
         >
+          {/* Header */}
           <div
             className="p-3 border-b flex items-center gap-2"
             style={{
@@ -241,6 +257,7 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
             </h3>
           </div>
 
+          {/* PDF Preview Mimic */}
           <div className="flex-1 p-4 flex flex-col gap-2">
             <div className="w-3/4 h-2 bg-muted/35 dark:bg-muted-foreground/35 rounded-sm" />
             <div className="w-full h-2 bg-muted/35 dark:bg-muted-foreground/35 rounded-sm" />
@@ -279,6 +296,7 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
             </div>
           )}
 
+          {/* Overlay Play Button */}
           <div className="absolute inset-0 flex items-center justify-center bg-foreground/20">
             <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
               <Play className="w-5 h-5 text-foreground ml-0.5 fill-foreground dark:text-white dark:fill-white" />

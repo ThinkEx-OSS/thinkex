@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { LogOut, Layers, User } from "lucide-react";
+import { MoreVertical, LogOut, Layers, User, Play, Users, Globe, Plus, Upload, Tag } from "lucide-react";
 import { useState, useCallback, memo } from "react";
 import { useSession, signOut } from "@/lib/auth-client";
 import { useRouter, usePathname } from "next/navigation";
@@ -18,6 +18,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -27,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import CreateWorkspaceModal from "@/components/workspace/CreateWorkspaceModal";
 import SidebarCardList from "@/components/workspace/SidebarCardList";
 import WorkspaceList from "@/components/workspace/WorkspaceList";
@@ -39,6 +42,8 @@ import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useUIStore } from "@/lib/stores/ui-store";
 // import { useJoyride } from "@/contexts/JoyrideContext";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
+import { IconRenderer } from "@/hooks/use-icon-picker";
+import { cn } from "@/lib/utils";
 import { ThinkExLogo } from "@/components/ui/thinkex-logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
@@ -53,17 +58,19 @@ interface WorkspaceSidebarProps {
 }
 
 
-function WorkspaceSidebar(props: WorkspaceSidebarProps) {
-  const {
-    showJsonView,
-    setShowJsonView,
-    onWorkspaceSwitch,
-    showCreateModal: externalShowCreateModal,
-    setShowCreateModal: externalSetShowCreateModal,
-  } = props;
-  const { data: session } = useSession();
+function WorkspaceSidebar({
+  showJsonView,
+  setShowJsonView,
+  onWorkspaceSwitch,
+  showCreateModal: externalShowCreateModal,
+  setShowCreateModal: externalSetShowCreateModal,
+  isChatExpanded,
+  setIsChatExpanded,
+}: WorkspaceSidebarProps) {
+  const { data: session, isPending } = useSession();
   const router = useRouter();
   const pathname = usePathname();
+  const isHomeRoute = pathname === "/home";
   const isWorkspaceRoute = pathname.startsWith("/workspace");
 
   // Get workspace context
@@ -72,6 +79,7 @@ function WorkspaceSidebar(props: WorkspaceSidebarProps) {
     loadingWorkspaces,
     loadWorkspaces,
     currentSlug,
+    switchWorkspace,
   } = useWorkspaceContext();
 
   // Get current workspace ID from Zustand store (moved in Phase 3)
@@ -100,6 +108,7 @@ function WorkspaceSidebar(props: WorkspaceSidebarProps) {
 
   // Get user display information
   const userName = session?.user?.name || session?.user?.email || "User";
+  const userEmail = session?.user?.email || "";
   const userImage = session?.user?.image || undefined;
 
   // Get initials for avatar fallback
@@ -167,7 +176,7 @@ function WorkspaceSidebar(props: WorkspaceSidebarProps) {
 
   const handleSignOut = useCallback(() => {
     signOut();
-    router.push("/home");
+    router.push("/");
   }, [router]);
 
   return (
@@ -176,7 +185,7 @@ function WorkspaceSidebar(props: WorkspaceSidebarProps) {
         <SidebarHeader className="bg-sidebar" data-tour="sidebar">
           <div className="flex items-center justify-between py-2 px-4 min-h-[3rem] group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center">
             <Link
-              href="/home"
+              href={isHomeRoute ? "/home" : "/"}
               className="flex items-center gap-2 group-data-[collapsible=icon]:hidden transition-all duration-[400ms] group/logo cursor-pointer"
               style={{
                 transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
