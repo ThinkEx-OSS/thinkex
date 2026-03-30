@@ -273,7 +273,7 @@ export function ModelPicker() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex items-center gap-1.5 rounded-md bg-sidebar-accent py-1 pl-0 pr-1.5 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex cursor-pointer items-center gap-1.5 rounded-md bg-sidebar-accent px-1.5 py-1 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <span>{getModelDisplayName(selectedModel.id)}</span>
         </button>

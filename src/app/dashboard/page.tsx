@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { AgentState, PdfData, WorkspaceWithState } from "@/lib/workspace-state/types";
+import type {
+  AgentState,
+  WorkspaceWithState,
+} from "@/lib/workspace-state/types";
 import { initialState } from "@/lib/workspace-state/state";
-import { useScrollHeader } from "@/hooks/ui/use-scroll-header";
 import { useKeyboardShortcuts } from "@/hooks/ui/use-keyboard-shortcuts";
 import { useLayoutState } from "@/hooks/ui/use-layout-state";
 import useMediaQuery from "@/hooks/ui/use-media-query";
@@ -15,7 +15,10 @@ import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operatio
 import { useWorkspaceHistory } from "@/hooks/workspace/use-workspace-history";
 import { useWorkspaceEvents } from "@/hooks/workspace/use-workspace-events";
 import { useTextSelectionAgent } from "@/hooks/workspace/use-text-selection-agent";
-import { WorkspaceProvider, useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import {
+  WorkspaceProvider,
+  useWorkspaceContext,
+} from "@/contexts/WorkspaceContext";
 // import { JoyrideProvider } from "@/contexts/JoyrideContext";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
@@ -28,9 +31,12 @@ import { SplitViewLayout } from "@/components/layout/SplitViewLayout";
 import { ItemPanelContent } from "@/components/workspace-canvas/ItemPanelContent";
 import WorkspaceHeader from "@/components/workspace-canvas/WorkspaceHeader";
 import { WorkspaceSearchDialog } from "@/components/workspace-canvas/WorkspaceSearchDialog";
-import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
+import { useSidebar } from "@/components/ui/sidebar";
 import { MobileWarning } from "@/components/ui/MobileWarning";
-import { AnonymousSessionHandler, SidebarCoordinator } from "@/components/layout/SessionHandler";
+import {
+  AnonymousSessionHandler,
+  SidebarCoordinator,
+} from "@/components/layout/SessionHandler";
 // import { OnboardingVideoDialog } from "@/components/onboarding/OnboardingVideoDialog";
 // import { useOnboardingStatus } from "@/hooks/user/use-onboarding-status";
 import { PdfEngineWrapper } from "@/components/pdf/PdfEngineWrapper";
@@ -43,9 +49,7 @@ import { InviteGuard } from "@/components/workspace/InviteGuard";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 import { useFolderUrl } from "@/hooks/ui/use-folder-url";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
-import {
-  buildWorkspaceItemDefinitionsFromAssets,
-} from "@/lib/uploads/uploaded-asset";
+import { buildWorkspaceItemDefinitionsFromAssets } from "@/lib/uploads/uploaded-asset";
 import {
   prepareWorkspaceUploadSelection,
   uploadSelectedFiles,
@@ -62,16 +66,13 @@ import {
 // Main dashboard content component
 interface DashboardContentProps {
   currentWorkspace: WorkspaceWithState | null;
-  loadingWorkspaces: boolean;
   loadingCurrentWorkspace: boolean;
 }
 
 function DashboardContent({
   currentWorkspace,
-  loadingWorkspaces,
   loadingCurrentWorkspace,
 }: DashboardContentProps) {
-  const router = useRouter();
   const { data: session } = useSession();
 
   const currentWorkspaceId = currentWorkspace?.id || null;
@@ -90,24 +91,31 @@ function DashboardContent({
   //   }
   // }, [shouldShowOnboarding, isLoadingOnboarding]);
   // Get workspace context (now only manages workspace list)
-  const {
-    currentSlug,
-    switchWorkspace,
-    workspaces: allWorkspaces,
-    loadingWorkspaces: loadingAllWorkspaces,
-  } = useWorkspaceContext();
+  const { currentSlug, switchWorkspace } = useWorkspaceContext();
 
   // Get save status from Zustand store
-  const { isSaving, lastSavedAt, hasUnsavedChanges, updateSaveStatus, updateLastSaved, updateHasUnsavedChanges } =
-    useWorkspaceStore();
+  const {
+    isSaving,
+    lastSavedAt,
+    hasUnsavedChanges,
+    updateSaveStatus,
+    updateLastSaved,
+    updateHasUnsavedChanges,
+  } = useWorkspaceStore();
 
   // ===== EVENT-BASED STATE MANAGEMENT =====
   // Event sourcing + React Query replaces the old autosave/loader hooks
   // State is derived from events, mutations are optimistic
-  const { state, isLoading: isLoadingWorkspace, version } = useWorkspaceState(currentWorkspaceId);
+  const {
+    state,
+    isLoading: isLoadingWorkspace,
+    version,
+  } = useWorkspaceState(currentWorkspaceId);
 
   // Clear playing YouTube videos when workspace view mounts (e.g., navigating back from home)
-  const clearPlayingYouTubeCards = useUIStore((state) => state.clearPlayingYouTubeCards);
+  const clearPlayingYouTubeCards = useUIStore(
+    (state) => state.clearPlayingYouTubeCards,
+  );
   useEffect(() => {
     clearPlayingYouTubeCards();
   }, [clearPlayingYouTubeCards]);
@@ -115,8 +123,12 @@ function DashboardContent({
   // Open audio recorder when landing from home Record flow (store flag set before navigate).
   const openAudioDialog = useAudioRecordingStore((s) => s.openDialog);
   const closeAudioDialog = useAudioRecordingStore((s) => s.closeDialog);
-  const shouldOpenOnWorkspaceLoad = useAudioRecordingStore((s) => s.shouldOpenOnWorkspaceLoad);
-  const setShouldOpenOnWorkspaceLoad = useAudioRecordingStore((s) => s.setShouldOpenOnWorkspaceLoad);
+  const shouldOpenOnWorkspaceLoad = useAudioRecordingStore(
+    (s) => s.shouldOpenOnWorkspaceLoad,
+  );
+  const setShouldOpenOnWorkspaceLoad = useAudioRecordingStore(
+    (s) => s.setShouldOpenOnWorkspaceLoad,
+  );
   const prevWorkspaceIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -128,46 +140,48 @@ function DashboardContent({
     }
 
     // Close audio dialog when switching to a different workspace (dialog state is global)
-    if (prevWorkspaceIdRef.current !== null && prevWorkspaceIdRef.current !== currentWorkspaceId) {
+    if (
+      prevWorkspaceIdRef.current !== null &&
+      prevWorkspaceIdRef.current !== currentWorkspaceId
+    ) {
       closeAudioDialog();
     }
     prevWorkspaceIdRef.current = currentWorkspaceId;
-  }, [currentWorkspaceId, isLoadingWorkspace, shouldOpenOnWorkspaceLoad, openAudioDialog, closeAudioDialog, setShouldOpenOnWorkspaceLoad]);
+  }, [
+    currentWorkspaceId,
+    isLoadingWorkspace,
+    shouldOpenOnWorkspaceLoad,
+    openAudioDialog,
+    closeAudioDialog,
+    setShouldOpenOnWorkspaceLoad,
+  ]);
 
   // Workspace operations (emits events with optimistic updates)
   const operations = useWorkspaceOperations(currentWorkspaceId, state);
 
   // Version control (history only)
-  const { revertToVersion: revertToVersionRaw } = useWorkspaceHistory(currentWorkspaceId);
+  const { revertToVersion: revertToVersionRaw } =
+    useWorkspaceHistory(currentWorkspaceId);
   const { data: eventLog } = useWorkspaceEvents(currentWorkspaceId);
 
-  // Track sign-in prompt for anonymous users
-  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
+  // Track sign-in prompt dismissal per workspace for anonymous users.
+  const [
+    dismissedSignInPromptWorkspaceId,
+    setDismissedSignInPromptWorkspaceId,
+  ] = useState<string | null>(null);
 
   // Workspace settings/share modals (lifted so header can open them)
   const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
   const [showWorkspaceShare, setShowWorkspaceShare] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
 
-  // Show sign-in prompt after 25 events for anonymous users
-  useEffect(() => {
-    // Only show for anonymous users
-    if (!session?.user?.isAnonymous) {
-      return;
-    }
-
-    // Wait for events to load
-    if (!eventLog || isLoadingWorkspace || !currentWorkspaceId) {
-      return;
-    }
-
-    const eventCount = eventLog.events?.length || 0;
-
-    // Show prompt after 15 events
-    if (eventCount >= 15) {
-      setShowSignInPrompt(true);
-    }
-  }, [session?.user?.isAnonymous, eventLog, isLoadingWorkspace, currentWorkspaceId]);
+  const showSignInPrompt =
+    !!session?.user?.isAnonymous &&
+    !!eventLog &&
+    !isLoadingWorkspace &&
+    !!currentWorkspaceId &&
+    (eventLog.events?.length ?? 0) >= 15 &&
+    dismissedSignInPromptWorkspaceId !== currentWorkspaceId;
 
   // Get sidebar state and controls
   const { state: leftSidebarState, toggleSidebar } = useSidebar();
@@ -186,7 +200,13 @@ function DashboardContent({
       updateHasUnsavedChanges(false);
       updateLastSaved(new Date());
     }
-  }, [operations.isPending, operations.isError, updateSaveStatus, updateHasUnsavedChanges, updateLastSaved]);
+  }, [
+    operations.isPending,
+    operations.isError,
+    updateSaveStatus,
+    updateHasUnsavedChanges,
+    updateLastSaved,
+  ]);
 
   // Mark as saved when workspace is loaded from events
   useEffect(() => {
@@ -199,9 +219,10 @@ function DashboardContent({
         // Ensure timestamp exists and is valid
         if (lastEvent.timestamp != null) {
           // Ensure timestamp is a number (might be string from JSON)
-          const timestamp = typeof lastEvent.timestamp === 'number'
-            ? lastEvent.timestamp
-            : Number(lastEvent.timestamp);
+          const timestamp =
+            typeof lastEvent.timestamp === "number"
+              ? lastEvent.timestamp
+              : Number(lastEvent.timestamp);
           lastSavedDate = new Date(timestamp);
           // Validate the date is valid
           if (isNaN(lastSavedDate.getTime())) {
@@ -219,7 +240,14 @@ function DashboardContent({
       updateLastSaved(lastSavedDate);
       updateHasUnsavedChanges(false);
     }
-  }, [isLoadingWorkspace, currentWorkspaceId, state.items, eventLog, updateLastSaved, updateHasUnsavedChanges]);
+  }, [
+    isLoadingWorkspace,
+    currentWorkspaceId,
+    state.items,
+    eventLog,
+    updateLastSaved,
+    updateHasUnsavedChanges,
+  ]);
 
   // UI State from Zustand stores - using individual selectors to prevent unnecessary re-renders
   // NOTE: Each selector only triggers a re-render when that specific value changes
@@ -228,12 +256,16 @@ function DashboardContent({
   const isChatExpanded = useUIStore((state) => state.isChatExpanded);
   const isChatMaximized = useUIStore((state) => state.isChatMaximized);
   const workspacePanelSize = useUIStore((state) => state.workspacePanelSize);
-  const showCreateWorkspaceModal = useUIStore((state) => state.showCreateWorkspaceModal);
+  const showCreateWorkspaceModal = useUIStore(
+    (state) => state.showCreateWorkspaceModal,
+  );
   const setShowJsonView = useUIStore((state) => state.setShowJsonView);
   const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
   const setIsChatMaximized = useUIStore((state) => state.setIsChatMaximized);
   const setOpenModalItemId = useUIStore((state) => state.setOpenModalItemId);
-  const setShowCreateWorkspaceModal = useUIStore((state) => state.setShowCreateWorkspaceModal);
+  const setShowCreateWorkspaceModal = useUIStore(
+    (state) => state.setShowCreateWorkspaceModal,
+  );
 
   // Version revert: close ShareWorkspaceDialog on success (history is shown there)
   const revertToVersion = useCallback(
@@ -241,9 +273,11 @@ function DashboardContent({
       await revertToVersionRaw(targetVersion);
       setShowWorkspaceShare(false);
     },
-    [revertToVersionRaw, setShowWorkspaceShare]
+    [revertToVersionRaw, setShowWorkspaceShare],
   );
-  const setWorkspacePanelSize = useUIStore((state) => state.setWorkspacePanelSize);
+  const setWorkspacePanelSize = useUIStore(
+    (state) => state.setWorkspacePanelSize,
+  );
   const toggleChatExpanded = useUIStore((state) => state.toggleChatExpanded);
   const toggleChatMaximized = useUIStore((state) => state.toggleChatMaximized);
 
@@ -259,10 +293,9 @@ function DashboardContent({
   const maximizedItemId = useUIStore((state) => state.maximizedItemId);
   const setMaximizedItemId = useUIStore((state) => state.setMaximizedItemId);
 
-
   // Refs and custom hooks
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
-  const { titleInputRef } = useScrollHeader(scrollAreaRef);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
 
   // Layout state
   const layout = useLayoutState({
@@ -277,20 +310,15 @@ function DashboardContent({
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
 
   // Keyboard shortcuts
-  useKeyboardShortcuts(
-    toggleChatExpanded,
-    {
-      onToggleSidebar: toggleSidebar,
-      onToggleChatMaximize: toggleChatMaximized,
-      onFocusSearch: () => {
-        if (currentWorkspaceId && !isLoadingWorkspace) {
-          setSearchDialogOpen(true);
-        }
-      },
-    }
-  );
-
-
+  useKeyboardShortcuts(toggleChatExpanded, {
+    onToggleSidebar: toggleSidebar,
+    onToggleChatMaximize: toggleChatMaximized,
+    onFocusSearch: () => {
+      if (currentWorkspaceId && !isLoadingWorkspace) {
+        setSearchDialogOpen(true);
+      }
+    },
+  });
 
   // Reset JSON view when there are no items
   useEffect(() => {
@@ -309,9 +337,8 @@ function DashboardContent({
         items: items ?? initialState.items,
       };
     },
-    []
+    [],
   );
-
 
   // CopilotKit actions removed - now using Assistant-UI directly
 
@@ -326,7 +353,8 @@ function DashboardContent({
   );
 
   // Text selection handlers - delegate to agent for intelligent processing
-  const { handleCreateInstantNote, handleCreateCardFromSelections } = useTextSelectionAgent(operations);
+  const { handleCreateInstantNote, handleCreateCardFromSelections } =
+    useTextSelectionAgent(operations);
 
   // Handle reactive navigation for new items
   const { handleCreatedItems } = useReactiveNavigation(state);
@@ -346,7 +374,9 @@ function DashboardContent({
         return;
       }
 
-      const uploadToastId = toast.loading(getDocumentUploadLoadingMessage(filesToUpload.length));
+      const uploadToastId = toast.loading(
+        getDocumentUploadLoadingMessage(filesToUpload.length),
+      );
       const { uploads, failedFiles } = await uploadSelectedFiles(filesToUpload);
 
       toast.dismiss(uploadToastId);
@@ -358,7 +388,8 @@ function DashboardContent({
         return;
       }
 
-      const pdfCardDefinitions = buildWorkspaceItemDefinitionsFromAssets(uploads);
+      const pdfCardDefinitions =
+        buildWorkspaceItemDefinitionsFromAssets(uploads);
 
       const createdIds = operations.createItems(pdfCardDefinitions, {
         showSuccessToast: false,
@@ -370,7 +401,10 @@ function DashboardContent({
         assets: uploads,
         itemIds: createdIds,
         onOcrError: (error) => {
-          console.error("[DASHBOARD_PROCESSING] Failed to start processing:", error);
+          console.error(
+            "[DASHBOARD_PROCESSING] Failed to start processing:",
+            error,
+          );
         },
       });
 
@@ -378,11 +412,11 @@ function DashboardContent({
         toast.success(getDocumentUploadSuccessMessage(uploads.length));
       } else if (uploads.length > 0) {
         toast.warning(
-          getDocumentUploadPartialMessage(uploads.length, failedFiles.length)
+          getDocumentUploadPartialMessage(uploads.length, failedFiles.length),
         );
       }
     },
-    [operations, currentWorkspaceId, handleCreatedItems]
+    [operations, currentWorkspaceId, handleCreatedItems],
   );
 
   const handleShowHistory = useCallback(() => {
@@ -391,7 +425,7 @@ function DashboardContent({
 
   // Build the split view layout element (for panel+panel mode only)
   const splitViewContent = useMemo(() => {
-    if (viewMode !== 'panel+panel') return undefined;
+    if (viewMode !== "panel+panel") return undefined;
     return (
       <SplitViewLayout
         items={state.items}
@@ -441,13 +475,39 @@ function DashboardContent({
         onFlushPendingChanges={operations.flushPendingChanges}
       />
     );
-  }, [viewMode, loadingCurrentWorkspace, isLoadingWorkspace, currentWorkspaceId, currentSlug, state, showJsonView, isSaving, lastSavedAt, hasUnsavedChanges, isChatMaximized, isDesktop, isChatExpanded, currentWorkspaceTitle, currentWorkspaceIcon, currentWorkspaceColor, operations, manualSave, setSearchDialogOpen, setIsChatExpanded, setOpenModalItemId, handleShowHistory, titleInputRef, scrollAreaRef, getStatePreviewJSON]);
+  }, [
+    viewMode,
+    loadingCurrentWorkspace,
+    isLoadingWorkspace,
+    currentWorkspaceId,
+    currentSlug,
+    state,
+    showJsonView,
+    isSaving,
+    lastSavedAt,
+    hasUnsavedChanges,
+    isChatMaximized,
+    isDesktop,
+    isChatExpanded,
+    currentWorkspaceTitle,
+    currentWorkspaceIcon,
+    currentWorkspaceColor,
+    operations,
+    manualSave,
+    setSearchDialogOpen,
+    setIsChatExpanded,
+    setOpenModalItemId,
+    handleShowHistory,
+    titleInputRef,
+    scrollAreaRef,
+    getStatePreviewJSON,
+  ]);
 
   // Build the single panel content (for workspace+panel mode)
   const panelContent = useMemo(() => {
-    if (viewMode !== 'workspace+panel') return undefined;
+    if (viewMode !== "workspace+panel") return undefined;
     const panelItem = openPanelIds
-      .map(id => state.items.find(i => i.id === id))
+      .map((id) => state.items.find((i) => i.id === id))
       .find((i): i is NonNullable<typeof i> => !!i);
     if (!panelItem) return undefined;
     return (
@@ -461,13 +521,21 @@ function DashboardContent({
         onMaximize={() => setMaximizedItemId(panelItem.id)}
         isMaximized={false}
         onUpdateItem={(updates) => operations.updateItem(panelItem.id, updates)}
-        onUpdateItemData={(updater) => operations.updateItemData(panelItem.id, updater)}
+        onUpdateItemData={(updater) =>
+          operations.updateItemData(panelItem.id, updater)
+        }
         isRightmostPanel={true}
         isLeftPanel={false}
       />
     );
-  }, [viewMode, openPanelIds, state.items, operations, closePanel, setMaximizedItemId]);
-
+  }, [
+    viewMode,
+    openPanelIds,
+    state.items,
+    operations,
+    closePanel,
+    setMaximizedItemId,
+  ]);
 
   return (
     <PdfEngineWrapper>
@@ -477,7 +545,11 @@ function DashboardContent({
       /> */}
       <AnonymousSignInPrompt
         open={showSignInPrompt}
-        onOpenChange={setShowSignInPrompt}
+        onOpenChange={(open) => {
+          if (!open && currentWorkspaceId) {
+            setDismissedSignInPromptWorkspaceId(currentWorkspaceId);
+          }
+        }}
       />
       <DashboardLayout
         currentWorkspaceId={currentWorkspaceId}
@@ -497,7 +569,10 @@ function DashboardContent({
         splitViewContent={splitViewContent}
         panelContent={panelContent}
         workspaceHeader={
-          !showJsonView && !isChatMaximized && currentWorkspaceId && !isLoadingWorkspace ? (
+          !showJsonView &&
+          !isChatMaximized &&
+          currentWorkspaceId &&
+          !isLoadingWorkspace ? (
             <WorkspaceHeader
               titleInputRef={titleInputRef as React.RefObject<HTMLInputElement>}
               onOpenSearch={() => setSearchDialogOpen(true)}
@@ -522,28 +597,37 @@ function DashboardContent({
               onOpenSettings={() => setShowWorkspaceSettings(true)}
               onOpenShare={() => setShowWorkspaceShare(true)}
               onShowHistory={handleShowHistory}
-              isItemPanelOpen={viewMode === 'workspace+panel' || viewMode === 'panel+panel'}
+              isItemPanelOpen={
+                viewMode === "workspace+panel" || viewMode === "panel+panel"
+              }
               activeItems={(() => {
                 // Collect active items from panels + maximized
                 if (maximizedItemId) {
-                  const item = state.items?.find(i => i.id === maximizedItemId);
+                  const item = state.items?.find(
+                    (i) => i.id === maximizedItemId,
+                  );
                   return item ? [item] : [];
                 }
-                if (viewMode === 'workspace+panel' || viewMode === 'panel+panel') {
+                if (
+                  viewMode === "workspace+panel" ||
+                  viewMode === "panel+panel"
+                ) {
                   return openPanelIds
-                    .map(id => state.items?.find(i => i.id === id))
+                    .map((id) => state.items?.find((i) => i.id === id))
                     .filter((i): i is NonNullable<typeof i> => !!i);
                 }
                 return [];
               })()}
-              activeItemMode={maximizedItemId ? 'maximized' : null}
+              activeItemMode={maximizedItemId ? "maximized" : null}
               onCloseActiveItem={(id) => {
                 operations.flushPendingChanges(id);
                 closePanel(id);
                 if (maximizedItemId === id) setMaximizedItemId(null);
               }}
               onNavigateToRoot={() => {
-                openPanelIds.forEach((id) => operations.flushPendingChanges(id));
+                openPanelIds.forEach((id) =>
+                  operations.flushPendingChanges(id),
+                );
                 if (maximizedItemId) {
                   navigateToRoot();
                 } else {
@@ -551,7 +635,9 @@ function DashboardContent({
                 }
               }}
               onNavigateToFolder={(folderId) => {
-                openPanelIds.forEach((id) => operations.flushPendingChanges(id));
+                openPanelIds.forEach((id) =>
+                  operations.flushPendingChanges(id),
+                );
                 if (maximizedItemId) {
                   navigateToFolder(folderId);
                 } else {
@@ -561,7 +647,9 @@ function DashboardContent({
               onMinimizeActiveItem={() => setMaximizedItemId(null)}
               onMaximizeActiveItem={(id) => setMaximizedItemId(id)}
               onUpdateActiveItem={operations.updateItem}
-              getDocumentMarkdownForExport={operations.getDocumentMarkdownForExport}
+              getDocumentMarkdownForExport={
+                operations.getDocumentMarkdownForExport
+              }
               googleLoginHint={session?.user?.email ?? null}
             />
           ) : undefined
@@ -583,14 +671,15 @@ function DashboardContent({
             updateItem={operations.updateItem}
             deleteItem={operations.deleteItem}
             updateAllItems={operations.updateAllItems}
-
             getStatePreviewJSON={getStatePreviewJSON}
             isChatMaximized={isChatMaximized}
             columns={layout.columns}
             isDesktop={isDesktop}
             isChatExpanded={isChatExpanded}
             setIsChatExpanded={setIsChatExpanded}
-            isItemPanelOpen={viewMode === 'workspace+panel' || viewMode === 'panel+panel'}
+            isItemPanelOpen={
+              viewMode === "workspace+panel" || viewMode === "panel+panel"
+            }
             setOpenModalItemId={setOpenModalItemId}
             onShowHistory={handleShowHistory}
             titleInputRef={titleInputRef as React.RefObject<HTMLInputElement>}
@@ -606,12 +695,12 @@ function DashboardContent({
             onOpenShare={() => setShowWorkspaceShare(true)}
             activeItems={(() => {
               if (maximizedItemId) {
-                const item = state.items?.find(i => i.id === maximizedItemId);
+                const item = state.items?.find((i) => i.id === maximizedItemId);
                 return item ? [item] : [];
               }
               return [];
             })()}
-            activeItemMode={maximizedItemId ? 'maximized' : null}
+            activeItemMode={maximizedItemId ? "maximized" : null}
             onCloseActiveItem={(id) => {
               operations.flushPendingChanges(id);
               closePanel(id);
@@ -653,7 +742,6 @@ function DashboardContent({
   );
 }
 
-
 // Main page component
 // Main page component
 // Main page component (wrapper)
@@ -669,18 +757,15 @@ export function DashboardPage() {
 // Only rendered when InviteGuard allows (authenticated + invite processed)
 function DashboardView() {
   // Get workspace context - currentWorkspace is loaded directly by slug (fast path)
-  const {
-    currentSlug,
-    currentWorkspace,
-    loadingCurrentWorkspace,
-    loadingWorkspaces,
-    markWorkspaceOpened,
-  } = useWorkspaceContext();
+  const { currentWorkspace, loadingCurrentWorkspace, markWorkspaceOpened } =
+    useWorkspaceContext();
 
   const currentWorkspaceId = currentWorkspace?.id || null;
 
   // Sync workspace ID to store
-  const setCurrentWorkspaceId = useWorkspaceStore((state) => state.setCurrentWorkspaceId);
+  const setCurrentWorkspaceId = useWorkspaceStore(
+    (state) => state.setCurrentWorkspaceId,
+  );
   useEffect(() => {
     setCurrentWorkspaceId(currentWorkspaceId);
   }, [currentWorkspaceId, setCurrentWorkspaceId]);
@@ -705,7 +790,9 @@ function DashboardView() {
   useFolderUrl();
 
   // Clear playing YouTube videos when workspace changes
-  const clearPlayingYouTubeCards = useUIStore((state) => state.clearPlayingYouTubeCards);
+  const clearPlayingYouTubeCards = useUIStore(
+    (state) => state.clearPlayingYouTubeCards,
+  );
   useEffect(() => {
     clearPlayingYouTubeCards();
   }, [currentWorkspaceId, clearPlayingYouTubeCards]);
@@ -714,7 +801,6 @@ function DashboardView() {
     <RealtimeProvider workspaceId={currentWorkspaceId}>
       <DashboardContent
         currentWorkspace={currentWorkspace}
-        loadingWorkspaces={loadingWorkspaces}
         loadingCurrentWorkspace={loadingCurrentWorkspace}
       />
     </RealtimeProvider>

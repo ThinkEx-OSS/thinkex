@@ -1,7 +1,21 @@
 "use client";
 
-import React, { PropsWithChildren, useEffect, useState, useRef, type FC } from "react";
-import { XIcon, Link as LinkIcon, SearchIcon, Plus, Code as CodeIcon, GalleryHorizontalEnd, Loader2 } from "lucide-react";
+import React, {
+  PropsWithChildren,
+  useEffect,
+  useState,
+  useRef,
+  type FC,
+} from "react";
+import {
+  XIcon,
+  Link as LinkIcon,
+  SearchIcon,
+  Plus,
+  Code as CodeIcon,
+  GalleryHorizontalEnd,
+  Loader2,
+} from "lucide-react";
 import { CgNotes } from "react-icons/cg";
 import { LuPaperclip } from "react-icons/lu";
 import { toast } from "sonner";
@@ -59,93 +73,116 @@ const useFileSrc = (file: File | undefined) => {
 function getFaviconUrl(url: string): string {
   try {
     const urlObj = new URL(url);
-    const domain = urlObj.hostname.replace('www.', '');
+    const domain = urlObj.hostname.replace("www.", "");
     // Use Google's favicon service for reliable favicon fetching
     return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
   } catch {
-    return '';
+    return "";
   }
 }
 
 const useAttachmentSrc = () => {
   const attachmentState = useAuiState(
-    useShallow(({ attachment }): { file?: File; src?: string; isUrl?: boolean; url?: string } => {
-      const att = attachment as {
-        type?: string;
-        name?: string;
-        file?: File & { name: string };
-        content?: Array<{ type: string; text?: string; image?: string }>;
-      } | undefined;
-      if (!att) return { file: undefined, src: undefined, isUrl: false, url: undefined };
-      // Check if this is a URL attachment by checking:
-      // 1. Content with [URL_CONTEXT:...] marker (after send)
-      // 2. File name ending with .url (before send)
-      // 3. Attachment name being a valid URL (before send)
+    useShallow(
+      ({
+        attachment,
+      }): { file?: File; src?: string; isUrl?: boolean; url?: string } => {
+        const att = attachment as
+          | {
+              type?: string;
+              name?: string;
+              file?: File & { name: string };
+              content?: Array<{ type: string; text?: string; image?: string }>;
+            }
+          | undefined;
+        if (!att)
+          return {
+            file: undefined,
+            src: undefined,
+            isUrl: false,
+            url: undefined,
+          };
+        // Check if this is a URL attachment by checking:
+        // 1. Content with [URL_CONTEXT:...] marker (after send)
+        // 2. File name ending with .url (before send)
+        // 3. Attachment name being a valid URL (before send)
 
-      // Check content first (for sent attachments)
-      const urlContent = att.content?.find((c: { type: string; text?: string }) => {
-        if (c.type === "text") {
-          const textContent = c as { type: "text"; text: string };
-          return typeof textContent.text === "string" && textContent.text.startsWith("[URL_CONTEXT:");
+        // Check content first (for sent attachments)
+        const urlContent = att.content?.find(
+          (c: { type: string; text?: string }) => {
+            if (c.type === "text") {
+              const textContent = c as { type: "text"; text: string };
+              return (
+                typeof textContent.text === "string" &&
+                textContent.text.startsWith("[URL_CONTEXT:")
+              );
+            }
+            return false;
+          },
+        );
+        if (urlContent && urlContent.type === "text") {
+          const textContent = urlContent as { type: "text"; text: string };
+          const urlMatch = textContent.text.match(/\[URL_CONTEXT:(.+?)\]/);
+          if (urlMatch) {
+            const url = urlMatch[1];
+            return { isUrl: true, src: getFaviconUrl(url), url };
+          }
         }
-        return false;
-      });
-      if (urlContent && urlContent.type === "text") {
-        const textContent = urlContent as { type: "text"; text: string };
-        const urlMatch = textContent.text.match(/\[URL_CONTEXT:(.+?)\]/);
-        if (urlMatch) {
-          const url = urlMatch[1];
-          return { isUrl: true, src: getFaviconUrl(url), url };
-        }
-      }
 
-      // Check file name (for pending attachments in composer)
-      if (att.file?.name.endsWith('.url')) {
-        // Try to extract URL from attachment name first (it's set to the URL in the adapter)
-        let url: string | null = null;
+        // Check file name (for pending attachments in composer)
+        if (att.file?.name.endsWith(".url")) {
+          // Try to extract URL from attachment name first (it's set to the URL in the adapter)
+          let url: string | null = null;
+          if (att.name) {
+            try {
+              new URL(att.name);
+              url = att.name;
+            } catch {
+              // Not a valid URL in name, try reading from file
+              // Note: We can't async read the file here, so we'll use the name if it's a URL
+              // The adapter sets name to the URL when creating URL files
+            }
+          }
+          if (url) {
+            return { isUrl: true, src: getFaviconUrl(url), url };
+          }
+          // If name is not a URL, still mark as URL but without favicon (will show link icon)
+          return { isUrl: true };
+        }
+
+        // Check if attachment name is a valid URL (for pending attachments)
         if (att.name) {
           try {
-            new URL(att.name);
-            url = att.name;
+            const url = new URL(att.name);
+            if (url.protocol === "http:" || url.protocol === "https:") {
+              return {
+                isUrl: true,
+                src: getFaviconUrl(att.name),
+                url: att.name,
+              };
+            }
           } catch {
-            // Not a valid URL in name, try reading from file
-            // Note: We can't async read the file here, so we'll use the name if it's a URL
-            // The adapter sets name to the URL when creating URL files
+            // Not a valid URL
           }
         }
-        if (url) {
-          return { isUrl: true, src: getFaviconUrl(url), url };
-        }
-        // If name is not a URL, still mark as URL but without favicon (will show link icon)
-        return { isUrl: true };
-      }
 
-      // Check if attachment name is a valid URL (for pending attachments)
-      if (att.name) {
-        try {
-          const url = new URL(att.name);
-          if (url.protocol === 'http:' || url.protocol === 'https:') {
-            return { isUrl: true, src: getFaviconUrl(att.name), url: att.name };
-          }
-        } catch {
-          // Not a valid URL
+        if (att.type !== "image") return {};
+        if (att.file) return { file: att.file };
+        const imageContent = att.content?.find(
+          (c: { type: string }) => c.type === "image",
+        ) as { type: "image"; image: string } | undefined;
+        if (imageContent?.image) {
+          return { src: imageContent.image };
         }
-      }
-
-      if (att.type !== "image") return {};
-      if (att.file) return { file: att.file };
-      const imageContent = att.content?.find((c: { type: string }) => c.type === "image") as { type: "image"; image: string } | undefined;
-      if (imageContent?.image) {
-        return { src: imageContent.image };
-      }
-      return {};
-    })
+        return {};
+      },
+    ),
   );
 
   return {
     src: useFileSrc(attachmentState.file) ?? attachmentState.src,
     isUrl: attachmentState.isUrl,
-    url: attachmentState.url
+    url: attachmentState.url,
   };
 };
 
@@ -163,7 +200,7 @@ const AttachmentPreview: FC<AttachmentPreviewProps> = ({ src }) => {
         "block h-auto max-h-[80vh] w-auto max-w-full object-contain",
         isLoaded
           ? "aui-attachment-preview-image-loaded"
-          : "aui-attachment-preview-image-loading invisible"
+          : "aui-attachment-preview-image-loading invisible",
       )}
       onLoad={() => setIsLoaded(true)}
     />
@@ -198,7 +235,7 @@ const AttachmentPreviewDialog: FC<PropsWithChildren> = ({ children }) => {
 
 const AttachmentThumb: FC = () => {
   const isImage = useAuiState(
-    ({ attachment }) => (attachment as { type?: string })?.type === "image"
+    ({ attachment }) => (attachment as { type?: string })?.type === "image",
   );
   const attachmentSrc = useAttachmentSrc();
   const { src, isUrl } = attachmentSrc;
@@ -247,23 +284,27 @@ const AttachmentThumb: FC = () => {
 const AttachmentUI: FC = () => {
   const aui = useAui();
   const isComposer = aui.attachment.source === "composer";
-  const attachmentId = useAuiState(({ attachment }) => (attachment as { id?: string })?.id);
-  const isUploading = useAttachmentUploadStore((s) =>
-    attachmentId != null && s.uploadingIds.has(attachmentId)
+  const attachmentId = useAuiState(
+    ({ attachment }) => (attachment as { id?: string })?.id,
+  );
+  const isUploading = useAttachmentUploadStore(
+    (s) => attachmentId != null && s.uploadingIds.has(attachmentId),
   );
 
   const isImage = useAuiState(
-    ({ attachment }) => (attachment as { type?: string })?.type === "image"
+    ({ attachment }) => (attachment as { type?: string })?.type === "image",
   );
 
   // Split into separate selectors to avoid creating new objects on each render
   const typeLabel = useAuiState(({ attachment }) => {
-    const att = attachment as {
-      type?: string;
-      name?: string;
-      file?: { name: string };
-      content?: Array<{ type: string; text?: string }>;
-    } | undefined;
+    const att = attachment as
+      | {
+          type?: string;
+          name?: string;
+          file?: { name: string };
+          content?: Array<{ type: string; text?: string }>;
+        }
+      | undefined;
     if (!att) return "File";
     // Check if this is a URL attachment by checking:
     // 1. Content with [URL_CONTEXT:...] marker (after send)
@@ -271,13 +312,18 @@ const AttachmentUI: FC = () => {
     // 3. Attachment name being a valid URL (before send)
 
     // Check content first (for sent attachments)
-    const urlContent = att.content?.find((c: { type: string; text?: string }) => {
-      if (c.type === "text") {
-        const textContent = c as { type: "text"; text: string };
-        return typeof textContent.text === "string" && textContent.text.startsWith("[URL_CONTEXT:");
-      }
-      return false;
-    });
+    const urlContent = att.content?.find(
+      (c: { type: string; text?: string }) => {
+        if (c.type === "text") {
+          const textContent = c as { type: "text"; text: string };
+          return (
+            typeof textContent.text === "string" &&
+            textContent.text.startsWith("[URL_CONTEXT:")
+          );
+        }
+        return false;
+      },
+    );
     if (urlContent && urlContent.type === "text") {
       const textContent = urlContent as { type: "text"; text: string };
       const urlMatch = textContent.text.match(/\[URL_CONTEXT:(.+?)\]/);
@@ -287,7 +333,7 @@ const AttachmentUI: FC = () => {
     }
 
     // Check file name (for pending attachments in composer)
-    if (att.file?.name.endsWith('.url')) {
+    if (att.file?.name.endsWith(".url")) {
       return "URL";
     }
 
@@ -295,7 +341,7 @@ const AttachmentUI: FC = () => {
     if (att.name) {
       try {
         const url = new URL(att.name);
-        if (url.protocol === 'http:' || url.protocol === 'https:') {
+        if (url.protocol === "http:" || url.protocol === "https:") {
           return "URL";
         }
       } catch {
@@ -317,12 +363,14 @@ const AttachmentUI: FC = () => {
   });
 
   const isUrl = useAuiState(({ attachment }) => {
-    const att = attachment as {
-      type?: string;
-      name?: string;
-      file?: { name: string };
-      content?: Array<{ type: string; text?: string }>;
-    } | undefined;
+    const att = attachment as
+      | {
+          type?: string;
+          name?: string;
+          file?: { name: string };
+          content?: Array<{ type: string; text?: string }>;
+        }
+      | undefined;
     if (!att) return false;
     // Check if this is a URL attachment by checking:
     // 1. Content with [URL_CONTEXT:...] marker (after send)
@@ -330,13 +378,18 @@ const AttachmentUI: FC = () => {
     // 3. Attachment name being a valid URL (before send)
 
     // Check content first (for sent attachments)
-    const urlContent = att.content?.find((c: { type: string; text?: string }) => {
-      if (c.type === "text") {
-        const textContent = c as { type: "text"; text: string };
-        return typeof textContent.text === "string" && textContent.text.startsWith("[URL_CONTEXT:");
-      }
-      return false;
-    });
+    const urlContent = att.content?.find(
+      (c: { type: string; text?: string }) => {
+        if (c.type === "text") {
+          const textContent = c as { type: "text"; text: string };
+          return (
+            typeof textContent.text === "string" &&
+            textContent.text.startsWith("[URL_CONTEXT:")
+          );
+        }
+        return false;
+      },
+    );
     if (urlContent && urlContent.type === "text") {
       const textContent = urlContent as { type: "text"; text: string };
       const urlMatch = textContent.text.match(/\[URL_CONTEXT:(.+?)\]/);
@@ -346,7 +399,7 @@ const AttachmentUI: FC = () => {
     }
 
     // Check file name (for pending attachments in composer)
-    if (att.file?.name.endsWith('.url')) {
+    if (att.file?.name.endsWith(".url")) {
       return true;
     }
 
@@ -354,7 +407,7 @@ const AttachmentUI: FC = () => {
     if (att.name) {
       try {
         const url = new URL(att.name);
-        if (url.protocol === 'http:' || url.protocol === 'https:') {
+        if (url.protocol === "http:" || url.protocol === "https:") {
           return true;
         }
       } catch {
@@ -371,7 +424,7 @@ const AttachmentUI: FC = () => {
         className={cn(
           "aui-attachment-root relative flex flex-col items-center gap-1.5 max-w-[100px]",
           isImage &&
-          "aui-attachment-root-composer only:[&>#attachment-tile]:size-24",
+            "aui-attachment-root-composer only:[&>#attachment-tile]:size-24",
         )}
       >
         <div className="relative">
@@ -379,7 +432,7 @@ const AttachmentUI: FC = () => {
             <div
               className={cn(
                 "aui-attachment-tile size-14 overflow-hidden rounded-[14px] border border-foreground/20 bg-muted/60 flex items-center justify-center",
-                isImage && "size-24"
+                isImage && "size-24",
               )}
             >
               <Loader2 className="size-6 shrink-0 text-muted-foreground animate-spin" />
@@ -392,7 +445,7 @@ const AttachmentUI: FC = () => {
                     className={cn(
                       "aui-attachment-tile size-14 cursor-pointer overflow-hidden rounded-[14px] border bg-muted transition-opacity hover:opacity-75",
                       isComposer &&
-                      "aui-attachment-tile-composer border-foreground/20",
+                        "aui-attachment-tile-composer border-foreground/20",
                     )}
                     role="button"
                     id="attachment-tile"
@@ -453,17 +506,10 @@ export const ComposerAttachments: FC = () => {
   );
 };
 
-
 export const ComposerAddAttachment: FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const aui = useAui();
-
-
-
-
-
-
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -477,7 +523,9 @@ export const ComposerAddAttachment: FC = () => {
 
     // Check file count limit
     if (fileArray.length > MAX_FILES) {
-      toast.error(`You can only upload up to ${MAX_FILES} files at once. You selected ${fileArray.length} files.`);
+      toast.error(
+        `You can only upload up to ${MAX_FILES} files at once. You selected ${fileArray.length} files.`,
+      );
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -488,7 +536,9 @@ export const ComposerAddAttachment: FC = () => {
 
     fileArray.forEach((file) => {
       if (file.size > MAX_FILE_SIZE_BYTES) {
-        oversizedFiles.push(`${file.name} (${(file.size / (1024 * 1024)).toFixed(1)}MB)`);
+        oversizedFiles.push(
+          `${file.name} (${(file.size / (1024 * 1024)).toFixed(1)}MB)`,
+        );
       } else {
         validFiles.push(file);
       }
@@ -497,13 +547,21 @@ export const ComposerAddAttachment: FC = () => {
     // Reject password-protected PDFs (so other files still upload)
     let filesToAdd = validFiles;
     if (validFiles.length > 0) {
-      const pdfFiles = validFiles.filter((f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"));
+      const pdfFiles = validFiles.filter(
+        (f) =>
+          f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"),
+      );
       if (pdfFiles.length > 0) {
-        const { valid: unprotectedPdfs, rejected: protectedNames } = await filterPasswordProtectedPdfs(pdfFiles);
+        const { valid: unprotectedPdfs, rejected: protectedNames } =
+          await filterPasswordProtectedPdfs(pdfFiles);
         if (protectedNames.length > 0) {
           emitPasswordProtectedPdf(protectedNames);
         }
-        const nonPdfFiles = validFiles.filter((f) => f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf"));
+        const nonPdfFiles = validFiles.filter(
+          (f) =>
+            f.type !== "application/pdf" &&
+            !f.name.toLowerCase().endsWith(".pdf"),
+        );
         filesToAdd = [...nonPdfFiles, ...unprotectedPdfs];
       }
     }
@@ -511,7 +569,7 @@ export const ComposerAddAttachment: FC = () => {
     // Show error for oversized files
     if (oversizedFiles.length > 0) {
       toast.error(
-        `The following file${oversizedFiles.length > 1 ? 's' : ''} exceed${oversizedFiles.length === 1 ? 's' : ''} the ${MAX_FILE_SIZE_MB}MB limit:\n${oversizedFiles.join('\n')}`
+        `The following file${oversizedFiles.length > 1 ? "s" : ""} exceed${oversizedFiles.length === 1 ? "s" : ""} the ${MAX_FILE_SIZE_MB}MB limit:\n${oversizedFiles.join("\n")}`,
       );
     }
 
@@ -522,7 +580,9 @@ export const ComposerAddAttachment: FC = () => {
       });
 
       if (filesToAdd.length < fileArray.length) {
-        toast.success(`${filesToAdd.length} file${filesToAdd.length > 1 ? 's' : ''} added successfully`);
+        toast.success(
+          `${filesToAdd.length} file${filesToAdd.length > 1 ? "s" : ""} added successfully`,
+        );
       }
     }
 
@@ -530,8 +590,6 @@ export const ComposerAddAttachment: FC = () => {
       fileInputRef.current.value = "";
     }
   };
-
-
 
   const uploadInputId = "composer-file-upload";
 
@@ -546,7 +604,7 @@ export const ComposerAddAttachment: FC = () => {
             <TooltipTrigger asChild>
               <label
                 htmlFor={uploadInputId}
-                className="aui-composer-add-attachment flex items-center gap-1.5 pl-0 pr-1.5 py-1 rounded-md bg-sidebar-accent hover:bg-accent transition-colors flex-shrink-0 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
+                className="aui-composer-add-attachment flex items-center gap-1.5 rounded-md bg-sidebar-accent px-1.5 py-1 transition-colors flex-shrink-0 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer"
                 aria-label="Add Attachment"
               >
                 <LuPaperclip className="w-3.5 h-3.5" />
