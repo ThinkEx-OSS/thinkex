@@ -8,7 +8,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CopyIcon,
-  File as FileIcon,
+  FileText,
+  Upload,
   PencilIcon,
   PlusSquareIcon,
   RefreshCwIcon,
@@ -24,7 +25,6 @@ import {
 import { FaQuoteLeft, FaWandMagicSparkles } from "react-icons/fa6";
 import { LuBook } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
-import { CgNotes } from "react-icons/cg";
 import { cn } from "@/lib/utils";
 import {
   ActionBarPrimitive,
@@ -274,8 +274,8 @@ const SUGGESTION_ACTIONS = [
     useDialog: true,
   },
   {
-    title: "File",
-    icon: FileIcon,
+    title: "Upload",
+    icon: Upload,
     iconClassName: "size-4 shrink-0 text-red-400",
     triggerFileInput: true,
   },
@@ -287,9 +287,9 @@ const SUGGESTION_ACTIONS = [
     useDialog: true,
   },
   {
-    title: "Note",
-    icon: CgNotes,
-    iconClassName: "size-4 shrink-0 text-blue-400",
+    title: "Document",
+    icon: FileText,
+    iconClassName: "size-4 shrink-0 text-sky-400",
     action: "note" as PromptBuilderAction,
     useDialog: true,
   },
@@ -375,9 +375,9 @@ const ThreadSuggestions: FC<ThreadSuggestionsProps> = ({ items }) => {
 const COMPOSER_FLOATING_ACTIONS = [
   {
     id: "note",
-    label: "Note",
-    icon: CgNotes,
-    iconClassName: "size-3.5 shrink-0 text-blue-400",
+    label: "Document",
+    icon: FileText,
+    iconClassName: "size-3.5 shrink-0 text-sky-400",
     action: "note" as PromptBuilderAction,
     useDialog: true,
   },
@@ -1267,8 +1267,8 @@ const AssistantActionBar: FC = () => {
         disabled={isCreating}
         className="!px-1 gap-1 h-6 text-xs font-medium hover:bg-sidebar-accent"
       >
-        <CgNotes className={cn("h-3 w-3", isCreating && "animate-pulse")} />
-        <span>Save as Note</span>
+        <FileText className={cn("h-3 w-3", isCreating && "animate-pulse")} />
+        <span>Save as Document</span>
       </Button>
     </ActionBarPrimitive.Root>
   );

@@ -1,5 +1,13 @@
 import { gateway } from "ai";
-import { streamText, smoothStream, convertToModelMessages, pruneMessages, stepCountIs, wrapLanguageModel, tool } from "ai";
+import {
+  streamText,
+  smoothStream,
+  convertToModelMessages,
+  pruneMessages,
+  stepCountIs,
+  wrapLanguageModel,
+  tool,
+} from "ai";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 import { withTracing } from "@posthog/ai";
 import type { UIMessage } from "ai";
@@ -48,7 +56,10 @@ function processMessages(messages: any[]): {
           const text = part.text;
 
           // Extract URL context URLs (use Set for O(1) lookups)
-          const urlContextRegexLocal = new RegExp(URL_CONTEXT_REGEX.source, URL_CONTEXT_REGEX.flags);
+          const urlContextRegexLocal = new RegExp(
+            URL_CONTEXT_REGEX.source,
+            URL_CONTEXT_REGEX.flags,
+          );
           const urlContextMatches = text.matchAll(urlContextRegexLocal);
           for (const urlMatch of urlContextMatches) {
             const url = urlMatch[1];
@@ -56,7 +67,10 @@ function processMessages(messages: any[]): {
           }
 
           // Extract direct URLs
-          const directUrlRegexLocal = new RegExp(DIRECT_URL_REGEX.source, DIRECT_URL_REGEX.flags);
+          const directUrlRegexLocal = new RegExp(
+            DIRECT_URL_REGEX.source,
+            DIRECT_URL_REGEX.flags,
+          );
           const directUrlMatches = text.matchAll(directUrlRegexLocal);
           for (const directMatch of directUrlMatches) {
             const url = directMatch[0];
@@ -64,10 +78,16 @@ function processMessages(messages: any[]): {
           }
 
           // Clean URL_CONTEXT markers (create new instance to avoid global regex state issues)
-          const urlContextReplaceRegex = new RegExp(URL_CONTEXT_REGEX.source, URL_CONTEXT_REGEX.flags);
-          const updatedText = text.replace(urlContextReplaceRegex, (_match: string, url: string) => {
-            return url;
-          });
+          const urlContextReplaceRegex = new RegExp(
+            URL_CONTEXT_REGEX.source,
+            URL_CONTEXT_REGEX.flags,
+          );
+          const updatedText = text.replace(
+            urlContextReplaceRegex,
+            (_match: string, url: string) => {
+              return url;
+            },
+          );
 
           return { ...part, text: updatedText };
         }
@@ -94,8 +114,6 @@ function getSelectedCardsContext(body: any): string {
   return body.selectedCardsContext || "";
 }
 
-
-
 /**
  * Inject user-selected context (reply quotes + BlockNote selection + selected cards) into the last user message.
  * Reads from runConfig metadata sent via the composer's setRunConfig().
@@ -103,8 +121,11 @@ function getSelectedCardsContext(body: any): string {
  */
 function injectSelectionContext(
   messages: any[],
-  metadata?: { replySelections?: Array<{ text: string; title?: string }>; blockNoteSelection?: { cardName: string; text: string } },
-  selectedCardsContext?: string
+  metadata?: {
+    replySelections?: Array<{ text: string; title?: string }>;
+    blockNoteSelection?: { cardName: string; text: string };
+  },
+  selectedCardsContext?: string,
 ): void {
   const parts: string[] = [];
 
@@ -116,14 +137,18 @@ function injectSelectionContext(
   // Reply selections (quoted text from assistant messages or PDF selections)
   if (metadata?.replySelections && metadata.replySelections.length > 0) {
     const quoted = metadata.replySelections
-      .map((sel) => (sel.title ? `> (from ${sel.title})\n> ${sel.text}` : `> ${sel.text}`))
+      .map((sel) =>
+        sel.title ? `> From: ${sel.title}\n> ${sel.text}` : `> ${sel.text}`,
+      )
       .join("\n\n");
     parts.push(`[Referring to:\n${quoted}]`);
   }
 
   // BlockNote selection (text selected from a card in the editor)
   if (metadata?.blockNoteSelection?.text) {
-    parts.push(`[Selected text from "${metadata.blockNoteSelection.cardName}":\n${metadata.blockNoteSelection.text}]`);
+    parts.push(
+      `[Selected text from "${metadata.blockNoteSelection.cardName}":\n${metadata.blockNoteSelection.text}]`,
+    );
   }
 
   if (parts.length === 0) return;
@@ -154,15 +179,20 @@ function injectSelectionContext(
  * Build the enhanced system prompt with guidelines and detection hints
  * Uses array join for better performance than string concatenation
  */
-function buildSystemPrompt(baseSystem: string, urlContextUrls: string[]): string {
+function buildSystemPrompt(
+  baseSystem: string,
+  urlContextUrls: string[],
+): string {
   const parts: string[] = [baseSystem];
 
   // Add URL detection hint if URLs are present
   if (urlContextUrls.length > 0) {
-    parts.push(`\n\nURL DETECTION: The user's message contains ${urlContextUrls.length} URL(s): ${urlContextUrls.join(', ')}. You should call the processUrls tool with these URLs to analyze them.`);
+    parts.push(
+      `\n\nURL DETECTION: The user's message contains ${urlContextUrls.length} URL(s): ${urlContextUrls.join(", ")}. You should call the processUrls tool with these URLs to analyze them.`,
+    );
   }
 
-  return parts.join('');
+  return parts.join("");
 }
 
 async function handlePOST(req: Request) {
@@ -171,16 +201,16 @@ async function handlePOST(req: Request) {
 
   // Check for API key early (Standardizing on Google Key for now if not using OIDC)
   // With Gateway, you can check for other keys too, or rely on Gateway's auth
-  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY && !process.env.AI_GATEWAY_API_KEY) {
+  if (
+    !process.env.GOOGLE_GENERATIVE_AI_API_KEY &&
+    !process.env.AI_GATEWAY_API_KEY
+  ) {
     // Optional: make this check more robust or permissive if using OIDC
   }
 
   try {
     // FIX: Parallelize headers() and req.json() to eliminate waterfall
-    const [headersObj, body] = await Promise.all([
-      headers(),
-      req.json()
-    ]);
+    const [headersObj, body] = await Promise.all([headers(), req.json()]);
 
     // Get authenticated user ID
     const session = await auth.api.getSession({ headers: headersObj });
@@ -210,7 +240,10 @@ async function handlePOST(req: Request) {
       convertedMessages = await convertToModelMessages(messages, { tools });
     } catch (convertError) {
       logger.error("❌ [CHAT-API] convertToModelMessages FAILED:", {
-        error: convertError instanceof Error ? convertError.message : String(convertError),
+        error:
+          convertError instanceof Error
+            ? convertError.message
+            : String(convertError),
         stack: convertError instanceof Error ? convertError.stack : undefined,
       });
       throw convertError;
@@ -225,7 +258,8 @@ async function handlePOST(req: Request) {
     });
 
     // Process messages in single pass: extract URLs and clean markers
-    const { urlContextUrls, cleanedMessages } = processMessages(convertedMessages);
+    const { urlContextUrls, cleanedMessages } =
+      processMessages(convertedMessages);
 
     // Get pre-formatted selected cards context from client (no DB fetch needed)
     const selectedCardsContext = getSelectedCardsContext(body);
@@ -248,7 +282,11 @@ async function handlePOST(req: Request) {
     const finalSystemPrompt = buildSystemPrompt(system, urlContextUrls);
 
     // Inject selected cards + reply + BlockNote selection context into the last user message
-    injectSelectionContext(cleanedMessages, body.metadata?.custom, selectedCardsContext);
+    injectSelectionContext(
+      cleanedMessages,
+      body.metadata?.custom,
+      selectedCardsContext,
+    );
 
     const posthogClient = getPostHogServerClient();
     const tracedModel = posthogClient
@@ -265,13 +303,14 @@ async function handlePOST(req: Request) {
     // Use AI Gateway
     const model = wrapLanguageModel({
       model: tracedModel,
-      middleware: process.env.NODE_ENV === 'development' ? devToolsMiddleware() : [],
+      middleware:
+        process.env.NODE_ENV === "development" ? devToolsMiddleware() : [],
     });
 
     // Stream the response
     logger.debug("🔍 [CHAT-API] Final cleanedMessages before streamText:", {
       count: cleanedMessages.length,
-      modelId
+      modelId,
     });
 
     // Configure Google Thinking capabilities
@@ -338,12 +377,14 @@ async function handlePOST(req: Request) {
       },
       onStepFinish: (result) => {
         // stepType exists in runtime but may not be in type definitions
-        const stepResult = result as typeof result & { stepType?: "initial" | "continue" | "tool-result" };
+        const stepResult = result as typeof result & {
+          stepType?: "initial" | "continue" | "tool-result";
+        };
         const { stepType, usage, finishReason } = stepResult;
 
         if (usage) {
           const stepUsageInfo = {
-            stepType: stepType || 'unknown',
+            stepType: stepType || "unknown",
             inputTokens: usage?.inputTokens,
             outputTokens: usage?.outputTokens,
             totalTokens: usage?.totalTokens,
@@ -352,15 +393,22 @@ async function handlePOST(req: Request) {
             finishReason,
           };
 
-          logger.debug(`📊 [CHAT-API] Step Usage (${stepType || 'unknown'}):`, stepUsageInfo);
+          logger.debug(
+            `📊 [CHAT-API] Step Usage (${stepType || "unknown"}):`,
+            stepUsageInfo,
+          );
         }
       },
     });
 
-    logger.debug("🔍 [CHAT-API] streamText returned, calling toUIMessageStreamResponse...");
+    logger.debug(
+      "🔍 [CHAT-API] streamText returned, calling toUIMessageStreamResponse...",
+    );
     // Log which provider the Gateway actually used (resolves when stream completes)
     void Promise.resolve((result as any).providerMetadata).then((meta: any) => {
-      const provider = meta?.gateway?.routing?.resolvedProvider ?? meta?.gateway?.routing?.finalProvider;
+      const provider =
+        meta?.gateway?.routing?.resolvedProvider ??
+        meta?.gateway?.routing?.finalProvider;
       if (provider) {
         logger.info("🔍 [CHAT-API] Gateway resolved provider:", provider);
       }
@@ -372,17 +420,19 @@ async function handlePOST(req: Request) {
     });
     logger.debug("🔍 [CHAT-API] toUIMessageStreamResponse succeeded");
     return response;
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
     // Detect timeout errors
     const isTimeout =
-      errorMessage.includes('timeout') ||
-      errorMessage.includes('TIMEOUT') ||
-      errorMessage.includes('Function execution exceeded') ||
-      errorMessage.includes('Execution timeout') ||
-      (error && typeof error === 'object' && 'code' in error && error.code === 'TIMEOUT');
+      errorMessage.includes("timeout") ||
+      errorMessage.includes("TIMEOUT") ||
+      errorMessage.includes("Function execution exceeded") ||
+      errorMessage.includes("Execution timeout") ||
+      (error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "TIMEOUT");
 
     if (isTimeout) {
       logger.error("⏱️ [CHAT-API] Request timed out after 30 seconds", {
@@ -390,14 +440,18 @@ async function handlePOST(req: Request) {
         workspaceId,
       });
 
-      return new Response(JSON.stringify({
-        error: "Request timeout",
-        message: "The request took too long to process (exceeded 30 seconds). This can happen with complex queries that require multiple tool calls or extensive processing. Please try breaking your question into smaller parts or simplifying your request.",
-        code: "TIMEOUT",
-      }), {
-        status: 504,
-        headers: { "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          error: "Request timeout",
+          message:
+            "The request took too long to process (exceeded 30 seconds). This can happen with complex queries that require multiple tool calls or extensive processing. Please try breaking your question into smaller parts or simplifying your request.",
+          code: "TIMEOUT",
+        }),
+        {
+          status: 504,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     }
 
     // Log other errors
@@ -407,15 +461,20 @@ async function handlePOST(req: Request) {
       workspaceId,
     });
 
-    return new Response(JSON.stringify({
-      error: "Internal server error",
-      message: "An unexpected error occurred while processing your request. Please try again.",
-      details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
-      code: "INTERNAL_ERROR",
-    }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        error: "Internal server error",
+        message:
+          "An unexpected error occurred while processing your request. Please try again.",
+        details:
+          process.env.NODE_ENV === "development" ? errorMessage : undefined,
+        code: "INTERNAL_ERROR",
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 }
 
