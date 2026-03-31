@@ -1,16 +1,25 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
 import { X, Highlighter, Plus, FileText } from "lucide-react";
 import { FaQuoteRight } from "react-icons/fa6";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
-import { HighlightTooltip, TooltipAction } from "@/components/ui/highlight-tooltip";
+import {
+  HighlightTooltip,
+  TooltipAction,
+} from "@/components/ui/highlight-tooltip";
 import SelectableText, {
   TextHighlight,
   SelectionInfo,
-  SelectableTextRef
+  SelectableTextRef,
 } from "@/components/workspace-canvas/SelectableText";
 import { useUIStore, selectReplySelections } from "@/lib/stores/ui-store";
 import { getHighlightColorById } from "@/lib/utils/highlight-colors";
@@ -39,7 +48,9 @@ import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 interface AssistantTextSelectionManagerProps {
   className?: string;
   onSingleSelect?: (text: string, range?: Range) => void | Promise<void>;
-  onMultiSelect?: (selections: Array<{ text: string; id: string; range?: Range }>) => void | Promise<void>;
+  onMultiSelect?: (
+    selections: Array<{ text: string; id: string; range?: Range }>,
+  ) => void | Promise<void>;
 }
 
 export default function AssistantTextSelectionManager({
@@ -51,21 +62,31 @@ export default function AssistantTextSelectionManager({
   const inMultiMode = useUIStore((state) => state.inMultiSelectMode);
   const tooltipVisible = useUIStore((state) => state.tooltipVisible);
   const setTooltipVisible = useUIStore((state) => state.setTooltipVisible);
-  const enterMultiSelectMode = useUIStore((state) => state.enterMultiSelectMode);
+  const enterMultiSelectMode = useUIStore(
+    (state) => state.enterMultiSelectMode,
+  );
   const exitMultiSelectMode = useUIStore((state) => state.exitMultiSelectMode);
-  const selectedHighlightColorId = useUIStore((state) => state.selectedHighlightColorId);
+  const selectedHighlightColorId = useUIStore(
+    (state) => state.selectedHighlightColorId,
+  );
   const addReplySelection = useUIStore((state) => state.addReplySelection);
-  const clearReplySelections = useUIStore((state) => state.clearReplySelections);
+  const clearReplySelections = useUIStore(
+    (state) => state.clearReplySelections,
+  );
 
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const lastTooltipPositionRef = useRef({ x: 0, y: 0 });
   const [highlights, setHighlights] = useState<TextHighlight[]>([]);
-  const [currentSelection, setCurrentSelection] = useState<SelectionInfo | null>(null);
+  const [currentSelection, setCurrentSelection] =
+    useState<SelectionInfo | null>(null);
   const [triggerAddHighlight, setTriggerAddHighlight] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const selectionTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const selectableTextRef = useRef<SelectableTextRef>(null);
-  const [multiModeBasePosition, setMultiModeBasePosition] = useState<{ x: number; y: number } | null>(null);
+  const [multiModeBasePosition, setMultiModeBasePosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const lastHighlightElementRef = useRef<HTMLElement | null>(null); // Store last highlight element for immediate access
   const multiModeMarkerElementRef = useRef<HTMLElement | null>(null); // Store marker element for multi-mode tracking
   const markerToMouseOffsetRef = useRef<{ x: number; y: number } | null>(null); // Store offset from marker to mouse position
@@ -76,25 +97,38 @@ export default function AssistantTextSelectionManager({
 
   // Dialog state for multi-select
   const [showMultiSelectDialog, setShowMultiSelectDialog] = useState(false);
-  const [multiSelectionsForDialog, setMultiSelectionsForDialog] = useState<Array<{ text: string; id: string; messageContext?: string; userPrompt?: string }>>([]);
+  const [multiSelectionsForDialog, setMultiSelectionsForDialog] = useState<
+    Array<{
+      text: string;
+      id: string;
+      messageContext?: string;
+      userPrompt?: string;
+    }>
+  >([]);
   const [multiSelectAnnotation, setMultiSelectAnnotation] = useState("");
   const [isSubmittingMulti, setIsSubmittingMulti] = useState(false);
 
   // Dialog state for negative feedback (trash)
-  const [showNegativeFeedbackDialog, setShowNegativeFeedbackDialog] = useState(false);
-  const [negativeFeedbackAnnotation, setNegativeFeedbackAnnotation] = useState("");
-  const [negativeSelectionForDialog, setNegativeSelectionForDialog] = useState("");
-  const [negativeMessageContextForDialog, setNegativeMessageContextForDialog] = useState("");
-  const [negativeUserPromptForDialog, setNegativeUserPromptForDialog] = useState("");
+  const [showNegativeFeedbackDialog, setShowNegativeFeedbackDialog] =
+    useState(false);
+  const [negativeFeedbackAnnotation, setNegativeFeedbackAnnotation] =
+    useState("");
+  const [negativeSelectionForDialog, setNegativeSelectionForDialog] =
+    useState("");
+  const [negativeMessageContextForDialog, setNegativeMessageContextForDialog] =
+    useState("");
+  const [negativeUserPromptForDialog, setNegativeUserPromptForDialog] =
+    useState("");
   const [isSubmittingNegative, setIsSubmittingNegative] = useState(false);
-
 
   // Store message contexts for highlights
   const highlightMessageContexts = useRef<Map<string, string>>(new Map());
   // Store user prompts for highlights
   const highlightUserPrompts = useRef<Map<string, string>>(new Map());
   // Store pending contexts that are waiting to be associated with a highlight
-  const pendingContexts = useRef<Array<{ text: string; context: string; userPrompt: string }>>([]);
+  const pendingContexts = useRef<
+    Array<{ text: string; context: string; userPrompt: string }>
+  >([]);
 
   // Get workspace ID
   const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
@@ -105,15 +139,13 @@ export default function AssistantTextSelectionManager({
   // This component is always rendered within AssistantRuntimeProvider, so the hook is safe to use
   // Use threadListItem.id if available, otherwise fall back to mainThreadId
   // Using safe hooks to handle race condition during thread switching (GitHub issue #2722)
-  const threadListItemId = useAuiState(({ threadListItem }) => (threadListItem as any)?.id);
-  const mainThreadId = useAuiState(({ threads }) => (threads as any)?.mainThreadId);
+  const threadListItemId = useAuiState(
+    ({ threadListItem }) => (threadListItem as any)?.id,
+  );
+  const mainThreadId = useAuiState(
+    ({ threads }) => (threads as any)?.mainThreadId,
+  );
   const currentThreadId = threadListItemId || mainThreadId;
-
-
-
-
-
-
 
   // Remove marker element from DOM
   const removeMarkerElement = useCallback(() => {
@@ -148,85 +180,95 @@ export default function AssistantTextSelectionManager({
   }, []);
 
   // Create an invisible marker element at the Range position for multi-mode tracking
-  const createMarkerElementAtRange = useCallback((range: Range): HTMLElement | null => {
-    try {
-      const originalRect = range.getBoundingClientRect();
-
-      // Clone the range to avoid modifying the original
-      const clonedRange = range.cloneRange();
-
-      // Create an invisible inline span element that tracks with content flow
-      const marker = document.createElement('span');
-      marker.setAttribute('data-multi-mode-marker', 'true');
-      marker.style.cssText = 'display: inline; width: 0; height: 0; visibility: hidden; pointer-events: none; overflow: hidden; position: relative; line-height: 0; font-size: 0;';
-
-      // Insert a zero-width space to ensure the element has content but is invisible
-      marker.textContent = '\u200B'; // Zero-width space
-
-      // Collapse the range to the start position
-      clonedRange.collapse(true);
-
-      // Try to insert the marker at the start of the range
+  const createMarkerElementAtRange = useCallback(
+    (range: Range): HTMLElement | null => {
       try {
-        clonedRange.insertNode(marker);
-        return marker;
-      } catch (error) {
-        // If insertNode fails, try to insert before the start container
-        try {
-          const startContainer = clonedRange.startContainer;
-          if (startContainer.nodeType === Node.TEXT_NODE) {
-            // For text nodes, we need to split and insert
-            const textNode = startContainer as Text;
-            const parent = textNode.parentNode;
-            const offset = clonedRange.startOffset;
+        const originalRect = range.getBoundingClientRect();
 
-            if (parent && offset === 0) {
-              // Insert before the text node
-              parent.insertBefore(marker, textNode);
-              return marker;
-            } else if (parent && offset < textNode.length) {
-              // Split the text node and insert between
-              const beforeText = textNode.splitText(offset);
-              parent.insertBefore(marker, beforeText);
-              return marker;
-            }
-          } else {
-            // For element nodes, try to insert at the start offset
-            const element = startContainer as Element;
-            if (element.children.length > 0 && clonedRange.startOffset > 0) {
-              const child = element.children[clonedRange.startOffset - 1];
-              if (child.nextSibling) {
-                element.insertBefore(marker, child.nextSibling);
+        // Clone the range to avoid modifying the original
+        const clonedRange = range.cloneRange();
+
+        // Create an invisible inline span element that tracks with content flow
+        const marker = document.createElement("span");
+        marker.setAttribute("data-multi-mode-marker", "true");
+        marker.style.cssText =
+          "display: inline; width: 0; height: 0; visibility: hidden; pointer-events: none; overflow: hidden; position: relative; line-height: 0; font-size: 0;";
+
+        // Insert a zero-width space to ensure the element has content but is invisible
+        marker.textContent = "\u200B"; // Zero-width space
+
+        // Collapse the range to the start position
+        clonedRange.collapse(true);
+
+        // Try to insert the marker at the start of the range
+        try {
+          clonedRange.insertNode(marker);
+          return marker;
+        } catch (error) {
+          // If insertNode fails, try to insert before the start container
+          try {
+            const startContainer = clonedRange.startContainer;
+            if (startContainer.nodeType === Node.TEXT_NODE) {
+              // For text nodes, we need to split and insert
+              const textNode = startContainer as Text;
+              const parent = textNode.parentNode;
+              const offset = clonedRange.startOffset;
+
+              if (parent && offset === 0) {
+                // Insert before the text node
+                parent.insertBefore(marker, textNode);
+                return marker;
+              } else if (parent && offset < textNode.length) {
+                // Split the text node and insert between
+                const beforeText = textNode.splitText(offset);
+                parent.insertBefore(marker, beforeText);
                 return marker;
               }
-            }
-            // Insert at the start of the element
-            element.insertBefore(marker, element.firstChild);
-            return marker;
-          }
-        } catch (fallbackError) {
-          // Final fallback: try to insert at the common ancestor
-          try {
-            const commonAncestor = clonedRange.commonAncestorContainer;
-            if (commonAncestor.nodeType === Node.ELEMENT_NODE) {
-              (commonAncestor as Element).insertBefore(marker, (commonAncestor as Element).firstChild);
+            } else {
+              // For element nodes, try to insert at the start offset
+              const element = startContainer as Element;
+              if (element.children.length > 0 && clonedRange.startOffset > 0) {
+                const child = element.children[clonedRange.startOffset - 1];
+                if (child.nextSibling) {
+                  element.insertBefore(marker, child.nextSibling);
+                  return marker;
+                }
+              }
+              // Insert at the start of the element
+              element.insertBefore(marker, element.firstChild);
               return marker;
             }
-          } catch (finalError) {
-            return null;
+          } catch (fallbackError) {
+            // Final fallback: try to insert at the common ancestor
+            try {
+              const commonAncestor = clonedRange.commonAncestorContainer;
+              if (commonAncestor.nodeType === Node.ELEMENT_NODE) {
+                (commonAncestor as Element).insertBefore(
+                  marker,
+                  (commonAncestor as Element).firstChild,
+                );
+                return marker;
+              }
+            } catch (finalError) {
+              return null;
+            }
           }
         }
+      } catch (error) {
+        return null;
       }
-    } catch (error) {
       return null;
-    }
-    return null;
-  }, []);
+    },
+    [],
+  );
 
   // Close tooltip when workspace changes
   const prevWorkspaceIdRef = useRef<string | null>(workspaceId);
   useEffect(() => {
-    if (prevWorkspaceIdRef.current !== null && prevWorkspaceIdRef.current !== workspaceId) {
+    if (
+      prevWorkspaceIdRef.current !== null &&
+      prevWorkspaceIdRef.current !== workspaceId
+    ) {
       // Workspace changed - close tooltip and exit modes
       setTooltipVisible(false);
       removeMarkerElement();
@@ -239,13 +281,22 @@ export default function AssistantTextSelectionManager({
       clearReplySelections();
     }
     prevWorkspaceIdRef.current = workspaceId;
-  }, [workspaceId, setTooltipVisible, exitMultiSelectMode, removeMarkerElement, clearReplySelections]);
+  }, [
+    workspaceId,
+    setTooltipVisible,
+    exitMultiSelectMode,
+    removeMarkerElement,
+    clearReplySelections,
+  ]);
 
   // Close tooltip when thread changes
   const prevThreadIdRef = useRef<string | undefined>(currentThreadId);
   useEffect(() => {
     // Only trigger if thread actually changed (not on initial mount)
-    if (prevThreadIdRef.current !== undefined && prevThreadIdRef.current !== currentThreadId) {
+    if (
+      prevThreadIdRef.current !== undefined &&
+      prevThreadIdRef.current !== currentThreadId
+    ) {
       // Thread changed - close tooltip and exit modes
       // Do this in a specific order to prevent DOM cleanup issues:
       // 1. Clear selection first (prevents Range from being detached while tooltip is cleaning up)
@@ -267,7 +318,13 @@ export default function AssistantTextSelectionManager({
       clearReplySelections();
     }
     prevThreadIdRef.current = currentThreadId;
-  }, [currentThreadId, setTooltipVisible, exitMultiSelectMode, removeMarkerElement, clearReplySelections]);
+  }, [
+    currentThreadId,
+    setTooltipVisible,
+    exitMultiSelectMode,
+    removeMarkerElement,
+    clearReplySelections,
+  ]);
 
   // Track scroll activity (for preventing position updates during scroll in multi mode)
   // Note: Floating UI's autoUpdate handles position tracking automatically when referenceElement is provided
@@ -287,12 +344,12 @@ export default function AssistantTextSelectionManager({
     };
 
     // Listen to scroll on window and document
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    document.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    document.addEventListener("scroll", handleScroll, { passive: true });
 
     return () => {
-      window.removeEventListener('scroll', handleScroll);
-      document.removeEventListener('scroll', handleScroll);
+      window.removeEventListener("scroll", handleScroll);
+      document.removeEventListener("scroll", handleScroll);
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);
       }
@@ -300,89 +357,99 @@ export default function AssistantTextSelectionManager({
   }, []);
 
   // Handle selection change from SelectableText component
-  const handleSelectionChange = useCallback((selection: SelectionInfo | null) => {
-    // Read the current mode state directly from the store to avoid stale closures
-    const currentMultiMode = useUIStore.getState().inMultiSelectMode;
+  const handleSelectionChange = useCallback(
+    (selection: SelectionInfo | null) => {
+      // Read the current mode state directly from the store to avoid stale closures
+      const currentMultiMode = useUIStore.getState().inMultiSelectMode;
 
-    if (selection) {
-      // Update currentSelection - the Range will be passed directly to tooltip for tracking
-      // Floating UI's autoUpdate will handle position updates automatically
-      setCurrentSelection(selection);
+      if (selection) {
+        // Update currentSelection - the Range will be passed directly to tooltip for tracking
+        // Floating UI's autoUpdate will handle position updates automatically
+        setCurrentSelection(selection);
 
-      // Set initial position for tooltip (Floating UI will update it automatically)
-      if (selection.position) {
-        setTooltipPosition(selection.position);
-      }
-
-      setTooltipVisible(true);
-    } else {
-      // Selection cleared (null)
-      setCurrentSelection(null);
-      window.getSelection()?.removeAllRanges();
-
-      if (currentMultiMode) {
-        // In multi-mode: show multi-select options at base position
-        if (multiModeBasePosition) {
-          setTooltipPosition(multiModeBasePosition);
-        } else {
-          // Fallback to last known position if base position not set
-          setTooltipPosition(lastTooltipPositionRef.current);
+        // Set initial position for tooltip (Floating UI will update it automatically)
+        if (selection.position) {
+          setTooltipPosition(selection.position);
         }
+
         setTooltipVisible(true);
       } else {
-        // Not in multi-mode: hide tooltip
-        setTooltipVisible(false);
+        // Selection cleared (null)
+        setCurrentSelection(null);
+        window.getSelection()?.removeAllRanges();
+
+        if (currentMultiMode) {
+          // In multi-mode: show multi-select options at base position
+          if (multiModeBasePosition) {
+            setTooltipPosition(multiModeBasePosition);
+          } else {
+            // Fallback to last known position if base position not set
+            setTooltipPosition(lastTooltipPositionRef.current);
+          }
+          setTooltipVisible(true);
+        } else {
+          // Not in multi-mode: hide tooltip
+          setTooltipVisible(false);
+        }
       }
-    }
-  }, [setTooltipVisible]);
+    },
+    [setTooltipVisible, multiModeBasePosition],
+  );
 
   // Handle when a highlight is added
-  const handleHighlightAdded = useCallback((highlight: TextHighlight) => {
-    // Find the matching pending context by text
-    const pendingIndex = pendingContexts.current.findIndex(p => p.text === highlight.text);
-    if (pendingIndex !== -1) {
-      const pending = pendingContexts.current[pendingIndex];
-      // Store with the actual highlight ID
-      highlightMessageContexts.current.set(highlight.id, pending.context);
-      highlightUserPrompts.current.set(highlight.id, pending.userPrompt);
-      // Remove from pending
-      pendingContexts.current.splice(pendingIndex, 1);
-    }
-
-    // If in multi-mode, clear selection and show multi-select options
-    const currentMultiMode = useUIStore.getState().inMultiSelectMode;
-
-    if (currentMultiMode) {
-      // Store highlight element in ref for immediate access (before highlights state updates)
-      if (highlight.element) {
-        lastHighlightElementRef.current = highlight.element;
+  const handleHighlightAdded = useCallback(
+    (highlight: TextHighlight) => {
+      // Find the matching pending context by text
+      const pendingIndex = pendingContexts.current.findIndex(
+        (p) => p.text === highlight.text,
+      );
+      if (pendingIndex !== -1) {
+        const pending = pendingContexts.current[pendingIndex];
+        // Store with the actual highlight ID
+        highlightMessageContexts.current.set(highlight.id, pending.context);
+        highlightUserPrompts.current.set(highlight.id, pending.userPrompt);
+        // Remove from pending
+        pendingContexts.current.splice(pendingIndex, 1);
       }
 
-      // Clear selection now that highlight is added
-      setCurrentSelection(null);
-      window.getSelection()?.removeAllRanges();
+      // If in multi-mode, clear selection and show multi-select options
+      const currentMultiMode = useUIStore.getState().inMultiSelectMode;
 
-      // Ensure tooltip is visible (multi-mode always shows tooltip)
-      // Position is maintained from when "Select" was clicked via marker element tracking
-      setTooltipVisible(true);
-    }
-  }, [setTooltipVisible, multiModeBasePosition, tooltipPosition]);
+      if (currentMultiMode) {
+        // Store highlight element in ref for immediate access (before highlights state updates)
+        if (highlight.element) {
+          lastHighlightElementRef.current = highlight.element;
+        }
+
+        // Clear selection now that highlight is added
+        setCurrentSelection(null);
+        window.getSelection()?.removeAllRanges();
+
+        // Ensure tooltip is visible (multi-mode always shows tooltip)
+        // Position is maintained from when "Select" was clicked via marker element tracking
+        setTooltipVisible(true);
+      }
+    },
+    [setTooltipVisible, multiModeBasePosition, tooltipPosition],
+  );
 
   // Handle when highlights change
-  const handleHighlightsChange = useCallback((updatedHighlights: TextHighlight[]) => {
-    // Update the ref with the last highlight element
-    if (updatedHighlights.length > 0) {
-      const lastHighlight = updatedHighlights[updatedHighlights.length - 1];
-      if (lastHighlight?.element) {
-        lastHighlightElementRef.current = lastHighlight.element;
+  const handleHighlightsChange = useCallback(
+    (updatedHighlights: TextHighlight[]) => {
+      // Update the ref with the last highlight element
+      if (updatedHighlights.length > 0) {
+        const lastHighlight = updatedHighlights[updatedHighlights.length - 1];
+        if (lastHighlight?.element) {
+          lastHighlightElementRef.current = lastHighlight.element;
+        }
+      } else {
+        lastHighlightElementRef.current = null;
       }
-    } else {
-      lastHighlightElementRef.current = null;
-    }
 
-    setHighlights(updatedHighlights);
-  }, []);
-
+      setHighlights(updatedHighlights);
+    },
+    [],
+  );
 
   // Extract full message content from the DOM
   const extractMessageContext = useCallback((range: Range): string => {
@@ -395,7 +462,9 @@ export default function AssistantTextSelectionManager({
       }
 
       // Look for the message content container (assistant-ui uses specific classes)
-      const messageElement = (element as Element).closest('.aui-assistant-message-content, [data-message-id], .aui-message, [role="article"]');
+      const messageElement = (element as Element).closest(
+        '.aui-assistant-message-content, [data-message-id], .aui-message, [role="article"]',
+      );
 
       if (messageElement) {
         // Get the full text content of the message
@@ -418,16 +487,23 @@ export default function AssistantTextSelectionManager({
       }
 
       // Look for the message content container
-      const messageElement = (element as Element).closest('.aui-assistant-message-content, [data-message-id], .aui-message, [role="article"]');
+      const messageElement = (element as Element).closest(
+        '.aui-assistant-message-content, [data-message-id], .aui-message, [role="article"]',
+      );
 
       if (messageElement) {
         // Find all user message content elements
-        const allUserMessages = document.querySelectorAll('.aui-user-message-content');
+        const allUserMessages = document.querySelectorAll(
+          ".aui-user-message-content",
+        );
 
         // Find the last one that appears before the message element in document order
         let lastUserMessage: Element | null = null;
         for (const userMsg of Array.from(allUserMessages)) {
-          if (messageElement.compareDocumentPosition(userMsg) & Node.DOCUMENT_POSITION_PRECEDING) {
+          if (
+            messageElement.compareDocumentPosition(userMsg) &
+            Node.DOCUMENT_POSITION_PRECEDING
+          ) {
             lastUserMessage = userMsg;
           }
         }
@@ -468,7 +544,9 @@ export default function AssistantTextSelectionManager({
       };
       markerToMouseOffsetRef.current = offset;
     } else {
-      console.warn('[AssistantTextSelectionManager] Failed to create marker element');
+      console.warn(
+        "[AssistantTextSelectionManager] Failed to create marker element",
+      );
       markerToMouseOffsetRef.current = null;
     }
 
@@ -499,8 +577,13 @@ export default function AssistantTextSelectionManager({
 
     // Note: Selection clearing will happen in handleHighlightAdded
     // after the highlight is successfully added
-
-  }, [currentSelection, enterMultiSelectMode, extractMessageContext, extractUserPrompt, createMarkerElementAtRange]);
+  }, [
+    currentSelection,
+    enterMultiSelectMode,
+    extractMessageContext,
+    extractUserPrompt,
+    createMarkerElementAtRange,
+  ]);
 
   // Handle reply action - adds selection to reply selections
   const handleReply = useCallback(() => {
@@ -517,6 +600,7 @@ export default function AssistantTextSelectionManager({
         text: currentSelection.text,
         messageContext,
         userPrompt,
+        title: "Chat reply",
       });
     }
 
@@ -529,6 +613,7 @@ export default function AssistantTextSelectionManager({
           text: highlight.text,
           messageContext: context,
           userPrompt: prompt,
+          title: "Chat reply",
         });
       });
       // Clear highlights after adding to replies
@@ -542,7 +627,9 @@ export default function AssistantTextSelectionManager({
 
     // If we had neither a current selection nor highlights, warn but don't fail silently
     if (!currentSelection && (!inMultiMode || highlights.length === 0)) {
-      console.warn('[AssistantTextSelectionManager] handleReply - no selection or highlights to add');
+      console.warn(
+        "[AssistantTextSelectionManager] handleReply - no selection or highlights to add",
+      );
       return;
     }
 
@@ -553,7 +640,17 @@ export default function AssistantTextSelectionManager({
 
     // Focus the composer input after adding reply
     focusComposerInput();
-  }, [currentSelection, inMultiMode, highlights, addReplySelection, extractMessageContext, extractUserPrompt, exitMultiSelectMode, setTooltipVisible, removeMarkerElement]);
+  }, [
+    currentSelection,
+    inMultiMode,
+    highlights,
+    addReplySelection,
+    extractMessageContext,
+    extractUserPrompt,
+    exitMultiSelectMode,
+    setTooltipVisible,
+    removeMarkerElement,
+  ]);
 
   // Handle trash/negative feedback action - opens dialog
   const handleShitAction = useCallback(() => {
@@ -575,7 +672,12 @@ export default function AssistantTextSelectionManager({
 
     // Open negative feedback dialog
     setShowNegativeFeedbackDialog(true);
-  }, [currentSelection, setTooltipVisible, extractMessageContext, extractUserPrompt]);
+  }, [
+    currentSelection,
+    setTooltipVisible,
+    extractMessageContext,
+    extractUserPrompt,
+  ]);
 
   // Handle submitting negative feedback (stubbed - SuperMemory integration removed)
   const handleSubmitNegativeFeedback = useCallback(async () => {
@@ -584,7 +686,11 @@ export default function AssistantTextSelectionManager({
     setIsSubmittingNegative(true);
     try {
       // Note: SuperMemory integration removed - feedback is no longer stored externally
-      toast.success(negativeFeedbackAnnotation.trim() ? "Feedback noted!" : "Marked as not useful!");
+      toast.success(
+        negativeFeedbackAnnotation.trim()
+          ? "Feedback noted!"
+          : "Marked as not useful!",
+      );
 
       // Clear state
       setShowNegativeFeedbackDialog(false);
@@ -597,7 +703,12 @@ export default function AssistantTextSelectionManager({
     } finally {
       setIsSubmittingNegative(false);
     }
-  }, [negativeSelectionForDialog, negativeMessageContextForDialog, negativeFeedbackAnnotation, workspaceId]);
+  }, [
+    negativeSelectionForDialog,
+    negativeMessageContextForDialog,
+    negativeFeedbackAnnotation,
+    workspaceId,
+  ]);
 
   // Handle canceling negative feedback dialog
   const handleCancelNegativeFeedback = useCallback(() => {
@@ -678,7 +789,7 @@ export default function AssistantTextSelectionManager({
       } catch (error) {
         console.error("Error creating document:", error);
         toast.error(
-          error instanceof Error ? error.message : "Failed to create document"
+          error instanceof Error ? error.message : "Failed to create document",
         );
       } finally {
         setIsProcessing(false);
@@ -689,7 +800,7 @@ export default function AssistantTextSelectionManager({
     // If in multi-mode with highlights, open dialog
     if (inMultiMode && highlights.length > 0) {
       // Store the selections for the dialog with their message contexts and user prompts
-      const selections = highlights.map(h => ({
+      const selections = highlights.map((h) => ({
         text: h.text,
         id: h.id,
         messageContext: highlightMessageContexts.current.get(h.id),
@@ -711,7 +822,16 @@ export default function AssistantTextSelectionManager({
 
     // If no selection or highlights, show error
     toast.error("No content selected");
-  }, [currentSelection, inMultiMode, highlights, workspaceId, queryClient, setTooltipVisible, exitMultiSelectMode, removeMarkerElement]);
+  }, [
+    currentSelection,
+    inMultiMode,
+    highlights,
+    workspaceId,
+    queryClient,
+    setTooltipVisible,
+    exitMultiSelectMode,
+    removeMarkerElement,
+  ]);
 
   // Process all accumulated highlights - open dialog (kept for backwards compatibility)
   const processBatchHighlights = useCallback(async () => {
@@ -775,8 +895,8 @@ export default function AssistantTextSelectionManager({
       }
 
       toast.success(
-        `Document created with ${multiSelectionsForDialog.length} selection${multiSelectionsForDialog.length > 1 ? 's' : ''}!`,
-        { id: toastId }
+        `Document created with ${multiSelectionsForDialog.length} selection${multiSelectionsForDialog.length > 1 ? "s" : ""}!`,
+        { id: toastId },
       );
 
       // Clear state
@@ -787,14 +907,19 @@ export default function AssistantTextSelectionManager({
     } catch (error) {
       console.error("Error creating document:", error);
       toast.error(
-        error instanceof Error ? error.message : "Failed to create document"
-        ,
-        { id: toastId }
+        error instanceof Error ? error.message : "Failed to create document",
+        { id: toastId },
       );
     } finally {
       setIsSubmittingMulti(false);
     }
-  }, [multiSelectionsForDialog, multiSelectAnnotation, workspaceId, queryClient, clearAllHighlights]);
+  }, [
+    multiSelectionsForDialog,
+    multiSelectAnnotation,
+    workspaceId,
+    queryClient,
+    clearAllHighlights,
+  ]);
 
   // Handle canceling multi-select dialog
   const handleCancelMultiDialog = useCallback(() => {
@@ -806,33 +931,36 @@ export default function AssistantTextSelectionManager({
   }, [clearAllHighlights]);
 
   // Handle escape key
-  const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    if (event.key === 'Escape') {
-      const currentMultiMode = useUIStore.getState().inMultiSelectMode;
-      if (currentMultiMode) {
-        // In multi-mode: clear selection but keep tooltip visible at base position
-        setCurrentSelection(null);
-        window.getSelection()?.removeAllRanges();
-        if (multiModeBasePosition) {
-          setTooltipPosition(multiModeBasePosition);
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        const currentMultiMode = useUIStore.getState().inMultiSelectMode;
+        if (currentMultiMode) {
+          // In multi-mode: clear selection but keep tooltip visible at base position
+          setCurrentSelection(null);
+          window.getSelection()?.removeAllRanges();
+          if (multiModeBasePosition) {
+            setTooltipPosition(multiModeBasePosition);
+          }
+          // Ensure tooltip is visible (multi-mode always shows tooltip)
+          setTooltipVisible(true);
+        } else {
+          // Not in multi-mode: hide tooltip
+          setTooltipVisible(false);
+          setCurrentSelection(null);
+          window.getSelection()?.removeAllRanges();
         }
-        // Ensure tooltip is visible (multi-mode always shows tooltip)
-        setTooltipVisible(true);
-      } else {
-        // Not in multi-mode: hide tooltip
-        setTooltipVisible(false);
-        setCurrentSelection(null);
-        window.getSelection()?.removeAllRanges();
       }
-    }
-  }, [tooltipVisible, setTooltipVisible]);
+    },
+    [setTooltipVisible, multiModeBasePosition],
+  );
 
   // Set up event listeners
   useEffect(() => {
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown);
 
       // We intentionally access the current ref value here to clear any pending timeout
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -898,7 +1026,9 @@ export default function AssistantTextSelectionManager({
         highlights={highlights}
         containerSelector=".aui-thread-viewport"
         triggerAddHighlight={triggerAddHighlight}
-        highlightClassName={getHighlightColorById(selectedHighlightColorId).className}
+        highlightClassName={
+          getHighlightColorById(selectedHighlightColorId).className
+        }
       >
         {null}
       </SelectableText>
@@ -929,8 +1059,11 @@ export default function AssistantTextSelectionManager({
 
             // Fallback to last highlight element if marker doesn't exist (for backwards compatibility)
             if (!refElement) {
-              refElement = lastHighlightElementRef.current ||
-                (highlights.length > 0 ? highlights[highlights.length - 1]?.element || null : null);
+              refElement =
+                lastHighlightElementRef.current ||
+                (highlights.length > 0
+                  ? highlights[highlights.length - 1]?.element || null
+                  : null);
             }
           }
 
@@ -956,16 +1089,19 @@ export default function AssistantTextSelectionManager({
         }}
         badge={inMultiMode ? `${highlights.length} selected` : undefined}
         collapsed={!(inMultiMode && !currentSelection)} // Collapsed when not in multi-mode or has selection
-        onExpand={() => { }}
+        onExpand={() => {}}
         highlightAction={highlightAction}
       />
 
       {/* Multi-Select Dialog */}
-      <Dialog open={showMultiSelectDialog} onOpenChange={(open) => {
-        if (!open) {
-          handleCancelMultiDialog();
-        }
-      }}>
+      <Dialog
+        open={showMultiSelectDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCancelMultiDialog();
+          }
+        }}
+      >
         <DialogContent
           className="max-w-2xl border-border/20 bg-card/95 backdrop-blur-2xl shadow-2xl"
           style={{
@@ -974,7 +1110,7 @@ export default function AssistantTextSelectionManager({
           }}
         >
           <DialogHeader>
-            <DialogTitle>Create a Note</DialogTitle>
+            <DialogTitle>Create a Document</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 max-h-96 overflow-y-auto">
@@ -982,14 +1118,19 @@ export default function AssistantTextSelectionManager({
               <div key={selection.id} className="space-y-2">
                 {selection.messageContext && (
                   <Accordion type="single" collapsible className="w-full">
-                    <AccordionItem value={`context-${index}`} className="border-0">
+                    <AccordionItem
+                      value={`context-${index}`}
+                      className="border-0"
+                    >
                       <div className="border rounded-md px-3">
                         <AccordionTrigger className="py-2 text-sm font-medium hover:no-underline">
                           View Full Message Context for Selection {index + 1}
                         </AccordionTrigger>
                         <AccordionContent>
                           <div className="rounded-md bg-muted p-3 text-sm max-h-64 overflow-y-auto mb-2">
-                            <div className="text-muted-foreground text-xs whitespace-pre-wrap">{selection.messageContext}</div>
+                            <div className="text-muted-foreground text-xs whitespace-pre-wrap">
+                              {selection.messageContext}
+                            </div>
                           </div>
                         </AccordionContent>
                       </div>
@@ -997,13 +1138,13 @@ export default function AssistantTextSelectionManager({
                   </Accordion>
                 )}
 
-                <div
-                  className="rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 text-sm"
-                >
+                <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 text-sm">
                   <div className="font-medium mb-1 text-blue-900 dark:text-blue-100 text-xs">
                     Selection {index + 1}:
                   </div>
-                  <div className="text-blue-800 dark:text-blue-200">{selection.text}</div>
+                  <div className="text-blue-800 dark:text-blue-200">
+                    {selection.text}
+                  </div>
                 </div>
               </div>
             ))}
@@ -1019,9 +1160,7 @@ export default function AssistantTextSelectionManager({
             />
           </div>
 
-          <div className="pt-4 border-t space-y-3">
-
-          </div>
+          <div className="pt-4 border-t space-y-3"></div>
 
           <DialogFooter>
             <Button
@@ -1042,7 +1181,10 @@ export default function AssistantTextSelectionManager({
       </Dialog>
 
       {/* Negative Feedback Dialog */}
-      <Dialog open={showNegativeFeedbackDialog} onOpenChange={setShowNegativeFeedbackDialog}>
+      <Dialog
+        open={showNegativeFeedbackDialog}
+        onOpenChange={setShowNegativeFeedbackDialog}
+      >
         <DialogContent
           className="border-border/20 bg-card/95 backdrop-blur-2xl shadow-2xl"
           style={{
@@ -1053,15 +1195,20 @@ export default function AssistantTextSelectionManager({
           <DialogHeader>
             <DialogTitle>Report Unhelpful Content</DialogTitle>
             <DialogDescription>
-              Help improve the AI by explaining what was wrong or unhelpful about this response.
+              Help improve the AI by explaining what was wrong or unhelpful
+              about this response.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             {negativeUserPromptForDialog && (
               <div className="rounded-md bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 p-3 text-sm">
-                <div className="font-medium mb-1 text-purple-900 dark:text-purple-100">User Prompt:</div>
-                <div className="text-purple-800 dark:text-purple-200">{negativeUserPromptForDialog}</div>
+                <div className="font-medium mb-1 text-purple-900 dark:text-purple-100">
+                  User Prompt:
+                </div>
+                <div className="text-purple-800 dark:text-purple-200">
+                  {negativeUserPromptForDialog}
+                </div>
               </div>
             )}
 
@@ -1074,7 +1221,9 @@ export default function AssistantTextSelectionManager({
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="rounded-md bg-muted p-3 text-sm max-h-64 overflow-y-auto mb-2">
-                        <div className="text-muted-foreground text-xs whitespace-pre-wrap">{negativeMessageContextForDialog}</div>
+                        <div className="text-muted-foreground text-xs whitespace-pre-wrap">
+                          {negativeMessageContextForDialog}
+                        </div>
                       </div>
                     </AccordionContent>
                   </div>
@@ -1083,8 +1232,12 @@ export default function AssistantTextSelectionManager({
             )}
 
             <div className="rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-3 text-sm">
-              <div className="font-medium mb-1 text-red-900 dark:text-red-100">Flagged Selection:</div>
-              <div className="text-red-800 dark:text-red-200">{negativeSelectionForDialog}</div>
+              <div className="font-medium mb-1 text-red-900 dark:text-red-100">
+                Flagged Selection:
+              </div>
+              <div className="text-red-800 dark:text-red-200">
+                {negativeSelectionForDialog}
+              </div>
             </div>
 
             <div>

@@ -14,9 +14,9 @@ import {
   Plus,
   Code as CodeIcon,
   GalleryHorizontalEnd,
+  FileText,
   Loader2,
 } from "lucide-react";
-import { CgNotes } from "react-icons/cg";
 import { LuPaperclip } from "react-icons/lu";
 import { toast } from "sonner";
 import {
@@ -275,7 +275,7 @@ const AttachmentThumb: FC = () => {
         className="aui-attachment-tile-image object-cover"
       />
       <AvatarFallback delayMs={isImage ? 200 : 0}>
-        <CgNotes className="aui-attachment-tile-fallback-icon size-6 text-sidebar-foreground/80" />
+        <FileText className="aui-attachment-tile-fallback-icon size-6 text-sidebar-foreground/80" />
       </AvatarFallback>
     </Avatar>
   );

@@ -14,10 +14,6 @@
   font-style: normal;
 }
 
-.tiptap.ProseMirror {
-  font-family: "DM Sans", sans-serif;
-}
-
 /* Mathematics extension styles */
 .tiptap.ProseMirror .tiptap-mathematics-render {
   padding: 0 0.25rem;
@@ -156,20 +152,28 @@
   opacity: 0;
   transition: opacity 0.15s ease;
 
-  &[data-resize-handle='top-left'] { cursor: nwse-resize; }
-  &[data-resize-handle='top-right'] { cursor: nesw-resize; }
-  &[data-resize-handle='bottom-left'] { cursor: nesw-resize; }
-  &[data-resize-handle='bottom-right'] { cursor: nwse-resize; }
+  &[data-resize-handle="top-left"] {
+    cursor: nwse-resize;
+  }
+  &[data-resize-handle="top-right"] {
+    cursor: nesw-resize;
+  }
+  &[data-resize-handle="bottom-left"] {
+    cursor: nesw-resize;
+  }
+  &[data-resize-handle="bottom-right"] {
+    cursor: nwse-resize;
+  }
 }
 
 /* Show handles on hover over the wrapper or when actively resizing */
 .tiptap.ProseMirror [data-resize-wrapper]:hover [data-resize-handle],
-.tiptap.ProseMirror [data-resize-state='true'] [data-resize-handle] {
+.tiptap.ProseMirror [data-resize-state="true"] [data-resize-handle] {
   opacity: 1;
 }
 
 /* Outline when actively resizing */
-.tiptap.ProseMirror [data-resize-state='true'] [data-resize-wrapper] {
+.tiptap.ProseMirror [data-resize-state="true"] [data-resize-wrapper] {
   outline: 2px solid var(--primary, hsl(217, 91%, 60%));
   border-radius: 0.125rem;
 }

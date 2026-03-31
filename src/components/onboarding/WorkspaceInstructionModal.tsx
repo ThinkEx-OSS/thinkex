@@ -1,7 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ElementType } from "react";
-import { Move, SquarePen, FileSearch, Share2, ChevronLeft, ChevronRight, X, ArrowRight } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ElementType,
+} from "react";
+import {
+  Move,
+  SquarePen,
+  FileSearch,
+  Share2,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  ArrowRight,
+} from "lucide-react";
 import { YouTubeMark } from "@/components/icons/YouTubeMark";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useTheme } from "next-themes";
@@ -33,44 +48,66 @@ interface Step {
   video?: { dark: string; light: string };
 }
 
-const VIDEO_BASE = "https://uxcoymwbfcbvkgwbhttq.supabase.co/storage/v1/object/public/video";
+const VIDEO_BASE =
+  "https://uxcoymwbfcbvkgwbhttq.supabase.co/storage/v1/object/public/video";
 
 // Order front-loads cooler / less intuitive features so drop-off users still see the wow moments
 const STEPS: Step[] = [
   {
     icon: SquarePen,
     label: "Upload a PDF, AI makes summaries & study guides",
-    video: { dark: `${VIDEO_BASE}/step-2-generate-card-dark-3.mp4`, light: `${VIDEO_BASE}/step-2-generate-card-light-3.mp4` },
+    video: {
+      dark: `${VIDEO_BASE}/step-2-generate-card-dark-3.mp4`,
+      light: `${VIDEO_BASE}/step-2-generate-card-light-3.mp4`,
+    },
   },
   {
     icon: FileSearch,
     label: "Select cards & chat with AI for answers from your materials",
-    video: { dark: `${VIDEO_BASE}/step-3-pdf-ss-dark.mp4`, light: `${VIDEO_BASE}/step-3-pdf-ss-light.mp4` },
+    video: {
+      dark: `${VIDEO_BASE}/step-3-pdf-ss-dark.mp4`,
+      light: `${VIDEO_BASE}/step-3-pdf-ss-light.mp4`,
+    },
   },
   {
     icon: SquarePen,
     label: "Type a prompt, AI creates study materials",
-    video: { dark: `${VIDEO_BASE}/step-2-generate-card-dark-1.mp4`, light: `${VIDEO_BASE}/step-2-generate-card-light-1.mp4` },
+    video: {
+      dark: `${VIDEO_BASE}/step-2-generate-card-dark-1.mp4`,
+      light: `${VIDEO_BASE}/step-2-generate-card-light-1.mp4`,
+    },
   },
   {
     icon: SquarePen,
-    label: "Select cards, AI generates notes from their content",
-    video: { dark: `${VIDEO_BASE}/step-2-generate-card-dark-2.mp4`, light: `${VIDEO_BASE}/step-2-generate-card-light-2.mp4` },
+    label: "Select cards, AI generates documents from their content",
+    video: {
+      dark: `${VIDEO_BASE}/step-2-generate-card-dark-2.mp4`,
+      light: `${VIDEO_BASE}/step-2-generate-card-light-2.mp4`,
+    },
   },
   {
     icon: YouTubeMark,
-    label: "Paste or drag YouTube links next to your notes",
-    video: { dark: `${VIDEO_BASE}/step-4-youtube-dark.mp4`, light: `${VIDEO_BASE}/step-4-youtube-light.mp4` },
+    label: "Paste or drag YouTube links next to your documents",
+    video: {
+      dark: `${VIDEO_BASE}/step-4-youtube-dark.mp4`,
+      light: `${VIDEO_BASE}/step-4-youtube-light.mp4`,
+    },
   },
   {
     icon: Move,
     label: "Drag, resize & organize cards on your grid",
-    video: { dark: `${VIDEO_BASE}/step-1-arrange-dark.mp4`, light: `${VIDEO_BASE}/step-1-arrange-light.mp4` },
+    video: {
+      dark: `${VIDEO_BASE}/step-1-arrange-dark.mp4`,
+      light: `${VIDEO_BASE}/step-1-arrange-light.mp4`,
+    },
   },
   {
     icon: Share2,
     label: "Share your workspace to collaborate in real time",
-    video: { dark: `${VIDEO_BASE}/step-5-collab-dark.mp4`, light: `${VIDEO_BASE}/step-5-collab-light.mp4` },
+    video: {
+      dark: `${VIDEO_BASE}/step-5-collab-dark.mp4`,
+      light: `${VIDEO_BASE}/step-5-collab-light.mp4`,
+    },
   },
 ];
 
@@ -106,21 +143,24 @@ function useCarousel(open: boolean) {
   }, [open]);
 
   // Transition: fade out → swap → fade in
-  const transitionTo = useCallback((nextIndex: number) => {
-    if (nextIndex === visibleIndex) return;
-    if (fadeTimeoutRef.current) {
-      clearTimeout(fadeTimeoutRef.current);
-      fadeTimeoutRef.current = null;
-    }
-    setFading(true);
-    setVideoLoaded(false);
-    fadeTimeoutRef.current = setTimeout(() => {
-      setActiveIndex(nextIndex);
-      setVisibleIndex(nextIndex);
-      setFading(false);
-      fadeTimeoutRef.current = null;
-    }, FADE_MS);
-  }, [visibleIndex]);
+  const transitionTo = useCallback(
+    (nextIndex: number) => {
+      if (nextIndex === visibleIndex) return;
+      if (fadeTimeoutRef.current) {
+        clearTimeout(fadeTimeoutRef.current);
+        fadeTimeoutRef.current = null;
+      }
+      setFading(true);
+      setVideoLoaded(false);
+      fadeTimeoutRef.current = setTimeout(() => {
+        setActiveIndex(nextIndex);
+        setVisibleIndex(nextIndex);
+        setFading(false);
+        fadeTimeoutRef.current = null;
+      }, FADE_MS);
+    },
+    [visibleIndex],
+  );
 
   const advance = useCallback(() => {
     if (pausedRef.current) return;
@@ -135,9 +175,12 @@ function useCarousel(open: boolean) {
     }
   }, []);
 
-  const goTo = useCallback((index: number) => {
-    transitionTo(index);
-  }, [transitionTo]);
+  const goTo = useCallback(
+    (index: number) => {
+      transitionTo(index);
+    },
+    [transitionTo],
+  );
 
   const goPrev = useCallback(() => {
     transitionTo((visibleIndex - 1 + STEPS.length) % STEPS.length);
@@ -173,7 +216,11 @@ function useCarousel(open: boolean) {
   }, [open, activeIndex, advance]);
 
   const step = STEPS[activeIndex];
-  const videoSrc = step.video ? (isDark ? step.video.dark : step.video.light) : null;
+  const videoSrc = step.video
+    ? isDark
+      ? step.video.dark
+      : step.video.light
+    : null;
 
   // Preload only next and previous video (metadata only) for faster step switching
   useEffect(() => {
@@ -207,7 +254,19 @@ function useCarousel(open: boolean) {
     };
   }, [open, mounted, activeIndex, isDark]);
 
-  return { activeIndex, step, videoSrc, fading, videoLoaded, goTo, goPrev, goNext, handleVideoEnded, handleVideoCanPlay, pause };
+  return {
+    activeIndex,
+    step,
+    videoSrc,
+    fading,
+    videoLoaded,
+    goTo,
+    goPrev,
+    goNext,
+    handleVideoEnded,
+    handleVideoCanPlay,
+    pause,
+  };
 }
 
 export function WorkspaceInstructionModal({
@@ -226,7 +285,19 @@ export function WorkspaceInstructionModal({
   onOpenWorkspace,
 }: WorkspaceInstructionModalProps) {
   const carousel = useCarousel(open);
-  const { activeIndex, step, videoSrc, fading, videoLoaded, goTo, goPrev, goNext, handleVideoEnded, handleVideoCanPlay, pause } = carousel;
+  const {
+    activeIndex,
+    step,
+    videoSrc,
+    fading,
+    videoLoaded,
+    goTo,
+    goPrev,
+    goNext,
+    handleVideoEnded,
+    handleVideoCanPlay,
+    pause,
+  } = carousel;
   const { resolvedTheme } = useTheme();
 
   const [isVisible, setIsVisible] = useState(false);
@@ -261,7 +332,14 @@ export function WorkspaceInstructionModal({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, canClose, isGenerating, showFallback, onRequestClose, onFallbackContinue]);
+  }, [
+    open,
+    canClose,
+    isGenerating,
+    showFallback,
+    onRequestClose,
+    onFallbackContinue,
+  ]);
 
   if (!isVisible) return null;
 
@@ -273,32 +351,37 @@ export function WorkspaceInstructionModal({
         isGenerating || (!!generationComplete && !!workspaceSlug)
           ? "bg-black/5 dark:bg-black/15 backdrop-blur-[16px]"
           : "bg-black/25 dark:bg-black/40 backdrop-blur-[24px]",
-        isClosing ? "opacity-0" : "opacity-100"
+        isClosing ? "opacity-0" : "opacity-100",
       )}
       role="dialog"
       aria-modal="true"
       aria-label="Workspace instruction"
     >
-      { }
+      {}
       <div
-        onClick={() => { pause(); onUserInteracted?.(); }}
+        onClick={() => {
+          pause();
+          onUserInteracted?.();
+        }}
         className={cn(
           "relative w-full max-w-[1100px] rounded-[28px] shadow-[0_28px_80px_rgba(0,0,0,0.12),0_8px_24px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.4)] dark:shadow-[0_28px_80px_rgba(0,0,0,0.5),0_8px_24px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all duration-300 ease-out",
           isGenerating || (!!generationComplete && !!workspaceSlug)
             ? "bg-white/85 dark:bg-gray-900/75 backdrop-blur-md"
             : "bg-white/80 dark:bg-gray-900/65 backdrop-blur-[24px] backdrop-saturate-[180%]",
-          isClosing ? "opacity-0 scale-[0.97]" : "opacity-100 scale-100"
+          isClosing ? "opacity-0 scale-[0.97]" : "opacity-100 scale-100",
         )}
       >
-
         <div className="relative z-[2] flex h-[690px] flex-col rounded-[24px] bg-transparent overflow-hidden">
-
           {/* Generating banner at top — when isGenerating, shows progress and step indicator */}
           {isGenerating && (
             <div className="shrink-0 flex flex-col gap-2 px-5 py-4 bg-sidebar border-b border-sidebar-border">
               <div className="flex items-center gap-3">
                 <DotLottieReact
-                  src={resolvedTheme === "light" ? "/thinkexlight.lottie" : "/logo.lottie"}
+                  src={
+                    resolvedTheme === "light"
+                      ? "/thinkexlight.lottie"
+                      : "/logo.lottie"
+                  }
                   loop
                   autoplay
                   mode="bounce"
@@ -348,108 +431,113 @@ export function WorkspaceInstructionModal({
           )}
 
           {/* Upper panel — video/carousel (always shown, including when generating) */}
-              <div className="relative min-h-0 flex-1 overflow-hidden bg-sidebar">
-                <div className="absolute -left-20 -top-20 h-44 w-44 rounded-full bg-primary/15 blur-[80px]" />
-                <div className="absolute -bottom-20 -right-20 h-52 w-52 rounded-full bg-accent/25 blur-[80px]" />
+          <div className="relative min-h-0 flex-1 overflow-hidden bg-sidebar">
+            <div className="absolute -left-20 -top-20 h-44 w-44 rounded-full bg-primary/15 blur-[80px]" />
+            <div className="absolute -bottom-20 -right-20 h-52 w-52 rounded-full bg-accent/25 blur-[80px]" />
 
-                {/* Left chevron */}
-                <button
-                  type="button"
-                  onClick={() => { goPrev(); onUserInteracted?.(); }}
-                  className="absolute left-0 top-0 z-10 h-full w-16 flex items-center justify-center text-sidebar-foreground mix-blend-difference transition-all duration-200 cursor-pointer"
-                  aria-label="Previous step"
-                >
-                  <ChevronLeft className="h-6 w-6" />
-                </button>
+            {/* Left chevron */}
+            <button
+              type="button"
+              onClick={() => {
+                goPrev();
+              }}
+              className="absolute left-0 top-0 z-10 h-full w-16 flex items-center justify-center text-sidebar-foreground mix-blend-difference transition-all duration-200 cursor-pointer"
+              aria-label="Previous step"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </button>
 
-                {/* Right chevron */}
-                <button
-                  type="button"
-                  onClick={() => { goNext(); onUserInteracted?.(); }}
-                  className="absolute right-0 top-0 z-10 h-full w-16 flex items-center justify-center text-sidebar-foreground mix-blend-difference transition-all duration-200 cursor-pointer"
-                  aria-label="Next step"
-                >
-                  <ChevronRight className="h-6 w-6" />
-                </button>
+            {/* Right chevron */}
+            <button
+              type="button"
+              onClick={() => {
+                goNext();
+              }}
+              className="absolute right-0 top-0 z-10 h-full w-16 flex items-center justify-center text-sidebar-foreground mix-blend-difference transition-all duration-200 cursor-pointer"
+              aria-label="Next step"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </button>
 
-                {/* Video or icon fallback */}
-                <div
+            {/* Video or icon fallback */}
+            <div
+              className={cn(
+                "relative h-full w-full transition-opacity",
+                fading ? "opacity-0" : "opacity-100",
+              )}
+              style={{ transitionDuration: `${FADE_MS}ms` }}
+            >
+              {/* Video — fades in once ready */}
+              {videoSrc && (
+                <video
+                  key={videoSrc}
+                  src={videoSrc}
+                  autoPlay
+                  muted
+                  playsInline
+                  preload="auto"
+                  onEnded={handleVideoEnded}
+                  onPlay={(e) => {
+                    e.currentTarget.playbackRate = 0.7;
+                    handleVideoCanPlay();
+                  }}
                   className={cn(
-                    "relative h-full w-full transition-opacity",
-                    fading ? "opacity-0" : "opacity-100"
+                    "absolute inset-0 h-full w-full object-cover transition-opacity duration-300",
+                    videoLoaded ? "opacity-100" : "opacity-0",
                   )}
-                  style={{ transitionDuration: `${FADE_MS}ms` }}
-                >
-                  {/* Video — fades in once ready */}
-                  {videoSrc && (
-                    <video
-                      key={videoSrc}
-                      src={videoSrc}
-                      autoPlay
-                      muted
-                      playsInline
-                      preload="auto"
-                      onEnded={handleVideoEnded}
-                      onPlay={(e) => {
-                        e.currentTarget.playbackRate = 0.7;
-                        handleVideoCanPlay();
-                      }}
-                      className={cn(
-                        "absolute inset-0 h-full w-full object-cover transition-opacity duration-300",
-                        videoLoaded ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                  )}
-                </div>
-              </div>
+                />
+              )}
+            </div>
+          </div>
 
-              {/* Lower panel — text, dots, action buttons (always shown, including when generating) */}
-              <div className="relative flex flex-col items-center gap-1 bg-sidebar px-5 pb-4 pt-3 rounded-b-[24px]">
-                {/* Text block — fades with the video */}
-                <div
+          {/* Lower panel — text, dots, action buttons (always shown, including when generating) */}
+          <div className="relative flex flex-col items-center gap-1 bg-sidebar px-5 pb-4 pt-3 rounded-b-[24px]">
+            {/* Text block — fades with the video */}
+            <div
+              className={cn(
+                "flex flex-col items-center gap-1 transition-opacity",
+                fading ? "opacity-0" : "opacity-100",
+              )}
+              style={{ transitionDuration: `${FADE_MS}ms` }}
+            >
+              {/* Label */}
+              <h3 className="text-2xl font-semibold text-sidebar-foreground text-center">
+                {step.label}
+              </h3>
+            </div>
+
+            {/* Dot navigation */}
+            <div className="flex items-center justify-center gap-2 pt-2">
+              {STEPS.map((s, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => {
+                    goTo(index);
+                  }}
                   className={cn(
-                    "flex flex-col items-center gap-1 transition-opacity",
-                    fading ? "opacity-0" : "opacity-100"
+                    "h-2 rounded-full transition-all duration-300",
+                    index === activeIndex
+                      ? "w-6 bg-primary shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+                      : "w-2 bg-sidebar-foreground/25 hover:bg-sidebar-foreground/40",
                   )}
-                  style={{ transitionDuration: `${FADE_MS}ms` }}
-                >
-                  {/* Label */}
-                  <h3 className="text-2xl font-semibold text-sidebar-foreground text-center">
-                    {step.label}
-                  </h3>
-                </div>
+                  aria-label={`Go to slide ${index + 1}: ${s.label}`}
+                />
+              ))}
+            </div>
 
-                {/* Dot navigation */}
-                <div className="flex items-center justify-center gap-2 pt-2">
-                  {STEPS.map((s, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      onClick={() => { goTo(index); onUserInteracted?.(); }}
-                      className={cn(
-                        "h-2 rounded-full transition-all duration-300",
-                        index === activeIndex
-                          ? "w-6 bg-primary shadow-[0_0_8px_rgba(59,130,246,0.5)]"
-                          : "w-2 bg-sidebar-foreground/25 hover:bg-sidebar-foreground/40"
-                      )}
-                      aria-label={`Go to slide ${index + 1}: ${s.label}`}
-                    />
-                  ))}
-                </div>
-
-                {/* CTA — vertically centered in bottom bar */}
-                {canClose && (
-                  <button
-                    type="button"
-                    onClick={onRequestClose}
-                    className="absolute right-5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium bg-white/25 dark:bg-white/10 backdrop-blur-md border border-white/20 dark:border-white/[0.08] text-sidebar-foreground hover:bg-white/35 dark:hover:bg-white/15 shadow-[0_2px_8px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.3)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.06)] transition-all duration-200"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    Close
-                  </button>
-                )}
-
-              </div>
+            {/* CTA — vertically centered in bottom bar */}
+            {canClose && (
+              <button
+                type="button"
+                onClick={onRequestClose}
+                className="absolute right-5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium bg-white/25 dark:bg-white/10 backdrop-blur-md border border-white/20 dark:border-white/[0.08] text-sidebar-foreground hover:bg-white/35 dark:hover:bg-white/15 shadow-[0_2px_8px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.3)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.06)] transition-all duration-200"
+              >
+                <X className="h-3.5 w-3.5" />
+                Close
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

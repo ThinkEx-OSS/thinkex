@@ -5,29 +5,58 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceMutation } from "./use-workspace-mutation";
 import { createEvent, type EventResponse } from "@/lib/workspace/events";
 import { replayEvents } from "@/lib/workspace/event-reducer";
-import type { Item, ItemData, CardType, AgentState, DocumentData } from "@/lib/workspace-state/types";
+import type {
+  Item,
+  ItemData,
+  CardType,
+  AgentState,
+  DocumentData,
+} from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import { defaultDataFor } from "@/lib/workspace-state/item-helpers";
 import { getRandomCardColor } from "@/lib/workspace-state/colors";
 import { logger } from "@/lib/utils/logger";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { getLayoutForBreakpoint, findNextAvailablePosition } from "@/lib/workspace-state/grid-layout-helpers";
-import { useRealtimeContextOptional } from "@/contexts/RealtimeContext";
-import { hasDuplicateName, getNextUniqueDefaultName } from "@/lib/workspace/unique-name";
+import {
+  getLayoutForBreakpoint,
+  findNextAvailablePosition,
+} from "@/lib/workspace-state/grid-layout-helpers";
+import {
+  hasDuplicateName,
+  getNextUniqueDefaultName,
+} from "@/lib/workspace/unique-name";
 import { filterItemIdsForFolderCreation } from "@/lib/workspace-state/search";
 
 /**
  * Return type for workspace operations
  */
 export interface WorkspaceOperations {
-  createItem: (type: CardType, name?: string, initialData?: Partial<Item['data']>, initialLayout?: { w: number; h: number }) => string;
+  createItem: (
+    type: CardType,
+    name?: string,
+    initialData?: Partial<Item["data"]>,
+    initialLayout?: { w: number; h: number },
+  ) => string;
   createItems: (
-    items: Array<{ type: CardType; name?: string; initialData?: Partial<Item['data']>; initialLayout?: { w: number; h: number } }>,
-    options?: { showSuccessToast?: boolean }
+    items: Array<{
+      type: CardType;
+      name?: string;
+      initialData?: Partial<Item["data"]>;
+      initialLayout?: { w: number; h: number };
+    }>,
+    options?: { showSuccessToast?: boolean },
   ) => string[];
-  updateItem: (id: string, changes: Partial<Item>, source?: 'user' | 'agent') => void;
-  updateItemData: (itemId: string, updater: (prev: Item['data']) => Item['data'], source?: 'user' | 'agent') => void;
+  updateItem: (
+    id: string,
+    changes: Partial<Item>,
+    source?: "user" | "agent",
+  ) => void;
+  updateItemData: (
+    itemId: string,
+    updater: (prev: Item["data"]) => Item["data"],
+    source?: "user" | "agent",
+  ) => void;
   deleteItem: (id: string) => void;
   updateAllItems: (items: Item[]) => void;
   setGlobalTitle: (title: string) => void;
@@ -36,7 +65,11 @@ export interface WorkspaceOperations {
   getDocumentMarkdownForExport: (itemId: string) => string;
   // Folder operations
   createFolder: (name: string, color?: CardColor) => string;
-  createFolderWithItems: (name: string, itemIds: string[], color?: CardColor) => string;
+  createFolderWithItems: (
+    name: string,
+    itemIds: string[],
+    color?: CardColor,
+  ) => string;
   updateFolder: (folderId: string, changes: Partial<Item>) => void;
   deleteFolder: (folderId: string) => void;
   deleteFolderWithContents: (folderId: string) => void;
@@ -54,20 +87,13 @@ export interface WorkspaceOperations {
  */
 export function useWorkspaceOperations(
   workspaceId: string | null,
-  currentState: AgentState
+  currentState: AgentState,
 ): WorkspaceOperations {
   const { data: session } = useSession();
   const user = session?.user;
   const queryClient = useQueryClient();
 
-  // Get broadcast function from realtime context (if available)
-  const realtimeContext = useRealtimeContextOptional();
-  const broadcastEvent = realtimeContext?.broadcastEvent;
-
-  // Pass broadcast callback to mutation hook for realtime sync
-  const mutation = useWorkspaceMutation(workspaceId, {
-    onEventSaved: broadcastEvent,
-  });
+  const mutation = useWorkspaceMutation(workspaceId);
 
   const userId = user?.id || "anonymous";
   const userName = user?.name || user?.email || undefined;
@@ -75,10 +101,14 @@ export function useWorkspaceOperations(
   // Debounce refs for updateItem and updateItemData
   // Maps item ID to timeout ID
   const updateItemDebounceRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
-  const updateItemDataDebounceRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const updateItemDataDebounceRef = useRef<Map<string, NodeJS.Timeout>>(
+    new Map(),
+  );
   // Store pending changes to merge them
   const pendingItemChangesRef = useRef<Map<string, Partial<Item>>>(new Map());
-  const pendingItemDataUpdatersRef = useRef<Map<string, (prev: Item['data']) => Item['data']>>(new Map());
+  const pendingItemDataUpdatersRef = useRef<
+    Map<string, (prev: Item["data"]) => Item["data"]>
+  >(new Map());
 
   const getLatestItemFromState = useCallback(
     (itemId: string) => {
@@ -89,8 +119,14 @@ export function useWorkspaceOperations(
           "events",
         ]);
         if (cacheData?.events) {
-          const latestState = replayEvents(cacheData.events, workspaceId, cacheData.snapshot?.state);
-          const cachedItem = latestState.items.find((item) => item.id === itemId);
+          const latestState = replayEvents(
+            cacheData.events,
+            workspaceId,
+            cacheData.snapshot?.state,
+          );
+          const cachedItem = latestState.items.find(
+            (item) => item.id === itemId,
+          );
           if (cachedItem) {
             return cachedItem;
           }
@@ -99,8 +135,27 @@ export function useWorkspaceOperations(
 
       return currentState.items.find((item) => item.id === itemId);
     },
-    [workspaceId, queryClient, currentState.items]
+    [workspaceId, queryClient, currentState.items],
   );
+
+  const getLatestItemsFromState = useCallback(() => {
+    if (workspaceId) {
+      const cacheData = queryClient.getQueryData<EventResponse>([
+        "workspace",
+        workspaceId,
+        "events",
+      ]);
+      if (cacheData?.events) {
+        return replayEvents(
+          cacheData.events,
+          workspaceId,
+          cacheData.snapshot?.state,
+        ).items;
+      }
+    }
+
+    return currentState.items;
+  }, [workspaceId, queryClient, currentState.items]);
 
   const getLatestItemWithPendingChanges = useCallback(
     (itemId: string) => {
@@ -108,7 +163,9 @@ export function useWorkspaceOperations(
       if (!item) return undefined;
 
       const pendingChanges = pendingItemChangesRef.current.get(itemId);
-      const itemWithPendingChanges = pendingChanges ? { ...item, ...pendingChanges } : item;
+      const itemWithPendingChanges = pendingChanges
+        ? { ...item, ...pendingChanges }
+        : item;
 
       const pendingUpdater = pendingItemDataUpdatersRef.current.get(itemId);
       if (!pendingUpdater) {
@@ -120,7 +177,7 @@ export function useWorkspaceOperations(
         data: pendingUpdater(itemWithPendingChanges.data),
       };
     },
-    [getLatestItemFromState]
+    [getLatestItemFromState],
   );
 
   // Cleanup timeouts on unmount
@@ -128,7 +185,9 @@ export function useWorkspaceOperations(
     return () => {
       // Clear all pending timeouts
       updateItemDebounceRef.current.forEach((timeout) => clearTimeout(timeout));
-      updateItemDataDebounceRef.current.forEach((timeout) => clearTimeout(timeout));
+      updateItemDataDebounceRef.current.forEach((timeout) =>
+        clearTimeout(timeout),
+      );
       updateItemDebounceRef.current.clear();
       updateItemDataDebounceRef.current.clear();
       pendingItemChangesRef.current.clear();
@@ -137,24 +196,56 @@ export function useWorkspaceOperations(
   }, []);
 
   const createItem = useCallback(
-    (type: CardType, name?: string, initialData?: Partial<Item['data']>, initialLayout?: { w: number; h: number }) => {
+    (
+      type: CardType,
+      name?: string,
+      initialData?: Partial<Item["data"]>,
+      initialLayout?: { w: number; h: number },
+    ) => {
       // Validate type is a valid CardType
-      logger.debug("🔧 [CREATE-ITEM] Received type:", type, "typeof:", typeof type, "value:", JSON.stringify(type));
+      logger.debug(
+        "🔧 [CREATE-ITEM] Received type:",
+        type,
+        "typeof:",
+        typeof type,
+        "value:",
+        JSON.stringify(type),
+      );
 
-      const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube", "quiz", "image", "audio", "website", "document"];
+      const validTypes: CardType[] = [
+        "note",
+        "pdf",
+        "flashcard",
+        "folder",
+        "youtube",
+        "quiz",
+        "image",
+        "audio",
+        "website",
+        "document",
+      ];
       const validType = validTypes.includes(type) ? type : "note";
 
       if (validType !== type) {
-        logger.warn(`🔧 [CREATE-ITEM] Invalid type "${type}" (typeof ${typeof type}), using "note" instead`);
+        logger.warn(
+          `🔧 [CREATE-ITEM] Invalid type "${type}" (typeof ${typeof type}), using "note" instead`,
+        );
       }
 
-      logger.debug("🔧 [CREATE-ITEM] Creating item:", { type: validType, name, userId, workspaceId, hasInitialData: !!initialData });
+      logger.debug("🔧 [CREATE-ITEM] Creating item:", {
+        type: validType,
+        name,
+        userId,
+        workspaceId,
+        hasInitialData: !!initialData,
+      });
       const id = generateItemId();
 
       // Merge default data with initial data
       const baseData = defaultDataFor(validType);
-      const mergedData = initialData ? { ...baseData, ...initialData } : baseData;
-
+      const mergedData = initialData
+        ? { ...baseData, ...initialData }
+        : baseData;
 
       // Get active folder - auto-assign new items to the currently viewed folder
       const activeFolderId = useUIStore.getState().activeFolderId;
@@ -165,12 +256,14 @@ export function useWorkspaceOperations(
       logger.debug("🔧 [CREATE-ITEM] Merged data:", mergedData);
 
       const folderId = activeFolderId ?? null;
-      const finalName = name || getNextUniqueDefaultName(currentState.items, validType, folderId);
+      const finalName =
+        name ||
+        getNextUniqueDefaultName(currentState.items, validType, folderId);
 
       let layout: Item["layout"] = undefined;
       if (initialLayout) {
-        const itemsInView = currentState.items.filter(item =>
-          activeFolderId ? item.folderId === activeFolderId : !item.folderId
+        const itemsInView = currentState.items.filter((item) =>
+          activeFolderId ? item.folderId === activeFolderId : !item.folderId,
         );
         const position = findNextAvailablePosition(
           itemsInView,
@@ -179,7 +272,7 @@ export function useWorkspaceOperations(
           finalName,
           "",
           initialLayout.w,
-          initialLayout.h
+          initialLayout.h,
         );
         layout = { lg: position };
       }
@@ -201,29 +294,36 @@ export function useWorkspaceOperations(
 
       return id; // Return ID for further operations
     },
-    [mutation, userId, userName, workspaceId, currentState.items]
+    [mutation, userId, userName, workspaceId, currentState.items],
   );
 
   const createItems = useCallback(
     (
-      items: Array<{ type: CardType; name?: string; initialData?: Partial<Item['data']>; initialLayout?: { w: number; h: number } }>,
-      options?: { showSuccessToast?: boolean }
+      items: Array<{
+        type: CardType;
+        name?: string;
+        initialData?: Partial<Item["data"]>;
+        initialLayout?: { w: number; h: number };
+      }>,
+      options?: { showSuccessToast?: boolean },
     ): string[] => {
       if (items.length === 0) {
         return [];
       }
 
-      logger.debug("🔧 [CREATE-ITEMS] Creating items:", { count: items.length, userId, workspaceId });
-
-
+      logger.debug("🔧 [CREATE-ITEMS] Creating items:", {
+        count: items.length,
+        userId,
+        workspaceId,
+      });
 
       // Get active folder - auto-assign new items to the currently viewed folder
       const activeFolderId = useUIStore.getState().activeFolderId;
 
       // Get items in current view for layout calculation
       // We need to maintain a running list including newly created items to prevent stacking
-      const currentItems = currentState.items.filter(item =>
-        activeFolderId ? item.folderId === activeFolderId : !item.folderId
+      const currentItems = currentState.items.filter((item) =>
+        activeFolderId ? item.folderId === activeFolderId : !item.folderId,
       );
 
       // Mutable array to track items for position calculation as we generate them
@@ -233,70 +333,97 @@ export function useWorkspaceOperations(
       const itemsSoFar: Item[] = [];
 
       // Create all items
-      const createdItems: Item[] = items.map(({ type, name, initialData, initialLayout }) => {
-        // Validate type is a valid CardType
-        const validTypes: CardType[] = ["note", "pdf", "flashcard", "folder", "youtube", "quiz", "image", "audio", "website", "document"];
-        const validType = validTypes.includes(type) ? type : "note";
+      const createdItems: Item[] = items
+        .map(({ type, name, initialData, initialLayout }) => {
+          // Validate type is a valid CardType
+          const validTypes: CardType[] = [
+            "note",
+            "pdf",
+            "flashcard",
+            "folder",
+            "youtube",
+            "quiz",
+            "image",
+            "audio",
+            "website",
+            "document",
+          ];
+          const validType = validTypes.includes(type) ? type : "note";
 
-        if (validType !== type) {
-          logger.warn(`🔧 [CREATE-ITEMS] Invalid type "${type}", using "note" instead`);
-        }
+          if (validType !== type) {
+            logger.warn(
+              `🔧 [CREATE-ITEMS] Invalid type "${type}", using "note" instead`,
+            );
+          }
 
-        const id = generateItemId();
-        const folderId = activeFolderId ?? null;
-        const allItemsSoFar = [...currentState.items, ...itemsSoFar];
-        const finalName = name || getNextUniqueDefaultName(allItemsSoFar, validType, folderId);
+          const id = generateItemId();
+          const folderId = activeFolderId ?? null;
+          const allItemsSoFar = [...currentState.items, ...itemsSoFar];
+          const finalName =
+            name ||
+            getNextUniqueDefaultName(allItemsSoFar, validType, folderId);
 
-        // Check duplicate against existing + already-created in this batch (only when explicit name given)
-        if (name && hasDuplicateName(allItemsSoFar, finalName, validType, folderId)) {
-          logger.warn(`🔧 [CREATE-ITEMS] Skipping duplicate: ${finalName} (${validType})`);
-          return null;
-        }
+          // Check duplicate against existing + already-created in this batch (only when explicit name given)
+          if (
+            name &&
+            hasDuplicateName(allItemsSoFar, finalName, validType, folderId)
+          ) {
+            logger.warn(
+              `🔧 [CREATE-ITEMS] Skipping duplicate: ${finalName} (${validType})`,
+            );
+            return null;
+          }
 
-        // Merge default data with initial data
-        const baseData = defaultDataFor(validType);
-        const mergedData = initialData ? { ...baseData, ...initialData } : baseData;
+          // Merge default data with initial data
+          const baseData = defaultDataFor(validType);
+          const mergedData = initialData
+            ? { ...baseData, ...initialData }
+            : baseData;
 
-        // Calculate layout if initial dimensions provided
-        let layout = undefined;
-        if (initialLayout) {
-          const position = findNextAvailablePosition(
-            itemsForLayout,
-            validType,
-            4, // Default cols
-            name,
-            "",
-            initialLayout.w,
-            initialLayout.h
-          );
+          // Calculate layout if initial dimensions provided
+          let layout = undefined;
+          let layoutPlaceholderItem: Item | null = null;
+          if (initialLayout) {
+            const position = findNextAvailablePosition(
+              itemsForLayout,
+              validType,
+              4, // Default cols
+              name,
+              "",
+              initialLayout.w,
+              initialLayout.h,
+            );
 
-          layout = { lg: position };
+            layout = { lg: position };
+            layoutPlaceholderItem = {
+              id,
+              type: validType,
+              name: finalName,
+              subtitle: "",
+              data: baseData as ItemData,
+              color: getRandomCardColor(),
+              folderId: activeFolderId ?? undefined,
+              layout,
+            };
 
-          // Add placeholder item to layout tracking array so next item doesn't overlap
-          // We only need the layout properties for findNextAvailablePosition
-          itemsForLayout.push({
+            // Add placeholder item to layout tracking array so next item doesn't overlap
+            itemsForLayout.push(layoutPlaceholderItem);
+          }
+
+          const newItem: Item = {
             id,
             type: validType,
-            name: name || "",
+            name: finalName,
             subtitle: "",
-            data: baseData as any,
-            layout: { lg: position }
-          });
-        }
-
-        const newItem: Item = {
-          id,
-          type: validType,
-          name: finalName,
-          subtitle: "",
-          data: mergedData as ItemData,
-          color: getRandomCardColor(), // Assign random color to new cards
-          folderId: activeFolderId ?? undefined, // Auto-assign to active folder
-          layout,
-        };
-        itemsSoFar.push(newItem);
-        return newItem;
-      }).filter((item): item is Item => item !== null);
+            data: mergedData as ItemData,
+            color: getRandomCardColor(), // Assign random color to new cards
+            folderId: activeFolderId ?? undefined, // Auto-assign to active folder
+            layout,
+          };
+          itemsSoFar.push(newItem);
+          return newItem;
+        })
+        .filter((item): item is Item => item !== null);
 
       if (createdItems.length === 0) {
         toast.error("All items were skipped (duplicate names in folder)");
@@ -304,28 +431,35 @@ export function useWorkspaceOperations(
       }
 
       if (createdItems.length < items.length) {
-        toast.warning(`${items.length - createdItems.length} item(s) skipped due to duplicate names`);
+        toast.warning(
+          `${items.length - createdItems.length} item(s) skipped due to duplicate names`,
+        );
       }
 
       // Create single batch event with all items
-      const event = createEvent("BULK_ITEMS_CREATED", { items: createdItems }, userId, userName);
+      const event = createEvent(
+        "BULK_ITEMS_CREATED",
+        { items: createdItems },
+        userId,
+        userName,
+      );
 
       mutation.mutate(event);
 
       // Show success toast with count
       if (options?.showSuccessToast !== false) {
         const itemCount = createdItems.length;
-        toast.success(`${itemCount} card${itemCount === 1 ? '' : 's'} created`);
+        toast.success(`${itemCount} card${itemCount === 1 ? "" : "s"} created`);
       }
 
       // Return array of created item IDs
-      return createdItems.map(item => item.id);
+      return createdItems.map((item) => item.id);
     },
-    [mutation, userId, userName, workspaceId, currentState.items]
+    [mutation, userId, userName, workspaceId, currentState.items],
   );
 
   const updateItem = useCallback(
-    (id: string, changes: Partial<Item>, source: 'user' | 'agent' = 'user') => {
+    (id: string, changes: Partial<Item>, source: "user" | "agent" = "user") => {
       // Merge with any pending changes for this item
       const existingPending = pendingItemChangesRef.current.get(id) || {};
       const mergedChanges = { ...existingPending, ...changes };
@@ -341,22 +475,41 @@ export function useWorkspaceOperations(
       const timeout = setTimeout(() => {
         const finalChanges = pendingItemChangesRef.current.get(id);
         if (finalChanges) {
-          const item = currentState.items.find(i => i.id === id);
+          const latestItems = getLatestItemsFromState();
+          const item = latestItems.find((i) => i.id === id);
+          if (!item) {
+            pendingItemChangesRef.current.delete(id);
+            updateItemDebounceRef.current.delete(id);
+            return;
+          }
+
           const newName = (finalChanges as Partial<Item>).name ?? item?.name;
           const newType = (finalChanges as Partial<Item>).type ?? item?.type;
-          const folderId = ((finalChanges as Partial<Item>).folderId ?? item?.folderId) ?? null;
+          const folderId =
+            (finalChanges as Partial<Item>).folderId ?? item?.folderId ?? null;
 
           if (newName && newType && "name" in finalChanges) {
-            if (hasDuplicateName(currentState.items, newName, newType, folderId, id)) {
-              toast.error(`A ${newType} named "${newName}" already exists in this folder`);
+            if (hasDuplicateName(latestItems, newName, newType, folderId, id)) {
+              toast.error(
+                `A ${newType} named "${newName}" already exists in this folder`,
+              );
               pendingItemChangesRef.current.delete(id);
               updateItemDebounceRef.current.delete(id);
               return;
             }
           }
 
-          logger.debug("⏱️ [DEBOUNCE] updateItem firing after 500ms:", { id, changes: finalChanges, source });
-          const event = createEvent("ITEM_UPDATED", { id, changes: finalChanges, source, name: newName }, userId, userName);
+          logger.debug("⏱️ [DEBOUNCE] updateItem firing after 500ms:", {
+            id,
+            changes: finalChanges,
+            source,
+          });
+          const event = createEvent(
+            "ITEM_UPDATED",
+            { id, changes: finalChanges, source, name: newName },
+            userId,
+            userName,
+          );
           mutation.mutate(event);
           // Clean up
           pendingItemChangesRef.current.delete(id);
@@ -366,7 +519,7 @@ export function useWorkspaceOperations(
 
       updateItemDebounceRef.current.set(id, timeout);
     },
-    [mutation, userId, userName, currentState.items]
+    [mutation, userId, userName, getLatestItemsFromState],
   );
 
   const deleteItem = useCallback(
@@ -374,22 +527,37 @@ export function useWorkspaceOperations(
       logger.debug("🗑️ [DELETE-ITEM] Deleting item:", { id, userId, userName });
 
       // If this is a PDF card, delete the file from Supabase storage first
-      const itemToDelete = currentState.items.find(item => item.id === id);
-      if (itemToDelete && itemToDelete.type === 'pdf') {
-        const pdfData = itemToDelete.data as { fileUrl?: string; filename?: string };
+      const itemToDelete = currentState.items.find((item) => item.id === id);
+      if (itemToDelete && itemToDelete.type === "pdf") {
+        const pdfData = itemToDelete.data as {
+          fileUrl?: string;
+          filename?: string;
+        };
         if (pdfData?.fileUrl) {
           try {
-            logger.debug("🗑️ [DELETE-ITEM] Deleting PDF file from Supabase:", { fileUrl: pdfData.fileUrl });
-            const deleteResponse = await fetch(`/api/delete-file?url=${encodeURIComponent(pdfData.fileUrl)}`, {
-              method: 'DELETE',
+            logger.debug("🗑️ [DELETE-ITEM] Deleting PDF file from Supabase:", {
+              fileUrl: pdfData.fileUrl,
             });
+            const deleteResponse = await fetch(
+              `/api/delete-file?url=${encodeURIComponent(pdfData.fileUrl)}`,
+              {
+                method: "DELETE",
+              },
+            );
 
             if (!deleteResponse.ok) {
-              const errorData = await deleteResponse.json().catch(() => ({ error: 'Failed to delete file' }));
-              logger.warn("🗑️ [DELETE-ITEM] Failed to delete PDF file from Supabase:", errorData.error);
+              const errorData = await deleteResponse
+                .json()
+                .catch(() => ({ error: "Failed to delete file" }));
+              logger.warn(
+                "🗑️ [DELETE-ITEM] Failed to delete PDF file from Supabase:",
+                errorData.error,
+              );
               // Continue with card deletion even if file deletion fails (file might not exist)
             } else {
-              logger.debug("🗑️ [DELETE-ITEM] Successfully deleted PDF file from Supabase");
+              logger.debug(
+                "🗑️ [DELETE-ITEM] Successfully deleted PDF file from Supabase",
+              );
             }
           } catch (error) {
             logger.error("🗑️ [DELETE-ITEM] Error deleting PDF file:", error);
@@ -399,29 +567,45 @@ export function useWorkspaceOperations(
       }
 
       // Delete the card (create event) - include name for version history display
-      const event = createEvent("ITEM_DELETED", { id, name: itemToDelete?.name }, userId, userName);
+      const event = createEvent(
+        "ITEM_DELETED",
+        { id, name: itemToDelete?.name },
+        userId,
+        userName,
+      );
       logger.debug("🗑️ [DELETE-ITEM] Created event:", event);
       mutation.mutate(event);
     },
-    [mutation, userId, userName, currentState.items]
+    [mutation, userId, userName, currentState.items],
   );
 
   const setGlobalTitle = useCallback(
     (title: string) => {
-      const event = createEvent("GLOBAL_TITLE_SET", { title }, userId, userName);
+      const event = createEvent(
+        "GLOBAL_TITLE_SET",
+        { title },
+        userId,
+        userName,
+      );
       mutation.mutate(event);
     },
-    [mutation, userId, userName]
+    [mutation, userId, userName],
   );
 
   // Helper for updating item data (used by field actions)
   const updateItemData = useCallback(
-    (itemId: string, updater: (prev: Item['data']) => Item['data'], source: 'user' | 'agent' = 'user') => {
+    (
+      itemId: string,
+      updater: (prev: Item["data"]) => Item["data"],
+      source: "user" | "agent" = "user",
+    ) => {
       // Chain updaters if there's already a pending one
       const existingUpdater = pendingItemDataUpdatersRef.current.get(itemId);
       if (existingUpdater) {
         // Chain the updaters: apply existing, then new
-        pendingItemDataUpdatersRef.current.set(itemId, (prev: Item['data']) => updater(existingUpdater(prev)));
+        pendingItemDataUpdatersRef.current.set(itemId, (prev: Item["data"]) =>
+          updater(existingUpdater(prev)),
+        );
       } else {
         pendingItemDataUpdatersRef.current.set(itemId, updater);
       }
@@ -446,24 +630,39 @@ export function useWorkspaceOperations(
               "events",
             ]);
             if (cacheData?.events) {
-              const latestState = replayEvents(cacheData.events, workspaceId, cacheData.snapshot?.state);
-              latestItem = latestState.items.find(item => item.id === itemId);
+              const latestState = replayEvents(
+                cacheData.events,
+                workspaceId,
+                cacheData.snapshot?.state,
+              );
+              latestItem = latestState.items.find((item) => item.id === itemId);
             }
           }
           if (!latestItem) {
-            latestItem = currentState.items.find(item => item.id === itemId);
+            latestItem = currentState.items.find((item) => item.id === itemId);
           }
           if (!latestItem) {
             const cacheData = workspaceId
-              ? queryClient.getQueryData<EventResponse>(["workspace", workspaceId, "events"])
+              ? queryClient.getQueryData<EventResponse>([
+                  "workspace",
+                  workspaceId,
+                  "events",
+                ])
               : null;
             const itemCount = cacheData?.events
-              ? replayEvents(cacheData.events, workspaceId!, cacheData.snapshot?.state).items.length
+              ? replayEvents(
+                  cacheData.events,
+                  workspaceId!,
+                  cacheData.snapshot?.state,
+                ).items.length
               : 0;
-            logger.warn(`[OCR/UPDATE] updateItemData: Item ${itemId} not found. Item may have been deleted. Cache has ${itemCount} items.`, {
-              itemId,
-              workspaceId,
-            });
+            logger.warn(
+              `[OCR/UPDATE] updateItemData: Item ${itemId} not found. Item may have been deleted. Cache has ${itemCount} items.`,
+              {
+                itemId,
+                workspaceId,
+              },
+            );
             pendingItemDataUpdatersRef.current.delete(itemId);
             updateItemDataDebounceRef.current.delete(itemId);
             return;
@@ -481,12 +680,17 @@ export function useWorkspaceOperations(
           });
 
           // Emit update event with new data - include name for version history display
-          const event = createEvent("ITEM_UPDATED", {
-            id: itemId,
-            changes: { data: newData },
-            source,
-            name: latestItem.name
-          }, userId, userName);
+          const event = createEvent(
+            "ITEM_UPDATED",
+            {
+              id: itemId,
+              changes: { data: newData },
+              source,
+              name: latestItem.name,
+            },
+            userId,
+            userName,
+          );
           mutation.mutate(event);
           // Clean up
           pendingItemDataUpdatersRef.current.delete(itemId);
@@ -496,16 +700,16 @@ export function useWorkspaceOperations(
 
       updateItemDataDebounceRef.current.set(itemId, timeout);
     },
-    [workspaceId, queryClient, currentState, mutation, userId, userName]
+    [workspaceId, queryClient, currentState, mutation, userId, userName],
   );
-
-
 
   // Update all items at once (used for layout changes, reordering, and bulk delete)
   const updateAllItems = useCallback(
     (items: Item[]) => {
       const bulkUpdateStart = performance.now();
-      logger.debug("🔧 [BULK-UPDATE] Updating all items:", { count: items.length });
+      logger.debug("🔧 [BULK-UPDATE] Updating all items:", {
+        count: items.length,
+      });
 
       // CRITICAL FIX: Read the latest state from cache (including optimistic updates)
       // instead of using the potentially stale currentState prop
@@ -519,7 +723,11 @@ export function useWorkspaceOperations(
         ]);
         if (cacheData?.events) {
           // Replay events to get current state including optimistic updates
-          latestState = replayEvents(cacheData.events, workspaceId, cacheData.snapshot?.state);
+          latestState = replayEvents(
+            cacheData.events,
+            workspaceId,
+            cacheData.snapshot?.state,
+          );
         } else {
           // Fallback to prop if cache is empty (shouldn't happen in normal flow)
           latestState = currentState;
@@ -539,9 +747,16 @@ export function useWorkspaceOperations(
         const deletedIds = latestState.items
           .filter((i) => !newIds.has(i.id))
           .map((i) => i.id);
-        logger.debug("🔧 [BULK-UPDATE] Bulk delete, sending deletedIds only", { deletedIds });
+        logger.debug("🔧 [BULK-UPDATE] Bulk delete, sending deletedIds only", {
+          deletedIds,
+        });
         mutation.mutate(
-          createEvent("BULK_ITEMS_UPDATED", { deletedIds, previousItemCount }, userId, userName)
+          createEvent(
+            "BULK_ITEMS_UPDATED",
+            { deletedIds, previousItemCount },
+            userId,
+            userName,
+          ),
         );
         return;
       }
@@ -549,29 +764,49 @@ export function useWorkspaceOperations(
       // Count increased: items added – send only the new items (typically 1–2)
       if (items.length > previousItemCount) {
         const addedItems = items.filter((i) => !currentIds.has(i.id));
-        logger.debug("🔧 [BULK-UPDATE] Items added, sending addedItems only", { count: addedItems.length });
+        logger.debug("🔧 [BULK-UPDATE] Items added, sending addedItems only", {
+          count: addedItems.length,
+        });
         mutation.mutate(
-          createEvent("BULK_ITEMS_UPDATED", { addedItems, previousItemCount }, userId, userName)
+          createEvent(
+            "BULK_ITEMS_UPDATED",
+            { addedItems, previousItemCount },
+            userId,
+            userName,
+          ),
         );
         return;
       }
 
       // Extract only layout changes to minimize payload size
       // Compare with latest state (from cache) to find items whose layout changed
-      const layoutUpdates: Array<{ id: string; x: number; y: number; w: number; h: number }> = [];
-      const currentItemsMap = new Map(latestState.items.map(item => [item.id, item]));
+      const layoutUpdates: Array<{
+        id: string;
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+      }> = [];
+      const currentItemsMap = new Map(
+        latestState.items.map((item) => [item.id, item]),
+      );
 
       for (const item of items) {
         const currentItem = currentItemsMap.get(item.id);
-        const currentLayout = currentItem ? getLayoutForBreakpoint(currentItem, 'lg') : undefined;
-        const newLayout = getLayoutForBreakpoint(item, 'lg');
+        const currentLayout = currentItem
+          ? getLayoutForBreakpoint(currentItem, "lg")
+          : undefined;
+        const newLayout = getLayoutForBreakpoint(item, "lg");
 
         // Only include if layout exists and has changed
-        if (newLayout && (!currentLayout ||
-          currentLayout.x !== newLayout.x ||
-          currentLayout.y !== newLayout.y ||
-          currentLayout.w !== newLayout.w ||
-          currentLayout.h !== newLayout.h)) {
+        if (
+          newLayout &&
+          (!currentLayout ||
+            currentLayout.x !== newLayout.x ||
+            currentLayout.y !== newLayout.y ||
+            currentLayout.w !== newLayout.w ||
+            currentLayout.h !== newLayout.h)
+        ) {
           layoutUpdates.push({
             id: item.id,
             x: newLayout.x,
@@ -583,20 +818,24 @@ export function useWorkspaceOperations(
       }
       // Only create event if there are actual layout changes
       if (layoutUpdates.length > 0) {
-        const event = createEvent("BULK_ITEMS_UPDATED", {
-          layoutUpdates,
-          previousItemCount
-        }, userId, userName);
+        const event = createEvent(
+          "BULK_ITEMS_UPDATED",
+          {
+            layoutUpdates,
+            previousItemCount,
+          },
+          userId,
+          userName,
+        );
         mutation.mutate(event);
       } else {
-        logger.debug("🔧 [BULK-UPDATE] No layout changes detected, skipping event");
+        logger.debug(
+          "🔧 [BULK-UPDATE] No layout changes detected, skipping event",
+        );
       }
     },
-    [workspaceId, queryClient, currentState, mutation, userId, userName]
+    [workspaceId, queryClient, currentState, mutation, userId, userName],
   );
-
-
-
 
   // =====================================================
   // FOLDER OPERATIONS
@@ -606,15 +845,18 @@ export function useWorkspaceOperations(
   const createFolder = useCallback(
     (name: string, color?: CardColor): string => {
       // Create a folder as an item with type: 'folder'
-      const folderId = createItem('folder', name);
+      const folderId = createItem("folder", name);
       // Update color if provided (createItem uses random color)
       if (color) {
         updateItem(folderId, { color });
       }
-      logger.debug("📁 [FOLDER-CREATE] Created folder item:", { folderId, name });
+      logger.debug("📁 [FOLDER-CREATE] Created folder item:", {
+        folderId,
+        name,
+      });
       return folderId;
     },
-    [createItem, updateItem]
+    [createItem, updateItem],
   );
 
   const createFolderWithItems = useCallback(
@@ -626,84 +868,112 @@ export function useWorkspaceOperations(
       const safeItemIds = filterItemIdsForFolderCreation(
         itemIds,
         activeFolderId,
-        currentState.items ?? []
+        getLatestItemsFromState() ?? [],
       );
 
       if (safeItemIds.length === 0) {
-        logger.warn("📁 [FOLDER-CREATE-WITH-ITEMS] No valid items after cycle filter, skipping");
-        toast.error("Cannot create folder: selected items would create a circular reference.");
+        logger.warn(
+          "📁 [FOLDER-CREATE-WITH-ITEMS] No valid items after cycle filter, skipping",
+        );
+        toast.error(
+          "Cannot create folder: selected items would create a circular reference.",
+        );
         return ""; // Return empty string since no folder was created
       }
 
-      logger.debug("📁 [FOLDER-CREATE-WITH-ITEMS] Active folder:", { activeFolderId, safeItemIds });
+      logger.debug("📁 [FOLDER-CREATE-WITH-ITEMS] Active folder:", {
+        activeFolderId,
+        safeItemIds,
+      });
 
       // Generate folder ID
       const folderId = generateItemId();
 
-      const baseData = defaultDataFor('folder');
+      const baseData = defaultDataFor("folder");
 
       const folder: Item = {
         id: folderId,
-        type: 'folder',
-        name: name || 'New Folder',
-        subtitle: '',
+        type: "folder",
+        name: name || "New Folder",
+        subtitle: "",
         data: baseData as ItemData,
         color: color || getRandomCardColor(),
         folderId: activeFolderId ?? undefined, // Auto-assign to active folder (can be nested)
       };
 
       // Create single atomic event that creates folder and moves items
-      const event = createEvent("FOLDER_CREATED_WITH_ITEMS", { folder, itemIds: safeItemIds }, userId, userName);
+      const event = createEvent(
+        "FOLDER_CREATED_WITH_ITEMS",
+        { folder, itemIds: safeItemIds },
+        userId,
+        userName,
+      );
 
       mutation.mutate(event);
 
-      logger.debug("📁 [FOLDER-CREATE-WITH-ITEMS] Created folder with items:", { folderId, name, itemCount: safeItemIds.length });
+      logger.debug("📁 [FOLDER-CREATE-WITH-ITEMS] Created folder with items:", {
+        folderId,
+        name,
+        itemCount: safeItemIds.length,
+      });
 
       // Show success toast
-      toast.success(`Folder created with ${safeItemIds.length} item${safeItemIds.length === 1 ? '' : 's'}`);
+      toast.success(
+        `Folder created with ${safeItemIds.length} item${safeItemIds.length === 1 ? "" : "s"}`,
+      );
 
       return folderId;
     },
-    [mutation, userId, userName]
+    [mutation, userId, userName, getLatestItemsFromState],
   );
 
   // updateFolder now just calls updateItem (folders are items)
   const updateFolder = useCallback(
     (folderId: string, changes: Partial<Item>) => {
-      logger.debug("📁 [FOLDER-UPDATE] Updating folder item:", { folderId, changes });
+      logger.debug("📁 [FOLDER-UPDATE] Updating folder item:", {
+        folderId,
+        changes,
+      });
       updateItem(folderId, changes);
     },
-    [updateItem]
+    [updateItem],
   );
 
   // deleteFolder now just calls deleteItem (folders are items)
   const deleteFolder = useCallback(
     (folderId: string) => {
-      const folder = currentState.items?.find(i => i.id === folderId && i.type === 'folder');
-      logger.debug("📁 [FOLDER-DELETE] Deleting folder item:", { folderId, folderName: folder?.name });
+      const folder = currentState.items?.find(
+        (i) => i.id === folderId && i.type === "folder",
+      );
+      logger.debug("📁 [FOLDER-DELETE] Deleting folder item:", {
+        folderId,
+        folderName: folder?.name,
+      });
       deleteItem(folderId);
-      toast.success(folder ? `Folder "${folder.name}" deleted` : "Folder deleted");
+      toast.success(
+        folder ? `Folder "${folder.name}" deleted` : "Folder deleted",
+      );
     },
-    [deleteItem, currentState.items]
+    [deleteItem, currentState.items],
   );
 
   // Helper to recursively find all descendant IDs (items in folder and nested subfolders)
   const getAllDescendantIds = useCallback(
     (folderId: string, items: Item[]): string[] => {
-      const directChildren = items.filter(item => item.folderId === folderId);
+      const directChildren = items.filter((item) => item.folderId === folderId);
       const descendantIds: string[] = [];
 
       for (const child of directChildren) {
         descendantIds.push(child.id);
         // Recursively get descendants of nested folders
-        if (child.type === 'folder') {
+        if (child.type === "folder") {
           descendantIds.push(...getAllDescendantIds(child.id, items));
         }
       }
 
       return descendantIds;
     },
-    []
+    [],
   );
 
   // deleteFolderWithContents deletes the folder and all items inside it (including nested)
@@ -720,7 +990,11 @@ export function useWorkspaceOperations(
           "events",
         ]);
         if (cacheData?.events) {
-          const latestState = replayEvents(cacheData.events, workspaceId, cacheData.snapshot?.state);
+          const latestState = replayEvents(
+            cacheData.events,
+            workspaceId,
+            cacheData.snapshot?.state,
+          );
           latestItems = latestState.items;
         } else {
           latestItems = currentState.items;
@@ -729,8 +1003,13 @@ export function useWorkspaceOperations(
         latestItems = currentState.items;
       }
 
-      const folder = latestItems.find(i => i.id === folderId && i.type === 'folder');
-      logger.debug("📁 [FOLDER-DELETE-WITH-CONTENTS] Deleting folder and contents:", { folderId, folderName: folder?.name });
+      const folder = latestItems.find(
+        (i) => i.id === folderId && i.type === "folder",
+      );
+      logger.debug(
+        "📁 [FOLDER-DELETE-WITH-CONTENTS] Deleting folder and contents:",
+        { folderId, folderName: folder?.name },
+      );
 
       // Find all descendant items recursively (handles nested folders)
       const allDescendantIds = getAllDescendantIds(folderId, latestItems);
@@ -739,55 +1018,92 @@ export function useWorkspaceOperations(
       const idsToDelete = new Set([...allDescendantIds, folderId]);
       const itemCount = allDescendantIds.length;
 
-      logger.debug("📁 [FOLDER-DELETE-WITH-CONTENTS] Found items to delete:", { itemCount, itemIds: [...idsToDelete] });
+      logger.debug("📁 [FOLDER-DELETE-WITH-CONTENTS] Found items to delete:", {
+        itemCount,
+        itemIds: [...idsToDelete],
+      });
 
       // Delete PDF files from storage (fire-and-forget, non-blocking)
       // This is best-effort cleanup - files may become orphaned if this fails
-      const itemsToDelete = latestItems.filter(item => idsToDelete.has(item.id));
+      const itemsToDelete = latestItems.filter((item) =>
+        idsToDelete.has(item.id),
+      );
       for (const item of itemsToDelete) {
-        if (item.type === 'pdf') {
+        if (item.type === "pdf") {
           const pdfData = item.data as { fileUrl?: string };
           if (pdfData?.fileUrl) {
-            fetch(`/api/delete-file?url=${encodeURIComponent(pdfData.fileUrl)}`, {
-              method: 'DELETE',
-            }).catch(err => logger.warn("📁 [FOLDER-DELETE-WITH-CONTENTS] Failed to delete PDF file:", err));
+            fetch(
+              `/api/delete-file?url=${encodeURIComponent(pdfData.fileUrl)}`,
+              {
+                method: "DELETE",
+              },
+            ).catch((err) =>
+              logger.warn(
+                "📁 [FOLDER-DELETE-WITH-CONTENTS] Failed to delete PDF file:",
+                err,
+              ),
+            );
           }
         }
       }
 
       // Atomic bulk delete using updateAllItems pattern (single BULK_ITEMS_UPDATED event)
-      const remainingItems = latestItems.filter(item => !idsToDelete.has(item.id));
+      const remainingItems = latestItems.filter(
+        (item) => !idsToDelete.has(item.id),
+      );
       updateAllItems(remainingItems);
 
       toast.success(
         folder
-          ? `Folder "${folder.name}" and ${itemCount} ${itemCount === 1 ? 'item' : 'items'} deleted`
-          : `Folder and ${itemCount} ${itemCount === 1 ? 'item' : 'items'} deleted`
+          ? `Folder "${folder.name}" and ${itemCount} ${itemCount === 1 ? "item" : "items"} deleted`
+          : `Folder and ${itemCount} ${itemCount === 1 ? "item" : "items"} deleted`,
       );
     },
-    [workspaceId, queryClient, currentState.items, getAllDescendantIds, updateAllItems]
+    [
+      workspaceId,
+      queryClient,
+      currentState.items,
+      getAllDescendantIds,
+      updateAllItems,
+    ],
   );
 
   const moveItemToFolder = useCallback(
     (itemId: string, folderId: string | null) => {
-      const item = currentState.items.find(i => i.id === itemId);
-      logger.debug("📁 [ITEM-MOVE] Moving item to folder:", { itemId, folderId });
-      const event = createEvent("ITEM_MOVED_TO_FOLDER", { itemId, folderId, itemName: item?.name }, userId, userName);
+      const item = currentState.items.find((i) => i.id === itemId);
+      logger.debug("📁 [ITEM-MOVE] Moving item to folder:", {
+        itemId,
+        folderId,
+      });
+      const event = createEvent(
+        "ITEM_MOVED_TO_FOLDER",
+        { itemId, folderId, itemName: item?.name },
+        userId,
+        userName,
+      );
       mutation.mutate(event);
     },
-    [mutation, userId, userName, currentState.items]
+    [mutation, userId, userName, currentState.items],
   );
 
   const moveItemsToFolder = useCallback(
     (itemIds: string[], folderId: string | null) => {
       const itemNames = itemIds
-        .map(id => currentState.items.find(i => i.id === id)?.name)
+        .map((id) => currentState.items.find((i) => i.id === id)?.name)
         .filter((n): n is string => n != null);
-      logger.debug("📁 [ITEMS-MOVE] Moving items to folder:", { itemIds, folderId });
-      const event = createEvent("ITEMS_MOVED_TO_FOLDER", { itemIds, folderId, itemNames }, userId, userName);
+      logger.debug("📁 [ITEMS-MOVE] Moving items to folder:", {
+        itemIds,
+        folderId,
+      });
+      const event = createEvent(
+        "ITEMS_MOVED_TO_FOLDER",
+        { itemIds, folderId, itemNames },
+        userId,
+        userName,
+      );
       mutation.mutate(event);
     },
-    [mutation, userId, userName, currentState.items]
+    [mutation, userId, userName, currentState.items],
   );
 
   // Flush pending debounced changes for an item (called when modal closes)
@@ -805,8 +1121,16 @@ export function useWorkspaceOperations(
         if (pendingChanges) {
           const item = getLatestItemFromState(itemId);
           const name = (pendingChanges as Partial<Item>).name ?? item?.name;
-          logger.debug("💾 [FLUSH] Sending pending updateItem changes:", { itemId, changes: pendingChanges });
-          const event = createEvent("ITEM_UPDATED", { id: itemId, changes: pendingChanges, name }, userId, userName);
+          logger.debug("💾 [FLUSH] Sending pending updateItem changes:", {
+            itemId,
+            changes: pendingChanges,
+          });
+          const event = createEvent(
+            "ITEM_UPDATED",
+            { id: itemId, changes: pendingChanges, name },
+            userId,
+            userName,
+          );
           mutation.mutate(event);
           pendingItemChangesRef.current.delete(itemId);
         }
@@ -823,23 +1147,32 @@ export function useWorkspaceOperations(
           // Get the latest item state
           const latestItem = getLatestItemFromState(itemId);
           if (latestItem) {
-            logger.debug("💾 [FLUSH] Sending pending updateItemData changes:", { itemId });
+            logger.debug("💾 [FLUSH] Sending pending updateItemData changes:", {
+              itemId,
+            });
             const newData = pendingUpdater(latestItem.data);
-            const event = createEvent("ITEM_UPDATED", {
-              id: itemId,
-              changes: { data: newData },
-              name: latestItem.name
-            }, userId, userName);
+            const event = createEvent(
+              "ITEM_UPDATED",
+              {
+                id: itemId,
+                changes: { data: newData },
+                name: latestItem.name,
+              },
+              userId,
+              userName,
+            );
             mutation.mutate(event);
             pendingItemDataUpdatersRef.current.delete(itemId);
           } else {
-            logger.warn(`💾 [FLUSH] Item ${itemId} not found when flushing pending data changes`);
+            logger.warn(
+              `💾 [FLUSH] Item ${itemId} not found when flushing pending data changes`,
+            );
             pendingItemDataUpdatersRef.current.delete(itemId);
           }
         }
       }
     },
-    [getLatestItemFromState, mutation, userId, userName]
+    [getLatestItemFromState, mutation, userId, userName],
   );
 
   const getDocumentMarkdownForExport = useCallback(
@@ -848,7 +1181,7 @@ export function useWorkspaceOperations(
       if (!item || item.type !== "document") return "";
       return (item.data as DocumentData).markdown ?? "";
     },
-    [getLatestItemWithPendingChanges]
+    [getLatestItemWithPendingChanges],
   );
 
   return {

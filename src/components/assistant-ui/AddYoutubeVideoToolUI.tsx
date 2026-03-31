@@ -3,12 +3,10 @@
 import type { ReactNode } from "react";
 import { makeAssistantToolUI } from "@assistant-ui/react";
 import { X, Eye, Play } from "lucide-react";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-shell";
 import { ToolUIErrorShell } from "@/components/assistant-ui/tool-ui-error-shell";
-import { useOptimisticToolUpdate } from "@/hooks/ai/use-optimistic-tool-update";
 import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import type { WorkspaceResult } from "@/lib/ai/tool-result-schemas";
@@ -38,14 +36,22 @@ const AddYoutubeVideoReceipt = ({
     <div
       className={cn(
         "my-1 flex w-full items-center justify-between overflow-hidden rounded-md border border-border/50 bg-card/50 text-card-foreground shadow-sm px-2 py-2",
-        status?.type === "complete" && result.itemId && "cursor-pointer hover:bg-accent transition-colors"
+        status?.type === "complete" &&
+          result.itemId &&
+          "cursor-pointer hover:bg-accent transition-colors",
       )}
-      onClick={status?.type === "complete" && result.itemId ? handleViewCard : undefined}
+      onClick={
+        status?.type === "complete" && result.itemId
+          ? handleViewCard
+          : undefined
+      }
     >
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        <div className={cn(
-          status?.type === "complete" ? "text-red-500" : "text-red-400"
-        )}>
+        <div
+          className={cn(
+            status?.type === "complete" ? "text-red-500" : "text-red-400",
+          )}
+        >
           {status?.type === "complete" ? (
             <Play className="size-4" />
           ) : (
@@ -54,7 +60,9 @@ const AddYoutubeVideoReceipt = ({
         </div>
         <div className="flex flex-col min-w-0 flex-1">
           <span className="text-xs font-medium truncate">
-            {status?.type === "complete" ? args.title : "Video Addition Cancelled"}
+            {status?.type === "complete"
+              ? args.title
+              : "Video Addition Cancelled"}
           </span>
           {status?.type === "complete" && (
             <span className="text-[10px] text-muted-foreground">
@@ -84,13 +92,12 @@ const AddYoutubeVideoReceipt = ({
   );
 };
 
-export const AddYoutubeVideoToolUI = makeAssistantToolUI<AddYoutubeVideoArgs, WorkspaceResult>({
+export const AddYoutubeVideoToolUI = makeAssistantToolUI<
+  AddYoutubeVideoArgs,
+  WorkspaceResult
+>({
   toolName: "addYoutubeVideo",
   render: function AddYoutubeVideoToolUI({ args, result, status }) {
-    const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-
-    useOptimisticToolUpdate(status, result, workspaceId);
-
     // Don't try to parse while still running - wait for completion
     let parsed: WorkspaceResult | null = null;
     if (status.type === "complete" && result != null) {
@@ -107,11 +114,7 @@ export const AddYoutubeVideoToolUI = makeAssistantToolUI<AddYoutubeVideoArgs, Wo
 
     if (parsed?.success) {
       content = (
-        <AddYoutubeVideoReceipt
-          args={args}
-          result={parsed}
-          status={status}
-        />
+        <AddYoutubeVideoReceipt args={args} result={parsed} status={status} />
       );
     } else if (status.type === "running") {
       content = <ToolUILoadingShell label="Adding YouTube video..." />;

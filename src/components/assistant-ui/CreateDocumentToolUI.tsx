@@ -12,7 +12,6 @@ import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-sh
 import { ToolUIErrorShell } from "@/components/assistant-ui/tool-ui-error-shell";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { toast } from "sonner";
-import { useOptimisticToolUpdate } from "@/hooks/ai/use-optimistic-tool-update";
 
 import type { ReactNode } from "react";
 import { useUIStore } from "@/lib/stores/ui-store";
@@ -56,13 +55,15 @@ const CreateDocumentReceipt = ({
 
   const currentItem = useMemo(() => {
     if (!result.itemId || !workspaceState?.items) return undefined;
-    return workspaceState.items.find((item: { id: string }) => item.id === result.itemId);
+    return workspaceState.items.find(
+      (item: { id: string }) => item.id === result.itemId,
+    );
   }, [result.itemId, workspaceState?.items]);
 
   const folderName = useMemo(() => {
     if (!currentItem?.folderId || !workspaceState?.items) return null;
     const folder = workspaceState.items.find(
-      (item: { id: string }) => item.id === currentItem.folderId
+      (item: { id: string }) => item.id === currentItem.folderId,
     );
     return folder?.name || null;
   }, [currentItem?.folderId, workspaceState?.items]);
@@ -87,16 +88,18 @@ const CreateDocumentReceipt = ({
           "my-1 flex w-full items-center justify-between overflow-hidden rounded-md border border-border/25 bg-card/50 text-card-foreground shadow-sm px-2 py-2",
           status?.type === "complete" &&
             result.itemId &&
-            "cursor-pointer hover:bg-accent transition-colors"
+            "cursor-pointer hover:bg-accent transition-colors",
         )}
         onClick={
-          status?.type === "complete" && result.itemId ? handleViewCard : undefined
+          status?.type === "complete" && result.itemId
+            ? handleViewCard
+            : undefined
         }
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <div
             className={cn(
-              status?.type === "complete" ? "text-blue-400" : "text-red-400"
+              status?.type === "complete" ? "text-blue-400" : "text-red-400",
             )}
           >
             {status?.type === "complete" ? (
@@ -171,73 +174,72 @@ const CreateDocumentReceipt = ({
   );
 };
 
-export const CreateDocumentToolUI =
-  makeAssistantToolUI<CreateDocumentArgs, WorkspaceResult>({
-    toolName: "createDocument",
-    render: function CreateDocumentToolUIRender({ args, result, status }) {
-      const workspaceId = useWorkspaceStore(
-        (state) => state.currentWorkspaceId
-      );
-      const { state: workspaceState } = useWorkspaceState(workspaceId);
-      const operations = useWorkspaceOperations(
-        workspaceId,
-        workspaceState || initialState
-      );
-      const workspaceContext = useWorkspaceContext();
-      const currentWorkspace = workspaceContext.workspaces.find(
-        (w) => w.id === workspaceId
-      );
+export const CreateDocumentToolUI = makeAssistantToolUI<
+  CreateDocumentArgs,
+  WorkspaceResult
+>({
+  toolName: "createDocument",
+  render: function CreateDocumentToolUIRender({ args, result, status }) {
+    const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+    const { state: workspaceState } = useWorkspaceState(workspaceId);
+    const operations = useWorkspaceOperations(
+      workspaceId,
+      workspaceState || initialState,
+    );
+    const workspaceContext = useWorkspaceContext();
+    const currentWorkspace = workspaceContext.workspaces.find(
+      (w) => w.id === workspaceId,
+    );
 
-      useOptimisticToolUpdate(status, result, workspaceId);
-
-      let parsed: WorkspaceResult | null = null;
-      if (status.type === "complete" && result != null) {
-        try {
-          parsed = parseWorkspaceResult(result);
-        } catch (err) {
-          logger.error("🎨 [CreateDocumentTool] Failed to parse result:", err);
-          parsed = null;
-        }
+    let parsed: WorkspaceResult | null = null;
+    if (status.type === "complete" && result != null) {
+      try {
+        parsed = parseWorkspaceResult(result);
+      } catch (err) {
+        logger.error("🎨 [CreateDocumentTool] Failed to parse result:", err);
+        parsed = null;
       }
+    }
 
-      let content: ReactNode = null;
+    let content: ReactNode = null;
 
-      if (parsed?.success) {
-        content = (
-          <CreateDocumentReceipt
-            args={args}
-            result={parsed}
-            status={status}
-            moveItemToFolder={operations.moveItemToFolder}
-            allItems={(workspaceState?.items ?? []) as Item[]}
-            workspaceName={
-              currentWorkspace?.name ||
-              workspaceState?.globalTitle ||
-              "Workspace"
-            }
-            workspaceIcon={currentWorkspace?.icon}
-            workspaceColor={currentWorkspace?.color}
-          />
-        );
-      } else if (status.type === "running") {
-        content = (
-          <ToolUILoadingShell label="Creating document..." />
-        );
-      } else if (status.type === "incomplete" && status.reason === "error") {
-        content = (
-          <ToolUIErrorShell
-            label="Failed to create document"
-            message={
-              parsed && !parsed.success ? parsed.message : undefined
-            }
-          />
-        );
-      }
-
-      return (
-        <ToolUIErrorBoundary componentName="CreateDocument">
-          {content}
-        </ToolUIErrorBoundary>
+    if (parsed?.success) {
+      content = (
+        <CreateDocumentReceipt
+          args={args}
+          result={parsed}
+          status={status}
+          moveItemToFolder={operations.moveItemToFolder}
+          allItems={(workspaceState?.items ?? []) as Item[]}
+          workspaceName={
+            currentWorkspace?.name || workspaceState?.globalTitle || "Workspace"
+          }
+          workspaceIcon={currentWorkspace?.icon}
+          workspaceColor={currentWorkspace?.color}
+        />
       );
-    },
-  });
+    } else if (status.type === "complete" && parsed && !parsed.success) {
+      content = (
+        <ToolUIErrorShell
+          label="Failed to create document"
+          message={parsed.message}
+        />
+      );
+    } else if (status.type === "running") {
+      content = <ToolUILoadingShell label="Creating document..." />;
+    } else if (status.type === "incomplete" && status.reason === "error") {
+      content = (
+        <ToolUIErrorShell
+          label="Failed to create document"
+          message={parsed && !parsed.success ? parsed.message : undefined}
+        />
+      );
+    }
+
+    return (
+      <ToolUIErrorBoundary componentName="CreateDocument">
+        {content}
+      </ToolUIErrorBoundary>
+    );
+  },
+});
