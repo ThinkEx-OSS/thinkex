@@ -4,12 +4,13 @@ import { createEvent } from "@/lib/workspace/events";
 import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 import type { OcrItemResult } from "@/lib/ocr/types";
+import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
 
 const APPEND_RESULT_REGEX = /\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i;
 
 async function appendWorkspaceEvent(
   workspaceId: string,
-  event: WorkspaceEvent
+  event: WorkspaceEvent,
 ): Promise<void> {
   const versionResult = await db.execute(sql`
     SELECT get_workspace_version(${workspaceId}::uuid) as version
@@ -31,7 +32,7 @@ async function appendWorkspaceEvent(
 
   if (!appendResult || appendResult.length === 0 || !appendResult[0]) {
     throw new Error(
-      "append_workspace_event returned no result — database may have failed"
+      "append_workspace_event returned no result — database may have failed",
     );
   }
 
@@ -39,22 +40,27 @@ async function appendWorkspaceEvent(
   const match = raw.match(APPEND_RESULT_REGEX);
   if (!match) {
     throw new Error(
-      `append_workspace_event returned unexpected format: ${raw}`
+      `append_workspace_event returned unexpected format: ${raw}`,
     );
   }
 
   const modified = match[2].toLowerCase();
   if (modified === "t" || modified === "true") {
     throw new Error(
-      `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${baseVersion}). Workflow will retry automatically.`
+      `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${baseVersion}). Workflow will retry automatically.`,
     );
   }
+
+  await broadcastWorkspaceEventFromServer(workspaceId, {
+    ...event,
+    version: Number(match[1]),
+  });
 }
 
 export async function persistOcrResults(
   workspaceId: string,
   userId: string,
-  results: OcrItemResult[]
+  results: OcrItemResult[],
 ): Promise<void> {
   "use step";
 
@@ -79,7 +85,7 @@ export async function persistOcrResults(
         source: "agent" as const,
       })),
     },
-    userId
+    userId,
   );
 
   await appendWorkspaceEvent(workspaceId, event);

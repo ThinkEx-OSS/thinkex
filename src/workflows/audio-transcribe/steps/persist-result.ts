@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { createEvent } from "@/lib/workspace/events";
 import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
+import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
 import type { TranscribeResult } from "./transcribe";
 
 /**
@@ -12,7 +13,7 @@ export async function persistAudioResult(
   workspaceId: string,
   itemId: string,
   userId: string,
-  result: TranscribeResult
+  result: TranscribeResult,
 ): Promise<void> {
   "use step";
 
@@ -31,7 +32,7 @@ export async function persistAudioResult(
       },
       source: "agent",
     },
-    userId
+    userId,
   );
 
   const versionResult = await db.execute(sql`
@@ -57,15 +58,20 @@ export async function persistAudioResult(
     const match = raw.match(/\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i);
     if (!match) {
       throw new Error(
-        `append_workspace_event returned unexpected format: ${raw}`
+        `append_workspace_event returned unexpected format: ${raw}`,
       );
     }
     const modified = match[2].toLowerCase();
     if (modified === "t" || modified === "true") {
       throw new Error(
-        `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${versionResult[0]?.version ?? 0}). Workflow will retry automatically.`
+        `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${versionResult[0]?.version ?? 0}). Workflow will retry automatically.`,
       );
     }
+
+    await broadcastWorkspaceEventFromServer(workspaceId, {
+      ...event,
+      version: Number(match[1]),
+    });
   }
   checkAndCreateSnapshot(workspaceId).catch(() => {});
 }
@@ -78,7 +84,7 @@ export async function persistAudioFailure(
   workspaceId: string,
   itemId: string,
   userId: string,
-  error: string
+  error: string,
 ): Promise<void> {
   "use step";
 
@@ -94,7 +100,7 @@ export async function persistAudioFailure(
       },
       source: "agent",
     },
-    userId
+    userId,
   );
 
   const versionResult = await db.execute(sql`
@@ -120,15 +126,20 @@ export async function persistAudioFailure(
     const match = raw.match(/\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i);
     if (!match) {
       throw new Error(
-        `append_workspace_event returned unexpected format: ${raw}`
+        `append_workspace_event returned unexpected format: ${raw}`,
       );
     }
     const modified = match[2].toLowerCase();
     if (modified === "t" || modified === "true") {
       throw new Error(
-        `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${versionResult[0]?.version ?? 0}). Workflow will retry automatically.`
+        `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${versionResult[0]?.version ?? 0}). Workflow will retry automatically.`,
       );
     }
+
+    await broadcastWorkspaceEventFromServer(workspaceId, {
+      ...event,
+      version: Number(match[1]),
+    });
   }
   checkAndCreateSnapshot(workspaceId).catch(() => {});
 }

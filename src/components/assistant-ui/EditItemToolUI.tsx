@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { makeAssistantToolUI } from "@assistant-ui/react";
-import { useOptimisticToolUpdate } from "@/hooks/ai/use-optimistic-tool-update";
 import { X, Eye } from "lucide-react";
 import { Pencil } from "lucide-react";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
@@ -63,7 +62,8 @@ const EditItemReceipt = ({ args, result, status }: EditItemReceiptProps) => {
 
   const subtitle = useMemo(() => {
     if (result.cardCount != null) return `${result.cardCount} cards`;
-    if (result.questionCount != null) return `${result.questionCount} questions`;
+    if (result.questionCount != null)
+      return `${result.questionCount} questions`;
     return "Item updated";
   }, [result.cardCount, result.questionCount]);
 
@@ -72,12 +72,22 @@ const EditItemReceipt = ({ args, result, status }: EditItemReceiptProps) => {
       <div
         className={cn(
           "flex w-full items-center justify-between overflow-hidden rounded-md border border-border/50 bg-card/50 text-card-foreground shadow-sm px-2 py-2",
-          status?.type === "complete" && result.itemId && "cursor-pointer hover:bg-accent transition-colors"
+          status?.type === "complete" &&
+            result.itemId &&
+            "cursor-pointer hover:bg-accent transition-colors",
         )}
-        onClick={status?.type === "complete" && result.itemId ? handleViewCard : undefined}
+        onClick={
+          status?.type === "complete" && result.itemId
+            ? handleViewCard
+            : undefined
+        }
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div className={cn(status?.type === "complete" ? "text-blue-400" : "text-red-400")}>
+          <div
+            className={cn(
+              status?.type === "complete" ? "text-blue-400" : "text-red-400",
+            )}
+          >
             {status?.type === "complete" ? (
               <Pencil className="size-4" />
             ) : (
@@ -87,10 +97,18 @@ const EditItemReceipt = ({ args, result, status }: EditItemReceiptProps) => {
           <div className="flex flex-col min-w-0 flex-1">
             <span className="text-xs font-medium truncate">
               {status?.type === "complete"
-                ? String(card?.name ?? (result as { itemName?: string }).itemName ?? "Item Updated")
+                ? String(
+                    card?.name ??
+                      (result as { itemName?: string }).itemName ??
+                      "Item Updated",
+                  )
                 : "Edit Cancelled"}
             </span>
-            {status?.type === "complete" && <span className="text-[10px] text-muted-foreground">{subtitle}</span>}
+            {status?.type === "complete" && (
+              <span className="text-[10px] text-muted-foreground">
+                {subtitle}
+              </span>
+            )}
           </div>
         </div>
 
@@ -128,13 +146,12 @@ const EditItemReceipt = ({ args, result, status }: EditItemReceiptProps) => {
   );
 };
 
-export const EditItemToolUI = makeAssistantToolUI<EditItemArgs, WorkspaceResult>({
+export const EditItemToolUI = makeAssistantToolUI<
+  EditItemArgs,
+  WorkspaceResult
+>({
   toolName: "editItem",
   render: function EditItemUI({ args, result, status }) {
-    const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-
-    useOptimisticToolUpdate(status, result as any, workspaceId);
-
     let parsed: WorkspaceResult | null = null;
     if (status.type === "complete" && result != null) {
       try {
@@ -148,14 +165,28 @@ export const EditItemToolUI = makeAssistantToolUI<EditItemArgs, WorkspaceResult>
     let content: ReactNode = null;
 
     if (parsed?.success) {
-      content = <EditItemReceipt args={args} result={parsed as EditItemResult} status={status} />;
+      content = (
+        <EditItemReceipt
+          args={args}
+          result={parsed as EditItemResult}
+          status={status}
+        />
+      );
     } else if (status.type === "running") {
       const itemName = args?.itemName;
-      content = <ToolUILoadingShell label={itemName ? `Editing "${itemName}"...` : "Editing..."} />;
+      content = (
+        <ToolUILoadingShell
+          label={itemName ? `Editing "${itemName}"...` : "Editing..."}
+        />
+      );
     } else if (status.type === "complete" && parsed && !parsed.success) {
-      content = <ToolUIErrorShell label="Failed to edit" message={parsed.message} />;
+      content = (
+        <ToolUIErrorShell label="Failed to edit" message={parsed.message} />
+      );
     } else if (status.type === "incomplete" && status.reason === "error") {
-      content = <ToolUIErrorShell label="Failed to edit" message={parsed?.message} />;
+      content = (
+        <ToolUIErrorShell label="Failed to edit" message={parsed?.message} />
+      );
     }
 
     return (

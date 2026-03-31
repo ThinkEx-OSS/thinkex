@@ -1,123 +1,127 @@
 /**
  * Workspace Presence Hook
- * 
+ *
  * Tracks which users are in a workspace.
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react';
-import type { RealtimeChannel } from '@supabase/supabase-js';
-import { getSupabaseClient } from '@/lib/supabase-client';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { getSupabaseClient } from "@/lib/supabase-client";
 
 export interface CollaboratorPresence {
-    userId: string;
-    userName: string;
-    userImage?: string;
-    /** When the user joined */
-    joinedAt: string;
+  userId: string;
+  userName: string;
+  userImage?: string;
+  joinedAt: string;
+}
+
+interface PresencePayload extends CollaboratorPresence {
+  clientKey: string;
 }
 
 interface UseWorkspacePresenceOptions {
-    /** Current user info */
-    currentUser: {
-        id: string;
-        name: string;
-        image?: string;
-    } | null;
+  currentUser: {
+    id: string;
+    name: string;
+    image?: string;
+  } | null;
 }
 
 interface UseWorkspacePresenceReturn {
-    /** All collaborators currently in the workspace (excluding current user) */
-    collaborators: CollaboratorPresence[];
+  collaborators: CollaboratorPresence[];
 }
 
-/**
- * Hook to track presence in a workspace
- * Uses Supabase Realtime Presence to sync user state
- */
 export function useWorkspacePresence(
-    workspaceId: string | null,
-    options: UseWorkspacePresenceOptions
+  workspaceId: string | null,
+  options: UseWorkspacePresenceOptions,
 ): UseWorkspacePresenceReturn {
-    const { currentUser } = options;
-    const [collaborators, setCollaborators] = useState<CollaboratorPresence[]>([]);
-    const channelRef = useRef<RealtimeChannel | null>(null);
-    // Keep joinedAt stable across re-renders
-    const joinedAtRef = useRef(new Date().toISOString());
+  const { currentUser } = options;
+  const currentUserId = currentUser?.id ?? null;
+  const [collaborators, setCollaborators] = useState<CollaboratorPresence[]>(
+    [],
+  );
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const joinedAtRef = useRef(new Date().toISOString());
+  const clientKey = useMemo(
+    () => (currentUserId ? `${currentUserId}:${crypto.randomUUID()}` : null),
+    [currentUserId],
+  );
 
-    // Clean up channel
-    const cleanup = useCallback(() => {
-        if (channelRef.current) {
-            const supabase = getSupabaseClient();
-            supabase.removeChannel(channelRef.current);
-            channelRef.current = null;
+  const cleanup = useCallback(() => {
+    if (channelRef.current) {
+      const supabase = getSupabaseClient();
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!workspaceId || !currentUser || !clientKey) {
+      cleanup();
+      return;
+    }
+
+    const supabase = getSupabaseClient();
+    const channel = supabase.channel(`workspace:${workspaceId}:presence`, {
+      config: {
+        presence: {
+          key: clientKey,
+        },
+      },
+    });
+
+    channelRef.current = channel;
+
+    channel.on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState<PresencePayload>();
+      const dedupedUsers = new Map<string, CollaboratorPresence>();
+
+      for (const presences of Object.values(state)) {
+        const presence = presences[0];
+        if (!presence || presence.userId === currentUser.id) continue;
+
+        if (!dedupedUsers.has(presence.userId)) {
+          dedupedUsers.set(presence.userId, {
+            userId: presence.userId,
+            userName: presence.userName,
+            userImage: presence.userImage,
+            joinedAt: presence.joinedAt,
+          });
         }
-    }, []);
+      }
 
-    // Initialize presence channel
-    useEffect(() => {
-        if (!workspaceId || !currentUser) {
-            cleanup();
-            setCollaborators([]);
-            return;
-        }
+      setCollaborators(Array.from(dedupedUsers.values()));
+    });
 
-        const supabase = getSupabaseClient();
-        const channelName = `workspace:${workspaceId}:presence`;
-
-        const channel = supabase.channel(channelName, {
-            config: {
-                presence: {
-                    key: currentUser.id,
-                },
-            },
+    channel.subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        await channel.track({
+          clientKey,
+          userId: currentUser.id,
+          userName: currentUser.name,
+          userImage: currentUser.image,
+          joinedAt: joinedAtRef.current,
         });
+      }
+    });
 
-        channelRef.current = channel;
+    return cleanup;
+  }, [workspaceId, currentUser, cleanup, clientKey]);
 
-        // Handle presence sync
-        channel.on('presence', { event: 'sync' }, () => {
-            const state = channel.presenceState<CollaboratorPresence>();
+  useEffect(() => {
+    const channel = channelRef.current;
+    if (!channel || !currentUser || !clientKey) return;
 
-            // Flatten presence state and filter out current user
-            const otherUsers: CollaboratorPresence[] = [];
-            for (const [userId, presences] of Object.entries(state)) {
-                if (userId !== currentUser.id && presences.length > 0) {
-                    otherUsers.push(presences[0]);
-                }
-            }
+    channel.track({
+      clientKey,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userImage: currentUser.image,
+      joinedAt: joinedAtRef.current,
+    });
+  }, [currentUser, clientKey]);
 
-            setCollaborators(otherUsers);
-        });
-
-        // Subscribe and track presence
-        channel.subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-                await channel.track({
-                    userId: currentUser.id,
-                    userName: currentUser.name,
-                    userImage: currentUser.image,
-                    joinedAt: joinedAtRef.current,
-                });
-            }
-        });
-
-        return cleanup;
-    }, [workspaceId, currentUser?.id, cleanup]);
-
-    // Update presence when user info changes
-    useEffect(() => {
-        const channel = channelRef.current;
-        if (!channel || !currentUser) return;
-
-        channel.track({
-            userId: currentUser.id,
-            userName: currentUser.name,
-            userImage: currentUser.image,
-            joinedAt: joinedAtRef.current,
-        });
-    }, [currentUser]);
-
-    return {
-        collaborators,
-    };
+  return {
+    collaborators: workspaceId && currentUser ? collaborators : [],
+  };
 }
