@@ -112,7 +112,13 @@ function ModelDropdownItem({
           </div>
         </DropdownMenuItem>
       </HoverCardTrigger>
-      <HoverCardContent align="start" side="right" className="w-72 p-3">
+      <HoverCardContent
+        align="start"
+        side="right"
+        sideOffset={8}
+        collisionPadding={12}
+        className="w-72 p-3"
+      >
         <div className="space-y-3">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
