@@ -1,9 +1,21 @@
 "use client";
 
-import type { Item, ItemData, NoteData, PdfData, FlashcardData, YouTubeData, ImageData, DocumentData } from "@/lib/workspace-state/types";
+import type {
+  Item,
+  ItemData,
+  NoteData,
+  PdfData,
+  FlashcardData,
+  YouTubeData,
+  ImageData,
+  DocumentData,
+} from "@/lib/workspace-state/types";
 import { useMemo } from "react";
 import { LazyBlockNoteEditor } from "@/components/editor/LazyBlockNoteEditor";
-import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEditor";
+import {
+  plainTextToBlocks,
+  type Block,
+} from "@/components/editor/BlockNoteEditor";
 import { DocumentEditor } from "@/components/editor/DocumentEditor";
 import FlashcardContent from "./FlashcardContent";
 import YouTubeCardContent from "./YouTubeCardContent";
@@ -11,7 +23,6 @@ import ImageCardContent from "./ImageCardContent";
 import { AudioCardContent } from "./AudioCardContent";
 
 import { QuizContent } from "./QuizContent";
-
 
 export function CardRenderer(props: {
   item: Item;
@@ -30,9 +41,7 @@ export function CardRenderer(props: {
         .map((block) => {
           const blockData = block as { content?: Array<{ text?: string }> };
           if (blockData.content && Array.isArray(blockData.content)) {
-            return blockData.content
-              .map((item) => item.text || "")
-              .join("");
+            return blockData.content.map((item) => item.text || "").join("");
           }
           return "";
         })
@@ -44,10 +53,12 @@ export function CardRenderer(props: {
       if (noteData.blockContent) {
         return noteData.blockContent as unknown as Block[];
       }
-      return [{
-        type: "paragraph",
-        content: [{ type: "text", text: noteData.field1 || "", styles: {} }]
-      }] as unknown as Block[];
+      return [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: noteData.field1 || "", styles: {} }],
+        },
+      ] as unknown as Block[];
     }, [noteData.blockContent, noteData.field1, item.id, item.lastSource]);
     return (
       <>
@@ -75,7 +86,7 @@ export function CardRenderer(props: {
     return (
       <div className="mt-4 p-4 rounded-lg bg-muted/30 text-center">
         <p className="text-sm text-muted-foreground">
-          PDF: {pdfData.filename || 'Document'}
+          PDF: {pdfData.filename || "Document"}
         </p>
         <p className="text-xs text-muted-foreground/70 mt-2">
           Use the PDF viewer to read this document
@@ -89,7 +100,13 @@ export function CardRenderer(props: {
   }
 
   if (item.type === "quiz") {
-    return <QuizContent item={item} onUpdateData={onUpdateData} className={quizClassName} />;
+    return (
+      <QuizContent
+        item={item}
+        onUpdateData={onUpdateData}
+        className={quizClassName}
+      />
+    );
   }
 
   if (item.type === "youtube") {
@@ -113,16 +130,25 @@ export function CardRenderer(props: {
   if (item.type === "website") {
     // Website cards are rendered via WebsitePanelContent in the panel;
     // this fallback is for generic/modal context
-    const websiteData = item.data as import("@/lib/workspace-state/types").WebsiteData;
-    let hostname = '';
-    try { hostname = new URL(websiteData.url).hostname.replace(/^www\./, ''); } catch {}
+    const websiteData =
+      item.data as import("@/lib/workspace-state/types").WebsiteData;
+    let hostname = "";
+    try {
+      hostname = new URL(websiteData.url).hostname.replace(/^www\./, "");
+    } catch {}
     return (
       <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 p-8">
         {websiteData.favicon ? (
-          <img src={websiteData.favicon} alt="" className="size-16 rounded-lg" />
+          <img
+            src={websiteData.favicon}
+            alt=""
+            className="size-16 rounded-lg"
+          />
         ) : (
           <div className="size-16 rounded-lg bg-muted flex items-center justify-center">
-            <span className="text-2xl font-bold text-muted-foreground">{hostname.charAt(0).toUpperCase()}</span>
+            <span className="text-2xl font-bold text-muted-foreground">
+              {hostname.charAt(0).toUpperCase()}
+            </span>
           </div>
         )}
         {hostname && (
@@ -139,6 +165,7 @@ export function CardRenderer(props: {
       <div className="flex flex-col">
         <DocumentEditor
           autofocus={true}
+          cardName={item.name}
           content={md || undefined}
           contentType={md ? "markdown" : undefined}
           embedded={true}
