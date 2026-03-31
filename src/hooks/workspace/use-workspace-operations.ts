@@ -868,7 +868,7 @@ export function useWorkspaceOperations(
       const safeItemIds = filterItemIdsForFolderCreation(
         itemIds,
         activeFolderId,
-        currentState.items ?? [],
+        getLatestItemsFromState() ?? [],
       );
 
       if (safeItemIds.length === 0) {
@@ -924,7 +924,7 @@ export function useWorkspaceOperations(
 
       return folderId;
     },
-    [mutation, userId, userName],
+    [mutation, userId, userName, getLatestItemsFromState],
   );
 
   // updateFolder now just calls updateItem (folders are items)
