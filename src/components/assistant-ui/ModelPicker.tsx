@@ -1,21 +1,17 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import NextImage from "next/image";
 import { FaCheck } from "react-icons/fa6";
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { cn } from "@/lib/utils";
@@ -65,58 +61,48 @@ function ModelProviderIcon({
   );
 }
 
-function ModelDropdownItem({
+const modelRowButtonClass =
+  "relative flex w-full min-h-8 cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-left text-sm outline-hidden transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground";
+
+function ModelPickerRow({
   provider,
   model,
   isSelected,
-  isHoverOpen,
-  onHoverOpenChange,
   onSelect,
 }: {
   provider: ModelProvider;
   model: ModelConfig;
   isSelected: boolean;
-  isHoverOpen: boolean;
-  onHoverOpenChange: (open: boolean) => void;
   onSelect: () => void;
 }) {
   return (
-    <HoverCard
-      open={isHoverOpen}
-      onOpenChange={onHoverOpenChange}
-      openDelay={120}
-      closeDelay={0}
-    >
+    <HoverCard openDelay={250} closeDelay={250}>
       <HoverCardTrigger asChild>
-        <DropdownMenuItem
-          onSelect={(event) => {
-            event.preventDefault();
-            onSelect();
-          }}
-          aria-label={model.description ?? model.name}
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-label={model.description}
           className={cn(
-            "min-h-8 cursor-pointer px-2 py-1",
+            modelRowButtonClass,
             isSelected && "bg-accent/50",
           )}
         >
-          <div className="flex w-full items-center gap-2">
-            <ModelProviderIcon provider={provider} />
-            <div className="min-w-0 flex-1 truncate text-sm text-foreground">
-              {model.name}
-            </div>
-            <div className="flex size-3 shrink-0 items-center justify-center">
-              {isSelected ? (
-                <FaCheck className="size-3 text-sidebar-foreground/80" />
-              ) : null}
-            </div>
-          </div>
-        </DropdownMenuItem>
+          <ModelProviderIcon provider={provider} />
+          <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+            {model.name}
+          </span>
+          <span className="flex size-3 shrink-0 items-center justify-center">
+            {isSelected ? (
+              <FaCheck className="size-3 text-sidebar-foreground/80" />
+            ) : null}
+          </span>
+        </button>
       </HoverCardTrigger>
       <HoverCardContent
         align="start"
         side="right"
-        sideOffset={8}
         collisionPadding={12}
+        exitAnimation={false}
         className="w-72 p-3"
       >
         <div className="space-y-3">
@@ -215,7 +201,7 @@ const MODEL_PROVIDERS: Array<{
         speed: "Medium",
         costLevel: 3,
         strengths:
-          "Coding, agent-style workflows, and reliable multi-step reasoning.",
+          "Coding, complex workflows, and reliable multi-step reasoning.",
       },
       {
         id: "anthropic/claude-haiku-4.5",
@@ -255,68 +241,61 @@ export function ModelPicker() {
   const selectedModelId = useUIStore((state) => state.selectedModelId);
   const setSelectedModelId = useUIStore((state) => state.setSelectedModelId);
   const [isOpen, setIsOpen] = useState(false);
-  const [hoveredModelId, setHoveredModelId] = useState<string | null>(null);
 
-  const selectedModel = useMemo(
-    () =>
-      ALL_MODELS.find((model) => model.id === selectedModelId) ?? ALL_MODELS[0],
-    [selectedModelId],
-  );
+  const selectedModel =
+    ALL_MODELS.find((m) => m.id === selectedModelId) ?? ALL_MODELS[0];
 
   return (
-    <DropdownMenu
+    <Popover
       open={isOpen}
       onOpenChange={(open) => {
         setIsOpen(open);
-        if (!open) {
-          setHoveredModelId(null);
-        }
         if (!open) {
           focusComposerInput();
         }
       }}
     >
-      <DropdownMenuTrigger asChild>
+      <PopoverTrigger asChild>
         <button
           type="button"
           className="flex cursor-pointer items-center gap-1.5 rounded-md bg-sidebar-accent px-1.5 py-1 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <span>{getModelDisplayName(selectedModel.id)}</span>
         </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
+      </PopoverTrigger>
+      <PopoverContent
         align="start"
         side="top"
-        className="w-60"
+        sideOffset={4}
+        collisionPadding={12}
+        className="w-60 p-1"
+        onOpenAutoFocus={(event) => event.preventDefault()}
         onCloseAutoFocus={(event) => event.preventDefault()}
       >
         {MODEL_PROVIDERS.map((group, groupIndex) => (
-          <DropdownMenuGroup key={group.provider}>
-            {groupIndex > 0 ? <DropdownMenuSeparator /> : null}
-            <DropdownMenuLabel className="px-2 py-1 text-[10px] tracking-wide text-muted-foreground/90">
+          <div key={group.provider}>
+            {groupIndex > 0 ? (
+              <div className="bg-border -mx-1 my-1 h-px" role="separator" />
+            ) : null}
+            <div className="px-2 py-1 text-[10px] tracking-wide text-muted-foreground/90">
               {PROVIDER_COMPANY_NAMES[group.provider]}
-            </DropdownMenuLabel>
+            </div>
             {group.models.map((model) => (
-              <ModelDropdownItem
+              <ModelPickerRow
                 key={model.id}
                 provider={group.provider}
                 model={model}
                 isSelected={selectedModelId === model.id}
-                isHoverOpen={hoveredModelId === model.id}
-                onHoverOpenChange={(open) => {
-                  setHoveredModelId(open ? model.id : null);
-                }}
                 onSelect={() => {
                   setSelectedModelId(model.id);
-                  setHoveredModelId(null);
                   setIsOpen(false);
                   focusComposerInput();
                 }}
               />
             ))}
-          </DropdownMenuGroup>
+          </div>
         ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </PopoverContent>
+    </Popover>
   );
 }
