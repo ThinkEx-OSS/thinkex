@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { useEffect, useState, useMemo } from "react";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { makeAssistantToolUI } from "@assistant-ui/react";
@@ -21,12 +21,18 @@ import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import type { QuizResult } from "@/lib/ai/tool-result-schemas";
 import { parseQuizResult } from "@/lib/ai/tool-result-schemas";
 import type { CreateQuizInput } from "@/lib/ai/tools/quiz-tools";
+import type { Item } from "@/lib/workspace-state/types";
+
+type ToolStatus = {
+  type: "complete" | "running" | "incomplete" | "requires-action";
+  reason?: string;
+};
 
 interface CreateQuizReceiptProps {
   result: QuizResult;
-  status: any;
+  status: ToolStatus;
   moveItemToFolder?: (itemId: string, folderId: string | null) => void;
-  allItems?: any[];
+  allItems: Item[];
   workspaceName?: string;
   workspaceIcon?: string | null;
   workspaceColor?: string | null;
@@ -36,7 +42,7 @@ const CreateQuizReceipt = ({
   result,
   status,
   moveItemToFolder,
-  allItems = [],
+  allItems,
   workspaceName = "Workspace",
   workspaceIcon,
   workspaceColor,
@@ -53,12 +59,10 @@ const CreateQuizReceipt = ({
     const targetId = result.itemId || result.quizId;
     if (!targetId) return undefined;
     const fromWorkspace = workspaceState?.items?.find(
-      (item: { id: string }) => item.id === targetId,
+      (item: Item) => item.id === targetId,
     );
     if (fromWorkspace) return fromWorkspace;
-    const fromAll = allItems.find(
-      (item: { id: string }) => item.id === targetId,
-    );
+    const fromAll = allItems.find((item: Item) => item.id === targetId);
     if (fromAll) return fromAll;
     return {
       id: targetId,
@@ -74,7 +78,7 @@ const CreateQuizReceipt = ({
   const folderName = useMemo(() => {
     if (!currentItem?.folderId || !workspaceState?.items) return null;
     const folder = workspaceState.items.find(
-      (item: any) => item.id === currentItem.folderId,
+      (item: Item) => item.id === currentItem.folderId,
     );
     return folder?.name || null;
   }, [currentItem?.folderId, workspaceState?.items]);
@@ -155,7 +159,8 @@ const CreateQuizReceipt = ({
               variant="outline"
               size="sm"
               className="h-6 gap-1 text-[10px] px-2"
-              onClick={() => {
+              onClick={(event: MouseEvent<HTMLButtonElement>) => {
+                event.stopPropagation();
                 if (!currentItem) {
                   toast.error("Item no longer exists");
                   return;

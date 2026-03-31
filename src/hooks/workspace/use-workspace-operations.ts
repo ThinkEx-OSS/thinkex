@@ -138,6 +138,25 @@ export function useWorkspaceOperations(
     [workspaceId, queryClient, currentState.items],
   );
 
+  const getLatestItemsFromState = useCallback(() => {
+    if (workspaceId) {
+      const cacheData = queryClient.getQueryData<EventResponse>([
+        "workspace",
+        workspaceId,
+        "events",
+      ]);
+      if (cacheData?.events) {
+        return replayEvents(
+          cacheData.events,
+          workspaceId,
+          cacheData.snapshot?.state,
+        ).items;
+      }
+    }
+
+    return currentState.items;
+  }, [workspaceId, queryClient, currentState.items]);
+
   const getLatestItemWithPendingChanges = useCallback(
     (itemId: string) => {
       const item = getLatestItemFromState(itemId);
@@ -363,6 +382,7 @@ export function useWorkspaceOperations(
 
           // Calculate layout if initial dimensions provided
           let layout = undefined;
+          let layoutPlaceholderItem: Item | null = null;
           if (initialLayout) {
             const position = findNextAvailablePosition(
               itemsForLayout,
@@ -375,17 +395,19 @@ export function useWorkspaceOperations(
             );
 
             layout = { lg: position };
-
-            // Add placeholder item to layout tracking array so next item doesn't overlap
-            // We only need the layout properties for findNextAvailablePosition
-            itemsForLayout.push({
+            layoutPlaceholderItem = {
               id,
               type: validType,
-              name: name || "",
+              name: finalName,
               subtitle: "",
-              data: baseData as any,
-              layout: { lg: position },
-            });
+              data: baseData as ItemData,
+              color: getRandomCardColor(),
+              folderId: activeFolderId ?? undefined,
+              layout,
+            };
+
+            // Add placeholder item to layout tracking array so next item doesn't overlap
+            itemsForLayout.push(layoutPlaceholderItem);
           }
 
           const newItem: Item = {
@@ -453,22 +475,21 @@ export function useWorkspaceOperations(
       const timeout = setTimeout(() => {
         const finalChanges = pendingItemChangesRef.current.get(id);
         if (finalChanges) {
-          const item = currentState.items.find((i) => i.id === id);
+          const latestItems = getLatestItemsFromState();
+          const item = latestItems.find((i) => i.id === id);
+          if (!item) {
+            pendingItemChangesRef.current.delete(id);
+            updateItemDebounceRef.current.delete(id);
+            return;
+          }
+
           const newName = (finalChanges as Partial<Item>).name ?? item?.name;
           const newType = (finalChanges as Partial<Item>).type ?? item?.type;
           const folderId =
             (finalChanges as Partial<Item>).folderId ?? item?.folderId ?? null;
 
           if (newName && newType && "name" in finalChanges) {
-            if (
-              hasDuplicateName(
-                currentState.items,
-                newName,
-                newType,
-                folderId,
-                id,
-              )
-            ) {
+            if (hasDuplicateName(latestItems, newName, newType, folderId, id)) {
               toast.error(
                 `A ${newType} named "${newName}" already exists in this folder`,
               );
@@ -498,7 +519,7 @@ export function useWorkspaceOperations(
 
       updateItemDebounceRef.current.set(id, timeout);
     },
-    [mutation, userId, userName, currentState.items],
+    [mutation, userId, userName, getLatestItemsFromState],
   );
 
   const deleteItem = useCallback(

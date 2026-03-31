@@ -393,7 +393,7 @@ export default function AssistantTextSelectionManager({
         }
       }
     },
-    [setTooltipVisible],
+    [setTooltipVisible, multiModeBasePosition],
   );
 
   // Handle when a highlight is added
@@ -952,7 +952,7 @@ export default function AssistantTextSelectionManager({
         }
       }
     },
-    [tooltipVisible, setTooltipVisible],
+    [setTooltipVisible, multiModeBasePosition],
   );
 
   // Set up event listeners

@@ -440,7 +440,6 @@ export function WorkspaceInstructionModal({
               type="button"
               onClick={() => {
                 goPrev();
-                onUserInteracted?.();
               }}
               className="absolute left-0 top-0 z-10 h-full w-16 flex items-center justify-center text-sidebar-foreground mix-blend-difference transition-all duration-200 cursor-pointer"
               aria-label="Previous step"
@@ -453,7 +452,6 @@ export function WorkspaceInstructionModal({
               type="button"
               onClick={() => {
                 goNext();
-                onUserInteracted?.();
               }}
               className="absolute right-0 top-0 z-10 h-full w-16 flex items-center justify-center text-sidebar-foreground mix-blend-difference transition-all duration-200 cursor-pointer"
               aria-label="Next step"
@@ -516,7 +514,6 @@ export function WorkspaceInstructionModal({
                   type="button"
                   onClick={() => {
                     goTo(index);
-                    onUserInteracted?.();
                   }}
                   className={cn(
                     "h-2 rounded-full transition-all duration-300",

@@ -15,7 +15,7 @@ import { ToolUIErrorShell } from "@/components/assistant-ui/tool-ui-error-shell"
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { toast } from "sonner";
 
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
@@ -23,6 +23,7 @@ import { initialState } from "@/lib/workspace-state/state";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import type { FlashcardResult } from "@/lib/ai/tool-result-schemas";
 import { parseFlashcardResult } from "@/lib/ai/tool-result-schemas";
+import type { Item } from "@/lib/workspace-state/types";
 
 // Tool accepts z.any() (plain text format), so args can be string or object
 type CreateFlashcardArgs =
@@ -42,9 +43,9 @@ function isCreateFlashcardArgsObject(
 interface CreateFlashcardReceiptProps {
   args: CreateFlashcardArgs;
   result: FlashcardResult;
-  status: any;
+  status: { type?: string };
   moveItemToFolder?: (itemId: string, folderId: string | null) => void;
-  allItems?: any[];
+  allItems?: Item[];
   workspaceName?: string;
   workspaceIcon?: string | null;
   workspaceColor?: string | null;
@@ -70,14 +71,14 @@ const CreateFlashcardReceipt = ({
   // Get the current item from workspace state
   const currentItem = useMemo(() => {
     if (!result.itemId || !workspaceState?.items) return undefined;
-    return workspaceState.items.find((item: any) => item.id === result.itemId);
+    return workspaceState.items.find((item: Item) => item.id === result.itemId);
   }, [result.itemId, workspaceState?.items]);
 
   // Get folder name if item is in a folder
   const folderName = useMemo(() => {
     if (!currentItem?.folderId || !workspaceState?.items) return null;
     const folder = workspaceState.items.find(
-      (item: any) => item.id === currentItem.folderId,
+      (item: Item) => item.id === currentItem.folderId,
     );
     return folder?.name || null;
   }, [currentItem?.folderId, workspaceState?.items]);
@@ -180,7 +181,8 @@ const CreateFlashcardReceipt = ({
               variant="outline"
               size="sm"
               className="h-6 gap-1 text-[10px] px-2"
-              onClick={() => {
+              onClick={(event: MouseEvent<HTMLButtonElement>) => {
+                event.stopPropagation();
                 if (!currentItem) {
                   toast.error("Item no longer exists");
                   return;

@@ -108,19 +108,6 @@ export function useWorkspacePresence(
     return cleanup;
   }, [workspaceId, currentUser, cleanup, clientKey]);
 
-  useEffect(() => {
-    const channel = channelRef.current;
-    if (!channel || !currentUser || !clientKey) return;
-
-    channel.track({
-      clientKey,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      userImage: currentUser.image,
-      joinedAt: joinedAtRef.current,
-    });
-  }, [currentUser, clientKey]);
-
   return {
     collaborators: workspaceId && currentUser ? collaborators : [],
   };

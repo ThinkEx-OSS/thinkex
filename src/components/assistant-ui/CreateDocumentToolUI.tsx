@@ -218,6 +218,13 @@ export const CreateDocumentToolUI = makeAssistantToolUI<
           workspaceColor={currentWorkspace?.color}
         />
       );
+    } else if (status.type === "complete" && parsed && !parsed.success) {
+      content = (
+        <ToolUIErrorShell
+          label="Failed to create document"
+          message={parsed.message}
+        />
+      );
     } else if (status.type === "running") {
       content = <ToolUILoadingShell label="Creating document..." />;
     } else if (status.type === "incomplete" && status.reason === "error") {
