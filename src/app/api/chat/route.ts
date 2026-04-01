@@ -413,11 +413,11 @@ async function handlePOST(req: Request) {
         logger.info("🔍 [CHAT-API] Gateway resolved provider:", provider);
       }
     });
-    // Reuse incoming UI message IDs so the client updates in-place instead of
-    // appending duplicate assistant messages while streaming.
-    const response = result.toUIMessageStreamResponse({
-      originalMessages: messages,
-    });
+    // assistant-ui already persists and rehydrates message history via the
+    // thread history adapter. Passing originalMessages here enables a second
+    // persistence flow in AI SDK that can relink the same ids into a different
+    // parent chain when history loads, triggering duplicate-id repository errors.
+    const response = result.toUIMessageStreamResponse();
     logger.debug("🔍 [CHAT-API] toUIMessageStreamResponse succeeded");
     return response;
   } catch (error) {
