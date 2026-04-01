@@ -47,11 +47,17 @@ export async function broadcastWorkspaceEventFromServer(
   const channel = supabase.channel(`workspace:${workspaceId}:events`);
 
   try {
-    await channel.send({
-      type: "broadcast",
-      event: "workspace_event",
-      payload: event,
-    });
+    // REST broadcast from the server (no WebSocket). See https://supabase.com/docs/guides/realtime/broadcast
+    const result = await channel.httpSend("workspace_event", event);
+    if (!result.success) {
+      logger.error("[REALTIME] httpSend broadcast failed", {
+        workspaceId,
+        eventId: event.id,
+        eventType: event.type,
+        status: result.status,
+        error: result.error,
+      });
+    }
   } catch (error) {
     logger.error("[REALTIME] Failed to broadcast workspace event from server", {
       workspaceId,
