@@ -1,11 +1,10 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-<!-- Light theme: black rects, light fills -->
-<rect width="139.636" height="139.636" rx="18.5818" fill="#000000"/>
-<rect x="8" y="333.818" width="123.636" height="170.182" rx="10.5818" fill="#ACF5B3" stroke="#73BF7A" stroke-width="16"/>
-<rect x="8" y="194.182" width="123.636" height="77.0909" rx="10.5818" fill="#FBA9A7" stroke="#DA4944" stroke-width="16"/>
-<rect x="380.364" y="194.182" width="123.636" height="170.182" rx="10.5818" fill="#97BFFF" stroke="#5C8BD6" stroke-width="16"/>
-<rect x="380.364" y="426.909" width="123.636" height="77.0909" rx="10.5818" fill="#FCE0AA" stroke="#F7B53B" stroke-width="16"/>
-<rect x="372.364" width="139.636" height="139.636" rx="18.5818" fill="#000000"/>
-<rect x="186.182" y="162.909" width="139.636" height="349.091" rx="18.5818" fill="#000000"/>
-<rect x="186.182" width="139.636" height="116.364" rx="18.5818" fill="#000000"/>
+<rect fill="#000000" width="139.636" height="139.636" rx="18.5818"/>
+<rect fill="#ACF5B3" stroke="#73BF7A" stroke-width="16" x="8" y="333.818" width="123.636" height="170.182" rx="10.5818"/>
+<rect fill="#FBA9A7" stroke="#DA4944" stroke-width="16" x="8" y="194.182" width="123.636" height="77.0909" rx="10.5818"/>
+<rect fill="#97BFFF" stroke="#5C8BD6" stroke-width="16" x="380.364" y="194.182" width="123.636" height="170.182" rx="10.5818"/>
+<rect fill="#FCE0AA" stroke="#F7B53B" stroke-width="16" x="380.364" y="426.909" width="123.636" height="77.0909" rx="10.5818"/>
+<rect fill="#000000" x="372.364" width="139.636" height="139.636" rx="18.5818"/>
+<rect fill="#000000" x="186.182" y="162.909" width="139.636" height="349.091" rx="18.5818"/>
+<rect fill="#000000" x="186.182" width="139.636" height="116.364" rx="18.5818"/>
 </svg>
