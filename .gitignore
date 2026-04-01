@@ -62,3 +62,6 @@ bun.lockb
 # AI SDK DevTools
 .devtools
 
+# One-off / local scripts (keep on disk, not versioned)
+/scripts/
+
