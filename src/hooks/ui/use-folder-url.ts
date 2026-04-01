@@ -37,6 +37,7 @@ export function useFolderUrl() {
 
   const isSyncingFromUrl = useRef(false);
   const lastPushedState = useRef<UrlState | undefined>(undefined);
+  const pendingSyncToken = useRef(0);
 
   const parseUrlState = (): UrlState => {
     const folder = searchParams.get("folder") || null;
@@ -66,7 +67,10 @@ export function useFolderUrl() {
     const focusChanged = url.focus !== maximizedItemId;
 
     if (folderChanged || itemsChanged || focusChanged) {
+      // Invalidate any queued store->URL write before replaying URL state locally.
+      pendingSyncToken.current += 1;
       isSyncingFromUrl.current = true;
+      lastPushedState.current = url;
 
       if (folderChanged) {
         setActiveFolderIdDirect(url.folder);
@@ -113,7 +117,11 @@ export function useFolderUrl() {
       return;
     }
 
+    const token = ++pendingSyncToken.current;
     const tid = setTimeout(() => {
+      // Drop stale writes when state changed again during the debounce window.
+      if (token !== pendingSyncToken.current) return;
+
       lastPushedState.current = next;
 
       const params = new URLSearchParams(searchParams.toString());
@@ -133,7 +141,7 @@ export function useFolderUrl() {
       else params.delete("focus");
 
       const qs = params.toString();
-      router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(tid);

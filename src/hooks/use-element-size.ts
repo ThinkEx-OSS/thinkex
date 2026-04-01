@@ -17,8 +17,15 @@ export function useElementSize(
     const element = ref.current;
     if (!element) return;
 
-    // Set initial size
-    setSize({ width: element.offsetWidth, height: element.offsetHeight });
+    // Set initial size, but avoid churn when observer reports the same values.
+    setSize((prev) => {
+      const nextWidth = element.offsetWidth;
+      const nextHeight = element.offsetHeight;
+      if (prev.width === nextWidth && prev.height === nextHeight) {
+        return prev;
+      }
+      return { width: nextWidth, height: nextHeight };
+    });
 
     // Create ResizeObserver to watch for size changes
     const resizeObserver = new ResizeObserver((entries) => {
@@ -26,7 +33,12 @@ export function useElementSize(
         const box = entry.borderBoxSize?.[0];
         const newWidth = box?.inlineSize ?? entry.contentRect.width;
         const newHeight = box?.blockSize ?? entry.contentRect.height;
-        setSize({ width: newWidth, height: newHeight });
+        setSize((prev) => {
+          if (prev.width === newWidth && prev.height === newHeight) {
+            return prev;
+          }
+          return { width: newWidth, height: newHeight };
+        });
       }
     });
 

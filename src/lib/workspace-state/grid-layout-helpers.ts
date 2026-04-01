@@ -194,6 +194,15 @@ export function findNextAvailablePosition(
 /** Default height for all items in xxs (single-column) mode */
 export const XXS_DEFAULT_HEIGHT = 12;
 
+const XXS_MIN_HEIGHT_BY_TYPE: Partial<Record<CardType, number>> = {
+  note: XXS_DEFAULT_HEIGHT,
+  pdf: XXS_DEFAULT_HEIGHT,
+  document: XXS_DEFAULT_HEIGHT,
+  audio: XXS_DEFAULT_HEIGHT,
+  quiz: XXS_DEFAULT_HEIGHT,
+  website: XXS_DEFAULT_HEIGHT,
+};
+
 /**
  * Generate missing layouts for items that don't have them.
  * Works with the 'lg' breakpoint by default.
@@ -220,10 +229,17 @@ export function generateMissingLayouts(items: Item[], cols: number = DEFAULT_COL
 
     if (existingLayout) {
       // Clamp width first, then compute x based on the clamped width
+      const minHeight =
+        breakpoint === 'xxs' ? XXS_MIN_HEIGHT_BY_TYPE[item.type] : undefined;
+      const normalizedH =
+        minHeight !== undefined && existingLayout.h < minHeight
+          ? minHeight
+          : existingLayout.h;
       const clampedW = Math.min(existingLayout.w, cols);
       const adjustedLayout = {
         ...existingLayout,
         w: clampedW,
+        h: normalizedH,
         x: Math.max(0, Math.min(existingLayout.x, cols - clampedW)),
       };
 

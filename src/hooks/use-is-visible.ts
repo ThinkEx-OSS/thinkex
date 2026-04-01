@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, RefObject } from 'react';
+import { useState, useEffect, RefObject } from 'react';
 
 /**
  * Hook that tracks whether an element is visible in the viewport.
@@ -15,6 +15,9 @@ export function useIsVisible(
     options?: IntersectionObserverInit
 ): boolean {
     const [isVisible, setIsVisible] = useState(false);
+    const threshold = options?.threshold;
+    const root = options?.root;
+    const rootMargin = options?.rootMargin;
 
     useEffect(() => {
         const element = ref.current;
@@ -22,14 +25,16 @@ export function useIsVisible(
 
         const observer = new IntersectionObserver(
             ([entry]) => {
-                setIsVisible(entry.isIntersecting);
+                setIsVisible((prev) =>
+                    prev === entry.isIntersecting ? prev : entry.isIntersecting
+                );
             },
             {
                 // Default: trigger when any part is visible
-                threshold: 0,
+                threshold: threshold ?? 0,
                 // Add some margin to start loading slightly before visible
-                rootMargin: '100px',
-                ...options,
+                rootMargin: rootMargin ?? '100px',
+                root,
             }
         );
 
@@ -38,7 +43,7 @@ export function useIsVisible(
         return () => {
             observer.disconnect();
         };
-    }, [ref, options]);
+    }, [ref, root, rootMargin, threshold]);
 
     return isVisible;
 }
@@ -57,6 +62,9 @@ export function useHasBeenVisible(
     options?: IntersectionObserverInit
 ): boolean {
     const [hasBeenVisible, setHasBeenVisible] = useState(false);
+    const threshold = options?.threshold;
+    const root = options?.root;
+    const rootMargin = options?.rootMargin;
 
     useEffect(() => {
         if (hasBeenVisible) return; // Already visible, no need to observe
@@ -72,9 +80,9 @@ export function useHasBeenVisible(
                 }
             },
             {
-                threshold: 0,
-                rootMargin: '100px',
-                ...options,
+                threshold: threshold ?? 0,
+                rootMargin: rootMargin ?? '100px',
+                root,
             }
         );
 
@@ -83,7 +91,7 @@ export function useHasBeenVisible(
         return () => {
             observer.disconnect();
         };
-    }, [ref, options, hasBeenVisible]);
+    }, [ref, root, rootMargin, threshold, hasBeenVisible]);
 
     return hasBeenVisible;
 }

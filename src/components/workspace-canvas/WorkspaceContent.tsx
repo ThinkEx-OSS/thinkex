@@ -428,6 +428,7 @@ export default function WorkspaceContent({
           key={activeFolderId ?? 'root'}
           items={filteredItems}
           allItems={viewState.items}
+          columns={columns}
           isFiltered={isFiltering}
           isTemporaryFilter={false}
           onDragStart={handleDragStart}

@@ -319,7 +319,8 @@ function WorkspaceCard({
 
   // PERFORMANCE: Track visibility for PDF virtualization
   // Only mount PDF content when card is visible in viewport
-  const isCardVisible = useIsVisible(articleRef, { rootMargin: "200px" });
+  const visibilityOptions = useMemo(() => ({ rootMargin: "200px" }), []);
+  const isCardVisible = useIsVisible(articleRef, visibilityOptions);
 
   // Track minimal local drag detection (only if grid hasn't detected drag)
   const mouseDownRef = useRef<{ x: number; y: number } | null>(null);

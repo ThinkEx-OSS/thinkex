@@ -15,6 +15,7 @@ import { useUIStore } from "@/lib/stores/ui-store";
 interface WorkspaceGridProps {
   items: Item[]; // Filtered items to display (includes folder-type items)
   allItems: Item[]; // All items (unfiltered) for layout updates
+  columns: number; // Desired workspace grid column count from parent layout state
   isFiltered: boolean; // Whether currently in filtered mode
   isTemporaryFilter?: boolean; // Whether in temporary filter mode (search) - prevents layout saves
 
@@ -46,6 +47,7 @@ interface WorkspaceGridProps {
 export function WorkspaceGrid({
   items,
   allItems,
+  columns,
   isFiltered,
   isTemporaryFilter = false,
 
@@ -71,6 +73,7 @@ export function WorkspaceGrid({
 }: WorkspaceGridProps) {
   const useWrapCompactor = useFeatureFlagEnabled("wrap-compactor");
   const compactor = useWrapCompactor ? wrapCompactor : fastVerticalCompactor;
+  const isSingleColumn = columns === 1;
 
   const layoutChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasUserInteractedRef = useRef<boolean>(false);
@@ -94,6 +97,9 @@ export function WorkspaceGrid({
   // Track current breakpoint for saving layouts
   // Note: We use RGL's onBreakpointChange to update this, so we initialize to 'lg'
   const currentBreakpointRef = useRef<'lg' | 'xxs'>('lg');
+  useEffect(() => {
+    currentBreakpointRef.current = isSingleColumn ? 'xxs' : 'lg';
+  }, [isSingleColumn]);
 
   // OPTIMIZED: Store layout in ref to avoid including it in callback dependencies
   // This prevents handleDragStop from changing when layout changes, which causes ReactGridLayout re-renders
@@ -662,12 +668,16 @@ export function WorkspaceGrid({
 
   // Layout for all items (including folder-type items)
   const combinedLayout = useMemo(() => {
-    const itemLayouts = itemsToLayout(displayItems);
+    const rawLayout = itemsToLayout(displayItems, isSingleColumn ? 'xxs' : undefined);
+    const itemLayouts = compactor.compact(
+      rawLayout.map((item) => ({ ...item })),
+      isSingleColumn ? 1 : 4
+    );
 
     // Update layout ref
-    layoutRef.current = itemLayouts;
+    layoutRef.current = itemLayouts.map((item) => ({ ...item }));
     return itemLayouts;
-  }, [displayItems]);
+  }, [displayItems, isSingleColumn, compactor]);
 
   // Memoize children to take advantage of ResponsiveGridLayout's shouldComponentUpdate optimization
   const children = useMemo(() => {
@@ -745,16 +755,28 @@ export function WorkspaceGrid({
   }, [onDragStop, onGridDragStateChange]);
 
   // Define breakpoints and columns
-  const breakpoints = useMemo(() => ({ lg: 600, xxs: 0 }), []);
-  const cols = useMemo(() => ({ lg: 4, xxs: 1 }), []);
+  const breakpoints = useMemo(
+    () => (isSingleColumn ? { lg: 0, xxs: 0 } : { lg: 600, xxs: 0 }),
+    [isSingleColumn]
+  );
+  const cols = useMemo(
+    () => (isSingleColumn ? { lg: 1, xxs: 1 } : { lg: 4, xxs: 1 }),
+    [isSingleColumn]
+  );
 
   // Create layouts object for ResponsiveGridLayout with both breakpoints
   // Always provide xxs layout (h=10 default) for consistent single-column stacking
-  const xxsLayout = useMemo(() => itemsToLayout(itemsWithLayout, 'xxs'), [itemsWithLayout]);
+  const xxsLayout = useMemo(() => {
+    const rawLayout = itemsToLayout(itemsWithLayout, 'xxs');
+    return compactor.compact(
+      rawLayout.map((item) => ({ ...item })),
+      1
+    );
+  }, [itemsWithLayout, compactor]);
   const layouts = useMemo(() => ({
-    lg: combinedLayout,
+    lg: isSingleColumn ? xxsLayout : combinedLayout,
     xxs: xxsLayout
-  }), [combinedLayout, xxsLayout]);
+  }), [combinedLayout, isSingleColumn, xxsLayout]);
 
   // Handle breakpoint changes to track current breakpoint for saving layouts
   const handleBreakpointChange = useCallback((newBreakpoint: string, newCols: number) => {
