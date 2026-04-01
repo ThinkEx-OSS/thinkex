@@ -58,6 +58,7 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
                     .describe("For PDFs only: 1-indexed end page inclusive (e.g. 10 for pages 5–10). Use with pageStart."),
             })
         ),
+        strict: true,
         execute: async ({ path, itemName, lineStart = 1, limit = DEFAULT_LIMIT, pageStart, pageEnd }) => {
             if (!path?.trim() && !itemName?.trim()) {
                 return {

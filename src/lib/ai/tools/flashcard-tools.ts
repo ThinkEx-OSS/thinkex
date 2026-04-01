@@ -21,6 +21,7 @@ export function createFlashcardsTool(ctx: WorkspaceToolContext) {
                 ).min(1).describe("Array of flashcard objects, each with 'front' and 'back' properties"),
             })
         ),
+        strict: true,
         execute: async (input: { title?: string | null; cards: Array<{ front: string; back: string }> }) => {
             logger.debug("🎴 [CREATE-FLASHCARDS] Tool execution started");
 

@@ -17,6 +17,7 @@ export function createSearchYoutubeTool() {
                 query: z.string().describe("The search query for YouTube videos"),
             })
         ),
+        strict: true,
         execute: async ({ query }) => {
             logger.debug("📹 [YOUTUBE] Searching for:", query);
             try {
@@ -48,6 +49,7 @@ export function createAddYoutubeVideoTool(ctx: WorkspaceToolContext) {
                 title: z.string().describe("The title of the video"),
             })
         ),
+        strict: true,
         execute: async ({ videoId, title }) => {
             logger.debug("📹 [YOUTUBE] Adding video:", { videoId, title });
 

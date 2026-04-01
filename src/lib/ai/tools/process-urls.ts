@@ -19,6 +19,7 @@ export function createProcessUrlsTool() {
                 jsonInput: z.string().describe("JSON string containing an object with 'urls' (array of web URLs). Example: '{\"urls\": [\"https://example.com\"]}'"),
             })
         ),
+        strict: true,
         execute: async ({ jsonInput }) => {
             let parsed;
             try {

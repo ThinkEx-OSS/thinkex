@@ -34,6 +34,7 @@ export function createDocumentTool(ctx: WorkspaceToolContext) {
                 ).optional().describe("Optional sources from web search or deep research"),
             })
         ),
+        strict: true,
         execute: async ({ title, content, sources }) => {
             if (!title || typeof title !== 'string') {
                 return {
@@ -84,6 +85,7 @@ export function createDeleteItemTool(ctx: WorkspaceToolContext) {
                 itemName: z.string().describe("Item name or virtual path (e.g. pdfs/Report.pdf) to delete"),
             })
         ),
+        strict: true,
         execute: async ({ itemName }) => {
             logger.debug("🎯 [ORCHESTRATOR] Delegating to Workspace Worker (delete):", { itemName });
 

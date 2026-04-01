@@ -151,6 +151,7 @@ export function createWebSearchTool() {
                 query: z.string().min(1).max(500).describe('The search query to look up on the web')
             })
         ),
+        strict: true,
         execute: async ({ query }) => {
             const { text, groundingMetadata } = await executeWebSearch(query);
             return JSON.stringify({ text, groundingMetadata });

@@ -23,6 +23,7 @@ export function createExecuteCodeTool() {
                 task: z.string().describe("Description of the task to solve with code"),
             })
         ),
+        strict: true,
         execute: async ({ task }) => {
             logger.debug("🎯 [ORCHESTRATOR] Delegating to Code Execution Worker:", task);
             return await codeExecutionWorker(task);

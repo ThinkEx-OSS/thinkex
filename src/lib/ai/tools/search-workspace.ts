@@ -33,6 +33,7 @@ export function createSearchWorkspaceTool(ctx: WorkspaceToolContext) {
                 path: z.string().optional().describe("Folder prefix (Physics/) or exact item path (Physics/notes/File.md)"),
             })
         ),
+        strict: true,
         execute: async ({ pattern, include, path: pathPrefix }) => {
             if (!pattern?.trim()) {
                 return { success: false, message: "pattern is required", matches: 0, output: "" };

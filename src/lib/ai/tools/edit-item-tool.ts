@@ -16,7 +16,7 @@ const EDITABLE_TYPES = ["note", "flashcard", "quiz", "pdf", "document"] as const
 export function createEditItemTool(ctx: WorkspaceToolContext) {
     return withSanitizedModelOutput(tool({
         description:
-            "Edit a document, legacy note, flashcard deck, quiz, or PDF. You must use readWorkspace at least once before editing. DOCUMENTS: content is markdown. LEGACY NOTES: content is edited through the same raw markdown representation returned by readWorkspace. PDFs: RENAME ONLY — pass oldString='', newString='', and newName='new name'. PDF content cannot be edited. RENAME ONLY (documents/legacy notes/flashcards/quizzes): same pattern to rename without editing content. QUIZZES: readWorkspace may show '--- Progress (read-only) ---' at the top. That block is READ-ONLY. Never include it in oldString or newString. Only edit the {\"questions\":[...]} JSON. FULL REWRITE: oldString='' and newString=entire new content (quizzes: only the JSON). TARGETED EDIT: oldString must match exactly. Copy the content from readWorkspace as-is (it has no line prefixes). Match exact whitespace, indentation, newlines. Do NOT minify JSON. Edit FAILS if oldString not found or matches multiple times — add more context or use replaceAll.",
+            "Edit a document, legacy note, flashcard deck, quiz, or PDF. You must use readWorkspace at least once before editing. DOCUMENTS: content is markdown. LEGACY NOTES: content is edited through the same raw markdown representation returned by readWorkspace. PDFs: RENAME ONLY — pass oldString='', newString='', and newName='new name'. PDF content cannot be edited. RENAME ONLY (documents/legacy notes/flashcards/quizzes): same pattern to rename without editing content. QUIZZES: readWorkspace may show '--- Progress (read-only) ---' at the top. That block is READ-ONLY. Never include it in oldString or newString. Only edit the {\"questions\":[...]} JSON. FULL REWRITE: oldString='' and newString=entire new content (quizzes: only the JSON); use when targeted matching fails or the change is large (re-read if needed). TARGETED EDIT: oldString must match exactly. Copy the content from readWorkspace as-is (it has no line prefixes). Match exact whitespace, indentation, newlines. Do NOT minify JSON. Edit FAILS if oldString not found or matches multiple times — add more context or use replaceAll.",
         inputSchema: zodSchema(
             z
                 .object({
@@ -26,7 +26,7 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                     oldString: z
                         .string()
                         .describe(
-                            "Text to find. Use '' for full rewrite. For targeted edit: copy the content from readWorkspace as-is (no prefixes). Match exact whitespace, indentation. Include enough context to make unique, or use replaceAll."
+                            "Text to find; '' = full rewrite. Targeted: copy from readWorkspace as-is, match whitespace, enough context to be unique, or replaceAll."
                         ),
                     newString: z.string().describe("Replacement text (entire content if oldString is empty)"),
                     replaceAll: z
@@ -48,6 +48,7 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                 })
                 .passthrough()
         ),
+        strict: true,
         execute: async (input: {
             itemName: string;
             oldString: string;

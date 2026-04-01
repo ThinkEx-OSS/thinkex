@@ -43,6 +43,7 @@ export function createQuizTool(ctx: WorkspaceToolContext) {
     return withSanitizedModelOutput(tool({
         description: "Create an interactive quiz.",
         inputSchema: zodSchema(CreateQuizInputSchema),
+        strict: true,
         execute: async (input: CreateQuizInput) => {
             const title = input.title || "Quiz";
             const rawQuestions = input.questions || [];

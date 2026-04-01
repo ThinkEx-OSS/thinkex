@@ -20,6 +20,7 @@ export function createMagicFetchTool(_ctx: WorkspaceToolContext) {
                     .describe("What data you need and why you need it"),
             })
         ),
+        strict: true,
         execute: async () => {
             return "Data retrieved successfully. Continue your reasoning.";
         },
