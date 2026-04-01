@@ -1,6 +1,25 @@
 import { QuizContent } from "./QuizContent";
 import { ImageCardContent } from "./ImageCardContent";
-import { MoreVertical, Trash2, Palette, CheckCircle2, FolderInput, Copy, X, Pencil, Columns, Link2, PanelRight, SplitSquareHorizontal, Loader2, File, FileText, Brain, Mic, Globe } from "lucide-react";
+import {
+  MoreVertical,
+  Trash2,
+  Palette,
+  CheckCircle2,
+  FolderInput,
+  Copy,
+  X,
+  Pencil,
+  Columns,
+  Link2,
+  PanelRight,
+  SplitSquareHorizontal,
+  Loader2,
+  File,
+  FileText,
+  Brain,
+  Mic,
+  Globe,
+} from "lucide-react";
 import { CgNotes } from "react-icons/cg";
 import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
 import { useCallback, useState, memo, useRef, useEffect, useMemo } from "react";
@@ -9,10 +28,32 @@ import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ItemHeader from "@/components/workspace-canvas/ItemHeader";
-import { getCardColorCSS, getCardAccentColor, getDistinctCardColor, getCardColorWithBlackMix, getIconColorFromCardColor, getIconColorFromCardColorWithOpacity, getLighterCardColor, SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
-import type { Item, NoteData, PdfData, FlashcardData, YouTubeData, ImageData, WebsiteData, DocumentData } from "@/lib/workspace-state/types";
+import {
+  getCardColorCSS,
+  getCardAccentColor,
+  getDistinctCardColor,
+  getCardColorWithBlackMix,
+  getIconColorFromCardColor,
+  getIconColorFromCardColorWithOpacity,
+  getLighterCardColor,
+  SWATCHES_COLOR_GROUPS,
+  type CardColor,
+} from "@/lib/workspace-state/colors";
+import type {
+  Item,
+  NoteData,
+  PdfData,
+  FlashcardData,
+  YouTubeData,
+  ImageData,
+  WebsiteData,
+  DocumentData,
+} from "@/lib/workspace-state/types";
 import { SwatchesPicker, ColorResult } from "react-color";
-import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEditor";
+import {
+  plainTextToBlocks,
+  type Block,
+} from "@/components/editor/blocknote-shared";
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
 import { BlockNotePreview } from "@/components/editor/BlockNotePreview";
 import { AudioCardContent } from "./AudioCardContent";
@@ -28,7 +69,10 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { useElementSize } from "@/hooks/use-element-size";
 import { useIsVisible } from "@/hooks/use-is-visible";
-import { extractYouTubeVideoId, extractYouTubePlaylistId } from "@/lib/utils/youtube-url";
+import {
+  extractYouTubeVideoId,
+  extractYouTubePlaylistId,
+} from "@/lib/utils/youtube-url";
 import { YouTubeCardContent } from "./YouTubeCardContent";
 import { getLayoutForBreakpoint } from "@/lib/workspace-state/grid-layout-helpers";
 import { SourcesDisplay } from "./SourcesDisplay";
@@ -87,21 +131,31 @@ interface WorkspaceCardProps {
  * Shows skeleton immediately, then loads preview asynchronously
  * OPTIMIZED: Skips preview updates when card is being edited in modal
  */
-function WorkspaceCardNoteContent({ item, isScrollLocked }: { item: Item, isScrollLocked: boolean }) {
+function WorkspaceCardNoteContent({
+  item,
+  isScrollLocked,
+}: {
+  item: Item;
+  isScrollLocked: boolean;
+}) {
   const noteData = item.data as NoteData;
-  const hasBlockContent = noteData.blockContent && Array.isArray(noteData.blockContent) && (noteData.blockContent as Block[]).length > 0;
-
+  const hasBlockContent =
+    noteData.blockContent &&
+    Array.isArray(noteData.blockContent) &&
+    (noteData.blockContent as Block[]).length > 0;
 
   // Use state for scroll container so re-render is triggered when element mounts
   // This fixes the issue where virtualizer initializes with null scroll element
-  const [scrollContainer, setScrollContainer] = useState<HTMLDivElement | null>(null);
+  const [scrollContainer, setScrollContainer] = useState<HTMLDivElement | null>(
+    null,
+  );
 
   // Check if this card is currently being edited in the modal
   // OPTIMIZED: Subscribe to a derived boolean instead of the raw ID
   // This way, only THIS card's component re-renders when its modal state changes
   // Other cards won't re-render because their isEditingInModal stays false
-  const isEditingInModal = useUIStore(
-    (state) => state.openPanelIds.includes(item.id)
+  const isEditingInModal = useUIStore((state) =>
+    state.openPanelIds.includes(item.id),
   );
 
   // Store the last rendered content to freeze preview while modal is open
@@ -123,7 +177,9 @@ function WorkspaceCardNoteContent({ item, isScrollLocked }: { item: Item, isScro
       // If modal is open, check if content changed significantly
       // This handles external updates (like from AI) while preventing re-renders from user typing
       const currentContentStr = JSON.stringify(content);
-      const frozenContentStr = frozenContentRef.current ? JSON.stringify(frozenContentRef.current) : null;
+      const frozenContentStr = frozenContentRef.current
+        ? JSON.stringify(frozenContentRef.current)
+        : null;
 
       // If content changed externally (different from frozen), update frozen content
       if (frozenContentStr !== currentContentStr) {
@@ -141,14 +197,17 @@ function WorkspaceCardNoteContent({ item, isScrollLocked }: { item: Item, isScro
   // Create a stable content hash for effect dependency
   // This avoids re-running effect when content array reference changes but content is the same
   const contentHash = useMemo(() => {
-    if (displayContent.length === 0) return '';
+    if (displayContent.length === 0) return "";
     // Create a simple hash from block IDs and content
-    return JSON.stringify(displayContent.map(b => ({ id: b.id, type: b.type })));
+    return JSON.stringify(
+      displayContent.map((b) => ({ id: b.id, type: b.type })),
+    );
   }, [displayContent]);
 
   // Check for template-created items awaiting generation
   // Items with name "Update me" and empty content are template items waiting for AI
-  const isAwaitingGeneration = item.name === "Update me" && displayContent.length === 0;
+  const isAwaitingGeneration =
+    item.name === "Update me" && displayContent.length === 0;
 
   if (isAwaitingGeneration) {
     return (
@@ -172,9 +231,9 @@ function WorkspaceCardNoteContent({ item, isScrollLocked }: { item: Item, isScro
         ref={setScrollContainer}
         className="workspace-card-readonly-editor flex-1 min-h-0"
         style={{
-          paddingLeft: '0.5rem',
-          paddingRight: '0.5rem',
-          overflow: isScrollLocked ? 'hidden' : 'auto'
+          paddingLeft: "0.5rem",
+          paddingRight: "0.5rem",
+          overflow: isScrollLocked ? "hidden" : "auto",
         }}
       >
         <BlockNotePreview
@@ -205,23 +264,24 @@ function WorkspaceCard({
   onMoveItem,
 }: WorkspaceCardProps) {
   const { resolvedTheme } = useTheme();
-  const documentPreviewText = item.type === 'document'
-    ? (((item.data as DocumentData).markdown || "").trim() || "Start writing...")
-    : "";
+  const documentPreviewText =
+    item.type === "document"
+      ? ((item.data as DocumentData).markdown || "").trim() ||
+        "Start writing..."
+      : "";
 
   // Subscribe directly to this card's selection state from the store
   // This prevents full grid re-renders when selection changes
-  const isSelected = useUIStore(
-    (state) => state.selectedCardIds.has(item.id)
-  );
+  const isSelected = useUIStore((state) => state.selectedCardIds.has(item.id));
   const onToggleSelection = useUIStore((state) => state.toggleCardSelection);
 
   // Check if this card is currently open in the panel (not maximized/modal)
   const isOpenInPanel = useUIStore(
-    (state) => state.openPanelIds.includes(item.id) && state.maximizedItemId !== item.id
+    (state) =>
+      state.openPanelIds.includes(item.id) && state.maximizedItemId !== item.id,
   );
-  const openPanelIds = useUIStore(state => state.openPanelIds);
-  const maximizedItemId = useUIStore(state => state.maximizedItemId);
+  const openPanelIds = useUIStore((state) => state.openPanelIds);
+  const maximizedItemId = useUIStore((state) => state.maximizedItemId);
   const setOpenModalItemId = useUIStore((state) => state.setOpenModalItemId);
   const openPanel = useUIStore((state) => state.openPanel);
   const closePanel = useUIStore((state) => state.closePanel);
@@ -234,10 +294,16 @@ function WorkspaceCard({
   const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [panelActionMenu, setPanelActionMenu] = useState<{ x: number; y: number; itemId: string } | null>(null);
+  const [panelActionMenu, setPanelActionMenu] = useState<{
+    x: number;
+    y: number;
+    itemId: string;
+  } | null>(null);
   // Get scroll lock state from Zustand store (persists across interactions)
   const isScrollLocked = useUIStore(selectItemScrollLocked(item.id));
-  const toggleItemScrollLocked = useUIStore((state) => state.toggleItemScrollLocked);
+  const toggleItemScrollLocked = useUIStore(
+    (state) => state.toggleItemScrollLocked,
+  );
   const [isDragging, setIsDragging] = useState(false);
   const articleRef = useRef<HTMLElement>(null);
 
@@ -253,7 +319,7 @@ function WorkspaceCard({
 
   // PERFORMANCE: Track visibility for PDF virtualization
   // Only mount PDF content when card is visible in viewport
-  const isCardVisible = useIsVisible(articleRef, { rootMargin: '200px' });
+  const isCardVisible = useIsVisible(articleRef, { rootMargin: "200px" });
 
   // Track minimal local drag detection (only if grid hasn't detected drag)
   const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
@@ -271,9 +337,19 @@ function WorkspaceCard({
   // Cleanup listeners on unmount
   useEffect(() => {
     return () => {
-      if (listenersActiveRef.current && handlersRef.current.handleGlobalMouseMove && handlersRef.current.handleGlobalMouseUp) {
-        document.removeEventListener('mousemove', handlersRef.current.handleGlobalMouseMove);
-        document.removeEventListener('mouseup', handlersRef.current.handleGlobalMouseUp);
+      if (
+        listenersActiveRef.current &&
+        handlersRef.current.handleGlobalMouseMove &&
+        handlersRef.current.handleGlobalMouseUp
+      ) {
+        document.removeEventListener(
+          "mousemove",
+          handlersRef.current.handleGlobalMouseMove,
+        );
+        document.removeEventListener(
+          "mouseup",
+          handlersRef.current.handleGlobalMouseUp,
+        );
         listenersActiveRef.current = false;
       }
     };
@@ -281,11 +357,12 @@ function WorkspaceCard({
 
   // Check if card is being dragged by checking parent element for dragging class
   useEffect(() => {
-    if (!articleRef.current || item.type !== 'youtube') return;
+    if (!articleRef.current || item.type !== "youtube") return;
 
     const checkDragging = () => {
-      const parent = articleRef.current?.closest('.react-grid-item');
-      const dragging = parent?.classList.contains('react-draggable-dragging') ?? false;
+      const parent = articleRef.current?.closest(".react-grid-item");
+      const dragging =
+        parent?.classList.contains("react-draggable-dragging") ?? false;
       setIsDragging(dragging);
     };
 
@@ -293,13 +370,13 @@ function WorkspaceCard({
     checkDragging();
 
     // Use MutationObserver to watch for class changes on parent
-    const parent = articleRef.current.closest('.react-grid-item');
+    const parent = articleRef.current.closest(".react-grid-item");
     if (!parent) return;
 
     const observer = new MutationObserver(checkDragging);
     observer.observe(parent, {
       attributes: true,
-      attributeFilter: ['class']
+      attributeFilter: ["class"],
     });
 
     return () => {
@@ -307,19 +384,27 @@ function WorkspaceCard({
     };
   }, [item.type, item.id]);
 
-
   // OPTIMIZED: Memoize ItemHeader callbacks to prevent inline function creation
-  const handleNameChange = useCallback((v: string) => {
-    onUpdateItem(item.id, { name: v });
-  }, [item.id, onUpdateItem]);
+  const handleNameChange = useCallback(
+    (v: string) => {
+      onUpdateItem(item.id, { name: v });
+    },
+    [item.id, onUpdateItem],
+  );
 
-  const handleNameCommit = useCallback((v: string) => {
-    onUpdateItem(item.id, { name: v });
-  }, [item.id, onUpdateItem]);
+  const handleNameCommit = useCallback(
+    (v: string) => {
+      onUpdateItem(item.id, { name: v });
+    },
+    [item.id, onUpdateItem],
+  );
 
-  const handleSubtitleChange = useCallback((v: string) => {
-    onUpdateItem(item.id, { subtitle: v });
-  }, [item.id, onUpdateItem]);
+  const handleSubtitleChange = useCallback(
+    (v: string) => {
+      onUpdateItem(item.id, { subtitle: v });
+    },
+    [item.id, onUpdateItem],
+  );
 
   const handleTitleFocus = useCallback(() => {
     setIsEditingTitle(true);
@@ -330,10 +415,13 @@ function WorkspaceCard({
   }, []);
 
   // Handle color change from color picker
-  const handleColorChange = useCallback((color: ColorResult) => {
-    onUpdateItem(item.id, { color: color.hex as CardColor });
-    setIsColorPickerOpen(false);
-  }, [item.id, onUpdateItem]);
+  const handleColorChange = useCallback(
+    (color: ColorResult) => {
+      onUpdateItem(item.id, { color: color.hex as CardColor });
+      setIsColorPickerOpen(false);
+    },
+    [item.id, onUpdateItem],
+  );
 
   const handleDelete = useCallback(() => {
     setShowDeleteDialog(true);
@@ -345,110 +433,133 @@ function WorkspaceCard({
     toast.success("Card deleted successfully");
   }, [item.id, onDeleteItem, item.name]);
 
-  const handleRename = useCallback((newName: string) => {
-    onUpdateItem(item.id, { name: newName });
-    toast.success("Card renamed");
-  }, [item.id, onUpdateItem]);
+  const handleRename = useCallback(
+    (newName: string) => {
+      onUpdateItem(item.id, { name: newName });
+      toast.success("Card renamed");
+    },
+    [item.id, onUpdateItem],
+  );
 
   // Handle copying note content as markdown
   const handleCopyMarkdown = useCallback(() => {
-    if (item.type !== 'note') return;
+    if (item.type !== "note") return;
 
     const noteData = item.data as NoteData;
-    let markdownContent = '';
+    let markdownContent = "";
 
     // Prefer BlockNote blocks, fall back to plain text
-    if (noteData.blockContent && Array.isArray(noteData.blockContent) && noteData.blockContent.length > 0) {
+    if (
+      noteData.blockContent &&
+      Array.isArray(noteData.blockContent) &&
+      noteData.blockContent.length > 0
+    ) {
       markdownContent = serializeBlockNote(noteData.blockContent as Block[]);
     } else if (noteData.field1) {
       markdownContent = noteData.field1;
     }
 
     if (markdownContent) {
-      navigator.clipboard.writeText(markdownContent).then(() => {
-        toast.success("Copied to clipboard");
-      }).catch(() => {
-        toast.error("Failed to copy");
-      });
+      navigator.clipboard
+        .writeText(markdownContent)
+        .then(() => {
+          toast.success("Copied to clipboard");
+        })
+        .catch(() => {
+          toast.error("Failed to copy");
+        });
     } else {
       toast.error("No content to copy");
     }
   }, [item.type, item.data]);
 
   // Handle mouse down - track initial position for local movement detection
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // Don't track if clicking on interactive elements or text inputs
-    const target = e.target as HTMLElement;
-    if (
-      target.closest('button') ||
-      target.closest('input') ||
-      target.closest('textarea') ||
-      target.closest('[role="menuitem"]') ||
-      target.closest('[contenteditable="true"]')
-    ) {
-      // Important: Stop propagation to prevent grid drag from starting
-      e.stopPropagation();
-      return;
-    }
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      // Don't track if clicking on interactive elements or text inputs
+      const target = e.target as HTMLElement;
+      if (
+        target.closest("button") ||
+        target.closest("input") ||
+        target.closest("textarea") ||
+        target.closest('[role="menuitem"]') ||
+        target.closest('[contenteditable="true"]')
+      ) {
+        // Important: Stop propagation to prevent grid drag from starting
+        e.stopPropagation();
+        return;
+      }
 
-    // Check if clicking inside a text selection area (e.g., title textarea)
-    const selection = window.getSelection();
-    if (selection && selection.toString().length > 0) {
-      // User is selecting text, don't start drag tracking
-      e.stopPropagation();
-      return;
-    }
+      // Check if clicking inside a text selection area (e.g., title textarea)
+      const selection = window.getSelection();
+      if (selection && selection.toString().length > 0) {
+        // User is selecting text, don't start drag tracking
+        e.stopPropagation();
+        return;
+      }
 
-    mouseDownRef.current = { x: e.clientX, y: e.clientY };
-    hasMovedRef.current = false;
+      mouseDownRef.current = { x: e.clientX, y: e.clientY };
+      hasMovedRef.current = false;
 
-    // OPTIMIZED: Only add global listeners when mouseDown occurs, not on every render
-    if (!listenersActiveRef.current) {
-      const handleGlobalMouseMove = (e: MouseEvent) => {
-        if (!mouseDownRef.current) return;
+      // OPTIMIZED: Only add global listeners when mouseDown occurs, not on every render
+      if (!listenersActiveRef.current) {
+        const handleGlobalMouseMove = (e: MouseEvent) => {
+          if (!mouseDownRef.current) return;
 
-        // Calculate movement delta
-        const deltaX = Math.abs(e.clientX - mouseDownRef.current.x);
-        const deltaY = Math.abs(e.clientY - mouseDownRef.current.y);
+          // Calculate movement delta
+          const deltaX = Math.abs(e.clientX - mouseDownRef.current.x);
+          const deltaY = Math.abs(e.clientY - mouseDownRef.current.y);
 
-        // If drag already detected, don't cancel it - user is dragging
-        if (hasMovedRef.current) {
-          return;
-        }
+          // If drag already detected, don't cancel it - user is dragging
+          if (hasMovedRef.current) {
+            return;
+          }
 
-        // Check if user is selecting text - if so, don't treat as drag
-        const selection = window.getSelection();
-        if (selection && selection.toString().length > 0) {
+          // Check if user is selecting text - if so, don't treat as drag
+          const selection = window.getSelection();
+          if (selection && selection.toString().length > 0) {
+            mouseDownRef.current = null;
+            hasMovedRef.current = false;
+            return;
+          }
+
+          // Check if movement exceeds threshold
+          if (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD) {
+            hasMovedRef.current = true;
+          }
+        };
+
+        const handleGlobalMouseUp = () => {
           mouseDownRef.current = null;
-          hasMovedRef.current = false;
-          return;
-        }
+          // Clean up listeners when mouse up
+          if (
+            listenersActiveRef.current &&
+            handlersRef.current.handleGlobalMouseMove &&
+            handlersRef.current.handleGlobalMouseUp
+          ) {
+            document.removeEventListener(
+              "mousemove",
+              handlersRef.current.handleGlobalMouseMove,
+            );
+            document.removeEventListener(
+              "mouseup",
+              handlersRef.current.handleGlobalMouseUp,
+            );
+            listenersActiveRef.current = false;
+            handlersRef.current.handleGlobalMouseMove = null;
+            handlersRef.current.handleGlobalMouseUp = null;
+          }
+        };
 
-        // Check if movement exceeds threshold
-        if (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD) {
-          hasMovedRef.current = true;
-        }
-      };
-
-      const handleGlobalMouseUp = () => {
-        mouseDownRef.current = null;
-        // Clean up listeners when mouse up
-        if (listenersActiveRef.current && handlersRef.current.handleGlobalMouseMove && handlersRef.current.handleGlobalMouseUp) {
-          document.removeEventListener('mousemove', handlersRef.current.handleGlobalMouseMove);
-          document.removeEventListener('mouseup', handlersRef.current.handleGlobalMouseUp);
-          listenersActiveRef.current = false;
-          handlersRef.current.handleGlobalMouseMove = null;
-          handlersRef.current.handleGlobalMouseUp = null;
-        }
-      };
-
-      handlersRef.current.handleGlobalMouseMove = handleGlobalMouseMove;
-      handlersRef.current.handleGlobalMouseUp = handleGlobalMouseUp;
-      document.addEventListener('mousemove', handleGlobalMouseMove);
-      document.addEventListener('mouseup', handleGlobalMouseUp);
-      listenersActiveRef.current = true;
-    }
-  }, [DRAG_THRESHOLD]);
+        handlersRef.current.handleGlobalMouseMove = handleGlobalMouseMove;
+        handlersRef.current.handleGlobalMouseUp = handleGlobalMouseUp;
+        document.addEventListener("mousemove", handleGlobalMouseMove);
+        document.addEventListener("mouseup", handleGlobalMouseUp);
+        listenersActiveRef.current = true;
+      }
+    },
+    [DRAG_THRESHOLD],
+  );
 
   // Handle mouse move on card - detect if user moved before releasing
   // Note: This is a fallback - the global listener handles most cases
@@ -460,8 +571,8 @@ function WorkspaceCard({
     // This prevents starting a drag when user is trying to select text
     const target = e.target as HTMLElement;
     if (
-      target.closest('textarea') ||
-      target.closest('input') ||
+      target.closest("textarea") ||
+      target.closest("input") ||
       target.closest('[contenteditable="true"]')
     ) {
       // User is interacting with text input, cancel drag tracking
@@ -477,82 +588,100 @@ function WorkspaceCard({
     // Don't clear here - let the global listener handle it to ensure consistency
   }, []);
 
-  const handleCardClick = useCallback((e: React.MouseEvent) => {
-    // Check if click originated from dropdown menu
-    const target = e.target as HTMLElement;
-    if (target.closest('[data-slot="dropdown-menu-item"]') ||
-      target.closest('[data-slot="dropdown-menu-content"]') ||
-      target.closest('[data-slot="dropdown-menu-trigger"]') ||
-      target.closest('[data-slot="popover-content"]') ||
-      target.closest('[data-slot="popover"]') ||
-      target.closest('[data-slot="dialog-content"]') ||
-      target.closest('[data-slot="dialog-close"]') ||
-      target.closest('[data-slot="dialog-overlay"]')) {
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
-
-    // For flashcard cards, check if click is on the flashcard itself
-    // If so, let the flashcard handle it (for flipping)
-    if (item.type === 'flashcard') {
-      // Check if click is on the flashcard component or its children
-      const flashcardElement = target.closest('.flashcard-container, .flashcard, [class*="flashcard"]');
-      if (flashcardElement) {
-        // Click is on flashcard - let it flip, don't open modal
+  const handleCardClick = useCallback(
+    (e: React.MouseEvent) => {
+      // Check if click originated from dropdown menu
+      const target = e.target as HTMLElement;
+      if (
+        target.closest('[data-slot="dropdown-menu-item"]') ||
+        target.closest('[data-slot="dropdown-menu-content"]') ||
+        target.closest('[data-slot="dropdown-menu-trigger"]') ||
+        target.closest('[data-slot="popover-content"]') ||
+        target.closest('[data-slot="popover"]') ||
+        target.closest('[data-slot="dialog-content"]') ||
+        target.closest('[data-slot="dialog-close"]') ||
+        target.closest('[data-slot="dialog-overlay"]')
+      ) {
+        e.preventDefault();
         e.stopPropagation();
         return;
       }
-    }
 
-    // Check if user was selecting text - if so, allow normal text selection behavior
-    const selection = window.getSelection();
-    if (selection && selection.toString().length > 0) {
-      // User selected text, don't open modal or prevent default
-      return;
-    }
+      // For flashcard cards, check if click is on the flashcard itself
+      // If so, let the flashcard handle it (for flipping)
+      if (item.type === "flashcard") {
+        // Check if click is on the flashcard component or its children
+        const flashcardElement = target.closest(
+          '.flashcard-container, .flashcard, [class*="flashcard"]',
+        );
+        if (flashcardElement) {
+          // Click is on flashcard - let it flip, don't open modal
+          e.stopPropagation();
+          return;
+        }
+      }
 
-    // Shift+click toggles card selection
-    if (e.shiftKey) {
-      e.stopPropagation();
-      onToggleSelection(item.id);
-      return;
-    }
+      // Check if user was selecting text - if so, allow normal text selection behavior
+      const selection = window.getSelection();
+      if (selection && selection.toString().length > 0) {
+        // User selected text, don't open modal or prevent default
+        return;
+      }
 
-    // Check if user moved mouse significantly (drag detected) or is editing title
-    // Store the value before resetting
-    const wasDragging = hasMovedRef.current;
+      // Shift+click toggles card selection
+      if (e.shiftKey) {
+        e.stopPropagation();
+        onToggleSelection(item.id);
+        return;
+      }
 
-    // Reset the tracking immediately after checking
-    hasMovedRef.current = false;
+      // Check if user moved mouse significantly (drag detected) or is editing title
+      // Store the value before resetting
+      const wasDragging = hasMovedRef.current;
 
-    // Prevent opening modal if user was dragging or is editing title
-    if (wasDragging || isEditingTitle) {
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
+      // Reset the tracking immediately after checking
+      hasMovedRef.current = false;
 
-    // YouTube cards open in panel (same as notes/PDFs) - no special handling, fall through
+      // Prevent opening modal if user was dragging or is editing title
+      if (wasDragging || isEditingTitle) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
 
-    // If this card is already open in panel mode, close it instead of re-opening
-    if (isOpenInPanel) {
-      e.stopPropagation();
-      closePanel(item.id);
-      return;
-    }
+      // YouTube cards open in panel (same as notes/PDFs) - no special handling, fall through
 
-    // In workspace+panel mode: show Replace / Double Panel menu at cursor
-    if (viewMode === 'workspace+panel' && !openPanelIds.includes(item.id)) {
-      e.preventDefault();
-      e.stopPropagation();
-      setPanelActionMenu({ x: e.clientX, y: e.clientY, itemId: item.id });
-      return;
-    }
+      // If this card is already open in panel mode, close it instead of re-opening
+      if (isOpenInPanel) {
+        e.stopPropagation();
+        closePanel(item.id);
+        return;
+      }
 
-    // Default: open in focus mode (maximized modal)
-    onOpenModal(item.id);
-  }, [isEditingTitle, isOpenInPanel, item.id, item.type, onOpenModal, openPanelIds, maximizedItemId, viewMode, openPanel, closePanel]);
+      // In workspace+panel mode: show Replace / Double Panel menu at cursor
+      if (viewMode === "workspace+panel" && !openPanelIds.includes(item.id)) {
+        e.preventDefault();
+        e.stopPropagation();
+        setPanelActionMenu({ x: e.clientX, y: e.clientY, itemId: item.id });
+        return;
+      }
+
+      // Default: open in focus mode (maximized modal)
+      onOpenModal(item.id);
+    },
+    [
+      isEditingTitle,
+      isOpenInPanel,
+      item.id,
+      item.type,
+      onOpenModal,
+      openPanelIds,
+      maximizedItemId,
+      viewMode,
+      openPanel,
+      closePanel,
+    ],
+  );
 
   const handleReplacePanel = useCallback(() => {
     if (panelActionMenu) {
@@ -578,17 +707,51 @@ function WorkspaceCard({
             data-youtube-card
             data-item-type={item.type}
             data-has-preview={shouldShowPreview}
-            className={`relative rounded-md scroll-mt-4 size-full flex flex-col overflow-hidden transition-all duration-200 cursor-pointer ${item.type === 'youtube' || item.type === 'image' || (item.type === 'pdf' && shouldShowPreview)
-              ? 'p-0'
-              : 'p-3 border shadow-sm hover:border-foreground/30 hover:shadow-md focus-within:border-foreground/50'
-              }`}
-            style={{
-              backgroundColor: (item.type === 'youtube' || item.type === 'image') ? 'transparent' : (item.color ? getCardColorCSS(item.color, resolvedTheme === 'dark' ? 0.25 : 0.4) : 'var(--card)'),
-              borderColor: isSelected ? 'rgba(255, 255, 255, 0.8)' : (isOpenInPanel ? 'hsl(var(--primary))' : (item.color ? getCardAccentColor(item.color, resolvedTheme === 'dark' ? 0.5 : 0.3) : 'transparent')),
-              borderWidth: isSelected ? '3px' : (isOpenInPanel ? '2px' : ((item.type === 'youtube' || item.type === 'image' || (item.type === 'pdf' && shouldShowPreview)) ? '0px' : '1px')),
-              boxShadow: isSelected && resolvedTheme !== 'dark' ? '0 0 3px rgba(0, 0, 0, 0.8), 0 0 8px rgba(0, 0, 0, 0.5)' : undefined,
-              transition: 'border-color 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease-out'
-            } as React.CSSProperties}
+            className={`relative rounded-md scroll-mt-4 size-full flex flex-col overflow-hidden transition-all duration-200 cursor-pointer ${
+              item.type === "youtube" ||
+              item.type === "image" ||
+              (item.type === "pdf" && shouldShowPreview)
+                ? "p-0"
+                : "p-3 border shadow-sm hover:border-foreground/30 hover:shadow-md focus-within:border-foreground/50"
+            }`}
+            style={
+              {
+                backgroundColor:
+                  item.type === "youtube" || item.type === "image"
+                    ? "transparent"
+                    : item.color
+                      ? getCardColorCSS(
+                          item.color,
+                          resolvedTheme === "dark" ? 0.25 : 0.4,
+                        )
+                      : "var(--card)",
+                borderColor: isSelected
+                  ? "rgba(255, 255, 255, 0.8)"
+                  : isOpenInPanel
+                    ? "hsl(var(--primary))"
+                    : item.color
+                      ? getCardAccentColor(
+                          item.color,
+                          resolvedTheme === "dark" ? 0.5 : 0.3,
+                        )
+                      : "transparent",
+                borderWidth: isSelected
+                  ? "3px"
+                  : isOpenInPanel
+                    ? "2px"
+                    : item.type === "youtube" ||
+                        item.type === "image" ||
+                        (item.type === "pdf" && shouldShowPreview)
+                      ? "0px"
+                      : "1px",
+                boxShadow:
+                  isSelected && resolvedTheme !== "dark"
+                    ? "0 0 3px rgba(0, 0, 0, 0.8), 0 0 8px rgba(0, 0, 0, 0.5)"
+                    : undefined,
+                transition:
+                  "border-color 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease-out",
+              } as React.CSSProperties
+            }
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -596,67 +759,133 @@ function WorkspaceCard({
           >
             {/* Floating Controls Container */}
             {!isOpenInPanel && (
-              <div className={`absolute top-3 right-3 z-20 flex items-center gap-2 ${isEditingTitle ? '' : 'opacity-0 group-hover:opacity-100'}`}>
+              <div
+                className={`absolute top-3 right-3 z-20 flex items-center gap-2 ${isEditingTitle ? "" : "opacity-0 group-hover:opacity-100"}`}
+              >
                 {/* Scroll Lock/Unlock Button - Hidden for YouTube, image, quiz, and narrow note/PDF cards */}
-                {item.type !== 'youtube' && item.type !== 'image' && item.type !== 'quiz' && !(item.type === 'note' && !shouldShowPreview) && !(item.type === 'pdf' && !shouldShowPreview) && !(item.type === 'audio' && !shouldShowPreview) && !(item.type === 'document' && !shouldShowPreview) && (
-                  <button
-                    type="button"
-                    aria-label={isScrollLocked ? 'Click to unlock scroll' : 'Click to lock scroll'}
-                    title={isScrollLocked ? 'Click to unlock scroll' : 'Click to lock scroll'}
-                    className="inline-flex h-8 items-center justify-center gap-1.5 pl-2.5 pr-3 rounded-xl text-white/90 hover:text-white hover:scale-105 hover:shadow-lg transition-all duration-200 cursor-pointer"
-                    style={{
-                      backgroundColor: (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)'),
-                      backdropFilter: 'blur(8px)'
-                    }}
-                    onMouseDown={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.8)' : (resolvedTheme === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.3)');
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)');
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleItemScrollLocked(item.id);
-                    }}
-                  >
-                    {isScrollLocked ? (
-                      <PiMouseScrollFill className="h-4 w-4 shrink-0" />
-                    ) : (
-                      <PiMouseScrollBold className="h-4 w-4 shrink-0" />
-                    )}
-                    <span className={cn("text-xs font-medium", resolvedTheme === 'dark' ? "text-white/90" : "text-white/80")}>{isScrollLocked ? 'Scroll' : 'Lock'}</span>
-                  </button>
-                )}
+                {item.type !== "youtube" &&
+                  item.type !== "image" &&
+                  item.type !== "quiz" &&
+                  !(item.type === "note" && !shouldShowPreview) &&
+                  !(item.type === "pdf" && !shouldShowPreview) &&
+                  !(item.type === "audio" && !shouldShowPreview) &&
+                  !(item.type === "document" && !shouldShowPreview) && (
+                    <button
+                      type="button"
+                      aria-label={
+                        isScrollLocked
+                          ? "Click to unlock scroll"
+                          : "Click to lock scroll"
+                      }
+                      title={
+                        isScrollLocked
+                          ? "Click to unlock scroll"
+                          : "Click to lock scroll"
+                      }
+                      className="inline-flex h-8 items-center justify-center gap-1.5 pl-2.5 pr-3 rounded-xl text-white/90 hover:text-white hover:scale-105 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                      style={{
+                        backgroundColor:
+                          item.type === "pdf" && shouldShowPreview
+                            ? "rgba(0, 0, 0, 0.6)"
+                            : resolvedTheme === "dark"
+                              ? "rgba(255, 255, 255, 0.1)"
+                              : "rgba(0, 0, 0, 0.2)",
+                        backdropFilter: "blur(8px)",
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                      }}
+                      onMouseEnter={(e) => {
+                        (
+                          e.currentTarget as HTMLButtonElement
+                        ).style.backgroundColor =
+                          item.type === "pdf" && shouldShowPreview
+                            ? "rgba(0, 0, 0, 0.8)"
+                            : resolvedTheme === "dark"
+                              ? "rgba(0, 0, 0, 0.5)"
+                              : "rgba(0, 0, 0, 0.3)";
+                      }}
+                      onMouseLeave={(e) => {
+                        (
+                          e.currentTarget as HTMLButtonElement
+                        ).style.backgroundColor =
+                          item.type === "pdf" && shouldShowPreview
+                            ? "rgba(0, 0, 0, 0.6)"
+                            : resolvedTheme === "dark"
+                              ? "rgba(255, 255, 255, 0.1)"
+                              : "rgba(0, 0, 0, 0.2)";
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleItemScrollLocked(item.id);
+                      }}
+                    >
+                      {isScrollLocked ? (
+                        <PiMouseScrollFill className="h-4 w-4 shrink-0" />
+                      ) : (
+                        <PiMouseScrollBold className="h-4 w-4 shrink-0" />
+                      )}
+                      <span
+                        className={cn(
+                          "text-xs font-medium",
+                          resolvedTheme === "dark"
+                            ? "text-white/90"
+                            : "text-white/80",
+                        )}
+                      >
+                        {isScrollLocked ? "Scroll" : "Lock"}
+                      </span>
+                    </button>
+                  )}
 
                 {/* Selection Button */}
                 <button
                   type="button"
-                  aria-label={isSelected ? 'Deselect card' : 'Select card'}
-                  title={isSelected ? 'Deselect card' : 'Select card'}
+                  aria-label={isSelected ? "Deselect card" : "Select card"}
+                  title={isSelected ? "Deselect card" : "Select card"}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer"
                   style={{
                     backgroundColor: isSelected
-                      ? ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.3)')
-                      : ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)')),
-                    backdropFilter: 'blur(8px)'
+                      ? item.type === "pdf" && shouldShowPreview
+                        ? "rgba(239, 68, 68, 0.4)"
+                        : "rgba(239, 68, 68, 0.3)"
+                      : item.type === "pdf" && shouldShowPreview
+                        ? "rgba(0, 0, 0, 0.6)"
+                        : resolvedTheme === "dark"
+                          ? "rgba(255, 255, 255, 0.1)"
+                          : "rgba(0, 0, 0, 0.2)",
+                    backdropFilter: "blur(8px)",
                   }}
                   onMouseDown={(e) => {
                     e.stopPropagation();
                     e.preventDefault();
                   }}
                   onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = isSelected
-                      ? ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(239, 68, 68, 0.6)' : 'rgba(239, 68, 68, 0.5)')
-                      : ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.8)' : (resolvedTheme === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.3)'));
+                    (
+                      e.currentTarget as HTMLButtonElement
+                    ).style.backgroundColor = isSelected
+                      ? item.type === "pdf" && shouldShowPreview
+                        ? "rgba(239, 68, 68, 0.6)"
+                        : "rgba(239, 68, 68, 0.5)"
+                      : item.type === "pdf" && shouldShowPreview
+                        ? "rgba(0, 0, 0, 0.8)"
+                        : resolvedTheme === "dark"
+                          ? "rgba(0, 0, 0, 0.5)"
+                          : "rgba(0, 0, 0, 0.3)";
                   }}
                   onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = isSelected
-                      ? ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(239, 68, 68, 0.4)' : 'rgba(239, 68, 68, 0.3)')
-                      : ((item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)'));
+                    (
+                      e.currentTarget as HTMLButtonElement
+                    ).style.backgroundColor = isSelected
+                      ? item.type === "pdf" && shouldShowPreview
+                        ? "rgba(239, 68, 68, 0.4)"
+                        : "rgba(239, 68, 68, 0.3)"
+                      : item.type === "pdf" && shouldShowPreview
+                        ? "rgba(0, 0, 0, 0.6)"
+                        : resolvedTheme === "dark"
+                          ? "rgba(255, 255, 255, 0.1)"
+                          : "rgba(0, 0, 0, 0.2)";
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -679,49 +908,78 @@ function WorkspaceCard({
                       title="Card settings"
                       className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer"
                       style={{
-                        backgroundColor: (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)'),
-                        backdropFilter: 'blur(8px)'
+                        backgroundColor:
+                          item.type === "pdf" && shouldShowPreview
+                            ? "rgba(0, 0, 0, 0.6)"
+                            : resolvedTheme === "dark"
+                              ? "rgba(255, 255, 255, 0.1)"
+                              : "rgba(0, 0, 0, 0.2)",
+                        backdropFilter: "blur(8px)",
                       }}
                       onMouseDown={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
                       }}
                       onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.backgroundColor = (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.8)' : (resolvedTheme === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.3)');
+                        (
+                          e.currentTarget as HTMLButtonElement
+                        ).style.backgroundColor =
+                          item.type === "pdf" && shouldShowPreview
+                            ? "rgba(0, 0, 0, 0.8)"
+                            : resolvedTheme === "dark"
+                              ? "rgba(0, 0, 0, 0.5)"
+                              : "rgba(0, 0, 0, 0.3)";
                       }}
                       onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.backgroundColor = (item.type === 'pdf' && shouldShowPreview) ? 'rgba(0, 0, 0, 0.6)' : (resolvedTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.2)');
+                        (
+                          e.currentTarget as HTMLButtonElement
+                        ).style.backgroundColor =
+                          item.type === "pdf" && shouldShowPreview
+                            ? "rgba(0, 0, 0, 0.6)"
+                            : resolvedTheme === "dark"
+                              ? "rgba(255, 255, 255, 0.1)"
+                              : "rgba(0, 0, 0, 0.2)";
                       }}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <MoreVertical className="h-4 w-4" />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
-
-                    {viewMode === 'workspace+panel' && !openPanelIds.includes(item.id) && (
-                      <>
-                        <DropdownMenuItem onSelect={() => splitWithItem(item.id)}>
-                          <SplitSquareHorizontal className="mr-2 h-4 w-4" />
-                          <span>Double Panel</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                      </>
-                    )}
-                    <DropdownMenuItem onSelect={() => setShowRenameDialog(true)}>
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-48"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {viewMode === "workspace+panel" &&
+                      !openPanelIds.includes(item.id) && (
+                        <>
+                          <DropdownMenuItem
+                            onSelect={() => splitWithItem(item.id)}
+                          >
+                            <SplitSquareHorizontal className="mr-2 h-4 w-4" />
+                            <span>Double Panel</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                        </>
+                      )}
+                    <DropdownMenuItem
+                      onSelect={() => setShowRenameDialog(true)}
+                    >
                       <Pencil className="mr-2 h-4 w-4" />
                       <span>Rename</span>
                     </DropdownMenuItem>
                     {onMoveItem && (
                       <>
-                        <DropdownMenuItem onSelect={() => setShowMoveDialog(true)}>
+                        <DropdownMenuItem
+                          onSelect={() => setShowMoveDialog(true)}
+                        >
                           <FolderInput className="mr-2 h-4 w-4" />
                           <span>Move to</span>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                       </>
                     )}
-                    {item.type === 'note' && (
+                    {item.type === "note" && (
                       <>
                         <DropdownMenuItem onSelect={handleCopyMarkdown}>
                           <Copy className="mr-2 h-4 w-4" />
@@ -730,7 +988,9 @@ function WorkspaceCard({
                         <DropdownMenuSeparator />
                       </>
                     )}
-                    <DropdownMenuItem onSelect={() => setIsColorPickerOpen(true)}>
+                    <DropdownMenuItem
+                      onSelect={() => setIsColorPickerOpen(true)}
+                    >
                       <Palette className="mr-2 h-4 w-4" />
                       <span>Change Color</span>
                     </DropdownMenuItem>
@@ -748,79 +1008,117 @@ function WorkspaceCard({
             )}
 
             {/* Type badge - rect in bottom-left corner (when card is small) */}
-            {(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio' || item.type === 'website' || item.type === 'document') && !shouldShowPreview && (
-              <span
-                className="absolute left-0 bottom-0 z-0 flex items-center gap-1.5 pl-2.5 pr-1.5 py-2 rounded-tr-md rounded-bl-md text-xs font-semibold uppercase tracking-wider w-max pointer-events-none"
-                style={{
-                  backgroundColor: getIconColorFromCardColorWithOpacity(item.color, resolvedTheme === 'dark', resolvedTheme === 'dark' ? 0.3 : 0.55),
-                  color: resolvedTheme === 'dark' ? getLighterCardColor(item.color, true, 0) : getCardColorWithBlackMix(item.color, 0.18),
-                }}
-              >
-                {item.type === 'note' ? (
-                  <><CgNotes className="h-5 w-5 shrink-0" /><span>Note</span></>
-                ) : item.type === 'pdf' ? (
-                  (item.data as PdfData)?.ocrStatus === 'processing' ? (
+            {(item.type === "note" ||
+              item.type === "pdf" ||
+              item.type === "quiz" ||
+              item.type === "audio" ||
+              item.type === "website" ||
+              item.type === "document") &&
+              !shouldShowPreview && (
+                <span
+                  className="absolute left-0 bottom-0 z-0 flex items-center gap-1.5 pl-2.5 pr-1.5 py-2 rounded-tr-md rounded-bl-md text-xs font-semibold uppercase tracking-wider w-max pointer-events-none"
+                  style={{
+                    backgroundColor: getIconColorFromCardColorWithOpacity(
+                      item.color,
+                      resolvedTheme === "dark",
+                      resolvedTheme === "dark" ? 0.3 : 0.55,
+                    ),
+                    color:
+                      resolvedTheme === "dark"
+                        ? getLighterCardColor(item.color, true, 0)
+                        : getCardColorWithBlackMix(item.color, 0.18),
+                  }}
+                >
+                  {item.type === "note" ? (
                     <>
-                      <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
-                      <span>Reading...</span>
+                      <CgNotes className="h-5 w-5 shrink-0" />
+                      <span>Note</span>
+                    </>
+                  ) : item.type === "pdf" ? (
+                    (item.data as PdfData)?.ocrStatus === "processing" ? (
+                      <>
+                        <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
+                        <span>Reading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <File className="h-5 w-5 shrink-0" />
+                        <span>PDF</span>
+                      </>
+                    )
+                  ) : item.type === "quiz" ? (
+                    <>
+                      <Brain className="h-5 w-5 shrink-0" />
+                      <span>Quiz</span>
+                    </>
+                  ) : item.type === "website" ? (
+                    (() => {
+                      const websiteData = item.data as WebsiteData;
+                      const favicon = websiteData.favicon;
+                      let hostname = "";
+                      try {
+                        hostname = new URL(websiteData.url).hostname.replace(
+                          /^www\./,
+                          "",
+                        );
+                      } catch {}
+                      const fallbackId = `fallback-${item.id}`;
+                      const faviconId = `favicon-${item.id}`;
+                      return (
+                        <>
+                          {favicon && (
+                            <img
+                              id={faviconId}
+                              src={favicon}
+                              alt=""
+                              className="h-5 w-5 shrink-0 rounded"
+                              onLoad={(e) => {
+                                // Hide default globe icons (they stay 16x16 even with sz=64)
+                                if (e.currentTarget.naturalHeight === 16) {
+                                  e.currentTarget.style.display = "none";
+                                  const fallback =
+                                    document.getElementById(fallbackId);
+                                  if (fallback) fallback.style.display = "flex";
+                                }
+                              }}
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                                const fallback =
+                                  document.getElementById(fallbackId);
+                                if (fallback) fallback.style.display = "flex";
+                              }}
+                            />
+                          )}
+                          <div
+                            id={fallbackId}
+                            className="h-5 w-5 shrink-0 flex items-center justify-center"
+                            style={{ display: favicon ? "none" : "flex" }}
+                          >
+                            <Globe className="h-5 w-5 shrink-0" />
+                          </div>
+                          <span>Website</span>
+                        </>
+                      );
+                    })()
+                  ) : item.type === "document" ? (
+                    <>
+                      <FileText className="h-5 w-5 shrink-0" />
+                      <span>DOC</span>
                     </>
                   ) : (
-                    <><File className="h-5 w-5 shrink-0" /><span>PDF</span></>
-                  )
-                ) : item.type === 'quiz' ? (
-                  <><Brain className="h-5 w-5 shrink-0" /><span>Quiz</span></>
-                ) : item.type === 'website' ? (
-                  (() => {
-                    const websiteData = item.data as WebsiteData;
-                    const favicon = websiteData.favicon;
-                    let hostname = '';
-                    try { hostname = new URL(websiteData.url).hostname.replace(/^www\./, ''); } catch {}
-                    const fallbackId = `fallback-${item.id}`;
-                    const faviconId = `favicon-${item.id}`;
-                    return (
-                      <>
-                        {favicon && (
-                          <img 
-                            id={faviconId}
-                            src={favicon} 
-                            alt="" 
-                            className="h-5 w-5 shrink-0 rounded" 
-                            onLoad={(e) => {
-                              // Hide default globe icons (they stay 16x16 even with sz=64)
-                              if (e.currentTarget.naturalHeight === 16) {
-                                e.currentTarget.style.display = 'none';
-                                const fallback = document.getElementById(fallbackId);
-                                if (fallback) fallback.style.display = 'flex';
-                              }
-                            }}
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                              const fallback = document.getElementById(fallbackId);
-                              if (fallback) fallback.style.display = 'flex';
-                            }}
-                          />
-                        )}
-                        <div 
-                          id={fallbackId}
-                          className="h-5 w-5 shrink-0 flex items-center justify-center" 
-                          style={{ display: favicon ? 'none' : 'flex' }}
-                        >
-                          <Globe className="h-5 w-5 shrink-0" />
-                        </div>
-                        <span>Website</span>
-                      </>
-                    );
-                  })()
-                ) : item.type === 'document' ? (
-                  <><FileText className="h-5 w-5 shrink-0" /><span>DOC</span></>
-                ) : (
-                  <><Mic className="h-5 w-5 shrink-0" /><span>Recording</span></>
-                )}
-              </span>
-            )}
+                    <>
+                      <Mic className="h-5 w-5 shrink-0" />
+                      <span>Recording</span>
+                    </>
+                  )}
+                </span>
+              )}
 
             {/* Color Picker Dialog */}
-            <Dialog open={isColorPickerOpen} onOpenChange={setIsColorPickerOpen}>
+            <Dialog
+              open={isColorPickerOpen}
+              onOpenChange={setIsColorPickerOpen}
+            >
               <DialogContent
                 className="w-auto max-w-fit p-6"
                 onClick={(e) => e.stopPropagation()}
@@ -835,7 +1133,7 @@ function WorkspaceCard({
                   onMouseDown={(e) => e.stopPropagation()}
                 >
                   <SwatchesPicker
-                    color={item.color || '#3B82F6'}
+                    color={item.color || "#3B82F6"}
                     colors={SWATCHES_COLOR_GROUPS}
                     onChangeComplete={handleColorChange}
                   />
@@ -843,247 +1141,346 @@ function WorkspaceCard({
               </DialogContent>
             </Dialog>
 
-            <div className={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio' || item.type === 'document') && !shouldShowPreview ? "flex-1 flex flex-col relative" : "flex-shrink-0"}>
+            <div
+              className={
+                (item.type === "note" ||
+                  item.type === "pdf" ||
+                  item.type === "quiz" ||
+                  item.type === "audio" ||
+                  item.type === "document") &&
+                !shouldShowPreview
+                  ? "flex-1 flex flex-col relative"
+                  : "flex-shrink-0"
+              }
+            >
               {/* Hide header for template items awaiting generation */}
-              {item.type !== 'youtube' && item.type !== 'image' && !(item.type === 'pdf' && shouldShowPreview) && item.name !== "Update me" && (
-                <div className="relative z-10">
-                  <ItemHeader
-                    id={item.id}
-                    name={item.name}
-                    subtitle={item.subtitle}
-                    description={""}
-                    onNameChange={handleNameChange}
-                    onNameCommit={handleNameCommit}
-                    onSubtitleChange={handleSubtitleChange}
-                    readOnly={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio' || item.type === 'document') && !shouldShowPreview}
-                    noMargin={true}
-                    onTitleFocus={handleTitleFocus}
-                    onTitleBlur={handleTitleBlur}
-                    allowWrap={(item.type === 'note' || item.type === 'pdf' || item.type === 'quiz' || item.type === 'audio' || item.type === 'document') && !shouldShowPreview}
-                  />
+              {item.type !== "youtube" &&
+                item.type !== "image" &&
+                !(item.type === "pdf" && shouldShowPreview) &&
+                item.name !== "Update me" && (
+                  <div className="relative z-10">
+                    <ItemHeader
+                      id={item.id}
+                      name={item.name}
+                      subtitle={item.subtitle}
+                      description={""}
+                      onNameChange={handleNameChange}
+                      onNameCommit={handleNameCommit}
+                      onSubtitleChange={handleSubtitleChange}
+                      readOnly={
+                        (item.type === "note" ||
+                          item.type === "pdf" ||
+                          item.type === "quiz" ||
+                          item.type === "audio" ||
+                          item.type === "document") &&
+                        !shouldShowPreview
+                      }
+                      noMargin={true}
+                      onTitleFocus={handleTitleFocus}
+                      onTitleBlur={handleTitleBlur}
+                      allowWrap={
+                        (item.type === "note" ||
+                          item.type === "pdf" ||
+                          item.type === "quiz" ||
+                          item.type === "audio" ||
+                          item.type === "document") &&
+                        !shouldShowPreview
+                      }
+                    />
 
-
-
-                  {/* Sources Section - only shown when card is wide */}
-                  {item.type === 'note' && shouldShowPreview && (item.data as NoteData).sources && (item.data as NoteData).sources!.length > 0 && (
-                    <div className="px-1 mt-2 mb-1">
-                      <SourcesDisplay sources={(item.data as NoteData).sources!} />
-                    </div>
-                  )}
-                </div>
-              )}
+                    {/* Sources Section - only shown when card is wide */}
+                    {item.type === "note" &&
+                      shouldShowPreview &&
+                      (item.data as NoteData).sources &&
+                      (item.data as NoteData).sources!.length > 0 && (
+                        <div className="px-1 mt-2 mb-1">
+                          <SourcesDisplay
+                            sources={(item.data as NoteData).sources!}
+                          />
+                        </div>
+                      )}
+                  </div>
+                )}
             </div>
 
             {/* Note Content - render preview if card is wide enough */}
-            {!isOpenInPanel && item.type === 'note' && shouldShowPreview && (
-              <WorkspaceCardNoteContent item={item} isScrollLocked={isScrollLocked} />
+            {!isOpenInPanel && item.type === "note" && shouldShowPreview && (
+              <WorkspaceCardNoteContent
+                item={item}
+                isScrollLocked={isScrollLocked}
+              />
             )}
 
             {/* PDF Content - render embedded PDF viewer if card is wide enough */}
             {/* PERFORMANCE: Only mount PDF content when card is visible (virtualization) */}
             {/* When scroll is locked, render lightweight placeholder instead of full PDF viewer */}
-            {!isOpenInPanel && item.type === 'pdf' && shouldShowPreview && (() => {
-              const pdfData = item.data as PdfData;
-              const isOcrProcessing = pdfData?.ocrStatus === 'processing';
-              const pdfPreviewUrl = pdfData.fileUrl;
+            {!isOpenInPanel &&
+              item.type === "pdf" &&
+              shouldShowPreview &&
+              (() => {
+                const pdfData = item.data as PdfData;
+                const isOcrProcessing = pdfData?.ocrStatus === "processing";
+                const pdfPreviewUrl = pdfData.fileUrl;
 
-              return (
-                <div
-                  className={`flex-1 min-h-0 relative ${isScrollLocked ? 'overflow-hidden' : 'overflow-auto'}`}
-                  style={{ pointerEvents: isScrollLocked ? 'none' : 'auto' }}
-                >
-                  {!isCardVisible ? (
-                    // Placeholder when card is not visible - very lightweight
-                    <div className="w-full h-full flex items-center justify-center bg-muted text-xs" style={{ color: resolvedTheme === 'dark' ? 'rgba(163, 175, 191, 0.5)' : 'rgba(107, 114, 128, 0.6)' }}>
-                      PDF
-                    </div>
-                  ) : isScrollLocked || maximizedItemId === item.id ? (
-                    <LightweightPdfPreview
-                      key={`preview-${maximizedItemId ?? 'none'}`}
-                      pdfSrc={pdfPreviewUrl}
-                      title={item.name}
-                      className="w-full h-full"
-                    />
-                  ) : (
-                    <LazyAppPdfViewer pdfSrc={pdfPreviewUrl} itemId={item.id} itemName={item.name} />
-                  )}
-                  {/* OCR processing indicator overlay */}
-                  {isOcrProcessing && pdfPreviewUrl && (
-                    <div
-                      className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-2 py-2 px-3 bg-primary/90 text-primary-foreground text-xs font-medium"
-                      style={{ color: 'inherit' }}
-                    >
-                      <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
-                      Reading...
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+                return (
+                  <div
+                    className={`flex-1 min-h-0 relative ${isScrollLocked ? "overflow-hidden" : "overflow-auto"}`}
+                    style={{ pointerEvents: isScrollLocked ? "none" : "auto" }}
+                  >
+                    {!isCardVisible ? (
+                      // Placeholder when card is not visible - very lightweight
+                      <div
+                        className="w-full h-full flex items-center justify-center bg-muted text-xs"
+                        style={{
+                          color:
+                            resolvedTheme === "dark"
+                              ? "rgba(163, 175, 191, 0.5)"
+                              : "rgba(107, 114, 128, 0.6)",
+                        }}
+                      >
+                        PDF
+                      </div>
+                    ) : isScrollLocked || maximizedItemId === item.id ? (
+                      <LightweightPdfPreview
+                        key={`preview-${maximizedItemId ?? "none"}`}
+                        pdfSrc={pdfPreviewUrl}
+                        title={item.name}
+                        className="w-full h-full"
+                      />
+                    ) : (
+                      <LazyAppPdfViewer
+                        pdfSrc={pdfPreviewUrl}
+                        itemId={item.id}
+                        itemName={item.name}
+                      />
+                    )}
+                    {/* OCR processing indicator overlay */}
+                    {isOcrProcessing && pdfPreviewUrl && (
+                      <div
+                        className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-2 py-2 px-3 bg-primary/90 text-primary-foreground text-xs font-medium"
+                        style={{ color: "inherit" }}
+                      >
+                        <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                        Reading...
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
             {/* Quiz Content - render interactive quiz (clicks on non-interactive areas open modal via parent) */}
-            {item.type === 'quiz' && shouldShowPreview && (
+            {item.type === "quiz" && shouldShowPreview && (
               <div className="flex-1 min-h-0">
                 <QuizContent
                   item={item}
-                  onUpdateData={(updater) => onUpdateItem(item.id, { data: updater(item.data) as any })}
+                  onUpdateData={(updater) =>
+                    onUpdateItem(item.id, { data: updater(item.data) as any })
+                  }
                   isScrollLocked={isScrollLocked}
                 />
               </div>
             )}
 
             {/* Flashcard Content - render interactive flashcard */}
-            {item.type === 'flashcard' && (() => {
-              const flashcardData = item.data as FlashcardData;
+            {item.type === "flashcard" &&
+              (() => {
+                const flashcardData = item.data as FlashcardData;
 
-              // Helper to serialize blocks to plain text with LaTeX support
-              const blocksToText = (blocks: unknown): string => {
-                if (!blocks || !Array.isArray(blocks) || blocks.length === 0) return "";
-
-                return (blocks as any[])
-                  .map((block) => {
-                    // Handle separate Math blocks (display math)
-                    if (block.type === "math" && block.props?.latex) {
-                      return `$$${block.props.latex}$$`;
-                    }
-
-                    // Handle blocks with inline content (paragraphs, headings, bullet list items, etc.)
-                    if (block.content && Array.isArray(block.content)) {
-                      return block.content
-                        .map((item: any) => {
-                          if (item.type === "inlineMath" && item.props?.latex) {
-                            return `$$${item.props.latex}$$`;
-                          }
-                          return item.text || "";
-                        })
-                        .join("");
-                    }
-
+                // Helper to serialize blocks to plain text with LaTeX support
+                const blocksToText = (blocks: unknown): string => {
+                  if (!blocks || !Array.isArray(blocks) || blocks.length === 0)
                     return "";
-                  })
-                  .join("\n\n"); // Use double newline to separate blocks clearly
-              };
 
-              // Get display text (prefer blocks, fall back to plain text)
-              const frontText = flashcardData.frontBlocks
-                ? blocksToText(flashcardData.frontBlocks)
-                : flashcardData.front || "Click to add front content";
+                  return (blocks as any[])
+                    .map((block) => {
+                      // Handle separate Math blocks (display math)
+                      if (block.type === "math" && block.props?.latex) {
+                        return `$$${block.props.latex}$$`;
+                      }
 
-              const backText = flashcardData.backBlocks
-                ? blocksToText(flashcardData.backBlocks)
-                : flashcardData.back || "Click to add back content";
+                      // Handle blocks with inline content (paragraphs, headings, bullet list items, etc.)
+                      if (block.content && Array.isArray(block.content)) {
+                        return block.content
+                          .map((item: any) => {
+                            if (
+                              item.type === "inlineMath" &&
+                              item.props?.latex
+                            ) {
+                              return `$$${item.props.latex}$$`;
+                            }
+                            return item.text || "";
+                          })
+                          .join("");
+                      }
 
+                      return "";
+                    })
+                    .join("\n\n"); // Use double newline to separate blocks clearly
+                };
 
+                // Get display text (prefer blocks, fall back to plain text)
+                const frontText = flashcardData.frontBlocks
+                  ? blocksToText(flashcardData.frontBlocks)
+                  : flashcardData.front || "Click to add front content";
 
+                const backText = flashcardData.backBlocks
+                  ? blocksToText(flashcardData.backBlocks)
+                  : flashcardData.back || "Click to add back content";
 
-              // Common markdown components configuration
-              const markdownComponents = {
-                p: ({ children }: any) => <span className="block mb-2 last:mb-0">{children}</span>,
-                // Add more custom renderers if needed
-              };
+                // Common markdown components configuration
+                const markdownComponents = {
+                  p: ({ children }: any) => (
+                    <span className="block mb-2 last:mb-0">{children}</span>
+                  ),
+                  // Add more custom renderers if needed
+                };
 
-              return (
-                <div
-                  className="flex-1 flex items-center justify-center p-6 min-h-0"
-                  onClick={(e) => {
-                    // Stop propagation so clicking the flashcard itself doesn't open the modal
-                    // Only clicking outside the flashcard (on the card background) opens modal
-                    e.stopPropagation();
-                  }}
-                >
-                  <div className="w-full h-full max-w-md max-h-[400px] flex items-center justify-center">
-                    <Flashcard
-                      front={{
-                        html: (
-                          <div className="p-8 flex items-center justify-center h-full text-center text-lg font-medium overflow-y-auto" style={{ color: resolvedTheme === 'dark' ? '#f3f4f6' : '#111827' }}>
-                            <div className="w-full">
-                              <ReactMarkdown
-                                remarkPlugins={[remarkMath]}
-                                rehypePlugins={[rehypeKatex]}
-                                components={markdownComponents}
-                              >
-                                {frontText}
-                              </ReactMarkdown>
-                            </div>
-                          </div>
-                        )
-                      }}
-                      back={{
-                        html: (
-                          <div className="p-8 flex items-center justify-center h-full text-center text-lg font-medium overflow-y-auto" style={{ color: resolvedTheme === 'dark' ? '#f3f4f6' : '#111827' }}>
-                            <div className="w-full">
-                              <ReactMarkdown
-                                remarkPlugins={[remarkMath]}
-                                rehypePlugins={[rehypeKatex]}
-                                components={markdownComponents}
-                              >
-                                {backText}
-                              </ReactMarkdown>
-                            </div>
-                          </div>
-                        )
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* YouTube Content - render YouTube embed */}
-            {!isOpenInPanel && item.type === 'youtube' && (() => {
-              const youtubeData = item.data as YouTubeData;
-              const hasValidUrl = extractYouTubeVideoId(youtubeData.url) !== null || extractYouTubePlaylistId(youtubeData.url) !== null;
-
-              if (!hasValidUrl) {
-                // Invalid URL - show error state
                 return (
-                  <div className="p-0 min-h-0">
-                    <div className="flex flex-col items-center justify-center gap-3 text-center h-full p-4">
-                      <div className="rounded-lg p-4 bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-                        <span className={cn("font-medium", resolvedTheme === 'dark' ? "text-red-400" : "text-red-600")}>Invalid YouTube URL</span>
-                      </div>
-                      <p className={cn("text-xs", resolvedTheme === 'dark' ? "text-muted-foreground/70" : "text-muted-foreground/50")}>
-                        Please check the URL and try again
-                      </p>
+                  <div
+                    className="flex-1 flex items-center justify-center p-6 min-h-0"
+                    onClick={(e) => {
+                      // Stop propagation so clicking the flashcard itself doesn't open the modal
+                      // Only clicking outside the flashcard (on the card background) opens modal
+                      e.stopPropagation();
+                    }}
+                  >
+                    <div className="w-full h-full max-w-md max-h-[400px] flex items-center justify-center">
+                      <Flashcard
+                        front={{
+                          html: (
+                            <div
+                              className="p-8 flex items-center justify-center h-full text-center text-lg font-medium overflow-y-auto"
+                              style={{
+                                color:
+                                  resolvedTheme === "dark"
+                                    ? "#f3f4f6"
+                                    : "#111827",
+                              }}
+                            >
+                              <div className="w-full">
+                                <ReactMarkdown
+                                  remarkPlugins={[remarkMath]}
+                                  rehypePlugins={[rehypeKatex]}
+                                  components={markdownComponents}
+                                >
+                                  {frontText}
+                                </ReactMarkdown>
+                              </div>
+                            </div>
+                          ),
+                        }}
+                        back={{
+                          html: (
+                            <div
+                              className="p-8 flex items-center justify-center h-full text-center text-lg font-medium overflow-y-auto"
+                              style={{
+                                color:
+                                  resolvedTheme === "dark"
+                                    ? "#f3f4f6"
+                                    : "#111827",
+                              }}
+                            >
+                              <div className="w-full">
+                                <ReactMarkdown
+                                  remarkPlugins={[remarkMath]}
+                                  rehypePlugins={[rehypeKatex]}
+                                  components={markdownComponents}
+                                >
+                                  {backText}
+                                </ReactMarkdown>
+                              </div>
+                            </div>
+                          ),
+                        }}
+                      />
                     </div>
                   </div>
                 );
-              }
+              })()}
 
-              // Use the YouTubeCardContent component which handles play/adjust state
-              return <YouTubeCardContent
-                item={item}
-                isPlaying={false}
-                onTogglePlay={() => {}}
-              />;
-            })()}
+            {/* YouTube Content - render YouTube embed */}
+            {!isOpenInPanel &&
+              item.type === "youtube" &&
+              (() => {
+                const youtubeData = item.data as YouTubeData;
+                const hasValidUrl =
+                  extractYouTubeVideoId(youtubeData.url) !== null ||
+                  extractYouTubePlaylistId(youtubeData.url) !== null;
+
+                if (!hasValidUrl) {
+                  // Invalid URL - show error state
+                  return (
+                    <div className="p-0 min-h-0">
+                      <div className="flex flex-col items-center justify-center gap-3 text-center h-full p-4">
+                        <div className="rounded-lg p-4 bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                          <span
+                            className={cn(
+                              "font-medium",
+                              resolvedTheme === "dark"
+                                ? "text-red-400"
+                                : "text-red-600",
+                            )}
+                          >
+                            Invalid YouTube URL
+                          </span>
+                        </div>
+                        <p
+                          className={cn(
+                            "text-xs",
+                            resolvedTheme === "dark"
+                              ? "text-muted-foreground/70"
+                              : "text-muted-foreground/50",
+                          )}
+                        >
+                          Please check the URL and try again
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Use the YouTubeCardContent component which handles play/adjust state
+                return (
+                  <YouTubeCardContent
+                    item={item}
+                    isPlaying={false}
+                    onTogglePlay={() => {}}
+                  />
+                );
+              })()}
 
             {/* Image Content - render frameless image */}
-            {!isOpenInPanel && item.type === 'image' && (
+            {!isOpenInPanel && item.type === "image" && (
               <ImageCardContent item={item} />
             )}
 
-
             {/* Audio Content - render audio player and transcript */}
-            {!isOpenInPanel && item.type === 'audio' && shouldShowPreview && (
+            {!isOpenInPanel && item.type === "audio" && shouldShowPreview && (
               <div className="flex-1 min-h-0 overflow-hidden">
-                <AudioCardContent item={item} isCompact isScrollLocked={isScrollLocked} />
+                <AudioCardContent
+                  item={item}
+                  isCompact
+                  isScrollLocked={isScrollLocked}
+                />
               </div>
             )}
 
-            {!isOpenInPanel && item.type === 'document' && shouldShowPreview && documentPreviewText && (
-              <div
-                className={`flex-1 min-h-0 px-3 pb-3 overflow-y-scroll ${isScrollLocked ? 'pointer-events-none' : ''}`}
-                style={{ 
-                  pointerEvents: isScrollLocked ? 'none' : 'auto',
-                  scrollbarGutter: 'stable'
-                }}
-              >
-                <StreamdownMarkdown className="text-sm leading-6">
-                  {documentPreviewText}
-                </StreamdownMarkdown>
-              </div>
-            )}
+            {!isOpenInPanel &&
+              item.type === "document" &&
+              shouldShowPreview &&
+              documentPreviewText && (
+                <div
+                  className={`flex-1 min-h-0 px-3 pb-3 overflow-y-scroll ${isScrollLocked ? "pointer-events-none" : ""}`}
+                  style={{
+                    pointerEvents: isScrollLocked ? "none" : "auto",
+                    scrollbarGutter: "stable",
+                  }}
+                >
+                  <StreamdownMarkdown className="text-sm leading-6">
+                    {documentPreviewText}
+                  </StreamdownMarkdown>
+                </div>
+              )}
             {/* Active in Panel Overlay */}
             {isOpenInPanel && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-card/95 backdrop-blur-[1px] animate-in fade-in duration-200 select-none cursor-pointer group/overlay">
@@ -1091,20 +1488,25 @@ function WorkspaceCard({
                   <PanelRight className="w-10 h-10 text-primary opacity-90 absolute transition-opacity duration-200 group-hover/overlay:opacity-0" />
                   <X className="w-10 h-10 text-primary opacity-90 absolute hidden origin-center transition-all duration-200 group-hover/overlay:block group-hover/overlay:scale-110" />
                 </div>
-                <span className="text-sm font-medium text-muted-foreground">Click to close</span>
+                <span className="text-sm font-medium text-muted-foreground">
+                  Click to close
+                </span>
               </div>
             )}
-
           </article>
 
-
           {/* Delete Confirmation Dialog */}
-          <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialog
+            open={showDeleteDialog}
+            onOpenChange={setShowDeleteDialog}
+          >
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete Card</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Are you sure you want to delete &quot;{item.name || 'this card'}&quot;? You can restore from version history if needed.
+                  Are you sure you want to delete &quot;
+                  {item.name || "this card"}&quot;? You can restore from version
+                  history if needed.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -1140,7 +1542,7 @@ function WorkspaceCard({
               workspaceColor={workspaceColor}
               onMove={(folderId) => {
                 onMoveItem(item.id, folderId);
-                toast.success('Item moved');
+                toast.success("Item moved");
               }}
             />
           )}
@@ -1149,7 +1551,6 @@ function WorkspaceCard({
 
       {/* Right-Click Context Menu */}
       <ContextMenuContent className="w-48">
-
         <ContextMenuItem onSelect={() => setShowRenameDialog(true)}>
           <Pencil className="mr-2 h-4 w-4" />
           <span>Rename</span>
@@ -1162,19 +1563,16 @@ function WorkspaceCard({
             </ContextMenuItem>
             <ContextMenuSeparator />
           </>
-        )
-        }
-        {
-          item.type === 'note' && (
-            <>
-              <ContextMenuItem onSelect={handleCopyMarkdown}>
-                <Copy className="mr-2 h-4 w-4" />
-                <span>Copy Markdown</span>
-              </ContextMenuItem>
-              <ContextMenuSeparator />
-            </>
-          )
-        }
+        )}
+        {item.type === "note" && (
+          <>
+            <ContextMenuItem onSelect={handleCopyMarkdown}>
+              <Copy className="mr-2 h-4 w-4" />
+              <span>Copy Markdown</span>
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+          </>
+        )}
         <ContextMenuItem onSelect={() => setIsColorPickerOpen(true)}>
           <Palette className="mr-2 h-4 w-4" />
           <span>Change Color</span>
@@ -1190,92 +1588,112 @@ function WorkspaceCard({
       </ContextMenuContent>
 
       {/* Panel action menu - appears at cursor when single-clicking a card in workspace+panel mode */}
-      {typeof document !== "undefined" && panelActionMenu && createPortal(
-        <PanelActionMenuPortal
-          x={panelActionMenu.x}
-          y={panelActionMenu.y}
-          onReplace={handleReplacePanel}
-          onDoublePanel={handleDoublePanel}
-          onClose={() => setPanelActionMenu(null)}
-        />,
-        document.body
-      )}
+      {typeof document !== "undefined" &&
+        panelActionMenu &&
+        createPortal(
+          <PanelActionMenuPortal
+            x={panelActionMenu.x}
+            y={panelActionMenu.y}
+            onReplace={handleReplacePanel}
+            onDoublePanel={handleDoublePanel}
+            onClose={() => setPanelActionMenu(null)}
+          />,
+          document.body,
+        )}
     </ContextMenu>
   );
 }
 
 // Memoize to prevent unnecessary re-renders
-export const WorkspaceCardMemoized = memo(WorkspaceCard, (prevProps, nextProps) => {
-  // Compare item properties
-  if (prevProps.item.id !== nextProps.item.id) return false;
-  if (prevProps.item.name !== nextProps.item.name) return false;
-  if (prevProps.item.subtitle !== nextProps.item.subtitle) return false;
-  if (prevProps.item.color !== nextProps.item.color) return false;
-  if (prevProps.item.type !== nextProps.item.type) return false;
+export const WorkspaceCardMemoized = memo(
+  WorkspaceCard,
+  (prevProps, nextProps) => {
+    // Compare item properties
+    if (prevProps.item.id !== nextProps.item.id) return false;
+    if (prevProps.item.name !== nextProps.item.name) return false;
+    if (prevProps.item.subtitle !== nextProps.item.subtitle) return false;
+    if (prevProps.item.color !== nextProps.item.color) return false;
+    if (prevProps.item.type !== nextProps.item.type) return false;
 
-  // Compare item data (for notes, PDFs, flashcards, and YouTube)
-  if (prevProps.item.type === 'note' && nextProps.item.type === 'note') {
-    const prevData = prevProps.item.data;
-    const nextData = nextProps.item.data;
-    if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
-  }
-  if (prevProps.item.type === 'pdf' && nextProps.item.type === 'pdf') {
-    const prevData = prevProps.item.data;
-    const nextData = nextProps.item.data;
-    if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
-  }
-  if (prevProps.item.type === 'flashcard' && nextProps.item.type === 'flashcard') {
-    const prevData = prevProps.item.data;
-    const nextData = nextProps.item.data;
-    if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
-  }
-  if (prevProps.item.type === 'youtube' && nextProps.item.type === 'youtube') {
-    const prevData = prevProps.item.data;
-    const nextData = nextProps.item.data;
-    if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
-  }
-  if (prevProps.item.type === 'quiz' && nextProps.item.type === 'quiz') {
-    const prevData = prevProps.item.data;
-    const nextData = nextProps.item.data;
-    if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
-  }
-  if (prevProps.item.type === 'image' && nextProps.item.type === 'image') {
-    const prevData = prevProps.item.data;
-    const nextData = nextProps.item.data;
-    if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
-  }
-  if (prevProps.item.type === 'audio' && nextProps.item.type === 'audio') {
-    const prevData = prevProps.item.data;
-    const nextData = nextProps.item.data;
-    if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
-  }
-  if (prevProps.item.type === 'document' && nextProps.item.type === 'document') {
-    const prevData = prevProps.item.data;
-    const nextData = nextProps.item.data;
-    if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
-  }
+    // Compare item data (for notes, PDFs, flashcards, and YouTube)
+    if (prevProps.item.type === "note" && nextProps.item.type === "note") {
+      const prevData = prevProps.item.data;
+      const nextData = nextProps.item.data;
+      if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
+    }
+    if (prevProps.item.type === "pdf" && nextProps.item.type === "pdf") {
+      const prevData = prevProps.item.data;
+      const nextData = nextProps.item.data;
+      if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
+    }
+    if (
+      prevProps.item.type === "flashcard" &&
+      nextProps.item.type === "flashcard"
+    ) {
+      const prevData = prevProps.item.data;
+      const nextData = nextProps.item.data;
+      if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
+    }
+    if (
+      prevProps.item.type === "youtube" &&
+      nextProps.item.type === "youtube"
+    ) {
+      const prevData = prevProps.item.data;
+      const nextData = nextProps.item.data;
+      if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
+    }
+    if (prevProps.item.type === "quiz" && nextProps.item.type === "quiz") {
+      const prevData = prevProps.item.data;
+      const nextData = nextProps.item.data;
+      if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
+    }
+    if (prevProps.item.type === "image" && nextProps.item.type === "image") {
+      const prevData = prevProps.item.data;
+      const nextData = nextProps.item.data;
+      if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
+    }
+    if (prevProps.item.type === "audio" && nextProps.item.type === "audio") {
+      const prevData = prevProps.item.data;
+      const nextData = nextProps.item.data;
+      if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
+    }
+    if (
+      prevProps.item.type === "document" &&
+      nextProps.item.type === "document"
+    ) {
+      const prevData = prevProps.item.data;
+      const nextData = nextProps.item.data;
+      if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
+    }
 
-  // Compare layout (use lg breakpoint for comparison)
-  const prevLayout = getLayoutForBreakpoint(prevProps.item, 'lg');
-  const nextLayout = getLayoutForBreakpoint(nextProps.item, 'lg');
-  if (prevLayout?.x !== nextLayout?.x) return false;
-  if (prevLayout?.y !== nextLayout?.y) return false;
-  if (prevLayout?.w !== nextLayout?.w) return false;
-  if (prevLayout?.h !== nextLayout?.h) return false;
+    // Compare layout (use lg breakpoint for comparison)
+    const prevLayout = getLayoutForBreakpoint(prevProps.item, "lg");
+    const nextLayout = getLayoutForBreakpoint(nextProps.item, "lg");
+    if (prevLayout?.x !== nextLayout?.x) return false;
+    if (prevLayout?.y !== nextLayout?.y) return false;
+    if (prevLayout?.w !== nextLayout?.w) return false;
+    if (prevLayout?.h !== nextLayout?.h) return false;
 
-  // NOTE: isSelected is now subscribed directly from the store, not a prop
+    // NOTE: isSelected is now subscribed directly from the store, not a prop
 
-  // Compare existingColors array (shallow comparison)
-  if (prevProps.existingColors.length !== nextProps.existingColors.length) return false;
-  if (prevProps.existingColors.some((color, i) => color !== nextProps.existingColors[i])) return false;
+    // Compare existingColors array (shallow comparison)
+    if (prevProps.existingColors.length !== nextProps.existingColors.length)
+      return false;
+    if (
+      prevProps.existingColors.some(
+        (color, i) => color !== nextProps.existingColors[i],
+      )
+    )
+      return false;
 
-  // NOTE: We intentionally do NOT compare callback references (onUpdateItem, onDeleteItem, etc.)
-  // These are action handlers that don't affect the rendered output.
-  // React Compiler handles memoization, and checking refs here causes unnecessary re-renders
-  // when parent components re-render and create new callback instances.
+    // NOTE: We intentionally do NOT compare callback references (onUpdateItem, onDeleteItem, etc.)
+    // These are action handlers that don't affect the rendered output.
+    // React Compiler handles memoization, and checking refs here causes unnecessary re-renders
+    // when parent components re-render and create new callback instances.
 
-  return true; // Props are equal, skip re-render
-});
+    return true; // Props are equal, skip re-render
+  },
+);
 
 // Export both the memoized version and original for backwards compatibility
 export { WorkspaceCardMemoized as WorkspaceCard };

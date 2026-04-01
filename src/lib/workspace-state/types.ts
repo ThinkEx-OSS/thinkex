@@ -1,13 +1,23 @@
-import type { CardColor } from './colors';
+import type { CardColor } from "./colors";
 
-export type CardType = "note" | "pdf" | "flashcard" | "folder" | "youtube" | "quiz" | "image" | "audio" | "website" | "document";
+export type CardType =
+  | "note"
+  | "pdf"
+  | "flashcard"
+  | "folder"
+  | "youtube"
+  | "quiz"
+  | "image"
+  | "audio"
+  | "website"
+  | "document";
 
 /**
  * Source attribution for notes created from web search.
  */
 export interface Source {
-  title: string;  // Title of the source page
-  url: string;    // URL of the source
+  title: string; // Title of the source page
+  url: string; // URL of the source
   favicon?: string; // Optional favicon URL
 }
 
@@ -65,7 +75,7 @@ export interface YouTubeData {
 }
 
 export interface ImageData {
-  url: string;      // The source URL of the image
+  url: string; // The source URL of the image
   altText?: string; // Optional accessibility text
   caption?: string; // Optional caption
   ocrStatus?: "complete" | "failed" | "processing";
@@ -87,10 +97,10 @@ export interface QuizQuestion {
   id: string;
   type: QuestionType;
   questionText: string;
-  options: string[];      // Answer options (4 for MC, 2 for T/F)
-  correctIndex: number;   // Index of correct answer in options array
-  hint?: string;          // Optional hint text
-  explanation: string;    // Explanation shown after answering
+  options: string[]; // Answer options (4 for MC, 2 for T/F)
+  correctIndex: number; // Index of correct answer in options array
+  hint?: string; // Optional hint text
+  explanation: string; // Explanation shown after answering
   sourceContext?: string; // Optional: excerpt from source material
 }
 
@@ -98,17 +108,17 @@ export interface QuizSessionData {
   currentIndex: number;
   answeredQuestions: {
     questionId: string;
-    userAnswer: number;   // Index selected by user
+    userAnswer: number; // Index selected by user
     isCorrect: boolean;
   }[];
-  startedAt?: number;     // Timestamp when quiz was started
-  completedAt?: number;   // Timestamp when quiz was completed
+  startedAt?: number; // Timestamp when quiz was started
+  completedAt?: number; // Timestamp when quiz was completed
 }
 
 export interface QuizData {
   title?: string;
   questions: QuizQuestion[];
-  session?: QuizSessionData;    // Session state for resuming
+  session?: QuizSessionData; // Session state for resuming
 }
 
 // Audio Types
@@ -123,21 +133,21 @@ export interface AudioSegment {
 }
 
 export interface AudioData {
-  fileUrl: string;          // Supabase/local storage URL
-  filename: string;         // Original filename
-  fileSize?: number;        // File size in bytes
-  duration?: number;        // Duration in seconds
-  mimeType?: string;        // MIME type of the audio file
-  summary?: string;         // Gemini-generated summary
-  transcript?: string;      // Full plain-text transcript
-  segments?: AudioSegment[];// Timestamped speaker segments
+  fileUrl: string; // Supabase/local storage URL
+  filename: string; // Original filename
+  fileSize?: number; // File size in bytes
+  duration?: number; // Duration in seconds
+  mimeType?: string; // MIME type of the audio file
+  summary?: string; // Gemini-generated summary
+  transcript?: string; // Full plain-text transcript
+  segments?: AudioSegment[]; // Timestamped speaker segments
   processingStatus: "uploading" | "processing" | "complete" | "failed";
-  error?: string;           // Error message if processing failed
+  error?: string; // Error message if processing failed
 }
 
 export interface WebsiteData {
-  url: string;       // The website URL to embed
-  favicon?: string;  // Favicon URL (e.g. from Google's favicon API)
+  url: string; // The website URL to embed
+  favicon?: string; // Favicon URL (e.g. from Google's favicon API)
 }
 
 export interface DocumentData {
@@ -145,7 +155,17 @@ export interface DocumentData {
   sources?: Source[];
 }
 
-export type ItemData = NoteData | PdfData | FlashcardData | FolderData | YouTubeData | QuizData | ImageData | AudioData | WebsiteData | DocumentData;
+export type ItemData =
+  | NoteData
+  | PdfData
+  | FlashcardData
+  | FolderData
+  | YouTubeData
+  | QuizData
+  | ImageData
+  | AudioData
+  | WebsiteData
+  | DocumentData;
 
 // =====================================================
 // FOLDER TYPES (DEPRECATED)
@@ -179,7 +199,7 @@ export interface LayoutPosition {
 
 /** Responsive layouts for different breakpoints */
 export interface ResponsiveLayouts {
-  lg?: LayoutPosition;  // 4-column layout
+  lg?: LayoutPosition; // 4-column layout
   xxs?: LayoutPosition; // 1-column layout
 }
 
@@ -197,7 +217,6 @@ export interface Item {
    * (old format), which will be treated as the 'lg' layout.
    */
   layout?: ResponsiveLayouts | LayoutPosition;
-  lastSource?: 'user' | 'agent';
   /** Timestamp (ms) when item was last modified. Set by event reducer. Used for AI conflict detection. */
   lastModified?: number;
 }
@@ -223,8 +242,8 @@ export type PermissionLevel = "viewer" | "editor" | "admin";
 export type {
   Workspace,
   WorkspaceWithState,
-  UserProfile
-} from '@/lib/db/types';
+  UserProfile,
+} from "@/lib/db/types";
 
 // Legacy interface for backward compatibility (DEPRECATED - use Drizzle types instead)
 /** @deprecated Use Workspace from @/lib/db/types instead */

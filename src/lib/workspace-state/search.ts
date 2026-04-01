@@ -1,7 +1,7 @@
 import type { Item, NoteData, PdfData, DocumentData } from "./types";
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
 import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
-import { type Block } from "@/components/editor/BlockNoteEditor";
+import { type Block } from "@/components/editor/blocknote-shared";
 
 /**
  * Extracts searchable text from an item's data field
@@ -12,7 +12,10 @@ function getSearchableDataText(item: Item): string {
   switch (type) {
     case "note": {
       const noteData = data as NoteData;
-      if (Array.isArray(noteData.blockContent) && noteData.blockContent.length > 0) {
+      if (
+        Array.isArray(noteData.blockContent) &&
+        noteData.blockContent.length > 0
+      ) {
         const content = serializeBlockNote(noteData.blockContent as Block[]);
         if (content) return content;
       }
@@ -46,10 +49,7 @@ function createFullSearchIndex(item: Item): string {
     getSearchableDataText(item),
   ];
 
-  return parts
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
+  return parts.filter(Boolean).join(" ").toLowerCase();
 }
 
 /**
@@ -57,16 +57,9 @@ function createFullSearchIndex(item: Item): string {
  * Used for mentions menu search
  */
 function createSimpleSearchIndex(item: Item): string {
-  const parts = [
-    item.name,
-    item.subtitle,
-    item.type,
-  ];
+  const parts = [item.name, item.subtitle, item.type];
 
-  return parts
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
+  return parts.filter(Boolean).join(" ").toLowerCase();
 }
 
 /**
@@ -76,7 +69,7 @@ function createSimpleSearchIndex(item: Item): string {
 export function searchItems(items: Item[], query: string): Item[] {
   // Defensive check: ensure items is an array
   if (!Array.isArray(items)) {
-    console.warn('[SEARCH] items is not an array:', items);
+    console.warn("[SEARCH] items is not an array:", items);
     return [];
   }
 
@@ -86,7 +79,9 @@ export function searchItems(items: Item[], query: string): Item[] {
   }
 
   const normalizedQuery = query.toLowerCase().trim();
-  const queryTerms = normalizedQuery.split(/\s+/).filter(term => term.length > 0);
+  const queryTerms = normalizedQuery
+    .split(/\s+/)
+    .filter((term) => term.length > 0);
 
   // If no valid query terms after trimming, return all items
   if (queryTerms.length === 0) {
@@ -110,7 +105,7 @@ export function searchItems(items: Item[], query: string): Item[] {
 export function searchItemsByName(items: Item[], query: string): Item[] {
   // Defensive check: ensure items is an array
   if (!Array.isArray(items)) {
-    console.warn('[SEARCH] items is not an array:', items);
+    console.warn("[SEARCH] items is not an array:", items);
     return [];
   }
 
@@ -120,7 +115,9 @@ export function searchItemsByName(items: Item[], query: string): Item[] {
   }
 
   const normalizedQuery = query.toLowerCase().trim();
-  const queryTerms = normalizedQuery.split(/\s+/).filter(term => term.length > 0);
+  const queryTerms = normalizedQuery
+    .split(/\s+/)
+    .filter((term) => term.length > 0);
 
   // If no valid query terms after trimming, return all items
   if (queryTerms.length === 0) {
@@ -137,23 +134,26 @@ export function searchItemsByName(items: Item[], query: string): Item[] {
   return filtered;
 }
 
-
-
 /**
  * Filters items based on folder
  * Returns only items that belong to the specified folder
  * When folderId is null, returns only items without a folderId (root items)
  */
-export function filterItemsByFolder(items: Item[], folderId: string | null): Item[] {
+export function filterItemsByFolder(
+  items: Item[],
+  folderId: string | null,
+): Item[] {
   // Defensive check: ensure items is an array
   if (!Array.isArray(items)) {
-    console.warn('[FILTER] items is not an array:', items);
+    console.warn("[FILTER] items is not an array:", items);
     return [];
   }
 
   // Return root items (items without a folderId) when no folder is selected
   if (!folderId) {
-    return items.filter((item) => item.folderId === undefined || item.folderId === null);
+    return items.filter(
+      (item) => item.folderId === undefined || item.folderId === null,
+    );
   }
 
   // Filter items that belong to the specified folder
@@ -167,12 +167,12 @@ export function filterItemsByFolder(items: Item[], folderId: string | null): Ite
 export function filterItems(
   items: Item[],
   query: string,
-  activeFolderId?: string | null
+  activeFolderId?: string | null,
 ): Item[] {
   let filtered = items;
 
   // 1. Text Search
-  if (query && query.trim() !== '') {
+  if (query && query.trim() !== "") {
     filtered = searchItems(filtered, query);
   }
 
@@ -181,7 +181,7 @@ export function filterItems(
   // - We are actively looking at a folder (activeFolderId is not null/undefined)
   // - We are NOT searching (query is empty)
   // This means search results search the WHOLE workspace, not just the current folder
-  if (activeFolderId !== undefined && (!query || query.trim() === '')) {
+  if (activeFolderId !== undefined && (!query || query.trim() === "")) {
     filtered = filterItemsByFolder(filtered, activeFolderId);
   }
 
@@ -202,11 +202,11 @@ export function getMatchingItemIds(items: Item[], query: string): Set<string> {
  */
 export function getFolderPath(folderId: string, items: Item[]): Item[] {
   const path: Item[] = [];
-  let current = items.find(i => i.id === folderId && i.type === 'folder');
+  let current = items.find((i) => i.id === folderId && i.type === "folder");
   while (current) {
     path.unshift(current);
     current = current.folderId
-      ? items.find(i => i.id === current?.folderId && i.type === 'folder')
+      ? items.find((i) => i.id === current?.folderId && i.type === "folder")
       : undefined;
   }
   return path;
@@ -218,10 +218,13 @@ export function getFolderPath(folderId: string, items: Item[]): Item[] {
  * @param items - All items in the workspace
  * @returns Array of folder items that are direct children of the parent
  */
-export function getChildFolders(parentId: string | null, items: Item[]): Item[] {
-  return items.filter(i =>
-    i.type === 'folder' &&
-    (parentId ? i.folderId === parentId : !i.folderId)
+export function getChildFolders(
+  parentId: string | null,
+  items: Item[],
+): Item[] {
+  return items.filter(
+    (i) =>
+      i.type === "folder" && (parentId ? i.folderId === parentId : !i.folderId),
   );
 }
 
@@ -232,12 +235,16 @@ export function getChildFolders(parentId: string | null, items: Item[]): Item[] 
  * @param items - All items in the workspace
  * @returns True if folderId is a descendant of potentialAncestorId
  */
-export function isDescendantOf(folderId: string, potentialAncestorId: string, items: Item[]): boolean {
+export function isDescendantOf(
+  folderId: string,
+  potentialAncestorId: string,
+  items: Item[],
+): boolean {
   // Walk up the tree from folderId to check if potentialAncestorId is an ancestor
-  let current = items.find(i => i.id === folderId);
+  let current = items.find((i) => i.id === folderId);
   while (current?.folderId) {
     if (current.folderId === potentialAncestorId) return true;
-    current = items.find(i => i.id === current?.folderId);
+    current = items.find((i) => i.id === current?.folderId);
   }
   return false;
 }
@@ -247,7 +254,10 @@ export function isDescendantOf(folderId: string, potentialAncestorId: string, it
  * Excludes the folder itself - returns only its ancestors.
  * Used for cycle prevention when creating folders from selection.
  */
-export function getAncestorFolderIds(folderId: string | null, items: Item[]): Set<string> {
+export function getAncestorFolderIds(
+  folderId: string | null,
+  items: Item[],
+): Set<string> {
   if (!folderId) return new Set();
   const path = getFolderPath(folderId, items);
   // Ancestors are all folders in path except the last (the folder itself)
@@ -264,11 +274,14 @@ export function getAncestorFolderIds(folderId: string | null, items: Item[]): Se
 export function filterItemIdsForFolderCreation(
   itemIds: string[],
   parentFolderId: string | null,
-  items: Item[]
+  items: Item[],
 ): string[] {
   if (!parentFolderId) return itemIds; // At root, no cycle possible
 
-  const idsToExclude = new Set([parentFolderId, ...getAncestorFolderIds(parentFolderId, items)]);
+  const idsToExclude = new Set([
+    parentFolderId,
+    ...getAncestorFolderIds(parentFolderId, items),
+  ]);
 
   return itemIds.filter((id) => !idsToExclude.has(id));
 }
@@ -301,7 +314,7 @@ const SNIPPET_CONTEXT_CHARS = 40;
  */
 function getContentMatchSnippet(
   contentText: string,
-  queryTerms: string[]
+  queryTerms: string[],
 ): ContentMatchSnippet | null {
   if (!contentText || queryTerms.length === 0) return null;
 
@@ -327,11 +340,18 @@ function getContentMatchSnippet(
   }
 
   const beforeStart = Math.max(0, bestStart - SNIPPET_CONTEXT_CHARS);
-  const afterEnd = Math.min(contentText.length, bestEnd + SNIPPET_CONTEXT_CHARS);
+  const afterEnd = Math.min(
+    contentText.length,
+    bestEnd + SNIPPET_CONTEXT_CHARS,
+  );
 
-  const before = (beforeStart > 0 ? "…" : "") + contentText.slice(beforeStart, bestStart).trimStart();
+  const before =
+    (beforeStart > 0 ? "…" : "") +
+    contentText.slice(beforeStart, bestStart).trimStart();
   const match = contentText.slice(bestStart, bestEnd);
-  const after = contentText.slice(bestEnd, afterEnd).trimEnd() + (afterEnd < contentText.length ? "…" : "");
+  const after =
+    contentText.slice(bestEnd, afterEnd).trimEnd() +
+    (afterEnd < contentText.length ? "…" : "");
 
   return { before, match, after };
 }
@@ -342,13 +362,15 @@ function getContentMatchSnippet(
  */
 export function rankWorkspaceSearchResults(
   items: Item[],
-  query: string
+  query: string,
 ): RankedSearchResult[] {
   if (!Array.isArray(items) || items.length === 0) return [];
   if (!query || !query.trim()) return [];
 
   const normalizedQuery = query.toLowerCase().trim();
-  const queryTerms = normalizedQuery.split(/\s+/).filter((term) => term.length > 0);
+  const queryTerms = normalizedQuery
+    .split(/\s+/)
+    .filter((term) => term.length > 0);
   if (queryTerms.length === 0) return [];
 
   const results: RankedSearchResult[] = [];
@@ -357,7 +379,9 @@ export function rankWorkspaceSearchResults(
     const nameLower = (item.name ?? "").toLowerCase().trim();
     const subtitleLower = (item.subtitle ?? "").toLowerCase();
     const typeLower = (item.type ?? "").toLowerCase();
-    const metaIndex = [nameLower, subtitleLower, typeLower].filter(Boolean).join(" ");
+    const metaIndex = [nameLower, subtitleLower, typeLower]
+      .filter(Boolean)
+      .join(" ");
     const contentText = getSearchableDataText(item).toLowerCase();
 
     let score = 0;

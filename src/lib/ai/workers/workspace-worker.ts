@@ -36,7 +36,7 @@ import {
 import { parseJsonWithRepair } from "@/lib/utils/json-repair";
 import { getNoteContentAsMarkdown } from "@/lib/utils/format-workspace-context";
 import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
-import type { Block } from "@/components/editor/BlockNoteEditor";
+import type { Block } from "@/components/editor/blocknote-shared";
 import { buildPdfDataFromUpload } from "@/lib/pdf/pdf-item";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
 
@@ -793,7 +793,7 @@ export async function workspaceWorker(
             logger.time("📝 [UPDATE-NOTE] Event creation");
             const event = createEvent(
               "ITEM_UPDATED",
-              { id: params.itemId, changes, source: "agent", name: itemName },
+              { id: params.itemId, changes, name: itemName },
               userId,
               userName,
             );
@@ -977,7 +977,6 @@ export async function workspaceWorker(
             {
               id: params.itemId,
               changes,
-              source: "agent",
               name: changes.name ?? existingItem.name,
             },
             userId,
@@ -1113,7 +1112,6 @@ export async function workspaceWorker(
             {
               id: params.itemId,
               changes,
-              source: "agent",
               name: changes.name ?? existingItem.name,
             },
             userId,
@@ -1266,7 +1264,6 @@ export async function workspaceWorker(
             {
               id: params.itemId,
               changes,
-              source: "agent",
               name: changes.name ?? existingItem.name,
             },
             userId,
@@ -1372,7 +1369,6 @@ export async function workspaceWorker(
             {
               id: params.itemId,
               changes,
-              source: "agent",
               name: existingItem.name,
             },
             userId,
@@ -1518,7 +1514,7 @@ export async function workspaceWorker(
             const itemName = (changes.name ?? existingItem.name) as string;
             const event = createEvent(
               "ITEM_UPDATED",
-              { id: params.itemId, changes, source: "agent", name: itemName },
+              { id: params.itemId, changes, name: itemName },
               userId,
               userName,
             );
@@ -1663,7 +1659,6 @@ export async function workspaceWorker(
               {
                 id: params.itemId,
                 changes,
-                source: "agent",
                 name: changes.name ?? existingItem.name,
               },
               userId,
@@ -1799,7 +1794,6 @@ export async function workspaceWorker(
               {
                 id: params.itemId,
                 changes,
-                source: "agent",
                 name: changes.name ?? existingItem.name,
               },
               userId,
@@ -1909,7 +1903,7 @@ export async function workspaceWorker(
             const itemName = (changes.name ?? existingItem.name) as string;
             const event = createEvent(
               "ITEM_UPDATED",
-              { id: params.itemId, changes, source: "agent", name: itemName },
+              { id: params.itemId, changes, name: itemName },
               userId,
               userName,
             );
@@ -1991,7 +1985,7 @@ export async function workspaceWorker(
             const changes: Partial<Item> = { name: rename };
             const event = createEvent(
               "ITEM_UPDATED",
-              { id: params.itemId, changes, source: "agent", name: rename },
+              { id: params.itemId, changes, name: rename },
               userId,
               userName,
             );

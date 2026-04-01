@@ -128,10 +128,14 @@ interface DocumentEditorProps {
   contentType?: "json" | "markdown";
   editorClassName?: string;
   embedded?: boolean;
-  lastSource?: "user" | "agent";
   onUpdate?: (update: DocumentEditorUpdate) => void;
   showThemeToggle?: boolean;
 }
+
+const EMPTY_DOCUMENT_JSON: JSONContent = {
+  type: "doc",
+  content: [{ type: "paragraph" }],
+};
 
 const HEADING_LEVELS: Level[] = [1, 2, 3];
 const LIST_TYPES: ListType[] = ["bulletList", "orderedList", "taskList"];
@@ -837,15 +841,15 @@ export function DocumentEditor({
   contentType,
   editorClassName,
   embedded = false,
-  lastSource,
   onUpdate,
   showThemeToggle = true,
 }: DocumentEditorProps = {}) {
   const isMobile = useIsBreakpoint();
   const { height } = useWindowSize();
   const [mobileView, setMobileView] = useState<"main" | "highlighter">("main");
+  const [toolbarHeight, setToolbarHeight] = useState(0);
   const toolbarRef = useRef<HTMLDivElement>(null);
-  const previousContent = useRef<string | null>(null);
+  const activeMobileView = isMobile ? mobileView : "main";
 
   // Stable ref so closures created inside useEditor always access the live editor
   const editorRef = useRef<Editor | null>(null);
@@ -859,8 +863,7 @@ export function DocumentEditor({
     type: "inline" | "block";
   }>({ open: false, latex: "", title: "", pos: 0, type: "inline" });
 
-  // Stable ref so the Mathematics onClick closures (frozen at init) can call it
-  const openMathDialogRef = useRef(
+  const openMathDialog = useCallback(
     (latex: string, pos: number, type: "inline" | "block") => {
       setMathEdit({
         open: true,
@@ -870,6 +873,7 @@ export function DocumentEditor({
         type,
       });
     },
+    [],
   );
 
   const closeMathDialog = useCallback(() => {
@@ -946,12 +950,12 @@ export function DocumentEditor({
       Mathematics.configure({
         inlineOptions: {
           onClick: (node, pos) => {
-            openMathDialogRef.current(node.attrs.latex || "", pos, "inline");
+            openMathDialog(node.attrs.latex || "", pos, "inline");
           },
         },
         blockOptions: {
           onClick: (node, pos) => {
-            openMathDialogRef.current(node.attrs.latex || "", pos, "block");
+            openMathDialog(node.attrs.latex || "", pos, "block");
           },
         },
         katexOptions: {
@@ -1000,36 +1004,48 @@ export function DocumentEditor({
     editorRef.current = editor;
   }, [editor]);
 
+  useEffect(() => {
+    const toolbar = toolbarRef.current;
+    if (!toolbar) return;
+
+    const updateToolbarHeight = () => {
+      setToolbarHeight(toolbar.getBoundingClientRect().height);
+    };
+
+    const observer = new ResizeObserver(updateToolbarHeight);
+    observer.observe(toolbar);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
   const rect = useCursorVisibility({
     editor,
-    overlayHeight: toolbarRef.current?.getBoundingClientRect().height ?? 0,
+    overlayHeight: toolbarHeight,
   });
 
-  // Sync content when updated by AGENT (prevents cursor jumping on user input)
+  // Sync incoming content only when it actually differs from the live editor state.
   useEffect(() => {
-    if (lastSource !== "agent" || !editor) return;
-
-    const contentStr =
-      typeof content === "string" ? content : JSON.stringify(content);
-    if (contentStr === previousContent.current) return;
-    previousContent.current = contentStr;
+    if (!editor) return;
 
     queueMicrotask(() => {
       if (contentType === "markdown" && typeof content === "string") {
+        if (editor.getMarkdown?.() === content) return;
         editor.commands.setContent(content, {
           contentType: "markdown" as const,
+          emitUpdate: false,
         });
-      } else if (content) {
-        editor.commands.setContent(content);
+        return;
       }
-    });
-  }, [editor, content, contentType, lastSource]);
 
-  useEffect(() => {
-    if (!isMobile && mobileView !== "main") {
-      setMobileView("main");
-    }
-  }, [isMobile, mobileView]);
+      const nextContent = content ?? EMPTY_DOCUMENT_JSON;
+      if (JSON.stringify(editor.getJSON()) === JSON.stringify(nextContent))
+        return;
+
+      editor.commands.setContent(nextContent, { emitUpdate: false });
+    });
+  }, [editor, content, contentType]);
 
   return (
     <div
@@ -1059,7 +1075,7 @@ export function DocumentEditor({
               : {}),
           }}
         >
-          {mobileView === "main" ? (
+          {activeMobileView === "main" ? (
             <MainToolbarContent
               editor={editor}
               onHighlighterClick={() => setMobileView("highlighter")}

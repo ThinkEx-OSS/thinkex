@@ -1,306 +1,168 @@
 "use client";
 
-import { useCallback, useMemo, useState, useEffect } from "react";
-import type { Item, ItemData, FlashcardData, FlashcardItem } from "@/lib/workspace-state/types";
-import { LazyBlockNoteEditor } from "@/components/editor/LazyBlockNoteEditor";
+import { useMemo } from "react";
+import type {
+  Item,
+  ItemData,
+  FlashcardData,
+  FlashcardItem,
+} from "@/lib/workspace-state/types";
 import { PreviewBlock } from "@/components/editor/BlockNotePreview";
-import { plainTextToBlocks, type Block } from "@/components/editor/BlockNoteEditor";
-import { Plus, Trash2 } from "lucide-react";
-import { generateItemId } from "@/lib/workspace-state/item-helpers";
+import {
+  plainTextToBlocks,
+  type Block,
+} from "@/components/editor/blocknote-shared";
 
 interface FlashcardContentProps {
-    item: Item;
-    onUpdateData: (updater: (prev: ItemData) => ItemData) => void;
+  item: Item;
+  onUpdateData: (updater: (prev: ItemData) => ItemData) => void;
 }
 
-export function FlashcardContent({ item, onUpdateData }: FlashcardContentProps) {
-    const flashcardData = item.data as FlashcardData;
-    const [activeSection, setActiveSection] = useState<{ cardId: string, side: 'front' | 'back' } | null>(null);
+function getBlocks(blocks?: Block[] | null, fallbackText?: string): Block[] {
+  if (blocks && Array.isArray(blocks) && blocks.length > 0) {
+    return blocks as Block[];
+  }
 
-    // --- MIGRATION & DATA SYNC ---
-    // Ensure 'cards' array exists. If not, migrate legacy single card to array.
-    const hasMigratedRef = useState(false); // Ref-like state to track migration per mount
+  return plainTextToBlocks(fallbackText || "");
+}
 
-    useEffect(() => {
-        if (!flashcardData.cards || flashcardData.cards.length === 0) {
-            // Check for legacy content
-            if (flashcardData.front || flashcardData.frontBlocks || flashcardData.back || flashcardData.backBlocks) {
-                // Migrate legacy content to first card
-                const legacyCard: FlashcardItem = {
-                    id: generateItemId(),
-                    front: flashcardData.front || "",
-                    back: flashcardData.back || "",
-                    frontBlocks: flashcardData.frontBlocks || [],
-                    backBlocks: flashcardData.backBlocks || []
-                };
-                onUpdateData(prev => ({ ...prev, cards: [legacyCard] }));
-            } else {
-                // Initialize with empty card if absolutely no data
-                onUpdateData(prev => ({
-                    ...prev,
-                    cards: [{
-                        id: generateItemId(),
-                        front: "",
-                        back: "",
-                        frontBlocks: [],
-                        backBlocks: []
-                    }]
-                }));
-            }
-        }
-    }, [flashcardData.cards, flashcardData.front, flashcardData.back, onUpdateData]);
-
-    const cards = flashcardData.cards || [];
-
-    // --- HELPERS ---
-
-    const getBlocks = useCallback((blocks?: Block[] | null, fallbackText?: string) => {
-        if (blocks && Array.isArray(blocks) && blocks.length > 0) return blocks as Block[];
-        return plainTextToBlocks(fallbackText || "");
-    }, []);
-
-    const blocksToPlainText = useCallback((blocks: Block[]): string => {
-        if (!blocks || blocks.length === 0) return "";
-        return blocks
-            .map((block) => {
-                const blockData = block as { content?: Array<{ text?: string }> };
-                if (blockData.content && Array.isArray(blockData.content)) {
-                    return blockData.content.map((item) => item.text || "").join("");
-                }
-                return "";
-            })
-            .join("\n");
-    }, []);
-
-    const updateCard = useCallback((cardId: string, updates: Partial<FlashcardItem>) => {
-        onUpdateData((prev) => {
-            const currentData = prev as FlashcardData;
-            const newCards = currentData.cards.map(card =>
-                card.id === cardId ? { ...card, ...updates } : card
-            );
-            return { ...prev, cards: newCards };
-        });
-    }, [onUpdateData]);
-
-    const addCard = useCallback(() => {
-        const newCard: FlashcardItem = {
-            id: generateItemId(),
-            front: "",
-            back: "",
-            frontBlocks: [],
-            backBlocks: []
-        };
-        onUpdateData((prev) => {
-            const currentData = prev as FlashcardData;
-            return { ...prev, cards: [...(currentData.cards || []), newCard] };
-        });
-    }, [onUpdateData]);
-
-    const removeCard = useCallback((cardId: string) => {
-        onUpdateData((prev) => {
-            const currentData = prev as FlashcardData;
-            // Don't remove the last card
-            if (currentData?.cards?.length <= 1) return prev;
-            return { ...prev, cards: currentData.cards.filter(c => c.id !== cardId) };
-        });
-    }, [onUpdateData]);
-
-    // Exit edit mode on outside click or Escape
-    useEffect(() => {
-        if (!activeSection) return;
-
-        const editingKey = `editor-${activeSection.cardId}-${activeSection.side}`;
-
-        const handleClickOutside = (event: MouseEvent) => {
-            const editorEl = document.querySelector(`[data-editing-key="${editingKey}"]`);
-            if (!editorEl || !(event.target instanceof Node)) return;
-            if (!editorEl.contains(event.target)) {
-                setActiveSection(null);
-            }
-        };
-
-        const handleEscape = (event: KeyboardEvent) => {
-            if (event.key === "Escape") {
-                setActiveSection(null);
-            }
-        };
-
-        document.addEventListener("mousedown", handleClickOutside);
-        document.addEventListener("keydown", handleEscape);
-
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-            document.removeEventListener("keydown", handleEscape);
-        };
-    }, [activeSection]);
-
+function renderSide(blocks: Block[], emptyLabel: string) {
+  if (blocks.length === 0) {
     return (
-        <div className="flex-1 overflow-y-auto modal-scrollable">
-            <div className="max-w-5xl mx-auto p-6 pb-24">
-                <div className="space-y-6">
-                    {cards.map((card, index) => (
-                        <div
-                            key={card.id}
-                            className="relative group rounded-2xl border border-foreground/10 bg-foreground/5/50 p-5 shadow-inner dark:border-white/10 dark:bg-white/5/50"
-                            style={{ backdropFilter: 'blur(8px)' }}
-                        >
-                            <div className="absolute -top-3 -left-3">
-                                <div className="flex h-8 min-w-[2.2rem] items-center justify-center rounded-full bg-black/70 px-2 text-xs font-semibold text-foreground shadow-md dark:text-white">
-                                    #{index + 1}
-                                </div>
-                            </div>
-                            {/* Card Header / Controls */}
-                            {cards.length > 1 && (
-                                <div className="absolute -top-3 -right-3">
-                                    <button
-                                        onClick={() => removeCard(card.id)}
-                                        className="p-2 rounded-full bg-black/60 text-foreground/80 hover:text-foreground hover:bg-red-500/80 transition-colors shadow-md cursor-pointer dark:text-white/80 dark:hover:text-white"
-                                        title="Delete this card"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            )}
-
-                            <div className="space-y-6">
-                                {/* Front Editor */}
-                                <div
-                                    className={`relative transition-all duration-200 ${activeSection?.cardId === card.id && activeSection?.side === 'front'
-                                            ? 'z-30'
-                                            : 'z-20'
-                                        }`}
-                                    onClick={() => setActiveSection({ cardId: card.id, side: 'front' })}
-                                    onFocus={() => setActiveSection({ cardId: card.id, side: 'front' })}
-                                >
-                                    <label className="block text-sm font-medium text-foreground/70 mb-2 dark:text-white/70">Front</label>
-                                    {activeSection?.cardId === card.id && activeSection?.side === 'front' ? (
-                                        <div
-                                            data-editing-key={`editor-${card.id}-front`}
-                                            className="rounded-lg border border-foreground/15 bg-foreground/5 min-h-[150px] shadow-inner dark:border-white/15 dark:bg-white/5"
-                                            style={{ backdropFilter: 'blur(8px)' }}
-                                        >
-                                            <LazyBlockNoteEditor
-                                                initialContent={getBlocks(card.frontBlocks as Block[] || [], card.front)}
-                                                onChange={(blocks) => updateCard(card.id, {
-                                                    frontBlocks: blocks,
-                                                    front: blocksToPlainText(blocks)
-                                                })}
-                                                cardName={`${item.name} - Card ${index + 1} (Front)`}
-                                                cardId={`${card.id}-front`}
-                                            />
-                                        </div>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            className="group/editor relative w-full text-left rounded-lg border border-foreground/10 bg-foreground/5 min-h-[150px] overflow-hidden transition hover:border-foreground/20 hover:bg-foreground/10 cursor-pointer dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10"
-                                            style={{ backdropFilter: 'blur(8px)' }}
-                                            onClick={() => setActiveSection({ cardId: card.id, side: 'front' })}
-                                            aria-label="Click to edit front"
-                                        >
-                                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 pointer-events-none opacity-0 group-hover/editor:opacity-100 transition">
-                                                <span className="rounded-md bg-black/80 px-3 py-1.5 text-xs font-medium text-foreground shadow-md dark:text-white">
-                                                    Click to edit
-                                                </span>
-                                            </div>
-                                            <div className="relative z-0 p-3">
-                                                {getBlocks(card.frontBlocks as Block[] || [], card.front).length > 0 ? (
-                                                    <div className="relative min-h-[160px] space-y-2">
-                                                        {getBlocks(card.frontBlocks as Block[] || [], card.front).map((block, i, all) => (
-                                                            <PreviewBlock
-                                                                key={(block as any).id || i}
-                                                                block={block}
-                                                                index={i}
-                                                                blocks={all as Block[]}
-                                                                isScrollLocked={false}
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-sm text-foreground/40 dark:text-white/40">Click to edit</div>
-                                                )}
-                                            </div>
-                                        </button>
-                                    )}
-                                </div>
-
-                                {/* Back Editor */}
-                                <div
-                                    className={`relative transition-all duration-200 ${activeSection?.cardId === card.id && activeSection?.side === 'back'
-                                            ? 'z-30'
-                                            : 'z-10'
-                                        }`}
-                                    onClick={() => setActiveSection({ cardId: card.id, side: 'back' })}
-                                    onFocus={() => setActiveSection({ cardId: card.id, side: 'back' })}
-                                >
-                                    <label className="block text-sm font-medium text-foreground/70 mb-2 dark:text-white/70">Back</label>
-                                    {activeSection?.cardId === card.id && activeSection?.side === 'back' ? (
-                                        <div
-                                            data-editing-key={`editor-${card.id}-back`}
-                                            className="rounded-lg border border-foreground/15 bg-foreground/5 min-h-[150px] shadow-inner dark:border-white/15 dark:bg-white/5"
-                                            style={{ backdropFilter: 'blur(8px)' }}
-                                        >
-                                            <LazyBlockNoteEditor
-                                                initialContent={getBlocks(card.backBlocks as Block[] || [], card.back)}
-                                                onChange={(blocks) => updateCard(card.id, {
-                                                    backBlocks: blocks,
-                                                    back: blocksToPlainText(blocks)
-                                                })}
-                                                cardName={`${item.name} - Card ${index + 1} (Back)`}
-                                                cardId={`${card.id}-back`}
-                                            />
-                                        </div>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            className="group/editor relative w-full text-left rounded-lg border border-foreground/10 bg-foreground/5 min-h-[150px] overflow-hidden transition hover:border-foreground/20 hover:bg-foreground/10 cursor-pointer dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10"
-                                            style={{ backdropFilter: 'blur(8px)' }}
-                                            onClick={() => setActiveSection({ cardId: card.id, side: 'back' })}
-                                            aria-label="Click to edit back"
-                                        >
-                                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 pointer-events-none opacity-0 group-hover/editor:opacity-100 transition">
-                                                <span className="rounded-md bg-black/80 px-3 py-1.5 text-xs font-medium text-foreground shadow-md dark:text-white">
-                                                    Click to edit
-                                                </span>
-                                            </div>
-                                            <div className="relative z-0 p-3">
-                                                {getBlocks(card.backBlocks as Block[] || [], card.back).length > 0 ? (
-                                                    <div className="relative min-h-[160px] space-y-2">
-                                                        {getBlocks(card.backBlocks as Block[] || [], card.back).map((block, i, all) => (
-                                                            <PreviewBlock
-                                                                key={(block as any).id || i}
-                                                                block={block}
-                                                                index={i}
-                                                                blocks={all as Block[]}
-                                                                isScrollLocked={false}
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-sm text-foreground/40 dark:text-white/40">Click to edit</div>
-                                                )}
-                                            </div>
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-
-                        </div>
-                    ))}
-
-                    {/* Add Card Button */}
-                    <button
-                        onClick={addCard}
-                        className="w-full py-4 border-2 border-dashed border-foreground/10 hover:border-foreground/20 rounded-xl flex items-center justify-center gap-2 text-foreground/50 hover:text-foreground/80 transition-all group cursor-pointer dark:border-white/10 dark:hover:border-white/20 dark:text-white/50 dark:hover:text-white/80"
-                    >
-                        <div className="p-1 rounded-full bg-foreground/5 group-hover:bg-foreground/10 dark:bg-white/5 dark:group-hover:bg-white/10">
-                            <Plus className="w-5 h-5" />
-                        </div>
-                        <span className="font-medium">Add Flashcard</span>
-                    </button>
-                </div>
-            </div>
-        </div>
+      <div className="text-sm text-foreground/40 dark:text-white/40">
+        {emptyLabel}
+      </div>
     );
+  }
+
+  return (
+    <div className="relative min-h-[160px] space-y-2 p-3">
+      {blocks.map((block, index, allBlocks) => (
+        <PreviewBlock
+          key={(block as { id?: string }).id || index}
+          block={block}
+          index={index}
+          blocks={allBlocks}
+          isScrollLocked={false}
+        />
+      ))}
+    </div>
+  );
+}
+
+function FlashcardSidePreview({
+  title,
+  blocks,
+  emptyLabel,
+}: {
+  title: string;
+  blocks: Block[];
+  emptyLabel: string;
+}) {
+  return (
+    <div>
+      <div className="mb-2 block text-sm font-medium text-foreground/70 dark:text-white/70">
+        {title}
+      </div>
+      <div
+        className="rounded-lg border border-foreground/10 bg-foreground/5 min-h-[150px] overflow-hidden dark:border-white/10 dark:bg-white/5"
+        style={{ backdropFilter: "blur(8px)" }}
+      >
+        {renderSide(blocks, emptyLabel)}
+      </div>
+    </div>
+  );
+}
+
+export function FlashcardContent({ item }: FlashcardContentProps) {
+  const flashcardData = item.data as FlashcardData;
+
+  const cards = useMemo(() => {
+    if (flashcardData.cards && flashcardData.cards.length > 0) {
+      return flashcardData.cards;
+    }
+
+    if (
+      flashcardData.front ||
+      (Array.isArray(flashcardData.frontBlocks) &&
+        flashcardData.frontBlocks.length > 0) ||
+      flashcardData.back ||
+      (Array.isArray(flashcardData.backBlocks) &&
+        flashcardData.backBlocks.length > 0)
+    ) {
+      return [
+        {
+          id: item.id,
+          front: flashcardData.front || "",
+          back: flashcardData.back || "",
+          frontBlocks: flashcardData.frontBlocks || [],
+          backBlocks: flashcardData.backBlocks || [],
+        } as FlashcardItem,
+      ];
+    }
+
+    return [];
+  }, [
+    flashcardData.back,
+    flashcardData.backBlocks,
+    flashcardData.cards,
+    flashcardData.front,
+    flashcardData.frontBlocks,
+    item.id,
+  ]);
+
+  return (
+    <div className="flex-1 overflow-y-auto modal-scrollable">
+      <div className="max-w-5xl mx-auto p-6 pb-24">
+        {cards.length === 0 ? (
+          <div className="rounded-2xl border border-foreground/10 bg-foreground/5/50 p-5 text-sm text-foreground/50 shadow-inner dark:border-white/10 dark:bg-white/5/50 dark:text-white/50">
+            No flashcards available.
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {cards.map((card, index) => {
+              const frontBlocks = getBlocks(
+                card.frontBlocks as Block[] | undefined,
+                card.front,
+              );
+              const backBlocks = getBlocks(
+                card.backBlocks as Block[] | undefined,
+                card.back,
+              );
+
+              return (
+                <div
+                  key={card.id}
+                  className="relative rounded-2xl border border-foreground/10 bg-foreground/5/50 p-5 shadow-inner dark:border-white/10 dark:bg-white/5/50"
+                  style={{ backdropFilter: "blur(8px)" }}
+                >
+                  <div className="absolute -top-3 -left-3">
+                    <div className="flex h-8 min-w-[2.2rem] items-center justify-center rounded-full bg-black/70 px-2 text-xs font-semibold text-foreground shadow-md dark:text-white">
+                      #{index + 1}
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <FlashcardSidePreview
+                      title="Front"
+                      blocks={frontBlocks}
+                      emptyLabel="No front content"
+                    />
+
+                    <FlashcardSidePreview
+                      title="Back"
+                      blocks={backBlocks}
+                      emptyLabel="No back content"
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default FlashcardContent;

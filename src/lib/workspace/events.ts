@@ -1,5 +1,5 @@
 import type { Item, AgentState, Folder } from "@/lib/workspace-state/types";
-import type { WorkspaceSnapshot } from '@/lib/db/types';
+import type { WorkspaceSnapshot } from "@/lib/db/types";
 
 /**
  * Event Sourcing: All workspace changes are represented as immutable events
@@ -8,151 +8,159 @@ import type { WorkspaceSnapshot } from '@/lib/db/types';
 
 type WorkspaceEventBase =
   | {
-    type: 'WORKSPACE_CREATED';
-    payload: { title: string; description: string };
-    timestamp: number;
-    userId: string;
-    userName?: string;
-    id: string;
-  }
+      type: "WORKSPACE_CREATED";
+      payload: { title: string; description: string };
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
+    }
   | {
-    type: 'ITEM_CREATED';
-    payload: { id: string; item: Item };
-    timestamp: number;
-    userId: string;
-    userName?: string;
-    id: string;
-  }
+      type: "ITEM_CREATED";
+      payload: { id: string; item: Item };
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
+    }
   | {
-    type: 'ITEM_UPDATED';
-    payload: { id: string; changes: Partial<Item>; source?: 'user' | 'agent'; name?: string };
-    timestamp: number;
-    userId: string;
-    userName?: string;
-    id: string;
-  }
+      type: "ITEM_UPDATED";
+      payload: { id: string; changes: Partial<Item>; name?: string };
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
+    }
   | {
-    type: 'BULK_ITEMS_PATCHED';
-    payload: {
-      updates: Array<{
-        id: string;
-        changes: Partial<Item>;
-        source?: 'user' | 'agent';
-        name?: string;
-      }>;
+      type: "BULK_ITEMS_PATCHED";
+      payload: {
+        updates: Array<{
+          id: string;
+          changes: Partial<Item>;
+          name?: string;
+        }>;
+      };
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
+    }
+  | {
+      type: "ITEM_DELETED";
+      payload: { id: string; name?: string };
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
+    }
+  | {
+      type: "GLOBAL_TITLE_SET";
+      payload: { title: string };
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
+    }
+  | {
+      type: "GLOBAL_DESCRIPTION_SET";
+      payload: { description: string };
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
+    }
+  | {
+      type: "WORKSPACE_SNAPSHOT";
+      payload: AgentState;
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
+    }
+  | {
+      type: "BULK_ITEMS_UPDATED";
+      payload: {
+        layoutUpdates?: Array<{
+          id: string;
+          x: number;
+          y: number;
+          w: number;
+          h: number;
+        }>;
+        previousItemCount?: number;
+        /** IDs of items to delete – minimal payload for bulk delete (no item data sent) */
+        deletedIds?: string[];
+        /** New items to append – only the added items, not full list */
+        addedItems?: Item[];
+        /** @deprecated Legacy: full items array. Prefer deletedIds/addedItems. */
+        items?: Item[];
+      };
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
+    }
+  | {
+      type: "BULK_ITEMS_CREATED";
+      // Create multiple items atomically in a single event
+      payload: { items: Item[] };
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
+    }
+  | {
+      type: "FOLDER_CREATED";
+      payload: { folder: Folder };
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
+    }
+  | {
+      type: "FOLDER_UPDATED";
+      payload: { id: string; changes: Partial<Folder>; name?: string };
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
+    }
+  | {
+      type: "FOLDER_DELETED";
+      payload: { id: string; name?: string };
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
+    }
+  | {
+      type: "ITEM_MOVED_TO_FOLDER";
+      payload: { itemId: string; folderId: string | null; itemName?: string }; // null = remove from folder
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
+    }
+  | {
+      type: "ITEMS_MOVED_TO_FOLDER";
+      payload: {
+        itemIds: string[];
+        folderId: string | null;
+        itemNames?: string[];
+      }; // Bulk operation
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
+    }
+  | {
+      type: "FOLDER_CREATED_WITH_ITEMS";
+      payload: { folder: Item; itemIds: string[] }; // Create folder and move items atomically
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
     };
-    timestamp: number;
-    userId: string;
-    userName?: string;
-    id: string;
-  }
-  | {
-    type: 'ITEM_DELETED';
-    payload: { id: string; name?: string };
-    timestamp: number;
-    userId: string;
-    userName?: string;
-    id: string;
-  }
-  | {
-    type: 'GLOBAL_TITLE_SET';
-    payload: { title: string };
-    timestamp: number;
-    userId: string;
-    userName?: string;
-    id: string;
-  }
-  | {
-    type: 'GLOBAL_DESCRIPTION_SET';
-    payload: { description: string };
-    timestamp: number;
-    userId: string;
-    userName?: string;
-    id: string;
-  }
-  | {
-    type: 'WORKSPACE_SNAPSHOT';
-    payload: AgentState;
-    timestamp: number;
-    userId: string;
-    userName?: string;
-    id: string;
-  }
-  | {
-    type: 'BULK_ITEMS_UPDATED';
-    payload: {
-      layoutUpdates?: Array<{ id: string; x: number; y: number; w: number; h: number }>;
-      previousItemCount?: number;
-      /** IDs of items to delete – minimal payload for bulk delete (no item data sent) */
-      deletedIds?: string[];
-      /** New items to append – only the added items, not full list */
-      addedItems?: Item[];
-      /** @deprecated Legacy: full items array. Prefer deletedIds/addedItems. */
-      items?: Item[];
-    };
-    timestamp: number;
-    userId: string;
-    userName?: string;
-    id: string;
-  }
-  | {
-    type: 'BULK_ITEMS_CREATED';
-    // Create multiple items atomically in a single event
-    payload: { items: Item[] };
-    timestamp: number;
-    userId: string;
-    userName?: string;
-    id: string;
-  }
-
-  | {
-    type: 'FOLDER_CREATED';
-    payload: { folder: Folder };
-    timestamp: number;
-    userId: string;
-    userName?: string;
-    id: string;
-  }
-  | {
-    type: 'FOLDER_UPDATED';
-    payload: { id: string; changes: Partial<Folder>; name?: string };
-    timestamp: number;
-    userId: string;
-    userName?: string;
-    id: string;
-  }
-  | {
-    type: 'FOLDER_DELETED';
-    payload: { id: string; name?: string };
-    timestamp: number;
-    userId: string;
-    userName?: string;
-    id: string;
-  }
-  | {
-    type: 'ITEM_MOVED_TO_FOLDER';
-    payload: { itemId: string; folderId: string | null; itemName?: string }; // null = remove from folder
-    timestamp: number;
-    userId: string;
-    userName?: string;
-    id: string;
-  }
-  | {
-    type: 'ITEMS_MOVED_TO_FOLDER';
-    payload: { itemIds: string[]; folderId: string | null; itemNames?: string[] }; // Bulk operation
-    timestamp: number;
-    userId: string;
-    userName?: string;
-    id: string;
-  }
-  | {
-    type: 'FOLDER_CREATED_WITH_ITEMS';
-    payload: { folder: Item; itemIds: string[] }; // Create folder and move items atomically
-    timestamp: number;
-    userId: string;
-    userName?: string;
-    id: string;
-  };
 
 /**
  * WorkspaceEvent with optional version field (populated from database)
@@ -172,7 +180,7 @@ export interface EventLog {
     version: number;
     state: AgentState;
   };
-  snapshots?: SnapshotInfo[];  // All snapshots for version history
+  snapshots?: SnapshotInfo[]; // All snapshots for version history
 }
 
 /**
@@ -199,17 +207,17 @@ export interface EventResponse {
     version: number;
     state: AgentState;
   };
-  snapshots?: SnapshotInfo[];  // All snapshots for version history
+  snapshots?: SnapshotInfo[]; // All snapshots for version history
 }
 
 /**
  * Helper to create a new event with required fields
  */
-export function createEvent<T extends WorkspaceEvent['type']>(
+export function createEvent<T extends WorkspaceEvent["type"]>(
   type: T,
-  payload: Extract<WorkspaceEvent, { type: T }>['payload'],
+  payload: Extract<WorkspaceEvent, { type: T }>["payload"],
   userId: string,
-  userName?: string
+  userName?: string,
 ): Extract<WorkspaceEvent, { type: T }> {
   return {
     type,

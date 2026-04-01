@@ -82,7 +82,6 @@ export async function persistOcrResults(
                 ocrError: result.error,
               },
         },
-        source: "agent" as const,
       })),
     },
     userId,

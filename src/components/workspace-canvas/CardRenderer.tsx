@@ -3,19 +3,12 @@
 import type {
   Item,
   ItemData,
-  NoteData,
   PdfData,
   FlashcardData,
   YouTubeData,
   ImageData,
   DocumentData,
 } from "@/lib/workspace-state/types";
-import { useMemo } from "react";
-import { LazyBlockNoteEditor } from "@/components/editor/LazyBlockNoteEditor";
-import {
-  plainTextToBlocks,
-  type Block,
-} from "@/components/editor/BlockNoteEditor";
 import { DocumentEditor } from "@/components/editor/DocumentEditor";
 import FlashcardContent from "./FlashcardContent";
 import YouTubeCardContent from "./YouTubeCardContent";
@@ -31,55 +24,6 @@ export function CardRenderer(props: {
   quizClassName?: string; // Optional padding/className for quiz when shown in modal
 }) {
   const { item, onUpdateData, quizClassName } = props;
-
-  if (item.type === "note") {
-    const noteData = item.data as NoteData;
-
-    const blocksToPlainText = (blocks: Block[]): string => {
-      if (!blocks || blocks.length === 0) return "";
-      return blocks
-        .map((block) => {
-          const blockData = block as { content?: Array<{ text?: string }> };
-          if (blockData.content && Array.isArray(blockData.content)) {
-            return blockData.content.map((item) => item.text || "").join("");
-          }
-          return "";
-        })
-        .join("\n");
-    };
-
-    const initialBlocks = useMemo(() => {
-      // Check for block content from updated data or fallback to field1
-      if (noteData.blockContent) {
-        return noteData.blockContent as unknown as Block[];
-      }
-      return [
-        {
-          type: "paragraph",
-          content: [{ type: "text", text: noteData.field1 || "", styles: {} }],
-        },
-      ] as unknown as Block[];
-    }, [noteData.blockContent, noteData.field1, item.id, item.lastSource]);
-    return (
-      <>
-        <LazyBlockNoteEditor
-          key={item.id}
-          initialContent={initialBlocks}
-          cardName={item.name}
-          cardId={item.id}
-          lastSource={item.lastSource}
-          autofocus={true}
-          sources={noteData.sources}
-          onChange={(blocks) => {
-            onUpdateData(() => ({
-              blockContent: blocks,
-              field1: blocksToPlainText(blocks),
-            }));
-          }}
-        />
-      </>
-    );
-  }
 
   if (item.type === "pdf") {
     const pdfData = item.data as PdfData;
@@ -169,7 +113,6 @@ export function CardRenderer(props: {
           content={md || undefined}
           contentType={md ? "markdown" : undefined}
           embedded={true}
-          lastSource={item.lastSource}
           showThemeToggle={false}
           onUpdate={({ markdown }) => {
             onUpdateData(() => ({

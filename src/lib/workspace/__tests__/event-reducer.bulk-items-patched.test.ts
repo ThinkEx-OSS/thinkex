@@ -44,7 +44,6 @@ describe("eventReducer BULK_ITEMS_PATCHED", () => {
         updates: [
           {
             id: "pdf-1",
-            source: "agent",
             changes: {
               data: {
                 ocrStatus: "complete",
@@ -54,7 +53,6 @@ describe("eventReducer BULK_ITEMS_PATCHED", () => {
           },
           {
             id: "img-1",
-            source: "agent",
             changes: {
               data: {
                 ocrStatus: "failed",
@@ -74,7 +72,6 @@ describe("eventReducer BULK_ITEMS_PATCHED", () => {
       ocrStatus: "complete",
       ocrPages: [{ index: 0, markdown: "pdf page" }],
     });
-    expect(next.items[0]?.lastSource).toBe("agent");
 
     expect(next.items[1]?.data).toMatchObject({
       url: "https://example.com/b.png",
@@ -83,6 +80,5 @@ describe("eventReducer BULK_ITEMS_PATCHED", () => {
       ocrStatus: "failed",
       ocrError: "bad image",
     });
-    expect(next.items[1]?.lastSource).toBe("agent");
   });
 });

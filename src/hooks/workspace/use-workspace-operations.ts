@@ -47,15 +47,10 @@ export interface WorkspaceOperations {
     }>,
     options?: { showSuccessToast?: boolean },
   ) => string[];
-  updateItem: (
-    id: string,
-    changes: Partial<Item>,
-    source?: "user" | "agent",
-  ) => void;
+  updateItem: (id: string, changes: Partial<Item>) => void;
   updateItemData: (
     itemId: string,
     updater: (prev: Item["data"]) => Item["data"],
-    source?: "user" | "agent",
   ) => void;
   deleteItem: (id: string) => void;
   updateAllItems: (items: Item[]) => void;
@@ -459,7 +454,7 @@ export function useWorkspaceOperations(
   );
 
   const updateItem = useCallback(
-    (id: string, changes: Partial<Item>, source: "user" | "agent" = "user") => {
+    (id: string, changes: Partial<Item>) => {
       // Merge with any pending changes for this item
       const existingPending = pendingItemChangesRef.current.get(id) || {};
       const mergedChanges = { ...existingPending, ...changes };
@@ -502,11 +497,10 @@ export function useWorkspaceOperations(
           logger.debug("⏱️ [DEBOUNCE] updateItem firing after 500ms:", {
             id,
             changes: finalChanges,
-            source,
           });
           const event = createEvent(
             "ITEM_UPDATED",
-            { id, changes: finalChanges, source, name: newName },
+            { id, changes: finalChanges, name: newName },
             userId,
             userName,
           );
@@ -594,11 +588,7 @@ export function useWorkspaceOperations(
 
   // Helper for updating item data (used by field actions)
   const updateItemData = useCallback(
-    (
-      itemId: string,
-      updater: (prev: Item["data"]) => Item["data"],
-      source: "user" | "agent" = "user",
-    ) => {
+    (itemId: string, updater: (prev: Item["data"]) => Item["data"]) => {
       // Chain updaters if there's already a pending one
       const existingUpdater = pendingItemDataUpdatersRef.current.get(itemId);
       if (existingUpdater) {
@@ -685,7 +675,6 @@ export function useWorkspaceOperations(
             {
               id: itemId,
               changes: { data: newData },
-              source,
               name: latestItem.name,
             },
             userId,

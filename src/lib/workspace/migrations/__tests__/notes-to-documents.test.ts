@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { migrateNoteItem, migrateWorkspaceState } from "@/lib/workspace/migrations/notes-to-documents";
+import {
+  migrateNoteItem,
+  migrateWorkspaceState,
+} from "@/lib/workspace/migrations/notes-to-documents";
 import type { AgentState, Item, NoteData } from "@/lib/workspace-state/types";
 
 function mkParagraph(text: string, id = "p1") {
@@ -20,7 +23,6 @@ function mkNote(overrides: Partial<Item> = {}): Item {
     color: "#3B82F6",
     folderId: "folder-1",
     layout: { x: 1, y: 2, w: 1, h: 4 },
-    lastSource: "user",
     data: {
       blockContent: [mkParagraph("Hello world")],
       field1: "ignored",
@@ -42,7 +44,6 @@ describe("notes-to-documents migration", () => {
     expect(item.color).toBe(note.color);
     expect(item.folderId).toBe(note.folderId);
     expect(item.layout).toEqual(note.layout);
-    expect(item.lastSource).toBe(note.lastSource);
     expect(item.data).toEqual({
       markdown: "Hello world\n\n",
       sources: [{ title: "Source", url: "https://example.com" }],

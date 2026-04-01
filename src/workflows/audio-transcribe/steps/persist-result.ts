@@ -30,7 +30,6 @@ export async function persistAudioResult(
           processingStatus: "complete" as const,
         },
       },
-      source: "agent",
     },
     userId,
   );
@@ -98,7 +97,6 @@ export async function persistAudioFailure(
           error,
         },
       },
-      source: "agent",
     },
     userId,
   );

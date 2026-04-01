@@ -1,6 +1,20 @@
-import type { AgentState, Item, NoteData, PdfData, FlashcardData, FlashcardItem, YouTubeData, QuizData, QuizQuestion, ImageData, AudioData, WebsiteData, DocumentData } from "@/lib/workspace-state/types";
+import type {
+  AgentState,
+  Item,
+  NoteData,
+  PdfData,
+  FlashcardData,
+  FlashcardItem,
+  YouTubeData,
+  QuizData,
+  QuizQuestion,
+  ImageData,
+  AudioData,
+  WebsiteData,
+  DocumentData,
+} from "@/lib/workspace-state/types";
 import { serializeBlockNote } from "./serialize-blocknote";
-import { type Block } from "@/components/editor/BlockNoteEditor";
+import { type Block } from "@/components/editor/blocknote-shared";
 import { getVirtualPath } from "./workspace-fs";
 import { getPdfSourceUrl } from "@/lib/pdf/pdf-item";
 
@@ -10,49 +24,49 @@ import { getPdfSourceUrl } from "@/lib/pdf/pdf-item";
  * When viewingItemIds is provided and item's panel is open, includes (currently viewing) for any item type.
  */
 function formatItemMetadata(
-    item: Item,
-    items: Item[],
-    activePdfPages?: Record<string, number>,
-    viewingItemIds?: Set<string>
+  item: Item,
+  items: Item[],
+  activePdfPages?: Record<string, number>,
+  viewingItemIds?: Set<string>,
 ): string {
-    const path = getVirtualPath(item, items);
-    const parts: string[] = [path, `type=${item.type}`, `name="${item.name}"`];
-    if (item.subtitle) parts.push(`subtitle="${item.subtitle}"`);
+  const path = getVirtualPath(item, items);
+  const parts: string[] = [path, `type=${item.type}`, `name="${item.name}"`];
+  if (item.subtitle) parts.push(`subtitle="${item.subtitle}"`);
 
-    switch (item.type) {
-        case "pdf": {
-            const d = item.data as PdfData;
-            if (d?.filename) parts.push(`filename=${d.filename}`);
-            const activePage = activePdfPages?.[item.id];
-            if (activePage != null && activePage >= 1) {
-                parts.push(`activePage=${activePage}`);
-            }
-            break;
-        }
-        case "flashcard": {
-            const d = item.data as FlashcardData;
-            const n = d?.cards?.length ?? (d?.front ? 1 : 0);
-            parts.push(`cards=${n}`);
-            break;
-        }
-        case "quiz": {
-            const d = item.data as QuizData;
-            parts.push(`questions=${d?.questions?.length ?? 0}`);
-            break;
-        }
-        case "audio": {
-            const d = item.data as AudioData;
-            parts.push(`status=${d?.processingStatus ?? "unknown"}`);
-            break;
-        }
+  switch (item.type) {
+    case "pdf": {
+      const d = item.data as PdfData;
+      if (d?.filename) parts.push(`filename=${d.filename}`);
+      const activePage = activePdfPages?.[item.id];
+      if (activePage != null && activePage >= 1) {
+        parts.push(`activePage=${activePage}`);
+      }
+      break;
     }
-
-    // Add (currently viewing) for any item whose panel is open
-    if (viewingItemIds?.has(item.id)) {
-        parts.push("(currently viewing)");
+    case "flashcard": {
+      const d = item.data as FlashcardData;
+      const n = d?.cards?.length ?? (d?.front ? 1 : 0);
+      parts.push(`cards=${n}`);
+      break;
     }
+    case "quiz": {
+      const d = item.data as QuizData;
+      parts.push(`questions=${d?.questions?.length ?? 0}`);
+      break;
+    }
+    case "audio": {
+      const d = item.data as AudioData;
+      parts.push(`status=${d?.processingStatus ?? "unknown"}`);
+      break;
+    }
+  }
 
-    return parts.join(" ");
+  // Add (currently viewing) for any item whose panel is open
+  if (viewingItemIds?.has(item.id)) {
+    parts.push("(currently viewing)");
+  }
+
+  return parts.join(" ");
 }
 
 /**
@@ -61,19 +75,17 @@ function formatItemMetadata(
  * Content is available via selected cards context or on-demand workspace tools.
  */
 export function formatWorkspaceFS(state: AgentState): string {
-    const { items = [] } = state;
-    const contentItems = items.filter((i) => i.type !== "folder");
-    if (contentItems.length === 0) {
-        return `<workspace>
+  const { items = [] } = state;
+  const contentItems = items.filter((i) => i.type !== "folder");
+  if (contentItems.length === 0) {
+    return `<workspace>
 Workspace is empty. Reference items by name when created.
 </workspace>`;
-    }
+  }
 
-    const entries = contentItems.map((item) =>
-        formatItemMetadata(item, items)
-    );
+  const entries = contentItems.map((item) => formatItemMetadata(item, items));
 
-    return `<workspace>
+  return `<workspace>
 Paths and metadata for what's in the user's workspace.
 
 ${entries.join("\n")}
@@ -85,16 +97,20 @@ ${entries.join("\n")}
  * Workspace FS (formatWorkspaceFS) provides the item tree and metadata only.
  * @param workspaceNameFallback - Fallback from DB (workspace.name) when state.globalTitle is empty
  */
-export function formatWorkspaceContext(state: AgentState, workspaceNameFallback?: string): string {
-    const displayTitle = state.globalTitle || workspaceNameFallback || "(untitled)";
-    const currentDate = new Date().toLocaleDateString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-    });
+export function formatWorkspaceContext(
+  state: AgentState,
+  workspaceNameFallback?: string,
+): string {
+  const displayTitle =
+    state.globalTitle || workspaceNameFallback || "(untitled)";
+  const currentDate = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
-    return `<system>
+  return `<system>
 <role>
 You are a helpful AI assistant in ThinkEx, a knowledge workspace platform. You're working in workspace: "${displayTitle}"
 </role>
@@ -217,85 +233,85 @@ ${formatWorkspaceFS(state)}
  * Formats a single item with its key details
  */
 function formatItem(item: Item, index: number): string {
-    const lines = [
-        `${index}. [${item.type.charAt(0).toUpperCase() + item.type.slice(1)}] "${item.name}"`
-    ];
+  const lines = [
+    `${index}. [${item.type.charAt(0).toUpperCase() + item.type.slice(1)}] "${item.name}"`,
+  ];
 
-    // Add subtitle if present
-    if (item.subtitle) {
-        lines.push(`   - ${item.subtitle}`);
-    }
+  // Add subtitle if present
+  if (item.subtitle) {
+    lines.push(`   - ${item.subtitle}`);
+  }
 
-    // Add type-specific details
-    switch (item.type) {
-        case "note":
-            lines.push(...formatNoteDetails(item.data as NoteData));
-            break;
-        case "pdf":
-            lines.push(...formatPdfDetails(item.data as PdfData));
-            break;
-        case "flashcard":
-            lines.push(...formatFlashcardDetails(item.data as FlashcardData));
-            break;
-        case "image":
-            lines.push(...formatImageDetails(item.data as ImageData));
-            break;
-        case "website":
-            lines.push(...formatWebsiteDetails(item.data as WebsiteData));
-            break;
-    }
+  // Add type-specific details
+  switch (item.type) {
+    case "note":
+      lines.push(...formatNoteDetails(item.data as NoteData));
+      break;
+    case "pdf":
+      lines.push(...formatPdfDetails(item.data as PdfData));
+      break;
+    case "flashcard":
+      lines.push(...formatFlashcardDetails(item.data as FlashcardData));
+      break;
+    case "image":
+      lines.push(...formatImageDetails(item.data as ImageData));
+      break;
+    case "website":
+      lines.push(...formatWebsiteDetails(item.data as WebsiteData));
+      break;
+  }
 
-    return lines.join("\n");
+  return lines.join("\n");
 }
 
 /**
  * Formats note-specific details
  */
 function formatNoteDetails(data: NoteData): string[] {
-    // No content previews - return empty
-    return [];
+  // No content previews - return empty
+  return [];
 }
 
 /**
  * Formats PDF-specific details
  */
 function formatPdfDetails(data: PdfData): string[] {
-    // No URLs or file details - return empty
-    return [];
+  // No URLs or file details - return empty
+  return [];
 }
 
 /**
  * Formats Flashcard-specific details
  */
 function formatFlashcardDetails(data: FlashcardData): string[] {
-    const cardCount = data.cards?.length || (data.front || data.back ? 1 : 0);
-    return [`   - Deck contains ${cardCount} card${cardCount !== 1 ? 's' : ''}`];
+  const cardCount = data.cards?.length || (data.front || data.back ? 1 : 0);
+  return [`   - Deck contains ${cardCount} card${cardCount !== 1 ? "s" : ""}`];
 }
 
 /**
  * Formats Image-specific details
  */
 function formatImageDetails(data: ImageData): string[] {
-    const details = [];
-    if (data.altText) details.push(`Alt: ${data.altText}`);
-    return details.length > 0 ? [`   - ${details.join(", ")}`] : [];
+  const details = [];
+  if (data.altText) details.push(`Alt: ${data.altText}`);
+  return details.length > 0 ? [`   - ${details.join(", ")}`] : [];
 }
 
 /**
  * Formats Website-specific details
  */
 function formatWebsiteDetails(data: WebsiteData): string[] {
-    const details = [];
-    if (data.url) details.push(`URL: ${data.url}`);
-    return details.length > 0 ? [`   - ${details.join(", ")}`] : [];
+  const details = [];
+  if (data.url) details.push(`URL: ${data.url}`);
+  return details.length > 0 ? [`   - ${details.join(", ")}`] : [];
 }
 
 /**
  * Truncates text to specified length with ellipsis
  */
 function truncateText(text: string, maxLength: number): string {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength - 3) + "...";
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength - 3) + "...";
 }
 
 /**
@@ -303,22 +319,26 @@ function truncateText(text: string, maxLength: number): string {
  * Simple implementation - could be enhanced to handle more block types
  */
 function extractTextFromBlocks(blockContent: unknown): string {
-    if (!blockContent || typeof blockContent !== "object") return "";
+  if (!blockContent || typeof blockContent !== "object") return "";
 
-    const blocks = blockContent as Record<string, unknown>;
-    if (!Array.isArray(blocks)) return "";
+  const blocks = blockContent as Record<string, unknown>;
+  if (!Array.isArray(blocks)) return "";
 
-    return blocks
-        .map((block: Record<string, unknown>) => {
-            if (block.type === "paragraph" && block.content && Array.isArray(block.content)) {
-                return block.content
-                    .map((node: Record<string, unknown>) => (node.text as string) || "")
-                    .join("");
-            }
-            return "";
-        })
-        .join(" ")
-        .trim();
+  return blocks
+    .map((block: Record<string, unknown>) => {
+      if (
+        block.type === "paragraph" &&
+        block.content &&
+        Array.isArray(block.content)
+      ) {
+        return block.content
+          .map((node: Record<string, unknown>) => (node.text as string) || "")
+          .join("");
+      }
+      return "";
+    })
+    .join(" ")
+    .trim();
 }
 
 /**
@@ -326,98 +346,118 @@ function extractTextFromBlocks(blockContent: unknown): string {
  * Returns arrays of image URLs and LaTeX expressions
  */
 interface RichContent {
-    images: string[];
-    mathExpressions: string[];
+  images: string[];
+  mathExpressions: string[];
 }
 
 function extractFromBlockContent(blockContent: unknown): RichContent {
-    const richContent: RichContent = {
-        images: [],
-        mathExpressions: []
-    };
+  const richContent: RichContent = {
+    images: [],
+    mathExpressions: [],
+  };
 
-    if (!blockContent || typeof blockContent !== "object") return richContent;
-    if (!Array.isArray(blockContent)) return richContent;
+  if (!blockContent || typeof blockContent !== "object") return richContent;
+  if (!Array.isArray(blockContent)) return richContent;
 
-    // Walk through blocks and extract images and math
-    for (const block of blockContent) {
-        if (!block || typeof block !== "object") continue;
+  // Walk through blocks and extract images and math
+  for (const block of blockContent) {
+    if (!block || typeof block !== "object") continue;
 
-        const blockObj = block as Record<string, unknown>;
+    const blockObj = block as Record<string, unknown>;
 
-        // Extract images: block.type === "image" && block.props.url
-        if (blockObj.type === "image" && blockObj.props && typeof blockObj.props === "object") {
-            const props = blockObj.props as Record<string, unknown>;
-            if (props.url && typeof props.url === "string") {
-                richContent.images.push(props.url);
-            }
-        }
-
-        // Extract block math: block.type === "math"
-        if (blockObj.type === "math" && blockObj.props && typeof blockObj.props === "object") {
-            const props = blockObj.props as Record<string, unknown>;
-            if (props.latex && typeof props.latex === "string" && props.latex.trim()) {
-                richContent.mathExpressions.push(props.latex);
-            }
-        }
-
-        // Extract inline math from content arrays (e.g. in paragraphs)
-        if (blockObj.content && Array.isArray(blockObj.content)) {
-            for (const inlineContent of blockObj.content) {
-                if (!inlineContent || typeof inlineContent !== "object") continue;
-
-                const inlineObj = inlineContent as Record<string, unknown>;
-
-                if (inlineObj.type === "inlineMath" && inlineObj.props && typeof inlineObj.props === "object") {
-                    const props = inlineObj.props as Record<string, unknown>;
-                    if (props.latex && typeof props.latex === "string" && props.latex.trim()) {
-                        richContent.mathExpressions.push(props.latex);
-                    }
-                }
-            }
-        }
+    // Extract images: block.type === "image" && block.props.url
+    if (
+      blockObj.type === "image" &&
+      blockObj.props &&
+      typeof blockObj.props === "object"
+    ) {
+      const props = blockObj.props as Record<string, unknown>;
+      if (props.url && typeof props.url === "string") {
+        richContent.images.push(props.url);
+      }
     }
 
-    return richContent;
+    // Extract block math: block.type === "math"
+    if (
+      blockObj.type === "math" &&
+      blockObj.props &&
+      typeof blockObj.props === "object"
+    ) {
+      const props = blockObj.props as Record<string, unknown>;
+      if (
+        props.latex &&
+        typeof props.latex === "string" &&
+        props.latex.trim()
+      ) {
+        richContent.mathExpressions.push(props.latex);
+      }
+    }
+
+    // Extract inline math from content arrays (e.g. in paragraphs)
+    if (blockObj.content && Array.isArray(blockObj.content)) {
+      for (const inlineContent of blockObj.content) {
+        if (!inlineContent || typeof inlineContent !== "object") continue;
+
+        const inlineObj = inlineContent as Record<string, unknown>;
+
+        if (
+          inlineObj.type === "inlineMath" &&
+          inlineObj.props &&
+          typeof inlineObj.props === "object"
+        ) {
+          const props = inlineObj.props as Record<string, unknown>;
+          if (
+            props.latex &&
+            typeof props.latex === "string" &&
+            props.latex.trim()
+          ) {
+            richContent.mathExpressions.push(props.latex);
+          }
+        }
+      }
+    }
+  }
+
+  return richContent;
 }
 
 /**
  * Extracts all rich content from an item (images, math expressions)
  */
 function extractRichContent(item: Item): RichContent {
-    const richContent: RichContent = {
-        images: [],
-        mathExpressions: []
-    };
+  const richContent: RichContent = {
+    images: [],
+    mathExpressions: [],
+  };
 
-    // For note cards, extract from blockContent
-    if (item.type === "note") {
-        const noteData = item.data as NoteData;
-        if (noteData.blockContent) {
-            const extracted = extractFromBlockContent(noteData.blockContent);
-            richContent.images.push(...extracted.images);
-            richContent.mathExpressions.push(...extracted.mathExpressions);
-        }
+  // For note cards, extract from blockContent
+  if (item.type === "note") {
+    const noteData = item.data as NoteData;
+    if (noteData.blockContent) {
+      const extracted = extractFromBlockContent(noteData.blockContent);
+      richContent.images.push(...extracted.images);
+      richContent.mathExpressions.push(...extracted.mathExpressions);
     }
+  }
 
-    // For PDF cards, include the PDF URL as an "image" (file)
-    if (item.type === "pdf") {
-        const pdfData = item.data as PdfData;
-        const pdfSourceUrl = getPdfSourceUrl(pdfData);
-        if (pdfSourceUrl) {
-            richContent.images.push(pdfSourceUrl);
-        }
+  // For PDF cards, include the PDF URL as an "image" (file)
+  if (item.type === "pdf") {
+    const pdfData = item.data as PdfData;
+    const pdfSourceUrl = getPdfSourceUrl(pdfData);
+    if (pdfSourceUrl) {
+      richContent.images.push(pdfSourceUrl);
     }
+  }
 
-    // For Image cards, include the URL
-    if (item.type === "image") {
-        const imageData = item.data as ImageData;
-        if (imageData.url) {
-            richContent.images.push(imageData.url);
-        }
+  // For Image cards, include the URL
+  if (item.type === "image") {
+    const imageData = item.data as ImageData;
+    if (imageData.url) {
+      richContent.images.push(imageData.url);
     }
+  }
 
-    return richContent;
+  return richContent;
 }
 
 /**
@@ -425,38 +465,43 @@ function extractRichContent(item: Item): RichContent {
  * Returns empty string if no rich content found
  */
 function formatRichContentSection(richContent: RichContent): string {
-    const lines: string[] = [];
+  const lines: string[] = [];
 
-    // Only show section if there's content
-    if (richContent.images.length === 0 && richContent.mathExpressions.length === 0) {
-        return "";
-    }
+  // Only show section if there's content
+  if (
+    richContent.images.length === 0 &&
+    richContent.mathExpressions.length === 0
+  ) {
+    return "";
+  }
 
-    lines.push("");
-    lines.push("RICH CONTENT:");
+  lines.push("");
+  lines.push("RICH CONTENT:");
 
-    // Format images
+  // Format images
+  if (richContent.images.length > 0) {
+    const plural = richContent.images.length !== 1 ? "s" : "";
+    lines.push(`   Image${plural} (${richContent.images.length}):`);
+    richContent.images.forEach((url) => {
+      lines.push(`     • ${url}`);
+    });
+  }
+
+  // Format math expressions
+  if (richContent.mathExpressions.length > 0) {
     if (richContent.images.length > 0) {
-        const plural = richContent.images.length !== 1 ? "s" : "";
-        lines.push(`   Image${plural} (${richContent.images.length}):`);
-        richContent.images.forEach(url => {
-            lines.push(`     • ${url}`);
-        });
+      lines.push(""); // Add spacing between sections
     }
+    const plural = richContent.mathExpressions.length !== 1 ? "s" : "";
+    lines.push(
+      `   Math/LaTeX Expression${plural} (${richContent.mathExpressions.length}):`,
+    );
+    richContent.mathExpressions.forEach((latex) => {
+      lines.push(`     • ${latex}`);
+    });
+  }
 
-    // Format math expressions
-    if (richContent.mathExpressions.length > 0) {
-        if (richContent.images.length > 0) {
-            lines.push(""); // Add spacing between sections
-        }
-        const plural = richContent.mathExpressions.length !== 1 ? "s" : "";
-        lines.push(`   Math/LaTeX Expression${plural} (${richContent.mathExpressions.length}):`);
-        richContent.mathExpressions.forEach(latex => {
-            lines.push(`     • ${latex}`);
-        });
-    }
-
-    return lines.join("\n");
+  return lines.join("\n");
 }
 
 /**
@@ -468,34 +513,39 @@ function formatRichContentSection(richContent: RichContent): string {
  * When activePdfPages is provided, PDF items include activePage (page user is currently viewing).
  */
 export function formatSelectedCardsMetadata(
-    selectedItems: Item[],
-    allItems?: Item[],
-    activePdfPages?: Record<string, number>,
-    viewingItemIds?: Set<string>
+  selectedItems: Item[],
+  allItems?: Item[],
+  activePdfPages?: Record<string, number>,
+  viewingItemIds?: Set<string>,
 ): string {
-    if (selectedItems.length === 0) {
-        return `<context>
+  if (selectedItems.length === 0) {
+    return `<context>
 No cards selected.
 </context>`;
-    }
+  }
 
-    let effectiveItems: Item[] = [];
-    const processedIds = new Set<string>();
+  let effectiveItems: Item[] = [];
+  const processedIds = new Set<string>();
 
-    const processItem = (item: Item) => {
-        if (processedIds.has(item.id)) return;
-        processedIds.add(item.id);
-        // Treat folders like normal cards: include path/name only, no expansion
-        effectiveItems.push(item);
-    };
+  const processItem = (item: Item) => {
+    if (processedIds.has(item.id)) return;
+    processedIds.add(item.id);
+    // Treat folders like normal cards: include path/name only, no expansion
+    effectiveItems.push(item);
+  };
 
-    selectedItems.forEach((item) => processItem(item));
+  selectedItems.forEach((item) => processItem(item));
 
-    const entries = effectiveItems.map((item) =>
-        formatItemMetadata(item, allItems ?? effectiveItems, activePdfPages, viewingItemIds)
-    );
+  const entries = effectiveItems.map((item) =>
+    formatItemMetadata(
+      item,
+      allItems ?? effectiveItems,
+      activePdfPages,
+      viewingItemIds,
+    ),
+  );
 
-    return `<context>
+  return `<context>
 SELECTED CARDS (${effectiveItems.length}) — paths and metadata. Use searchWorkspace or readWorkspace to fetch content when needed.
 
 ${entries.join("\n")}
@@ -506,60 +556,65 @@ ${entries.join("\n")}
  * Formats selected cards context for the assistant (FULL content).
  * Used when cards are added to the context drawer — prefer formatSelectedCardsMetadata when grep/read tools exist.
  */
-export function formatSelectedCardsContext(selectedItems: Item[], allItems?: Item[]): string {
-    if (selectedItems.length === 0) {
-        return `<context>
+export function formatSelectedCardsContext(
+  selectedItems: Item[],
+  allItems?: Item[],
+): string {
+  if (selectedItems.length === 0) {
+    return `<context>
 No cards selected.
 </context>`;
+  }
+
+  // EXPAND FOLDERS: If a folder is selected, include its contents
+  let effectiveItems: Item[] = [];
+  const processedIds = new Set<string>();
+
+  const processItem = (item: Item) => {
+    if (processedIds.has(item.id)) return;
+    processedIds.add(item.id);
+
+    if (item.type === "folder") {
+      effectiveItems.push(item);
+      if (allItems) {
+        const children = allItems.filter((child) => child.folderId === item.id);
+        children.forEach((child) => processItem(child));
+      }
+    } else {
+      effectiveItems.push(item);
     }
+  };
 
-    // EXPAND FOLDERS: If a folder is selected, include its contents
-    let effectiveItems: Item[] = [];
-    const processedIds = new Set<string>();
+  selectedItems.forEach((item) => processItem(item));
 
-    const processItem = (item: Item) => {
-        if (processedIds.has(item.id)) return;
-        processedIds.add(item.id);
+  const cardsList = effectiveItems.map((item, index) =>
+    formatSelectedCardFull(item, index + 1),
+  );
 
-        if (item.type === 'folder') {
-            effectiveItems.push(item);
-            if (allItems) {
-                const children = allItems.filter(child => child.folderId === item.id);
-                children.forEach(child => processItem(child));
-            }
-        } else {
-            effectiveItems.push(item);
-        }
-    };
+  const finalContext = [
+    `<context>`,
+    `SELECTED CARDS (${effectiveItems.length}):`,
+    `Reference cards by name. These are the user's primary context.`,
+    "",
+    ...cardsList,
+    `</context>`,
+  ].join("\n");
 
-    selectedItems.forEach(item => processItem(item));
-
-    const cardsList = effectiveItems.map((item, index) => formatSelectedCardFull(item, index + 1));
-
-    const finalContext = [
-        `<context>`,
-        `SELECTED CARDS (${effectiveItems.length}):`,
-        `Reference cards by name. These are the user's primary context.`,
-        "",
-        ...cardsList,
-        `</context>`
-    ].join("\n");
-
-    return finalContext;
+  return finalContext;
 }
 
 /**
  * Formats a single selected card with FULL content (no truncation)
  */
 function formatSelectedCardFull(item: Item, index: number): string {
-    return formatItemContent(item);
+  return formatItemContent(item);
 }
 
 export interface FormatItemContentOptions {
-    /** For PDFs: 1-indexed start page (inclusive) */
-    pageStart?: number;
-    /** For PDFs: 1-indexed end page (inclusive) */
-    pageEnd?: number;
+  /** For PDFs: 1-indexed start page (inclusive) */
+  pageStart?: number;
+  /** For PDFs: 1-indexed end page (inclusive) */
+  pageEnd?: number;
 }
 
 /**
@@ -567,49 +622,49 @@ export interface FormatItemContentOptions {
  * For PDFs, pass pageStart/pageEnd to read only specific pages.
  */
 export function formatItemContent(
-    item: Item,
-    options?: FormatItemContentOptions
+  item: Item,
+  options?: FormatItemContentOptions,
 ): string {
-    const lines: string[] = [];
+  const lines: string[] = [];
 
-    switch (item.type) {
-        case "note":
-            lines.push(...formatNoteDetailsFull(item.data as NoteData));
-            break;
-        case "pdf":
-            lines.push(
-                ...formatPdfDetailsFull(
-                    item.data as PdfData,
-                    options?.pageStart,
-                    options?.pageEnd
-                )
-            );
-            break;
-        case "flashcard":
-            lines.push(...formatFlashcardDetailsFull(item.data as FlashcardData));
-            break;
-        case "youtube":
-            lines.push(...formatYouTubeDetailsFull(item.data as YouTubeData));
-            break;
-        case "quiz":
-            lines.push(...formatQuizDetailsFull(item.data as QuizData));
-            break;
-        case "image":
-            lines.push(...formatImageDetailsFull(item.data as ImageData));
-            break;
-        case "audio":
-            lines.push(...formatAudioDetailsFull(item.data as AudioData));
-            break;
-        case "document":
-            lines.push(...formatDocumentDetailsFull(item.data as DocumentData));
-        case "website":
-            lines.push(...formatWebsiteDetailsFull(item.data as WebsiteData));
-            break;
-        default:
-            break;
-    }
+  switch (item.type) {
+    case "note":
+      lines.push(...formatNoteDetailsFull(item.data as NoteData));
+      break;
+    case "pdf":
+      lines.push(
+        ...formatPdfDetailsFull(
+          item.data as PdfData,
+          options?.pageStart,
+          options?.pageEnd,
+        ),
+      );
+      break;
+    case "flashcard":
+      lines.push(...formatFlashcardDetailsFull(item.data as FlashcardData));
+      break;
+    case "youtube":
+      lines.push(...formatYouTubeDetailsFull(item.data as YouTubeData));
+      break;
+    case "quiz":
+      lines.push(...formatQuizDetailsFull(item.data as QuizData));
+      break;
+    case "image":
+      lines.push(...formatImageDetailsFull(item.data as ImageData));
+      break;
+    case "audio":
+      lines.push(...formatAudioDetailsFull(item.data as AudioData));
+      break;
+    case "document":
+      lines.push(...formatDocumentDetailsFull(item.data as DocumentData));
+    case "website":
+      lines.push(...formatWebsiteDetailsFull(item.data as WebsiteData));
+      break;
+    default:
+      break;
+  }
 
-    return lines.join("\n");
+  return lines.join("\n");
 }
 
 /**
@@ -618,11 +673,11 @@ export function formatItemContent(
  * Normalizes line endings to \n so readWorkspace output matches editItem search.
  */
 export function getNoteContentAsMarkdown(data: NoteData): string {
-    if (data.blockContent) {
-        const content = serializeBlockNote(data.blockContent as Block[]);
-        if (content) return content.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
-    }
-    return "";
+  if (data.blockContent) {
+    const content = serializeBlockNote(data.blockContent as Block[]);
+    if (content) return content.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
+  }
+  return "";
 }
 
 /**
@@ -631,67 +686,69 @@ export function getNoteContentAsMarkdown(data: NoteData): string {
  * Sources are appended after the content when present.
  */
 function formatNoteDetailsFull(data: NoteData): string[] {
-    const lines: string[] = [];
-    const content = getNoteContentAsMarkdown(data);
-    if (content) {
-        // Output raw content directly — editItem matches against this exact string
-        lines.push(content);
+  const lines: string[] = [];
+  const content = getNoteContentAsMarkdown(data);
+  if (content) {
+    // Output raw content directly — editItem matches against this exact string
+    lines.push(content);
+  }
+  if (data.sources && data.sources.length > 0) {
+    if (lines.length > 0) lines.push("");
+    lines.push("Sources:");
+    for (const s of data.sources) {
+      lines.push(`  - ${s.title || s.url} | ${s.url}`);
     }
-    if (data.sources && data.sources.length > 0) {
-        if (lines.length > 0) lines.push("");
-        lines.push("Sources:");
-        for (const s of data.sources) {
-            lines.push(`  - ${s.title || s.url} | ${s.url}`);
-        }
-    }
-    return lines;
+  }
+  return lines;
 }
 
 /**
  * Formats OCR pages as markdown matching readWorkspace output.
  * Exported so OCR-derived content can be rendered in the same format everywhere.
  */
-export function formatOcrPagesAsMarkdown(ocrPages: PdfData["ocrPages"]): string {
-    if (!ocrPages?.length) return "";
-    const lines: string[] = [`Pages (${ocrPages.length}):`];
-    for (const page of ocrPages) {
-        const pageNum = page.index + 1;
-        lines.push(`--- Page ${pageNum} ---`);
-        if (page.header) lines.push(`Header: ${page.header}`);
-        const rawMd = page.markdown ?? "";
-        const md = replaceOcrPlaceholders(
-            rawMd,
-            page.tables as Array<{ id?: string; content?: string }> | undefined
-        );
-        for (const line of md.split(/\r?\n/)) lines.push(line);
-        if (page.footer) lines.push(`Footer: ${page.footer}`);
-        lines.push("");
-    }
-    return lines.join("\n").trimEnd();
+export function formatOcrPagesAsMarkdown(
+  ocrPages: PdfData["ocrPages"],
+): string {
+  if (!ocrPages?.length) return "";
+  const lines: string[] = [`Pages (${ocrPages.length}):`];
+  for (const page of ocrPages) {
+    const pageNum = page.index + 1;
+    lines.push(`--- Page ${pageNum} ---`);
+    if (page.header) lines.push(`Header: ${page.header}`);
+    const rawMd = page.markdown ?? "";
+    const md = replaceOcrPlaceholders(
+      rawMd,
+      page.tables as Array<{ id?: string; content?: string }> | undefined,
+    );
+    for (const line of md.split(/\r?\n/)) lines.push(line);
+    if (page.footer) lines.push(`Footer: ${page.footer}`);
+    lines.push("");
+  }
+  return lines.join("\n").trimEnd();
 }
 
 /** Replaces table placeholders [id](id) with table content. */
 function replaceOcrPlaceholders(
-    markdown: string,
-    tables?: Array<{ id?: string; content?: string }>
+  markdown: string,
+  tables?: Array<{ id?: string; content?: string }>,
 ): string {
-    let out = markdown;
+  let out = markdown;
 
-    for (const tbl of tables ?? []) {
-        const id = tbl.id;
-        const content = tbl.content;
-        if (!id || !content) continue;
-        out = out.replace(
-            new RegExp(`\\[${escapeRegex(id)}\\]\\(${escapeRegex(id)}\\)`, "g"),
-            `\n\n[Table ${id}]\n${content}\n\n`
-        );
-    }
+  for (const tbl of tables ?? []) {
+    const id = tbl.id;
+    const content = tbl.content;
+    if (!id || !content) continue;
+    out = out.replace(
+      new RegExp(`\\[${escapeRegex(id)}\\]\\(${escapeRegex(id)}\\)`, "g"),
+      `\n\n[Table ${id}]\n${content}\n\n`,
+    );
+  }
 
-    return out;
+  return out;
 }
 
 function escapeRegex(s: string): string {
-    return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
@@ -703,74 +760,78 @@ function escapeRegex(s: string): string {
  * Optionally filter by pageStart/pageEnd (1-indexed, inclusive).
  */
 function formatPdfDetailsFull(
-    data: PdfData,
-    pageStart?: number,
-    pageEnd?: number
+  data: PdfData,
+  pageStart?: number,
+  pageEnd?: number,
 ): string[] {
-    const lines: string[] = [];
+  const lines: string[] = [];
 
-    if (data.filename) {
-        lines.push(`   - Filename: ${data.filename}`);
-    }
+  if (data.filename) {
+    lines.push(`   - Filename: ${data.filename}`);
+  }
 
-    const sourceUrl = getPdfSourceUrl(data);
-    if (sourceUrl) {
-        lines.push(`   - URL: ${sourceUrl}`);
-    }
+  const sourceUrl = getPdfSourceUrl(data);
+  if (sourceUrl) {
+    lines.push(`   - URL: ${sourceUrl}`);
+  }
 
-    if (data.ocrPages?.length) {
-        let pagesToShow = data.ocrPages;
-        if (pageStart != null || pageEnd != null) {
-            const startIdx = pageStart != null ? Math.max(0, pageStart - 1) : 0;
-            const endIdx =
-                pageEnd != null
-                    ? Math.min(data.ocrPages.length - 1, pageEnd - 1)
-                    : data.ocrPages.length - 1;
-            pagesToShow = data.ocrPages.filter(
-                (p) => p.index >= startIdx && p.index <= endIdx
-            );
-            if (pagesToShow.length > 0) {
-                lines.push(
-                    `   - Pages ${pageStart ?? 1}-${pageEnd ?? data.ocrPages.length} (${pagesToShow.length} of ${data.ocrPages.length}):`
-                );
-            }
-        } else {
-            lines.push(`   - Pages (${data.ocrPages.length}):`);
-        }
-        for (const page of pagesToShow) {
-            const pageNum = page.index + 1;
-            lines.push(`     --- Page ${pageNum} ---`);
-            if (page.header) lines.push(`     Header: ${page.header}`);
-            const rawMd = page.markdown ?? "";
-            const md = replaceOcrPlaceholders(
-                rawMd,
-                page.tables as Array<{ id?: string; content?: string }> | undefined
-            );
-            for (const line of md.split(/\r?\n/)) {
-                lines.push(`     ${line}`);
-            }
-            if (page.footer) lines.push(`     Footer: ${page.footer}`);
-        }
-    } else if (data.ocrStatus === "processing") {
-        lines.push(`   - (Content is being extracted. Please wait a moment and try readWorkspace again.)`);
+  if (data.ocrPages?.length) {
+    let pagesToShow = data.ocrPages;
+    if (pageStart != null || pageEnd != null) {
+      const startIdx = pageStart != null ? Math.max(0, pageStart - 1) : 0;
+      const endIdx =
+        pageEnd != null
+          ? Math.min(data.ocrPages.length - 1, pageEnd - 1)
+          : data.ocrPages.length - 1;
+      pagesToShow = data.ocrPages.filter(
+        (p) => p.index >= startIdx && p.index <= endIdx,
+      );
+      if (pagesToShow.length > 0) {
+        lines.push(
+          `   - Pages ${pageStart ?? 1}-${pageEnd ?? data.ocrPages.length} (${pagesToShow.length} of ${data.ocrPages.length}):`,
+        );
+      }
     } else {
-        lines.push(`   - (Content not yet extracted. Ask the user to try again in a moment.)`);
+      lines.push(`   - Pages (${data.ocrPages.length}):`);
     }
+    for (const page of pagesToShow) {
+      const pageNum = page.index + 1;
+      lines.push(`     --- Page ${pageNum} ---`);
+      if (page.header) lines.push(`     Header: ${page.header}`);
+      const rawMd = page.markdown ?? "";
+      const md = replaceOcrPlaceholders(
+        rawMd,
+        page.tables as Array<{ id?: string; content?: string }> | undefined,
+      );
+      for (const line of md.split(/\r?\n/)) {
+        lines.push(`     ${line}`);
+      }
+      if (page.footer) lines.push(`     Footer: ${page.footer}`);
+    }
+  } else if (data.ocrStatus === "processing") {
+    lines.push(
+      `   - (Content is being extracted. Please wait a moment and try readWorkspace again.)`,
+    );
+  } else {
+    lines.push(
+      `   - (Content not yet extracted. Ask the user to try again in a moment.)`,
+    );
+  }
 
-    return lines;
+  return lines;
 }
 
 /**
  * Formats YouTube video details with FULL content
  */
 function formatYouTubeDetailsFull(data: YouTubeData): string[] {
-    const lines: string[] = [];
+  const lines: string[] = [];
 
-    if (data.url) {
-        lines.push(`   - URL: ${data.url}`);
-    }
+  if (data.url) {
+    lines.push(`   - URL: ${data.url}`);
+  }
 
-    return lines;
+  return lines;
 }
 
 /**
@@ -778,71 +839,77 @@ function formatYouTubeDetailsFull(data: YouTubeData): string[] {
  * If OCR content is available, includes extracted text like PDFs.
  */
 function formatImageDetailsFull(data: ImageData): string[] {
-    const lines: string[] = [];
+  const lines: string[] = [];
 
-    if (data.url) {
-        lines.push(`   - URL: ${data.url}`);
+  if (data.url) {
+    lines.push(`   - URL: ${data.url}`);
+  }
+
+  if (data.ocrStatus === "failed" || data.ocrError) {
+    const errMsg = data.ocrError
+      ? `: ${String(data.ocrError).slice(0, 200)}`
+      : "";
+    lines.push(`   - OCR failed${errMsg}`);
+  } else if (data.ocrPages?.length) {
+    lines.push(
+      `   - Extracted Content (${data.ocrPages.length} page${data.ocrPages.length !== 1 ? "s" : ""}):`,
+    );
+    for (const page of data.ocrPages) {
+      if (page.header) lines.push(`     Header: ${page.header}`);
+      const rawMd = page.markdown ?? "";
+      const md = replaceOcrPlaceholders(
+        rawMd,
+        page.tables as Array<{ id?: string; content?: string }> | undefined,
+      );
+      for (const line of md.split(/\r?\n/)) {
+        lines.push(`     ${line}`);
+      }
+      if (page.footer) lines.push(`     Footer: ${page.footer}`);
     }
-
-    if (data.ocrStatus === "failed" || data.ocrError) {
-        const errMsg = data.ocrError ? `: ${String(data.ocrError).slice(0, 200)}` : "";
-        lines.push(`   - OCR failed${errMsg}`);
-    } else if (data.ocrPages?.length) {
-        lines.push(`   - Extracted Content (${data.ocrPages.length} page${data.ocrPages.length !== 1 ? "s" : ""}):`);
-        for (const page of data.ocrPages) {
-            if (page.header) lines.push(`     Header: ${page.header}`);
-            const rawMd = page.markdown ?? "";
-            const md = replaceOcrPlaceholders(
-                rawMd,
-                page.tables as Array<{ id?: string; content?: string }> | undefined
-            );
-            for (const line of md.split(/\r?\n/)) {
-                lines.push(`     ${line}`);
-            }
-            if (page.footer) lines.push(`     Footer: ${page.footer}`);
-        }
-    } else if (data.ocrStatus === "processing") {
-        lines.push(`   - (Content is being extracted. Please wait a moment and try readWorkspace again.)`);
-    } else {
-        if (data.altText) {
-            lines.push(`   - Alt Text: ${data.altText}`);
-        }
-        if (data.caption) {
-            lines.push(`   - Caption: ${data.caption}`);
-        }
+  } else if (data.ocrStatus === "processing") {
+    lines.push(
+      `   - (Content is being extracted. Please wait a moment and try readWorkspace again.)`,
+    );
+  } else {
+    if (data.altText) {
+      lines.push(`   - Alt Text: ${data.altText}`);
     }
+    if (data.caption) {
+      lines.push(`   - Caption: ${data.caption}`);
+    }
+  }
 
-    return lines;
+  return lines;
 }
-
-
 
 /**
  * Formats flashcard details as raw JSON (editable by editItem).
  * Omit frontBlocks/backBlocks; they are derived from front/back on save.
  */
 function formatFlashcardDetailsFull(data: FlashcardData): string[] {
-    let cards: FlashcardItem[] = [];
-    if (data.cards && data.cards.length > 0) {
-        cards = data.cards;
-    } else if (data.front || data.back || data.frontBlocks || data.backBlocks) {
-        const front = data.frontBlocks
-            ? serializeBlockNote(data.frontBlocks as Block[])
-            : data.front || "";
-        const back = data.backBlocks
-            ? serializeBlockNote(data.backBlocks as Block[])
-            : data.back || "";
-        cards = [{ id: "legacy", front, back }];
-    }
+  let cards: FlashcardItem[] = [];
+  if (data.cards && data.cards.length > 0) {
+    cards = data.cards;
+  } else if (data.front || data.back || data.frontBlocks || data.backBlocks) {
+    const front = data.frontBlocks
+      ? serializeBlockNote(data.frontBlocks as Block[])
+      : data.front || "";
+    const back = data.backBlocks
+      ? serializeBlockNote(data.backBlocks as Block[])
+      : data.back || "";
+    cards = [{ id: "legacy", front, back }];
+  }
 
-    const payload = {
-        cards: cards.map((c) => ({
-            id: c.id,
-            front: c.frontBlocks ? serializeBlockNote(c.frontBlocks as Block[]) : c.front,
-            back: c.backBlocks ? serializeBlockNote(c.backBlocks as Block[]) : c.back,
-        })),
-    };
-    return [JSON.stringify(payload, null, 2)];
+  const payload = {
+    cards: cards.map((c) => ({
+      id: c.id,
+      front: c.frontBlocks
+        ? serializeBlockNote(c.frontBlocks as Block[])
+        : c.front,
+      back: c.backBlocks ? serializeBlockNote(c.backBlocks as Block[]) : c.back,
+    })),
+  };
+  return [JSON.stringify(payload, null, 2)];
 }
 
 /**
@@ -850,86 +917,93 @@ function formatFlashcardDetailsFull(data: FlashcardData): string[] {
  * Session progress is shown at top (read-only); editItem only modifies the questions JSON.
  */
 function formatQuizDetailsFull(data: QuizData): string[] {
-    const questions = data.questions || [];
-    const session = data.session;
-    const lines: string[] = [];
+  const questions = data.questions || [];
+  const session = data.session;
+  const lines: string[] = [];
 
-    if (session) {
-        const total = questions.length;
-        const answered = session.answeredQuestions?.length ?? 0;
-        const correct = session.answeredQuestions?.filter((a) => a.isCorrect).length ?? 0;
-        const completed = !!(session.completedAt && total > 0 && answered >= total);
-        lines.push("--- Progress (read-only) ---");
-        lines.push(`Current question: ${session.currentIndex + 1} of ${total || "?"}`);
-        lines.push(`Answered: ${answered} | Correct: ${correct}`);
-        lines.push(`Completed: ${completed ? "yes" : "no"}`);
-        lines.push("");
-    }
+  if (session) {
+    const total = questions.length;
+    const answered = session.answeredQuestions?.length ?? 0;
+    const correct =
+      session.answeredQuestions?.filter((a) => a.isCorrect).length ?? 0;
+    const completed = !!(session.completedAt && total > 0 && answered >= total);
+    lines.push("--- Progress (read-only) ---");
+    lines.push(
+      `Current question: ${session.currentIndex + 1} of ${total || "?"}`,
+    );
+    lines.push(`Answered: ${answered} | Correct: ${correct}`);
+    lines.push(`Completed: ${completed ? "yes" : "no"}`);
+    lines.push("");
+  }
 
-    const payload = { questions };
-    lines.push(JSON.stringify(payload, null, 2));
-    return lines;
+  const payload = { questions };
+  lines.push(JSON.stringify(payload, null, 2));
+  return lines;
 }
 
 /**
  * Formats document details — raw markdown content for readWorkspace/editItem.
  */
 function formatDocumentDetailsFull(data: DocumentData): string[] {
-    const md = data.markdown?.trim();
-    if (!md) return [];
-    return [md];
+  const md = data.markdown?.trim();
+  if (!md) return [];
+  return [md];
 }
 
 /**
  * Formats audio details — timeline segments only
  */
 function formatAudioDetailsFull(data: AudioData): string[] {
-    const lines: string[] = [];
+  const lines: string[] = [];
 
-    if (data.filename) {
-        lines.push(`   - Filename: ${data.filename}`);
+  if (data.filename) {
+    lines.push(`   - Filename: ${data.filename}`);
+  }
+
+  if (data.duration) {
+    const mins = Math.floor(data.duration / 60);
+    const secs = Math.floor(data.duration % 60);
+    lines.push(`   - Duration: ${mins}:${secs.toString().padStart(2, "0")}`);
+  }
+
+  if (data.segments && data.segments.length > 0) {
+    lines.push(`   - Timeline (${data.segments.length} segments):`);
+    for (const seg of data.segments) {
+      const lang =
+        seg.language && seg.language !== "English" ? ` [${seg.language}]` : "";
+      const emotion =
+        seg.emotion && seg.emotion !== "neutral" ? ` (${seg.emotion})` : "";
+      lines.push(
+        `     [${seg.timestamp}] ${seg.speaker}${lang}${emotion}: ${seg.content}`,
+      );
+      if (seg.translation) {
+        lines.push(`       Translation: ${seg.translation}`);
+      }
     }
+  } else {
+    lines.push(`   - (No timeline segments available)`);
+  }
 
-    if (data.duration) {
-        const mins = Math.floor(data.duration / 60);
-        const secs = Math.floor(data.duration % 60);
-        lines.push(`   - Duration: ${mins}:${secs.toString().padStart(2, "0")}`);
-    }
-
-    if (data.segments && data.segments.length > 0) {
-        lines.push(`   - Timeline (${data.segments.length} segments):`);
-        for (const seg of data.segments) {
-            const lang = seg.language && seg.language !== "English" ? ` [${seg.language}]` : "";
-            const emotion = seg.emotion && seg.emotion !== "neutral" ? ` (${seg.emotion})` : "";
-            lines.push(`     [${seg.timestamp}] ${seg.speaker}${lang}${emotion}: ${seg.content}`);
-            if (seg.translation) {
-                lines.push(`       Translation: ${seg.translation}`);
-            }
-        }
-    } else {
-        lines.push(`   - (No timeline segments available)`);
-    }
-
-    return lines;
+  return lines;
 }
 
 /**
  * Formats website details with FULL content
  */
 function formatWebsiteDetailsFull(data: WebsiteData): string[] {
-    const lines: string[] = [];
+  const lines: string[] = [];
 
-    if (data.url) {
-        lines.push(`   - URL: ${data.url}`);
-        try {
-            const parsed = new URL(data.url);
-            lines.push(`   - Domain: ${parsed.hostname.replace(/^www\./, "")}`);
-        } catch {
-            // Ignore invalid URLs
-        }
-    } else {
-        lines.push(`   - (No website URL available)`);
+  if (data.url) {
+    lines.push(`   - URL: ${data.url}`);
+    try {
+      const parsed = new URL(data.url);
+      lines.push(`   - Domain: ${parsed.hostname.replace(/^www\./, "")}`);
+    } catch {
+      // Ignore invalid URLs
     }
+  } else {
+    lines.push(`   - (No website URL available)`);
+  }
 
-    return lines;
+  return lines;
 }
