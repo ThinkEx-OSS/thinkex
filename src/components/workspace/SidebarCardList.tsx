@@ -914,7 +914,19 @@ function SidebarCardList() {
             if (canShowPanelActions) {
                 e.preventDefault();
                 e.stopPropagation();
-                setPanelActionMenu({ x: e.clientX, y: e.clientY, itemId: item.id });
+                const hasPointerCoords = !(
+                    (e.clientX === 0 && e.clientY === 0) ||
+                    (!e.clientX && !e.clientY)
+                );
+                const targetRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                const x = hasPointerCoords
+                    ? e.clientX
+                    : targetRect.left + targetRect.width / 2;
+                const y = hasPointerCoords
+                    ? e.clientY
+                    : targetRect.top + targetRect.height / 2;
+
+                setPanelActionMenu({ x, y, itemId: item.id });
                 return;
             }
 
