@@ -8,6 +8,7 @@ import {
     SidebarMenuSub,
     SidebarMenuButton,
     SidebarMenuSubItem,
+    useSidebar,
 } from "@/components/ui/sidebar";
 import {
     Collapsible,
@@ -41,6 +42,7 @@ import MoveToDialog from "@/components/modals/MoveToDialog";
 import RenameDialog from "@/components/modals/RenameDialog";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { WorkspaceItemTypeIcon } from "@/components/workspace/WorkspaceItemTypeIcon";
+import { PanelActionMenuPortal } from "@/components/workspace-canvas/PanelActionMenuPortal";
 
 /**
  * Get icon for card type
@@ -58,7 +60,7 @@ interface SidebarItemButtonProps {
     workspaceName: string;
     workspaceIcon?: string | null;
     workspaceColor?: string | null;
-    onItemClick: (item: Item) => void;
+    onItemClick: (item: Item, e: React.MouseEvent) => void;
     onDeleteItem?: (itemId: string) => void;
     onRenameItem?: (itemId: string, newName: string) => void;
     onMoveItem?: (itemId: string, folderId: string | null) => void;
@@ -107,7 +109,7 @@ function SidebarItemButton({ item, allItems, workspaceName, workspaceIcon, works
                             e.stopPropagation();
                             return;
                         }
-                        onItemClick(item);
+                        onItemClick(item, e);
                     }}
                 >
                     <div className="flex items-center gap-2 px-1 py-1 w-full">
@@ -238,7 +240,7 @@ interface SidebarRootItemProps {
     workspaceName: string;
     workspaceIcon?: string | null;
     workspaceColor?: string | null;
-    onItemClick: (item: Item) => void;
+    onItemClick: (item: Item, e: React.MouseEvent) => void;
     onDeleteItem?: (itemId: string) => void;
     onRenameItem?: (itemId: string, newName: string) => void;
     onMoveItem?: (itemId: string, folderId: string | null) => void;
@@ -287,7 +289,7 @@ function SidebarRootItem({ item, allItems, workspaceName, workspaceIcon, workspa
                             e.stopPropagation();
                             return;
                         }
-                        onItemClick(item);
+                        onItemClick(item, e);
                     }}
                 >
                     <div className="flex items-center w-full">
@@ -427,7 +429,7 @@ interface SidebarFolderItemProps {
     workspaceColor?: string | null;
     onFolderClick: () => void;
     onToggle: () => void;
-    onItemClick: (item: Item) => void;
+    onItemClick: (item: Item, e: React.MouseEvent) => void;
     openFolders: Set<string>;
     onToggleFolder: (folderId: string) => void;
     activeFolderId: string | null;
@@ -766,12 +768,16 @@ function SidebarFolderItem({
  * SidebarCardList - Shows all folders in collapsible sections
  */
 function SidebarCardList() {
+    const { setOpen } = useSidebar();
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
     const { state, isLoading } = useWorkspaceState(currentWorkspaceId);
     const { workspaces } = useWorkspaceContext();
     const activeFolderId = useUIStore((state) => state.activeFolderId);
     const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
     const setOpenModalItemId = useUIStore((state) => state.setOpenModalItemId);
+    const openPanel = useUIStore((state) => state.openPanel);
+    const splitWithItem = useUIStore((state) => state.splitWithItem);
+    const openPanelIds = useUIStore((state) => state.openPanelIds);
 
     // Get current workspace details
     const currentWorkspace = useMemo(() => {
@@ -832,6 +838,11 @@ function SidebarCardList() {
 
     // Track which folders are open (for collapsible UI, not for filtering)
     const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
+    const [panelActionMenu, setPanelActionMenu] = useState<{
+        x: number;
+        y: number;
+        itemId: string;
+    } | null>(null);
 
     const toggleFolder = useCallback((folderId: string) => {
         setOpenFolders((prev) => {
@@ -876,7 +887,7 @@ function SidebarCardList() {
 
     // Handle clicking on an item - open parent folders, set active folder, and open the item's modal (matches Cmd+K)
     const handleItemClick = useCallback(
-        (item: Item) => {
+        (item: Item, e: React.MouseEvent) => {
             // Skip folders - they use handleFolderClick
             if (item.type === "folder") return;
 
@@ -895,11 +906,38 @@ function SidebarCardList() {
                 setActiveFolderId(null);
             }
 
+            const hasSingleOpenTarget = openPanelIds.length === 1;
+            const canShowPanelActions =
+                hasSingleOpenTarget &&
+                openPanelIds[0] !== item.id;
+
+            if (canShowPanelActions) {
+                e.preventDefault();
+                e.stopPropagation();
+                setPanelActionMenu({ x: e.clientX, y: e.clientY, itemId: item.id });
+                return;
+            }
+
             // Open the item in its detail modal (same as clicking the card)
             setOpenModalItemId(item.id);
         },
-        [allItems, setActiveFolderId, setOpenModalItemId]
+        [allItems, openPanelIds, setActiveFolderId, setOpenModalItemId]
     );
+
+    const handleReplacePanel = useCallback(() => {
+        if (!panelActionMenu) return;
+        openPanel(panelActionMenu.itemId);
+        setPanelActionMenu(null);
+    }, [openPanel, panelActionMenu]);
+
+    const handleDoublePanel = useCallback(() => {
+        if (!panelActionMenu) return;
+        splitWithItem(panelActionMenu.itemId);
+        if (openPanelIds.length === 1) {
+            setOpen(false);
+        }
+        setPanelActionMenu(null);
+    }, [openPanelIds.length, panelActionMenu, setOpen, splitWithItem]);
 
     if (isLoading) {
         return (
@@ -969,6 +1007,15 @@ function SidebarCardList() {
                     />
                 ))}
             </SidebarMenu>
+            {panelActionMenu && (
+                <PanelActionMenuPortal
+                    x={panelActionMenu.x}
+                    y={panelActionMenu.y}
+                    onReplace={handleReplacePanel}
+                    onDoublePanel={handleDoublePanel}
+                    onClose={() => setPanelActionMenu(null)}
+                />
+            )}
         </div>
     );
 }

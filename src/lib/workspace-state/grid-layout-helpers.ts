@@ -52,6 +52,8 @@ export const DEFAULT_COLS = 4;
 export function itemsToLayout(items: Item[], breakpoint: 'lg' | 'xxs' = 'lg'): LayoutItem[] {
   return items.map((item) => {
     const layout = getLayoutForBreakpoint(item, breakpoint);
+    const xxsMinHeight =
+      breakpoint === 'xxs' ? XXS_MIN_HEIGHT_BY_TYPE[item.type] : undefined;
 
     // YouTube: resizable smaller but not larger than 2x7; at w=1 force h=4 (matches note compact)
     if (item.type === 'youtube') {
@@ -119,7 +121,7 @@ export function itemsToLayout(items: Item[], breakpoint: 'lg' | 'xxs' = 'lg'): L
       w: layout?.w ?? DEFAULT_CARD_DIMENSIONS[item.type].w,
       h: layout?.h ?? DEFAULT_CARD_DIMENSIONS[item.type].h,
       minW: 1,
-      minH: 4,
+      minH: xxsMinHeight ?? 4,
       maxW: 4,
       maxH: 25,
     };
@@ -194,7 +196,7 @@ export function findNextAvailablePosition(
 /** Default height for all items in xxs (single-column) mode */
 export const XXS_DEFAULT_HEIGHT = 12;
 
-const XXS_MIN_HEIGHT_BY_TYPE: Partial<Record<CardType, number>> = {
+export const XXS_MIN_HEIGHT_BY_TYPE: Partial<Record<CardType, number>> = {
   note: XXS_DEFAULT_HEIGHT,
   pdf: XXS_DEFAULT_HEIGHT,
   document: XXS_DEFAULT_HEIGHT,

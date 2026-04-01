@@ -5,7 +5,7 @@ import { useMemo, useCallback, useRef, useEffect, useState } from "react";
 import React from "react";
 import type { Item, CardType } from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
-import { itemsToLayout, generateMissingLayouts, updateItemsWithLayout, hasLayoutChanged } from "@/lib/workspace-state/grid-layout-helpers";
+import { itemsToLayout, generateMissingLayouts, updateItemsWithLayout, hasLayoutChanged, XXS_MIN_HEIGHT_BY_TYPE } from "@/lib/workspace-state/grid-layout-helpers";
 import { isDescendantOf } from "@/lib/workspace-state/search";
 import { WorkspaceCard } from "./WorkspaceCard";
 import { FlashcardWorkspaceCard } from "./FlashcardWorkspaceCard";
@@ -527,7 +527,13 @@ export function WorkspaceGrid({
         }
       } else if (itemData.type === 'folder' || itemData.type === 'flashcard') {
         // Folders and flashcards don't need minimum height enforcement - skip
-      } else if (currentBreakpointRef.current !== 'xxs' && (itemData.type === 'note' || itemData.type === 'document' || itemData.type === 'pdf' || itemData.type === 'quiz' || itemData.type === 'audio')) {
+      } else if (currentBreakpointRef.current === 'xxs') {
+        const minHeight = XXS_MIN_HEIGHT_BY_TYPE[itemData.type];
+        newItem.w = 1;
+        if (minHeight !== undefined) {
+          newItem.h = Math.max(newItem.h, minHeight);
+        }
+      } else if (itemData.type === 'note' || itemData.type === 'document' || itemData.type === 'pdf' || itemData.type === 'quiz' || itemData.type === 'audio') {
         // Note, Document, PDF, Quiz, and Audio (recording) cards: handle transitions between compact and expanded modes
         // Note/Document/Audio cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=9
         // PDF cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=6
@@ -756,7 +762,7 @@ export function WorkspaceGrid({
 
   // Define breakpoints and columns
   const breakpoints = useMemo(
-    () => (isSingleColumn ? { lg: 0, xxs: 0 } : { lg: 600, xxs: 0 }),
+    () => (isSingleColumn ? { xxs: 0, lg: 1 } : { xxs: 0, lg: 600 }),
     [isSingleColumn]
   );
   const cols = useMemo(
@@ -780,8 +786,13 @@ export function WorkspaceGrid({
 
   // Handle breakpoint changes to track current breakpoint for saving layouts
   const handleBreakpointChange = useCallback((newBreakpoint: string, newCols: number) => {
+    // In forced single-column mode, keep persisting to the xxs layout regardless
+    // of whichever responsive breakpoint RGL reports for the current width.
+    if (isSingleColumn) return;
+
+    if (newBreakpoint === currentBreakpointRef.current) return;
     currentBreakpointRef.current = newBreakpoint as 'lg' | 'xxs';
-  }, []);
+  }, [isSingleColumn]);
 
   return (
     <div className={`${selectedCardIds.size > 0 ? 'pb-20' : ''} w-full workspace-grid-container${hasMounted ? ' workspace-grid-mounted' : ''}`} ref={containerRef}>
