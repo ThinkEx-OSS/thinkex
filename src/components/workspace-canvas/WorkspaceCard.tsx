@@ -1089,14 +1089,7 @@ function WorkspaceCard({
                   );
                 }
 
-                // Use the YouTubeCardContent component which handles play/adjust state
-                return (
-                  <YouTubeCardContent
-                    item={item}
-                    isPlaying={false}
-                    onTogglePlay={() => {}}
-                  />
-                );
+                return <YouTubeCardContent item={item} />;
               })()}
 
             {/* Image Content - render frameless image */}

@@ -41,7 +41,6 @@ interface UIState {
 
   // Card selection state
   selectedCardIds: Set<string>;
-  playingYouTubeCardIds: Set<string>;
   // Track which cards were auto-selected by panel opening (to preserve user selections on close)
   panelAutoSelectedCardIds: Set<string>;
 
@@ -108,8 +107,6 @@ interface UIState {
   toggleCardSelection: (id: string) => void;
   clearCardSelection: () => void;
   selectMultipleCards: (ids: string[]) => void;
-  setCardPlaying: (id: string, isPlaying: boolean) => void;
-  clearPlayingYouTubeCards: () => void;
 
   // Actions - Scroll lock state
   setItemScrollLocked: (itemId: string, isLocked: boolean) => void;
@@ -160,7 +157,6 @@ const initialState = {
 
   // Card selection
   selectedCardIds: new Set<string>(),
-  playingYouTubeCardIds: new Set<string>(),
   panelAutoSelectedCardIds: new Set<string>(),
 
   // Scroll lock state
@@ -408,17 +404,6 @@ export const useUIStore = create<UIState>()(
           };
         }),
 
-        setCardPlaying: (id, isPlaying) => set((state) => {
-          const newSet = new Set(state.playingYouTubeCardIds);
-          if (isPlaying) {
-            newSet.add(id);
-          } else {
-            newSet.delete(id);
-          }
-          return { playingYouTubeCardIds: newSet };
-        }),
-        clearPlayingYouTubeCards: () => set({ playingYouTubeCardIds: new Set<string>() }),
-
         // Scroll lock actions
         setItemScrollLocked: (itemId, isLocked) => set((state) => {
           const newMap = new Map(state.itemScrollLocked);
@@ -545,7 +530,6 @@ export const selectTextSelectionState = (state: UIState) => ({
 
 export const selectCardSelectionState = (state: UIState) => ({
   selectedCardIds: state.selectedCardIds,
-  playingYouTubeCardIds: state.playingYouTubeCardIds,
 });
 
 // Helper selector that converts Set to sorted array for stable comparison

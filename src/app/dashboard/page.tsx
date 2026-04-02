@@ -596,14 +596,6 @@ function DashboardView() {
   // and enables browser-native back/forward for folder navigation
   useFolderUrl();
 
-  // Clear playing YouTube videos when workspace changes
-  const clearPlayingYouTubeCards = useUIStore(
-    (state) => state.clearPlayingYouTubeCards,
-  );
-  useEffect(() => {
-    clearPlayingYouTubeCards();
-  }, [currentWorkspaceId, clearPlayingYouTubeCards]);
-
   return (
     <RealtimeProvider workspaceId={currentWorkspaceId}>
       <DashboardContent

@@ -54,13 +54,7 @@ export function CardRenderer(props: {
   }
 
   if (item.type === "youtube") {
-    return (
-      <YouTubeCardContent
-        item={item}
-        isPlaying={false}
-        onTogglePlay={() => {}}
-      />
-    );
+    return <YouTubeCardContent item={item} />;
   }
 
   if (item.type === "image") {
