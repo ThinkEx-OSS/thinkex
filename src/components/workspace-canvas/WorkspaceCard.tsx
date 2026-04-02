@@ -98,7 +98,6 @@ interface WorkspaceCardProps {
   onUpdateItem: (itemId: string, updates: Partial<Item>) => void;
   onDeleteItem: (itemId: string) => void;
   onOpenModal: (itemId: string) => void;
-  existingColors: CardColor[];
   // NOTE: isSelected is now subscribed directly from the store to prevent
   // full grid re-renders when selection changes
   onMoveItem?: (itemId: string, folderId: string | null) => void; // Callback to move item to folder
@@ -1297,16 +1296,6 @@ export const WorkspaceCardMemoized = memo(
     if (prevLayout?.h !== nextLayout?.h) return false;
 
     // NOTE: isSelected is now subscribed directly from the store, not a prop
-
-    // Compare existingColors array (shallow comparison)
-    if (prevProps.existingColors.length !== nextProps.existingColors.length)
-      return false;
-    if (
-      prevProps.existingColors.some(
-        (color, i) => color !== nextProps.existingColors[i],
-      )
-    )
-      return false;
 
     // NOTE: We intentionally do NOT compare callback references (onUpdateItem, onDeleteItem, etc.)
     // These are action handlers that don't affect the rendered output.

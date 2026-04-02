@@ -4,7 +4,6 @@ import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useMemo, useCallback, useRef, useEffect, useState } from "react";
 import React from "react";
 import type { Item } from "@/lib/workspace-state/types";
-import type { CardColor } from "@/lib/workspace-state/colors";
 import { itemsToLayout, generateMissingLayouts, updateItemsWithLayout } from "@/lib/workspace-state/grid-layout-helpers";
 import { isDescendantOf } from "@/lib/workspace-state/search";
 import { WorkspaceCard } from "./WorkspaceCard";
@@ -628,14 +627,6 @@ function WorkspaceGridComponent({
     return counts;
   }, [allItems]);
 
-  // Collect existing colors for card color generation
-  const existingColors = useMemo(() => {
-    return itemsWithLayout
-      .map(item => item.color)
-      .filter(Boolean) as CardColor[];
-  }, [itemsWithLayout]);
-
-
   // Layout for all items (including folder-type items)
   const combinedLayout = useMemo(() => {
     return itemsToLayout(displayItems);
@@ -685,7 +676,6 @@ function WorkspaceGridComponent({
             onUpdateItem={handleUpdateItem}
             onDeleteItem={handleDeleteItem}
             onOpenModal={handleOpenModal}
-            existingColors={existingColors}
             onMoveItem={onMoveItem}
           />
         )}
@@ -697,7 +687,6 @@ function WorkspaceGridComponent({
     handleUpdateItem,
     handleDeleteItem,
     handleOpenModal,
-    existingColors,
     onMoveItem,
     onDeleteFolderWithContents,
     handleOpenFolder,
