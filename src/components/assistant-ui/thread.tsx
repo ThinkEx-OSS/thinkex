@@ -99,7 +99,6 @@ import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import {
   useUIStore,
   selectReplySelections,
-  selectBlockNoteSelection,
 } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { useShallow } from "zustand/react/shallow";
@@ -290,7 +289,7 @@ const SUGGESTION_ACTIONS = [
     title: "Document",
     icon: FileText,
     iconClassName: "size-4 shrink-0 text-sky-400",
-    action: "note" as PromptBuilderAction,
+    action: "document" as PromptBuilderAction,
     useDialog: true,
   },
 ];
@@ -374,11 +373,11 @@ const ThreadSuggestions: FC<ThreadSuggestionsProps> = ({ items }) => {
 // Floating action buttons shown above composer on hover
 const COMPOSER_FLOATING_ACTIONS = [
   {
-    id: "note",
+    id: "document",
     label: "Document",
     icon: FileText,
     iconClassName: "size-3.5 shrink-0 text-sky-400",
-    action: "note" as PromptBuilderAction,
+    action: "document" as PromptBuilderAction,
     useDialog: true,
   },
   {
@@ -589,12 +588,8 @@ const Composer: FC<ComposerProps> = ({ items }) => {
   );
   const aui = useAui();
   const replySelections = useUIStore(useShallow(selectReplySelections));
-  const blockNoteSelection = useUIStore(selectBlockNoteSelection);
   const clearReplySelections = useUIStore(
     (state) => state.clearReplySelections,
-  );
-  const clearBlockNoteSelection = useUIStore(
-    (state) => state.clearBlockNoteSelection,
   );
   const { selectedCardIds } = useSelectedCardIds();
 
@@ -884,13 +879,12 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         const currentText = composerState.text;
         const attachments = composerState.attachments || [];
 
-        // Prevent empty messages (allow send when reply or BlockNote selection provides context)
-        const hasReplyOrBlockNoteContext =
-          replySelections.length > 0 || !!blockNoteSelection;
+        // Prevent empty messages when reply context already provides content.
+        const hasReplyContext = replySelections.length > 0;
         if (
           !currentText.trim() &&
           attachments.length === 0 &&
-          !hasReplyOrBlockNoteContext
+          !hasReplyContext
         ) {
           return;
         }
@@ -924,7 +918,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         // Use placeholder when empty so AI SDK accepts (backend injects reply context into message)
         let modifiedText =
           currentText.trim() ||
-          (hasReplyOrBlockNoteContext ? "Empty message" : "");
+          (hasReplyContext ? "Empty message" : "");
 
         // Attach per-request context as metadata via runConfig
         // This flows through as body.metadata.custom on the server
@@ -933,9 +927,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         const customMetadata: Record<string, unknown> = {};
         if (replySelections.length > 0) {
           customMetadata.replySelections = replySelections;
-        }
-        if (blockNoteSelection) {
-          customMetadata.blockNoteSelection = blockNoteSelection;
         }
         aui
           ?.composer()
@@ -951,9 +942,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
 
         // Clear all per-request state immediately — captured in runConfig before send()
         clearReplySelections();
-        clearBlockNoteSelection();
-
-        // Note: BlockNote selection is not cleared automatically - it persists until manually cleared
       }}
     >
       {/* Attachment Display - shows uploaded files */}

@@ -38,7 +38,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   useUIStore,
   selectReplySelections,
-  selectBlockNoteSelection,
 } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { useShallow } from "zustand/react/shallow";
@@ -72,10 +71,10 @@ export type PromptBuilderAction =
   | "flashcards"
   | "youtube"
   | "quiz"
-  | "note"
+  | "document"
   | "search";
 
-type NoteTemplate = "detailed" | "cheatsheet" | "short";
+type DocumentTemplate = "detailed" | "cheatsheet" | "short";
 
 type SearchSource = "workspace" | "web" | "deep_research";
 
@@ -102,8 +101,8 @@ const SEARCH_SOURCES: {
   },
 ];
 
-const NOTE_TEMPLATES: {
-  id: NoteTemplate;
+const DOCUMENT_TEMPLATES: {
+  id: DocumentTemplate;
   label: string;
   description: string;
 }[] = [
@@ -183,7 +182,7 @@ const ACTION_CONFIG: Record<
     inputLabel: "Topic or YouTube link",
     inputPlaceholder: "e.g. photosynthesis... or paste a YouTube link",
   },
-  note: {
+  document: {
     label: "Create Document",
     prefix: "Make a document on ",
     icon: FileText,
@@ -244,8 +243,6 @@ export function PromptBuilderDialog({
 
   const replySelections = useUIStore(useShallow(selectReplySelections));
   const { selectedCardIds } = useSelectedCardIds();
-  const blockNoteSelection = useUIStore(selectBlockNoteSelection);
-
   const defaultCount = config.defaultCount ?? 10;
   const [countInput, setCountInput] = useState(String(defaultCount));
   const [selectedContextIds, setSelectedContextIds] = useState<Set<string>>(
@@ -257,7 +254,7 @@ export function PromptBuilderDialog({
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set(),
   );
-  const [noteTemplate, setNoteTemplate] = useState<NoteTemplate | null>(null);
+  const [documentTemplate, setDocumentTemplate] = useState<DocumentTemplate | null>(null);
   const [searchSource, setSearchSource] = useState<SearchSource>("web");
 
   const topicInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
@@ -266,7 +263,7 @@ export function PromptBuilderDialog({
   useEffect(() => {
     if (open) {
       setCountInput(String(config.defaultCount ?? 10));
-      setNoteTemplate(null);
+      setDocumentTemplate(null);
       setSearchSource("web");
       setTopicInput("");
       setWorkspaceSearchQuery("");
@@ -372,8 +369,8 @@ export function PromptBuilderDialog({
         (selectedContextIds.size > 0 ? "the selected content" : "a topic");
       parts.push(config.prefix.trim() + " " + topicSource);
     }
-    if (action === "note" && config.hasTemplates && noteTemplate) {
-      const tpl = NOTE_TEMPLATES.find((t) => t.id === noteTemplate);
+    if (action === "document" && config.hasTemplates && documentTemplate) {
+      const tpl = DOCUMENT_TEMPLATES.find((t) => t.id === documentTemplate);
       if (tpl?.description) parts.push(tpl.description);
     }
     return parts.join(". ");
@@ -383,7 +380,7 @@ export function PromptBuilderDialog({
     resolveCount,
     topicInput,
     selectedContextIds.size,
-    noteTemplate,
+    documentTemplate,
     searchSource,
   ]);
 
@@ -528,7 +525,7 @@ export function PromptBuilderDialog({
                       action === "flashcards" && "text-purple-400",
                       action === "youtube" && "text-red-500",
                       action === "quiz" && "text-green-400",
-                      action === "note" && "text-blue-400",
+                      action === "document" && "text-blue-400",
                       action === "search" && "text-sky-500",
                     )}
                   />
@@ -591,27 +588,27 @@ export function PromptBuilderDialog({
                   </div>
                 )}
 
-                {/* Note: Templates section */}
+                {/* Document templates */}
                 {config.hasTemplates && (
                   <div className="space-y-2">
                     <div className="space-y-1.5">
-                      {NOTE_TEMPLATES.map((tpl) => (
+                      {DOCUMENT_TEMPLATES.map((tpl) => (
                         <button
                           key={tpl.id}
                           type="button"
                           onClick={() =>
-                            setNoteTemplate((prev) =>
+                            setDocumentTemplate((prev) =>
                               prev === tpl.id ? null : tpl.id,
                             )
                           }
                           className={cn(
                             "w-full flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
-                            noteTemplate === tpl.id
+                            documentTemplate === tpl.id
                               ? "border-primary bg-primary/5"
                               : "border-border hover:bg-muted/50",
                           )}
                         >
-                          {noteTemplate === tpl.id ? (
+                          {documentTemplate === tpl.id ? (
                             <CircleDot className="size-4 shrink-0 mt-0.5 text-primary" />
                           ) : (
                             <Circle className="size-4 shrink-0 mt-0.5 text-muted-foreground" />

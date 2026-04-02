@@ -1,4 +1,4 @@
-import type { CardType, ItemData, NoteData, PdfData, FlashcardData, FolderData, YouTubeData, QuizData, ImageData, AudioData, WebsiteData, DocumentData } from "./types";
+import type { CardType, ItemData, PdfData, FlashcardData, FolderData, YouTubeData, QuizData, ImageData, AudioData, WebsiteData, DocumentData } from "./types";
 
 /**
  * Generate a unique item ID
@@ -9,8 +9,6 @@ export function generateItemId(): string {
 
 export function defaultDataFor(type: CardType): ItemData {
   switch (type) {
-    case "note":
-      return { field1: "" } as NoteData;
     case "pdf":
       return { fileUrl: "", filename: "" } as PdfData;
     case "flashcard":
@@ -20,11 +18,9 @@ export function defaultDataFor(type: CardType): ItemData {
             id: generateItemId(),
             front: "",
             back: "",
-            frontBlocks: [],
-            backBlocks: []
-          }
+          },
         ],
-        currentIndex: 0
+        currentIndex: 0,
       } as FlashcardData;
     case "folder":
       return {} as FolderData;

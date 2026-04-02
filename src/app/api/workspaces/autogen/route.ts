@@ -42,7 +42,7 @@ function truncateForLog(s: string, max = LOG_TRUNCATE): string {
 /** Layout positions for autogen items (matches desired workspace arrangement) */
 const AUTOGEN_LAYOUTS = {
   youtube: { x: 0, y: 0, w: 2, h: 7 },
-  note: { x: 2, y: 0, w: 2, h: 9 },
+  document: { x: 2, y: 0, w: 2, h: 9 },
   quiz: { x: 0, y: 7, w: 2, h: 13 },
   pdf: { w: 1, h: 4 },
   image: { w: 2, h: 8 },
@@ -206,7 +206,7 @@ You are a workspace content distiller. The user provides content (prompt, files,
 
 <task>
 1. Generate workspace metadata: a short title (5-6 words), an icon from the list, and a hex color.
-2. Write a content summary (200-800 words) with key concepts, facts, and structure for notes and quiz.
+2. Write a content summary (200-800 words) with key concepts, facts, and structure for the document and quiz.
 3. Produce a YouTube search term: broad, 2-5 common words (e.g. "Emacs tutorial beginners"). Do NOT use course codes, assignment names, or narrow phrasing.
 </task>
 
@@ -465,7 +465,7 @@ export async function POST(request: NextRequest) {
         // Seed with known content-item positions so files are placed around them (matching pre-restructuring layout)
         // Always reserve YouTube footprint so a later searched YouTube item (AUTOGEN_LAYOUTS.youtube) never overlaps early PDFs/images
         const pdfItemLayouts: Pick<Item, "type" | "layout">[] = [
-          { type: "document", layout: AUTOGEN_LAYOUTS.note as Item["layout"] },
+          { type: "document", layout: AUTOGEN_LAYOUTS.document as Item["layout"] },
           { type: "quiz", layout: AUTOGEN_LAYOUTS.quiz as Item["layout"] },
           { type: "youtube", layout: AUTOGEN_LAYOUTS.youtube as Item["layout"] },
         ];
@@ -720,7 +720,7 @@ export async function POST(request: NextRequest) {
           });
 
           return {
-            document: { title: output.document.title, content: output.document.content, layout: AUTOGEN_LAYOUTS.note },
+            document: { title: output.document.title, content: output.document.content, layout: AUTOGEN_LAYOUTS.document },
             quiz: { title: output.quiz.title, questions, layout: AUTOGEN_LAYOUTS.quiz },
           };
         };

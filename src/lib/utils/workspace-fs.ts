@@ -3,14 +3,14 @@ import { getFolderPath } from "@/lib/workspace-state/search";
 
 /**
  * Get the virtual file path for an item in the workspace.
- * Example: "Physics/Thermodynamics/notes/Heat Transfer.md"
+ * Example: "Physics/Thermodynamics/documents/Heat Transfer.md"
  */
 export function getVirtualPath(item: Item, items: Item[]): string {
   const sanitize = (s: string) =>
     s.replace(/[/\\?*:|"<>]/g, "-").trim() || "untitled";
 
   const extByType: Record<string, string> = {
-    note: "md",
+    document: "md",
     pdf: "pdf",
     flashcard: "md",
     youtube: "url",

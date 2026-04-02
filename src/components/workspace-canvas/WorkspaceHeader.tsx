@@ -747,7 +747,7 @@ export function WorkspaceHeader({
         {/* Right Side: Save Indicator + Search + Chat Button */}
         {activeItemMode === 'maximized' && activeItems.length === 1 ? (
           // Maximized Mode: Show Item Controls
-          // Portal divs only for PDF (PdfPanelHeader uses them); skip for notes to avoid double gap
+          // Portal divs only for PDF (PdfPanelHeader uses them); skip for documents to avoid double gap
           <div className="flex items-center gap-2 pointer-events-auto">
             {activeItems[0]?.type === "pdf" && (
               <div id="workspace-header-portal" className="flex items-center gap-2" />

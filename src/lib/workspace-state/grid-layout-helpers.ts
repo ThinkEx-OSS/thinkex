@@ -5,7 +5,6 @@ import type { Item, CardType, LayoutPosition, ResponsiveLayouts } from "./types"
  * Default dimensions for each card type in grid units
  */
 export const DEFAULT_CARD_DIMENSIONS: Record<CardType, { w: number; h: number }> = {
-  note: { w: 1, h: 4 },
   pdf: { w: 1, h: 4 },
   flashcard: { w: 2, h: 5 },
   folder: { w: 1, h: 4 },
@@ -53,7 +52,7 @@ export function itemsToLayout(items: Item[], breakpoint: 'lg' | 'xxs' = 'lg'): L
   return items.map((item) => {
     const layout = getLayoutForBreakpoint(item, breakpoint);
 
-    // YouTube: resizable smaller but not larger than 2x7; at w=1 force h=4 (matches note compact)
+    // YouTube: resizable smaller but not larger than 2x7; at w=1 force h=4 (matches compact text cards)
     if (item.type === 'youtube') {
       return {
         i: item.id,
@@ -136,7 +135,7 @@ export function findNextAvailablePosition(
   customH?: number,
   breakpoint: 'lg' | 'xxs' = 'lg'
 ): { x: number; y: number; w: number; h: number } {
-  const validType = (newItemType in DEFAULT_CARD_DIMENSIONS) ? newItemType : 'note';
+  const validType = (newItemType in DEFAULT_CARD_DIMENSIONS) ? newItemType : 'document';
   const dimensions = DEFAULT_CARD_DIMENSIONS[validType];
   const w = customW ?? Math.min(dimensions.w, cols);
   const h = customH ?? dimensions.h;

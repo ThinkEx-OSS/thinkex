@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import ShinyText from "@/components/ShinyText";
 
 export interface ToolUILoadingShellProps {
-  /** Main label shown next to the spinner (e.g. "Creating note...") */
+  /** Main label shown next to the spinner (e.g. "Creating document...") */
   label: string;
   /** Optional secondary line (e.g. "Adding to context...") */
   subtitle?: string;

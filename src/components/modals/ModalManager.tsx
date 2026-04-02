@@ -32,7 +32,7 @@ export function ModalManager({
 
 
   // Find the current item from the items array using live data
-  // All item types (notes, flashcards, etc.) are shown only when maximized
+  // All item types (documents, flashcards, etc.) are shown only when maximized
 
   const primaryPanelId = openPanelIds[0] ?? null;
   const activeItemId = maximizedItemId || primaryPanelId;

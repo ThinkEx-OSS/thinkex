@@ -102,7 +102,7 @@ export function useTextSelectionAgent(operations: WorkspaceOperations): TextSele
       
       toast.success("Highlight saved to document");
     } catch (error) {
-      console.error("Error creating instant note:", error);
+      console.error("Error saving highlight to document:", error);
       toast.error("Failed to save highlight");
     }
   }, [operations]);

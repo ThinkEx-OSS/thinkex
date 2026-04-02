@@ -35,7 +35,7 @@ export const WORKSPACE_TEMPLATES: TemplateDefinition[] = [
       initialState: {
         items: [
           {
-            id: "sample-note-1",
+            id: "sample-document-1",
             type: "document",
             name: "Update me", // Special name triggers generating skeleton in UI
             subtitle: "",

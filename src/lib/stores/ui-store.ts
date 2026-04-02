@@ -51,10 +51,7 @@ interface UIState {
   // Reply selection state
   replySelections: Array<{ text: string; messageContext?: string; userPrompt?: string; title?: string }>;
 
-  // BlockNote text selection state
-  blockNoteSelection: { cardId: string; cardName: string; text: string } | null;
-
-  // Citation highlight: when opening note/PDF from citation click, highlight/search this quote
+  // Citation highlight: when opening document/PDF from citation click, highlight/search this quote
   citationHighlightQuery: { itemId: string; query: string; pageNumber?: number } | null;
 
   // PDF active page: itemId -> current page when PDF is open (for selected-card context)
@@ -125,10 +122,6 @@ interface UIState {
   addReplySelection: (selection: { text: string; messageContext?: string; userPrompt?: string; title?: string }) => void;
   removeReplySelection: (index: number) => void;
   clearReplySelections: () => void;
-
-  // Actions - BlockNote selection
-  setBlockNoteSelection: (selection: { cardId: string; cardName: string; text: string } | null) => void;
-  clearBlockNoteSelection: () => void;
   setCitationHighlightQuery: (query: { itemId: string; query: string; pageNumber?: number } | null) => void;
   setActivePdfPage: (itemId: string, page: number | null) => void;
 
@@ -178,9 +171,6 @@ const initialState = {
 
   // Reply selection
   replySelections: [],
-
-  // BlockNote selection
-  blockNoteSelection: null,
   citationHighlightQuery: null,
   activePdfPageByItemId: {},
 };
@@ -535,14 +525,6 @@ export const useUIStore = create<UIState>()(
           replySelections: state.replySelections.filter((_, i) => i !== index),
         })),
         clearReplySelections: () => set({ replySelections: [] }),
-
-        // BlockNote selection actions
-        setBlockNoteSelection: (selection) => {
-          set({ blockNoteSelection: selection });
-        },
-        clearBlockNoteSelection: () => {
-          set({ blockNoteSelection: null });
-        },
         setCitationHighlightQuery: (query) => {
           set({ citationHighlightQuery: query });
         },
@@ -666,9 +648,6 @@ export const selectReplySelections = (state: UIState) => state.replySelections;
 
 // Selector for selected highlight color
 export const selectSelectedHighlightColorId = (state: UIState) => state.selectedHighlightColorId;
-
-// Selector for BlockNote selection
-export const selectBlockNoteSelection = (state: UIState) => state.blockNoteSelection;
 
 // Selector for item scroll lock state
 export const selectItemScrollLocked = (itemId: string) => (state: UIState): boolean => {

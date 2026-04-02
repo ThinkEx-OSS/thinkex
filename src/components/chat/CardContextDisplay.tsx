@@ -3,10 +3,8 @@
 import { useState, useMemo, memo } from "react";
 
 import { X, ChevronDown, ChevronUp, Eye } from "lucide-react";
-import { MdFormatColorText } from "react-icons/md";
-import { useUIStore, selectBlockNoteSelection } from "@/lib/stores/ui-store";
+import { useUIStore } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Item } from "@/lib/workspace-state/types";
 
 interface CardContextDisplayProps {
@@ -29,8 +27,6 @@ function CardContextDisplayImpl({ items }: CardContextDisplayProps) {
     return ids;
   }, [openPanelIds, maximizedItemId]);
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
-  const clearBlockNoteSelection = useUIStore((state) => state.clearBlockNoteSelection);
-  const blockNoteSelection = useUIStore(selectBlockNoteSelection);
 
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -45,16 +41,9 @@ function CardContextDisplayImpl({ items }: CardContextDisplayProps) {
     });
   }, [items, selectedCardIds, viewingItemIds]);
 
-
   // Show expand button if there are more than 3 items total (selection + cards)
-  const totalItems = (blockNoteSelection ? 1 : 0) + selectedItems.length;
+  const totalItems = selectedItems.length;
   const showExpandButton = totalItems > 3;
-
-  // Truncate text preview for display
-  const getTextPreview = (text: string, maxLength: number = 40): string => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + "...";
-  };
 
   return (
     <div className="flex items-center gap-1.5 py-1 overflow-visible">
@@ -63,44 +52,6 @@ function CardContextDisplayImpl({ items }: CardContextDisplayProps) {
         className={`flex gap-1.5 flex-1 items-center ${isExpanded ? "flex-wrap" : "flex-nowrap overflow-hidden"
           } ${!showExpandButton ? "pr-7" : ""}`}
       >
-        {/* BlockNote Selection - Always shown first */}
-        {blockNoteSelection && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div
-                className="relative group flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-primary/30 bg-primary/10 hover:bg-primary/20 transition-colors flex-shrink-0 cursor-default"
-              >
-                {/* Selection Indicator / Remove Button Container */}
-                <div className="w-4 h-4 flex-shrink-0 flex items-center justify-center">
-                  {/* Text selection icon - visible by default, hidden on hover */}
-                  <MdFormatColorText className="w-4 h-4 text-primary/70 transition-opacity duration-200 group-hover:opacity-0" />
-                  {/* X icon - hidden by default, visible on hover */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      clearBlockNoteSelection();
-                    }}
-                    className="p-0.5 rounded transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center absolute hover:text-red-500"
-                    title="Remove from context"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-
-                {/* Text Preview */}
-                <span className="text-xs text-primary/90 leading-tight max-w-[120px] truncate">
-                  {getTextPreview(blockNoteSelection.text)}
-                </span>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-sm whitespace-pre-wrap break-words">
-              {blockNoteSelection.text}
-            </TooltipContent>
-          </Tooltip>
-        )}
-
         {/* Selected Cards */}
         {selectedItems.map((item) => (
           <div

@@ -6,8 +6,8 @@ import { useRef, useState, useEffect } from "react";
 
 const BASE_CARDS: FloatingCardData[] = [
   { type: "youtube", thumbnailUrl: "/youtube-thumbnail-2.jpg" },
-  { type: "note", title: "Product Vision 2025", color: "#3B82F6" },
-  { type: "note", title: "Tech Stack Decision Log", color: "#E11D48" },
+  { type: "document", title: "Product Vision 2025", color: "#3B82F6" },
+  { type: "document", title: "Tech Stack Decision Log", color: "#E11D48" },
   {
     type: "flashcard",
     content: "What is the primary function of the hippocampus?",
@@ -20,7 +20,7 @@ const BASE_CARDS: FloatingCardData[] = [
     color: "#F59E0B",
     aspectRatio: "1/1.1",
   },
-  { type: "note", title: "Meeting Notes: Design Sync", color: "#8B5CF6" },
+  { type: "document", title: "Meeting Notes: Design Sync", color: "#8B5CF6" },
   { type: "flashcard", content: 'Define "Neuroplasticity"', color: "#EC4899" },
   {
     type: "folder",
@@ -28,7 +28,7 @@ const BASE_CARDS: FloatingCardData[] = [
     itemCount: 48,
     color: "#06B6D4",
   },
-  { type: "note", title: "Ideas for Marketing", color: "#F97316" },
+  { type: "document", title: "Ideas for Marketing", color: "#F97316" },
   {
     type: "quiz",
     title: "Neuroscience Quiz",

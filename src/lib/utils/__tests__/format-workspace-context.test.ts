@@ -1,129 +1,49 @@
 import { describe, it, expect } from "vitest";
-import {
-  getNoteContentAsMarkdown,
-  formatItemContent,
-} from "@/lib/utils/format-workspace-context";
+import { formatItemContent } from "@/lib/utils/format-workspace-context";
 import { replace } from "@/lib/utils/edit-replace";
-import type { Item, NoteData } from "@/lib/workspace-state/types";
+import type { Item, DocumentData } from "@/lib/workspace-state/types";
 
-/**
- * Minimal Block structure matching BlockNote schema (paragraph, heading, math).
- * Avoids importing full BlockNoteEditor which has React deps.
- */
-function mkParagraph(text: string, id = "p1") {
-  return {
-    id,
-    type: "paragraph",
-    content: [{ type: "text", text, styles: {} }],
-    children: [],
-  };
-}
-
-function mkHeading(level: number, text: string, id = "h1") {
-  return {
-    id,
-    type: "heading",
-    props: { level },
-    content: [{ type: "text", text, styles: {} }],
-    children: [],
-  };
-}
-
-function mkMathBlock(latex: string, id = "m1") {
-  return {
-    id,
-    type: "math",
-    props: { latex },
-    content: "none",
-    children: [],
-  };
-}
-
-function mkNoteItem(
-  blockContent: unknown[],
-  overrides: Partial<Item> = {}
+function mkDocumentItem(
+  markdown: string,
+  sources?: DocumentData["sources"],
+  overrides: Partial<Item> = {},
 ): Item {
   return {
-    id: "note-1",
-    name: "Test Note",
-    type: "note",
+    id: "doc-1",
+    name: "Test Document",
+    type: "document",
     subtitle: "",
-    data: { blockContent } as NoteData,
+    data: { markdown, ...(sources?.length ? { sources } : {}) },
     ...overrides,
   };
 }
 
-describe("getNoteContentAsMarkdown", () => {
-  it("returns empty string for empty blockContent", () => {
-    expect(getNoteContentAsMarkdown({} as NoteData)).toBe("");
+describe("formatItemContent (document)", () => {
+  it("returns trimmed markdown body", () => {
+    const item = mkDocumentItem("  # Hello\n\nBody  ");
+    expect(formatItemContent(item)).toBe("# Hello\n\nBody");
   });
 
-  it("returns empty string when blockContent is empty array", () => {
-    expect(getNoteContentAsMarkdown({ blockContent: [] } as NoteData)).toBe("");
-  });
-
-  it("serializes paragraph block", () => {
-    const data = {
-      blockContent: [mkParagraph("Hello world")],
-    } as NoteData;
-    expect(getNoteContentAsMarkdown(data)).toBe("Hello world\n\n");
-  });
-
-  it("serializes heading block", () => {
-    const data = {
-      blockContent: [mkHeading(1, "Title")],
-    } as NoteData;
-    expect(getNoteContentAsMarkdown(data)).toBe("# Title\n\n");
-  });
-
-  it("serializes math block", () => {
-    const data = {
-      blockContent: [mkMathBlock("x^2")],
-    } as NoteData;
-    expect(getNoteContentAsMarkdown(data)).toBe("$$\nx^2\n$$\n\n");
-  });
-
-  it("normalizes \\r\\n to \\n", () => {
-    // Use text with CRLF to exercise normalization path
-    const block = mkParagraph("line1\r\nline2");
-    const data = {
-      blockContent: [block],
-    } as NoteData;
-    const content = getNoteContentAsMarkdown(data);
-    expect(content).not.toContain("\r\n");
-    expect(content).toBe("line1\nline2\n\n");
+  it("appends Sources block when present", () => {
+    const item = mkDocumentItem("Intro", [
+      { title: "Wiki", url: "https://example.com" },
+    ]);
+    const out = formatItemContent(item);
+    expect(out.startsWith("Intro")).toBe(true);
+    expect(out).toContain("Sources:");
+    expect(out).toContain("Wiki");
+    expect(out).toContain("https://example.com");
   });
 });
 
-describe("formatItemContent (readWorkspace format) matches getNoteContentAsMarkdown (edit search)", () => {
-  /**
-   * Critical: content shown by readWorkspace must be exactly what editItem searches.
-   * So the editable portion of formatItemContent output must equal getNoteContentAsMarkdown.
-   */
-  it("note content from formatItemContent starts with raw markdown (no wrapper)", () => {
-    const blockContent = [mkHeading(1, "Test"), mkParagraph("Body text")];
-    const item = mkNoteItem(blockContent);
+describe("formatItemContent aligns with readWorkspace document markdown for edit", () => {
+  it("readWorkspace uses raw markdown only; replace works on that string", () => {
+    const md = "# Title\n\nFirst para\n\nSecond para";
+    const item = mkDocumentItem(md);
+    const body = (item.data as DocumentData).markdown ?? "";
+    expect(body).toBe(md);
 
-    const formatted = formatItemContent(item);
-    const rawContent = getNoteContentAsMarkdown(item.data as NoteData);
-
-    // The formatted output for a note should BEGIN with the raw content
-    // (sources, if any, come after a blank line and "Sources:")
-    expect(formatted.startsWith(rawContent)).toBe(true);
-    expect(formatted.trimEnd()).toBe(rawContent.trimEnd());
-  });
-
-  it("oldString copied from readWorkspace (raw content, no prefixes) can be used in replace", () => {
-    const blockContent = [
-      mkHeading(1, "My Note"),
-      mkParagraph("First para"),
-      mkParagraph("Second para"),
-    ];
-    const item = mkNoteItem(blockContent);
-    const rawContent = getNoteContentAsMarkdown(item.data as NoteData);
-
-    // readWorkspace returns raw content with no line prefixes — copy directly into oldString
-    const newContent = replace(rawContent, "First para", "Updated para");
+    const newContent = replace(body, "First para", "Updated para");
     expect(newContent).toContain("Updated para");
     expect(newContent).not.toContain("First para");
   });

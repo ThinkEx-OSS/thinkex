@@ -73,9 +73,8 @@ export default function RenameDialog({
         return "Folder";
       case "document":
         return "Document";
-      case "note":
       default:
-        return "Note";
+        return "Item";
     }
   };
 

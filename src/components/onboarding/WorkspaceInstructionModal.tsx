@@ -30,9 +30,9 @@ export interface WorkspaceInstructionModalProps {
   onFallbackContinue?: () => void;
   onUserInteracted?: () => void;
   isGenerating?: boolean;
-  /** Progress text shown at top when generating (e.g. "Creating your note...") */
+  /** Progress text shown at top when generating (e.g. "Creating your document...") */
   progressText?: string;
-  /** Steps completed so far (e.g. ["metadata", "workspace", "note"]) */
+  /** Steps completed so far (e.g. ["metadata", "workspace", "document"]) */
   completedSteps?: string[];
   /** Total number of steps for progress indicator */
   totalSteps?: number;

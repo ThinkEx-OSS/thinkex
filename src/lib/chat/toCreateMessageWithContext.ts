@@ -8,7 +8,7 @@ import {
 } from "ai";
 
 /**
- * Custom toCreateMessage that merges runConfig (BlockNote selection, reply, selected cards)
+ * Custom toCreateMessage that merges runConfig (selected text, reply, selected cards)
  * into the UIMessage metadata so it persists and can be rendered when viewing message history.
  * Based on @assistant-ui/react-ai-sdk toCreateMessage with runConfig merged into metadata.
  */

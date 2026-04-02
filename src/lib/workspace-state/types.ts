@@ -1,7 +1,6 @@
 import type { CardColor } from "./colors";
 
 export type CardType =
-  | "note"
   | "pdf"
   | "flashcard"
   | "folder"
@@ -13,19 +12,12 @@ export type CardType =
   | "document";
 
 /**
- * Source attribution for notes created from web search.
+ * Source attribution for documents created from web search.
  */
 export interface Source {
   title: string; // Title of the source page
   url: string; // URL of the source
   favicon?: string; // Optional favicon URL
-}
-
-export interface NoteData {
-  field1?: string; // textarea - legacy plain text format
-  blockContent?: unknown; // BlockNote JSON blocks - new rich-text format
-  // Optional: Sources from web search
-  sources?: Source[];
 }
 
 export interface PdfData {
@@ -46,20 +38,14 @@ export interface PdfData {
 
 export interface FlashcardItem {
   id: string;
+  /** Markdown (same role as document body). */
   front: string;
   back: string;
-  frontBlocks?: unknown; // BlockNote JSON blocks
-  backBlocks?: unknown; // BlockNote JSON blocks
 }
 
 export interface FlashcardData {
   cards: FlashcardItem[];
   currentIndex?: number; // Optional persistence
-  // Legacy fields kept for backward compatibility during migration
-  front?: string;
-  back?: string;
-  frontBlocks?: unknown;
-  backBlocks?: unknown;
 }
 
 export interface FolderData {
@@ -156,7 +142,6 @@ export interface DocumentData {
 }
 
 export type ItemData =
-  | NoteData
   | PdfData
   | FlashcardData
   | FolderData

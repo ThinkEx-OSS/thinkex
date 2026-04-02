@@ -3,7 +3,6 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 const mockGetSession = vi.fn();
 const mockHeaders = vi.fn();
 const mockLoadWorkspaceState = vi.fn();
-const mockMarkdownToBlocks = vi.fn();
 const mockCreateEvent = vi.fn();
 const mockExecute = vi.fn();
 
@@ -47,11 +46,6 @@ vi.mock("@/lib/workspace/state-loader", () => ({
   loadWorkspaceState: (...args: any[]) => mockLoadWorkspaceState(...args),
 }));
 
-vi.mock("@/lib/editor/markdown-to-blocks", () => ({
-  markdownToBlocks: (...args: any[]) => mockMarkdownToBlocks(...args),
-  fixLLMDoubleEscaping: (s: string) => s,
-}));
-
 vi.mock("@/lib/workspace/events", () => ({
   createEvent: (...args: any[]) => mockCreateEvent(...args),
 }));
@@ -78,7 +72,6 @@ describe("workspaceWorker edit end-to-end paths", () => {
     mockHeaders.mockResolvedValue(new Headers());
     mockGetSession.mockResolvedValue({ user: { id: "user-1" } });
     mockLimit.mockResolvedValue([{ userId: "user-1" }]); // workspace owner path
-    mockMarkdownToBlocks.mockResolvedValue([]);
     mockCreateEvent.mockImplementation((type: string, payload: unknown, userId: string) => ({
       id: "evt-1",
       type,
@@ -268,16 +261,16 @@ describe("workspaceWorker edit end-to-end paths", () => {
     expect(result.message).toMatch(/Invalid JSON after edit/i);
   });
 
-  it("rename-only: updates note name without touching content", async () => {
-    const noteContent = "Original note content";
+  it("rename-only: updates document name without touching content", async () => {
+    const markdown = "Original document content";
     mockLoadWorkspaceState.mockResolvedValue({
       items: [
         {
-          id: "note-1",
-          type: "note",
-          name: "My Note",
+          id: "doc-1",
+          type: "document",
+          name: "My Document",
           subtitle: "",
-          data: { field1: noteContent, blockContent: [] },
+          data: { markdown },
         },
       ],
       globalTitle: "",
@@ -290,21 +283,20 @@ describe("workspaceWorker edit end-to-end paths", () => {
 
     const result = await workspaceWorker("edit", {
       workspaceId: "ws-1",
-      itemId: "note-1",
-      itemType: "note",
-      itemName: "My Note",
+      itemId: "doc-1",
+      itemType: "document",
+      itemName: "My Document",
       oldString: "",
       newString: "",
-      newName: "Renamed Note",
+      newName: "Renamed Document",
     });
 
     expect(result.success).toBe(true);
-    expect(result.message).toMatch(/Updated note successfully/);
-    expect(mockMarkdownToBlocks).not.toHaveBeenCalled();
+    expect(result.message).toMatch(/Updated document successfully/);
     expect(mockCreateEvent).toHaveBeenCalled();
     const eventPayload = mockCreateEvent.mock.calls[0][1] as { id: string; changes: Record<string, unknown> };
-    expect(eventPayload.id).toBe("note-1");
-    expect(eventPayload.changes).toEqual({ name: "Renamed Note" });
+    expect(eventPayload.id).toBe("doc-1");
+    expect(eventPayload.changes).toEqual({ name: "Renamed Document" });
   });
 
   it("fails with clear message when oldString is ambiguous", async () => {

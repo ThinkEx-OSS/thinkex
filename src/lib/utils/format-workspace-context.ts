@@ -1,10 +1,8 @@
 import type {
   AgentState,
   Item,
-  NoteData,
   PdfData,
   FlashcardData,
-  FlashcardItem,
   YouTubeData,
   QuizData,
   QuizQuestion,
@@ -13,8 +11,6 @@ import type {
   WebsiteData,
   DocumentData,
 } from "@/lib/workspace-state/types";
-import { serializeBlockNote } from "./serialize-blocknote";
-import { type Block } from "@/components/editor/blocknote-shared";
 import { getVirtualPath } from "./workspace-fs";
 import { getPdfSourceUrl } from "@/lib/pdf/pdf-item";
 
@@ -45,7 +41,7 @@ function formatItemMetadata(
     }
     case "flashcard": {
       const d = item.data as FlashcardData;
-      const n = d?.cards?.length ?? (d?.front ? 1 : 0);
+      const n = d?.cards?.length ?? 0;
       parts.push(`cards=${n}`);
       break;
     }
@@ -130,7 +126,7 @@ Rely only on facts from fetched content. Do not invent or assume information.
 
 <instructions>
 RESPONSE STYLE (critical):
-When editing workspace items (documents, quizzes, flashcards, legacy notes, etc.), speak to the user in plain language. Do NOT expose internal mechanics.
+When editing workspace items (documents, quizzes, flashcards, etc.), speak to the user in plain language. Do NOT expose internal mechanics.
 - Never mention tool names (editItem, readWorkspace, searchWorkspace, etc.) or parameters (oldString, newString, etc.) in your chat response.
 - Never paste raw JSON, full question lists, or item content into the chat unless the user explicitly asks to see it.
 - Do not describe step-by-step reasoning (e.g. "Step 1: I read the quiz... Step 2: I called editItem..."). Just state the outcome.
@@ -158,12 +154,12 @@ When selected card metadata includes (currently viewing) or activePage=N (for PD
 YOUTUBE: If user says "add a video" without a topic, infer from workspace context. Don't ask - just search.
 
 INLINE CITATIONS (highly recommended for most responses):
-Only in your chat response — never in item content (notes, documents, flashcards, quizzes, etc.). Use sources param for tools when available, and do not put <citation> tags in content passed to createNote, createDocument, editItem, createFlashcards, etc.
+Only in your chat response — never in item content (documents, flashcards, quizzes, etc.). Use sources param for tools when available, and do not put <citation> tags in content passed to createDocument, editItem, createFlashcards, etc.
 Use simple plain text only. Bare minimum for uniqueness. No math, LaTeX, or complex formatting inside citations.
 Output citation HTML: <citation>REF</citation> where REF is one of:
 
 - Web URL: <citation>https://example.com/article</citation>
-- Workspace note or document: <citation>Title</citation> — or virtual path like <citation>notes/My Note.md</citation> or <citation>documents/My Document.md</citation>
+- Workspace document: <citation>Title</citation> — or virtual path like <citation>documents/My Document.md</citation>
 - Workspace + excerpt: <citation>Title | exact excerpt</citation> — pipe with spaces; only when you have the exact text
 - PDF: <citation>PDF Title | p. 5</citation> or <citation>PDF Title | exact excerpt | p. 5</citation> — when citing PDFs, include page numbers whenever available (1-indexed). Excerpt is optional. Virtual path is OK: <citation>pdfs/MyFile.pdf | p. 3</citation>. If page is unknown, <citation>PDF Title</citation> is acceptable.
 
@@ -244,9 +240,6 @@ function formatItem(item: Item, index: number): string {
 
   // Add type-specific details
   switch (item.type) {
-    case "note":
-      lines.push(...formatNoteDetails(item.data as NoteData));
-      break;
     case "pdf":
       lines.push(...formatPdfDetails(item.data as PdfData));
       break;
@@ -265,14 +258,6 @@ function formatItem(item: Item, index: number): string {
 }
 
 /**
- * Formats note-specific details
- */
-function formatNoteDetails(data: NoteData): string[] {
-  // No content previews - return empty
-  return [];
-}
-
-/**
  * Formats PDF-specific details
  */
 function formatPdfDetails(data: PdfData): string[] {
@@ -284,7 +269,7 @@ function formatPdfDetails(data: PdfData): string[] {
  * Formats Flashcard-specific details
  */
 function formatFlashcardDetails(data: FlashcardData): string[] {
-  const cardCount = data.cards?.length || (data.front || data.back ? 1 : 0);
+  const cardCount = data.cards?.length ?? 0;
   return [`   - Deck contains ${cardCount} card${cardCount !== 1 ? "s" : ""}`];
 }
 
@@ -314,111 +299,9 @@ function truncateText(text: string, maxLength: number): string {
   return text.substring(0, maxLength - 3) + "...";
 }
 
-/**
- * Extracts text content from BlockNote JSON blocks
- * Simple implementation - could be enhanced to handle more block types
- */
-function extractTextFromBlocks(blockContent: unknown): string {
-  if (!blockContent || typeof blockContent !== "object") return "";
-
-  const blocks = blockContent as Record<string, unknown>;
-  if (!Array.isArray(blocks)) return "";
-
-  return blocks
-    .map((block: Record<string, unknown>) => {
-      if (
-        block.type === "paragraph" &&
-        block.content &&
-        Array.isArray(block.content)
-      ) {
-        return block.content
-          .map((node: Record<string, unknown>) => (node.text as string) || "")
-          .join("");
-      }
-      return "";
-    })
-    .join(" ")
-    .trim();
-}
-
-/**
- * Extracts rich content (images, math) from BlockNote JSON blocks
- * Returns arrays of image URLs and LaTeX expressions
- */
 interface RichContent {
   images: string[];
   mathExpressions: string[];
-}
-
-function extractFromBlockContent(blockContent: unknown): RichContent {
-  const richContent: RichContent = {
-    images: [],
-    mathExpressions: [],
-  };
-
-  if (!blockContent || typeof blockContent !== "object") return richContent;
-  if (!Array.isArray(blockContent)) return richContent;
-
-  // Walk through blocks and extract images and math
-  for (const block of blockContent) {
-    if (!block || typeof block !== "object") continue;
-
-    const blockObj = block as Record<string, unknown>;
-
-    // Extract images: block.type === "image" && block.props.url
-    if (
-      blockObj.type === "image" &&
-      blockObj.props &&
-      typeof blockObj.props === "object"
-    ) {
-      const props = blockObj.props as Record<string, unknown>;
-      if (props.url && typeof props.url === "string") {
-        richContent.images.push(props.url);
-      }
-    }
-
-    // Extract block math: block.type === "math"
-    if (
-      blockObj.type === "math" &&
-      blockObj.props &&
-      typeof blockObj.props === "object"
-    ) {
-      const props = blockObj.props as Record<string, unknown>;
-      if (
-        props.latex &&
-        typeof props.latex === "string" &&
-        props.latex.trim()
-      ) {
-        richContent.mathExpressions.push(props.latex);
-      }
-    }
-
-    // Extract inline math from content arrays (e.g. in paragraphs)
-    if (blockObj.content && Array.isArray(blockObj.content)) {
-      for (const inlineContent of blockObj.content) {
-        if (!inlineContent || typeof inlineContent !== "object") continue;
-
-        const inlineObj = inlineContent as Record<string, unknown>;
-
-        if (
-          inlineObj.type === "inlineMath" &&
-          inlineObj.props &&
-          typeof inlineObj.props === "object"
-        ) {
-          const props = inlineObj.props as Record<string, unknown>;
-          if (
-            props.latex &&
-            typeof props.latex === "string" &&
-            props.latex.trim()
-          ) {
-            richContent.mathExpressions.push(props.latex);
-          }
-        }
-      }
-    }
-  }
-
-  return richContent;
 }
 
 /**
@@ -429,16 +312,6 @@ function extractRichContent(item: Item): RichContent {
     images: [],
     mathExpressions: [],
   };
-
-  // For note cards, extract from blockContent
-  if (item.type === "note") {
-    const noteData = item.data as NoteData;
-    if (noteData.blockContent) {
-      const extracted = extractFromBlockContent(noteData.blockContent);
-      richContent.images.push(...extracted.images);
-      richContent.mathExpressions.push(...extracted.mathExpressions);
-    }
-  }
 
   // For PDF cards, include the PDF URL as an "image" (file)
   if (item.type === "pdf") {
@@ -628,9 +501,6 @@ export function formatItemContent(
   const lines: string[] = [];
 
   switch (item.type) {
-    case "note":
-      lines.push(...formatNoteDetailsFull(item.data as NoteData));
-      break;
     case "pdf":
       lines.push(
         ...formatPdfDetailsFull(
@@ -657,6 +527,7 @@ export function formatItemContent(
       break;
     case "document":
       lines.push(...formatDocumentDetailsFull(item.data as DocumentData));
+      break;
     case "website":
       lines.push(...formatWebsiteDetailsFull(item.data as WebsiteData));
       break;
@@ -665,41 +536,6 @@ export function formatItemContent(
   }
 
   return lines.join("\n");
-}
-
-/**
- * Extracts the note content as markdown. Uses same source as readWorkspace
- * (blockContent serialized) so edits match what the AI sees.
- * Normalizes line endings to \n so readWorkspace output matches editItem search.
- */
-export function getNoteContentAsMarkdown(data: NoteData): string {
-  if (data.blockContent) {
-    const content = serializeBlockNote(data.blockContent as Block[]);
-    if (content) return content.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
-  }
-  return "";
-}
-
-/**
- * Formats note details with FULL content (no truncation).
- * Outputs raw markdown directly so readWorkspace content matches exactly what editItem searches.
- * Sources are appended after the content when present.
- */
-function formatNoteDetailsFull(data: NoteData): string[] {
-  const lines: string[] = [];
-  const content = getNoteContentAsMarkdown(data);
-  if (content) {
-    // Output raw content directly — editItem matches against this exact string
-    lines.push(content);
-  }
-  if (data.sources && data.sources.length > 0) {
-    if (lines.length > 0) lines.push("");
-    lines.push("Sources:");
-    for (const s of data.sources) {
-      lines.push(`  - ${s.title || s.url} | ${s.url}`);
-    }
-  }
-  return lines;
 }
 
 /**
@@ -884,29 +720,14 @@ function formatImageDetailsFull(data: ImageData): string[] {
 
 /**
  * Formats flashcard details as raw JSON (editable by editItem).
- * Omit frontBlocks/backBlocks; they are derived from front/back on save.
+ * Each side is markdown (`front` / `back`).
  */
 function formatFlashcardDetailsFull(data: FlashcardData): string[] {
-  let cards: FlashcardItem[] = [];
-  if (data.cards && data.cards.length > 0) {
-    cards = data.cards;
-  } else if (data.front || data.back || data.frontBlocks || data.backBlocks) {
-    const front = data.frontBlocks
-      ? serializeBlockNote(data.frontBlocks as Block[])
-      : data.front || "";
-    const back = data.backBlocks
-      ? serializeBlockNote(data.backBlocks as Block[])
-      : data.back || "";
-    cards = [{ id: "legacy", front, back }];
-  }
-
   const payload = {
-    cards: cards.map((c) => ({
+    cards: (data.cards ?? []).map((c) => ({
       id: c.id,
-      front: c.frontBlocks
-        ? serializeBlockNote(c.frontBlocks as Block[])
-        : c.front,
-      back: c.backBlocks ? serializeBlockNote(c.backBlocks as Block[]) : c.back,
+      front: c.front,
+      back: c.back,
     })),
   };
   return [JSON.stringify(payload, null, 2)];
@@ -945,9 +766,19 @@ function formatQuizDetailsFull(data: QuizData): string[] {
  * Formats document details — raw markdown content for readWorkspace/editItem.
  */
 function formatDocumentDetailsFull(data: DocumentData): string[] {
+  const lines: string[] = [];
   const md = data.markdown?.trim();
-  if (!md) return [];
-  return [md];
+  if (md) {
+    lines.push(md);
+  }
+  if (data.sources && data.sources.length > 0) {
+    if (lines.length > 0) lines.push("");
+    lines.push("Sources:");
+    for (const s of data.sources) {
+      lines.push(`  - ${s.title || s.url} | ${s.url}`);
+    }
+  }
+  return lines;
 }
 
 /**

@@ -20,9 +20,8 @@ import {
   Mic,
   Globe,
 } from "lucide-react";
-import { CgNotes } from "react-icons/cg";
 import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
-import { useCallback, useState, memo, useRef, useEffect, useMemo } from "react";
+import { useCallback, useState, memo, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -41,7 +40,6 @@ import {
 } from "@/lib/workspace-state/colors";
 import type {
   Item,
-  NoteData,
   PdfData,
   FlashcardData,
   YouTubeData,
@@ -50,12 +48,6 @@ import type {
   DocumentData,
 } from "@/lib/workspace-state/types";
 import { SwatchesPicker, ColorResult } from "react-color";
-import {
-  plainTextToBlocks,
-  type Block,
-} from "@/components/editor/blocknote-shared";
-import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
-import { BlockNotePreview } from "@/components/editor/BlockNotePreview";
 import { AudioCardContent } from "./AudioCardContent";
 import LazyAppPdfViewer from "@/components/pdf/LazyAppPdfViewer";
 import { LightweightPdfPreview } from "@/components/pdf/LightweightPdfPreview";
@@ -64,9 +56,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useUIStore, selectItemScrollLocked } from "@/lib/stores/ui-store";
 import { Flashcard } from "react-quizlet-flashcard";
 import "react-quizlet-flashcard/dist/index.css";
-import ReactMarkdown from "react-markdown";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
 import { useElementSize } from "@/hooks/use-element-size";
 import { useIsVisible } from "@/hooks/use-is-visible";
 import {
@@ -127,127 +116,6 @@ interface WorkspaceCardProps {
 }
 
 /**
- * Component to handle lazy loading of note content
- * Shows skeleton immediately, then loads preview asynchronously
- * OPTIMIZED: Skips preview updates when card is being edited in modal
- */
-function WorkspaceCardNoteContent({
-  item,
-  isScrollLocked,
-}: {
-  item: Item;
-  isScrollLocked: boolean;
-}) {
-  const noteData = item.data as NoteData;
-  const hasBlockContent =
-    noteData.blockContent &&
-    Array.isArray(noteData.blockContent) &&
-    (noteData.blockContent as Block[]).length > 0;
-
-  // Use state for scroll container so re-render is triggered when element mounts
-  // This fixes the issue where virtualizer initializes with null scroll element
-  const [scrollContainer, setScrollContainer] = useState<HTMLDivElement | null>(
-    null,
-  );
-
-  // Check if this card is currently being edited in the modal
-  // OPTIMIZED: Subscribe to a derived boolean instead of the raw ID
-  // This way, only THIS card's component re-renders when its modal state changes
-  // Other cards won't re-render because their isEditingInModal stays false
-  const isEditingInModal = useUIStore((state) =>
-    state.openPanelIds.includes(item.id),
-  );
-
-  // Store the last rendered content to freeze preview while modal is open
-  const frozenContentRef = useRef<Block[] | null>(null);
-
-  // OPTIMIZED: Memoize blocks array to prevent unnecessary re-renders
-  // Only recreate if blockContent or field1 actually changes
-  const content = useMemo(() => {
-    if (hasBlockContent) {
-      return noteData.blockContent as Block[];
-    }
-    return plainTextToBlocks(noteData.field1 || "");
-  }, [hasBlockContent, noteData.blockContent, noteData.field1]);
-
-  // OPTIMIZED: Freeze preview content when modal is open for this card
-  // But allow updates if content changes significantly (external updates like from AI)
-  const displayContent = useMemo(() => {
-    if (isEditingInModal) {
-      // If modal is open, check if content changed significantly
-      // This handles external updates (like from AI) while preventing re-renders from user typing
-      const currentContentStr = JSON.stringify(content);
-      const frozenContentStr = frozenContentRef.current
-        ? JSON.stringify(frozenContentRef.current)
-        : null;
-
-      // If content changed externally (different from frozen), update frozen content
-      if (frozenContentStr !== currentContentStr) {
-        frozenContentRef.current = content;
-      }
-
-      return frozenContentRef.current || content;
-    } else {
-      // Modal is closed, update frozen content and use current content
-      frozenContentRef.current = content;
-      return content;
-    }
-  }, [isEditingInModal, content]);
-
-  // Create a stable content hash for effect dependency
-  // This avoids re-running effect when content array reference changes but content is the same
-  const contentHash = useMemo(() => {
-    if (displayContent.length === 0) return "";
-    // Create a simple hash from block IDs and content
-    return JSON.stringify(
-      displayContent.map((b) => ({ id: b.id, type: b.type })),
-    );
-  }, [displayContent]);
-
-  // Check for template-created items awaiting generation
-  // Items with name "Update me" and empty content are template items waiting for AI
-  const isAwaitingGeneration =
-    item.name === "Update me" && displayContent.length === 0;
-
-  if (isAwaitingGeneration) {
-    return (
-      <div className="flex-1 min-h-0 p-4 flex flex-col gap-3">
-        <div className="flex items-center gap-2 text-muted-foreground text-sm">
-          <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-          Generating note...
-        </div>
-        <Skeleton className="h-4 w-full bg-foreground/10" />
-        <Skeleton className="h-4 w-3/4 bg-foreground/10" />
-        <Skeleton className="h-4 w-5/6 bg-foreground/10" />
-        <Skeleton className="h-4 w-2/3 bg-foreground/10" />
-        <Skeleton className="h-4 w-4/5 bg-foreground/10" />
-      </div>
-    );
-  }
-
-  if (displayContent.length > 0) {
-    return (
-      <div
-        ref={setScrollContainer}
-        className="workspace-card-readonly-editor flex-1 min-h-0"
-        style={{
-          paddingLeft: "0.5rem",
-          paddingRight: "0.5rem",
-          overflow: isScrollLocked ? "hidden" : "auto",
-        }}
-      >
-        <BlockNotePreview
-          blocks={displayContent}
-          isScrollLocked={isScrollLocked}
-          scrollParent={scrollContainer}
-        />
-      </div>
-    );
-  }
-  return null;
-}
-
-/**
  * Individual workspace card component.
  * Handles rendering a single card with drag handle, options menu, and content.
  */
@@ -264,11 +132,18 @@ function WorkspaceCard({
   onMoveItem,
 }: WorkspaceCardProps) {
   const { resolvedTheme } = useTheme();
+  const documentMarkdownRaw =
+    item.type === "document"
+      ? ((item.data as DocumentData).markdown || "").trim()
+      : "";
   const documentPreviewText =
     item.type === "document"
-      ? ((item.data as DocumentData).markdown || "").trim() ||
-        "Start writing..."
+      ? documentMarkdownRaw || "Start writing..."
       : "";
+  const documentAwaitingGeneration =
+    item.type === "document" &&
+    item.name === "Update me" &&
+    documentMarkdownRaw.length === 0;
 
   // Subscribe directly to this card's selection state from the store
   // This prevents full grid re-renders when selection changes
@@ -441,27 +316,12 @@ function WorkspaceCard({
     [item.id, onUpdateItem],
   );
 
-  // Handle copying note content as markdown
   const handleCopyMarkdown = useCallback(() => {
-    if (item.type !== "note") return;
-
-    const noteData = item.data as NoteData;
-    let markdownContent = "";
-
-    // Prefer BlockNote blocks, fall back to plain text
-    if (
-      noteData.blockContent &&
-      Array.isArray(noteData.blockContent) &&
-      noteData.blockContent.length > 0
-    ) {
-      markdownContent = serializeBlockNote(noteData.blockContent as Block[]);
-    } else if (noteData.field1) {
-      markdownContent = noteData.field1;
-    }
-
-    if (markdownContent) {
+    if (item.type !== "document") return;
+    const md = (item.data as DocumentData).markdown?.trim() ?? "";
+    if (md) {
       navigator.clipboard
-        .writeText(markdownContent)
+        .writeText(md)
         .then(() => {
           toast.success("Copied to clipboard");
         })
@@ -649,7 +509,7 @@ function WorkspaceCard({
         return;
       }
 
-      // YouTube cards open in panel (same as notes/PDFs) - no special handling, fall through
+      // YouTube cards open in panel (same as documents/PDFs) - no special handling, fall through
 
       // If this card is already open in panel mode, close it instead of re-opening
       if (isOpenInPanel) {
@@ -762,14 +622,16 @@ function WorkspaceCard({
               <div
                 className={`absolute top-3 right-3 z-20 flex items-center gap-2 ${isEditingTitle ? "" : "opacity-0 group-hover:opacity-100"}`}
               >
-                {/* Scroll Lock/Unlock Button - Hidden for YouTube, image, quiz, and narrow note/PDF cards */}
+                {/* Scroll Lock/Unlock Button - Hidden for YouTube, image, quiz, and narrow document/PDF cards */}
                 {item.type !== "youtube" &&
                   item.type !== "image" &&
                   item.type !== "quiz" &&
-                  !(item.type === "note" && !shouldShowPreview) &&
+                  !(
+                    item.type === "document" &&
+                    (!shouldShowPreview || documentAwaitingGeneration)
+                  ) &&
                   !(item.type === "pdf" && !shouldShowPreview) &&
-                  !(item.type === "audio" && !shouldShowPreview) &&
-                  !(item.type === "document" && !shouldShowPreview) && (
+                  !(item.type === "audio" && !shouldShowPreview) && (
                     <button
                       type="button"
                       aria-label={
@@ -979,7 +841,7 @@ function WorkspaceCard({
                         <DropdownMenuSeparator />
                       </>
                     )}
-                    {item.type === "note" && (
+                    {item.type === "document" && (
                       <>
                         <DropdownMenuItem onSelect={handleCopyMarkdown}>
                           <Copy className="mr-2 h-4 w-4" />
@@ -1008,8 +870,7 @@ function WorkspaceCard({
             )}
 
             {/* Type badge - rect in bottom-left corner (when card is small) */}
-            {(item.type === "note" ||
-              item.type === "pdf" ||
+            {(item.type === "pdf" ||
               item.type === "quiz" ||
               item.type === "audio" ||
               item.type === "website" ||
@@ -1029,12 +890,7 @@ function WorkspaceCard({
                         : getCardColorWithBlackMix(item.color, 0.18),
                   }}
                 >
-                  {item.type === "note" ? (
-                    <>
-                      <CgNotes className="h-5 w-5 shrink-0" />
-                      <span>Note</span>
-                    </>
-                  ) : item.type === "pdf" ? (
+                  {item.type === "pdf" ? (
                     (item.data as PdfData)?.ocrStatus === "processing" ? (
                       <>
                         <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
@@ -1143,8 +999,7 @@ function WorkspaceCard({
 
             <div
               className={
-                (item.type === "note" ||
-                  item.type === "pdf" ||
+                (item.type === "pdf" ||
                   item.type === "quiz" ||
                   item.type === "audio" ||
                   item.type === "document") &&
@@ -1168,8 +1023,7 @@ function WorkspaceCard({
                       onNameCommit={handleNameCommit}
                       onSubtitleChange={handleSubtitleChange}
                       readOnly={
-                        (item.type === "note" ||
-                          item.type === "pdf" ||
+                        (item.type === "pdf" ||
                           item.type === "quiz" ||
                           item.type === "audio" ||
                           item.type === "document") &&
@@ -1179,8 +1033,7 @@ function WorkspaceCard({
                       onTitleFocus={handleTitleFocus}
                       onTitleBlur={handleTitleBlur}
                       allowWrap={
-                        (item.type === "note" ||
-                          item.type === "pdf" ||
+                        (item.type === "pdf" ||
                           item.type === "quiz" ||
                           item.type === "audio" ||
                           item.type === "document") &&
@@ -1189,27 +1042,19 @@ function WorkspaceCard({
                     />
 
                     {/* Sources Section - only shown when card is wide */}
-                    {item.type === "note" &&
+                    {item.type === "document" &&
                       shouldShowPreview &&
-                      (item.data as NoteData).sources &&
-                      (item.data as NoteData).sources!.length > 0 && (
+                      (item.data as DocumentData).sources &&
+                      (item.data as DocumentData).sources!.length > 0 && (
                         <div className="px-1 mt-2 mb-1">
                           <SourcesDisplay
-                            sources={(item.data as NoteData).sources!}
+                            sources={(item.data as DocumentData).sources!}
                           />
                         </div>
                       )}
                   </div>
                 )}
             </div>
-
-            {/* Note Content - render preview if card is wide enough */}
-            {!isOpenInPanel && item.type === "note" && shouldShowPreview && (
-              <WorkspaceCardNoteContent
-                item={item}
-                isScrollLocked={isScrollLocked}
-              />
-            )}
 
             {/* PDF Content - render embedded PDF viewer if card is wide enough */}
             {/* PERFORMANCE: Only mount PDF content when card is visible (virtualization) */}
@@ -1285,55 +1130,13 @@ function WorkspaceCard({
             {item.type === "flashcard" &&
               (() => {
                 const flashcardData = item.data as FlashcardData;
-
-                // Helper to serialize blocks to plain text with LaTeX support
-                const blocksToText = (blocks: unknown): string => {
-                  if (!blocks || !Array.isArray(blocks) || blocks.length === 0)
-                    return "";
-
-                  return (blocks as any[])
-                    .map((block) => {
-                      // Handle separate Math blocks (display math)
-                      if (block.type === "math" && block.props?.latex) {
-                        return `$$${block.props.latex}$$`;
-                      }
-
-                      // Handle blocks with inline content (paragraphs, headings, bullet list items, etc.)
-                      if (block.content && Array.isArray(block.content)) {
-                        return block.content
-                          .map((item: any) => {
-                            if (
-                              item.type === "inlineMath" &&
-                              item.props?.latex
-                            ) {
-                              return `$$${item.props.latex}$$`;
-                            }
-                            return item.text || "";
-                          })
-                          .join("");
-                      }
-
-                      return "";
-                    })
-                    .join("\n\n"); // Use double newline to separate blocks clearly
-                };
-
-                // Get display text (prefer blocks, fall back to plain text)
-                const frontText = flashcardData.frontBlocks
-                  ? blocksToText(flashcardData.frontBlocks)
-                  : flashcardData.front || "Click to add front content";
-
-                const backText = flashcardData.backBlocks
-                  ? blocksToText(flashcardData.backBlocks)
-                  : flashcardData.back || "Click to add back content";
-
-                // Common markdown components configuration
-                const markdownComponents = {
-                  p: ({ children }: any) => (
-                    <span className="block mb-2 last:mb-0">{children}</span>
-                  ),
-                  // Add more custom renderers if needed
-                };
+                const card0 = flashcardData.cards?.[0];
+                const frontText = card0?.front?.trim()
+                  ? card0.front
+                  : "Click to add front content";
+                const backText = card0?.back?.trim()
+                  ? card0.back
+                  : "Click to add back content";
 
                 return (
                   <div
@@ -1357,14 +1160,10 @@ function WorkspaceCard({
                                     : "#111827",
                               }}
                             >
-                              <div className="w-full">
-                                <ReactMarkdown
-                                  remarkPlugins={[remarkMath]}
-                                  rehypePlugins={[rehypeKatex]}
-                                  components={markdownComponents}
-                                >
+                              <div className="w-full text-left">
+                                <StreamdownMarkdown className="text-lg leading-snug">
                                   {frontText}
-                                </ReactMarkdown>
+                                </StreamdownMarkdown>
                               </div>
                             </div>
                           ),
@@ -1380,14 +1179,10 @@ function WorkspaceCard({
                                     : "#111827",
                               }}
                             >
-                              <div className="w-full">
-                                <ReactMarkdown
-                                  remarkPlugins={[remarkMath]}
-                                  rehypePlugins={[rehypeKatex]}
-                                  components={markdownComponents}
-                                >
+                              <div className="w-full text-left">
+                                <StreamdownMarkdown className="text-lg leading-snug">
                                   {backText}
-                                </ReactMarkdown>
+                                </StreamdownMarkdown>
                               </div>
                             </div>
                           ),
@@ -1468,7 +1263,17 @@ function WorkspaceCard({
             {!isOpenInPanel &&
               item.type === "document" &&
               shouldShowPreview &&
-              documentPreviewText && (
+              (documentAwaitingGeneration ? (
+                <div className="flex-1 min-h-0 p-4 flex flex-col gap-3">
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+                    Generating document...
+                  </div>
+                  <Skeleton className="h-4 w-full bg-foreground/10" />
+                  <Skeleton className="h-4 w-3/4 bg-foreground/10" />
+                  <Skeleton className="h-4 w-5/6 bg-foreground/10" />
+                </div>
+              ) : (
                 <div
                   className={`flex-1 min-h-0 px-3 pb-3 overflow-y-scroll ${isScrollLocked ? "pointer-events-none" : ""}`}
                   style={{
@@ -1480,7 +1285,7 @@ function WorkspaceCard({
                     {documentPreviewText}
                   </StreamdownMarkdown>
                 </div>
-              )}
+              ))}
             {/* Active in Panel Overlay */}
             {isOpenInPanel && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-card/95 backdrop-blur-[1px] animate-in fade-in duration-200 select-none cursor-pointer group/overlay">
@@ -1564,7 +1369,7 @@ function WorkspaceCard({
             <ContextMenuSeparator />
           </>
         )}
-        {item.type === "note" && (
+        {item.type === "document" && (
           <>
             <ContextMenuItem onSelect={handleCopyMarkdown}>
               <Copy className="mr-2 h-4 w-4" />
@@ -1615,12 +1420,7 @@ export const WorkspaceCardMemoized = memo(
     if (prevProps.item.color !== nextProps.item.color) return false;
     if (prevProps.item.type !== nextProps.item.type) return false;
 
-    // Compare item data (for notes, PDFs, flashcards, and YouTube)
-    if (prevProps.item.type === "note" && nextProps.item.type === "note") {
-      const prevData = prevProps.item.data;
-      const nextData = nextProps.item.data;
-      if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
-    }
+    // Compare item data (for PDFs, flashcards, and YouTube)
     if (prevProps.item.type === "pdf" && nextProps.item.type === "pdf") {
       const prevData = prevProps.item.data;
       const nextData = nextProps.item.data;

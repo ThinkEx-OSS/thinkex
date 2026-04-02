@@ -4,19 +4,15 @@
 
 import type {
   Item,
-  NoteData,
   PdfData,
   FlashcardData,
-  FlashcardItem,
   QuizData,
   AudioData,
   WebsiteData,
   DocumentData,
 } from "@/lib/workspace-state/types";
 import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
-import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
 import { getVirtualPath } from "@/lib/utils/workspace-fs";
-import { type Block } from "@/components/editor/blocknote-shared";
 
 export interface SearchableText {
   /** Path and title lines (1-2 lines). Matches here use matchKind, not lineNum. */
@@ -44,38 +40,10 @@ export function extractSearchableText(
   });
 
   switch (item.type) {
-    case "note": {
-      const data = item.data as NoteData;
-      if (Array.isArray(data.blockContent) && data.blockContent.length > 0) {
-        return body(serializeBlockNote(data.blockContent as Block[]));
-      }
-      return { header, content: "" };
-    }
     case "flashcard": {
       const data = item.data as FlashcardData;
-      const cards: FlashcardItem[] = data.cards?.length
-        ? data.cards
-        : data.front || data.back
-          ? [
-              {
-                id: "legacy",
-                front: data.front ?? "",
-                back: data.back ?? "",
-                frontBlocks: data.frontBlocks,
-                backBlocks: data.backBlocks,
-              },
-            ]
-          : [];
-      const content = cards
-        .map((c) => {
-          const front = c.frontBlocks
-            ? serializeBlockNote(c.frontBlocks as Block[])
-            : c.front;
-          const back = c.backBlocks
-            ? serializeBlockNote(c.backBlocks as Block[])
-            : c.back;
-          return `${front}\n${back}`;
-        })
+      const content = (data.cards ?? [])
+        .map((card) => `${card.front}\n${card.back}`)
         .join("\n\n");
       return body(content);
     }
@@ -135,7 +103,7 @@ export function extractSearchableText(
 
 /**
  * Resolve an item by virtual path.
- * Path format: "Physics/notes/Thermodynamics.md" or "notes/My Note.md"
+ * Path format: "Physics/documents/Thermodynamics.md" or "documents/My Doc.md"
  */
 /** Known file extensions — avoid treating "4." in "4. Container Networking (2)" as extension */
 const KNOWN_EXTENSIONS = /\.(pdf|md|url|png|audio|txt)$/i;

@@ -23,7 +23,7 @@ function formatItemType(type: string): string {
     document: "document",
     youtube: "video",
     flashcard: "flashcard",
-    note: "note",
+    note: "document",
     folder: "folder",
     quiz: "quiz",
     image: "image",

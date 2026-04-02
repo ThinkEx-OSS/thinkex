@@ -10,7 +10,6 @@ import { getRandomCardColor } from "@/lib/workspace-state/colors";
 import { logger } from "@/lib/utils/logger";
 import type {
   Item,
-  NoteData,
   PdfData,
   ImageData,
   QuizData,
@@ -20,10 +19,6 @@ import type {
   DocumentData,
 } from "@/lib/workspace-state/types";
 import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
-import {
-  markdownToBlocks,
-  fixLLMDoubleEscaping,
-} from "@/lib/editor/markdown-to-blocks";
 import { executeWorkspaceOperation } from "./common";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import { hasDuplicateName } from "@/lib/workspace/unique-name";
@@ -34,9 +29,6 @@ import {
   normalizeLineEndings,
 } from "@/lib/utils/edit-replace";
 import { parseJsonWithRepair } from "@/lib/utils/json-repair";
-import { getNoteContentAsMarkdown } from "@/lib/utils/format-workspace-context";
-import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
-import type { Block } from "@/components/editor/blocknote-shared";
 import { buildPdfDataFromUpload } from "@/lib/pdf/pdf-item";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
 
@@ -46,7 +38,6 @@ export type CreateItemParams = {
   title?: string;
   content?: string;
   itemType?:
-    | "note"
     | "flashcard"
     | "quiz"
     | "youtube"
@@ -90,31 +81,25 @@ export type CreateItemParams = {
  */
 async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
   const itemId = p.id || generateItemId();
-  const itemType = p.itemType || "note";
+  const itemType = p.itemType || "document";
 
   let itemData: any;
 
   if (itemType === "flashcard") {
     if (!p.flashcardData?.cards)
       throw new Error("Flashcard data required for flashcard creation");
-    const cardsWithIds = await Promise.all(
-      p.flashcardData.cards.map(async (card) => {
+    const cardsWithIds = p.flashcardData.cards
+      .map((card) => {
         if (!card || typeof card !== "object") return null;
-        const front = fixLLMDoubleEscaping(card.front || "");
-        const back = fixLLMDoubleEscaping(card.back || "");
-        const [frontBlocks, backBlocks] = await Promise.all([
-          markdownToBlocks(front),
-          markdownToBlocks(back),
-        ]);
+        const front = card.front || "";
+        const back = card.back || "";
         return {
           id: generateItemId(),
           front,
           back,
-          frontBlocks,
-          backBlocks,
         };
-      }),
-    ).then((arr) => arr.filter((c): c is NonNullable<typeof c> => c !== null));
+      })
+      .filter((c): c is NonNullable<typeof c> => c !== null);
     itemData = { cards: cardsWithIds };
   } else if (itemType === "youtube") {
     if (!p.youtubeData?.url)
@@ -163,21 +148,13 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
     if (!p.quizData) throw new Error("Quiz data required for quiz creation");
     itemData = p.quizData;
   } else if (itemType === "document") {
-    const normalizedContent = p.content ? fixLLMDoubleEscaping(p.content) : "";
+    const normalizedContent = p.content ?? "";
     itemData = {
       markdown: normalizedContent,
       ...(p.sources?.length && { sources: p.sources }),
     } as DocumentData;
   } else {
-    const normalizedContent = p.content ? fixLLMDoubleEscaping(p.content) : "";
-    const blockContent = normalizedContent
-      ? await markdownToBlocks(normalizedContent)
-      : undefined;
-    itemData = {
-      field1: normalizedContent,
-      blockContent,
-      ...(p.sources?.length && { sources: p.sources }),
-    };
+    throw new Error(`Unsupported item type for create: ${String(itemType)}`);
   }
 
   const defaultNames: Record<string, string> = {
@@ -271,14 +248,13 @@ async function broadcastPersistedWorkspaceEvent(
 
 /**
  * WORKER 3: Workspace Management Agent
- * Manages workspace items (create, update, delete notes)
+ * Manages workspace items (create, update, delete)
  * Operations are serialized per workspace to prevent version conflicts
  */
 export async function workspaceWorker(
   action:
     | "create"
     | "bulkCreate"
-    | "update"
     | "delete"
     | "edit"
     | "updateFlashcard"
@@ -291,25 +267,24 @@ export async function workspaceWorker(
     items?: CreateItemParams[];
     title?: string;
     content?: string; // For create
-    /** Cline convention: oldString+newString. oldString='' = full rewrite, else targeted edit (update only) */
+    /** Cline convention: oldString+newString. oldString='' = full rewrite, else targeted edit (edit action) */
     oldString?: string;
     newString?: string;
     replaceAll?: boolean;
     itemId?: string;
-    /** Display name for diff header (e.g. note title) */
+    /** Display name for diff header (e.g. item title) */
     itemName?: string;
     /** Rename the item (edit action) */
     newName?: string;
 
     itemType?:
-      | "note"
       | "flashcard"
       | "quiz"
       | "youtube"
       | "image"
       | "audio"
       | "pdf"
-      | "document"; // Defaults to "note" if undefined
+      | "document";
     pdfData?: {
       fileUrl: string;
       filename: string;
@@ -362,7 +337,7 @@ export async function workspaceWorker(
   version?: number;
 }> {
   // For "create" and "bulkCreate" operations, allow parallel execution (bypass queue)
-  // For "update" and "delete" operations, serialize via queue
+  // For other operations, serialize via queue
   const allowParallel = action === "create" || action === "bulkCreate";
 
   return executeWorkspaceOperation(
@@ -597,306 +572,6 @@ export async function workspaceWorker(
           };
         }
 
-        if (action === "update") {
-          try {
-            logger.group("📝 [UPDATE-NOTE] Starting update operation", true);
-            logger.debug("Raw params received:", {
-              paramsType: typeof params,
-              paramsKeys: params ? Object.keys(params) : [],
-              paramsValue: params,
-            });
-            logger.debug("Input parameters:", {
-              itemId: params?.itemId,
-              itemIdType: typeof params?.itemId,
-              workspaceId: params?.workspaceId,
-              workspaceIdType: typeof params?.workspaceId,
-              userId,
-            });
-            logger.groupEnd();
-
-            if (!params) {
-              logger.error("❌ [UPDATE-NOTE] Params object is missing");
-              throw new Error("Params object is required for update");
-            }
-
-            if (!params.itemId) {
-              logger.error("❌ [UPDATE-NOTE] Item ID required for update");
-              throw new Error("Item ID required for update");
-            }
-
-            if (typeof params.itemId !== "string") {
-              logger.error("❌ [UPDATE-NOTE] Item ID must be a string");
-              throw new Error("Item ID must be a string");
-            }
-
-            if (!params.workspaceId) {
-              logger.error("❌ [UPDATE-NOTE] Workspace ID required for update");
-              throw new Error("Workspace ID required for update");
-            }
-
-            if (typeof params.workspaceId !== "string") {
-              logger.error("❌ [UPDATE-NOTE] Workspace ID must be a string");
-              throw new Error("Workspace ID must be a string");
-            }
-
-            const changes: Partial<Item> = {};
-
-            // Update title if provided
-            if (params.title !== undefined) {
-              const titleStr =
-                typeof params.title === "string"
-                  ? params.title
-                  : String(params.title);
-              logger.debug("📝 [UPDATE-NOTE] Updating title:", {
-                newTitle: titleStr,
-              });
-              changes.name = titleStr;
-            }
-
-            // Update content: Cline convention (oldString + newString)
-            let contentOld = "";
-            let contentNew = "";
-            let diffOutput = "";
-            let filediffAdditions = 0;
-            let filediffDeletions = 0;
-
-            if (
-              params.oldString !== undefined &&
-              params.newString !== undefined
-            ) {
-              const oldStr =
-                typeof params.oldString === "string"
-                  ? params.oldString
-                  : String(params.oldString);
-              const newStr =
-                typeof params.newString === "string"
-                  ? params.newString
-                  : String(params.newString);
-              const replaceAll = !!params.replaceAll;
-
-              if (oldStr === newStr) {
-                throw new Error(
-                  "No changes to apply: oldString and newString are identical.",
-                );
-              }
-
-              if (oldStr === "") {
-                // Full rewrite: newString is entire note content
-                contentOld = "";
-                contentNew = newStr;
-              } else {
-                // Targeted edit: load note, find and replace
-                const currentState = await loadWorkspaceState(
-                  params.workspaceId,
-                );
-                const existingItem = currentState.items.find(
-                  (i: Item) => i.id === params.itemId,
-                );
-                if (!existingItem) {
-                  throw new Error(`Note not found with ID: ${params.itemId}`);
-                }
-                if (existingItem.type !== "note") {
-                  throw new Error(
-                    `Item "${existingItem.name}" is not a note (type: ${existingItem.type})`,
-                  );
-                }
-                contentOld = normalizeLineEndings(
-                  getNoteContentAsMarkdown(existingItem.data as NoteData),
-                );
-                const normOld = normalizeLineEndings(oldStr);
-                const normNew = normalizeLineEndings(newStr);
-                contentNew = applyReplace(
-                  contentOld,
-                  normOld,
-                  normNew,
-                  replaceAll,
-                );
-              }
-
-              contentNew = fixLLMDoubleEscaping(contentNew);
-
-              logger.time("📝 [UPDATE-NOTE] markdownToBlocks conversion");
-              const blockContent = await markdownToBlocks(contentNew);
-              logger.timeEnd("📝 [UPDATE-NOTE] markdownToBlocks conversion");
-
-              changes.data = {
-                field1: contentNew,
-                blockContent,
-              } as NoteData;
-
-              const patchName = params.itemName ?? "note";
-              diffOutput = trimDiff(
-                createPatch(
-                  patchName,
-                  normalizeLineEndings(contentOld),
-                  normalizeLineEndings(contentNew),
-                ),
-              );
-              for (const change of diffLines(contentOld, contentNew)) {
-                if (change.added) filediffAdditions += change.count || 0;
-                if (change.removed) filediffDeletions += change.count || 0;
-              }
-            }
-
-            // Update sources if provided
-            if (params.sources !== undefined) {
-              if (!changes.data) {
-                changes.data = {} as NoteData;
-              }
-              (changes.data as NoteData).sources = params.sources;
-              logger.debug("📚 [UPDATE-NOTE] Updating sources:", {
-                count: params.sources.length,
-                sources: params.sources,
-              });
-            }
-
-            // If no changes, return early
-            if (Object.keys(changes).length === 0) {
-              logger.warn(
-                "⚠️ [UPDATE-NOTE] No changes detected, returning early",
-              );
-              return {
-                success: true,
-                message: "No changes to update",
-                itemId: params.itemId,
-              };
-            }
-
-            const currentState = await loadWorkspaceState(params.workspaceId);
-            const existingItem = currentState.items.find(
-              (i: any) => i.id === params.itemId,
-            );
-            const itemName =
-              (changes as Partial<Item>).name ?? existingItem?.name;
-            const newFolderId =
-              (changes as Partial<Item>).folderId ??
-              existingItem?.folderId ??
-              null;
-
-            if (itemName && existingItem) {
-              if (
-                hasDuplicateName(
-                  currentState.items,
-                  itemName,
-                  existingItem.type,
-                  newFolderId,
-                  params.itemId,
-                )
-              ) {
-                return {
-                  success: false,
-                  message: `A ${existingItem.type} named "${itemName}" already exists in this folder`,
-                };
-              }
-            }
-
-            logger.time("📝 [UPDATE-NOTE] Event creation");
-            const event = createEvent(
-              "ITEM_UPDATED",
-              { id: params.itemId, changes, name: itemName },
-              userId,
-              userName,
-            );
-            logger.timeEnd("📝 [UPDATE-NOTE] Event creation");
-
-            logger.time("📝 [UPDATE-NOTE] Get workspace version");
-            const currentVersionResult = await db.execute(sql`
-            SELECT get_workspace_version(${params.workspaceId}::uuid) as version
-          `);
-            logger.timeEnd("📝 [UPDATE-NOTE] Get workspace version");
-
-            const baseVersion = currentVersionResult[0]?.version || 0;
-            logger.debug(
-              "📝 [UPDATE-NOTE] Current workspace version:",
-              baseVersion,
-            );
-
-            logger.time("📝 [UPDATE-NOTE] Append workspace event");
-            const eventResult = await db.execute(sql`
-            SELECT append_workspace_event(
-              ${params.workspaceId}::uuid,
-              ${event.id}::text,
-              ${event.type}::text,
-              ${JSON.stringify(event.payload)}::jsonb,
-              ${event.timestamp}::bigint,
-              ${event.userId}::text,
-              ${baseVersion}::integer,
-              ${event.userName ?? null}::text
-            ) as result
-          `);
-            logger.timeEnd("📝 [UPDATE-NOTE] Append workspace event");
-
-            if (!eventResult || eventResult.length === 0) {
-              logger.error(
-                "❌ [UPDATE-NOTE] Failed to append event - no result returned",
-              );
-              throw new Error("Failed to update note");
-            }
-
-            const appendResult = parseAppendResult(eventResult[0].result);
-
-            if (appendResult.conflict) {
-              logger.error(
-                "❌ [UPDATE-NOTE] Conflict detected - workspace was modified by another user",
-              );
-              throw new Error(
-                "Workspace was modified by another user, please try again",
-              );
-            }
-
-            logger.group(
-              "✅ [UPDATE-NOTE] Update completed successfully",
-              true,
-            );
-            logger.groupEnd();
-
-            await broadcastPersistedWorkspaceEvent(
-              params.workspaceId,
-              event,
-              appendResult.version,
-            );
-
-            const result: {
-              success: boolean;
-              itemId?: string;
-              message: string;
-              event?: WorkspaceEvent;
-              version?: number;
-              diff?: string;
-              filediff?: { additions: number; deletions: number };
-            } = {
-              success: true,
-              itemId: params.itemId,
-              message: `Updated note successfully`,
-              event,
-              version: appendResult.version,
-            };
-            if (diffOutput) {
-              result.diff = diffOutput;
-              result.filediff = {
-                additions: filediffAdditions,
-                deletions: filediffDeletions,
-              };
-            }
-            return result;
-          } catch (error: any) {
-            logger.group(
-              "❌ [UPDATE-NOTE] Error during update operation",
-              false,
-            );
-            logger.error(
-              "Error type:",
-              error?.constructor?.name || typeof error,
-            );
-            logger.error("Error message:", error?.message || String(error));
-            logger.error("Full error object:", error);
-            logger.groupEnd();
-
-            // Re-throw to be handled by the caller
-            throw error;
-          }
-        }
-
         if (action === "updateFlashcard") {
           if (!params.itemId) {
             throw new Error("Item ID required for flashcard update");
@@ -930,19 +605,11 @@ export async function workspaceWorker(
           const existingCards = existingData?.cards || [];
 
           // Generate new cards with IDs and parsed blocks
-          const newCards = await Promise.all(
-            params.flashcardData.cardsToAdd.map(async (card) => {
-              const frontBlocks = await markdownToBlocks(card.front);
-              const backBlocks = await markdownToBlocks(card.back);
-              return {
-                id: generateItemId(),
-                front: card.front,
-                back: card.back,
-                frontBlocks,
-                backBlocks,
-              };
-            }),
-          );
+          const newCards = params.flashcardData.cardsToAdd.map((card) => ({
+            id: generateItemId(),
+            front: card.front,
+            back: card.back,
+          }));
 
           // Merge existing cards with new cards
           const updatedData = {
@@ -1452,142 +1119,15 @@ export async function workspaceWorker(
           const oldStr = String(params.oldString ?? "");
           const newStr = String(params.newString ?? "");
 
-          if (existingItem.type === "note") {
-            const changes: Partial<Item> = {};
-            if (rename) {
-              if (
-                hasDuplicateName(
-                  currentState.items,
-                  rename,
-                  "note",
-                  existingItem.folderId ?? null,
-                  params.itemId,
-                )
-              ) {
-                return {
-                  success: false,
-                  message: `A note named "${rename}" already exists in this folder`,
-                };
-              }
-              changes.name = rename;
-            }
-
-            let contentOld = "";
-            let contentNew = "";
-            if (isRenameOnly) {
-              contentOld = "";
-              contentNew = "";
-              // Skip content update - only apply rename via changes.name above
-            } else {
-              if (oldStr === "") {
-                contentOld = "";
-                contentNew = newStr;
-              } else {
-                contentOld = normalizeLineEndings(
-                  getNoteContentAsMarkdown(existingItem.data as NoteData),
-                );
-                const normOld = normalizeLineEndings(oldStr);
-                const normNew = normalizeLineEndings(newStr);
-                contentNew = applyReplace(
-                  contentOld,
-                  normOld,
-                  normNew,
-                  replaceAll,
-                );
-              }
-              contentNew = fixLLMDoubleEscaping(contentNew);
-              const blockContent = await markdownToBlocks(contentNew);
-              changes.data = { field1: contentNew, blockContent } as NoteData;
-              if (params.sources !== undefined) {
-                (changes.data as NoteData).sources = params.sources;
-              }
-            }
-
-            if (Object.keys(changes).length === 0) {
-              return {
-                success: true,
-                itemId: params.itemId,
-                message: "No changes to update",
-              };
-            }
-
-            const itemName = (changes.name ?? existingItem.name) as string;
-            const event = createEvent(
-              "ITEM_UPDATED",
-              { id: params.itemId, changes, name: itemName },
-              userId,
-              userName,
-            );
-            const currentVersionResult = await db.execute(sql`
-                        SELECT get_workspace_version(${params.workspaceId}::uuid) as version
-                    `);
-            const baseVersion = currentVersionResult[0]?.version || 0;
-            const eventResult = await db.execute(sql`
-                        SELECT append_workspace_event(
-                            ${params.workspaceId}::uuid, ${event.id}::text, ${event.type}::text,
-                            ${JSON.stringify(event.payload)}::jsonb, ${event.timestamp}::bigint, ${event.userId}::text,
-                            ${baseVersion}::integer, ${event.userName ?? null}::text
-                        ) as result
-                    `);
-            if (!eventResult?.length) throw new Error("Failed to update note");
-            const appendResult = parseAppendResult(eventResult[0].result);
-            if (appendResult.conflict)
-              throw new Error(
-                "Workspace was modified by another user, please try again",
-              );
-
-            await broadcastPersistedWorkspaceEvent(
-              params.workspaceId,
-              event,
-              appendResult.version,
-            );
-
-            const diffOutput = trimDiff(
-              createPatch(
-                params.itemName ?? "note",
-                normalizeLineEndings(contentOld),
-                normalizeLineEndings(contentNew),
-              ),
-            );
-            let filediffAdditions = 0;
-            let filediffDeletions = 0;
-            for (const ch of diffLines(contentOld, contentNew)) {
-              if (ch.added) filediffAdditions += ch.count || 0;
-              if (ch.removed) filediffDeletions += ch.count || 0;
-            }
-
-            return {
-              success: true,
-              itemId: params.itemId,
-              message: "Updated note successfully",
-              event,
-              version: appendResult.version,
-              diff: diffOutput,
-              filediff: {
-                additions: filediffAdditions,
-                deletions: filediffDeletions,
-              },
-            };
-          }
-
           if (existingItem.type === "flashcard") {
             const data = existingItem.data as FlashcardData;
-            let cards: FlashcardItem[] = data.cards ?? [];
-            if (cards.length === 0 && (data.front || data.back)) {
-              const front = data.front ?? "";
-              const back = data.back ?? "";
-              cards = [{ id: "legacy", front, back }];
-            }
+          const cards: FlashcardItem[] = data.cards ?? [];
 
             const payload = {
               cards: cards.map((c) => ({
                 id: c.id,
-                front: c.frontBlocks
-                  ? serializeBlockNote(c.frontBlocks as Block[])
-                  : c.front,
-                back: c.backBlocks
-                  ? serializeBlockNote(c.backBlocks as Block[])
-                  : c.back,
+                front: c.front,
+                back: c.back,
               })),
             };
             let serialized = JSON.stringify(payload, null, 2);
@@ -1620,18 +1160,11 @@ export async function workspaceWorker(
               throw new Error("Invalid structure: cards must be an array.");
             }
 
-            const newCards: FlashcardItem[] = await Promise.all(
-              parsed.cards.map(async (c) => {
-                const id = c.id ?? generateItemId();
-                const front = String(c.front ?? "");
-                const back = String(c.back ?? "");
-                const [frontBlocks, backBlocks] = await Promise.all([
-                  markdownToBlocks(front),
-                  markdownToBlocks(back),
-                ]);
-                return { id, front, back, frontBlocks, backBlocks };
-              }),
-            );
+            const newCards: FlashcardItem[] = parsed.cards.map((c) => ({
+              id: c.id ?? generateItemId(),
+              front: String(c.front ?? ""),
+              back: String(c.back ?? ""),
+            }));
 
             const changes: Partial<Item> = {
               data: { ...data, cards: newCards } as FlashcardData,
@@ -1874,7 +1407,6 @@ export async function workspaceWorker(
                   replaceAll,
                 );
               }
-              contentNew = fixLLMDoubleEscaping(contentNew);
               changes.data = {
                 markdown: contentNew,
                 ...(params.sources !== undefined
@@ -2059,7 +1591,7 @@ export async function workspaceWorker(
         `);
 
           if (!eventResult || eventResult.length === 0) {
-            throw new Error("Failed to delete note");
+            throw new Error("Failed to delete item");
           }
 
           const appendResult = parseAppendResult(eventResult[0].result);
@@ -2069,7 +1601,7 @@ export async function workspaceWorker(
             );
           }
 
-          logger.info("📝 [WORKSPACE-WORKER] Deleted note:", params.itemId);
+          logger.info("📝 [WORKSPACE-WORKER] Deleted item:", params.itemId);
 
           await broadcastPersistedWorkspaceEvent(
             params.workspaceId,
@@ -2080,7 +1612,7 @@ export async function workspaceWorker(
           return {
             success: true,
             itemId: params.itemId,
-            message: `Deleted note successfully`,
+            message: `Deleted item successfully`,
             event,
             version: appendResult.version,
           };

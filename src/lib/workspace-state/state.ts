@@ -2,7 +2,6 @@ import {
   AgentState,
   CardType,
   ItemData,
-  NoteData,
   PdfData,
   FlashcardData,
   FolderData,
@@ -31,8 +30,6 @@ export function isNonEmptyAgentState(value: unknown): value is AgentState {
 
 export function defaultDataFor(type: CardType): ItemData {
   switch (type) {
-    case "note":
-      return { field1: "" } as NoteData;
     case "document":
       return { markdown: "" } as DocumentData;
     case "pdf":

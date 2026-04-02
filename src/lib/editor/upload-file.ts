@@ -3,7 +3,7 @@ import { uploadFileDirect } from "@/lib/uploads/client-upload";
 
 /**
  * Uploads a file to Supabase storage and returns the public URL.
- * This function is used by BlockNote editor for file/image uploads.
+ * Used by editor/image upload flows.
  * Uses direct client-to-Supabase upload to bypass Vercel's 4.5MB body limit.
  * 
  * @param file - The file to upload

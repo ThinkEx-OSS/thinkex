@@ -6,23 +6,23 @@ import type { WorkspaceToolContext } from "./workspace-tools";
 import { loadStateForTool, resolveItem, withSanitizedModelOutput } from "./tool-utils";
 import { getVirtualPath } from "@/lib/utils/workspace-fs";
 
-const EDITABLE_TYPES = ["note", "flashcard", "quiz", "pdf", "document"] as const;
+const EDITABLE_TYPES = ["flashcard", "quiz", "pdf", "document"] as const;
 
 /**
- * Create the editItem tool - unified edit for documents, legacy notes, flashcards, quizzes, and PDFs.
+ * Create the editItem tool - unified edit for documents, flashcards, quizzes, and PDFs.
  * Uses oldString/newString search-replace on raw content from readWorkspace.
  * PDFs support RENAME ONLY: oldString='', newString='', newName='new name'.
  */
 export function createEditItemTool(ctx: WorkspaceToolContext) {
     return withSanitizedModelOutput(tool({
         description:
-            "Edit a document, legacy note, flashcard deck, quiz, or PDF. You must use readWorkspace at least once before editing. DOCUMENTS: content is markdown. LEGACY NOTES: content is edited through the same raw markdown representation returned by readWorkspace. PDFs: RENAME ONLY — pass oldString='', newString='', and newName='new name'. PDF content cannot be edited. RENAME ONLY (documents/legacy notes/flashcards/quizzes): same pattern to rename without editing content. QUIZZES: readWorkspace may show '--- Progress (read-only) ---' at the top. That block is READ-ONLY. Never include it in oldString or newString. Only edit the {\"questions\":[...]} JSON. FULL REWRITE: oldString='' and newString=entire new content (quizzes: only the JSON); use when targeted matching fails or the change is large (re-read if needed). TARGETED EDIT: oldString must match exactly. Copy the content from readWorkspace as-is (it has no line prefixes). Match exact whitespace, indentation, newlines. Do NOT minify JSON. Edit FAILS if oldString not found or matches multiple times — add more context or use replaceAll.",
+            "Edit a document, flashcard deck, quiz, or PDF. You must use readWorkspace at least once before editing. DOCUMENTS: content is markdown from readWorkspace. PDFs: RENAME ONLY — pass oldString='', newString='', and newName='new name'. PDF content cannot be edited. RENAME ONLY (documents/flashcards/quizzes): same pattern to rename without editing content. QUIZZES: readWorkspace may show '--- Progress (read-only) ---' at the top. That block is READ-ONLY. Never include it in oldString or newString. Only edit the {\"questions\":[...]} JSON. FULL REWRITE: oldString='' and newString=entire new content (quizzes: only the JSON); use when targeted matching fails or the change is large (re-read if needed). TARGETED EDIT: oldString must match exactly. Copy the content from readWorkspace as-is (it has no line prefixes). Match exact whitespace, indentation, newlines. Do NOT minify JSON. Edit FAILS if oldString not found or matches multiple times — add more context or use replaceAll.",
         inputSchema: zodSchema(
             z
                 .object({
                     itemName: z
                         .string()
-                        .describe("Name of the item to edit (document, legacy note, flashcard deck, quiz, or PDF; matched by fuzzy search)"),
+                        .describe("Name of the item to edit (document, flashcard deck, quiz, or PDF; matched by fuzzy search)"),
                     oldString: z
                         .string()
                         .describe(
@@ -131,7 +131,7 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                 if (!EDITABLE_TYPES.includes(matchedItem.type as (typeof EDITABLE_TYPES)[number])) {
                     return {
                         success: false,
-                        message: `Item "${matchedItem.name}" is not editable (type: ${matchedItem.type}). Only documents, legacy notes, flashcards, quizzes, and PDFs can be edited.`,
+                        message: `Item "${matchedItem.name}" is not editable (type: ${matchedItem.type}). Only documents, flashcards, quizzes, and PDFs can be edited.`,
                     };
                 }
 
@@ -152,7 +152,7 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                 const workerResult = await workspaceWorker("edit", {
                     workspaceId: ctx.workspaceId,
                     itemId: matchedItem.id,
-                    itemType: matchedItem.type as "note" | "flashcard" | "quiz" | "pdf" | "document",
+                    itemType: matchedItem.type as "flashcard" | "quiz" | "pdf" | "document",
                     itemName: matchedItem.name,
                     oldString,
                     newString,
