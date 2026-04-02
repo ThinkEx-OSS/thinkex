@@ -115,13 +115,12 @@ function getSelectedCardsContext(body: any): string {
 }
 
 /**
- * Inject user-selected context (reply quotes + selected cards) into the last user message.
- * Reads from runConfig metadata sent via the composer's setRunConfig().
- * This keeps context in the user message (not system prompt) without showing in the UI.
+ * Inject user-selected context (selected cards + reply quotes / workspace passages) into the last user message.
+ * `custom` is body.metadata.custom from the composer's runConfig (replySelections only).
  */
 function injectSelectionContext(
   messages: any[],
-  metadata?: {
+  custom?: {
     replySelections?: Array<{ text: string; title?: string }>;
   },
   selectedCardsContext?: string,
@@ -133,9 +132,8 @@ function injectSelectionContext(
     parts.push(`[Selected cards context:\n${selectedCardsContext.trim()}]`);
   }
 
-  // Reply selections (quoted text from assistant messages or PDF selections)
-  if (metadata?.replySelections && metadata.replySelections.length > 0) {
-    const quoted = metadata.replySelections
+  if (custom?.replySelections && custom.replySelections.length > 0) {
+    const quoted = custom.replySelections
       .map((sel) =>
         sel.title ? `> From: ${sel.title}\n> ${sel.text}` : `> ${sel.text}`,
       )
@@ -273,7 +271,7 @@ async function handlePOST(req: Request) {
     // Build system prompt (identity, guidelines, URL hints — no selected cards)
     const finalSystemPrompt = buildSystemPrompt(system, urlContextUrls);
 
-    // Inject selected cards + reply + selected text context into the last user message
+    // Inject selected cards + reply selections into the last user message
     injectSelectionContext(
       cleanedMessages,
       body.metadata?.custom,
