@@ -18,6 +18,7 @@ import { useTheme } from "next-themes";
 import type {
   Item,
   FlashcardData,
+  FlashcardItem,
 } from "@/lib/workspace-state/types";
 import { FlipCard } from "./FlipCard";
 import {
@@ -74,6 +75,12 @@ interface FlashcardWorkspaceCardProps {
   // NOTE: isSelected removed - card subscribes directly to store for performance
   // onToggleSelection is still passed as a prop for the shift+click handler
 }
+
+const EMPTY_FLASHCARD_PLACEHOLDER: FlashcardItem = {
+  id: "__empty__",
+  front: "",
+  back: "",
+};
 
 /** Read-only markdown per side. */
 const FlashcardSideMarkdownView = memo(
@@ -181,7 +188,16 @@ export function FlashcardWorkspaceCard({
     // If we want persistence: onUpdateItem(item.id, { data: { ...flashcardData, currentIndex: newIndex }});
   }, []);
 
-  const currentCard = cards[currentIndex] || cards[0];
+  const currentCard = useMemo((): FlashcardItem => {
+    if (cards.length === 0) {
+      return EMPTY_FLASHCARD_PLACEHOLDER;
+    }
+    const safeIndex = Math.min(
+      Math.max(0, currentIndex),
+      cards.length - 1,
+    );
+    return cards[safeIndex] ?? EMPTY_FLASHCARD_PLACEHOLDER;
+  }, [cards, currentIndex]);
 
   // Flashcard flip animation duration (matches FlipCard component CSS)
   const FLIP_ANIMATION_DURATION = 600;
