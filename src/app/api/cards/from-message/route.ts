@@ -83,8 +83,8 @@ RULES:
 - Markdown: use headings (# ## ###), lists (- or 1.), **bold**, *italic*, > block quotes where appropriate
 - Math (same as main system): single $...$ for inline, $$...$$ for block. Currency: always escape as \\$ (e.g. \\$5, \\$19.99, \\$100k, \\$100M)
 - Start content with subheadings/text — DO NOT repeat the title in the body
-- If multiple fragments: concatenate into one cohesive note, preserving all content
-- Return ONLY the reformatted note (first line or # heading = title; rest = body). No preamble or footer.`;
+- If multiple fragments: concatenate into one cohesive document, preserving all content
+- Return ONLY the reformatted document (first line or # heading = title; rest = body). No preamble or footer.`;
 
     const aiResult = await generateText({
       model: google("gemini-3-flash-preview"),

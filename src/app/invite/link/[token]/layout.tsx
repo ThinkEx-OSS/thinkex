@@ -61,7 +61,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     const workspaceName = shareLink.workspaceName || "Workspace";
     const sharedTitle = `Shared Workspace: ${workspaceName}`;
-    const description = `Join "${workspaceName}" on ThinkEx. Collaborate on notes and build knowledge together.`;
+    const description = `Join "${workspaceName}" on ThinkEx. Collaborate on documents and build knowledge together.`;
     const fullTitle = getPageTitle(sharedTitle);
     const url = `${seoConfig.siteUrl}/invite/link/${token}`;
 
