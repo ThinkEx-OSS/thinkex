@@ -2,15 +2,8 @@
 
 import { memo } from "react";
 import { useAuiState } from "@assistant-ui/react";
-import { MdFormatColorText } from "react-icons/md";
 import { BsArrowReturnRight } from "react-icons/bs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-
-type BlockNoteSelectionMeta = {
-  cardId: string;
-  cardName: string;
-  text: string;
-};
 
 type ReplySelectionMeta = {
   text: string;
@@ -20,7 +13,6 @@ type ReplySelectionMeta = {
 };
 
 type MessageCustomMetadata = {
-  blockNoteSelection?: BlockNoteSelectionMeta;
   replySelections?: ReplySelectionMeta[];
 };
 
@@ -28,7 +20,7 @@ const truncate = (text: string, max: number) =>
   text.length <= max ? text : text.slice(0, max).trim() + "...";
 
 /**
- * Renders persisted context badges (BlockNote selection, reply)
+ * Renders persisted context badges for reply context
  * from message.metadata.custom when viewing user messages in history.
  */
 function MessageContextBadgesImpl() {
@@ -38,27 +30,12 @@ function MessageContextBadgesImpl() {
   const custom = (message.metadata as { custom?: MessageCustomMetadata } | undefined)?.custom;
   if (!custom) return null;
 
-  const { blockNoteSelection, replySelections } = custom;
-  const hasAny = blockNoteSelection || (replySelections && replySelections.length > 0);
+  const { replySelections } = custom;
+  const hasAny = replySelections && replySelections.length > 0;
   if (!hasAny) return null;
 
   return (
     <div className="mb-2 flex flex-wrap gap-1.5">
-      {blockNoteSelection && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 cursor-default">
-              <MdFormatColorText className="h-3.5 w-3.5 shrink-0 text-primary/70" />
-              <span className="text-xs text-primary/90">
-                {truncate(blockNoteSelection.text, 40)}
-              </span>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-sm whitespace-pre-wrap break-words">
-            {blockNoteSelection.text}
-          </TooltipContent>
-        </Tooltip>
-      )}
       {replySelections?.map((sel, i) => (
         <Tooltip key={i}>
           <TooltipTrigger asChild>

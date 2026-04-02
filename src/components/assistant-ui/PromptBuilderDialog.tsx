@@ -38,7 +38,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   useUIStore,
   selectReplySelections,
-  selectBlockNoteSelection,
 } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { useShallow } from "zustand/react/shallow";
@@ -244,8 +243,6 @@ export function PromptBuilderDialog({
 
   const replySelections = useUIStore(useShallow(selectReplySelections));
   const { selectedCardIds } = useSelectedCardIds();
-  const blockNoteSelection = useUIStore(selectBlockNoteSelection);
-
   const defaultCount = config.defaultCount ?? 10;
   const [countInput, setCountInput] = useState(String(defaultCount));
   const [selectedContextIds, setSelectedContextIds] = useState<Set<string>>(

@@ -125,7 +125,7 @@ function MathDialogUI({ open, title, initialLatex, onSave, onClose }: MathDialog
 }
 
 // ---------------------------------------------------------------------------
-// Context + Provider (used by BlockNote's MathBlock / InlineMath)
+// Context + Provider for shared math editing UI
 // ---------------------------------------------------------------------------
 
 export const MathEditContext = createContext<MathEditContextValue | null>(null);

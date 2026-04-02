@@ -18,7 +18,7 @@ import {
 } from "@/components/ai-elements/code-block"
 import "@/components/tiptap-node/code-block-node/code-block-node.css"
 
-// Supported languages — curated list matching BlockNote's code block
+// Supported languages for the custom Tiptap code block node
 const LANGUAGES: Record<string, { name: string; aliases?: string[] }> = {
   text: { name: "Plain Text", aliases: ["plaintext", "txt"] },
   javascript: { name: "JavaScript", aliases: ["js"] },

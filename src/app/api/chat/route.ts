@@ -115,7 +115,7 @@ function getSelectedCardsContext(body: any): string {
 }
 
 /**
- * Inject user-selected context (reply quotes + BlockNote selection + selected cards) into the last user message.
+ * Inject user-selected context (reply quotes + selected text + selected cards) into the last user message.
  * Reads from runConfig metadata sent via the composer's setRunConfig().
  * This keeps context in the user message (not system prompt) without showing in the UI.
  */
@@ -123,7 +123,6 @@ function injectSelectionContext(
   messages: any[],
   metadata?: {
     replySelections?: Array<{ text: string; title?: string }>;
-    blockNoteSelection?: { cardName: string; text: string };
   },
   selectedCardsContext?: string,
 ): void {
@@ -142,13 +141,6 @@ function injectSelectionContext(
       )
       .join("\n\n");
     parts.push(`[Referring to:\n${quoted}]`);
-  }
-
-  // BlockNote selection (text selected from a card in the editor)
-  if (metadata?.blockNoteSelection?.text) {
-    parts.push(
-      `[Selected text from "${metadata.blockNoteSelection.cardName}":\n${metadata.blockNoteSelection.text}]`,
-    );
   }
 
   if (parts.length === 0) return;
@@ -281,7 +273,7 @@ async function handlePOST(req: Request) {
     // Build system prompt (identity, guidelines, URL hints — no selected cards)
     const finalSystemPrompt = buildSystemPrompt(system, urlContextUrls);
 
-    // Inject selected cards + reply + BlockNote selection context into the last user message
+    // Inject selected cards + reply + selected text context into the last user message
     injectSelectionContext(
       cleanedMessages,
       body.metadata?.custom,
