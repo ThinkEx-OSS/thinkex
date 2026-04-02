@@ -180,7 +180,13 @@ export function WorkspaceHeader({
   // Track drag hover state for breadcrumb elements
   const [hoveredBreadcrumbTarget, setHoveredBreadcrumbTarget] = useState<string | null>(null); // 'root' or folderId
   const isDraggingRef = useRef(false);
-  const [ellipsisDropdownOpen, setEllipsisDropdownOpen] = useState(false);
+  const [ellipsisDropdownState, setEllipsisDropdownState] = useState<{
+    folderPathKey: string;
+    open: boolean;
+  }>({
+    folderPathKey: "",
+    open: false,
+  });
 
   // Consistent breadcrumb item styling
   const breadcrumbItemClass = "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-accent cursor-pointer px-2 py-1.5 -mx-2 -my-1.5";
@@ -196,6 +202,22 @@ export function WorkspaceHeader({
     if (!activeFolderId || !items.length) return [];
     return getFolderPath(activeFolderId, items);
   }, [activeFolderId, items]);
+  const folderPathKey = useMemo(
+    () => folderPath.map((folder) => folder.id).join("/"),
+    [folderPath],
+  );
+  const isEllipsisDropdownOpen =
+    ellipsisDropdownState.folderPathKey === folderPathKey &&
+    ellipsisDropdownState.open;
+  const handleEllipsisDropdownOpenChange = useCallback(
+    (open: boolean) => {
+      setEllipsisDropdownState({
+        folderPathKey,
+        open,
+      });
+    },
+    [folderPathKey],
+  );
 
   // Compact mode when space is tight (item panel open + chat expanded)
   const isCompactMode = isItemPanelOpen && isChatExpanded;
@@ -375,11 +397,6 @@ export function WorkspaceHeader({
     openFilePicker();
     setIsNewMenuOpen(false);
   }, [openFilePicker]);
-
-  // Close popover when folder path changes
-  useEffect(() => {
-    setEllipsisDropdownOpen(false);
-  }, [folderPath]);
 
   return (
     <div className="relative py-2 z-20 bg-sidebar">
@@ -589,8 +606,8 @@ export function WorkspaceHeader({
                   (<>
                     <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/50 mx-1 shrink-0" />
                     <HoverCard
-                      open={ellipsisDropdownOpen}
-                      onOpenChange={setEllipsisDropdownOpen}
+                      open={isEllipsisDropdownOpen}
+                      onOpenChange={handleEllipsisDropdownOpenChange}
                       openDelay={0}
                       closeDelay={100}
                     >
