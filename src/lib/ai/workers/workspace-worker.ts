@@ -19,7 +19,6 @@ import type {
   DocumentData,
 } from "@/lib/workspace-state/types";
 import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
-import { fixLLMDoubleEscaping } from "@/lib/utils/fix-markdown-from-llm";
 import { executeWorkspaceOperation } from "./common";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import { hasDuplicateName } from "@/lib/workspace/unique-name";
@@ -92,8 +91,8 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
     const cardsWithIds = p.flashcardData.cards
       .map((card) => {
         if (!card || typeof card !== "object") return null;
-        const front = fixLLMDoubleEscaping(card.front || "");
-        const back = fixLLMDoubleEscaping(card.back || "");
+        const front = card.front || "";
+        const back = card.back || "";
         return {
           id: generateItemId(),
           front,
@@ -149,7 +148,7 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
     if (!p.quizData) throw new Error("Quiz data required for quiz creation");
     itemData = p.quizData;
   } else if (itemType === "document") {
-    const normalizedContent = p.content ? fixLLMDoubleEscaping(p.content) : "";
+    const normalizedContent = p.content ?? "";
     itemData = {
       markdown: normalizedContent,
       ...(p.sources?.length && { sources: p.sources }),
@@ -1408,7 +1407,6 @@ export async function workspaceWorker(
                   replaceAll,
                 );
               }
-              contentNew = fixLLMDoubleEscaping(contentNew);
               changes.data = {
                 markdown: contentNew,
                 ...(params.sources !== undefined

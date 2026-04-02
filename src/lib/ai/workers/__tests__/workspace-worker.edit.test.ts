@@ -46,10 +46,6 @@ vi.mock("@/lib/workspace/state-loader", () => ({
   loadWorkspaceState: (...args: any[]) => mockLoadWorkspaceState(...args),
 }));
 
-vi.mock("@/lib/utils/fix-markdown-from-llm", () => ({
-  fixLLMDoubleEscaping: (s: string) => s,
-}));
-
 vi.mock("@/lib/workspace/events", () => ({
   createEvent: (...args: any[]) => mockCreateEvent(...args),
 }));
