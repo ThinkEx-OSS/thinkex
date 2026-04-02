@@ -290,7 +290,7 @@ const SUGGESTION_ACTIONS = [
     title: "Document",
     icon: FileText,
     iconClassName: "size-4 shrink-0 text-sky-400",
-    action: "note" as PromptBuilderAction,
+    action: "document" as PromptBuilderAction,
     useDialog: true,
   },
 ];
@@ -374,11 +374,11 @@ const ThreadSuggestions: FC<ThreadSuggestionsProps> = ({ items }) => {
 // Floating action buttons shown above composer on hover
 const COMPOSER_FLOATING_ACTIONS = [
   {
-    id: "note",
+    id: "document",
     label: "Document",
     icon: FileText,
     iconClassName: "size-3.5 shrink-0 text-sky-400",
-    action: "note" as PromptBuilderAction,
+    action: "document" as PromptBuilderAction,
     useDialog: true,
   },
   {

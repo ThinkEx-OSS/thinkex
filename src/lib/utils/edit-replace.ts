@@ -1,5 +1,5 @@
 /**
- * Robust edit/replace utilities for note editing.
+ * Robust edit/replace utilities for workspace text editing (e.g. documents, quizzes).
  * Approaches sourced from Cline and Gemini CLI:
  * - https://github.com/cline/cline/blob/main/evals/diff-edits/diff-apply/diff-06-23-25.ts
  * - https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/utils/editCorrector.ts
@@ -455,7 +455,7 @@ function normalizeReplacementText(content: string, newString: string): string {
   const contentLooksJson = /"questions"\s*:|"cards"\s*:|^\s*[\[{]/.test(content);
 
   // Only unwrap full-value code fences for JSON-like content to avoid
-  // stripping intentional markdown code blocks in note edits.
+  // stripping intentional markdown code blocks in workspace content edits.
     if (contentLooksJson) {
     const unwrapped = unwrapSingleCodeFence(normalized);
     const unwrappedLooksJson = /^\s*[\[{]/.test(unwrapped.trim());

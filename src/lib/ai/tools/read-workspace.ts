@@ -4,10 +4,9 @@ import { loadStateForTool } from "./tool-utils";
 import { fuzzyMatchItem } from "./tool-utils";
 import { resolveItemByPath } from "./workspace-search-utils";
 import { formatItemContent } from "@/lib/utils/format-workspace-context";
-import { getNoteContentAsMarkdown } from "@/lib/utils/format-workspace-context";
 import { getVirtualPath } from "@/lib/utils/workspace-fs";
 import type { WorkspaceToolContext } from "./workspace-tools";
-import type { NoteData, DocumentData } from "@/lib/workspace-state/types";
+import type { DocumentData } from "@/lib/workspace-state/types";
 
 const DEFAULT_LIMIT = 500;
 const MAX_LIMIT = 2000;
@@ -16,14 +15,14 @@ const MAX_LINE_LENGTH = 2000;
 export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Read content of a workspace item by path or name. Works for notes, documents, flashcards, PDFs, quizzes, images, audio, websites, and YouTube cards when readable content or metadata exists. Content is returned as raw lines with no line-number prefixes, so it can be copied directly into editItem oldString. The response includes rangeNote: 'Full content' when returning the entire item, or 'Lines X–Y of Z' (and 'has more' if there is more). Use lineStart (1-indexed) to read later sections. For PDFs: pageStart and pageEnd for page ranges. Use searchWorkspace to find content in large items. Quizzes include progress at the top when started. Any line longer than 2000 characters is truncated. Avoid tiny repeated slices; read a larger window.",
+            "Read content of a workspace item by path or name. Works for documents, flashcards, PDFs, quizzes, images, audio, websites, and YouTube cards when readable content or metadata exists. Content is returned as raw lines with no line-number prefixes, so it can be copied directly into editItem oldString. The response includes rangeNote: 'Full content' when returning the entire item, or 'Lines X–Y of Z' (and 'has more' if there is more). Use lineStart (1-indexed) to read later sections. For PDFs: pageStart and pageEnd for page ranges. Use searchWorkspace to find content in large items. Quizzes include progress at the top when started. Any line longer than 2000 characters is truncated. Avoid tiny repeated slices; read a larger window.",
         inputSchema: zodSchema(
             z.object({
                 path: z
                     .string()
                     .optional()
                     .describe(
-                        "Virtual path (e.g. Physics/notes/Thermodynamics.md) — unambiguous when duplicates exist"
+                        "Virtual path (e.g. Physics/documents/Thermodynamics.md) — unambiguous when duplicates exist"
                     ),
                 itemName: z
                     .string()
@@ -116,7 +115,7 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
             if (item.type === "folder") {
                 return {
                     success: false,
-                    message: "Folders have no readable content. Use path to a note, document, flashcard, PDF, quiz, image, audio, website, or YouTube item.",
+                    message: "Folders have no readable content. Use path to a document, flashcard, PDF, quiz, image, audio, website, or YouTube item.",
                 };
             }
 
@@ -125,15 +124,10 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
                     ? { pageStart, pageEnd }
                     : undefined;
 
-            // Keep note reads aligned with editItem matching source.
-            // editItem for notes matches against serialized markdown content only
-            // (without appended metadata blocks like Sources).
             const fullContent =
-                item.type === "note"
-                    ? getNoteContentAsMarkdown(item.data as NoteData)
-                    : item.type === "document"
-                        ? ((item.data as DocumentData).markdown ?? "")
-                        : formatItemContent(item, pdfPageRange);
+                item.type === "document"
+                    ? ((item.data as DocumentData).markdown ?? "")
+                    : formatItemContent(item, pdfPageRange);
             const allLines = fullContent.split(/\r?\n/);
             const totalLines = allLines.length;
             const startIdx = Math.max(0, lineStart - 1);

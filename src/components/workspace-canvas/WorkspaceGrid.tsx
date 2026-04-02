@@ -513,7 +513,7 @@ export function WorkspaceGrid({
       if (itemData.type === 'image') {
         // No aspect ratio snapping - free resize within min/max bounds
       } else if (itemData.type === 'youtube') {
-        // At w=1: force h=4 (matches note compact). At w=2: force h=7
+        // At w=1: force h=4 (matches compact document/PDF cards). At w=2: force h=7
         if (newItem.w === 1) {
           newItem.h = 4;
         } else {
@@ -521,7 +521,7 @@ export function WorkspaceGrid({
         }
       } else if (itemData.type === 'folder' || itemData.type === 'flashcard') {
         // Folders and flashcards don't need minimum height enforcement - skip
-      } else if (currentBreakpointRef.current !== 'xxs' && (itemData.type === 'note' || itemData.type === 'document' || itemData.type === 'pdf' || itemData.type === 'quiz' || itemData.type === 'audio')) {
+      } else if (currentBreakpointRef.current !== 'xxs' && (itemData.type === 'document' || itemData.type === 'pdf' || itemData.type === 'quiz' || itemData.type === 'audio')) {
         // Note, Document, PDF, Quiz, and Audio (recording) cards: handle transitions between compact and expanded modes
         // Note/Document/Audio cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=9
         // PDF cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=6

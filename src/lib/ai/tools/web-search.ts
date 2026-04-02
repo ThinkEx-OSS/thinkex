@@ -62,7 +62,7 @@ const resolveRedirectUrl = async (url: string) => {
 
 /**
  * Extract sources from Google grounding metadata chunks and resolve Vertex redirect URLs.
- * Used by autogen and other consumers that need sources for notes.
+ * Used by autogen and other consumers that need sources for documents.
  */
 export async function resolveGroundingChunksToSources(
     groundingChunks: unknown[] | null | undefined

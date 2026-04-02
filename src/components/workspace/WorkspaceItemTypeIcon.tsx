@@ -1,7 +1,6 @@
 "use client";
 
 import { File, FileText, Folder as FolderIcon, Globe, ImageIcon, Mic, Play, Brain } from "lucide-react";
-import { CgNotes } from "react-icons/cg";
 import { PiCardsThreeBold } from "react-icons/pi";
 import type { CardType } from "@/lib/workspace-state/types";
 import { cn } from "@/lib/utils";
@@ -13,8 +12,6 @@ interface WorkspaceItemTypeIconProps {
 
 export function WorkspaceItemTypeIcon({ type, className }: WorkspaceItemTypeIconProps) {
   switch (type) {
-    case "note":
-      return <CgNotes className={cn("text-blue-400", className)} />;
     case "document":
       return <FileText className={cn("text-sky-400", className)} />;
     case "pdf":
@@ -34,6 +31,6 @@ export function WorkspaceItemTypeIcon({ type, className }: WorkspaceItemTypeIcon
     case "website":
       return <Globe className={cn("text-sky-400", className)} />;
     default:
-      return <CgNotes className={cn("text-muted-foreground", className)} />;
+      return <FileText className={cn("text-muted-foreground", className)} />;
   }
 }

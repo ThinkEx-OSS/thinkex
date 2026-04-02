@@ -54,7 +54,7 @@ interface UIState {
   // BlockNote text selection state
   blockNoteSelection: { cardId: string; cardName: string; text: string } | null;
 
-  // Citation highlight: when opening note/PDF from citation click, highlight/search this quote
+  // Citation highlight: when opening document/PDF from citation click, highlight/search this quote
   citationHighlightQuery: { itemId: string; query: string; pageNumber?: number } | null;
 
   // PDF active page: itemId -> current page when PDF is open (for selected-card context)

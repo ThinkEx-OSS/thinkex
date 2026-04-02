@@ -148,7 +148,7 @@ const FlashcardSideContent = memo(
           color: "white",
           // Allow natural overscroll behavior like normal cards
           textAlign: "center",
-          // Match ItemHeader note card title styling: text-base (1rem) font-medium (500)
+          // Match ItemHeader document-style title: text-base (1rem) font-medium (500)
           fontSize: "1rem",
           fontWeight: 500,
           paddingTop: "1.5rem",

@@ -1,7 +1,5 @@
-import type { Item, NoteData, PdfData, DocumentData } from "./types";
-import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
+import type { Item, PdfData, DocumentData } from "./types";
 import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
-import { type Block } from "@/components/editor/blocknote-shared";
 
 /**
  * Extracts searchable text from an item's data field
@@ -10,18 +8,6 @@ function getSearchableDataText(item: Item): string {
   const { data, type } = item;
 
   switch (type) {
-    case "note": {
-      const noteData = data as NoteData;
-      if (
-        Array.isArray(noteData.blockContent) &&
-        noteData.blockContent.length > 0
-      ) {
-        const content = serializeBlockNote(noteData.blockContent as Block[]);
-        if (content) return content;
-      }
-      return "";
-    }
-
     case "pdf": {
       const pdfData = data as PdfData;
       return getOcrPagesTextContent(pdfData.ocrPages);

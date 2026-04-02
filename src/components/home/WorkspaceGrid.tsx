@@ -115,15 +115,6 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
           return documentData.markdown.split("\n").slice(0, 3).join("\n");
         }
       }
-      if (firstItem.type === "note") {
-        const noteData = firstItem.data as {
-          field1?: string;
-          blockContent?: unknown;
-        };
-        if (noteData.field1) {
-          return noteData.field1.split("\n").slice(0, 3).join("\n");
-        }
-      }
       return firstItem.name;
     }
     return "";

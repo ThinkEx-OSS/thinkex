@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     
     // Simple heuristic-based analysis
     const lowerText = text.toLowerCase();
-    let suggestedType = 'note';
+    let suggestedType = 'document';
     
     if (lowerText.includes('project') || lowerText.includes('task') || lowerText.includes('todo')) {
       suggestedType = 'project';

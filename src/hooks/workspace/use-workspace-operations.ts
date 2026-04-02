@@ -208,7 +208,6 @@ export function useWorkspaceOperations(
       );
 
       const validTypes: CardType[] = [
-        "note",
         "pdf",
         "flashcard",
         "folder",
@@ -219,11 +218,11 @@ export function useWorkspaceOperations(
         "website",
         "document",
       ];
-      const validType = validTypes.includes(type) ? type : "note";
+      const validType = validTypes.includes(type) ? type : "document";
 
       if (validType !== type) {
         logger.warn(
-          `🔧 [CREATE-ITEM] Invalid type "${type}" (typeof ${typeof type}), using "note" instead`,
+          `🔧 [CREATE-ITEM] Invalid type "${type}" (typeof ${typeof type}), using "document" instead`,
         );
       }
 
@@ -332,7 +331,6 @@ export function useWorkspaceOperations(
         .map(({ type, name, initialData, initialLayout }) => {
           // Validate type is a valid CardType
           const validTypes: CardType[] = [
-            "note",
             "pdf",
             "flashcard",
             "folder",
@@ -343,11 +341,11 @@ export function useWorkspaceOperations(
             "website",
             "document",
           ];
-          const validType = validTypes.includes(type) ? type : "note";
+          const validType = validTypes.includes(type) ? type : "document";
 
           if (validType !== type) {
             logger.warn(
-              `🔧 [CREATE-ITEMS] Invalid type "${type}", using "note" instead`,
+              `🔧 [CREATE-ITEMS] Invalid type "${type}", using "document" instead`,
             );
           }
 

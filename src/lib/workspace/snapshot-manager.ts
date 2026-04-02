@@ -9,10 +9,9 @@ import { eq, asc, desc, gt, and, sql } from "drizzle-orm";
  */
 export const SNAPSHOT_CONFIG = {
   // Create a snapshot every N events
-  // Reduced from 100 to 50 for better performance with minimal overhead
   // Snapshot creation is async and non-blocking, so more frequent snapshots
   // improve load times without impacting user experience
-  EVENTS_PER_SNAPSHOT: 50,
+  EVENTS_PER_SNAPSHOT: 20,
   // Keep N most recent snapshots per workspace
   MAX_SNAPSHOTS_PER_WORKSPACE: 3,
 };

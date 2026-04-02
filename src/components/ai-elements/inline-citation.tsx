@@ -91,7 +91,7 @@ export const InlineCitationCardBody = ({
 export type InlineCitationSourceProps = ComponentProps<"div"> & {
   title?: string;
   url?: string;
-  /** When set (and no url), makes content clickable (e.g. open workspace note) */
+  /** When set (and no url), makes content clickable (e.g. open workspace document) */
   onClick?: () => void;
 };
 

@@ -4,7 +4,6 @@
 
 import type {
   Item,
-  NoteData,
   PdfData,
   FlashcardData,
   FlashcardItem,
@@ -44,13 +43,6 @@ export function extractSearchableText(
   });
 
   switch (item.type) {
-    case "note": {
-      const data = item.data as NoteData;
-      if (Array.isArray(data.blockContent) && data.blockContent.length > 0) {
-        return body(serializeBlockNote(data.blockContent as Block[]));
-      }
-      return { header, content: "" };
-    }
     case "flashcard": {
       const data = item.data as FlashcardData;
       const cards: FlashcardItem[] = data.cards?.length
@@ -135,7 +127,7 @@ export function extractSearchableText(
 
 /**
  * Resolve an item by virtual path.
- * Path format: "Physics/notes/Thermodynamics.md" or "notes/My Note.md"
+ * Path format: "Physics/documents/Thermodynamics.md" or "documents/My Doc.md"
  */
 /** Known file extensions — avoid treating "4." in "4. Container Networking (2)" as extension */
 const KNOWN_EXTENSIONS = /\.(pdf|md|url|png|audio|txt)$/i;

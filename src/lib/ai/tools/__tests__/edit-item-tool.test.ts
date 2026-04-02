@@ -37,11 +37,11 @@ describe("createEditItemTool", () => {
     threadId: "thread-1",
   };
 
-  const noteItem = {
-    id: "note-1",
-    type: "note",
-    name: "My Note",
-    data: {},
+  const documentItem = {
+    id: "doc-1",
+    type: "document",
+    name: "My Document",
+    data: { markdown: "" },
   };
 
   beforeAll(async () => {
@@ -51,10 +51,10 @@ describe("createEditItemTool", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockLoadStateForTool.mockResolvedValue({ success: true, state: { items: [noteItem] } });
-    mockResolveItem.mockReturnValue(noteItem);
-    mockWorkspaceWorker.mockResolvedValue({ success: true, itemId: "note-1", message: "ok" });
-    mockGetVirtualPath.mockReturnValue("notes/My Note.md");
+    mockLoadStateForTool.mockResolvedValue({ success: true, state: { items: [documentItem] } });
+    mockResolveItem.mockReturnValue(documentItem);
+    mockWorkspaceWorker.mockResolvedValue({ success: true, itemId: "doc-1", message: "ok" });
+    mockGetVirtualPath.mockReturnValue("documents/My Document.md");
   });
 
   it("fails fast when itemName is missing", async () => {
@@ -67,7 +67,7 @@ describe("createEditItemTool", () => {
   it("returns loadStateForTool failure", async () => {
     mockLoadStateForTool.mockResolvedValueOnce({ success: false, message: "No workspace context available" });
     const tool: any = createEditItemTool(ctx);
-    const result = await tool.execute({ itemName: "My Note", oldString: "a", newString: "b" });
+    const result = await tool.execute({ itemName: "My Document", oldString: "a", newString: "b" });
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/No workspace context available/);
     expect(mockWorkspaceWorker).not.toHaveBeenCalled();
@@ -82,18 +82,18 @@ describe("createEditItemTool", () => {
   });
 
   it("requires disambiguation when multiple exact-name candidates exist", async () => {
-    const duplicate = { ...noteItem, id: "note-2" };
+    const duplicate = { ...documentItem, id: "doc-2" };
     mockLoadStateForTool.mockResolvedValueOnce({
       success: true,
-      state: { items: [noteItem, duplicate] },
+      state: { items: [documentItem, duplicate] },
     });
-    mockResolveItem.mockReturnValueOnce(noteItem);
+    mockResolveItem.mockReturnValueOnce(documentItem);
     mockGetVirtualPath
-      .mockReturnValueOnce("notes/My Note.md")
-      .mockReturnValueOnce("folder/My Note.md");
+      .mockReturnValueOnce("documents/My Document.md")
+      .mockReturnValueOnce("folder/My Document.md");
 
     const tool: any = createEditItemTool(ctx);
-    const result = await tool.execute({ itemName: "My Note", oldString: "a", newString: "b" });
+    const result = await tool.execute({ itemName: "My Document", oldString: "a", newString: "b" });
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/Multiple items named/);
     expect(result.message).toMatch(/Disambiguate using path/);
@@ -141,10 +141,10 @@ describe("createEditItemTool", () => {
   it("calls workspaceWorker edit and returns renamed itemName", async () => {
     const tool: any = createEditItemTool(ctx);
     const result = await tool.execute({
-      itemName: "My Note",
+      itemName: "My Document",
       oldString: "old",
       newString: "new",
-      newName: "Renamed Note",
+      newName: "Renamed Document",
       replaceAll: true,
       sources: [{ title: "Ref", url: "https://example.com" }],
     });
@@ -153,40 +153,40 @@ describe("createEditItemTool", () => {
       "edit",
       expect.objectContaining({
         workspaceId: "ws-1",
-        itemId: "note-1",
-        itemType: "note",
+        itemId: "doc-1",
+        itemType: "document",
         oldString: "old",
         newString: "new",
         replaceAll: true,
-        newName: "Renamed Note",
+        newName: "Renamed Document",
       })
     );
     expect(result.success).toBe(true);
-    expect(result.itemName).toBe("Renamed Note");
+    expect(result.itemName).toBe("Renamed Document");
   });
 
   it("supports rename-only with oldString='' and newString=''", async () => {
     const tool: any = createEditItemTool(ctx);
     const result = await tool.execute({
-      itemName: "My Note",
+      itemName: "My Document",
       oldString: "",
       newString: "",
-      newName: "Renamed Note",
+      newName: "Renamed Document",
     });
 
     expect(mockWorkspaceWorker).toHaveBeenCalledWith(
       "edit",
       expect.objectContaining({
         workspaceId: "ws-1",
-        itemId: "note-1",
-        itemType: "note",
+        itemId: "doc-1",
+        itemType: "document",
         oldString: "",
         newString: "",
-        newName: "Renamed Note",
+        newName: "Renamed Document",
       })
     );
     expect(result.success).toBe(true);
-    expect(result.itemName).toBe("Renamed Note");
+    expect(result.itemName).toBe("Renamed Document");
   });
 
   it("passes through worker failures", async () => {
@@ -195,7 +195,7 @@ describe("createEditItemTool", () => {
       message: "Found multiple matches for oldString",
     });
     const tool: any = createEditItemTool(ctx);
-    const result = await tool.execute({ itemName: "My Note", oldString: "a", newString: "b" });
+    const result = await tool.execute({ itemName: "My Document", oldString: "a", newString: "b" });
 
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/multiple matches/i);

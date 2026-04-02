@@ -70,7 +70,7 @@ describe("serializeBlockNote", () => {
   });
 
   it("handles cmsc351-style structure: heading + bold paragraph + numbered list + inlineMath", () => {
-    // Structure from real workspace (Insertion Sort note)
+    // Structure from real workspace (Insertion Sort document)
     const blocks = [
       {
         id: "h1",

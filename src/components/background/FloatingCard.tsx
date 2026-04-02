@@ -13,7 +13,7 @@ import type { CSSProperties } from "react";
 export type BackgroundCardType =
   | "folder"
   | "flashcard"
-  | "note"
+  | "document"
   | "pdf"
   | "youtube"
   | "quiz";
@@ -189,7 +189,7 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
     );
   }
 
-  if (data.type === "note") {
+  if (data.type === "document") {
     return (
       <div className={cn("relative group mb-4 break-inside-avoid", className)}>
         <div
@@ -201,7 +201,7 @@ export function FloatingCard({ data, className }: FloatingCardProps) {
         >
           <div className="flex items-center justify-between mb-3 pb-2 border-b">
             <h3 className="font-semibold text-xs md:text-sm truncate w-3/4 text-muted dark:text-muted-foreground">
-              {data.title || "Untitled Note"}
+              {data.title || "Untitled Document"}
             </h3>
           </div>
 

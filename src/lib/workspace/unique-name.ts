@@ -6,7 +6,7 @@ function newItemPattern(type: string): RegExp {
 }
 
 /**
- * Get the next unique default name for an item type (e.g. "New note 1", "New note 2", ...).
+ * Get the next unique default name for an item type (e.g. "New document 1", "New document 2", ...).
  * Scans siblings for existing "New &lt;type&gt; N" names and returns the next available number.
  */
 export function getNextUniqueDefaultName(
