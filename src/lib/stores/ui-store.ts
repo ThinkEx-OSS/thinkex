@@ -7,7 +7,7 @@ import { WORKSPACE_PANEL_SIZES } from '@/lib/layout-constants';
  * This replaces scattered useState hooks in dashboard
  */
 
-export type ViewMode = 'workspace' | 'focus' | 'workspace+panel' | 'panel+panel';
+export type ViewMode = 'workspace' | 'focus';
 
 interface UIState {
   // Chat state
@@ -20,7 +20,7 @@ interface UIState {
 
   // View mode & Panel state
   viewMode: ViewMode; // Current layout mode
-  openPanelIds: string[]; // Array of open item IDs (order = layout order, max 2)
+  openPanelIds: string[]; // Array containing the currently focused item ID when one is open
   itemPrompt: { itemId: string; x: number; y: number } | null; // Global prompt state
   maximizedItemId: string | null; // The ID of the item currently expanded to full screen (focus mode)
 
@@ -68,11 +68,8 @@ interface UIState {
 
 
   // Actions - Panels & View Mode
-  openPanel: (itemId: string) => void;
-  splitWithItem: (itemId: string) => void; // Enter panel+panel mode from workspace+panel
   closePanel: (itemId: string) => void;
   closeAllPanels: () => void;
-  reorderPanels: (fromIndex: number, toIndex: number) => void;
   setItemPrompt: (prompt: { itemId: string; x: number; y: number } | null) => void;
   setMaximizedItemId: (itemId: string | null) => void;
 
@@ -219,9 +216,9 @@ export const useUIStore = create<UIState>()(
 
         _setActiveFolderIdDirect: (folderId) => set({ activeFolderId: folderId }),
 
-        // URL sync only — sets panels and optionally maximized (focus) item
+        // URL sync only — restores the focused item from the URL
         _setPanelsFromUrl: (ids, maximizedId) => set((state) => {
-          const validIds = ids.slice(0, 2); // max 2 panels
+          const validIds = ids.slice(0, 1);
           if (validIds.length === 0) {
             const newSelectedCardIds = new Set(state.selectedCardIds);
             state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
@@ -245,80 +242,18 @@ export const useUIStore = create<UIState>()(
           state.panelAutoSelectedCardIds.forEach(id => {
             if (!validIds.includes(id)) newSelectedCardIds.delete(id);
           });
-          // Focus only valid when single panel and maximizedId in validIds
           const focusId =
-            maximizedId &&
-            validIds.length === 1 &&
-            validIds[0] === maximizedId
+            maximizedId && validIds[0] === maximizedId
               ? maximizedId
-              : null;
-          const viewMode: ViewMode =
-            focusId
-              ? 'focus'
-              : validIds.length === 2
-                ? 'panel+panel'
-                : 'workspace+panel';
+              : validIds[0] ?? null;
           return {
-            openPanelIds: validIds,
+            openPanelIds: focusId ? [focusId] : [],
             maximizedItemId: focusId,
-            viewMode,
+            viewMode: focusId ? 'focus' as ViewMode : 'workspace' as ViewMode,
             selectedCardIds: newSelectedCardIds,
             panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
           };
         }),
-
-        // Panel actions
-        openPanel: (itemId) => {
-          set((state) => {
-            const newSelectedCardIds = new Set(state.selectedCardIds);
-            const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-
-            // In workspace+panel mode: replace the panel content
-            const isAlreadyOpen = state.viewMode === 'workspace+panel' && state.openPanelIds.length === 1 && state.openPanelIds[0] === itemId;
-            if (isAlreadyOpen) return {};
-
-            // Clean up old auto-selected cards
-            state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
-            newPanelAutoSelectedCardIds.clear();
-
-            // Add new item to selections
-            newSelectedCardIds.add(itemId);
-            // Only track as auto-selected if user didn't explicitly select it
-            const wasExplicitlySelected = state.selectedCardIds.has(itemId) && !state.panelAutoSelectedCardIds.has(itemId);
-            if (!wasExplicitlySelected) newPanelAutoSelectedCardIds.add(itemId);
-
-            return {
-              viewMode: 'workspace+panel' as ViewMode,
-              openPanelIds: [itemId],
-              maximizedItemId: null,
-              selectedCardIds: newSelectedCardIds,
-              panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-            };
-          });
-        },
-
-        // Enter panel+panel mode from workspace+panel
-        splitWithItem: (itemId) => {
-          set((state) => {
-            if (state.openPanelIds.length === 0) return {};
-            const existingId = state.openPanelIds[0];
-            if (existingId === itemId) return {}; // Can't split with the same item
-
-            const newSelectedCardIds = new Set(state.selectedCardIds);
-            const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-            newSelectedCardIds.add(itemId);
-            const wasExplicitlySelected = state.selectedCardIds.has(itemId) && !state.panelAutoSelectedCardIds.has(itemId);
-            if (!wasExplicitlySelected) newPanelAutoSelectedCardIds.add(itemId);
-
-            return {
-              viewMode: 'panel+panel' as ViewMode,
-              openPanelIds: [itemId, existingId],
-              maximizedItemId: null,
-              selectedCardIds: newSelectedCardIds,
-              panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-            };
-          });
-        },
 
         closePanel: (itemId) => {
           set((state) => {
@@ -335,25 +270,13 @@ export const useUIStore = create<UIState>()(
             const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
             newPanelAutoSelectedCardIds.delete(itemId);
 
-            if (remaining.length === 0) {
-              // No panels left → workspace mode
-              return {
-                viewMode: 'workspace' as ViewMode,
-                openPanelIds: [],
-                maximizedItemId: null,
-                selectedCardIds: newSelectedCardIds,
-                panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-                citationHighlightQuery: null,
-              };
-            }
-
-            // One panel remaining → workspace+panel
             return {
-              viewMode: 'workspace+panel' as ViewMode,
+              viewMode: 'workspace' as ViewMode,
               openPanelIds: remaining,
               maximizedItemId: null,
               selectedCardIds: newSelectedCardIds,
               panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
+              citationHighlightQuery: null,
             };
           });
         },
@@ -374,13 +297,6 @@ export const useUIStore = create<UIState>()(
             };
           });
         },
-
-        reorderPanels: (fromIndex, toIndex) => set((state) => {
-          const newPanelIds = [...state.openPanelIds];
-          const [removed] = newPanelIds.splice(fromIndex, 1);
-          newPanelIds.splice(toIndex, 0, removed);
-          return { openPanelIds: newPanelIds };
-        }),
 
         setItemPrompt: (prompt) => set({ itemPrompt: prompt }),
         setMaximizedItemId: (id) => set({
@@ -609,13 +525,13 @@ export const selectViewMode = (state: UIState) => state.viewMode;
 // Panel selectors - for backwards compatibility and convenience
 export const selectOpenPanelIds = (state: UIState) => state.openPanelIds;
 export const selectPrimaryPanelId = (state: UIState) => state.openPanelIds[0] ?? null;
-export const selectSecondaryPanelId = (state: UIState) => state.openPanelIds[1] ?? null;
+export const selectSecondaryPanelId = () => null;
 
 export const selectIsPanelOpen = (state: UIState) => state.openPanelIds.length > 0;
 
 // Legacy compatibility selectors
 export const selectOpenModalItemId = (state: UIState) => state.openPanelIds[0] ?? null;
-export const selectSecondaryOpenModalItemId = (state: UIState) => state.openPanelIds[1] ?? null;
+export const selectSecondaryOpenModalItemId = () => null;
 
 export const selectUIPreferences = (state: UIState) => ({
   showJsonView: state.showJsonView,

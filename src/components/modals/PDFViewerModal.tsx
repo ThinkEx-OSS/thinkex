@@ -65,7 +65,9 @@ export function PDFViewerModal({
           onMaximize={() => useUIStore.getState().setMaximizedItemId(null)}
           isMaximized={true}
           onUpdateItem={onUpdateItem}
-          onUpdateItemData={(data) => onUpdateItem({ data })}
+          onUpdateItemData={(updater) =>
+            onUpdateItem({ data: updater(item.data) as Item["data"] })
+          }
         />
       </div>
     );
@@ -93,7 +95,9 @@ export function PDFViewerModal({
           onMaximize={() => useUIStore.getState().setMaximizedItemId(null)}
           isMaximized={true}
           onUpdateItem={onUpdateItem}
-          onUpdateItemData={() => { }} // PDF doesn't use onUpdateItemData in its modal typically
+          onUpdateItemData={(updater) =>
+            onUpdateItem({ data: updater(item.data) as Item["data"] })
+          }
         />
       </SpotlightModal>
     </div>

@@ -28,6 +28,20 @@ import {
 } from "@/lib/workspace/unique-name";
 import { filterItemIdsForFolderCreation } from "@/lib/workspace-state/search";
 
+function getAllDescendantIds(folderId: string, items: Item[]): string[] {
+  const directChildren = items.filter((item) => item.folderId === folderId);
+  const descendantIds: string[] = [];
+
+  for (const child of directChildren) {
+    descendantIds.push(child.id);
+    if (child.type === "folder") {
+      descendantIds.push(...getAllDescendantIds(child.id, items));
+    }
+  }
+
+  return descendantIds;
+}
+
 /**
  * Return type for workspace operations
  */
@@ -177,16 +191,18 @@ export function useWorkspaceOperations(
 
   // Cleanup timeouts on unmount
   useEffect(() => {
+    const updateItemDebounces = updateItemDebounceRef.current;
+    const updateItemDataDebounces = updateItemDataDebounceRef.current;
+    const pendingItemChanges = pendingItemChangesRef.current;
+    const pendingItemDataUpdaters = pendingItemDataUpdatersRef.current;
     return () => {
       // Clear all pending timeouts
-      updateItemDebounceRef.current.forEach((timeout) => clearTimeout(timeout));
-      updateItemDataDebounceRef.current.forEach((timeout) =>
-        clearTimeout(timeout),
-      );
-      updateItemDebounceRef.current.clear();
-      updateItemDataDebounceRef.current.clear();
-      pendingItemChangesRef.current.clear();
-      pendingItemDataUpdatersRef.current.clear();
+      updateItemDebounces.forEach((timeout) => clearTimeout(timeout));
+      updateItemDataDebounces.forEach((timeout) => clearTimeout(timeout));
+      updateItemDebounces.clear();
+      updateItemDataDebounces.clear();
+      pendingItemChanges.clear();
+      pendingItemDataUpdaters.clear();
     };
   }, []);
 
@@ -263,8 +279,6 @@ export function useWorkspaceOperations(
           itemsInView,
           validType,
           4,
-          finalName,
-          "",
           initialLayout.w,
           initialLayout.h,
         );
@@ -381,8 +395,6 @@ export function useWorkspaceOperations(
               itemsForLayout,
               validType,
               4, // Default cols
-              name,
-              "",
               initialLayout.w,
               initialLayout.h,
             );
@@ -693,7 +705,6 @@ export function useWorkspaceOperations(
   // Update all items at once (used for layout changes, reordering, and bulk delete)
   const updateAllItems = useCallback(
     (items: Item[]) => {
-      const bulkUpdateStart = performance.now();
       logger.debug("🔧 [BULK-UPDATE] Updating all items:", {
         count: items.length,
       });
@@ -944,25 +955,6 @@ export function useWorkspaceOperations(
     [deleteItem, currentState.items],
   );
 
-  // Helper to recursively find all descendant IDs (items in folder and nested subfolders)
-  const getAllDescendantIds = useCallback(
-    (folderId: string, items: Item[]): string[] => {
-      const directChildren = items.filter((item) => item.folderId === folderId);
-      const descendantIds: string[] = [];
-
-      for (const child of directChildren) {
-        descendantIds.push(child.id);
-        // Recursively get descendants of nested folders
-        if (child.type === "folder") {
-          descendantIds.push(...getAllDescendantIds(child.id, items));
-        }
-      }
-
-      return descendantIds;
-    },
-    [],
-  );
-
   // deleteFolderWithContents deletes the folder and all items inside it (including nested)
   // Uses atomic bulk update pattern (same as handleBulkDelete in WorkspaceSection)
   const deleteFolderWithContents = useCallback(
@@ -1050,7 +1042,6 @@ export function useWorkspaceOperations(
       workspaceId,
       queryClient,
       currentState.items,
-      getAllDescendantIds,
       updateAllItems,
     ],
   );

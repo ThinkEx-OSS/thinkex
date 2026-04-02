@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { eventReducer } from "../event-reducer";
-import type { AgentState, Item } from "@/lib/workspace-state/types";
+import type { AgentState, ImageData, Item, PdfData } from "@/lib/workspace-state/types";
 import type { WorkspaceEvent } from "../events";
 
 describe("eventReducer BULK_ITEMS_PATCHED", () => {
@@ -45,19 +45,19 @@ describe("eventReducer BULK_ITEMS_PATCHED", () => {
           {
             id: "pdf-1",
             changes: {
-              data: {
+              data: ({
                 ocrStatus: "complete",
                 ocrPages: [{ index: 0, markdown: "pdf page" }],
-              },
+              } satisfies Partial<PdfData>) as Item["data"],
             },
           },
           {
             id: "img-1",
             changes: {
-              data: {
+              data: ({
                 ocrStatus: "failed",
                 ocrError: "bad image",
-              },
+              } satisfies Partial<ImageData>) as Item["data"],
             },
           },
         ],

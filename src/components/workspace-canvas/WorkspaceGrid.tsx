@@ -3,14 +3,29 @@ import { wrapCompactor, fastVerticalCompactor } from "react-grid-layout/extras";
 import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useMemo, useCallback, useRef, useEffect, useState } from "react";
 import React from "react";
-import type { Item, CardType } from "@/lib/workspace-state/types";
+import type { Item } from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
-import { itemsToLayout, generateMissingLayouts, updateItemsWithLayout, hasLayoutChanged } from "@/lib/workspace-state/grid-layout-helpers";
+import { itemsToLayout, generateMissingLayouts, updateItemsWithLayout } from "@/lib/workspace-state/grid-layout-helpers";
 import { isDescendantOf } from "@/lib/workspace-state/search";
 import { WorkspaceCard } from "./WorkspaceCard";
 import { FlashcardWorkspaceCard } from "./FlashcardWorkspaceCard";
 import { FolderCard } from "./FolderCard";
 import { useUIStore } from "@/lib/stores/ui-store";
+
+const GRID_BREAKPOINTS = { lg: 0 } as const;
+const GRID_COLS = { lg: 4 } as const;
+const GRID_MARGIN: [number, number] = [16, 16];
+const GRID_CONTAINER_PADDING: [number, number] = [16, 0];
+const GRID_RESIZE_HANDLES = [
+  "s",
+  "w",
+  "e",
+  "n",
+  "se",
+  "sw",
+  "ne",
+  "nw",
+] as Array<"s" | "w" | "e" | "n" | "se" | "sw" | "ne" | "nw">;
 
 interface WorkspaceGridProps {
   items: Item[]; // Filtered items to display (includes folder-type items)
@@ -24,8 +39,6 @@ interface WorkspaceGridProps {
   onDeleteItem: (itemId: string) => void;
   onUpdateAllItems: (items: Item[]) => void;
   onOpenModal: (itemId: string) => void;
-  selectedCardIds: Set<string>;
-  onToggleSelection: (itemId: string) => void;
   onGridDragStateChange?: (isDragging: boolean) => void;
   workspaceName: string;
   workspaceIcon?: string | null;
@@ -34,16 +47,13 @@ interface WorkspaceGridProps {
   onMoveItems?: (itemIds: string[], folderId: string | null) => void; // Callback to move multiple items to folder (bulk move)
   onOpenFolder?: (folderId: string) => void; // Callback when folder is clicked
   onDeleteFolderWithContents?: (folderId: string) => void; // Callback to delete folder and all items inside
-  addItem?: (type: CardType, name?: string, initialData?: Partial<Item['data']>) => string | void; // Function to add new items
-  onPDFUpload?: (files: File[]) => Promise<void>; // Function to handle PDF upload
-  setOpenModalItemId?: (id: string | null) => void; // Function to open modal for newly created items
 }
 
 /**
  * Grid layout component that manages the positioning and layout of workspace cards.
  * Handles drag-and-drop, resizing, and layout recalculation.
  */
-export function WorkspaceGrid({
+function WorkspaceGridComponent({
   items,
   allItems,
   isFiltered,
@@ -55,8 +65,6 @@ export function WorkspaceGrid({
   onDeleteItem,
   onUpdateAllItems,
   onOpenModal,
-  selectedCardIds,
-  onToggleSelection,
   onGridDragStateChange,
   workspaceName,
   workspaceIcon,
@@ -65,9 +73,6 @@ export function WorkspaceGrid({
   onMoveItems,
   onOpenFolder,
   onDeleteFolderWithContents,
-  addItem,
-  onPDFUpload,
-  setOpenModalItemId,
 }: WorkspaceGridProps) {
   const useWrapCompactor = useFeatureFlagEnabled("wrap-compactor");
   const compactor = useWrapCompactor ? wrapCompactor : fastVerticalCompactor;
@@ -91,10 +96,6 @@ export function WorkspaceGrid({
     return () => cancelAnimationFrame(raf);
   }, [mounted]);
 
-  // Track current breakpoint for saving layouts
-  // Note: We use RGL's onBreakpointChange to update this, so we initialize to 'lg'
-  const currentBreakpointRef = useRef<'lg' | 'xxs'>('lg');
-
   // OPTIMIZED: Store layout in ref to avoid including it in callback dependencies
   // This prevents handleDragStop from changing when layout changes, which causes ReactGridLayout re-renders
   const layoutRef = useRef<LayoutItem[]>([]);
@@ -108,17 +109,11 @@ export function WorkspaceGrid({
     allItemsRef.current = allItems;
   }, [allItems]);
 
-  // Generate layouts for items that don't have them
-  // lg: 4 columns; xxs: 1 column with h=10 default for consistent single-column stacking
-  const itemsWithLayout = useMemo(() => {
-    const withLg = generateMissingLayouts(items, 4);
-    return generateMissingLayouts(withLg, 1, 'xxs');
-  }, [items]);
+  // Generate layouts for items that don't have them.
+  const itemsWithLayout = useMemo(() => generateMissingLayouts(items, 4), [items]);
 
   // Display all items (no longer hiding items when panels are open)
-  const displayItems = useMemo(() => {
-    return itemsWithLayout;
-  }, [itemsWithLayout]);
+  const displayItems = itemsWithLayout;
 
 
   // Note: Standard react-grid-layout handles bounds automatically.
@@ -129,7 +124,7 @@ export function WorkspaceGrid({
   // Debounced handler for live updates during drag/resize
   // NOTE: We disable this and only save on drag stop to prevent unnecessary saves on clicks
   // react-grid-layout fires onLayoutChange even on simple clicks, causing unwanted updates
-  const handleLayoutChange = useCallback((newLayout: Layout, allLayouts: Partial<Record<string, Layout>>) => {
+  const handleLayoutChange = useCallback(() => {
     // Cancel any pending timeouts - we only save on drag stop now
     if (layoutChangeTimeoutRef.current) {
       clearTimeout(layoutChangeTimeoutRef.current);
@@ -142,7 +137,9 @@ export function WorkspaceGrid({
   }, []);
 
   // Handle drag start - with RGL v2, this only fires after 3px movement (real drag, not click)
-  const handleDragStart = useCallback((layout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null, placeholder: LayoutItem | null, e: Event, element: HTMLElement | null) => {
+  const handleDragStart = useCallback((...args: [Layout, LayoutItem | null, LayoutItem | null, LayoutItem | null, Event, HTMLElement | null]) => {
+    const oldItem = args[1];
+    const e = args[4];
     // Check if the click originated from a dropdown menu - if so, don't start drag
     const target = e.target as HTMLElement;
     if (
@@ -167,7 +164,8 @@ export function WorkspaceGrid({
   }, [onDragStart, onGridDragStateChange]);
 
   // Handle drag to detect folder hover based on cursor position
-  const handleDrag = useCallback((layout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null, placeholder: LayoutItem | null, e: Event, element: HTMLElement | null) => {
+  const handleDrag = useCallback((...args: [Layout, LayoutItem | null, LayoutItem | null, LayoutItem | null, Event, HTMLElement | null]) => {
+    const e = args[4];
     const draggedItemId = draggedItemIdRef.current;
     if (!draggedItemId || !e) return;
 
@@ -325,6 +323,7 @@ export function WorkspaceGrid({
     }
 
     // Calculate selected count - if dragged card is selected, count all selected, otherwise just 1
+    const selectedCardIds = useUIStore.getState().selectedCardIds;
     const isDraggedCardSelected = selectedCardIds.has(draggedItemId);
     const selectedCount = isDraggedCardSelected ? selectedCardIds.size : 1;
 
@@ -344,10 +343,11 @@ export function WorkspaceGrid({
         detail: { folderId: eventFolderId, isHovering: true, selectedCount }
       }));
     }
-  }, [selectedCardIds]);
+  }, []);
 
   // Handle resize start - track which item is being resized
-  const handleResizeStart = useCallback((layout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null, placeholder: LayoutItem | null, e: Event, element: HTMLElement | null) => {
+  const handleResizeStart = useCallback((...args: [Layout, LayoutItem | null, LayoutItem | null, LayoutItem | null, Event, HTMLElement | null]) => {
+    const oldItem = args[1];
     hasUserInteractedRef.current = true;
     // Track which item is being resized (same as drag)
     if (!oldItem) return;
@@ -359,7 +359,8 @@ export function WorkspaceGrid({
 
   // Handle drag stop - with RGL v2, this only fires for actual drags (not clicks)
   // Click handling is now done by individual card components via their onClick handlers
-  const handleDragStop = useCallback((newLayout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null, placeholder: LayoutItem | null, e: Event, element: HTMLElement | null) => {
+  const handleDragStop = useCallback((...args: [Layout, LayoutItem | null, LayoutItem | null, LayoutItem | null, Event, HTMLElement | null]) => {
+    const newLayout = args[0];
     const draggedItemId = draggedItemIdRef.current;
 
     // If no drag was started (e.g., click on dropdown), exit early
@@ -370,9 +371,6 @@ export function WorkspaceGrid({
     }
 
     // Find the item
-    const item = allItemsRef.current.find(i => i.id === draggedItemId);
-    const isFolder = item?.type === 'folder';
-
     // Cancel any pending debounced update
     if (layoutChangeTimeoutRef.current) {
       clearTimeout(layoutChangeTimeoutRef.current);
@@ -393,6 +391,7 @@ export function WorkspaceGrid({
     const hoveredFolderId = hoveredFolderIdRef.current;
     if (hoveredFolderId !== null && draggedItemId) {
       // Check if dragged card is part of selection
+      const selectedCardIds = useUIStore.getState().selectedCardIds;
       const isDraggedCardSelected = selectedCardIds.has(draggedItemId);
       const cardsToMove = isDraggedCardSelected
         ? Array.from(selectedCardIds)
@@ -482,7 +481,7 @@ export function WorkspaceGrid({
     }
 
     if (layoutChanged) {
-      const updatedItems = updateItemsWithLayout(allItemsRef.current, [...newLayout], currentBreakpointRef.current);
+      const updatedItems = updateItemsWithLayout(allItemsRef.current, [...newLayout]);
       onUpdateAllItems(updatedItems);
     }
 
@@ -497,14 +496,15 @@ export function WorkspaceGrid({
     // Clear the dragged item reference
     draggedItemIdRef.current = null;
     onGridDragStateChange?.(false);
-  }, [onDragStop, isFiltered, isTemporaryFilter, onGridDragStateChange, onUpdateAllItems, onMoveItem, onMoveItems, selectedCardIds]);
+  }, [clearCardSelection, onDragStop, isFiltered, isTemporaryFilter, onGridDragStateChange, onUpdateAllItems, onMoveItem, onMoveItems]);
 
   // Handle resize to enforce constraints
   // Note cards can transition between compact (w=1, h=4) and expanded (w>=2, h>=9) modes
   // based on EITHER width or height changes, allowing vertical-only resizing to trigger mode switches
-  const handleResize = useCallback((layout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null, placeholder: LayoutItem | null, e: Event, element: HTMLElement | null) => {
-
-
+  const handleResize = useCallback((...args: [Layout, LayoutItem | null, LayoutItem | null, LayoutItem | null, Event, HTMLElement | null]) => {
+    const oldItem = args[1];
+    const newItem = args[2];
+    const placeholder = args[3];
     // Normal workspace mode: enforce custom constraints
     if (!newItem || !oldItem) return;
     const itemData = allItemsRef.current.find(i => i.id === newItem.i);
@@ -521,7 +521,7 @@ export function WorkspaceGrid({
         }
       } else if (itemData.type === 'folder' || itemData.type === 'flashcard') {
         // Folders and flashcards don't need minimum height enforcement - skip
-      } else if (currentBreakpointRef.current !== 'xxs' && (itemData.type === 'document' || itemData.type === 'pdf' || itemData.type === 'quiz' || itemData.type === 'audio')) {
+      } else if (itemData.type === 'document' || itemData.type === 'pdf' || itemData.type === 'quiz' || itemData.type === 'audio') {
         // Note, Document, PDF, Quiz, and Audio (recording) cards: handle transitions between compact and expanded modes
         // Note/Document/Audio cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=9
         // PDF cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=6
@@ -557,8 +557,7 @@ export function WorkspaceGrid({
 
       // Clamp position to prevent off-screen glitches when resizing from left/west or top/north handles.
       // react-grid-layout can set negative x/y when dragging those edges; we clamp to grid bounds.
-      const cols = currentBreakpointRef.current === 'xxs' ? 1 : 4;
-      newItem.x = Math.max(0, Math.min(cols - newItem.w, newItem.x));
+      newItem.x = Math.max(0, Math.min(4 - newItem.w, newItem.x));
       newItem.y = Math.max(0, newItem.y);
       if (placeholder) {
         placeholder.x = newItem.x;
@@ -588,7 +587,7 @@ export function WorkspaceGrid({
     // For resize, we always save since resize always changes layout
     // Folders are now items with type: 'folder', so they're included in updateItemsWithLayout
 
-    const updatedItems = updateItemsWithLayout(allItemsRef.current, [...newLayout], currentBreakpointRef.current);
+    const updatedItems = updateItemsWithLayout(allItemsRef.current, [...newLayout]);
     onUpdateAllItems(updatedItems);
 
     draggedItemIdRef.current = null;
@@ -612,10 +611,6 @@ export function WorkspaceGrid({
   const handleOpenModal = useCallback((itemId: string) => {
     onOpenModal(itemId);
   }, [onOpenModal]);
-
-  const handleToggleSelection = useCallback((itemId: string) => {
-    onToggleSelection(itemId);
-  }, [onToggleSelection]);
 
   // Folder operation handler (folders are now items with type: 'folder')
   const handleOpenFolder = useCallback((folderId: string) => {
@@ -641,33 +636,14 @@ export function WorkspaceGrid({
   }, [itemsWithLayout]);
 
 
-  // OPTIMIZED: Memoize array props to prevent ResponsiveGridLayout/DraggableCore re-renders
-  // These arrays are recreated on every render, causing unnecessary re-renders
-  const margin = useMemo(() => [16, 16] as [number, number], []);
-  const containerPadding = useMemo(() => [16, 0] as [number, number], []);
-  const resizeHandles = useMemo(() => ['s', 'w', 'e', 'n', 'se', 'sw', 'ne', 'nw'] as Array<'s' | 'w' | 'e' | 'n' | 'se' | 'sw' | 'ne' | 'nw'>, []);
-
-  // OPTIMIZED: Create stable Set reference check - only recreate if Set contents changed
-  // Convert Set to sorted array string for stable comparison
-  const selectedCardIdsKey = useMemo(() => {
-    return Array.from(selectedCardIds).sort().join(',');
-  }, [selectedCardIds]);
-
-  // OPTIMIZED: Create stable items key to prevent unnecessary children recreation
-  // Only recreate children when items actually change (by ID/content), not just reference
-  // Include data to ensure updates like thumbnail changes trigger re-renders
-  const itemsKey = useMemo(() => {
-    return displayItems.map(item => `${item.id}:${item.name}:${item.type}:${JSON.stringify(item.data)}`).join('|');
-  }, [displayItems]);
-
   // Layout for all items (including folder-type items)
   const combinedLayout = useMemo(() => {
-    const itemLayouts = itemsToLayout(displayItems);
-
-    // Update layout ref
-    layoutRef.current = itemLayouts;
-    return itemLayouts;
+    return itemsToLayout(displayItems);
   }, [displayItems]);
+
+  useEffect(() => {
+    layoutRef.current = combinedLayout;
+  }, [combinedLayout]);
 
   // Memoize children to take advantage of ResponsiveGridLayout's shouldComponentUpdate optimization
   const children = useMemo(() => {
@@ -715,10 +691,9 @@ export function WorkspaceGrid({
         )}
       </div>
     ));
-    // Use stable keys instead of object references to prevent unnecessary recreations
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    itemsKey, // Stable key based on item IDs/names/types - only changes when items actually change
+    allItems,
+    displayItems,
     handleUpdateItem,
     handleDeleteItem,
     handleOpenModal,
@@ -728,6 +703,7 @@ export function WorkspaceGrid({
     handleOpenFolder,
     folderItemCounts,
     workspaceName,
+    workspaceIcon,
     workspaceColor,
   ]);
 
@@ -744,25 +720,12 @@ export function WorkspaceGrid({
     };
   }, [onDragStop, onGridDragStateChange]);
 
-  // Define breakpoints and columns
-  const breakpoints = useMemo(() => ({ lg: 600, xxs: 0 }), []);
-  const cols = useMemo(() => ({ lg: 4, xxs: 1 }), []);
-
-  // Create layouts object for ResponsiveGridLayout with both breakpoints
-  // Always provide xxs layout (h=10 default) for consistent single-column stacking
-  const xxsLayout = useMemo(() => itemsToLayout(itemsWithLayout, 'xxs'), [itemsWithLayout]);
   const layouts = useMemo(() => ({
     lg: combinedLayout,
-    xxs: xxsLayout
-  }), [combinedLayout, xxsLayout]);
-
-  // Handle breakpoint changes to track current breakpoint for saving layouts
-  const handleBreakpointChange = useCallback((newBreakpoint: string, newCols: number) => {
-    currentBreakpointRef.current = newBreakpoint as 'lg' | 'xxs';
-  }, []);
+  }), [combinedLayout]);
 
   return (
-    <div className={`${selectedCardIds.size > 0 ? 'pb-20' : ''} w-full workspace-grid-container${hasMounted ? ' workspace-grid-mounted' : ''}`} ref={containerRef}>
+    <div className={`w-full workspace-grid-container${hasMounted ? ' workspace-grid-mounted' : ''}`} ref={containerRef}>
       <style>{`
         .react-grid-item.react-grid-placeholder {
           transition: transform 100ms ease-out !important;
@@ -773,16 +736,16 @@ export function WorkspaceGrid({
           className="layout"
           width={width}
           layouts={layouts}
-          breakpoints={breakpoints}
-          cols={cols}
+          breakpoints={GRID_BREAKPOINTS}
+          cols={GRID_COLS}
           rowHeight={25}
-          margin={margin}
-          containerPadding={containerPadding}
+          margin={GRID_MARGIN}
+          containerPadding={GRID_CONTAINER_PADDING}
 
           dragConfig={{ enabled: true }}
           resizeConfig={{
             enabled: true,
-            handles: resizeHandles,
+            handles: GRID_RESIZE_HANDLES,
           }}
 
           onLayoutChange={handleLayoutChange}
@@ -792,7 +755,6 @@ export function WorkspaceGrid({
           onResize={handleResize}
           onResizeStart={handleResizeStart}
           onResizeStop={handleResizeStop}
-          onBreakpointChange={handleBreakpointChange}
           compactor={compactor}
         >
           {children}
@@ -801,3 +763,6 @@ export function WorkspaceGrid({
     </div>
   );
 }
+
+export const WorkspaceGrid = React.memo(WorkspaceGridComponent);
+WorkspaceGrid.displayName = "WorkspaceGrid";

@@ -207,10 +207,13 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false, classN
         setShowHint(false);
         setAnsweredQuestions([]);
         setShowResults(false);
-        onUpdateData((prev) => ({
-            ...prev,
-            session: undefined,
-        }));
+        onUpdateData((prev) => {
+            const current = prev as QuizData;
+            return {
+                ...current,
+                session: undefined,
+            };
+        });
     };
 
     // Handle Update Quiz - programmatically send message to add more questions

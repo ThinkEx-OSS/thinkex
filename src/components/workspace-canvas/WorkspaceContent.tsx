@@ -8,12 +8,10 @@ import type { AgentState, Item, CardType } from "@/lib/workspace-state/types";
 import { filterItemsByFolder } from "@/lib/workspace-state/search";
 import { useAutoScroll } from "@/hooks/ui/use-auto-scroll";
 import { WorkspaceGrid } from "./WorkspaceGrid";
-import type { LayoutItem } from "react-grid-layout";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
-import { useAui } from "@assistant-ui/react";
 import { toast } from "sonner";
-import { OCR_COMPLETE_EVENT, startOcrProcessing } from "@/lib/ocr/client";
+import { OCR_COMPLETE_EVENT } from "@/lib/ocr/client";
 import {
   WORKSPACE_FILE_UPLOAD_ACCEPT_STRING,
   WORKSPACE_FILE_UPLOAD_DESCRIPTION,
@@ -27,7 +25,6 @@ interface WorkspaceContentProps {
   deleteItem: (itemId: string) => void;
   updateAllItems: (items: Item[]) => void;
   getStatePreviewJSON: (s: AgentState | undefined) => Record<string, unknown>;
-  columns: number; // Pass columns from layout state instead of calculating here
   setOpenModalItemId: (id: string | null) => void;
   scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
   onGridDragStateChange?: (isDragging: boolean) => void;
@@ -51,7 +48,6 @@ export default function WorkspaceContent({
   deleteItem,
   updateAllItems,
   getStatePreviewJSON,
-  columns, // Columns now passed from parent (calculated in use-layout-state)
   setOpenModalItemId,
   scrollContainerRef: externalScrollContainerRef,
   onGridDragStateChange,
@@ -76,12 +72,7 @@ export default function WorkspaceContent({
   // Auto-scroll during drag operations (extracted to custom hook)
   const { handleDragStart: onDragStart, handleDragStop: onDragStop } = useAutoScroll(scrollContainerRef);
 
-  const { selectedCardIdsArray, selectedCardIds } = useSelectedCardIds();
-  const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
-
-
-  const maximizedItemId = useUIStore((state) => state.maximizedItemId);
-
+  const { selectedCardIdsArray } = useSelectedCardIds();
 
 
   // Folder filtering state from UI store
@@ -93,8 +84,6 @@ export default function WorkspaceContent({
 
   // File upload for empty state
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const aui = useAui();
-
   // Handle copy JSON to clipboard
   const handleCopyJson = useCallback(async () => {
     try {
@@ -171,7 +160,10 @@ export default function WorkspaceContent({
   // Listen for audio processing completion events
   useEffect(() => {
     const handleAudioComplete = (e: Event) => {
-      const { itemId, summary, segments, duration, error, retrying } = (e as CustomEvent).detail;
+      const { itemId, retrying } = (e as CustomEvent<{
+        itemId?: string;
+        retrying?: boolean;
+      }>).detail ?? {};
       if (!itemId) return;
 
       const existingData = viewState.items.find((i) => i.id === itemId)?.data ?? {};
@@ -183,7 +175,7 @@ export default function WorkspaceContent({
             ...existingData,
             processingStatus: "processing",
             error: undefined,
-          } as any,
+          } as Item["data"],
         });
         return;
       }
@@ -299,7 +291,7 @@ export default function WorkspaceContent({
   }, [onDragStart]);
 
   // Handle drag stop - save layout and notify auto-scroll hook
-  const handleDragStop = useCallback((newLayout: LayoutItem[]) => {
+  const handleDragStop = useCallback(() => {
     // Always notify auto-scroll hook to reset dragging state
     // NOTE: WorkspaceGrid.handleDragStop already handles saving the layout,
     // so we don't need to save here to avoid duplicate events
@@ -424,32 +416,29 @@ export default function WorkspaceContent({
           </div>
         </div>
       ) : (
-        <WorkspaceGrid
-          key={activeFolderId ?? 'root'}
-          items={filteredItems}
-          allItems={viewState.items}
-          isFiltered={isFiltering}
-          isTemporaryFilter={false}
-          onDragStart={handleDragStart}
-          onDragStop={handleDragStop}
-          onUpdateItem={handleUpdateItem}
-          onDeleteItem={handleDeleteItem}
-          onUpdateAllItems={handleUpdateAllItems}
-          onOpenModal={handleOpenModal}
-          selectedCardIds={selectedCardIds}
-          onToggleSelection={toggleCardSelection}
-          onGridDragStateChange={onGridDragStateChange}
-          workspaceName={workspaceName || "Workspace"}
-          workspaceIcon={workspaceIcon}
-          workspaceColor={workspaceColor}
-          onMoveItem={onMoveItem}
-          onMoveItems={onMoveItems}
-          onOpenFolder={handleOpenFolder}
-          onDeleteFolderWithContents={onDeleteFolderWithContents}
-          addItem={addItem}
-          onPDFUpload={onPDFUpload}
-          setOpenModalItemId={setOpenModalItemId}
-        />
+        <div className={selectedCardIdsArray.length > 0 ? "pb-20" : undefined}>
+          <WorkspaceGrid
+            key={activeFolderId ?? 'root'}
+            items={filteredItems}
+            allItems={viewState.items}
+            isFiltered={isFiltering}
+            isTemporaryFilter={false}
+            onDragStart={handleDragStart}
+            onDragStop={handleDragStop}
+            onUpdateItem={handleUpdateItem}
+            onDeleteItem={handleDeleteItem}
+            onUpdateAllItems={handleUpdateAllItems}
+            onOpenModal={handleOpenModal}
+            onGridDragStateChange={onGridDragStateChange}
+            workspaceName={workspaceName || "Workspace"}
+            workspaceIcon={workspaceIcon}
+            workspaceColor={workspaceColor}
+            onMoveItem={onMoveItem}
+            onMoveItems={onMoveItems}
+            onOpenFolder={handleOpenFolder}
+            onDeleteFolderWithContents={onDeleteFolderWithContents}
+          />
+        </div>
       )}
     </div>
   );

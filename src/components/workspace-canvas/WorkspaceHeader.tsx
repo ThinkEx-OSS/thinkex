@@ -4,8 +4,8 @@ import type React from "react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, X, ChevronDown, ChevronRight, FolderOpen, Plus, Settings, Share2, PanelRight, Loader2, ExternalLink } from "lucide-react";
-import { LuCalendar, LuPanelLeftOpen } from "react-icons/lu";
+import { Search, X, ChevronDown, ChevronRight, FolderOpen, Plus, Settings, Share2, Loader2, ExternalLink } from "lucide-react";
+import { LuCalendar } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Kbd } from "@/components/ui/kbd";
@@ -17,7 +17,6 @@ import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
 import { WorkspaceItemTypeIcon } from "@/components/workspace/WorkspaceItemTypeIcon";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { IconRenderer } from "@/hooks/use-icon-picker";
-import ItemHeader from "@/components/workspace-canvas/ItemHeader"; // Import ItemHeader
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -77,13 +76,9 @@ import { useWorkspaceFilePicker } from "@/hooks/workspace/use-workspace-file-pic
 import { startAudioProcessing } from "@/lib/audio/start-audio-processing";
 
 interface WorkspaceHeaderProps {
-  titleInputRef: React.RefObject<HTMLInputElement | null>;
   onOpenSearch?: () => void;
   // Save indicator props
   isSaving?: boolean;
-  lastSavedAt?: Date | null;
-  hasUnsavedChanges?: boolean;
-  onManualSave?: () => void;
   currentWorkspaceId?: string | null;
   // Version control props
   onShowHistory?: () => void;
@@ -96,7 +91,12 @@ interface WorkspaceHeaderProps {
   workspaceIcon?: string | null;
   workspaceColor?: string | null;
   // New button props
-  addItem?: (type: CardType, name?: string, initialData?: Partial<Item['data']>, initialLayout?: any) => string;
+  addItem?: (
+    type: CardType,
+    name?: string,
+    initialData?: Partial<Item["data"]>,
+    initialLayout?: { w: number; h: number },
+  ) => string;
   onPDFUpload?: (files: File[]) => Promise<void>;
   // Callback for when items are created (for auto-scroll/selection)
   onItemCreated?: (itemIds: string[]) => void;
@@ -115,7 +115,7 @@ interface WorkspaceHeaderProps {
 
   // Active Item Props
   activeItems?: Item[];
-  activeItemMode?: 'maximized' | 'split' | null;
+  activeItemMode?: "maximized" | null;
   onCloseActiveItem?: (itemId: string) => void;
   onNavigateToRoot?: () => void;
   onNavigateToFolder?: (folderId: string) => void;
@@ -130,12 +130,8 @@ interface WorkspaceHeaderProps {
 
 
 export function WorkspaceHeader({
-  titleInputRef,
   onOpenSearch,
   isSaving,
-  lastSavedAt,
-  hasUnsavedChanges,
-  onManualSave,
   currentWorkspaceId,
   onShowHistory,
   isDesktop = true,
@@ -148,9 +144,6 @@ export function WorkspaceHeader({
   onPDFUpload,
   onItemCreated,
 
-  setOpenModalItemId,
-  activeFolderName,
-  activeFolderColor,
   items = EMPTY_ITEMS,
   onRenameFolder,
   onOpenSettings,
@@ -162,8 +155,6 @@ export function WorkspaceHeader({
   onCloseActiveItem,
   onNavigateToRoot,
   onNavigateToFolder,
-  onMinimizeActiveItem,
-  onMaximizeActiveItem,
   onUpdateActiveItem,
   getDocumentMarkdownForExport,
   googleLoginHint,
@@ -199,8 +190,6 @@ export function WorkspaceHeader({
 
   // Get active folder from UI store
   const activeFolderId = useUIStore((state) => state.activeFolderId);
-  const openPanel = useUIStore((state) => state.openPanel);
-  const viewMode = useUIStore((state) => state.viewMode);
 
   // Build folder path for breadcrumbs
   const folderPath = useMemo(() => {
@@ -340,7 +329,7 @@ export function WorkspaceHeader({
         fileSize: file.size,
         mimeType: file.type || "audio/webm",
         processingStatus: "processing",
-      } as any);
+      } as Partial<Item["data"]>);
 
       if (onItemCreated && itemId) {
         onItemCreated([itemId]);
@@ -360,9 +349,11 @@ export function WorkspaceHeader({
           console.error("[WORKSPACE_HEADER] Failed to start audio processing:", processingError);
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.dismiss(loadingToastId);
-      toast.error(error.message || "Failed to upload audio");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to upload audio",
+      );
     }
   }, [addItem, currentWorkspaceId, onItemCreated]);
 
@@ -667,78 +658,51 @@ export function WorkspaceHeader({
 
 
 
-            {activeItems.length > 0 && viewMode !== 'workspace+panel' && (
+            {activeItems.length > 0 && (
               <div className="flex items-center gap-1.5 text-xs text-sidebar-foreground/70 min-w-0">
                 <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/50 mx-1 shrink-0" />
 
-                {activeItems.length === 1 ? (
-                  // Single Active Item (Maximized or Single Panel) - Editable
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => {
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    setRenamingTarget({ id: activeItems[0].id, type: 'item' });
+                    setRenameValue(activeItems[0].name);
+                    setShowRenameDialog(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
                       setRenamingTarget({ id: activeItems[0].id, type: 'item' });
                       setRenameValue(activeItems[0].name);
                       setShowRenameDialog(true);
+                    }
+                  }}
+                  className={cn(breadcrumbItemClass, "group pr-1")}
+                >
+                  <WorkspaceItemTypeIcon type={activeItems[0].type} className="h-3.5 w-3.5 shrink-0" />
+
+                  <span className="truncate text-sidebar-foreground max-w-[300px]" title={activeItems[0].name}>
+                    {activeItems[0].name}
+                  </span>
+
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCloseActiveItem?.(activeItems[0].id);
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
-                        setRenamingTarget({ id: activeItems[0].id, type: 'item' });
-                        setRenameValue(activeItems[0].name);
-                        setShowRenameDialog(true);
-                      }
-                    }}
-                    className={cn(breadcrumbItemClass, "group pr-1")}
-                  >
-                    {/* Icon based on type */}
-                    <WorkspaceItemTypeIcon type={activeItems[0].type} className="h-3.5 w-3.5 shrink-0" />
-
-                    <span className="truncate text-sidebar-foreground max-w-[300px]" title={activeItems[0].name}>
-                      {activeItems[0].name}
-                    </span>
-
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => {
                         e.stopPropagation();
                         onCloseActiveItem?.(activeItems[0].id);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.stopPropagation();
-                          onCloseActiveItem?.(activeItems[0].id);
-                        }
-                      }}
-                      className="ml-1 text-sidebar-foreground/50 hover:text-red-600 p-0.5 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full transition-all cursor-pointer opacity-0 group-hover:opacity-100"
-                    >
-                      <X className="h-3 w-3" />
-                    </div>
+                      }
+                    }}
+                    className="ml-1 text-sidebar-foreground/50 hover:text-red-600 p-0.5 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full transition-all cursor-pointer opacity-0 group-hover:opacity-100"
+                  >
+                    <X className="h-3 w-3" />
                   </div>
-                ) : (
-                  // Multiple Active Items (Split View)
-                  <span className="flex items-center gap-1 min-w-0">
-                    <span className="truncate font-medium flex items-center gap-1">
-                      {activeItems.map((item, idx) => (
-                        <span key={item.id} className="flex items-center gap-1">
-                          {idx > 0 && <span className="text-sidebar-foreground/30">|</span>}
-                          <div className="flex items-center gap-1 group/item">
-                            <span className="truncate max-w-[200px]" title={item.name}>{item.name}</span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onCloseActiveItem?.(item.id);
-                              }}
-                              className="text-sidebar-foreground/50 hover:text-red-600 p-0.5 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full transition-all opacity-0 group-hover/item:opacity-100"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </span>
-                      ))}
-                    </span>
-                  </span>
-                )}
+                </div>
               </div>
             )}
           </nav>
@@ -821,24 +785,6 @@ export function WorkspaceHeader({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-
-            {/* Split View Button — transitions from focus to workspace+panel */}
-            <button
-              className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer px-2"
-              aria-label="Open split view"
-              onClick={() => {
-                // Get the first active item and open it in panel mode (workspace+panel)
-                const itemId = activeItems[0]?.id;
-                if (itemId) {
-                  openPanel(itemId);
-                }
-              }}
-            >
-              <LuPanelLeftOpen className="h-4 w-4" />
-              <span className="text-xs font-medium">
-                Split
-              </span>
-            </button>
 
             {activeItems[0]?.type === "pdf" && (
               <div id="workspace-header-portal-right" className="flex items-center gap-2" />

@@ -3,6 +3,7 @@ import { db } from "@/lib/db/client";
 import { createEvent } from "@/lib/workspace/events";
 import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
+import type { AudioData, Item } from "@/lib/workspace-state/types";
 import type { TranscribeResult } from "./transcribe";
 
 /**
@@ -22,13 +23,13 @@ export async function persistAudioResult(
     {
       id: itemId,
       changes: {
-        data: {
+        data: ({
           summary: result.summary,
           segments: result.segments,
           ...(typeof result.duration === "number" &&
             result.duration > 0 && { duration: result.duration }),
           processingStatus: "complete" as const,
-        },
+        } satisfies Partial<AudioData>) as Item["data"],
       },
     },
     userId,
@@ -92,10 +93,10 @@ export async function persistAudioFailure(
     {
       id: itemId,
       changes: {
-        data: {
+        data: ({
           processingStatus: "failed" as const,
           error,
-        },
+        } satisfies Partial<AudioData>) as Item["data"],
       },
     },
     userId,
