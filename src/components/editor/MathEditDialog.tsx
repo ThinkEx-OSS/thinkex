@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
+import React, { useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -17,17 +17,8 @@ interface MathfieldElement extends HTMLElement {
     blur(): void;
 }
 
-export interface MathEditContextValue {
-    openDialog: (params: {
-        initialLatex: string;
-        onSave: (latex: string) => void;
-        title?: string;
-    }) => void;
-    closeDialog: () => void;
-}
-
 // ---------------------------------------------------------------------------
-// Shared MathLive dialog UI (single implementation, used by both consumers)
+// Shared MathLive dialog UI
 // ---------------------------------------------------------------------------
 
 interface MathDialogUIProps {
@@ -125,88 +116,7 @@ function MathDialogUI({ open, title, initialLatex, onSave, onClose }: MathDialog
 }
 
 // ---------------------------------------------------------------------------
-// Context + Provider for shared math editing UI
-// ---------------------------------------------------------------------------
-
-export const MathEditContext = createContext<MathEditContextValue | null>(null);
-
-export function useMathEdit() {
-    const ctx = useContext(MathEditContext);
-    if (!ctx) throw new Error("useMathEdit must be used within a MathEditProvider");
-    return ctx;
-}
-
-// Hook to auto-open math dialog when a new empty math element is created
-export function useAutoOpenMathDialog(
-    latex: string,
-    isReadOnly: boolean,
-    onSave: (latex: string) => void,
-    title: string
-) {
-    const dialogOpenedRef = useRef(false);
-    const onSaveRef = useRef(onSave);
-    const mathEdit = useContext(MathEditContext);
-
-    useEffect(() => { onSaveRef.current = onSave; }, [onSave]);
-
-    useEffect(() => {
-        let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-        if (!isReadOnly && mathEdit && !latex.trim() && !dialogOpenedRef.current) {
-            dialogOpenedRef.current = true;
-            timeoutId = setTimeout(() => {
-                mathEdit.openDialog({ initialLatex: "", onSave: onSaveRef.current, title });
-            }, 0);
-        }
-
-        return () => { if (timeoutId) clearTimeout(timeoutId); };
-    }, [isReadOnly, mathEdit, latex, title]);
-}
-
-export function MathEditProvider({ children }: { children: React.ReactNode }) {
-    const [state, setState] = useState<{
-        open: boolean;
-        latex: string;
-        title: string;
-    }>({ open: false, latex: "", title: "Edit Math" });
-    const onSaveRef = useRef<((latex: string) => void) | null>(null);
-
-    const openDialog = useCallback(
-        (params: { initialLatex: string; onSave: (latex: string) => void; title?: string }) => {
-            onSaveRef.current = params.onSave;
-            setState({ open: true, latex: params.initialLatex, title: params.title || "Edit Math" });
-        },
-        []
-    );
-
-    const closeDialog = useCallback(() => {
-        setState((s) => ({ ...s, open: false }));
-        onSaveRef.current = null;
-    }, []);
-
-    const handleSave = useCallback((latex: string) => {
-        onSaveRef.current?.(latex);
-        closeDialog();
-    }, [closeDialog]);
-
-    const contextValue: MathEditContextValue = { openDialog, closeDialog };
-
-    return (
-        <MathEditContext.Provider value={contextValue}>
-            {children}
-            <MathDialogUI
-                open={state.open}
-                title={state.title}
-                initialLatex={state.latex}
-                onSave={handleSave}
-                onClose={closeDialog}
-            />
-        </MathEditContext.Provider>
-    );
-}
-
-// ---------------------------------------------------------------------------
-// Standalone dialog (used by the TipTap document editor via props, no context needed)
+// Standalone dialog (TipTap document editor)
 // ---------------------------------------------------------------------------
 
 export interface MathEditDialogProps {
