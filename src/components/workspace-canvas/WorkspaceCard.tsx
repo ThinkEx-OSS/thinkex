@@ -945,13 +945,11 @@ function WorkspaceCard({
                     className={`flex-1 min-h-0 relative ${isScrollLocked ? "overflow-hidden" : "overflow-auto"}`}
                     style={{ pointerEvents: isScrollLocked ? "none" : "auto" }}
                   >
-                    {isScrollLocked ? null : (
-                      <LazyAppPdfViewer
-                        pdfSrc={pdfPreviewUrl}
-                        itemId={item.id}
-                        itemName={item.name}
-                      />
-                    )}
+                    <LazyAppPdfViewer
+                      pdfSrc={pdfPreviewUrl}
+                      itemId={item.id}
+                      itemName={item.name}
+                    />
                     {/* OCR processing indicator overlay */}
                     {isOcrProcessing && pdfPreviewUrl && (
                       <div
