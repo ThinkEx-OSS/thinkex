@@ -56,9 +56,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useUIStore, selectItemScrollLocked } from "@/lib/stores/ui-store";
 import { Flashcard } from "react-quizlet-flashcard";
 import "react-quizlet-flashcard/dist/index.css";
-import ReactMarkdown from "react-markdown";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
 import { useElementSize } from "@/hooks/use-element-size";
 import { useIsVisible } from "@/hooks/use-is-visible";
 import {
@@ -1133,55 +1130,13 @@ function WorkspaceCard({
             {item.type === "flashcard" &&
               (() => {
                 const flashcardData = item.data as FlashcardData;
-
-                // Helper to serialize blocks to plain text with LaTeX support
-                const blocksToText = (blocks: unknown): string => {
-                  if (!blocks || !Array.isArray(blocks) || blocks.length === 0)
-                    return "";
-
-                  return (blocks as any[])
-                    .map((block) => {
-                      // Handle separate Math blocks (display math)
-                      if (block.type === "math" && block.props?.latex) {
-                        return `$$${block.props.latex}$$`;
-                      }
-
-                      // Handle blocks with inline content (paragraphs, headings, bullet list items, etc.)
-                      if (block.content && Array.isArray(block.content)) {
-                        return block.content
-                          .map((item: any) => {
-                            if (
-                              item.type === "inlineMath" &&
-                              item.props?.latex
-                            ) {
-                              return `$$${item.props.latex}$$`;
-                            }
-                            return item.text || "";
-                          })
-                          .join("");
-                      }
-
-                      return "";
-                    })
-                    .join("\n\n"); // Use double newline to separate blocks clearly
-                };
-
-                // Get display text (prefer blocks, fall back to plain text)
-                const frontText = flashcardData.frontBlocks
-                  ? blocksToText(flashcardData.frontBlocks)
-                  : flashcardData.front || "Click to add front content";
-
-                const backText = flashcardData.backBlocks
-                  ? blocksToText(flashcardData.backBlocks)
-                  : flashcardData.back || "Click to add back content";
-
-                // Common markdown components configuration
-                const markdownComponents = {
-                  p: ({ children }: any) => (
-                    <span className="block mb-2 last:mb-0">{children}</span>
-                  ),
-                  // Add more custom renderers if needed
-                };
+                const card0 = flashcardData.cards?.[0];
+                const frontText = card0?.front?.trim()
+                  ? card0.front
+                  : "Click to add front content";
+                const backText = card0?.back?.trim()
+                  ? card0.back
+                  : "Click to add back content";
 
                 return (
                   <div
@@ -1205,14 +1160,10 @@ function WorkspaceCard({
                                     : "#111827",
                               }}
                             >
-                              <div className="w-full">
-                                <ReactMarkdown
-                                  remarkPlugins={[remarkMath]}
-                                  rehypePlugins={[rehypeKatex]}
-                                  components={markdownComponents}
-                                >
+                              <div className="w-full text-left">
+                                <StreamdownMarkdown className="text-lg leading-snug">
                                   {frontText}
-                                </ReactMarkdown>
+                                </StreamdownMarkdown>
                               </div>
                             </div>
                           ),
@@ -1228,14 +1179,10 @@ function WorkspaceCard({
                                     : "#111827",
                               }}
                             >
-                              <div className="w-full">
-                                <ReactMarkdown
-                                  remarkPlugins={[remarkMath]}
-                                  rehypePlugins={[rehypeKatex]}
-                                  components={markdownComponents}
-                                >
+                              <div className="w-full text-left">
+                                <StreamdownMarkdown className="text-lg leading-snug">
                                   {backText}
-                                </ReactMarkdown>
+                                </StreamdownMarkdown>
                               </div>
                             </div>
                           ),

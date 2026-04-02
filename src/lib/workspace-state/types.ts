@@ -38,20 +38,14 @@ export interface PdfData {
 
 export interface FlashcardItem {
   id: string;
+  /** Markdown (same role as document body). */
   front: string;
   back: string;
-  frontBlocks?: unknown; // BlockNote JSON blocks
-  backBlocks?: unknown; // BlockNote JSON blocks
 }
 
 export interface FlashcardData {
   cards: FlashcardItem[];
   currentIndex?: number; // Optional persistence
-  // Legacy fields kept for backward compatibility during migration
-  front?: string;
-  back?: string;
-  frontBlocks?: unknown;
-  backBlocks?: unknown;
 }
 
 export interface FolderData {

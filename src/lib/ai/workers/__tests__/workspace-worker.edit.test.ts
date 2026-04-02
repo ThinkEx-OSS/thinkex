@@ -3,7 +3,6 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 const mockGetSession = vi.fn();
 const mockHeaders = vi.fn();
 const mockLoadWorkspaceState = vi.fn();
-const mockMarkdownToBlocks = vi.fn();
 const mockCreateEvent = vi.fn();
 const mockExecute = vi.fn();
 
@@ -47,8 +46,7 @@ vi.mock("@/lib/workspace/state-loader", () => ({
   loadWorkspaceState: (...args: any[]) => mockLoadWorkspaceState(...args),
 }));
 
-vi.mock("@/lib/editor/markdown-to-blocks", () => ({
-  markdownToBlocks: (...args: any[]) => mockMarkdownToBlocks(...args),
+vi.mock("@/lib/utils/fix-markdown-from-llm", () => ({
   fixLLMDoubleEscaping: (s: string) => s,
 }));
 
@@ -78,7 +76,6 @@ describe("workspaceWorker edit end-to-end paths", () => {
     mockHeaders.mockResolvedValue(new Headers());
     mockGetSession.mockResolvedValue({ user: { id: "user-1" } });
     mockLimit.mockResolvedValue([{ userId: "user-1" }]); // workspace owner path
-    mockMarkdownToBlocks.mockResolvedValue([]);
     mockCreateEvent.mockImplementation((type: string, payload: unknown, userId: string) => ({
       id: "evt-1",
       type,
@@ -300,7 +297,6 @@ describe("workspaceWorker edit end-to-end paths", () => {
 
     expect(result.success).toBe(true);
     expect(result.message).toMatch(/Updated document successfully/);
-    expect(mockMarkdownToBlocks).not.toHaveBeenCalled();
     expect(mockCreateEvent).toHaveBeenCalled();
     const eventPayload = mockCreateEvent.mock.calls[0][1] as { id: string; changes: Record<string, unknown> };
     expect(eventPayload.id).toBe("doc-1");

@@ -19,10 +19,7 @@ import type {
   DocumentData,
 } from "@/lib/workspace-state/types";
 import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
-import {
-  markdownToBlocks,
-  fixLLMDoubleEscaping,
-} from "@/lib/editor/markdown-to-blocks";
+import { fixLLMDoubleEscaping } from "@/lib/utils/fix-markdown-from-llm";
 import { executeWorkspaceOperation } from "./common";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import { hasDuplicateName } from "@/lib/workspace/unique-name";
@@ -33,8 +30,6 @@ import {
   normalizeLineEndings,
 } from "@/lib/utils/edit-replace";
 import { parseJsonWithRepair } from "@/lib/utils/json-repair";
-import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
-import type { Block } from "@/components/editor/blocknote-shared";
 import { buildPdfDataFromUpload } from "@/lib/pdf/pdf-item";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
 
@@ -94,24 +89,18 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
   if (itemType === "flashcard") {
     if (!p.flashcardData?.cards)
       throw new Error("Flashcard data required for flashcard creation");
-    const cardsWithIds = await Promise.all(
-      p.flashcardData.cards.map(async (card) => {
+    const cardsWithIds = p.flashcardData.cards
+      .map((card) => {
         if (!card || typeof card !== "object") return null;
         const front = fixLLMDoubleEscaping(card.front || "");
         const back = fixLLMDoubleEscaping(card.back || "");
-        const [frontBlocks, backBlocks] = await Promise.all([
-          markdownToBlocks(front),
-          markdownToBlocks(back),
-        ]);
         return {
           id: generateItemId(),
           front,
           back,
-          frontBlocks,
-          backBlocks,
         };
-      }),
-    ).then((arr) => arr.filter((c): c is NonNullable<typeof c> => c !== null));
+      })
+      .filter((c): c is NonNullable<typeof c> => c !== null);
     itemData = { cards: cardsWithIds };
   } else if (itemType === "youtube") {
     if (!p.youtubeData?.url)
@@ -617,19 +606,11 @@ export async function workspaceWorker(
           const existingCards = existingData?.cards || [];
 
           // Generate new cards with IDs and parsed blocks
-          const newCards = await Promise.all(
-            params.flashcardData.cardsToAdd.map(async (card) => {
-              const frontBlocks = await markdownToBlocks(card.front);
-              const backBlocks = await markdownToBlocks(card.back);
-              return {
-                id: generateItemId(),
-                front: card.front,
-                back: card.back,
-                frontBlocks,
-                backBlocks,
-              };
-            }),
-          );
+          const newCards = params.flashcardData.cardsToAdd.map((card) => ({
+            id: generateItemId(),
+            front: card.front,
+            back: card.back,
+          }));
 
           // Merge existing cards with new cards
           const updatedData = {
@@ -1141,22 +1122,13 @@ export async function workspaceWorker(
 
           if (existingItem.type === "flashcard") {
             const data = existingItem.data as FlashcardData;
-            let cards: FlashcardItem[] = data.cards ?? [];
-            if (cards.length === 0 && (data.front || data.back)) {
-              const front = data.front ?? "";
-              const back = data.back ?? "";
-              cards = [{ id: "legacy", front, back }];
-            }
+          const cards: FlashcardItem[] = data.cards ?? [];
 
             const payload = {
               cards: cards.map((c) => ({
                 id: c.id,
-                front: c.frontBlocks
-                  ? serializeBlockNote(c.frontBlocks as Block[])
-                  : c.front,
-                back: c.backBlocks
-                  ? serializeBlockNote(c.backBlocks as Block[])
-                  : c.back,
+                front: c.front,
+                back: c.back,
               })),
             };
             let serialized = JSON.stringify(payload, null, 2);
@@ -1189,18 +1161,11 @@ export async function workspaceWorker(
               throw new Error("Invalid structure: cards must be an array.");
             }
 
-            const newCards: FlashcardItem[] = await Promise.all(
-              parsed.cards.map(async (c) => {
-                const id = c.id ?? generateItemId();
-                const front = String(c.front ?? "");
-                const back = String(c.back ?? "");
-                const [frontBlocks, backBlocks] = await Promise.all([
-                  markdownToBlocks(front),
-                  markdownToBlocks(back),
-                ]);
-                return { id, front, back, frontBlocks, backBlocks };
-              }),
-            );
+            const newCards: FlashcardItem[] = parsed.cards.map((c) => ({
+              id: c.id ?? generateItemId(),
+              front: String(c.front ?? ""),
+              back: String(c.back ?? ""),
+            }));
 
             const changes: Partial<Item> = {
               data: { ...data, cards: newCards } as FlashcardData,

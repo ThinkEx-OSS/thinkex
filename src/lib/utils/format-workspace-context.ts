@@ -3,7 +3,6 @@ import type {
   Item,
   PdfData,
   FlashcardData,
-  FlashcardItem,
   YouTubeData,
   QuizData,
   QuizQuestion,
@@ -12,8 +11,6 @@ import type {
   WebsiteData,
   DocumentData,
 } from "@/lib/workspace-state/types";
-import { serializeBlockNote } from "./serialize-blocknote";
-import { type Block } from "@/components/editor/blocknote-shared";
 import { getVirtualPath } from "./workspace-fs";
 import { getPdfSourceUrl } from "@/lib/pdf/pdf-item";
 
@@ -44,7 +41,7 @@ function formatItemMetadata(
     }
     case "flashcard": {
       const d = item.data as FlashcardData;
-      const n = d?.cards?.length ?? (d?.front ? 1 : 0);
+      const n = d?.cards?.length ?? 0;
       parts.push(`cards=${n}`);
       break;
     }
@@ -272,7 +269,7 @@ function formatPdfDetails(data: PdfData): string[] {
  * Formats Flashcard-specific details
  */
 function formatFlashcardDetails(data: FlashcardData): string[] {
-  const cardCount = data.cards?.length || (data.front || data.back ? 1 : 0);
+  const cardCount = data.cards?.length ?? 0;
   return [`   - Deck contains ${cardCount} card${cardCount !== 1 ? "s" : ""}`];
 }
 
@@ -723,29 +720,14 @@ function formatImageDetailsFull(data: ImageData): string[] {
 
 /**
  * Formats flashcard details as raw JSON (editable by editItem).
- * Omit frontBlocks/backBlocks; they are derived from front/back on save.
+ * Each side is markdown (`front` / `back`).
  */
 function formatFlashcardDetailsFull(data: FlashcardData): string[] {
-  let cards: FlashcardItem[] = [];
-  if (data.cards && data.cards.length > 0) {
-    cards = data.cards;
-  } else if (data.front || data.back || data.frontBlocks || data.backBlocks) {
-    const front = data.frontBlocks
-      ? serializeBlockNote(data.frontBlocks as Block[])
-      : data.front || "";
-    const back = data.backBlocks
-      ? serializeBlockNote(data.backBlocks as Block[])
-      : data.back || "";
-    cards = [{ id: "legacy", front, back }];
-  }
-
   const payload = {
-    cards: cards.map((c) => ({
+    cards: (data.cards ?? []).map((c) => ({
       id: c.id,
-      front: c.frontBlocks
-        ? serializeBlockNote(c.frontBlocks as Block[])
-        : c.front,
-      back: c.backBlocks ? serializeBlockNote(c.backBlocks as Block[]) : c.back,
+      front: c.front,
+      back: c.back,
     })),
   };
   return [JSON.stringify(payload, null, 2)];

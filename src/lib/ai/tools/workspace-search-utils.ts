@@ -6,16 +6,13 @@ import type {
   Item,
   PdfData,
   FlashcardData,
-  FlashcardItem,
   QuizData,
   AudioData,
   WebsiteData,
   DocumentData,
 } from "@/lib/workspace-state/types";
 import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
-import { serializeBlockNote } from "@/lib/utils/serialize-blocknote";
 import { getVirtualPath } from "@/lib/utils/workspace-fs";
-import { type Block } from "@/components/editor/blocknote-shared";
 
 export interface SearchableText {
   /** Path and title lines (1-2 lines). Matches here use matchKind, not lineNum. */
@@ -45,29 +42,8 @@ export function extractSearchableText(
   switch (item.type) {
     case "flashcard": {
       const data = item.data as FlashcardData;
-      const cards: FlashcardItem[] = data.cards?.length
-        ? data.cards
-        : data.front || data.back
-          ? [
-              {
-                id: "legacy",
-                front: data.front ?? "",
-                back: data.back ?? "",
-                frontBlocks: data.frontBlocks,
-                backBlocks: data.backBlocks,
-              },
-            ]
-          : [];
-      const content = cards
-        .map((c) => {
-          const front = c.frontBlocks
-            ? serializeBlockNote(c.frontBlocks as Block[])
-            : c.front;
-          const back = c.backBlocks
-            ? serializeBlockNote(c.backBlocks as Block[])
-            : c.back;
-          return `${front}\n${back}`;
-        })
+      const content = (data.cards ?? [])
+        .map((card) => `${card.front}\n${card.back}`)
         .join("\n\n");
       return body(content);
     }

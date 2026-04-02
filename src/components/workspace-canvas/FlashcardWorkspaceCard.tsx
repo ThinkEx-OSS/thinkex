@@ -18,7 +18,6 @@ import { useTheme } from "next-themes";
 import type {
   Item,
   FlashcardData,
-  FlashcardItem,
 } from "@/lib/workspace-state/types";
 import { FlipCard } from "./FlipCard";
 import {
@@ -29,15 +28,7 @@ import {
 } from "@/lib/workspace-state/colors";
 import { SwatchesPicker, ColorResult } from "react-color";
 import { useUIStore, selectItemScrollLocked } from "@/lib/stores/ui-store";
-import {
-  plainTextToBlocks,
-  type Block,
-} from "@/components/editor/blocknote-shared";
-import {
-  BlockNotePreview,
-  PreviewBlock,
-} from "@/components/editor/BlockNotePreview";
-import { generateItemId } from "@/lib/workspace-state/item-helpers";
+import { StreamdownMarkdown } from "@/components/ui/streamdown-markdown";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,78 +75,28 @@ interface FlashcardWorkspaceCardProps {
   // onToggleSelection is still passed as a prop for the shift+click handler
 }
 
-// Helper component to handle side content rendering with BlockNote
-// Memoized to prevent re-renders during parent state changes (e.g., isFlipped)
-const FlashcardSideContent = memo(
-  function FlashcardSideContent({
-    blocks,
-    textFallback,
-    isEditing,
+/** Read-only markdown per side. */
+const FlashcardSideMarkdownView = memo(
+  function FlashcardSideMarkdownView({
+    markdown,
     isScrollLocked,
     className = "",
   }: {
-    blocks: unknown;
-    textFallback: string;
-    isEditing: boolean;
+    markdown: string;
     isScrollLocked: boolean;
     className?: string;
   }) {
-    const scrollContainerRef = useRef<HTMLDivElement>(null);
-    const frozenContentRef = useRef<Block[] | null>(null);
-
-    // Parse or use blocks
-    const content = useMemo(() => {
-      if (blocks && Array.isArray(blocks) && blocks.length > 0) {
-        return blocks as Block[];
-      }
-      return plainTextToBlocks(
-        textFallback || "Ask the AI or click the pencil icon to add flashcards",
-      );
-    }, [blocks, textFallback]);
-
-    // Freeze content while editing to prevent flicker
-    const displayContent = useMemo(() => {
-      if (isEditing) {
-        const currentContentStr = JSON.stringify(content);
-        const frozenContentStr = frozenContentRef.current
-          ? JSON.stringify(frozenContentRef.current)
-          : null;
-
-        if (frozenContentStr !== currentContentStr) {
-          frozenContentRef.current = content;
-        }
-        return frozenContentRef.current || content;
-      } else {
-        frozenContentRef.current = content;
-        return content;
-      }
-    }, [isEditing, content]);
-
-    // Create a stable content hash for effect dependency
-    const contentHash = useMemo(() => {
-      if (displayContent.length === 0) return "";
-      return JSON.stringify(
-        displayContent.map((b) => ({ id: b.id, type: b.type })),
-      );
-    }, [displayContent]);
-
     return (
       <div
-        ref={scrollContainerRef}
         className={`workspace-card-readonly-editor size-full min-h-0 ${isScrollLocked ? "overflow-hidden" : "overflow-auto"} ${className}`}
         style={{
-          // Ensure white text cascades to BlockNote default styles where possible
           color: "white",
-          // Allow natural overscroll behavior like normal cards
-          textAlign: "center",
-          // Match ItemHeader document-style title: text-base (1rem) font-medium (500)
           fontSize: "1rem",
           fontWeight: 500,
           paddingTop: "1.5rem",
           paddingBottom: "1.5rem",
           paddingLeft: "1.5rem",
           paddingRight: "1.5rem",
-          // Text rendering optimization - NO transforms here to avoid 3D context conflicts
           WebkitFontSmoothing: "antialiased",
           MozOsxFontSmoothing: "grayscale" as any,
         }}
@@ -164,35 +105,24 @@ const FlashcardSideContent = memo(
           className={`flex flex-col items-center min-w-0 w-full ${isScrollLocked ? "justify-center min-h-full" : ""}`}
         >
           <div className="w-full max-w-full min-w-0">
-            {displayContent.map((block, index) => (
-              <PreviewBlock
-                key={block.id || index}
-                block={block}
-                index={index}
-                blocks={displayContent}
-                isScrollLocked={isScrollLocked}
-              />
-            ))}
+            {!markdown.trim() ? (
+              <div className="text-center text-sm text-white/50 px-2">
+                Ask the AI or click the pencil icon to add flashcards
+              </div>
+            ) : (
+              <StreamdownMarkdown className="text-base font-medium text-white [&_.streamdown-content]:text-left max-w-none">
+                {markdown}
+              </StreamdownMarkdown>
+            )}
           </div>
         </div>
       </div>
     );
   },
-  (prevProps, nextProps) => {
-    // Custom comparison to prevent unnecessary re-renders during flip animation
-    // Only re-render if content or scroll lock actually changes
-    const blocksEqual =
-      JSON.stringify(prevProps.blocks) === JSON.stringify(nextProps.blocks);
-    const textEqual = prevProps.textFallback === nextProps.textFallback;
-    const editingEqual = prevProps.isEditing === nextProps.isEditing;
-    const scrollLockEqual =
-      prevProps.isScrollLocked === nextProps.isScrollLocked;
-    const classEqual = prevProps.className === nextProps.className;
-
-    return (
-      blocksEqual && textEqual && editingEqual && scrollLockEqual && classEqual
-    );
-  },
+  (prev, next) =>
+    prev.markdown === next.markdown &&
+    prev.isScrollLocked === next.isScrollLocked &&
+    prev.className === next.className,
 );
 
 export function FlashcardWorkspaceCard({
@@ -230,22 +160,10 @@ export function FlashcardWorkspaceCard({
     flashcardData.currentIndex || 0,
   );
 
-  // MIGRATION: Ensure cards array exists
-  const cards = useMemo(() => {
-    if (flashcardData.cards && flashcardData.cards.length > 0) {
-      return flashcardData.cards;
-    }
-    // Return temporary migration array
-    return [
-      {
-        id: "temp-migration",
-        front: flashcardData.front || "",
-        back: flashcardData.back || "",
-        frontBlocks: flashcardData.frontBlocks,
-        backBlocks: flashcardData.backBlocks,
-      } as FlashcardItem,
-    ];
-  }, [flashcardData]);
+  const cards = useMemo(
+    () => flashcardData.cards ?? [],
+    [flashcardData.cards],
+  );
 
   // Ensure index is valid
   useEffect(() => {
@@ -303,11 +221,6 @@ export function FlashcardWorkspaceCard({
       }
     };
   }, []);
-
-  // Check if this card is currently being edited in the modal
-  const isEditingInModal = useUIStore((state) =>
-    state.openPanelIds.includes(item.id),
-  );
 
   const handleDelete = useCallback(() => {
     setShowDeleteDialog(true);
@@ -798,19 +711,15 @@ export function FlashcardWorkspaceCard({
               ) : (
                 <FlipCard
                   front={
-                    <FlashcardSideContent
-                      blocks={currentCard.frontBlocks}
-                      textFallback={currentCard.front}
-                      isEditing={isEditingInModal}
+                    <FlashcardSideMarkdownView
+                      markdown={currentCard.front}
                       isScrollLocked={isScrollLocked}
                       className="p-4"
                     />
                   }
                   back={
-                    <FlashcardSideContent
-                      blocks={currentCard.backBlocks}
-                      textFallback={currentCard.back}
-                      isEditing={isEditingInModal}
+                    <FlashcardSideMarkdownView
+                      markdown={currentCard.back}
                       isScrollLocked={isScrollLocked}
                       className="p-4"
                     />

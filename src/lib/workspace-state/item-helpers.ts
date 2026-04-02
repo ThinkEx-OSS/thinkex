@@ -18,11 +18,9 @@ export function defaultDataFor(type: CardType): ItemData {
             id: generateItemId(),
             front: "",
             back: "",
-            frontBlocks: [],
-            backBlocks: []
-          }
+          },
         ],
-        currentIndex: 0
+        currentIndex: 0,
       } as FlashcardData;
     case "folder":
       return {} as FolderData;
