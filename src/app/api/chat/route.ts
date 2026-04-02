@@ -115,7 +115,7 @@ function getSelectedCardsContext(body: any): string {
 }
 
 /**
- * Inject user-selected context (reply quotes + selected text + selected cards) into the last user message.
+ * Inject user-selected context (reply quotes + selected cards) into the last user message.
  * Reads from runConfig metadata sent via the composer's setRunConfig().
  * This keeps context in the user message (not system prompt) without showing in the UI.
  */
