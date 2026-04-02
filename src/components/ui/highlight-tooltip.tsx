@@ -2,7 +2,6 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "motion/react";
 import { useFloating, autoUpdate, offset, shift, flip, size, inline, arrow } from "@floating-ui/react";
 import { cn } from "@/lib/utils";
 
@@ -49,7 +48,6 @@ export function HighlightTooltip({
   const [isExpanded, setIsExpanded] = useState(!collapsed);
   const cleanupFnRef = useRef<(() => void) | null>(null);
   const isUnmountingRef = useRef(false);
-  const [shouldRender, setShouldRender] = useState(visible);
 
   // Store locked position for single mode (fixed position)
   const lockedPositionRef = useRef<{ x: number; y: number } | null>(null);
@@ -540,15 +538,6 @@ export function HighlightTooltip({
     }
   }, [visible, position.x, position.y, lockPosition, update]);
 
-  // Track shouldRender to allow exit animation to complete before removing portal
-  useEffect(() => {
-    if (visible) {
-      setShouldRender(true);
-    }
-    // Don't immediately set shouldRender to false when visible becomes false
-    // Let AnimatePresence handle the exit animation first
-  }, [visible]);
-
   // Reset hovered action when tooltip becomes invisible or set default expanded
   useEffect(() => {
     if (!visible) {
@@ -651,13 +640,6 @@ export function HighlightTooltip({
     };
   }, [visible, onHide]);
 
-  if (typeof window === "undefined") return null;
-
-  // Don't render if position is invalid (0,0 means not set yet)
-  // However, if we have a referenceElement, Floating UI will position it, so we can render
-  const hasValidPosition = position.x !== 0 || position.y !== 0;
-  const hasReference = !!referenceElement; // DOM element or Range
-
   // Track unmounting state
   useEffect(() => {
     isUnmountingRef.current = false;
@@ -683,8 +665,17 @@ export function HighlightTooltip({
     };
   }, [refs]);
 
+  if (typeof window === "undefined") return null;
+
+  // Don't render if position is invalid (0,0 means not set yet)
+  // However, if we have a referenceElement, Floating UI will position it, so we can render
+  const hasValidPosition = position.x !== 0 || position.y !== 0;
+  const hasReference = !!referenceElement; // DOM element or Range
+
+  const transitionSnappy = "0.2s cubic-bezier(0.4, 0, 0.2, 1)";
+
   return createPortal(
-    shouldRender && (hasValidPosition || hasReference) ? (
+    visible && (hasValidPosition || hasReference) ? (
       <div
         ref={(node) => {
           tooltipRef.current = node;
@@ -708,42 +699,7 @@ export function HighlightTooltip({
         }}
         className="highlight-tooltip-container pointer-events-auto"
       >
-        <AnimatePresence mode="wait" onExitComplete={() => {
-          // Only remove from DOM after exit animation completes
-          if (!visible) {
-            setShouldRender(false);
-          }
-        }}>
-          {visible && (
-            <motion.div
-              key="tooltip-content"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{
-                type: "spring",
-                stiffness: 400,
-                damping: 25,
-                mass: 0.5,
-              }}
-              onAnimationComplete={(definition) => {
-                // Safely handle animation completion
-                if (definition === "exit") {
-                  // Exit animation completed, portal will be removed via onExitComplete
-                  try {
-                    // Clear refs after exit animation
-                    if (isUnmountingRef.current) {
-                      refs.setFloating(null);
-                      refs.setReference(null);
-                      refs.setPositionReference(null);
-                    }
-                  } catch (error) {
-                    // Ignore cleanup errors
-                  }
-                }
-              }}
-              className="flex flex-col items-center"
-            >
+        <div className="flex flex-col items-center">
               {/* Badge indicator for multi-mode - positioned absolutely above */}
               {badge && (
                 <div className="absolute -top-5 left-1/2 -translate-x-1/2 px-2 py-0.5 text-[10px] font-medium text-black bg-white rounded text-center whitespace-nowrap shadow-sm">
@@ -775,23 +731,18 @@ export function HighlightTooltip({
                   }
 
                   return (
-                    <motion.div
+                    <div
                       key={action.id}
                       className="relative"
-                      initial={false}
-                      animate={{
-                        x: shiftAmount,
-                      }}
-                      transition={{
-                        duration: 0.2,
-                        ease: [0.4, 0, 0.2, 1],
-                      }}
                       style={{
                         width: "32px",
                         height: "32px",
+                        transform: `translateX(${shiftAmount}px)`,
+                        transition: `transform ${transitionSnappy}`,
                       }}
                     >
-                      <motion.button
+                      <button
+                        type="button"
                         onClick={() => handleActionClick(action)}
                         onMouseEnter={() => {
                           // Always allow hover expansion to show label
@@ -799,24 +750,6 @@ export function HighlightTooltip({
                         }}
                         onMouseLeave={() => {
                           setHoveredActionId(null);
-                        }}
-                        initial={false}
-                        animate={{
-                          width: isHoverExpanded ? "80px" : "32px",
-                          // Expand mostly in primary direction, but a bit in opposite direction too
-                          ...(isFirstButton
-                            ? { right: isHoverExpanded ? "-24px" : "0" } // First button grows 24px to the right, rest to the left
-                            : isLastButton
-                              ? { left: isHoverExpanded ? "-24px" : "0" }  // Last button grows 24px to the left, rest to the right
-                              : {
-                                left: "0",
-                                x: isHoverExpanded ? "-24px" : "0"  // Middle button expands evenly from center
-                              }
-                          ),
-                        }}
-                        transition={{
-                          duration: 0.2,
-                          ease: [0.4, 0, 0.2, 1],
                         }}
                         className={cn(
                           "highlight-tooltip-action absolute top-0 flex items-center",
@@ -832,8 +765,18 @@ export function HighlightTooltip({
                         style={{
                           height: "32px",
                           padding: "0 8px",
+                          width: isHoverExpanded ? 80 : 32,
+                          ...(isFirstButton
+                            ? { right: isHoverExpanded ? -24 : 0 }
+                            : isLastButton
+                              ? { left: isHoverExpanded ? -24 : 0 }
+                              : {
+                                  left: 0,
+                                  transform: isHoverExpanded ? "translateX(-24px)" : "translateX(0)",
+                                }),
                           justifyContent: isHoverExpanded ? "flex-start" : "center",
                           zIndex: isHoverExpanded ? 20 : 10,
+                          transition: `width ${transitionSnappy}, left ${transitionSnappy}, right ${transitionSnappy}, transform ${transitionSnappy}`,
                         }}
                         aria-label={action.label}
                       >
@@ -843,26 +786,19 @@ export function HighlightTooltip({
                         </span>
 
                         {/* Label - expands on hover with fixed width for smooth animation */}
-                        <motion.span
-                          initial={false}
-                          animate={{
-                            width: isHoverExpanded ? "52px" : "0px",
-                            opacity: isHoverExpanded ? 1 : 0,
-                            marginLeft: isHoverExpanded ? "6px" : "0px",
-                          }}
-                          transition={{
-                            duration: 0.2,
-                            ease: [0.4, 0, 0.2, 1],
-                          }}
-                          className="overflow-hidden whitespace-nowrap"
+                        <span
+                          className="inline-block overflow-hidden whitespace-nowrap"
                           style={{
-                            display: "inline-block",
+                            width: isHoverExpanded ? 52 : 0,
+                            opacity: isHoverExpanded ? 1 : 0,
+                            marginLeft: isHoverExpanded ? 6 : 0,
+                            transition: `width ${transitionSnappy}, opacity ${transitionSnappy}, margin-left ${transitionSnappy}`,
                           }}
                         >
                           {action.label}
-                        </motion.span>
-                      </motion.button>
-                    </motion.div>
+                        </span>
+                      </button>
+                    </div>
                   );
                 })}
               </div>
@@ -875,9 +811,7 @@ export function HighlightTooltip({
                   borderTop: `8px solid ${getArrowColor()}`
                 }}
               />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        </div>
       </div>
     ) : null,
     document.body
