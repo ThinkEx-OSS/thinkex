@@ -269,7 +269,7 @@ export default function CreateWorkspaceModal({
         <DialogHeader>
           <DialogTitle>Create New Workspace</DialogTitle>
           <DialogDescription>
-            Set up a new workspace to organize your projects, notes, and ideas.
+            Set up a new workspace to organize your projects, documents, and ideas.
           </DialogDescription>
         </DialogHeader>
 

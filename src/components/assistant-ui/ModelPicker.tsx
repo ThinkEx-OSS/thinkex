@@ -69,14 +69,23 @@ function ModelPickerRow({
   model,
   isSelected,
   onSelect,
+  descriptionHoverOpen,
+  onDescriptionHoverOpenChange,
 }: {
   provider: ModelProvider;
   model: ModelConfig;
   isSelected: boolean;
   onSelect: () => void;
+  descriptionHoverOpen: boolean;
+  onDescriptionHoverOpenChange: (open: boolean) => void;
 }) {
   return (
-    <HoverCard openDelay={250} closeDelay={250}>
+    <HoverCard
+      openDelay={0}
+      closeDelay={250}
+      open={descriptionHoverOpen}
+      onOpenChange={onDescriptionHoverOpenChange}
+    >
       <HoverCardTrigger asChild>
         <button
           type="button"
@@ -241,6 +250,7 @@ export function ModelPicker() {
   const selectedModelId = useUIStore((state) => state.selectedModelId);
   const setSelectedModelId = useUIStore((state) => state.setSelectedModelId);
   const [isOpen, setIsOpen] = useState(false);
+  const [hoverDescModelId, setHoverDescModelId] = useState<string | null>(null);
 
   const selectedModel =
     ALL_MODELS.find((m) => m.id === selectedModelId) ?? ALL_MODELS[0];
@@ -251,6 +261,7 @@ export function ModelPicker() {
       onOpenChange={(open) => {
         setIsOpen(open);
         if (!open) {
+          setHoverDescModelId(null);
           focusComposerInput();
         }
       }}
@@ -286,9 +297,20 @@ export function ModelPicker() {
                 provider={group.provider}
                 model={model}
                 isSelected={selectedModelId === model.id}
+                descriptionHoverOpen={hoverDescModelId === model.id}
+                onDescriptionHoverOpenChange={(descOpen) => {
+                  if (descOpen) {
+                    setHoverDescModelId(model.id);
+                  } else {
+                    setHoverDescModelId((prev) =>
+                      prev === model.id ? null : prev,
+                    );
+                  }
+                }}
                 onSelect={() => {
                   setSelectedModelId(model.id);
                   setIsOpen(false);
+                  setHoverDescModelId(null);
                   focusComposerInput();
                 }}
               />
