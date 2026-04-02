@@ -112,14 +112,6 @@ function DashboardContent({
     version,
   } = useWorkspaceState(currentWorkspaceId);
 
-  // Clear playing YouTube videos when workspace view mounts (e.g., navigating back from home)
-  const clearPlayingYouTubeCards = useUIStore(
-    (state) => state.clearPlayingYouTubeCards,
-  );
-  useEffect(() => {
-    clearPlayingYouTubeCards();
-  }, [clearPlayingYouTubeCards]);
-
   // Open audio recorder when landing from home Record flow (store flag set before navigate).
   const openAudioDialog = useAudioRecordingStore((s) => s.openDialog);
   const closeAudioDialog = useAudioRecordingStore((s) => s.closeDialog);

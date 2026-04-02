@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef } from "react";
+import { useMemo, useRef } from "react";
 import { useWorkspaceEvents } from "./use-workspace-events";
 import { replayEvents } from "@/lib/workspace/event-reducer";
 import { initialState } from "@/lib/workspace-state/state";
@@ -45,20 +45,6 @@ export function useWorkspaceState(workspaceId: string | null) {
     prevStateRef.current = replayedState;
     return replayedState;
   }, [eventLog, workspaceId]);
-  
-  // Log when state changes trigger slow re-renders
-  useEffect(() => {
-    const renderStart = performance.now();
-    const timeoutId = setTimeout(() => {
-      const renderTime = performance.now() - renderStart;
-      // Only warn if render takes longer than 500ms (indicates a serious problem)
-      if (renderTime > 500) {
-        console.warn(`[STATE-RENDER-SLOW] State update took ${renderTime.toFixed(2)}ms to render (${state.items.length} items) - this may cause UI freeze`);
-      }
-    }, 0);
-    
-    return () => clearTimeout(timeoutId);
-  }, [state]);
 
   return {
     state,
