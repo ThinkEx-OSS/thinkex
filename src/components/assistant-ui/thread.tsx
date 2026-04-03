@@ -67,7 +67,6 @@ import { EditItemToolUI } from "@/components/assistant-ui/EditItemToolUI";
 
 import { YouTubeSearchToolUI } from "@/components/assistant-ui/YouTubeSearchToolUI";
 import { AddYoutubeVideoToolUI } from "@/components/assistant-ui/AddYoutubeVideoToolUI";
-import { ExecuteCodeToolUI } from "@/components/assistant-ui/ExecuteCodeToolUI";
 import { URLContextToolUI } from "@/components/assistant-ui/URLContextToolUI";
 import { WebSearchToolUI } from "@/components/assistant-ui/WebSearchToolUI";
 import { SearchWorkspaceToolUI } from "@/components/assistant-ui/SearchWorkspaceToolUI";
@@ -143,7 +142,6 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
 
       <YouTubeSearchToolUI />
       <AddYoutubeVideoToolUI />
-      <ExecuteCodeToolUI />
       <URLContextToolUI />
       <WebSearchToolUI />
       <SearchWorkspaceToolUI />

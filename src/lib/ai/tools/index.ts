@@ -5,7 +5,6 @@
 
 import { frontendTools } from "@assistant-ui/react-ai-sdk";
 import { createProcessUrlsTool } from "./process-urls";
-import { createExecuteCodeTool } from "./search-code";
 import {
   createDocumentTool,
   createDeleteItemTool,
@@ -57,9 +56,8 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
     // URL processing
     processUrls: createProcessUrlsTool(),
 
-    // Search & code execution
+    // Search
     webSearch: createWebSearchTool(),
-    executeCode: createExecuteCodeTool(),
     searchWorkspace: createSearchWorkspaceTool(ctx),
     readWorkspace: createReadWorkspaceTool(ctx),
 
