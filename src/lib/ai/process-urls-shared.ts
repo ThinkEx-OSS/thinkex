@@ -16,7 +16,6 @@ export const ProcessUrlsOutputSchema = z.object({
   text: z.string(),
   metadata: z
     .object({
-      provider: z.string().optional(),
       urlMetadata: z
         .array(
           z.object({
@@ -26,7 +25,6 @@ export const ProcessUrlsOutputSchema = z.object({
         )
         .nullable()
         .optional(),
-      groundingChunks: z.array(z.unknown()).nullable().optional(),
       sources: z
         .array(
           z.object({

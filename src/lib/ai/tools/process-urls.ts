@@ -44,14 +44,12 @@ export function createProcessUrlsTool() {
                 return {
                     text: `Error: This tool only handles regular web URLs, not uploaded files or video URLs (${fileUrls.join(", ")})`,
                     metadata: {
-                        provider: "firecrawl",
                         urlMetadata: urlList.map((url) => ({
                             retrievedUrl: url,
                             urlRetrievalStatus: fileUrls.includes(url)
                                 ? "URL_RETRIEVAL_STATUS_UNSUPPORTED"
                                 : "URL_RETRIEVAL_STATUS_SKIPPED",
                         })),
-                        groundingChunks: null,
                         sources: null,
                     },
                 };
@@ -79,14 +77,12 @@ export function createProcessUrlsTool() {
                     return {
                         text: `Failed to process any of the provided URLs. Errors: ${failedResults.map((result) => `${result.url}: ${result.error || "Unknown error"}`).join("; ")}`,
                         metadata: {
-                            provider: "firecrawl",
                             urlMetadata: scrapedResults.map((result) => ({
                                 retrievedUrl: result.url,
                                 urlRetrievalStatus: result.success
                                     ? "URL_RETRIEVAL_STATUS_SUCCESS"
                                     : "URL_RETRIEVAL_STATUS_FAILED",
                             })),
-                            groundingChunks: null,
                             sources: null,
                         },
                     };
@@ -99,14 +95,12 @@ export function createProcessUrlsTool() {
                 return {
                     text: combinedText,
                     metadata: {
-                        provider: "firecrawl",
                         urlMetadata: scrapedResults.map((result) => ({
                             retrievedUrl: result.url,
                             urlRetrievalStatus: result.success
                                 ? "URL_RETRIEVAL_STATUS_SUCCESS"
                                 : "URL_RETRIEVAL_STATUS_FAILED",
                         })),
-                        groundingChunks: null,
                         sources: successfulResults.map(({ url, title }) => ({ uri: url, title })),
                     },
                 };
@@ -119,9 +113,7 @@ export function createProcessUrlsTool() {
                 return {
                     text: `Error processing web URLs: ${error instanceof Error ? error.message : String(error)}`,
                     metadata: {
-                        provider: "firecrawl",
                         urlMetadata: null,
-                        groundingChunks: null,
                         sources: null,
                     },
                 };

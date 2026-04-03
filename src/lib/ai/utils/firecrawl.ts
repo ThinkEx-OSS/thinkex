@@ -6,9 +6,6 @@ const DEFAULT_SCRAPE_OPTIONS = {
     waitFor: 1000,
 };
 
-const BATCH_POLL_INTERVAL_MS = 1500;
-const BATCH_POLL_TIMEOUT_MS = 45000;
-
 export interface FirecrawlMetadata {
     title?: string | string[];
     description?: string | string[];
@@ -18,12 +15,6 @@ export interface FirecrawlMetadata {
     statusCode?: number;
     error?: string | null;
     [key: string]: unknown;
-}
-
-export interface FirecrawlDocument {
-    content?: string;
-    markdown?: string;
-    metadata?: FirecrawlMetadata;
 }
 
 export interface FirecrawlPageResult {
@@ -142,83 +133,6 @@ export class FirecrawlClient {
         };
     }
 
-    private async pollBatchScrape(jobId: string, urls: string[]): Promise<FirecrawlPageResult[]> {
-        const startedAt = Date.now();
-
-        while (Date.now() - startedAt < BATCH_POLL_TIMEOUT_MS) {
-            const response = await fetch(`${this.baseUrl}/batch/scrape/${jobId}`, {
-                method: "GET",
-                headers: this.getHeaders(),
-            });
-
-            if (!response.ok) {
-                throw new Error(await this.parseErrorResponse(response));
-            }
-
-            const result = await response.json();
-            if (result?.status === "completed" && Array.isArray(result?.data)) {
-                return this.normalizeBatchResults(urls, result.data);
-            }
-
-            if (result?.status === "failed") {
-                throw new Error(
-                    typeof result?.error === "string"
-                        ? result.error
-                        : "Firecrawl batch scrape failed",
-                );
-            }
-
-            await new Promise((resolve) => setTimeout(resolve, BATCH_POLL_INTERVAL_MS));
-        }
-
-        throw new Error("Firecrawl batch scrape timed out");
-    }
-
-    private normalizeBatchResults(urls: string[], documents: unknown[]): FirecrawlPageResult[] {
-        const unusedDocuments = [...documents];
-        const bySourceUrl = new Map<string, unknown>();
-
-        for (const document of documents) {
-            if (!document || typeof document !== "object" || Array.isArray(document)) {
-                continue;
-            }
-
-            const metadata =
-                "metadata" in document && document.metadata && typeof document.metadata === "object" && !Array.isArray(document.metadata)
-                    ? (document.metadata as FirecrawlMetadata)
-                    : undefined;
-
-            const sourceUrl =
-                typeof metadata?.sourceURL === "string"
-                    ? metadata.sourceURL
-                    : typeof metadata?.url === "string"
-                        ? metadata.url
-                        : undefined;
-
-            if (sourceUrl && !bySourceUrl.has(sourceUrl)) {
-                bySourceUrl.set(sourceUrl, document);
-            }
-        }
-
-        return urls.map((url, index) => {
-            const matched = bySourceUrl.get(url);
-            if (matched) {
-                return this.normalizePageResult(url, matched);
-            }
-
-            const fallback = unusedDocuments[index];
-            return fallback
-                ? this.normalizePageResult(url, fallback)
-                : {
-                    url,
-                    title: url,
-                    content: "",
-                    success: false,
-                    error: "No result returned for URL",
-                };
-        });
-    }
-
     async scrapeUrl(url: string): Promise<FirecrawlPageResult> {
         if (!this.apiKey) {
             return {
@@ -295,50 +209,7 @@ export class FirecrawlClient {
             return [await this.scrapeUrl(urls[0])];
         }
 
-        try {
-            logger.debug(`🔥 [Firecrawl] Batch scraping ${urls.length} URLs`);
-
-            const response = await fetch(`${this.baseUrl}/batch/scrape`, {
-                method: "POST",
-                headers: this.getHeaders(),
-                body: JSON.stringify({
-                    urls,
-                    ...DEFAULT_SCRAPE_OPTIONS,
-                }),
-            });
-
-            if (!response.ok) {
-                const error = await this.parseErrorResponse(response);
-                return urls.map((url) => ({
-                    url,
-                    title: url,
-                    content: "",
-                    success: false,
-                    error,
-                }));
-            }
-
-            const result = await response.json();
-
-            if (Array.isArray(result?.data)) {
-                return this.normalizeBatchResults(urls, result.data);
-            }
-
-            if (typeof result?.id === "string") {
-                return await this.pollBatchScrape(result.id, urls);
-            }
-
-            throw new Error("Unexpected Firecrawl batch scrape response");
-        } catch (error) {
-            logger.error("❌ [Firecrawl] Error batch scraping URLs:", error);
-            const message = error instanceof Error ? error.message : String(error);
-            return urls.map((url) => ({
-                url,
-                title: url,
-                content: "",
-                success: false,
-                error: message,
-            }));
-        }
+        logger.debug(`🔥 [Firecrawl] Scraping ${urls.length} URLs in parallel`);
+        return await Promise.all(urls.map((url) => this.scrapeUrl(url)));
     }
 }

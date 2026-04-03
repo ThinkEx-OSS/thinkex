@@ -215,7 +215,6 @@ type ProcessUrlsResult =
     text: string;
     metadata?: {
       urlMetadata?: URLMetadata[] | null;
-      groundingChunks?: unknown[] | null;
       sources?: SourceMetadata[] | null;
     };
   };
@@ -232,7 +231,6 @@ export const URLContextToolUI = makeAssistantToolUI<{
     const parsedResult = result != null ? parseURLContextResult(result) : null;
     type Meta = {
       urlMetadata?: URLMetadata[];
-      groundingChunks?: unknown[];
       sources?: SourceMetadata[];
     };
     const metadata = (typeof parsedResult === "object" && parsedResult !== null && "metadata" in parsedResult ? (parsedResult as { metadata?: Meta }).metadata : null) as Meta | null;
