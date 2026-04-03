@@ -1,4 +1,4 @@
-import { Sidebar, SidebarInset, useSidebar } from "@/components/ui/sidebar";
+import { Sidebar, SidebarInset } from "@/components/ui/sidebar";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import WorkspaceSidebar from "@/components/workspace-canvas/WorkspaceSidebar";
 import { AssistantPanel } from "@/components/assistant-ui/AssistantPanel";
@@ -6,9 +6,7 @@ import { WorkspaceRuntimeProvider } from "@/components/assistant-ui/WorkspaceRun
 import { WorkspaceCanvasDropzone } from "@/components/workspace-canvas/WorkspaceCanvasDropzone";
 import { AssistantDropzone } from "@/components/assistant-ui/AssistantDropzone";
 import { PANEL_DEFAULTS } from "@/lib/layout-constants";
-import React, { useCallback, useEffect, useRef } from "react";
-
-import { useUIStore, type ViewMode } from "@/lib/stores/ui-store";
+import React, { useCallback } from "react";
 
 interface DashboardLayoutProps {
   // Workspace sidebar
@@ -33,8 +31,6 @@ interface DashboardLayoutProps {
 
   // Component slots
   workspaceSection: React.ReactNode;
-  splitViewContent?: React.ReactNode; // Split view layout for panel+panel mode
-  panelContent?: React.ReactNode; // Single panel content for workspace+panel mode (full height)
   workspaceHeader?: React.ReactNode; // Header that spans above sidebar + workspace
 }
 
@@ -49,7 +45,6 @@ export function DashboardLayout({
   onWorkspaceSwitch,
   showCreateModal,
   setShowCreateModal,
-  isDesktop,
   isChatExpanded,
   isChatMaximized,
   setIsChatExpanded,
@@ -58,14 +53,8 @@ export function DashboardLayout({
   onSingleSelect,
   onMultiSelect,
   workspaceSection,
-  splitViewContent,
-  panelContent,
   workspaceHeader,
 }: DashboardLayoutProps) {
-  // Get sidebar control to auto-close when panels open
-  const { setOpen } = useSidebar();
-  const viewMode = useUIStore((state) => state.viewMode);
-
   // OPTIMIZED: Memoize onLayoutChange callback to prevent ResizablePanelGroup re-renders
   // This prevents cascading re-renders of all ResizablePanel children
   const handlePanelLayout = useCallback((layout: { [panelId: string]: number }) => {
@@ -119,90 +108,31 @@ export function DashboardLayout({
             })()}
             minSize={effectiveChatExpanded ? `${PANEL_DEFAULTS.WORKSPACE_MIN}%` : "100%"}
           >
-            {/* workspace+panel mode: split at the outer level so panel is full height */}
-            {viewMode === 'workspace+panel' && panelContent ? (
-              <ResizablePanelGroup
-                id="split-view-workspace-panel"
-                orientation="horizontal"
-                className="h-full"
-              >
-                {/* Left: header + sidebar + workspace */}
-                <ResizablePanel
-                  id="split-workspace"
-                  defaultSize={`${Math.round((1 - PANEL_DEFAULTS.ITEM_PANEL_SPLIT_RATIO) * 100)}%`}
-                  minSize="25%"
-                  maxSize="70%"
+            <div className="h-full flex flex-col relative overflow-hidden">
+              {!!currentWorkspaceId && workspaceHeader}
+              <div className="flex flex-1 overflow-hidden relative">
+                <Sidebar
+                  side="left"
+                  variant="sidebar"
+                  collapsible="offcanvas"
+                  key={`sidebar-${currentWorkspaceId || "none"}`}
+                  embedded
                 >
-                  <div className="h-full flex flex-col relative overflow-hidden">
-                    {!!currentWorkspaceId && workspaceHeader}
-                    <div className="flex flex-1 overflow-hidden relative">
-                      <Sidebar
-                        side="left"
-                        variant="sidebar"
-                        collapsible="offcanvas"
-                        key={`sidebar-${currentWorkspaceId || "none"}`}
-                        embedded
-                      >
-                        <WorkspaceSidebar
-                          showJsonView={showJsonView}
-                          setShowJsonView={setShowJsonView}
-                          onWorkspaceSwitch={onWorkspaceSwitch}
-                          showCreateModal={showCreateModal}
-                          setShowCreateModal={setShowCreateModal}
-                          isChatExpanded={effectiveChatExpanded}
-                          setIsChatExpanded={setIsChatExpanded}
-                        />
-                      </Sidebar>
-                      <SidebarInset className="flex flex-col relative overflow-hidden">
-                        <WorkspaceCanvasDropzone>{workspaceSection}</WorkspaceCanvasDropzone>
-                      </SidebarInset>
-                    </div>
-                  </div>
-                </ResizablePanel>
-
-                <ResizableHandle id="split-handle" />
-
-                {/* Right: item panel (full height) */}
-                <ResizablePanel
-                  id="split-item-panel"
-                  defaultSize={`${Math.round(PANEL_DEFAULTS.ITEM_PANEL_SPLIT_RATIO * 100)}%`}
-                  minSize="30%"
-                >
-                  {panelContent}
-                </ResizablePanel>
-              </ResizablePanelGroup>
-            ) : (
-              /* Normal mode or panel+panel mode */
-              <div className="h-full flex flex-col relative overflow-hidden">
-                {!!currentWorkspaceId && viewMode !== 'panel+panel' && workspaceHeader}
-                <div className="flex flex-1 overflow-hidden relative">
-                  <Sidebar
-                    side="left"
-                    variant="sidebar"
-                    collapsible="offcanvas"
-                    key={`sidebar-${currentWorkspaceId || "none"}`}
-                    embedded
-                  >
-                    <WorkspaceSidebar
-                      showJsonView={showJsonView}
-                      setShowJsonView={setShowJsonView}
-                      onWorkspaceSwitch={onWorkspaceSwitch}
-                      showCreateModal={showCreateModal}
-                      setShowCreateModal={setShowCreateModal}
-                      isChatExpanded={effectiveChatExpanded}
-                      setIsChatExpanded={setIsChatExpanded}
-                    />
-                  </Sidebar>
-                  <SidebarInset className="flex flex-col relative overflow-hidden">
-                    {viewMode === 'panel+panel' && splitViewContent ? (
-                      <>{splitViewContent}</>
-                    ) : (
-                      <WorkspaceCanvasDropzone>{workspaceSection}</WorkspaceCanvasDropzone>
-                    )}
-                  </SidebarInset>
-                </div>
+                  <WorkspaceSidebar
+                    showJsonView={showJsonView}
+                    setShowJsonView={setShowJsonView}
+                    onWorkspaceSwitch={onWorkspaceSwitch}
+                    showCreateModal={showCreateModal}
+                    setShowCreateModal={setShowCreateModal}
+                    isChatExpanded={effectiveChatExpanded}
+                    setIsChatExpanded={setIsChatExpanded}
+                  />
+                </Sidebar>
+                <SidebarInset className="flex flex-col relative overflow-hidden">
+                  <WorkspaceCanvasDropzone>{workspaceSection}</WorkspaceCanvasDropzone>
+                </SidebarInset>
               </div>
-            )}
+            </div>
           </ResizablePanel>
 
           {/* Chat Section - Only when expanded and workspace exists */}

@@ -5,6 +5,7 @@ import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 import type { OcrItemResult } from "@/lib/ocr/types";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
+import type { ImageData, Item, PdfData } from "@/lib/workspace-state/types";
 
 const APPEND_RESULT_REGEX = /\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i;
 
@@ -67,10 +68,9 @@ export async function persistOcrResults(
   const event = createEvent(
     "BULK_ITEMS_PATCHED",
     {
-      updates: results.map((result) => ({
-        id: result.itemId,
-        changes: {
-          data: result.ok
+      updates: results.map((result) => {
+        const dataPatch = (
+          result.ok
             ? {
                 ocrPages: result.pages,
                 ocrStatus: "complete" as const,
@@ -80,9 +80,16 @@ export async function persistOcrResults(
                 ocrPages: [],
                 ocrStatus: "failed" as const,
                 ocrError: result.error,
-              },
-        },
-      })),
+              }
+        ) satisfies Partial<PdfData> | Partial<ImageData>;
+
+        return {
+          id: result.itemId,
+          changes: {
+            data: dataPatch as Item["data"],
+          },
+        };
+      }),
     },
     userId,
   );

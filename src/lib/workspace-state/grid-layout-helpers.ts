@@ -1,4 +1,4 @@
-import type { Layout, LayoutItem } from "react-grid-layout";
+import type { LayoutItem } from "react-grid-layout";
 import type { Item, CardType, LayoutPosition, ResponsiveLayouts } from "./types";
 
 /**
@@ -19,7 +19,7 @@ export const DEFAULT_CARD_DIMENSIONS: Record<CardType, { w: number; h: number }>
 /**
  * Helper to check if a layout is in the old flat format or new responsive format.
  * Old format: { x, y, w, h }
- * New format: { lg?: {...}, xxs?: {...} }
+ * New format: { lg?: {...} }
  */
 function isLegacyLayout(layout: ResponsiveLayouts | LayoutPosition | undefined): layout is LayoutPosition {
   if (!layout) return false;
@@ -28,27 +28,25 @@ function isLegacyLayout(layout: ResponsiveLayouts | LayoutPosition | undefined):
 }
 
 /**
- * Get the layout for a specific breakpoint from an item.
+ * Get the layout for the workspace grid from an item.
  * Handles backwards compatibility with old flat layout format.
  */
-export function getLayoutForBreakpoint(item: Item, breakpoint: 'lg' | 'xxs'): LayoutPosition | undefined {
+export function getLayoutForBreakpoint(item: Item, breakpoint: 'lg' = 'lg'): LayoutPosition | undefined {
   if (!item.layout) return undefined;
 
   if (isLegacyLayout(item.layout)) {
-    // Old format - treat as 'lg' layout
-    return breakpoint === 'lg' ? item.layout : undefined;
+    return item.layout;
   }
 
-  // New format - get the specific breakpoint
   return item.layout[breakpoint];
 }
 
 export const DEFAULT_COLS = 4;
 
 /**
- * Convert items to LayoutItem array for a specific breakpoint.
+ * Convert items to LayoutItem array for the workspace grid.
  */
-export function itemsToLayout(items: Item[], breakpoint: 'lg' | 'xxs' = 'lg'): LayoutItem[] {
+export function itemsToLayout(items: Item[], breakpoint: 'lg' = 'lg'): LayoutItem[] {
   return items.map((item) => {
     const layout = getLayoutForBreakpoint(item, breakpoint);
 
@@ -129,11 +127,9 @@ export function findNextAvailablePosition(
   existingItems: Item[],
   newItemType: CardType,
   cols: number = DEFAULT_COLS,
-  newItemName: string = "",
-  newItemSubtitle: string = "",
   customW?: number,
   customH?: number,
-  breakpoint: 'lg' | 'xxs' = 'lg'
+  breakpoint: 'lg' = 'lg'
 ): { x: number; y: number; w: number; h: number } {
   const validType = (newItemType in DEFAULT_CARD_DIMENSIONS) ? newItemType : 'document';
   const dimensions = DEFAULT_CARD_DIMENSIONS[validType];
@@ -190,31 +186,14 @@ export function findNextAvailablePosition(
   return { x: 0, y: maxY, w, h };
 }
 
-/** Default height for all items in xxs (single-column) mode */
-export const XXS_DEFAULT_HEIGHT = 12;
-
 /**
  * Generate missing layouts for items that don't have them.
- * Works with the 'lg' breakpoint by default.
- * In xxs mode, new layouts use h=10 by default for consistent single-column stacking.
+ * Works with the workspace grid layout by default.
  */
-export function generateMissingLayouts(items: Item[], cols: number = DEFAULT_COLS, breakpoint: 'lg' | 'xxs' = 'lg'): Item[] {
+export function generateMissingLayouts(items: Item[], cols: number = DEFAULT_COLS, breakpoint: 'lg' = 'lg'): Item[] {
   const result: Item[] = [];
 
-  // For xxs, sort by lg position so stacking order matches 4-col visual order
-  const itemsToProcess =
-    breakpoint === 'xxs'
-      ? [...items].sort((a, b) => {
-          const aLg = getLayoutForBreakpoint(a, 'lg');
-          const bLg = getLayoutForBreakpoint(b, 'lg');
-          const aY = aLg?.y ?? 0;
-          const bY = bLg?.y ?? 0;
-          if (aY !== bY) return aY - bY;
-          return (aLg?.x ?? 0) - (bLg?.x ?? 0);
-        })
-      : items;
-
-  itemsToProcess.forEach((item) => {
+  items.forEach((item) => {
     const existingLayout = getLayoutForBreakpoint(item, breakpoint);
 
     if (existingLayout) {
@@ -236,19 +215,11 @@ export function generateMissingLayouts(items: Item[], cols: number = DEFAULT_COL
         layout: newLayouts,
       });
     } else {
-      const position =
-        breakpoint === 'xxs'
-          ? findNextAvailablePosition(
-              result,
-              item.type,
-              cols,
-              item.name,
-              item.subtitle,
-              1, // w=1 for single column
-              item.type === 'folder' || item.type === 'flashcard' || item.type === 'youtube' ? undefined : XXS_DEFAULT_HEIGHT,
-              'xxs'
-            )
-          : findNextAvailablePosition(result, item.type, cols, item.name, item.subtitle);
+      const position = findNextAvailablePosition(
+        result,
+        item.type,
+        cols,
+      );
 
       // For items without layout, create new responsive structure
       const existingResponsive = isLegacyLayout(item.layout)
@@ -328,7 +299,7 @@ export function recompactLayout(items: Item[], cols: number): Item[] {
   });
 }
 
-export function hasLayoutChanged(items: Item[], newLayout: LayoutItem[], breakpoint: 'lg' | 'xxs' = 'lg'): boolean {
+export function hasLayoutChanged(items: Item[], newLayout: LayoutItem[], breakpoint: 'lg' = 'lg'): boolean {
   const itemsMap = new Map(items.map((item) => [item.id, item]));
 
   return newLayout.some((newItem) => {
@@ -346,10 +317,9 @@ export function hasLayoutChanged(items: Item[], newLayout: LayoutItem[], breakpo
 }
 
 /**
- * Update items with new layout positions for a specific breakpoint.
- * When saving to 'lg' (4-column), clears 'xxs' so it regenerates from lg.
+ * Update items with new layout positions for the workspace grid.
  */
-export function updateItemsWithLayout(items: Item[], layout: LayoutItem[], breakpoint: 'lg' | 'xxs' = 'lg'): Item[] {
+export function updateItemsWithLayout(items: Item[], layout: LayoutItem[], breakpoint: 'lg' = 'lg'): Item[] {
   const itemLayoutMap = new Map(layout.map((l) => [l.i, l]));
 
   return items.map((item) => {
@@ -362,22 +332,9 @@ export function updateItemsWithLayout(items: Item[], layout: LayoutItem[], break
         h: newLayoutItem.h,
       };
 
-      // Preserve existing responsive layouts, update only the current breakpoint
-      const existingResponsive = isLegacyLayout(item.layout)
-        ? { lg: item.layout }
-        : (item.layout as ResponsiveLayouts | undefined) ?? {};
-
-      // When saving to 'lg', clear 'xxs' so it regenerates from the updated lg layout
-      if (breakpoint === 'lg') {
-        return {
-          ...item,
-          layout: { lg: newPosition }, // Clear xxs by only keeping lg
-        };
-      }
-
       return {
         ...item,
-        layout: { ...existingResponsive, [breakpoint]: newPosition },
+        layout: { [breakpoint]: newPosition },
       };
     }
     return item;

@@ -107,9 +107,6 @@ import { useUIStore } from "@/lib/stores/ui-store";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { toast } from "sonner";
 
-// --- Math Edit Dialog (MathLive) ---
-import { MathEditDialog } from "@/components/editor/MathEditDialog";
-
 // --- Styles ---
 import "@/components/editor/document-editor.scss";
 
@@ -851,56 +848,6 @@ export function DocumentEditor({
   const toolbarRef = useRef<HTMLDivElement>(null);
   const activeMobileView = isMobile ? mobileView : "main";
 
-  // Stable ref so closures created inside useEditor always access the live editor
-  const editorRef = useRef<Editor | null>(null);
-
-  // Math dialog: single state object + stable open function via ref
-  const [mathEdit, setMathEdit] = useState<{
-    open: boolean;
-    latex: string;
-    title: string;
-    pos: number;
-    type: "inline" | "block";
-  }>({ open: false, latex: "", title: "", pos: 0, type: "inline" });
-
-  const openMathDialog = useCallback(
-    (latex: string, pos: number, type: "inline" | "block") => {
-      setMathEdit({
-        open: true,
-        latex,
-        title: type === "inline" ? "Edit Inline Math" : "Edit Block Math",
-        pos,
-        type,
-      });
-    },
-    [],
-  );
-
-  const closeMathDialog = useCallback(() => {
-    setMathEdit((prev) => ({ ...prev, open: false }));
-  }, []);
-
-  const handleMathSave = useCallback((latex: string) => {
-    const ed = editorRef.current;
-    if (!ed) return;
-    setMathEdit((prev) => {
-      if (prev.type === "inline") {
-        ed.chain()
-          .setNodeSelection(prev.pos)
-          .updateInlineMath({ latex })
-          .focus()
-          .run();
-      } else {
-        ed.chain()
-          .setNodeSelection(prev.pos)
-          .updateBlockMath({ latex })
-          .focus()
-          .run();
-      }
-      return { ...prev, open: false };
-    });
-  }, []);
-
   const editor = useEditor({
     autofocus,
     immediatelyRender: false,
@@ -948,16 +895,6 @@ export function DocumentEditor({
       Subscript,
       Selection,
       Mathematics.configure({
-        inlineOptions: {
-          onClick: (node, pos) => {
-            openMathDialog(node.attrs.latex || "", pos, "inline");
-          },
-        },
-        blockOptions: {
-          onClick: (node, pos) => {
-            openMathDialog(node.attrs.latex || "", pos, "block");
-          },
-        },
         katexOptions: {
           throwOnError: false,
         },
@@ -999,10 +936,6 @@ export function DocumentEditor({
       });
     },
   });
-  // Keep editorRef in sync so closures always have the live editor
-  useEffect(() => {
-    editorRef.current = editor;
-  }, [editor]);
 
   useEffect(() => {
     const toolbar = toolbarRef.current;
@@ -1102,17 +1035,6 @@ export function DocumentEditor({
           )}
         />
       </EditorContext.Provider>
-
-      {/* MathLive dialog for editing math nodes */}
-      <MathEditDialog
-        open={mathEdit.open}
-        onOpenChange={(open) => {
-          if (!open) closeMathDialog();
-        }}
-        initialLatex={mathEdit.latex}
-        onSave={handleMathSave}
-        title={mathEdit.title}
-      />
     </div>
   );
 }

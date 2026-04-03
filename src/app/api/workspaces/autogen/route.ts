@@ -491,7 +491,7 @@ export async function POST(request: NextRequest) {
 
         const pdfCreateParams: CreateItemParams[] = [];
         for (const asset of documentAssets) {
-          const position = findNextAvailablePosition(pdfItemLayouts as Item[], "pdf", 4, "", "", AUTOGEN_LAYOUTS.pdf.w, AUTOGEN_LAYOUTS.pdf.h);
+          const position = findNextAvailablePosition(pdfItemLayouts as Item[], "pdf", 4, AUTOGEN_LAYOUTS.pdf.w, AUTOGEN_LAYOUTS.pdf.h);
           const pdfItemId = generateItemId();
           const itemDefinition = buildWorkspaceItemDefinitionFromAsset(asset);
           if (itemDefinition.type !== "pdf") continue;
@@ -507,7 +507,7 @@ export async function POST(request: NextRequest) {
 
         const imageCreateParams: CreateItemParams[] = [];
         for (const asset of imageAssets) {
-          const position = findNextAvailablePosition(pdfItemLayouts as Item[], "image", 4, "", "", AUTOGEN_LAYOUTS.image.w, AUTOGEN_LAYOUTS.image.h);
+          const position = findNextAvailablePosition(pdfItemLayouts as Item[], "image", 4, AUTOGEN_LAYOUTS.image.w, AUTOGEN_LAYOUTS.image.h);
           const imgItemId = generateItemId();
           const itemDefinition = buildWorkspaceItemDefinitionFromAsset(asset);
           if (itemDefinition.type !== "image") continue;

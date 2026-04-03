@@ -19,8 +19,8 @@ interface UrlState {
  *
  * URL params:
  *   folder=<id>   — active folder filter
- *   items=<ids>  — open panels: "id" or "id1,id2" (split view)
- *   focus=<id>   — maximized (focused) panel; only valid when single panel
+ *   items=<id>   — focused item
+ *   focus=<id>   — legacy alias for the focused item
  *   item=<id>    — legacy, same as items=<id>
  */
 export function useFolderUrl() {
@@ -43,7 +43,7 @@ export function useFolderUrl() {
     const itemsParam = searchParams.get("items");
     const legacyItem = searchParams.get("item");
     const items = itemsParam
-      ? itemsParam.split(",").filter(Boolean).slice(0, 2)
+      ? itemsParam.split(",").filter(Boolean).slice(0, 1)
       : legacyItem
         ? [legacyItem]
         : [];

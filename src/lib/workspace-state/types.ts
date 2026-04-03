@@ -48,9 +48,7 @@ export interface FlashcardData {
   currentIndex?: number; // Optional persistence
 }
 
-export interface FolderData {
-  // Folder-specific data (currently empty, but available for future extensions)
-}
+export type FolderData = Record<string, never>;
 
 export interface YouTubeData {
   url: string; // YouTube video URL
@@ -185,7 +183,6 @@ export interface LayoutPosition {
 /** Responsive layouts for different breakpoints */
 export interface ResponsiveLayouts {
   lg?: LayoutPosition; // 4-column layout
-  xxs?: LayoutPosition; // 1-column layout
 }
 
 export interface Item {
@@ -197,7 +194,7 @@ export interface Item {
   color?: CardColor; // background color for the card
   folderId?: string; // Single folder assignment (flat structure)
   /**
-   * Responsive layout positions for different breakpoints.
+   * Layout position for the workspace grid.
    * For backwards compatibility, this can also be a flat LayoutPosition object
    * (old format), which will be treated as the 'lg' layout.
    */

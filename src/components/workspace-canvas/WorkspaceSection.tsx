@@ -1,4 +1,4 @@
-import React, { RefObject, useState, useMemo, useCallback } from "react";
+import React, { RefObject, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -6,7 +6,6 @@ import type { AgentState, Item, CardType } from "@/lib/workspace-state/types";
 import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import type { WorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import WorkspaceContent from "./WorkspaceContent";
-import WorkspaceHeader from "@/components/workspace-canvas/WorkspaceHeader";
 import SelectionActionBar from "./SelectionActionBar";
 import { WorkspaceSkeleton } from "@/components/workspace/WorkspaceSkeleton";
 import { MarqueeSelector } from "./MarqueeSelector";
@@ -48,12 +47,7 @@ import {
   ContextMenuSubTrigger,
 } from "@/components/ui/context-menu";
 
-import { Folder, Upload, Play, MoreHorizontal, Globe, Brain } from "lucide-react";
-import { LuBook } from "react-icons/lu";
-import { PiCardsThreeBold } from "react-icons/pi";
 import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";
-import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
-import type { WorkspaceWithState } from "@/lib/workspace-state/types";
 import { AudioRecordingIndicator } from "./AudioRecordingIndicator";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 import { filterItemIdsForFolderCreation } from "@/lib/workspace-state/search";
@@ -62,7 +56,6 @@ import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDial
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
-import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceFilePicker } from "@/hooks/workspace/use-workspace-file-picker";
 import { startAudioProcessing } from "@/lib/audio/start-audio-processing";
 import { startAssetProcessing } from "@/lib/uploads/start-asset-processing";
@@ -85,13 +78,6 @@ interface WorkspaceSectionProps {
 
   // View state
   showJsonView: boolean;
-  onOpenSearch?: () => void;
-
-  // Save state
-  isSaving: boolean;
-  lastSavedAt: Date | null;
-  hasUnsavedChanges: boolean;
-  onManualSave: () => Promise<void>;
 
   // Operations
   addItem: (type: CardType, name?: string, initialData?: Partial<Item['data']>) => string;
@@ -106,7 +92,6 @@ interface WorkspaceSectionProps {
 
   // Layout state
   isChatMaximized: boolean;
-  columns: number; // Number of grid columns (from layout state)
 
   // Chat state
   isDesktop?: boolean;
@@ -117,9 +102,6 @@ interface WorkspaceSectionProps {
   // Modal state
   setOpenModalItemId: (id: string | null) => void;
 
-  // Version history
-  onShowHistory: () => void;
-
   // Refs
   titleInputRef: RefObject<HTMLInputElement>;
   scrollAreaRef: RefObject<HTMLDivElement>;
@@ -128,21 +110,6 @@ interface WorkspaceSectionProps {
   workspaceTitle?: string;
   workspaceIcon?: string | null;
   workspaceColor?: string | null;
-
-  // Header Props
-  onRenameFolder?: (folderId: string, newName: string) => void;
-  onOpenSettings?: () => void;
-  onOpenShare?: () => void;
-
-  // Active Item Helper Props (for header to control active items)
-  activeItems?: Item[];
-  activeItemMode?: 'maximized' | 'maximized' | null;
-  onCloseActiveItem?: (itemId: string) => void;
-  onMinimizeActiveItem?: (itemId: string) => void;
-  onMaximizeActiveItem?: (itemId: string | null) => void;
-  onUpdateActiveItem?: (itemId: string, updates: Partial<Item>) => void;
-
-  // Modal Manager
   modalManager?: React.ReactNode;
 }
 
@@ -157,11 +124,6 @@ export function WorkspaceSection({
   currentSlug,
   state,
   showJsonView,
-  onOpenSearch,
-  isSaving,
-  lastSavedAt,
-  hasUnsavedChanges,
-  onManualSave,
   addItem,
   updateItem,
   deleteItem,
@@ -169,12 +131,10 @@ export function WorkspaceSection({
 
   getStatePreviewJSON,
   isChatMaximized,
-  columns,
   isDesktop,
   isChatExpanded,
   setIsChatExpanded,
   setOpenModalItemId,
-  onShowHistory,
   titleInputRef,
   scrollAreaRef,
   workspaceTitle,
@@ -182,40 +142,16 @@ export function WorkspaceSection({
   workspaceColor,
   operations,
   isItemPanelOpen,
-  onRenameFolder,
-  onOpenSettings,
-  onOpenShare,
-
-  activeItems,
-  activeItemMode,
-  onCloseActiveItem,
-  onMinimizeActiveItem,
-  onMaximizeActiveItem,
-  onUpdateActiveItem,
   modalManager,
 }: WorkspaceSectionProps) {
   // Card selection state from UI store
   // Use array selector with shallow comparison to prevent unnecessary re-renders and SSR issues
   const { selectedCardIdsArray, selectedCardIds } = useSelectedCardIds();
   const clearCardSelection = useUIStore((state) => state.clearCardSelection);
-  const openPanel = useUIStore((state) => state.openPanel);
   const { data: session } = useSession();
 
   // Get active folder info from UI store
   const activeFolderId = useUIStore((uiState) => uiState.activeFolderId);
-
-  // Get active folder name and color for breadcrumbs (folders are now items with type: 'folder')
-  const activeFolderName = useMemo(() => {
-    if (!activeFolderId) return undefined;
-    const folder = state.items?.find(i => i.id === activeFolderId && i.type === 'folder');
-    return folder?.name;
-  }, [activeFolderId, state.items]);
-
-  const activeFolderColor = useMemo(() => {
-    if (!activeFolderId) return undefined;
-    const folder = state.items?.find(i => i.id === activeFolderId && i.type === 'folder');
-    return folder?.color;
-  }, [activeFolderId, state.items]);
 
   // Track grid dragging state for marquee conflict prevention
   const [isGridDragging, setIsGridDragging] = useState(false);
@@ -237,16 +173,6 @@ export function WorkspaceSection({
   const showAudioDialog = useAudioRecordingStore((s) => s.isDialogOpen);
   const openAudioDialog = useAudioRecordingStore((s) => s.openDialog);
   const closeAudioDialog = useAudioRecordingStore((s) => s.closeDialog);
-
-  // React Query client for cache invalidation
-  const queryClient = useQueryClient();
-
-  // Get workspace data from context
-  const { workspaces } = useWorkspaceContext();
-  const currentWorkspace = useMemo(() => {
-    if (!currentWorkspaceId) return null;
-    return workspaces.find(w => w.id === currentWorkspaceId) || null;
-  }, [currentWorkspaceId, workspaces]);
 
   // Use reactive navigation hook for auto-scroll/selection
   const { handleCreatedItems } = useReactiveNavigation(state);
@@ -370,16 +296,6 @@ export function WorkspaceSection({
     toast.success(`Moved ${count} ${count === 1 ? 'item' : 'items'}`);
   };
 
-  // Handle rename folder
-  const handleRenameFolder = useCallback(
-    (folderId: string, newName: string) => {
-      if (operations) {
-        operations.updateItem(folderId, { name: newName });
-      }
-    },
-    [operations]
-  );
-
   // Handle creating a new folder from selected cards
   const handleCreateFolderFromSelection = () => {
     if (!operations || selectedCardIdsArray.length === 0) {
@@ -400,7 +316,7 @@ export function WorkspaceSection({
     }
 
     // Create folder with items atomically in a single event
-    const folderId = operations.createFolderWithItems("New Folder", safeItemIds);
+    operations.createFolderWithItems("New Folder", safeItemIds);
 
     // Clear the selection
     clearCardSelection();
@@ -517,7 +433,7 @@ export function WorkspaceSection({
         fileSize: file.size,
         mimeType: file.type || "audio/webm",
         processingStatus: "processing",
-      } as any);
+      } as Partial<Item["data"]>);
 
       if (handleCreatedItems && itemId) {
         handleCreatedItems([itemId]);
@@ -535,9 +451,11 @@ export function WorkspaceSection({
           mimeType: file.type || "audio/webm",
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.dismiss(loadingToastId);
-      toast.error(error.message || "Failed to upload audio");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to upload audio",
+      );
     }
   }, [addItem, currentWorkspaceId, handleCreatedItems]);
 
@@ -597,7 +515,6 @@ export function WorkspaceSection({
                   deleteItem={deleteItem}
                   updateAllItems={updateAllItems}
                   getStatePreviewJSON={getStatePreviewJSON}
-                  columns={columns}
                   setOpenModalItemId={setOpenModalItemId}
                   scrollContainerRef={scrollAreaRef}
                   onGridDragStateChange={setIsGridDragging}

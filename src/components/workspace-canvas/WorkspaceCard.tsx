@@ -9,10 +9,6 @@ import {
   Copy,
   X,
   Pencil,
-  Columns,
-  Link2,
-  PanelRight,
-  SplitSquareHorizontal,
   Loader2,
   File,
   FileText,
@@ -22,7 +18,6 @@ import {
 } from "lucide-react";
 import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
 import { useCallback, useState, memo, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -30,9 +25,7 @@ import ItemHeader from "@/components/workspace-canvas/ItemHeader";
 import {
   getCardColorCSS,
   getCardAccentColor,
-  getDistinctCardColor,
   getCardColorWithBlackMix,
-  getIconColorFromCardColor,
   getIconColorFromCardColorWithOpacity,
   getLighterCardColor,
   SWATCHES_COLOR_GROUPS,
@@ -43,21 +36,18 @@ import type {
   PdfData,
   FlashcardData,
   YouTubeData,
-  ImageData,
   WebsiteData,
   DocumentData,
 } from "@/lib/workspace-state/types";
 import { SwatchesPicker, ColorResult } from "react-color";
 import { AudioCardContent } from "./AudioCardContent";
 import LazyAppPdfViewer from "@/components/pdf/LazyAppPdfViewer";
-import { LightweightPdfPreview } from "@/components/pdf/LightweightPdfPreview";
 import { StreamdownMarkdown } from "@/components/ui/streamdown-markdown";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUIStore, selectItemScrollLocked } from "@/lib/stores/ui-store";
 import { Flashcard } from "react-quizlet-flashcard";
 import "react-quizlet-flashcard/dist/index.css";
 import { useElementSize } from "@/hooks/use-element-size";
-import { useIsVisible } from "@/hooks/use-is-visible";
 import {
   extractYouTubeVideoId,
   extractYouTubePlaylistId,
@@ -65,7 +55,6 @@ import {
 import { YouTubeCardContent } from "./YouTubeCardContent";
 import { getLayoutForBreakpoint } from "@/lib/workspace-state/grid-layout-helpers";
 import { SourcesDisplay } from "./SourcesDisplay";
-import { PanelActionMenuPortal } from "./PanelActionMenuPortal";
 
 import {
   DropdownMenu,
@@ -109,7 +98,6 @@ interface WorkspaceCardProps {
   onUpdateItem: (itemId: string, updates: Partial<Item>) => void;
   onDeleteItem: (itemId: string) => void;
   onOpenModal: (itemId: string) => void;
-  existingColors: CardColor[];
   // NOTE: isSelected is now subscribed directly from the store to prevent
   // full grid re-renders when selection changes
   onMoveItem?: (itemId: string, folderId: string | null) => void; // Callback to move item to folder
@@ -128,7 +116,6 @@ function WorkspaceCard({
   onUpdateItem,
   onDeleteItem,
   onOpenModal,
-  existingColors,
   onMoveItem,
 }: WorkspaceCardProps) {
   const { resolvedTheme } = useTheme();
@@ -150,36 +137,17 @@ function WorkspaceCard({
   const isSelected = useUIStore((state) => state.selectedCardIds.has(item.id));
   const onToggleSelection = useUIStore((state) => state.toggleCardSelection);
 
-  // Check if this card is currently open in the panel (not maximized/modal)
-  const isOpenInPanel = useUIStore(
-    (state) =>
-      state.openPanelIds.includes(item.id) && state.maximizedItemId !== item.id,
-  );
-  const openPanelIds = useUIStore((state) => state.openPanelIds);
-  const maximizedItemId = useUIStore((state) => state.maximizedItemId);
-  const setOpenModalItemId = useUIStore((state) => state.setOpenModalItemId);
-  const openPanel = useUIStore((state) => state.openPanel);
-  const closePanel = useUIStore((state) => state.closePanel);
-  const viewMode = useUIStore((state) => state.viewMode);
-  const splitWithItem = useUIStore((state) => state.splitWithItem);
-
   // No dynamic calculations needed - just overflow hidden
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [panelActionMenu, setPanelActionMenu] = useState<{
-    x: number;
-    y: number;
-    itemId: string;
-  } | null>(null);
   // Get scroll lock state from Zustand store (persists across interactions)
   const isScrollLocked = useUIStore(selectItemScrollLocked(item.id));
   const toggleItemScrollLocked = useUIStore(
     (state) => state.toggleItemScrollLocked,
   );
-  const [isDragging, setIsDragging] = useState(false);
   const articleRef = useRef<HTMLElement>(null);
 
   // Measure card size to determine if we should show preview
@@ -191,10 +159,6 @@ function WorkspaceCard({
   const meetsWidth = cardWidth === undefined || cardWidth > 320;
   const meetsHeight = cardHeight === undefined || cardHeight > 180;
   const shouldShowPreview = meetsWidth && meetsHeight;
-
-  // PERFORMANCE: Track visibility for PDF virtualization
-  // Only mount PDF content when card is visible in viewport
-  const isCardVisible = useIsVisible(articleRef, { rootMargin: "200px" });
 
   // Track minimal local drag detection (only if grid hasn't detected drag)
   const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
@@ -211,53 +175,25 @@ function WorkspaceCard({
 
   // Cleanup listeners on unmount
   useEffect(() => {
+    const handlers = handlersRef.current;
     return () => {
       if (
         listenersActiveRef.current &&
-        handlersRef.current.handleGlobalMouseMove &&
-        handlersRef.current.handleGlobalMouseUp
+        handlers.handleGlobalMouseMove &&
+        handlers.handleGlobalMouseUp
       ) {
         document.removeEventListener(
           "mousemove",
-          handlersRef.current.handleGlobalMouseMove,
+          handlers.handleGlobalMouseMove,
         );
         document.removeEventListener(
           "mouseup",
-          handlersRef.current.handleGlobalMouseUp,
+          handlers.handleGlobalMouseUp,
         );
         listenersActiveRef.current = false;
       }
     };
   }, []);
-
-  // Check if card is being dragged by checking parent element for dragging class
-  useEffect(() => {
-    if (!articleRef.current || item.type !== "youtube") return;
-
-    const checkDragging = () => {
-      const parent = articleRef.current?.closest(".react-grid-item");
-      const dragging =
-        parent?.classList.contains("react-draggable-dragging") ?? false;
-      setIsDragging(dragging);
-    };
-
-    // Check initially
-    checkDragging();
-
-    // Use MutationObserver to watch for class changes on parent
-    const parent = articleRef.current.closest(".react-grid-item");
-    if (!parent) return;
-
-    const observer = new MutationObserver(checkDragging);
-    observer.observe(parent, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [item.type, item.id]);
 
   // OPTIMIZED: Memoize ItemHeader callbacks to prevent inline function creation
   const handleNameChange = useCallback(
@@ -306,7 +242,7 @@ function WorkspaceCard({
     onDeleteItem(item.id);
     setShowDeleteDialog(false);
     toast.success("Card deleted successfully");
-  }, [item.id, onDeleteItem, item.name]);
+  }, [item.id, onDeleteItem]);
 
   const handleRename = useCallback(
     (newName: string) => {
@@ -509,53 +445,17 @@ function WorkspaceCard({
         return;
       }
 
-      // YouTube cards open in panel (same as documents/PDFs) - no special handling, fall through
-
-      // If this card is already open in panel mode, close it instead of re-opening
-      if (isOpenInPanel) {
-        e.stopPropagation();
-        closePanel(item.id);
-        return;
-      }
-
-      // In workspace+panel mode: show Replace / Double Panel menu at cursor
-      if (viewMode === "workspace+panel" && !openPanelIds.includes(item.id)) {
-        e.preventDefault();
-        e.stopPropagation();
-        setPanelActionMenu({ x: e.clientX, y: e.clientY, itemId: item.id });
-        return;
-      }
-
       // Default: open in focus mode (maximized modal)
       onOpenModal(item.id);
     },
     [
       isEditingTitle,
-      isOpenInPanel,
       item.id,
       item.type,
       onOpenModal,
-      openPanelIds,
-      maximizedItemId,
-      viewMode,
-      openPanel,
-      closePanel,
+      onToggleSelection,
     ],
   );
-
-  const handleReplacePanel = useCallback(() => {
-    if (panelActionMenu) {
-      openPanel(panelActionMenu.itemId);
-      setPanelActionMenu(null);
-    }
-  }, [panelActionMenu, openPanel]);
-
-  const handleDoublePanel = useCallback(() => {
-    if (panelActionMenu) {
-      splitWithItem(panelActionMenu.itemId);
-      setPanelActionMenu(null);
-    }
-  }, [panelActionMenu, splitWithItem]);
 
   return (
     <ContextMenu>
@@ -587,9 +487,7 @@ function WorkspaceCard({
                       : "var(--card)",
                 borderColor: isSelected
                   ? "rgba(255, 255, 255, 0.8)"
-                  : isOpenInPanel
-                    ? "hsl(var(--primary))"
-                    : item.color
+                  : item.color
                       ? getCardAccentColor(
                           item.color,
                           resolvedTheme === "dark" ? 0.5 : 0.3,
@@ -597,13 +495,11 @@ function WorkspaceCard({
                       : "transparent",
                 borderWidth: isSelected
                   ? "3px"
-                  : isOpenInPanel
-                    ? "2px"
-                    : item.type === "youtube" ||
-                        item.type === "image" ||
-                        (item.type === "pdf" && shouldShowPreview)
-                      ? "0px"
-                      : "1px",
+                  : item.type === "youtube" ||
+                      item.type === "image" ||
+                      (item.type === "pdf" && shouldShowPreview)
+                    ? "0px"
+                    : "1px",
                 boxShadow:
                   isSelected && resolvedTheme !== "dark"
                     ? "0 0 3px rgba(0, 0, 0, 0.8), 0 0 8px rgba(0, 0, 0, 0.5)"
@@ -618,10 +514,9 @@ function WorkspaceCard({
             onClick={handleCardClick}
           >
             {/* Floating Controls Container */}
-            {!isOpenInPanel && (
-              <div
-                className={`absolute top-3 right-3 z-20 flex items-center gap-2 ${isEditingTitle ? "" : "opacity-0 group-hover:opacity-100"}`}
-              >
+            <div
+              className={`absolute top-3 right-3 z-20 flex items-center gap-2 ${isEditingTitle ? "" : "opacity-0 group-hover:opacity-100"}`}
+            >
                 {/* Scroll Lock/Unlock Button - Hidden for YouTube, image, quiz, and narrow document/PDF cards */}
                 {item.type !== "youtube" &&
                   item.type !== "image" &&
@@ -812,18 +707,6 @@ function WorkspaceCard({
                     className="w-48"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    {viewMode === "workspace+panel" &&
-                      !openPanelIds.includes(item.id) && (
-                        <>
-                          <DropdownMenuItem
-                            onSelect={() => splitWithItem(item.id)}
-                          >
-                            <SplitSquareHorizontal className="mr-2 h-4 w-4" />
-                            <span>Double Panel</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                        </>
-                      )}
                     <DropdownMenuItem
                       onSelect={() => setShowRenameDialog(true)}
                     >
@@ -867,7 +750,6 @@ function WorkspaceCard({
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-            )}
 
             {/* Type badge - rect in bottom-left corner (when card is small) */}
             {(item.type === "pdf" ||
@@ -911,18 +793,12 @@ function WorkspaceCard({
                     (() => {
                       const websiteData = item.data as WebsiteData;
                       const favicon = websiteData.favicon;
-                      let hostname = "";
-                      try {
-                        hostname = new URL(websiteData.url).hostname.replace(
-                          /^www\./,
-                          "",
-                        );
-                      } catch {}
                       const fallbackId = `fallback-${item.id}`;
                       const faviconId = `favicon-${item.id}`;
                       return (
                         <>
                           {favicon && (
+                            /* eslint-disable-next-line @next/next/no-img-element */
                             <img
                               id={faviconId}
                               src={favicon}
@@ -1057,10 +933,7 @@ function WorkspaceCard({
             </div>
 
             {/* PDF Content - render embedded PDF viewer if card is wide enough */}
-            {/* PERFORMANCE: Only mount PDF content when card is visible (virtualization) */}
-            {/* When scroll is locked, render lightweight placeholder instead of full PDF viewer */}
-            {!isOpenInPanel &&
-              item.type === "pdf" &&
+            {item.type === "pdf" &&
               shouldShowPreview &&
               (() => {
                 const pdfData = item.data as PdfData;
@@ -1072,33 +945,11 @@ function WorkspaceCard({
                     className={`flex-1 min-h-0 relative ${isScrollLocked ? "overflow-hidden" : "overflow-auto"}`}
                     style={{ pointerEvents: isScrollLocked ? "none" : "auto" }}
                   >
-                    {!isCardVisible ? (
-                      // Placeholder when card is not visible - very lightweight
-                      <div
-                        className="w-full h-full flex items-center justify-center bg-muted text-xs"
-                        style={{
-                          color:
-                            resolvedTheme === "dark"
-                              ? "rgba(163, 175, 191, 0.5)"
-                              : "rgba(107, 114, 128, 0.6)",
-                        }}
-                      >
-                        PDF
-                      </div>
-                    ) : isScrollLocked || maximizedItemId === item.id ? (
-                      <LightweightPdfPreview
-                        key={`preview-${maximizedItemId ?? "none"}`}
-                        pdfSrc={pdfPreviewUrl}
-                        title={item.name}
-                        className="w-full h-full"
-                      />
-                    ) : (
-                      <LazyAppPdfViewer
-                        pdfSrc={pdfPreviewUrl}
-                        itemId={item.id}
-                        itemName={item.name}
-                      />
-                    )}
+                    <LazyAppPdfViewer
+                      pdfSrc={pdfPreviewUrl}
+                      itemId={item.id}
+                      itemName={item.name}
+                    />
                     {/* OCR processing indicator overlay */}
                     {isOcrProcessing && pdfPreviewUrl && (
                       <div
@@ -1119,7 +970,9 @@ function WorkspaceCard({
                 <QuizContent
                   item={item}
                   onUpdateData={(updater) =>
-                    onUpdateItem(item.id, { data: updater(item.data) as any })
+                    onUpdateItem(item.id, {
+                      data: updater(item.data) as Item["data"],
+                    })
                   }
                   isScrollLocked={isScrollLocked}
                 />
@@ -1194,8 +1047,7 @@ function WorkspaceCard({
               })()}
 
             {/* YouTube Content - render YouTube embed */}
-            {!isOpenInPanel &&
-              item.type === "youtube" &&
+            {item.type === "youtube" &&
               (() => {
                 const youtubeData = item.data as YouTubeData;
                 const hasValidUrl =
@@ -1234,23 +1086,16 @@ function WorkspaceCard({
                   );
                 }
 
-                // Use the YouTubeCardContent component which handles play/adjust state
-                return (
-                  <YouTubeCardContent
-                    item={item}
-                    isPlaying={false}
-                    onTogglePlay={() => {}}
-                  />
-                );
+                return <YouTubeCardContent item={item} />;
               })()}
 
             {/* Image Content - render frameless image */}
-            {!isOpenInPanel && item.type === "image" && (
+            {item.type === "image" && (
               <ImageCardContent item={item} />
             )}
 
             {/* Audio Content - render audio player and transcript */}
-            {!isOpenInPanel && item.type === "audio" && shouldShowPreview && (
+            {item.type === "audio" && shouldShowPreview && (
               <div className="flex-1 min-h-0 overflow-hidden">
                 <AudioCardContent
                   item={item}
@@ -1260,8 +1105,7 @@ function WorkspaceCard({
               </div>
             )}
 
-            {!isOpenInPanel &&
-              item.type === "document" &&
+            {item.type === "document" &&
               shouldShowPreview &&
               (documentAwaitingGeneration ? (
                 <div className="flex-1 min-h-0 p-4 flex flex-col gap-3">
@@ -1286,18 +1130,6 @@ function WorkspaceCard({
                   </StreamdownMarkdown>
                 </div>
               ))}
-            {/* Active in Panel Overlay */}
-            {isOpenInPanel && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-card/95 backdrop-blur-[1px] animate-in fade-in duration-200 select-none cursor-pointer group/overlay">
-                <div className="relative w-10 h-10 mb-3 flex items-center justify-center">
-                  <PanelRight className="w-10 h-10 text-primary opacity-90 absolute transition-opacity duration-200 group-hover/overlay:opacity-0" />
-                  <X className="w-10 h-10 text-primary opacity-90 absolute hidden origin-center transition-all duration-200 group-hover/overlay:block group-hover/overlay:scale-110" />
-                </div>
-                <span className="text-sm font-medium text-muted-foreground">
-                  Click to close
-                </span>
-              </div>
-            )}
           </article>
 
           {/* Delete Confirmation Dialog */}
@@ -1392,19 +1224,6 @@ function WorkspaceCard({
         </ContextMenuItem>
       </ContextMenuContent>
 
-      {/* Panel action menu - appears at cursor when single-clicking a card in workspace+panel mode */}
-      {typeof document !== "undefined" &&
-        panelActionMenu &&
-        createPortal(
-          <PanelActionMenuPortal
-            x={panelActionMenu.x}
-            y={panelActionMenu.y}
-            onReplace={handleReplacePanel}
-            onDoublePanel={handleDoublePanel}
-            onClose={() => setPanelActionMenu(null)}
-          />,
-          document.body,
-        )}
     </ContextMenu>
   );
 }
@@ -1475,16 +1294,6 @@ export const WorkspaceCardMemoized = memo(
     if (prevLayout?.h !== nextLayout?.h) return false;
 
     // NOTE: isSelected is now subscribed directly from the store, not a prop
-
-    // Compare existingColors array (shallow comparison)
-    if (prevProps.existingColors.length !== nextProps.existingColors.length)
-      return false;
-    if (
-      prevProps.existingColors.some(
-        (color, i) => color !== nextProps.existingColors[i],
-      )
-    )
-      return false;
 
     // NOTE: We intentionally do NOT compare callback references (onUpdateItem, onDeleteItem, etc.)
     // These are action handlers that don't affect the rendered output.

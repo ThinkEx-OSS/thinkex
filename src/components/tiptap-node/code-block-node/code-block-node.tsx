@@ -118,10 +118,12 @@ export function CodeBlockNodeView({ node, updateAttributes, editor }: NodeViewPr
   const rawLanguage = node.attrs.language || "text"
   const language = resolveLanguageId(rawLanguage)
   const isEditable = editor.isEditable
+  const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false)
 
   const handleLanguageChange = useCallback(
     (lang: string) => {
       updateAttributes({ language: lang })
+      setIsLanguageMenuOpen(false)
     },
     [updateAttributes]
   )
@@ -137,19 +139,23 @@ export function CodeBlockNodeView({ node, updateAttributes, editor }: NodeViewPr
           <CodeBlockTitle>
             {isEditable ? (
               <CodeBlockLanguageSelector
+                open={isLanguageMenuOpen}
+                onOpenChange={setIsLanguageMenuOpen}
                 value={language}
                 onValueChange={handleLanguageChange}
               >
                 <CodeBlockLanguageSelectorTrigger>
                   <CodeBlockLanguageSelectorValue />
                 </CodeBlockLanguageSelectorTrigger>
-                <CodeBlockLanguageSelectorContent>
-                  {sortedLanguages.map(([id, { name }]) => (
-                    <CodeBlockLanguageSelectorItem key={id} value={id}>
-                      {name}
-                    </CodeBlockLanguageSelectorItem>
-                  ))}
-                </CodeBlockLanguageSelectorContent>
+                {isLanguageMenuOpen ? (
+                  <CodeBlockLanguageSelectorContent>
+                    {sortedLanguages.map(([id, { name }]) => (
+                      <CodeBlockLanguageSelectorItem key={id} value={id}>
+                        {name}
+                      </CodeBlockLanguageSelectorItem>
+                    ))}
+                  </CodeBlockLanguageSelectorContent>
+                ) : null}
               </CodeBlockLanguageSelector>
             ) : (
               <span className="font-mono text-xs">{getLanguageName(language)}</span>
