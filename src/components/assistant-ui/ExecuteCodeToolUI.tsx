@@ -2,7 +2,6 @@
 
 import { CodeIcon, ChevronDownIcon } from "lucide-react";
 import {
-  memo,
   useCallback,
   useRef,
   useState,
@@ -195,13 +194,21 @@ const ToolText: FC<
 
 ToolText.displayName = "ToolText";
 
+type ExecuteCodeResult =
+  | string
+  | {
+      text?: string;
+      result?: string;
+      value?: string;
+    };
+
 /**
  * Inner component that handles result parsing inside the error boundary.
  */
 const ExecuteCodeContent: FC<{
   args: { task: string };
   status: { type: string };
-  result: string | null;
+  result: ExecuteCodeResult | null;
 }> = ({ args, status, result }) => {
   const isRunning = status.type === "running";
   // Parse inside the boundary so errors are caught
@@ -250,7 +257,7 @@ ExecuteCodeContent.displayName = "ExecuteCodeContent";
  */
 export const ExecuteCodeToolUI = makeAssistantToolUI<{
   task: string;
-}, string>({
+}, ExecuteCodeResult>({
   toolName: "executeCode",
   render: function ExecuteCodeToolUI({ args, status, result }) {
     return (

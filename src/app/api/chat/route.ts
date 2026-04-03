@@ -4,9 +4,9 @@ import {
   smoothStream,
   convertToModelMessages,
   pruneMessages,
+  safeValidateUIMessages,
   stepCountIs,
   wrapLanguageModel,
-  tool,
 } from "ai";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 import { withTracing } from "@posthog/ai";
@@ -17,6 +17,7 @@ import { headers } from "next/headers";
 import { createChatTools } from "@/lib/ai/tools";
 import { getPostHogServerClient } from "@/lib/posthog-server";
 import { withServerObservability } from "@/lib/with-server-observability";
+import { normalizeLegacyToolMessages } from "@/lib/ai/legacy-tool-message-compat";
 
 // Regex patterns as constants (compiled once, reused for all requests)
 const URL_CONTEXT_REGEX = /\[URL_CONTEXT:(.+?)\]/g;
@@ -178,7 +179,7 @@ function buildSystemPrompt(
   // Add URL detection hint if URLs are present
   if (urlContextUrls.length > 0) {
     parts.push(
-      `\n\nURL DETECTION: The user's message contains ${urlContextUrls.length} URL(s): ${urlContextUrls.join(", ")}. You should call the processUrls tool with these URLs to analyze them.`,
+      `\n\nURL DETECTION: The user's message contains ${urlContextUrls.length} URL(s): ${urlContextUrls.join(", ")}. Call the processUrls tool with a structured object like { "urls": ["https://example.com"] } to analyze them. Do not wrap the URLs in a JSON string.`,
     );
   }
 
@@ -224,10 +225,23 @@ async function handlePOST(req: Request) {
       enableMagicFetch: true, // experiment: log AI data requests to PostHog
     });
 
+    const compatibleMessages = normalizeLegacyToolMessages(messages);
+
+    const validation = await safeValidateUIMessages({
+      messages: compatibleMessages,
+      tools,
+    });
+
+    if (!validation.success) {
+      throw validation.error;
+    }
+
+    const validatedMessages = validation.data;
+
     // Convert messages (pass tools so toModelOutput strips event from historical tool results)
     let convertedMessages;
     try {
-      convertedMessages = await convertToModelMessages(messages, { tools });
+      convertedMessages = await convertToModelMessages(validatedMessages, { tools });
     } catch (convertError) {
       logger.error("❌ [CHAT-API] convertToModelMessages FAILED:", {
         error:

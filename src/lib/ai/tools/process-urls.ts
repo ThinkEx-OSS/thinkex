@@ -1,7 +1,7 @@
-import { google } from "@ai-sdk/google";
+import { google, type GoogleGenerativeAIProviderMetadata } from "@ai-sdk/google";
 import { generateText, tool, zodSchema } from "ai";
-import { z } from "zod";
 import { logger } from "@/lib/utils/logger";
+import { ProcessUrlsInputSchema } from "@/lib/ai/process-urls-shared";
 
 /**
  * Create the processUrls tool for analyzing web pages
@@ -14,46 +14,10 @@ import { logger } from "@/lib/utils/logger";
 export function createProcessUrlsTool() {
     return tool({
         description: "Analyze web pages using Google's URL Context API. Extracts content, key information, and metadata from regular web URLs (http/https). Use this for web pages, articles, documentation, and other web content. This tool does not handle uploaded files or videos.",
-        inputSchema: zodSchema(
-            z.object({
-                jsonInput: z.string().describe("JSON string containing an object with 'urls' (array of web URLs). Example: '{\"urls\": [\"https://example.com\"]}'"),
-            })
-        ),
+        inputSchema: zodSchema(ProcessUrlsInputSchema),
         strict: true,
-        execute: async ({ jsonInput }) => {
-            let parsed;
-            try {
-                parsed = JSON.parse(jsonInput);
-            } catch (e) {
-                logger.error("❌ [URL_TOOL] Failed to parse JSON input:", e);
-                return "Error: Input must be a valid JSON string.";
-            }
-
-            // Validate parsed JSON shape
-            if (typeof parsed !== 'object' || parsed === null) {
-                return "Error: Input must be a JSON object with 'urls' array.";
-            }
-
-            const urlList = parsed.urls;
-
-            if (!Array.isArray(urlList)) {
-                return "Error: 'urls' must be an array.";
-            }
-
-            // Validate all items are strings
-            if (!urlList.every((url: unknown) => typeof url === 'string')) {
-                return "Error: All URLs must be strings.";
-            }
-
+        execute: async ({ urls: urlList, instruction }) => {
             logger.debug("🔗 [URL_TOOL] Processing web URLs:", urlList);
-
-            if (urlList.length === 0) {
-                return "No URLs provided";
-            }
-
-            if (urlList.length > 20) {
-                return `Too many URLs (${urlList.length}). Maximum 20 URLs allowed.`;
-            }
 
             const fileUrls = urlList.filter((url: string) =>
                 url.includes('supabase.co/storage') ||
@@ -66,82 +30,53 @@ export function createProcessUrlsTool() {
             }
 
             try {
-                // Dynamically import UrlProcessor to avoid circular dependencies if any
-                const { UrlProcessor } = await import("@/lib/ai/utils/url-processor");
+                const urlsBlock = urlList.map((url, index) => `${index + 1}. ${url}`).join("\n");
+                const instructionBlock = instruction?.trim()
+                    ? `Focus instruction: ${instruction.trim()}\n\n`
+                    : "";
 
-                // Process URLs using the shared utility (handles fallback logic)
-                const processingResults = await UrlProcessor.processUrls(urlList);
+                const { text, providerMetadata } = await generateText({
+                    model: google("gemini-3-flash-preview"),
+                    tools: {
+                        url_context: google.tools.urlContext({}),
+                    },
+                    prompt: `${instructionBlock}Analyze these URLs directly using URL context:
 
-                // Filter successful results
-                const successfulResults = processingResults.filter(r => r.success);
-                const failedResults = processingResults.filter(r => !r.success);
+${urlsBlock}
 
-                if (failedResults.length > 0) {
-                    logger.warn(`🔗 [URL_TOOL] ${failedResults.length} URL(s) failed to process:`, failedResults.map(r => r.url));
-                }
-
-                if (successfulResults.length === 0) {
-                    return {
-                        text: `Failed to process any of the provided URLs. Errors: ${failedResults.map(r => `${r.url}: ${r.error}`).join('; ')}`,
-                        metadata: { urlMetadata: null, groundingChunks: null, sources: null }
-                    };
-                }
-
-                // Analyze each result with the LLM
-                const analysisPromises = successfulResults.map(async (result) => {
-                    const promptText = `Analyze the content from the following URL:
-${result.url}
-
-Content:
-${result.content}
-
-Provide a clear, accurate answer. Format your response as:
-
-Summary: [1-2 sentences on what this page is about]
+Provide a clear, accurate answer in this format:
+Summary: [1-2 sentences]
 Key information:
 - [Point 1]
 - [Point 2]
 - [Additional points as needed]
-Details: [Important details, specs, data, or publication/update dates relevant to the user's question]`;
-
-                    const { text } = await generateText({
-                        model: google("gemini-2.5-flash"),
-                        prompt: promptText,
-                    });
-
-                    return {
-                        url: result.url,
-                        title: result.title,
-                        text: text,
-                        source: result.url
-                    };
+Details: [Important details, specs, dates, or relevant factual context]`,
                 });
 
-                const analyses = await Promise.all(analysisPromises);
+                const googleMetadata = providerMetadata?.google as GoogleGenerativeAIProviderMetadata | undefined;
+                const groundingMetadata = googleMetadata?.groundingMetadata ?? null;
+                const urlContextMetadata = googleMetadata?.urlContextMetadata ?? null;
+                const groundingChunks = groundingMetadata?.groundingChunks ?? null;
+                const sources = groundingChunks
+                    ?.flatMap((chunk) => {
+                        const uri = chunk.web?.uri;
+                        if (!uri) return [];
 
-                // Combine text from all analyses
-                const combinedText = analyses
-                    .map(a => `**${a.title}** (${a.url})\n\n${a.text}`)
-                    .join('\n\n---\n\n');
-
-                if (failedResults.length > 0) {
-                    const failureText = `\n\n*(Note: Failed to access ${failedResults.length} URLs: ${failedResults.map(r => r.url).join(', ')})*`;
-                    return {
-                        text: combinedText + failureText,
-                        metadata: {
-                            urlMetadata: null,
-                            groundingChunks: null,
-                            sources: analyses.map(a => ({ uri: a.url, title: a.title }))
-                        }
-                    };
-                }
+                        return [{
+                            uri,
+                            title: chunk.web?.title || uri,
+                        }];
+                    })
+                    .filter((source, index, array) =>
+                        array.findIndex((candidate) => candidate.uri === source.uri) === index
+                    ) ?? null;
 
                 return {
-                    text: combinedText,
+                    text,
                     metadata: {
-                        urlMetadata: null,
-                        groundingChunks: null,
-                        sources: analyses.map(a => ({ uri: a.url, title: a.title }))
+                        urlMetadata: urlContextMetadata?.urlMetadata ?? null,
+                        groundingChunks,
+                        sources,
                     },
                 };
 

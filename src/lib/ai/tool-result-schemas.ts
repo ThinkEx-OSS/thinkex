@@ -128,8 +128,19 @@ export function parseFlashcardResult(input: unknown): FlashcardResult {
   return coerceToFlashcardResult(input);
 }
 
-/** webSearch, executeCode – result is markdown string */
+/** executeCode returns markdown text, but SDK/history can rehydrate it as an object wrapper. */
 export function parseStringResult(input: unknown): string {
+  if (typeof input === "string") {
+    return input;
+  }
+
+  if (input != null && typeof input === "object" && !Array.isArray(input)) {
+    const record = input as Record<string, unknown>;
+    if (typeof record.text === "string") return record.text;
+    if (typeof record.result === "string") return record.result;
+    if (typeof record.value === "string") return record.value;
+  }
+
   return parseWithSchema(z.string(), input, "StringResult");
 }
 

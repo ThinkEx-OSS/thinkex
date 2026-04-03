@@ -14,9 +14,7 @@ import {
     makeAssistantToolUI,
 } from "@assistant-ui/react";
 
-import { StandaloneMarkdown } from "@/components/assistant-ui/standalone-markdown";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
-import { parseStringResult } from "@/lib/ai/tool-result-schemas";
 import {
     Collapsible,
     CollapsibleContent,
@@ -201,31 +199,44 @@ const getDomain = (url: string) => {
     try {
         const domain = new URL(url).hostname;
         return domain.replace(/^www\./, '');
-    } catch (e) {
+    } catch {
         return url;
     }
 };
 
+type GroundingChunk = {
+    web?: {
+        uri?: string;
+        title?: string;
+    };
+};
+
+type WebSearchResultPayload = {
+    text?: string;
+    groundingMetadata?: {
+        webSearchQueries?: string[];
+        groundingChunks?: GroundingChunk[];
+    };
+};
+
 const WebSearchContent: FC<{
-    args: { query: string };
     status: { type: string };
     result: string | null;
-}> = ({ args, status, result }) => {
+}> = ({ status, result }) => {
     const isRunning = status.type === "running";
-    // Parse result as JSON if available
-    let parsed: any = null;
+
+    let parsed: WebSearchResultPayload | null = null;
     try {
         if (result) {
-            parsed = JSON.parse(result);
+            parsed = JSON.parse(result) as WebSearchResultPayload;
         }
-    } catch (e) {
-        // Fallback to simple string if parse fails (legacy support)
+    } catch {
         parsed = { text: result };
     }
 
     const metadata = parsed?.groundingMetadata;
     const queries = metadata?.webSearchQueries as string[] | undefined;
-    const chunks = metadata?.groundingChunks as any[] | undefined;
+    const chunks = metadata?.groundingChunks;
 
     return (
         <ToolRoot>
@@ -323,10 +334,10 @@ export const WebSearchToolUI = makeAssistantToolUI<{
     query: string;
 }, string>({
     toolName: "webSearch",
-    render: function WebSearchToolUI({ args, status, result }) {
+    render: function WebSearchToolUI({ status, result }) {
         return (
             <ToolUIErrorBoundary componentName="WebSearch">
-                <WebSearchContent args={args} status={status} result={result ?? null} />
+                <WebSearchContent status={status} result={result ?? null} />
             </ToolUIErrorBoundary>
         );
     },

@@ -1,8 +1,7 @@
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
-import { tool, zodSchema } from "ai";
+import { generateText, tool, zodSchema } from "ai";
 import { logger } from "@/lib/utils/logger";
-import { codeExecutionWorker } from "@/lib/ai/workers";
 
 /**
  * Create the googleSearch tool
@@ -23,10 +22,23 @@ export function createExecuteCodeTool() {
                 task: z.string().describe("Description of the task to solve with code"),
             })
         ),
+        outputSchema: z.string(),
         strict: true,
         execute: async ({ task }) => {
-            logger.debug("🎯 [ORCHESTRATOR] Delegating to Code Execution Worker:", task);
-            return await codeExecutionWorker(task);
+            logger.debug("🎯 [EXECUTE-CODE] Starting code execution:", task);
+
+            const result = await generateText({
+                model: google("gemini-2.5-flash"),
+                tools: {
+                    code_execution: google.tools.codeExecution({}),
+                },
+                prompt: `${task}
+
+Use Python code execution to solve this problem. Show your work and explain the result.`,
+            });
+
+            logger.debug("🎯 [EXECUTE-CODE] Code execution completed");
+            return result.text;
         },
     });
 }

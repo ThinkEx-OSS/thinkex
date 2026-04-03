@@ -2,7 +2,6 @@
 
 import { LinkIcon, ChevronDownIcon, CheckIcon, ExternalLinkIcon, AlertCircleIcon } from "lucide-react";
 import {
-  memo,
   useCallback,
   useRef,
   useState,
@@ -15,9 +14,9 @@ import {
   makeAssistantToolUI,
 } from "@assistant-ui/react";
 
-import { StandaloneMarkdown } from "@/components/assistant-ui/standalone-markdown";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { parseURLContextResult } from "@/lib/ai/tool-result-schemas";
+import { normalizeProcessUrlsArgs } from "@/lib/ai/process-urls-shared";
 import {
   Collapsible,
   CollapsibleContent,
@@ -197,127 +196,52 @@ const ToolText: FC<
 ToolText.displayName = "ToolText";
 
 /**
- * Helper function to extract URLs from messages
- * This simulates what the chat API does to detect URLs
- */
-function extractUrlsFromMessages(messages: any[]): string[] {
-  const urls: string[] = [];
-
-  messages.forEach((message) => {
-    if (message.content && Array.isArray(message.content)) {
-      message.content.forEach((part: any) => {
-        if (part.type === "text" && typeof part.text === "string") {
-          // Look for [URL_CONTEXT:...] markers or direct URLs
-          const urlMatches = part.text.matchAll(/\[URL_CONTEXT:(.+?)\]/g);
-          for (const match of urlMatches) {
-            const url = match[1];
-            if (url && !urls.includes(url)) {
-              urls.push(url);
-            }
-          }
-
-          // Also look for direct URLs in text
-          const directUrlMatches = part.text.matchAll(/https?:\/\/[^\s]+/g);
-          for (const match of directUrlMatches) {
-            const url = match[0];
-            if (url && !urls.includes(url)) {
-              urls.push(url);
-            }
-          }
-        }
-      });
-    }
-  });
-
-  return urls;
-}
-
-/**
  * Tool UI component for processUrls tool.
  * Displays URLs being processed and their retrieval status.
  */
+type URLMetadata = {
+  retrievedUrl?: string;
+  urlRetrievalStatus?: string;
+};
+
+type SourceMetadata = {
+  uri?: string;
+  title?: string;
+};
+
 type ProcessUrlsResult =
   | string
   | {
     text: string;
     metadata?: {
-      urlMetadata?: Array<{
-        retrievedUrl: string;
-        urlRetrievalStatus: string;
-      }> | null;
-      groundingChunks?: Array<any> | null;
-      sources?: Array<any> | null;
+      urlMetadata?: URLMetadata[] | null;
+      groundingChunks?: unknown[] | null;
+      sources?: SourceMetadata[] | null;
     };
   };
 
 export const URLContextToolUI = makeAssistantToolUI<{
-  jsonInput: string;
+  urls?: string[];
+  instruction?: string;
+  jsonInput?: string;
 }, ProcessUrlsResult>({
   toolName: "processUrls",
   render: function URLContextToolUI({ args, status, result }) {
-    // Client-side debugging
-    if (typeof window !== 'undefined') {
-      console.debug("🔗 [URL_TOOL_UI] Component render:", {
-        status: status.type,
-        args: args,
-        hasResult: !!result,
-        resultType: typeof result,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
     const isRunning = status.type === "running";
     const isComplete = status.type === "complete";
 
     const parsedResult = result != null ? parseURLContextResult(result) : null;
-    const resultText = typeof parsedResult === "string" ? parsedResult : (parsedResult as { text?: string })?.text || "";
-    type Meta = { urlMetadata?: Array<{ retrievedUrl?: string; urlRetrievalStatus?: string }>; groundingChunks?: unknown[]; sources?: unknown[] };
+    type Meta = { urlMetadata?: URLMetadata[]; groundingChunks?: unknown[]; sources?: SourceMetadata[] };
     const metadata = (typeof parsedResult === "object" && parsedResult !== null && "metadata" in parsedResult ? (parsedResult as { metadata?: Meta }).metadata : null) as Meta | null;
     const urlMetadata = metadata?.urlMetadata ?? null;
     const groundingChunks = metadata?.groundingChunks ?? null;
     const sources = metadata?.sources ?? null;
 
-    let urls: string[] = [];
-    let instruction: string | undefined;
-
-    if (args?.jsonInput) {
-      try {
-        const parsed = JSON.parse(args.jsonInput);
-        urls = parsed.urls || [];
-        instruction = parsed.instruction;
-      } catch (e) {
-        console.error("Failed to parse jsonInput:", e);
-      }
-    } else {
-      const a = args as { urls?: { list?: string[]; instruction?: string } };
-      urls = a?.urls?.list || [];
-      instruction = a?.urls?.instruction;
-    }
+    const normalizedArgs = normalizeProcessUrlsArgs(args);
+    const urls = normalizedArgs?.urls ?? [];
+    const instruction = normalizedArgs?.instruction;
 
     const urlCount = urls.length;
-
-    // Debug parsed data
-    if (typeof window !== 'undefined') {
-      console.debug("🔗 [URL_TOOL_UI] Parsed data:", {
-        urlCount,
-        urls,
-        resultTextLength: resultText.length,
-        hasMetadata: !!metadata,
-        urlMetadataCount: urlMetadata?.length || 0,
-        groundingChunksCount: groundingChunks?.length || 0,
-        sourcesCount: sources?.length || 0,
-        isRunning,
-        isComplete,
-      });
-
-      if (isComplete && metadata) {
-        console.debug("🔗 [URL_TOOL_UI] Complete result metadata:", {
-          urlMetadata: urlMetadata,
-          groundingChunks: groundingChunks,
-          sources: sources,
-        });
-      }
-    }
 
     // Helper to get status badge color
     const getStatusColor = (status: string) => {
@@ -364,7 +288,7 @@ export const URLContextToolUI = makeAssistantToolUI<{
                     )}
                     <div className="mt-1 space-y-1">
                       {urls.map((url, index) => {
-                        const urlMeta = urlMetadata?.find((m: any) => m.retrievedUrl === url);
+                        const urlMeta = urlMetadata?.find((m) => m.retrievedUrl === url);
                         return (
                           <div key={index} className="flex flex-col gap-1">
                             <div className="flex items-center gap-2">
@@ -433,7 +357,7 @@ export const URLContextToolUI = makeAssistantToolUI<{
                           <div className="text-xs">
                             <span className="font-medium text-muted-foreground/70">Retrieved: </span>
                             <span className="text-foreground">
-                              {urlMetadata.filter((m: any) => m.urlRetrievalStatus === "URL_RETRIEVAL_STATUS_SUCCESS").length} / {urlMetadata.length}
+                              {urlMetadata.filter((m) => m.urlRetrievalStatus === "URL_RETRIEVAL_STATUS_SUCCESS").length} / {urlMetadata.length}
                             </span>
                           </div>
                         )}
