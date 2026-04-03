@@ -90,8 +90,6 @@ import { FaQuoteRight } from "react-icons/fa6";
 
 // --- Hooks ---
 import { useIsBreakpoint } from "@/hooks/use-is-breakpoint";
-import { useWindowSize } from "@/hooks/use-window-size";
-import { useCursorVisibility } from "@/hooks/use-cursor-visibility";
 
 // --- Components ---
 import { EditorThemeToggle } from "@/components/editor/EditorThemeToggle";
@@ -842,10 +840,7 @@ export function DocumentEditor({
   showThemeToggle = true,
 }: DocumentEditorProps = {}) {
   const isMobile = useIsBreakpoint();
-  const { height } = useWindowSize();
   const [mobileView, setMobileView] = useState<"main" | "highlighter">("main");
-  const [toolbarHeight, setToolbarHeight] = useState(0);
-  const toolbarRef = useRef<HTMLDivElement>(null);
   const activeMobileView = isMobile ? mobileView : "main";
 
   const editor = useEditor({
@@ -937,27 +932,6 @@ export function DocumentEditor({
     },
   });
 
-  useEffect(() => {
-    const toolbar = toolbarRef.current;
-    if (!toolbar) return;
-
-    const updateToolbarHeight = () => {
-      setToolbarHeight(toolbar.getBoundingClientRect().height);
-    };
-
-    const observer = new ResizeObserver(updateToolbarHeight);
-    observer.observe(toolbar);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
-
-  const rect = useCursorVisibility({
-    editor,
-    overlayHeight: toolbarHeight,
-  });
-
   // Sync incoming content only when it actually differs from the live editor state.
   useEffect(() => {
     if (!editor) return;
@@ -991,7 +965,6 @@ export function DocumentEditor({
     >
       <EditorContext.Provider value={{ editor }}>
         <div
-          ref={toolbarRef}
           role="toolbar"
           aria-label="Editor toolbar"
           className={cn(
@@ -1000,13 +973,6 @@ export function DocumentEditor({
               ? "absolute inset-x-0 rounded-none border border-x-0 border-b-0"
               : "sticky top-0 mx-auto w-fit max-w-[calc(100%-1.5rem)] rounded-b-lg",
           )}
-          style={{
-            ...(isMobile
-              ? {
-                  bottom: `calc(100% - ${height - rect.y}px)`,
-                }
-              : {}),
-          }}
         >
           {activeMobileView === "main" ? (
             <MainToolbarContent
