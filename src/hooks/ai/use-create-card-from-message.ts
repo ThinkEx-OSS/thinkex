@@ -7,6 +7,7 @@ import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useQueryClient } from "@tanstack/react-query";
 import { logger } from "@/lib/utils/logger";
+import { normalizeWebSearchResult } from "@/lib/ai/web-search-shared";
 
 interface CreateCardOptions {
   debounceMs?: number;
@@ -27,24 +28,31 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
   const queryClient = useQueryClient();
 
-  // Helper to extract sources from a tool result JSON string
-  const extractSourcesFromToolResult = (resultJson: string) => {
-    try {
-      const parsed = JSON.parse(resultJson);
-      const chunks = parsed?.groundingMetadata?.groundingChunks || [];
-      const extractedSources: Array<{ title: string; url: string; favicon?: string }> = [];
-
-      for (const chunk of chunks) {
-        const uri = chunk?.web?.uri;
-        const title = chunk?.web?.title;
-        if (uri && title) {
-          extractedSources.push({ title, url: uri });
-        }
-      }
-      return extractedSources;
-    } catch (e) {
+  const extractSourcesFromToolResult = (result: unknown) => {
+    const parsed = normalizeWebSearchResult(result);
+    if (!parsed) {
       return [];
     }
+
+    if (parsed.sources.length > 0) {
+      return parsed.sources.map((source) => ({
+        title: source.title,
+        url: source.url,
+      }));
+    }
+
+    const chunks = parsed.groundingMetadata?.groundingChunks || [];
+    const extractedSources: Array<{ title: string; url: string; favicon?: string }> = [];
+
+    for (const chunk of chunks) {
+      const uri = chunk?.web?.uri;
+      const title = chunk?.web?.title;
+      if (uri && title) {
+        extractedSources.push({ title, url: uri });
+      }
+    }
+
+    return extractedSources;
   };
 
   const createCard = useCallback(async () => {
@@ -120,14 +128,14 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
                     if (part.type === 'tool-result' && (part as any).toolName === 'webSearch') {
                       const result = (part as any).result;
                       if (result) {
-                        allSources.push(...extractSourcesFromToolResult(JSON.stringify(result)));
+                        allSources.push(...extractSourcesFromToolResult(result));
                       }
                     }
                   }
                 }
                 // Check simplified Vercel AI SDK structure
                 if ((msg as any).toolName === 'webSearch' && (msg as any).content) {
-                  allSources.push(...extractSourcesFromToolResult(JSON.stringify(msg.content)));
+                  allSources.push(...extractSourcesFromToolResult((msg as any).content));
                 }
               }
 
@@ -153,7 +161,7 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
                 if (Array.isArray(invocations)) {
                   for (const tool of invocations) {
                     if (tool.toolName === 'webSearch' && tool.state === 'result') {
-                      allSources.push(...extractSourcesFromToolResult(JSON.stringify(tool.result)));
+                      allSources.push(...extractSourcesFromToolResult(tool.result));
                     }
                   }
                 }

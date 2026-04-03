@@ -9,6 +9,21 @@ import type { Item } from "@/lib/workspace-state/types";
 const MAX_LINE_LENGTH = 2000;
 const MAX_MATCHES = 100;
 
+const SearchWorkspaceResultSchema = z.discriminatedUnion("success", [
+    z.object({
+        success: z.literal(false),
+        message: z.string(),
+        matches: z.number().int().nonnegative(),
+        output: z.string(),
+    }),
+    z.object({
+        success: z.literal(true),
+        matches: z.number().int().nonnegative(),
+        truncated: z.boolean(),
+        output: z.string(),
+    }),
+]);
+
 function buildRegex(pattern: string): RegExp {
     const hasRegexChars = /[.*+?^${}()|[\]\\]/.test(pattern);
     if (hasRegexChars) {
@@ -33,6 +48,7 @@ export function createSearchWorkspaceTool(ctx: WorkspaceToolContext) {
                 path: z.string().optional().describe("Folder prefix (Physics/) or exact item path (Physics/documents/File.md)"),
             })
         ),
+        outputSchema: zodSchema(SearchWorkspaceResultSchema),
         strict: true,
         execute: async ({ pattern, include, path: pathPrefix }) => {
             if (!pattern?.trim()) {
@@ -40,7 +56,14 @@ export function createSearchWorkspaceTool(ctx: WorkspaceToolContext) {
             }
 
             const accessResult = await loadStateForTool(ctx);
-            if (!accessResult.success) return accessResult;
+            if (!accessResult.success) {
+                return {
+                    success: false,
+                    message: accessResult.message,
+                    matches: 0,
+                    output: "",
+                };
+            }
 
             const { state } = accessResult;
             let items: Item[] = state.items.filter((i) => i.type !== "folder");

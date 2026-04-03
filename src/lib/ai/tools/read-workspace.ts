@@ -12,6 +12,33 @@ const DEFAULT_LIMIT = 500;
 const MAX_LIMIT = 2000;
 const MAX_LINE_LENGTH = 2000;
 
+const ReadWorkspaceResultSchema = z.discriminatedUnion("success", [
+    z.object({
+        success: z.literal(false),
+        message: z.string(),
+    }),
+    z.object({
+        success: z.literal(true),
+        itemName: z.string(),
+        type: z.string(),
+        path: z.string(),
+        content: z.string(),
+        totalLines: z.number().int().nonnegative(),
+        lineStart: z.number().int().min(1),
+        lineEnd: z.number().int().nonnegative(),
+        hasMore: z.boolean(),
+        rangeNote: z.string(),
+        nextLineStart: z.number().int().min(1).optional(),
+        totalPages: z.number().int().min(1).optional(),
+        pageRange: z
+            .object({
+                start: z.number().int().min(1).optional(),
+                end: z.number().int().min(1).optional(),
+            })
+            .optional(),
+    }),
+]);
+
 export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
@@ -57,6 +84,7 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
                     .describe("For PDFs only: 1-indexed end page inclusive (e.g. 10 for pages 5–10). Use with pageStart."),
             })
         ),
+        outputSchema: zodSchema(ReadWorkspaceResultSchema),
         strict: true,
         execute: async ({ path, itemName, lineStart = 1, limit = DEFAULT_LIMIT, pageStart, pageEnd }) => {
             if (!path?.trim() && !itemName?.trim()) {
