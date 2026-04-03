@@ -97,4 +97,40 @@ describe("normalizeLegacyToolMessages", () => {
       },
     });
   });
+
+  it("normalizes legacy webSearch string outputs without sources", () => {
+    const messages = [
+      {
+        id: "1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-webSearch",
+            toolCallId: "call_4",
+            state: "output-available",
+            input: { query: "latest AI news" },
+            output: JSON.stringify({
+              text: "Summary text",
+              groundingMetadata: {
+                groundingChunks: [
+                  { web: { uri: "https://example.com", title: "Example" } },
+                ],
+              },
+            }),
+          },
+        ],
+      },
+    ] as UIMessage[];
+
+    const normalized = normalizeLegacyToolMessages(messages);
+    const part = normalized[0]?.parts[0];
+
+    expect(part).toMatchObject({
+      type: "tool-webSearch",
+      output: {
+        text: "Summary text",
+        sources: [],
+      },
+    });
+  });
 });

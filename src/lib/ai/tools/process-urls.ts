@@ -20,11 +20,6 @@ function truncateContent(content: string): string {
 /**
  * Create the processUrls tool for analyzing web pages
  */
-
-
-/**
- * Create the processUrls tool for analyzing web pages
- */
 export function createProcessUrlsTool() {
     return tool({
         description: "Fetch the content of web pages from the provided URLs. Use this for web pages, articles, and documentation when the model needs the actual page text before answering. This tool does not handle uploaded files or video URLs.",

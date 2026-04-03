@@ -25,7 +25,7 @@ export const WebSearchGroundingMetadataSchema = z
 
 export const WebSearchResultSchema = z.object({
   text: z.string(),
-  sources: z.array(WebSearchSourceSchema),
+  sources: z.array(WebSearchSourceSchema).optional().default([]),
   groundingMetadata: WebSearchGroundingMetadataSchema.optional(),
 });
 

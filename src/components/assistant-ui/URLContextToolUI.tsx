@@ -204,18 +204,12 @@ type URLMetadata = {
   urlRetrievalStatus?: string;
 };
 
-type SourceMetadata = {
-  uri?: string;
-  title?: string;
-};
-
 type ProcessUrlsResult =
   | string
   | {
     text: string;
     metadata?: {
       urlMetadata?: URLMetadata[] | null;
-      sources?: SourceMetadata[] | null;
     };
   };
 
@@ -231,7 +225,6 @@ export const URLContextToolUI = makeAssistantToolUI<{
     const parsedResult = result != null ? parseURLContextResult(result) : null;
     type Meta = {
       urlMetadata?: URLMetadata[];
-      sources?: SourceMetadata[];
     };
     const metadata = (typeof parsedResult === "object" && parsedResult !== null && "metadata" in parsedResult ? (parsedResult as { metadata?: Meta }).metadata : null) as Meta | null;
     const urlMetadata = metadata?.urlMetadata ?? null;
