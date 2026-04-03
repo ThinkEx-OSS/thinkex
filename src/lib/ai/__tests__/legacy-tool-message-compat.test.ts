@@ -3,7 +3,7 @@ import type { UIMessage } from "ai";
 import { normalizeLegacyToolMessages } from "../legacy-tool-message-compat";
 
 describe("normalizeLegacyToolMessages", () => {
-  it("normalizes legacy processUrls jsonInput tool args", () => {
+  it("normalizes legacy processUrls jsonInput tool args and drops instruction", () => {
     const messages = [
       {
         id: "1",
@@ -31,7 +31,6 @@ describe("normalizeLegacyToolMessages", () => {
       type: "tool-processUrls",
       input: {
         urls: ["https://example.com"],
-        instruction: "Extract dates.",
       },
     });
   });
@@ -59,6 +58,79 @@ describe("normalizeLegacyToolMessages", () => {
     expect(part).toMatchObject({
       type: "tool-executeCode",
       output: "The answer is 6765.",
+    });
+  });
+
+  it("normalizes legacy webSearch string outputs", () => {
+    const messages = [
+      {
+        id: "1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-webSearch",
+            toolCallId: "call_3",
+            state: "output-available",
+            input: { query: "latest AI news" },
+            output: JSON.stringify({
+              text: "Summary text",
+              sources: [{ title: "Example", url: "https://example.com" }],
+              groundingMetadata: {
+                groundingChunks: [
+                  { web: { uri: "https://example.com", title: "Example" } },
+                ],
+              },
+            }),
+          },
+        ],
+      },
+    ] as UIMessage[];
+
+    const normalized = normalizeLegacyToolMessages(messages);
+    const part = normalized[0]?.parts[0];
+
+    expect(part).toMatchObject({
+      type: "tool-webSearch",
+      output: {
+        text: "Summary text",
+        sources: [{ title: "Example", url: "https://example.com" }],
+      },
+    });
+  });
+
+  it("normalizes legacy webSearch string outputs without sources", () => {
+    const messages = [
+      {
+        id: "1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-webSearch",
+            toolCallId: "call_4",
+            state: "output-available",
+            input: { query: "latest AI news" },
+            output: JSON.stringify({
+              text: "Summary text",
+              groundingMetadata: {
+                groundingChunks: [
+                  { web: { uri: "https://example.com", title: "Example" } },
+                ],
+              },
+            }),
+          },
+        ],
+      },
+    ] as UIMessage[];
+
+    const normalized = normalizeLegacyToolMessages(messages);
+    const part = normalized[0]?.parts[0];
+
+    expect(part).toMatchObject({
+      type: "tool-webSearch",
+      output: {
+        text: "Summary text",
+        sources: [],
+      },
     });
   });
 });

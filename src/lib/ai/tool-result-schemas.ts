@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { parseWithSchema } from "@/components/tool-ui/shared";
+import { ProcessUrlsOutputSchema } from "@/lib/ai/process-urls-shared";
+import {
+  WebSearchResultSchema,
+  normalizeWebSearchResult,
+} from "@/lib/ai/web-search-shared";
 
 /**
  * Shared schemas and parsers for tool results. Used by assistant-ui Tool UIs
@@ -145,18 +150,21 @@ export function parseStringResult(input: unknown): string {
 }
 
 /** processUrls – result is string or { text, metadata } */
-export const URLContextResultSchema = z.union([
-  z.string(),
-  z
-    .object({
-      text: z.string().optional(),
-      metadata: z.any().optional(),
-    })
-    .passthrough(),
-]);
+export const URLContextResultSchema = z.union([z.string(), ProcessUrlsOutputSchema]);
 
 export type URLContextResult = z.infer<typeof URLContextResultSchema>;
 
 export function parseURLContextResult(input: unknown): URLContextResult {
   return parseWithSchema(URLContextResultSchema, input, "URLContextResult");
+}
+
+export type WebSearchResult = z.infer<typeof WebSearchResultSchema>;
+
+export function parseWebSearchResult(input: unknown): WebSearchResult {
+  const normalized = normalizeWebSearchResult(input);
+  if (normalized) {
+    return normalized;
+  }
+
+  return parseWithSchema(WebSearchResultSchema, input, "WebSearchResult");
 }

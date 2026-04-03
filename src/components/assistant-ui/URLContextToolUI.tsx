@@ -1,6 +1,6 @@
 "use client";
 
-import { LinkIcon, ChevronDownIcon, CheckIcon, ExternalLinkIcon, AlertCircleIcon } from "lucide-react";
+import { LinkIcon, ChevronDownIcon, CheckIcon, ExternalLinkIcon } from "lucide-react";
 import {
   useCallback,
   useRef,
@@ -204,25 +204,17 @@ type URLMetadata = {
   urlRetrievalStatus?: string;
 };
 
-type SourceMetadata = {
-  uri?: string;
-  title?: string;
-};
-
 type ProcessUrlsResult =
   | string
   | {
     text: string;
     metadata?: {
       urlMetadata?: URLMetadata[] | null;
-      groundingChunks?: unknown[] | null;
-      sources?: SourceMetadata[] | null;
     };
   };
 
 export const URLContextToolUI = makeAssistantToolUI<{
   urls?: string[];
-  instruction?: string;
   jsonInput?: string;
 }, ProcessUrlsResult>({
   toolName: "processUrls",
@@ -231,17 +223,19 @@ export const URLContextToolUI = makeAssistantToolUI<{
     const isComplete = status.type === "complete";
 
     const parsedResult = result != null ? parseURLContextResult(result) : null;
-    type Meta = { urlMetadata?: URLMetadata[]; groundingChunks?: unknown[]; sources?: SourceMetadata[] };
+    type Meta = {
+      urlMetadata?: URLMetadata[];
+    };
     const metadata = (typeof parsedResult === "object" && parsedResult !== null && "metadata" in parsedResult ? (parsedResult as { metadata?: Meta }).metadata : null) as Meta | null;
     const urlMetadata = metadata?.urlMetadata ?? null;
-    const groundingChunks = metadata?.groundingChunks ?? null;
-    const sources = metadata?.sources ?? null;
 
     const normalizedArgs = normalizeProcessUrlsArgs(args);
     const urls = normalizedArgs?.urls ?? [];
-    const instruction = normalizedArgs?.instruction;
 
     const urlCount = urls.length;
+    const successfulCount =
+      urlMetadata?.filter((m) => m.urlRetrievalStatus === "URL_RETRIEVAL_STATUS_SUCCESS").length ?? 0;
+    const failedCount = (urlMetadata?.length ?? 0) - successfulCount;
 
     // Helper to get status badge color
     const getStatusColor = (status: string) => {
@@ -265,7 +259,7 @@ export const URLContextToolUI = makeAssistantToolUI<{
         <ToolRoot>
           <ToolTrigger
             active={isRunning}
-            label={isRunning ? "Processing URLs" : "URLs processed"}
+            label={isRunning ? "Processing links" : "Links processed"}
             icon={<LinkIcon className="aui-tool-trigger-icon size-4 shrink-0" />}
           />
 
@@ -274,23 +268,12 @@ export const URLContextToolUI = makeAssistantToolUI<{
               <div className="space-y-3">
                 {urlCount > 0 && (
                   <div>
-                    <span className="text-xs font-medium text-muted-foreground/70">URLs:</span>
-                    {instruction && (
-                      <div className="mt-1 mb-2 p-2 bg-muted/50 rounded-md border border-border/50">
-                        <div className="flex items-start gap-2">
-                          <AlertCircleIcon className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground/60" />
-                          <div className="flex-1">
-                            <span className="text-xs font-medium text-muted-foreground/70">Custom instruction:</span>
-                            <p className="text-xs text-foreground mt-0.5">{instruction}</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    <span className="text-xs font-medium text-muted-foreground/70">Links:</span>
                     <div className="mt-1 space-y-1">
-                      {urls.map((url, index) => {
+                      {urls.map((url) => {
                         const urlMeta = urlMetadata?.find((m) => m.retrievedUrl === url);
                         return (
-                          <div key={index} className="flex flex-col gap-1">
+                          <div key={url} className="flex flex-col gap-1">
                             <div className="flex items-center gap-2">
                               <ExternalLinkIcon className="h-3 w-3 shrink-0 text-muted-foreground/60" />
                               <a
@@ -323,7 +306,7 @@ export const URLContextToolUI = makeAssistantToolUI<{
                   <div className="flex items-center gap-2">
                     <div className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
                     <span className="text-xs text-foreground">
-                      Analyzing {urlCount} URL{urlCount !== 1 ? "s" : ""}...
+                      Processing {urlCount} link{urlCount !== 1 ? "s" : ""}...
                     </span>
                   </div>
                 )}
@@ -333,34 +316,16 @@ export const URLContextToolUI = makeAssistantToolUI<{
                     <div className="flex items-center gap-2">
                       <CheckIcon className="h-4 w-4 text-green-500" />
                       <span className="text-xs text-foreground">
-                        Successfully processed {urlCount} URL{urlCount !== 1 ? "s" : ""}
+                        Processed {urlCount} link{urlCount !== 1 ? "s" : ""}
                       </span>
                     </div>
 
-                    {metadata && (
-                      <div className="space-y-2 border-t pt-2">
-                        {groundingChunks && groundingChunks.length > 0 && (
-                          <div className="text-xs">
-                            <span className="font-medium text-muted-foreground/70">Grounding chunks: </span>
-                            <span className="text-foreground">{groundingChunks.length}</span>
-                          </div>
-                        )}
-
-                        {sources && sources.length > 0 && (
-                          <div className="text-xs">
-                            <span className="font-medium text-muted-foreground/70">Sources: </span>
-                            <span className="text-foreground">{sources.length}</span>
-                          </div>
-                        )}
-
-                        {urlMetadata && urlMetadata.length > 0 && (
-                          <div className="text-xs">
-                            <span className="font-medium text-muted-foreground/70">Retrieved: </span>
-                            <span className="text-foreground">
-                              {urlMetadata.filter((m) => m.urlRetrievalStatus === "URL_RETRIEVAL_STATUS_SUCCESS").length} / {urlMetadata.length}
-                            </span>
-                          </div>
-                        )}
+                    {metadata && urlMetadata && urlMetadata.length > 0 && (
+                      <div className="border-t pt-2">
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
+                          {successfulCount} loaded
+                          {failedCount > 0 ? `, ${failedCount} unavailable` : ""}
+                        </Badge>
                       </div>
                     )}
                   </div>

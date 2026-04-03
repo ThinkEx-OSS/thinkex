@@ -15,6 +15,8 @@ import {
 } from "@assistant-ui/react";
 
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
+import { parseWebSearchResult } from "@/lib/ai/tool-result-schemas";
+import type { WebSearchResult } from "@/lib/ai/web-search-shared";
 import {
     Collapsible,
     CollapsibleContent,
@@ -204,39 +206,15 @@ const getDomain = (url: string) => {
     }
 };
 
-type GroundingChunk = {
-    web?: {
-        uri?: string;
-        title?: string;
-    };
-};
-
-type WebSearchResultPayload = {
-    text?: string;
-    groundingMetadata?: {
-        webSearchQueries?: string[];
-        groundingChunks?: GroundingChunk[];
-    };
-};
-
 const WebSearchContent: FC<{
     status: { type: string };
-    result: string | null;
+    result: WebSearchResult | null;
 }> = ({ status, result }) => {
     const isRunning = status.type === "running";
-
-    let parsed: WebSearchResultPayload | null = null;
-    try {
-        if (result) {
-            parsed = JSON.parse(result) as WebSearchResultPayload;
-        }
-    } catch {
-        parsed = { text: result };
-    }
-
+    const parsed = result ? parseWebSearchResult(result) : null;
     const metadata = parsed?.groundingMetadata;
-    const queries = metadata?.webSearchQueries as string[] | undefined;
-    const chunks = metadata?.groundingChunks;
+    const queries = metadata?.webSearchQueries;
+    const sources = parsed?.sources ?? [];
 
     return (
         <ToolRoot>
@@ -254,8 +232,8 @@ const WebSearchContent: FC<{
                             <div>
                                 <span className="text-xs font-medium text-muted-foreground/70 block mb-2">Search Queries:</span>
                                 <div className="flex flex-wrap gap-2">
-                                    {queries.map((q, i) => (
-                                        <div key={i} className="bg-muted/50 px-2 py-1 rounded text-xs text-foreground/80 border border-border/50">
+                                    {queries.map((q) => (
+                                        <div key={q} className="bg-muted/50 px-2 py-1 rounded text-xs text-foreground/80 border border-border/50">
                                             {q}
                                         </div>
                                     ))}
@@ -263,39 +241,22 @@ const WebSearchContent: FC<{
                             </div>
                         )}
 
-                        {/* 2. Show the sources found (Grounding Chunks) */}
-                        {chunks && chunks.length > 0 ? (
+                        {sources.length > 0 ? (
                             <div>
                                 <span className="text-xs font-medium text-muted-foreground/70 block mb-2">Sources:</span>
                                 <div className="flex flex-wrap gap-2">
-                                    {chunks.map((chunk, i) => {
-                                        const uri = chunk.web?.uri || "";
-                                        const title = chunk.web?.title || "Untitled Source";
-
-                                        // Use title for favicon domain as requested, fallback to uri domain
-                                        const faviconDomain = getDomain(title).includes('.') ? getDomain(title) : getDomain(uri);
-                                        const faviconUrl = `https://www.google.com/s2/favicons?domain=${faviconDomain}&sz=32`;
-
+                                    {sources.map((source) => {
+                                        const uri = source.url;
+                                        const title = source.title || getDomain(uri);
                                         return (
                                             <a
-                                                key={i}
+                                                key={uri || title}
                                                 href={uri}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="flex items-center gap-2 px-2 py-1 rounded bg-muted/50 border border-border/50 hover:bg-muted/80 hover:border-border transition-colors group max-w-[200px]"
                                             >
-                                                {/* Favicon */}
-                                                <div className="relative size-3.5 shrink-0 overflow-hidden rounded-[2px]">
-                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                    <img
-                                                        src={faviconUrl}
-                                                        alt=""
-                                                        className="size-full object-cover"
-                                                        onError={(e) => {
-                                                            e.currentTarget.style.display = 'none';
-                                                        }}
-                                                    />
-                                                </div>
+                                                <GlobeIcon className="size-3.5 shrink-0 text-muted-foreground/70" />
 
                                                 <div className="font-medium text-[10px] text-foreground/90 truncate">
                                                     {title}
@@ -332,7 +293,7 @@ WebSearchContent.displayName = "WebSearchContent";
  */
 export const WebSearchToolUI = makeAssistantToolUI<{
     query: string;
-}, string>({
+}, WebSearchResult>({
     toolName: "webSearch",
     render: function WebSearchToolUI({ status, result }) {
         return (

@@ -7,6 +7,7 @@ import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useQueryClient } from "@tanstack/react-query";
 import { logger } from "@/lib/utils/logger";
+import { normalizeWebSearchResult } from "@/lib/ai/web-search-shared";
 
 interface CreateCardOptions {
   debounceMs?: number;
@@ -27,24 +28,39 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
   const queryClient = useQueryClient();
 
-  // Helper to extract sources from a tool result JSON string
-  const extractSourcesFromToolResult = (resultJson: string) => {
-    try {
-      const parsed = JSON.parse(resultJson);
-      const chunks = parsed?.groundingMetadata?.groundingChunks || [];
-      const extractedSources: Array<{ title: string; url: string; favicon?: string }> = [];
-
-      for (const chunk of chunks) {
-        const uri = chunk?.web?.uri;
-        const title = chunk?.web?.title;
-        if (uri && title) {
-          extractedSources.push({ title, url: uri });
-        }
-      }
-      return extractedSources;
-    } catch (e) {
+  const extractSourcesFromParts = (parts: unknown) => {
+    if (!Array.isArray(parts)) {
       return [];
     }
+
+    return parts.flatMap((part) => {
+      if (!part || typeof part !== "object" || Array.isArray(part)) {
+        return [];
+      }
+
+      const toolPart = part as {
+        type?: string;
+        state?: string;
+        output?: unknown;
+      };
+
+      if (
+        toolPart.type !== "tool-webSearch" ||
+        toolPart.state !== "output-available"
+      ) {
+        return [];
+      }
+
+      const parsed = normalizeWebSearchResult(toolPart.output);
+      if (!parsed) {
+        return [];
+      }
+
+      return parsed.sources.map((source) => ({
+        title: source.title,
+        url: source.url,
+      }));
+    });
   };
 
   const createCard = useCallback(async () => {
@@ -96,68 +112,14 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
           if (currentIndex !== -1) {
             const allSources: Array<{ title: string; url: string; favicon?: string }> = [];
 
-            // Look backwards from current message up to the last user message
-            // or a reasonable limit to find the associated tool result
             for (let i = currentIndex; i >= 0; i--) {
               const msg = messages[i];
 
-              // Stop if we hit a user message (start of the turn)
-              // But carefully: sometimes the user message triggers the tool immediately
               if (msg.role === 'user' && i !== currentIndex) {
-                // If we found sources, great. If not, maybe check this user message too if it has attachments?
-                // For now, break here as tool results usually come after user input.
                 break;
               }
 
-              // Check 1: Tool message (role='tool') with webSearch content
-              if (msg.role === 'tool') {
-                // Determine if this is a webSearch tool
-                // Often inferred from content or toolName if available
-                const content = msg.content;
-                // Assistant UI uses parts; check for tool-result part
-                if (Array.isArray(content)) {
-                  for (const part of content) {
-                    if (part.type === 'tool-result' && (part as any).toolName === 'webSearch') {
-                      const result = (part as any).result;
-                      if (result) {
-                        allSources.push(...extractSourcesFromToolResult(JSON.stringify(result)));
-                      }
-                    }
-                  }
-                }
-                // Check simplified Vercel AI SDK structure
-                if ((msg as any).toolName === 'webSearch' && (msg as any).content) {
-                  allSources.push(...extractSourcesFromToolResult(JSON.stringify(msg.content)));
-                }
-              }
-
-              // Check 2: Assistant message with toolInvocations (AI SDK 3.x+ style)
-              if (msg.role === 'assistant') {
-                // Check extracted tool calls if stored in helper fields
-                // Or specialized parts
-                if (Array.isArray(msg.content)) {
-                  for (const part of msg.content) {
-                    if (part.type === 'tool-call' && (part as any).toolName === 'webSearch') {
-                      // Sometimes the result is attached to the call in the UI state
-                      const result = (part as any).result || (part as any).args; // Result is usually separate
-                      // Actually, in Assistant UI, result might be embedded if completed
-                      if ((part as any).result) {
-                        allSources.push(...extractSourcesFromToolResult((part as any).result));
-                      }
-                    }
-                  }
-                }
-
-                // Check 'toolInvocations' property if exposed directly
-                const invocations = (msg as any).toolInvocations;
-                if (Array.isArray(invocations)) {
-                  for (const tool of invocations) {
-                    if (tool.toolName === 'webSearch' && tool.state === 'result') {
-                      allSources.push(...extractSourcesFromToolResult(JSON.stringify(tool.result)));
-                    }
-                  }
-                }
-              }
+              allSources.push(...extractSourcesFromParts((msg as any).parts));
             }
 
             if (allSources.length > 0) {

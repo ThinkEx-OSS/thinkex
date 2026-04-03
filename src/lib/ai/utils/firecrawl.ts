@@ -1,24 +1,34 @@
 import { logger } from "@/lib/utils/logger";
 
-export interface FirecrawlScrapeResponse {
+const DEFAULT_SCRAPE_OPTIONS = {
+    formats: ["markdown"],
+    onlyMainContent: true,
+    waitFor: 1000,
+};
+
+export interface FirecrawlMetadata {
+    title?: string | string[];
+    description?: string | string[];
+    language?: string | string[] | null;
+    sourceURL?: string;
+    url?: string;
+    statusCode?: number;
+    error?: string | null;
+    [key: string]: unknown;
+}
+
+export interface FirecrawlPageResult {
+    url: string;
+    title: string;
+    content: string;
     success: boolean;
-    data?: {
-        content?: string;
-        markdown?: string;
-        metadata?: {
-            title?: string;
-            description?: string;
-            language?: string;
-            sourceURL?: string;
-            [key: string]: any;
-        };
-    };
     error?: string;
+    metadata?: FirecrawlMetadata;
 }
 
 export class FirecrawlClient {
     private apiKey: string;
-    private baseUrl = "https://api.firecrawl.dev/v1";
+    private baseUrl = "https://api.firecrawl.dev/v2";
 
     constructor(apiKey?: string) {
         this.apiKey = apiKey || process.env.FIRECRAWL_API_KEY || "";
@@ -27,12 +37,111 @@ export class FirecrawlClient {
         }
     }
 
-    /**
-     * Scrape a single URL using Firecrawl
-     */
-    async scrapeUrl(url: string): Promise<FirecrawlScrapeResponse> {
+    private getHeaders() {
+        return {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${this.apiKey}`,
+        };
+    }
+
+    private async parseErrorResponse(response: Response): Promise<string> {
+        if (response.status === 401) {
+            return "Invalid Firecrawl API key";
+        }
+
+        if (response.status === 429) {
+            return "Firecrawl rate limit exceeded";
+        }
+
+        try {
+            const errorText = await response.text();
+            if (!errorText.trim()) {
+                return `Firecrawl API error: ${response.status}`;
+            }
+
+            const errorJson = JSON.parse(errorText);
+            if (typeof errorJson?.error === "string") {
+                return errorJson.error;
+            }
+
+            return `Firecrawl API error: ${response.status} ${errorText}`;
+        } catch {
+            // Fall through to generic status message if the body is unreadable or not JSON.
+        }
+
+        return `Firecrawl API error: ${response.status}`;
+    }
+
+    private firstString(value: unknown): string | undefined {
+        if (typeof value === "string") {
+            return value;
+        }
+
+        if (Array.isArray(value)) {
+            const first = value.find((item) => typeof item === "string");
+            return typeof first === "string" ? first : undefined;
+        }
+
+        return undefined;
+    }
+
+    private normalizePageResult(url: string, document: unknown): FirecrawlPageResult {
+        if (!document || typeof document !== "object" || Array.isArray(document)) {
+            return {
+                url,
+                title: url,
+                content: "",
+                success: false,
+                error: "Invalid Firecrawl response",
+            };
+        }
+
+        const record = document as {
+            markdown?: unknown;
+            content?: unknown;
+            metadata?: unknown;
+        };
+
+        const metadata =
+            record.metadata && typeof record.metadata === "object" && !Array.isArray(record.metadata)
+                ? (record.metadata as FirecrawlMetadata)
+                : undefined;
+
+        const content =
+            typeof record.markdown === "string"
+                ? record.markdown
+                : typeof record.content === "string"
+                    ? record.content
+                    : "";
+
+        const metadataError =
+            typeof metadata?.error === "string" && metadata.error.trim().length > 0
+                ? metadata.error
+                : undefined;
+
+        return {
+            url,
+            title:
+                this.firstString(metadata?.title) ??
+                this.firstString(metadata?.description) ??
+                metadata?.sourceURL ??
+                url,
+            content,
+            success: !metadataError && content.trim().length > 0,
+            error: metadataError ?? (content.trim().length === 0 ? "No content returned" : undefined),
+            metadata,
+        };
+    }
+
+    async scrapeUrl(url: string): Promise<FirecrawlPageResult> {
         if (!this.apiKey) {
-            return { success: false, error: "Firecrawl API key not configured" };
+            return {
+                url,
+                title: url,
+                content: "",
+                success: false,
+                error: "Firecrawl API key not configured",
+            };
         }
 
         try {
@@ -40,45 +149,67 @@ export class FirecrawlClient {
 
             const response = await fetch(`${this.baseUrl}/scrape`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${this.apiKey}`,
-                },
+                headers: this.getHeaders(),
                 body: JSON.stringify({
                     url,
-                    formats: ["markdown"],
-                    onlyMainContent: true,
-                    waitFor: 1000, // Wait for dynamic content
+                    ...DEFAULT_SCRAPE_OPTIONS,
                 }),
             });
 
             if (!response.ok) {
-                if (response.status === 401) {
-                    return { success: false, error: "Invalid Firecrawl API key" };
-                }
-                if (response.status === 429) {
-                    return { success: false, error: "Firecrawl rate limit exceeded" };
-                }
-                const errorText = await response.text();
-                throw new Error(`Firecrawl API error: ${response.status} ${errorText}`);
+                return {
+                    url,
+                    title: url,
+                    content: "",
+                    success: false,
+                    error: await this.parseErrorResponse(response),
+                };
             }
 
             const result = await response.json();
-
-            if (!result.success) {
-                return { success: false, error: result.error || "Unknown Firecrawl error" };
+            if (result?.success === false) {
+                return {
+                    url,
+                    title: url,
+                    content: "",
+                    success: false,
+                    error: typeof result?.error === "string" ? result.error : "Unknown Firecrawl error",
+                };
             }
 
-            return {
-                success: true,
-                data: result.data,
-            };
-        } catch (error: any) {
+            return this.normalizePageResult(url, result?.data);
+        } catch (error) {
             logger.error(`❌ [Firecrawl] Error scraping ${url}:`, error);
             return {
+                url,
+                title: url,
+                content: "",
                 success: false,
-                error: error.message || String(error),
+                error: error instanceof Error ? error.message : String(error),
             };
         }
+    }
+
+    async scrapeUrls(urls: string[]): Promise<FirecrawlPageResult[]> {
+        if (urls.length === 0) {
+            return [];
+        }
+
+        if (!this.apiKey) {
+            return urls.map((url) => ({
+                url,
+                title: url,
+                content: "",
+                success: false,
+                error: "Firecrawl API key not configured",
+            }));
+        }
+
+        if (urls.length === 1) {
+            return [await this.scrapeUrl(urls[0])];
+        }
+
+        logger.debug(`🔥 [Firecrawl] Scraping ${urls.length} URLs in parallel`);
+        return await Promise.all(urls.map((url) => this.scrapeUrl(url)));
     }
 }

@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { tool, generateText, stepCountIs, zodSchema } from "ai";
 import { google } from "@ai-sdk/google";
+import {
+    WebSearchResultSchema,
+    type WebSearchResult,
+} from "@/lib/ai/web-search-shared";
 
 const VERTEX_REDIRECT_HOST = "vertexaisearch.cloud.google.com";
 const VERTEX_REDIRECT_PATH = "/grounding-api-redirect/";
@@ -90,12 +94,6 @@ export async function resolveGroundingChunksToSources(
     return resolved.filter((s): s is { title: string; url: string } => s !== null);
 }
 
-export type WebSearchResult = {
-    text: string;
-    sources: Array<{ title: string; url: string }>;
-    groundingMetadata?: { groundingChunks?: unknown[] };
-};
-
 /**
  * Execute a web search and return text + sources. Used by both chat webSearch tool and autogen.
  */
@@ -152,9 +150,9 @@ export function createWebSearchTool() {
             })
         ),
         strict: true,
+        outputSchema: zodSchema(WebSearchResultSchema),
         execute: async ({ query }) => {
-            const { text, groundingMetadata } = await executeWebSearch(query);
-            return JSON.stringify({ text, groundingMetadata });
+            return await executeWebSearch(query);
         },
     });
 }

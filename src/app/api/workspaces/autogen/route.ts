@@ -10,7 +10,7 @@ import { db, workspaces } from "@/lib/db/client";
 import { generateSlug } from "@/lib/workspace/slug";
 import { workspaceWorker, type CreateItemParams } from "@/lib/ai/workers";
 import { searchVideos } from "@/lib/youtube";
-import { UrlProcessor } from "@/lib/ai/utils/url-processor";
+import { FirecrawlClient } from "@/lib/ai/utils/firecrawl";
 import { findNextAvailablePosition } from "@/lib/workspace-state/grid-layout-helpers";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import type { Item, QuizQuestion } from "@/lib/workspace-state/types";
@@ -173,7 +173,8 @@ async function runDistillationAgent(
   let linkContext = "";
   if (nonYtLinks.length > 0) {
     send({ type: "toolCall", data: { toolName: "urlFetch", status: "fetching" } });
-    const results = await UrlProcessor.processUrls(nonYtLinks);
+    const client = new FirecrawlClient();
+    const results = await client.scrapeUrls(nonYtLinks);
     const successful = results.filter((r) => r.success && r.content);
     if (successful.length > 0) {
       linkContext =

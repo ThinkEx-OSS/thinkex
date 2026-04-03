@@ -6,15 +6,13 @@ describe("normalizeProcessUrlsArgs", () => {
     expect(
       normalizeProcessUrlsArgs({
         urls: ["https://example.com", "https://vercel.com"],
-        instruction: "Summarize the key points.",
       }),
     ).toEqual({
       urls: ["https://example.com", "https://vercel.com"],
-      instruction: "Summarize the key points.",
     });
   });
 
-  it("normalizes legacy jsonInput payloads", () => {
+  it("normalizes legacy jsonInput payloads and drops instruction", () => {
     expect(
       normalizeProcessUrlsArgs({
         jsonInput: JSON.stringify({
@@ -24,7 +22,6 @@ describe("normalizeProcessUrlsArgs", () => {
       }),
     ).toEqual({
       urls: ["https://example.com"],
-      instruction: "Extract dates.",
     });
   });
 

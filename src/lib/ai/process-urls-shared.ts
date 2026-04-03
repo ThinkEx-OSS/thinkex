@@ -7,17 +7,38 @@ export const ProcessUrlsInputSchema = z.object({
     .array(z.string().min(1))
     .min(1)
     .max(MAX_PROCESS_URLS)
-    .describe("Web URLs to analyze. Pass them directly as an array of strings."),
-  instruction: z
-    .string()
-    .trim()
-    .min(1)
-    .max(1000)
-    .optional()
-    .describe("Optional extra instruction describing what to extract from the URLs."),
+    .describe("Web URLs to fetch. Pass them directly as an array of strings."),
 });
 
 export type ProcessUrlsInput = z.infer<typeof ProcessUrlsInputSchema>;
+
+export const ProcessUrlsOutputSchema = z.object({
+  text: z.string(),
+  metadata: z
+    .object({
+      urlMetadata: z
+        .array(
+          z.object({
+            retrievedUrl: z.string(),
+            urlRetrievalStatus: z.string(),
+          }),
+        )
+        .nullable()
+        .optional(),
+      sources: z
+        .array(
+          z.object({
+            uri: z.string(),
+            title: z.string(),
+          }),
+        )
+        .nullable()
+        .optional(),
+    })
+    .optional(),
+});
+
+export type ProcessUrlsOutput = z.infer<typeof ProcessUrlsOutputSchema>;
 
 export function normalizeProcessUrlsArgs(
   input: unknown,

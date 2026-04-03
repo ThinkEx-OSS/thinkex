@@ -1,5 +1,6 @@
 import type { UIMessage } from "ai";
 import { normalizeProcessUrlsArgs } from "./process-urls-shared";
+import { normalizeWebSearchResult } from "./web-search-shared";
 
 function normalizeExecuteCodeOutput(output: unknown): unknown {
   if (typeof output === "string") {
@@ -14,6 +15,11 @@ function normalizeExecuteCodeOutput(output: unknown): unknown {
   }
 
   return output;
+}
+
+function normalizeWebSearchOutput(output: unknown): unknown {
+  const normalized = normalizeWebSearchResult(output);
+  return normalized ?? output;
 }
 
 export function normalizeLegacyToolMessages(messages: UIMessage[]): UIMessage[] {
@@ -39,6 +45,15 @@ export function normalizeLegacyToolMessages(messages: UIMessage[]): UIMessage[] 
         "output" in part
       ) {
         return { ...part, output: normalizeExecuteCodeOutput(part.output) };
+      }
+
+      if (
+        part.type === "tool-webSearch" &&
+        "state" in part &&
+        part.state === "output-available" &&
+        "output" in part
+      ) {
+        return { ...part, output: normalizeWebSearchOutput(part.output) };
       }
 
       return part;
