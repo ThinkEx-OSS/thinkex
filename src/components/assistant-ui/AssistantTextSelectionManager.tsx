@@ -980,7 +980,7 @@ export default function AssistantTextSelectionManager({
 
   // Define tooltip actions - always show multi-mode actions when expanded
   const tooltipActions: TooltipAction[] = [
-    // Multi-mode actions: Reply (add more), Document, Clear all
+    // Multi-mode actions: Reply (add more), Doc, Clear all
     {
       id: "reply",
       label: "Reply",
@@ -990,7 +990,7 @@ export default function AssistantTextSelectionManager({
     },
     {
       id: "document",
-      label: "Document",
+      label: "Doc",
       icon: <FileText size={16} />,
       colorClass: "bg-green-600 hover:bg-green-700",
       onClick: handleCreateDocument,
