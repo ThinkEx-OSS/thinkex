@@ -19,10 +19,6 @@ import { getPostHogServerClient } from "@/lib/posthog-server";
 import { withServerObservability } from "@/lib/with-server-observability";
 import { normalizeLegacyToolMessages } from "@/lib/ai/legacy-tool-message-compat";
 
-// Regex patterns as constants (compiled once, reused for all requests)
-const URL_CONTEXT_REGEX = /\[URL_CONTEXT:(.+?)\]/g;
-const DIRECT_URL_REGEX = /https?:\/\/[^\s]+/g;
-
 /**
  * Extract workspaceId from system context or request body
  */
@@ -41,50 +37,20 @@ function extractWorkspaceId(body: any): string | null {
 }
 
 /**
- * Process messages in a single pass: extract URL context URLs and clean markers
+ * Process messages in a single pass: clean URL context markers
  * File attachments are handled natively as file parts via the SupabaseAttachmentAdapter.
  */
 function processMessages(messages: any[]): {
-  urlContextUrls: string[];
   cleanedMessages: any[];
 } {
-  const urlContextUrlsSet = new Set<string>();
-
   const cleanedMessages = messages.map((message) => {
     if (message.content && Array.isArray(message.content)) {
       const updatedContent = message.content.map((part: any) => {
         if (part.type === "text" && typeof part.text === "string") {
           const text = part.text;
 
-          // Extract URL context URLs (use Set for O(1) lookups)
-          const urlContextRegexLocal = new RegExp(
-            URL_CONTEXT_REGEX.source,
-            URL_CONTEXT_REGEX.flags,
-          );
-          const urlContextMatches = text.matchAll(urlContextRegexLocal);
-          for (const urlMatch of urlContextMatches) {
-            const url = urlMatch[1];
-            if (url) urlContextUrlsSet.add(url);
-          }
-
-          // Extract direct URLs
-          const directUrlRegexLocal = new RegExp(
-            DIRECT_URL_REGEX.source,
-            DIRECT_URL_REGEX.flags,
-          );
-          const directUrlMatches = text.matchAll(directUrlRegexLocal);
-          for (const directMatch of directUrlMatches) {
-            const url = directMatch[0];
-            if (url) urlContextUrlsSet.add(url);
-          }
-
-          // Clean URL_CONTEXT markers (create new instance to avoid global regex state issues)
-          const urlContextReplaceRegex = new RegExp(
-            URL_CONTEXT_REGEX.source,
-            URL_CONTEXT_REGEX.flags,
-          );
           const updatedText = text.replace(
-            urlContextReplaceRegex,
+            /\[URL_CONTEXT:(.+?)\]/g,
             (_match: string, url: string) => {
               return url;
             },
@@ -100,7 +66,6 @@ function processMessages(messages: any[]): {
   });
 
   return {
-    urlContextUrls: Array.from(urlContextUrlsSet),
     cleanedMessages,
   };
 }
@@ -164,26 +129,6 @@ function injectSelectionContext(
     }
     break;
   }
-}
-
-/**
- * Build the enhanced system prompt with guidelines and detection hints
- * Uses array join for better performance than string concatenation
- */
-function buildSystemPrompt(
-  baseSystem: string,
-  urlContextUrls: string[],
-): string {
-  const parts: string[] = [baseSystem];
-
-  // Add URL detection hint if URLs are present
-  if (urlContextUrls.length > 0) {
-    parts.push(
-      `\n\nURL DETECTION: The user's message contains ${urlContextUrls.length} URL(s): ${urlContextUrls.join(", ")}. Call the processUrls tool with a structured object like { "urls": ["https://example.com"] } to analyze them. Do not wrap the URLs in a JSON string.`,
-    );
-  }
-
-  return parts.join("");
 }
 
 async function handlePOST(req: Request) {
@@ -261,9 +206,8 @@ async function handlePOST(req: Request) {
       emptyMessages: "remove",
     });
 
-    // Process messages in single pass: extract URLs and clean markers
-    const { urlContextUrls, cleanedMessages } =
-      processMessages(convertedMessages);
+    // Process messages in single pass: clean URL context markers
+    const { cleanedMessages } = processMessages(convertedMessages);
 
     // Get pre-formatted selected cards context from client (no DB fetch needed)
     const selectedCardsContext = getSelectedCardsContext(body);
@@ -281,9 +225,6 @@ async function handlePOST(req: Request) {
     if (modelId.includes("claude") && !modelId.startsWith("anthropic/")) {
       modelId = `anthropic/${modelId}`;
     }
-
-    // Build system prompt (identity, guidelines, URL hints — no selected cards)
-    const finalSystemPrompt = buildSystemPrompt(system, urlContextUrls);
 
     // Inject selected cards + reply selections into the last user message
     injectSelectionContext(
@@ -355,7 +296,7 @@ async function handlePOST(req: Request) {
     const result = streamText({
       model: model,
       temperature: 1.0,
-      system: finalSystemPrompt,
+      system,
       messages: cleanedMessages,
       stopWhen: stepCountIs(25),
       tools,

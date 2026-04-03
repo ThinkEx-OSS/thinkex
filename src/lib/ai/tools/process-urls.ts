@@ -1,7 +1,21 @@
-import { google, type GoogleGenerativeAIProviderMetadata } from "@ai-sdk/google";
-import { generateText, tool, zodSchema } from "ai";
+import { tool, zodSchema } from "ai";
 import { logger } from "@/lib/utils/logger";
-import { ProcessUrlsInputSchema } from "@/lib/ai/process-urls-shared";
+import {
+    ProcessUrlsInputSchema,
+    ProcessUrlsOutputSchema,
+    type ProcessUrlsOutput,
+} from "@/lib/ai/process-urls-shared";
+import { FirecrawlClient } from "@/lib/ai/utils/firecrawl";
+
+const MAX_CONTENT_CHARS_PER_URL = 12000;
+
+function truncateContent(content: string): string {
+    if (content.length <= MAX_CONTENT_CHARS_PER_URL) {
+        return content;
+    }
+
+    return `${content.slice(0, MAX_CONTENT_CHARS_PER_URL).trim()}\n\n[Content truncated for length]`;
+}
 
 /**
  * Create the processUrls tool for analyzing web pages
@@ -13,10 +27,11 @@ import { ProcessUrlsInputSchema } from "@/lib/ai/process-urls-shared";
  */
 export function createProcessUrlsTool() {
     return tool({
-        description: "Analyze web pages using Google's URL Context API. Extracts content, key information, and metadata from regular web URLs (http/https). Use this for web pages, articles, documentation, and other web content. This tool does not handle uploaded files or videos.",
+        description: "Fetch the content of web pages from the provided URLs. Use this for web pages, articles, and documentation when the model needs the actual page text before answering. This tool does not handle uploaded files or video URLs.",
         inputSchema: zodSchema(ProcessUrlsInputSchema),
+        outputSchema: zodSchema(ProcessUrlsOutputSchema),
         strict: true,
-        execute: async ({ urls: urlList, instruction }) => {
+        execute: async ({ urls: urlList }): Promise<ProcessUrlsOutput | string> => {
             logger.debug("🔗 [URL_TOOL] Processing web URLs:", urlList);
 
             const fileUrls = urlList.filter((url: string) =>
@@ -26,57 +41,73 @@ export function createProcessUrlsTool() {
 
             if (fileUrls.length > 0) {
                 logger.warn("🔗 [URL_TOOL] File/video URLs detected for web URL tool:", fileUrls);
-                return `Error: This tool only handles regular web URLs, not uploaded files or video URLs (${fileUrls.join(', ')})`;
+                return {
+                    text: `Error: This tool only handles regular web URLs, not uploaded files or video URLs (${fileUrls.join(", ")})`,
+                    metadata: {
+                        provider: "firecrawl",
+                        urlMetadata: urlList.map((url) => ({
+                            retrievedUrl: url,
+                            urlRetrievalStatus: fileUrls.includes(url)
+                                ? "URL_RETRIEVAL_STATUS_UNSUPPORTED"
+                                : "URL_RETRIEVAL_STATUS_SKIPPED",
+                        })),
+                        groundingChunks: null,
+                        sources: null,
+                    },
+                };
             }
 
             try {
-                const urlsBlock = urlList.map((url, index) => `${index + 1}. ${url}`).join("\n");
-                const instructionBlock = instruction?.trim()
-                    ? `Focus instruction: ${instruction.trim()}\n\n`
-                    : "";
+                const client = new FirecrawlClient();
+                const scrapedResults = (await client.scrapeUrls(urlList)).map((result) => ({
+                    ...result,
+                    content: truncateContent(result.content),
+                    success: result.success && result.content.length > 0,
+                }));
 
-                const { text, providerMetadata } = await generateText({
-                    model: google("gemini-3-flash-preview"),
-                    tools: {
-                        url_context: google.tools.urlContext({}),
-                    },
-                    prompt: `${instructionBlock}Analyze these URLs directly using URL context:
+                const successfulResults = scrapedResults.filter((result) => result.success);
+                const failedResults = scrapedResults.filter((result) => !result.success);
 
-${urlsBlock}
+                if (failedResults.length > 0) {
+                    logger.warn(
+                        `🔗 [URL_TOOL] ${failedResults.length} URL(s) failed to process:`,
+                        failedResults.map((result) => result.url),
+                    );
+                }
 
-Provide a clear, accurate answer in this format:
-Summary: [1-2 sentences]
-Key information:
-- [Point 1]
-- [Point 2]
-- [Additional points as needed]
-Details: [Important details, specs, dates, or relevant factual context]`,
-                });
+                if (successfulResults.length === 0) {
+                    return {
+                        text: `Failed to process any of the provided URLs. Errors: ${failedResults.map((result) => `${result.url}: ${result.error || "Unknown error"}`).join("; ")}`,
+                        metadata: {
+                            provider: "firecrawl",
+                            urlMetadata: scrapedResults.map((result) => ({
+                                retrievedUrl: result.url,
+                                urlRetrievalStatus: result.success
+                                    ? "URL_RETRIEVAL_STATUS_SUCCESS"
+                                    : "URL_RETRIEVAL_STATUS_FAILED",
+                            })),
+                            groundingChunks: null,
+                            sources: null,
+                        },
+                    };
+                }
 
-                const googleMetadata = providerMetadata?.google as GoogleGenerativeAIProviderMetadata | undefined;
-                const groundingMetadata = googleMetadata?.groundingMetadata ?? null;
-                const urlContextMetadata = googleMetadata?.urlContextMetadata ?? null;
-                const groundingChunks = groundingMetadata?.groundingChunks ?? null;
-                const sources = groundingChunks
-                    ?.flatMap((chunk) => {
-                        const uri = chunk.web?.uri;
-                        if (!uri) return [];
-
-                        return [{
-                            uri,
-                            title: chunk.web?.title || uri,
-                        }];
-                    })
-                    .filter((source, index, array) =>
-                        array.findIndex((candidate) => candidate.uri === source.uri) === index
-                    ) ?? null;
+                const combinedText = successfulResults
+                    .map((result) => `# ${result.title}\nURL: ${result.url}\n\n${result.content}`)
+                    .join("\n\n---\n\n");
 
                 return {
-                    text,
+                    text: combinedText,
                     metadata: {
-                        urlMetadata: urlContextMetadata?.urlMetadata ?? null,
-                        groundingChunks,
-                        sources,
+                        provider: "firecrawl",
+                        urlMetadata: scrapedResults.map((result) => ({
+                            retrievedUrl: result.url,
+                            urlRetrievalStatus: result.success
+                                ? "URL_RETRIEVAL_STATUS_SUCCESS"
+                                : "URL_RETRIEVAL_STATUS_FAILED",
+                        })),
+                        groundingChunks: null,
+                        sources: successfulResults.map(({ url, title }) => ({ uri: url, title })),
                     },
                 };
 
@@ -88,6 +119,7 @@ Details: [Important details, specs, dates, or relevant factual context]`,
                 return {
                     text: `Error processing web URLs: ${error instanceof Error ? error.message : String(error)}`,
                     metadata: {
+                        provider: "firecrawl",
                         urlMetadata: null,
                         groundingChunks: null,
                         sources: null,
