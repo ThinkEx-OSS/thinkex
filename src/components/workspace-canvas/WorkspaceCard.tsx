@@ -47,7 +47,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useUIStore, selectItemScrollLocked } from "@/lib/stores/ui-store";
 import { Flashcard } from "react-quizlet-flashcard";
 import "react-quizlet-flashcard/dist/index.css";
-import { useElementSize } from "@/hooks/use-element-size";
 import {
   extractYouTubeVideoId,
   extractYouTubePlaylistId,
@@ -148,17 +147,10 @@ function WorkspaceCard({
   const toggleItemScrollLocked = useUIStore(
     (state) => state.toggleItemScrollLocked,
   );
-  const articleRef = useRef<HTMLElement>(null);
+  const layout = getLayoutForBreakpoint(item, "lg");
 
-  // Measure card size to determine if we should show preview
-  const { width: cardWidth, height: cardHeight } = useElementSize(articleRef);
-
-  // Show preview only if card is wide AND tall enough for meaningful content
-  // Width: ~320px (roughly when w > 1 in grid); Height: ~180px minimum
-  // OPTIMIZED: Treat undefined (initial) as sufficient to prevent flicker on mount
-  const meetsWidth = cardWidth === undefined || cardWidth > 320;
-  const meetsHeight = cardHeight === undefined || cardHeight > 180;
-  const shouldShowPreview = meetsWidth && meetsHeight;
+  // Derive preview mode from the grid layout instead of observing DOM size.
+  const shouldShowPreview = (layout?.w ?? 1) > 1 && (layout?.h ?? 4) > 4;
 
   // Track minimal local drag detection (only if grid hasn't detected drag)
   const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
@@ -462,7 +454,6 @@ function WorkspaceCard({
       <ContextMenuTrigger asChild>
         <div className="group size-full">
           <article
-            ref={articleRef}
             id={`item-${item.id}`}
             data-youtube-card
             data-item-type={item.type}
