@@ -1,92 +1,27 @@
-import { QuizContent } from "./QuizContent";
-import { ImageCardContent } from "./ImageCardContent";
-import {
-  MoreVertical,
-  Trash2,
-  Palette,
-  CheckCircle2,
-  FolderInput,
-  Copy,
-  X,
-  Pencil,
-  Loader2,
-  File,
-  FileText,
-  Brain,
-  Mic,
-  Globe,
-} from "lucide-react";
-import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
 import { useCallback, useState, memo, useRef, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-import ItemHeader from "@/components/workspace-canvas/ItemHeader";
 import {
   getCardColorCSS,
   getCardAccentColor,
-  getCardColorWithBlackMix,
-  getIconColorFromCardColorWithOpacity,
-  getLighterCardColor,
-  SWATCHES_COLOR_GROUPS,
   type CardColor,
 } from "@/lib/workspace-state/colors";
-import type {
-  Item,
-  PdfData,
-  FlashcardData,
-  YouTubeData,
-  WebsiteData,
-  DocumentData,
-} from "@/lib/workspace-state/types";
-import { SwatchesPicker, ColorResult } from "react-color";
-import { AudioCardContent } from "./AudioCardContent";
-import LazyAppPdfViewer from "@/components/pdf/LazyAppPdfViewer";
-import { StreamdownMarkdown } from "@/components/ui/streamdown-markdown";
-import { Skeleton } from "@/components/ui/skeleton";
+import type { Item, DocumentData } from "@/lib/workspace-state/types";
+import type { ColorResult } from "react-color";
 import { useUIStore, selectItemScrollLocked } from "@/lib/stores/ui-store";
-import { Flashcard } from "react-quizlet-flashcard";
-import "react-quizlet-flashcard/dist/index.css";
-import {
-  extractYouTubeVideoId,
-  extractYouTubePlaylistId,
-} from "@/lib/utils/youtube-url";
-import { YouTubeCardContent } from "./YouTubeCardContent";
 import { getLayoutForBreakpoint } from "@/lib/workspace-state/grid-layout-helpers";
-import { SourcesDisplay } from "./SourcesDisplay";
-
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   ContextMenu,
   ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import MoveToDialog from "@/components/modals/MoveToDialog";
-import RenameDialog from "@/components/modals/RenameDialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  WorkspaceCardContextMenuItems,
+  WorkspaceCardControls,
+} from "./WorkspaceCardActions";
+import { WorkspaceCardContent } from "./WorkspaceCardContent";
+import { WorkspaceCardDialogs } from "./WorkspaceCardDialogs";
+import { WorkspaceCardTypeBadge } from "./WorkspaceCardTypeBadge";
 
 interface WorkspaceCardProps {
   item: Item;
@@ -449,6 +384,29 @@ function WorkspaceCard({
     ],
   );
 
+  const handleMove = useCallback(
+    (folderId: string | null) => {
+      if (!onMoveItem) return;
+      onMoveItem(item.id, folderId);
+      toast.success("Item moved");
+    },
+    [item.id, onMoveItem],
+  );
+
+  const shouldUseFramelessLayout =
+    item.type === "youtube" ||
+    item.type === "image" ||
+    (item.type === "pdf" && shouldShowPreview);
+  const shouldShowScrollLockButton =
+    item.type !== "youtube" &&
+    item.type !== "image" &&
+    item.type !== "quiz" &&
+    !(item.type === "document" && (!shouldShowPreview || documentAwaitingGeneration)) &&
+    !(item.type === "pdf" && !shouldShowPreview) &&
+    !(item.type === "audio" && !shouldShowPreview);
+  const useDarkFloatingControls =
+    item.type === "pdf" && shouldShowPreview;
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -459,9 +417,7 @@ function WorkspaceCard({
             data-item-type={item.type}
             data-has-preview={shouldShowPreview}
             className={`relative rounded-md scroll-mt-4 size-full flex flex-col overflow-hidden transition-all duration-200 cursor-pointer ${
-              item.type === "youtube" ||
-              item.type === "image" ||
-              (item.type === "pdf" && shouldShowPreview)
+              shouldUseFramelessLayout
                 ? "p-0"
                 : "p-3 border shadow-sm hover:border-foreground/30 hover:shadow-md focus-within:border-foreground/50"
             }`}
@@ -479,16 +435,14 @@ function WorkspaceCard({
                 borderColor: isSelected
                   ? "rgba(255, 255, 255, 0.8)"
                   : item.color
-                      ? getCardAccentColor(
-                          item.color,
-                          resolvedTheme === "dark" ? 0.5 : 0.3,
-                        )
-                      : "transparent",
+                    ? getCardAccentColor(
+                        item.color,
+                        resolvedTheme === "dark" ? 0.5 : 0.3,
+                      )
+                    : "transparent",
                 borderWidth: isSelected
                   ? "3px"
-                  : item.type === "youtube" ||
-                      item.type === "image" ||
-                      (item.type === "pdf" && shouldShowPreview)
+                  : shouldUseFramelessLayout
                     ? "0px"
                     : "1px",
                 boxShadow:
@@ -504,717 +458,83 @@ function WorkspaceCard({
             onMouseUp={handleMouseUp}
             onClick={handleCardClick}
           >
-            {/* Floating Controls Container */}
-            <div
-              className={`absolute top-3 right-3 z-20 flex items-center gap-2 ${isEditingTitle ? "" : "opacity-0 group-hover:opacity-100"}`}
-            >
-                {/* Scroll Lock/Unlock Button - Hidden for YouTube, image, quiz, and narrow document/PDF cards */}
-                {item.type !== "youtube" &&
-                  item.type !== "image" &&
-                  item.type !== "quiz" &&
-                  !(
-                    item.type === "document" &&
-                    (!shouldShowPreview || documentAwaitingGeneration)
-                  ) &&
-                  !(item.type === "pdf" && !shouldShowPreview) &&
-                  !(item.type === "audio" && !shouldShowPreview) && (
-                    <button
-                      type="button"
-                      aria-label={
-                        isScrollLocked
-                          ? "Click to unlock scroll"
-                          : "Click to lock scroll"
-                      }
-                      title={
-                        isScrollLocked
-                          ? "Click to unlock scroll"
-                          : "Click to lock scroll"
-                      }
-                      className="inline-flex h-8 items-center justify-center gap-1.5 pl-2.5 pr-3 rounded-xl text-white/90 hover:text-white hover:scale-105 hover:shadow-lg transition-all duration-200 cursor-pointer"
-                      style={{
-                        backgroundColor:
-                          item.type === "pdf" && shouldShowPreview
-                            ? "rgba(0, 0, 0, 0.6)"
-                            : resolvedTheme === "dark"
-                              ? "rgba(255, 255, 255, 0.1)"
-                              : "rgba(0, 0, 0, 0.2)",
-                        backdropFilter: "blur(8px)",
-                      }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                      }}
-                      onMouseEnter={(e) => {
-                        (
-                          e.currentTarget as HTMLButtonElement
-                        ).style.backgroundColor =
-                          item.type === "pdf" && shouldShowPreview
-                            ? "rgba(0, 0, 0, 0.8)"
-                            : resolvedTheme === "dark"
-                              ? "rgba(0, 0, 0, 0.5)"
-                              : "rgba(0, 0, 0, 0.3)";
-                      }}
-                      onMouseLeave={(e) => {
-                        (
-                          e.currentTarget as HTMLButtonElement
-                        ).style.backgroundColor =
-                          item.type === "pdf" && shouldShowPreview
-                            ? "rgba(0, 0, 0, 0.6)"
-                            : resolvedTheme === "dark"
-                              ? "rgba(255, 255, 255, 0.1)"
-                              : "rgba(0, 0, 0, 0.2)";
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleItemScrollLocked(item.id);
-                      }}
-                    >
-                      {isScrollLocked ? (
-                        <PiMouseScrollFill className="h-4 w-4 shrink-0" />
-                      ) : (
-                        <PiMouseScrollBold className="h-4 w-4 shrink-0" />
-                      )}
-                      <span
-                        className={cn(
-                          "text-xs font-medium",
-                          resolvedTheme === "dark"
-                            ? "text-white/90"
-                            : "text-white/80",
-                        )}
-                      >
-                        {isScrollLocked ? "Scroll" : "Lock"}
-                      </span>
-                    </button>
-                  )}
+            <WorkspaceCardControls
+              itemType={item.type}
+              showScrollLockButton={shouldShowScrollLockButton}
+              useDarkOverlay={useDarkFloatingControls}
+              resolvedTheme={resolvedTheme}
+              isScrollLocked={isScrollLocked}
+              isSelected={isSelected}
+              isEditingTitle={isEditingTitle}
+              canMove={Boolean(onMoveItem)}
+              onToggleScrollLock={() => toggleItemScrollLocked(item.id)}
+              onToggleSelection={() => onToggleSelection(item.id)}
+              onOpenRename={() => setShowRenameDialog(true)}
+              onOpenMove={() => setShowMoveDialog(true)}
+              onCopyMarkdown={handleCopyMarkdown}
+              onOpenColorPicker={() => setIsColorPickerOpen(true)}
+              onDelete={handleDelete}
+            />
 
-                {/* Selection Button */}
-                <button
-                  type="button"
-                  aria-label={isSelected ? "Deselect card" : "Select card"}
-                  title={isSelected ? "Deselect card" : "Select card"}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer"
-                  style={{
-                    backgroundColor: isSelected
-                      ? item.type === "pdf" && shouldShowPreview
-                        ? "rgba(239, 68, 68, 0.4)"
-                        : "rgba(239, 68, 68, 0.3)"
-                      : item.type === "pdf" && shouldShowPreview
-                        ? "rgba(0, 0, 0, 0.6)"
-                        : resolvedTheme === "dark"
-                          ? "rgba(255, 255, 255, 0.1)"
-                          : "rgba(0, 0, 0, 0.2)",
-                    backdropFilter: "blur(8px)",
-                  }}
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                  }}
-                  onMouseEnter={(e) => {
-                    (
-                      e.currentTarget as HTMLButtonElement
-                    ).style.backgroundColor = isSelected
-                      ? item.type === "pdf" && shouldShowPreview
-                        ? "rgba(239, 68, 68, 0.6)"
-                        : "rgba(239, 68, 68, 0.5)"
-                      : item.type === "pdf" && shouldShowPreview
-                        ? "rgba(0, 0, 0, 0.8)"
-                        : resolvedTheme === "dark"
-                          ? "rgba(0, 0, 0, 0.5)"
-                          : "rgba(0, 0, 0, 0.3)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (
-                      e.currentTarget as HTMLButtonElement
-                    ).style.backgroundColor = isSelected
-                      ? item.type === "pdf" && shouldShowPreview
-                        ? "rgba(239, 68, 68, 0.4)"
-                        : "rgba(239, 68, 68, 0.3)"
-                      : item.type === "pdf" && shouldShowPreview
-                        ? "rgba(0, 0, 0, 0.6)"
-                        : resolvedTheme === "dark"
-                          ? "rgba(255, 255, 255, 0.1)"
-                          : "rgba(0, 0, 0, 0.2)";
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleSelection(item.id);
-                  }}
-                >
-                  {isSelected ? (
-                    <X className="h-4 w-4" />
-                  ) : (
-                    <CheckCircle2 className="h-4 w-4" />
-                  )}
-                </button>
+            <WorkspaceCardTypeBadge
+              item={item}
+              shouldShowPreview={shouldShowPreview}
+              resolvedTheme={resolvedTheme}
+            />
 
-                {/* Options Menu */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild className="cursor-pointer">
-                    <button
-                      type="button"
-                      aria-label="Card settings"
-                      title="Card settings"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer"
-                      style={{
-                        backgroundColor:
-                          item.type === "pdf" && shouldShowPreview
-                            ? "rgba(0, 0, 0, 0.6)"
-                            : resolvedTheme === "dark"
-                              ? "rgba(255, 255, 255, 0.1)"
-                              : "rgba(0, 0, 0, 0.2)",
-                        backdropFilter: "blur(8px)",
-                      }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                      }}
-                      onMouseEnter={(e) => {
-                        (
-                          e.currentTarget as HTMLButtonElement
-                        ).style.backgroundColor =
-                          item.type === "pdf" && shouldShowPreview
-                            ? "rgba(0, 0, 0, 0.8)"
-                            : resolvedTheme === "dark"
-                              ? "rgba(0, 0, 0, 0.5)"
-                              : "rgba(0, 0, 0, 0.3)";
-                      }}
-                      onMouseLeave={(e) => {
-                        (
-                          e.currentTarget as HTMLButtonElement
-                        ).style.backgroundColor =
-                          item.type === "pdf" && shouldShowPreview
-                            ? "rgba(0, 0, 0, 0.6)"
-                            : resolvedTheme === "dark"
-                              ? "rgba(255, 255, 255, 0.1)"
-                              : "rgba(0, 0, 0, 0.2)";
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    className="w-48"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <DropdownMenuItem
-                      onSelect={() => setShowRenameDialog(true)}
-                    >
-                      <Pencil className="mr-2 h-4 w-4" />
-                      <span>Rename</span>
-                    </DropdownMenuItem>
-                    {onMoveItem && (
-                      <>
-                        <DropdownMenuItem
-                          onSelect={() => setShowMoveDialog(true)}
-                        >
-                          <FolderInput className="mr-2 h-4 w-4" />
-                          <span>Move to</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                      </>
-                    )}
-                    {item.type === "document" && (
-                      <>
-                        <DropdownMenuItem onSelect={handleCopyMarkdown}>
-                          <Copy className="mr-2 h-4 w-4" />
-                          <span>Copy Markdown</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                      </>
-                    )}
-                    <DropdownMenuItem
-                      onSelect={() => setIsColorPickerOpen(true)}
-                    >
-                      <Palette className="mr-2 h-4 w-4" />
-                      <span>Change Color</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={handleDelete}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      <span>Delete</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-            {/* Type badge - rect in bottom-left corner (when card is small) */}
-            {(item.type === "pdf" ||
-              item.type === "quiz" ||
-              item.type === "audio" ||
-              item.type === "website" ||
-              item.type === "document") &&
-              !shouldShowPreview && (
-                <span
-                  className="absolute left-0 bottom-0 z-0 flex items-center gap-1.5 pl-2.5 pr-1.5 py-2 rounded-tr-md rounded-bl-md text-xs font-semibold uppercase tracking-wider w-max pointer-events-none"
-                  style={{
-                    backgroundColor: getIconColorFromCardColorWithOpacity(
-                      item.color,
-                      resolvedTheme === "dark",
-                      resolvedTheme === "dark" ? 0.3 : 0.55,
-                    ),
-                    color:
-                      resolvedTheme === "dark"
-                        ? getLighterCardColor(item.color, true, 0)
-                        : getCardColorWithBlackMix(item.color, 0.18),
-                  }}
-                >
-                  {item.type === "pdf" ? (
-                    (item.data as PdfData)?.ocrStatus === "processing" ? (
-                      <>
-                        <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
-                        <span>Reading...</span>
-                      </>
-                    ) : (
-                      <>
-                        <File className="h-5 w-5 shrink-0" />
-                        <span>PDF</span>
-                      </>
-                    )
-                  ) : item.type === "quiz" ? (
-                    <>
-                      <Brain className="h-5 w-5 shrink-0" />
-                      <span>Quiz</span>
-                    </>
-                  ) : item.type === "website" ? (
-                    (() => {
-                      const websiteData = item.data as WebsiteData;
-                      const favicon = websiteData.favicon;
-                      const fallbackId = `fallback-${item.id}`;
-                      const faviconId = `favicon-${item.id}`;
-                      return (
-                        <>
-                          {favicon && (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img
-                              id={faviconId}
-                              src={favicon}
-                              alt=""
-                              className="h-5 w-5 shrink-0 rounded"
-                              onLoad={(e) => {
-                                // Hide default globe icons (they stay 16x16 even with sz=64)
-                                if (e.currentTarget.naturalHeight === 16) {
-                                  e.currentTarget.style.display = "none";
-                                  const fallback =
-                                    document.getElementById(fallbackId);
-                                  if (fallback) fallback.style.display = "flex";
-                                }
-                              }}
-                              onError={(e) => {
-                                e.currentTarget.style.display = "none";
-                                const fallback =
-                                  document.getElementById(fallbackId);
-                                if (fallback) fallback.style.display = "flex";
-                              }}
-                            />
-                          )}
-                          <div
-                            id={fallbackId}
-                            className="h-5 w-5 shrink-0 flex items-center justify-center"
-                            style={{ display: favicon ? "none" : "flex" }}
-                          >
-                            <Globe className="h-5 w-5 shrink-0" />
-                          </div>
-                          <span>Website</span>
-                        </>
-                      );
-                    })()
-                  ) : item.type === "document" ? (
-                    <>
-                      <FileText className="h-5 w-5 shrink-0" />
-                      <span>DOC</span>
-                    </>
-                  ) : (
-                    <>
-                      <Mic className="h-5 w-5 shrink-0" />
-                      <span>Recording</span>
-                    </>
-                  )}
-                </span>
-              )}
-
-            {/* Color Picker Dialog */}
-            <Dialog
-              open={isColorPickerOpen}
-              onOpenChange={setIsColorPickerOpen}
-            >
-              <DialogContent
-                className="w-auto max-w-fit p-6"
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                <DialogHeader>
-                  <DialogTitle>Choose a Color</DialogTitle>
-                </DialogHeader>
-                <div
-                  className="flex justify-center color-picker-wrapper"
-                  onClick={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
-                  <SwatchesPicker
-                    color={item.color || "#3B82F6"}
-                    colors={SWATCHES_COLOR_GROUPS}
-                    onChangeComplete={handleColorChange}
-                  />
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            <div
-              className={
-                (item.type === "pdf" ||
-                  item.type === "quiz" ||
-                  item.type === "audio" ||
-                  item.type === "document") &&
-                !shouldShowPreview
-                  ? "flex-1 flex flex-col relative"
-                  : "flex-shrink-0"
+            <WorkspaceCardContent
+              item={item}
+              shouldShowPreview={shouldShowPreview}
+              isScrollLocked={isScrollLocked}
+              documentAwaitingGeneration={documentAwaitingGeneration}
+              documentPreviewText={documentPreviewText}
+              resolvedTheme={resolvedTheme}
+              onNameChange={handleNameChange}
+              onNameCommit={handleNameCommit}
+              onSubtitleChange={handleSubtitleChange}
+              onTitleFocus={handleTitleFocus}
+              onTitleBlur={handleTitleBlur}
+              onUpdateItemData={(updater) =>
+                onUpdateItem(item.id, {
+                  data: updater(item.data) as Item["data"],
+                })
               }
-            >
-              {/* Hide header for template items awaiting generation */}
-              {item.type !== "youtube" &&
-                item.type !== "image" &&
-                !(item.type === "pdf" && shouldShowPreview) &&
-                item.name !== "Update me" && (
-                  <div className="relative z-10">
-                    <ItemHeader
-                      id={item.id}
-                      name={item.name}
-                      subtitle={item.subtitle}
-                      description={""}
-                      onNameChange={handleNameChange}
-                      onNameCommit={handleNameCommit}
-                      onSubtitleChange={handleSubtitleChange}
-                      readOnly={
-                        (item.type === "pdf" ||
-                          item.type === "quiz" ||
-                          item.type === "audio" ||
-                          item.type === "document") &&
-                        !shouldShowPreview
-                      }
-                      noMargin={true}
-                      onTitleFocus={handleTitleFocus}
-                      onTitleBlur={handleTitleBlur}
-                      allowWrap={
-                        (item.type === "pdf" ||
-                          item.type === "quiz" ||
-                          item.type === "audio" ||
-                          item.type === "document") &&
-                        !shouldShowPreview
-                      }
-                    />
-
-                    {/* Sources Section - only shown when card is wide */}
-                    {item.type === "document" &&
-                      shouldShowPreview &&
-                      (item.data as DocumentData).sources &&
-                      (item.data as DocumentData).sources!.length > 0 && (
-                        <div className="px-1 mt-2 mb-1">
-                          <SourcesDisplay
-                            sources={(item.data as DocumentData).sources!}
-                          />
-                        </div>
-                      )}
-                  </div>
-                )}
-            </div>
-
-            {/* PDF Content - render embedded PDF viewer if card is wide enough */}
-            {item.type === "pdf" &&
-              shouldShowPreview &&
-              (() => {
-                const pdfData = item.data as PdfData;
-                const isOcrProcessing = pdfData?.ocrStatus === "processing";
-                const pdfPreviewUrl = pdfData.fileUrl;
-
-                return (
-                  <div
-                    className={`flex-1 min-h-0 relative ${isScrollLocked ? "overflow-hidden" : "overflow-auto"}`}
-                    style={{ pointerEvents: isScrollLocked ? "none" : "auto" }}
-                  >
-                    <LazyAppPdfViewer
-                      pdfSrc={pdfPreviewUrl}
-                      itemId={item.id}
-                      itemName={item.name}
-                    />
-                    {/* OCR processing indicator overlay */}
-                    {isOcrProcessing && pdfPreviewUrl && (
-                      <div
-                        className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-2 py-2 px-3 bg-primary/90 text-primary-foreground text-xs font-medium"
-                        style={{ color: "inherit" }}
-                      >
-                        <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
-                        Reading...
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-            {/* Quiz Content - render interactive quiz (clicks on non-interactive areas open modal via parent) */}
-            {item.type === "quiz" && shouldShowPreview && (
-              <div className="flex-1 min-h-0">
-                <QuizContent
-                  item={item}
-                  onUpdateData={(updater) =>
-                    onUpdateItem(item.id, {
-                      data: updater(item.data) as Item["data"],
-                    })
-                  }
-                  isScrollLocked={isScrollLocked}
-                />
-              </div>
-            )}
-
-            {/* Flashcard Content - render interactive flashcard */}
-            {item.type === "flashcard" &&
-              (() => {
-                const flashcardData = item.data as FlashcardData;
-                const card0 = flashcardData.cards?.[0];
-                const frontText = card0?.front?.trim()
-                  ? card0.front
-                  : "Click to add front content";
-                const backText = card0?.back?.trim()
-                  ? card0.back
-                  : "Click to add back content";
-
-                return (
-                  <div
-                    className="flex-1 flex items-center justify-center p-6 min-h-0"
-                    onClick={(e) => {
-                      // Stop propagation so clicking the flashcard itself doesn't open the modal
-                      // Only clicking outside the flashcard (on the card background) opens modal
-                      e.stopPropagation();
-                    }}
-                  >
-                    <div className="w-full h-full max-w-md max-h-[400px] flex items-center justify-center">
-                      <Flashcard
-                        front={{
-                          html: (
-                            <div
-                              className="p-8 flex items-center justify-center h-full text-center text-lg font-medium overflow-y-auto"
-                              style={{
-                                color:
-                                  resolvedTheme === "dark"
-                                    ? "#f3f4f6"
-                                    : "#111827",
-                              }}
-                            >
-                              <div className="w-full text-left">
-                                <StreamdownMarkdown className="text-lg leading-snug">
-                                  {frontText}
-                                </StreamdownMarkdown>
-                              </div>
-                            </div>
-                          ),
-                        }}
-                        back={{
-                          html: (
-                            <div
-                              className="p-8 flex items-center justify-center h-full text-center text-lg font-medium overflow-y-auto"
-                              style={{
-                                color:
-                                  resolvedTheme === "dark"
-                                    ? "#f3f4f6"
-                                    : "#111827",
-                              }}
-                            >
-                              <div className="w-full text-left">
-                                <StreamdownMarkdown className="text-lg leading-snug">
-                                  {backText}
-                                </StreamdownMarkdown>
-                              </div>
-                            </div>
-                          ),
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })()}
-
-            {/* YouTube Content - render YouTube embed */}
-            {item.type === "youtube" &&
-              (() => {
-                const youtubeData = item.data as YouTubeData;
-                const hasValidUrl =
-                  extractYouTubeVideoId(youtubeData.url) !== null ||
-                  extractYouTubePlaylistId(youtubeData.url) !== null;
-
-                if (!hasValidUrl) {
-                  // Invalid URL - show error state
-                  return (
-                    <div className="p-0 min-h-0">
-                      <div className="flex flex-col items-center justify-center gap-3 text-center h-full p-4">
-                        <div className="rounded-lg p-4 bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-                          <span
-                            className={cn(
-                              "font-medium",
-                              resolvedTheme === "dark"
-                                ? "text-red-400"
-                                : "text-red-600",
-                            )}
-                          >
-                            Invalid YouTube URL
-                          </span>
-                        </div>
-                        <p
-                          className={cn(
-                            "text-xs",
-                            resolvedTheme === "dark"
-                              ? "text-muted-foreground/70"
-                              : "text-muted-foreground/50",
-                          )}
-                        >
-                          Please check the URL and try again
-                        </p>
-                      </div>
-                    </div>
-                  );
-                }
-
-                return <YouTubeCardContent item={item} />;
-              })()}
-
-            {/* Image Content - render frameless image */}
-            {item.type === "image" && (
-              <ImageCardContent item={item} />
-            )}
-
-            {/* Audio Content - render audio player and transcript */}
-            {item.type === "audio" && shouldShowPreview && (
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <AudioCardContent
-                  item={item}
-                  isCompact
-                  isScrollLocked={isScrollLocked}
-                />
-              </div>
-            )}
-
-            {item.type === "document" &&
-              shouldShowPreview &&
-              (documentAwaitingGeneration ? (
-                <div className="flex-1 min-h-0 p-4 flex flex-col gap-3">
-                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-                    Generating document...
-                  </div>
-                  <Skeleton className="h-4 w-full bg-foreground/10" />
-                  <Skeleton className="h-4 w-3/4 bg-foreground/10" />
-                  <Skeleton className="h-4 w-5/6 bg-foreground/10" />
-                </div>
-              ) : (
-                <div
-                  className={`flex-1 min-h-0 px-3 pb-3 overflow-y-scroll ${isScrollLocked ? "pointer-events-none" : ""}`}
-                  style={{
-                    pointerEvents: isScrollLocked ? "none" : "auto",
-                    scrollbarGutter: "stable",
-                  }}
-                >
-                  <StreamdownMarkdown className="text-sm leading-6">
-                    {documentPreviewText}
-                  </StreamdownMarkdown>
-                </div>
-              ))}
+            />
           </article>
 
-          {/* Delete Confirmation Dialog */}
-          <AlertDialog
-            open={showDeleteDialog}
-            onOpenChange={setShowDeleteDialog}
-          >
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Card</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Are you sure you want to delete &quot;
-                  {item.name || "this card"}&quot;? You can restore from version
-                  history if needed.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDeleteConfirm}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-
-          {/* Rename Dialog */}
-          <RenameDialog
-            open={showRenameDialog}
-            onOpenChange={setShowRenameDialog}
-            currentName={item.name || "Untitled"}
-            itemType={item.type}
+          <WorkspaceCardDialogs
+            item={item}
+            allItems={allItems}
+            workspaceName={workspaceName}
+            workspaceIcon={workspaceIcon}
+            workspaceColor={workspaceColor}
+            isColorPickerOpen={isColorPickerOpen}
+            onColorPickerOpenChange={setIsColorPickerOpen}
+            showDeleteDialog={showDeleteDialog}
+            onDeleteDialogChange={setShowDeleteDialog}
+            showMoveDialog={showMoveDialog}
+            onMoveDialogChange={setShowMoveDialog}
+            showRenameDialog={showRenameDialog}
+            onRenameDialogChange={setShowRenameDialog}
+            onColorChange={handleColorChange}
+            onDeleteConfirm={handleDeleteConfirm}
             onRename={handleRename}
+            onMove={onMoveItem ? handleMove : undefined}
           />
-
-          {/* Move to Dialog */}
-          {onMoveItem && (
-            <MoveToDialog
-              open={showMoveDialog}
-              onOpenChange={setShowMoveDialog}
-              item={item}
-              allItems={allItems}
-              workspaceName={workspaceName}
-              workspaceIcon={workspaceIcon}
-              workspaceColor={workspaceColor}
-              onMove={(folderId) => {
-                onMoveItem(item.id, folderId);
-                toast.success("Item moved");
-              }}
-            />
-          )}
         </div>
       </ContextMenuTrigger>
 
-      {/* Right-Click Context Menu */}
       <ContextMenuContent className="w-48">
-        <ContextMenuItem onSelect={() => setShowRenameDialog(true)}>
-          <Pencil className="mr-2 h-4 w-4" />
-          <span>Rename</span>
-        </ContextMenuItem>
-        {onMoveItem && (
-          <>
-            <ContextMenuItem onSelect={() => setShowMoveDialog(true)}>
-              <FolderInput className="mr-2 h-4 w-4" />
-              <span>Move to</span>
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-          </>
-        )}
-        {item.type === "document" && (
-          <>
-            <ContextMenuItem onSelect={handleCopyMarkdown}>
-              <Copy className="mr-2 h-4 w-4" />
-              <span>Copy Markdown</span>
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-          </>
-        )}
-        <ContextMenuItem onSelect={() => setIsColorPickerOpen(true)}>
-          <Palette className="mr-2 h-4 w-4" />
-          <span>Change Color</span>
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem
-          onSelect={handleDelete}
-          className="text-destructive focus:text-destructive"
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          <span>Delete</span>
-        </ContextMenuItem>
+        <WorkspaceCardContextMenuItems
+          itemType={item.type}
+          canMove={Boolean(onMoveItem)}
+          onOpenRename={() => setShowRenameDialog(true)}
+          onOpenMove={() => setShowMoveDialog(true)}
+          onCopyMarkdown={handleCopyMarkdown}
+          onOpenColorPicker={() => setIsColorPickerOpen(true)}
+          onDelete={handleDelete}
+        />
       </ContextMenuContent>
-
     </ContextMenu>
   );
 }
