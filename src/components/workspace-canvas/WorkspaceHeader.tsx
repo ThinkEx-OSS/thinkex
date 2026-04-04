@@ -950,7 +950,7 @@ export function WorkspaceHeader({
           {/* Breadcrumbs */}
           <nav
             ref={breadcrumbNavRef}
-            className="ml-1 flex min-w-0 flex-1 items-center overflow-hidden text-xs text-sidebar-foreground/70"
+            className="flex min-w-0 flex-1 items-center overflow-hidden text-xs text-sidebar-foreground/70"
           >
             {renderRootBreadcrumb()}
 
