@@ -3,6 +3,7 @@ import posthog from "posthog-js";
 const projectToken = process.env.NEXT_PUBLIC_POSTHOG_TOKEN;
 const apiHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 const uiHost = "https://us.posthog.com";
+const isDevelopment = process.env.NODE_ENV === "development";
 
 const sdkDefaultsVersion = "2026-01-30";
 const readinessPollIntervalMs = 50;
@@ -10,7 +11,12 @@ const readinessPollIntervalMs = 50;
 export { posthog };
 
 export function initPostHog(): void {
-  if (typeof window === "undefined" || posthog.__loaded || !projectToken) {
+  if (
+    typeof window === "undefined" ||
+    isDevelopment ||
+    posthog.__loaded ||
+    !projectToken
+  ) {
     return;
   }
 
@@ -19,18 +25,13 @@ export function initPostHog(): void {
     ui_host: uiHost,
     defaults: sdkDefaultsVersion,
     person_profiles: "identified_only",
-    loaded: (client) => {
-      if (process.env.NODE_ENV === "development") {
-        client.debug();
-      }
-    },
   });
 }
 
 export function onPostHogReady(
   callback: (client: typeof posthog) => void,
 ): () => void {
-  if (typeof window === "undefined" || !projectToken) {
+  if (typeof window === "undefined" || isDevelopment || !projectToken) {
     return () => {};
   }
 
