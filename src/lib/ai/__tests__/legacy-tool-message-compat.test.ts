@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { UIMessage } from "ai";
+import { safeValidateUIMessages, type UIMessage } from "ai";
 import { normalizeLegacyToolMessages } from "../legacy-tool-message-compat";
 
 describe("normalizeLegacyToolMessages", () => {
@@ -151,6 +151,115 @@ describe("normalizeLegacyToolMessages", () => {
     expect(normalized[0]?.parts[0]).toMatchObject({
       type: "tool-workspace_read",
       input: { path: "b.md" },
+    });
+  });
+
+  it("preserves active non-canonical tools when they are still available", () => {
+    const messages = [
+      {
+        id: "1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-custom_client_tool",
+            toolCallId: "call_custom",
+            state: "input-available",
+            input: { query: "hello" },
+          },
+        ],
+      },
+    ] as UIMessage[];
+
+    const normalized = normalizeLegacyToolMessages(messages, {
+      availableToolNames: ["custom_client_tool"],
+    });
+
+    expect(normalized[0]?.parts[0]).toMatchObject({
+      type: "tool-custom_client_tool",
+      input: { query: "hello" },
+    });
+  });
+
+  it("downgrades removed camelCase tools to text", () => {
+    const messages = [
+      {
+        id: "1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-magicFetch",
+            toolCallId: "call_removed",
+            state: "output-available",
+            input: { description: "fetch something" },
+            output: "done",
+          },
+        ],
+      },
+    ] as UIMessage[];
+
+    const normalized = normalizeLegacyToolMessages(messages);
+    expect(normalized[0]?.parts[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("magicFetch"),
+    });
+  });
+
+  it("downgrades removed snake_case tools to text", () => {
+    const messages = [
+      {
+        id: "1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-magic_fetch",
+            toolCallId: "call_removed_snake",
+            state: "input-available",
+            input: { description: "fetch something else" },
+          },
+        ],
+      },
+    ] as UIMessage[];
+
+    const normalized = normalizeLegacyToolMessages(messages);
+    expect(normalized[0]?.parts[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("magic_fetch"),
+    });
+  });
+
+  it("allows validation to succeed after downgrading removed tools", async () => {
+    const messages = [
+      {
+        id: "1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-magic_fetch",
+            toolCallId: "call_removed_validation",
+            state: "output-available",
+            input: { description: "old removed tool" },
+            output: "legacy output",
+          },
+        ],
+      },
+    ] as UIMessage[];
+
+    const originalValidation = await safeValidateUIMessages({
+      messages,
+      tools: {},
+    });
+    expect(originalValidation.success).toBe(false);
+
+    const normalized = normalizeLegacyToolMessages(messages);
+    const normalizedValidation = await safeValidateUIMessages({
+      messages: normalized,
+      tools: {},
+    });
+
+    expect(normalizedValidation.success).toBe(true);
+    expect(normalized[0]?.parts[0]).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("no longer supported"),
     });
   });
 });

@@ -19,6 +19,7 @@ export const CHAT_TOOL = {
 } as const;
 
 export type ChatToolName = (typeof CHAT_TOOL)[keyof typeof CHAT_TOOL];
+const CANONICAL_CHAT_TOOL_NAMES = new Set<string>(Object.values(CHAT_TOOL));
 
 /** Older tool name → canonical */
 export const LEGACY_CHAT_TOOL_NAMES: Record<string, ChatToolName> = {
@@ -78,6 +79,10 @@ export function toolPartMatchesCanonical(
   const suffix = partType.slice("tool-".length);
   if (suffix === canonical) return true;
   return LEGACY_CHAT_TOOL_NAMES[suffix] === canonical;
+}
+
+export function isCanonicalChatToolName(name: string): name is ChatToolName {
+  return CANONICAL_CHAT_TOOL_NAMES.has(name);
 }
 
 /** Autogen / SSE events that mirror the web search tool */

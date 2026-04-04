@@ -169,7 +169,9 @@ async function handlePOST(req: Request) {
       clientTools: body.tools,
     });
 
-    const compatibleMessages = normalizeLegacyToolMessages(messages);
+    const compatibleMessages = normalizeLegacyToolMessages(messages, {
+      availableToolNames: Object.keys(tools),
+    });
 
     const validation = await safeValidateUIMessages({
       messages: compatibleMessages,
