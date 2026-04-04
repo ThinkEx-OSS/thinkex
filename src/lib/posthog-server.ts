@@ -5,6 +5,7 @@ import { PostHog } from "posthog-node";
 const POSTHOG_CAPTURED_ERROR = Symbol.for("thinkex.posthog.captured");
 
 const projectToken = process.env.POSTHOG_PROJECT_TOKEN;
+const isDevelopment = process.env.NODE_ENV === "development";
 
 function normalizeHost(value: string | undefined): string | undefined {
   return value?.trim().replace(/\/+$/, "");
@@ -37,7 +38,7 @@ export function getPostHogServerClient(): PostHog | null {
     return posthogServerClient;
   }
 
-  if (!projectToken) {
+  if (isDevelopment || !projectToken) {
     posthogServerClient = null;
     return posthogServerClient;
   }
