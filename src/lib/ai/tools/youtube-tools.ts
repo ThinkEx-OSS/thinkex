@@ -7,7 +7,7 @@ import type { WorkspaceToolContext } from "./workspace-tools";
 import { withSanitizedModelOutput } from "./tool-utils";
 
 /**
- * Create the searchYoutube tool
+ * Create the youtube_search tool
  */
 export function createSearchYoutubeTool() {
     return tool({
@@ -38,7 +38,7 @@ export function createSearchYoutubeTool() {
 }
 
 /**
- * Create the addYoutubeVideo tool
+ * Create the youtube_add tool
  */
 export function createAddYoutubeVideoTool(ctx: WorkspaceToolContext) {
     return withSanitizedModelOutput(tool({

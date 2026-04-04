@@ -69,7 +69,7 @@ describe("replace (edit/replace for oldString/newString)", () => {
     ).toBe("before\n  modified\nafter");
   });
 
-  it("handles math block format from readWorkspace", () => {
+  it("handles math block format from workspace_read", () => {
     const content = "# Note\n\n$$\nx^2\n$$\n\nMore text";
     expect(replace(content, "$$\nx^2\n$$\n\n", "$$\n2x\n$$\n\n")).toBe(
       "# Note\n\n$$\n2x\n$$\n\nMore text"

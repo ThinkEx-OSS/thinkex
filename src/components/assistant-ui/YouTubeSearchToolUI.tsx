@@ -1,6 +1,6 @@
 "use client";
 
-import { makeAssistantToolUI, useAui, useScrollLock } from "@assistant-ui/react";
+import { useAui, useScrollLock, type AssistantToolUIProps } from "@assistant-ui/react";
 import { Loader2, Plus, Check, ChevronDownIcon } from "lucide-react";
 import { YouTubeMark } from "@/components/icons/YouTubeMark";
 import { Button } from "@/components/ui/button";
@@ -380,13 +380,13 @@ const YouTubeSearchContent: FC<{
     );
 };
 
-export const YouTubeSearchToolUI = makeAssistantToolUI<SearchYoutubeArgs, SearchYoutubeResult>({
-    toolName: "searchYoutube",
-    render: function YouTubeSearchToolUI({ args, status, result }) {
-        return (
-            <ToolUIErrorBoundary componentName="YouTubeSearch">
-                <YouTubeSearchContent args={args} status={status} result={result ?? null} />
-            </ToolUIErrorBoundary>
-        );
-    },
-});
+export const renderYouTubeSearchToolUI: AssistantToolUIProps<
+  SearchYoutubeArgs,
+  SearchYoutubeResult
+>["render"] = ({ args, status, result }) => {
+  return (
+    <ToolUIErrorBoundary componentName="YouTubeSearch">
+      <YouTubeSearchContent args={args} status={status} result={result ?? null} />
+    </ToolUIErrorBoundary>
+  );
+};

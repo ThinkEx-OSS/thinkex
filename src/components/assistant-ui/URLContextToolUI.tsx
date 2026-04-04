@@ -9,10 +9,7 @@ import {
   type PropsWithChildren,
 } from "react";
 
-import {
-  useScrollLock,
-  makeAssistantToolUI,
-} from "@assistant-ui/react";
+import { useScrollLock, type AssistantToolUIProps } from "@assistant-ui/react";
 
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { parseURLContextResult } from "@/lib/ai/tool-result-schemas";
@@ -196,7 +193,7 @@ const ToolText: FC<
 ToolText.displayName = "ToolText";
 
 /**
- * Tool UI component for processUrls tool.
+ * Tool UI component for web_fetch tool.
  * Displays URLs being processed and their retrieval status.
  */
 type URLMetadata = {
@@ -213,29 +210,27 @@ type ProcessUrlsResult =
     };
   };
 
-export const URLContextToolUI = makeAssistantToolUI<{
+export const renderURLContextToolUI: AssistantToolUIProps<{
   urls?: string[];
   jsonInput?: string;
-}, ProcessUrlsResult>({
-  toolName: "processUrls",
-  render: function URLContextToolUI({ args, status, result }) {
-    const isRunning = status.type === "running";
-    const isComplete = status.type === "complete";
+}, ProcessUrlsResult>["render"] = ({ args, status, result }) => {
+  const isRunning = status.type === "running";
+  const isComplete = status.type === "complete";
 
-    const parsedResult = result != null ? parseURLContextResult(result) : null;
-    type Meta = {
-      urlMetadata?: URLMetadata[];
-    };
-    const metadata = (typeof parsedResult === "object" && parsedResult !== null && "metadata" in parsedResult ? (parsedResult as { metadata?: Meta }).metadata : null) as Meta | null;
-    const urlMetadata = metadata?.urlMetadata ?? null;
+  const parsedResult = result != null ? parseURLContextResult(result) : null;
+  type Meta = {
+    urlMetadata?: URLMetadata[];
+  };
+  const metadata = (typeof parsedResult === "object" && parsedResult !== null && "metadata" in parsedResult ? (parsedResult as { metadata?: Meta }).metadata : null) as Meta | null;
+  const urlMetadata = metadata?.urlMetadata ?? null;
 
-    const normalizedArgs = normalizeProcessUrlsArgs(args);
-    const urls = normalizedArgs?.urls ?? [];
+  const normalizedArgs = normalizeProcessUrlsArgs(args);
+  const urls = normalizedArgs?.urls ?? [];
 
-    const urlCount = urls.length;
-    const successfulCount =
-      urlMetadata?.filter((m) => m.urlRetrievalStatus === "URL_RETRIEVAL_STATUS_SUCCESS").length ?? 0;
-    const failedCount = (urlMetadata?.length ?? 0) - successfulCount;
+  const urlCount = urls.length;
+  const successfulCount =
+    urlMetadata?.filter((m) => m.urlRetrievalStatus === "URL_RETRIEVAL_STATUS_SUCCESS").length ?? 0;
+  const failedCount = (urlMetadata?.length ?? 0) - successfulCount;
 
     // Helper to get status badge color
     const getStatusColor = (status: string) => {
@@ -254,14 +249,14 @@ export const URLContextToolUI = makeAssistantToolUI<{
         .replace(/\b\w/g, (l) => l.toUpperCase());
     };
 
-    return (
-      <ToolUIErrorBoundary componentName="URLContext">
-        <ToolRoot>
-          <ToolTrigger
-            active={isRunning}
-            label={isRunning ? "Processing links" : "Links processed"}
-            icon={<LinkIcon className="aui-tool-trigger-icon size-4 shrink-0" />}
-          />
+  return (
+    <ToolUIErrorBoundary componentName="URLContext">
+      <ToolRoot>
+        <ToolTrigger
+          active={isRunning}
+          label={isRunning ? "Processing links" : "Links processed"}
+          icon={<LinkIcon className="aui-tool-trigger-icon size-4 shrink-0" />}
+        />
 
           <ToolContent aria-busy={isRunning}>
             <ToolText>
@@ -333,8 +328,7 @@ export const URLContextToolUI = makeAssistantToolUI<{
               </div>
             </ToolText>
           </ToolContent>
-        </ToolRoot>
-      </ToolUIErrorBoundary>
-    );
-  },
-});
+      </ToolRoot>
+    </ToolUIErrorBoundary>
+  );
+};

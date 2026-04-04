@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai";
+import { CHAT_TOOL, canonicalizeToolUIPartType } from "./chat-tool-names";
 import { normalizeProcessUrlsArgs } from "./process-urls-shared";
 import { normalizeWebSearchResult } from "./web-search-shared";
 
@@ -8,7 +9,7 @@ function normalizeWebSearchOutput(output: unknown): unknown {
 }
 
 export function normalizeLegacyToolMessages(messages: UIMessage[]): UIMessage[] {
-  return messages.map((message) => {
+  return messages.map((message): UIMessage => {
     if (!Array.isArray(message.parts)) {
       return message;
     }
@@ -18,23 +19,26 @@ export function normalizeLegacyToolMessages(messages: UIMessage[]): UIMessage[] 
         return part;
       }
 
-      if (part.type === "tool-processUrls" && "input" in part) {
-        const normalizedInput = normalizeProcessUrlsArgs(part.input);
-        return normalizedInput ? { ...part, input: normalizedInput } : part;
+      const type = canonicalizeToolUIPartType(part.type);
+      let next = type === part.type ? part : { ...part, type };
+
+      if (type === `tool-${CHAT_TOOL.WEB_FETCH}` && "input" in next) {
+        const normalizedInput = normalizeProcessUrlsArgs(next.input);
+        next = normalizedInput ? { ...next, input: normalizedInput } : next;
       }
 
       if (
-        part.type === "tool-webSearch" &&
-        "state" in part &&
-        part.state === "output-available" &&
-        "output" in part
+        type === `tool-${CHAT_TOOL.WEB_SEARCH}` &&
+        "state" in next &&
+        next.state === "output-available" &&
+        "output" in next
       ) {
-        return { ...part, output: normalizeWebSearchOutput(part.output) };
+        next = { ...next, output: normalizeWebSearchOutput(next.output) };
       }
 
-      return part;
+      return next;
     });
 
-    return { ...message, parts };
+    return { ...message, parts } as UIMessage;
   });
 }

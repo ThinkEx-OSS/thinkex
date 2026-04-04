@@ -3,7 +3,7 @@
 import type { MouseEvent, ReactNode } from "react";
 import { useEffect, useState, useMemo } from "react";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
-import { makeAssistantToolUI } from "@assistant-ui/react";
+import type { AssistantToolUIProps } from "@assistant-ui/react";
 import { X, Eye, FolderInput, Brain } from "lucide-react";
 import { logger } from "@/lib/utils/logger";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
@@ -26,6 +26,12 @@ import type { Item } from "@/lib/workspace-state/types";
 type ToolStatus = {
   type: "complete" | "running" | "incomplete" | "requires-action";
   reason?: string;
+};
+
+type CreateQuizToolRendererProps = {
+  args: CreateQuizInput;
+  result?: QuizResult;
+  status: { type: string; reason?: string };
 };
 
 interface CreateQuizReceiptProps {
@@ -192,79 +198,80 @@ const CreateQuizReceipt = ({
   );
 };
 
-export const CreateQuizToolUI = makeAssistantToolUI<
+export const renderCreateQuizToolUI: AssistantToolUIProps<
   CreateQuizInput,
   QuizResult
->({
-  toolName: "createQuiz",
-  render: function CreateQuizUI({ args, result, status }) {
-    const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-    const { state: workspaceState } = useWorkspaceState(workspaceId);
-    const operations = useWorkspaceOperations(
-      workspaceId,
-      workspaceState || initialState,
-    );
-    const workspaceContext = useWorkspaceContext();
-    const currentWorkspace = workspaceContext.workspaces.find(
-      (w) => w.id === workspaceId,
-    );
+>["render"] = (props) => {
+  return <CreateQuizToolRenderer {...props} />;
+};
 
-    useEffect(() => {
-      logger.debug("🎯 [CreateQuizTool] Render:", {
-        args,
-        result,
-        status: status?.type,
-      });
-    }, [args, result, status]);
+function CreateQuizToolRenderer({
+  args,
+  result,
+  status,
+}: CreateQuizToolRendererProps) {
+  const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+  const { state: workspaceState } = useWorkspaceState(workspaceId);
+  const operations = useWorkspaceOperations(
+    workspaceId,
+    workspaceState || initialState,
+  );
+  const workspaceContext = useWorkspaceContext();
+  const currentWorkspace = workspaceContext.workspaces.find(
+    (w) => w.id === workspaceId,
+  );
 
-    // Don't try to parse while still running - wait for completion
-    let parsed: QuizResult | null = null;
-    if (status.type === "complete" && result != null) {
-      try {
-        // With the new Output.object() approach, the quiz worker returns clean structured data
-        // so we can parse normally without special streaming handling
-        parsed = parseQuizResult(result);
-      } catch (err) {
-        // Log the error but don't throw - we'll show error state below
-        logger.error("🎯 [CreateQuizTool] Failed to parse result:", err);
-        parsed = null;
-      }
+  useEffect(() => {
+    logger.debug("🎯 [CreateQuizTool] Render:", {
+      args,
+      result,
+      status: status?.type,
+    });
+  }, [args, result, status]);
+
+  let parsed: QuizResult | null = null;
+  if (status.type === "complete" && result != null) {
+    try {
+      parsed = parseQuizResult(result);
+    } catch (err) {
+      logger.error("🎯 [CreateQuizTool] Failed to parse result:", err);
+      parsed = null;
     }
+  }
 
-    let content: ReactNode = null;
+  let content: ReactNode = null;
 
-    if (parsed?.success) {
-      content = (
-        <CreateQuizReceipt
-          result={parsed}
-          status={status}
-          moveItemToFolder={operations.moveItemToFolder}
-          allItems={workspaceState?.items || []}
-          workspaceName={
-            currentWorkspace?.name || workspaceState?.globalTitle || "Workspace"
-          }
-          workspaceIcon={currentWorkspace?.icon}
-          workspaceColor={currentWorkspace?.color}
-        />
-      );
-    } else if (status.type === "running") {
-      content = <ToolUILoadingShell label="Generating quiz..." />;
-    } else if (
-      (status.type === "incomplete" && status.reason === "error") ||
-      (status.type === "complete" && parsed && !parsed.success)
-    ) {
-      content = (
-        <ToolUIErrorShell
-          label="Failed to create quiz"
-          message={parsed && !parsed.success ? parsed.message : undefined}
-        />
-      );
-    }
-
-    return (
-      <ToolUIErrorBoundary componentName="CreateQuiz">
-        {content}
-      </ToolUIErrorBoundary>
+  if (parsed?.success) {
+    content = (
+      <CreateQuizReceipt
+        result={parsed}
+        status={status as ToolStatus}
+        moveItemToFolder={operations.moveItemToFolder}
+        allItems={workspaceState?.items || []}
+        workspaceName={
+          currentWorkspace?.name || workspaceState?.globalTitle || "Workspace"
+        }
+        workspaceIcon={currentWorkspace?.icon}
+        workspaceColor={currentWorkspace?.color}
+      />
     );
-  },
-});
+  } else if (status.type === "running") {
+    content = <ToolUILoadingShell label="Generating quiz..." />;
+  } else if (
+    (status.type === "incomplete" && status.reason === "error") ||
+    (status.type === "complete" && parsed && !parsed.success)
+  ) {
+    content = (
+      <ToolUIErrorShell
+        label="Failed to create quiz"
+        message={parsed && !parsed.success ? parsed.message : undefined}
+      />
+    );
+  }
+
+  return (
+    <ToolUIErrorBoundary componentName="CreateQuiz">
+      {content}
+    </ToolUIErrorBoundary>
+  );
+}

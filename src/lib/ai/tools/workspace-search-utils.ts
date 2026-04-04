@@ -17,13 +17,13 @@ import { getVirtualPath } from "@/lib/utils/workspace-fs";
 export interface SearchableText {
   /** Path and title lines (1-2 lines). Matches here use matchKind, not lineNum. */
   header: string;
-  /** Body content. Line numbers align with readWorkspace(path, lineStart). */
+  /** Body content. Line numbers align with workspace_read(path, lineStart). */
   content: string;
 }
 
 /**
  * Extract plain text from an item for searching (grep).
- * Returns header (path, title) and content separately so grep line numbers align with readWorkspace.
+ * Returns header (path, title) and content separately so grep line numbers align with workspace_read.
  * Header matches use matchKind (path/title); content matches use 1-based lineNum.
  */
 export function extractSearchableText(

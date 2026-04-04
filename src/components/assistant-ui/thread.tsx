@@ -60,18 +60,6 @@ import {
 import Link from "next/link";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
-import { CreateQuizToolUI } from "@/components/assistant-ui/CreateQuizToolUI";
-import { CreateDocumentToolUI } from "@/components/assistant-ui/CreateDocumentToolUI";
-import { CreateFlashcardToolUI } from "@/components/assistant-ui/CreateFlashcardToolUI";
-import { EditItemToolUI } from "@/components/assistant-ui/EditItemToolUI";
-
-import { YouTubeSearchToolUI } from "@/components/assistant-ui/YouTubeSearchToolUI";
-import { AddYoutubeVideoToolUI } from "@/components/assistant-ui/AddYoutubeVideoToolUI";
-import { URLContextToolUI } from "@/components/assistant-ui/URLContextToolUI";
-import { WebSearchToolUI } from "@/components/assistant-ui/WebSearchToolUI";
-import { SearchWorkspaceToolUI } from "@/components/assistant-ui/SearchWorkspaceToolUI";
-import { ReadWorkspaceToolUI } from "@/components/assistant-ui/ReadWorkspaceToolUI";
-import { MagicFetchToolUI } from "@/components/assistant-ui/MagicFetchToolUI";
 import { AIFeedbackDialog } from "@/components/assistant-ui/AIFeedbackDialog";
 
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
@@ -133,21 +121,7 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
   const viewportRef = useRef<HTMLDivElement>(null);
 
   return (
-    <>
-      {/* Register tool UI - this component mounts and registers the UI with the assistant runtime */}
-      <CreateQuizToolUI />
-      <CreateDocumentToolUI />
-      <CreateFlashcardToolUI />
-      <EditItemToolUI />
-
-      <YouTubeSearchToolUI />
-      <AddYoutubeVideoToolUI />
-      <URLContextToolUI />
-      <WebSearchToolUI />
-      <SearchWorkspaceToolUI />
-      <ReadWorkspaceToolUI />
-      <MagicFetchToolUI />
-      <ThreadPrimitive.Root
+    <ThreadPrimitive.Root
         className="aui-root aui-thread-root @container flex h-full flex-col bg-sidebar"
         style={{
           ["--thread-max-width" as string]: "50rem",
@@ -181,7 +155,6 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
           <ComposerHoverWrapper items={items} />
         </div>
       </ThreadPrimitive.Root>
-    </>
   );
 };
 

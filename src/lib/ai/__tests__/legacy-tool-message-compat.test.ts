@@ -28,7 +28,7 @@ describe("normalizeLegacyToolMessages", () => {
     const part = normalized[0]?.parts[0];
 
     expect(part).toMatchObject({
-      type: "tool-processUrls",
+      type: "tool-web_fetch",
       input: {
         urls: ["https://example.com"],
       },
@@ -64,7 +64,7 @@ describe("normalizeLegacyToolMessages", () => {
     const part = normalized[0]?.parts[0];
 
     expect(part).toMatchObject({
-      type: "tool-webSearch",
+      type: "tool-web_search",
       output: {
         text: "Summary text",
         sources: [{ title: "Example", url: "https://example.com" }],
@@ -100,11 +100,57 @@ describe("normalizeLegacyToolMessages", () => {
     const part = normalized[0]?.parts[0];
 
     expect(part).toMatchObject({
-      type: "tool-webSearch",
+      type: "tool-web_search",
       output: {
         text: "Summary text",
         sources: [],
       },
+    });
+  });
+
+  it("leaves canonical snake_case tool part types unchanged", () => {
+    const messages = [
+      {
+        id: "1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-workspace_read",
+            toolCallId: "call_x",
+            state: "input-available",
+            input: { path: "a.md" },
+          },
+        ],
+      },
+    ] as UIMessage[];
+
+    const normalized = normalizeLegacyToolMessages(messages);
+    expect(normalized[0]?.parts[0]).toMatchObject({
+      type: "tool-workspace_read",
+      input: { path: "a.md" },
+    });
+  });
+
+  it("maps intermediate snake read_workspace to workspace_read", () => {
+    const messages = [
+      {
+        id: "1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-read_workspace",
+            toolCallId: "call_y",
+            state: "input-available",
+            input: { path: "b.md" },
+          },
+        ],
+      },
+    ] as UIMessage[];
+
+    const normalized = normalizeLegacyToolMessages(messages);
+    expect(normalized[0]?.parts[0]).toMatchObject({
+      type: "tool-workspace_read",
+      input: { path: "b.md" },
     });
   });
 });

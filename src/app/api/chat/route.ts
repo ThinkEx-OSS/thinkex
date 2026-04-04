@@ -167,7 +167,6 @@ async function handlePOST(req: Request) {
       activeFolderId,
       threadId,
       clientTools: body.tools,
-      enableMagicFetch: true, // experiment: log AI data requests to PostHog
     });
 
     const compatibleMessages = normalizeLegacyToolMessages(messages);
@@ -261,7 +260,7 @@ async function handlePOST(req: Request) {
     // Configure Google Thinking capabilities
     const googleConfig: any = {
       grounding: {
-        // googleSearchRetrieval removed to force usage of explicit webSearch tool
+        // googleSearchRetrieval removed to force usage of explicit web_search tool
       },
       thinkingConfig: {
         includeThoughts: true,

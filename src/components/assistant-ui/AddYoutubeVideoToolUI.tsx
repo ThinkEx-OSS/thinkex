@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { makeAssistantToolUI } from "@assistant-ui/react";
+import type { AssistantToolUIProps } from "@assistant-ui/react";
 import { X, Eye, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -92,52 +92,45 @@ const AddYoutubeVideoReceipt = ({
   );
 };
 
-export const AddYoutubeVideoToolUI = makeAssistantToolUI<
+export const renderAddYoutubeVideoToolUI: AssistantToolUIProps<
   AddYoutubeVideoArgs,
   WorkspaceResult
->({
-  toolName: "addYoutubeVideo",
-  render: function AddYoutubeVideoToolUI({ args, result, status }) {
-    // Don't try to parse while still running - wait for completion
-    let parsed: WorkspaceResult | null = null;
-    if (status.type === "complete" && result != null) {
-      try {
-        parsed = parseWorkspaceResult(result);
-      } catch (err) {
-        // Log the error but don't throw - we'll show error state below
-        console.error("🎥 [AddYoutubeVideoTool] Failed to parse result:", err);
-        parsed = null;
-      }
+>["render"] = ({ args, result, status }) => {
+  let parsed: WorkspaceResult | null = null;
+  if (status.type === "complete" && result != null) {
+    try {
+      parsed = parseWorkspaceResult(result);
+    } catch (err) {
+      console.error("🎥 [AddYoutubeVideoTool] Failed to parse result:", err);
+      parsed = null;
     }
+  }
 
-    let content: ReactNode = null;
+  let content: ReactNode = null;
 
-    if (parsed?.success) {
-      content = (
-        <AddYoutubeVideoReceipt args={args} result={parsed} status={status} />
-      );
-    } else if (status.type === "running") {
-      content = <ToolUILoadingShell label="Adding YouTube video..." />;
-    } else if (status.type === "complete" && parsed && !parsed.success) {
-      content = (
-        <ToolUIErrorShell
-          label="Failed to add YouTube video"
-          message={parsed.message}
-        />
-      );
-    } else if (status.type === "incomplete" && status.reason === "error") {
-      content = (
-        <ToolUIErrorShell
-          label="Failed to add YouTube video"
-          message={parsed?.message}
-        />
-      );
-    }
-
-    return (
-      <ToolUIErrorBoundary componentName="AddYoutubeVideo">
-        {content}
-      </ToolUIErrorBoundary>
+  if (parsed?.success) {
+    content = <AddYoutubeVideoReceipt args={args} result={parsed} status={status} />;
+  } else if (status.type === "running") {
+    content = <ToolUILoadingShell label="Adding YouTube video..." />;
+  } else if (status.type === "complete" && parsed && !parsed.success) {
+    content = (
+      <ToolUIErrorShell
+        label="Failed to add YouTube video"
+        message={parsed.message}
+      />
     );
-  },
-});
+  } else if (status.type === "incomplete" && status.reason === "error") {
+    content = (
+      <ToolUIErrorShell
+        label="Failed to add YouTube video"
+        message={parsed?.message}
+      />
+    );
+  }
+
+  return (
+    <ToolUIErrorBoundary componentName="AddYoutubeVideo">
+      {content}
+    </ToolUIErrorBoundary>
+  );
+};

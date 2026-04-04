@@ -2,12 +2,15 @@
 
 import {
   AssistantRuntimeProvider,
+  Tools,
   unstable_useRemoteThreadListRuntime as useRemoteThreadListRuntime,
+  useAui,
 } from "@assistant-ui/react";
 import {
   useChatRuntime,
   AssistantChatTransport,
 } from "@assistant-ui/react-ai-sdk";
+import type { UIMessage } from "ai";
 import { useMemo, useCallback } from "react";
 import { AssistantAvailableProvider } from "@/contexts/AssistantAvailabilityContext";
 import { useUIStore } from "@/lib/stores/ui-store";
@@ -16,10 +19,24 @@ import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { formatSelectedCardsMetadata } from "@/lib/utils/format-workspace-context";
 import { createThreadListAdapter } from "@/lib/chat/custom-thread-list-adapter";
 import { toCreateMessageWithContext } from "@/lib/chat/toCreateMessageWithContext";
+import { chatToolToolkit } from "@/components/assistant-ui/chat-toolkit";
 
 interface WorkspaceRuntimeProviderProps {
   workspaceId: string;
   children: React.ReactNode;
+}
+
+function createWorkspaceChatRuntimeHook(
+  transport: AssistantChatTransport<UIMessage>,
+  onError: (error: Error) => void,
+) {
+  return function useWorkspaceChatRuntimeHook() {
+    return useChatRuntime({
+      transport,
+      onError,
+      toCreateMessage: toCreateMessageWithContext,
+    });
+  };
 }
 
 export function WorkspaceRuntimeProvider({
@@ -157,18 +174,22 @@ export function WorkspaceRuntimeProvider({
     [workspaceId, selectedModelId, activeFolderId, selectedCardsContext],
   );
 
+  const runtimeHook = useMemo(
+    () => createWorkspaceChatRuntimeHook(transport, handleChatError),
+    [transport, handleChatError],
+  );
+
   const runtime = useRemoteThreadListRuntime({
-    runtimeHook: () =>
-      useChatRuntime({
-        transport,
-        onError: handleChatError,
-        toCreateMessage: toCreateMessageWithContext,
-      }),
+    runtimeHook,
     adapter: threadListAdapter,
   });
 
+  const aui = useAui({
+    tools: Tools({ toolkit: chatToolToolkit }),
+  });
+
   return (
-    <AssistantRuntimeProvider runtime={runtime}>
+    <AssistantRuntimeProvider runtime={runtime} aui={aui}>
       <AssistantAvailableProvider>{children}</AssistantAvailableProvider>
     </AssistantRuntimeProvider>
   );

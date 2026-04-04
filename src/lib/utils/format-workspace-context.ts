@@ -119,7 +119,7 @@ Your knowledge cutoff date is January 2025.
 
 <context>
 Selected cards are the primary context the user wants to work with. All selected cards matter. Items marked (currently viewing) have highest priority in general — they are what the user has open right now, so prioritize them for all queries. This applies beyond ambiguous prompts ("this", "here", "that one", "what I'm looking at"); even when the user's intent is clear, favor currently viewing items when relevant. For PDFs with activePage=N, that specific page is the focus.
-Selected cards provide paths and metadata only — use searchWorkspace or readWorkspace to fetch full content when needed.
+Selected cards provide paths and metadata only — use workspace_search or workspace_read to fetch full content when needed.
 If no context is provided, explain how to select: hover + click checkmark, shift-click, or drag-select.
 Rely only on facts from fetched content. Do not invent or assume information.
 </context>
@@ -127,10 +127,10 @@ Rely only on facts from fetched content. Do not invent or assume information.
 <instructions>
 RESPONSE STYLE (critical):
 When editing workspace items (documents, quizzes, flashcards, etc.), speak to the user in plain language. Do NOT expose internal mechanics.
-- Never mention tool names (editItem, readWorkspace, searchWorkspace, etc.) or parameters (oldString, newString, etc.) in your chat response.
+- Never mention tool names (item_edit, workspace_read, workspace_search, etc.) or parameters (oldString, newString, etc.) in your chat response.
 - Never paste raw JSON, full question lists, or item content into the chat unless the user explicitly asks to see it.
-- Do not describe step-by-step reasoning (e.g. "Step 1: I read the quiz... Step 2: I called editItem..."). Just state the outcome.
-- Use simple, user-facing language: "I've updated the quiz with harder questions" or "I've added 3 new flashcards" — not "I performed an editItem operation with the following payload."
+- Do not describe step-by-step reasoning (e.g. "Step 1: I read the quiz... Step 2: I called item_edit..."). Just state the outcome.
+- Use simple, user-facing language: "I've updated the quiz with harder questions" or "I've added 3 new flashcards" — not "I performed an item_edit operation with the following payload."
 If something fails, describe the problem in plain terms and what to try next. Do not expose error internals unless they help the user fix the issue.
 
 CORE BEHAVIORS:
@@ -143,18 +143,18 @@ CORE BEHAVIORS:
 - Only use emojis if the user explicitly requests them
 
 WEB SEARCH GUIDELINES:
-Use webSearch when: temporal cues ("today", "latest", "current"), real-time data (scores, stocks, weather), fact verification, niche/recent info.
+Use web_search when: temporal cues ("today", "latest", "current"), real-time data (scores, stocks, weather), fact verification, niche/recent info.
 Use internal knowledge for: creative writing, coding, general concepts, summarizing provided content.
-If the information is time-sensitive, niche, or uncertain, prefer webSearch.
+If the information is time-sensitive, niche, or uncertain, prefer web_search.
 
-PDF: Always try readWorkspace first for workspace PDFs (pageStart/pageEnd for page ranges). If content is not yet extracted, tell the user it is still being prepared and try again shortly.
+PDF: Always try workspace_read first for workspace PDFs (pageStart/pageEnd for page ranges). If content is not yet extracted, tell the user it is still being prepared and try again shortly.
 PDF VISUALS: PDF OCR in this workspace gives you textual structure from the PDF, including normal text and inline tables, but not visual understanding of charts, figures, diagrams, or screenshots embedded in the PDF. Do not claim you can see those visuals unless the user has separately attached a screenshot/image of that region. If the user needs help with a chart or figure from a PDF, tell them to open the PDF and use the camera button in the top right of the open pdf panelto add a screenshot of that area to chat.
 When selected card metadata includes (currently viewing) or activePage=N (for PDFs), the user has that item or page open. Prioritize these for ambiguous references ("this", "here", "this page", "what I'm looking at") and tailor responses to that context.
 
 YOUTUBE: If user says "add a video" without a topic, infer from workspace context. Don't ask - just search.
 
 INLINE CITATIONS (highly recommended for most responses):
-Only in your chat response — never in item content (documents, flashcards, quizzes, etc.). Use sources param for tools when available, and do not put <citation> tags in content passed to createDocument, editItem, createFlashcards, etc.
+Only in your chat response — never in item content (documents, flashcards, quizzes, etc.). Use sources param for tools when available, and do not put <citation> tags in content passed to document_create, item_edit, flashcards_create, etc.
 Use simple plain text only. Bare minimum for uniqueness. No math, LaTeX, or complex formatting inside citations.
 Output citation HTML: <citation>REF</citation> where REF is one of:
 
@@ -192,7 +192,7 @@ MATH FORMATTING:
 - Use raw LaTeX only inside math. Never use HTML tags or HTML entities in math (for example: <span>, &amp;, &lt;, &gt;, &nbsp;)
 - Currency (CRITICAL): ALWAYS escape dollar signs as \\$ so they are never parsed as math. Examples: \\$5, \\$19.99, \\$1,000, \\$100k, \\$100M
 - NEVER use \\$ inside math delimiters ($..$ or $$..$$). For dollar signs inside math, use \\\\text{\\$} or omit them entirely (just write the number)
-- Apply these rules to ALL tool calls (createDocument, editItem, createFlashcards, etc.)
+- Apply these rules to ALL tool calls (document_create, item_edit, flashcards_create, etc.)
 - Spacing: Use \\, for thin space in integrals: $\\int f(x) \\, dx$
 - Use \\\\text{...} for words/units inside math
 - Common patterns:
@@ -419,7 +419,7 @@ No cards selected.
   );
 
   return `<context>
-SELECTED CARDS (${effectiveItems.length}) — paths and metadata. Use searchWorkspace or readWorkspace to fetch content when needed.
+SELECTED CARDS (${effectiveItems.length}) — paths and metadata. Use workspace_search or workspace_read to fetch content when needed.
 
 ${entries.join("\n")}
 </context>`;
@@ -539,7 +539,7 @@ export function formatItemContent(
 }
 
 /**
- * Formats OCR pages as markdown matching readWorkspace output.
+ * Formats OCR pages as markdown matching workspace_read output.
  * Exported so OCR-derived content can be rendered in the same format everywhere.
  */
 export function formatOcrPagesAsMarkdown(
@@ -646,7 +646,7 @@ function formatPdfDetailsFull(
     }
   } else if (data.ocrStatus === "processing") {
     lines.push(
-      `   - (Content is being extracted. Please wait a moment and try readWorkspace again.)`,
+      `   - (Content is being extracted. Please wait a moment and try workspace_read again.)`,
     );
   } else {
     lines.push(
@@ -704,7 +704,7 @@ function formatImageDetailsFull(data: ImageData): string[] {
     }
   } else if (data.ocrStatus === "processing") {
     lines.push(
-      `   - (Content is being extracted. Please wait a moment and try readWorkspace again.)`,
+      `   - (Content is being extracted. Please wait a moment and try workspace_read again.)`,
     );
   } else {
     if (data.altText) {
@@ -719,7 +719,7 @@ function formatImageDetailsFull(data: ImageData): string[] {
 }
 
 /**
- * Formats flashcard details as raw JSON (editable by editItem).
+ * Formats flashcard details as raw JSON (editable by item_edit).
  * Each side is markdown (`front` / `back`).
  */
 function formatFlashcardDetailsFull(data: FlashcardData): string[] {
@@ -734,8 +734,8 @@ function formatFlashcardDetailsFull(data: FlashcardData): string[] {
 }
 
 /**
- * Formats quiz details as raw JSON (editable by editItem).
- * Session progress is shown at top (read-only); editItem only modifies the questions JSON.
+ * Formats quiz details as raw JSON (editable by item_edit).
+ * Session progress is shown at top (read-only); item_edit only modifies the questions JSON.
  */
 function formatQuizDetailsFull(data: QuizData): string[] {
   const questions = data.questions || [];
@@ -763,7 +763,7 @@ function formatQuizDetailsFull(data: QuizData): string[] {
 }
 
 /**
- * Formats document details — raw markdown content for readWorkspace/editItem.
+ * Formats document details — raw markdown content for workspace_read/item_edit.
  */
 function formatDocumentDetailsFull(data: DocumentData): string[] {
   const lines: string[] = [];

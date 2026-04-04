@@ -20,11 +20,11 @@ const baseWorkspace = z
   })
   .passthrough();
 
-/** createDocument, clearCardContent, editItem */
+/** document_create, clearCardContent, item_edit */
 export const WorkspaceResultSchema = baseWorkspace;
 export type WorkspaceResult = z.infer<typeof WorkspaceResultSchema>;
 
-/** editItem - extends WorkspaceResult with diff, filediff, cardCount, questionCount */
+/** item_edit - extends WorkspaceResult with diff, filediff, cardCount, questionCount */
 export const EditItemResultSchema = baseWorkspace
   .extend({
     diff: z.string().optional(),
@@ -69,7 +69,7 @@ export function parseSelectCardsResult(input: unknown): SelectCardsResult {
   return parseWithSchema(SelectCardsResultSchema, input, "SelectCardsResult");
 }
 
-/** createQuiz */
+/** quiz_create */
 export const QuizResultSchema = baseWorkspace.extend({
   quizId: z.string().optional(),
   title: z.string().optional(),
@@ -101,7 +101,7 @@ export function parseQuizResult(input: unknown): QuizResult {
   return coerceToQuizResult(input);
 }
 
-/** createFlashcards */
+/** flashcards_create */
 export const FlashcardResultSchema = baseWorkspace.extend({
   title: z.string().optional(),
   cardCount: z.number().optional(),
@@ -133,7 +133,7 @@ export function parseFlashcardResult(input: unknown): FlashcardResult {
   return coerceToFlashcardResult(input);
 }
 
-/** processUrls – result is string or { text, metadata } */
+/** web_fetch – result is string or { text, metadata } */
 export const URLContextResultSchema = z.union([z.string(), ProcessUrlsOutputSchema]);
 
 export type URLContextResult = z.infer<typeof URLContextResultSchema>;

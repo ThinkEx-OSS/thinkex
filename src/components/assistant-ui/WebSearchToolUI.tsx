@@ -9,10 +9,7 @@ import {
     type PropsWithChildren,
 } from "react";
 
-import {
-    useScrollLock,
-    makeAssistantToolUI,
-} from "@assistant-ui/react";
+import { useScrollLock, type AssistantToolUIProps } from "@assistant-ui/react";
 
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { parseWebSearchResult } from "@/lib/ai/tool-result-schemas";
@@ -288,18 +285,19 @@ const WebSearchContent: FC<{
 WebSearchContent.displayName = "WebSearchContent";
 
 /**
- * Tool UI component for webSearch tool.
+ * Tool UI component for web_search tool.
  * Displays search query and results in a collapsible format similar to Reasoning.
  */
-export const WebSearchToolUI = makeAssistantToolUI<{
-    query: string;
-}, WebSearchResult>({
-    toolName: "webSearch",
-    render: function WebSearchToolUI({ status, result }) {
-        return (
-            <ToolUIErrorBoundary componentName="WebSearch">
-                <WebSearchContent status={status} result={result ?? null} />
-            </ToolUIErrorBoundary>
-        );
-    },
-});
+export const renderWebSearchToolUI: AssistantToolUIProps<
+  { query: string },
+  WebSearchResult
+>["render"] = ({
+  status,
+  result,
+}) => {
+  return (
+    <ToolUIErrorBoundary componentName="WebSearch">
+      <WebSearchContent status={status} result={result ?? null} />
+    </ToolUIErrorBoundary>
+  );
+};

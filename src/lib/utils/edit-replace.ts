@@ -534,7 +534,7 @@ export function replace(content: string, oldString: string, newString: string, r
     throw new Error(
       `Could not find oldString in the file. ${
         hints.join(" ")
-      } Ensure the snippet is copied exactly from readWorkspace and is not truncated.`
+      } Ensure the snippet is copied exactly from workspace_read and is not truncated.`
     );
   }
   throw new Error(

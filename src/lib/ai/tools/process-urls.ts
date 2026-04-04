@@ -18,7 +18,7 @@ function truncateContent(content: string): string {
 }
 
 /**
- * Create the processUrls tool for analyzing web pages
+ * Create the web_fetch tool for analyzing web pages
  */
 export function createProcessUrlsTool() {
     return tool({

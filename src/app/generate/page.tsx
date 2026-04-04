@@ -12,6 +12,7 @@ import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { MobileWarning } from "@/components/ui/MobileWarning";
 import { FloatingWorkspaceCards } from "@/components/background/FloatingWorkspaceCards";
 import { ATTACHMENTS_SESSION_KEY } from "@/contexts/HomeAttachmentsContext";
+import { matchesWebSearchStreamToolName } from "@/lib/ai/chat-tool-names";
 
 const PROGRESS_LABELS: Record<string, string> = {
   understanding: "Understanding content...",
@@ -127,12 +128,12 @@ function GenerateContent() {
 
             if (ev.type === "phase" && ev.data?.stage === "understanding") {
               applyIfNotAborted(() => setProgressText("Understanding content..."));
-            } else if (ev.type === "toolCall" && ev.data?.toolName === "webSearch" && ev.data?.query) {
+            } else if (ev.type === "toolCall" && matchesWebSearchStreamToolName(ev.data?.toolName) && ev.data?.query) {
               const q = ev.data.query;
               applyIfNotAborted(() =>
                 setProgressText(`Searching the web for: "${q.length > 50 ? q.slice(0, 50) + "..." : q}"`)
               );
-            } else if (ev.type === "toolResult" && ev.data?.toolName === "webSearch") {
+            } else if (ev.type === "toolResult" && matchesWebSearchStreamToolName(ev.data?.toolName)) {
               applyIfNotAborted(() => setProgressText("Processing search results..."));
             } else if (ev.type === "partial" && ev.data?.partial) {
               const p = ev.data.partial as Record<string, unknown>;

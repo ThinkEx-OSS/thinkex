@@ -95,7 +95,7 @@ export async function resolveGroundingChunksToSources(
 }
 
 /**
- * Execute a web search and return text + sources. Used by both chat webSearch tool and autogen.
+ * Execute a web search and return text + sources. Used by the chat web_search tool and autogen.
  */
 export async function executeWebSearch(query: string): Promise<WebSearchResult> {
     const { text, providerMetadata } = await generateText({

@@ -5,6 +5,7 @@ const mockHeaders = vi.fn();
 const mockLoadWorkspaceState = vi.fn();
 const mockCreateEvent = vi.fn();
 const mockExecute = vi.fn();
+const mockBroadcastWorkspaceEventFromServer = vi.fn();
 
 const mockLimit = vi.fn();
 const mockWhere = vi.fn(() => ({ limit: mockLimit }));
@@ -48,6 +49,11 @@ vi.mock("@/lib/workspace/state-loader", () => ({
 
 vi.mock("@/lib/workspace/events", () => ({
   createEvent: (...args: any[]) => mockCreateEvent(...args),
+}));
+
+vi.mock("@/lib/realtime/server-broadcast", () => ({
+  broadcastWorkspaceEventFromServer: (...args: any[]) =>
+    mockBroadcastWorkspaceEventFromServer(...args),
 }));
 
 vi.mock("@/lib/workspace/unique-name", () => ({

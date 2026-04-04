@@ -5,7 +5,7 @@ import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
 import { withSanitizedModelOutput } from "./tool-utils";
 /**
- * Create the createFlashcards tool
+ * Create the flashcards_create tool
  */
 export function createFlashcardsTool(ctx: WorkspaceToolContext) {
     return withSanitizedModelOutput(tool({
@@ -68,4 +68,4 @@ export function createFlashcardsTool(ctx: WorkspaceToolContext) {
     }));
 }
 
-// Edit functionality is in edit-item-tool.ts (editItem)
+// Edit functionality is in edit-item-tool.ts (item_edit)
