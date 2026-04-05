@@ -444,6 +444,27 @@ export function FlashcardWorkspaceCard({
     isSelected && resolvedTheme !== "dark"
       ? "0 0 3px rgba(0, 0, 0, 0.8), 0 0 8px rgba(0, 0, 0, 0.5)"
       : undefined;
+  const neutralControlBg =
+    resolvedTheme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)";
+  const neutralControlHoverBg = "rgba(0, 0, 0, 0.5)";
+  const selectedControlBg = isSelected
+    ? "rgba(239, 68, 68, 0.3)"
+    : neutralControlBg;
+  const selectedControlHoverBg = isSelected
+    ? "rgba(239, 68, 68, 0.5)"
+    : neutralControlHoverBg;
+  const getControlStyle = (backgroundColor: string) => ({
+    backgroundColor,
+    backdropFilter: "blur(8px)",
+  });
+  const createControlHoverHandlers = (baseColor: string, hoverColor: string) => ({
+    onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.currentTarget.style.backgroundColor = hoverColor;
+    },
+    onMouseLeave: (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.currentTarget.style.backgroundColor = baseColor;
+    },
+  });
 
   return (
     <ContextMenu>
@@ -473,23 +494,11 @@ export function FlashcardWorkspaceCard({
                   : "Click to lock scroll"
               }
               className="flashcard-control-button inline-flex h-8 items-center justify-center gap-1.5 pl-2.5 pr-3 rounded-xl text-white/90 hover:text-white hover:scale-105 hover:shadow-lg transition-all duration-200 cursor-pointer"
-              style={{
-                backgroundColor:
-                  resolvedTheme === "dark"
-                    ? "rgba(255, 255, 255, 0.1)"
-                    : "rgba(0, 0, 0, 0.1)",
-                backdropFilter: "blur(8px)",
-              }}
-              onMouseEnter={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  "rgba(0, 0, 0, 0.5)")
-              }
-              onMouseLeave={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  resolvedTheme === "dark"
-                    ? "rgba(255, 255, 255, 0.1)"
-                    : "rgba(0, 0, 0, 0.1)")
-              }
+              style={getControlStyle(neutralControlBg)}
+              {...createControlHoverHandlers(
+                neutralControlBg,
+                neutralControlHoverBg,
+              )}
               onMouseDown={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
@@ -514,23 +523,11 @@ export function FlashcardWorkspaceCard({
               aria-label="Edit flashcard"
               title="Edit flashcard"
               className="flashcard-control-button inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer"
-              style={{
-                backgroundColor:
-                  resolvedTheme === "dark"
-                    ? "rgba(255, 255, 255, 0.1)"
-                    : "rgba(0, 0, 0, 0.1)",
-                backdropFilter: "blur(8px)",
-              }}
-              onMouseEnter={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  "rgba(0, 0, 0, 0.5)")
-              }
-              onMouseLeave={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  resolvedTheme === "dark"
-                    ? "rgba(255, 255, 255, 0.1)"
-                    : "rgba(0, 0, 0, 0.1)")
-              }
+              style={getControlStyle(neutralControlBg)}
+              {...createControlHoverHandlers(
+                neutralControlBg,
+                neutralControlHoverBg,
+              )}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
@@ -545,26 +542,11 @@ export function FlashcardWorkspaceCard({
               aria-label={isSelected ? "Deselect card" : "Select card"}
               title={isSelected ? "Deselect card" : "Select card"}
               className="flashcard-control-button inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer"
-              style={{
-                backgroundColor: isSelected
-                  ? "rgba(239, 68, 68, 0.3)"
-                  : resolvedTheme === "dark"
-                    ? "rgba(255, 255, 255, 0.1)"
-                    : "rgba(0, 0, 0, 0.1)",
-                backdropFilter: "blur(8px)",
-              }}
-              onMouseEnter={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  isSelected ? "rgba(239, 68, 68, 0.5)" : "rgba(0, 0, 0, 0.5)")
-              }
-              onMouseLeave={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  isSelected
-                    ? "rgba(239, 68, 68, 0.3)"
-                    : resolvedTheme === "dark"
-                      ? "rgba(255, 255, 255, 0.1)"
-                      : "rgba(0, 0, 0, 0.1)")
-              }
+              style={getControlStyle(selectedControlBg)}
+              {...createControlHoverHandlers(
+                selectedControlBg,
+                selectedControlHoverBg,
+              )}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
@@ -585,26 +567,11 @@ export function FlashcardWorkspaceCard({
                   aria-label="Card settings"
                   title="Card settings"
                   className="flashcard-control-button inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer"
-                  style={{
-                    backgroundColor:
-                      resolvedTheme === "dark"
-                        ? "rgba(255, 255, 255, 0.1)"
-                        : "rgba(0, 0, 0, 0.1)",
-                    backdropFilter: "blur(8px)",
-                  }}
-                  onMouseEnter={(e) =>
-                    ((
-                      e.currentTarget as HTMLButtonElement
-                    ).style.backgroundColor = "rgba(0, 0, 0, 0.5)")
-                  }
-                  onMouseLeave={(e) =>
-                    ((
-                      e.currentTarget as HTMLButtonElement
-                    ).style.backgroundColor =
-                      resolvedTheme === "dark"
-                        ? "rgba(255, 255, 255, 0.1)"
-                        : "rgba(0, 0, 0, 0.1)")
-                  }
+                  style={getControlStyle(neutralControlBg)}
+                  {...createControlHoverHandlers(
+                    neutralControlBg,
+                    neutralControlHoverBg,
+                  )}
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => e.stopPropagation()}
                 >
