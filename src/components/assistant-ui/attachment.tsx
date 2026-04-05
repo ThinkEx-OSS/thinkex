@@ -102,33 +102,7 @@ const useAttachmentSrc = () => {
             isUrl: false,
             url: undefined,
           };
-        // Check if this is a URL attachment by checking:
-        // 1. Content with [URL_CONTEXT:...] marker (after send)
-        // 2. File name ending with .url (before send)
-        // 3. Attachment name being a valid URL (before send)
-
-        // Check content first (for sent attachments)
-        const urlContent = att.content?.find(
-          (c: { type: string; text?: string }) => {
-            if (c.type === "text") {
-              const textContent = c as { type: "text"; text: string };
-              return (
-                typeof textContent.text === "string" &&
-                textContent.text.startsWith("[URL_CONTEXT:")
-              );
-            }
-            return false;
-          },
-        );
-        if (urlContent && urlContent.type === "text") {
-          const textContent = urlContent as { type: "text"; text: string };
-          const urlMatch = textContent.text.match(/\[URL_CONTEXT:(.+?)\]/);
-          if (urlMatch) {
-            const url = urlMatch[1];
-            return { isUrl: true, src: getFaviconUrl(url), url };
-          }
-        }
-
+        // URL attachment: virtual .url file (composer) or attachment name is http(s) URL
         // Check file name (for pending attachments in composer)
         if (att.file?.name.endsWith(".url")) {
           // Try to extract URL from attachment name first (it's set to the URL in the adapter)
@@ -306,32 +280,7 @@ const AttachmentUI: FC = () => {
         }
       | undefined;
     if (!att) return "File";
-    // Check if this is a URL attachment by checking:
-    // 1. Content with [URL_CONTEXT:...] marker (after send)
-    // 2. File name ending with .url (before send)
-    // 3. Attachment name being a valid URL (before send)
-
-    // Check content first (for sent attachments)
-    const urlContent = att.content?.find(
-      (c: { type: string; text?: string }) => {
-        if (c.type === "text") {
-          const textContent = c as { type: "text"; text: string };
-          return (
-            typeof textContent.text === "string" &&
-            textContent.text.startsWith("[URL_CONTEXT:")
-          );
-        }
-        return false;
-      },
-    );
-    if (urlContent && urlContent.type === "text") {
-      const textContent = urlContent as { type: "text"; text: string };
-      const urlMatch = textContent.text.match(/\[URL_CONTEXT:(.+?)\]/);
-      if (urlMatch) {
-        return "URL";
-      }
-    }
-
+    // URL attachment: virtual .url file or attachment name is http(s) URL
     // Check file name (for pending attachments in composer)
     if (att.file?.name.endsWith(".url")) {
       return "URL";
@@ -372,32 +321,7 @@ const AttachmentUI: FC = () => {
         }
       | undefined;
     if (!att) return false;
-    // Check if this is a URL attachment by checking:
-    // 1. Content with [URL_CONTEXT:...] marker (after send)
-    // 2. File name ending with .url (before send)
-    // 3. Attachment name being a valid URL (before send)
-
-    // Check content first (for sent attachments)
-    const urlContent = att.content?.find(
-      (c: { type: string; text?: string }) => {
-        if (c.type === "text") {
-          const textContent = c as { type: "text"; text: string };
-          return (
-            typeof textContent.text === "string" &&
-            textContent.text.startsWith("[URL_CONTEXT:")
-          );
-        }
-        return false;
-      },
-    );
-    if (urlContent && urlContent.type === "text") {
-      const textContent = urlContent as { type: "text"; text: string };
-      const urlMatch = textContent.text.match(/\[URL_CONTEXT:(.+?)\]/);
-      if (urlMatch) {
-        return true;
-      }
-    }
-
+    // URL attachment: virtual .url file or attachment name is http(s) URL
     // Check file name (for pending attachments in composer)
     if (att.file?.name.endsWith(".url")) {
       return true;
