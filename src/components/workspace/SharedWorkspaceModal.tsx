@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import { SwatchesPicker, ColorResult } from "react-color";
 import { SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AgentState } from "@/lib/workspace-state/types";
-import { cn } from "@/lib/utils";
+import { useCreateWorkspace } from "@/hooks/workspace/use-create-workspace";
 
 interface SharedWorkspaceData {
   workspace: {
@@ -33,166 +34,111 @@ interface SharedWorkspaceModalProps {
   workspaceId: string;
 }
 
-export default function SharedWorkspaceModal({
-  open,
-  onOpenChange,
+interface SharedWorkspaceModalContentProps {
   workspaceId,
-}: SharedWorkspaceModalProps) {
-  const router = useRouter();
-  const [workspaceData, setWorkspaceData] = useState<SharedWorkspaceData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
-  const [name, setName] = useState("");
-  const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
-  const [selectedColor, setSelectedColor] = useState<CardColor | null>(null);
+  onImported: (slug: string) => void;
+}
+
+function SharedWorkspaceModalContent({
+  workspaceId,
+  onImported,
+}: SharedWorkspaceModalContentProps) {
+  const createWorkspace = useCreateWorkspace();
+  const [formError, setFormError] = useState<string | null>(null);
+  const [nameOverride, setNameOverride] = useState<string | undefined>(undefined);
+  const [selectedIconOverride, setSelectedIconOverride] = useState<
+    string | null | undefined
+  >(undefined);
+  const [selectedColorOverride, setSelectedColorOverride] = useState<
+    CardColor | null | undefined
+  >(undefined);
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
 
-  // Fetch workspace data when modal opens
-  useEffect(() => {
-    if (open && workspaceId) {
-      const fetchWorkspaceData = async () => {
-        try {
-          setLoading(true);
-          setError(null);
-          const response = await fetch(`/api/share/${workspaceId}`);
+  const sharedWorkspaceQuery = useQuery({
+    queryKey: ["shared-workspace", workspaceId],
+    queryFn: async (): Promise<SharedWorkspaceData> => {
+      const response = await fetch(`/api/share/${workspaceId}`);
 
-          if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.error || "Failed to load workspace");
-          }
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to load workspace");
+      }
 
-          const data = await response.json() as SharedWorkspaceData;
-          setWorkspaceData(data);
-          
-          // Pre-fill form with shared workspace data
-          setName(data.workspace.name || "");
-          setSelectedIcon(data.workspace.icon || null);
-          setSelectedColor(data.workspace.color || null);
-        } catch (err) {
-          console.error("Error fetching workspace data:", err);
-          setError(err instanceof Error ? err.message : "Failed to load workspace");
-        } finally {
-          setLoading(false);
-        }
-      };
+      return response.json();
+    },
+    enabled: open && Boolean(workspaceId),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
 
-      fetchWorkspaceData();
-    }
-  }, [open, workspaceId]);
+  const workspaceData = sharedWorkspaceQuery.data ?? null;
+  const isLoading = sharedWorkspaceQuery.isLoading;
+  const isCreating = createWorkspace.isPending;
+  const name = nameOverride ?? workspaceData?.workspace.name ?? "";
+  const selectedIcon =
+    selectedIconOverride ?? workspaceData?.workspace.icon ?? null;
+  const selectedColor =
+    selectedColorOverride ?? workspaceData?.workspace.color ?? null;
+  const queryError =
+    sharedWorkspaceQuery.error instanceof Error
+      ? sharedWorkspaceQuery.error.message
+      : null;
+  const error = formError ?? queryError;
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      setError("Workspace name is required");
+      setFormError("Workspace name is required");
       return;
     }
 
     if (!workspaceData) {
-      setError("Workspace data not loaded");
+      setFormError("Workspace data not loaded");
       return;
     }
 
-    setIsCreating(true);
-    setError(null);
+    setFormError(null);
 
     try {
-      const response = await fetch("/api/workspaces", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: name.trim(),
-          template: "blank",
-          is_public: false,
-          icon: selectedIcon,
-          color: selectedColor,
-          initialState: workspaceData.workspace.state,
-        }),
+      const { workspace } = await createWorkspace.mutateAsync({
+        name: name.trim(),
+        template: "blank",
+        is_public: false,
+        icon: selectedIcon,
+        color: selectedColor,
+        initialState: workspaceData.workspace.state,
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to create workspace");
-      }
-
-      const { workspace } = await response.json();
-
       toast.success("Workspace created successfully");
-      
-      // Close modal first
-      onOpenChange(false);
-      
-      // Use full page navigation to ensure workspace context and state are properly loaded
-      // This ensures a clean reload where the workspace will be found by slug
-      window.location.href = `/workspace/${workspace.slug}`;
+      onImported(workspace.slug);
     } catch (err) {
       console.error("Error creating workspace:", err);
-      const errorMessage = err instanceof Error ? err.message : "Failed to create workspace";
-      setError(errorMessage);
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to create workspace";
+      setFormError(errorMessage);
       toast.error(errorMessage);
-      setIsCreating(false);
     }
   };
 
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!isCreating) {
-      onOpenChange(newOpen);
-      if (!newOpen) {
-        router.push("/home");
-      }
-    }
-  };
-
-  // Handle escape key
-  useEffect(() => {
-    if (!open) return;
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !isCreating) {
-        handleOpenChange(false);
-      }
-    };
-
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isCreating]);
-
-  // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [open]);
-
-  const isLoading = loading;
   const hasData = workspaceData !== null;
   const itemCount = workspaceData?.workspace.state?.items?.length || 0;
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Overlay - transparent */}
-      <div
-        className="fixed inset-0 transition-opacity"
-        onClick={() => handleOpenChange(false)}
-      />
-      
-      {/* Modal Content */}
-      <div
-        className="relative z-50 w-full max-w-[calc(100%-2rem)] sm:max-w-[600px] rounded-md bg-background shadow-2xl p-6 transition-all border border-border"
-        onClick={(e) => e.stopPropagation()}
+      <DialogContent
+        showCloseButton={false}
+        className="w-full max-w-[calc(100%-2rem)] border border-border bg-background p-6 shadow-2xl sm:max-w-[600px]"
+        onPointerDownOutside={(event) => {
+          if (isCreating) {
+            event.preventDefault();
+          }
+        }}
+        onEscapeKeyDown={(event) => {
+          if (isCreating) {
+            event.preventDefault();
+          }
+        }}
       >
         {/* Header */}
-        <div className="mb-4">
+        <DialogHeader className="mb-4">
           {isLoading ? (
             <>
               <Skeleton className="h-6 w-48 mb-2" />
@@ -200,7 +146,7 @@ export default function SharedWorkspaceModal({
             </>
           ) : (
             <>
-              <h2 className="text-lg font-semibold leading-none mb-2">Import Shared Workspace</h2>
+              <DialogTitle className="mb-2">Import Shared Workspace</DialogTitle>
               <p className="text-sm text-muted-foreground">
                 {hasData ? (
                   `Create your own copy of "${workspaceData.workspace.name}" with ${itemCount} item${itemCount !== 1 ? 's' : ''}.`
@@ -210,7 +156,7 @@ export default function SharedWorkspaceModal({
               </p>
             </>
           )}
-        </div>
+        </DialogHeader>
 
         <div className="space-y-4 py-4">
           {/* Name */}
@@ -223,7 +169,10 @@ export default function SharedWorkspaceModal({
                 id="name"
                 placeholder="My Workspace"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setFormError(null);
+                  setNameOverride(e.target.value);
+                }}
                 disabled={isCreating}
                 autoFocus
               />
@@ -237,7 +186,13 @@ export default function SharedWorkspaceModal({
               {isLoading ? (
                 <Skeleton className="h-10 w-full" />
               ) : (
-                <IconPicker value={selectedIcon} onSelect={setSelectedIcon}>
+                <IconPicker
+                  value={selectedIcon}
+                  onSelect={(icon) => {
+                    setFormError(null);
+                    setSelectedIconOverride(icon);
+                  }}
+                >
                   <Button
                     type="button"
                     variant="outline"
@@ -293,7 +248,8 @@ export default function SharedWorkspaceModal({
                           color={selectedColor || '#3B82F6'}
                           colors={SWATCHES_COLOR_GROUPS}
                           onChangeComplete={(color: ColorResult) => {
-                            setSelectedColor(color.hex as CardColor);
+                            setFormError(null);
+                            setSelectedColorOverride(color.hex as CardColor);
                             setIsColorPickerOpen(false);
                           }}
                         />
@@ -336,8 +292,37 @@ export default function SharedWorkspaceModal({
             )}
           </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+  );
+}
+
+export default function SharedWorkspaceModal({
+  open,
+  onOpenChange,
+  workspaceId,
+}: SharedWorkspaceModalProps) {
+  const router = useRouter();
+
+  const handleOpenChange = (newOpen: boolean) => {
+    onOpenChange(newOpen);
+    if (!newOpen) {
+      router.push("/home");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {open ? (
+        <SharedWorkspaceModalContent
+          key={workspaceId}
+          workspaceId={workspaceId}
+          onImported={(slug) => {
+            onOpenChange(false);
+            window.location.href = `/workspace/${slug}`;
+          }}
+        />
+      ) : null}
+    </Dialog>
   );
 }
 
