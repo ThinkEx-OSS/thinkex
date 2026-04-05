@@ -14,6 +14,21 @@ import { parseWorkspaceResult } from "@/lib/ai/tool-result-schemas";
 
 type AddYoutubeVideoArgs = { videoId: string; title: string };
 
+function getToolStatusErrorMessage(status: unknown): string | undefined {
+  if (!status || typeof status !== "object") return undefined;
+  const value = status as Record<string, unknown>;
+  if (typeof value.error === "string") return value.error;
+  if (typeof value.message === "string") return value.message;
+  if (
+    value.payload &&
+    typeof value.payload === "object" &&
+    typeof (value.payload as Record<string, unknown>).message === "string"
+  ) {
+    return (value.payload as Record<string, unknown>).message as string;
+  }
+  return undefined;
+}
+
 interface AddYoutubeVideoReceiptProps {
   args: AddYoutubeVideoArgs;
   result: WorkspaceResult;
@@ -109,14 +124,7 @@ export const renderAddYoutubeVideoToolUI: AssistantToolUIProps<
   let content: ReactNode = null;
   const statusErrorMessage =
     status.type === "incomplete" && status.reason === "error"
-      ? typeof (status as { error?: unknown }).error === "string"
-        ? (status as { error: string }).error
-        : typeof (status as { message?: unknown }).message === "string"
-          ? (status as { message: string }).message
-          : typeof (status as { payload?: { message?: unknown } }).payload
-                ?.message === "string"
-            ? (status as { payload: { message: string } }).payload.message
-            : undefined
+      ? getToolStatusErrorMessage(status)
       : undefined;
 
   if (parsed?.success) {

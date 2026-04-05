@@ -34,15 +34,9 @@ type CreateFlashcardArgs =
       cards?: Array<{ front: string; back: string }>;
     };
 type CreateFlashcardToolRendererProps = {
-  args: Parameters<
-    AssistantToolUIProps<CreateFlashcardArgs, FlashcardResult>["render"]
-  >[0]["args"];
-  result: Parameters<
-    AssistantToolUIProps<CreateFlashcardArgs, FlashcardResult>["render"]
-  >[0]["result"];
-  status: Parameters<
-    AssistantToolUIProps<CreateFlashcardArgs, FlashcardResult>["render"]
-  >[0]["status"];
+  args: CreateFlashcardArgs;
+  result?: FlashcardResult;
+  status: { type: string; reason?: string; error?: unknown };
 };
 
 function isCreateFlashcardArgsObject(
