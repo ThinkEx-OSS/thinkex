@@ -81,6 +81,33 @@ function getFaviconUrl(url: string): string {
   }
 }
 
+type UrlLikeAttachment = {
+  name?: string;
+  file?: { name?: string } | File;
+};
+
+function getHttpAttachmentUrl(att: UrlLikeAttachment | undefined): string | undefined {
+  const name = att?.name;
+  if (!name) return undefined;
+  try {
+    const url = new URL(name);
+    if (url.protocol === "http:" || url.protocol === "https:") {
+      return name;
+    }
+  } catch {
+    // Not a valid URL
+  }
+  return undefined;
+}
+
+function isUrlAttachment(att: UrlLikeAttachment | undefined): boolean {
+  if (!att) return false;
+  if (att.file?.name?.endsWith(".url")) {
+    return true;
+  }
+  return getHttpAttachmentUrl(att) != null;
+}
+
 const useAttachmentSrc = () => {
   const attachmentState = useAuiState(
     useShallow(
@@ -102,42 +129,12 @@ const useAttachmentSrc = () => {
             isUrl: false,
             url: undefined,
           };
-        // URL attachment: virtual .url file (composer) or attachment name is http(s) URL
-        // Check file name (for pending attachments in composer)
-        if (att.file?.name.endsWith(".url")) {
-          // Try to extract URL from attachment name first (it's set to the URL in the adapter)
-          let url: string | null = null;
-          if (att.name) {
-            try {
-              new URL(att.name);
-              url = att.name;
-            } catch {
-              // Not a valid URL in name, try reading from file
-              // Note: We can't async read the file here, so we'll use the name if it's a URL
-              // The adapter sets name to the URL when creating URL files
-            }
-          }
+        if (isUrlAttachment(att)) {
+          const url = getHttpAttachmentUrl(att);
           if (url) {
             return { isUrl: true, src: getFaviconUrl(url), url };
           }
-          // If name is not a URL, still mark as URL but without favicon (will show link icon)
           return { isUrl: true };
-        }
-
-        // Check if attachment name is a valid URL (for pending attachments)
-        if (att.name) {
-          try {
-            const url = new URL(att.name);
-            if (url.protocol === "http:" || url.protocol === "https:") {
-              return {
-                isUrl: true,
-                src: getFaviconUrl(att.name),
-                url: att.name,
-              };
-            }
-          } catch {
-            // Not a valid URL
-          }
         }
 
         if (att.type !== "image") return {};
@@ -280,22 +277,8 @@ const AttachmentUI: FC = () => {
         }
       | undefined;
     if (!att) return "File";
-    // URL attachment: virtual .url file or attachment name is http(s) URL
-    // Check file name (for pending attachments in composer)
-    if (att.file?.name.endsWith(".url")) {
+    if (isUrlAttachment(att)) {
       return "URL";
-    }
-
-    // Check if attachment name is a valid URL (for pending attachments)
-    if (att.name) {
-      try {
-        const url = new URL(att.name);
-        if (url.protocol === "http:" || url.protocol === "https:") {
-          return "URL";
-        }
-      } catch {
-        // Not a valid URL
-      }
     }
 
     const type = att.type;
@@ -321,25 +304,7 @@ const AttachmentUI: FC = () => {
         }
       | undefined;
     if (!att) return false;
-    // URL attachment: virtual .url file or attachment name is http(s) URL
-    // Check file name (for pending attachments in composer)
-    if (att.file?.name.endsWith(".url")) {
-      return true;
-    }
-
-    // Check if attachment name is a valid URL (for pending attachments)
-    if (att.name) {
-      try {
-        const url = new URL(att.name);
-        if (url.protocol === "http:" || url.protocol === "https:") {
-          return true;
-        }
-      } catch {
-        // Not a valid URL
-      }
-    }
-
-    return false;
+    return isUrlAttachment(att);
   });
 
   return (

@@ -1380,19 +1380,12 @@ const UserActionBar: FC = () => {
 const EditComposer: FC = () => {
   const aui = useAui();
   const hasUploading = useAttachmentUploadStore((s) => s.uploadingIds.size > 0);
-  const initRef = useRef(false);
-  const [originalText, setOriginalText] = useState<string>("");
-  const [currentText, setCurrentText] = useState<string>("");
-
-  useEffect(() => {
-    if (initRef.current) return;
-    const composerState = aui?.composer()?.getState();
-    if (!composerState) return;
-    initRef.current = true;
-    const t = composerState.text ?? "";
-    setOriginalText(t);
-    setCurrentText(t);
-  }, [aui]);
+  const [originalText, setOriginalText] = useState<string>(
+    () => aui?.composer()?.getState()?.text ?? "",
+  );
+  const [currentText, setCurrentText] = useState<string>(
+    () => aui?.composer()?.getState()?.text ?? "",
+  );
 
   return (
     <div className="aui-edit-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-col gap-4 px-2 first:mt-4 mb-4">

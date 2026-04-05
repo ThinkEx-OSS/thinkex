@@ -37,11 +37,13 @@ interface SharedWorkspaceModalProps {
 interface SharedWorkspaceModalContentProps {
   workspaceId: string;
   onImported: (slug: string) => void;
+  onDismiss: () => void;
 }
 
 function SharedWorkspaceModalContent({
   workspaceId,
   onImported,
+  onDismiss,
 }: SharedWorkspaceModalContentProps) {
   const createWorkspace = useCreateWorkspace();
   const [formError, setFormError] = useState<string | null>(null);
@@ -270,7 +272,17 @@ function SharedWorkspaceModalContent({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end mt-6">
+        <div className="flex justify-end gap-2 mt-6">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onDismiss}
+            disabled={isCreating}
+            aria-label="Cancel import and close dialog"
+            className="w-full sm:w-auto"
+          >
+            Cancel
+          </Button>
           <Button 
             onClick={handleCreate} 
             disabled={
@@ -309,6 +321,7 @@ export default function SharedWorkspaceModal({
       router.push("/home");
     }
   };
+  const handleDismiss = () => handleOpenChange(false);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -316,8 +329,8 @@ export default function SharedWorkspaceModal({
         <SharedWorkspaceModalContent
           key={workspaceId}
           workspaceId={workspaceId}
+          onDismiss={handleDismiss}
           onImported={(slug) => {
-            onOpenChange(false);
             window.location.href = `/workspace/${slug}`;
           }}
         />

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentType, MouseEvent, ReactNode } from "react";
+import type { CSSProperties, ComponentType, MouseEvent, ReactNode } from "react";
 import {
   MoreVertical,
   Trash2,
@@ -47,6 +47,11 @@ interface WorkspaceCardMenuItemsProps {
 }
 
 function stopCardPropagation(event: MouseEvent<HTMLElement>) {
+  event.stopPropagation();
+}
+
+function preventCardMouseDown(event: MouseEvent<HTMLElement>) {
+  event.preventDefault();
   event.stopPropagation();
 }
 
@@ -104,10 +109,34 @@ function WorkspaceCardMenuItems({
 const floatingControlButtonClassName =
   "inline-flex h-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:shadow-lg transition-all duration-200 cursor-pointer";
 
-function getFloatingControlStyle(backgroundColor: string): React.CSSProperties {
+function getFloatingControlStyle(backgroundColor: string): CSSProperties {
   return {
     backgroundColor,
     backdropFilter: "blur(8px)",
+  };
+}
+
+function getFloatingControlHandlers({
+  defaultBackgroundColor,
+  hoverBackgroundColor,
+  onClick,
+}: {
+  defaultBackgroundColor: string;
+  hoverBackgroundColor: string;
+  onClick?: () => void;
+}) {
+  return {
+    onMouseDown: preventCardMouseDown,
+    onMouseEnter: (event: MouseEvent<HTMLButtonElement>) => {
+      event.currentTarget.style.backgroundColor = hoverBackgroundColor;
+    },
+    onMouseLeave: (event: MouseEvent<HTMLButtonElement>) => {
+      event.currentTarget.style.backgroundColor = defaultBackgroundColor;
+    },
+    onClick: (event: MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      onClick?.();
+    },
   };
 }
 
@@ -166,6 +195,20 @@ export function WorkspaceCardControls({
       ? "rgba(239, 68, 68, 0.6)"
       : "rgba(239, 68, 68, 0.5)"
     : defaultHoverBackgroundColor;
+  const scrollLockHandlers = getFloatingControlHandlers({
+    defaultBackgroundColor,
+    hoverBackgroundColor: defaultHoverBackgroundColor,
+    onClick: onToggleScrollLock,
+  });
+  const selectionHandlers = getFloatingControlHandlers({
+    defaultBackgroundColor: selectionBackgroundColor,
+    hoverBackgroundColor: selectionHoverBackgroundColor,
+    onClick: onToggleSelection,
+  });
+  const settingsHandlers = getFloatingControlHandlers({
+    defaultBackgroundColor,
+    hoverBackgroundColor: defaultHoverBackgroundColor,
+  });
 
   return (
     <div
@@ -188,20 +231,7 @@ export function WorkspaceCardControls({
             "gap-1.5 pl-2.5 pr-3 hover:scale-105",
           )}
           style={getFloatingControlStyle(defaultBackgroundColor)}
-          onMouseDown={(event) => {
-            event.stopPropagation();
-          }}
-          onMouseEnter={(event) => {
-            event.currentTarget.style.backgroundColor =
-              defaultHoverBackgroundColor;
-          }}
-          onMouseLeave={(event) => {
-            event.currentTarget.style.backgroundColor = defaultBackgroundColor;
-          }}
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleScrollLock();
-          }}
+          {...scrollLockHandlers}
         >
           {isScrollLocked ? (
             <PiMouseScrollFill className="h-4 w-4 shrink-0" />
@@ -225,20 +255,7 @@ export function WorkspaceCardControls({
         title={isSelected ? "Deselect card" : "Select card"}
         className={cn(floatingControlButtonClassName, "w-8 hover:scale-110")}
         style={getFloatingControlStyle(selectionBackgroundColor)}
-        onMouseDown={(event) => {
-          event.stopPropagation();
-        }}
-        onMouseEnter={(event) => {
-          event.currentTarget.style.backgroundColor =
-            selectionHoverBackgroundColor;
-        }}
-        onMouseLeave={(event) => {
-          event.currentTarget.style.backgroundColor = selectionBackgroundColor;
-        }}
-        onClick={(event) => {
-          event.stopPropagation();
-          onToggleSelection();
-        }}
+        {...selectionHandlers}
       >
         {isSelected ? <X className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
       </button>
@@ -251,19 +268,7 @@ export function WorkspaceCardControls({
             title="Card settings"
             className={cn(floatingControlButtonClassName, "w-8 hover:scale-110")}
             style={getFloatingControlStyle(defaultBackgroundColor)}
-            onMouseDown={(event) => {
-              event.stopPropagation();
-            }}
-            onMouseEnter={(event) => {
-              event.currentTarget.style.backgroundColor =
-                defaultHoverBackgroundColor;
-            }}
-            onMouseLeave={(event) => {
-              event.currentTarget.style.backgroundColor = defaultBackgroundColor;
-            }}
-            onClick={(event) => {
-              event.stopPropagation();
-            }}
+            {...settingsHandlers}
           >
             <MoreVertical className="h-4 w-4" />
           </button>
