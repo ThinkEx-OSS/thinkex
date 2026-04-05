@@ -16,6 +16,12 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { createChatTools } from "@/lib/ai/tools";
 import { getPostHogServerClient } from "@/lib/posthog-server";
+import {
+  DEFAULT_CHAT_MODEL_ID,
+  getChatGatewayOptions,
+  getGoogleProviderOptionsForChat,
+  resolveChatGatewayModelId,
+} from "@/lib/ai/model-registry";
 import { withServerObservability } from "@/lib/with-server-observability";
 import { normalizeLegacyToolMessages } from "@/lib/ai/legacy-tool-message-compat";
 
@@ -176,19 +182,11 @@ async function handlePOST(req: Request) {
     // Get pre-formatted selected cards context from client (no DB fetch needed)
     const selectedCardsContext = getSelectedCardsContext(body);
 
-    // Get model ID and ensure it has the correct prefix for Gateway
-    let modelId = body.modelId || "gemini-3-flash-preview";
-
-    // Auto-prefix with google/ if it looks like a gemini model and lacks prefix
-    // This allows existing client code to work without changes
-    if (modelId.startsWith("gemini-") && !modelId.startsWith("google/")) {
-      modelId = `google/${modelId}`;
-    }
-
-    // Auto-prefix with anthropic/ if it looks like a Claude model and lacks prefix
-    if (modelId.includes("claude") && !modelId.startsWith("anthropic/")) {
-      modelId = `anthropic/${modelId}`;
-    }
+    // Normalize model to a canonical gateway model ID.
+    // Supports persisted legacy IDs (e.g. unprefixed gemini-*).
+    const modelId = resolveChatGatewayModelId(
+      body.modelId || DEFAULT_CHAT_MODEL_ID,
+    );
 
     // Inject selected cards + reply selections into the last user message
     injectSelectionContext(
@@ -222,38 +220,9 @@ async function handlePOST(req: Request) {
       modelId,
     });
 
-    // Configure Google Thinking capabilities
-    const googleConfig: any = {
-      grounding: {
-        // googleSearchRetrieval removed to force usage of explicit web_search tool
-      },
-      thinkingConfig: {
-        includeThoughts: true,
-      },
-    };
-
-    // Gemini 3 Flash: set thinkingLevel (Gemini 2.5 uses default dynamic budget)
-    if (modelId.includes("gemini-3-flash")) {
-      googleConfig.thinkingConfig.thinkingLevel = "minimal";
-    }
-
-    // Prepare provider options.
-    // Prefer Bedrock first for Claude models, then fall back to Anthropic.
-    // Non-Claude models stay on their native providers.
-    const gatewayOptions: any = {
-      caching: "auto",
-      models: [modelId],
-      ...(userId ? { user: userId } : {}),
-    };
-
-    if (modelId.startsWith("anthropic/")) {
-      gatewayOptions.order = ["bedrock", "anthropic"];
-      gatewayOptions.only = ["bedrock", "anthropic"];
-    }
-
     const providerOptions: any = {
-      gateway: gatewayOptions,
-      google: googleConfig,
+      gateway: getChatGatewayOptions({ modelId, userId }),
+      google: getGoogleProviderOptionsForChat(modelId),
     };
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://thinkex.app";

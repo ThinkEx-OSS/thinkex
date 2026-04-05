@@ -1,6 +1,7 @@
 import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
 import { logger } from "@/lib/utils/logger";
+import { GOOGLE_MODEL_IDS } from "@/lib/ai/model-registry";
 
 /**
  * WORKER 4: Text Selection Agent
@@ -25,7 +26,7 @@ export async function textSelectionWorker(
         const systemInstruction = `You transform selected text as requested. Return ONLY the transformed text—no preamble, labels, or meta-commentary. Be concise: summarize in 1-3 sentences; explain in 2-5 sentences; rewrite/improve to similar length; translate preserves length.`;
 
         const result = await generateText({
-            model: google("gemini-2.5-flash"),
+            model: google(GOOGLE_MODEL_IDS.GEMINI_2_5_FLASH),
             system: systemInstruction,
             prompt: prompts[action] + (additionalContext ? `\n\nAdditional context: ${additionalContext}` : ""),
         });

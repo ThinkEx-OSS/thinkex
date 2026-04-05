@@ -29,6 +29,7 @@ import {
   type UploadedAsset,
 } from "@/lib/uploads/uploaded-asset";
 import { startAssetProcessing } from "@/lib/uploads/start-asset-processing";
+import { GOOGLE_MODEL_IDS } from "@/lib/ai/model-registry";
 
 const MAX_TITLE_LENGTH = 60;
 const LOG_TRUNCATE = 400;
@@ -131,7 +132,7 @@ async function runSearchPhase(
   send: (ev: StreamEvent) => void
 ): Promise<{ searchContext: string; sources: Array<{ title: string; url: string }> }> {
   const { output } = await generateText({
-    model: google("gemini-2.5-flash-lite"),
+    model: google(GOOGLE_MODEL_IDS.GEMINI_2_5_FLASH_LITE),
     output: Output.object({ schema: SEARCH_DECISION_SCHEMA }),
     prompt: `Given this user prompt for a study workspace, decide if web search would help.
 
@@ -199,7 +200,7 @@ async function runDistillationAgent(
     : userMessage.content;
 
   const { partialOutputStream } = streamText({
-    model: google("gemini-2.5-flash-lite"),
+    model: google(GOOGLE_MODEL_IDS.GEMINI_2_5_FLASH_LITE),
     output: Output.object({ schema: DISTILLED_SCHEMA }),
     system: `<role>
 You are a workspace content distiller. The user provides content (prompt, files, links). You extract metadata and distilled content for creating study materials.
@@ -676,7 +677,7 @@ export async function POST(request: NextRequest) {
           type OutputType = z.infer<typeof DOCUMENT_QUIZ_SCHEMA>;
           let output: OutputType | undefined;
           const { partialOutputStream } = streamText({
-            model: google("gemini-2.5-flash"),
+            model: google(GOOGLE_MODEL_IDS.GEMINI_2_5_FLASH),
             system: DOCUMENT_QUIZ_SYSTEM,
             output: Output.object({
               name: "DocumentQuiz",

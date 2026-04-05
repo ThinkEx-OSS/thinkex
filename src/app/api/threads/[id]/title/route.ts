@@ -10,9 +10,10 @@ import {
 } from "@/lib/api/workspace-helpers";
 import { eq } from "drizzle-orm";
 import { withServerObservability } from "@/lib/with-server-observability";
+import { GOOGLE_MODEL_IDS } from "@/lib/ai/model-registry";
 
 /** Model ID used for lightweight background text tasks */
-const GEMINI_FLASH_LITE_MODEL = "gemini-2.5-flash-lite";
+const GEMINI_FLASH_LITE_MODEL = GOOGLE_MODEL_IDS.GEMINI_2_5_FLASH_LITE;
 
 function extractTextFromMessage(msg: { content?: unknown[] }): string {
   if (!msg.content || !Array.isArray(msg.content)) return "";
