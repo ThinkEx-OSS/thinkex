@@ -161,6 +161,12 @@ export const renderEditItemToolUI: AssistantToolUIProps<
   }
 
   let content: ReactNode = null;
+  const statusErrorMessage =
+    typeof (status as { error?: unknown }).error === "string"
+      ? (status as { error: string }).error
+      : typeof (status as { message?: unknown }).message === "string"
+        ? (status as { message: string }).message
+        : "An error occurred while editing";
 
   if (parsed?.success) {
     content = (
@@ -183,7 +189,7 @@ export const renderEditItemToolUI: AssistantToolUIProps<
     );
   } else if (status.type === "incomplete" && status.reason === "error") {
     content = (
-      <ToolUIErrorShell label="Failed to edit" message={parsed?.message} />
+      <ToolUIErrorShell label="Failed to edit" message={statusErrorMessage} />
     );
   }
 

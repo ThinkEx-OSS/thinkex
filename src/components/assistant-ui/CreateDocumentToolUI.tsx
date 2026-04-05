@@ -236,6 +236,13 @@ function CreateDocumentToolRenderer({
         message={parsed.message}
       />
     );
+  } else if (status.type === "complete" && !parsed) {
+    content = (
+      <ToolUIErrorShell
+        label="Failed to create document"
+        message="No result returned"
+      />
+    );
   } else if (status.type === "running") {
     content = <ToolUILoadingShell label="Creating document..." />;
   } else if (status.type === "incomplete" && status.reason === "error") {

@@ -36,6 +36,10 @@ export function normalizeLegacyToolMessages(
       const type = canonicalizeToolUIPartType(part.type);
       const canonicalToolName = type.slice("tool-".length);
 
+      // Downgrade to text only when this part was not transformed (`type === part.type`),
+      // the original name is unknown to the current runtime (`!availableToolNames.has(originalToolName)`),
+      // and it is not a canonical tool name (`!isCanonicalChatToolName(originalToolName)`).
+      // If we transformed a legacy alias, we keep the tool part and preserve behavior.
       if (
         type === part.type &&
         !availableToolNames.has(originalToolName) &&

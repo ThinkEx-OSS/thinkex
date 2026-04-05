@@ -42,7 +42,7 @@ export const renderSearchWorkspaceToolUI: AssistantToolUIProps<
     content = (
       <ToolUIErrorShell
         label="Workspace search failed"
-        message={(result as any)?.message ?? "Search failed"}
+        message={result?.message ?? "Search failed"}
       />
     );
   }

@@ -646,7 +646,7 @@ function formatPdfDetailsFull(
     }
   } else if (data.ocrStatus === "processing") {
     lines.push(
-      `   - (Content is being extracted. Please wait a moment and try workspace_read again.)`,
+      `   - (Content is being extracted. Please wait a moment and try again.)`,
     );
   } else {
     lines.push(
@@ -704,7 +704,7 @@ function formatImageDetailsFull(data: ImageData): string[] {
     }
   } else if (data.ocrStatus === "processing") {
     lines.push(
-      `   - (Content is being extracted. Please wait a moment and try workspace_read again.)`,
+      `   - (Content is being extracted. Please wait a moment and try again.)`,
     );
   } else {
     if (data.altText) {

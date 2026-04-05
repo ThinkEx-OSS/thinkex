@@ -79,7 +79,7 @@ export const renderReadWorkspaceToolUI: AssistantToolUIProps<
     content = (
       <ToolUIErrorShell
         label="Workspace read failed"
-        message={(result as any)?.message ?? "Read failed"}
+        message={result?.message ?? "Read failed"}
       />
     );
   }

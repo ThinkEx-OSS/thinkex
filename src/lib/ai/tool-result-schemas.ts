@@ -20,7 +20,7 @@ const baseWorkspace = z
   })
   .passthrough();
 
-/** document_create, clearCardContent, item_edit */
+/** document_create, item_edit */
 export const WorkspaceResultSchema = baseWorkspace;
 export type WorkspaceResult = z.infer<typeof WorkspaceResultSchema>;
 
@@ -35,21 +35,34 @@ export const EditItemResultSchema = baseWorkspace
   .passthrough();
 export type EditItemResult = z.infer<typeof EditItemResultSchema>;
 
-/** Coerce string or other non-object tool results to a safe WorkspaceResult. */
-function coerceToWorkspaceResult(input: unknown): WorkspaceResult {
-  if (input == null) {
-    return { success: false, message: "No result" };
-  }
-  if (typeof input === "string") {
-    return { success: false, message: input };
-  }
-  if (typeof input !== "object" || Array.isArray(input)) {
-    return { success: false, message: "Invalid result format" };
-  }
-  return parseWithSchema(WorkspaceResultSchema, input, "WorkspaceResult");
+function createCoerceFunction<T extends { success: boolean; message?: string }>(
+  schema: z.ZodType<T>,
+  schemaName: string,
+) {
+  return (input: unknown): T => {
+    if (input == null) {
+      return { success: false, message: "No result" } as T;
+    }
+    if (typeof input === "string") {
+      return { success: false, message: input } as T;
+    }
+    if (typeof input !== "object" || Array.isArray(input)) {
+      return { success: false, message: "Invalid result format" } as T;
+    }
+    return parseWithSchema(schema, input, schemaName);
+  };
 }
 
+/** Coerce string or other non-object tool results to a safe WorkspaceResult. */
+const coerceToWorkspaceResult = createCoerceFunction<WorkspaceResult>(
+  WorkspaceResultSchema,
+  "WorkspaceResult",
+);
+
 export function parseWorkspaceResult(input: unknown): WorkspaceResult {
+  if (input == null) {
+    return coerceToWorkspaceResult(input);
+  }
   if (input != null && typeof input === "object" && !Array.isArray(input)) {
     return parseWithSchema(WorkspaceResultSchema, input, "WorkspaceResult");
   }
@@ -81,18 +94,10 @@ export const QuizResultSchema = baseWorkspace.extend({
 export type QuizResult = z.infer<typeof QuizResultSchema>;
 
 /** Coerce string or other non-object tool results to a safe QuizResult. */
-function coerceToQuizResult(input: unknown): QuizResult {
-  if (input == null) {
-    return { success: false, message: "No result" };
-  }
-  if (typeof input === "string") {
-    return { success: false, message: input };
-  }
-  if (typeof input !== "object" || Array.isArray(input)) {
-    return { success: false, message: "Invalid result format" };
-  }
-  return parseWithSchema(QuizResultSchema, input, "QuizResult");
-}
+const coerceToQuizResult = createCoerceFunction<QuizResult>(
+  QuizResultSchema,
+  "QuizResult",
+);
 
 export function parseQuizResult(input: unknown): QuizResult {
   if (input != null && typeof input === "object" && !Array.isArray(input)) {
@@ -113,18 +118,10 @@ export const FlashcardResultSchema = baseWorkspace.extend({
 export type FlashcardResult = z.infer<typeof FlashcardResultSchema>;
 
 /** Coerce string or other non-object tool results to a safe FlashcardResult. */
-function coerceToFlashcardResult(input: unknown): FlashcardResult {
-  if (input == null) {
-    return { success: false, message: "No result" };
-  }
-  if (typeof input === "string") {
-    return { success: false, message: input };
-  }
-  if (typeof input !== "object" || Array.isArray(input)) {
-    return { success: false, message: "Invalid result format" };
-  }
-  return parseWithSchema(FlashcardResultSchema, input, "FlashcardResult");
-}
+const coerceToFlashcardResult = createCoerceFunction<FlashcardResult>(
+  FlashcardResultSchema,
+  "FlashcardResult",
+);
 
 export function parseFlashcardResult(input: unknown): FlashcardResult {
   if (input != null && typeof input === "object" && !Array.isArray(input)) {

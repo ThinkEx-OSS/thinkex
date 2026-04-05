@@ -232,22 +232,25 @@ export const renderURLContextToolUI: AssistantToolUIProps<{
     urlMetadata?.filter((m) => m.urlRetrievalStatus === "URL_RETRIEVAL_STATUS_SUCCESS").length ?? 0;
   const failedCount = (urlMetadata?.length ?? 0) - successfulCount;
 
-    // Helper to get status badge color
-    const getStatusColor = (status: string) => {
-      if (status === "URL_RETRIEVAL_STATUS_SUCCESS") return "bg-green-500/10 text-green-600 border-green-500/20";
-      if (status === "URL_RETRIEVAL_STATUS_FAILED") return "bg-red-500/10 text-red-600 border-red-500/20";
-      if (status?.includes("ERROR")) return "bg-red-500/10 text-red-600 border-red-500/20";
-      return "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
-    };
+  // Helper to get status badge color
+  const getStatusColor = (status: string) => {
+    if (status === "URL_RETRIEVAL_STATUS_SUCCESS")
+      return "bg-green-500/10 text-green-600 border-green-500/20";
+    if (status === "URL_RETRIEVAL_STATUS_FAILED")
+      return "bg-red-500/10 text-red-600 border-red-500/20";
+    if (status?.includes("ERROR"))
+      return "bg-red-500/10 text-red-600 border-red-500/20";
+    return "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
+  };
 
-    // Helper to format status text
-    const formatStatus = (status: string) => {
-      return status
-        .replace("URL_RETRIEVAL_STATUS_", "")
-        .replace(/_/g, " ")
-        .toLowerCase()
-        .replace(/\b\w/g, (l) => l.toUpperCase());
-    };
+  // Helper to format status text
+  const formatStatus = (status: string) => {
+    return status
+      .replace("URL_RETRIEVAL_STATUS_", "")
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+  };
 
   return (
     <ToolUIErrorBoundary componentName="URLContext">

@@ -107,6 +107,17 @@ export const renderAddYoutubeVideoToolUI: AssistantToolUIProps<
   }
 
   let content: ReactNode = null;
+  const statusErrorMessage =
+    status.type === "incomplete" && status.reason === "error"
+      ? typeof (status as { error?: unknown }).error === "string"
+        ? (status as { error: string }).error
+        : typeof (status as { message?: unknown }).message === "string"
+          ? (status as { message: string }).message
+          : typeof (status as { payload?: { message?: unknown } }).payload
+                ?.message === "string"
+            ? (status as { payload: { message: string } }).payload.message
+            : undefined
+      : undefined;
 
   if (parsed?.success) {
     content = <AddYoutubeVideoReceipt args={args} result={parsed} status={status} />;
@@ -123,7 +134,7 @@ export const renderAddYoutubeVideoToolUI: AssistantToolUIProps<
     content = (
       <ToolUIErrorShell
         label="Failed to add YouTube video"
-        message={parsed?.message}
+        message={statusErrorMessage}
       />
     );
   }

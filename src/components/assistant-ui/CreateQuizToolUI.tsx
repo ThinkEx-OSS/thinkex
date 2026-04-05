@@ -222,6 +222,9 @@ function CreateQuizToolRenderer({
   );
 
   useEffect(() => {
+    if (process.env.NODE_ENV === "production") {
+      return;
+    }
     logger.debug("🎯 [CreateQuizTool] Render:", {
       args,
       result,
@@ -241,7 +244,9 @@ function CreateQuizToolRenderer({
 
   let content: ReactNode = null;
 
-  if (parsed?.success) {
+  if (status.type === "running") {
+    content = <ToolUILoadingShell label="Generating quiz..." />;
+  } else if (status.type === "complete" && parsed?.success) {
     content = (
       <CreateQuizReceipt
         result={parsed}
@@ -255,16 +260,18 @@ function CreateQuizToolRenderer({
         workspaceColor={currentWorkspace?.color}
       />
     );
-  } else if (status.type === "running") {
-    content = <ToolUILoadingShell label="Generating quiz..." />;
-  } else if (
-    (status.type === "incomplete" && status.reason === "error") ||
-    (status.type === "complete" && parsed && !parsed.success)
-  ) {
+  } else if (status.type === "complete" && parsed && !parsed.success) {
     content = (
       <ToolUIErrorShell
         label="Failed to create quiz"
-        message={parsed && !parsed.success ? parsed.message : undefined}
+        message={parsed.message}
+      />
+    );
+  } else if (status.type === "incomplete" && status.reason === "error") {
+    content = (
+      <ToolUIErrorShell
+        label="Failed to create quiz"
+        message="Quiz generation failed"
       />
     );
   }

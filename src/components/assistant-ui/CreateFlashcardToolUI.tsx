@@ -34,9 +34,15 @@ type CreateFlashcardArgs =
       cards?: Array<{ front: string; back: string }>;
     };
 type CreateFlashcardToolRendererProps = {
-  args: CreateFlashcardArgs;
-  result?: FlashcardResult;
-  status: { type: string; reason?: string };
+  args: Parameters<
+    AssistantToolUIProps<CreateFlashcardArgs, FlashcardResult>["render"]
+  >[0]["args"];
+  result: Parameters<
+    AssistantToolUIProps<CreateFlashcardArgs, FlashcardResult>["render"]
+  >[0]["result"];
+  status: Parameters<
+    AssistantToolUIProps<CreateFlashcardArgs, FlashcardResult>["render"]
+  >[0]["status"];
 };
 
 function isCreateFlashcardArgsObject(
@@ -243,15 +249,17 @@ function CreateFlashcardToolRenderer({
     (w) => w.id === workspaceId,
   );
 
-  let parsed: FlashcardResult | null = null;
-  if (status.type === "complete" && result != null) {
+  const parsed = useMemo(() => {
+    if (status.type !== "complete" || result == null) {
+      return null;
+    }
     try {
-      parsed = parseFlashcardResult(result);
+      return parseFlashcardResult(result);
     } catch (err) {
       logger.error("🎨 [CreateFlashcardTool] Failed to parse result:", err);
-      parsed = null;
+      return null;
     }
-  }
+  }, [result, status.type]);
 
   useEffect(() => {
     logger.group(`🎨 [CreateFlashcardTool] RENDER CALLED`, true);
@@ -293,6 +301,14 @@ function CreateFlashcardToolRenderer({
       "⏳ [CreateFlashcardTool] Rendering loading state - status is running",
     );
     content = <ToolUILoadingShell label="Generating flashcards..." />;
+  } else if (status.type === "complete" && !parsed) {
+    logger.error("🎨 [CreateFlashcardTool] Complete status had no parseable result");
+    content = (
+      <ToolUIErrorShell
+        label="Failed to parse flashcard result"
+        message="Could not parse tool output"
+      />
+    );
   } else if (status.type === "incomplete" && status.reason === "error") {
     content = (
       <ToolUIErrorShell

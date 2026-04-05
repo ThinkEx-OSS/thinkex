@@ -25,6 +25,7 @@ const CANONICAL_CHAT_TOOL_NAMES = new Set<string>(Object.values(CHAT_TOOL));
 export const LEGACY_CHAT_TOOL_NAMES: Record<string, ChatToolName> = {
   // Original camelCase
   processUrls: CHAT_TOOL.WEB_FETCH,
+  urlFetch: CHAT_TOOL.WEB_FETCH,
   webSearch: CHAT_TOOL.WEB_SEARCH,
   searchWorkspace: CHAT_TOOL.WORKSPACE_SEARCH,
   readWorkspace: CHAT_TOOL.WORKSPACE_READ,
@@ -88,13 +89,4 @@ export function isCanonicalChatToolName(name: string): name is ChatToolName {
 /** Autogen / SSE events that mirror the web search tool */
 export function matchesWebSearchStreamToolName(name: string | undefined): boolean {
   return name === CHAT_TOOL.WEB_SEARCH || name === "webSearch";
-}
-
-/** Autogen link-scraping progress (aligns with web_fetch) */
-export function matchesWebFetchStreamToolName(name: string | undefined): boolean {
-  return (
-    name === CHAT_TOOL.WEB_FETCH ||
-    name === "url_fetch" ||
-    name === "urlFetch"
-  );
 }
