@@ -3,7 +3,7 @@
 import {
   AssistantRuntimeProvider,
   Tools,
-  unstable_useRemoteThreadListRuntime as useRemoteThreadListRuntime,
+  useRemoteThreadListRuntime,
   useAui,
 } from "@assistant-ui/react";
 import {

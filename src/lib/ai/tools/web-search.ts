@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { tool, generateText, stepCountIs, zodSchema } from "ai";
+import { tool, generateText, stepCountIs, zodSchema, type ToolSet } from "ai";
 import { google } from "@ai-sdk/google";
 import {
     WebSearchResultSchema,
@@ -102,7 +102,7 @@ export async function executeWebSearch(query: string): Promise<WebSearchResult> 
         model: google('gemini-2.5-flash-lite'),
         tools: {
             googleSearch: google.tools.googleSearch({}),
-        },
+        } as ToolSet,
         prompt: `Search the web for current, accurate information about: ${query}
 
 Use the search tool to find relevant sources. Format your response as:

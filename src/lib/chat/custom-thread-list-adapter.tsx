@@ -3,7 +3,7 @@
 import { type FC, type PropsWithChildren, useMemo } from "react";
 import {
   type ThreadMessage,
-  type unstable_RemoteThreadListAdapter as RemoteThreadListAdapter,
+  type RemoteThreadListAdapter,
   RuntimeAdapterProvider,
 } from "@assistant-ui/react";
 import { createAssistantStream } from "assistant-stream";

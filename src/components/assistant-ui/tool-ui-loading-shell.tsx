@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+import { useToolArgsStatus } from "@assistant-ui/react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ShinyText from "@/components/ShinyText";
@@ -21,6 +23,23 @@ export function ToolUILoadingShell({
   subtitle,
   className,
 }: ToolUILoadingShellProps) {
+  const { propStatus } = useToolArgsStatus<Record<string, unknown>>();
+
+  const resolvedSubtitle = useMemo(() => {
+    if (subtitle) return subtitle;
+
+    const fieldStatuses = Object.values(propStatus);
+    if (fieldStatuses.includes("streaming")) {
+      return "Preparing request...";
+    }
+
+    if (fieldStatuses.includes("complete")) {
+      return "Working...";
+    }
+
+    return undefined;
+  }, [propStatus, subtitle]);
+
   return (
     <div
       className={cn(
@@ -41,8 +60,10 @@ export function ToolUILoadingShell({
               className="font-medium"
             />
           </span>
-          {subtitle && (
-            <span className="text-[10px] text-muted-foreground">{subtitle}</span>
+          {resolvedSubtitle && (
+            <span className="text-[10px] text-muted-foreground">
+              {resolvedSubtitle}
+            </span>
           )}
         </div>
       </div>
