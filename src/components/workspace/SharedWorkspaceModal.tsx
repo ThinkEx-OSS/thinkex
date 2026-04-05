@@ -35,7 +35,7 @@ interface SharedWorkspaceModalProps {
 }
 
 interface SharedWorkspaceModalContentProps {
-  workspaceId,
+  workspaceId: string;
   onImported: (slug: string) => void;
 }
 
@@ -66,7 +66,7 @@ function SharedWorkspaceModalContent({
 
       return response.json();
     },
-    enabled: open && Boolean(workspaceId),
+    enabled: Boolean(workspaceId),
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
