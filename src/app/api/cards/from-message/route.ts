@@ -6,7 +6,6 @@ import { logger } from "@/lib/utils/logger";
 import { processMessageContent } from "@/lib/ai/clean-message-content";
 import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
-import { GOOGLE_MODEL_IDS } from "@/lib/ai/model-registry";
 
 /**
  * POST /api/cards/from-message
@@ -88,7 +87,7 @@ RULES:
 - Return ONLY the reformatted document (first line or # heading = title; rest = body). No preamble or footer.`;
 
     const aiResult = await generateText({
-      model: google(GOOGLE_MODEL_IDS.GEMINI_3_FLASH_PREVIEW),
+      model: google("gemini-3-flash-preview"),
       system: systemPrompt,
       prompt: `Extract the pure document content from this assistant response. Preserve all information. Remove only conversational/meta fluff. Output title + body in markdown:\n\n${content}`,
     });

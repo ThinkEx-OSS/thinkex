@@ -4,7 +4,6 @@ import {
   createPartFromUri,
   createUserContent,
 } from "@google/genai";
-import { GOOGLE_MODEL_IDS } from "@/lib/ai/model-registry";
 
 export interface TranscribeResult {
   summary: string;
@@ -37,7 +36,7 @@ Requirements:
 4. Provide the total duration of the audio in seconds (a single number, e.g. 180.5 for 3 minutes).`;
 
   const response = await client.models.generateContent({
-    model: GOOGLE_MODEL_IDS.GEMINI_2_5_FLASH,
+    model: "gemini-2.5-flash",
     contents: createUserContent([
       createPartFromUri(fileUri, mimeType),
       prompt,

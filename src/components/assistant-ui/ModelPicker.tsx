@@ -12,13 +12,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  CHAT_MODEL_PROVIDER_GROUPS,
-  getChatModelDisplayName,
-  resolveChatModelConfig,
-  type ChatModelConfig,
-  type ChatModelProvider,
-} from "@/lib/ai/model-registry";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { cn } from "@/lib/utils";
@@ -35,11 +28,22 @@ const PROVIDER_COMPANY_NAMES = {
   ChatGPT: "OPENAI",
 } as const;
 
+type ModelProvider = keyof typeof MODEL_LOGO_PATHS;
+
+type ModelConfig = {
+  id: string;
+  name: string;
+  description: string;
+  speed: string;
+  costLevel: number;
+  strengths: string;
+};
+
 function ModelProviderIcon({
   provider,
   className,
 }: {
-  provider: ChatModelProvider;
+  provider: ModelProvider;
   className?: string;
 }) {
   return (
@@ -68,8 +72,8 @@ function ModelPickerRow({
   descriptionHoverOpen,
   onDescriptionHoverOpenChange,
 }: {
-  provider: ChatModelProvider;
-  model: ChatModelConfig;
+  provider: ModelProvider;
+  model: ModelConfig;
   isSelected: boolean;
   onSelect: () => void;
   descriptionHoverOpen: boolean;
@@ -169,13 +173,87 @@ function ModelPickerRow({
   );
 }
 
+const MODEL_PROVIDERS: Array<{
+  provider: ModelProvider;
+  models: ModelConfig[];
+}> = [
+  {
+    provider: "Gemini",
+    models: [
+      {
+        id: "gemini-3.1-pro-preview",
+        name: "Gemini 3.1 Pro",
+        description: "Higher-quality reasoning for complex work",
+        speed: "Medium",
+        costLevel: 3,
+        strengths:
+          "Complex reasoning, long-context work, and higher-quality structured output.",
+      },
+      {
+        id: "gemini-3-flash-preview",
+        name: "Gemini 3.0 Flash",
+        description: "Fast, lightweight model for everyday tasks",
+        speed: "Fast",
+        costLevel: 1,
+        strengths:
+          "Quick responses, lightweight drafting, and lower-cost chat workflows.",
+      },
+    ],
+  },
+  {
+    provider: "Claude",
+    models: [
+      {
+        id: "anthropic/claude-sonnet-4.6",
+        name: "Claude Sonnet 4.6",
+        description: "Strong coding and general reasoning model",
+        speed: "Medium",
+        costLevel: 3,
+        strengths:
+          "Coding, complex workflows, and reliable multi-step reasoning.",
+      },
+      {
+        id: "anthropic/claude-haiku-4.5",
+        name: "Claude Haiku 4.5",
+        description: "Fast, cheaper Claude model for simpler tasks",
+        speed: "Very fast",
+        costLevel: 1,
+        strengths:
+          "Fast drafting, simple transformations, and lower-cost day-to-day use.",
+      },
+    ],
+  },
+  {
+    provider: "ChatGPT",
+    models: [
+      {
+        id: "openai/gpt-5-chat",
+        name: "GPT 5",
+        description: "Balanced general-purpose chat and reasoning model",
+        speed: "Medium-fast",
+        costLevel: 2,
+        strengths:
+          "General chat, writing, and reasoning across a wide range of tasks.",
+      },
+    ],
+  },
+];
+
+const ALL_MODELS = MODEL_PROVIDERS.flatMap((provider) => provider.models);
+
+function getModelDisplayName(modelId: string): string {
+  const model = ALL_MODELS.find((item) => item.id === modelId);
+  return model?.name ?? modelId;
+}
+
 export function ModelPicker() {
   const selectedModelId = useUIStore((state) => state.selectedModelId);
   const setSelectedModelId = useUIStore((state) => state.setSelectedModelId);
   const [isOpen, setIsOpen] = useState(false);
   const [hoverDescModelId, setHoverDescModelId] = useState<string | null>(null);
 
-  const selectedModel = resolveChatModelConfig(selectedModelId);
+  const selectedModel =
+    ALL_MODELS.find((m) => m.id === selectedModelId) ?? ALL_MODELS[0];
 
   return (
     <Popover
@@ -193,7 +271,7 @@ export function ModelPicker() {
           type="button"
           className="flex cursor-pointer items-center gap-1.5 rounded-md bg-sidebar-accent px-1.5 py-1 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
-          <span>{getChatModelDisplayName(selectedModel.id)}</span>
+          <span>{getModelDisplayName(selectedModel.id)}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -205,13 +283,13 @@ export function ModelPicker() {
         onOpenAutoFocus={(event) => event.preventDefault()}
         onCloseAutoFocus={(event) => event.preventDefault()}
       >
-        {CHAT_MODEL_PROVIDER_GROUPS.map((group, groupIndex) => (
+        {MODEL_PROVIDERS.map((group, groupIndex) => (
           <div key={group.provider}>
             {groupIndex > 0 ? (
               <div className="bg-border -mx-1 my-1 h-px" role="separator" />
             ) : null}
             <div className="px-2 py-1 text-[10px] tracking-wide text-muted-foreground/90">
-              {PROVIDER_COMPANY_NAMES[group.provider] ?? group.companyName}
+              {PROVIDER_COMPANY_NAMES[group.provider]}
             </div>
             {group.models.map((model) => (
               <ModelPickerRow

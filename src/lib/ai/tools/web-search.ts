@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { tool, generateText, stepCountIs, zodSchema, type ToolSet } from "ai";
 import { google } from "@ai-sdk/google";
-import { GOOGLE_MODEL_IDS } from "@/lib/ai/model-registry";
 import {
     WebSearchResultSchema,
     type WebSearchResult,
@@ -100,7 +99,7 @@ export async function resolveGroundingChunksToSources(
  */
 export async function executeWebSearch(query: string): Promise<WebSearchResult> {
     const { text, providerMetadata } = await generateText({
-        model: google(GOOGLE_MODEL_IDS.GEMINI_2_5_FLASH_LITE),
+        model: google('gemini-2.5-flash-lite'),
         tools: {
             googleSearch: google.tools.googleSearch({}),
         } as ToolSet,

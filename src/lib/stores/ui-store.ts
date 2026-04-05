@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 import { WORKSPACE_PANEL_SIZES } from '@/lib/layout-constants';
-import { DEFAULT_CHAT_MODEL_ID } from '@/lib/ai/model-registry';
 
 /**
  * UI Store - Manages all UI state (chat, modals, search, layout, text selection)
@@ -148,7 +147,7 @@ const initialState = {
   showJsonView: false,
 
   activeFolderId: null,
-  selectedModelId: DEFAULT_CHAT_MODEL_ID,
+  selectedModelId: 'gemini-3-flash-preview',
 
   // Text selection
   inMultiSelectMode: false,
