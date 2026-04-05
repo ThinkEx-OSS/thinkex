@@ -5,7 +5,6 @@
 
 import { frontendTools } from "@assistant-ui/react-ai-sdk";
 import { createProcessUrlsTool } from "./process-urls";
-import { createExecuteCodeTool } from "./search-code";
 import {
   createDocumentTool,
   createDeleteItemTool,
@@ -21,8 +20,8 @@ import {
 import { createWebSearchTool } from "./web-search";
 import { createSearchWorkspaceTool } from "./search-workspace";
 import { createReadWorkspaceTool } from "./read-workspace";
-import { createMagicFetchTool } from "./magic-fetch";
 import { logger } from "@/lib/utils/logger";
+import { CHAT_TOOL } from "@/lib/ai/chat-tool-names";
 
 export interface ChatToolsConfig {
   workspaceId: string | null;
@@ -30,8 +29,6 @@ export interface ChatToolsConfig {
   activeFolderId?: string;
   threadId?: string | null;
   clientTools?: Record<string, any>;
-  /** Experiment: enable magic_fetch tool (logs AI data requests to PostHog) */
-  enableMagicFetch?: boolean;
 }
 
 /**
@@ -55,34 +52,28 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
 
   return {
     // URL processing
-    processUrls: createProcessUrlsTool(),
+    [CHAT_TOOL.WEB_FETCH]: createProcessUrlsTool(),
 
-    // Search & code execution
-    webSearch: createWebSearchTool(),
-    executeCode: createExecuteCodeTool(),
-    searchWorkspace: createSearchWorkspaceTool(ctx),
-    readWorkspace: createReadWorkspaceTool(ctx),
+    // Search
+    [CHAT_TOOL.WEB_SEARCH]: createWebSearchTool(),
+    [CHAT_TOOL.WORKSPACE_SEARCH]: createSearchWorkspaceTool(ctx),
+    [CHAT_TOOL.WORKSPACE_READ]: createReadWorkspaceTool(ctx),
 
     // Workspace operations
-    createDocument: createDocumentTool(ctx),
-    editItem: createEditItemTool(ctx),
+    [CHAT_TOOL.DOCUMENT_CREATE]: createDocumentTool(ctx),
+    [CHAT_TOOL.ITEM_EDIT]: createEditItemTool(ctx),
 
-    deleteItem: createDeleteItemTool(ctx),
+    [CHAT_TOOL.ITEM_DELETE]: createDeleteItemTool(ctx),
 
     // Flashcards
-    createFlashcards: createFlashcardsTool(ctx),
+    [CHAT_TOOL.FLASHCARDS_CREATE]: createFlashcardsTool(ctx),
 
     // Quizzes
-    createQuiz: createQuizTool(ctx),
+    [CHAT_TOOL.QUIZ_CREATE]: createQuizTool(ctx),
 
     // YouTube
-    searchYoutube: createSearchYoutubeTool(),
-    addYoutubeVideo: createAddYoutubeVideoTool(ctx),
-
-    // Experiment: magic_fetch (logs to PostHog via OpenTelemetry)
-    ...(config.enableMagicFetch
-      ? { magicFetch: createMagicFetchTool(ctx) }
-      : {}),
+    [CHAT_TOOL.YOUTUBE_SEARCH]: createSearchYoutubeTool(),
+    [CHAT_TOOL.YOUTUBE_ADD]: createAddYoutubeVideoTool(ctx),
 
     // Client tools from frontend
     ...frontendClientTools,

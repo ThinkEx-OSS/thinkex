@@ -37,7 +37,7 @@ const CreateQuizInputSchema = z.object({
 export type CreateQuizInput = z.infer<typeof CreateQuizInputSchema>;
 
 /**
- * Create the createQuiz tool - AI generates questions directly (like createFlashcards)
+ * Create the quiz_create tool - AI generates questions directly (like flashcards_create)
  */
 export function createQuizTool(ctx: WorkspaceToolContext) {
     return withSanitizedModelOutput(tool({
@@ -110,4 +110,4 @@ export function createQuizTool(ctx: WorkspaceToolContext) {
     }));
 }
 
-// Edit functionality is in edit-item-tool.ts (editItem)
+// Edit functionality is in edit-item-tool.ts (item_edit)

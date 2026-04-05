@@ -36,8 +36,8 @@ describe("formatItemContent (document)", () => {
   });
 });
 
-describe("formatItemContent aligns with readWorkspace document markdown for edit", () => {
-  it("readWorkspace uses raw markdown only; replace works on that string", () => {
+describe("formatItemContent aligns with workspace_read document markdown for edit", () => {
+  it("workspace_read uses raw markdown only; replace works on that string", () => {
     const md = "# Title\n\nFirst para\n\nSecond para";
     const item = mkDocumentItem(md);
     const body = (item.data as DocumentData).markdown ?? "";

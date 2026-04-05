@@ -1,10 +1,10 @@
 "use client";
 
 import type React from "react";
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { Fragment, useState, useRef, useEffect, useCallback, useMemo, useLayoutEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, X, ChevronDown, ChevronRight, FolderOpen, Plus, Settings, Share2, Loader2, ExternalLink } from "lucide-react";
+import { Search, X, ChevronRight, FolderOpen, Plus, Settings, Share2, Loader2, ExternalLink } from "lucide-react";
 import { LuCalendar } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -26,11 +26,6 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
 import {
   Dialog,
   DialogContent,
@@ -57,6 +52,112 @@ import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
 import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
 const EMPTY_ITEMS: Item[] = [];
+const EMPTY_RESPONSIVE_BREADCRUMBS = {
+  visibleTailKeys: [] as string[],
+  hiddenKeys: [] as string[],
+};
+const BREADCRUMB_ROOT_TEXT_CLASS =
+  "min-w-0 max-w-[220px] truncate text-sidebar-foreground";
+const BREADCRUMB_FOLDER_TEXT_CLASS =
+  "min-w-0 max-w-[180px] truncate text-sidebar-foreground";
+const BREADCRUMB_ITEM_TEXT_CLASS =
+  "min-w-0 max-w-[240px] truncate text-sidebar-foreground";
+const BREADCRUMB_INTERACTIVE_CLASS =
+  "cursor-pointer text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-accent/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/60";
+const BREADCRUMB_DRAG_TARGET_CLASS =
+  "bg-blue-500/10 text-sidebar-foreground ring-1 ring-inset ring-blue-500/50";
+const BREADCRUMB_MENU_ITEM_CLASS =
+  "flex items-center gap-1.5 rounded-md px-2 py-1.5 cursor-pointer";
+
+type BreadcrumbEntry =
+  | {
+      key: string;
+      kind: "root";
+      label: string;
+      icon: string | null | undefined;
+      color: string | null | undefined;
+    }
+  | {
+      key: string;
+      kind: "folder";
+      id: string;
+      label: string;
+      color: string | null | undefined;
+    }
+  | {
+      key: string;
+      kind: "item";
+      id: string;
+      label: string;
+      itemType: Item["type"];
+    };
+
+function areStringArraysEqual(a: readonly string[], b: readonly string[]) {
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
+function getResponsiveBreadcrumbs(
+  entries: BreadcrumbEntry[],
+  availableWidth: number,
+  widths: Map<string, number>,
+  separatorWidth: number,
+  ellipsisWidth: number,
+) {
+  if (entries.length <= 1) {
+    return EMPTY_RESPONSIVE_BREADCRUMBS;
+  }
+
+  const keys = entries.map((entry) => entry.key);
+  const rootKey = keys[0];
+  const lastKey = keys[keys.length - 1];
+  let visibleTailKeys = [lastKey];
+
+  const getWidth = (key: string) => widths.get(key) ?? 0;
+  const measureLayout = (candidateTailKeys: string[]) => {
+    let totalWidth = getWidth(rootKey);
+    const hiddenCount = Math.max(0, keys.length - 1 - candidateTailKeys.length);
+
+    if (hiddenCount > 0) {
+      totalWidth += separatorWidth + ellipsisWidth;
+    }
+
+    for (const key of candidateTailKeys) {
+      totalWidth += separatorWidth + getWidth(key);
+    }
+
+    return totalWidth;
+  };
+
+  for (let index = keys.length - 2; index >= 1; index -= 1) {
+    const nextVisibleTailKeys = [keys[index], ...visibleTailKeys];
+
+    if (measureLayout(nextVisibleTailKeys) <= availableWidth) {
+      visibleTailKeys = nextVisibleTailKeys;
+    } else {
+      break;
+    }
+  }
+
+  return {
+    visibleTailKeys,
+    hiddenKeys: keys.slice(1, keys.length - visibleTailKeys.length),
+  };
+}
+
+function BreadcrumbSeparator({
+  measureRef,
+}: {
+  measureRef?: React.Ref<HTMLSpanElement>;
+}) {
+  return (
+    <span
+      ref={measureRef}
+      className="mx-1 inline-flex shrink-0 items-center text-sidebar-foreground/50"
+    >
+      <ChevronRight className="h-3.5 w-3.5" />
+    </span>
+  );
+}
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -180,16 +281,24 @@ export function WorkspaceHeader({
   // Track drag hover state for breadcrumb elements
   const [hoveredBreadcrumbTarget, setHoveredBreadcrumbTarget] = useState<string | null>(null); // 'root' or folderId
   const isDraggingRef = useRef(false);
+  const breadcrumbNavRef = useRef<HTMLElement>(null);
+  const breadcrumbMeasureRefs = useRef<Record<string, HTMLElement | null>>({});
+  const breadcrumbSeparatorMeasureRef = useRef<HTMLSpanElement>(null);
+  const breadcrumbEllipsisMeasureRef = useRef<HTMLDivElement>(null);
   const [ellipsisDropdownState, setEllipsisDropdownState] = useState<{
-    folderPathKey: string;
+    breadcrumbLayoutKey: string;
     open: boolean;
   }>({
-    folderPathKey: "",
+    breadcrumbLayoutKey: "",
     open: false,
   });
+  const [responsiveBreadcrumbs, setResponsiveBreadcrumbs] = useState(
+    EMPTY_RESPONSIVE_BREADCRUMBS,
+  );
 
   // Consistent breadcrumb item styling
-  const breadcrumbItemClass = "flex items-center gap-1.5 min-w-0 rounded transition-colors hover:bg-accent cursor-pointer px-2 py-1.5 -mx-2 -my-1.5";
+  const breadcrumbItemClass =
+    "inline-flex h-7 max-w-full min-w-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors";
 
 
 
@@ -202,21 +311,62 @@ export function WorkspaceHeader({
     if (!activeFolderId || !items.length) return [];
     return getFolderPath(activeFolderId, items);
   }, [activeFolderId, items]);
-  const folderPathKey = useMemo(
-    () => folderPath.map((folder) => folder.id).join("/"),
-    [folderPath],
+  const workspaceBreadcrumbLabel = workspaceName || "Untitled";
+  const primaryActiveItem = activeItems[0] ?? null;
+  const breadcrumbEntries = useMemo<BreadcrumbEntry[]>(() => {
+    const entries: BreadcrumbEntry[] = [
+      {
+        key: "root",
+        kind: "root",
+        label: workspaceBreadcrumbLabel,
+        icon: workspaceIcon,
+        color: workspaceColor,
+      },
+    ];
+
+    for (const folder of folderPath) {
+      entries.push({
+        key: `folder:${folder.id}`,
+        kind: "folder",
+        id: folder.id,
+        label: folder.name,
+        color: folder.color,
+      });
+    }
+
+    if (primaryActiveItem) {
+      entries.push({
+        key: `item:${primaryActiveItem.id}`,
+        kind: "item",
+        id: primaryActiveItem.id,
+        label: primaryActiveItem.name,
+        itemType: primaryActiveItem.type,
+      });
+    }
+
+    return entries;
+  }, [
+    folderPath,
+    primaryActiveItem,
+    workspaceBreadcrumbLabel,
+    workspaceColor,
+    workspaceIcon,
+  ]);
+  const breadcrumbLayoutKey = useMemo(
+    () => breadcrumbEntries.map((entry) => entry.key).join("/"),
+    [breadcrumbEntries],
   );
   const isEllipsisDropdownOpen =
-    ellipsisDropdownState.folderPathKey === folderPathKey &&
+    ellipsisDropdownState.breadcrumbLayoutKey === breadcrumbLayoutKey &&
     ellipsisDropdownState.open;
   const handleEllipsisDropdownOpenChange = useCallback(
     (open: boolean) => {
       setEllipsisDropdownState({
-        folderPathKey,
+        breadcrumbLayoutKey,
         open,
       });
     },
-    [folderPathKey],
+    [breadcrumbLayoutKey],
   );
 
   // Compact mode when space is tight (item panel open + chat expanded)
@@ -257,6 +407,375 @@ export function WorkspaceHeader({
     setShowRenameDialog(false);
     setRenamingTarget(null);
   }, [onRenameFolder, onUpdateActiveItem, renamingTarget, renameValue]);
+
+  const openItemRenameDialog = useCallback((itemId: string, itemName: string) => {
+    setRenamingTarget({ id: itemId, type: "item" });
+    setRenameValue(itemName);
+    setShowRenameDialog(true);
+  }, []);
+
+  useEffect(() => {
+    const validKeys = new Set(breadcrumbEntries.map((entry) => entry.key));
+
+    for (const key of Object.keys(breadcrumbMeasureRefs.current)) {
+      if (!validKeys.has(key)) {
+        delete breadcrumbMeasureRefs.current[key];
+      }
+    }
+  }, [breadcrumbEntries]);
+
+  useLayoutEffect(() => {
+    const navElement = breadcrumbNavRef.current;
+
+    if (!navElement) {
+      return;
+    }
+
+    let animationFrame = 0;
+
+    const recomputeLayout = () => {
+      animationFrame = 0;
+
+      const availableWidth = navElement.clientWidth;
+      if (availableWidth <= 0) {
+        return;
+      }
+
+      const widths = new Map<string, number>();
+      for (const entry of breadcrumbEntries) {
+        widths.set(
+          entry.key,
+          Math.ceil(
+            breadcrumbMeasureRefs.current[entry.key]?.getBoundingClientRect().width ??
+              0,
+          ),
+        );
+      }
+
+      const separatorWidth = Math.ceil(
+        breadcrumbSeparatorMeasureRef.current?.getBoundingClientRect().width ?? 18,
+      );
+      const ellipsisWidth = Math.ceil(
+        breadcrumbEllipsisMeasureRef.current?.getBoundingClientRect().width ?? 30,
+      );
+      const nextResponsiveBreadcrumbs = getResponsiveBreadcrumbs(
+        breadcrumbEntries,
+        availableWidth,
+        widths,
+        separatorWidth,
+        ellipsisWidth,
+      );
+
+      setResponsiveBreadcrumbs((current) => {
+        if (
+          areStringArraysEqual(
+            current.visibleTailKeys,
+            nextResponsiveBreadcrumbs.visibleTailKeys,
+          ) &&
+          areStringArraysEqual(current.hiddenKeys, nextResponsiveBreadcrumbs.hiddenKeys)
+        ) {
+          return current;
+        }
+
+        return nextResponsiveBreadcrumbs;
+      });
+    };
+
+    const scheduleRecompute = () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+
+      animationFrame = window.requestAnimationFrame(recomputeLayout);
+    };
+
+    scheduleRecompute();
+
+    const resizeObserver = new ResizeObserver(scheduleRecompute);
+    resizeObserver.observe(navElement);
+
+    if (document.fonts?.ready) {
+      void document.fonts.ready.then(scheduleRecompute);
+    }
+
+    return () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+      resizeObserver.disconnect();
+    };
+  }, [breadcrumbEntries]);
+
+  const breadcrumbEntryLookup = useMemo(
+    () => new Map(breadcrumbEntries.map((entry) => [entry.key, entry])),
+    [breadcrumbEntries],
+  );
+  const hiddenBreadcrumbEntries = useMemo(
+    () =>
+      responsiveBreadcrumbs.hiddenKeys
+        .map((key) => breadcrumbEntryLookup.get(key))
+        .filter((entry): entry is BreadcrumbEntry => Boolean(entry)),
+    [breadcrumbEntryLookup, responsiveBreadcrumbs.hiddenKeys],
+  );
+  const visibleTailBreadcrumbEntries = useMemo(
+    () =>
+      responsiveBreadcrumbs.visibleTailKeys
+        .map((key) => breadcrumbEntryLookup.get(key))
+        .filter((entry): entry is BreadcrumbEntry => Boolean(entry)),
+    [breadcrumbEntryLookup, responsiveBreadcrumbs.visibleTailKeys],
+  );
+
+  const renderRootBreadcrumbLabel = useCallback(
+    () => (
+      <>
+        <IconRenderer
+          icon={workspaceIcon}
+          className="h-4 w-4 shrink-0"
+          style={{ color: workspaceColor || undefined }}
+        />
+        <span
+          className={BREADCRUMB_ROOT_TEXT_CLASS}
+          title={workspaceBreadcrumbLabel}
+        >
+          {workspaceBreadcrumbLabel}
+        </span>
+      </>
+    ),
+    [workspaceBreadcrumbLabel, workspaceColor, workspaceIcon],
+  );
+
+  const renderFolderBreadcrumbLabel = useCallback((entry: Extract<BreadcrumbEntry, { kind: "folder" }>) => (
+    <>
+      <FolderOpen
+        className="h-3.5 w-3.5 shrink-0"
+        style={{ color: entry.color || undefined }}
+      />
+      <span className={BREADCRUMB_FOLDER_TEXT_CLASS} title={entry.label}>
+        {entry.label}
+      </span>
+    </>
+  ), []);
+
+  const renderItemBreadcrumbLabel = useCallback((entry: Extract<BreadcrumbEntry, { kind: "item" }>) => (
+    <>
+      <WorkspaceItemTypeIcon type={entry.itemType} className="h-3.5 w-3.5 shrink-0" />
+      <span className={BREADCRUMB_ITEM_TEXT_CLASS} title={entry.label}>
+        {entry.label}
+      </span>
+    </>
+  ), []);
+
+  const renderRootBreadcrumb = useCallback(() => {
+    const rootHighlightClass =
+      hoveredBreadcrumbTarget === "root" &&
+      BREADCRUMB_DRAG_TARGET_CLASS;
+
+    if (activeFolderId || primaryActiveItem) {
+      return (
+        <button
+          onClick={() => onNavigateToRoot?.()}
+          data-breadcrumb-target="root"
+          className={cn(
+            breadcrumbItemClass,
+            BREADCRUMB_INTERACTIVE_CLASS,
+            rootHighlightClass,
+          )}
+        >
+          {renderRootBreadcrumbLabel()}
+        </button>
+      );
+    }
+
+    if (onOpenSettings || onOpenShare) {
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              data-breadcrumb-target="root"
+              className={cn(
+                breadcrumbItemClass,
+                BREADCRUMB_INTERACTIVE_CLASS,
+                rootHighlightClass,
+              )}
+            >
+              {renderRootBreadcrumbLabel()}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48">
+            {onOpenSettings && (
+              <DropdownMenuItem
+                onClick={onOpenSettings}
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <Settings className="h-4 w-4" />
+                Settings
+              </DropdownMenuItem>
+            )}
+            {onOpenShare && (
+              <DropdownMenuItem
+                onClick={onOpenShare}
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <Share2 className="h-4 w-4" />
+                Share
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    }
+
+    return (
+      <div
+        data-breadcrumb-target="root"
+        className={cn(
+          breadcrumbItemClass,
+          "text-sidebar-foreground/75",
+          hoveredBreadcrumbTarget === "root" &&
+            BREADCRUMB_DRAG_TARGET_CLASS,
+        )}
+      >
+        {renderRootBreadcrumbLabel()}
+      </div>
+    );
+  }, [
+    activeFolderId,
+    breadcrumbItemClass,
+    hoveredBreadcrumbTarget,
+    onNavigateToRoot,
+    onOpenSettings,
+    onOpenShare,
+    primaryActiveItem,
+    renderRootBreadcrumbLabel,
+  ]);
+
+  const renderFolderBreadcrumb = useCallback(
+    (entry: Extract<BreadcrumbEntry, { kind: "folder" }>) => (
+      <button
+        onClick={() => handleFolderClick(entry.id)}
+        data-breadcrumb-target="folder"
+        data-folder-id={entry.id}
+        className={cn(
+          breadcrumbItemClass,
+          BREADCRUMB_INTERACTIVE_CLASS,
+          hoveredBreadcrumbTarget === entry.id &&
+            BREADCRUMB_DRAG_TARGET_CLASS,
+        )}
+      >
+        {renderFolderBreadcrumbLabel(entry)}
+      </button>
+    ),
+    [
+      breadcrumbItemClass,
+      handleFolderClick,
+      hoveredBreadcrumbTarget,
+      renderFolderBreadcrumbLabel,
+    ],
+  );
+
+  const renderItemBreadcrumb = useCallback(
+    (entry: Extract<BreadcrumbEntry, { kind: "item" }>, measurement = false) => {
+      if (measurement) {
+        return (
+          <div className={cn(breadcrumbItemClass, "group pr-0.5 text-sidebar-foreground/75")}>
+            {renderItemBreadcrumbLabel(entry)}
+            <span
+              aria-hidden="true"
+              className="ml-0.5 rounded-full p-0.5 opacity-0"
+            >
+              <X className="h-3 w-3" />
+            </span>
+          </div>
+        );
+      }
+
+      return (
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => openItemRenameDialog(entry.id, entry.label)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              openItemRenameDialog(entry.id, entry.label);
+            }
+          }}
+          className={cn(
+            breadcrumbItemClass,
+            BREADCRUMB_INTERACTIVE_CLASS,
+            "group pr-0.5",
+          )}
+        >
+          {renderItemBreadcrumbLabel(entry)}
+
+          <button
+            type="button"
+            aria-label={`Close ${entry.label}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onCloseActiveItem?.(entry.id);
+            }}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+            }}
+            className="ml-0.5 rounded-full p-0.5 transition-all cursor-pointer text-sidebar-foreground/45 hover:text-red-600 hover:bg-accent opacity-0 group-hover:opacity-100"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      );
+    },
+    [
+      breadcrumbItemClass,
+      onCloseActiveItem,
+      openItemRenameDialog,
+      renderItemBreadcrumbLabel,
+    ],
+  );
+
+  const renderBreadcrumbEntry = useCallback(
+    (entry: BreadcrumbEntry) => {
+      switch (entry.kind) {
+        case "root":
+          return renderRootBreadcrumb();
+        case "folder":
+          return renderFolderBreadcrumb(entry);
+        case "item":
+          return renderItemBreadcrumb(entry);
+        default:
+          return null;
+      }
+    },
+    [renderFolderBreadcrumb, renderItemBreadcrumb, renderRootBreadcrumb],
+  );
+
+  const renderMeasurementBreadcrumbEntry = useCallback(
+    (entry: BreadcrumbEntry) => {
+      switch (entry.kind) {
+        case "root":
+          return (
+            <div className={breadcrumbItemClass}>
+              {renderRootBreadcrumbLabel()}
+            </div>
+          );
+        case "folder":
+          return (
+            <div className={breadcrumbItemClass}>
+              {renderFolderBreadcrumbLabel(entry)}
+            </div>
+          );
+        case "item":
+          return renderItemBreadcrumb(entry, true);
+        default:
+          return null;
+      }
+    },
+    [
+      breadcrumbItemClass,
+      renderFolderBreadcrumbLabel,
+      renderItemBreadcrumb,
+      renderRootBreadcrumbLabel,
+    ],
+  );
 
   // Auto-focus and select all text when dialog opens
   useEffect(() => {
@@ -405,9 +924,9 @@ export function WorkspaceHeader({
         {...fileInputProps}
       />
       {/* Main container with flex layout */}
-      <div className="flex items-center justify-between w-full px-3">
+      <div className="flex w-full items-center gap-3 px-3">
         {/* Left Side: Sidebar Toggle + Navigation Arrows + Breadcrumbs */}
-        <div className="flex items-center gap-2 pointer-events-auto min-w-0">
+        <div className="flex min-w-0 flex-1 items-center gap-2 pointer-events-auto">
           {isWorkspaceRoute && (
             <Link
               href="/home"
@@ -429,299 +948,67 @@ export function WorkspaceHeader({
           </Tooltip>
 
           {/* Breadcrumbs */}
-          <nav className="flex items-center gap-1.5 text-xs text-sidebar-foreground/70 min-w-0 ml-1">
-            {/* Workspace icon + name (clickable to go back to root if in a folder) */}
-            {/* Workspace icon + name (clickable to go back to root if in a folder or has active items) */}
-            {/* Hidden in compact mode when inside a folder/item - the logic handles this */}
-            {(activeFolderId || activeItems.length > 0) && !isCompactMode ? (
-              <button
-                onClick={() => onNavigateToRoot?.()}
-                data-breadcrumb-target="root"
-                className={cn(
-                  breadcrumbItemClass,
-                  hoveredBreadcrumbTarget === 'root' && "border-2 border-blue-500 bg-blue-500/10 rounded"
-                )}
-              >
-                <IconRenderer
-                  icon={workspaceIcon}
-                  className="h-4 w-4 shrink-0"
-                  style={{ color: workspaceColor || undefined }}
-                />
-                <span className="truncate text-sidebar-foreground max-w-[300px]" title={workspaceName}>
-                  {workspaceName || "Untitled"}
-                </span>
-              </button>
-            ) : (!activeFolderId && activeItems.length === 0) ? (
-              // When at root level, show dropdown menu on click
-              ((onOpenSettings || onOpenShare) ? (<DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    data-breadcrumb-target="root"
-                    className={cn(
-                      breadcrumbItemClass,
-                      hoveredBreadcrumbTarget === 'root' && "border-2 border-blue-500 bg-blue-500/10 rounded"
-                    )}
-                  >
-                    <IconRenderer
-                      icon={workspaceIcon}
-                      className="h-4 w-4 shrink-0"
-                      style={{ color: workspaceColor || undefined }}
-                    />
-                    <span className="truncate text-sidebar-foreground max-w-[300px]" title={workspaceName}>
-                      {workspaceName || "Untitled"}
-                    </span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
-                  {onOpenSettings && (
-                    <DropdownMenuItem
-                      onClick={onOpenSettings}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <Settings className="h-4 w-4" />
-                      Settings
-                    </DropdownMenuItem>
-                  )}
-                  {onOpenShare && (
-                    <DropdownMenuItem
-                      onClick={onOpenShare}
-                      className="flex items-center gap-2 cursor-pointer"
-                    >
-                      <Share2 className="h-4 w-4" />
-                      Share
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>) : (<div
-                data-breadcrumb-target="root"
-                className={cn(
-                  "flex items-center gap-1.5 min-w-0",
-                  hoveredBreadcrumbTarget === 'root' && "border-2 border-blue-500 bg-blue-500/10 rounded px-2 py-1.5 -mx-2 -my-1.5"
-                )}
-              >
-                <IconRenderer
-                  icon={workspaceIcon}
-                  className="h-4 w-4 shrink-0"
-                  style={{ color: workspaceColor || undefined }}
-                />
-                <span className="truncate text-sidebar-foreground max-w-[300px]" title={workspaceName}>
-                  {workspaceName || "Untitled"}
-                </span>
-              </div>))
-            ) : null}
+          <nav
+            ref={breadcrumbNavRef}
+            className="flex min-w-0 flex-1 items-center overflow-hidden text-xs text-sidebar-foreground/70"
+          >
+            {renderRootBreadcrumb()}
 
-            {/* Folder path breadcrumbs - compact mode shows dropdown only */}
-            {folderPath.length > 0 && (
+            {hiddenBreadcrumbEntries.length > 0 && (
               <>
-                {isCompactMode ? (
-                  /* Compact mode: Show dropdown with current folder only, full path in dropdown */
-                  (<>
-                    <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/50 mx-1 shrink-0" />
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          data-breadcrumb-target="folder"
-                          data-folder-id={folderPath[folderPath.length - 1].id}
+                <BreadcrumbSeparator />
+                <DropdownMenu
+                  open={isEllipsisDropdownOpen}
+                  onOpenChange={handleEllipsisDropdownOpenChange}
+                >
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className={cn(
+                        breadcrumbItemClass,
+                        BREADCRUMB_INTERACTIVE_CLASS,
+                        "text-sidebar-foreground/70 hover:text-sidebar-foreground",
+                      )}
+                    >
+                      <span className="font-medium">...</span>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="max-w-[220px]">
+                    {hiddenBreadcrumbEntries.map((entry) => {
+                      if (entry.kind !== "folder") {
+                        return null;
+                      }
+
+                      return (
+                        <DropdownMenuItem
+                          key={entry.key}
+                          onClick={() => handleFolderClick(entry.id)}
                           className={cn(
-                            breadcrumbItemClass,
-                            hoveredBreadcrumbTarget === folderPath[folderPath.length - 1].id && "border-2 border-blue-500 bg-blue-500/10 rounded"
+                            BREADCRUMB_MENU_ITEM_CLASS,
+                            hoveredBreadcrumbTarget === entry.id &&
+                              BREADCRUMB_DRAG_TARGET_CLASS,
                           )}
                         >
                           <FolderOpen
                             className="h-3.5 w-3.5 shrink-0"
-                            style={{ color: folderPath[folderPath.length - 1].color || undefined }}
+                            style={{ color: entry.color || undefined }}
                           />
-                          <span className="truncate text-sidebar-foreground max-w-[150px]" title={folderPath[folderPath.length - 1].name}>
-                            {folderPath[folderPath.length - 1].name}
-                          </span>
-                          <ChevronDown className="h-3 w-3 text-sidebar-foreground/50" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="max-w-[200px]">
-                        <DropdownMenuItem
-                          onClick={() => onNavigateToRoot?.()}
-                          data-breadcrumb-target="root"
-                          className={cn(
-                            "flex items-center gap-1.5 cursor-pointer",
-                            hoveredBreadcrumbTarget === 'root' && "border-2 border-blue-500 bg-blue-500/10 rounded"
-                          )}
-                        >
-                          <IconRenderer
-                            icon={workspaceIcon}
-                            className="h-3.5 w-3.5 shrink-0"
-                            style={{ color: workspaceColor || undefined }}
-                          />
-                          <span className="truncate" title={workspaceName}>
-                            {workspaceName || "Workspace"}
+                          <span className="truncate" title={entry.label}>
+                            {entry.label}
                           </span>
                         </DropdownMenuItem>
-                        {folderPath.map((folder) => (
-                          <DropdownMenuItem
-                            key={folder.id}
-                            onClick={() => handleFolderClick(folder.id)}
-                            data-breadcrumb-target="folder"
-                            data-folder-id={folder.id}
-                            className={cn(
-                              "flex items-center gap-1.5 cursor-pointer",
-                              hoveredBreadcrumbTarget === folder.id && "border-2 border-blue-500 bg-blue-500/10 rounded"
-                            )}
-                          >
-                            <FolderOpen
-                              className="h-3.5 w-3.5 shrink-0"
-                              style={{ color: folder.color || undefined }}
-                            />
-                            <span className="truncate" title={folder.name}>
-                              {folder.name}
-                            </span>
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </>)
-                ) : folderPath.length === 1 ? (
-                  folderPath.map((folder) => (
-                    <span key={folder.id} className="flex items-center gap-1.5">
-                      <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/50 mx-1 shrink-0" />
-                      <button
-                        onClick={() => handleFolderClick(folder.id)}
-                        data-breadcrumb-target="folder"
-                        data-folder-id={folder.id}
-                        className={cn(
-                          breadcrumbItemClass,
-                          hoveredBreadcrumbTarget === folder.id && "border-2 border-blue-500 bg-blue-500/10 rounded"
-                        )}
-                      >
-                        <FolderOpen
-                          className="h-3.5 w-3.5 shrink-0"
-                          style={{ color: folder.color || undefined }}
-                        />
-                        <span className="truncate text-sidebar-foreground max-w-[200px]" title={folder.name}>
-                          {folder.name}
-                        </span>
-                      </button>
-                    </span>
-                  ))
-                ) : (
-                  /* Show root, dropdown with all middle folders, and last for 2+ levels */
-                  (<>
-                    <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/50 mx-1 shrink-0" />
-                    <HoverCard
-                      open={isEllipsisDropdownOpen}
-                      onOpenChange={handleEllipsisDropdownOpenChange}
-                      openDelay={0}
-                      closeDelay={100}
-                    >
-                      <HoverCardTrigger asChild>
-                        <button
-                          className={cn(
-                            breadcrumbItemClass,
-                            "text-sidebar-foreground/70 hover:text-sidebar-foreground"
-                          )}
-                        >
-                          <span className="truncate font-medium">...</span>
-                        </button>
-                      </HoverCardTrigger>
-                      <HoverCardContent
-                        align="start"
-                        className="max-w-[200px] p-1 !animate-none data-[state=open]:!animate-none data-[state=closed]:!animate-none"
-                      >
-                        <div className="flex flex-col">
-                          {folderPath.slice(0, -1).map((folder) => (
-                            <button
-                              key={folder.id}
-                              onClick={() => handleFolderClick(folder.id)}
-                              data-breadcrumb-target="folder"
-                              data-folder-id={folder.id}
-                              className={cn(
-                                "flex items-center gap-1.5 cursor-pointer px-2 py-1.5 rounded-sm text-sm hover:bg-accent hover:text-accent-foreground",
-                                hoveredBreadcrumbTarget === folder.id && "border-2 border-blue-500 bg-blue-500/10 rounded"
-                              )}
-                            >
-                              <FolderOpen
-                                className="h-3.5 w-3.5 shrink-0"
-                                style={{ color: folder.color || undefined }}
-                              />
-                              <span className="truncate" title={folder.name}>
-                                {folder.name}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </HoverCardContent>
-                    </HoverCard>
-                    <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/50 mx-1 shrink-0" />
-                    <button
-                      onClick={() => handleFolderClick(folderPath[folderPath.length - 1].id)}
-                      data-breadcrumb-target="folder"
-                      data-folder-id={folderPath[folderPath.length - 1].id}
-                      className={cn(
-                        breadcrumbItemClass,
-                        hoveredBreadcrumbTarget === folderPath[folderPath.length - 1].id && "border-2 border-blue-500 bg-blue-500/10 rounded"
-                      )}
-                    >
-                      <FolderOpen
-                        className="h-3.5 w-3.5 shrink-0"
-                        style={{ color: folderPath[folderPath.length - 1].color || undefined }}
-                      />
-                      <span className="truncate text-sidebar-foreground max-w-[200px]" title={folderPath[folderPath.length - 1].name}>
-                        {folderPath[folderPath.length - 1].name}
-                      </span>
-                    </button>
-                  </>)
-                )}
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
 
-
-
-
-            {activeItems.length > 0 && (
-              <div className="flex items-center gap-1.5 text-xs text-sidebar-foreground/70 min-w-0">
-                <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/50 mx-1 shrink-0" />
-
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => {
-                    setRenamingTarget({ id: activeItems[0].id, type: 'item' });
-                    setRenameValue(activeItems[0].name);
-                    setShowRenameDialog(true);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      setRenamingTarget({ id: activeItems[0].id, type: 'item' });
-                      setRenameValue(activeItems[0].name);
-                      setShowRenameDialog(true);
-                    }
-                  }}
-                  className={cn(breadcrumbItemClass, "group pr-1")}
-                >
-                  <WorkspaceItemTypeIcon type={activeItems[0].type} className="h-3.5 w-3.5 shrink-0" />
-
-                  <span className="truncate text-sidebar-foreground max-w-[300px]" title={activeItems[0].name}>
-                    {activeItems[0].name}
-                  </span>
-
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onCloseActiveItem?.(activeItems[0].id);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.stopPropagation();
-                        onCloseActiveItem?.(activeItems[0].id);
-                      }
-                    }}
-                    className="ml-1 text-sidebar-foreground/50 hover:text-red-600 p-0.5 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-full transition-all cursor-pointer opacity-0 group-hover:opacity-100"
-                  >
-                    <X className="h-3 w-3" />
-                  </div>
-                </div>
-              </div>
-            )}
+            {visibleTailBreadcrumbEntries.map((entry) => (
+              <Fragment key={entry.key}>
+                <BreadcrumbSeparator />
+                {renderBreadcrumbEntry(entry)}
+              </Fragment>
+            ))}
           </nav>
         </div>
 
@@ -729,7 +1016,7 @@ export function WorkspaceHeader({
         {activeItemMode === 'maximized' && activeItems.length === 1 ? (
           // Maximized Mode: Show Item Controls
           // Portal divs only for PDF (PdfPanelHeader uses them); skip for documents to avoid double gap
-          <div className="flex items-center gap-2 pointer-events-auto">
+          <div className="flex shrink-0 items-center gap-2 pointer-events-auto">
             {activeItems[0]?.type === "pdf" && (
               <div id="workspace-header-portal" className="flex items-center gap-2" />
             )}
@@ -828,7 +1115,7 @@ export function WorkspaceHeader({
           </div>
         ) : (
           // Default Mode: Standard Workspace Controls
-          <div className="flex items-center gap-2 pointer-events-auto">
+          <div className="flex shrink-0 items-center gap-2 pointer-events-auto">
             {/* Collaborator Avatars - show who's in the workspace */}
             <CollaboratorAvatars />
 
@@ -955,6 +1242,40 @@ export function WorkspaceHeader({
             ) : null}
           </div>
         )}
+      </div>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 overflow-hidden opacity-0"
+      >
+        <div className="flex w-max items-center text-xs text-sidebar-foreground/70">
+          {breadcrumbEntries.map((entry, index) => (
+            <Fragment key={`measure-${entry.key}`}>
+              {index > 0 ? (
+                <BreadcrumbSeparator
+                  measureRef={
+                    index === 1 ? breadcrumbSeparatorMeasureRef : undefined
+                  }
+                />
+              ) : null}
+              <div
+                ref={(node) => {
+                  breadcrumbMeasureRefs.current[entry.key] = node;
+                }}
+              >
+                {renderMeasurementBreadcrumbEntry(entry)}
+              </div>
+            </Fragment>
+          ))}
+          <div
+            ref={breadcrumbEllipsisMeasureRef}
+            className={cn(
+              breadcrumbItemClass,
+              "text-sidebar-foreground/70 hover:text-sidebar-foreground",
+            )}
+          >
+            <span className="font-medium">...</span>
+          </div>
+        </div>
       </div>
       {/* Rename Dialog */}
       {

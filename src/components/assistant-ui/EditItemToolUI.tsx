@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
-import { makeAssistantToolUI } from "@assistant-ui/react";
+import type { AssistantToolUIProps } from "@assistant-ui/react";
 import { X, Eye } from "lucide-react";
 import { Pencil } from "lucide-react";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
@@ -26,6 +26,14 @@ type EditItemArgs = {
   replaceAll?: boolean;
   newName?: string;
 };
+
+function getToolStatusErrorMessage(status: unknown): string | undefined {
+  if (!status || typeof status !== "object") return undefined;
+  const value = status as Record<string, unknown>;
+  if (typeof value.error === "string") return value.error;
+  if (typeof value.message === "string") return value.message;
+  return undefined;
+}
 
 interface EditItemResult extends WorkspaceResult {
   diff?: string;
@@ -146,53 +154,52 @@ const EditItemReceipt = ({ args, result, status }: EditItemReceiptProps) => {
   );
 };
 
-export const EditItemToolUI = makeAssistantToolUI<
+export const renderEditItemToolUI: AssistantToolUIProps<
   EditItemArgs,
   WorkspaceResult
->({
-  toolName: "editItem",
-  render: function EditItemUI({ args, result, status }) {
-    let parsed: WorkspaceResult | null = null;
-    if (status.type === "complete" && result != null) {
-      try {
-        parsed = parseWorkspaceResult(result);
-      } catch (err) {
-        console.error("[EditItemTool] Failed to parse result:", err);
-        parsed = null;
-      }
+>["render"] = ({ args, result, status }) => {
+  let parsed: WorkspaceResult | null = null;
+  if (status.type === "complete" && result != null) {
+    try {
+      parsed = parseWorkspaceResult(result);
+    } catch (err) {
+      console.error("[EditItemTool] Failed to parse result:", err);
+      parsed = null;
     }
+  }
 
-    let content: ReactNode = null;
+  let content: ReactNode = null;
+  const statusErrorMessage =
+    getToolStatusErrorMessage(status) ?? "An error occurred while editing";
 
-    if (parsed?.success) {
-      content = (
-        <EditItemReceipt
-          args={args}
-          result={parsed as EditItemResult}
-          status={status}
-        />
-      );
-    } else if (status.type === "running") {
-      const itemName = args?.itemName;
-      content = (
-        <ToolUILoadingShell
-          label={itemName ? `Editing "${itemName}"...` : "Editing..."}
-        />
-      );
-    } else if (status.type === "complete" && parsed && !parsed.success) {
-      content = (
-        <ToolUIErrorShell label="Failed to edit" message={parsed.message} />
-      );
-    } else if (status.type === "incomplete" && status.reason === "error") {
-      content = (
-        <ToolUIErrorShell label="Failed to edit" message={parsed?.message} />
-      );
-    }
-
-    return (
-      <ToolUIErrorBoundary componentName="EditItem">
-        {content}
-      </ToolUIErrorBoundary>
+  if (parsed?.success) {
+    content = (
+      <EditItemReceipt
+        args={args}
+        result={parsed as EditItemResult}
+        status={status}
+      />
     );
-  },
-});
+  } else if (status.type === "running") {
+    const itemName = args?.itemName;
+    content = (
+      <ToolUILoadingShell
+        label={itemName ? `Editing "${itemName}"...` : "Editing..."}
+      />
+    );
+  } else if (status.type === "complete" && parsed && !parsed.success) {
+    content = (
+      <ToolUIErrorShell label="Failed to edit" message={parsed.message} />
+    );
+  } else if (status.type === "incomplete" && status.reason === "error") {
+    content = (
+      <ToolUIErrorShell label="Failed to edit" message={statusErrorMessage} />
+    );
+  }
+
+  return (
+    <ToolUIErrorBoundary componentName="EditItem">
+      {content}
+    </ToolUIErrorBoundary>
+  );
+};

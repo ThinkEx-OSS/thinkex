@@ -62,6 +62,7 @@ import {
 } from "@/components/ui/dialog";
 import MoveToDialog from "@/components/modals/MoveToDialog";
 import RenameDialog from "@/components/modals/RenameDialog";
+import { cn } from "@/lib/utils";
 interface FlashcardWorkspaceCardProps {
   item: Item;
   allItems?: Item[]; // All items for the move dialog tree
@@ -82,6 +83,20 @@ const EMPTY_FLASHCARD_PLACEHOLDER: FlashcardItem = {
   back: "",
 };
 
+/** Center all markdown blocks on the card; keep code blocks full-width and left-aligned. */
+const FLASHCARD_STREAMDOWN_CLASS = cn(
+  "text-base font-medium max-w-none text-center",
+  "[&_.streamdown-content]:flex [&_.streamdown-content]:flex-col [&_.streamdown-content]:items-center [&_.streamdown-content]:text-center",
+  // Lists: drop outside gutter so the block sits in the centered column
+  "[&_.streamdown-content_ul]:!ml-0 [&_.streamdown-content_ul]:list-inside",
+  "[&_.streamdown-content_ol]:!ml-0 [&_.streamdown-content_ol]:list-inside",
+  // Wide / monospace blocks: stretch and align like normal editors
+  "[&_.streamdown-content_[data-streamdown=code-block]]:w-full [&_.streamdown-content_[data-streamdown=code-block]]:max-w-full [&_.streamdown-content_[data-streamdown=code-block]]:self-stretch [&_.streamdown-content_[data-streamdown=code-block]]:!text-left",
+  "[&_.streamdown-content_pre]:w-full [&_.streamdown-content_pre]:max-w-full [&_.streamdown-content_pre]:self-stretch [&_.streamdown-content_pre]:!text-left",
+  // Tables: use full width when present; cells follow markdown alignment when set
+  "[&_.streamdown-content_table]:w-full [&_.streamdown-content_table]:max-w-full [&_.streamdown-content_table]:self-stretch",
+);
+
 /** Read-only markdown per side. */
 const FlashcardSideMarkdownView = memo(
   function FlashcardSideMarkdownView({
@@ -95,29 +110,24 @@ const FlashcardSideMarkdownView = memo(
   }) {
     return (
       <div
-        className={`workspace-card-readonly-editor size-full min-h-0 ${isScrollLocked ? "overflow-hidden" : "overflow-auto"} ${className}`}
+        className={`workspace-card-readonly-editor text-foreground size-full min-h-0 antialiased ${isScrollLocked ? "overflow-hidden" : "overflow-auto"} ${className}`}
         style={{
-          color: "white",
-          fontSize: "1rem",
-          fontWeight: 500,
           paddingTop: "1.5rem",
           paddingBottom: "1.5rem",
           paddingLeft: "1.5rem",
           paddingRight: "1.5rem",
-          WebkitFontSmoothing: "antialiased",
-          MozOsxFontSmoothing: "grayscale" as any,
         }}
       >
         <div
           className={`flex flex-col items-center min-w-0 w-full ${isScrollLocked ? "justify-center min-h-full" : ""}`}
         >
-          <div className="w-full max-w-full min-w-0">
+          <div className="w-full max-w-full min-w-0 text-center">
             {!markdown.trim() ? (
-              <div className="text-center text-sm text-white/50 px-2">
+              <div className="text-center text-sm text-muted-foreground px-2">
                 Ask the AI or click the pencil icon to add flashcards
               </div>
             ) : (
-              <StreamdownMarkdown className="text-base font-medium text-white [&_.streamdown-content]:text-left max-w-none">
+              <StreamdownMarkdown className={FLASHCARD_STREAMDOWN_CLASS}>
                 {markdown}
               </StreamdownMarkdown>
             )}
@@ -444,6 +454,27 @@ export function FlashcardWorkspaceCard({
     isSelected && resolvedTheme !== "dark"
       ? "0 0 3px rgba(0, 0, 0, 0.8), 0 0 8px rgba(0, 0, 0, 0.5)"
       : undefined;
+  const neutralControlBg =
+    resolvedTheme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)";
+  const neutralControlHoverBg = "rgba(0, 0, 0, 0.5)";
+  const selectedControlBg = isSelected
+    ? "rgba(239, 68, 68, 0.3)"
+    : neutralControlBg;
+  const selectedControlHoverBg = isSelected
+    ? "rgba(239, 68, 68, 0.5)"
+    : neutralControlHoverBg;
+  const getControlStyle = (backgroundColor: string) => ({
+    backgroundColor,
+    backdropFilter: "blur(8px)",
+  });
+  const createControlHoverHandlers = (baseColor: string, hoverColor: string) => ({
+    onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.currentTarget.style.backgroundColor = hoverColor;
+    },
+    onMouseLeave: (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.currentTarget.style.backgroundColor = baseColor;
+    },
+  });
 
   return (
     <ContextMenu>
@@ -473,23 +504,11 @@ export function FlashcardWorkspaceCard({
                   : "Click to lock scroll"
               }
               className="flashcard-control-button inline-flex h-8 items-center justify-center gap-1.5 pl-2.5 pr-3 rounded-xl text-white/90 hover:text-white hover:scale-105 hover:shadow-lg transition-all duration-200 cursor-pointer"
-              style={{
-                backgroundColor:
-                  resolvedTheme === "dark"
-                    ? "rgba(255, 255, 255, 0.1)"
-                    : "rgba(0, 0, 0, 0.1)",
-                backdropFilter: "blur(8px)",
-              }}
-              onMouseEnter={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  "rgba(0, 0, 0, 0.5)")
-              }
-              onMouseLeave={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  resolvedTheme === "dark"
-                    ? "rgba(255, 255, 255, 0.1)"
-                    : "rgba(0, 0, 0, 0.1)")
-              }
+              style={getControlStyle(neutralControlBg)}
+              {...createControlHoverHandlers(
+                neutralControlBg,
+                neutralControlHoverBg,
+              )}
               onMouseDown={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
@@ -514,23 +533,11 @@ export function FlashcardWorkspaceCard({
               aria-label="Edit flashcard"
               title="Edit flashcard"
               className="flashcard-control-button inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer"
-              style={{
-                backgroundColor:
-                  resolvedTheme === "dark"
-                    ? "rgba(255, 255, 255, 0.1)"
-                    : "rgba(0, 0, 0, 0.1)",
-                backdropFilter: "blur(8px)",
-              }}
-              onMouseEnter={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  "rgba(0, 0, 0, 0.5)")
-              }
-              onMouseLeave={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  resolvedTheme === "dark"
-                    ? "rgba(255, 255, 255, 0.1)"
-                    : "rgba(0, 0, 0, 0.1)")
-              }
+              style={getControlStyle(neutralControlBg)}
+              {...createControlHoverHandlers(
+                neutralControlBg,
+                neutralControlHoverBg,
+              )}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
@@ -545,26 +552,11 @@ export function FlashcardWorkspaceCard({
               aria-label={isSelected ? "Deselect card" : "Select card"}
               title={isSelected ? "Deselect card" : "Select card"}
               className="flashcard-control-button inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer"
-              style={{
-                backgroundColor: isSelected
-                  ? "rgba(239, 68, 68, 0.3)"
-                  : resolvedTheme === "dark"
-                    ? "rgba(255, 255, 255, 0.1)"
-                    : "rgba(0, 0, 0, 0.1)",
-                backdropFilter: "blur(8px)",
-              }}
-              onMouseEnter={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  isSelected ? "rgba(239, 68, 68, 0.5)" : "rgba(0, 0, 0, 0.5)")
-              }
-              onMouseLeave={(e) =>
-                ((e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  isSelected
-                    ? "rgba(239, 68, 68, 0.3)"
-                    : resolvedTheme === "dark"
-                      ? "rgba(255, 255, 255, 0.1)"
-                      : "rgba(0, 0, 0, 0.1)")
-              }
+              style={getControlStyle(selectedControlBg)}
+              {...createControlHoverHandlers(
+                selectedControlBg,
+                selectedControlHoverBg,
+              )}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
@@ -585,26 +577,11 @@ export function FlashcardWorkspaceCard({
                   aria-label="Card settings"
                   title="Card settings"
                   className="flashcard-control-button inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer"
-                  style={{
-                    backgroundColor:
-                      resolvedTheme === "dark"
-                        ? "rgba(255, 255, 255, 0.1)"
-                        : "rgba(0, 0, 0, 0.1)",
-                    backdropFilter: "blur(8px)",
-                  }}
-                  onMouseEnter={(e) =>
-                    ((
-                      e.currentTarget as HTMLButtonElement
-                    ).style.backgroundColor = "rgba(0, 0, 0, 0.5)")
-                  }
-                  onMouseLeave={(e) =>
-                    ((
-                      e.currentTarget as HTMLButtonElement
-                    ).style.backgroundColor =
-                      resolvedTheme === "dark"
-                        ? "rgba(255, 255, 255, 0.1)"
-                        : "rgba(0, 0, 0, 0.1)")
-                  }
+                  style={getControlStyle(neutralControlBg)}
+                  {...createControlHoverHandlers(
+                    neutralControlBg,
+                    neutralControlHoverBg,
+                  )}
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => e.stopPropagation()}
                 >

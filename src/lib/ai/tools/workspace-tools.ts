@@ -6,7 +6,7 @@ import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import type { Item } from "@/lib/workspace-state/types";
 import { loadStateForTool, resolveItem, getAvailableItemsList, withSanitizedModelOutput } from "./tool-utils";
 
-// Note: Edit functionality is in edit-item-tool.ts (editItem)
+// Note: Edit functionality is in edit-item-tool.ts (item_edit)
 
 export interface WorkspaceToolContext {
     workspaceId: string | null;
@@ -16,7 +16,7 @@ export interface WorkspaceToolContext {
 }
 
 /**
- * Create the createDocument tool
+ * Create the document_create tool
  */
 export function createDocumentTool(ctx: WorkspaceToolContext) {
     return withSanitizedModelOutput(tool({
@@ -75,7 +75,7 @@ export function createDocumentTool(ctx: WorkspaceToolContext) {
 }
 
 /**
- * Create the deleteItem tool
+ * Create the item_delete tool
  */
 export function createDeleteItemTool(ctx: WorkspaceToolContext) {
     return withSanitizedModelOutput(tool({

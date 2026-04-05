@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
-import { makeAssistantToolUI } from "@assistant-ui/react";
+import type { AssistantToolUIProps } from "@assistant-ui/react";
 import { X, Eye, FolderInput } from "lucide-react";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { logger } from "@/lib/utils/logger";
@@ -33,6 +33,11 @@ type CreateFlashcardArgs =
       title?: string;
       cards?: Array<{ front: string; back: string }>;
     };
+type CreateFlashcardToolRendererProps = {
+  args: CreateFlashcardArgs;
+  result?: FlashcardResult;
+  status: { type: string; reason?: string; error?: unknown };
+};
 
 function isCreateFlashcardArgsObject(
   args: CreateFlashcardArgs,
@@ -214,93 +219,106 @@ const CreateFlashcardReceipt = ({
   );
 };
 
-export const CreateFlashcardToolUI = makeAssistantToolUI<
+export const renderCreateFlashcardToolUI: AssistantToolUIProps<
   CreateFlashcardArgs,
   FlashcardResult
->({
-  toolName: "createFlashcards",
-  render: function CreateFlashcardUI({ args, result, status }) {
-    const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-    const { state: workspaceState } = useWorkspaceState(workspaceId);
-    const operations = useWorkspaceOperations(
-      workspaceId,
-      workspaceState || initialState,
-    );
+>["render"] = (props) => {
+  return <CreateFlashcardToolRenderer {...props} />;
+};
 
-    const workspaceContext = useWorkspaceContext();
-    const currentWorkspace = workspaceContext.workspaces.find(
-      (w) => w.id === workspaceId,
-    );
+function CreateFlashcardToolRenderer({
+  args,
+  result,
+  status,
+}: CreateFlashcardToolRendererProps) {
+  const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+  const { state: workspaceState } = useWorkspaceState(workspaceId);
+  const operations = useWorkspaceOperations(
+    workspaceId,
+    workspaceState || initialState,
+  );
 
-    // Don't try to parse while still running - wait for completion
-    let parsed: FlashcardResult | null = null;
-    if (status.type === "complete" && result != null) {
-      try {
-        parsed = parseFlashcardResult(result);
-      } catch (err) {
-        // Log the error but don't throw - we'll show error state below
-        logger.error("🎨 [CreateFlashcardTool] Failed to parse result:", err);
-        parsed = null;
-      }
+  const workspaceContext = useWorkspaceContext();
+  const currentWorkspace = workspaceContext.workspaces.find(
+    (w) => w.id === workspaceId,
+  );
+
+  const parsed = useMemo(() => {
+    if (status.type !== "complete" || result == null) {
+      return null;
     }
-
-    useEffect(() => {
-      logger.group(`🎨 [CreateFlashcardTool] RENDER CALLED`, true);
-      logger.debug("Args:", args ? JSON.stringify({ args }, null, 2) : "null");
-      logger.debug(
-        "Result:",
-        result ? JSON.stringify(result, null, 2) : "null",
-      );
-      logger.debug(
-        "Status:",
-        status ? JSON.stringify(status, null, 2) : "null",
-      );
-      logger.debug("Status type:", status?.type);
-      logger.debug("Workspace ID:", workspaceId);
-      logger.debug("Result itemId:", parsed?.itemId);
-      logger.groupEnd();
-    }, [args, result, status, workspaceId, parsed?.itemId]);
-
-    let content: ReactNode = null;
-
-    if (parsed?.success) {
-      logger.debug("✅ [CreateFlashcardTool] Rendering receipt with result");
-      content = (
-        <CreateFlashcardReceipt
-          args={args}
-          result={parsed}
-          status={status}
-          moveItemToFolder={operations.moveItemToFolder}
-          allItems={workspaceState?.items || []}
-          workspaceName={
-            currentWorkspace?.name || workspaceState?.globalTitle || "Workspace"
-          }
-          workspaceIcon={currentWorkspace?.icon}
-          workspaceColor={currentWorkspace?.color}
-        />
-      );
-    } else if (status.type === "running") {
-      logger.debug(
-        "⏳ [CreateFlashcardTool] Rendering loading state - status is running",
-      );
-      content = <ToolUILoadingShell label="Generating flashcards..." />;
-    } else if (status.type === "incomplete" && status.reason === "error") {
-      content = (
-        <ToolUIErrorShell
-          label="Failed to create flashcards"
-          message={parsed && !parsed.success ? parsed.message : undefined}
-        />
-      );
-    } else {
-      logger.debug(
-        "❓ [CreateFlashcardTool] Rendering null - no result and status is not running",
-      );
+    try {
+      return parseFlashcardResult(result);
+    } catch (err) {
+      logger.error("🎨 [CreateFlashcardTool] Failed to parse result:", err);
+      return null;
     }
+  }, [result, status.type]);
 
-    return (
-      <ToolUIErrorBoundary componentName="CreateFlashcard">
-        {content}
-      </ToolUIErrorBoundary>
+  useEffect(() => {
+    logger.group(`🎨 [CreateFlashcardTool] RENDER CALLED`, true);
+    logger.debug("Args:", args ? JSON.stringify({ args }, null, 2) : "null");
+    logger.debug(
+      "Result:",
+      result ? JSON.stringify(result, null, 2) : "null",
     );
-  },
-});
+    logger.debug(
+      "Status:",
+      status ? JSON.stringify(status, null, 2) : "null",
+    );
+    logger.debug("Status type:", status?.type);
+    logger.debug("Workspace ID:", workspaceId);
+    logger.debug("Result itemId:", parsed?.itemId);
+    logger.groupEnd();
+  }, [args, result, status, workspaceId, parsed?.itemId]);
+
+  let content: ReactNode = null;
+
+  if (parsed?.success) {
+    logger.debug("✅ [CreateFlashcardTool] Rendering receipt with result");
+    content = (
+      <CreateFlashcardReceipt
+        args={args}
+        result={parsed}
+        status={status}
+        moveItemToFolder={operations.moveItemToFolder}
+        allItems={workspaceState?.items || []}
+        workspaceName={
+          currentWorkspace?.name || workspaceState?.globalTitle || "Workspace"
+        }
+        workspaceIcon={currentWorkspace?.icon}
+        workspaceColor={currentWorkspace?.color}
+      />
+    );
+  } else if (status.type === "running") {
+    logger.debug(
+      "⏳ [CreateFlashcardTool] Rendering loading state - status is running",
+    );
+    content = <ToolUILoadingShell label="Generating flashcards..." />;
+  } else if (status.type === "complete" && !parsed) {
+    logger.error("🎨 [CreateFlashcardTool] Complete status had no parseable result");
+    content = (
+      <ToolUIErrorShell
+        label="Failed to parse flashcard result"
+        message="Could not parse tool output"
+      />
+    );
+  } else if (status.type === "incomplete" && status.reason === "error") {
+    content = (
+      <ToolUIErrorShell
+        label="Failed to create flashcards"
+        message={parsed && !parsed.success ? parsed.message : undefined}
+      />
+    );
+  } else {
+    logger.debug(
+      "❓ [CreateFlashcardTool] Rendering null - no result and status is not running",
+    );
+  }
+
+  return (
+    <ToolUIErrorBoundary componentName="CreateFlashcard">
+      {content}
+    </ToolUIErrorBoundary>
+  );
+}

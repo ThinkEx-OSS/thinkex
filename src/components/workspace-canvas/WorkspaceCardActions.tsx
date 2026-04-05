@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentType, MouseEvent, ReactNode } from "react";
+import type { CSSProperties, ComponentType, MouseEvent, ReactNode } from "react";
 import {
   MoreVertical,
   Trash2,
@@ -47,6 +47,11 @@ interface WorkspaceCardMenuItemsProps {
 }
 
 function stopCardPropagation(event: MouseEvent<HTMLElement>) {
+  event.stopPropagation();
+}
+
+function preventCardMouseDown(event: MouseEvent<HTMLElement>) {
+  event.preventDefault();
   event.stopPropagation();
 }
 
@@ -101,56 +106,38 @@ function WorkspaceCardMenuItems({
   );
 }
 
-interface FloatingControlButtonProps {
-  ariaLabel: string;
-  title: string;
-  backgroundColor: string;
-  hoverBackgroundColor: string;
-  onClick?: () => void;
-  className?: string;
-  children: ReactNode;
+const floatingControlButtonClassName =
+  "inline-flex h-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:shadow-lg transition-all duration-200 cursor-pointer";
+
+function getFloatingControlStyle(backgroundColor: string): CSSProperties {
+  return {
+    backgroundColor,
+    backdropFilter: "blur(8px)",
+  };
 }
 
-function FloatingControlButton({
-  ariaLabel,
-  title,
-  backgroundColor,
+function getFloatingControlHandlers({
+  defaultBackgroundColor,
   hoverBackgroundColor,
   onClick,
-  className,
-  children,
-}: FloatingControlButtonProps) {
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      title={title}
-      className={cn(
-        "inline-flex h-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer",
-        className,
-      )}
-      style={{
-        backgroundColor,
-        backdropFilter: "blur(8px)",
-      }}
-      onMouseDown={(event) => {
-        event.stopPropagation();
-        event.preventDefault();
-      }}
-      onMouseEnter={(event) => {
-        event.currentTarget.style.backgroundColor = hoverBackgroundColor;
-      }}
-      onMouseLeave={(event) => {
-        event.currentTarget.style.backgroundColor = backgroundColor;
-      }}
-      onClick={(event) => {
-        event.stopPropagation();
-        onClick?.();
-      }}
-    >
-      {children}
-    </button>
-  );
+}: {
+  defaultBackgroundColor: string;
+  hoverBackgroundColor: string;
+  onClick?: () => void;
+}) {
+  return {
+    onMouseDown: preventCardMouseDown,
+    onMouseEnter: (event: MouseEvent<HTMLButtonElement>) => {
+      event.currentTarget.style.backgroundColor = hoverBackgroundColor;
+    },
+    onMouseLeave: (event: MouseEvent<HTMLButtonElement>) => {
+      event.currentTarget.style.backgroundColor = defaultBackgroundColor;
+    },
+    onClick: (event: MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      onClick?.();
+    },
+  };
 }
 
 interface WorkspaceCardControlsProps {
@@ -208,6 +195,20 @@ export function WorkspaceCardControls({
       ? "rgba(239, 68, 68, 0.6)"
       : "rgba(239, 68, 68, 0.5)"
     : defaultHoverBackgroundColor;
+  const scrollLockHandlers = getFloatingControlHandlers({
+    defaultBackgroundColor,
+    hoverBackgroundColor: defaultHoverBackgroundColor,
+    onClick: onToggleScrollLock,
+  });
+  const selectionHandlers = getFloatingControlHandlers({
+    defaultBackgroundColor: selectionBackgroundColor,
+    hoverBackgroundColor: selectionHoverBackgroundColor,
+    onClick: onToggleSelection,
+  });
+  const settingsHandlers = getFloatingControlHandlers({
+    defaultBackgroundColor,
+    hoverBackgroundColor: defaultHoverBackgroundColor,
+  });
 
   return (
     <div
@@ -217,17 +218,20 @@ export function WorkspaceCardControls({
       )}
     >
       {showScrollLockButton && (
-        <FloatingControlButton
-          ariaLabel={
+        <button
+          type="button"
+          aria-label={
             isScrollLocked ? "Click to unlock scroll" : "Click to lock scroll"
           }
           title={
             isScrollLocked ? "Click to unlock scroll" : "Click to lock scroll"
           }
-          backgroundColor={defaultBackgroundColor}
-          hoverBackgroundColor={defaultHoverBackgroundColor}
-          onClick={onToggleScrollLock}
-          className="gap-1.5 pl-2.5 pr-3 hover:scale-105"
+          className={cn(
+            floatingControlButtonClassName,
+            "gap-1.5 pl-2.5 pr-3 hover:scale-105",
+          )}
+          style={getFloatingControlStyle(defaultBackgroundColor)}
+          {...scrollLockHandlers}
         >
           {isScrollLocked ? (
             <PiMouseScrollFill className="h-4 w-4 shrink-0" />
@@ -242,31 +246,32 @@ export function WorkspaceCardControls({
           >
             {isScrollLocked ? "Scroll" : "Lock"}
           </span>
-        </FloatingControlButton>
+        </button>
       )}
 
-      <FloatingControlButton
-        ariaLabel={isSelected ? "Deselect card" : "Select card"}
+      <button
+        type="button"
+        aria-label={isSelected ? "Deselect card" : "Select card"}
         title={isSelected ? "Deselect card" : "Select card"}
-        backgroundColor={selectionBackgroundColor}
-        hoverBackgroundColor={selectionHoverBackgroundColor}
-        onClick={onToggleSelection}
-        className="w-8"
+        className={cn(floatingControlButtonClassName, "w-8 hover:scale-110")}
+        style={getFloatingControlStyle(selectionBackgroundColor)}
+        {...selectionHandlers}
       >
         {isSelected ? <X className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-      </FloatingControlButton>
+      </button>
 
       <DropdownMenu>
-        <DropdownMenuTrigger asChild className="cursor-pointer">
-          <FloatingControlButton
-            ariaLabel="Card settings"
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label="Card settings"
             title="Card settings"
-            backgroundColor={defaultBackgroundColor}
-            hoverBackgroundColor={defaultHoverBackgroundColor}
-            className="w-8"
+            className={cn(floatingControlButtonClassName, "w-8 hover:scale-110")}
+            style={getFloatingControlStyle(defaultBackgroundColor)}
+            {...settingsHandlers}
           >
             <MoreVertical className="h-4 w-4" />
-          </FloatingControlButton>
+          </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"

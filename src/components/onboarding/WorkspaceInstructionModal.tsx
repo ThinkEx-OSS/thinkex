@@ -21,6 +21,7 @@ import { YouTubeMark } from "@/components/icons/YouTubeMark";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export interface WorkspaceInstructionModalProps {
   open: boolean;
@@ -113,6 +114,7 @@ const STEPS: Step[] = [
 
 const ICON_SLIDE_MS = 4000;
 const FADE_MS = 250;
+const EMPTY_COMPLETED_STEPS: string[] = [];
 
 function useCarousel(open: boolean) {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -123,24 +125,27 @@ function useCarousel(open: boolean) {
   const fadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pausedRef = useRef(false);
   const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  const isDark = mounted && resolvedTheme === "dark";
+  const isDark = resolvedTheme === "dark";
+
+  const resetCarousel = useCallback(() => {
+    if (fadeTimeoutRef.current) {
+      clearTimeout(fadeTimeoutRef.current);
+      fadeTimeoutRef.current = null;
+    }
+    setActiveIndex(0);
+    setVisibleIndex(0);
+    setFading(false);
+    setVideoLoaded(false);
+    pausedRef.current = false;
+  }, []);
 
   // Reset carousel state when modal closes so re-opening starts from slide 0
   useEffect(() => {
     if (!open) {
-      if (fadeTimeoutRef.current) {
-        clearTimeout(fadeTimeoutRef.current);
-        fadeTimeoutRef.current = null;
-      }
-      setActiveIndex(0);
-      setVisibleIndex(0);
-      setFading(false);
-      setVideoLoaded(false);
-      pausedRef.current = false;
+      const resetTimer = window.setTimeout(resetCarousel, 0);
+      return () => window.clearTimeout(resetTimer);
     }
-  }, [open]);
+  }, [open, resetCarousel]);
 
   // Transition: fade out → swap → fade in
   const transitionTo = useCallback(
@@ -224,7 +229,7 @@ function useCarousel(open: boolean) {
 
   // Preload only next and previous video (metadata only) for faster step switching
   useEffect(() => {
-    if (!open || !mounted) return;
+    if (!open) return;
     const prevIndex = (activeIndex - 1 + STEPS.length) % STEPS.length;
     const nextIndex = (activeIndex + 1) % STEPS.length;
     const toPreload: string[] = [];
@@ -252,7 +257,7 @@ function useCarousel(open: boolean) {
         v.load();
       }
     };
-  }, [open, mounted, activeIndex, isDark]);
+  }, [open, activeIndex, isDark]);
 
   return {
     activeIndex,
@@ -272,13 +277,11 @@ function useCarousel(open: boolean) {
 export function WorkspaceInstructionModal({
   open,
   canClose,
-  showFallback,
   onRequestClose,
-  onFallbackContinue,
   onUserInteracted,
   isGenerating,
   progressText,
-  completedSteps = [],
+  completedSteps = EMPTY_COMPLETED_STEPS,
   totalSteps = 6,
   generationComplete,
   workspaceSlug,
@@ -299,76 +302,55 @@ export function WorkspaceInstructionModal({
     pause,
   } = carousel;
   const { resolvedTheme } = useTheme();
-
-  const [isVisible, setIsVisible] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setIsVisible(true);
-      setIsClosing(false);
-    } else if (isVisible) {
-      setIsClosing(true);
-      const timer = setTimeout(() => {
-        setIsVisible(false);
-        setIsClosing(false);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!open) return;
-
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        // Do not allow close while generating
-        if (isGenerating) return;
-        if (canClose) {
-          onRequestClose?.();
-        }
-      }
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [
-    open,
-    canClose,
-    isGenerating,
-    showFallback,
-    onRequestClose,
-    onFallbackContinue,
-  ]);
-
-  if (!isVisible) return null;
+  const allowClose = canClose && !isGenerating;
+  const overlayClassName = cn(
+    "z-[90] transition-opacity duration-300 ease-out",
+    isGenerating || (!!generationComplete && !!workspaceSlug)
+      ? "bg-black/5 dark:bg-black/15 backdrop-blur-[16px]"
+      : "bg-black/25 dark:bg-black/40 backdrop-blur-[24px]",
+  );
 
   return (
-    <div
-      className={cn(
-        "fixed inset-0 z-[90] flex items-center justify-center px-4 py-6 transition-opacity duration-300 ease-out",
-        // Lighter overlay when generating or generation complete so floating cards stay clear
-        isGenerating || (!!generationComplete && !!workspaceSlug)
-          ? "bg-black/5 dark:bg-black/15 backdrop-blur-[16px]"
-          : "bg-black/25 dark:bg-black/40 backdrop-blur-[24px]",
-        isClosing ? "opacity-0" : "opacity-100",
-      )}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Workspace instruction"
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && allowClose) {
+          onRequestClose?.();
+        }
+      }}
     >
-      {}
-      <div
-        onClick={() => {
+      <DialogContent
+        showCloseButton={false}
+        overlayClassName={overlayClassName}
+        className={cn(
+          "z-[90] w-full max-w-[min(1100px,calc(100%-2rem))] gap-0 border-0 bg-transparent p-0 shadow-none",
+          "data-[state=closed]:scale-[0.97] data-[state=open]:scale-100 data-[state=closed]:opacity-0 data-[state=open]:opacity-100",
+          "duration-300 ease-out",
+        )}
+        aria-label="Workspace instruction"
+        onInteractOutside={(event) => {
+          event.preventDefault();
+        }}
+        onEscapeKeyDown={(event) => {
+          if (!allowClose) {
+            event.preventDefault();
+          }
+        }}
+        onPointerDownCapture={() => {
           pause();
           onUserInteracted?.();
         }}
-        className={cn(
-          "relative w-full max-w-[1100px] rounded-[28px] shadow-[0_28px_80px_rgba(0,0,0,0.12),0_8px_24px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.4)] dark:shadow-[0_28px_80px_rgba(0,0,0,0.5),0_8px_24px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all duration-300 ease-out",
+      >
+        <DialogHeader className="sr-only">
+          <DialogTitle>Workspace instructions</DialogTitle>
+        </DialogHeader>
+
+        <div
+          className={cn(
+            "relative w-full rounded-[28px] shadow-[0_28px_80px_rgba(0,0,0,0.12),0_8px_24px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.4)] dark:shadow-[0_28px_80px_rgba(0,0,0,0.5),0_8px_24px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.08)]",
           isGenerating || (!!generationComplete && !!workspaceSlug)
             ? "bg-white/85 dark:bg-gray-900/75 backdrop-blur-md"
             : "bg-white/80 dark:bg-gray-900/65 backdrop-blur-[24px] backdrop-saturate-[180%]",
-          isClosing ? "opacity-0 scale-[0.97]" : "opacity-100 scale-100",
         )}
       >
         <div className="relative z-[2] flex h-[690px] flex-col rounded-[24px] bg-transparent overflow-hidden">
@@ -510,7 +492,7 @@ export function WorkspaceInstructionModal({
             <div className="flex items-center justify-center gap-2 pt-2">
               {STEPS.map((s, index) => (
                 <button
-                  key={index}
+                  key={s.label}
                   type="button"
                   onClick={() => {
                     goTo(index);
@@ -527,10 +509,13 @@ export function WorkspaceInstructionModal({
             </div>
 
             {/* CTA — vertically centered in bottom bar */}
-            {canClose && (
+            {allowClose && (
               <button
                 type="button"
-                onClick={onRequestClose}
+                onClick={() => {
+                  if (!allowClose) return;
+                  onRequestClose?.();
+                }}
                 className="absolute right-5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium bg-white/25 dark:bg-white/10 backdrop-blur-md border border-white/20 dark:border-white/[0.08] text-sidebar-foreground hover:bg-white/35 dark:hover:bg-white/15 shadow-[0_2px_8px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.3)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.06)] transition-all duration-200"
               >
                 <X className="h-3.5 w-3.5" />
@@ -539,7 +524,8 @@ export function WorkspaceInstructionModal({
             )}
           </div>
         </div>
-      </div>
-    </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

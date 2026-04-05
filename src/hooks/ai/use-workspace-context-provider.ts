@@ -1,10 +1,10 @@
-import { useAui } from "@assistant-ui/react";
-import { useEffect, useMemo } from "react";
+import { useAssistantContext } from "@assistant-ui/react";
+import { useCallback, useMemo } from "react";
 import type { AgentState } from "@/lib/workspace-state/types";
 import { formatWorkspaceContext } from "@/lib/utils/format-workspace-context";
 
 /**
- * Hook that injects minimal workspace context (metadata and system instructions) into the assistant using modelContext API
+ * Hook that injects minimal workspace context (metadata and system instructions) into the assistant.
  * Cards register their own context individually, so this only includes workspace-level metadata
  * Automatically updates when workspace state changes and cleans up on unmount
  * @param workspaceNameFallback - Fallback from DB (workspace.name) when state.globalTitle is empty
@@ -14,24 +14,15 @@ export function useWorkspaceContextProvider(
   state: AgentState,
   workspaceNameFallback?: string
 ) {
-  const aui = useAui();
-
-  // Format workspace context - memoized to avoid recalculation
   const contextInstructions = useMemo(
-    () => workspaceId ? formatWorkspaceContext(state, workspaceNameFallback) : "",
+    () => (workspaceId ? formatWorkspaceContext(state, workspaceNameFallback) : ""),
     [workspaceId, state, workspaceNameFallback]
   );
 
-  // Register context provider with proper cleanup
-  useEffect(() => {
-    if (!workspaceId) {
-      return;
-    }
+  const getContext = useCallback(() => contextInstructions, [contextInstructions]);
 
-    return aui.modelContext().register({
-      getModelContext: () => ({
-        system: contextInstructions,
-      }),
-    });
-  }, [aui, contextInstructions, workspaceId]);
+  useAssistantContext({
+    disabled: !workspaceId,
+    getContext,
+  });
 }

@@ -3,7 +3,7 @@
 import { type FC, type PropsWithChildren, useMemo } from "react";
 import {
   type ThreadMessage,
-  type unstable_RemoteThreadListAdapter as RemoteThreadListAdapter,
+  type RemoteThreadListAdapter,
   RuntimeAdapterProvider,
 } from "@assistant-ui/react";
 import { createAssistantStream } from "assistant-stream";
@@ -41,7 +41,9 @@ export function createThreadListAdapter(
 
   return {
     async list() {
-      const res = await fetch(`/api/threads?workspaceId=${workspaceId}`);
+      const res = await fetch(
+        `/api/threads?workspaceId=${encodeURIComponent(workspaceId)}`,
+      );
       if (!res.ok) throw new Error(`Failed to list threads: ${res.status}`);
       const data = await res.json();
       return {

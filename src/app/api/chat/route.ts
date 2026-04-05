@@ -37,40 +37,6 @@ function extractWorkspaceId(body: any): string | null {
 }
 
 /**
- * Process messages in a single pass: clean URL context markers
- * File attachments are handled natively as file parts via the SupabaseAttachmentAdapter.
- */
-function processMessages(messages: any[]): {
-  cleanedMessages: any[];
-} {
-  const cleanedMessages = messages.map((message) => {
-    if (message.content && Array.isArray(message.content)) {
-      const updatedContent = message.content.map((part: any) => {
-        if (part.type === "text" && typeof part.text === "string") {
-          const text = part.text;
-
-          const updatedText = text.replace(
-            /\[URL_CONTEXT:(.+?)\]/g,
-            (_match: string, url: string) => {
-              return url;
-            },
-          );
-
-          return { ...part, text: updatedText };
-        }
-        return part;
-      });
-      return { ...message, content: updatedContent } as typeof message;
-    }
-    return message;
-  });
-
-  return {
-    cleanedMessages,
-  };
-}
-
-/**
  * Selected cards context is now formatted on the client side and sent directly.
  * This eliminates the need for server-side database fetch.
  * If selectedCardsContext is provided, use it; otherwise return empty string.
@@ -167,10 +133,11 @@ async function handlePOST(req: Request) {
       activeFolderId,
       threadId,
       clientTools: body.tools,
-      enableMagicFetch: true, // experiment: log AI data requests to PostHog
     });
 
-    const compatibleMessages = normalizeLegacyToolMessages(messages);
+    const compatibleMessages = normalizeLegacyToolMessages(messages, {
+      availableToolNames: Object.keys(tools),
+    });
 
     const validation = await safeValidateUIMessages({
       messages: compatibleMessages,
@@ -206,9 +173,6 @@ async function handlePOST(req: Request) {
       emptyMessages: "remove",
     });
 
-    // Process messages in single pass: clean URL context markers
-    const { cleanedMessages } = processMessages(convertedMessages);
-
     // Get pre-formatted selected cards context from client (no DB fetch needed)
     const selectedCardsContext = getSelectedCardsContext(body);
 
@@ -228,7 +192,7 @@ async function handlePOST(req: Request) {
 
     // Inject selected cards + reply selections into the last user message
     injectSelectionContext(
-      cleanedMessages,
+      convertedMessages,
       body.metadata?.custom,
       selectedCardsContext,
     );
@@ -253,15 +217,15 @@ async function handlePOST(req: Request) {
     });
 
     // Stream the response
-    logger.debug("🔍 [CHAT-API] Final cleanedMessages before streamText:", {
-      count: cleanedMessages.length,
+    logger.debug("🔍 [CHAT-API] Final messages before streamText:", {
+      count: convertedMessages.length,
       modelId,
     });
 
     // Configure Google Thinking capabilities
     const googleConfig: any = {
       grounding: {
-        // googleSearchRetrieval removed to force usage of explicit webSearch tool
+        // googleSearchRetrieval removed to force usage of explicit web_search tool
       },
       thinkingConfig: {
         includeThoughts: true,
@@ -297,7 +261,7 @@ async function handlePOST(req: Request) {
       model: model,
       temperature: 1.0,
       system,
-      messages: cleanedMessages,
+      messages: convertedMessages,
       stopWhen: stepCountIs(25),
       tools,
       providerOptions,

@@ -5,6 +5,7 @@ const mockHeaders = vi.fn();
 const mockLoadWorkspaceState = vi.fn();
 const mockCreateEvent = vi.fn();
 const mockExecute = vi.fn();
+const mockBroadcastWorkspaceEventFromServer = vi.fn();
 
 const mockLimit = vi.fn();
 const mockWhere = vi.fn(() => ({ limit: mockLimit }));
@@ -48,6 +49,11 @@ vi.mock("@/lib/workspace/state-loader", () => ({
 
 vi.mock("@/lib/workspace/events", () => ({
   createEvent: (...args: any[]) => mockCreateEvent(...args),
+}));
+
+vi.mock("@/lib/realtime/server-broadcast", () => ({
+  broadcastWorkspaceEventFromServer: (...args: any[]) =>
+    mockBroadcastWorkspaceEventFromServer(...args),
 }));
 
 vi.mock("@/lib/workspace/unique-name", () => ({
@@ -135,6 +141,18 @@ describe("workspaceWorker edit end-to-end paths", () => {
     expect(result.success).toBe(true);
     expect(result.message).toMatch(/Updated quiz/);
     expect((result as any).questionCount).toBe(2);
+    expect(mockBroadcastWorkspaceEventFromServer).toHaveBeenCalledTimes(1);
+    expect(mockBroadcastWorkspaceEventFromServer).toHaveBeenCalledWith(
+      "ws-1",
+      expect.objectContaining({
+        id: "evt-1",
+        type: "ITEM_UPDATED",
+        version: 2,
+        payload: expect.objectContaining({
+          id: "quiz-1",
+        }),
+      }),
+    );
   });
 
   it("repairs malformed appended flashcard JSON and succeeds", async () => {
@@ -176,6 +194,18 @@ describe("workspaceWorker edit end-to-end paths", () => {
     expect(result.success).toBe(true);
     expect(result.message).toMatch(/Updated flashcard deck/);
     expect((result as any).cardCount).toBe(2);
+    expect(mockBroadcastWorkspaceEventFromServer).toHaveBeenCalledTimes(1);
+    expect(mockBroadcastWorkspaceEventFromServer).toHaveBeenCalledWith(
+      "ws-1",
+      expect.objectContaining({
+        id: "evt-1",
+        type: "ITEM_UPDATED",
+        version: 5,
+        payload: expect.objectContaining({
+          id: "deck-1",
+        }),
+      }),
+    );
   });
 
   it("fails quiz edit when repaired JSON violates schema", async () => {
@@ -294,6 +324,18 @@ describe("workspaceWorker edit end-to-end paths", () => {
     expect(result.success).toBe(true);
     expect(result.message).toMatch(/Updated document successfully/);
     expect(mockCreateEvent).toHaveBeenCalled();
+    expect(mockBroadcastWorkspaceEventFromServer).toHaveBeenCalledTimes(1);
+    expect(mockBroadcastWorkspaceEventFromServer).toHaveBeenCalledWith(
+      "ws-1",
+      expect.objectContaining({
+        id: "evt-1",
+        type: "ITEM_UPDATED",
+        version: 2,
+        payload: expect.objectContaining({
+          id: "doc-1",
+        }),
+      }),
+    );
     const eventPayload = mockCreateEvent.mock.calls[0][1] as { id: string; changes: Record<string, unknown> };
     expect(eventPayload.id).toBe("doc-1");
     expect(eventPayload.changes).toEqual({ name: "Renamed Document" });

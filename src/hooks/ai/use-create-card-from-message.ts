@@ -8,6 +8,7 @@ import { useUIStore } from "@/lib/stores/ui-store";
 import { useQueryClient } from "@tanstack/react-query";
 import { logger } from "@/lib/utils/logger";
 import { normalizeWebSearchResult } from "@/lib/ai/web-search-shared";
+import { CHAT_TOOL, toolPartMatchesCanonical } from "@/lib/ai/chat-tool-names";
 
 interface CreateCardOptions {
   debounceMs?: number;
@@ -45,7 +46,7 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
       };
 
       if (
-        toolPart.type !== "tool-webSearch" ||
+        !toolPartMatchesCanonical(toolPart.type, CHAT_TOOL.WEB_SEARCH) ||
         toolPart.state !== "output-available"
       ) {
         return [];

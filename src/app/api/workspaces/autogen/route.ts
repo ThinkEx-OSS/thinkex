@@ -148,9 +148,9 @@ If needsSearch=true, provide a searchQuery (2-6 words) to look up.`,
   }
 
   const query = String(output.searchQuery).trim();
-  send({ type: "toolCall", data: { toolName: "webSearch", query, status: "searching" } });
+  send({ type: "toolCall", data: { toolName: "web_search", query, status: "searching" } });
   const { text, sources } = await executeWebSearch(query);
-  send({ type: "toolResult", data: { toolName: "webSearch", status: "done" } });
+  send({ type: "toolResult", data: { toolName: "web_search", status: "done" } });
 
   const searchContext = `\n\nCONTEXT FROM WEB SEARCH (use this to inform your response):\n${text}`;
   return { searchContext, sources };
@@ -172,7 +172,7 @@ async function runDistillationAgent(
   const nonYtLinks = links?.filter((l) => !isYouTubeUrl(l)) ?? [];
   let linkContext = "";
   if (nonYtLinks.length > 0) {
-    send({ type: "toolCall", data: { toolName: "urlFetch", status: "fetching" } });
+    send({ type: "toolCall", data: { toolName: "web_fetch", status: "fetching" } });
     const client = new FirecrawlClient();
     const results = await client.scrapeUrls(nonYtLinks);
     const successful = results.filter((r) => r.success && r.content);
@@ -186,7 +186,7 @@ async function runDistillationAgent(
           })
           .join("\n\n---\n\n");
     }
-    send({ type: "toolResult", data: { toolName: "urlFetch", status: "done" } });
+    send({ type: "toolResult", data: { toolName: "web_fetch", status: "done" } });
   }
 
   const userMessage = buildUserMessage(prompt, fileUrls, links);
