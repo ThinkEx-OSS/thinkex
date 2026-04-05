@@ -101,56 +101,14 @@ function WorkspaceCardMenuItems({
   );
 }
 
-interface FloatingControlButtonProps {
-  ariaLabel: string;
-  title: string;
-  backgroundColor: string;
-  hoverBackgroundColor: string;
-  onClick?: () => void;
-  className?: string;
-  children: ReactNode;
-}
+const floatingControlButtonClassName =
+  "inline-flex h-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:shadow-lg transition-all duration-200 cursor-pointer";
 
-function FloatingControlButton({
-  ariaLabel,
-  title,
-  backgroundColor,
-  hoverBackgroundColor,
-  onClick,
-  className,
-  children,
-}: FloatingControlButtonProps) {
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      title={title}
-      className={cn(
-        "inline-flex h-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 cursor-pointer",
-        className,
-      )}
-      style={{
-        backgroundColor,
-        backdropFilter: "blur(8px)",
-      }}
-      onMouseDown={(event) => {
-        event.stopPropagation();
-        event.preventDefault();
-      }}
-      onMouseEnter={(event) => {
-        event.currentTarget.style.backgroundColor = hoverBackgroundColor;
-      }}
-      onMouseLeave={(event) => {
-        event.currentTarget.style.backgroundColor = backgroundColor;
-      }}
-      onClick={(event) => {
-        event.stopPropagation();
-        onClick?.();
-      }}
-    >
-      {children}
-    </button>
-  );
+function getFloatingControlStyle(backgroundColor: string): React.CSSProperties {
+  return {
+    backgroundColor,
+    backdropFilter: "blur(8px)",
+  };
 }
 
 interface WorkspaceCardControlsProps {
@@ -217,17 +175,33 @@ export function WorkspaceCardControls({
       )}
     >
       {showScrollLockButton && (
-        <FloatingControlButton
-          ariaLabel={
+        <button
+          type="button"
+          aria-label={
             isScrollLocked ? "Click to unlock scroll" : "Click to lock scroll"
           }
           title={
             isScrollLocked ? "Click to unlock scroll" : "Click to lock scroll"
           }
-          backgroundColor={defaultBackgroundColor}
-          hoverBackgroundColor={defaultHoverBackgroundColor}
-          onClick={onToggleScrollLock}
-          className="gap-1.5 pl-2.5 pr-3 hover:scale-105"
+          className={cn(
+            floatingControlButtonClassName,
+            "gap-1.5 pl-2.5 pr-3 hover:scale-105",
+          )}
+          style={getFloatingControlStyle(defaultBackgroundColor)}
+          onMouseDown={(event) => {
+            event.stopPropagation();
+          }}
+          onMouseEnter={(event) => {
+            event.currentTarget.style.backgroundColor =
+              defaultHoverBackgroundColor;
+          }}
+          onMouseLeave={(event) => {
+            event.currentTarget.style.backgroundColor = defaultBackgroundColor;
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleScrollLock();
+          }}
         >
           {isScrollLocked ? (
             <PiMouseScrollFill className="h-4 w-4 shrink-0" />
@@ -242,31 +216,57 @@ export function WorkspaceCardControls({
           >
             {isScrollLocked ? "Scroll" : "Lock"}
           </span>
-        </FloatingControlButton>
+        </button>
       )}
 
-      <FloatingControlButton
-        ariaLabel={isSelected ? "Deselect card" : "Select card"}
+      <button
+        type="button"
+        aria-label={isSelected ? "Deselect card" : "Select card"}
         title={isSelected ? "Deselect card" : "Select card"}
-        backgroundColor={selectionBackgroundColor}
-        hoverBackgroundColor={selectionHoverBackgroundColor}
-        onClick={onToggleSelection}
-        className="w-8"
+        className={cn(floatingControlButtonClassName, "w-8 hover:scale-110")}
+        style={getFloatingControlStyle(selectionBackgroundColor)}
+        onMouseDown={(event) => {
+          event.stopPropagation();
+        }}
+        onMouseEnter={(event) => {
+          event.currentTarget.style.backgroundColor =
+            selectionHoverBackgroundColor;
+        }}
+        onMouseLeave={(event) => {
+          event.currentTarget.style.backgroundColor = selectionBackgroundColor;
+        }}
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggleSelection();
+        }}
       >
         {isSelected ? <X className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-      </FloatingControlButton>
+      </button>
 
       <DropdownMenu>
-        <DropdownMenuTrigger asChild className="cursor-pointer">
-          <FloatingControlButton
-            ariaLabel="Card settings"
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label="Card settings"
             title="Card settings"
-            backgroundColor={defaultBackgroundColor}
-            hoverBackgroundColor={defaultHoverBackgroundColor}
-            className="w-8"
+            className={cn(floatingControlButtonClassName, "w-8 hover:scale-110")}
+            style={getFloatingControlStyle(defaultBackgroundColor)}
+            onMouseDown={(event) => {
+              event.stopPropagation();
+            }}
+            onMouseEnter={(event) => {
+              event.currentTarget.style.backgroundColor =
+                defaultHoverBackgroundColor;
+            }}
+            onMouseLeave={(event) => {
+              event.currentTarget.style.backgroundColor = defaultBackgroundColor;
+            }}
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
           >
             <MoreVertical className="h-4 w-4" />
-          </FloatingControlButton>
+          </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
