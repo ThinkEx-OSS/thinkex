@@ -35,9 +35,7 @@ function formatAnnotationForInline(raw: string | null | undefined): string | nul
     const obj = JSON.parse(raw) as Record<string, unknown>;
     const short =
       typeof obj.short_description === "string" ? obj.short_description.trim() : "";
-    const summary = typeof obj.summary === "string" ? obj.summary.trim() : "";
-    const body = short || summary;
-    return body || null;
+    return short || null;
   } catch {
     return null;
   }
@@ -68,7 +66,7 @@ export function mergeFigureAnnotationsIntoMarkdown(
   let out = markdown;
   for (const [id, replacement] of byId) {
     const pattern = new RegExp(`!\\[[^\\]]*\\]\\(${escapeRegex(id)}\\)`, "g");
-    out = out.replace(pattern, `\n\n${replacement}\n\n`);
+    out = out.replace(pattern, () => `\n\n${replacement}\n\n`);
   }
   return out;
 }

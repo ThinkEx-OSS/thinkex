@@ -18,6 +18,7 @@ function buildBaseBody(document: Record<string, unknown>): Record<string, unknow
     document,
     extract_header: true,
     extract_footer: true,
+    table_format: null,
     bbox_annotation_format: MISTRAL_BBOX_ANNOTATION_FORMAT,
     include_image_base64: false,
   };

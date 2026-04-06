@@ -551,11 +551,7 @@ export function formatOcrPagesAsMarkdown(
     const pageNum = page.index + 1;
     lines.push(`--- Page ${pageNum} ---`);
     if (page.header) lines.push(`Header: ${page.header}`);
-    const rawMd = page.markdown ?? "";
-    const md = replaceOcrPlaceholders(
-      rawMd,
-      page.tables as Array<{ id?: string; content?: string }> | undefined,
-    );
+    const md = page.markdown ?? "";
     for (const line of md.split(/\r?\n/)) lines.push(line);
     if (page.footer) lines.push(`Footer: ${page.footer}`);
     lines.push("");
@@ -563,39 +559,13 @@ export function formatOcrPagesAsMarkdown(
   return lines.join("\n").trimEnd();
 }
 
-/** Replaces table placeholders [id](id) with table content. */
-function replaceOcrPlaceholders(
-  markdown: string,
-  tables?: Array<{ id?: string; content?: string }>,
-): string {
-  let out = markdown;
-
-  for (const tbl of tables ?? []) {
-    const id = tbl.id;
-    const content = tbl.content;
-    if (!id || !content) continue;
-    out = out.replace(
-      new RegExp(`\\[${escapeRegex(id)}\\]\\(${escapeRegex(id)}\\)`, "g"),
-      `\n\n[Table ${id}]\n${content}\n\n`,
-    );
-  }
-
-  return out;
-}
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 /**
  * Formats PDF details with FULL content
  * If OCR pages are available, include them so the agent can reason about the PDF
  * without needing any separate file-processing tool.
  * OCR pages output markdown as proper lines (one line per line) instead of JSON blobs.
- * Figure descriptions are merged into page markdown at OCR time. Tables usually
- * appear as markdown in `page.markdown` already; if the response uses separate
- * table chunks with `[id](id)` placeholders, `replaceOcrPlaceholders` inlines
- * the matching `tables[].content` (format depends on Mistral `table_format`).
+ * Figure descriptions are merged into page markdown at OCR time. Tables are inline
+ * in `page.markdown` (`table_format: null` on OCR requests).
  * Optionally filter by pageStart/pageEnd (1-indexed, inclusive).
  */
 function formatPdfDetailsFull(
@@ -637,11 +607,7 @@ function formatPdfDetailsFull(
       const pageNum = page.index + 1;
       lines.push(`     --- Page ${pageNum} ---`);
       if (page.header) lines.push(`     Header: ${page.header}`);
-      const rawMd = page.markdown ?? "";
-      const md = replaceOcrPlaceholders(
-        rawMd,
-        page.tables as Array<{ id?: string; content?: string }> | undefined,
-      );
+      const md = page.markdown ?? "";
       for (const line of md.split(/\r?\n/)) {
         lines.push(`     ${line}`);
       }
@@ -695,11 +661,7 @@ function formatImageDetailsFull(data: ImageData): string[] {
     );
     for (const page of data.ocrPages) {
       if (page.header) lines.push(`     Header: ${page.header}`);
-      const rawMd = page.markdown ?? "";
-      const md = replaceOcrPlaceholders(
-        rawMd,
-        page.tables as Array<{ id?: string; content?: string }> | undefined,
-      );
+      const md = page.markdown ?? "";
       for (const line of md.split(/\r?\n/)) {
         lines.push(`     ${line}`);
       }
