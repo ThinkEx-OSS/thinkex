@@ -1,14 +1,9 @@
 "use client";
 
-import { X } from "lucide-react";
 import { useEffect, useCallback } from "react";
-import ItemHeader from "@/components/workspace-canvas/ItemHeader";
-import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
 import SpotlightModal from "@/components/SpotlightModal";
-import { getCardColorCSS, getCardAccentColor, getWhiteTintedColor } from "@/lib/workspace-state/colors";
 import type { Item, ItemData } from "@/lib/workspace-state/types";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { formatKeyboardShortcut } from "@/lib/utils/keyboard-shortcut";
 import { ItemPanelContent } from "@/components/workspace-canvas/ItemPanelContent";
 
 interface CardDetailModalProps {
@@ -32,22 +27,6 @@ export function CardDetailModal({
   onFlushPendingChanges,
   renderInline = false,
 }: CardDetailModalProps) {
-  // Get global chat state from UI store
-  const isChatExpanded = useUIStore((state) => state.isChatExpanded);
-  const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
-
-  // Auto-selection: subscribe to toggle function only (not the selection state)
-  // Since WorkspaceCard now subscribes directly to its own isSelected state,
-  // changing the selection will only re-render the affected card, not all cards
-  const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
-  const selectedCardIds = useUIStore((state) => state.selectedCardIds);
-
-  // Auto-selection is handled by the URL sync mechanism (use-folder-url)
-  // or by the manual open action (openPanel).
-  // We no longer need to manually select it here.
-
-   
-
   // Handle escape key
   const handleEscape = useCallback(
     (e: KeyboardEvent) => {

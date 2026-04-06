@@ -59,28 +59,35 @@ export function WorkspaceRuntimeProvider({
     return ids;
   }, [openPanelIds, maximizedItemId]);
 
+  /** Union of explicitly selected cards and items open in a panel (focus mode). */
+  const contextCardIds = useMemo(() => {
+    const ids = new Set<string>(selectedCardIdsSet);
+    viewingItemIds.forEach((id) => ids.add(id));
+    return ids;
+  }, [selectedCardIdsSet, viewingItemIds]);
+
   const selectedCardsContext = useMemo(() => {
-    if (!workspaceState?.items || selectedCardIdsSet.size === 0) {
+    if (!workspaceState?.items || contextCardIds.size === 0) {
       return "";
     }
 
-    const selectedItems = workspaceState.items.filter((item) =>
-      selectedCardIdsSet.has(item.id),
+    const contextItems = workspaceState.items.filter((item) =>
+      contextCardIds.has(item.id),
     );
 
-    if (selectedItems.length === 0) {
+    if (contextItems.length === 0) {
       return "";
     }
 
     return formatSelectedCardsMetadata(
-      selectedItems,
+      contextItems,
       workspaceState.items,
       activePdfPageByItemId,
       viewingItemIds,
     );
   }, [
     workspaceState?.items,
-    selectedCardIdsSet,
+    contextCardIds,
     activePdfPageByItemId,
     viewingItemIds,
   ]);

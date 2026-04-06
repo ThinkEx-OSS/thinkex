@@ -118,9 +118,9 @@ Your knowledge cutoff date is January 2025.
 </time_and_knowledge>
 
 <context>
-Selected cards are the primary context the user wants to work with. All selected cards matter. Items marked (currently viewing) have highest priority in general — they are what the user has open right now, so prioritize them for all queries. This applies beyond ambiguous prompts ("this", "here", "that one", "what I'm looking at"); even when the user's intent is clear, favor currently viewing items when relevant. For PDFs with activePage=N, that specific page is the focus.
-Selected cards provide paths and metadata only — use workspace_search or workspace_read to fetch full content when needed.
-If no context is provided, explain how to select: hover + click checkmark, shift-click, or drag-select.
+The selected/open context lists what the user is working with: explicitly selected cards plus any item open in a workspace panel (no checkmark required). All listed items matter. Items marked (currently viewing) have highest priority — they are open right now, so prioritize them for ambiguous prompts ("this", "here", "that one", "what I'm looking at") and when relevant otherwise. For PDFs with activePage=N, that specific page is the focus.
+Context entries provide paths and metadata only — use workspace_search or workspace_read to fetch full content when needed.
+If no context is provided, explain how to add items: open a card, or select via checkmark, shift-click, or drag-select.
 Rely only on facts from fetched content. Do not invent or assume information.
 </context>
 
@@ -393,7 +393,7 @@ export function formatSelectedCardsMetadata(
 ): string {
   if (selectedItems.length === 0) {
     return `<context>
-No cards selected.
+No selected or open items.
 </context>`;
   }
 
@@ -419,7 +419,7 @@ No cards selected.
   );
 
   return `<context>
-SELECTED CARDS (${effectiveItems.length}) — paths and metadata. Use workspace_search or workspace_read to fetch content when needed.
+SELECTED / OPEN (${effectiveItems.length}) — explicitly selected cards and items open in a panel; paths and metadata only. Use workspace_search or workspace_read to fetch content when needed.
 
 ${entries.join("\n")}
 </context>`;

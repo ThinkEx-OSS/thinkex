@@ -1,13 +1,9 @@
 "use client";
 
-import { X } from "lucide-react";
 import { useEffect } from "react";
-import ItemHeader from "@/components/workspace-canvas/ItemHeader";
 import SpotlightModal from "@/components/SpotlightModal";
-import { getCardColorCSS, getCardAccentColor, getWhiteTintedColor } from "@/lib/workspace-state/colors";
 import type { Item, PdfData } from "@/lib/workspace-state/types";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { formatKeyboardShortcut } from "@/lib/utils/keyboard-shortcut";
 import { ItemPanelContent } from "@/components/workspace-canvas/ItemPanelContent";
 
 interface PDFViewerModalProps {
@@ -26,15 +22,6 @@ export function PDFViewerModal({
   renderInline = false,
 }: PDFViewerModalProps) {
   const pdfData = item.data as PdfData;
-
-  // Get global chat state from UI store
-  const isChatExpanded = useUIStore((state) => state.isChatExpanded);
-  const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
-  const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
-
-  // Auto-selection is handled by the URL sync mechanism (use-folder-url)
-  // or by the manual open action (openPanel).
-  // We no longer need to manually select it here, which avoids the infinite loop risk.
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {

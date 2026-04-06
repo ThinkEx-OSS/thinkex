@@ -39,10 +39,8 @@ interface UIState {
   tooltipVisible: boolean;
   selectedHighlightColorId: string;
 
-  // Card selection state
+  // Card selection state (user actions only — opening a panel does not change selection)
   selectedCardIds: Set<string>;
-  // Track which cards were auto-selected by panel opening (to preserve user selections on close)
-  panelAutoSelectedCardIds: Set<string>;
 
   // Scroll lock state per item (itemId -> isScrollLocked)
   itemScrollLocked: Map<string, boolean>;
@@ -83,9 +81,9 @@ interface UIState {
   setShowJsonView: (show: boolean) => void;
 
   setActiveFolderId: (folderId: string | null) => void;
-  /** Atomic: close panels, clear folder, deselect panel cards. Use when panel is focused and user navigates back. */
+  /** Atomic: close panels and clear folder. Use when panel is focused and user navigates back. */
   navigateToRoot: () => void;
-  /** Atomic: close panels, set folder, deselect panel cards. Use when panel is focused and user navigates back. */
+  /** Atomic: close panels and set folder. Use when panel is focused and user navigates back. */
   navigateToFolder: (folderId: string) => void;
   /** URL sync only — sets folder without touching panels */
   _setActiveFolderIdDirect: (folderId: string | null) => void;
@@ -157,7 +155,6 @@ const initialState = {
 
   // Card selection
   selectedCardIds: new Set<string>(),
-  panelAutoSelectedCardIds: new Set<string>(),
 
   // Scroll lock state
   itemScrollLocked: new Map<string, boolean>(),
@@ -177,19 +174,14 @@ export const useUIStore = create<UIState>()(
         // Folder-only setter — for folder switching (sidebar, workspace content). Never touches panels.
         setActiveFolderId: (folderId) => set({ activeFolderId: folderId }),
 
-        // Atomic navigation — close panels, set folder, deselect panel cards.
         navigateToRoot: () => {
           set((state) => {
             if (state.activeFolderId === null && state.openPanelIds.length === 0) return {};
-            const newSelectedCardIds = new Set(state.selectedCardIds);
-            state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
             return {
               activeFolderId: null,
               viewMode: 'workspace' as ViewMode,
               openPanelIds: [],
               maximizedItemId: null,
-              selectedCardIds: newSelectedCardIds,
-              panelAutoSelectedCardIds: new Set(),
             };
           });
         },
@@ -197,47 +189,27 @@ export const useUIStore = create<UIState>()(
         navigateToFolder: (folderId) => {
           set((state) => {
             if (state.activeFolderId === folderId && state.openPanelIds.length === 0) return {};
-            const newSelectedCardIds = new Set(state.selectedCardIds);
-            state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
             return {
               activeFolderId: folderId,
               viewMode: 'workspace' as ViewMode,
               openPanelIds: [],
               maximizedItemId: null,
-              selectedCardIds: newSelectedCardIds,
-              panelAutoSelectedCardIds: new Set(),
             };
           });
         },
 
         _setActiveFolderIdDirect: (folderId) => set({ activeFolderId: folderId }),
 
-        // URL sync only — restores the focused item from the URL
-        _setPanelsFromUrl: (ids, maximizedId) => set((state) => {
+        // URL sync only — restores open panel / focus from the URL (does not change card selection)
+        _setPanelsFromUrl: (ids, maximizedId) => set(() => {
           const validIds = ids.slice(0, 1);
           if (validIds.length === 0) {
-            const newSelectedCardIds = new Set(state.selectedCardIds);
-            state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
             return {
               viewMode: 'workspace' as ViewMode,
               openPanelIds: [],
               maximizedItemId: null,
-              selectedCardIds: newSelectedCardIds,
-              panelAutoSelectedCardIds: new Set(),
             };
           }
-          const newSelectedCardIds = new Set(state.selectedCardIds);
-          const newPanelAutoSelectedCardIds = new Set<string>();
-          validIds.forEach(id => {
-            newSelectedCardIds.add(id);
-            // Don't overwrite: if user had explicitly selected (in selectedCardIds but not panelAuto),
-            // preserve that so it stays selected on close
-            const wasExplicitlySelected = state.selectedCardIds.has(id) && !state.panelAutoSelectedCardIds.has(id);
-            if (!wasExplicitlySelected) newPanelAutoSelectedCardIds.add(id);
-          });
-          state.panelAutoSelectedCardIds.forEach(id => {
-            if (!validIds.includes(id)) newSelectedCardIds.delete(id);
-          });
           const focusId =
             maximizedId && validIds[0] === maximizedId
               ? maximizedId
@@ -245,9 +217,7 @@ export const useUIStore = create<UIState>()(
           return {
             openPanelIds: focusId ? [focusId] : [],
             maximizedItemId: focusId,
-            viewMode: focusId ? 'focus' as ViewMode : 'workspace' as ViewMode,
-            selectedCardIds: newSelectedCardIds,
-            panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
+            viewMode: focusId ? ('focus' as ViewMode) : ('workspace' as ViewMode),
           };
         }),
 
@@ -256,22 +226,11 @@ export const useUIStore = create<UIState>()(
             if (state.openPanelIds.length === 0) return {};
 
             const remaining = state.openPanelIds.filter(id => id !== itemId);
-            const newSelectedCardIds = new Set(state.selectedCardIds);
-            const wasInPanelAuto = state.panelAutoSelectedCardIds.has(itemId);
-
-            // Remove the closed item from auto-selected if it was auto-selected
-            if (wasInPanelAuto) {
-              newSelectedCardIds.delete(itemId);
-            }
-            const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-            newPanelAutoSelectedCardIds.delete(itemId);
 
             return {
               viewMode: 'workspace' as ViewMode,
               openPanelIds: remaining,
               maximizedItemId: null,
-              selectedCardIds: newSelectedCardIds,
-              panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
               citationHighlightQuery: null,
             };
           });
@@ -280,15 +239,10 @@ export const useUIStore = create<UIState>()(
         closeAllPanels: () => {
           set((state) => {
             if (state.openPanelIds.length === 0 && state.viewMode === 'workspace') return {};
-            // Remove only auto-selected cards, preserve manual selections
-            const newSelectedCardIds = new Set(state.selectedCardIds);
-            state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
             return {
               viewMode: 'workspace' as ViewMode,
               openPanelIds: [],
               maximizedItemId: null,
-              selectedCardIds: newSelectedCardIds,
-              panelAutoSelectedCardIds: new Set(),
               citationHighlightQuery: null,
             };
           });
@@ -307,40 +261,24 @@ export const useUIStore = create<UIState>()(
           set((state) => {
             if (id === null) {
               if (state.openPanelIds.length === 0 && state.viewMode === 'workspace') return {};
-              // Remove only auto-selected cards
-              const newSelectedCardIds = new Set(state.selectedCardIds);
-              state.panelAutoSelectedCardIds.forEach(aid => newSelectedCardIds.delete(aid));
               return {
                 viewMode: 'workspace' as ViewMode,
                 openPanelIds: [],
                 maximizedItemId: null,
-                selectedCardIds: newSelectedCardIds,
-                panelAutoSelectedCardIds: new Set(),
                 citationHighlightQuery: null,
               };
-            } else {
-              const isAlreadyOpen = state.openPanelIds.length === 1 && state.openPanelIds[0] === id && state.maximizedItemId === id;
-              if (isAlreadyOpen) return {};
-
-              const newSelectedCardIds = new Set(state.selectedCardIds);
-              const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-
-              // Clean up old auto-selected cards
-              state.panelAutoSelectedCardIds.forEach(aid => newSelectedCardIds.delete(aid));
-              newPanelAutoSelectedCardIds.clear();
-
-              newSelectedCardIds.add(id);
-              const wasExplicitlySelected = state.selectedCardIds.has(id) && !state.panelAutoSelectedCardIds.has(id);
-              if (!wasExplicitlySelected) newPanelAutoSelectedCardIds.add(id);
-
-              return {
-                viewMode: 'focus' as ViewMode,
-                openPanelIds: [id],
-                maximizedItemId: id,
-                selectedCardIds: newSelectedCardIds,
-                panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-              };
             }
+            const isAlreadyOpen =
+              state.openPanelIds.length === 1 &&
+              state.openPanelIds[0] === id &&
+              state.maximizedItemId === id;
+            if (isAlreadyOpen) return {};
+
+            return {
+              viewMode: 'focus' as ViewMode,
+              openPanelIds: [id],
+              maximizedItemId: id,
+            };
           });
         },
 
@@ -365,44 +303,17 @@ export const useUIStore = create<UIState>()(
         // Card selection actions
         toggleCardSelection: (id) => set((state) => {
           const newSet = new Set(state.selectedCardIds);
-          const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-
           if (newSet.has(id)) {
             newSet.delete(id);
-            newPanelAutoSelectedCardIds.delete(id);
           } else {
             newSet.add(id);
           }
-          return {
-            selectedCardIds: newSet,
-            panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-          };
+          return { selectedCardIds: newSet };
         }),
 
-        clearCardSelection: () => set({
-          selectedCardIds: new Set<string>(),
-          panelAutoSelectedCardIds: new Set<string>(),
-        }),
+        clearCardSelection: () => set({ selectedCardIds: new Set<string>() }),
 
-        selectMultipleCards: (ids) => set((state) => {
-          const newSelectedCardIds = new Set(ids);
-          const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-
-          newPanelAutoSelectedCardIds.forEach(id => {
-            if (!newSelectedCardIds.has(id)) {
-              newPanelAutoSelectedCardIds.delete(id);
-            }
-          });
-
-          newSelectedCardIds.forEach(id => {
-            newPanelAutoSelectedCardIds.delete(id);
-          });
-
-          return {
-            selectedCardIds: newSelectedCardIds,
-            panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-          };
-        }),
+        selectMultipleCards: (ids) => set({ selectedCardIds: new Set(ids) }),
 
         // Scroll lock actions
         setItemScrollLocked: (itemId, isLocked) => set((state) => {
@@ -457,29 +368,15 @@ export const useUIStore = create<UIState>()(
         toggleThreadListVisible: () => set((state) => ({ isThreadListVisible: !state.isThreadListVisible })),
         setWorkspacePanelSize: (size) => set({ workspacePanelSize: size }),
 
-        closeAllModals: () => set((state) => {
-          // Only remove auto-selected cards from selection
-          const newSelectedCardIds = new Set(state.selectedCardIds);
-          const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-
-          state.openPanelIds.forEach(id => {
-            if (newPanelAutoSelectedCardIds.has(id)) {
-              newSelectedCardIds.delete(id);
-              newPanelAutoSelectedCardIds.delete(id);
-            }
-          });
-
-          return {
+        closeAllModals: () =>
+          set({
             viewMode: 'workspace' as ViewMode,
             openPanelIds: [],
             itemPrompt: null,
             maximizedItemId: null,
             showCreateWorkspaceModal: false,
             showSheetModal: false,
-            selectedCardIds: newSelectedCardIds,
-            panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-          };
-        }),
+          }),
       }),
       {
         name: 'thinkex-ui-preferences-v3',
