@@ -124,12 +124,17 @@ const SEARCH_DECISION_SCHEMA = z.object({
   searchQuery: z.string().optional().describe("If needsSearch is true, a concise 2-6 word search query to find relevant information (e.g. 'Fed interest rate 2025' or 'company name latest news')"),
 });
 
-/** Phase 1: Flash-lite decides whether to search. Returns search context + sources if needed. */
+/** Phase 1: Flash-lite decides whether to search. Returns search context + sources if needed. Skipped when user already attached URLs (Firecrawl supplies context). */
 async function runSearchPhase(
   prompt: string,
   hasAttachments: boolean,
+  hasUserLinks: boolean,
   send: (ev: StreamEvent) => void
 ): Promise<{ searchContext: string; sources: Array<{ title: string; url: string }> }> {
+  if (hasUserLinks) {
+    return { searchContext: "", sources: [] };
+  }
+
   const { output } = await generateText({
     model: google("gemini-2.5-flash-lite"),
     output: Output.object({ schema: SEARCH_DECISION_SCHEMA }),
@@ -158,36 +163,47 @@ If needsSearch=true, provide a searchQuery (2-6 words) to look up.`,
 
 const MAX_LINK_CONTENT_CHARS = 6000;
 
-/** Main agent: reads full message (PDFs, video, links) once, outputs metadata + distilled prompts. No tools—uses pre-fetched search context and link content when available. */
+/** Up-front Firecrawl fetch for non-YouTube links (runs before distillation, independent of the LLM). */
+async function fetchReferenceLinksContext(
+  links: string[],
+  send: (ev: StreamEvent) => void
+): Promise<string> {
+  const nonYtLinks = links.filter((l) => !isYouTubeUrl(l));
+  if (nonYtLinks.length === 0) return "";
+
+  send({ type: "toolCall", data: { toolName: "web_fetch", status: "fetching" } });
+  const client = new FirecrawlClient();
+  const results = await client.scrapeUrls(nonYtLinks);
+  const successful = results.filter((r) => r.success && r.content);
+  send({ type: "toolResult", data: { toolName: "web_fetch", status: "done" } });
+
+  if (successful.length === 0) return "";
+
+  return (
+    "\n\nCONTEXT FROM REFERENCE LINKS (use this to inform your response):\n" +
+    successful
+      .map((r) => {
+        const content =
+          r.content!.length > MAX_LINK_CONTENT_CHARS
+            ? r.content!.slice(0, MAX_LINK_CONTENT_CHARS) + "..."
+            : r.content!;
+        return `**${r.title}** (${r.url})\n\n${content}`;
+      })
+      .join("\n\n---\n\n")
+  );
+}
+
+/** Main agent: reads full message (PDFs, video, links) once, outputs metadata + distilled prompts. Uses pre-fetched search + link context only. */
 async function runDistillationAgent(
   prompt: string,
   fileUrls: FileUrlItem[],
   links: string[],
   searchContext: string,
+  linkContext: string,
   sources: Array<{ title: string; url: string }>,
   send: (ev: StreamEvent) => void
 ): Promise<DistillationResult> {
   let output: DistilledOutput | undefined;
-
-  const nonYtLinks = links?.filter((l) => !isYouTubeUrl(l)) ?? [];
-  let linkContext = "";
-  if (nonYtLinks.length > 0) {
-    send({ type: "toolCall", data: { toolName: "web_fetch", status: "fetching" } });
-    const client = new FirecrawlClient();
-    const results = await client.scrapeUrls(nonYtLinks);
-    const successful = results.filter((r) => r.success && r.content);
-    if (successful.length > 0) {
-      linkContext =
-        "\n\nCONTEXT FROM REFERENCE LINKS (use this to inform your response):\n" +
-        successful
-          .map((r) => {
-            const content = r.content!.length > MAX_LINK_CONTENT_CHARS ? r.content!.slice(0, MAX_LINK_CONTENT_CHARS) + "..." : r.content!;
-            return `**${r.title}** (${r.url})\n\n${content}`;
-          })
-          .join("\n\n---\n\n");
-    }
-    send({ type: "toolResult", data: { toolName: "web_fetch", status: "done" } });
-  }
 
   const userMessage = buildUserMessage(prompt, fileUrls, links);
   const contextParts: string[] = [searchContext, linkContext].filter(Boolean);
@@ -612,21 +628,22 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // ── Phase 1: Search + Distillation (runs in parallel with OCR) ──
+        // ── Phase 1: Web search decision + atomic link scrape (parallel), then distillation (runs in parallel with OCR) ──
         const phase1Start = Date.now();
-        const { searchContext, sources: searchSources } = await runSearchPhase(
-          prompt,
-          hasParts,
-          send
-        );
+        const linksList = links ?? [];
+        const [{ searchContext, sources: searchSources }, linkContext] = await Promise.all([
+          runSearchPhase(prompt, hasParts, linksList.length > 0, send),
+          fetchReferenceLinksContext(linksList, send),
+        ]);
 
         send({ type: "progress", data: { step: "understanding", status: "done" } });
 
         const distilled = await runDistillationAgent(
           prompt,
           fileUrls ?? [],
-          links ?? [],
+          linksList,
           searchContext,
+          linkContext,
           searchSources,
           send
         );
