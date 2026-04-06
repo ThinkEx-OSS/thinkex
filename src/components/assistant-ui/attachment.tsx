@@ -3,6 +3,7 @@
 import React, {
   PropsWithChildren,
   useEffect,
+  useMemo,
   useState,
   useRef,
   type FC,
@@ -10,10 +11,6 @@ import React, {
 import {
   XIcon,
   Link as LinkIcon,
-  SearchIcon,
-  Plus,
-  Code as CodeIcon,
-  GalleryHorizontalEnd,
   FileText,
   Loader2,
 } from "lucide-react";
@@ -41,30 +38,28 @@ import {
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { cn } from "@/lib/utils";
+import { COMPOSER_ATTACHMENT_ACCEPT } from "@/lib/attachments/composer-attachment-accept";
 import { useAttachmentUploadStore } from "@/lib/stores/attachment-upload-store";
-import { useUIStore } from "@/lib/stores/ui-store";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
-import { FaCheck } from "react-icons/fa";
 
 const useFileSrc = (file: File | undefined) => {
-  const [src, setSrc] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
+  const objectUrl = useMemo(() => {
     if (!file) {
-      setSrc(undefined);
-      return;
+      return undefined;
     }
 
-    const objectUrl = URL.createObjectURL(file);
-    setSrc(objectUrl);
-
-    return () => {
-      URL.revokeObjectURL(objectUrl);
-    };
+    return URL.createObjectURL(file);
   }, [file]);
 
-  return src;
+  useEffect(() => {
+    return () => {
+      if (!objectUrl) return;
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [objectUrl]);
+
+  return objectUrl;
 };
 
 /**
@@ -380,7 +375,9 @@ const AttachmentRemove: FC = () => {
 export const UserMessageAttachments: FC = () => {
   return (
     <div className="aui-user-message-attachments-end col-span-full col-start-1 row-start-1 flex w-full flex-row justify-end gap-2">
-      <MessagePrimitive.Attachments components={{ Attachment: AttachmentUI }} />
+      <MessagePrimitive.Attachments>
+        {({ attachment }) => <AttachmentUI key={attachment.id} />}
+      </MessagePrimitive.Attachments>
     </div>
   );
 };
@@ -388,16 +385,15 @@ export const UserMessageAttachments: FC = () => {
 export const ComposerAttachments: FC = () => {
   return (
     <div className="aui-composer-attachments mb-2 flex w-full flex-row items-center gap-2 overflow-x-auto pt-0.5 pb-1 empty:hidden">
-      <ComposerPrimitive.Attachments
-        components={{ Attachment: AttachmentUI }}
-      />
+      <ComposerPrimitive.Attachments>
+        {({ attachment }) => <AttachmentUI key={attachment.id} />}
+      </ComposerPrimitive.Attachments>
     </div>
   );
 };
 
 export const ComposerAddAttachment: FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const aui = useAui();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -419,7 +415,7 @@ export const ComposerAddAttachment: FC = () => {
       return;
     }
 
-    // Validate each file (size + reject Office documents)
+    // Validate each file (size); Office docs are allowed and handled by the adapter
     const validFiles: File[] = [];
     const oversizedFiles: string[] = [];
 
@@ -462,7 +458,7 @@ export const ComposerAddAttachment: FC = () => {
       );
     }
 
-    // Add valid files (non–Office-doc, non–password-protected) — others still upload successfully
+    // Add files that passed validation (password-protected PDFs filtered above)
     if (filesToAdd.length > 0) {
       filesToAdd.forEach((file) => {
         aui.composer().addAttachment(file);
@@ -484,10 +480,7 @@ export const ComposerAddAttachment: FC = () => {
 
   return (
     <>
-      <div
-        ref={containerRef}
-        className="relative flex items-center gap-2 pt-6 pb-6 pl-6 pr-10 -mt-6 -mb-6 -ml-6 -mr-10 pointer-events-none"
-      >
+      <div className="relative flex items-center gap-2 pt-6 pb-6 pl-6 pr-10 -mt-6 -mb-6 -ml-6 -mr-10 pointer-events-none">
         <div className="flex items-center gap-2 pointer-events-auto">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -510,7 +503,7 @@ export const ComposerAddAttachment: FC = () => {
           className="sr-only"
           onChange={handleFileChange}
           multiple={true}
-          accept="image/*,.pdf,.txt,.md,.csv,.json,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.heic,.heif,.avif,.tiff,.tif"
+          accept={COMPOSER_ATTACHMENT_ACCEPT}
         />
       </div>
     </>
