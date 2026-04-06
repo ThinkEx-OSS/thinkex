@@ -1,6 +1,6 @@
 "use client";
 
-import type { FC } from "react";
+import type { FC, ReactNode } from "react";
 import { useState, useRef, useEffect } from "react";
 import {
   AuiIf,
@@ -32,15 +32,26 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  deleteThreadListItem,
+  renameThreadListItem,
+} from "@/lib/assistant-ui/thread-list-item-runtime";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 
+const THREAD_LIST_SKELETON_KEYS = [
+  "thread-list-skeleton-1",
+  "thread-list-skeleton-2",
+  "thread-list-skeleton-3",
+  "thread-list-skeleton-4",
+  "thread-list-skeleton-5",
+] as const;
+
 interface ThreadListDropdownProps {
-  trigger: React.ReactNode;
+  trigger: ReactNode;
 }
 
 export const ThreadListDropdown: FC<ThreadListDropdownProps> = ({ trigger }) => {
@@ -63,7 +74,14 @@ export const ThreadListDropdown: FC<ThreadListDropdownProps> = ({ trigger }) => 
               <ThreadListSkeleton />
             </AuiIf>
             <AuiIf condition={({ threads }) => !threads.isLoading}>
-              <ThreadListPrimitive.Items components={{ ThreadListItem: () => <ThreadListItem onSelect={() => setOpen(false)} /> }} />
+              <ThreadListPrimitive.Items>
+                {({ threadListItem }) => (
+                  <ThreadListItem
+                    key={threadListItem.id}
+                    onSelect={() => setOpen(false)}
+                  />
+                )}
+              </ThreadListPrimitive.Items>
             </AuiIf>
           </div>
         </ThreadListPrimitive.Root>
@@ -90,9 +108,9 @@ const ThreadListNew: FC<{ onSelect?: () => void }> = ({ onSelect }) => {
 const ThreadListSkeleton: FC = () => {
   return (
     <div className="flex flex-col gap-1">
-      {Array.from({ length: 5 }, (_, i) => (
+      {THREAD_LIST_SKELETON_KEYS.map((key) => (
         <div
-          key={i}
+          key={key}
           role="status"
           aria-label="Loading threads"
           className="aui-thread-list-skeleton-wrapper flex items-center gap-2 rounded-md px-3 py-2"
@@ -124,13 +142,6 @@ const ThreadListItemContent: FC<{ onSelect?: () => void }> = ({ onSelect }) => {
   const title = threadListItem?.title || "New Chat";
   const isThreadInitialized = !!threadListItem?.remoteId;
 
-  // Update edit value when title changes (but not while editing)
-  useEffect(() => {
-    if (!isEditing) {
-      setEditValue(title);
-    }
-  }, [title, isEditing]);
-
   // Focus input when entering edit mode
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -155,30 +166,29 @@ const ThreadListItemContent: FC<{ onSelect?: () => void }> = ({ onSelect }) => {
     // Check if thread is initialized before trying to rename
     if (!isThreadInitialized) {
       toast.error("Thread is not yet initialized");
-      setEditValue(title);
+      setIsEditing(false);
+      return;
+    }
+
+    if (!aui) {
+      toast.error("Unable to access thread");
       setIsEditing(false);
       return;
     }
 
     if (trimmedValue && trimmedValue !== title) {
       try {
-        await aui?.threadListItem().rename(trimmedValue);
+        await renameThreadListItem(aui, trimmedValue);
         toast.success("Title updated");
       } catch (error) {
         console.error("Failed to rename thread:", error);
         toast.error("Failed to update title");
-        // Revert to original title on error
-        setEditValue(title);
       }
-    } else if (!trimmedValue) {
-      // If empty, revert to original title
-      setEditValue(title);
     }
     setIsEditing(false);
   };
 
   const handleCancel = () => {
-    setEditValue(title);
     setIsEditing(false);
   };
 
@@ -237,7 +247,7 @@ const ThreadListItemContent: FC<{ onSelect?: () => void }> = ({ onSelect }) => {
           </>
         )}
       </div>
-      <ThreadListItemArchive />
+      <ThreadListItemDelete />
     </>
   );
 };
@@ -263,9 +273,10 @@ const ThreadListItemTitle: FC<{
   );
 };
 
-const ThreadListItemArchive: FC = () => {
+const ThreadListItemDelete: FC = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const archiveButtonRef = useRef<HTMLButtonElement>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const aui = useAui();
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -273,28 +284,29 @@ const ThreadListItemArchive: FC = () => {
     setShowDeleteDialog(true);
   };
 
-  const handleDeleteConfirm = () => {
-    // Trigger the archive action programmatically
-    if (archiveButtonRef.current) {
-      archiveButtonRef.current.click();
+  const handleDeleteConfirm = async () => {
+    if (!aui) {
+      toast.error("Unable to access thread");
+      return;
     }
-    setShowDeleteDialog(false);
-    toast.success("Chat deleted successfully");
+    setIsDeleting(true);
+    try {
+      await deleteThreadListItem(aui);
+      setShowDeleteDialog(false);
+      toast.success("Chat deleted successfully");
+    } catch (error) {
+      console.error("Failed to delete chat:", error);
+      toast.error("Failed to delete chat");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
     <>
-      <ThreadListItemPrimitive.Archive asChild>
-        <button
-          ref={archiveButtonRef}
-          className="hidden"
-          aria-hidden="true"
-          tabIndex={-1}
-        />
-      </ThreadListItemPrimitive.Archive>
       <TooltipIconButton
         onClick={handleDeleteClick}
-        className="aui-thread-list-item-archive mr-3 ml-auto size-4 p-0 text-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+        className="aui-thread-list-item-delete mr-3 ml-auto size-4 p-0 text-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
         variant="ghost"
         tooltip="Delete chat"
         side="top"
@@ -310,12 +322,13 @@ const ThreadListItemArchive: FC = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
+              disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
