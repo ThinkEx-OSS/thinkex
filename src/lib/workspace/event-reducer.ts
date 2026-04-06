@@ -144,7 +144,7 @@ export function eventReducer(
         return { ...state, items: [...state.items, ...added] };
       }
 
-      // Legacy: full items array (backwards compatibility)
+      // Older events: full items snapshot
       if (p.items && p.items.length >= 0) {
         const newItemIds = new Set(p.items.map((i) => i.id));
         const deletedFolderIds = new Set(
@@ -190,26 +190,14 @@ export function eventReducer(
       };
     }
 
-    // =====================================================
-    // FOLDER EVENTS (DEPRECATED - kept for backward compatibility)
-    // Folders are now items with type: 'folder', so these events are no-ops
-    // Old events in the database will be ignored
-    // =====================================================
-
     case "FOLDER_CREATED":
-      // No-op: folders are now items with type: 'folder'
-      // This event is kept for backward compatibility but does nothing
       return state;
 
     case "FOLDER_UPDATED":
-      // No-op: folders are now items with type: 'folder'
-      // This event is kept for backward compatibility but does nothing
       return state;
 
     case "FOLDER_DELETED": {
-      // No-op: folders are now items with type: 'folder'
-      // However, we still need to clear folderId from items that were in the deleted folder
-      // This maintains backward compatibility with old events
+      // Historical event: clear folderId from items that pointed at the removed folder id
       const deletedFolderId = event.payload.id;
       return {
         ...state,

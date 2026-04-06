@@ -58,8 +58,7 @@ export function PDFViewerModal({
         <ItemPanelContent
           item={item}
           onClose={onClose}
-          onMaximize={() => useUIStore.getState().openItemInLeft(null)}
-          isMaximized={true}
+          onMaximize={() => useUIStore.getState().openWorkspaceItem(null)}
           onUpdateItem={onUpdateItem}
           onUpdateItemData={(updater) =>
             onUpdateItem({ data: updater(item.data) as Item["data"] })

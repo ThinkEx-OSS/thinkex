@@ -29,7 +29,8 @@ function getCardTypeIcon(type: CardType) {
 interface MoveToDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  item?: Item; // Single item (for backward compatibility)
+  /** Single-item move; use `items` instead for bulk. */
+  item?: Item;
   items?: Item[]; // Multiple items (for bulk moves)
   allItems: Item[];
   workspaceName: string;

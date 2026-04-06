@@ -15,11 +15,11 @@ import {
   useWorkspaceContext,
 } from "@/contexts/WorkspaceContext";
 // import { JoyrideProvider } from "@/contexts/JoyrideContext";
-import { useUIStore } from "@/lib/stores/ui-store";
+import { selectWorkspaceOpenMode, useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useSession } from "@/lib/auth-client";
 import { WorkspaceSection } from "@/components/workspace-canvas/WorkspaceSection";
-import { ModalManager } from "@/components/modals/ModalManager";
+import { OpenWorkspaceItemView } from "@/components/workspace-canvas/OpenWorkspaceItemView";
 import { AnonymousSignInPrompt } from "@/components/modals/AnonymousSignInPrompt";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import WorkspaceHeader from "@/components/workspace-canvas/WorkspaceHeader";
@@ -235,7 +235,7 @@ function DashboardContent({
   );
   const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
   const setIsChatMaximized = useUIStore((state) => state.setIsChatMaximized);
-  const openItemInLeft = useUIStore((state) => state.openItemInLeft);
+  const openWorkspaceItem = useUIStore((state) => state.openWorkspaceItem);
   const setShowCreateWorkspaceModal = useUIStore(
     (state) => state.setShowCreateWorkspaceModal,
   );
@@ -254,8 +254,8 @@ function DashboardContent({
   const toggleChatExpanded = useUIStore((state) => state.toggleChatExpanded);
   const toggleChatMaximized = useUIStore((state) => state.toggleChatMaximized);
 
-  const leftPaneItemId = useUIStore((state) => state.itemPanes.left);
-  const workspaceLayout = useUIStore((state) => state.workspaceLayout);
+  const primaryOpenItemId = useUIStore((state) => state.openItems.primary);
+  const workspaceOpenMode = useUIStore(selectWorkspaceOpenMode);
   const closeWorkspaceItem = useUIStore((state) => state.closeWorkspaceItem);
   const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
   const navigateToRoot = useUIStore((state) => state.navigateToRoot);
@@ -281,9 +281,8 @@ function DashboardContent({
 
   // CopilotKit actions removed - now using Assistant-UI directly
 
-  // Define Modal Manager Element to reuse
-  const modalManagerElement = (
-    <ModalManager
+  const openWorkspaceItemView = (
+    <OpenWorkspaceItemView
       items={state.items}
       onUpdateItem={operations.updateItem}
       onUpdateItemData={operations.updateItemData}
@@ -413,27 +412,27 @@ function DashboardContent({
               onOpenSettings={() => setShowWorkspaceSettings(true)}
               onOpenShare={() => setShowWorkspaceShare(true)}
               onShowHistory={handleShowHistory}
-              openWorkspaceItem={(() => {
-                if (!leftPaneItemId || workspaceLayout !== "single") {
+              activeOpenWorkspaceItem={(() => {
+                if (!primaryOpenItemId || workspaceOpenMode !== "single") {
                   return null;
                 }
-                return state.items?.find((i) => i.id === leftPaneItemId) ?? null;
+                return state.items?.find((i) => i.id === primaryOpenItemId) ?? null;
               })()}
               onCloseActiveItem={(id) => {
                 operations.flushPendingChanges(id);
                 closeWorkspaceItem(id);
               }}
               onNavigateToRoot={() => {
-                if (leftPaneItemId) {
-                  operations.flushPendingChanges(leftPaneItemId);
+                if (primaryOpenItemId) {
+                  operations.flushPendingChanges(primaryOpenItemId);
                   navigateToRoot();
                 } else {
                   setActiveFolderId(null);
                 }
               }}
               onNavigateToFolder={(folderId) => {
-                if (leftPaneItemId) {
-                  operations.flushPendingChanges(leftPaneItemId);
+                if (primaryOpenItemId) {
+                  operations.flushPendingChanges(primaryOpenItemId);
                   navigateToFolder(folderId);
                 } else {
                   setActiveFolderId(folderId);
@@ -462,14 +461,14 @@ function DashboardContent({
             isDesktop={isDesktop}
             isChatExpanded={isChatExpanded}
             setIsChatExpanded={setIsChatExpanded}
-            openItemInLeft={openItemInLeft}
+            openWorkspaceItem={openWorkspaceItem}
             titleInputRef={titleInputRef as React.RefObject<HTMLInputElement>}
             operations={operations}
             scrollAreaRef={scrollAreaRef as React.RefObject<HTMLDivElement>}
             workspaceTitle={currentWorkspaceTitle}
             workspaceIcon={currentWorkspaceIcon}
             workspaceColor={currentWorkspaceColor}
-            modalManager={modalManagerElement}
+            openItemView={openWorkspaceItemView}
           />
         }
       />

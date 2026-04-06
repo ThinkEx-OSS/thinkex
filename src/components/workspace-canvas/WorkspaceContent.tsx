@@ -22,7 +22,7 @@ interface WorkspaceContentProps {
   updateItem: (itemId: string, updates: Partial<Item>) => void;
   deleteItem: (itemId: string) => void;
   updateAllItems: (items: Item[]) => void;
-  openItemInLeft: (itemId: string | null) => void;
+  openWorkspaceItem: (itemId: string | null) => void;
   scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
   onGridDragStateChange?: (isDragging: boolean) => void;
   workspaceName?: string;
@@ -42,7 +42,7 @@ export default function WorkspaceContent({
   updateItem,
   deleteItem,
   updateAllItems,
-  openItemInLeft,
+  openWorkspaceItem,
   scrollContainerRef: externalScrollContainerRef,
   onGridDragStateChange,
   workspaceName,
@@ -147,8 +147,8 @@ export default function WorkspaceContent({
   }, [updateAllItems]);
 
   const handleOpenModal = useCallback((itemId: string) => {
-    openItemInLeft(itemId);
-  }, [openItemInLeft]);
+    openWorkspaceItem(itemId);
+  }, [openWorkspaceItem]);
 
   const emptyStateUploadInputId = "workspace-empty-file-upload";
 

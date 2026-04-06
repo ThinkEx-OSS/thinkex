@@ -771,7 +771,7 @@ function SidebarCardList() {
     const { workspaces } = useWorkspaceContext();
     const activeFolderId = useUIStore((state) => state.activeFolderId);
     const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
-    const openItemInLeft = useUIStore((state) => state.openItemInLeft);
+    const openWorkspaceItem = useUIStore((state) => state.openWorkspaceItem);
 
     // Get current workspace details
     const currentWorkspace = useMemo(() => {
@@ -896,9 +896,9 @@ function SidebarCardList() {
             }
 
             // Open the item in its detail modal (same as clicking the card)
-            openItemInLeft(item.id);
+            openWorkspaceItem(item.id);
         },
-        [allItems, setActiveFolderId, openItemInLeft]
+        [allItems, setActiveFolderId, openWorkspaceItem]
     );
 
     if (isLoading) {

@@ -4,12 +4,10 @@ import type { Item, WebsiteData } from "@/lib/workspace-state/types";
 
 interface WebsitePanelContentProps {
   item: Item;
-  isMaximized?: boolean;
 }
 
 export function WebsitePanelContent({
   item,
-  isMaximized = false,
 }: WebsitePanelContentProps) {
   const websiteData = item.data as WebsiteData;
 

@@ -12,13 +12,23 @@ interface UrlState {
   items: string[];
 }
 
+function openItemsToUrlList(openItems: {
+  primary: string | null;
+  secondary: string | null;
+}): string[] {
+  const out: string[] = [];
+  if (openItems.primary) out.push(openItems.primary);
+  if (openItems.secondary) out.push(openItems.secondary);
+  return out;
+}
+
 /**
  * Syncs workspace navigation state between URL query params and the UI store.
  * Enables browser back/forward and shareable deep links.
  *
  * URL params:
- *   folder=<id>  — active folder filter
- *   items=<id>   — open item in the left pane (first id only today; comma-separated reserved for future split)
+ *   folder=<id>    — active folder filter
+ *   items=id[,id2] — open item(s): first = primary, second = secondary (split)
  */
 export function useFolderUrl() {
   const router = useRouter();
@@ -26,10 +36,10 @@ export function useFolderUrl() {
   const searchParams = useSearchParams();
 
   const activeFolderId = useUIStore((state) => state.activeFolderId);
-  const leftPaneItemId = useUIStore((state) => state.itemPanes.left);
+  const openItems = useUIStore((state) => state.openItems);
 
   const setActiveFolderIdDirect = useUIStore((state) => state._setActiveFolderIdDirect);
-  const setItemPanesFromUrl = useUIStore((state) => state._setItemPanesFromUrl);
+  const setOpenItemsFromUrl = useUIStore((state) => state._setOpenItemsFromUrl);
 
   const isSyncingFromUrl = useRef(false);
   const lastPushedState = useRef<UrlState | undefined>(undefined);
@@ -38,7 +48,7 @@ export function useFolderUrl() {
     const folder = searchParams.get("folder") || null;
     const itemsParam = searchParams.get("items");
     const items = itemsParam
-      ? itemsParam.split(",").filter(Boolean).slice(0, 1)
+      ? itemsParam.split(",").filter(Boolean).slice(0, 2)
       : [];
     return { folder, items };
   };
@@ -48,7 +58,7 @@ export function useFolderUrl() {
     const url = parseUrlState();
 
     const folderChanged = url.folder !== activeFolderId;
-    const storeItems = leftPaneItemId ? [leftPaneItemId] : [];
+    const storeItems = openItemsToUrlList(openItems);
     const itemsChanged =
       url.items.length !== storeItems.length ||
       url.items.some((id, i) => id !== storeItems[i]);
@@ -60,7 +70,7 @@ export function useFolderUrl() {
         setActiveFolderIdDirect(url.folder);
       }
       if (itemsChanged) {
-        setItemPanesFromUrl(url.items);
+        setOpenItemsFromUrl(url.items);
       }
 
       queueMicrotask(() => {
@@ -72,17 +82,19 @@ export function useFolderUrl() {
 
   // Store → URL: on store change, debounced
   useEffect(() => {
+    const storeItems = openItemsToUrlList(openItems);
+
     if (isSyncingFromUrl.current) {
       lastPushedState.current = {
         folder: activeFolderId,
-        items: leftPaneItemId ? [leftPaneItemId] : [],
+        items: storeItems,
       };
       return;
     }
 
     const next: UrlState = {
       folder: activeFolderId,
-      items: leftPaneItemId ? [leftPaneItemId] : [],
+      items: storeItems,
     };
 
     const prev = lastPushedState.current;
@@ -118,5 +130,5 @@ export function useFolderUrl() {
 
     return () => clearTimeout(tid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeFolderId, leftPaneItemId]);
+  }, [activeFolderId, openItems.primary, openItems.secondary]);
 }

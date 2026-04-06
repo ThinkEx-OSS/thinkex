@@ -210,8 +210,8 @@ interface WorkspaceHeaderProps {
   onOpenSettings?: () => void;
   onOpenShare?: () => void;
 
-  /** Item open in the workspace overlay (left pane) — drives breadcrumbs and header actions */
-  openWorkspaceItem?: Item | null;
+  /** Item shown in the fullscreen workspace viewer (`openMode === "single"`) — breadcrumbs + header actions */
+  activeOpenWorkspaceItem?: Item | null;
   onCloseActiveItem?: (itemId: string) => void;
   onNavigateToRoot?: () => void;
   onNavigateToFolder?: (folderId: string) => void;
@@ -243,7 +243,7 @@ export function WorkspaceHeader({
   onOpenSettings,
   onOpenShare,
 
-  openWorkspaceItem = null,
+  activeOpenWorkspaceItem = null,
   onCloseActiveItem,
   onNavigateToRoot,
   onNavigateToFolder,
@@ -324,20 +324,20 @@ export function WorkspaceHeader({
       });
     }
 
-    if (openWorkspaceItem) {
+    if (activeOpenWorkspaceItem) {
       entries.push({
-        key: `item:${openWorkspaceItem.id}`,
+        key: `item:${activeOpenWorkspaceItem.id}`,
         kind: "item",
-        id: openWorkspaceItem.id,
-        label: openWorkspaceItem.name,
-        itemType: openWorkspaceItem.type,
+        id: activeOpenWorkspaceItem.id,
+        label: activeOpenWorkspaceItem.name,
+        itemType: activeOpenWorkspaceItem.type,
       });
     }
 
     return entries;
   }, [
     folderPath,
-    openWorkspaceItem,
+    activeOpenWorkspaceItem,
     workspaceBreadcrumbLabel,
     workspaceColor,
     workspaceIcon,
@@ -362,7 +362,7 @@ export function WorkspaceHeader({
   // Handle folder click - switch folder or rename if already active (and no panel open)
   const handleFolderClick = useCallback((folderId: string) => {
     // If panel is open, delegate to parent (closes if focused, else just switches folder) — don't open rename
-    if (openWorkspaceItem) {
+    if (activeOpenWorkspaceItem) {
       onNavigateToFolder?.(folderId);
       return;
     }
@@ -377,7 +377,7 @@ export function WorkspaceHeader({
     } else {
       onNavigateToFolder?.(folderId);
     }
-  }, [activeFolderId, openWorkspaceItem, items, onRenameFolder, onNavigateToFolder]);
+  }, [activeFolderId, activeOpenWorkspaceItem, items, onRenameFolder, onNavigateToFolder]);
 
   // Handle rename
   const handleRename = useCallback(() => {
@@ -557,7 +557,7 @@ export function WorkspaceHeader({
       hoveredBreadcrumbTarget === "root" &&
       BREADCRUMB_DRAG_TARGET_CLASS;
 
-    if (activeFolderId || openWorkspaceItem) {
+    if (activeFolderId || activeOpenWorkspaceItem) {
       return (
         <button
           onClick={() => onNavigateToRoot?.()}
@@ -632,7 +632,7 @@ export function WorkspaceHeader({
     onNavigateToRoot,
     onOpenSettings,
     onOpenShare,
-    openWorkspaceItem,
+    activeOpenWorkspaceItem,
     renderRootBreadcrumbLabel,
   ]);
 
@@ -1000,15 +1000,15 @@ export function WorkspaceHeader({
         </div>
 
         {/* Right Side: Save Indicator + Search + Chat Button */}
-        {openWorkspaceItem ? (
+        {activeOpenWorkspaceItem ? (
           // Item open: show type-specific header actions (aligned with breadcrumbs)
           <div className="flex shrink-0 items-center gap-2 pointer-events-auto">
-            {openWorkspaceItem.type === "pdf" && (
+            {activeOpenWorkspaceItem.type === "pdf" && (
               <div id="workspace-header-portal" className="flex items-center gap-2" />
             )}
 
-            {openWorkspaceItem.type === "website" && (() => {
-              const websiteData = openWorkspaceItem.data as import("@/lib/workspace-state/types").WebsiteData;
+            {activeOpenWorkspaceItem.type === "website" && (() => {
+              const websiteData = activeOpenWorkspaceItem.data as import("@/lib/workspace-state/types").WebsiteData;
               return (
                 <button
                   className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer px-2"
@@ -1021,7 +1021,7 @@ export function WorkspaceHeader({
               );
             })()}
 
-            {openWorkspaceItem.type === "document" && (
+            {activeOpenWorkspaceItem.type === "document" && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -1040,7 +1040,7 @@ export function WorkspaceHeader({
                   <DropdownMenuItem
                     disabled={googleExportLoading}
                     onClick={async () => {
-                      const item = openWorkspaceItem;
+                      const item = activeOpenWorkspaceItem;
                       if (!item || item.type !== "document") return;
                       if (!getGoogleOAuthClientId()) {
                         toast.error(
@@ -1075,7 +1075,7 @@ export function WorkspaceHeader({
               </DropdownMenu>
             )}
 
-            {openWorkspaceItem.type === "pdf" && (
+            {activeOpenWorkspaceItem.type === "pdf" && (
               <div id="workspace-header-portal-right" className="flex items-center gap-2" />
             )}
 
@@ -1083,7 +1083,7 @@ export function WorkspaceHeader({
               type="button"
               aria-label="Close"
               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer"
-              onClick={() => onCloseActiveItem?.(openWorkspaceItem.id)}
+              onClick={() => onCloseActiveItem?.(activeOpenWorkspaceItem.id)}
             >
               <X className="h-4 w-4" />
             </button>
@@ -1211,7 +1211,7 @@ export function WorkspaceHeader({
               </DropdownMenu>
             )}
 
-            {!openWorkspaceItem && setIsChatExpanded ? (
+            {!activeOpenWorkspaceItem && setIsChatExpanded ? (
               <ChatFloatingButton
                 isDesktop={isDesktop}
                 isChatExpanded={isChatExpanded}

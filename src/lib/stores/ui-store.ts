@@ -7,24 +7,36 @@ import { WORKSPACE_PANEL_SIZES } from '@/lib/layout-constants';
  * This replaces scattered useState hooks in dashboard
  */
 
-/** Folder grid vs one open item vs (future) split columns */
-export type WorkspaceLayout = 'grid' | 'single';
+/** Column / keyboard focus when two items are open (split). */
+export type WorkspaceItemSlot = 'primary' | 'secondary';
 
-/** Spatial pane columns — not primary/secondary */
-export type WorkspacePaneSide = 'left' | 'right';
-
-export interface ItemPanes {
-  left: string | null;
-  right: string | null;
+/**
+ * Up to two workspace items “open” at once.
+ * - Today: only `primary` is used; UI is fullscreen one-item view.
+ * - Split: set `secondary` while `primary` is set → mode becomes `split` (side-by-side UI).
+ */
+export interface OpenWorkspaceItems {
+  primary: string | null;
+  secondary: string | null;
 }
 
-/*
- * Future split (same field names):
- * - workspaceLayout: add 'split'
- * - itemPanes.right may be set alongside .left
- * - setActivePane('left' | 'right') for focus / a11y
- * - Optional URL: items=leftId,rightId with documented column order
+/**
+ * How the main workspace area is used — derived from `openItems`, not stored.
+ * - `grid` — card/folder canvas only
+ * - `single` — one item fullscreen (see OpenWorkspaceItemView)
+ * - `split` — two items side by side (future)
  */
+export type WorkspaceOpenMode = 'grid' | 'single' | 'split';
+
+export function deriveWorkspaceOpenMode(openItems: OpenWorkspaceItems): WorkspaceOpenMode {
+  const hasPrimary = openItems.primary != null;
+  const hasSecondary = openItems.secondary != null;
+  if (!hasPrimary && !hasSecondary) return 'grid';
+  if (hasPrimary && hasSecondary) return 'split';
+  return 'single';
+}
+
+const emptyOpenItems = (): OpenWorkspaceItems => ({ primary: null, secondary: null });
 
 interface UIState {
   // Chat state
@@ -35,11 +47,9 @@ interface UIState {
   // Layout state
   workspacePanelSize: number; // percentage (0-100)
 
-  /** grid = folder view; single = one item open in the left pane (overlay) */
-  workspaceLayout: WorkspaceLayout;
-  itemPanes: ItemPanes;
-  /** Focused pane for keyboard/a11y; v1 stays 'left' */
-  activePaneId: WorkspacePaneSide;
+  openItems: OpenWorkspaceItems;
+  /** Focused slot for keyboard / a11y when split; still meaningful when only primary is open */
+  activeWorkspaceItemSlot: WorkspaceItemSlot;
 
   itemPrompt: { itemId: string; x: number; y: number } | null; // Global prompt state
 
@@ -80,12 +90,17 @@ interface UIState {
   toggleThreadListVisible: () => void;
   setWorkspacePanelSize: (size: number) => void;
 
-  // Actions - Workspace item panes
-  /** Open item in the left pane, or null to close and return to grid */
-  openItemInLeft: (itemId: string | null) => void;
+  // Actions - Open workspace items (overlay today; split when secondary is set)
+  /** Open primary item fullscreen, or null to close everything and return to grid. Clears secondary. */
+  openWorkspaceItem: (itemId: string | null) => void;
+  /**
+   * Second item for split view. Pass null to clear secondary only.
+   * No-op if primary is empty (secondary never stands alone).
+   */
+  setWorkspaceSecondaryItem: (itemId: string | null) => void;
   closeWorkspaceItem: (itemId: string) => void;
   closeAllWorkspaceItems: () => void;
-  setActivePane: (side: WorkspacePaneSide) => void;
+  setActiveWorkspaceItemSlot: (slot: WorkspaceItemSlot) => void;
   setItemPrompt: (prompt: { itemId: string; x: number; y: number } | null) => void;
 
   setShowCreateWorkspaceModal: (show: boolean) => void;
@@ -98,8 +113,8 @@ interface UIState {
   navigateToFolder: (folderId: string) => void;
   /** URL sync only — sets folder without touching panels */
   _setActiveFolderIdDirect: (folderId: string | null) => void;
-  /** URL sync only — restores left pane from `items` query (first id only) */
-  _setItemPanesFromUrl: (ids: string[]) => void;
+  /** URL sync only — restores open items from `items` query (up to two ids for split) */
+  _setOpenItemsFromUrl: (ids: string[]) => void;
   setSelectedModelId: (modelId: string) => void;
 
   // Actions - Text selection
@@ -133,8 +148,6 @@ interface UIState {
   closeAllModals: () => void;
 }
 
-const emptyPanes = (): ItemPanes => ({ left: null, right: null });
-
 const initialState = {
   // Chat
   isChatExpanded: true,
@@ -144,9 +157,8 @@ const initialState = {
   // Layout
   workspacePanelSize: WORKSPACE_PANEL_SIZES.WITH_CHAT, // Default when chat is expanded
 
-  workspaceLayout: 'grid' as WorkspaceLayout,
-  itemPanes: emptyPanes(),
-  activePaneId: 'left' as WorkspacePaneSide,
+  openItems: emptyOpenItems(),
+  activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
 
   itemPrompt: null,
 
@@ -185,103 +197,113 @@ export const useUIStore = create<UIState>()(
 
         navigateToRoot: () => {
           set((state) => {
-            if (state.activeFolderId === null && !state.itemPanes.left) return {};
+            if (state.activeFolderId === null && deriveWorkspaceOpenMode(state.openItems) === 'grid') return {};
             return {
               activeFolderId: null,
-              workspaceLayout: 'grid' as WorkspaceLayout,
-              itemPanes: emptyPanes(),
-              activePaneId: 'left' as WorkspacePaneSide,
+              openItems: emptyOpenItems(),
+              activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
             };
           });
         },
 
         navigateToFolder: (folderId) => {
           set((state) => {
-            if (state.activeFolderId === folderId && !state.itemPanes.left) return {};
+            if (state.activeFolderId === folderId && deriveWorkspaceOpenMode(state.openItems) === 'grid') return {};
             return {
               activeFolderId: folderId,
-              workspaceLayout: 'grid' as WorkspaceLayout,
-              itemPanes: emptyPanes(),
-              activePaneId: 'left' as WorkspacePaneSide,
+              openItems: emptyOpenItems(),
+              activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
             };
           });
         },
 
         _setActiveFolderIdDirect: (folderId) => set({ activeFolderId: folderId }),
 
-        // URL sync only — restores open panel from the URL (does not change card selection)
-        _setItemPanesFromUrl: (ids) => set(() => {
-          const validIds = ids.slice(0, 1);
-          if (validIds.length === 0) {
+        // URL sync only — restores open items from the URL (does not change card selection)
+        _setOpenItemsFromUrl: (ids) => set(() => {
+          const valid = ids.filter(Boolean).slice(0, 2);
+          if (valid.length === 0) {
             return {
-              workspaceLayout: 'grid' as WorkspaceLayout,
-              itemPanes: emptyPanes(),
-              activePaneId: 'left' as WorkspacePaneSide,
+              openItems: emptyOpenItems(),
+              activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
             };
           }
-          const leftId = validIds[0] ?? null;
+          const primary = valid[0] ?? null;
+          const secondary = valid.length >= 2 ? valid[1]! : null;
           return {
-            itemPanes: { left: leftId, right: null },
-            workspaceLayout: (leftId ? 'single' : 'grid') as WorkspaceLayout,
-            activePaneId: 'left' as WorkspacePaneSide,
+            openItems: { primary, secondary },
+            activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
           };
         }),
 
-        openItemInLeft: (id) => {
+        openWorkspaceItem: (id) => {
           set((state) => {
             if (id === null) {
-              if (!state.itemPanes.left && state.workspaceLayout === 'grid') return {};
+              if (deriveWorkspaceOpenMode(state.openItems) === 'grid') return {};
               return {
-                workspaceLayout: 'grid' as WorkspaceLayout,
-                itemPanes: emptyPanes(),
-                activePaneId: 'left' as WorkspacePaneSide,
+                openItems: emptyOpenItems(),
+                activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
                 citationHighlightQuery: null,
               };
             }
             if (
-              state.itemPanes.left === id &&
-              state.workspaceLayout === 'single' &&
-              !state.itemPanes.right
+              state.openItems.primary === id &&
+              state.openItems.secondary === null
             ) {
               return {};
             }
             return {
-              workspaceLayout: 'single' as WorkspaceLayout,
-              itemPanes: { left: id, right: null },
-              activePaneId: 'left' as WorkspacePaneSide,
+              openItems: { primary: id, secondary: null },
+              activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
+            };
+          });
+        },
+
+        setWorkspaceSecondaryItem: (id) => {
+          set((state) => {
+            if (state.openItems.primary == null) return {};
+            if (id != null && id === state.openItems.primary) return {};
+            if (id === state.openItems.secondary) return {};
+            return {
+              openItems: { primary: state.openItems.primary, secondary: id },
+              activeWorkspaceItemSlot: id ? state.activeWorkspaceItemSlot : 'primary',
             };
           });
         },
 
         closeWorkspaceItem: (itemId) => {
           set((state) => {
-            if (state.itemPanes.left !== itemId && state.itemPanes.right !== itemId) {
+            const { primary, secondary } = state.openItems;
+            if (primary !== itemId && secondary !== itemId) {
               return {};
             }
+            // Closing primary exits fully (same as today’s one-item overlay).
+            if (primary === itemId) {
+              return {
+                openItems: emptyOpenItems(),
+                activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
+                citationHighlightQuery: null,
+              };
+            }
             return {
-              workspaceLayout: 'grid' as WorkspaceLayout,
-              itemPanes: emptyPanes(),
-              activePaneId: 'left' as WorkspacePaneSide,
-              citationHighlightQuery: null,
+              openItems: { primary, secondary: null },
+              activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
             };
           });
         },
 
         closeAllWorkspaceItems: () => {
           set((state) => {
-            if (!state.itemPanes.left && !state.itemPanes.right && state.workspaceLayout === 'grid') {
-              return {};
-            }
+            if (deriveWorkspaceOpenMode(state.openItems) === 'grid') return {};
             return {
-              workspaceLayout: 'grid' as WorkspaceLayout,
-              itemPanes: emptyPanes(),
-              activePaneId: 'left' as WorkspacePaneSide,
+              openItems: emptyOpenItems(),
+              activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
               citationHighlightQuery: null,
             };
           });
         },
 
-        setActivePane: (side) => set({ activePaneId: side }),
+        setActiveWorkspaceItemSlot: (slot) => set({ activeWorkspaceItemSlot: slot }),
 
         setItemPrompt: (prompt) => set({ itemPrompt: prompt }),
 
@@ -370,9 +392,8 @@ export const useUIStore = create<UIState>()(
 
         closeAllModals: () =>
           set({
-            workspaceLayout: 'grid' as WorkspaceLayout,
-            itemPanes: emptyPanes(),
-            activePaneId: 'left' as WorkspacePaneSide,
+            openItems: emptyOpenItems(),
+            activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
             itemPrompt: null,
             showCreateWorkspaceModal: false,
             showSheetModal: false,
@@ -388,61 +409,17 @@ export const useUIStore = create<UIState>()(
   )
 );
 
-// Selectors for better performance - components only re-render when their slice changes
-export const selectChatState = (state: UIState) => ({
-  isChatExpanded: state.isChatExpanded,
-  isChatMaximized: state.isChatMaximized,
-});
+export const selectWorkspaceOpenMode = (state: UIState) =>
+  deriveWorkspaceOpenMode(state.openItems);
 
-export const selectModalState = (state: UIState) => ({
-  leftPaneItemId: state.itemPanes.left,
-  itemPrompt: state.itemPrompt,
-  showCreateWorkspaceModal: state.showCreateWorkspaceModal,
-  showSheetModal: state.showSheetModal,
-});
-
-export const selectWorkspaceLayout = (state: UIState) => state.workspaceLayout;
-export const selectItemPanes = (state: UIState) => state.itemPanes;
-export const selectLeftPaneItemId = (state: UIState) => state.itemPanes.left;
-export const selectActivePaneId = (state: UIState) => state.activePaneId;
-
-/** All item ids currently open in any pane (v1: 0 or 1) */
-export const selectOpenWorkspaceItemIds = (state: UIState): string[] => {
-  const { left, right } = state.itemPanes;
-  return [left, right].filter((id): id is string => id != null);
-};
-
-export const selectIsWorkspaceItemOpen = (state: UIState) =>
-  state.itemPanes.left != null || state.itemPanes.right != null;
-
-export const selectTextSelectionState = (state: UIState) => ({
-  inMultiSelectMode: state.inMultiSelectMode,
-  tooltipVisible: state.tooltipVisible,
-  selectedHighlightColorId: state.selectedHighlightColorId,
-});
-
-export const selectCardSelectionState = (state: UIState) => ({
-  selectedCardIds: state.selectedCardIds,
-});
-
-// Helper selector that converts Set to sorted array for stable comparison
-// This prevents unnecessary re-renders when Set contents haven't changed
+/** Stable sorted array for `selectedCardIds` (avoids unnecessary re-renders). */
 export const selectSelectedCardIdsArray = (state: UIState): string[] => {
   return Array.from(state.selectedCardIds).sort();
 };
 
-// Helper selector to check if a specific card is selected
-export const selectIsCardSelected = (cardId: string) => (state: UIState): boolean => {
-  return state.selectedCardIds.has(cardId);
-};
-
-// Selector for reply selections
 export const selectReplySelections = (state: UIState) => state.replySelections;
 
-// Selector for selected highlight color
-export const selectSelectedHighlightColorId = (state: UIState) => state.selectedHighlightColorId;
-
-// Selector for item scroll lock state
-export const selectItemScrollLocked = (itemId: string) => (state: UIState): boolean => {
-  return state.itemScrollLocked.get(itemId) ?? true; // Default to locked (true)
-};
+export const selectItemScrollLocked =
+  (itemId: string) => (state: UIState): boolean => {
+    return state.itemScrollLocked.get(itemId) ?? true;
+  };

@@ -53,7 +53,7 @@ export function WorkspaceRuntimeProvider({
   const { state: workspaceState } = useWorkspaceState(workspaceId);
   const viewingItemIds = useViewingItemIds();
 
-  /** Union of explicitly selected cards and items open in a workspace pane (left/right). */
+  /** Union of selected cards and items open in the workspace viewer (primary and/or secondary). */
   const contextCardIds = useMemo(() => {
     const ids = new Set<string>(selectedCardIdsSet);
     viewingItemIds.forEach((id) => ids.add(id));

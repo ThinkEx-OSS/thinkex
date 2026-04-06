@@ -76,7 +76,9 @@ function WorkspaceSidebar(props: WorkspaceSidebarProps) {
   const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
   const navigateToRoot = useUIStore((state) => state.navigateToRoot);
   const activeFolderId = useUIStore((state) => state.activeFolderId);
-  const leftPaneItemId = useUIStore((state) => state.itemPanes.left);
+  const hasOpenWorkspaceItem = useUIStore(
+    (state) => state.openItems.primary != null || state.openItems.secondary != null,
+  );
 
   // Get Joyride context for tour functionality
   // const { startTour } = useJoyride();
@@ -205,7 +207,7 @@ function WorkspaceSidebar(props: WorkspaceSidebarProps) {
                                   workspace={currentWorkspace}
                                   isActive={false} // Don't highlight as "selected" context
                                   onWorkspaceClick={() => {
-                                    if (leftPaneItemId) {
+                                    if (hasOpenWorkspaceItem) {
                                       navigateToRoot();
                                     } else {
                                       setActiveFolderId(null);
@@ -213,7 +215,9 @@ function WorkspaceSidebar(props: WorkspaceSidebarProps) {
                                   }}
                                   onSettingsClick={handleSettingsClick}
                                   onShareClick={handleShareClick}
-                                  disableNavigation={activeFolderId === null && !leftPaneItemId}
+                                  disableNavigation={
+                                    activeFolderId === null && !hasOpenWorkspaceItem
+                                  }
                                 />
                               </div>
                             </SidebarMenuSub>

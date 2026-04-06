@@ -1,9 +1,11 @@
-import type { Item, ItemData } from "@/lib/workspace-state/types";
-import CardDetailModal from "./CardDetailModal";
-import PDFViewerModal from "./PDFViewerModal";
-import { useUIStore } from "@/lib/stores/ui-store";
+"use client";
 
-interface ModalManagerProps {
+import type { Item, ItemData } from "@/lib/workspace-state/types";
+import CardDetailModal from "@/components/modals/CardDetailModal";
+import PDFViewerModal from "@/components/modals/PDFViewerModal";
+import { selectWorkspaceOpenMode, useUIStore } from "@/lib/stores/ui-store";
+
+interface OpenWorkspaceItemViewProps {
   items: Item[];
   onUpdateItem: (itemId: string, updates: Partial<Item>) => void;
   onUpdateItemData: (itemId: string, updater: (prev: ItemData) => ItemData) => void;
@@ -11,21 +13,23 @@ interface ModalManagerProps {
 }
 
 /**
- * Renders the full-screen item overlay when an item is open in the left pane.
+ * Full-screen viewer when exactly one workspace item is open (`openMode === "single"`).
+ * When `openMode === "split"`, use a dedicated split layout instead — not this component.
  */
-export function ModalManager({
+export function OpenWorkspaceItemView({
   items,
   onUpdateItem,
   onUpdateItemData,
   onFlushPendingChanges,
-}: ModalManagerProps) {
-  const leftPaneItemId = useUIStore((state) => state.itemPanes.left);
-  const workspaceLayout = useUIStore((state) => state.workspaceLayout);
+}: OpenWorkspaceItemViewProps) {
+  const openItems = useUIStore((state) => state.openItems);
+  const openMode = useUIStore(selectWorkspaceOpenMode);
   const closeWorkspaceItem = useUIStore((state) => state.closeWorkspaceItem);
 
+  const primaryId = openItems.primary;
   const currentItem =
-    leftPaneItemId && workspaceLayout === "single"
-      ? items.find((i) => i.id === leftPaneItemId)
+    primaryId && openMode === "single"
+      ? items.find((i) => i.id === primaryId)
       : undefined;
 
   const handleClose = (itemId: string) => {

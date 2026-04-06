@@ -150,28 +150,6 @@ export type ItemData =
   | WebsiteData
   | DocumentData;
 
-// =====================================================
-// FOLDER TYPES (DEPRECATED)
-// =====================================================
-
-/**
- * @deprecated Folders are now represented as Item with type: 'folder'.
- * This interface is kept for backward compatibility with old event data.
- * Use Item with type: 'folder' instead.
- */
-export interface Folder {
-  id: string;
-  name: string;
-  color?: CardColor; // Optional folder color
-  createdAt: number; // Timestamp
-  layout?: {
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-  };
-}
-
 /** Layout position for a single breakpoint */
 export interface LayoutPosition {
   x: number;
@@ -195,8 +173,7 @@ export interface Item {
   folderId?: string; // Single folder assignment (flat structure)
   /**
    * Layout position for the workspace grid.
-   * For backwards compatibility, this can also be a flat LayoutPosition object
-   * (old format), which will be treated as the 'lg' layout.
+   * May be responsive (`ResponsiveLayouts`) or a flat `LayoutPosition` (treated as `lg`).
    */
   layout?: ResponsiveLayouts | LayoutPosition;
   /** Timestamp (ms) when item was last modified. Set by event reducer. Used for AI conflict detection. */
@@ -208,8 +185,6 @@ export interface AgentState {
   globalTitle: string;
   lastAction?: string;
   workspaceId?: string; // Supabase workspace ID for persistence
-  /** @deprecated Folders are now items with type: 'folder'. This field is kept for backward compatibility but is not used. */
-  folders?: Folder[];
 }
 
 // =====================================================
@@ -220,29 +195,11 @@ export type WorkspaceTemplate = "blank" | "getting_started";
 
 export type PermissionLevel = "viewer" | "editor" | "admin";
 
-// Re-export Drizzle types for backward compatibility
 export type {
   Workspace,
   WorkspaceWithState,
   UserProfile,
 } from "@/lib/db/types";
-
-// Legacy interface for backward compatibility (DEPRECATED - use Drizzle types instead)
-/** @deprecated Use Workspace from @/lib/db/types instead */
-export interface LegacyWorkspace {
-  id: string;
-  userId: string; // Better Auth user ID (camelCase)
-  name: string;
-  slug: string; // URL-friendly slug (e.g., "my-awesome-project")
-  description: string;
-  template: WorkspaceTemplate;
-  isPublic: boolean; // camelCase
-  icon?: string | null; // Hero Icon component name (e.g., "FolderIcon")
-  color?: CardColor | null; // Hex color value from CardColor type (e.g., "#3B82F6")
-  sortOrder?: number; // Custom sort order for user workspaces (camelCase)
-  createdAt: string; // camelCase
-  updatedAt: string; // camelCase
-}
 
 export interface TemplateDefinition {
   name: string;

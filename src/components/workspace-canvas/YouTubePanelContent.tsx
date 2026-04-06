@@ -18,13 +18,11 @@ const PROGRESS_SAVE_INTERVAL_MS = 10000; // Save every 10s while playing
 interface YouTubePanelContentProps {
   item: Item;
   onUpdateItemData: (updater: (prev: ItemData) => ItemData) => void;
-  isMaximized?: boolean;
 }
 
 export function YouTubePanelContent({
   item,
   onUpdateItemData: _onUpdateItemData,
-  isMaximized = false,
 }: YouTubePanelContentProps) {
   const youtubeData = item.data as YouTubeData;
   const videoId = extractYouTubeVideoId(youtubeData.url);

@@ -103,7 +103,7 @@ const CitationRenderer = memo(
     const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
     const { state: workspaceState } = useWorkspaceState(workspaceId);
     const navigateToItem = useNavigateToItem();
-    const openItemInLeft = useUIStore((s) => s.openItemInLeft);
+    const openWorkspaceItem = useUIStore((s) => s.openWorkspaceItem);
     // Normalize for matching: trim, lowercase, strip .pdf (model may include it; items often don't)
     const titleNorm = (s: string) => s.trim().toLowerCase().replace(/\.pdf$/i, "");
     const setCitationHighlightQuery = useUIStore((s) => s.setCitationHighlightQuery);
@@ -131,7 +131,7 @@ const CitationRenderer = memo(
         });
       }
       navigateToItem(item.id, { silent: true });
-      openItemInLeft(item.id);
+      openWorkspaceItem(item.id);
     };
 
     // For path-like refs (e.g. pdfs/Syllabus.pdf), show basename in badge

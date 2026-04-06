@@ -70,8 +70,7 @@ export function CardDetailModal({
         <ItemPanelContent
           item={item}
           onClose={onClose}
-          onMaximize={() => useUIStore.getState().openItemInLeft(null)}
-          isMaximized={true}
+          onMaximize={() => useUIStore.getState().openWorkspaceItem(null)}
           onUpdateItem={onUpdateItem}
           onUpdateItemData={onUpdateItemData}
         />

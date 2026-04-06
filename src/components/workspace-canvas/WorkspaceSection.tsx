@@ -92,7 +92,7 @@ interface WorkspaceSectionProps {
   isChatExpanded?: boolean;
   setIsChatExpanded?: (expanded: boolean) => void;
   // Modal state
-  openItemInLeft: (itemId: string | null) => void;
+  openWorkspaceItem: (itemId: string | null) => void;
 
   // Refs
   titleInputRef: RefObject<HTMLInputElement>;
@@ -102,7 +102,8 @@ interface WorkspaceSectionProps {
   workspaceTitle?: string;
   workspaceIcon?: string | null;
   workspaceColor?: string | null;
-  modalManager?: React.ReactNode;
+  /** Full-screen open-item viewer (PDF / card shells), mounted above the grid scroll area */
+  openItemView?: React.ReactNode;
 }
 
 /**
@@ -123,14 +124,14 @@ export function WorkspaceSection({
   isDesktop,
   isChatExpanded,
   setIsChatExpanded,
-  openItemInLeft,
+  openWorkspaceItem,
   titleInputRef,
   scrollAreaRef,
   workspaceTitle,
   workspaceIcon,
   workspaceColor,
   operations,
-  modalManager,
+  openItemView,
 }: WorkspaceSectionProps) {
   // Card selection state from UI store
   // Use array selector with shallow comparison to prevent unnecessary re-renders and SSR issues
@@ -464,7 +465,7 @@ export function WorkspaceSection({
       {/* WorkspaceHeader is now rendered in DashboardLayout above the sidebar */}
 
       {/* Modal Manager - Renders over content */}
-      {modalManager}
+      {openItemView}
 
       <ContextMenu>
         <ContextMenuTrigger asChild>
@@ -498,7 +499,7 @@ export function WorkspaceSection({
                   updateItem={updateItem}
                   deleteItem={deleteItem}
                   updateAllItems={updateAllItems}
-                  openItemInLeft={openItemInLeft}
+                  openWorkspaceItem={openWorkspaceItem}
                   scrollContainerRef={scrollAreaRef}
                   onGridDragStateChange={setIsGridDragging}
                   workspaceName={workspaceTitle || "Workspace"}

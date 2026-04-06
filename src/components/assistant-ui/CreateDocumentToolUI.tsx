@@ -55,7 +55,7 @@ const CreateDocumentReceipt = ({
   const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
   const { state: workspaceState } = useWorkspaceState(workspaceId);
   const navigateToItem = useNavigateToItem();
-  const openItemInLeft = useUIStore((state) => state.openItemInLeft);
+  const openWorkspaceItem = useUIStore((state) => state.openWorkspaceItem);
   const [showMoveDialog, setShowMoveDialog] = useState(false);
 
   const currentItem = useMemo(() => {
@@ -76,7 +76,7 @@ const CreateDocumentReceipt = ({
   const handleViewCard = () => {
     if (!result.itemId) return;
     if (navigateToItem(result.itemId)) {
-      openItemInLeft(result.itemId);
+      openWorkspaceItem(result.itemId);
     }
   };
 
