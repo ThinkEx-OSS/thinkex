@@ -8,7 +8,6 @@ import { isOfficeDocument } from "@/lib/uploads/office-document-validation";
 import { isPasswordProtectedPdf } from "@/lib/uploads/pdf-validation";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 import { useAttachmentUploadStore } from "@/lib/stores/attachment-upload-store";
-import { COMPOSER_ATTACHMENT_ACCEPT } from "@/lib/attachments/composer-attachment-accept";
 
 const getUploadStore = () => useAttachmentUploadStore.getState();
 
@@ -22,7 +21,8 @@ const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB to match server limit
  * types their message. By the time send() is called, the upload is often already done.
  */
 export class SupabaseAttachmentAdapter implements AttachmentAdapter {
-  accept = COMPOSER_ATTACHMENT_ACCEPT;
+  accept =
+    "image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.json";
 
   // Map of attachment ID → upload promise (started eagerly in add())
   private pendingUploads = new Map<

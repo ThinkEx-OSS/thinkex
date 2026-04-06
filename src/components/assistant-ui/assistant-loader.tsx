@@ -7,12 +7,12 @@ import { useTheme } from "next-themes";
 export const AssistantLoader = () => {
     const { resolvedTheme } = useTheme();
     const isRunning = useAuiState(
-        ({ message }) => message.status?.type === "running",
+        ({ message }) => (message as { status?: { type: string } })?.status?.type === "running"
     );
 
     const isMessageEmpty = useAuiState(({ message }) => {
-        const c = message.content;
-        return c.length === 0;
+        const msg = message as any;
+        return !msg?.content || (Array.isArray(msg.content) && msg.content.length === 0);
     });
 
     if (!isRunning || !isMessageEmpty) return null;

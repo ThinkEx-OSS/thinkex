@@ -139,8 +139,12 @@ export default function AssistantTextSelectionManager({
   // This component is always rendered within AssistantRuntimeProvider, so the hook is safe to use
   // Use threadListItem.id if available, otherwise fall back to mainThreadId
   // Using safe hooks to handle race condition during thread switching (GitHub issue #2722)
-  const threadListItemId = useAuiState((s) => s.threadListItem.id);
-  const mainThreadId = useAuiState((s) => s.threads.mainThreadId);
+  const threadListItemId = useAuiState(
+    ({ threadListItem }) => (threadListItem as any)?.id,
+  );
+  const mainThreadId = useAuiState(
+    ({ threads }) => (threads as any)?.mainThreadId,
+  );
   const currentThreadId = threadListItemId || mainThreadId;
 
   // Remove marker element from DOM

@@ -1,14 +1,16 @@
 "use client";
 
 import { DevToolsModal } from "@assistant-ui/react-devtools";
-import { Thread } from "./ThreadRoot";
+import { Thread } from "./thread";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceContextProvider } from "@/hooks/ai/use-workspace-context-provider";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import AppChatHeader from "@/components/chat/AppChatHeader";
 import { cn } from "@/lib/utils";
 import AssistantTextSelectionManager from "@/components/assistant-ui/AssistantTextSelectionManager";
-import { useEffect } from "react";
+import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
+import { useMemo, useEffect, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 
 interface AssistantPanelProps {
   workspaceId?: string | null;
@@ -120,6 +122,14 @@ function WorkspaceContextWrapperContent({
 
   // Extract workspace items for context display
   const items = state?.items || [];
+
+  const { selectedCardIds } = useSelectedCardIds();
+
+  // Filter items to get only selected cards
+  const selectedItems = useMemo(
+    () => items.filter((item) => selectedCardIds.has(item.id)),
+    [items, selectedCardIds]
+  );
 
   // Workspace name from DB (fallback when state.globalTitle is empty, e.g. after rename in Settings)
   const { currentWorkspace } = useWorkspaceContext();

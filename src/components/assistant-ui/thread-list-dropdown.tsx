@@ -1,22 +1,15 @@
 "use client";
 
+import type { FC } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
-  type FC,
-  type ReactNode,
-  useState,
-  useRef,
-  useEffect,
-  type KeyboardEvent,
-  type MouseEvent,
-} from "react";
-import {
+  AuiIf,
   ThreadListItemPrimitive,
   ThreadListPrimitive,
-  useAuiState,
-  useThreadListItemRuntime,
-  type ThreadListItemRuntime,
+  useAui,
 } from "@assistant-ui/react";
 import { Trash2Icon, PencilIcon } from "lucide-react";
+import { useThreadListItem } from "@assistant-ui/react";
 import { PiNotePencilBold } from "react-icons/pi";
 import { toast } from "sonner";
 
@@ -43,18 +36,11 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 
-const THREAD_LIST_SKELETON_KEYS = [
-  "thread-list-skeleton-1",
-  "thread-list-skeleton-2",
-  "thread-list-skeleton-3",
-  "thread-list-skeleton-4",
-  "thread-list-skeleton-5",
-] as const;
-
 interface ThreadListDropdownProps {
-  trigger: ReactNode;
+  trigger: React.ReactNode;
 }
 
 export const ThreadListDropdown: FC<ThreadListDropdownProps> = ({ trigger }) => {
@@ -72,7 +58,14 @@ export const ThreadListDropdown: FC<ThreadListDropdownProps> = ({ trigger }) => 
         <ThreadListPrimitive.Root className="aui-root aui-thread-list-root flex flex-col items-stretch">
           <ThreadListNew onSelect={() => setOpen(false)} />
           <DropdownMenuSeparator className="bg-sidebar-border m-0" />
-          <ThreadListScrollArea onSelectThread={() => setOpen(false)} />
+          <div className="flex-1 overflow-y-auto max-h-[400px] p-1">
+            <AuiIf condition={({ threads }) => threads.isLoading}>
+              <ThreadListSkeleton />
+            </AuiIf>
+            <AuiIf condition={({ threads }) => !threads.isLoading}>
+              <ThreadListPrimitive.Items components={{ ThreadListItem: () => <ThreadListItem onSelect={() => setOpen(false)} /> }} />
+            </AuiIf>
+          </div>
         </ThreadListPrimitive.Root>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -97,9 +90,9 @@ const ThreadListNew: FC<{ onSelect?: () => void }> = ({ onSelect }) => {
 const ThreadListSkeleton: FC = () => {
   return (
     <div className="flex flex-col gap-1">
-      {THREAD_LIST_SKELETON_KEYS.map((key) => (
+      {Array.from({ length: 5 }, (_, i) => (
         <div
-          key={key}
+          key={i}
           role="status"
           aria-label="Loading threads"
           className="aui-thread-list-skeleton-wrapper flex items-center gap-2 rounded-md px-3 py-2"
@@ -111,64 +104,32 @@ const ThreadListSkeleton: FC = () => {
   );
 };
 
-const ThreadListScrollArea: FC<{ onSelectThread: () => void }> = ({
-  onSelectThread,
-}) => {
-  const isLoading = useAuiState((s) => s.threads.isLoading);
-
-  return (
-    <div className="flex-1 overflow-y-auto max-h-[400px] p-1">
-      {isLoading ? (
-        <ThreadListSkeleton />
-      ) : (
-        <ThreadListPrimitive.Items>
-          {({ threadListItem }) => (
-            <ThreadListItem
-              key={threadListItem.id}
-              onSelect={onSelectThread}
-            />
-          )}
-        </ThreadListPrimitive.Items>
-      )}
-    </div>
-  );
-};
-
 const ThreadListItem: FC<{ onSelect?: () => void }> = ({ onSelect }) => {
-  const threadListItemRuntime = useThreadListItemRuntime({ optional: true });
-  const threadListItem = useAuiState((s) => s.threadListItem);
-  const title = threadListItem?.title || "New Chat";
-  const isReady = Boolean(threadListItem?.remoteId);
-
   return (
     <ThreadListItemPrimitive.Root className="aui-thread-list-item group flex items-center gap-2 rounded-lg transition-all hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none data-active:bg-muted">
-      <ThreadListItemContent
-        onSelect={onSelect}
-        runtime={threadListItemRuntime}
-        title={title}
-        isReady={isReady}
-      />
-      <ThreadListItemDelete runtime={threadListItemRuntime} />
+      <ThreadListItemContent onSelect={onSelect} />
     </ThreadListItemPrimitive.Root>
   );
 };
 
-const ThreadListItemContent: FC<{
-  onSelect?: () => void;
-  runtime: ThreadListItemRuntime | null;
-  title: string;
-  isReady: boolean;
-}> = ({ onSelect, runtime: threadListItemRuntime, title, isReady }) => {
-
-  /** Returns true if rename should abort (toast shown when not ready). */
-  const blockIfNotReady = () => {
-    if (isReady) return false;
-    toast.error("Thread is not yet initialized");
-    return true;
-  };
+const ThreadListItemContent: FC<{ onSelect?: () => void }> = ({ onSelect }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const aui = useAui();
+
+  // Get the current title and thread state - this is now inside the Root context
+  // Using safe hook to handle race condition during thread switching (GitHub issue #2722)
+  const threadListItem = useThreadListItem();
+  const title = threadListItem?.title || "New Chat";
+  const isThreadInitialized = !!threadListItem?.remoteId;
+
+  // Update edit value when title changes (but not while editing)
+  useEffect(() => {
+    if (!isEditing) {
+      setEditValue(title);
+    }
+  }, [title, isEditing]);
 
   // Focus input when entering edit mode
   useEffect(() => {
@@ -179,7 +140,11 @@ const ThreadListItemContent: FC<{
   }, [isEditing]);
 
   const handleStartEdit = () => {
-    if (blockIfNotReady()) return;
+    // Check if thread is initialized before allowing edit
+    if (!isThreadInitialized) {
+      toast.error("Thread is not yet initialized");
+      return;
+    }
     setIsEditing(true);
     setEditValue(title);
   };
@@ -187,34 +152,37 @@ const ThreadListItemContent: FC<{
   const handleSave = async () => {
     const trimmedValue = editValue.trim();
 
-    if (blockIfNotReady()) {
-      setIsEditing(false);
-      return;
-    }
-
-    if (!threadListItemRuntime) {
-      toast.error("Unable to access thread");
+    // Check if thread is initialized before trying to rename
+    if (!isThreadInitialized) {
+      toast.error("Thread is not yet initialized");
+      setEditValue(title);
       setIsEditing(false);
       return;
     }
 
     if (trimmedValue && trimmedValue !== title) {
       try {
-        await threadListItemRuntime.rename(trimmedValue);
+        await aui?.threadListItem().rename(trimmedValue);
         toast.success("Title updated");
       } catch (error) {
         console.error("Failed to rename thread:", error);
         toast.error("Failed to update title");
+        // Revert to original title on error
+        setEditValue(title);
       }
+    } else if (!trimmedValue) {
+      // If empty, revert to original title
+      setEditValue(title);
     }
     setIsEditing(false);
   };
 
   const handleCancel = () => {
+    setEditValue(title);
     setIsEditing(false);
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
       handleSave();
@@ -225,89 +193,108 @@ const ThreadListItemContent: FC<{
   };
 
   return (
-    <div className="flex-grow flex items-center gap-2 px-3 py-2">
-      {isEditing ? (
-        <input
-          ref={inputRef}
-          type="text"
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onBlur={handleSave}
-          onKeyDown={handleKeyDown}
-          className="aui-thread-list-item-title-edit text-sm w-full bg-background border border-border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring"
-          onClick={(e) => e.stopPropagation()}
-        />
-      ) : (
-        <>
-          <ThreadListItemPrimitive.Trigger
-            className="aui-thread-list-item-trigger flex-1 text-start cursor-pointer min-w-0"
-            onClick={onSelect}
-          >
-            <span className="aui-thread-list-item-title text-sm break-words block min-w-0 flex-1">
-              <ThreadListItemPrimitive.Title fallback="New Chat" />
-            </span>
-          </ThreadListItemPrimitive.Trigger>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className="edit-icon-button opacity-0 group-hover:opacity-100 transition-opacity p-0 hover:bg-muted rounded flex-shrink-0 cursor-pointer z-10 size-4"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  handleStartEdit();
-                }}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                }}
-                aria-label="Edit name"
-              >
-                <PencilIcon className="h-4 w-4 text-foreground" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>Edit name</TooltipContent>
-          </Tooltip>
-        </>
-      )}
+    <>
+      <div className="flex-grow flex items-center gap-2 px-3 py-2">
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSave}
+            onKeyDown={handleKeyDown}
+            className="aui-thread-list-item-title-edit text-sm w-full bg-background border border-border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring"
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <>
+            <ThreadListItemPrimitive.Trigger
+              className="aui-thread-list-item-trigger flex-1 text-start cursor-pointer min-w-0"
+              onClick={onSelect}
+            >
+              <ThreadListItemTitle onStartEdit={handleStartEdit} />
+            </ThreadListItemPrimitive.Trigger>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="edit-icon-button opacity-0 group-hover:opacity-100 transition-opacity p-0 hover:bg-muted rounded flex-shrink-0 cursor-pointer z-10 size-4"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    handleStartEdit();
+                  }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                  }}
+                  aria-label="Edit name"
+                >
+                  <PencilIcon className="h-4 w-4 text-foreground" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Edit name</TooltipContent>
+            </Tooltip>
+          </>
+        )}
+      </div>
+      <ThreadListItemArchive />
+    </>
+  );
+};
+
+const ThreadListItemTitle: FC<{
+  onStartEdit: () => void;
+}> = ({ onStartEdit }) => {
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    // Stop the trigger from switching threads on double-click
+    e.stopPropagation();
+    onStartEdit();
+  };
+
+  return (
+    <div
+      className="aui-thread-list-item-title-wrapper min-w-0 flex-1"
+      onDoubleClick={handleDoubleClick}
+    >
+      <span className="aui-thread-list-item-title text-sm break-words block">
+        <ThreadListItemPrimitive.Title fallback="New Chat" />
+      </span>
     </div>
   );
 };
 
-const ThreadListItemDelete: FC<{
-  runtime: ThreadListItemRuntime | null;
-}> = ({ runtime: threadListItemRuntime }) => {
+const ThreadListItemArchive: FC = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const archiveButtonRef = useRef<HTMLButtonElement>(null);
 
-  const handleDeleteClick = (e: MouseEvent<HTMLButtonElement>) => {
+  const handleDeleteClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setShowDeleteDialog(true);
   };
 
-  const handleDeleteConfirm = async () => {
-    if (!threadListItemRuntime) {
-      toast.error("Unable to access thread");
-      return;
+  const handleDeleteConfirm = () => {
+    // Trigger the archive action programmatically
+    if (archiveButtonRef.current) {
+      archiveButtonRef.current.click();
     }
-    setIsDeleting(true);
-    try {
-      await threadListItemRuntime.delete();
-      setShowDeleteDialog(false);
-      toast.success("Chat deleted successfully");
-    } catch (error) {
-      console.error("Failed to delete chat:", error);
-      toast.error("Failed to delete chat");
-    } finally {
-      setIsDeleting(false);
-    }
+    setShowDeleteDialog(false);
+    toast.success("Chat deleted successfully");
   };
 
   return (
     <>
+      <ThreadListItemPrimitive.Archive asChild>
+        <button
+          ref={archiveButtonRef}
+          className="hidden"
+          aria-hidden="true"
+          tabIndex={-1}
+        />
+      </ThreadListItemPrimitive.Archive>
       <TooltipIconButton
         onClick={handleDeleteClick}
-        className="aui-thread-list-item-delete mr-3 ml-auto size-4 p-0 text-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+        className="aui-thread-list-item-archive mr-3 ml-auto size-4 p-0 text-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
         variant="ghost"
         tooltip="Delete chat"
         side="top"
@@ -323,13 +310,12 @@ const ThreadListItemDelete: FC<{
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
-              disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? "Deleting..." : "Delete"}
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

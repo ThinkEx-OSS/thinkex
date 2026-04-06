@@ -175,11 +175,11 @@ const MarkdownTextImpl = (props: MarkdownTextProps) => {
   const { text } = useMessagePartText();
 
   // Get thread and message ID for unique key per message
-  const threadId = useAuiState((s) => s.threads.mainThreadId);
-  const messageId = useAuiState((s) => s.message.id);
+  const threadId = useAuiState(({ threads }) => (threads as any)?.mainThreadId);
+  const messageId = useAuiState(({ message }) => (message as any)?.id);
 
   // Check if the message is currently streaming
-  const isRunning = useAuiState((s) => s.thread.isRunning);
+  const isRunning = useAuiState(({ thread }) => (thread as any)?.isRunning ?? false);
 
   const animateConfig =
     streamingVariant === "reasoning"
