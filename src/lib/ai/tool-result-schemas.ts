@@ -5,6 +5,10 @@ import {
   WebSearchResultSchema,
   normalizeWebSearchResult,
 } from "@/lib/ai/web-search-shared";
+import {
+  CodeExecuteResultSchema,
+  normalizeCodeExecuteResult,
+} from "@/lib/ai/code-execute-shared";
 
 /**
  * Shared schemas and parsers for tool results. Used by assistant-ui Tool UIs
@@ -148,4 +152,15 @@ export function parseWebSearchResult(input: unknown): WebSearchResult {
   }
 
   return parseWithSchema(WebSearchResultSchema, input, "WebSearchResult");
+}
+
+export type CodeExecuteResult = z.infer<typeof CodeExecuteResultSchema>;
+
+export function parseCodeExecuteResult(input: unknown): CodeExecuteResult {
+  const normalized = normalizeCodeExecuteResult(input);
+  if (normalized) {
+    return normalized;
+  }
+
+  return parseWithSchema(CodeExecuteResultSchema, input, "CodeExecuteResult");
 }

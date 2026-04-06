@@ -13,6 +13,7 @@ import type {
 } from "@/lib/workspace-state/types";
 import { getVirtualPath } from "./workspace-fs";
 import { getPdfSourceUrl } from "@/lib/pdf/pdf-item";
+import { getCodeExecutionSystemInstructions } from "@/lib/ai/code-execute-environment";
 
 /**
  * Formats item metadata only (no content). Used for workspace context in system prompt.
@@ -127,7 +128,7 @@ Rely only on facts from fetched content. Do not invent or assume information.
 <instructions>
 RESPONSE STYLE (critical):
 When editing workspace items (documents, quizzes, flashcards, etc.), speak to the user in plain language. Do NOT expose internal mechanics.
-- Never mention tool names (item_edit, workspace_read, workspace_search, etc.) or parameters (oldString, newString, etc.) in your chat response.
+- Never mention tool names (item_edit, workspace_read, workspace_search, code_execute, etc.) or parameters (oldString, newString, etc.) in your chat response.
 - Never paste raw JSON, full question lists, or item content into the chat unless the user explicitly asks to see it.
 - Do not describe step-by-step reasoning (e.g. "Step 1: I read the quiz... Step 2: I called item_edit..."). Just state the outcome.
 - Use simple, user-facing language: "I've updated the quiz with harder questions" or "I've added 3 new flashcards" — not "I performed an item_edit operation with the following payload."
@@ -146,6 +147,8 @@ WEB SEARCH GUIDELINES:
 Use web_search when: temporal cues ("today", "latest", "current"), real-time data (scores, stocks, weather), fact verification, niche/recent info.
 Use internal knowledge for: creative writing, coding, general concepts, summarizing provided content.
 If the information is time-sensitive, niche, or uncertain, prefer web_search.
+
+${getCodeExecutionSystemInstructions()}
 
 PDF: Always try workspace_read first for workspace PDFs (pageStart/pageEnd for page ranges). If content is not yet extracted, tell the user it is still being prepared and try again shortly.
 PDF VISUALS: PDF OCR in this workspace gives you textual structure from the PDF, including normal text and inline tables, but not visual understanding of charts, figures, diagrams, or screenshots embedded in the PDF. Do not claim you can see those visuals unless the user has separately attached a screenshot/image of that region. If the user needs help with a chart or figure from a PDF, tell them to open the PDF and use the camera button in the top right of the open pdf panelto add a screenshot of that area to chat.
