@@ -1,3 +1,4 @@
+import { MISTRAL_BBOX_ANNOTATION_FORMAT } from "@/lib/pdf/ocr-figure-inline";
 import { logger } from "@/lib/utils/logger";
 import { callMistralOcr } from "@/lib/pdf/mistral-ocr-client";
 import { getOcrConfig } from "./config";
@@ -11,6 +12,9 @@ function buildDocumentBody(itemType: OcrItemType, fileUrl: string): Record<strin
         : { type: "document_url", document_url: fileUrl },
     extract_header: true,
     extract_footer: true,
+    table_format: null,
+    bbox_annotation_format: MISTRAL_BBOX_ANNOTATION_FORMAT,
+    include_image_base64: false,
   };
 }
 

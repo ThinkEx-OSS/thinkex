@@ -64,6 +64,53 @@ describe("mapBatchResults", () => {
     ]);
   });
 
+  it("merges figure annotations into markdown like the direct OCR path", () => {
+    const candidates: OcrCandidate[] = [
+      { itemId: "doc-1", itemType: "file", fileUrl: "https://example.com/a.pdf" },
+    ];
+
+    const results = mapBatchResults(
+      candidates,
+      [
+        {
+          custom_id: "doc-1",
+          response: {
+            status_code: 200,
+            body: {
+              pages: [
+                {
+                  markdown: "Text\n\n![f](fig-1)\n\nMore",
+                  images: [
+                    {
+                      id: "fig-1",
+                      image_annotation: JSON.stringify({
+                        short_description: "A diagram of the system.",
+                      }),
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+          error: null,
+        },
+      ] as any,
+      [],
+    );
+
+    expect(results[0]).toMatchObject({
+      ok: true,
+      pages: [
+        {
+          index: 0,
+          markdown: expect.stringContaining("A diagram of the system."),
+        },
+      ],
+    });
+    const page = (results[0] as { ok: true; pages: { markdown: string }[] }).pages[0];
+    expect(page.markdown).not.toMatch(/!\[[^\]]*\]\(fig-1\)/);
+  });
+
   it("uses error file entries when present", () => {
     const candidates: OcrCandidate[] = [
       { itemId: "img-2", itemType: "image", fileUrl: "https://example.com/d.png" },

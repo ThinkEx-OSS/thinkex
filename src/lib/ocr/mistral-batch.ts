@@ -1,6 +1,21 @@
+import {
+  mergeFigureAnnotationsIntoMarkdown,
+  MISTRAL_BBOX_ANNOTATION_FORMAT,
+} from "@/lib/pdf/ocr-figure-inline";
 import { logger } from "@/lib/utils/logger";
 import { getOcrConfig } from "./config";
 import type { OcrCandidate, OcrItemFailureResult, OcrItemResult, OcrItemSuccessResult, OcrPage } from "./types";
+
+/** Raw page shape from Mistral batch OCR JSONL (includes `images` before normalization to `OcrPage`). */
+interface RawBatchPage {
+  index?: number;
+  markdown?: string;
+  footer?: string | null;
+  header?: string | null;
+  hyperlinks?: unknown[];
+  tables?: unknown[];
+  images?: Array<{ id?: string; image_annotation?: string | null }>;
+}
 
 const POLL_INTERVAL_MS = 2_000;
 const MAX_POLL_MS = 10 * 60 * 1000;
@@ -26,7 +41,7 @@ interface BatchOutputLine {
   response?: {
     status_code?: number;
     body?: {
-      pages?: OcrPage[];
+      pages?: RawBatchPage[];
     };
   };
   error?: {
@@ -34,11 +49,17 @@ interface BatchOutputLine {
   } | null;
 }
 
-function normalizePages(pages: OcrPage[] | undefined): OcrPage[] {
-  return (pages ?? []).map((page, index) => ({
-    ...page,
-    index,
-  }));
+function normalizePages(pages: RawBatchPage[] | undefined): OcrPage[] {
+  return (pages ?? []).map((page, index) => {
+    const rawMd = page.markdown ?? "";
+    const markdown = mergeFigureAnnotationsIntoMarkdown(rawMd, page.images);
+    const out: OcrPage = { index, markdown };
+    if (page.footer) out.footer = page.footer;
+    if (page.header) out.header = page.header;
+    if (page.hyperlinks?.length) out.hyperlinks = page.hyperlinks;
+    if (page.tables?.length) out.tables = page.tables;
+    return out;
+  });
 }
 
 function buildBatchRequest(candidate: OcrCandidate) {
@@ -51,6 +72,9 @@ function buildBatchRequest(candidate: OcrCandidate) {
           : { document_url: candidate.fileUrl },
       extract_header: true,
       extract_footer: true,
+      table_format: null,
+      bbox_annotation_format: MISTRAL_BBOX_ANNOTATION_FORMAT,
+      include_image_base64: false,
     },
   };
 }

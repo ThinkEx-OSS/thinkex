@@ -1,3 +1,4 @@
+import { mergeFigureAnnotationsIntoMarkdown } from "@/lib/pdf/ocr-figure-inline";
 import { logger } from "@/lib/utils/logger";
 const MAX_ATTEMPTS = 4;
 const RATE_LIMIT_BASE_DELAY_MS = 20_000;
@@ -6,6 +7,11 @@ const TIMEOUT_BASE_DELAY_MS = 8_000;
 const TIMEOUT_MAX_DELAY_MS = 45_000;
 const RETRY_JITTER_MS = 1_500;
 
+interface MistralOcrResponseImage {
+  id?: string;
+  image_annotation?: string | null;
+}
+
 interface MistralOcrResponsePage {
   index?: number;
   markdown?: string;
@@ -13,6 +19,8 @@ interface MistralOcrResponsePage {
   header?: string | null;
   hyperlinks?: unknown[];
   tables?: unknown[];
+  /** Present when bbox annotations are enabled; merged into markdown and not stored on OcrPage. */
+  images?: MistralOcrResponseImage[];
 }
 
 export interface MistralOcrResponse {
@@ -41,9 +49,11 @@ export interface MistralOcrCallResult {
 
 export function mapPages(rawPages: MistralOcrResponsePage[]): MistralOcrPage[] {
   return rawPages.map((page, index) => {
+    const rawMd = page.markdown ?? "";
+    const markdown = mergeFigureAnnotationsIntoMarkdown(rawMd, page.images);
     const mapped: MistralOcrPage = {
       index: page.index ?? index,
-      markdown: page.markdown ?? "",
+      markdown,
     };
     if (page.footer) mapped.footer = page.footer;
     if (page.header) mapped.header = page.header;
