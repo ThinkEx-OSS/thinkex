@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { X, Trash2, FolderInput, CheckCircle2 } from "lucide-react";
+import { X, Trash2, FolderInput } from "lucide-react";
 import { FaFolderPlus } from "react-icons/fa6";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -9,7 +9,6 @@ interface SelectionActionBarProps {
   onDeleteSelected: () => void;
   onCreateFolderFromSelection: () => void;
   onMoveSelected: () => void;
-  isCompactMode?: boolean;
 }
 
 export default function SelectionActionBar({
@@ -18,7 +17,6 @@ export default function SelectionActionBar({
   onDeleteSelected,
   onCreateFolderFromSelection,
   onMoveSelected,
-  isCompactMode = false,
 }: SelectionActionBarProps) {
   return (
     <div
@@ -31,22 +29,12 @@ export default function SelectionActionBar({
         "animate-in slide-in-from-bottom-4"
       )}
     >
-      {/* Selection count */}
       <span className="text-sm font-medium text-foreground/90 whitespace-nowrap dark:text-white/90">
-        {isCompactMode ? (
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-foreground/90 dark:text-white/90" />
-            <span>{selectedCount}</span>
-          </div>
-        ) : (
-          `${selectedCount} ${selectedCount === 1 ? 'item' : 'items'} selected`
-        )}
+        {`${selectedCount} ${selectedCount === 1 ? "item" : "items"} selected`}
       </span>
 
-      {/* Separator */}
       <div className="h-5 w-px bg-foreground/20 dark:bg-white/20" />
 
-      {/* New Folder Button */}
       <Tooltip>
         <TooltipTrigger asChild>
           <button
@@ -62,13 +50,11 @@ export default function SelectionActionBar({
             aria-label="Create folder from selection"
           >
             <FaFolderPlus className="h-4 w-4" />
-            {!isCompactMode && <span>Folder</span>}
+            <span>Folder</span>
           </button>
         </TooltipTrigger>
-        {isCompactMode && <TooltipContent side="top">New Folder</TooltipContent>}
       </Tooltip>
 
-      {/* Move Selected Button */}
       <Tooltip>
         <TooltipTrigger asChild>
           <button
@@ -84,13 +70,11 @@ export default function SelectionActionBar({
             aria-label="Move selected"
           >
             <FolderInput className="h-4 w-4" />
-            {!isCompactMode && <span>Move</span>}
+            <span>Move</span>
           </button>
         </TooltipTrigger>
-        {isCompactMode && <TooltipContent side="top">Move</TooltipContent>}
       </Tooltip>
 
-      {/* Delete Selected Button */}
       <Tooltip>
         <TooltipTrigger asChild>
           <button
@@ -106,16 +90,13 @@ export default function SelectionActionBar({
             aria-label="Delete selected"
           >
             <Trash2 className="h-4 w-4" />
-            {!isCompactMode && <span>Delete</span>}
+            <span>Delete</span>
           </button>
         </TooltipTrigger>
-        {isCompactMode && <TooltipContent side="top">Delete</TooltipContent>}
       </Tooltip>
 
-      {/* Separator before Clear */}
       <div className="h-5 w-px bg-foreground/20 dark:bg-white/20" />
 
-      {/* Clear Selection Button */}
       <Tooltip>
         <TooltipTrigger asChild>
           <button
@@ -137,4 +118,3 @@ export default function SelectionActionBar({
     </div>
   );
 }
-

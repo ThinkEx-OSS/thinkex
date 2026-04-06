@@ -2,11 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type {
-  AgentState,
-  WorkspaceWithState,
-} from "@/lib/workspace-state/types";
-import { initialState } from "@/lib/workspace-state/state";
+import type { WorkspaceWithState } from "@/lib/workspace-state/types";
 import { useKeyboardShortcuts } from "@/hooks/ui/use-keyboard-shortcuts";
 import useMediaQuery from "@/hooks/ui/use-media-query";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
@@ -232,16 +228,14 @@ function DashboardContent({
   // UI State from Zustand stores - using individual selectors to prevent unnecessary re-renders
   // NOTE: Each selector only triggers a re-render when that specific value changes
   const isDesktop = useMediaQuery("(min-width: 768px)");
-  const showJsonView = useUIStore((state) => state.showJsonView);
   const isChatExpanded = useUIStore((state) => state.isChatExpanded);
   const isChatMaximized = useUIStore((state) => state.isChatMaximized);
   const showCreateWorkspaceModal = useUIStore(
     (state) => state.showCreateWorkspaceModal,
   );
-  const setShowJsonView = useUIStore((state) => state.setShowJsonView);
   const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
   const setIsChatMaximized = useUIStore((state) => state.setIsChatMaximized);
-  const setOpenModalItemId = useUIStore((state) => state.setOpenModalItemId);
+  const openItemInLeft = useUIStore((state) => state.openItemInLeft);
   const setShowCreateWorkspaceModal = useUIStore(
     (state) => state.setShowCreateWorkspaceModal,
   );
@@ -260,14 +254,12 @@ function DashboardContent({
   const toggleChatExpanded = useUIStore((state) => state.toggleChatExpanded);
   const toggleChatMaximized = useUIStore((state) => state.toggleChatMaximized);
 
-  // Panel state - using new array-based system
-  const openPanelIds = useUIStore((state) => state.openPanelIds);
-  const closePanel = useUIStore((state) => state.closePanel);
+  const leftPaneItemId = useUIStore((state) => state.itemPanes.left);
+  const workspaceLayout = useUIStore((state) => state.workspaceLayout);
+  const closeWorkspaceItem = useUIStore((state) => state.closeWorkspaceItem);
   const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
   const navigateToRoot = useUIStore((state) => state.navigateToRoot);
   const navigateToFolder = useUIStore((state) => state.navigateToFolder);
-  const maximizedItemId = useUIStore((state) => state.maximizedItemId);
-  const setMaximizedItemId = useUIStore((state) => state.setMaximizedItemId);
 
   // Refs and custom hooks
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
@@ -286,26 +278,6 @@ function DashboardContent({
       }
     },
   });
-
-  // Reset JSON view when there are no items
-  useEffect(() => {
-    const itemsCount = state?.items?.length || 0;
-    if (itemsCount === 0 && showJsonView) {
-      setShowJsonView(false);
-    }
-  }, [state?.items, showJsonView, setShowJsonView]);
-
-  const getStatePreviewJSON = useCallback(
-    (s: AgentState | undefined): Record<string, unknown> => {
-      const snapshot = (s ?? initialState) as AgentState;
-      const { globalTitle, items } = snapshot;
-      return {
-        globalTitle: globalTitle ?? initialState.globalTitle,
-        items: items ?? initialState.items,
-      };
-    },
-    [],
-  );
 
   // CopilotKit actions removed - now using Assistant-UI directly
 
@@ -406,8 +378,6 @@ function DashboardContent({
       />
       <DashboardLayout
         currentWorkspaceId={currentWorkspaceId}
-        showJsonView={showJsonView}
-        setShowJsonView={setShowJsonView}
         onWorkspaceSwitch={switchWorkspace}
         showCreateModal={showCreateWorkspaceModal}
         setShowCreateModal={setShowCreateWorkspaceModal}
@@ -420,7 +390,6 @@ function DashboardContent({
         onSingleSelect={handleCreateInstantNote}
         onMultiSelect={handleCreateCardFromSelections}
         workspaceHeader={
-          !showJsonView &&
           !isChatMaximized &&
           currentWorkspaceId &&
           !isLoadingWorkspace ? (
@@ -437,7 +406,6 @@ function DashboardContent({
               addItem={operations.createItem}
               onPDFUpload={handleWorkspacePdfUpload}
               onItemCreated={handleCreatedItems}
-              setOpenModalItemId={setOpenModalItemId}
               items={state.items || []}
               onRenameFolder={(folderId, newName) => {
                 operations.updateItem(folderId, { name: newName });
@@ -445,44 +413,32 @@ function DashboardContent({
               onOpenSettings={() => setShowWorkspaceSettings(true)}
               onOpenShare={() => setShowWorkspaceShare(true)}
               onShowHistory={handleShowHistory}
-              isItemPanelOpen={Boolean(maximizedItemId)}
-              activeItems={(() => {
-                if (maximizedItemId) {
-                  const item = state.items?.find(
-                    (i) => i.id === maximizedItemId,
-                  );
-                  return item ? [item] : [];
+              openWorkspaceItem={(() => {
+                if (!leftPaneItemId || workspaceLayout !== "single") {
+                  return null;
                 }
-                return [];
+                return state.items?.find((i) => i.id === leftPaneItemId) ?? null;
               })()}
-              activeItemMode={maximizedItemId ? "maximized" : null}
               onCloseActiveItem={(id) => {
                 operations.flushPendingChanges(id);
-                closePanel(id);
-                if (maximizedItemId === id) setMaximizedItemId(null);
+                closeWorkspaceItem(id);
               }}
               onNavigateToRoot={() => {
-                openPanelIds.forEach((id) =>
-                  operations.flushPendingChanges(id),
-                );
-                if (maximizedItemId) {
+                if (leftPaneItemId) {
+                  operations.flushPendingChanges(leftPaneItemId);
                   navigateToRoot();
                 } else {
                   setActiveFolderId(null);
                 }
               }}
               onNavigateToFolder={(folderId) => {
-                openPanelIds.forEach((id) =>
-                  operations.flushPendingChanges(id),
-                );
-                if (maximizedItemId) {
+                if (leftPaneItemId) {
+                  operations.flushPendingChanges(leftPaneItemId);
                   navigateToFolder(folderId);
                 } else {
                   setActiveFolderId(folderId);
                 }
               }}
-              onMinimizeActiveItem={() => setMaximizedItemId(null)}
-              onMaximizeActiveItem={(id) => setMaximizedItemId(id)}
               onUpdateActiveItem={operations.updateItem}
               getDocumentMarkdownForExport={
                 operations.getDocumentMarkdownForExport
@@ -498,18 +454,15 @@ function DashboardContent({
             currentWorkspaceId={currentWorkspaceId}
             currentSlug={currentSlug}
             state={state}
-            showJsonView={showJsonView}
             addItem={operations.createItem}
             updateItem={operations.updateItem}
             deleteItem={operations.deleteItem}
             updateAllItems={operations.updateAllItems}
-            getStatePreviewJSON={getStatePreviewJSON}
             isChatMaximized={isChatMaximized}
             isDesktop={isDesktop}
             isChatExpanded={isChatExpanded}
             setIsChatExpanded={setIsChatExpanded}
-            isItemPanelOpen={Boolean(maximizedItemId)}
-            setOpenModalItemId={setOpenModalItemId}
+            openItemInLeft={openItemInLeft}
             titleInputRef={titleInputRef as React.RefObject<HTMLInputElement>}
             operations={operations}
             scrollAreaRef={scrollAreaRef as React.RefObject<HTMLDivElement>}

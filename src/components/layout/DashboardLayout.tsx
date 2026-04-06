@@ -11,8 +11,6 @@ import React, { useCallback } from "react";
 interface DashboardLayoutProps {
   // Workspace sidebar
   currentWorkspaceId: string | null;
-  showJsonView: boolean;
-  setShowJsonView: (show: boolean) => void;
   onWorkspaceSwitch: (slug: string) => void;
   showCreateModal: boolean;
   setShowCreateModal: (show: boolean) => void;
@@ -40,8 +38,6 @@ interface DashboardLayoutProps {
  */
 export function DashboardLayout({
   currentWorkspaceId,
-  showJsonView,
-  setShowJsonView,
   onWorkspaceSwitch,
   showCreateModal,
   setShowCreateModal,
@@ -119,8 +115,6 @@ export function DashboardLayout({
                   embedded
                 >
                   <WorkspaceSidebar
-                    showJsonView={showJsonView}
-                    setShowJsonView={setShowJsonView}
                     onWorkspaceSwitch={onWorkspaceSwitch}
                     showCreateModal={showCreateModal}
                     setShowCreateModal={setShowCreateModal}

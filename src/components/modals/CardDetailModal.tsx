@@ -14,7 +14,6 @@ interface CardDetailModalProps {
   onUpdateItemData: (updater: (prev: ItemData) => ItemData) => void;
 
   onFlushPendingChanges?: (itemId: string) => void;
-  renderInline?: boolean; // Render as inline content instead of modal overlay
 }
 
 export function CardDetailModal({
@@ -25,7 +24,6 @@ export function CardDetailModal({
   onUpdateItemData,
 
   onFlushPendingChanges,
-  renderInline = false,
 }: CardDetailModalProps) {
   // Handle escape key
   const handleEscape = useCallback(
@@ -48,23 +46,6 @@ export function CardDetailModal({
 
   if (!isOpen) return null;
 
-  // Render inline (for workspace split view)
-  if (renderInline) {
-    return (
-      <div className="h-full w-full flex flex-col overflow-hidden bg-background">
-        <ItemPanelContent
-          item={item}
-          onClose={onClose}
-          onMaximize={() => useUIStore.getState().setMaximizedItemId(null)}
-          isMaximized={true}
-          onUpdateItem={onUpdateItem}
-          onUpdateItemData={onUpdateItemData}
-        />
-      </div>
-    );
-  }
-
-  // Render as modal overlay (default)
   return (
     <div
       className="absolute inset-0 z-30 flex items-center justify-center overflow-hidden card-detail-modal bg-background"
@@ -89,7 +70,7 @@ export function CardDetailModal({
         <ItemPanelContent
           item={item}
           onClose={onClose}
-          onMaximize={() => useUIStore.getState().setMaximizedItemId(null)}
+          onMaximize={() => useUIStore.getState().openItemInLeft(null)}
           isMaximized={true}
           onUpdateItem={onUpdateItem}
           onUpdateItemData={onUpdateItemData}

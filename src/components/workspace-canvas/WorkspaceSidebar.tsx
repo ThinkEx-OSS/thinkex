@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { LogOut, Layers, User } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 import { useState, useCallback, memo } from "react";
 import { useSession, signOut } from "@/lib/auth-client";
 import { useRouter, usePathname } from "next/navigation";
@@ -43,8 +43,6 @@ import { ThinkExLogo } from "@/components/ui/thinkex-logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface WorkspaceSidebarProps {
-  showJsonView: boolean;
-  setShowJsonView: (show: boolean) => void;
   onWorkspaceSwitch?: (workspaceId: string) => void;
   showCreateModal?: boolean;
   setShowCreateModal?: (show: boolean) => void;
@@ -55,8 +53,6 @@ interface WorkspaceSidebarProps {
 
 function WorkspaceSidebar(props: WorkspaceSidebarProps) {
   const {
-    showJsonView,
-    setShowJsonView,
     onWorkspaceSwitch,
     showCreateModal: externalShowCreateModal,
     setShowCreateModal: externalSetShowCreateModal,
@@ -80,8 +76,7 @@ function WorkspaceSidebar(props: WorkspaceSidebarProps) {
   const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
   const navigateToRoot = useUIStore((state) => state.navigateToRoot);
   const activeFolderId = useUIStore((state) => state.activeFolderId);
-  const openPanelIds = useUIStore((state) => state.openPanelIds);
-  const maximizedItemId = useUIStore((state) => state.maximizedItemId);
+  const leftPaneItemId = useUIStore((state) => state.itemPanes.left);
 
   // Get Joyride context for tour functionality
   // const { startTour } = useJoyride();
@@ -135,13 +130,6 @@ function WorkspaceSidebar(props: WorkspaceSidebarProps) {
   const handleShowCreateModal = useCallback(() => {
     setShowCreateModal(true);
   }, [setShowCreateModal]);
-  const handleShowJsonViewToggle = useCallback(() => {
-    setShowJsonView(!showJsonView);
-  }, [setShowJsonView, showJsonView]);
-
-  // Onboarding status for dev toggle
-  // const { profile, refetchProfile } = useOnboardingStatus();
-  const isDev = process.env.NODE_ENV === "development";
 
   // const handleToggleOnboarding = useCallback(async () => {
   //   if (!isDev) return;
@@ -217,7 +205,7 @@ function WorkspaceSidebar(props: WorkspaceSidebarProps) {
                                   workspace={currentWorkspace}
                                   isActive={false} // Don't highlight as "selected" context
                                   onWorkspaceClick={() => {
-                                    if (maximizedItemId) {
+                                    if (leftPaneItemId) {
                                       navigateToRoot();
                                     } else {
                                       setActiveFolderId(null);
@@ -225,7 +213,7 @@ function WorkspaceSidebar(props: WorkspaceSidebarProps) {
                                   }}
                                   onSettingsClick={handleSettingsClick}
                                   onShareClick={handleShareClick}
-                                  disableNavigation={activeFolderId === null && openPanelIds.length === 0}
+                                  disableNavigation={activeFolderId === null && !leftPaneItemId}
                                 />
                               </div>
                             </SidebarMenuSub>
@@ -330,15 +318,6 @@ function WorkspaceSidebar(props: WorkspaceSidebarProps) {
                       align="end"
                       sideOffset={4}
                     >
-                      {isDev && (
-                        <DropdownMenuItem
-                          onClick={handleShowJsonViewToggle}
-                          className="cursor-pointer"
-                        >
-                          <Layers className="mr-2 h-4 w-4" />
-                          <span>{showJsonView ? "Card View" : "JSON View"}</span>
-                        </DropdownMenuItem>
-                      )}
                       {/* {isDev && (
                         <DropdownMenuItem
                           onClick={handleToggleOnboarding}
@@ -414,11 +393,8 @@ function WorkspaceSidebar(props: WorkspaceSidebarProps) {
 
 // Memoize component with custom comparison to prevent unnecessary re-renders
 export default memo(WorkspaceSidebar, (prevProps, nextProps) => {
-  // Only re-render if these specific values change
   return (
-    prevProps.showJsonView === nextProps.showJsonView &&
     prevProps.onWorkspaceSwitch === nextProps.onWorkspaceSwitch &&
-    prevProps.setShowJsonView === nextProps.setShowJsonView &&
     prevProps.showCreateModal === nextProps.showCreateModal &&
     prevProps.setShowCreateModal === nextProps.setShowCreateModal &&
     prevProps.isChatExpanded === nextProps.isChatExpanded

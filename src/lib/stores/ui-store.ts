@@ -7,7 +7,24 @@ import { WORKSPACE_PANEL_SIZES } from '@/lib/layout-constants';
  * This replaces scattered useState hooks in dashboard
  */
 
-export type ViewMode = 'workspace' | 'focus';
+/** Folder grid vs one open item vs (future) split columns */
+export type WorkspaceLayout = 'grid' | 'single';
+
+/** Spatial pane columns — not primary/secondary */
+export type WorkspacePaneSide = 'left' | 'right';
+
+export interface ItemPanes {
+  left: string | null;
+  right: string | null;
+}
+
+/*
+ * Future split (same field names):
+ * - workspaceLayout: add 'split'
+ * - itemPanes.right may be set alongside .left
+ * - setActivePane('left' | 'right') for focus / a11y
+ * - Optional URL: items=leftId,rightId with documented column order
+ */
 
 interface UIState {
   // Chat state
@@ -18,17 +35,17 @@ interface UIState {
   // Layout state
   workspacePanelSize: number; // percentage (0-100)
 
-  // View mode & Panel state
-  viewMode: ViewMode; // Current layout mode
-  openPanelIds: string[]; // Array containing the currently focused item ID when one is open
-  itemPrompt: { itemId: string; x: number; y: number } | null; // Global prompt state
-  maximizedItemId: string | null; // The ID of the item currently expanded to full screen (focus mode)
+  /** grid = folder view; single = one item open in the left pane (overlay) */
+  workspaceLayout: WorkspaceLayout;
+  itemPanes: ItemPanes;
+  /** Focused pane for keyboard/a11y; v1 stays 'left' */
+  activePaneId: WorkspacePaneSide;
 
+  itemPrompt: { itemId: string; x: number; y: number } | null; // Global prompt state
 
   // Modal state
   showCreateWorkspaceModal: boolean;
   showSheetModal: boolean;
-  showJsonView: boolean;
 
   activeFolderId: string | null; // Active folder for filtering
   selectedModelId: string; // Selected AI model ID
@@ -63,22 +80,16 @@ interface UIState {
   toggleThreadListVisible: () => void;
   setWorkspacePanelSize: (size: number) => void;
 
-
-  // Actions - Panels & View Mode
-  closePanel: (itemId: string) => void;
-  closeAllPanels: () => void;
+  // Actions - Workspace item panes
+  /** Open item in the left pane, or null to close and return to grid */
+  openItemInLeft: (itemId: string | null) => void;
+  closeWorkspaceItem: (itemId: string) => void;
+  closeAllWorkspaceItems: () => void;
+  setActivePane: (side: WorkspacePaneSide) => void;
   setItemPrompt: (prompt: { itemId: string; x: number; y: number } | null) => void;
-  setMaximizedItemId: (itemId: string | null) => void;
 
-
-  // Legacy compatibility - setOpenModalItemId is widely used, maps to openPanel replace mode
-  setOpenModalItemId: (id: string | null) => void;
   setShowCreateWorkspaceModal: (show: boolean) => void;
   setShowSheetModal: (show: boolean) => void;
-
-
-  // Actions - UI Preferences
-  setShowJsonView: (show: boolean) => void;
 
   setActiveFolderId: (folderId: string | null) => void;
   /** Atomic: close panels and clear folder. Use when panel is focused and user navigates back. */
@@ -87,8 +98,8 @@ interface UIState {
   navigateToFolder: (folderId: string) => void;
   /** URL sync only — sets folder without touching panels */
   _setActiveFolderIdDirect: (folderId: string | null) => void;
-  /** URL sync only — sets panels and optionally focused (maximized) item */
-  _setPanelsFromUrl: (ids: string[], maximizedId?: string | null) => void;
+  /** URL sync only — restores left pane from `items` query (first id only) */
+  _setItemPanesFromUrl: (ids: string[]) => void;
   setSelectedModelId: (modelId: string) => void;
 
   // Actions - Text selection
@@ -122,6 +133,8 @@ interface UIState {
   closeAllModals: () => void;
 }
 
+const emptyPanes = (): ItemPanes => ({ left: null, right: null });
+
 const initialState = {
   // Chat
   isChatExpanded: true,
@@ -131,18 +144,14 @@ const initialState = {
   // Layout
   workspacePanelSize: WORKSPACE_PANEL_SIZES.WITH_CHAT, // Default when chat is expanded
 
-  // View mode & Panels
-  viewMode: 'workspace' as ViewMode,
-  openPanelIds: [],
+  workspaceLayout: 'grid' as WorkspaceLayout,
+  itemPanes: emptyPanes(),
+  activePaneId: 'left' as WorkspacePaneSide,
+
   itemPrompt: null,
-  maximizedItemId: null,
 
   showCreateWorkspaceModal: false,
   showSheetModal: false,
-
-
-  // UI Preferences
-  showJsonView: false,
 
   activeFolderId: null,
   selectedModelId: 'gemini-3-flash-preview',
@@ -176,117 +185,108 @@ export const useUIStore = create<UIState>()(
 
         navigateToRoot: () => {
           set((state) => {
-            if (state.activeFolderId === null && state.openPanelIds.length === 0) return {};
+            if (state.activeFolderId === null && !state.itemPanes.left) return {};
             return {
               activeFolderId: null,
-              viewMode: 'workspace' as ViewMode,
-              openPanelIds: [],
-              maximizedItemId: null,
+              workspaceLayout: 'grid' as WorkspaceLayout,
+              itemPanes: emptyPanes(),
+              activePaneId: 'left' as WorkspacePaneSide,
             };
           });
         },
 
         navigateToFolder: (folderId) => {
           set((state) => {
-            if (state.activeFolderId === folderId && state.openPanelIds.length === 0) return {};
+            if (state.activeFolderId === folderId && !state.itemPanes.left) return {};
             return {
               activeFolderId: folderId,
-              viewMode: 'workspace' as ViewMode,
-              openPanelIds: [],
-              maximizedItemId: null,
+              workspaceLayout: 'grid' as WorkspaceLayout,
+              itemPanes: emptyPanes(),
+              activePaneId: 'left' as WorkspacePaneSide,
             };
           });
         },
 
         _setActiveFolderIdDirect: (folderId) => set({ activeFolderId: folderId }),
 
-        // URL sync only — restores open panel / focus from the URL (does not change card selection)
-        _setPanelsFromUrl: (ids, maximizedId) => set(() => {
+        // URL sync only — restores open panel from the URL (does not change card selection)
+        _setItemPanesFromUrl: (ids) => set(() => {
           const validIds = ids.slice(0, 1);
           if (validIds.length === 0) {
             return {
-              viewMode: 'workspace' as ViewMode,
-              openPanelIds: [],
-              maximizedItemId: null,
+              workspaceLayout: 'grid' as WorkspaceLayout,
+              itemPanes: emptyPanes(),
+              activePaneId: 'left' as WorkspacePaneSide,
             };
           }
-          const focusId =
-            maximizedId && validIds[0] === maximizedId
-              ? maximizedId
-              : validIds[0] ?? null;
+          const leftId = validIds[0] ?? null;
           return {
-            openPanelIds: focusId ? [focusId] : [],
-            maximizedItemId: focusId,
-            viewMode: focusId ? ('focus' as ViewMode) : ('workspace' as ViewMode),
+            itemPanes: { left: leftId, right: null },
+            workspaceLayout: (leftId ? 'single' : 'grid') as WorkspaceLayout,
+            activePaneId: 'left' as WorkspacePaneSide,
           };
         }),
 
-        closePanel: (itemId) => {
-          set((state) => {
-            if (state.openPanelIds.length === 0) return {};
-
-            const remaining = state.openPanelIds.filter(id => id !== itemId);
-
-            return {
-              viewMode: 'workspace' as ViewMode,
-              openPanelIds: remaining,
-              maximizedItemId: null,
-              citationHighlightQuery: null,
-            };
-          });
-        },
-
-        closeAllPanels: () => {
-          set((state) => {
-            if (state.openPanelIds.length === 0 && state.viewMode === 'workspace') return {};
-            return {
-              viewMode: 'workspace' as ViewMode,
-              openPanelIds: [],
-              maximizedItemId: null,
-              citationHighlightQuery: null,
-            };
-          });
-        },
-
-        setItemPrompt: (prompt) => set({ itemPrompt: prompt }),
-        setMaximizedItemId: (id) => set({
-          maximizedItemId: id,
-          viewMode: id ? 'focus' as ViewMode : 'workspace' as ViewMode,
-          // When entering focus mode, keep openPanelIds for breadcrumb; when leaving, clear
-          ...(id === null ? { openPanelIds: [] } : { openPanelIds: [id] }),
-        }),
-
-        // Legacy compatibility — opens item in focus mode (maximized)
-        setOpenModalItemId: (id) => {
+        openItemInLeft: (id) => {
           set((state) => {
             if (id === null) {
-              if (state.openPanelIds.length === 0 && state.viewMode === 'workspace') return {};
+              if (!state.itemPanes.left && state.workspaceLayout === 'grid') return {};
               return {
-                viewMode: 'workspace' as ViewMode,
-                openPanelIds: [],
-                maximizedItemId: null,
+                workspaceLayout: 'grid' as WorkspaceLayout,
+                itemPanes: emptyPanes(),
+                activePaneId: 'left' as WorkspacePaneSide,
                 citationHighlightQuery: null,
               };
             }
-            const isAlreadyOpen =
-              state.openPanelIds.length === 1 &&
-              state.openPanelIds[0] === id &&
-              state.maximizedItemId === id;
-            if (isAlreadyOpen) return {};
-
+            if (
+              state.itemPanes.left === id &&
+              state.workspaceLayout === 'single' &&
+              !state.itemPanes.right
+            ) {
+              return {};
+            }
             return {
-              viewMode: 'focus' as ViewMode,
-              openPanelIds: [id],
-              maximizedItemId: id,
+              workspaceLayout: 'single' as WorkspaceLayout,
+              itemPanes: { left: id, right: null },
+              activePaneId: 'left' as WorkspacePaneSide,
             };
           });
         },
 
+        closeWorkspaceItem: (itemId) => {
+          set((state) => {
+            if (state.itemPanes.left !== itemId && state.itemPanes.right !== itemId) {
+              return {};
+            }
+            return {
+              workspaceLayout: 'grid' as WorkspaceLayout,
+              itemPanes: emptyPanes(),
+              activePaneId: 'left' as WorkspacePaneSide,
+              citationHighlightQuery: null,
+            };
+          });
+        },
+
+        closeAllWorkspaceItems: () => {
+          set((state) => {
+            if (!state.itemPanes.left && !state.itemPanes.right && state.workspaceLayout === 'grid') {
+              return {};
+            }
+            return {
+              workspaceLayout: 'grid' as WorkspaceLayout,
+              itemPanes: emptyPanes(),
+              activePaneId: 'left' as WorkspacePaneSide,
+              citationHighlightQuery: null,
+            };
+          });
+        },
+
+        setActivePane: (side) => set({ activePaneId: side }),
+
+        setItemPrompt: (prompt) => set({ itemPrompt: prompt }),
+
         setShowCreateWorkspaceModal: (show) => set({ showCreateWorkspaceModal: show }),
         setShowSheetModal: (show) => set({ showSheetModal: show }),
-
-        // UI Preferences actions
-        setShowJsonView: (show) => set({ showJsonView: show }),
 
         setSelectedModelId: (modelId) => set({ selectedModelId: modelId }),
 
@@ -370,10 +370,10 @@ export const useUIStore = create<UIState>()(
 
         closeAllModals: () =>
           set({
-            viewMode: 'workspace' as ViewMode,
-            openPanelIds: [],
+            workspaceLayout: 'grid' as WorkspaceLayout,
+            itemPanes: emptyPanes(),
+            activePaneId: 'left' as WorkspacePaneSide,
             itemPrompt: null,
-            maximizedItemId: null,
             showCreateWorkspaceModal: false,
             showSheetModal: false,
           }),
@@ -395,29 +395,25 @@ export const selectChatState = (state: UIState) => ({
 });
 
 export const selectModalState = (state: UIState) => ({
-  openPanelIds: state.openPanelIds,
+  leftPaneItemId: state.itemPanes.left,
   itemPrompt: state.itemPrompt,
   showCreateWorkspaceModal: state.showCreateWorkspaceModal,
   showSheetModal: state.showSheetModal,
 });
 
-// View mode selector
-export const selectViewMode = (state: UIState) => state.viewMode;
+export const selectWorkspaceLayout = (state: UIState) => state.workspaceLayout;
+export const selectItemPanes = (state: UIState) => state.itemPanes;
+export const selectLeftPaneItemId = (state: UIState) => state.itemPanes.left;
+export const selectActivePaneId = (state: UIState) => state.activePaneId;
 
-// Panel selectors - for backwards compatibility and convenience
-export const selectOpenPanelIds = (state: UIState) => state.openPanelIds;
-export const selectPrimaryPanelId = (state: UIState) => state.openPanelIds[0] ?? null;
-export const selectSecondaryPanelId = () => null;
+/** All item ids currently open in any pane (v1: 0 or 1) */
+export const selectOpenWorkspaceItemIds = (state: UIState): string[] => {
+  const { left, right } = state.itemPanes;
+  return [left, right].filter((id): id is string => id != null);
+};
 
-export const selectIsPanelOpen = (state: UIState) => state.openPanelIds.length > 0;
-
-// Legacy compatibility selectors
-export const selectOpenModalItemId = (state: UIState) => state.openPanelIds[0] ?? null;
-export const selectSecondaryOpenModalItemId = () => null;
-
-export const selectUIPreferences = (state: UIState) => ({
-  showJsonView: state.showJsonView,
-});
+export const selectIsWorkspaceItemOpen = (state: UIState) =>
+  state.itemPanes.left != null || state.itemPanes.right != null;
 
 export const selectTextSelectionState = (state: UIState) => ({
   inMultiSelectMode: state.inMultiSelectMode,
@@ -450,4 +446,3 @@ export const selectSelectedHighlightColorId = (state: UIState) => state.selected
 export const selectItemScrollLocked = (itemId: string) => (state: UIState): boolean => {
   return state.itemScrollLocked.get(itemId) ?? true; // Default to locked (true)
 };
-

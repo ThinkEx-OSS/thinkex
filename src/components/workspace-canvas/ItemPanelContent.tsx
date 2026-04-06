@@ -24,8 +24,6 @@ interface ItemPanelContentProps {
     isMaximized?: boolean;
     onUpdateItem: (updates: Partial<Item>) => void;
     onUpdateItemData: (updater: (prev: ItemData) => ItemData) => void;
-    isRightmostPanel?: boolean; // Whether this is the rightmost panel (for showing chat button)
-    isLeftPanel?: boolean; // Whether this is the leftmost panel (for showing sidebar trigger)
 }
 
 export function ItemPanelContent({
@@ -35,8 +33,6 @@ export function ItemPanelContent({
     isMaximized = false,
     onUpdateItem,
     onUpdateItemData,
-    isRightmostPanel = true, // Default to true for backwards compat
-    isLeftPanel = false, // Default to false for backwards compat
 }: ItemPanelContentProps) {
     const isChatExpanded = useUIStore((state) => state.isChatExpanded);
     const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
@@ -128,7 +124,7 @@ export function ItemPanelContent({
 
 
 
-                    {!isChatExpanded && isRightmostPanel && (
+                    {!isChatExpanded && (
                         <ChatFloatingButton
                             isDesktop={isDesktop}
                             isChatExpanded={isChatExpanded}
@@ -195,9 +191,6 @@ export function ItemPanelContent({
                                         onMaximize={onMaximize}
                                         showThumbnails={showThumbnails}
                                         onToggleThumbnails={() => setShowThumbnails(!showThumbnails)}
-
-                                        isRightmostPanel={isRightmostPanel}
-                                        isLeftPanel={isLeftPanel}
                                         renderInPortal={isMaximized}
                                     />
                                 </div>

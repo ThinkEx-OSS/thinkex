@@ -39,10 +39,6 @@ interface PdfPanelHeaderProps {
     onMaximize: () => void;
     showThumbnails: boolean;
     onToggleThumbnails: () => void;
-
-    isRightmostPanel?: boolean; // Whether this is the rightmost panel (for showing chat button)
-
-    isLeftPanel?: boolean; // Whether this is the leftmost panel (for showing sidebar trigger)
     renderInPortal?: boolean;
 }
 
@@ -57,9 +53,6 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
     onMaximize,
     showThumbnails,
     onToggleThumbnails,
-
-    isRightmostPanel = true, // Default to true for backwards compat
-    isLeftPanel = false, // Default to false for backwards compat
     renderInPortal = false,
 }: PdfPanelHeaderProps) {
 
@@ -246,7 +239,7 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
                         <X className={iconClass} />
                     </button>
 
-                    {!isChatExpanded && isRightmostPanel && (
+                    {!isChatExpanded && (
                         <div className="ml-1">
                             <ChatFloatingButton
                                 isDesktop={true}

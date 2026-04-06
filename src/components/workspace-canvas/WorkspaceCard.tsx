@@ -372,7 +372,7 @@ function WorkspaceCard({
         return;
       }
 
-      // Default: open in focus mode (maximized modal)
+      // Default: open item in the left-pane overlay
       onOpenModal(item.id);
     },
     [

@@ -202,26 +202,19 @@ interface WorkspaceHeaderProps {
   // Callback for when items are created (for auto-scroll/selection)
   onItemCreated?: (itemIds: string[]) => void;
 
-  setOpenModalItemId?: (id: string | null) => void;
   // Folder props
-  activeFolderName?: string;
-  activeFolderColor?: string;
   items?: Item[]; // All items for building folder path
   // Rename folder function
   onRenameFolder?: (folderId: string, newName: string) => void;
   // Workspace actions
   onOpenSettings?: () => void;
   onOpenShare?: () => void;
-  isItemPanelOpen?: boolean;
 
-  // Active Item Props
-  activeItems?: Item[];
-  activeItemMode?: "maximized" | null;
+  /** Item open in the workspace overlay (left pane) — drives breadcrumbs and header actions */
+  openWorkspaceItem?: Item | null;
   onCloseActiveItem?: (itemId: string) => void;
   onNavigateToRoot?: () => void;
   onNavigateToFolder?: (folderId: string) => void;
-  onMinimizeActiveItem?: () => void;
-  onMaximizeActiveItem?: (itemId: string | null) => void;
   onUpdateActiveItem?: (itemId: string, updates: Partial<Item>) => void;
   /** Flush pending saves and read latest document markdown from workspace cache (avoids stale export). */
   getDocumentMarkdownForExport?: (itemId: string) => string;
@@ -249,10 +242,8 @@ export function WorkspaceHeader({
   onRenameFolder,
   onOpenSettings,
   onOpenShare,
-  isItemPanelOpen = false,
 
-  activeItems = EMPTY_ITEMS,
-  activeItemMode = null,
+  openWorkspaceItem = null,
   onCloseActiveItem,
   onNavigateToRoot,
   onNavigateToFolder,
@@ -312,7 +303,6 @@ export function WorkspaceHeader({
     return getFolderPath(activeFolderId, items);
   }, [activeFolderId, items]);
   const workspaceBreadcrumbLabel = workspaceName || "Untitled";
-  const primaryActiveItem = activeItems[0] ?? null;
   const breadcrumbEntries = useMemo<BreadcrumbEntry[]>(() => {
     const entries: BreadcrumbEntry[] = [
       {
@@ -334,20 +324,20 @@ export function WorkspaceHeader({
       });
     }
 
-    if (primaryActiveItem) {
+    if (openWorkspaceItem) {
       entries.push({
-        key: `item:${primaryActiveItem.id}`,
+        key: `item:${openWorkspaceItem.id}`,
         kind: "item",
-        id: primaryActiveItem.id,
-        label: primaryActiveItem.name,
-        itemType: primaryActiveItem.type,
+        id: openWorkspaceItem.id,
+        label: openWorkspaceItem.name,
+        itemType: openWorkspaceItem.type,
       });
     }
 
     return entries;
   }, [
     folderPath,
-    primaryActiveItem,
+    openWorkspaceItem,
     workspaceBreadcrumbLabel,
     workspaceColor,
     workspaceIcon,
@@ -369,13 +359,10 @@ export function WorkspaceHeader({
     [breadcrumbLayoutKey],
   );
 
-  // Compact mode when space is tight (item panel open + chat expanded)
-  const isCompactMode = isItemPanelOpen && isChatExpanded;
-
   // Handle folder click - switch folder or rename if already active (and no panel open)
   const handleFolderClick = useCallback((folderId: string) => {
     // If panel is open, delegate to parent (closes if focused, else just switches folder) — don't open rename
-    if (activeItems.length > 0) {
+    if (openWorkspaceItem) {
       onNavigateToFolder?.(folderId);
       return;
     }
@@ -390,7 +377,7 @@ export function WorkspaceHeader({
     } else {
       onNavigateToFolder?.(folderId);
     }
-  }, [activeFolderId, activeItems.length, items, onRenameFolder, onNavigateToFolder]);
+  }, [activeFolderId, openWorkspaceItem, items, onRenameFolder, onNavigateToFolder]);
 
   // Handle rename
   const handleRename = useCallback(() => {
@@ -570,7 +557,7 @@ export function WorkspaceHeader({
       hoveredBreadcrumbTarget === "root" &&
       BREADCRUMB_DRAG_TARGET_CLASS;
 
-    if (activeFolderId || primaryActiveItem) {
+    if (activeFolderId || openWorkspaceItem) {
       return (
         <button
           onClick={() => onNavigateToRoot?.()}
@@ -645,7 +632,7 @@ export function WorkspaceHeader({
     onNavigateToRoot,
     onOpenSettings,
     onOpenShare,
-    primaryActiveItem,
+    openWorkspaceItem,
     renderRootBreadcrumbLabel,
   ]);
 
@@ -1013,17 +1000,15 @@ export function WorkspaceHeader({
         </div>
 
         {/* Right Side: Save Indicator + Search + Chat Button */}
-        {activeItemMode === 'maximized' && activeItems.length === 1 ? (
-          // Maximized Mode: Show Item Controls
-          // Portal divs only for PDF (PdfPanelHeader uses them); skip for documents to avoid double gap
+        {openWorkspaceItem ? (
+          // Item open: show type-specific header actions (aligned with breadcrumbs)
           <div className="flex shrink-0 items-center gap-2 pointer-events-auto">
-            {activeItems[0]?.type === "pdf" && (
+            {openWorkspaceItem.type === "pdf" && (
               <div id="workspace-header-portal" className="flex items-center gap-2" />
             )}
 
-            {/* Open Button - only for website cards */}
-            {activeItems[0]?.type === "website" && (() => {
-              const websiteData = activeItems[0].data as import("@/lib/workspace-state/types").WebsiteData;
+            {openWorkspaceItem.type === "website" && (() => {
+              const websiteData = openWorkspaceItem.data as import("@/lib/workspace-state/types").WebsiteData;
               return (
                 <button
                   className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer px-2"
@@ -1036,7 +1021,7 @@ export function WorkspaceHeader({
               );
             })()}
 
-            {activeItems[0]?.type === "document" && (
+            {openWorkspaceItem.type === "document" && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -1055,7 +1040,7 @@ export function WorkspaceHeader({
                   <DropdownMenuItem
                     disabled={googleExportLoading}
                     onClick={async () => {
-                      const item = activeItems[0];
+                      const item = openWorkspaceItem;
                       if (!item || item.type !== "document") return;
                       if (!getGoogleOAuthClientId()) {
                         toast.error(
@@ -1090,16 +1075,15 @@ export function WorkspaceHeader({
               </DropdownMenu>
             )}
 
-            {activeItems[0]?.type === "pdf" && (
+            {openWorkspaceItem.type === "pdf" && (
               <div id="workspace-header-portal-right" className="flex items-center gap-2" />
             )}
 
-            {/* Close Button */}
             <button
               type="button"
               aria-label="Close"
               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer"
-              onClick={() => onCloseActiveItem?.(activeItems[0]?.id)}
+              onClick={() => onCloseActiveItem?.(openWorkspaceItem.id)}
             >
               <X className="h-4 w-4" />
             </button>
@@ -1119,8 +1103,7 @@ export function WorkspaceHeader({
             {/* Collaborator Avatars - show who's in the workspace */}
             <CollaboratorAvatars />
 
-            {/* Share Button - hidden in compact mode */}
-            {!isCompactMode && onOpenShare && (
+            {onOpenShare && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -1131,8 +1114,7 @@ export function WorkspaceHeader({
               </Button>
             )}
 
-            {/* Version History + Save Indicator Button - hidden in compact mode */}
-            {!isCompactMode && onShowHistory && (
+            {onShowHistory && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -1185,18 +1167,14 @@ export function WorkspaceHeader({
                   <button
                     className={cn(
                       "h-8 outline-none rounded-md text-sm pointer-events-auto whitespace-nowrap relative cursor-pointer box-border",
+                      "inline-flex items-center gap-2 px-2",
                       "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors",
-                      isCompactMode
-                        ? "w-8 flex items-center justify-center px-0"
-                        : "inline-flex items-center gap-2 px-2",
                       isNewMenuOpen && "text-sidebar-foreground bg-accent"
                     )}
                     data-tour="add-card-button"
                   >
                     <Plus className="h-4 w-4" />
-                    {!isCompactMode && (
-                      <span>New</span>
-                    )}
+                    <span>New</span>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56" sideOffset={8}>
@@ -1233,7 +1211,7 @@ export function WorkspaceHeader({
               </DropdownMenu>
             )}
 
-            {!isItemPanelOpen && setIsChatExpanded ? (
+            {!openWorkspaceItem && setIsChatExpanded ? (
               <ChatFloatingButton
                 isDesktop={isDesktop}
                 isChatExpanded={isChatExpanded}

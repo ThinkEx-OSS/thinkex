@@ -10,7 +10,6 @@ const DEBOUNCE_MS = 80;
 interface UrlState {
   folder: string | null;
   items: string[];
-  focus: string | null;
 }
 
 /**
@@ -18,10 +17,8 @@ interface UrlState {
  * Enables browser back/forward and shareable deep links.
  *
  * URL params:
- *   folder=<id>   — active folder filter
- *   items=<id>   — focused item
- *   focus=<id>   — legacy alias for the focused item
- *   item=<id>    — legacy, same as items=<id>
+ *   folder=<id>  — active folder filter
+ *   items=<id>   — open item in the left pane (first id only today; comma-separated reserved for future split)
  */
 export function useFolderUrl() {
   const router = useRouter();
@@ -29,11 +26,10 @@ export function useFolderUrl() {
   const searchParams = useSearchParams();
 
   const activeFolderId = useUIStore((state) => state.activeFolderId);
-  const openPanelIds = useUIStore((state) => state.openPanelIds);
-  const maximizedItemId = useUIStore((state) => state.maximizedItemId);
+  const leftPaneItemId = useUIStore((state) => state.itemPanes.left);
 
   const setActiveFolderIdDirect = useUIStore((state) => state._setActiveFolderIdDirect);
-  const setPanelsFromUrl = useUIStore((state) => state._setPanelsFromUrl);
+  const setItemPanesFromUrl = useUIStore((state) => state._setItemPanesFromUrl);
 
   const isSyncingFromUrl = useRef(false);
   const lastPushedState = useRef<UrlState | undefined>(undefined);
@@ -41,18 +37,10 @@ export function useFolderUrl() {
   const parseUrlState = (): UrlState => {
     const folder = searchParams.get("folder") || null;
     const itemsParam = searchParams.get("items");
-    const legacyItem = searchParams.get("item");
     const items = itemsParam
       ? itemsParam.split(",").filter(Boolean).slice(0, 1)
-      : legacyItem
-        ? [legacyItem]
-        : [];
-    const focusParam = searchParams.get("focus");
-    const focus =
-      focusParam && items.length === 1 && items[0] === focusParam
-        ? focusParam
-        : null;
-    return { folder, items, focus };
+      : [];
+    return { folder, items };
   };
 
   // URL → Store: on searchParams change (incl. back/forward)
@@ -60,19 +48,19 @@ export function useFolderUrl() {
     const url = parseUrlState();
 
     const folderChanged = url.folder !== activeFolderId;
+    const storeItems = leftPaneItemId ? [leftPaneItemId] : [];
     const itemsChanged =
-      url.items.length !== openPanelIds.length ||
-      url.items.some((id, i) => id !== openPanelIds[i]);
-    const focusChanged = url.focus !== maximizedItemId;
+      url.items.length !== storeItems.length ||
+      url.items.some((id, i) => id !== storeItems[i]);
 
-    if (folderChanged || itemsChanged || focusChanged) {
+    if (folderChanged || itemsChanged) {
       isSyncingFromUrl.current = true;
 
       if (folderChanged) {
         setActiveFolderIdDirect(url.folder);
       }
-      if (itemsChanged || focusChanged) {
-        setPanelsFromUrl(url.items, url.focus);
+      if (itemsChanged) {
+        setItemPanesFromUrl(url.items);
       }
 
       queueMicrotask(() => {
@@ -87,19 +75,14 @@ export function useFolderUrl() {
     if (isSyncingFromUrl.current) {
       lastPushedState.current = {
         folder: activeFolderId,
-        items: [...openPanelIds],
-        focus: maximizedItemId,
+        items: leftPaneItemId ? [leftPaneItemId] : [],
       };
       return;
     }
 
     const next: UrlState = {
       folder: activeFolderId,
-      items: [...openPanelIds],
-      focus:
-        maximizedItemId && openPanelIds.length === 1 && openPanelIds[0] === maximizedItemId
-          ? maximizedItemId
-          : null,
+      items: leftPaneItemId ? [leftPaneItemId] : [],
     };
 
     const prev = lastPushedState.current;
@@ -107,8 +90,7 @@ export function useFolderUrl() {
       prev &&
       prev.folder === next.folder &&
       prev.items.length === next.items.length &&
-      prev.items.every((id, i) => id === next.items[i]) &&
-      prev.focus === next.focus
+      prev.items.every((id, i) => id === next.items[i])
     ) {
       return;
     }
@@ -123,14 +105,12 @@ export function useFolderUrl() {
 
       if (next.items.length > 0) {
         params.set("items", next.items.join(","));
-        params.delete("item");
       } else {
         params.delete("items");
-        params.delete("item");
       }
 
-      if (next.focus) params.set("focus", next.focus);
-      else params.delete("focus");
+      params.delete("focus");
+      params.delete("item");
 
       const qs = params.toString();
       router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
@@ -138,6 +118,5 @@ export function useFolderUrl() {
 
     return () => clearTimeout(tid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeFolderId, openPanelIds, maximizedItemId]);
-
+  }, [activeFolderId, leftPaneItemId]);
 }

@@ -11,7 +11,6 @@ interface PDFViewerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdateItem: (updates: Partial<Item>) => void;
-  renderInline?: boolean; // Render as inline content instead of modal overlay
 }
 
 export function PDFViewerModal({
@@ -19,7 +18,6 @@ export function PDFViewerModal({
   isOpen,
   onClose,
   onUpdateItem,
-  renderInline = false,
 }: PDFViewerModalProps) {
   const pdfData = item.data as PdfData;
 
@@ -42,25 +40,6 @@ export function PDFViewerModal({
     return null;
   }
 
-  // Render inline (for workspace split view)
-  if (renderInline) {
-    return (
-      <div className="h-full w-full flex flex-col overflow-hidden bg-background">
-        <ItemPanelContent
-          item={item}
-          onClose={onClose}
-          onMaximize={() => useUIStore.getState().setMaximizedItemId(null)}
-          isMaximized={true}
-          onUpdateItem={onUpdateItem}
-          onUpdateItemData={(updater) =>
-            onUpdateItem({ data: updater(item.data) as Item["data"] })
-          }
-        />
-      </div>
-    );
-  }
-
-  // Render as modal overlay (default)
   return (
     <div
       className="absolute inset-0 z-30 flex items-center justify-center overflow-hidden pdf-viewer-modal"
@@ -79,7 +58,7 @@ export function PDFViewerModal({
         <ItemPanelContent
           item={item}
           onClose={onClose}
-          onMaximize={() => useUIStore.getState().setMaximizedItemId(null)}
+          onMaximize={() => useUIStore.getState().openItemInLeft(null)}
           isMaximized={true}
           onUpdateItem={onUpdateItem}
           onUpdateItemData={(updater) =>

@@ -5,6 +5,7 @@ import { useState, useMemo, memo } from "react";
 import { X, ChevronDown, ChevronUp, Eye } from "lucide-react";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
+import { useViewingItemIds } from "@/hooks/ui/use-viewing-item-ids";
 import { cn } from "@/lib/utils";
 import type { Item } from "@/lib/workspace-state/types";
 
@@ -19,14 +20,7 @@ interface CardContextDisplayProps {
 function CardContextDisplayImpl({ items }: CardContextDisplayProps) {
   const { selectedCardIds } = useSelectedCardIds();
   const activePdfPageByItemId = useUIStore((state) => state.activePdfPageByItemId);
-  const openPanelIds = useUIStore((state) => state.openPanelIds);
-  const maximizedItemId = useUIStore((state) => state.maximizedItemId);
-
-  const viewingItemIds = useMemo(() => {
-    const ids = new Set(openPanelIds);
-    if (maximizedItemId) ids.add(maximizedItemId);
-    return ids;
-  }, [openPanelIds, maximizedItemId]);
+  const viewingItemIds = useViewingItemIds();
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
 
   const [isExpanded, setIsExpanded] = useState(false);
@@ -169,8 +163,12 @@ export const CardContextDisplay = memo(CardContextDisplayImpl, (prevProps, nextP
     const nextItem = nextItemsMap.get(id);
     if (!nextItem) return false; // Shouldn't happen due to ID check above, but be safe
     
-    // Compare name and color since these are displayed in the chips
-    if (prevItem.name !== nextItem.name || prevItem.color !== nextItem.color) {
+    // Compare fields that affect chip rendering (incl. type for PDF page badge)
+    if (
+      prevItem.name !== nextItem.name ||
+      prevItem.color !== nextItem.color ||
+      prevItem.type !== nextItem.type
+    ) {
       return false; // Properties changed, allow re-render
     }
   }
