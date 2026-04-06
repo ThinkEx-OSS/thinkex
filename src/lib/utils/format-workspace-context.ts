@@ -592,7 +592,10 @@ function escapeRegex(s: string): string {
  * If OCR pages are available, include them so the agent can reason about the PDF
  * without needing any separate file-processing tool.
  * OCR pages output markdown as proper lines (one line per line) instead of JSON blobs.
- * Image and table placeholders are mapped to actual content when available.
+ * Figure descriptions are merged into page markdown at OCR time. Tables usually
+ * appear as markdown in `page.markdown` already; if the response uses separate
+ * table chunks with `[id](id)` placeholders, `replaceOcrPlaceholders` inlines
+ * the matching `tables[].content` (format depends on Mistral `table_format`).
  * Optionally filter by pageStart/pageEnd (1-indexed, inclusive).
  */
 function formatPdfDetailsFull(

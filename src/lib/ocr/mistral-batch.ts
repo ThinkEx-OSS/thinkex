@@ -1,3 +1,4 @@
+import { MISTRAL_BBOX_ANNOTATION_FORMAT } from "@/lib/pdf/ocr-figure-inline";
 import { logger } from "@/lib/utils/logger";
 import { getOcrConfig } from "./config";
 import type { OcrCandidate, OcrItemFailureResult, OcrItemResult, OcrItemSuccessResult, OcrPage } from "./types";
@@ -51,6 +52,8 @@ function buildBatchRequest(candidate: OcrCandidate) {
           : { document_url: candidate.fileUrl },
       extract_header: true,
       extract_footer: true,
+      bbox_annotation_format: MISTRAL_BBOX_ANNOTATION_FORMAT,
+      include_image_base64: false,
     },
   };
 }

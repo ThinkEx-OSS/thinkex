@@ -2,6 +2,7 @@
  * Mistral OCR integration for documents and images via the direct OCR API.
  */
 
+import { MISTRAL_BBOX_ANNOTATION_FORMAT } from "@/lib/pdf/ocr-figure-inline";
 import { logger } from "@/lib/utils/logger";
 import { callMistralOcr } from "./mistral-ocr-client";
 import { getOcrConfig } from "@/lib/ocr/config";
@@ -17,6 +18,8 @@ function buildBaseBody(document: Record<string, unknown>): Record<string, unknow
     document,
     extract_header: true,
     extract_footer: true,
+    bbox_annotation_format: MISTRAL_BBOX_ANNOTATION_FORMAT,
+    include_image_base64: false,
   };
 }
 
