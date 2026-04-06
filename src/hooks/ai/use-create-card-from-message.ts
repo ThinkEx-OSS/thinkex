@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { useMessage, useThread } from "@assistant-ui/react";
+import { useAuiState, type ThreadMessage } from "@assistant-ui/react";
 import { toast } from "sonner";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useUIStore } from "@/lib/stores/ui-store";
@@ -23,8 +23,8 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
   const [isCreating, setIsCreating] = useState(false);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const message = useMessage();
-  const thread = useThread(); // Access the full thread to find sources
+  const message = useAuiState((s) => s.message);
+  const thread = useAuiState((s) => s.thread);
 
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
   const queryClient = useQueryClient();
@@ -80,8 +80,10 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
 
       // Get message content
       const content = message.content
-        .filter((part) => part.type === "text")
-        .map((part) => (part as any).text)
+        .filter(
+          (part): part is { type: "text"; text: string } => part.type === "text",
+        )
+        .map((part) => part.text)
         .join("\n\n");
 
       if (!content || !content.trim()) {
@@ -106,9 +108,8 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
         let sources: Array<{ title: string; url: string; favicon?: string }> | undefined;
 
         try {
-          // Use any cast since standard types might differ
-          const messages = (thread as any).messages || [];
-          const currentIndex = messages.findIndex((m: any) => m.id === message.id);
+          const messages: readonly ThreadMessage[] = thread.messages;
+          const currentIndex = messages.findIndex((m) => m.id === message.id);
 
           if (currentIndex !== -1) {
             const allSources: Array<{ title: string; url: string; favicon?: string }> = [];
@@ -116,11 +117,11 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
             for (let i = currentIndex; i >= 0; i--) {
               const msg = messages[i];
 
-              if (msg.role === 'user' && i !== currentIndex) {
+              if (msg.role === "user" && i !== currentIndex) {
                 break;
               }
 
-              allSources.push(...extractSourcesFromParts((msg as any).parts));
+              allSources.push(...extractSourcesFromParts(msg.content));
             }
 
             if (allSources.length > 0) {

@@ -30,7 +30,6 @@ import {
   MessagePrimitive,
   useAuiState,
   useAui,
-  useMessage,
   useMessagePartText,
 } from "@assistant-ui/react";
 import { toast } from "sonner";
@@ -140,7 +139,7 @@ export const AssistantMessage: FC = () => {
 
 export const UserMessage: FC = () => {
   const [expanded, setExpanded] = useState(false);
-  const message = useMessage();
+  const message = useAuiState((s) => s.message);
 
   const textLength = useMemo(
     () =>
@@ -318,7 +317,7 @@ const AssistantActionBar: FC = () => {
   const { createCard, isCreating } = useCreateCardFromMessage({
     debounceMs: 300,
   });
-  const { content } = useMessage();
+  const content = useAuiState((s) => s.message.content);
   const [copied, setCopied] = useState(false);
   const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -418,7 +417,7 @@ const AssistantPartGroup: FC<{
 };
 
 const UserActionBar: FC = () => {
-  const message = useMessage();
+  const message = useAuiState((s) => s.message);
   const [copied, setCopied] = useState(false);
   const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
