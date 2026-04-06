@@ -4,7 +4,7 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import { RiChatHistoryLine } from "react-icons/ri";
 import { LuMaximize2, LuMinimize2, LuPanelRightClose } from "react-icons/lu";
-import { useThreadListItem } from "@assistant-ui/react";
+import { useAuiState } from "@assistant-ui/react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Kbd } from "@/components/ui/kbd";
 import { formatKeyboardShortcut } from "@/lib/utils/keyboard-shortcut";
@@ -22,7 +22,7 @@ export function AppChatHeader({
   isMaximized?: boolean;
   onToggleMaximize?: () => void;
 }) {
-  const threadListItem = useThreadListItem();
+  const threadListItem = useAuiState((s) => s.threadListItem);
   const currentThreadTitle = threadListItem?.title || "New Chat";
 
   return (
