@@ -4,7 +4,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface ThinkExLogoProps {
-  size?: 24 | 32;
+  size?: 24 | 32 | 48;
   className?: string;
   priority?: boolean;
 }
