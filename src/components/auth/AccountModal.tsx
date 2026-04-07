@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient, useSession } from "@/lib/auth-client";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Copy, Plus, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   AlertDialog,
@@ -24,6 +24,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface AccountModalProps {
   open: boolean;
@@ -43,6 +51,7 @@ export function AccountModal({ open, onOpenChange }: AccountModalProps) {
         </DialogHeader>
         <div className="mt-4 space-y-6">
           <ProfileForm user={session.user} />
+          <MCPAccessSection />
           <DangerZone />
         </div>
       </DialogContent>
@@ -99,6 +108,261 @@ function ProfileForm({ user }: { user: any }) {
         </Button>
       </div>
     </form>
+  );
+}
+
+interface APIKey {
+  id: string;
+  prefix: string;
+  label: string | null;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+function MCPAccessSection() {
+  const [keys, setKeys] = useState<APIKey[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [newKeyData, setNewKeyData] = useState<{ rawKey: string; prefix: string } | null>(null);
+  const [label, setLabel] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [keyToRevoke, setKeyToRevoke] = useState<string | null>(null);
+
+  const fetchKeys = async () => {
+    try {
+      const res = await fetch("/api/mcp-keys");
+      const data = await res.json();
+      setKeys(data.keys || []);
+    } catch (error) {
+      toast.error("Failed to load API keys");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchKeys();
+  }, []);
+
+  const handleCreateKey = async () => {
+    setIsCreating(true);
+    try {
+      const res = await fetch("/api/mcp-keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: label || null }),
+      });
+
+      if (!res.ok) throw new Error("Failed to create API key");
+
+      const data = await res.json();
+      setNewKeyData({ rawKey: data.rawKey, prefix: data.prefix });
+      setShowCreateDialog(false);
+      setShowKeyModal(true);
+      setLabel("");
+      await fetchKeys();
+    } catch (error) {
+      toast.error("Failed to create API key");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleRevokeKey = async (id: string) => {
+    try {
+      const res = await fetch(`/api/mcp-keys/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to revoke API key");
+
+      toast.success("API key revoked successfully");
+      await fetchKeys();
+    } catch (error) {
+      toast.error("Failed to revoke API key");
+    } finally {
+      setKeyToRevoke(null);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard");
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "—";
+    return new Date(dateStr).toLocaleDateString();
+  };
+
+  return (
+    <>
+      <div className="border-t pt-6">
+        <h3 className="text-lg font-medium mb-2">MCP Access</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          API keys allow external tools like IDEs to access your workspaces via the Model Context Protocol.
+        </p>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+        ) : keys.length === 0 ? (
+          <div className="text-sm text-muted-foreground mb-4">
+            No API keys yet. Create one to get started.
+          </div>
+        ) : (
+          <div className="mb-4 border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Label</TableHead>
+                  <TableHead>Key Prefix</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Last Used</TableHead>
+                  <TableHead className="w-[80px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {keys.map((key) => (
+                  <TableRow key={key.id}>
+                    <TableCell>{key.label || <span className="text-muted-foreground italic">Unlabeled</span>}</TableCell>
+                    <TableCell>
+                      <code className="text-xs bg-muted px-2 py-1 rounded">{key.prefix}...</code>
+                    </TableCell>
+                    <TableCell className="text-sm">{formatDate(key.createdAt)}</TableCell>
+                    <TableCell className="text-sm">{formatDate(key.lastUsedAt)}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setKeyToRevoke(key.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        <Button onClick={() => setShowCreateDialog(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Create API Key
+        </Button>
+
+        <div className="mt-6">
+          <h4 className="text-sm font-medium mb-2">IDE Configuration</h4>
+          <p className="text-xs text-muted-foreground mb-2">
+            Add this to your MCP settings file:
+          </p>
+          <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
+{`{
+  "mcpServers": {
+    "thinkex": {
+      "url": "${typeof window !== 'undefined' ? window.location.origin : 'https://thinkex.app'}/api/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-api-key>"
+      }
+    }
+  }
+}`}
+          </pre>
+        </div>
+      </div>
+
+      <AlertDialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Create API Key</AlertDialogTitle>
+            <AlertDialogDescription>
+              Give this API key a label to help you identify it later (optional).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Label htmlFor="key-label">Label (optional)</Label>
+            <Input
+              id="key-label"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="e.g., My MacBook"
+              className="mt-2"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isCreating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleCreateKey();
+              }}
+              disabled={isCreating}
+            >
+              {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Create Key
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showKeyModal} onOpenChange={setShowKeyModal}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>API Key Created</AlertDialogTitle>
+            <AlertDialogDescription>
+              Copy this key now. You will not be able to see it again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <div className="flex items-center gap-2">
+              <Input
+                value={newKeyData?.rawKey || ""}
+                readOnly
+                className="font-mono text-sm"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => copyToClipboard(newKeyData?.rawKey || "")}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              This key will not be shown again. Store it in a secure location.
+            </p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => { setShowKeyModal(false); setNewKeyData(null); }}>
+              Done
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={keyToRevoke !== null} onOpenChange={() => setKeyToRevoke(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke API Key?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will immediately revoke the API key. Any applications using this key will lose access.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (keyToRevoke) handleRevokeKey(keyToRevoke);
+              }}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              Revoke Key
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
