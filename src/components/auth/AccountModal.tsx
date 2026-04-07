@@ -182,7 +182,7 @@ function MCPAccessSection() {
       fetchKeys();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, keys.length]);
+  }, [open, keys.length, loadFailed]);
 
   const handleCreateKey = async () => {
     setIsCreating(true);
