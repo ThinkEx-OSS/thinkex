@@ -376,3 +376,16 @@ export const workspaceItemReads = pgTable(
 		}),
 	]
 );
+
+export const apiKeys = pgTable("api_keys", {
+	id: text("id").primaryKey().default(sql`gen_random_uuid()`),
+	userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+	keyHash: text("key_hash").notNull().unique(),
+	keyPrefix: text("key_prefix").notNull(),
+	label: text("label"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+	lastUsedAt: timestamp("last_used_at", { withTimezone: true, mode: "string" }),
+	revokedAt: timestamp("revoked_at", { withTimezone: true, mode: "string" }),
+}, (table) => [
+	index("api_keys_user_id_idx").on(table.userId),
+]);
