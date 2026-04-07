@@ -49,17 +49,9 @@ export async function loadWorkspaceState(workspaceId: string): Promise<AgentStat
     } as WorkspaceEvent));
 
     // Replay events to get current state
-    const currentState = replayEvents(workspaceEvents_typed, workspaceId, baseState);
-
-    return currentState;
+    return replayEvents(workspaceEvents_typed, workspaceId, baseState);
   } catch (error) {
     console.error("Error loading workspace state from events:", error);
-    
-    // Fallback to empty state if event loading fails
-    return {
-      items: [],
-      globalTitle: "",
-      workspaceId: workspaceId,
-    };
+    throw error;
   }
 }

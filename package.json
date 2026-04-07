@@ -31,6 +31,7 @@
   "dependencies": {
     "@ai-sdk/devtools": "^0.0.15",
     "@ai-sdk/google": "^3.0.58",
+    "@modelcontextprotocol/sdk": "^1.0.4",
     "@assistant-ui/react": "^0.12.23",
     "@assistant-ui/react-ai-sdk": "^1.3.17",
     "@assistant-ui/react-devtools": "^1.0.4",

@@ -3,6 +3,7 @@ import { db } from "@/lib/db/client";
 import { createEvent } from "@/lib/workspace/events";
 import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
+import { invalidateWorkspaceCache } from "@/lib/mcp/workspace-cache";
 import type { AudioData, Item } from "@/lib/workspace-state/types";
 import type { TranscribeResult } from "./transcribe";
 
@@ -67,6 +68,7 @@ export async function persistAudioResult(
         `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${versionResult[0]?.version ?? 0}). Workflow will retry automatically.`,
       );
     }
+    invalidateWorkspaceCache(workspaceId);
 
     await broadcastWorkspaceEventFromServer(workspaceId, {
       ...event,
@@ -134,6 +136,7 @@ export async function persistAudioFailure(
         `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${versionResult[0]?.version ?? 0}). Workflow will retry automatically.`,
       );
     }
+    invalidateWorkspaceCache(workspaceId);
 
     await broadcastWorkspaceEventFromServer(workspaceId, {
       ...event,

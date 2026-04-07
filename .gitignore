@@ -65,3 +65,6 @@ bun.lockb
 # One-off / local scripts (keep on disk, not versioned)
 /scripts/
 
+
+
+.cursorrules

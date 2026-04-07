@@ -59,8 +59,13 @@ export async function loadStateForTool(
         return { success: false, message: "No workspace context available" };
     }
 
-    const state = await loadWorkspaceState(ctx.workspaceId);
-    return { success: true, state };
+    try {
+      const state = await loadWorkspaceState(ctx.workspaceId);
+      return { success: true, state };
+    } catch (err) {
+      console.error("[loadStateForTool] loadWorkspaceState failed", err);
+      return { success: false, message: "Failed to load workspace state" };
+    }
 }
 
 /**

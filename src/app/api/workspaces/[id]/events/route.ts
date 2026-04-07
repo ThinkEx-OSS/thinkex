@@ -67,6 +67,7 @@ import {
   withErrorHandling,
 } from "@/lib/api/workspace-helpers";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
+import { invalidateWorkspaceCache } from "@/lib/mcp/workspace-cache";
 
 /**
  * GET /api/workspaces/[id]/events
@@ -458,6 +459,9 @@ async function handlePOST(
   }
 
   // Success - no conflict
+  // Invalidate MCP cache for this workspace
+  invalidateWorkspaceCache(id);
+
   // Check if we need to create a snapshot (async, non-blocking)
   checkAndCreateSnapshot(id).catch((err) => {
     console.error(
