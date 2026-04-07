@@ -35,6 +35,7 @@
     "@assistant-ui/react-ai-sdk": "^1.3.17",
     "@assistant-ui/react-devtools": "^1.0.4",
     "@assistant-ui/react-markdown": "^0.12.8",
+    "@contextcompany/otel": "^1.0.15",
     "@embedpdf/core": "^2.14.0",
     "@embedpdf/engines": "^2.14.0",
     "@embedpdf/models": "^2.14.0",

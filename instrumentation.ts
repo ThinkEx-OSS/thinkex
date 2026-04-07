@@ -1,4 +1,5 @@
 import type { Instrumentation } from "next";
+import { TCCSpanProcessor } from "@contextcompany/otel";
 import { registerOTel } from "@vercel/otel";
 import {
   capturePostHogServerException,
@@ -6,7 +7,18 @@ import {
 } from "@/lib/posthog-server";
 
 export function register() {
-  registerOTel({ serviceName: "thinkex" });
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+
+  registerOTel({
+    serviceName: "thinkex",
+    spanProcessors: [
+      "auto",
+      new TCCSpanProcessor({
+        debug: true,
+        otlpUrl: "https://ingest.thecontext.company",
+      }),
+    ],
+  });
 }
 
 export const onRequestError: Instrumentation.onRequestError = async (

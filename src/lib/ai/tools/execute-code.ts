@@ -55,6 +55,7 @@ export async function executeCodeWithGemini(
     tools: codeTools,
     stopWhen: stepCountIs(INNER_STEP_CAP),
     abortSignal: options?.abortSignal,
+    experimental_telemetry: { isEnabled: true },
     providerOptions: {
       google: {
         thinkingConfig: {

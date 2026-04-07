@@ -137,6 +137,10 @@ async function runSearchPhase(
 
   const { output } = await generateText({
     model: google("gemini-2.5-flash-lite"),
+    experimental_telemetry: {
+      isEnabled: true,
+      metadata: { "tcc.conversational": "true" },
+    },
     output: Output.object({ schema: SEARCH_DECISION_SCHEMA }),
     prompt: `Given this user prompt for a study workspace, decide if web search would help.
 
@@ -216,6 +220,10 @@ async function runDistillationAgent(
 
   const { partialOutputStream } = streamText({
     model: google("gemini-2.5-flash-lite"),
+    experimental_telemetry: {
+      isEnabled: true,
+      metadata: { "tcc.conversational": "true" },
+    },
     output: Output.object({ schema: DISTILLED_SCHEMA }),
     system: `<role>
 You are a workspace content distiller. The user provides content (prompt, files, links). You extract metadata and distilled content for creating study materials.
@@ -694,6 +702,10 @@ export async function POST(request: NextRequest) {
           let output: OutputType | undefined;
           const { partialOutputStream } = streamText({
             model: google("gemini-2.5-flash"),
+            experimental_telemetry: {
+              isEnabled: true,
+              metadata: { "tcc.conversational": "true" },
+            },
             system: DOCUMENT_QUIZ_SYSTEM,
             output: Output.object({
               name: "DocumentQuiz",
