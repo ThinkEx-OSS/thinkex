@@ -138,6 +138,11 @@ function MCPAccessSection() {
   const fetchKeys = async () => {
     try {
       const res = await fetch("/api/mcp-keys");
+      if (!res.ok) {
+        console.error("Failed to load API keys:", res.status, res.statusText);
+        toast.error("Failed to load API keys");
+        return;
+      }
       const data = await res.json();
       setKeys(data.keys || []);
     } catch (error) {
@@ -358,8 +363,7 @@ function MCPAccessSection() {
 function IDEConfigSection({ copyToClipboard }: { copyToClipboard: (text: string) => void }) {
   const mcpUrl = `${getBaseURL()}/api/mcp`;
 
-  const snippet = (filePath: string) => `// ${filePath}
-{
+  const snippet = () => `{
   "mcpServers": {
     "thinkex": {
       "url": "${mcpUrl}",
@@ -370,8 +374,7 @@ function IDEConfigSection({ copyToClipboard }: { copyToClipboard: (text: string)
   }
 }`;
 
-  const claudeCodeSnippet = `// .mcp.json  (project-level)
-{
+  const claudeCodeSnippet = `{
   "mcpServers": {
     "thinkex": {
       "type": "http",
@@ -383,9 +386,9 @@ function IDEConfigSection({ copyToClipboard }: { copyToClipboard: (text: string)
   }
 }`;
 
-  const cursorGlobal = snippet("~/.cursor/mcp.json  (global — all projects)");
-  const cursorProject = snippet(".cursor/mcp.json  (project-level)");
-  const vscode = snippet(".vscode/mcp.json  (project-level)");
+  const cursorGlobal = snippet();
+  const cursorProject = snippet();
+  const vscode = snippet();
 
   const ideTabs = [
     {

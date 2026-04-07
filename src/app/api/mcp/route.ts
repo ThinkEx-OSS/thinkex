@@ -3,6 +3,8 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
+  InitializeRequestSchema,
+  LATEST_PROTOCOL_VERSION,
 } from "@modelcontextprotocol/sdk/types.js";
 import { createHash } from "crypto";
 import { db, workspaces } from "@/lib/db/client";
@@ -22,6 +24,12 @@ const DEFAULT_LINE_LIMIT = 500; // enough for a full section without requiring a
 const LIST_MAX_ITEMS = 200;  // items returned per list_workspace call; use search_workspace for larger workspaces
 
 const VALID_ITEM_TYPES = new Set(["document", "pdf", "flashcard", "quiz", "audio", "image", "website", "youtube", "folder"]);
+
+// Escapes all regex metacharacters so user-supplied query strings are always
+// treated as literal substrings rather than patterns, preventing ReDoS.
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 // Throws if the workspace does not belong to userId — prevents cross-user data access.
 async function assertOwnsWorkspace(workspaceId: string, userId: string): Promise<void> {
@@ -69,8 +77,14 @@ function extractText(item: Item): string | null {
         .join("\n\n") || null;
     }
     case "audio": {
-      const transcript = (item.data as any).transcript;
-      const summary = (item.data as any).summary;
+      const data = item.data as any;
+      const transcript: string | null =
+        data.transcript ??
+        ((data.segments as any[] | undefined)
+          ?.map((s: any) => s.text)
+          .filter(Boolean)
+          .join(" ") || null);
+      const summary: string | null = data.summary ?? null;
       return [transcript, summary].filter(Boolean).join("\n\n") || null;
     }
     case "image": {
@@ -319,22 +333,11 @@ function registerTools(server: Server, userId: string) {
             items = items.filter((i) => i.type === type);
           }
 
-          // Use case-insensitive flag only (no `g`) to avoid lastIndex state bleeding
-          // between test() calls on separate lines, which causes matches to be skipped.
-          let regex: RegExp;
-          try {
-            regex = new RegExp(query, "i");
-          } catch {
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify({ error: "Invalid regex pattern" }),
-                },
-              ],
-              isError: true,
-            };
-          }
+          // Treat the query as a literal substring (metacharacters are escaped)
+          // to eliminate ReDoS exposure from untrusted input.
+          // Use case-insensitive flag only (no `g`) to avoid lastIndex state
+          // bleeding between test() calls on separate lines.
+          const regex = new RegExp(escapeRegex(query), "i");
 
           const matches: Array<{
             itemName: string;
@@ -590,7 +593,26 @@ async function handleMCP(req: NextRequest) {
     : null;
 
   try {
-    if (method === "tools/list") {
+    if (method === "initialize") {
+      // Respond to the MCP initialization handshake.
+      // The client sends its capabilities; we reply with ours.
+      await server.request(
+        { method: "initialize", params: params as any },
+        InitializeRequestSchema,
+      );
+      return NextResponse.json({
+        jsonrpc: "2.0",
+        id,
+        result: {
+          protocolVersion: LATEST_PROTOCOL_VERSION,
+          capabilities: { tools: {} },
+          serverInfo: { name: "thinkex", version: "1.0.0" },
+        },
+      });
+    } else if (method === "notifications/initialized") {
+      // Notification — no response body required by the MCP spec.
+      return new NextResponse(null, { status: 204 });
+    } else if (method === "tools/list") {
       const response = await server.request({ method: "tools/list", params: params as any }, ListToolsRequestSchema);
       return NextResponse.json({ jsonrpc: "2.0", id, result: response });
     } else if (method === "tools/call") {

@@ -247,6 +247,15 @@ async function broadcastPersistedWorkspaceEvent(
   });
 }
 
+async function postAppendSuccess(
+  workspaceId: string,
+  event: WorkspaceEvent,
+  version: number,
+): Promise<void> {
+  invalidateWorkspaceCache(workspaceId);
+  await broadcastPersistedWorkspaceEvent(workspaceId, event, version);
+}
+
 /**
  * WORKER 3: Workspace Management Agent
  * Manages workspace items (create, update, delete)
@@ -458,7 +467,6 @@ export async function workspaceWorker(
 
             // If no conflict, we're done
             if (!appendResult.conflict) {
-              invalidateWorkspaceCache(params.workspaceId);
               break;
             }
 
@@ -487,11 +495,7 @@ export async function workspaceWorker(
 
           logger.info(`📝 [WORKSPACE-WORKER] Created ${item.type}:`, item.name);
 
-          await broadcastPersistedWorkspaceEvent(
-            params.workspaceId,
-            event,
-            appendResult.version,
-          );
+          await postAppendSuccess(params.workspaceId, event, appendResult.version);
 
           // Include card count for flashcard decks (use created item.data.cards, not params)
           const flashcardCards =
@@ -557,16 +561,10 @@ export async function workspaceWorker(
               "Workspace was modified by another user, please try again",
             );
           }
-          invalidateWorkspaceCache(params.workspaceId);
-
           logger.info(
             `📝 [WORKSPACE-WORKER] Bulk created ${items.length} items`,
           );
-          await broadcastPersistedWorkspaceEvent(
-            params.workspaceId,
-            event,
-            appendResult.version,
-          );
+          await postAppendSuccess(params.workspaceId, event, appendResult.version);
           return {
             success: true,
             message: `Bulk created ${items.length} items successfully`,
@@ -685,8 +683,6 @@ export async function workspaceWorker(
               "Workspace was modified by another user, please try again",
             );
           }
-          invalidateWorkspaceCache(params.workspaceId);
-
           logger.info("🎴 [WORKSPACE-WORKER] Updated flashcard deck:", {
             itemId: params.itemId,
             cardsAdded: newCards.length,
@@ -694,11 +690,7 @@ export async function workspaceWorker(
             newTitle: params.title,
           });
 
-          await broadcastPersistedWorkspaceEvent(
-            params.workspaceId,
-            event,
-            appendResult.version,
-          );
+          await postAppendSuccess(params.workspaceId, event, appendResult.version);
 
           return {
             success: true,
@@ -845,19 +837,13 @@ export async function workspaceWorker(
               "Workspace was modified by another user, please try again",
             );
           }
-          invalidateWorkspaceCache(params.workspaceId);
-
           logger.info("🎯 [WORKSPACE-WORKER] Updated quiz:", {
             itemId: params.itemId,
             questionsAdded: questionsToAdd?.length ?? 0,
             totalQuestions: updatedData.questions.length,
           });
 
-          await broadcastPersistedWorkspaceEvent(
-            params.workspaceId,
-            event,
-            appendResult.version,
-          );
+          await postAppendSuccess(params.workspaceId, event, appendResult.version);
 
           return {
             success: true,
@@ -972,19 +958,13 @@ export async function workspaceWorker(
               "Workspace was modified by another user, please try again",
             );
           }
-          invalidateWorkspaceCache(params.workspaceId);
-
           const contentLen = getOcrPagesTextContent(params.pdfOcrPages).length;
           logger.info("📄 [WORKSPACE-WORKER] Updated PDF OCR content:", {
             itemId: params.itemId,
             contentLength: contentLen,
           });
 
-          await broadcastPersistedWorkspaceEvent(
-            params.workspaceId,
-            event,
-            appendResult.version,
-          );
+          await postAppendSuccess(params.workspaceId, event, appendResult.version);
 
           return {
             success: true,
@@ -1078,13 +1058,7 @@ export async function workspaceWorker(
               "Workspace was modified by another user, please try again",
             );
           }
-          invalidateWorkspaceCache(params.workspaceId);
-
-          await broadcastPersistedWorkspaceEvent(
-            params.workspaceId,
-            event,
-            appendResult.version,
-          );
+          await postAppendSuccess(params.workspaceId, event, appendResult.version);
 
           return {
             success: true,
@@ -1222,13 +1196,7 @@ export async function workspaceWorker(
               throw new Error(
                 "Workspace was modified by another user, please try again",
               );
-            invalidateWorkspaceCache(params.workspaceId);
-
-            await broadcastPersistedWorkspaceEvent(
-              params.workspaceId,
-              event,
-              appendResult.version,
-            );
+            await postAppendSuccess(params.workspaceId, event, appendResult.version);
 
             return {
               success: true,
@@ -1357,13 +1325,7 @@ export async function workspaceWorker(
               throw new Error(
                 "Workspace was modified by another user, please try again",
               );
-            invalidateWorkspaceCache(params.workspaceId);
-
-            await broadcastPersistedWorkspaceEvent(
-              params.workspaceId,
-              event,
-              appendResult.version,
-            );
+            await postAppendSuccess(params.workspaceId, event, appendResult.version);
 
             return {
               success: true,
@@ -1466,13 +1428,7 @@ export async function workspaceWorker(
               throw new Error(
                 "Workspace was modified by another user, please try again",
               );
-            invalidateWorkspaceCache(params.workspaceId);
-
-            await broadcastPersistedWorkspaceEvent(
-              params.workspaceId,
-              event,
-              appendResult.version,
-            );
+            await postAppendSuccess(params.workspaceId, event, appendResult.version);
 
             const diffOutput = trimDiff(
               createPatch(
@@ -1548,12 +1504,7 @@ export async function workspaceWorker(
               throw new Error(
                 "Workspace was modified by another user, please try again",
               );
-            invalidateWorkspaceCache(params.workspaceId);
-            await broadcastPersistedWorkspaceEvent(
-              params.workspaceId,
-              event,
-              appendResult.version,
-            );
+            await postAppendSuccess(params.workspaceId, event, appendResult.version);
             return {
               success: true,
               itemId: params.itemId,
@@ -1611,15 +1562,9 @@ export async function workspaceWorker(
               "Workspace was modified by another user, please try again",
             );
           }
-          invalidateWorkspaceCache(params.workspaceId);
-
           logger.info("📝 [WORKSPACE-WORKER] Deleted item:", params.itemId);
 
-          await broadcastPersistedWorkspaceEvent(
-            params.workspaceId,
-            event,
-            appendResult.version,
-          );
+          await postAppendSuccess(params.workspaceId, event, appendResult.version);
 
           return {
             success: true,
