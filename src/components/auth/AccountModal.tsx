@@ -170,12 +170,19 @@ function MCPAccessSection() {
   };
 
   useEffect(() => {
-    if (open && keys.length === 0) {
+    if (open) {
+      setLoadFailed(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  useEffect(() => {
+    if (open && keys.length === 0 && !loadFailed) {
       setIsLoading(true);
       fetchKeys();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, loadFailed, keys.length]);
+  }, [open, keys.length]);
 
   const handleCreateKey = async () => {
     setIsCreating(true);
