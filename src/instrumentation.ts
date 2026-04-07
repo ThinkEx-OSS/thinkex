@@ -14,7 +14,7 @@ export function register() {
     spanProcessors: [
       "auto",
       new TCCSpanProcessor({
-        debug: true,
+        debug: false,
         otlpUrl: "https://ingest.thecontext.company",
       }),
     ],
