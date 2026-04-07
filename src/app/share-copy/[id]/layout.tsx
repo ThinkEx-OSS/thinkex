@@ -38,9 +38,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
 
     // Fetch full state to get potentially updated title/description
-    const state = await loadWorkspaceState(id);
+    let stateTitle: string | undefined;
+    try {
+      const state = await loadWorkspaceState(id);
+      stateTitle = state.globalTitle;
+    } catch (err) {
+      console.error("[generateMetadata] loadWorkspaceState failed for workspace", id, err);
+    }
 
-    const title = state.globalTitle || workspace[0].name || "Untitled Workspace";
+    const title = stateTitle || workspace[0].name || "Untitled Workspace";
     const sharedTitle = `Shared Workspace: ${title}`;
     const description = workspace[0].description || "View and import this shared ThinkEx workspace.";
     const fullTitle = getPageTitle(sharedTitle);

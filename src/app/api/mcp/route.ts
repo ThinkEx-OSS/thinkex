@@ -23,7 +23,7 @@ const MIN_LINE_LIMIT = 1;
 const DEFAULT_LINE_LIMIT = 500; // enough for a full section without requiring a follow-up call
 const LIST_MAX_ITEMS = 200;  // items returned per list_workspace call; use search_workspace for larger workspaces
 
-const VALID_ITEM_TYPES = new Set(["document", "pdf", "flashcard", "quiz", "audio", "image", "website", "youtube", "folder"]);
+const VALID_ITEM_TYPES = new Set(["document", "pdf", "flashcard", "quiz", "audio", "image"]);
 
 // Escapes all regex metacharacters so user-supplied query strings are always
 // treated as literal substrings rather than patterns, preventing ReDoS.
@@ -83,7 +83,7 @@ function extractText(item: Item): string | null {
         ((data.segments as any[] | undefined)
           ?.map((s: any) => s.content)
           .filter(Boolean)
-          .join(" ") || null);
+          .join("\n") || null);
       const summary: string | null = data.summary ?? null;
       return [transcript, summary].filter(Boolean).join("\n\n") || null;
     }
@@ -344,25 +344,46 @@ function registerTools(server: Server, userId: string) {
             itemType: string;
             folderId: string | null;
             lineStart: number;
+            pageNumber?: number;
             content: string;
           }> = [];
           const INTERNAL_CAP = 100;
 
           for (const item of items) {
-            const text = extractText(item);
-            if (!text) continue;
+            if (item.type === "pdf") {
+              const pages = ((item.data as any).ocrPages ?? []) as Array<{ markdown: string }>;
+              for (let pageIdx = 0; pageIdx < pages.length && matches.length < INTERNAL_CAP; pageIdx++) {
+                const pageLines = (pages[pageIdx].markdown ?? "").split("\n");
+                for (let lineIdx = 0; lineIdx < pageLines.length; lineIdx++) {
+                  if (regex.test(pageLines[lineIdx])) {
+                    matches.push({
+                      itemName: item.name,
+                      itemType: item.type,
+                      folderId: item.folderId ?? null,
+                      pageNumber: pageIdx + 1,
+                      lineStart: lineIdx + 1,
+                      content: pageLines[lineIdx].trim(),
+                    });
+                    if (matches.length >= INTERNAL_CAP) break;
+                  }
+                }
+              }
+            } else {
+              const text = extractText(item);
+              if (!text) continue;
 
-            const lines = text.split("\n");
-            for (let i = 0; i < lines.length; i++) {
-              if (regex.test(lines[i])) {
-                matches.push({
-                  itemName: item.name,
-                  itemType: item.type,
-                  folderId: item.folderId ?? null,
-                  lineStart: i + 1,
-                  content: lines[i].trim(),
-                });
-                if (matches.length >= INTERNAL_CAP) break;
+              const lines = text.split("\n");
+              for (let i = 0; i < lines.length; i++) {
+                if (regex.test(lines[i])) {
+                  matches.push({
+                    itemName: item.name,
+                    itemType: item.type,
+                    folderId: item.folderId ?? null,
+                    lineStart: i + 1,
+                    content: lines[i].trim(),
+                  });
+                  if (matches.length >= INTERNAL_CAP) break;
+                }
               }
             }
             if (matches.length >= INTERNAL_CAP) break;

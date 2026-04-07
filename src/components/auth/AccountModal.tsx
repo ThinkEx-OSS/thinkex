@@ -207,9 +207,13 @@ function MCPAccessSection() {
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard");
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Copied to clipboard");
+    } catch {
+      toast.error("Failed to copy to clipboard");
+    }
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -328,7 +332,7 @@ function MCPAccessSection() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showKeyModal} onOpenChange={setShowKeyModal}>
+      <AlertDialog open={showKeyModal} onOpenChange={(open) => { setShowKeyModal(open); if (!open) setNewKeyData(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>API Key Created</AlertDialogTitle>
