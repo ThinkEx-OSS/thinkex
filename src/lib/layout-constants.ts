@@ -5,31 +5,6 @@
  * These values control the responsive behavior of the dashboard layout.
  */
 
-// ===== WORKSPACE PANEL SIZES =====
-// Workspace panel size as percentage of total width (0-100)
-export const WORKSPACE_PANEL_SIZES = {
-  /** Full width when chat is collapsed */
-  FULL: 100,
-  /** Default size when chat is expanded */
-  WITH_CHAT: 60,
-  /** Size when both chat and thread list are visible */
-  WITH_THREAD_LIST: 50,
-} as const;
-
-// ===== COLUMN BREAKPOINTS =====
-// Workspace panel size thresholds for column calculations
-export const COLUMN_BREAKPOINTS = {
-  /** Workspace size above this = 3 columns */
-  THREE_COLUMNS: 70,
-  /** Workspace size above this = 2 columns */
-  TWO_COLUMNS: 40,
-  /** Below this = 1 column */
-} as const;
-
-// ===== AUTO-MAXIMIZE THRESHOLD =====
-/** When chat panel is dragged beyond this percentage, auto-maximize */
-export const AUTO_MAXIMIZE_THRESHOLD = 75;
-
 // ===== SIDEBAR WIDTHS =====
 /** Left sidebar width when expanded (Tailwind class value) */
 export const LEFT_SIDEBAR_WIDTH_EXPANDED = '16rem'; // 256px
@@ -50,7 +25,7 @@ export const PANEL_DEFAULTS = {
   WORKSPACE_MIN: 25,
   /** Minimum chat panel size */
   CHAT_MIN: 30,
-  /** Maximum chat panel size (before auto-maximize) */
+  /** Maximum chat panel width in split view (percentage of group) */
   CHAT_MAX: 75,
   /** Thread list min size */
   THREAD_LIST_MIN: 12,

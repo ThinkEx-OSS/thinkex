@@ -2,7 +2,6 @@
 
 import { FloatingCard, type FloatingCardData } from "./FloatingCard";
 import { cn } from "@/lib/utils";
-import { useRef, useState, useEffect } from "react";
 
 const BASE_CARDS: FloatingCardData[] = [
   { type: "youtube", thumbnailUrl: "/youtube-thumbnail-2.jpg" },
@@ -63,42 +62,16 @@ export function FloatingWorkspaceCards({
   className,
   clearerBackground = false,
 }: FloatingWorkspaceCardsProps) {
-  const [transform, setTransform] = useState({ x: 0, y: 0 });
-  const rafRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      rafRef.current = requestAnimationFrame(() => {
-        const relX = e.clientX / window.innerWidth;
-        const relY = e.clientY / window.innerHeight;
-        const pushIntensity = 20;
-        const offsetX = -(relX - 0.5) * pushIntensity;
-        const offsetY = -(relY - 0.5) * pushIntensity;
-        setTransform({ x: offsetX, y: offsetY });
-      });
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, []);
-
   return (
     <div className="absolute inset-0 w-full h-full pointer-events-none select-none z-0">
       <div
         className={cn(
-          "absolute inset-0 w-[120%] -ml-[10%] -mt-[5%] columns-2 md:columns-3 lg:columns-6 gap-4 md:gap-6 lg:gap-8 transition-transform duration-800 ease-out pointer-events-none",
+          "absolute inset-0 w-[120%] -ml-[10%] -mt-[5%] columns-2 md:columns-3 lg:columns-6 gap-4 md:gap-6 lg:gap-8 pointer-events-none",
           clearerBackground
             ? "opacity-70 dark:opacity-50"
             : "opacity-50 dark:opacity-30",
           className,
         )}
-        style={{
-          transform: `translate(${transform.x}px, ${transform.y}px)`,
-        }}
       >
         {BASE_CARDS.map((card, index) => (
           <FloatingCard

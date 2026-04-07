@@ -90,6 +90,14 @@ RULES:
       model: google("gemini-3-flash-preview"),
       system: systemPrompt,
       prompt: `Extract the pure document content from this assistant response. Preserve all information. Remove only conversational/meta fluff. Output title + body in markdown:\n\n${content}`,
+      experimental_telemetry: {
+        isEnabled: true,
+        metadata: {
+          "tcc.conversational": "true",
+          userId: session.user.id,
+          workspaceId,
+        },
+      },
     });
 
     const reformattedContent = aiResult.text.trim();

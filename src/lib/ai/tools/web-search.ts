@@ -103,6 +103,7 @@ export async function executeWebSearch(query: string): Promise<WebSearchResult> 
         tools: {
             googleSearch: google.tools.googleSearch({}),
         } as ToolSet,
+        experimental_telemetry: { isEnabled: true },
         prompt: `Search the web for current, accurate information about: ${query}
 
 Use the search tool to find relevant sources. Format your response as:

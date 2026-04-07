@@ -1,16 +1,14 @@
 import { useMemo } from "react";
-import { COLUMN_BREAKPOINTS } from "@/lib/layout-constants";
 
 interface LayoutStateConfig {
   isLeftSidebarOpen: boolean;
   isChatExpanded: boolean;
-  workspacePanelSize: number; // percentage (0-100)
   isChatMaximized: boolean;
   isDesktop: boolean;
 }
 
 interface LayoutState {
-  // Column calculation for workspace grid
+  /** Workspace grid column count (0 when chat is maximized) */
   columns: number;
 
   // Sidebar states (passed through for convenience)
@@ -25,14 +23,13 @@ interface LayoutState {
  * 1. MAXIMIZED: Chat takes full screen, workspace completely hidden (0 columns)
  * 2. NORMAL: Workspace visible with 4 columns
  * 
- * Column calculation:
- * - Mobile: Always 4 columns
- * - Desktop: Always 4 columns (unless chat is maximized)
+ * Column count:
+ * - Maximized chat: 0 (workspace hidden)
+ * - Otherwise: 4 columns
  */
 export function useLayoutState({
   isLeftSidebarOpen,
   isChatExpanded,
-  workspacePanelSize,
   isChatMaximized,
   isDesktop,
 }: LayoutStateConfig): LayoutState {

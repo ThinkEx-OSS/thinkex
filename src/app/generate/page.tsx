@@ -234,7 +234,6 @@ function GenerateContent() {
         <WorkspaceInstructionModal
           open={!error}
           canClose={false}
-          showFallback={false}
           isGenerating={isLoading && !error}
           progressText={progressText}
           completedSteps={completedSteps}

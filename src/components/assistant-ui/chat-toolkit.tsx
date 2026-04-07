@@ -15,6 +15,7 @@ import { renderReadWorkspaceToolUI } from "@/components/assistant-ui/ReadWorkspa
 import { renderSearchWorkspaceToolUI } from "@/components/assistant-ui/SearchWorkspaceToolUI";
 import { renderURLContextToolUI } from "@/components/assistant-ui/URLContextToolUI";
 import { renderWebSearchToolUI } from "@/components/assistant-ui/WebSearchToolUI";
+import { renderExecuteCodeToolUI } from "@/components/assistant-ui/ExecuteCodeToolUI";
 import { renderYouTubeSearchToolUI } from "@/components/assistant-ui/YouTubeSearchToolUI";
 
 function createBackendTool(
@@ -53,6 +54,10 @@ export const chatToolToolkit: Toolkit = {
   ...withLegacyNames(
     CHAT_TOOL.WEB_SEARCH,
     createBackendTool(renderWebSearchToolUI),
+  ),
+  ...withLegacyNames(
+    CHAT_TOOL.CODE_EXECUTE,
+    createBackendTool(renderExecuteCodeToolUI),
   ),
   ...withLegacyNames(
     CHAT_TOOL.WORKSPACE_SEARCH,

@@ -71,6 +71,13 @@ export const POST = withServerObservability(async function POST(
             model: google(GEMINI_FLASH_LITE_MODEL),
             system: `Generate a very short chat title (2-6 words) that captures the topic. Output ONLY the title, no quotes or punctuation.`,
             prompt: `Conversation:\n\n${conversationText}\n\nTitle:`,
+            experimental_telemetry: {
+              isEnabled: true,
+              metadata: {
+                "tcc.sessionId": id,
+                ...(userId ? { userId } : {}),
+              },
+            },
           });
           const generated = text.trim().slice(0, 60);
           if (generated) title = generated;

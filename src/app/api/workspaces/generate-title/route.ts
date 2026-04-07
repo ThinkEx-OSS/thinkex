@@ -42,6 +42,10 @@ async function handlePOST(request: NextRequest) {
 
   const { output } = await generateText({
     model: google("gemini-2.5-flash-lite"),
+    experimental_telemetry: {
+      isEnabled: true,
+      metadata: { "tcc.conversational": "true" },
+    },
     output: Output.object({
       schema: z.object({
         title: z.string().describe("A short, concise workspace title (max 5-6 words)"),

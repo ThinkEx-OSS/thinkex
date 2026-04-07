@@ -1,34 +1,15 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ElementType,
-} from "react";
-import {
-  Move,
-  SquarePen,
-  FileSearch,
-  Share2,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  ArrowRight,
-} from "lucide-react";
-import { YouTubeMark } from "@/components/icons/YouTubeMark";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, X, ArrowRight } from "lucide-react";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export interface WorkspaceInstructionModalProps {
   open: boolean;
   canClose: boolean;
-  showFallback: boolean;
   onRequestClose?: () => void;
-  onFallbackContinue?: () => void;
   onUserInteracted?: () => void;
   isGenerating?: boolean;
   /** Progress text shown at top when generating (e.g. "Creating your document...") */
@@ -44,7 +25,6 @@ export interface WorkspaceInstructionModalProps {
 }
 
 interface Step {
-  icon: ElementType<{ className?: string }>;
   label: string;
   video?: { dark: string; light: string };
 }
@@ -55,7 +35,6 @@ const VIDEO_BASE =
 // Order front-loads cooler / less intuitive features so drop-off users still see the wow moments
 const STEPS: Step[] = [
   {
-    icon: SquarePen,
     label: "Upload a PDF, AI makes summaries & study guides",
     video: {
       dark: `${VIDEO_BASE}/step-2-generate-card-dark-3.mp4`,
@@ -63,7 +42,6 @@ const STEPS: Step[] = [
     },
   },
   {
-    icon: FileSearch,
     label: "Select cards & chat with AI for answers from your materials",
     video: {
       dark: `${VIDEO_BASE}/step-3-pdf-ss-dark.mp4`,
@@ -71,7 +49,6 @@ const STEPS: Step[] = [
     },
   },
   {
-    icon: SquarePen,
     label: "Type a prompt, AI creates study materials",
     video: {
       dark: `${VIDEO_BASE}/step-2-generate-card-dark-1.mp4`,
@@ -79,7 +56,6 @@ const STEPS: Step[] = [
     },
   },
   {
-    icon: SquarePen,
     label: "Select cards, AI generates documents from their content",
     video: {
       dark: `${VIDEO_BASE}/step-2-generate-card-dark-2.mp4`,
@@ -87,7 +63,6 @@ const STEPS: Step[] = [
     },
   },
   {
-    icon: YouTubeMark,
     label: "Paste or drag YouTube links next to your documents",
     video: {
       dark: `${VIDEO_BASE}/step-4-youtube-dark.mp4`,
@@ -95,7 +70,6 @@ const STEPS: Step[] = [
     },
   },
   {
-    icon: Move,
     label: "Drag, resize & organize cards on your grid",
     video: {
       dark: `${VIDEO_BASE}/step-1-arrange-dark.mp4`,
@@ -103,7 +77,6 @@ const STEPS: Step[] = [
     },
   },
   {
-    icon: Share2,
     label: "Share your workspace to collaborate in real time",
     video: {
       dark: `${VIDEO_BASE}/step-5-collab-dark.mp4`,
@@ -118,7 +91,6 @@ const EMPTY_COMPLETED_STEPS: string[] = [];
 
 function useCarousel(open: boolean) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [visibleIndex, setVisibleIndex] = useState(0);
   const [fading, setFading] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -133,24 +105,21 @@ function useCarousel(open: boolean) {
       fadeTimeoutRef.current = null;
     }
     setActiveIndex(0);
-    setVisibleIndex(0);
     setFading(false);
     setVideoLoaded(false);
     pausedRef.current = false;
   }, []);
 
-  // Reset carousel state when modal closes so re-opening starts from slide 0
   useEffect(() => {
     if (!open) {
-      const resetTimer = window.setTimeout(resetCarousel, 0);
-      return () => window.clearTimeout(resetTimer);
+      const t = window.setTimeout(resetCarousel, 0);
+      return () => window.clearTimeout(t);
     }
   }, [open, resetCarousel]);
 
-  // Transition: fade out → swap → fade in
   const transitionTo = useCallback(
     (nextIndex: number) => {
-      if (nextIndex === visibleIndex) return;
+      if (nextIndex === activeIndex) return;
       if (fadeTimeoutRef.current) {
         clearTimeout(fadeTimeoutRef.current);
         fadeTimeoutRef.current = null;
@@ -159,18 +128,17 @@ function useCarousel(open: boolean) {
       setVideoLoaded(false);
       fadeTimeoutRef.current = setTimeout(() => {
         setActiveIndex(nextIndex);
-        setVisibleIndex(nextIndex);
         setFading(false);
         fadeTimeoutRef.current = null;
       }, FADE_MS);
     },
-    [visibleIndex],
+    [activeIndex],
   );
 
   const advance = useCallback(() => {
     if (pausedRef.current) return;
-    transitionTo((visibleIndex + 1) % STEPS.length);
-  }, [transitionTo, visibleIndex]);
+    transitionTo((activeIndex + 1) % STEPS.length);
+  }, [transitionTo, activeIndex]);
 
   const pause = useCallback(() => {
     pausedRef.current = true;
@@ -180,38 +148,28 @@ function useCarousel(open: boolean) {
     }
   }, []);
 
-  const goTo = useCallback(
-    (index: number) => {
-      transitionTo(index);
-    },
-    [transitionTo],
-  );
-
   const goPrev = useCallback(() => {
-    transitionTo((visibleIndex - 1 + STEPS.length) % STEPS.length);
-  }, [transitionTo, visibleIndex]);
+    transitionTo((activeIndex - 1 + STEPS.length) % STEPS.length);
+  }, [transitionTo, activeIndex]);
 
   const goNext = useCallback(() => {
-    transitionTo((visibleIndex + 1) % STEPS.length);
-  }, [transitionTo, visibleIndex]);
+    transitionTo((activeIndex + 1) % STEPS.length);
+  }, [transitionTo, activeIndex]);
 
   const handleVideoEnded = useCallback(() => {
-    // Always auto-advance on video end, even if user has interacted (paused)
-    transitionTo((visibleIndex + 1) % STEPS.length);
-  }, [transitionTo, visibleIndex]);
+    transitionTo((activeIndex + 1) % STEPS.length);
+  }, [transitionTo, activeIndex]);
 
   const handleVideoCanPlay = useCallback(() => {
     setVideoLoaded(true);
   }, []);
 
-  // Start fallback timer for icon-only slides (video slides use key + autoPlay)
   useEffect(() => {
     if (!open) return;
     const step = STEPS[activeIndex];
     if (!step.video) {
       fallbackTimerRef.current = setTimeout(advance, ICON_SLIDE_MS);
     }
-
     return () => {
       if (fallbackTimerRef.current) {
         clearTimeout(fallbackTimerRef.current);
@@ -227,45 +185,14 @@ function useCarousel(open: boolean) {
       : step.video.light
     : null;
 
-  // Preload only next and previous video (metadata only) for faster step switching
-  useEffect(() => {
-    if (!open) return;
-    const prevIndex = (activeIndex - 1 + STEPS.length) % STEPS.length;
-    const nextIndex = (activeIndex + 1) % STEPS.length;
-    const toPreload: string[] = [];
-    const prevStep = STEPS[prevIndex];
-    const nextStep = STEPS[nextIndex];
-    if (prevStep?.video) {
-      toPreload.push(isDark ? prevStep.video.dark : prevStep.video.light);
-    }
-    if (nextStep?.video && nextIndex !== prevIndex) {
-      const src = isDark ? nextStep.video.dark : nextStep.video.light;
-      if (!toPreload.includes(src)) toPreload.push(src);
-    }
-    if (toPreload.length === 0) return;
-    const preloaded: HTMLVideoElement[] = [];
-    for (const src of toPreload) {
-      const el = document.createElement("video");
-      el.preload = "metadata";
-      el.src = src;
-      el.load();
-      preloaded.push(el);
-    }
-    return () => {
-      for (const v of preloaded) {
-        v.src = "";
-        v.load();
-      }
-    };
-  }, [open, activeIndex, isDark]);
-
   return {
     activeIndex,
+    resolvedTheme,
     step,
     videoSrc,
     fading,
     videoLoaded,
-    goTo,
+    goTo: transitionTo,
     goPrev,
     goNext,
     handleVideoEnded,
@@ -290,6 +217,7 @@ export function WorkspaceInstructionModal({
   const carousel = useCarousel(open);
   const {
     activeIndex,
+    resolvedTheme,
     step,
     videoSrc,
     fading,
@@ -301,59 +229,48 @@ export function WorkspaceInstructionModal({
     handleVideoCanPlay,
     pause,
   } = carousel;
-  const { resolvedTheme } = useTheme();
   const allowClose = canClose && !isGenerating;
+  const titleId = useId();
+  const lightBackdrop =
+    isGenerating || (!!generationComplete && !!workspaceSlug);
+
   const overlayClassName = cn(
-    "z-[90] transition-opacity duration-300 ease-out",
-    isGenerating || (!!generationComplete && !!workspaceSlug)
+    "transition-opacity duration-300 ease-out",
+    lightBackdrop
       ? "bg-black/5 dark:bg-black/15 backdrop-blur-[16px]"
       : "bg-black/25 dark:bg-black/40 backdrop-blur-[24px]",
   );
 
+  if (!open) return null;
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen && allowClose) {
-          onRequestClose?.();
-        }
-      }}
+    <div
+      className="fixed inset-0 z-[90] flex items-center justify-center p-4"
+      role="presentation"
     >
-      <DialogContent
-        showCloseButton={false}
-        overlayClassName={overlayClassName}
-        className={cn(
-          "z-[90] w-full max-w-[min(1100px,calc(100%-2rem))] gap-0 border-0 bg-transparent p-0 shadow-none",
-          "data-[state=closed]:scale-[0.97] data-[state=open]:scale-100 data-[state=closed]:opacity-0 data-[state=open]:opacity-100",
-          "duration-300 ease-out",
-        )}
-        aria-label="Workspace instruction"
-        onInteractOutside={(event) => {
-          event.preventDefault();
-        }}
-        onEscapeKeyDown={(event) => {
-          if (!allowClose) {
-            event.preventDefault();
-          }
-        }}
+      <div className={cn("absolute inset-0", overlayClassName)} aria-hidden />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="relative z-[1] w-full max-w-[min(1100px,calc(100%-2rem))]"
         onPointerDownCapture={() => {
           pause();
           onUserInteracted?.();
         }}
       >
-        <DialogHeader className="sr-only">
-          <DialogTitle>Workspace instructions</DialogTitle>
-        </DialogHeader>
+        <h2 id={titleId} className="sr-only">
+          Workspace instructions
+        </h2>
 
         <div
           className={cn(
-            "relative w-full rounded-[28px] shadow-[0_28px_80px_rgba(0,0,0,0.12),0_8px_24px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.4)] dark:shadow-[0_28px_80px_rgba(0,0,0,0.5),0_8px_24px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.08)]",
-          isGenerating || (!!generationComplete && !!workspaceSlug)
-            ? "bg-white/85 dark:bg-gray-900/75 backdrop-blur-md"
-            : "bg-white/80 dark:bg-gray-900/65 backdrop-blur-[24px] backdrop-saturate-[180%]",
-        )}
-      >
-        <div className="relative z-[2] flex h-[690px] flex-col rounded-[24px] bg-transparent overflow-hidden">
+            "relative z-[2] flex h-[min(690px,90dvh)] w-full flex-col overflow-hidden rounded-[28px] shadow-[0_28px_80px_rgba(0,0,0,0.12),0_8px_24px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.4)] dark:shadow-[0_28px_80px_rgba(0,0,0,0.5),0_8px_24px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.08)]",
+            lightBackdrop
+              ? "bg-white/85 dark:bg-gray-900/75 backdrop-blur-md"
+              : "bg-white/80 dark:bg-gray-900/65 backdrop-blur-[24px] backdrop-saturate-[180%]",
+          )}
+        >
           {/* Generating banner at top — when isGenerating, shows progress and step indicator */}
           {isGenerating && (
             <div className="shrink-0 flex flex-col gap-2 px-5 py-4 bg-sidebar border-b border-sidebar-border">
@@ -420,9 +337,7 @@ export function WorkspaceInstructionModal({
             {/* Left chevron */}
             <button
               type="button"
-              onClick={() => {
-                goPrev();
-              }}
+              onClick={goPrev}
               className="absolute left-0 top-0 z-10 h-full w-16 flex items-center justify-center text-sidebar-foreground mix-blend-difference transition-all duration-200 cursor-pointer"
               aria-label="Previous step"
             >
@@ -432,9 +347,7 @@ export function WorkspaceInstructionModal({
             {/* Right chevron */}
             <button
               type="button"
-              onClick={() => {
-                goNext();
-              }}
+              onClick={goNext}
               className="absolute right-0 top-0 z-10 h-full w-16 flex items-center justify-center text-sidebar-foreground mix-blend-difference transition-all duration-200 cursor-pointer"
               aria-label="Next step"
             >
@@ -473,7 +386,7 @@ export function WorkspaceInstructionModal({
           </div>
 
           {/* Lower panel — text, dots, action buttons (always shown, including when generating) */}
-          <div className="relative flex flex-col items-center gap-1 bg-sidebar px-5 pb-4 pt-3 rounded-b-[24px]">
+          <div className="relative flex flex-col items-center gap-1 bg-sidebar px-5 pb-4 pt-3 rounded-b-[28px]">
             {/* Text block — fades with the video */}
             <div
               className={cn(
@@ -494,9 +407,7 @@ export function WorkspaceInstructionModal({
                 <button
                   key={s.label}
                   type="button"
-                  onClick={() => {
-                    goTo(index);
-                  }}
+                  onClick={() => goTo(index)}
                   className={cn(
                     "h-2 rounded-full transition-all duration-300",
                     index === activeIndex
@@ -512,10 +423,7 @@ export function WorkspaceInstructionModal({
             {allowClose && (
               <button
                 type="button"
-                onClick={() => {
-                  if (!allowClose) return;
-                  onRequestClose?.();
-                }}
+                onClick={() => onRequestClose?.()}
                 className="absolute right-5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium bg-white/25 dark:bg-white/10 backdrop-blur-md border border-white/20 dark:border-white/[0.08] text-sidebar-foreground hover:bg-white/35 dark:hover:bg-white/15 shadow-[0_2px_8px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.3)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.06)] transition-all duration-200"
               >
                 <X className="h-3.5 w-3.5" />
@@ -524,8 +432,7 @@ export function WorkspaceInstructionModal({
             )}
           </div>
         </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }

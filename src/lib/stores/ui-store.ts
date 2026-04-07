@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools, persist, createJSONStorage } from 'zustand/middleware';
-import { WORKSPACE_PANEL_SIZES } from '@/lib/layout-constants';
+import { PANEL_DEFAULTS } from '@/lib/layout-constants';
 
 /**
  * UI Store - Manages all UI state (chat, modals, search, layout, text selection)
@@ -155,7 +155,7 @@ const initialState = {
   isThreadListVisible: false,
 
   // Layout
-  workspacePanelSize: WORKSPACE_PANEL_SIZES.WITH_CHAT, // Default when chat is expanded
+  workspacePanelSize: PANEL_DEFAULTS.WORKSPACE_WITH_CHAT, // Default when chat is expanded
 
   openItems: emptyOpenItems(),
   activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,

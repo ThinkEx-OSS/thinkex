@@ -22,7 +22,7 @@ import {
   Play,
   Search,
 } from "lucide-react";
-import { FaQuoteLeft, FaWandMagicSparkles } from "react-icons/fa6";
+import { FaWandMagicSparkles } from "react-icons/fa6";
 import { LuBook } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
@@ -111,6 +111,7 @@ import {
   type PromptBuilderAction,
 } from "@/components/assistant-ui/PromptBuilderDialog";
 import { ModelPicker } from "@/components/assistant-ui/ModelPicker";
+import { ThinkExLogo } from "@/components/ui/thinkex-logo";
 
 interface ThreadProps {
   items?: Item[];
@@ -199,15 +200,11 @@ const ThreadWelcome: FC<ThreadWelcomeProps> = ({ items }) => {
   return (
     <div className="aui-thread-welcome-root mx-auto my-auto flex w-full max-w-[var(--thread-max-width)] flex-grow flex-col">
       <div className="aui-thread-welcome-center flex w-full flex-grow flex-col items-center justify-center">
-        <div className="aui-thread-welcome-message flex size-full flex-col justify-center px-8">
-          <div className="aui-thread-welcome-message-motion-0 text-6xl font-light text-muted-foreground/40 text-center mb-2 flex justify-center mr-48">
-            <FaQuoteLeft />
-          </div>
-          <div className="aui-thread-welcome-message-motion-1 text-2xl font-light italic text-center">
-            I think, therefore I am
-          </div>
-          <div className="aui-thread-welcome-message-motion-2 text-lg text-muted-foreground/70 text-center mt-2">
-            — René Descartes
+        <div className="aui-thread-welcome-message flex size-full flex-col items-center justify-center px-8">
+          <div className="aui-thread-welcome-message-motion-0 mb-1 flex justify-center">
+            <div className="relative flex h-12 w-12 items-center justify-center">
+              <ThinkExLogo size={48} priority />
+            </div>
           </div>
         </div>
       </div>

@@ -4,7 +4,7 @@ import type { OcrCandidate } from "@/lib/ocr/types";
 import { executeOcrRun } from "./steps/run-ocr";
 import { persistOcrResults } from "./steps/persist-results";
 
-const OCR_TIMEOUT = "10min";
+const OCR_TIMEOUT = "30min";
 
 export async function ocrDispatchWorkflow(
   candidates: OcrCandidate[],
