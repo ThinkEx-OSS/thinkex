@@ -181,7 +181,7 @@ function WorkspaceCard({
 
   const handleCopyMarkdown = useCallback(() => {
     if (item.type !== "document") return;
-    const md = (item.data as DocumentData).markdown?.trim() ?? "";
+    const md = (item.data as DocumentData).markdown ?? "";
     if (md) {
       navigator.clipboard
         .writeText(md)

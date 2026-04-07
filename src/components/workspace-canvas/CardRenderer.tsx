@@ -98,7 +98,7 @@ export function CardRenderer(props: {
 
   if (item.type === "document") {
     const documentData = item.data as DocumentData;
-    const md = documentData.markdown?.trim() || "";
+    const md = documentData.markdown ?? "";
     return (
       <div className="flex flex-col">
         <DocumentEditor
