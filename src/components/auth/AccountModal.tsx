@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState, useEffect } from "react";
+import { Fragment, useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -141,10 +141,13 @@ function MCPAccessSection() {
   const [label, setLabel] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [keyToRevoke, setKeyToRevoke] = useState<string | null>(null);
+  const latestFetchIdRef = useRef(0);
 
   const fetchKeys = async () => {
+    const fetchId = ++latestFetchIdRef.current;
     try {
       const res = await fetch("/api/mcp-keys");
+      if (fetchId !== latestFetchIdRef.current) return;
       if (!res.ok) {
         console.error("Failed to load API keys:", res.status, res.statusText);
         toast.error("Failed to load API keys");
@@ -152,22 +155,27 @@ function MCPAccessSection() {
         return;
       }
       const data = await res.json();
+      if (fetchId !== latestFetchIdRef.current) return;
       setKeys(data.keys || []);
       setLoadFailed(false);
     } catch (error) {
+      if (fetchId !== latestFetchIdRef.current) return;
       toast.error("Failed to load API keys");
       setLoadFailed(true);
     } finally {
-      setIsLoading(false);
+      if (fetchId === latestFetchIdRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    if (open && keys.length === 0 && !loadFailed) {
+    if (open && keys.length === 0) {
       setIsLoading(true);
       fetchKeys();
     }
-  }, [open]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, loadFailed, keys.length]);
 
   const handleCreateKey = async () => {
     setIsCreating(true);
@@ -178,7 +186,15 @@ function MCPAccessSection() {
         body: JSON.stringify({ label: label || null }),
       });
 
-      if (!res.ok) throw new Error("Failed to create API key");
+      if (!res.ok) {
+        let errorMessage = "Failed to create API key";
+        try {
+          const errData = await res.json();
+          errorMessage = errData.message || errData.error || errorMessage;
+        } catch {}
+        toast.error(errorMessage);
+        return;
+      }
 
       const data = await res.json();
       setNewKeyData({ rawKey: data.rawKey, prefix: data.prefix });
@@ -186,8 +202,8 @@ function MCPAccessSection() {
       setShowKeyModal(true);
       setLabel("");
       await fetchKeys();
-    } catch (error) {
-      toast.error("Failed to create API key");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to create API key");
     } finally {
       setIsCreating(false);
     }
