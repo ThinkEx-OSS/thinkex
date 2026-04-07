@@ -81,7 +81,7 @@ function extractText(item: Item): string | null {
       const transcript: string | null =
         data.transcript ??
         ((data.segments as any[] | undefined)
-          ?.map((s: any) => s.text)
+          ?.map((s: any) => s.content)
           .filter(Boolean)
           .join(" ") || null);
       const summary: string | null = data.summary ?? null;
@@ -201,12 +201,12 @@ function registerTools(server: Server, userId: string) {
         },
         {
           name: "search_workspace",
-          description: "Search item content by keyword or pattern. Returns matching snippets with item names and line numbers. Use this before read_item to locate the right section — it is far more token-efficient than loading full documents to scan manually.",
+          description: "Search item content by literal keyword. Returns matching snippets with item names and line numbers. Use this before read_item to locate the right section — it is far more token-efficient than loading full documents to scan manually.",
           inputSchema: {
             type: "object",
             properties: {
               workspaceId: { type: "string", description: "Workspace ID" },
-              query: { type: "string", description: "Search keyword or regex pattern" },
+              query: { type: "string", description: "Literal substring to search for (case-insensitive; special characters are matched literally, not as regex)" },
               folderId: { type: "string", description: "Restrict to a folder (optional)" },
               type: { type: "string", description: "Restrict to an item type: document, pdf, flashcard, quiz, audio, image (optional)" },
               limit: { type: "number", description: "Snippets to return (default 5, max 10)" },
@@ -286,7 +286,7 @@ function registerTools(server: Server, userId: string) {
           const { workspaceId, limit } = args as { workspaceId: string; limit?: number };
           await assertOwnsWorkspace(workspaceId, userId);
           const state = await getCachedState(workspaceId);
-          const recentLimit = Math.min(limit ?? 5, 20);
+          const recentLimit = Math.max(1, Math.min(Math.floor(limit ?? 5), 20));
 
           const recent = [...state.items]
             .filter((i) => i.lastModified)
@@ -563,11 +563,37 @@ async function handleMCP(req: NextRequest) {
 
   let body: unknown;
   try {
-    const text = await req.text();
-    if (text.length > MAX_BODY_BYTES) {
-      return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+    const reader = req.body?.getReader();
+    if (!reader) {
+      return NextResponse.json({
+        jsonrpc: "2.0",
+        id: null,
+        error: { code: -32700, message: "Parse error" },
+      }, { status: 400 });
     }
-    body = JSON.parse(text);
+    let totalBytes = 0;
+    const chunks: Uint8Array[] = [];
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        totalBytes += value.byteLength;
+        if (totalBytes > MAX_BODY_BYTES) {
+          await reader.cancel();
+          return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+        }
+        chunks.push(value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    const combined = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      combined.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    body = JSON.parse(new TextDecoder().decode(combined));
   } catch {
     return NextResponse.json({
       jsonrpc: "2.0",

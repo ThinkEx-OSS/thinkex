@@ -128,6 +128,7 @@ interface APIKey {
 function MCPAccessSection() {
   const [keys, setKeys] = useState<APIKey[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [newKeyData, setNewKeyData] = useState<{ rawKey: string; prefix: string } | null>(null);
@@ -141,12 +142,15 @@ function MCPAccessSection() {
       if (!res.ok) {
         console.error("Failed to load API keys:", res.status, res.statusText);
         toast.error("Failed to load API keys");
+        setLoadFailed(true);
         return;
       }
       const data = await res.json();
       setKeys(data.keys || []);
+      setLoadFailed(false);
     } catch (error) {
       toast.error("Failed to load API keys");
+      setLoadFailed(true);
     } finally {
       setIsLoading(false);
     }
@@ -216,6 +220,10 @@ function MCPAccessSection() {
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
+        ) : loadFailed ? (
+          <div className="text-sm text-destructive mb-4">
+            Failed to load API keys. Please try again.
+          </div>
         ) : keys.length === 0 ? (
           <div className="text-sm text-muted-foreground mb-4">
             No API keys yet. Create one to get started.
@@ -245,6 +253,7 @@ function MCPAccessSection() {
                       <Button
                         variant="ghost"
                         size="sm"
+                        aria-label={`Revoke key ${key.label || key.prefix}`}
                         onClick={() => setKeyToRevoke(key.id)}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -317,6 +326,7 @@ function MCPAccessSection() {
               <Button
                 size="sm"
                 variant="outline"
+                aria-label="Copy API key"
                 onClick={() => copyToClipboard(newKeyData?.rawKey || "")}
               >
                 <Copy className="h-4 w-4" />

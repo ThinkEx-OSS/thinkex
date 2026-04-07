@@ -42,19 +42,10 @@ export async function getCachedState(workspaceId: string): Promise<AgentState> {
   const cached = stateCache.get(workspaceId);
   if (cached && cached.expiresAt > Date.now()) return cached.state;
 
+  // loadWorkspaceState throws on DB error, so any state that reaches here is
+  // a genuine result (including legitimately empty new workspaces).
   const state = await loadWorkspaceState(workspaceId);
-
-  // Only cache a state that looks like a real workspace. loadWorkspaceState
-  // returns { items: [], globalTitle: "" } as an error fallback — caching
-  // that would suppress DB errors for CACHE_TTL_MS on every request.
-  const isRealState =
-    state != null &&
-    (state.items.length > 0 || (state.globalTitle != null && state.globalTitle !== ""));
-
-  if (isRealState) {
-    stateCache.set(workspaceId, { state, expiresAt: Date.now() + CACHE_TTL_MS });
-  }
-
+  stateCache.set(workspaceId, { state, expiresAt: Date.now() + CACHE_TTL_MS });
   return state;
 }
 
