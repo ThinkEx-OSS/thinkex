@@ -1211,7 +1211,7 @@ export function WorkspaceHeader({
               </DropdownMenu>
             )}
 
-            {!activeOpenWorkspaceItem && setIsChatExpanded ? (
+            {setIsChatExpanded ? (
               <ChatFloatingButton
                 isDesktop={isDesktop}
                 isChatExpanded={isChatExpanded}
