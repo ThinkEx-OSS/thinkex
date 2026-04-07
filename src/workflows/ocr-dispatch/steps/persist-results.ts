@@ -5,6 +5,7 @@ import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 import type { OcrItemResult } from "@/lib/ocr/types";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
+import { invalidateWorkspaceCache } from "@/app/api/mcp/route";
 import type { ImageData, Item, PdfData } from "@/lib/workspace-state/types";
 
 const APPEND_RESULT_REGEX = /\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i;
@@ -51,6 +52,7 @@ async function appendWorkspaceEvent(
       `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${baseVersion}). Workflow will retry automatically.`,
     );
   }
+  invalidateWorkspaceCache(workspaceId);
 
   await broadcastWorkspaceEventFromServer(workspaceId, {
     ...event,

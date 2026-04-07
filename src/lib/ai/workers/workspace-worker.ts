@@ -31,6 +31,7 @@ import {
 import { parseJsonWithRepair } from "@/lib/utils/json-repair";
 import { buildPdfDataFromUpload } from "@/lib/pdf/pdf-item";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
+import { invalidateWorkspaceCache } from "@/app/api/mcp/route";
 
 /** Create params for a single item (used by create and bulkCreate). Exported for autogen. */
 export type CreateItemParams = {
@@ -457,6 +458,7 @@ export async function workspaceWorker(
 
             // If no conflict, we're done
             if (!appendResult.conflict) {
+              invalidateWorkspaceCache(params.workspaceId);
               break;
             }
 
@@ -555,6 +557,7 @@ export async function workspaceWorker(
               "Workspace was modified by another user, please try again",
             );
           }
+          invalidateWorkspaceCache(params.workspaceId);
 
           logger.info(
             `📝 [WORKSPACE-WORKER] Bulk created ${items.length} items`,
@@ -682,6 +685,7 @@ export async function workspaceWorker(
               "Workspace was modified by another user, please try again",
             );
           }
+          invalidateWorkspaceCache(params.workspaceId);
 
           logger.info("🎴 [WORKSPACE-WORKER] Updated flashcard deck:", {
             itemId: params.itemId,
@@ -841,6 +845,7 @@ export async function workspaceWorker(
               "Workspace was modified by another user, please try again",
             );
           }
+          invalidateWorkspaceCache(params.workspaceId);
 
           logger.info("🎯 [WORKSPACE-WORKER] Updated quiz:", {
             itemId: params.itemId,
@@ -967,6 +972,7 @@ export async function workspaceWorker(
               "Workspace was modified by another user, please try again",
             );
           }
+          invalidateWorkspaceCache(params.workspaceId);
 
           const contentLen = getOcrPagesTextContent(params.pdfOcrPages).length;
           logger.info("📄 [WORKSPACE-WORKER] Updated PDF OCR content:", {
@@ -1072,6 +1078,7 @@ export async function workspaceWorker(
               "Workspace was modified by another user, please try again",
             );
           }
+          invalidateWorkspaceCache(params.workspaceId);
 
           await broadcastPersistedWorkspaceEvent(
             params.workspaceId,
@@ -1215,6 +1222,7 @@ export async function workspaceWorker(
               throw new Error(
                 "Workspace was modified by another user, please try again",
               );
+            invalidateWorkspaceCache(params.workspaceId);
 
             await broadcastPersistedWorkspaceEvent(
               params.workspaceId,
@@ -1349,6 +1357,7 @@ export async function workspaceWorker(
               throw new Error(
                 "Workspace was modified by another user, please try again",
               );
+            invalidateWorkspaceCache(params.workspaceId);
 
             await broadcastPersistedWorkspaceEvent(
               params.workspaceId,
@@ -1457,6 +1466,7 @@ export async function workspaceWorker(
               throw new Error(
                 "Workspace was modified by another user, please try again",
               );
+            invalidateWorkspaceCache(params.workspaceId);
 
             await broadcastPersistedWorkspaceEvent(
               params.workspaceId,
@@ -1538,6 +1548,7 @@ export async function workspaceWorker(
               throw new Error(
                 "Workspace was modified by another user, please try again",
               );
+            invalidateWorkspaceCache(params.workspaceId);
             await broadcastPersistedWorkspaceEvent(
               params.workspaceId,
               event,
@@ -1600,6 +1611,7 @@ export async function workspaceWorker(
               "Workspace was modified by another user, please try again",
             );
           }
+          invalidateWorkspaceCache(params.workspaceId);
 
           logger.info("📝 [WORKSPACE-WORKER] Deleted item:", params.itemId);
 
