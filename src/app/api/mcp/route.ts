@@ -11,10 +11,17 @@ import { eq, and, isNull } from "drizzle-orm";
 import { getCachedState } from "@/lib/mcp/workspace-cache";
 import type { Item } from "@/lib/workspace-state/types";
 
-const MAX_BODY_BYTES = 64 * 1024; // 64 KB — more than enough for any MCP request
+const MAX_BODY_BYTES = 64 * 1024;
 const MAX_REGEX_LENGTH = 300;
 const MAX_ID_LENGTH = 256;
 const MAX_NAME_LENGTH = 500;
+const MAX_PDF_PAGES = 50;    // ~25k words per call — fits comfortably in any modern model context window
+const MAX_LINE_LIMIT = 2000; // ~20k words at typical prose density
+const MIN_LINE_LIMIT = 1;
+const DEFAULT_LINE_LIMIT = 500; // enough for a full section without requiring a follow-up call
+const LIST_MAX_ITEMS = 200;  // items returned per list_workspace call; use search_workspace for larger workspaces
+
+const VALID_ITEM_TYPES = new Set(["document", "pdf", "flashcard", "quiz", "audio", "image", "website", "youtube", "folder"]);
 
 // Throws if the workspace does not belong to userId — prevents cross-user data access.
 async function assertOwnsWorkspace(workspaceId: string, userId: string): Promise<void> {
@@ -151,90 +158,60 @@ function registerTools(server: Server, userId: string) {
       tools: [
         {
           name: "list_workspaces",
-          description: "List all workspaces for the authenticated user",
-          inputSchema: {
-            type: "object",
-            properties: {},
-          },
+          description: "List all workspaces for the authenticated user. Call this first if you don't know the workspaceId.",
+          inputSchema: { type: "object", properties: {} },
         },
         {
           name: "list_workspace",
-          description: "List all items in a workspace (or in a specific folder)",
+          description: "List items in a workspace (metadata only — no content). Returns up to 200 most-recently-modified items. If totalItems exceeds returned, use search_workspace to find specific items instead of calling list_workspace repeatedly.",
           inputSchema: {
             type: "object",
             properties: {
               workspaceId: { type: "string", description: "Workspace ID" },
-              folderId: {
-                type: "string",
-                description: "Optional folder ID to filter items",
-              },
+              folderId: { type: "string", description: "Restrict to a specific folder (optional)" },
             },
             required: ["workspaceId"],
           },
         },
         {
           name: "get_recent",
-          description: "Get the N most recently modified items in a workspace",
+          description: "Get the N most recently modified items in a workspace. Use this to orient yourself quickly before deciding what to read.",
           inputSchema: {
             type: "object",
             properties: {
               workspaceId: { type: "string", description: "Workspace ID" },
-              limit: {
-                type: "number",
-                description: "Number of items to return (default 5, max 20)",
-              },
+              limit: { type: "number", description: "Items to return (default 5, max 20)" },
             },
             required: ["workspaceId"],
           },
         },
         {
           name: "search_workspace",
-          description: "Search for items in a workspace using regex",
+          description: "Search item content by keyword or pattern. Returns matching snippets with item names and line numbers. Use this before read_item to locate the right section — it is far more token-efficient than loading full documents to scan manually.",
           inputSchema: {
             type: "object",
             properties: {
               workspaceId: { type: "string", description: "Workspace ID" },
-              query: { type: "string", description: "Regex search pattern" },
-              folderId: {
-                type: "string",
-                description: "Optional folder ID to filter search",
-              },
-              type: {
-                type: "string",
-                description: "Optional item type to filter search",
-              },
-              limit: {
-                type: "number",
-                description: "Number of results to return (default 5, max 10)",
-              },
+              query: { type: "string", description: "Search keyword or regex pattern" },
+              folderId: { type: "string", description: "Restrict to a folder (optional)" },
+              type: { type: "string", description: "Restrict to an item type: document, pdf, flashcard, quiz, audio, image (optional)" },
+              limit: { type: "number", description: "Snippets to return (default 5, max 10)" },
             },
             required: ["workspaceId", "query"],
           },
         },
         {
           name: "read_item",
-          description: "Read the full content of an item (with pagination support)",
+          description: "Read the content of a named item. Fuzzy-matches the name. For text items use lineStart+limit; for PDFs use pageStart+pageEnd. The response includes hasMore and a note with the exact next call when the document continues beyond the current window.",
           inputSchema: {
             type: "object",
             properties: {
               workspaceId: { type: "string", description: "Workspace ID" },
               name: { type: "string", description: "Item name (fuzzy matched)" },
-              lineStart: {
-                type: "number",
-                description: "Line number to start from (1-indexed, for text items)",
-              },
-              limit: {
-                type: "number",
-                description: "Number of lines to return (default 100, max 500)",
-              },
-              pageStart: {
-                type: "number",
-                description: "Page number to start from (1-indexed, for PDFs)",
-              },
-              pageEnd: {
-                type: "number",
-                description: "Page number to end at (for PDFs)",
-              },
+              lineStart: { type: "number", description: "Start line, 1-indexed (text items only, default 1)" },
+              limit: { type: "number", description: "Lines to return (default 500, max 2000)" },
+              pageStart: { type: "number", description: "Start page, 1-indexed (PDFs only, default 1)" },
+              pageEnd: { type: "number", description: "End page inclusive (PDFs only, max 50 pages per call)" },
             },
             required: ["workspaceId", "name"],
           },
@@ -255,12 +232,7 @@ function registerTools(server: Server, userId: string) {
             .where(eq(workspaces.userId, userId));
 
           return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(workspacesList, null, 2),
-              },
-            ],
+            content: [{ type: "text", text: JSON.stringify(workspacesList) }],
           };
         }
 
@@ -274,20 +246,25 @@ function registerTools(server: Server, userId: string) {
             items = items.filter((i) => i.folderId === folderId);
           }
 
-          const itemsList = items.map((i) => ({
-            name: i.name,
-            type: i.type,
-            folderId: i.folderId,
-            lastModified: i.lastModified,
-          }));
+          const totalItems = items.length;
+
+          // Sort most-recently-modified first so the cap preserves the most relevant items
+          const sorted = [...items]
+            .sort((a, b) => (b.lastModified ?? 0) - (a.lastModified ?? 0))
+            .slice(0, LIST_MAX_ITEMS)
+            .map((i) => ({ name: i.name, type: i.type, folderId: i.folderId ?? null, lastModified: i.lastModified }));
+
+          const result: Record<string, unknown> = {
+            items: sorted,
+            returned: sorted.length,
+            totalItems,
+          };
+          if (totalItems > LIST_MAX_ITEMS) {
+            result.hint = `Showing ${LIST_MAX_ITEMS} most-recent of ${totalItems} items. Use search_workspace() to find specific items by name or content.`;
+          }
 
           return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(itemsList, null, 2),
-              },
-            ],
+            content: [{ type: "text", text: JSON.stringify(result) }],
           };
         }
 
@@ -301,20 +278,10 @@ function registerTools(server: Server, userId: string) {
             .filter((i) => i.lastModified)
             .sort((a, b) => (b.lastModified ?? 0) - (a.lastModified ?? 0))
             .slice(0, recentLimit)
-            .map((i) => ({
-              name: i.name,
-              type: i.type,
-              folderId: i.folderId,
-              lastModified: i.lastModified,
-            }));
+            .map((i) => ({ name: i.name, type: i.type, folderId: i.folderId ?? null, lastModified: i.lastModified }));
 
           return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(recent, null, 2),
-              },
-            ],
+            content: [{ type: "text", text: JSON.stringify(recent) }],
           };
         }
 
@@ -328,9 +295,16 @@ function registerTools(server: Server, userId: string) {
           };
           await assertOwnsWorkspace(workspaceId, userId);
 
-          if (typeof query !== "string" || query.length > MAX_REGEX_LENGTH) {
+          if (typeof query !== "string" || query.length === 0 || query.length > MAX_REGEX_LENGTH) {
             return {
-              content: [{ type: "text", text: JSON.stringify({ error: `Query must be a string of at most ${MAX_REGEX_LENGTH} characters` }, null, 2) }],
+              content: [{ type: "text", text: JSON.stringify({ error: `Query must be a non-empty string of at most ${MAX_REGEX_LENGTH} characters` }) }],
+              isError: true,
+            };
+          }
+
+          if (type !== undefined && !VALID_ITEM_TYPES.has(type)) {
+            return {
+              content: [{ type: "text", text: JSON.stringify({ error: `Unknown item type "${type}". Valid types: ${[...VALID_ITEM_TYPES].join(", ")}` }) }],
               isError: true,
             };
           }
@@ -345,15 +319,17 @@ function registerTools(server: Server, userId: string) {
             items = items.filter((i) => i.type === type);
           }
 
+          // Use case-insensitive flag only (no `g`) to avoid lastIndex state bleeding
+          // between test() calls on separate lines, which causes matches to be skipped.
           let regex: RegExp;
           try {
-            regex = new RegExp(query, "gi");
+            regex = new RegExp(query, "i");
           } catch {
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify({ error: "Invalid regex pattern" }, null, 2),
+                  text: JSON.stringify({ error: "Invalid regex pattern" }),
                 },
               ],
               isError: true,
@@ -363,7 +339,7 @@ function registerTools(server: Server, userId: string) {
           const matches: Array<{
             itemName: string;
             itemType: string;
-            folderId?: string;
+            folderId: string | null;
             lineStart: number;
             content: string;
           }> = [];
@@ -379,7 +355,7 @@ function registerTools(server: Server, userId: string) {
                 matches.push({
                   itemName: item.name,
                   itemType: item.type,
-                  folderId: item.folderId,
+                  folderId: item.folderId ?? null,
                   lineStart: i + 1,
                   content: lines[i].trim(),
                 });
@@ -391,31 +367,16 @@ function registerTools(server: Server, userId: string) {
 
           if (matches.length === 0) {
             return {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify(
-                    {
-                      results: [],
-                      suggestion:
-                        "No matches found. Try list_workspace() to browse available items or broaden your query.",
-                    },
-                    null,
-                    2
-                  ),
-                },
-              ],
+              content: [{
+                type: "text",
+                text: JSON.stringify({ results: [], suggestion: "No matches found. Try list_workspace() to browse available items or broaden your query." }),
+              }],
             };
           }
 
-          const resultLimit = Math.min(limit ?? 5, 10);
+          const resultLimit = Math.min(Math.max(limit ?? 5, 1), 10);
           return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(matches.slice(0, resultLimit), null, 2),
-              },
-            ],
+            content: [{ type: "text", text: JSON.stringify(matches.slice(0, resultLimit)) }],
           };
         }
 
@@ -432,7 +393,7 @@ function registerTools(server: Server, userId: string) {
 
           if (typeof name !== "string" || name.length === 0 || name.length > MAX_NAME_LENGTH) {
             return {
-              content: [{ type: "text", text: JSON.stringify({ error: `name must be a non-empty string of at most ${MAX_NAME_LENGTH} characters` }, null, 2) }],
+              content: [{ type: "text", text: JSON.stringify({ error: `name must be a non-empty string of at most ${MAX_NAME_LENGTH} characters` }) }],
               isError: true,
             };
           }
@@ -467,99 +428,95 @@ function registerTools(server: Server, userId: string) {
 
           if (!matchedItem) {
             return {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify(
-                    {
-                      error: "Item not found. Try list_workspace() to see available items.",
-                    },
-                    null,
-                    2
-                  ),
-                },
-              ],
+              content: [{ type: "text", text: JSON.stringify({ error: "Item not found. Try list_workspace() to see available items." }) }],
               isError: true,
             };
           }
 
           if (matchedItem.type === "pdf") {
-            const pages = ((matchedItem.data as any).ocrPages ?? []) as Array<{
-              markdown: string;
-            }>;
-            const start = (pageStart ?? 1) - 1;
-            const end = (pageEnd ?? pages.length) - 1;
+            const pages = ((matchedItem.data as any).ocrPages ?? []) as Array<{ markdown: string }>;
+            const totalPages = pages.length;
+
+            // Clamp pageStart to a valid 1-based page number
+            const clampedStart = Math.max(1, Math.floor(pageStart ?? 1));
+            if (clampedStart > totalPages) {
+              return {
+                content: [{ type: "text", text: JSON.stringify({ error: `pageStart (${clampedStart}) exceeds total pages (${totalPages})` }) }],
+                isError: true,
+              };
+            }
+
+            // Cap the window: if pageEnd is supplied, honour it but never exceed MAX_PDF_PAGES per request
+            const requestedEnd = pageEnd !== undefined ? Math.floor(pageEnd) : clampedStart + MAX_PDF_PAGES - 1;
+            if (requestedEnd < clampedStart) {
+              return {
+                content: [{ type: "text", text: JSON.stringify({ error: "pageEnd must be >= pageStart" }) }],
+                isError: true,
+              };
+            }
+            const clampedEnd = Math.min(requestedEnd, clampedStart + MAX_PDF_PAGES - 1, totalPages);
+
             const content = pages
-              .slice(start, end + 1)
+              .slice(clampedStart - 1, clampedEnd)
               .map((p) => p.markdown)
               .join("\n\n---\n\n");
 
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify(
-                    {
-                      itemName: matchedItem.name,
-                      itemType: matchedItem.type,
-                      content,
-                      estimatedTokens: Math.ceil(content.length / 4),
-                      totalPages: pages.length,
-                      pageStart: start + 1,
-                    },
-                    null,
-                    2
-                  ),
-                },
-              ],
+            const pdfResult: Record<string, unknown> = {
+              itemName: matchedItem.name,
+              itemType: matchedItem.type,
+              content,
+              estimatedTokens: Math.ceil(content.length / 4),
+              pageStart: clampedStart,
+              pageEnd: clampedEnd,
+              totalPages,
+              hasMore: clampedEnd < totalPages,
             };
+            if (clampedEnd < totalPages) {
+              pdfResult.note = `Showing pages ${clampedStart}–${clampedEnd} of ${totalPages}. Call read_item again with pageStart=${clampedEnd + 1} for the next section.`;
+            }
+
+            return { content: [{ type: "text", text: JSON.stringify(pdfResult) }] };
           }
 
           const text = extractText(matchedItem);
           if (!text) {
             const url = (matchedItem.data as any).url;
             return {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify(
-                    {
-                      content: null,
-                      note: `This item has no stored body text. URL: ${url ?? "N/A"}`,
-                    },
-                    null,
-                    2
-                  ),
-                },
-              ],
+              content: [{ type: "text", text: JSON.stringify({ content: null, note: `This item has no stored body text. URL: ${url ?? "N/A"}` }) }],
             };
           }
 
           const lines = text.split("\n");
-          const start = (lineStart ?? 1) - 1;
-          const lineLimit = Math.min(limit ?? 100, 500);
-          const slice = lines.slice(start, start + lineLimit);
-          const content = slice.join("\n");
+          const totalLines = lines.length;
 
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(
-                  {
-                    itemName: matchedItem.name,
-                    itemType: matchedItem.type,
-                    content,
-                    estimatedTokens: Math.ceil(content.length / 4),
-                    totalLines: lines.length,
-                    lineStart: start + 1,
-                  },
-                  null,
-                  2
-                ),
-              },
-            ],
+          const clampedLineStart = Math.max(1, Math.floor(lineStart ?? 1));
+          if (clampedLineStart > totalLines) {
+            return {
+              content: [{ type: "text", text: JSON.stringify({ error: `lineStart (${clampedLineStart}) exceeds total lines (${totalLines})` }) }],
+              isError: true,
+            };
+          }
+
+          const lineLimit = Math.min(Math.max(Math.floor(limit ?? DEFAULT_LINE_LIMIT), MIN_LINE_LIMIT), MAX_LINE_LIMIT);
+          const slice = lines.slice(clampedLineStart - 1, clampedLineStart - 1 + lineLimit);
+          const content = slice.join("\n");
+          const returnedEnd = clampedLineStart - 1 + slice.length;
+
+          const textResult: Record<string, unknown> = {
+            itemName: matchedItem.name,
+            itemType: matchedItem.type,
+            content,
+            estimatedTokens: Math.ceil(content.length / 4),
+            lineStart: clampedLineStart,
+            lineEnd: returnedEnd,
+            totalLines,
+            hasMore: returnedEnd < totalLines,
           };
+          if (returnedEnd < totalLines) {
+            textResult.note = `Showing lines ${clampedLineStart}–${returnedEnd} of ${totalLines}. Call read_item again with lineStart=${returnedEnd + 1} for the next section.`;
+          }
+
+          return { content: [{ type: "text", text: JSON.stringify(textResult) }] };
         }
 
         default:
@@ -567,7 +524,7 @@ function registerTools(server: Server, userId: string) {
             content: [
               {
                 type: "text",
-                text: JSON.stringify({ error: `Unknown tool: ${name}` }, null, 2),
+                text: JSON.stringify({ error: `Unknown tool: ${name}` }),
               },
             ],
             isError: true,
@@ -578,7 +535,7 @@ function registerTools(server: Server, userId: string) {
         content: [
           {
             type: "text",
-            text: JSON.stringify({ error: safeErrorMessage(error) }, null, 2),
+            text: JSON.stringify({ error: safeErrorMessage(error) }),
           },
         ],
         isError: true,

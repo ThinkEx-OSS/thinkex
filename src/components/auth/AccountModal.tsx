@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -370,9 +370,53 @@ function IDEConfigSection({ copyToClipboard }: { copyToClipboard: (text: string)
   }
 }`;
 
+  const claudeCodeSnippet = `// .mcp.json  (project-level)
+{
+  "mcpServers": {
+    "thinkex": {
+      "type": "http",
+      "url": "${mcpUrl}",
+      "headers": {
+        "Authorization": "Bearer <your-api-key>"
+      }
+    }
+  }
+}`;
+
   const cursorGlobal = snippet("~/.cursor/mcp.json  (global — all projects)");
   const cursorProject = snippet(".cursor/mcp.json  (project-level)");
   const vscode = snippet(".vscode/mcp.json  (project-level)");
+
+  const ideTabs = [
+    {
+      value: "cursor-global",
+      tabLabel: "Cursor — global",
+      fileLabel: "~/.cursor/mcp.json",
+      code: cursorGlobal,
+      hint: "Applies to all your Cursor projects. Create the file if it doesn't exist.",
+    },
+    {
+      value: "cursor-project",
+      tabLabel: "Cursor — project",
+      fileLabel: ".cursor/mcp.json",
+      code: cursorProject,
+      hint: "Place this inside the root of a specific project. Useful for per-project keys.",
+    },
+    {
+      value: "vscode",
+      tabLabel: "VS Code",
+      fileLabel: ".vscode/mcp.json",
+      code: vscode,
+      hint: "Requires the MCP extension for VS Code. Place in the project root.",
+    },
+    {
+      value: "claude-code",
+      tabLabel: "Claude Code",
+      fileLabel: ".mcp.json",
+      code: claudeCodeSnippet,
+      hint: 'Place .mcp.json in your project root. Claude Code requires the "type": "http" field for remote servers.',
+    },
+  ] as const;
 
   return (
     <div className="mt-6">
@@ -383,21 +427,27 @@ function IDEConfigSection({ copyToClipboard }: { copyToClipboard: (text: string)
       </p>
 
       <Tabs defaultValue="cursor-global">
-        <TabsList className="mb-3 h-8">
-          <TabsTrigger value="cursor-global" className="text-xs px-3 h-7">Cursor — global</TabsTrigger>
-          <TabsTrigger value="cursor-project" className="text-xs px-3 h-7">Cursor — project</TabsTrigger>
-          <TabsTrigger value="vscode" className="text-xs px-3 h-7">VS Code</TabsTrigger>
+        <TabsList className="mb-3 h-auto min-h-8 w-full min-w-0 flex-wrap items-center justify-start gap-0 px-1 py-1">
+          {ideTabs.map((tab, index) => (
+            <Fragment key={tab.value}>
+              {index > 0 ? (
+                <span
+                  className="pointer-events-none mx-1.5 h-5 w-px shrink-0 self-center rounded-full bg-gradient-to-b from-border/15 via-border to-border/15"
+                  aria-hidden
+                />
+              ) : null}
+              <TabsTrigger value={tab.value} className="text-xs px-3 h-7">
+                {tab.tabLabel}
+              </TabsTrigger>
+            </Fragment>
+          ))}
         </TabsList>
 
-        {[
-          { value: "cursor-global", label: "~/.cursor/mcp.json", code: cursorGlobal, hint: "Applies to all your Cursor projects. Create the file if it doesn't exist." },
-          { value: "cursor-project", label: ".cursor/mcp.json", code: cursorProject, hint: "Place this inside the root of a specific project. Useful for per-project keys." },
-          { value: "vscode", label: ".vscode/mcp.json", code: vscode, hint: "Requires the MCP extension for VS Code. Place in the project root." },
-        ].map(({ value, label, code, hint }) => (
+        {ideTabs.map(({ value, fileLabel, code, hint }) => (
           <TabsContent key={value} value={value} className="mt-0">
             <div className="rounded-lg border bg-muted/40 overflow-hidden">
               <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/60">
-                <code className="text-xs font-mono text-muted-foreground">{label}</code>
+                <code className="text-xs font-mono text-muted-foreground">{fileLabel}</code>
                 <Button
                   variant="ghost"
                   size="sm"
