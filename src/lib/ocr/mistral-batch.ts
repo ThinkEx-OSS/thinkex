@@ -18,7 +18,7 @@ interface RawBatchPage {
 }
 
 const POLL_INTERVAL_MS = 2_000;
-const MAX_POLL_MS = 10 * 60 * 1000;
+const MAX_POLL_MS = 30 * 60 * 1000;
 
 type BatchJobStatus =
   | "QUEUED"
