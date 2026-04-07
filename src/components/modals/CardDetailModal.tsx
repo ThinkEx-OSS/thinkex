@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useCallback } from "react";
-import SpotlightModal from "@/components/SpotlightModal";
 import type { Item, ItemData } from "@/lib/workspace-state/types";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { ItemPanelContent } from "@/components/workspace-canvas/ItemPanelContent";
@@ -60,9 +59,8 @@ export function CardDetailModal({
       />
 
       {/* Modal Content - fullscreen card detail view */}
-      <SpotlightModal
-        className="relative z-10 w-full h-full"
-        spotlightColor="rgba(135, 206, 235, 0.15)"
+      <div
+        className="relative z-10 h-full w-full"
         style={{
           animation: 'scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both',
         }}
@@ -74,7 +72,7 @@ export function CardDetailModal({
           onUpdateItem={onUpdateItem}
           onUpdateItemData={onUpdateItemData}
         />
-      </SpotlightModal>
+      </div>
     </div>
   );
 }

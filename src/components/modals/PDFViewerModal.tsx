@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import SpotlightModal from "@/components/SpotlightModal";
 import type { Item, PdfData } from "@/lib/workspace-state/types";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { ItemPanelContent } from "@/components/workspace-canvas/ItemPanelContent";
@@ -51,10 +50,7 @@ export function PDFViewerModal({
       />
 
       {/* Modal Content */}
-      <SpotlightModal
-        className="relative z-10 w-full h-full"
-        spotlightColor="rgba(135, 206, 235, 0.15)"
-      >
+      <div className="relative z-10 h-full w-full">
         <ItemPanelContent
           item={item}
           onClose={onClose}
@@ -64,7 +60,7 @@ export function PDFViewerModal({
             onUpdateItem({ data: updater(item.data) as Item["data"] })
           }
         />
-      </SpotlightModal>
+      </div>
     </div>
   );
 }
