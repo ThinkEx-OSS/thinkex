@@ -2,13 +2,27 @@ import { NextResponse } from "next/server";
 import { createHash, randomBytes } from "crypto";
 import { db } from "@/lib/db/client";
 import { apiKeys } from "@/lib/db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, count } from "drizzle-orm";
 import { requireAuth, withErrorHandling } from "@/lib/api/workspace-helpers";
+
+const MAX_KEYS_PER_USER = 10;
 
 async function handlePOST(req: Request) {
   const userId = await requireAuth();
   const body = await req.json().catch(() => ({}));
-  const label = body?.label || null;
+  const label = typeof body?.label === "string" ? body.label.slice(0, 100) : null;
+
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(apiKeys)
+    .where(and(eq(apiKeys.userId, userId), isNull(apiKeys.revokedAt)));
+
+  if (total >= MAX_KEYS_PER_USER) {
+    return NextResponse.json(
+      { error: `You can have at most ${MAX_KEYS_PER_USER} active API keys. Revoke an existing key first.` },
+      { status: 422 }
+    );
+  }
 
   const rawKey = `tx_${randomBytes(32).toString("base64url")}`;
   const keyHash = createHash("sha256").update(rawKey).digest("hex");

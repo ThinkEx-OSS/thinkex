@@ -8,23 +8,35 @@ import { createHash } from "crypto";
 import { db, workspaces } from "@/lib/db/client";
 import { apiKeys } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
-import { loadWorkspaceState } from "@/lib/workspace/state-loader";
-import type { AgentState, Item } from "@/lib/workspace-state/types";
+import { getCachedState } from "@/lib/mcp/workspace-cache";
+import type { Item } from "@/lib/workspace-state/types";
 
-const stateCache = new Map<string, { state: AgentState; expiresAt: number }>();
-const CACHE_TTL_MS = 30_000;
+const MAX_BODY_BYTES = 64 * 1024; // 64 KB — more than enough for any MCP request
+const MAX_REGEX_LENGTH = 300;
+const MAX_ID_LENGTH = 256;
+const MAX_NAME_LENGTH = 500;
 
-async function getCachedState(workspaceId: string): Promise<AgentState> {
-  const cached = stateCache.get(workspaceId);
-  if (cached && cached.expiresAt > Date.now()) return cached.state;
-
-  const state = await loadWorkspaceState(workspaceId);
-  stateCache.set(workspaceId, { state, expiresAt: Date.now() + CACHE_TTL_MS });
-  return state;
+// Throws if the workspace does not belong to userId — prevents cross-user data access.
+async function assertOwnsWorkspace(workspaceId: string, userId: string): Promise<void> {
+  const [ws] = await db
+    .select({ id: workspaces.id })
+    .from(workspaces)
+    .where(and(eq(workspaces.id, workspaceId), eq(workspaces.userId, userId)))
+    .limit(1);
+  if (!ws) throw new McpAuthError("Workspace not found or access denied");
 }
 
-export function invalidateWorkspaceCache(workspaceId: string) {
-  stateCache.delete(workspaceId);
+class McpAuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "McpAuthError";
+  }
+}
+
+// Sanitise errors before sending to the caller — never leak raw DB messages.
+function safeErrorMessage(error: unknown): string {
+  if (error instanceof McpAuthError) return error.message;
+  return "Internal server error";
 }
 
 function extractText(item: Item): string | null {
@@ -123,24 +135,13 @@ async function authenticateRequest(req: NextRequest): Promise<string | null> {
   return key.userId;
 }
 
-let mcpServer: Server | null = null;
-
-function getOrCreateServer(userId: string): Server {
-  if (!mcpServer) {
-    mcpServer = new Server(
-      {
-        name: "thinkex",
-        version: "1.0.0",
-      },
-      {
-        capabilities: {
-          tools: {},
-        },
-      }
-    );
-    registerTools(mcpServer, userId);
-  }
-  return mcpServer;
+function createServer(userId: string): Server {
+  const server = new Server(
+    { name: "thinkex", version: "1.0.0" },
+    { capabilities: { tools: {} } }
+  );
+  registerTools(server, userId);
+  return server;
 }
 
 function registerTools(server: Server, userId: string) {
@@ -265,6 +266,7 @@ function registerTools(server: Server, userId: string) {
 
         case "list_workspace": {
           const { workspaceId, folderId } = args as { workspaceId: string; folderId?: string };
+          await assertOwnsWorkspace(workspaceId, userId);
           const state = await getCachedState(workspaceId);
           let items = state.items;
 
@@ -291,6 +293,7 @@ function registerTools(server: Server, userId: string) {
 
         case "get_recent": {
           const { workspaceId, limit } = args as { workspaceId: string; limit?: number };
+          await assertOwnsWorkspace(workspaceId, userId);
           const state = await getCachedState(workspaceId);
           const recentLimit = Math.min(limit ?? 5, 20);
 
@@ -323,6 +326,15 @@ function registerTools(server: Server, userId: string) {
             type?: string;
             limit?: number;
           };
+          await assertOwnsWorkspace(workspaceId, userId);
+
+          if (typeof query !== "string" || query.length > MAX_REGEX_LENGTH) {
+            return {
+              content: [{ type: "text", text: JSON.stringify({ error: `Query must be a string of at most ${MAX_REGEX_LENGTH} characters` }, null, 2) }],
+              isError: true,
+            };
+          }
+
           const state = await getCachedState(workspaceId);
           let items = state.items;
 
@@ -416,6 +428,15 @@ function registerTools(server: Server, userId: string) {
             pageStart?: number;
             pageEnd?: number;
           };
+          await assertOwnsWorkspace(workspaceId, userId);
+
+          if (typeof name !== "string" || name.length === 0 || name.length > MAX_NAME_LENGTH) {
+            return {
+              content: [{ type: "text", text: JSON.stringify({ error: `name must be a non-empty string of at most ${MAX_NAME_LENGTH} characters` }, null, 2) }],
+              isError: true,
+            };
+          }
+
           const state = await getCachedState(workspaceId);
 
           const nameLower = name.toLowerCase();
@@ -552,16 +573,12 @@ function registerTools(server: Server, userId: string) {
             isError: true,
           };
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify(
-              { error: error.message || "Internal server error" },
-              null,
-              2
-            ),
+            text: JSON.stringify({ error: safeErrorMessage(error) }, null, 2),
           },
         ],
         isError: true,
@@ -571,63 +588,74 @@ function registerTools(server: Server, userId: string) {
 }
 
 async function handleMCP(req: NextRequest) {
+  // Enforce body size limit before doing anything else
+  const contentLength = Number(req.headers.get("content-length") ?? 0);
+  if (contentLength > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
+
   const userId = await authenticateRequest(req);
-
   if (!userId) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const server = getOrCreateServer(userId);
+  const server = createServer(userId);
 
-  if (req.method !== "POST") {
-    return NextResponse.json(
-      { error: "Only POST method is supported for MCP" },
-      { status: 405 }
-    );
+  let body: unknown;
+  try {
+    const text = await req.text();
+    if (text.length > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+    }
+    body = JSON.parse(text);
+  } catch {
+    return NextResponse.json({
+      jsonrpc: "2.0",
+      id: null,
+      error: { code: -32700, message: "Parse error" },
+    }, { status: 400 });
   }
+
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return NextResponse.json({
+      jsonrpc: "2.0",
+      id: null,
+      error: { code: -32600, message: "Invalid request" },
+    }, { status: 400 });
+  }
+
+  const { method, params, id: rawId } = body as Record<string, unknown>;
+
+  // JSON-RPC id must be a string, number, or null — never reflect arbitrary values
+  const id: string | number | null =
+    typeof rawId === "string" && rawId.length <= MAX_ID_LENGTH ? rawId
+    : typeof rawId === "number" && Number.isFinite(rawId) ? rawId
+    : null;
 
   try {
-    const body = await req.json();
-    
-    const { method, params, id } = body;
-
     if (method === "tools/list") {
-      const response = await server.request({ method: "tools/list", params }, ListToolsRequestSchema);
-      return NextResponse.json({
-        jsonrpc: "2.0",
-        id,
-        result: response,
-      });
+      const response = await server.request({ method: "tools/list", params: params as any }, ListToolsRequestSchema);
+      return NextResponse.json({ jsonrpc: "2.0", id, result: response });
     } else if (method === "tools/call") {
-      const response = await server.request({ method: "tools/call", params }, CallToolRequestSchema);
-      return NextResponse.json({
-        jsonrpc: "2.0",
-        id,
-        result: response,
-      });
+      const response = await server.request({ method: "tools/call", params: params as any }, CallToolRequestSchema);
+      return NextResponse.json({ jsonrpc: "2.0", id, result: response });
     } else {
       return NextResponse.json({
         jsonrpc: "2.0",
         id,
-        error: {
-          code: -32601,
-          message: `Method not found: ${method}`,
-        },
+        error: { code: -32601, message: "Method not found" },
       });
     }
-  } catch (error: any) {
+  } catch {
     return NextResponse.json({
       jsonrpc: "2.0",
-      id: null,
-      error: {
-        code: -32603,
-        message: error.message || "Internal error",
-      },
+      id,
+      error: { code: -32603, message: "Internal error" },
     }, { status: 500 });
   }
 }
 
 export const POST = handleMCP;
+
+// Allow up to 30s for workspace state loading on large workspaces
+export const maxDuration = 30;

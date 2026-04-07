@@ -67,7 +67,7 @@ import {
   withErrorHandling,
 } from "@/lib/api/workspace-helpers";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
-import { invalidateWorkspaceCache } from "@/app/api/mcp/route";
+import { invalidateWorkspaceCache } from "@/lib/mcp/workspace-cache";
 
 /**
  * GET /api/workspaces/[id]/events

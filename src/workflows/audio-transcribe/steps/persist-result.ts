@@ -3,7 +3,7 @@ import { db } from "@/lib/db/client";
 import { createEvent } from "@/lib/workspace/events";
 import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
-import { invalidateWorkspaceCache } from "@/app/api/mcp/route";
+import { invalidateWorkspaceCache } from "@/lib/mcp/workspace-cache";
 import type { AudioData, Item } from "@/lib/workspace-state/types";
 import type { TranscribeResult } from "./transcribe";
 

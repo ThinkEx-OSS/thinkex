@@ -31,7 +31,7 @@ import {
 import { parseJsonWithRepair } from "@/lib/utils/json-repair";
 import { buildPdfDataFromUpload } from "@/lib/pdf/pdf-item";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
-import { invalidateWorkspaceCache } from "@/app/api/mcp/route";
+import { invalidateWorkspaceCache } from "@/lib/mcp/workspace-cache";
 
 /** Create params for a single item (used by create and bulkCreate). Exported for autogen. */
 export type CreateItemParams = {

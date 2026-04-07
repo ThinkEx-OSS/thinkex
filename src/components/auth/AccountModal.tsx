@@ -7,6 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getBaseURL } from "@/lib/base-url";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,14 +47,18 @@ export function AccountModal({ open, onOpenChange }: AccountModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Account Settings</DialogTitle>
-        </DialogHeader>
-        <div className="mt-4 space-y-6">
-          <ProfileForm user={session.user} />
-          <MCPAccessSection />
-          <DangerZone />
+      <DialogContent className="max-w-2xl max-h-[min(90vh,100dvh)] flex flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <div className="shrink-0 border-b px-6 py-4 pr-14">
+          <DialogHeader className="text-left">
+            <DialogTitle>Account Settings</DialogTitle>
+          </DialogHeader>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4">
+          <div className="space-y-6">
+            <ProfileForm user={session.user} />
+            <MCPAccessSection />
+            <DangerZone />
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -251,24 +257,7 @@ function MCPAccessSection() {
           Create API Key
         </Button>
 
-        <div className="mt-6">
-          <h4 className="text-sm font-medium mb-2">IDE Configuration</h4>
-          <p className="text-xs text-muted-foreground mb-2">
-            Add this to your MCP settings file:
-          </p>
-          <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
-{`{
-  "mcpServers": {
-    "thinkex": {
-      "url": "${typeof window !== 'undefined' ? window.location.origin : 'https://thinkex.app'}/api/mcp",
-      "headers": {
-        "Authorization": "Bearer <your-api-key>"
-      }
-    }
-  }
-}`}
-          </pre>
-        </div>
+        <IDEConfigSection copyToClipboard={copyToClipboard} />
       </div>
 
       <AlertDialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
@@ -363,6 +352,69 @@ function MCPAccessSection() {
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+function IDEConfigSection({ copyToClipboard }: { copyToClipboard: (text: string) => void }) {
+  const mcpUrl = `${getBaseURL()}/api/mcp`;
+
+  const snippet = (filePath: string) => `// ${filePath}
+{
+  "mcpServers": {
+    "thinkex": {
+      "url": "${mcpUrl}",
+      "headers": {
+        "Authorization": "Bearer <your-api-key>"
+      }
+    }
+  }
+}`;
+
+  const cursorGlobal = snippet("~/.cursor/mcp.json  (global — all projects)");
+  const cursorProject = snippet(".cursor/mcp.json  (project-level)");
+  const vscode = snippet(".vscode/mcp.json  (project-level)");
+
+  return (
+    <div className="mt-6">
+      <h4 className="text-sm font-medium mb-1">IDE Configuration</h4>
+      <p className="text-xs text-muted-foreground mb-3">
+        Create (or edit) the config file shown below and paste the snippet inside.
+        After saving, your IDE will discover the ThinkEx MCP server automatically.
+      </p>
+
+      <Tabs defaultValue="cursor-global">
+        <TabsList className="mb-3 h-8">
+          <TabsTrigger value="cursor-global" className="text-xs px-3 h-7">Cursor — global</TabsTrigger>
+          <TabsTrigger value="cursor-project" className="text-xs px-3 h-7">Cursor — project</TabsTrigger>
+          <TabsTrigger value="vscode" className="text-xs px-3 h-7">VS Code</TabsTrigger>
+        </TabsList>
+
+        {[
+          { value: "cursor-global", label: "~/.cursor/mcp.json", code: cursorGlobal, hint: "Applies to all your Cursor projects. Create the file if it doesn't exist." },
+          { value: "cursor-project", label: ".cursor/mcp.json", code: cursorProject, hint: "Place this inside the root of a specific project. Useful for per-project keys." },
+          { value: "vscode", label: ".vscode/mcp.json", code: vscode, hint: "Requires the MCP extension for VS Code. Place in the project root." },
+        ].map(({ value, label, code, hint }) => (
+          <TabsContent key={value} value={value} className="mt-0">
+            <div className="rounded-lg border bg-muted/40 overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/60">
+                <code className="text-xs font-mono text-muted-foreground">{label}</code>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs gap-1"
+                  onClick={() => copyToClipboard(code)}
+                >
+                  <Copy className="h-3 w-3" />
+                  Copy
+                </Button>
+              </div>
+              <pre className="p-3 text-xs overflow-x-auto leading-relaxed">{code}</pre>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">{hint}</p>
+          </TabsContent>
+        ))}
+      </Tabs>
+    </div>
   );
 }
 
