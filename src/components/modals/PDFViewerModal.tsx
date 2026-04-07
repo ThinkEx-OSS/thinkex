@@ -1,13 +1,9 @@
 "use client";
 
-import { X } from "lucide-react";
 import { useEffect } from "react";
-import ItemHeader from "@/components/workspace-canvas/ItemHeader";
 import SpotlightModal from "@/components/SpotlightModal";
-import { getCardColorCSS, getCardAccentColor, getWhiteTintedColor } from "@/lib/workspace-state/colors";
 import type { Item, PdfData } from "@/lib/workspace-state/types";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { formatKeyboardShortcut } from "@/lib/utils/keyboard-shortcut";
 import { ItemPanelContent } from "@/components/workspace-canvas/ItemPanelContent";
 
 interface PDFViewerModalProps {
@@ -15,7 +11,6 @@ interface PDFViewerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdateItem: (updates: Partial<Item>) => void;
-  renderInline?: boolean; // Render as inline content instead of modal overlay
 }
 
 export function PDFViewerModal({
@@ -23,18 +18,8 @@ export function PDFViewerModal({
   isOpen,
   onClose,
   onUpdateItem,
-  renderInline = false,
 }: PDFViewerModalProps) {
   const pdfData = item.data as PdfData;
-
-  // Get global chat state from UI store
-  const isChatExpanded = useUIStore((state) => state.isChatExpanded);
-  const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
-  const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
-
-  // Auto-selection is handled by the URL sync mechanism (use-folder-url)
-  // or by the manual open action (openPanel).
-  // We no longer need to manually select it here, which avoids the infinite loop risk.
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -55,25 +40,6 @@ export function PDFViewerModal({
     return null;
   }
 
-  // Render inline (for workspace split view)
-  if (renderInline) {
-    return (
-      <div className="h-full w-full flex flex-col overflow-hidden bg-background">
-        <ItemPanelContent
-          item={item}
-          onClose={onClose}
-          onMaximize={() => useUIStore.getState().setMaximizedItemId(null)}
-          isMaximized={true}
-          onUpdateItem={onUpdateItem}
-          onUpdateItemData={(updater) =>
-            onUpdateItem({ data: updater(item.data) as Item["data"] })
-          }
-        />
-      </div>
-    );
-  }
-
-  // Render as modal overlay (default)
   return (
     <div
       className="absolute inset-0 z-30 flex items-center justify-center overflow-hidden pdf-viewer-modal"
@@ -92,8 +58,7 @@ export function PDFViewerModal({
         <ItemPanelContent
           item={item}
           onClose={onClose}
-          onMaximize={() => useUIStore.getState().setMaximizedItemId(null)}
-          isMaximized={true}
+          onMaximize={() => useUIStore.getState().openWorkspaceItem(null)}
           onUpdateItem={onUpdateItem}
           onUpdateItemData={(updater) =>
             onUpdateItem({ data: updater(item.data) as Item["data"] })

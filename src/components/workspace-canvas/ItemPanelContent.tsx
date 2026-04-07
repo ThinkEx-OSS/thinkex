@@ -1,18 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { X, ExternalLink } from "lucide-react";
-import { LuMaximize2, LuMinimize2 } from "react-icons/lu";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { X } from "lucide-react";
+import { LuMinimize2 } from "react-icons/lu";
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
-import { formatKeyboardShortcut } from "@/lib/utils/keyboard-shortcut";
 import ItemHeader from "@/components/workspace-canvas/ItemHeader";
 import CardRenderer from "@/components/workspace-canvas/CardRenderer";
 import LazyAppPdfViewer from "@/components/pdf/LazyAppPdfViewer";
 import { YouTubePanelContent } from "@/components/workspace-canvas/YouTubePanelContent";
 import { WebsitePanelContent } from "@/components/workspace-canvas/WebsitePanelContent";
 import { PdfPanelHeader } from "@/components/pdf/PdfPanelHeader";
-import { getCardColorCSS, getCardAccentColor, getWhiteTintedColor } from "@/lib/workspace-state/colors";
+import { getCardColorCSS, getWhiteTintedColor } from "@/lib/workspace-state/colors";
 import type { Item, ItemData, PdfData } from "@/lib/workspace-state/types";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -20,23 +18,18 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 interface ItemPanelContentProps {
     item: Item;
     onClose: () => void;
+    /** Return to workspace grid (fullscreen viewer only). */
     onMaximize: () => void;
-    isMaximized?: boolean;
     onUpdateItem: (updates: Partial<Item>) => void;
     onUpdateItemData: (updater: (prev: ItemData) => ItemData) => void;
-    isRightmostPanel?: boolean; // Whether this is the rightmost panel (for showing chat button)
-    isLeftPanel?: boolean; // Whether this is the leftmost panel (for showing sidebar trigger)
 }
 
 export function ItemPanelContent({
     item,
     onClose,
     onMaximize,
-    isMaximized = false,
     onUpdateItem,
     onUpdateItemData,
-    isRightmostPanel = true, // Default to true for backwards compat
-    isLeftPanel = false, // Default to false for backwards compat
 }: ItemPanelContentProps) {
     const isChatExpanded = useUIStore((state) => state.isChatExpanded);
     const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
@@ -48,21 +41,12 @@ export function ItemPanelContent({
     const isYouTube = item.type === 'youtube';
     const isWebsite = item.type === 'website';
     const pdfPreviewUrl = isPdf ? (item.data as PdfData).fileUrl : undefined;
-    const showStandardHeader = isPdf ? !pdfPreviewUrl : !isMaximized;
+    /** PDF cards still processing upload have no viewer yet — need a local title bar. */
+    const showPdfAwaitingFileHeader = isPdf && !pdfPreviewUrl;
 
-    // PDF-specific state
     const [showThumbnails, setShowThumbnails] = useState(false);
 
-    const accentColor = item.color
-        ? getCardAccentColor(item.color, 0.2)
-        : "rgba(255, 255, 255, 0.15)";
-
-    const backgroundColor = item.color
-        ? getCardColorCSS(item.color, 0.05) // Lighter opacity for better light mode appearance
-        : "rgba(0, 0, 0, 0.05)"; // Lighter default background
-
-    // Standard header for non-PDF items
-    const renderStandardHeader = () => (
+    const renderPdfAwaitingFileHeader = () => (
         <div>
             <div className="flex items-center justify-between py-2 px-3">
                 <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden mr-2">
@@ -80,40 +64,19 @@ export function ItemPanelContent({
                     />
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                    {/* Open Button - only for website cards */}
-                    {isWebsite && (() => {
-                        const websiteData = item.data as import("@/lib/workspace-state/types").WebsiteData;
-                        return (
-                            <button
-                                type="button"
-                                aria-label="Open"
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
-                                onClick={() => window.open(websiteData.url, '_blank', 'noopener,noreferrer')}
-                            >
-                                <ExternalLink className="h-4 w-4" />
-                            </button>
-                        );
-                    })()}
-
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <button
                                 type="button"
-                                aria-label={isMaximized ? "Restore to Panel" : "Maximize"}
-                                title={isMaximized ? "Restore to Panel" : "Maximize"}
+                                aria-label="Back to workspace"
+                                title="Back to workspace"
                                 className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
                                 onClick={onMaximize}
                             >
-                                {isMaximized ? (
-                                    <LuMinimize2 className="h-4 w-4" />
-                                ) : (
-                                    <LuMaximize2 className="h-4 w-4" />
-                                )}
+                                <LuMinimize2 className="h-4 w-4" />
                             </button>
                         </TooltipTrigger>
-                        <TooltipContent>
-                            {isMaximized ? "Restore to Panel" : "Maximize"}
-                        </TooltipContent>
+                        <TooltipContent>Back to workspace</TooltipContent>
                     </Tooltip>
 
                     <button
@@ -125,10 +88,7 @@ export function ItemPanelContent({
                         <X className="h-4 w-4" />
                     </button>
 
-
-
-
-                    {!isChatExpanded && isRightmostPanel && (
+                    {!isChatExpanded && (
                         <ChatFloatingButton
                             isDesktop={isDesktop}
                             isChatExpanded={isChatExpanded}
@@ -145,10 +105,10 @@ export function ItemPanelContent({
             className="w-full h-full flex flex-col overflow-hidden relative note-panel-background"
             style={{
                 ['--note-bg-light' as string]: item.color
-                    ? getCardColorCSS(item.color, 0.08) // More visible but still light for light mode
+                    ? getCardColorCSS(item.color, 0.08)
                     : "rgba(0, 0, 0, 0.08)",
                 ['--note-bg-dark' as string]: item.color
-                    ? getCardColorCSS(item.color, 0.1) // Darker opacity for dark mode
+                    ? getCardColorCSS(item.color, 0.1)
                     : "rgba(0, 0, 0, 0.1)",
                 backgroundColor: 'var(--note-bg-light)',
                 backdropFilter: "blur(24px)",
@@ -156,11 +116,8 @@ export function ItemPanelContent({
                 transformOrigin: 'center',
             }}
         >
-            {/* Header - PDF has integrated controls, YouTube/Website and others use standard header.
-                When maximized, the header is integrated into the WorkspaceHeader, so we hide it here. */}
-            {showStandardHeader && renderStandardHeader()}
+            {showPdfAwaitingFileHeader && renderPdfAwaitingFileHeader()}
 
-            {/* Content */}
             <div
                 className={`${(isPdf && pdfPreviewUrl) || isYouTube || isWebsite ? "flex-1 flex flex-col min-h-0" : "flex-1 overflow-y-auto modal-scrollable flex flex-col"}`}
                 style={(!isPdf || !pdfPreviewUrl) && !isYouTube && !isWebsite ? {
@@ -184,21 +141,18 @@ export function ItemPanelContent({
                                     ? citationHighlightQuery.pageNumber
                                     : undefined
                             }
-                            isMaximized={isMaximized}
+                            isMaximized={true}
                             renderHeader={(documentId, annotationControls) => (
                                 <div>
                                     <PdfPanelHeader
                                         documentId={documentId}
                                         itemName={item.name}
-                                        isMaximized={isMaximized}
+                                        isMaximized={true}
                                         onClose={onClose}
                                         onMaximize={onMaximize}
                                         showThumbnails={showThumbnails}
                                         onToggleThumbnails={() => setShowThumbnails(!showThumbnails)}
-
-                                        isRightmostPanel={isRightmostPanel}
-                                        isLeftPanel={isLeftPanel}
-                                        renderInPortal={isMaximized}
+                                        renderInPortal={true}
                                     />
                                 </div>
                             )}
@@ -208,12 +162,10 @@ export function ItemPanelContent({
                     <YouTubePanelContent
                         item={item}
                         onUpdateItemData={onUpdateItemData}
-                        isMaximized={isMaximized}
                     />
                 ) : isWebsite ? (
                     <WebsitePanelContent
                         item={item}
-                        isMaximized={isMaximized}
                     />
                 ) : (
                     <CardRenderer

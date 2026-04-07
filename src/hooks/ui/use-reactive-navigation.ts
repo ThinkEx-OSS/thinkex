@@ -1,6 +1,4 @@
-
 import { useState, useEffect, useCallback } from "react";
-import { useUIStore } from "@/lib/stores/ui-store";
 import { useNavigateToItem } from "./use-navigate-to-item";
 import type { AgentState } from "@/lib/workspace-state/types";
 
@@ -12,7 +10,6 @@ import type { AgentState } from "@/lib/workspace-state/types";
 export function useReactiveNavigation(workspaceState: AgentState) {
     const [pendingNavigationId, setPendingNavigationId] = useState<string | null>(null);
     const navigateToItem = useNavigateToItem();
-    const selectMultipleCards = useUIStore((state) => state.selectMultipleCards);
 
     const handleCreatedItems = useCallback((createdIds: string[]) => {
         // Set pending navigation to trigger in useEffect once item is available in state

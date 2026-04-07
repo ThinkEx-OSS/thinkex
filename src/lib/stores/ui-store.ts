@@ -1,12 +1,42 @@
 import { create } from 'zustand';
 import { devtools, persist, createJSONStorage } from 'zustand/middleware';
+import { PANEL_DEFAULTS } from '@/lib/layout-constants';
 
 /**
  * UI Store - Manages all UI state (chat, modals, search, layout, text selection)
  * This replaces scattered useState hooks in dashboard
  */
 
-export type ViewMode = 'workspace' | 'focus';
+/** Column / keyboard focus when two items are open (split). */
+export type WorkspaceItemSlot = 'primary' | 'secondary';
+
+/**
+ * Up to two workspace items “open” at once.
+ * - Today: only `primary` is used; UI is fullscreen one-item view.
+ * - Split: set `secondary` while `primary` is set → mode becomes `split` (side-by-side UI).
+ */
+export interface OpenWorkspaceItems {
+  primary: string | null;
+  secondary: string | null;
+}
+
+/**
+ * How the main workspace area is used — derived from `openItems`, not stored.
+ * - `grid` — card/folder canvas only
+ * - `single` — one item fullscreen (see OpenWorkspaceItemView)
+ * - `split` — two items side by side (future)
+ */
+export type WorkspaceOpenMode = 'grid' | 'single' | 'split';
+
+export function deriveWorkspaceOpenMode(openItems: OpenWorkspaceItems): WorkspaceOpenMode {
+  const hasPrimary = openItems.primary != null;
+  const hasSecondary = openItems.secondary != null;
+  if (!hasPrimary && !hasSecondary) return 'grid';
+  if (hasPrimary && hasSecondary) return 'split';
+  return 'single';
+}
+
+const emptyOpenItems = (): OpenWorkspaceItems => ({ primary: null, secondary: null });
 
 interface UIState {
   // Chat state
@@ -14,17 +44,18 @@ interface UIState {
   isChatMaximized: boolean;
   isThreadListVisible: boolean;
 
-  // View mode & Panel state
-  viewMode: ViewMode; // Current layout mode
-  openPanelIds: string[]; // Array containing the currently focused item ID when one is open
-  itemPrompt: { itemId: string; x: number; y: number } | null; // Global prompt state
-  maximizedItemId: string | null; // The ID of the item currently expanded to full screen (focus mode)
+  // Layout state
+  workspacePanelSize: number; // percentage (0-100)
 
+  openItems: OpenWorkspaceItems;
+  /** Focused slot for keyboard / a11y when split; still meaningful when only primary is open */
+  activeWorkspaceItemSlot: WorkspaceItemSlot;
+
+  itemPrompt: { itemId: string; x: number; y: number } | null; // Global prompt state
 
   // Modal state
   showCreateWorkspaceModal: boolean;
   showSheetModal: boolean;
-  showJsonView: boolean;
 
   activeFolderId: string | null; // Active folder for filtering
   selectedModelId: string; // Selected AI model ID
@@ -35,10 +66,8 @@ interface UIState {
   tooltipVisible: boolean;
   selectedHighlightColorId: string;
 
-  // Card selection state
+  // Card selection state (user actions only — opening a panel does not change selection)
   selectedCardIds: Set<string>;
-  // Track which cards were auto-selected by panel opening (to preserve user selections on close)
-  panelAutoSelectedCardIds: Set<string>;
 
   // Scroll lock state per item (itemId -> isScrollLocked)
   itemScrollLocked: Map<string, boolean>;
@@ -59,32 +88,33 @@ interface UIState {
   toggleChatMaximized: () => void;
   setIsThreadListVisible: (visible: boolean) => void;
   toggleThreadListVisible: () => void;
+  setWorkspacePanelSize: (size: number) => void;
 
-  // Actions - Panels & View Mode
-  closePanel: (itemId: string) => void;
-  closeAllPanels: () => void;
+  // Actions - Open workspace items (overlay today; split when secondary is set)
+  /** Open primary item fullscreen, or null to close everything and return to grid. Clears secondary. */
+  openWorkspaceItem: (itemId: string | null) => void;
+  /**
+   * Second item for split view. Pass null to clear secondary only.
+   * No-op if primary is empty (secondary never stands alone).
+   */
+  setWorkspaceSecondaryItem: (itemId: string | null) => void;
+  closeWorkspaceItem: (itemId: string) => void;
+  closeAllWorkspaceItems: () => void;
+  setActiveWorkspaceItemSlot: (slot: WorkspaceItemSlot) => void;
   setItemPrompt: (prompt: { itemId: string; x: number; y: number } | null) => void;
-  setMaximizedItemId: (itemId: string | null) => void;
 
-
-  // Legacy compatibility - setOpenModalItemId is widely used, maps to openPanel replace mode
-  setOpenModalItemId: (id: string | null) => void;
   setShowCreateWorkspaceModal: (show: boolean) => void;
   setShowSheetModal: (show: boolean) => void;
 
-
-  // Actions - UI Preferences
-  setShowJsonView: (show: boolean) => void;
-
   setActiveFolderId: (folderId: string | null) => void;
-  /** Atomic: close panels, clear folder, deselect panel cards. Use when panel is focused and user navigates back. */
+  /** Atomic: close panels and clear folder. Use when panel is focused and user navigates back. */
   navigateToRoot: () => void;
-  /** Atomic: close panels, set folder, deselect panel cards. Use when panel is focused and user navigates back. */
+  /** Atomic: close panels and set folder. Use when panel is focused and user navigates back. */
   navigateToFolder: (folderId: string) => void;
   /** URL sync only — sets folder without touching panels */
   _setActiveFolderIdDirect: (folderId: string | null) => void;
-  /** URL sync only — sets panels and optionally focused (maximized) item */
-  _setPanelsFromUrl: (ids: string[], maximizedId?: string | null) => void;
+  /** URL sync only — restores open items from `items` query (up to two ids for split) */
+  _setOpenItemsFromUrl: (ids: string[]) => void;
   setSelectedModelId: (modelId: string) => void;
 
   // Actions - Text selection
@@ -124,18 +154,16 @@ const initialState = {
   isChatMaximized: false,
   isThreadListVisible: false,
 
-  // View mode & Panels
-  viewMode: 'workspace' as ViewMode,
-  openPanelIds: [],
+  // Layout
+  workspacePanelSize: PANEL_DEFAULTS.WORKSPACE_WITH_CHAT, // Default when chat is expanded
+
+  openItems: emptyOpenItems(),
+  activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
+
   itemPrompt: null,
-  maximizedItemId: null,
 
   showCreateWorkspaceModal: false,
   showSheetModal: false,
-
-
-  // UI Preferences
-  showJsonView: false,
 
   activeFolderId: null,
   selectedModelId: 'gemini-3-flash-preview',
@@ -148,7 +176,6 @@ const initialState = {
 
   // Card selection
   selectedCardIds: new Set<string>(),
-  panelAutoSelectedCardIds: new Set<string>(),
 
   // Scroll lock state
   itemScrollLocked: new Map<string, boolean>(),
@@ -168,178 +195,120 @@ export const useUIStore = create<UIState>()(
         // Folder-only setter — for folder switching (sidebar, workspace content). Never touches panels.
         setActiveFolderId: (folderId) => set({ activeFolderId: folderId }),
 
-        // Atomic navigation — close panels, set folder, deselect panel cards.
         navigateToRoot: () => {
           set((state) => {
-            if (state.activeFolderId === null && state.openPanelIds.length === 0) return {};
-            const newSelectedCardIds = new Set(state.selectedCardIds);
-            state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
+            if (state.activeFolderId === null && deriveWorkspaceOpenMode(state.openItems) === 'grid') return {};
             return {
               activeFolderId: null,
-              viewMode: 'workspace' as ViewMode,
-              openPanelIds: [],
-              maximizedItemId: null,
-              selectedCardIds: newSelectedCardIds,
-              panelAutoSelectedCardIds: new Set(),
+              openItems: emptyOpenItems(),
+              activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
             };
           });
         },
 
         navigateToFolder: (folderId) => {
           set((state) => {
-            if (state.activeFolderId === folderId && state.openPanelIds.length === 0) return {};
-            const newSelectedCardIds = new Set(state.selectedCardIds);
-            state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
+            if (state.activeFolderId === folderId && deriveWorkspaceOpenMode(state.openItems) === 'grid') return {};
             return {
               activeFolderId: folderId,
-              viewMode: 'workspace' as ViewMode,
-              openPanelIds: [],
-              maximizedItemId: null,
-              selectedCardIds: newSelectedCardIds,
-              panelAutoSelectedCardIds: new Set(),
+              openItems: emptyOpenItems(),
+              activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
             };
           });
         },
 
         _setActiveFolderIdDirect: (folderId) => set({ activeFolderId: folderId }),
 
-        // URL sync only — restores the focused item from the URL
-        _setPanelsFromUrl: (ids, maximizedId) => set((state) => {
-          const validIds = ids.slice(0, 1);
-          if (validIds.length === 0) {
-            const newSelectedCardIds = new Set(state.selectedCardIds);
-            state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
+        // URL sync only — restores open items from the URL (does not change card selection)
+        _setOpenItemsFromUrl: (ids) => set(() => {
+          const valid = ids.filter(Boolean).slice(0, 2);
+          if (valid.length === 0) {
             return {
-              viewMode: 'workspace' as ViewMode,
-              openPanelIds: [],
-              maximizedItemId: null,
-              selectedCardIds: newSelectedCardIds,
-              panelAutoSelectedCardIds: new Set(),
+              openItems: emptyOpenItems(),
+              activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
             };
           }
-          const newSelectedCardIds = new Set(state.selectedCardIds);
-          const newPanelAutoSelectedCardIds = new Set<string>();
-          validIds.forEach(id => {
-            newSelectedCardIds.add(id);
-            // Don't overwrite: if user had explicitly selected (in selectedCardIds but not panelAuto),
-            // preserve that so it stays selected on close
-            const wasExplicitlySelected = state.selectedCardIds.has(id) && !state.panelAutoSelectedCardIds.has(id);
-            if (!wasExplicitlySelected) newPanelAutoSelectedCardIds.add(id);
-          });
-          state.panelAutoSelectedCardIds.forEach(id => {
-            if (!validIds.includes(id)) newSelectedCardIds.delete(id);
-          });
-          const focusId =
-            maximizedId && validIds[0] === maximizedId
-              ? maximizedId
-              : validIds[0] ?? null;
+          const primary = valid[0] ?? null;
+          const secondary = valid.length >= 2 ? valid[1]! : null;
           return {
-            openPanelIds: focusId ? [focusId] : [],
-            maximizedItemId: focusId,
-            viewMode: focusId ? 'focus' as ViewMode : 'workspace' as ViewMode,
-            selectedCardIds: newSelectedCardIds,
-            panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
+            openItems: { primary, secondary },
+            activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
           };
         }),
 
-        closePanel: (itemId) => {
-          set((state) => {
-            if (state.openPanelIds.length === 0) return {};
-
-            const remaining = state.openPanelIds.filter(id => id !== itemId);
-            const newSelectedCardIds = new Set(state.selectedCardIds);
-            const wasInPanelAuto = state.panelAutoSelectedCardIds.has(itemId);
-
-            // Remove the closed item from auto-selected if it was auto-selected
-            if (wasInPanelAuto) {
-              newSelectedCardIds.delete(itemId);
-            }
-            const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-            newPanelAutoSelectedCardIds.delete(itemId);
-
-            return {
-              viewMode: 'workspace' as ViewMode,
-              openPanelIds: remaining,
-              maximizedItemId: null,
-              selectedCardIds: newSelectedCardIds,
-              panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-              citationHighlightQuery: null,
-            };
-          });
-        },
-
-        closeAllPanels: () => {
-          set((state) => {
-            if (state.openPanelIds.length === 0 && state.viewMode === 'workspace') return {};
-            // Remove only auto-selected cards, preserve manual selections
-            const newSelectedCardIds = new Set(state.selectedCardIds);
-            state.panelAutoSelectedCardIds.forEach(id => newSelectedCardIds.delete(id));
-            return {
-              viewMode: 'workspace' as ViewMode,
-              openPanelIds: [],
-              maximizedItemId: null,
-              selectedCardIds: newSelectedCardIds,
-              panelAutoSelectedCardIds: new Set(),
-              citationHighlightQuery: null,
-            };
-          });
-        },
-
-        setItemPrompt: (prompt) => set({ itemPrompt: prompt }),
-        setMaximizedItemId: (id) => set({
-          maximizedItemId: id,
-          viewMode: id ? 'focus' as ViewMode : 'workspace' as ViewMode,
-          // When entering focus mode, keep openPanelIds for breadcrumb; when leaving, clear
-          ...(id === null ? { openPanelIds: [] } : { openPanelIds: [id] }),
-        }),
-
-        // Legacy compatibility — opens item in focus mode (maximized)
-        setOpenModalItemId: (id) => {
+        openWorkspaceItem: (id) => {
           set((state) => {
             if (id === null) {
-              if (state.openPanelIds.length === 0 && state.viewMode === 'workspace') return {};
-              // Remove only auto-selected cards
-              const newSelectedCardIds = new Set(state.selectedCardIds);
-              state.panelAutoSelectedCardIds.forEach(aid => newSelectedCardIds.delete(aid));
+              if (deriveWorkspaceOpenMode(state.openItems) === 'grid') return {};
               return {
-                viewMode: 'workspace' as ViewMode,
-                openPanelIds: [],
-                maximizedItemId: null,
-                selectedCardIds: newSelectedCardIds,
-                panelAutoSelectedCardIds: new Set(),
+                openItems: emptyOpenItems(),
+                activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
                 citationHighlightQuery: null,
               };
-            } else {
-              const isAlreadyOpen = state.openPanelIds.length === 1 && state.openPanelIds[0] === id && state.maximizedItemId === id;
-              if (isAlreadyOpen) return {};
-
-              const newSelectedCardIds = new Set(state.selectedCardIds);
-              const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-
-              // Clean up old auto-selected cards
-              state.panelAutoSelectedCardIds.forEach(aid => newSelectedCardIds.delete(aid));
-              newPanelAutoSelectedCardIds.clear();
-
-              newSelectedCardIds.add(id);
-              const wasExplicitlySelected = state.selectedCardIds.has(id) && !state.panelAutoSelectedCardIds.has(id);
-              if (!wasExplicitlySelected) newPanelAutoSelectedCardIds.add(id);
-
-              return {
-                viewMode: 'focus' as ViewMode,
-                openPanelIds: [id],
-                maximizedItemId: id,
-                selectedCardIds: newSelectedCardIds,
-                panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-              };
             }
+            if (
+              state.openItems.primary === id &&
+              state.openItems.secondary === null
+            ) {
+              return {};
+            }
+            return {
+              openItems: { primary: id, secondary: null },
+              activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
+            };
           });
         },
+
+        setWorkspaceSecondaryItem: (id) => {
+          set((state) => {
+            if (state.openItems.primary == null) return {};
+            if (id != null && id === state.openItems.primary) return {};
+            if (id === state.openItems.secondary) return {};
+            return {
+              openItems: { primary: state.openItems.primary, secondary: id },
+              activeWorkspaceItemSlot: id ? state.activeWorkspaceItemSlot : 'primary',
+            };
+          });
+        },
+
+        closeWorkspaceItem: (itemId) => {
+          set((state) => {
+            const { primary, secondary } = state.openItems;
+            if (primary !== itemId && secondary !== itemId) {
+              return {};
+            }
+            // Closing primary exits fully (same as today’s one-item overlay).
+            if (primary === itemId) {
+              return {
+                openItems: emptyOpenItems(),
+                activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
+                citationHighlightQuery: null,
+              };
+            }
+            return {
+              openItems: { primary, secondary: null },
+              activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
+            };
+          });
+        },
+
+        closeAllWorkspaceItems: () => {
+          set((state) => {
+            if (deriveWorkspaceOpenMode(state.openItems) === 'grid') return {};
+            return {
+              openItems: emptyOpenItems(),
+              activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
+              citationHighlightQuery: null,
+            };
+          });
+        },
+
+        setActiveWorkspaceItemSlot: (slot) => set({ activeWorkspaceItemSlot: slot }),
+
+        setItemPrompt: (prompt) => set({ itemPrompt: prompt }),
 
         setShowCreateWorkspaceModal: (show) => set({ showCreateWorkspaceModal: show }),
         setShowSheetModal: (show) => set({ showSheetModal: show }),
-
-        // UI Preferences actions
-        setShowJsonView: (show) => set({ showJsonView: show }),
 
         setSelectedModelId: (modelId) => set({ selectedModelId: modelId }),
 
@@ -356,44 +325,17 @@ export const useUIStore = create<UIState>()(
         // Card selection actions
         toggleCardSelection: (id) => set((state) => {
           const newSet = new Set(state.selectedCardIds);
-          const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-
           if (newSet.has(id)) {
             newSet.delete(id);
-            newPanelAutoSelectedCardIds.delete(id);
           } else {
             newSet.add(id);
           }
-          return {
-            selectedCardIds: newSet,
-            panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-          };
+          return { selectedCardIds: newSet };
         }),
 
-        clearCardSelection: () => set({
-          selectedCardIds: new Set<string>(),
-          panelAutoSelectedCardIds: new Set<string>(),
-        }),
+        clearCardSelection: () => set({ selectedCardIds: new Set<string>() }),
 
-        selectMultipleCards: (ids) => set((state) => {
-          const newSelectedCardIds = new Set(ids);
-          const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-
-          newPanelAutoSelectedCardIds.forEach(id => {
-            if (!newSelectedCardIds.has(id)) {
-              newPanelAutoSelectedCardIds.delete(id);
-            }
-          });
-
-          newSelectedCardIds.forEach(id => {
-            newPanelAutoSelectedCardIds.delete(id);
-          });
-
-          return {
-            selectedCardIds: newSelectedCardIds,
-            panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-          };
-        }),
+        selectMultipleCards: (ids) => set({ selectedCardIds: new Set(ids) }),
 
         // Scroll lock actions
         setItemScrollLocked: (itemId, isLocked) => set((state) => {
@@ -436,6 +378,7 @@ export const useUIStore = create<UIState>()(
         resetChatState: () => set({
           isChatExpanded: initialState.isChatExpanded,
           isChatMaximized: initialState.isChatMaximized,
+          workspacePanelSize: initialState.workspacePanelSize,
         }),
 
         // Chat actions
@@ -445,30 +388,16 @@ export const useUIStore = create<UIState>()(
         toggleChatMaximized: () => set((state) => ({ isChatMaximized: !state.isChatMaximized })),
         setIsThreadListVisible: (visible) => set({ isThreadListVisible: visible }),
         toggleThreadListVisible: () => set((state) => ({ isThreadListVisible: !state.isThreadListVisible })),
+        setWorkspacePanelSize: (size) => set({ workspacePanelSize: size }),
 
-        closeAllModals: () => set((state) => {
-          // Only remove auto-selected cards from selection
-          const newSelectedCardIds = new Set(state.selectedCardIds);
-          const newPanelAutoSelectedCardIds = new Set(state.panelAutoSelectedCardIds);
-
-          state.openPanelIds.forEach(id => {
-            if (newPanelAutoSelectedCardIds.has(id)) {
-              newSelectedCardIds.delete(id);
-              newPanelAutoSelectedCardIds.delete(id);
-            }
-          });
-
-          return {
-            viewMode: 'workspace' as ViewMode,
-            openPanelIds: [],
+        closeAllModals: () =>
+          set({
+            openItems: emptyOpenItems(),
+            activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
             itemPrompt: null,
-            maximizedItemId: null,
             showCreateWorkspaceModal: false,
             showSheetModal: false,
-            selectedCardIds: newSelectedCardIds,
-            panelAutoSelectedCardIds: newPanelAutoSelectedCardIds,
-          };
-        }),
+          }),
       }),
       {
         name: 'thinkex-ui-preferences-v3',
@@ -480,66 +409,17 @@ export const useUIStore = create<UIState>()(
   )
 );
 
-// Selectors for better performance - components only re-render when their slice changes
-export const selectChatState = (state: UIState) => ({
-  isChatExpanded: state.isChatExpanded,
-  isChatMaximized: state.isChatMaximized,
-});
+export const selectWorkspaceOpenMode = (state: UIState) =>
+  deriveWorkspaceOpenMode(state.openItems);
 
-export const selectModalState = (state: UIState) => ({
-  openPanelIds: state.openPanelIds,
-  itemPrompt: state.itemPrompt,
-  showCreateWorkspaceModal: state.showCreateWorkspaceModal,
-  showSheetModal: state.showSheetModal,
-});
-
-// View mode selector
-export const selectViewMode = (state: UIState) => state.viewMode;
-
-// Panel selectors - for backwards compatibility and convenience
-export const selectOpenPanelIds = (state: UIState) => state.openPanelIds;
-export const selectPrimaryPanelId = (state: UIState) => state.openPanelIds[0] ?? null;
-export const selectSecondaryPanelId = () => null;
-
-export const selectIsPanelOpen = (state: UIState) => state.openPanelIds.length > 0;
-
-// Legacy compatibility selectors
-export const selectOpenModalItemId = (state: UIState) => state.openPanelIds[0] ?? null;
-export const selectSecondaryOpenModalItemId = () => null;
-
-export const selectUIPreferences = (state: UIState) => ({
-  showJsonView: state.showJsonView,
-});
-
-export const selectTextSelectionState = (state: UIState) => ({
-  inMultiSelectMode: state.inMultiSelectMode,
-  tooltipVisible: state.tooltipVisible,
-  selectedHighlightColorId: state.selectedHighlightColorId,
-});
-
-export const selectCardSelectionState = (state: UIState) => ({
-  selectedCardIds: state.selectedCardIds,
-});
-
-// Helper selector that converts Set to sorted array for stable comparison
-// This prevents unnecessary re-renders when Set contents haven't changed
+/** Stable sorted array for `selectedCardIds` (avoids unnecessary re-renders). */
 export const selectSelectedCardIdsArray = (state: UIState): string[] => {
   return Array.from(state.selectedCardIds).sort();
 };
 
-// Helper selector to check if a specific card is selected
-export const selectIsCardSelected = (cardId: string) => (state: UIState): boolean => {
-  return state.selectedCardIds.has(cardId);
-};
-
-// Selector for reply selections
 export const selectReplySelections = (state: UIState) => state.replySelections;
 
-// Selector for selected highlight color
-export const selectSelectedHighlightColorId = (state: UIState) => state.selectedHighlightColorId;
-
-// Selector for item scroll lock state
-export const selectItemScrollLocked = (itemId: string) => (state: UIState): boolean => {
-  return state.itemScrollLocked.get(itemId) ?? true; // Default to locked (true)
-};
-
+export const selectItemScrollLocked =
+  (itemId: string) => (state: UIState): boolean => {
+    return state.itemScrollLocked.get(itemId) ?? true;
+  };

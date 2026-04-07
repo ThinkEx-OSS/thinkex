@@ -1,7 +1,6 @@
 import React, { RefObject, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import type { AgentState, Item, CardType } from "@/lib/workspace-state/types";
 import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import type { WorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
@@ -76,16 +75,11 @@ interface WorkspaceSectionProps {
   currentSlug: string | null;
   state: AgentState;
 
-  // View state
-  showJsonView: boolean;
-
   // Operations
   addItem: (type: CardType, name?: string, initialData?: Partial<Item['data']>) => string;
   updateItem: (itemId: string, updates: Partial<Item>) => void;
   deleteItem: (itemId: string) => void;
   updateAllItems: (items: Item[]) => void;
-
-  getStatePreviewJSON: (s: AgentState | undefined) => Record<string, unknown>;
 
   // Full operations object for advanced functionality
   operations?: WorkspaceOperations;
@@ -97,10 +91,8 @@ interface WorkspaceSectionProps {
   isDesktop?: boolean;
   isChatExpanded?: boolean;
   setIsChatExpanded?: (expanded: boolean) => void;
-  isItemPanelOpen?: boolean;
-
   // Modal state
-  setOpenModalItemId: (id: string | null) => void;
+  openWorkspaceItem: (itemId: string | null) => void;
 
   // Refs
   titleInputRef: RefObject<HTMLInputElement>;
@@ -110,7 +102,8 @@ interface WorkspaceSectionProps {
   workspaceTitle?: string;
   workspaceIcon?: string | null;
   workspaceColor?: string | null;
-  modalManager?: React.ReactNode;
+  /** Full-screen open-item viewer (PDF / card shells), mounted above the grid scroll area */
+  openItemView?: React.ReactNode;
 }
 
 /**
@@ -123,26 +116,22 @@ export function WorkspaceSection({
   currentWorkspaceId,
   currentSlug,
   state,
-  showJsonView,
   addItem,
   updateItem,
   deleteItem,
   updateAllItems,
-
-  getStatePreviewJSON,
   isChatMaximized,
   isDesktop,
   isChatExpanded,
   setIsChatExpanded,
-  setOpenModalItemId,
+  openWorkspaceItem,
   titleInputRef,
   scrollAreaRef,
   workspaceTitle,
   workspaceIcon,
   workspaceColor,
   operations,
-  isItemPanelOpen,
-  modalManager,
+  openItemView,
 }: WorkspaceSectionProps) {
   // Card selection state from UI store
   // Use array selector with shallow comparison to prevent unnecessary re-renders and SSR issues
@@ -476,15 +465,12 @@ export function WorkspaceSection({
       {/* WorkspaceHeader is now rendered in DashboardLayout above the sidebar */}
 
       {/* Modal Manager - Renders over content */}
-      {modalManager}
+      {openItemView}
 
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div ref={scrollAreaRef} className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
-            <div className={cn(
-              "relative min-h-full flex flex-col",
-              showJsonView ? "h-full" : "",
-            )}>
+            <div className="relative min-h-full flex flex-col">
 
 
               {/* Show skeleton until workspace content is loaded */}
@@ -509,16 +495,13 @@ export function WorkspaceSection({
                 (<WorkspaceContent
                   key={`workspace-content-${state.workspaceId || 'none'}`}
                   viewState={state}
-                  showJsonView={showJsonView}
                   addItem={addItem}
                   updateItem={updateItem}
                   deleteItem={deleteItem}
                   updateAllItems={updateAllItems}
-                  getStatePreviewJSON={getStatePreviewJSON}
-                  setOpenModalItemId={setOpenModalItemId}
+                  openWorkspaceItem={openWorkspaceItem}
                   scrollContainerRef={scrollAreaRef}
                   onGridDragStateChange={setIsGridDragging}
-                  workspaceTitle={workspaceTitle}
                   workspaceName={workspaceTitle || "Workspace"}
                   workspaceIcon={workspaceIcon}
                   workspaceColor={workspaceColor}
@@ -531,7 +514,7 @@ export function WorkspaceSection({
               )}
 
               {/* Marquee selector for rectangular card selection - inside scroll container to capture all events */}
-              {!showJsonView && !isChatMaximized && currentWorkspaceId && !isLoadingWorkspace && (
+              {!isChatMaximized && currentWorkspaceId && !isLoadingWorkspace && (
                 <MarqueeSelector
                   scrollContainerRef={scrollAreaRef}
                   cardIds={state.items.map(item => item.id)}
@@ -581,7 +564,6 @@ export function WorkspaceSection({
           onDeleteSelected={handleDeleteRequest}
           onCreateFolderFromSelection={handleCreateFolderFromSelection}
           onMoveSelected={handleMoveSelected}
-          isCompactMode={isItemPanelOpen && isChatExpanded}
         />
       )}
       {/* Move To Dialog */}

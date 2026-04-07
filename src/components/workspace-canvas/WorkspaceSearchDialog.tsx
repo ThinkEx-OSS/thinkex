@@ -35,7 +35,7 @@ export function WorkspaceSearchDialog({
   const [query, setQuery] = useState("");
   const navigateToFolder = useUIStore((state) => state.navigateToFolder);
   const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
-  const setOpenModalItemId = useUIStore((state) => state.setOpenModalItemId);
+  const openWorkspaceItem = useUIStore((state) => state.openWorkspaceItem);
 
   const safeItems = items ?? [];
 
@@ -67,10 +67,10 @@ export function WorkspaceSearchDialog({
         } else {
           setActiveFolderId(null);
         }
-        setOpenModalItemId(item.id);
+        openWorkspaceItem(item.id);
       }
     },
-    [safeItems, onOpenChange, navigateToFolder, setActiveFolderId, setOpenModalItemId]
+    [safeItems, onOpenChange, navigateToFolder, setActiveFolderId, openWorkspaceItem]
   );
 
   const getFolderPathItems = useCallback(

@@ -49,7 +49,7 @@ interface EditItemReceiptProps {
 }
 
 const EditItemReceipt = ({ args, result, status }: EditItemReceiptProps) => {
-  const setOpenModalItemId = useUIStore((s) => s.setOpenModalItemId);
+  const openWorkspaceItem = useUIStore((s) => s.openWorkspaceItem);
   const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const { state: workspaceState } = useWorkspaceState(workspaceId);
   const navigateToItem = useNavigateToItem();
@@ -62,7 +62,7 @@ const EditItemReceipt = ({ args, result, status }: EditItemReceiptProps) => {
   const handleViewCard = () => {
     if (!result.itemId) return;
     if (navigateToItem(result.itemId)) {
-      setOpenModalItemId(result.itemId);
+      openWorkspaceItem(result.itemId);
     }
   };
 

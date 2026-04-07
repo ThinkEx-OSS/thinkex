@@ -1,5 +1,13 @@
-import type { Item, AgentState, Folder } from "@/lib/workspace-state/types";
-import type { WorkspaceSnapshot } from "@/lib/db/types";
+import type { Item, AgentState } from "@/lib/workspace-state/types";
+import type { CardColor } from "@/lib/workspace-state/colors";
+/** Payload shape for historical FOLDER_* events (folders are items today; replay still parses these). */
+type FolderEventRecord = {
+  id: string;
+  name: string;
+  color?: CardColor;
+  createdAt: number;
+  layout?: { x: number; y: number; w: number; h: number };
+};
 
 /**
  * Event Sourcing: All workspace changes are represented as immutable events
@@ -92,7 +100,7 @@ type WorkspaceEventBase =
         deletedIds?: string[];
         /** New items to append – only the added items, not full list */
         addedItems?: Item[];
-        /** @deprecated Legacy: full items array. Prefer deletedIds/addedItems. */
+        /** Full items snapshot (older events; prefer deletedIds/addedItems). */
         items?: Item[];
       };
       timestamp: number;
@@ -111,7 +119,7 @@ type WorkspaceEventBase =
     }
   | {
       type: "FOLDER_CREATED";
-      payload: { folder: Folder };
+      payload: { folder: FolderEventRecord };
       timestamp: number;
       userId: string;
       userName?: string;
@@ -119,7 +127,7 @@ type WorkspaceEventBase =
     }
   | {
       type: "FOLDER_UPDATED";
-      payload: { id: string; changes: Partial<Folder>; name?: string };
+      payload: { id: string; changes: Partial<FolderEventRecord>; name?: string };
       timestamp: number;
       userId: string;
       userName?: string;

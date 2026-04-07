@@ -5,6 +5,8 @@ import { useState, useMemo, memo } from "react";
 import { X, ChevronDown, ChevronUp, Eye } from "lucide-react";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
+import { useViewingItemIds } from "@/hooks/ui/use-viewing-item-ids";
+import { cn } from "@/lib/utils";
 import type { Item } from "@/lib/workspace-state/types";
 
 interface CardContextDisplayProps {
@@ -18,28 +20,27 @@ interface CardContextDisplayProps {
 function CardContextDisplayImpl({ items }: CardContextDisplayProps) {
   const { selectedCardIds } = useSelectedCardIds();
   const activePdfPageByItemId = useUIStore((state) => state.activePdfPageByItemId);
-  const openPanelIds = useUIStore((state) => state.openPanelIds);
-  const maximizedItemId = useUIStore((state) => state.maximizedItemId);
-
-  const viewingItemIds = useMemo(() => {
-    const ids = new Set(openPanelIds);
-    if (maximizedItemId) ids.add(maximizedItemId);
-    return ids;
-  }, [openPanelIds, maximizedItemId]);
+  const viewingItemIds = useViewingItemIds();
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
 
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Filter to selected items, with currently viewing ones first
+  const contextItemIds = useMemo(() => {
+    const ids = new Set<string>(selectedCardIds);
+    viewingItemIds.forEach((id) => ids.add(id));
+    return ids;
+  }, [selectedCardIds, viewingItemIds]);
+
+  // Selected and/or open in a panel; viewing (open) items sort first
   const selectedItems = useMemo(() => {
-    const filtered = items.filter((item) => selectedCardIds.has(item.id));
+    const filtered = items.filter((item) => contextItemIds.has(item.id));
     return [...filtered].sort((a, b) => {
       const aViewing = viewingItemIds.has(a.id) ? 1 : 0;
       const bViewing = viewingItemIds.has(b.id) ? 1 : 0;
       if (aViewing !== bViewing) return bViewing - aViewing; // viewing first
       return 0; // preserve original order within each group
     });
-  }, [items, selectedCardIds, viewingItemIds]);
+  }, [items, contextItemIds, viewingItemIds]);
 
   // Show expand button if there are more than 3 items total (selection + cards)
   const totalItems = selectedItems.length;
@@ -53,39 +54,54 @@ function CardContextDisplayImpl({ items }: CardContextDisplayProps) {
           } ${!showExpandButton ? "pr-7" : ""}`}
       >
         {/* Selected Cards */}
-        {selectedItems.map((item) => (
+        {selectedItems.map((item) => {
+          const isSelected = selectedCardIds.has(item.id);
+          const isViewing = viewingItemIds.has(item.id);
+          const showRemoveButton = isSelected;
+
+          return (
           <div
             key={item.id}
             className="relative group flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-border bg-sidebar-accent hover:bg-accent transition-colors flex-shrink-0"
           >
-            {/* Color / Viewing Indicator / Remove Button Container */}
+            {/* Color / Viewing indicator; X only for explicit selection (not viewing-only) */}
             <div className="w-3 h-3 flex-shrink-0 flex items-center justify-center relative">
-              {/* Eye when viewing, else color circle - visible by default, hidden on hover */}
-              {viewingItemIds.has(item.id) ? (
-                <span title="Currently viewing" className="flex items-center justify-center">
-                  <Eye className="w-3 h-3 text-muted-foreground transition-opacity duration-200 group-hover:opacity-0" />
+              {isViewing ? (
+                <span
+                  title="Currently viewing"
+                  className={cn(
+                    "flex items-center justify-center",
+                    showRemoveButton &&
+                      "transition-opacity duration-200 group-hover:opacity-0",
+                  )}
+                >
+                  <Eye className="w-3 h-3 text-muted-foreground" />
                 </span>
               ) : (
                 item.color && (
                   <div
-                    className="w-2 h-2 rounded-full transition-opacity duration-200 group-hover:opacity-0"
+                    className={cn(
+                      "w-2 h-2 rounded-full transition-opacity duration-200",
+                      showRemoveButton && "group-hover:opacity-0",
+                    )}
                     style={{ backgroundColor: item.color }}
                   />
                 )
               )}
-              {/* X icon - hidden by default, visible on hover */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  toggleCardSelection(item.id);
-                }}
-                className="p-0.5 rounded transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center absolute hover:text-red-500"
-                title="Remove from context"
-              >
-                <X className="w-3 h-3" />
-              </button>
+              {showRemoveButton && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleCardSelection(item.id);
+                  }}
+                  className="p-0.5 rounded transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center absolute hover:text-red-500"
+                  title="Remove from context"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
             </div>
 
             {/* Card Title + Page number for PDFs */}
@@ -100,7 +116,8 @@ function CardContextDisplayImpl({ items }: CardContextDisplayProps) {
               </span>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Expand/Collapse Button */}
@@ -146,8 +163,12 @@ export const CardContextDisplay = memo(CardContextDisplayImpl, (prevProps, nextP
     const nextItem = nextItemsMap.get(id);
     if (!nextItem) return false; // Shouldn't happen due to ID check above, but be safe
     
-    // Compare name and color since these are displayed in the chips
-    if (prevItem.name !== nextItem.name || prevItem.color !== nextItem.color) {
+    // Compare fields that affect chip rendering (incl. type for PDF page badge)
+    if (
+      prevItem.name !== nextItem.name ||
+      prevItem.color !== nextItem.color ||
+      prevItem.type !== nextItem.type
+    ) {
       return false; // Properties changed, allow re-render
     }
   }

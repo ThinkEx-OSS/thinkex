@@ -21,7 +21,7 @@ import SelectableText, {
   SelectionInfo,
   SelectableTextRef,
 } from "@/components/workspace-canvas/SelectableText";
-import { useUIStore, selectReplySelections } from "@/lib/stores/ui-store";
+import { useUIStore } from "@/lib/stores/ui-store";
 import { getHighlightColorById } from "@/lib/utils/highlight-colors";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useAuiState } from "@assistant-ui/react";

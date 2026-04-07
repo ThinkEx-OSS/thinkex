@@ -11,11 +11,12 @@ import {
   AssistantChatTransport,
 } from "@assistant-ui/react-ai-sdk";
 import type { UIMessage } from "ai";
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useRef } from "react";
 import { AssistantAvailableProvider } from "@/contexts/AssistantAvailabilityContext";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { toast } from "sonner";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
+import { useViewingItemIds } from "@/hooks/ui/use-viewing-item-ids";
 import { formatSelectedCardsMetadata } from "@/lib/utils/format-workspace-context";
 import { createThreadListAdapter } from "@/lib/chat/custom-thread-list-adapter";
 import { toCreateMessageWithContext } from "@/lib/chat/toCreateMessageWithContext";
@@ -49,41 +50,59 @@ export function WorkspaceRuntimeProvider({
   const activePdfPageByItemId = useUIStore(
     (state) => state.activePdfPageByItemId,
   );
-  const openPanelIds = useUIStore((state) => state.openPanelIds);
-  const maximizedItemId = useUIStore((state) => state.maximizedItemId);
   const { state: workspaceState } = useWorkspaceState(workspaceId);
+  const viewingItemIds = useViewingItemIds();
 
-  const viewingItemIds = useMemo(() => {
-    const ids = new Set(openPanelIds);
-    if (maximizedItemId) ids.add(maximizedItemId);
+  /** Union of selected cards and items open in the workspace viewer (primary and/or secondary). */
+  const contextCardIds = useMemo(() => {
+    const ids = new Set<string>(selectedCardIdsSet);
+    viewingItemIds.forEach((id) => ids.add(id));
     return ids;
-  }, [openPanelIds, maximizedItemId]);
+  }, [selectedCardIdsSet, viewingItemIds]);
 
   const selectedCardsContext = useMemo(() => {
-    if (!workspaceState?.items || selectedCardIdsSet.size === 0) {
+    if (!workspaceState?.items || contextCardIds.size === 0) {
       return "";
     }
 
-    const selectedItems = workspaceState.items.filter((item) =>
-      selectedCardIdsSet.has(item.id),
+    const contextItems = workspaceState.items.filter((item) =>
+      contextCardIds.has(item.id),
     );
 
-    if (selectedItems.length === 0) {
+    if (contextItems.length === 0) {
       return "";
     }
 
     return formatSelectedCardsMetadata(
-      selectedItems,
+      contextItems,
       workspaceState.items,
       activePdfPageByItemId,
       viewingItemIds,
     );
   }, [
     workspaceState?.items,
-    selectedCardIdsSet,
+    contextCardIds,
     activePdfPageByItemId,
     viewingItemIds,
   ]);
+
+  // Per AI SDK, transport `body` is `Resolvable<object>` — if it is a function, `resolve()`
+  // calls it on every sendMessages (see @ai-sdk/provider-utils resolve()). That gives
+  // fresh metadata without recreating AssistantChatTransport (which would change the
+  // transport passed into useChatRuntime and stress useRemoteThreadListRuntime).
+  // @assistant-ui/react-ai-sdk also wraps the transport in useDynamicChatTransport (Proxy
+  // + ref) so the chat layer can follow transport updates; keeping one transport instance
+  // is still the least surprising option for our custom runtimeHook wrapper.
+  const chatApiPayloadRef = useRef({
+    workspaceId,
+    modelId: selectedModelId,
+    activeFolderId,
+    selectedCardsContext: "",
+  });
+  chatApiPayloadRef.current.workspaceId = workspaceId;
+  chatApiPayloadRef.current.modelId = selectedModelId;
+  chatApiPayloadRef.current.activeFolderId = activeFolderId;
+  chatApiPayloadRef.current.selectedCardsContext = selectedCardsContext;
 
   const handleChatError = useCallback((error: Error) => {
     console.error("[Chat Error]", error);
@@ -164,14 +183,11 @@ export function WorkspaceRuntimeProvider({
     () =>
       new AssistantChatTransport({
         api: "/api/chat",
-        body: {
-          workspaceId,
-          modelId: selectedModelId,
-          activeFolderId,
-          selectedCardsContext,
-        },
+        body: () => ({ ...chatApiPayloadRef.current }),
       }),
-    [workspaceId, selectedModelId, activeFolderId, selectedCardsContext],
+    // Body snapshot comes from the ref via Resolvable function above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable transport instance
+    [],
   );
 
   const runtimeHook = useMemo(

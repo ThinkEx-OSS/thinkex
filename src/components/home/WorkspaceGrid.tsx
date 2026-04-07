@@ -35,8 +35,12 @@ interface WorkspaceGridProps {
 
 export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
   const router = useRouter();
-  const { showCreateWorkspaceModal, setShowCreateWorkspaceModal } =
-    useUIStore();
+  const showCreateWorkspaceModal = useUIStore(
+    (state) => state.showCreateWorkspaceModal,
+  );
+  const setShowCreateWorkspaceModal = useUIStore(
+    (state) => state.setShowCreateWorkspaceModal,
+  );
   const {
     workspaces,
     switchWorkspace,
