@@ -254,9 +254,6 @@ function DashboardContent({
     },
     [revertToVersionRaw, setShowWorkspaceShare],
   );
-  const setWorkspacePanelSize = useUIStore(
-    (state) => state.setWorkspacePanelSize,
-  );
   const toggleChatExpanded = useUIStore((state) => state.toggleChatExpanded);
   const toggleChatMaximized = useUIStore((state) => state.toggleChatMaximized);
 
@@ -416,7 +413,6 @@ function DashboardContent({
         isChatMaximized={isChatMaximized}
         setIsChatExpanded={setIsChatExpanded}
         setIsChatMaximized={setIsChatMaximized}
-        onWorkspaceSizeChange={setWorkspacePanelSize}
         onSingleSelect={handleCreateInstantNote}
         onMultiSelect={handleCreateCardFromSelections}
         workspaceHeader={

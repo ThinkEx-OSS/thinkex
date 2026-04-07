@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { devtools, persist, createJSONStorage } from 'zustand/middleware';
-import { WORKSPACE_PANEL_SIZES } from '@/lib/layout-constants';
 
 /**
  * UI Store - Manages all UI state (chat, modals, search, layout, text selection)
@@ -14,9 +13,6 @@ interface UIState {
   isChatExpanded: boolean;
   isChatMaximized: boolean;
   isThreadListVisible: boolean;
-
-  // Layout state
-  workspacePanelSize: number; // percentage (0-100)
 
   // View mode & Panel state
   viewMode: ViewMode; // Current layout mode
@@ -63,8 +59,6 @@ interface UIState {
   toggleChatMaximized: () => void;
   setIsThreadListVisible: (visible: boolean) => void;
   toggleThreadListVisible: () => void;
-  setWorkspacePanelSize: (size: number) => void;
-
 
   // Actions - Panels & View Mode
   closePanel: (itemId: string) => void;
@@ -129,9 +123,6 @@ const initialState = {
   isChatExpanded: true,
   isChatMaximized: false,
   isThreadListVisible: false,
-
-  // Layout
-  workspacePanelSize: WORKSPACE_PANEL_SIZES.WITH_CHAT, // Default when chat is expanded
 
   // View mode & Panels
   viewMode: 'workspace' as ViewMode,
@@ -445,7 +436,6 @@ export const useUIStore = create<UIState>()(
         resetChatState: () => set({
           isChatExpanded: initialState.isChatExpanded,
           isChatMaximized: initialState.isChatMaximized,
-          workspacePanelSize: initialState.workspacePanelSize,
         }),
 
         // Chat actions
@@ -455,7 +445,6 @@ export const useUIStore = create<UIState>()(
         toggleChatMaximized: () => set((state) => ({ isChatMaximized: !state.isChatMaximized })),
         setIsThreadListVisible: (visible) => set({ isThreadListVisible: visible }),
         toggleThreadListVisible: () => set((state) => ({ isThreadListVisible: !state.isThreadListVisible })),
-        setWorkspacePanelSize: (size) => set({ workspacePanelSize: size }),
 
         closeAllModals: () => set((state) => {
           // Only remove auto-selected cards from selection

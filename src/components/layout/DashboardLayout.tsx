@@ -6,7 +6,7 @@ import { WorkspaceRuntimeProvider } from "@/components/assistant-ui/WorkspaceRun
 import { WorkspaceCanvasDropzone } from "@/components/workspace-canvas/WorkspaceCanvasDropzone";
 import { AssistantDropzone } from "@/components/assistant-ui/AssistantDropzone";
 import { PANEL_DEFAULTS } from "@/lib/layout-constants";
-import React, { useCallback } from "react";
+import React from "react";
 
 interface DashboardLayoutProps {
   // Workspace sidebar
@@ -23,7 +23,6 @@ interface DashboardLayoutProps {
   isChatMaximized: boolean;
   setIsChatExpanded: (expanded: boolean) => void;
   setIsChatMaximized: (maximized: boolean) => void;
-  onWorkspaceSizeChange?: (size: number) => void;
 
   // Text selection handlers
   onSingleSelect?: (text: string) => void | Promise<void>;
@@ -49,24 +48,11 @@ export function DashboardLayout({
   isChatMaximized,
   setIsChatExpanded,
   setIsChatMaximized,
-  onWorkspaceSizeChange,
   onSingleSelect,
   onMultiSelect,
   workspaceSection,
   workspaceHeader,
 }: DashboardLayoutProps) {
-  // OPTIMIZED: Memoize onLayoutChange callback to prevent ResizablePanelGroup re-renders
-  // This prevents cascading re-renders of all ResizablePanel children
-  const handlePanelLayout = useCallback((layout: { [panelId: string]: number }) => {
-    // Track workspace size for column calculations
-    const workspaceSize = layout["left-area-panel"] ?? 100;
-    onWorkspaceSizeChange?.(workspaceSize);
-
-    // Auto-maximize behavior removed - let users manually control chat size
-  }, [onWorkspaceSizeChange]);
-
-
-
   // Render logic
   // Ensure chat is only shown when a workspace is active
   const effectiveChatExpanded = isChatExpanded && !!currentWorkspaceId;
@@ -97,7 +83,6 @@ export function DashboardLayout({
           id={`layout-${effectiveChatExpanded ? "chat" : "no-chat"}`}
           orientation="horizontal"
           className="flex-1 z-10"
-          onLayoutChange={handlePanelLayout}
         >
           {/* Left Area: Workspace area (header + sidebar + workspace canvas) */}
           <ResizablePanel
