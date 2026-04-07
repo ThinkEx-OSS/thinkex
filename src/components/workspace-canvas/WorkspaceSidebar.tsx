@@ -322,19 +322,6 @@ function WorkspaceSidebar(props: WorkspaceSidebarProps) {
                       align="end"
                       sideOffset={4}
                     >
-                      {/* {isDev && (
-                        <DropdownMenuItem
-                          onClick={handleToggleOnboarding}
-                          className="cursor-pointer"
-                        >
-                          <Play className="mr-2 h-4 w-4" />
-                          <span>
-                            Toggle Onboarding ({profile?.onboardingCompleted ? "Completed" : "Pending"})
-                          </span>
-                        </DropdownMenuItem>
-                      )} */}
-                      {/* ConnectButton removed */}
-                      <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={handleOpenUserProfile}
                         className="cursor-pointer"
