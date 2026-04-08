@@ -343,36 +343,3 @@ export const chatMessages = pgTable("chat_messages", {
 	),
 ]);
 
-// Read-before-write tracking for workspace items (FileTime pattern)
-export const workspaceItemReads = pgTable(
-	"workspace_item_reads",
-	{
-		threadId: uuid("thread_id")
-			.notNull()
-			.references(() => chatThreads.id, { onDelete: "cascade" }),
-		itemId: text("item_id").notNull(),
-		lastModified: bigint("last_modified", { mode: "number" }).notNull(),
-		readAt: timestamp("read_at", { withTimezone: true, mode: "string" })
-			.defaultNow()
-			.notNull(),
-	},
-	(table) => [
-		unique("workspace_item_reads_thread_item_key").on(table.threadId, table.itemId),
-		index("idx_workspace_item_reads_thread_item").using(
-			"btree",
-			table.threadId.asc().nullsLast().op("uuid_ops"),
-			table.itemId.asc().nullsLast().op("text_ops")
-		),
-		pgPolicy("workspace_item_reads_user_scoped", {
-			as: "permissive",
-			for: "all",
-			to: ["authenticated"],
-			using: sql`(EXISTS ( SELECT 1 FROM chat_threads ct
-   JOIN workspaces w ON w.id = ct.workspace_id
-   WHERE ((ct.id = workspace_item_reads.thread_id) AND (ct.user_id = (auth.jwt() ->> 'sub'::text)) AND (w.user_id = (auth.jwt() ->> 'sub'::text)))))
-   OR (EXISTS ( SELECT 1 FROM chat_threads ct
-   JOIN workspace_collaborators c ON c.workspace_id = ct.workspace_id
-   WHERE ((ct.id = workspace_item_reads.thread_id) AND (ct.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))`,
-		}),
-	]
-);

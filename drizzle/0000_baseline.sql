@@ -124,15 +124,6 @@ CREATE TABLE "workspace_invites" (
 );
 --> statement-breakpoint
 ALTER TABLE "workspace_invites" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE TABLE "workspace_item_reads" (
-	"thread_id" uuid NOT NULL,
-	"item_id" text NOT NULL,
-	"last_modified" bigint NOT NULL,
-	"read_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "workspace_item_reads_thread_item_key" UNIQUE("thread_id","item_id")
-);
---> statement-breakpoint
-ALTER TABLE "workspace_item_reads" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE TABLE "workspace_share_links" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"workspace_id" uuid NOT NULL,
@@ -181,7 +172,6 @@ ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("
 ALTER TABLE "workspace_collaborators" ADD CONSTRAINT "workspace_collaborators_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_events" ADD CONSTRAINT "workspace_events_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_invites" ADD CONSTRAINT "workspace_invites_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workspace_item_reads" ADD CONSTRAINT "workspace_item_reads_thread_id_chat_threads_id_fk" FOREIGN KEY ("thread_id") REFERENCES "public"."chat_threads"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_share_links" ADD CONSTRAINT "workspace_share_links_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_snapshots" ADD CONSTRAINT "workspace_snapshots_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "idx_account_user_id" ON "account" USING btree ("user_id" text_ops);--> statement-breakpoint
@@ -189,7 +179,7 @@ CREATE INDEX "idx_chat_messages_thread" ON "chat_messages" USING btree ("thread_
 CREATE INDEX "idx_chat_messages_thread_created" ON "chat_messages" USING btree ("thread_id" uuid_ops,"created_at" timestamptz_ops);--> statement-breakpoint
 CREATE INDEX "idx_chat_threads_workspace" ON "chat_threads" USING btree ("workspace_id" uuid_ops);--> statement-breakpoint
 CREATE INDEX "idx_chat_threads_user" ON "chat_threads" USING btree ("user_id" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_chat_threads_last_message" ON "chat_threads" USING btree ("workspace_id" uuid_ops,"last_message_at" timestamptz_ops);--> statement-breakpoint
+CREATE INDEX "idx_chat_threads_last_message" ON "chat_threads" USING btree ("workspace_id" uuid_ops,"last_message_at" timestamptz_ops DESC NULLS FIRST);--> statement-breakpoint
 CREATE INDEX "idx_session_user_id" ON "session" USING btree ("user_id" text_ops);--> statement-breakpoint
 CREATE INDEX "idx_session_token" ON "session" USING btree ("token" text_ops);--> statement-breakpoint
 CREATE INDEX "idx_user_email" ON "user" USING btree ("email" text_ops);--> statement-breakpoint
@@ -197,7 +187,7 @@ CREATE INDEX "idx_user_profiles_user_id" ON "user_profiles" USING btree ("user_i
 CREATE INDEX "idx_verification_identifier" ON "verification" USING btree ("identifier" text_ops);--> statement-breakpoint
 CREATE INDEX "idx_workspace_collaborators_lookup" ON "workspace_collaborators" USING btree ("user_id" text_ops,"workspace_id" uuid_ops);--> statement-breakpoint
 CREATE INDEX "idx_workspace_collaborators_workspace" ON "workspace_collaborators" USING btree ("workspace_id" uuid_ops);--> statement-breakpoint
-CREATE INDEX "idx_workspace_collaborators_last_opened_at" ON "workspace_collaborators" USING btree ("user_id" text_ops,"last_opened_at" timestamptz_ops);--> statement-breakpoint
+CREATE INDEX "idx_workspace_collaborators_last_opened_at" ON "workspace_collaborators" USING btree ("user_id" text_ops,"last_opened_at" timestamptz_ops DESC NULLS FIRST);--> statement-breakpoint
 CREATE INDEX "idx_workspace_events_event_id" ON "workspace_events" USING btree ("event_id" text_ops);--> statement-breakpoint
 CREATE INDEX "idx_workspace_events_timestamp" ON "workspace_events" USING btree ("workspace_id" uuid_ops,"timestamp" int8_ops);--> statement-breakpoint
 CREATE INDEX "idx_workspace_events_user_name" ON "workspace_events" USING btree ("user_name" text_ops);--> statement-breakpoint
@@ -205,17 +195,16 @@ CREATE INDEX "idx_workspace_events_workspace" ON "workspace_events" USING btree 
 CREATE INDEX "idx_workspace_invites_token" ON "workspace_invites" USING btree ("token" text_ops);--> statement-breakpoint
 CREATE INDEX "idx_workspace_invites_email" ON "workspace_invites" USING btree ("email" text_ops);--> statement-breakpoint
 CREATE INDEX "idx_workspace_invites_workspace" ON "workspace_invites" USING btree ("workspace_id" uuid_ops);--> statement-breakpoint
-CREATE INDEX "idx_workspace_item_reads_thread_item" ON "workspace_item_reads" USING btree ("thread_id" uuid_ops,"item_id" text_ops);--> statement-breakpoint
 CREATE INDEX "idx_workspace_share_links_token" ON "workspace_share_links" USING btree ("token" text_ops);--> statement-breakpoint
 CREATE INDEX "idx_workspace_share_links_workspace" ON "workspace_share_links" USING btree ("workspace_id" uuid_ops);--> statement-breakpoint
-CREATE INDEX "idx_workspace_snapshots_version" ON "workspace_snapshots" USING btree ("workspace_id" uuid_ops,"snapshot_version" int4_ops);--> statement-breakpoint
+CREATE INDEX "idx_workspace_snapshots_version" ON "workspace_snapshots" USING btree ("workspace_id" uuid_ops,"snapshot_version" int4_ops DESC NULLS FIRST);--> statement-breakpoint
 CREATE INDEX "idx_workspace_snapshots_workspace" ON "workspace_snapshots" USING btree ("workspace_id" uuid_ops);--> statement-breakpoint
-CREATE INDEX "idx_workspaces_created_at" ON "workspaces" USING btree ("created_at" timestamptz_ops);--> statement-breakpoint
+CREATE INDEX "idx_workspaces_created_at" ON "workspaces" USING btree ("created_at" timestamptz_ops DESC NULLS FIRST);--> statement-breakpoint
 CREATE INDEX "idx_workspaces_slug" ON "workspaces" USING btree ("slug" text_ops);--> statement-breakpoint
 CREATE INDEX "idx_workspaces_user_id" ON "workspaces" USING btree ("user_id" text_ops);--> statement-breakpoint
 CREATE UNIQUE INDEX "idx_workspaces_user_slug" ON "workspaces" USING btree ("user_id" text_ops,"slug" text_ops);--> statement-breakpoint
 CREATE INDEX "idx_workspaces_user_sort_order" ON "workspaces" USING btree ("user_id" text_ops,"sort_order" int4_ops);--> statement-breakpoint
-CREATE INDEX "idx_workspaces_last_opened_at" ON "workspaces" USING btree ("last_opened_at" timestamptz_ops);--> statement-breakpoint
+CREATE INDEX "idx_workspaces_last_opened_at" ON "workspaces" USING btree ("last_opened_at" timestamptz_ops DESC NULLS FIRST);--> statement-breakpoint
 CREATE POLICY "chat_threads_user_scoped" ON "chat_threads" AS PERMISSIVE FOR ALL TO "authenticated" USING (((chat_threads.user_id = (auth.jwt() ->> 'sub'::text))
    AND ((EXISTS ( SELECT 1 FROM workspaces w
    WHERE ((w.id = chat_threads.workspace_id) AND (w.user_id = (auth.jwt() ->> 'sub'::text)))))
@@ -238,18 +227,71 @@ CREATE POLICY "Users can read workspace events they have access to" ON "workspac
   WHERE ((workspaces.id = workspace_events.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
    FROM workspace_collaborators c
   WHERE ((c.workspace_id = workspace_events.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text))))));--> statement-breakpoint
+-- Preserve realtime collaboration objects that were previously created outside the journal
+CREATE OR REPLACE FUNCTION workspace_events_broadcast_trigger()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  PERFORM realtime.broadcast_changes(
+    'workspace:' || NEW.workspace_id::text || ':events',
+    TG_OP,
+    TG_OP,
+    TG_TABLE_NAME,
+    TG_TABLE_SCHEMA,
+    NEW,
+    OLD
+  );
+  RETURN NEW;
+END;
+$$;--> statement-breakpoint
+CREATE TRIGGER workspace_events_realtime_broadcast
+  AFTER INSERT ON workspace_events
+  FOR EACH ROW EXECUTE FUNCTION workspace_events_broadcast_trigger();--> statement-breakpoint
+CREATE POLICY "workspace_access_can_read" ON realtime.messages
+FOR SELECT TO authenticated
+USING (
+  topic LIKE 'workspace:%:events'
+  AND (
+    EXISTS (
+      SELECT 1 FROM public.workspaces w
+      WHERE w.id = (SPLIT_PART(topic, ':', 2))::uuid
+        AND w.user_id = (auth.jwt() ->> 'sub'::text)
+    )
+    OR
+    EXISTS (
+      SELECT 1 FROM public.workspace_collaborators c
+      WHERE c.workspace_id = (SPLIT_PART(topic, ':', 2))::uuid
+        AND c.user_id = (auth.jwt() ->> 'sub'::text)
+    )
+  )
+);--> statement-breakpoint
+CREATE POLICY "workspace_access_can_write" ON realtime.messages
+FOR INSERT TO authenticated
+WITH CHECK (
+  topic LIKE 'workspace:%:events'
+  AND (
+    EXISTS (
+      SELECT 1 FROM public.workspaces w
+      WHERE w.id = (SPLIT_PART(topic, ':', 2))::uuid
+        AND w.user_id = (auth.jwt() ->> 'sub'::text)
+    )
+    OR
+    EXISTS (
+      SELECT 1 FROM public.workspace_collaborators c
+      WHERE c.workspace_id = (SPLIT_PART(topic, ':', 2))::uuid
+        AND c.user_id = (auth.jwt() ->> 'sub'::text)
+        AND c.permission_level = 'editor'
+    )
+  )
+);--> statement-breakpoint
 CREATE POLICY "Public can view invite by token" ON "workspace_invites" AS PERMISSIVE FOR SELECT TO public USING (true);--> statement-breakpoint
 CREATE POLICY "Users can insert invites for workspaces they own/edit" ON "workspace_invites" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
    FROM workspaces w
   WHERE ((w.id = workspace_invites.workspace_id) AND (w.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
    FROM workspace_collaborators c
   WHERE ((c.workspace_id = workspace_invites.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text)))));--> statement-breakpoint
-CREATE POLICY "workspace_item_reads_user_scoped" ON "workspace_item_reads" AS PERMISSIVE FOR ALL TO "authenticated" USING ((EXISTS ( SELECT 1 FROM chat_threads ct
-   JOIN workspaces w ON w.id = ct.workspace_id
-   WHERE ((ct.id = workspace_item_reads.thread_id) AND (ct.user_id = (auth.jwt() ->> 'sub'::text)) AND (w.user_id = (auth.jwt() ->> 'sub'::text)))))
-   OR (EXISTS ( SELECT 1 FROM chat_threads ct
-   JOIN workspace_collaborators c ON c.workspace_id = ct.workspace_id
-   WHERE ((ct.id = workspace_item_reads.thread_id) AND (ct.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.user_id = (auth.jwt() ->> 'sub'::text))))));--> statement-breakpoint
 CREATE POLICY "Public can view share link by token" ON "workspace_share_links" AS PERMISSIVE FOR SELECT TO public USING (true);--> statement-breakpoint
 CREATE POLICY "Owners and editors can manage share links" ON "workspace_share_links" AS PERMISSIVE FOR ALL TO "authenticated" USING ((EXISTS ( SELECT 1
    FROM workspaces w

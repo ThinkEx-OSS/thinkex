@@ -5,7 +5,6 @@ import {
   workspaceEvents,
   chatThreads,
   chatMessages,
-  workspaceItemReads,
 } from "./schema";
 
 // workspace_shares removed - sharing is now fork-based (users import copies)
@@ -35,14 +34,6 @@ export const chatThreadsRelations = relations(chatThreads, ({ one, many }) => ({
 		references: [workspaces.id],
 	}),
 	messages: many(chatMessages),
-	workspaceItemReads: many(workspaceItemReads),
-}));
-
-export const workspaceItemReadsRelations = relations(workspaceItemReads, ({ one }) => ({
-	thread: one(chatThreads, {
-		fields: [workspaceItemReads.threadId],
-		references: [chatThreads.id],
-	}),
 }));
 
 export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
