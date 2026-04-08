@@ -3,6 +3,8 @@ import {
   workspaces,
   workspaceSnapshots,
   workspaceEvents,
+	workspaceItems,
+	workspaceItemProjectionState,
   chatThreads,
   chatMessages,
   workspaceItemReads,
@@ -13,6 +15,7 @@ import {
 export const workspacesRelations = relations(workspaces, ({ many }) => ({
 	workspaceSnapshots: many(workspaceSnapshots),
 	workspaceEvents: many(workspaceEvents),
+	workspaceItems: many(workspaceItems),
 }));
 
 export const workspaceSnapshotsRelations = relations(workspaceSnapshots, ({ one }) => ({
@@ -28,6 +31,23 @@ export const workspaceEventsRelations = relations(workspaceEvents, ({ one }) => 
 		references: [workspaces.id]
 	}),
 }));
+
+export const workspaceItemsRelations = relations(workspaceItems, ({ one }) => ({
+	workspace: one(workspaces, {
+		fields: [workspaceItems.workspaceId],
+		references: [workspaces.id],
+	}),
+}));
+
+export const workspaceItemProjectionStateRelations = relations(
+	workspaceItemProjectionState,
+	({ one }) => ({
+		workspace: one(workspaces, {
+			fields: [workspaceItemProjectionState.workspaceId],
+			references: [workspaces.id],
+		}),
+	}),
+);
 
 export const chatThreadsRelations = relations(chatThreads, ({ one, many }) => ({
 	workspace: one(workspaces, {
