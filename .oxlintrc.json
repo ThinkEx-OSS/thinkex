@@ -1,0 +1,43 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "eslint",
+    "typescript",
+    "unicorn",
+    "oxc",
+    "react",
+    "nextjs",
+    "import"
+  ],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "eslint/no-unused-vars": "warn",
+    "typescript/no-unused-vars": "warn",
+    "react-hooks/exhaustive-deps": "warn",
+    "nextjs/no-img-element": "warn",
+    "nextjs/no-html-link-for-pages": "warn",
+    "eslint/no-control-regex": "warn",
+    "eslint/no-useless-escape": "warn",
+    "eslint/no-cond-assign": "warn",
+    "unicorn/prefer-string-starts-ends-with": "warn",
+    "unicorn/no-new-array": "warn",
+    "unicorn/no-invalid-fetch-options": "warn"
+  },
+  "env": {
+    "builtin": true
+  },
+  "ignorePatterns": [
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "assistant-ui-main/**",
+    "node_modules/**",
+    ".pnpm-store/**",
+    "tmp/**",
+    "dist/**",
+    "coverage/**"
+  ]
+}
