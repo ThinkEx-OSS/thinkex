@@ -3,7 +3,7 @@
  * 
  * Centralized logging with environment-aware behavior:
  * - Development: All logs enabled
- * - Production: Only errors enabled (or disabled entirely)
+ * - Production (when disableInProduction): debug/info/warn off; errors still go to console
  * 
  * Usage:
  *   import { logger } from '@/lib/utils/logger';
@@ -18,14 +18,14 @@ type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 interface LoggerConfig {
   enabled: boolean;
   level: LogLevel;
-  // Set to true to completely disable all logs (even errors) in production
+  // In production, suppress verbose logs; errors still log (e.g. Vercel / stderr)
   disableInProduction: boolean;
 }
 
 const config: LoggerConfig = {
   enabled: true, // Enable logging for development
   level: 'debug',
-  disableInProduction: true, // Fully disabled in production
+  disableInProduction: true, // Quiet prod: no debug/info/warn; errors still log
 };
 
 const LOG_LEVELS: Record<LogLevel, number> = {
@@ -37,8 +37,8 @@ const LOG_LEVELS: Record<LogLevel, number> = {
 
 class Logger {
   private shouldLog(level: LogLevel): boolean {
-    if (config.disableInProduction && process.env.NODE_ENV === 'production') {
-      return false;
+    if (config.disableInProduction && process.env.NODE_ENV === "production") {
+      return level === "error";
     }
     
     if (!config.enabled && level !== 'error') {

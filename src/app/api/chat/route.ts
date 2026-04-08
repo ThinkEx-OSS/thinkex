@@ -15,7 +15,10 @@ import { logger } from "@/lib/utils/logger";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { createChatTools } from "@/lib/ai/tools";
-import { getPostHogServerClient } from "@/lib/posthog-server";
+import {
+  capturePostHogServerException,
+  getPostHogServerClient,
+} from "@/lib/posthog-server";
 import { withServerObservability } from "@/lib/with-server-observability";
 import { normalizeLegacyToolMessages } from "@/lib/ai/legacy-tool-message-compat";
 
@@ -99,6 +102,7 @@ function injectSelectionContext(
 
 async function handlePOST(req: Request) {
   let workspaceId: string | null = null;
+  let userId: string | null = null;
   let activeFolderId: string | undefined;
 
   // Check for API key early (Standardizing on Google Key for now if not using OIDC)
@@ -116,7 +120,7 @@ async function handlePOST(req: Request) {
 
     // Get authenticated user ID
     const session = await auth.api.getSession({ headers: headersObj });
-    const userId = session?.user?.id || null;
+    userId = session?.user?.id || null;
 
     const { messages = [] }: { messages?: UIMessage[] } = body;
     const system = body.system || "";
@@ -356,6 +360,15 @@ async function handlePOST(req: Request) {
         workspaceId,
       });
 
+      capturePostHogServerException(error, {
+        distinctId: userId ?? undefined,
+        properties: {
+          route_name: "POST /api/chat",
+          workspaceId: workspaceId ?? undefined,
+          chat_error_kind: "timeout",
+        },
+      });
+
       return new Response(
         JSON.stringify({
           error: "Request timeout",
@@ -375,6 +388,15 @@ async function handlePOST(req: Request) {
       errorMessage,
       errorStack: error instanceof Error ? error.stack : undefined,
       workspaceId,
+    });
+
+    capturePostHogServerException(error, {
+      distinctId: userId ?? undefined,
+      properties: {
+        route_name: "POST /api/chat",
+        workspaceId: workspaceId ?? undefined,
+        chat_error_kind: "internal",
+      },
     });
 
     return new Response(
