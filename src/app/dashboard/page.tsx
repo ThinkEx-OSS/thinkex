@@ -55,6 +55,10 @@ import {
   getDocumentUploadPartialMessage,
   getDocumentUploadSuccessMessage,
 } from "@/lib/uploads/upload-feedback";
+import {
+  getWorkspaceLastSavedAt,
+  shouldShowAnonymousSignInPrompt,
+} from "@/lib/workspace/workspace-activity";
 
 // Main dashboard content component
 interface DashboardContentProps {
@@ -101,6 +105,8 @@ function DashboardContent({
     state,
     isLoading: isLoadingWorkspace,
     version,
+    eventCount,
+    lastEventAt,
   } = useWorkspaceState(currentWorkspaceId);
 
   // Open audio recorder when landing from home Record flow (store flag set before navigate).
@@ -145,7 +151,16 @@ function DashboardContent({
   // Version control (history only)
   const { revertToVersion: revertToVersionRaw } =
     useWorkspaceHistory(currentWorkspaceId);
-  const { data: eventLog } = useWorkspaceEvents(currentWorkspaceId);
+
+  // Workspace settings/share modals (lifted so header can open them)
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
+  const [showWorkspaceShare, setShowWorkspaceShare] = useState(false);
+
+  const shouldLoadEventLog = !!currentWorkspaceId && showVersionHistory;
+  const { data: eventLog } = useWorkspaceEvents(currentWorkspaceId, {
+    enabled: shouldLoadEventLog,
+  });
 
   // Track sign-in prompt dismissal per workspace for anonymous users.
   const [
@@ -153,18 +168,13 @@ function DashboardContent({
     setDismissedSignInPromptWorkspaceId,
   ] = useState<string | null>(null);
 
-  // Workspace settings/share modals (lifted so header can open them)
-  const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
-  const [showWorkspaceShare, setShowWorkspaceShare] = useState(false);
-  const [showVersionHistory, setShowVersionHistory] = useState(false);
-
-  const showSignInPrompt =
-    !!session?.user?.isAnonymous &&
-    !!eventLog &&
-    !isLoadingWorkspace &&
-    !!currentWorkspaceId &&
-    (eventLog.events?.length ?? 0) >= 15 &&
-    dismissedSignInPromptWorkspaceId !== currentWorkspaceId;
+  const showSignInPrompt = shouldShowAnonymousSignInPrompt({
+    isAnonymous: !!session?.user?.isAnonymous,
+    isLoadingWorkspace,
+    currentWorkspaceId,
+    dismissedWorkspaceId: dismissedSignInPromptWorkspaceId,
+    eventCount,
+  });
 
   // Get sidebar state and controls
   const { toggleSidebar } = useSidebar();
@@ -184,43 +194,17 @@ function DashboardContent({
     updateLastSaved,
   ]);
 
-  // Mark as saved when workspace is loaded from events
+  // Mark as saved when workspace state finishes loading.
   useEffect(() => {
     if (!isLoadingWorkspace && currentWorkspaceId && state.items) {
-      // Use the last event's timestamp if available, otherwise use current time
-      let lastSavedDate: Date;
-      if (eventLog?.events && eventLog.events.length > 0) {
-        // Events are ordered by version, so the last event is the most recent
-        const lastEvent = eventLog.events[eventLog.events.length - 1];
-        // Ensure timestamp exists and is valid
-        if (lastEvent.timestamp != null) {
-          // Ensure timestamp is a number (might be string from JSON)
-          const timestamp =
-            typeof lastEvent.timestamp === "number"
-              ? lastEvent.timestamp
-              : Number(lastEvent.timestamp);
-          lastSavedDate = new Date(timestamp);
-          // Validate the date is valid
-          if (isNaN(lastSavedDate.getTime())) {
-            // If invalid, fallback to current time
-            lastSavedDate = new Date();
-          }
-        } else {
-          // If timestamp is missing, fallback to current time
-          lastSavedDate = new Date();
-        }
-      } else {
-        // Fallback to current time if no events exist (new workspace)
-        lastSavedDate = new Date();
-      }
-      updateLastSaved(lastSavedDate);
+      updateLastSaved(getWorkspaceLastSavedAt(lastEventAt));
       updateHasUnsavedChanges(false);
     }
   }, [
     isLoadingWorkspace,
     currentWorkspaceId,
     state.items,
-    eventLog,
+    lastEventAt,
     updateLastSaved,
     updateHasUnsavedChanges,
   ]);
@@ -395,7 +379,7 @@ function DashboardContent({
               isDesktop={isDesktop}
               isChatExpanded={isChatExpanded}
               setIsChatExpanded={setIsChatExpanded}
-              workspaceName={currentWorkspaceTitle || state.globalTitle}
+              workspaceName={currentWorkspaceTitle || "Workspace"}
               workspaceIcon={currentWorkspaceIcon}
               workspaceColor={currentWorkspaceColor}
               addItem={operations.createItem}
@@ -484,7 +468,7 @@ function DashboardContent({
         events={eventLog?.events || []}
         currentVersion={version}
         onRevertToVersion={revertToVersion}
-        items={currentWorkspace?.state?.items || []}
+        items={state.items}
       />
       <WorkspaceSearchDialog
         open={searchDialogOpen}

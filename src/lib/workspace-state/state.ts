@@ -1,5 +1,4 @@
 import {
-  AgentState,
   CardType,
   ItemData,
   PdfData,
@@ -11,18 +10,18 @@ import {
   AudioData,
   WebsiteData,
   DocumentData,
+  WorkspaceState,
 } from "@/lib/workspace-state/types";
 
 
 
-export const initialState: AgentState = {
+export const initialState: WorkspaceState = {
   items: [],
-  globalTitle: "",
   lastAction: "",
 
 };
 
-export function isNonEmptyAgentState(value: unknown): value is AgentState {
+export function isNonEmptyWorkspaceState(value: unknown): value is WorkspaceState {
   if (value == null || typeof value !== "object") return false;
   const keys = Object.keys(value as Record<string, unknown>);
   return keys.length > 0;

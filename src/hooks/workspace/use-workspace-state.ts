@@ -1,56 +1,60 @@
-import { useMemo, useRef } from "react";
-import { useWorkspaceEvents } from "./use-workspace-events";
-import { replayEvents } from "@/lib/workspace/event-reducer";
-import { initialState } from "@/lib/workspace-state/state";
-import type { AgentState } from "@/lib/workspace-state/types";
+import { useQuery } from "@tanstack/react-query";
+import type { WorkspaceState } from "@/lib/workspace-state/types";
+import { workspaceStateQueryKey } from "./workspace-query-keys";
+import {
+  EMPTY_WORKSPACE_ACTIVITY_SUMMARY,
+  type WorkspaceActivitySummary,
+  type WorkspaceStatePayload,
+  createFallbackWorkspaceState,
+  normalizeWorkspaceStatePayload,
+} from "@/lib/workspace/workspace-activity";
+
+type WorkspaceStateResponse = {
+  workspace?: {
+    state?: WorkspaceState;
+    activity?: WorkspaceActivitySummary;
+  };
+};
+
+async function fetchWorkspaceState(
+  workspaceId: string,
+): Promise<WorkspaceStatePayload> {
+  const response = await fetch(`/api/workspaces/${workspaceId}`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch workspace state: ${response.statusText}`);
+  }
+
+  const data = (await response.json()) as WorkspaceStateResponse;
+  return normalizeWorkspaceStatePayload(workspaceId, data);
+}
 
 /**
- * Hook to get derived workspace state from events
- * State is computed by replaying events (pure function, no mutations)
+ * Hook to get current workspace state.
+ * Current-state reads use the projection-backed server route instead of replaying
+ * the full event log on the client.
  */
 export function useWorkspaceState(workspaceId: string | null) {
-  const { data: eventLog, isLoading, error, refetch } = useWorkspaceEvents(workspaceId);
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: workspaceStateQueryKey(workspaceId),
+    queryFn: () => fetchWorkspaceState(workspaceId!),
+    enabled: !!workspaceId,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+  });
 
-  const prevStateRef = useRef<AgentState | null>(null);
-  const stateUpdateCountRef = useRef(0);
-
-  // Derive state by replaying events (with snapshot optimization)
-  const state: AgentState = useMemo(() => {
-    const replayStart = performance.now();
-    stateUpdateCountRef.current += 1;
-    const updateNumber = stateUpdateCountRef.current;
-    
-    if (!eventLog || !workspaceId) {
-      return { ...initialState, workspaceId: workspaceId || undefined };
-    }
-
-    // Use snapshot as base state if available, then replay delta events
-    const snapshotState = eventLog.snapshot?.state;
-    const replayedState = replayEvents(eventLog.events, workspaceId, snapshotState);
-    
-    const replayTime = performance.now() - replayStart;
-    const prevItemsCount = prevStateRef.current?.items.length || 0;
-    const itemsChanged = prevItemsCount !== replayedState.items.length;
-    
-    // Only log if replay is slow (>50ms), items count changed significantly, or first update
-    // This reduces log noise from fast, frequent replays during optimistic updates
-    const shouldLog = replayTime > 50 || 
-                      (itemsChanged && Math.abs(prevItemsCount - replayedState.items.length) > 5) || 
-                      updateNumber === 1;
-    
-    if (shouldLog) {
-      // Logging removed - use logger if needed
-    }
-    
-    prevStateRef.current = replayedState;
-    return replayedState;
-  }, [eventLog, workspaceId]);
+  const fallbackState = createFallbackWorkspaceState(workspaceId);
 
   return {
-    state,
+    state: data?.state ?? fallbackState,
     isLoading,
     error,
-    version: eventLog?.version ?? 0,
+    version: data?.activity.version ?? EMPTY_WORKSPACE_ACTIVITY_SUMMARY.version,
+    eventCount:
+      data?.activity.eventCount ?? EMPTY_WORKSPACE_ACTIVITY_SUMMARY.eventCount,
+    lastEventAt:
+      data?.activity.lastEventAt ?? EMPTY_WORKSPACE_ACTIVITY_SUMMARY.lastEventAt,
     refetch,
   };
 }

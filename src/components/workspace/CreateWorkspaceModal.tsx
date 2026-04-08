@@ -26,7 +26,7 @@ import { SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/col
 import { validateImportedJSON, generateImportPreview, type ValidationResult } from "@/lib/workspace/import-validation";
 import { Textarea } from "@/components/ui/textarea";
 import { Upload } from "lucide-react";
-import type { AgentState } from "@/lib/workspace-state/types";
+import type { WorkspaceState } from "@/lib/workspace-state/types";
 
 
 interface Workspace {
@@ -47,7 +47,7 @@ interface CreateWorkspaceModalProps {
     description?: string;
     icon?: string | null;
     color?: CardColor | null;
-    initialState?: AgentState;
+    initialState?: WorkspaceState;
   };
 }
 

@@ -1,6 +1,10 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import {
+  workspaceEventsQueryKey,
+  workspaceStateQueryKey,
+} from "./workspace-query-keys";
 
 /**
  * Hook for workspace version control (undo/revert)
@@ -32,7 +36,10 @@ export function useWorkspaceHistory(workspaceId: string | null) {
         const data = await response.json();
 
         await queryClient.invalidateQueries({
-          queryKey: ["workspace", workspaceId, "events"],
+          queryKey: workspaceEventsQueryKey(workspaceId),
+        });
+        await queryClient.invalidateQueries({
+          queryKey: workspaceStateQueryKey(workspaceId),
         });
 
         toast.success(

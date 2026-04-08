@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Plus, Upload } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
-import type { AgentState, Item, CardType } from "@/lib/workspace-state/types";
+import type { WorkspaceState, Item, CardType } from "@/lib/workspace-state/types";
 import { filterItemsByFolder } from "@/lib/workspace-state/search";
 import { useAutoScroll } from "@/hooks/ui/use-auto-scroll";
 import { WorkspaceGrid } from "./WorkspaceGrid";
@@ -17,7 +17,7 @@ import {
 } from "@/lib/uploads/workspace-upload-config";
 
 interface WorkspaceContentProps {
-  viewState: AgentState;
+  viewState: WorkspaceState;
   addItem: (type: CardType, name?: string, initialData?: Partial<Item['data']>) => string;
   updateItem: (itemId: string, updates: Partial<Item>) => void;
   deleteItem: (itemId: string) => void;

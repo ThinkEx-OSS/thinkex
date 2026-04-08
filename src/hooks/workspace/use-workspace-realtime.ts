@@ -12,6 +12,14 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase-client";
 import { logger } from "@/lib/utils/logger";
 import type { EventResponse, WorkspaceEvent } from "@/lib/workspace/events";
+import {
+  workspaceEventsQueryKey,
+  workspaceStateQueryKey,
+} from "./workspace-query-keys";
+import {
+  applyEventToWorkspaceStatePayload,
+  type WorkspaceStatePayload,
+} from "@/lib/workspace/workspace-activity";
 
 interface WorkspaceRealtimeOptions {
   onStatusChange?: (
@@ -42,13 +50,7 @@ function mergeRealtimeEvent(
   old: EventResponse,
   event: WorkspaceEvent,
 ): EventResponse {
-  const snapshotVersion = old.snapshot?.version ?? 0;
-
   if (old.events.some((existing) => existing.id === event.id)) {
-    return old;
-  }
-
-  if (typeof event.version === "number" && event.version <= snapshotVersion) {
     return old;
   }
 
@@ -134,10 +136,11 @@ export function useWorkspaceRealtime(
       onRemoteEvent?.(event);
 
       const existing = queryClient.getQueryData<EventResponse>([
-        "workspace",
-        workspaceId,
-        "events",
+        ...workspaceEventsQueryKey(workspaceId),
       ]);
+      const isDuplicateEvent =
+        existing?.events.some((existingEvent) => existingEvent.id === event.id) ??
+        false;
 
       const hasVersionGap =
         !!existing &&
@@ -145,10 +148,21 @@ export function useWorkspaceRealtime(
         event.version > existing.version + 1;
 
       queryClient.setQueryData<EventResponse>(
-        ["workspace", workspaceId, "events"],
+        workspaceEventsQueryKey(workspaceId),
         (old) => {
           if (!old) return old;
           return mergeRealtimeEvent(old, event);
+        },
+      );
+
+      queryClient.setQueryData<WorkspaceStatePayload>(
+        workspaceStateQueryKey(workspaceId),
+        (old) => {
+          if (!old) return old;
+          if (isDuplicateEvent) return old;
+          return applyEventToWorkspaceStatePayload(old, event, {
+            confirmedVersion: event.version,
+          });
         },
       );
 
@@ -161,7 +175,10 @@ export function useWorkspaceRealtime(
         });
 
         queryClient.invalidateQueries({
-          queryKey: ["workspace", workspaceId, "events"],
+          queryKey: workspaceEventsQueryKey(workspaceId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: workspaceStateQueryKey(workspaceId),
         });
       }
     });

@@ -3,6 +3,16 @@ import type { WorkspaceEvent, EventResponse } from "@/lib/workspace/events";
 import { logger } from "@/lib/utils/logger";
 import { useRef } from "react";
 import { toast } from "sonner";
+import {
+  workspaceEventsQueryKey,
+  workspaceStateQueryKey,
+} from "./workspace-query-keys";
+import {
+  applyEventToWorkspaceStatePayload,
+  confirmWorkspaceStatePayloadVersion,
+  createFallbackWorkspaceStatePayload,
+  type WorkspaceStatePayload,
+} from "@/lib/workspace/workspace-activity";
 
 /**
  * Maximum number of automatic retries for version conflicts
@@ -76,10 +86,11 @@ export function useWorkspaceMutation(workspaceId: string | null) {
 
       // Get current version from cache at mutation time
       const currentData = queryClient.getQueryData<EventResponse>([
-        "workspace",
-        workspaceId,
-        "events",
+        ...workspaceEventsQueryKey(workspaceId),
       ]);
+      const currentStateData = queryClient.getQueryData<WorkspaceStatePayload>(
+        workspaceStateQueryKey(workspaceId),
+      );
 
       // Calculate the actual max version from all events in cache
       // This is critical because after tool completions, events may have versions
@@ -104,6 +115,7 @@ export function useWorkspaceMutation(workspaceId: string | null) {
       const currentVersion = Math.max(
         currentData?.version ?? 0,
         maxEventVersion,
+        currentStateData?.activity.version ?? 0,
       );
 
       // CRITICAL FIX: Account for optimistic events when calculating baseVersion
@@ -121,6 +133,7 @@ export function useWorkspaceMutation(workspaceId: string | null) {
       logger.debug("🚀 [MUTATION] Starting mutation:", {
         workspaceId,
         cacheVersion: currentData?.version ?? 0,
+        stateVersion: currentStateData?.activity.version ?? 0,
         maxEventVersion,
         currentVersion,
         adjustedBaseVersion,
@@ -142,30 +155,36 @@ export function useWorkspaceMutation(workspaceId: string | null) {
 
       // Cancel any outgoing refetches to avoid overwriting optimistic update
       await queryClient.cancelQueries({
-        queryKey: ["workspace", workspaceId, "events"],
+        queryKey: workspaceEventsQueryKey(workspaceId),
+      });
+      await queryClient.cancelQueries({
+        queryKey: workspaceStateQueryKey(workspaceId),
       });
 
       // Snapshot the previous value for rollback
       const previous = queryClient.getQueryData<EventResponse>([
-        "workspace",
-        workspaceId,
-        "events",
+        ...workspaceEventsQueryKey(workspaceId),
       ]);
+      const previousState = queryClient.getQueryData<WorkspaceStatePayload>(
+        workspaceStateQueryKey(workspaceId),
+      );
+      const statePayload =
+        previousState ?? createFallbackWorkspaceStatePayload(workspaceId);
 
       logger.debug("⚡ [OPTIMISTIC] Applying event optimistically:", {
         eventType: event.type,
-        currentVersion: previous?.version,
+        currentVersion: previous?.version ?? statePayload.activity.version,
       });
 
       // Optimistically update to the new value
       // NOTE: Don't increment version here - let server confirm the version
       queryClient.setQueryData<EventResponse>(
-        ["workspace", workspaceId, "events"],
+        workspaceEventsQueryKey(workspaceId),
         (old) => {
           if (!old) {
             const newState = {
               events: [{ ...event }], // Don't assign version to optimistic events
-              version: 0, // Keep server version, don't increment optimistically
+              version: statePayload.activity.version,
             };
             return newState;
           }
@@ -180,8 +199,15 @@ export function useWorkspaceMutation(workspaceId: string | null) {
         },
       );
 
+      queryClient.setQueryData<WorkspaceStatePayload>(
+        workspaceStateQueryKey(workspaceId),
+        (old) => {
+          return applyEventToWorkspaceStatePayload(old ?? statePayload, event);
+        },
+      );
+
       // Return context with previous value for rollback
-      return { previous };
+      return { previous, previousState };
     },
 
     // Rollback on error
@@ -193,7 +219,7 @@ export function useWorkspaceMutation(workspaceId: string | null) {
         workspaceId,
       });
 
-      if (!workspaceId || !context?.previous) return;
+      if (!workspaceId) return;
 
       // Show toast for permission errors
       if (err.message === "PERMISSION_DENIED") {
@@ -204,10 +230,18 @@ export function useWorkspaceMutation(workspaceId: string | null) {
       }
 
       // Rollback to previous state
-      queryClient.setQueryData(
-        ["workspace", workspaceId, "events"],
-        context.previous,
-      );
+      if (context?.previous) {
+        queryClient.setQueryData(
+          workspaceEventsQueryKey(workspaceId),
+          context.previous,
+        );
+      }
+      if (context?.previousState) {
+        queryClient.setQueryData(
+          workspaceStateQueryKey(workspaceId),
+          context.previousState,
+        );
+      }
     },
 
     // Refetch to ensure consistency on success
@@ -269,7 +303,7 @@ export function useWorkspaceMutation(workspaceId: string | null) {
 
           // First, remove this specific optimistic event from cache
           queryClient.setQueryData<EventResponse>(
-            ["workspace", workspaceId, "events"],
+            workspaceEventsQueryKey(workspaceId),
             (old) => {
               if (!old) return old;
 
@@ -289,8 +323,13 @@ export function useWorkspaceMutation(workspaceId: string | null) {
           // Refetch to get latest events, then automatically retry
           queryClient
             .invalidateQueries({
-              queryKey: ["workspace", workspaceId, "events"],
+              queryKey: workspaceEventsQueryKey(workspaceId),
             })
+            .then(() =>
+              queryClient.invalidateQueries({
+                queryKey: workspaceStateQueryKey(workspaceId),
+              }),
+            )
             .then(() => {
               // After cache is updated with latest events, retry the mutation
               logger.debug(
@@ -300,7 +339,7 @@ export function useWorkspaceMutation(workspaceId: string | null) {
 
               // Re-apply optimistic update
               queryClient.setQueryData<EventResponse>(
-                ["workspace", workspaceId, "events"],
+                workspaceEventsQueryKey(workspaceId),
                 (old) => {
                   if (!old) return old;
 
@@ -311,35 +350,43 @@ export function useWorkspaceMutation(workspaceId: string | null) {
                 },
               );
 
+              queryClient.setQueryData<WorkspaceStatePayload>(
+                workspaceStateQueryKey(workspaceId),
+                (old) =>
+                  old ? applyEventToWorkspaceStatePayload(old, event) : old,
+              );
+
               // Retry the mutation with updated base version
               const currentData = queryClient.getQueryData<EventResponse>([
-                "workspace",
-                workspaceId,
-                "events",
+                ...workspaceEventsQueryKey(workspaceId),
               ]);
-              if (currentData) {
-                const events = currentData.events ?? [];
-                const maxEventVersion = events
-                  .filter((e) => typeof e.version === "number")
-                  .reduce(
-                    (max, e) => Math.max(max, e.version!),
-                    currentData.version ?? 0,
-                  );
-                const currentVersion = Math.max(
-                  currentData.version ?? 0,
-                  maxEventVersion,
+              const currentStateData =
+                queryClient.getQueryData<WorkspaceStatePayload>(
+                  workspaceStateQueryKey(workspaceId),
                 );
+              const events = currentData?.events ?? [];
+              const maxEventVersion = events
+                .filter((e) => typeof e.version === "number")
+                .reduce(
+                  (max, e) => Math.max(max, e.version!),
+                  currentData?.version ?? 0,
+                );
+              const currentVersion = Math.max(
+                currentData?.version ?? 0,
+                maxEventVersion,
+                currentStateData?.activity.version ?? 0,
+              );
 
-                logger.debug("🔄 [RETRY] Using base version:", currentVersion);
+              logger.debug("🔄 [RETRY] Using base version:", currentVersion);
 
-                // Call API directly to retry
-                appendWorkspaceEvent({
-                  workspaceId,
-                  event,
-                  baseVersion: currentVersion,
-                })
-                  .then((retryResult) => {
-                    if (retryResult.conflict) {
+              // Call API directly to retry
+              appendWorkspaceEvent({
+                workspaceId,
+                event,
+                baseVersion: currentVersion,
+              })
+                .then((retryResult) => {
+                  if (retryResult.conflict) {
                       // Still conflicting after retry - treat as final failure
                       logger.error(
                         "❌ [RETRY] Retry failed with conflict, giving up",
@@ -347,7 +394,7 @@ export function useWorkspaceMutation(workspaceId: string | null) {
 
                       // Remove optimistic event
                       queryClient.setQueryData<EventResponse>(
-                        ["workspace", workspaceId, "events"],
+                        workspaceEventsQueryKey(workspaceId),
                         (old) => {
                           if (!old) return old;
                           return {
@@ -362,9 +409,12 @@ export function useWorkspaceMutation(workspaceId: string | null) {
 
                       // Force full refetch
                       queryClient.invalidateQueries({
-                        queryKey: ["workspace", workspaceId, "events"],
+                        queryKey: workspaceEventsQueryKey(workspaceId),
                       });
-                    } else {
+                      queryClient.invalidateQueries({
+                        queryKey: workspaceStateQueryKey(workspaceId),
+                      });
+                  } else {
                       // Retry succeeded!
                       logger.debug(
                         "✅ [RETRY] Retry succeeded, version:",
@@ -373,7 +423,7 @@ export function useWorkspaceMutation(workspaceId: string | null) {
 
                       // Update event with version
                       queryClient.setQueryData<EventResponse>(
-                        ["workspace", workspaceId, "events"],
+                        workspaceEventsQueryKey(workspaceId),
                         (old) => {
                           if (!old) return old;
 
@@ -391,37 +441,56 @@ export function useWorkspaceMutation(workspaceId: string | null) {
                         },
                       );
 
+                      queryClient.setQueryData<WorkspaceStatePayload>(
+                        workspaceStateQueryKey(workspaceId),
+                        (old) =>
+                          old
+                            ? confirmWorkspaceStatePayloadVersion(
+                                old,
+                                retryResult.version,
+                                event,
+                              )
+                            : old,
+                      );
+
+                      queryClient.invalidateQueries({
+                        queryKey: workspaceStateQueryKey(workspaceId),
+                      });
+
                       // Clean up retry counter
                       retryAttemptsRef.current.delete(event.id);
-                    }
-                  })
-                  .catch((err) => {
-                    logger.error("❌ [RETRY] Retry failed with error:", err);
+                  }
+                })
+                .catch((err) => {
+                  logger.error("❌ [RETRY] Retry failed with error:", err);
 
-                    // Remove optimistic event
-                    queryClient.setQueryData<EventResponse>(
-                      ["workspace", workspaceId, "events"],
-                      (old) => {
-                        if (!old) return old;
-                        return {
-                          ...old,
-                          events: old.events.filter((e) => e.id !== event.id),
-                        };
-                      },
+                  // Remove optimistic event
+                  queryClient.setQueryData<EventResponse>(
+                    workspaceEventsQueryKey(workspaceId),
+                    (old) => {
+                      if (!old) return old;
+                      return {
+                        ...old,
+                        events: old.events.filter((e) => e.id !== event.id),
+                      };
+                    },
+                  );
+
+                  // Clean up retry counter
+                  retryAttemptsRef.current.delete(event.id);
+
+                  // Restore from context if available
+                  if (context?.previous) {
+                    queryClient.setQueryData(
+                      workspaceEventsQueryKey(workspaceId),
+                      context.previous,
                     );
-
-                    // Clean up retry counter
-                    retryAttemptsRef.current.delete(event.id);
-
-                    // Restore from context if available
-                    if (context?.previous) {
-                      queryClient.setQueryData(
-                        ["workspace", workspaceId, "events"],
-                        context.previous,
-                      );
-                    }
-                  });
-              }
+                    queryClient.setQueryData(
+                      workspaceStateQueryKey(workspaceId),
+                      context.previousState,
+                    );
+                  }
+                });
             });
         } else {
           // Max retries exceeded
@@ -431,7 +500,7 @@ export function useWorkspaceMutation(workspaceId: string | null) {
 
           // Remove optimistic event
           queryClient.setQueryData<EventResponse>(
-            ["workspace", workspaceId, "events"],
+            workspaceEventsQueryKey(workspaceId),
             (old) => {
               if (!old) return old;
               return {
@@ -446,7 +515,10 @@ export function useWorkspaceMutation(workspaceId: string | null) {
 
           // Force full refetch to get true server state
           queryClient.invalidateQueries({
-            queryKey: ["workspace", workspaceId, "events"],
+            queryKey: workspaceEventsQueryKey(workspaceId),
+          });
+          queryClient.invalidateQueries({
+            queryKey: workspaceStateQueryKey(workspaceId),
           });
         }
       } else {
@@ -456,7 +528,7 @@ export function useWorkspaceMutation(workspaceId: string | null) {
 
         // Update the version in cache without full refetch
         queryClient.setQueryData<EventResponse>(
-          ["workspace", workspaceId, "events"],
+          workspaceEventsQueryKey(workspaceId),
           (old) => {
             if (!old) return old;
 
@@ -472,6 +544,14 @@ export function useWorkspaceMutation(workspaceId: string | null) {
             };
             return newState;
           },
+        );
+
+        queryClient.setQueryData<WorkspaceStatePayload>(
+          workspaceStateQueryKey(workspaceId),
+          (old) =>
+            old
+              ? confirmWorkspaceStatePayloadVersion(old, data.version, event)
+              : old,
         );
 
         logger.debug("✅ [SUCCESS] Version updated to:", data.version);

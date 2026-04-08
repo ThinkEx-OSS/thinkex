@@ -222,9 +222,7 @@ function CreateDocumentToolRenderer({
         status={status}
         moveItemToFolder={operations.moveItemToFolder}
         allItems={(workspaceState?.items ?? []) as Item[]}
-        workspaceName={
-          currentWorkspace?.name || workspaceState?.globalTitle || "Workspace"
-        }
+        workspaceName={currentWorkspace?.name || "Workspace"}
         workspaceIcon={currentWorkspace?.icon}
         workspaceColor={currentWorkspace?.color}
       />

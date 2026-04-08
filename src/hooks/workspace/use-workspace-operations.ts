@@ -3,14 +3,13 @@ import { useSession } from "@/lib/auth-client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceMutation } from "./use-workspace-mutation";
-import { createEvent, type EventResponse } from "@/lib/workspace/events";
-import { replayEvents } from "@/lib/workspace/event-reducer";
+import { createEvent } from "@/lib/workspace/events";
 import type {
   Item,
   ItemData,
   CardType,
-  AgentState,
   DocumentData,
+  WorkspaceState,
 } from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
@@ -27,6 +26,8 @@ import {
   getNextUniqueDefaultName,
 } from "@/lib/workspace/unique-name";
 import { filterItemIdsForFolderCreation } from "@/lib/workspace-state/search";
+import { workspaceStateQueryKey } from "./workspace-query-keys";
+import type { WorkspaceStatePayload } from "@/lib/workspace/workspace-activity";
 
 function getAllDescendantIds(folderId: string, items: Item[]): string[] {
   const directChildren = items.filter((item) => item.folderId === folderId);
@@ -68,7 +69,6 @@ export interface WorkspaceOperations {
   ) => void;
   deleteItem: (id: string) => void;
   updateAllItems: (items: Item[]) => void;
-  setGlobalTitle: (title: string) => void;
 
   flushPendingChanges: (itemId: string) => void;
   getDocumentMarkdownForExport: (itemId: string) => string;
@@ -96,7 +96,7 @@ export interface WorkspaceOperations {
  */
 export function useWorkspaceOperations(
   workspaceId: string | null,
-  currentState: AgentState,
+  currentState: WorkspaceState,
 ): WorkspaceOperations {
   const { data: session } = useSession();
   const user = session?.user;
@@ -119,52 +119,28 @@ export function useWorkspaceOperations(
     Map<string, (prev: Item["data"]) => Item["data"]>
   >(new Map());
 
+  const getCachedState = useCallback(() => {
+    if (!workspaceId) return null;
+    return (
+      queryClient.getQueryData<WorkspaceStatePayload>(
+        workspaceStateQueryKey(workspaceId),
+      )?.state ?? null
+    );
+  }, [workspaceId, queryClient]);
+
   const getLatestItemFromState = useCallback(
     (itemId: string) => {
-      if (workspaceId) {
-        const cacheData = queryClient.getQueryData<EventResponse>([
-          "workspace",
-          workspaceId,
-          "events",
-        ]);
-        if (cacheData?.events) {
-          const latestState = replayEvents(
-            cacheData.events,
-            workspaceId,
-            cacheData.snapshot?.state,
-          );
-          const cachedItem = latestState.items.find(
-            (item) => item.id === itemId,
-          );
-          if (cachedItem) {
-            return cachedItem;
-          }
-        }
-      }
+      const cachedItem = getCachedState()?.items.find((item) => item.id === itemId);
+      if (cachedItem) return cachedItem;
 
       return currentState.items.find((item) => item.id === itemId);
     },
-    [workspaceId, queryClient, currentState.items],
+    [getCachedState, currentState.items],
   );
 
   const getLatestItemsFromState = useCallback(() => {
-    if (workspaceId) {
-      const cacheData = queryClient.getQueryData<EventResponse>([
-        "workspace",
-        workspaceId,
-        "events",
-      ]);
-      if (cacheData?.events) {
-        return replayEvents(
-          cacheData.events,
-          workspaceId,
-          cacheData.snapshot?.state,
-        ).items;
-      }
-    }
-
-    return currentState.items;
-  }, [workspaceId, queryClient, currentState.items]);
+    return getCachedState()?.items ?? currentState.items;
+  }, [getCachedState, currentState.items]);
 
   const getLatestItemWithPendingChanges = useCallback(
     (itemId: string) => {
@@ -583,19 +559,6 @@ export function useWorkspaceOperations(
     [mutation, userId, userName, currentState.items],
   );
 
-  const setGlobalTitle = useCallback(
-    (title: string) => {
-      const event = createEvent(
-        "GLOBAL_TITLE_SET",
-        { title },
-        userId,
-        userName,
-      );
-      mutation.mutate(event);
-    },
-    [mutation, userId, userName],
-  );
-
   // Helper for updating item data (used by field actions)
   const updateItemData = useCallback(
     (itemId: string, updater: (prev: Item["data"]) => Item["data"]) => {
@@ -623,39 +586,12 @@ export function useWorkspaceOperations(
           // CRITICAL: Read latest state from cache (not currentState closure) so we get
           // items created after this callback was invoked (e.g. OCR completing after PDF create)
           let latestItem: Item | undefined;
-          if (workspaceId) {
-            const cacheData = queryClient.getQueryData<EventResponse>([
-              "workspace",
-              workspaceId,
-              "events",
-            ]);
-            if (cacheData?.events) {
-              const latestState = replayEvents(
-                cacheData.events,
-                workspaceId,
-                cacheData.snapshot?.state,
-              );
-              latestItem = latestState.items.find((item) => item.id === itemId);
-            }
-          }
+          latestItem = getCachedState()?.items.find((item) => item.id === itemId);
           if (!latestItem) {
             latestItem = currentState.items.find((item) => item.id === itemId);
           }
           if (!latestItem) {
-            const cacheData = workspaceId
-              ? queryClient.getQueryData<EventResponse>([
-                  "workspace",
-                  workspaceId,
-                  "events",
-                ])
-              : null;
-            const itemCount = cacheData?.events
-              ? replayEvents(
-                  cacheData.events,
-                  workspaceId!,
-                  cacheData.snapshot?.state,
-                ).items.length
-              : 0;
+            const itemCount = getCachedState()?.items.length ?? 0;
             logger.warn(
               `[OCR/UPDATE] updateItemData: Item ${itemId} not found. Item may have been deleted. Cache has ${itemCount} items.`,
               {
@@ -712,27 +648,7 @@ export function useWorkspaceOperations(
       // CRITICAL FIX: Read the latest state from cache (including optimistic updates)
       // instead of using the potentially stale currentState prop
       // This ensures we compare against the most recent state even when a previous mutation is pending
-      let latestState: AgentState;
-      if (workspaceId) {
-        const cacheData = queryClient.getQueryData<EventResponse>([
-          "workspace",
-          workspaceId,
-          "events",
-        ]);
-        if (cacheData?.events) {
-          // Replay events to get current state including optimistic updates
-          latestState = replayEvents(
-            cacheData.events,
-            workspaceId,
-            cacheData.snapshot?.state,
-          );
-        } else {
-          // Fallback to prop if cache is empty (shouldn't happen in normal flow)
-          latestState = currentState;
-        }
-      } else {
-        latestState = currentState;
-      }
+      const latestState = getCachedState() ?? currentState;
 
       const previousItemCount = latestState.items.length;
       const currentIds = new Set(latestState.items.map((i) => i.id));
@@ -961,26 +877,7 @@ export function useWorkspaceOperations(
     (folderId: string) => {
       // CRITICAL: Read latest state from cache to avoid stale data issues
       // (same pattern as updateAllItems - currentState prop can be stale)
-      let latestItems: Item[];
-      if (workspaceId) {
-        const cacheData = queryClient.getQueryData<EventResponse>([
-          "workspace",
-          workspaceId,
-          "events",
-        ]);
-        if (cacheData?.events) {
-          const latestState = replayEvents(
-            cacheData.events,
-            workspaceId,
-            cacheData.snapshot?.state,
-          );
-          latestItems = latestState.items;
-        } else {
-          latestItems = currentState.items;
-        }
-      } else {
-        latestItems = currentState.items;
-      }
+      const latestItems = getCachedState()?.items ?? currentState.items;
 
       const folder = latestItems.find(
         (i) => i.id === folderId && i.type === "folder",
@@ -1169,7 +1066,6 @@ export function useWorkspaceOperations(
     updateItemData,
     deleteItem,
     updateAllItems,
-    setGlobalTitle,
     flushPendingChanges,
     getDocumentMarkdownForExport,
     // Folder operations

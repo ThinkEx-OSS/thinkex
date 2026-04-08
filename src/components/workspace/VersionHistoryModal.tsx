@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Clock, Undo2, Camera, FolderPlus, Plus, Pencil, Trash2, Folder, FolderInput } from "lucide-react";
+import { Clock, Undo2, FolderPlus, Plus, Pencil, Trash2, Folder, FolderInput } from "lucide-react";
 import { CgNotes } from "react-icons/cg";
 import { BsFillGrid1X2Fill } from "react-icons/bs";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
@@ -36,8 +36,6 @@ function formatItemType(type: string): string {
 function getEventIcon(event: WorkspaceEvent) {
   const iconClass = "h-5 w-5 shrink-0";
   switch (event.type) {
-    case 'WORKSPACE_CREATED':
-      return <FolderPlus className={`${iconClass} text-amber-500`} />;
     case 'ITEM_CREATED':
       return <Plus className={`${iconClass} text-emerald-500`} />;
     case 'ITEM_UPDATED':
@@ -46,9 +44,6 @@ function getEventIcon(event: WorkspaceEvent) {
       return <Pencil className={`${iconClass} text-amber-500`} />;
     case 'ITEM_DELETED':
       return <Trash2 className={`${iconClass} text-red-500`} />;
-    case 'GLOBAL_TITLE_SET':
-    case 'GLOBAL_DESCRIPTION_SET':
-      return <CgNotes className={`${iconClass} text-blue-500`} />;
     case 'BULK_ITEMS_UPDATED': {
       const p = event.payload as { deletedIds?: string[]; addedItems?: Item[]; items?: Item[]; previousItemCount?: number };
       if (p.deletedIds?.length || (p.items && p.previousItemCount !== undefined && p.previousItemCount > p.items.length)) {
@@ -58,8 +53,6 @@ function getEventIcon(event: WorkspaceEvent) {
     }
     case 'BULK_ITEMS_CREATED':
       return <Plus className={`${iconClass} text-emerald-500`} />;
-    case 'WORKSPACE_SNAPSHOT':
-      return <Camera className={`${iconClass} text-slate-500`} />;
     case 'FOLDER_CREATED':
       return <FolderPlus className={`${iconClass} text-amber-500`} />;
     case 'FOLDER_UPDATED':
@@ -78,10 +71,6 @@ function getEventIcon(event: WorkspaceEvent) {
 
 function getEventDescription(event: WorkspaceEvent, items?: any[]): string {
   switch (event.type) {
-    case 'WORKSPACE_CREATED': {
-      const title = event.payload.title?.trim();
-      return title ? `Created workspace "${title}"` : 'Workspace created';
-    }
     case 'ITEM_CREATED':
       return `Created ${formatItemType(event.payload.item.type)}: "${event.payload.item.name}"`;
     case 'ITEM_UPDATED': {
@@ -113,10 +102,6 @@ function getEventDescription(event: WorkspaceEvent, items?: any[]): string {
       const itemTitle = event.payload.name ?? `item ${event.payload.id}`;
       return `Deleted "${itemTitle}"`;
     }
-    case 'GLOBAL_TITLE_SET':
-      return `Set title to "${event.payload.title}"`;
-    case 'GLOBAL_DESCRIPTION_SET':
-      return `Set description to "${event.payload.description}"`;
     case 'BULK_ITEMS_UPDATED': {
       const p = event.payload as { deletedIds?: string[]; addedItems?: Item[]; items?: Item[]; layoutUpdates?: unknown[]; previousItemCount?: number };
       if (p.deletedIds?.length) {
@@ -162,8 +147,6 @@ function getEventDescription(event: WorkspaceEvent, items?: any[]): string {
         }
       }
     }
-    case 'WORKSPACE_SNAPSHOT':
-      return 'Saved workspace snapshot';
     case 'FOLDER_CREATED': {
       const name = event.payload.folder?.name;
       return name ? `Created folder "${name}"` : 'Created folder';
@@ -248,7 +231,7 @@ export function VersionHistoryContent({
   const handleRevert = async (eventVersion: number) => {
     // Revert TO the state before this event (undo the event they clicked on)
     const targetVersion = eventVersion - 1;
-    if (targetVersion < 1) return; // WORKSPACE_CREATED is v1, can't go before it
+    if (targetVersion < 0) return;
     setIsReverting(true);
     try {
       await onRevertToVersion(targetVersion);
@@ -304,15 +287,12 @@ export function VersionHistoryContent({
               {reversedEvents.map((event) => {
                 const eventVersion = event.version ?? 0;
 
-                const isWorkspaceCreated = event.type === 'WORKSPACE_CREATED';
-
                 return (
                   <div
                     key={event.id}
                     className={cn(
                       "group relative overflow-hidden rounded-lg border p-3 hover:bg-accent/50 transition-colors",
-                      eventVersion === currentVersion && "bg-blue-500/10 border-blue-500/30 ring-1 ring-blue-500/20",
-                      isWorkspaceCreated && "bg-amber-500/5 border-amber-500/20"
+                      eventVersion === currentVersion && "bg-blue-500/10 border-blue-500/30 ring-1 ring-blue-500/20"
                     )}
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -339,7 +319,7 @@ export function VersionHistoryContent({
                         </div>
                       </div>
 
-                      {eventVersion > 1 && !isWorkspaceCreated && (
+                      {eventVersion > 0 && (
                         confirmingVersion === eventVersion ? (
                           <div className="flex items-center gap-1.5 shrink-0">
                             <Button

@@ -3,7 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { WorkspaceWithState, WorkspaceTemplate } from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
-import type { AgentState } from "@/lib/workspace-state/types";
+import type { WorkspaceState } from "@/lib/workspace-state/types";
 
 interface CreateWorkspaceParams {
   name: string;
@@ -12,7 +12,7 @@ interface CreateWorkspaceParams {
   template?: WorkspaceTemplate;
   description?: string;
   is_public?: boolean;
-  initialState?: AgentState;
+  initialState?: WorkspaceState;
 }
 
 interface CreateWorkspaceResponse {
@@ -140,7 +140,7 @@ export function useCreateWorkspaceFromPrompt() {
     prompt: string,
     options?: {
       template?: WorkspaceTemplate;
-      initialState?: AgentState;
+      initialState?: WorkspaceState;
       onSuccess?: (workspace: CreateWorkspaceResponse["workspace"]) => void;
       onError?: (error: Error) => void;
     }

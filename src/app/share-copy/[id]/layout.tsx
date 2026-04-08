@@ -1,7 +1,6 @@
 import { Metadata } from "next";
 import { db, workspaces } from "@/lib/db/client";
 import { eq } from "drizzle-orm";
-import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import { seoConfig, getPageTitle, getFullImageUrl } from "@/lib/seo-config";
 
 type Props = {
@@ -37,10 +36,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         };
     }
 
-    // Fetch full state to get potentially updated title/description
-    const state = await loadWorkspaceState(id);
-
-    const title = state.globalTitle || workspace[0].name || "Untitled Workspace";
+    const title = workspace[0].name || "Untitled Workspace";
     const sharedTitle = `Shared Workspace: ${title}`;
     const description = workspace[0].description || "View and import this shared ThinkEx workspace.";
     const fullTitle = getPageTitle(sharedTitle);

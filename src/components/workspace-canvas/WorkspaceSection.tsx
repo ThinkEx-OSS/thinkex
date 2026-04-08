@@ -1,7 +1,7 @@
 import React, { RefObject, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import type { AgentState, Item, CardType } from "@/lib/workspace-state/types";
+import type { WorkspaceState, Item, CardType } from "@/lib/workspace-state/types";
 import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import type { WorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import WorkspaceContent from "./WorkspaceContent";
@@ -73,7 +73,7 @@ interface WorkspaceSectionProps {
   // Workspace state
   currentWorkspaceId: string | null;
   currentSlug: string | null;
-  state: AgentState;
+  state: WorkspaceState;
 
   // Operations
   addItem: (type: CardType, name?: string, initialData?: Partial<Item['data']>) => string;
