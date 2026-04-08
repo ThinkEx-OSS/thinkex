@@ -185,6 +185,18 @@ export const workspaceEvents = pgTable("workspace_events", {
   WHERE ((c.workspace_id = workspace_events.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))`  }),
 ]);
 
+const workspaceItemsReadAccessSql = sql`(EXISTS ( SELECT 1
+   FROM workspaces
+  WHERE ((workspaces.id = workspace_items.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
+   FROM workspace_collaborators c
+  WHERE ((c.workspace_id = workspace_items.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))`;
+
+const workspaceItemsWriteAccessSql = sql`(EXISTS ( SELECT 1
+   FROM workspaces
+  WHERE ((workspaces.id = workspace_items.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
+   FROM workspace_collaborators c
+  WHERE ((c.workspace_id = workspace_items.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))`;
+
 export const workspaceItems = pgTable("workspace_items", {
 	workspaceId: uuid("workspace_id").notNull(),
 	itemId: text("item_id").notNull(),
@@ -192,11 +204,19 @@ export const workspaceItems = pgTable("workspace_items", {
 	name: text().notNull(),
 	subtitle: text().default('').notNull(),
 	data: jsonb().notNull(),
+	dataSchemaVersion: integer("data_schema_version").default(1).notNull(),
 	color: text(),
 	folderId: text("folder_id"),
 	layout: jsonb(),
 	lastModified: bigint("last_modified", { mode: "number" }),
 	sourceVersion: integer("source_version").notNull(),
+	contentHash: text("content_hash").default('').notNull(),
+	sourceCount: integer("source_count").default(0).notNull(),
+	hasOcr: boolean("has_ocr").default(false).notNull(),
+	ocrStatus: text("ocr_status"),
+	ocrPageCount: integer("ocr_page_count").default(0).notNull(),
+	hasTranscript: boolean("has_transcript").default(false).notNull(),
+	processingStatus: text("processing_status"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
@@ -228,6 +248,17 @@ export const workspaceItems = pgTable("workspace_items", {
 		table.workspaceId.asc().nullsLast().op("uuid_ops"),
 		table.sourceVersion.desc().nullsFirst().op("int4_ops"),
 	),
+	index("idx_workspace_items_workspace_processing").using(
+		"btree",
+		table.workspaceId.asc().nullsLast().op("uuid_ops"),
+		table.processingStatus.asc().nullsLast().op("text_ops"),
+	),
+	index("idx_workspace_items_workspace_ocr").using(
+		"btree",
+		table.workspaceId.asc().nullsLast().op("uuid_ops"),
+		table.hasOcr.asc().nullsLast().op("bool_ops"),
+		table.ocrStatus.asc().nullsLast().op("text_ops"),
+	),
 	foreignKey({
 		columns: [table.workspaceId],
 		foreignColumns: [workspaces.id],
@@ -237,26 +268,171 @@ export const workspaceItems = pgTable("workspace_items", {
 		as: "permissive",
 		for: "select",
 		to: ["public"],
-		using: sql`(EXISTS ( SELECT 1
-   FROM workspaces
-  WHERE ((workspaces.id = workspace_items.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
-   FROM workspace_collaborators c
-  WHERE ((c.workspace_id = workspace_items.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))`,
+		using: workspaceItemsReadAccessSql,
 	}),
 	pgPolicy("Users can write projected workspace items they have write access to", {
 		as: "permissive",
 		for: "all",
 		to: ["public"],
+		using: workspaceItemsWriteAccessSql,
+		withCheck: workspaceItemsWriteAccessSql,
+	}),
+]);
+
+export const workspaceItemContent = pgTable("workspace_item_content", {
+	workspaceId: uuid("workspace_id").notNull(),
+	itemId: text("item_id").notNull(),
+	dataSchemaVersion: integer("data_schema_version").default(1).notNull(),
+	contentHash: text("content_hash").default('').notNull(),
+	textContent: text("text_content"),
+	structuredData: jsonb("structured_data"),
+	assetData: jsonb("asset_data"),
+	embedData: jsonb("embed_data"),
+	sourceData: jsonb("source_data"),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+}, (table) => [
+	primaryKey({
+		columns: [table.workspaceId, table.itemId],
+		name: "workspace_item_content_pkey",
+	}),
+	index("idx_workspace_item_content_workspace").using(
+		"btree",
+		table.workspaceId.asc().nullsLast().op("uuid_ops"),
+	),
+	foreignKey({
+		columns: [table.workspaceId, table.itemId],
+		foreignColumns: [workspaceItems.workspaceId, workspaceItems.itemId],
+		name: "workspace_item_content_workspace_item_fkey",
+	}).onDelete("cascade"),
+	pgPolicy("Users can read projected workspace item content they have access to", {
+		as: "permissive",
+		for: "select",
+		to: ["public"],
 		using: sql`(EXISTS ( SELECT 1
    FROM workspaces
-  WHERE ((workspaces.id = workspace_items.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
+  WHERE ((workspaces.id = workspace_item_content.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
    FROM workspace_collaborators c
-  WHERE ((c.workspace_id = workspace_items.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))`,
+  WHERE ((c.workspace_id = workspace_item_content.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))`,
+	}),
+	pgPolicy("Users can write projected workspace item content they have write access to", {
+		as: "permissive",
+		for: "all",
+		to: ["public"],
+		using: sql`(EXISTS ( SELECT 1
+   FROM workspaces
+  WHERE ((workspaces.id = workspace_item_content.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
+   FROM workspace_collaborators c
+  WHERE ((c.workspace_id = workspace_item_content.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))`,
 		withCheck: sql`(EXISTS ( SELECT 1
    FROM workspaces
-  WHERE ((workspaces.id = workspace_items.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
+  WHERE ((workspaces.id = workspace_item_content.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
    FROM workspace_collaborators c
-  WHERE ((c.workspace_id = workspace_items.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))`,
+  WHERE ((c.workspace_id = workspace_item_content.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))`,
+	}),
+]);
+
+export const workspaceItemExtracted = pgTable("workspace_item_extracted", {
+	workspaceId: uuid("workspace_id").notNull(),
+	itemId: text("item_id").notNull(),
+	searchText: text("search_text").default('').notNull(),
+	contentPreview: text("content_preview"),
+	ocrText: text("ocr_text"),
+	transcriptText: text("transcript_text"),
+	ocrPages: jsonb("ocr_pages"),
+	transcriptSegments: jsonb("transcript_segments"),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+}, (table) => [
+	primaryKey({
+		columns: [table.workspaceId, table.itemId],
+		name: "workspace_item_extracted_pkey",
+	}),
+	index("idx_workspace_item_extracted_workspace").using(
+		"btree",
+		table.workspaceId.asc().nullsLast().op("uuid_ops"),
+	),
+	foreignKey({
+		columns: [table.workspaceId, table.itemId],
+		foreignColumns: [workspaceItems.workspaceId, workspaceItems.itemId],
+		name: "workspace_item_extracted_workspace_item_fkey",
+	}).onDelete("cascade"),
+	pgPolicy("Users can read projected workspace item extracted data they have access to", {
+		as: "permissive",
+		for: "select",
+		to: ["public"],
+		using: sql`(EXISTS ( SELECT 1
+   FROM workspaces
+  WHERE ((workspaces.id = workspace_item_extracted.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
+   FROM workspace_collaborators c
+  WHERE ((c.workspace_id = workspace_item_extracted.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))`,
+	}),
+	pgPolicy("Users can write projected workspace item extracted data they have write access to", {
+		as: "permissive",
+		for: "all",
+		to: ["public"],
+		using: sql`(EXISTS ( SELECT 1
+   FROM workspaces
+  WHERE ((workspaces.id = workspace_item_extracted.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
+   FROM workspace_collaborators c
+  WHERE ((c.workspace_id = workspace_item_extracted.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))`,
+		withCheck: sql`(EXISTS ( SELECT 1
+   FROM workspaces
+  WHERE ((workspaces.id = workspace_item_extracted.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
+   FROM workspace_collaborators c
+  WHERE ((c.workspace_id = workspace_item_extracted.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))`,
+	}),
+]);
+
+export const workspaceItemUserState = pgTable("workspace_item_user_state", {
+	workspaceId: uuid("workspace_id").notNull(),
+	itemId: text("item_id").notNull(),
+	userId: text("user_id").notNull(),
+	state: jsonb().notNull(),
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+}, (table) => [
+	primaryKey({
+		columns: [table.workspaceId, table.itemId, table.userId],
+		name: "workspace_item_user_state_pkey",
+	}),
+	index("idx_workspace_item_user_state_workspace_user").using(
+		"btree",
+		table.workspaceId.asc().nullsLast().op("uuid_ops"),
+		table.userId.asc().nullsLast().op("text_ops"),
+	),
+	index("idx_workspace_item_user_state_item").using(
+		"btree",
+		table.workspaceId.asc().nullsLast().op("uuid_ops"),
+		table.itemId.asc().nullsLast().op("text_ops"),
+		table.userId.asc().nullsLast().op("text_ops"),
+	),
+	foreignKey({
+		columns: [table.workspaceId, table.itemId],
+		foreignColumns: [workspaceItems.workspaceId, workspaceItems.itemId],
+		name: "workspace_item_user_state_workspace_item_fkey",
+	}).onDelete("cascade"),
+	pgPolicy("Users can read their projected workspace item state", {
+		as: "permissive",
+		for: "select",
+		to: ["public"],
+		using: sql`(((workspace_item_user_state.user_id = (auth.jwt() ->> 'sub'::text)) AND (EXISTS ( SELECT 1
+   FROM workspaces
+  WHERE ((workspaces.id = workspace_item_user_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text)))))) OR ((workspace_item_user_state.user_id = (auth.jwt() ->> 'sub'::text)) AND (EXISTS ( SELECT 1
+   FROM workspace_collaborators c
+  WHERE ((c.workspace_id = workspace_item_user_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text))))))`,
+	}),
+	pgPolicy("Users can write their projected workspace item state", {
+		as: "permissive",
+		for: "all",
+		to: ["public"],
+		using: sql`(((workspace_item_user_state.user_id = (auth.jwt() ->> 'sub'::text)) AND (EXISTS ( SELECT 1
+   FROM workspaces
+  WHERE ((workspaces.id = workspace_item_user_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text)))))) OR ((workspace_item_user_state.user_id = (auth.jwt() ->> 'sub'::text)) AND (EXISTS ( SELECT 1
+   FROM workspace_collaborators c
+  WHERE ((c.workspace_id = workspace_item_user_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text))))))`,
+		withCheck: sql`(((workspace_item_user_state.user_id = (auth.jwt() ->> 'sub'::text)) AND (EXISTS ( SELECT 1
+   FROM workspaces
+  WHERE ((workspaces.id = workspace_item_user_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text)))))) OR ((workspace_item_user_state.user_id = (auth.jwt() ->> 'sub'::text)) AND (EXISTS ( SELECT 1
+   FROM workspace_collaborators c
+  WHERE ((c.workspace_id = workspace_item_user_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text))))))`,
 	}),
 ]);
 
@@ -459,36 +635,3 @@ export const chatMessages = pgTable("chat_messages", {
 	),
 ]);
 
-// Read-before-write tracking for workspace items (FileTime pattern)
-export const workspaceItemReads = pgTable(
-	"workspace_item_reads",
-	{
-		threadId: uuid("thread_id")
-			.notNull()
-			.references(() => chatThreads.id, { onDelete: "cascade" }),
-		itemId: text("item_id").notNull(),
-		lastModified: bigint("last_modified", { mode: "number" }).notNull(),
-		readAt: timestamp("read_at", { withTimezone: true, mode: "string" })
-			.defaultNow()
-			.notNull(),
-	},
-	(table) => [
-		unique("workspace_item_reads_thread_item_key").on(table.threadId, table.itemId),
-		index("idx_workspace_item_reads_thread_item").using(
-			"btree",
-			table.threadId.asc().nullsLast().op("uuid_ops"),
-			table.itemId.asc().nullsLast().op("text_ops")
-		),
-		pgPolicy("workspace_item_reads_user_scoped", {
-			as: "permissive",
-			for: "all",
-			to: ["authenticated"],
-			using: sql`(EXISTS ( SELECT 1 FROM chat_threads ct
-   JOIN workspaces w ON w.id = ct.workspace_id
-   WHERE ((ct.id = workspace_item_reads.thread_id) AND (ct.user_id = (auth.jwt() ->> 'sub'::text)) AND (w.user_id = (auth.jwt() ->> 'sub'::text)))))
-   OR (EXISTS ( SELECT 1 FROM chat_threads ct
-   JOIN workspace_collaborators c ON c.workspace_id = ct.workspace_id
-   WHERE ((ct.id = workspace_item_reads.thread_id) AND (ct.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))`,
-		}),
-	]
-);

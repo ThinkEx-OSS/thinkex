@@ -4,10 +4,12 @@ import {
   workspaceSnapshots,
   workspaceEvents,
 	workspaceItems,
+	workspaceItemContent,
+	workspaceItemExtracted,
 	workspaceItemProjectionState,
+	workspaceItemUserState,
   chatThreads,
   chatMessages,
-  workspaceItemReads,
 } from "./schema";
 
 // workspace_shares removed - sharing is now fork-based (users import copies)
@@ -16,6 +18,9 @@ export const workspacesRelations = relations(workspaces, ({ many }) => ({
 	workspaceSnapshots: many(workspaceSnapshots),
 	workspaceEvents: many(workspaceEvents),
 	workspaceItems: many(workspaceItems),
+	workspaceItemContent: many(workspaceItemContent),
+	workspaceItemExtracted: many(workspaceItemExtracted),
+	workspaceItemUserState: many(workspaceItemUserState),
 }));
 
 export const workspaceSnapshotsRelations = relations(workspaceSnapshots, ({ one }) => ({
@@ -39,6 +44,48 @@ export const workspaceItemsRelations = relations(workspaceItems, ({ one }) => ({
 	}),
 }));
 
+export const workspaceItemContentRelations = relations(
+	workspaceItemContent,
+	({ one }) => ({
+		workspace: one(workspaces, {
+			fields: [workspaceItemContent.workspaceId],
+			references: [workspaces.id],
+		}),
+		workspaceItem: one(workspaceItems, {
+			fields: [workspaceItemContent.workspaceId, workspaceItemContent.itemId],
+			references: [workspaceItems.workspaceId, workspaceItems.itemId],
+		}),
+	}),
+);
+
+export const workspaceItemExtractedRelations = relations(
+	workspaceItemExtracted,
+	({ one }) => ({
+		workspace: one(workspaces, {
+			fields: [workspaceItemExtracted.workspaceId],
+			references: [workspaces.id],
+		}),
+		workspaceItem: one(workspaceItems, {
+			fields: [workspaceItemExtracted.workspaceId, workspaceItemExtracted.itemId],
+			references: [workspaceItems.workspaceId, workspaceItems.itemId],
+		}),
+	}),
+);
+
+export const workspaceItemUserStateRelations = relations(
+	workspaceItemUserState,
+	({ one }) => ({
+		workspace: one(workspaces, {
+			fields: [workspaceItemUserState.workspaceId],
+			references: [workspaces.id],
+		}),
+		workspaceItem: one(workspaceItems, {
+			fields: [workspaceItemUserState.workspaceId, workspaceItemUserState.itemId],
+			references: [workspaceItems.workspaceId, workspaceItems.itemId],
+		}),
+	}),
+);
+
 export const workspaceItemProjectionStateRelations = relations(
 	workspaceItemProjectionState,
 	({ one }) => ({
@@ -55,14 +102,6 @@ export const chatThreadsRelations = relations(chatThreads, ({ one, many }) => ({
 		references: [workspaces.id],
 	}),
 	messages: many(chatMessages),
-	workspaceItemReads: many(workspaceItemReads),
-}));
-
-export const workspaceItemReadsRelations = relations(workspaceItemReads, ({ one }) => ({
-	thread: one(chatThreads, {
-		fields: [workspaceItemReads.threadId],
-		references: [chatThreads.id],
-	}),
 }));
 
 export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({

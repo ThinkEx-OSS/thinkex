@@ -9,7 +9,10 @@ import {
   workspaceEvents,
   workspaceSnapshots,
   workspaceItems,
+  workspaceItemContent,
+  workspaceItemExtracted,
   workspaceItemProjectionState,
+  workspaceItemUserState,
   userProfiles,
   workspaceCollaborators
 } from './schema';
@@ -31,8 +34,17 @@ export type WorkspaceSnapshotInsert = InferInsertModel<typeof workspaceSnapshots
 export type WorkspaceItemProjection = InferSelectModel<typeof workspaceItems>;
 export type WorkspaceItemProjectionInsert = InferInsertModel<typeof workspaceItems>;
 
+export type WorkspaceItemContent = InferSelectModel<typeof workspaceItemContent>;
+export type WorkspaceItemContentInsert = InferInsertModel<typeof workspaceItemContent>;
+
+export type WorkspaceItemExtracted = InferSelectModel<typeof workspaceItemExtracted>;
+export type WorkspaceItemExtractedInsert = InferInsertModel<typeof workspaceItemExtracted>;
+
 export type WorkspaceItemProjectionState = InferSelectModel<typeof workspaceItemProjectionState>;
 export type WorkspaceItemProjectionStateInsert = InferInsertModel<typeof workspaceItemProjectionState>;
+
+export type WorkspaceItemUserState = InferSelectModel<typeof workspaceItemUserState>;
+export type WorkspaceItemUserStateInsert = InferInsertModel<typeof workspaceItemUserState>;
 
 export type UserProfile = InferSelectModel<typeof userProfiles>;
 export type UserProfileInsert = InferInsertModel<typeof userProfiles>;

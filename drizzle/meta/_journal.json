@@ -57,6 +57,20 @@
       "when": 1775606400000,
       "tag": "0007_remove_workspace_item_sort_order",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1775626411300,
+      "tag": "0008_moaning_clea",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1775629800000,
+      "tag": "0009_user_scoped_workspace_item_state",
+      "breakpoints": true
     }
   ]
 }
