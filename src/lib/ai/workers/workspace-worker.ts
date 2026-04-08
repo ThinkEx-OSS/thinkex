@@ -38,6 +38,7 @@ import {
   appendWorkspaceEventAtCurrentVersionWithProjection,
   appendWorkspaceEventWithProjection,
 } from "@/lib/workspace/workspace-event-store";
+import { diffItemDataPatch } from "@/lib/workspace/workspace-item-model";
 
 /** Create params for a single item (used by create and bulkCreate). Exported for autogen. */
 export type CreateItemParams = {
@@ -542,7 +543,9 @@ export async function workspaceWorker(
             cards: [...existingCards, ...newCards],
           };
 
-          const changes: any = { data: updatedData };
+          const changes: any = {
+            data: diffItemDataPatch(existingData as Item["data"], updatedData as Item["data"]),
+          };
 
           // Handle title update if provided
           if (params.title) {
@@ -651,7 +654,9 @@ export async function workspaceWorker(
               }
             : existingData;
 
-          const changes: any = hasQuestions ? { data: updatedData } : {};
+          const changes: any = hasQuestions
+            ? { data: diffItemDataPatch(existingData, updatedData) }
+            : {};
 
           if (params.title) {
             logger.debug("🎯 [UPDATE-QUIZ] Updating title:", params.title);
@@ -766,7 +771,9 @@ export async function workspaceWorker(
             ...(params.pdfOcrError != null && { ocrError: params.pdfOcrError }),
           };
 
-          const changes: Partial<Item> = { data: updatedData };
+          const changes: Partial<Item> = {
+            data: diffItemDataPatch(existingData, updatedData) as Item["data"],
+          };
 
           if (params.title) {
             if (
@@ -865,7 +872,9 @@ export async function workspaceWorker(
             }),
           };
 
-          const changes: Partial<Item> = { data: updatedData };
+          const changes: Partial<Item> = {
+            data: diffItemDataPatch(existingData, updatedData) as Item["data"],
+          };
           const event = createEvent(
             "ITEM_UPDATED",
             {
@@ -1100,7 +1109,9 @@ export async function workspaceWorker(
             };
             if (data.session) updatedData.session = data.session;
 
-            const changes: Partial<Item> = { data: updatedData };
+            const changes: Partial<Item> = {
+              data: diffItemDataPatch(data, updatedData) as Item["data"],
+            };
             if (rename) {
               if (
                 hasDuplicateName(
@@ -1192,21 +1203,23 @@ export async function workspaceWorker(
                   replaceAll,
                 );
               }
-              changes.data = {
+              const nextDocumentData: DocumentData = {
                 markdown: contentNew,
                 ...(params.sources !== undefined
                   ? { sources: params.sources }
                   : docData.sources != null
                     ? { sources: docData.sources }
                     : {}),
-              } as DocumentData;
+              };
+              changes.data = diffItemDataPatch(docData, nextDocumentData) as DocumentData;
             }
 
             if (params.sources !== undefined && !changes.data) {
-              changes.data = {
+              const nextDocumentData: DocumentData = {
                 ...docData,
                 sources: params.sources,
-              } as DocumentData;
+              };
+              changes.data = diffItemDataPatch(docData, nextDocumentData) as DocumentData;
             }
 
             if (Object.keys(changes).length === 0) {

@@ -4,15 +4,9 @@
 
 import type {
   Item,
-  PdfData,
-  FlashcardData,
-  QuizData,
-  AudioData,
-  WebsiteData,
-  DocumentData,
 } from "@/lib/workspace-state/types";
-import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
 import { getVirtualPath } from "@/lib/utils/workspace-fs";
+import { getItemSearchBody } from "@/lib/workspace/workspace-item-model";
 
 export interface SearchableText {
   /** Path and title lines (1-2 lines). Matches here use matchKind, not lineNum. */
@@ -39,66 +33,7 @@ export function extractSearchableText(
     content: content ?? "",
   });
 
-  switch (item.type) {
-    case "flashcard": {
-      const data = item.data as FlashcardData;
-      const content = (data.cards ?? [])
-        .map((card) => `${card.front}\n${card.back}`)
-        .join("\n\n");
-      return body(content);
-    }
-    case "pdf": {
-      const data = item.data as PdfData;
-      return body(getOcrPagesTextContent(data.ocrPages));
-    }
-    case "quiz": {
-      const data = item.data as QuizData;
-      const questions = data.questions ?? [];
-      const content = questions
-        .map(
-          (q) =>
-            `${q.questionText}\n${q.options?.join("\n") ?? ""}\n${q.explanation ?? ""}`,
-        )
-        .join("\n\n");
-      return body(content);
-    }
-    case "audio": {
-      const data = item.data as AudioData;
-      const parts: string[] = [];
-      if (data.transcript) parts.push(data.transcript);
-      if (data.segments?.length) {
-        parts.push(
-          data.segments
-            .map(
-              (s) =>
-                `${s.content}${s.translation ? ` (${s.translation})` : ""}`,
-            )
-            .join("\n"),
-        );
-      }
-      return body(parts.join("\n"));
-    }
-    case "website": {
-      const data = item.data as WebsiteData;
-      const url = data.url || "";
-      let domain = "";
-      try {
-        domain = new URL(url).hostname.replace(/^www\./, "");
-      } catch {}
-      const content = `URL: ${url}\nDomain: ${domain}`;
-      return body(content);
-    }
-    case "document": {
-      const data = item.data as DocumentData;
-      return body(data.markdown ?? "");
-    }
-    case "image":
-    case "youtube":
-    case "folder":
-      return { header: header || (item.name ?? "") || "", content: "" };
-    default:
-      return { header, content: "" };
-  }
+  return body(getItemSearchBody(item));
 }
 
 /**
