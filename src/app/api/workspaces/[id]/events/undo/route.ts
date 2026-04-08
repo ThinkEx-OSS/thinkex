@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, workspaceEvents } from "@/lib/db/client";
 import { eq, gt, and } from "drizzle-orm";
 import { requireAuth, verifyWorkspaceAccess, withErrorHandling } from "@/lib/api/workspace-helpers";
-import { backfillWorkspaceItemsProjection } from "@/lib/workspace/workspace-items-projection";
+import { rebuildWorkspaceItemsProjectionFromEvents } from "@/lib/workspace/workspace-items-projection";
 
 /**
  * POST /api/workspaces/[id]/events/undo
@@ -44,7 +44,7 @@ async function handlePOST(
     return deletedEvents;
   });
 
-  await backfillWorkspaceItemsProjection(id);
+  await rebuildWorkspaceItemsProjectionFromEvents(id);
 
   return NextResponse.json({
     success: true,

@@ -101,6 +101,7 @@ async function handleGET(
 
   const state = await loadWorkspaceCurrentState(
     workspace.id,
+    userId,
   );
 
   return NextResponse.json({

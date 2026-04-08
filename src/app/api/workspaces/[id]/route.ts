@@ -38,7 +38,7 @@ async function handleGET(
 
   // Current-state reads now prefer the item projection while workspace name stays canonical in workspaces.name.
   const [state, activityRow] = await Promise.all([
-    loadWorkspaceCurrentState(id),
+    loadWorkspaceCurrentState(id, userId),
     db
       .select({
         version: sql<number>`coalesce(max(${workspaceEvents.version}), 0)::int`,
