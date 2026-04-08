@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, workspaces } from "@/lib/db/client";
 import { eq } from "drizzle-orm";
-import { loadWorkspaceState } from "@/lib/workspace/state-loader";
+import { loadWorkspaceCurrentState } from "@/lib/workspace/workspace-items-projection";
 
 /**
  * GET /api/share/[id]
@@ -26,13 +26,9 @@ export async function GET(
       return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
     }
 
-    // Get workspace state by replaying events
-    const state = await loadWorkspaceState(id);
-
-    // Ensure state has workspace metadata if empty
-    if (!state.globalTitle) {
-      state.globalTitle = workspace[0].name || "";
-    }
+    const state = await loadWorkspaceCurrentState(
+      id,
+    );
 
     // Return workspace data for forking (public access)
     return NextResponse.json({

@@ -3,7 +3,6 @@ import { google } from "@ai-sdk/google";
 import { streamText, generateText, Output } from "ai";
 import { z } from "zod";
 import { executeWebSearch } from "@/lib/ai/tools/web-search";
-import { randomUUID } from "crypto";
 import { desc, eq, sql } from "drizzle-orm";
 import { requireAuthWithUserInfo } from "@/lib/api/workspace-helpers";
 import { db, workspaces } from "@/lib/db/client";
@@ -467,24 +466,6 @@ export async function POST(request: NextRequest) {
         const workspaceId = workspace.id;
         timings.workspaceCreateMs = Date.now() - phase0Start;
         logger.info("[AUTOGEN] Workspace created (placeholder)", { ms: timings.workspaceCreateMs, workspaceId });
-
-        // Create WORKSPACE_CREATED event
-        try {
-          await db.execute(sql`
-            SELECT append_workspace_event(
-              ${workspaceId}::uuid,
-              ${randomUUID()}::text,
-              ${"WORKSPACE_CREATED"}::text,
-              ${JSON.stringify({ title: "New Workspace", description: "" })}::jsonb,
-              ${Date.now()}::bigint,
-              ${userId}::text,
-              0::integer,
-              ${user.name || user.email || null}::text
-            )
-          `);
-        } catch (eventError) {
-          logger.error("[AUTOGEN] Error creating WORKSPACE_CREATED event:", eventError);
-        }
 
         // Create PDF and image items immediately so OCR can start (runs in parallel with Phase 1)
         // Seed with known content-item positions so files are placed around them (matching pre-restructuring layout)

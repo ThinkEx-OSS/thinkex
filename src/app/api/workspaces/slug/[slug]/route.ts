@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, workspaces } from "@/lib/db/client";
 import { workspaceCollaborators } from "@/lib/db/schema";
 import { eq, and, or, inArray } from "drizzle-orm";
-import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import { requireAuth, withErrorHandling } from "@/lib/api/workspace-helpers";
+import { loadWorkspaceCurrentState } from "@/lib/workspace/workspace-items-projection";
 
 /**
  * GET /api/workspaces/slug/[slug]
@@ -99,13 +99,9 @@ async function handleGET(
     });
   }
 
-  // Get workspace state by replaying events (full mode)
-  const state = await loadWorkspaceState(workspace.id);
-
-  // Ensure state has workspace metadata if empty
-  if (!state.globalTitle) {
-    state.globalTitle = workspace.name || "";
-  }
+  const state = await loadWorkspaceCurrentState(
+    workspace.id,
+  );
 
   return NextResponse.json({
     workspace: {

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, workspaces } from "@/lib/db/client";
-import { eq, and, ne } from "drizzle-orm";
-import { loadWorkspaceState } from "@/lib/workspace/state-loader";
+import { db, workspaceEvents, workspaces } from "@/lib/db/client";
+import { eq, and, ne, sql } from "drizzle-orm";
 import { requireAuth, verifyWorkspaceOwnership, verifyWorkspaceAccess, withErrorHandling } from "@/lib/api/workspace-helpers";
 import { generateSlug } from "@/lib/workspace/slug";
+import { loadWorkspaceCurrentState } from "@/lib/workspace/workspace-items-projection";
+import { EMPTY_WORKSPACE_ACTIVITY_SUMMARY } from "@/lib/workspace/workspace-activity";
 
 /**
  * GET /api/workspaces/[id]
@@ -35,18 +36,36 @@ async function handleGET(
     return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
   }
 
-  // Get workspace state by replaying events
-  const state = await loadWorkspaceState(id);
+  // Current-state reads now prefer the item projection while workspace name stays canonical in workspaces.name.
+  const [state, activityRow] = await Promise.all([
+    loadWorkspaceCurrentState(id),
+    db
+      .select({
+        version: sql<number>`coalesce(max(${workspaceEvents.version}), 0)::int`,
+        eventCount: sql<number>`count(*)::int`,
+        lastEventAt: sql<number | null>`max(${workspaceEvents.timestamp})`,
+      })
+      .from(workspaceEvents)
+      .where(eq(workspaceEvents.workspaceId, id))
+      .limit(1),
+  ]);
 
-  // Ensure state has workspace metadata if empty
-  if (!state.globalTitle) {
-    state.globalTitle = workspace.name || "";
-  }
+  const activity = activityRow[0]
+    ? {
+        version: Number(activityRow[0].version ?? 0),
+        eventCount: Number(activityRow[0].eventCount ?? 0),
+        lastEventAt:
+          activityRow[0].lastEventAt == null
+            ? null
+            : Number(activityRow[0].lastEventAt),
+      }
+    : EMPTY_WORKSPACE_ACTIVITY_SUMMARY;
 
   return NextResponse.json({
     workspace: {
       ...workspace,
       state,
+      activity,
       isShared: !accessInfo.isOwner,
       permissionLevel: accessInfo.permissionLevel,
     },
@@ -158,7 +177,7 @@ async function handleDELETE(
   // Check ownership
   await verifyWorkspaceOwnership(id, userId);
 
-  // Delete workspace (cascade will delete events and snapshots)
+  // Delete workspace (cascade also removes any legacy snapshot rows still in the DB)
   await db
     .delete(workspaces)
     .where(eq(workspaces.id, id));

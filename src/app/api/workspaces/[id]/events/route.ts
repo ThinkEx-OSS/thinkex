@@ -1,63 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { WorkspaceEvent, EventResponse } from "@/lib/workspace/events";
-import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
-
-/** Strip heavy OCR page payloads from OCR-backed items — client refetches item state as needed. */
-function stripOcrPagesFromItem(item: { type?: string; data?: unknown }): void {
-  if (
-    (item?.type === "pdf" || item?.type === "image") &&
-    item.data &&
-    typeof item.data === "object"
-  ) {
-    const d = item.data as Record<string, unknown>;
-    delete d.ocrPages;
-  }
-}
-
-function stripOcrPagesFromState(
-  state: { items?: Array<{ type?: string; data?: unknown }> } | undefined,
-): void {
-  state?.items?.forEach(stripOcrPagesFromItem);
-}
-
-function stripPdfOcrFromEventPayload(event: WorkspaceEvent): void {
-  const p = event.payload as Record<string, unknown>;
-  if (event.type === "ITEM_CREATED" && p?.item)
-    stripOcrPagesFromItem(p.item as { type?: string; data?: unknown });
-  if (event.type === "ITEM_UPDATED") {
-    const changes = p?.changes as Record<string, unknown> | undefined;
-    if (changes?.data && typeof changes.data === "object") {
-      const d = changes.data as Record<string, unknown>;
-      delete d.ocrPages;
-    }
-  }
-  if (event.type === "BULK_ITEMS_PATCHED") {
-    const updates = p?.updates as
-      | Array<{ changes?: { data?: unknown } }>
-      | undefined;
-    updates?.forEach((update) => {
-      if (update?.changes?.data && typeof update.changes.data === "object") {
-        const d = update.changes.data as Record<string, unknown>;
-        delete d.ocrPages;
-      }
-    });
-  }
-  if (event.type === "BULK_ITEMS_UPDATED") {
-    (
-      p?.addedItems as Array<{ type?: string; data?: unknown }> | undefined
-    )?.forEach(stripOcrPagesFromItem);
-    (p?.items as Array<{ type?: string; data?: unknown }> | undefined)?.forEach(
-      stripOcrPagesFromItem,
-    );
-  }
-  if (event.type === "WORKSPACE_SNAPSHOT" && p?.items) {
-    (p.items as Array<{ type?: string; data?: unknown }>).forEach(
-      stripOcrPagesFromItem,
-    );
-  }
-}
-
-import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import { hasDuplicateName } from "@/lib/workspace/unique-name";
 import { db, workspaceEvents } from "@/lib/db/client";
 import { eq, gt, asc, sql, and } from "drizzle-orm";
@@ -67,6 +9,10 @@ import {
   withErrorHandling,
 } from "@/lib/api/workspace-helpers";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
+import { loadWorkspaceItemsState } from "@/lib/workspace/workspace-items-projection";
+import {
+  appendWorkspaceEventWithProjection,
+} from "@/lib/workspace/workspace-event-store";
 
 /**
  * GET /api/workspaces/[id]/events
@@ -95,49 +41,15 @@ async function handleGET(
   await verifyWorkspaceAccess(id, userId, "viewer");
   timings.workspaceCheck = Date.now() - workspaceCheckStart;
 
-  // Get only the latest snapshot (not all snapshots - loaded on demand for version history)
-  // Use optimized function that bypasses RLS (access already verified above)
-  const snapshotStart = Date.now();
-  const latestSnapshotData = await db.execute(sql`
-      SELECT 
-        id,
-        snapshot_version as "snapshotVersion",
-        state,
-        event_count as "eventCount",
-        created_at as "createdAt"
-      FROM get_latest_snapshot_fast(${id}::uuid)
-    `);
-  timings.snapshotFetch = Date.now() - snapshotStart;
-
-  const latestSnapshot = latestSnapshotData[0] as
-    | {
-        id?: string;
-        snapshotVersion?: number;
-        state?: any;
-        eventCount?: number;
-        createdAt?: string;
-      }
-    | undefined;
-  const snapshotVersion =
-    typeof latestSnapshot?.snapshotVersion === "number"
-      ? latestSnapshot.snapshotVersion
-      : 0;
-
-  // Check how many events we need to fetch
+  // Snapshots are deprecated from the normal event-history path.
   const countStart = Date.now();
   const eventCountResult = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(workspaceEvents)
-    .where(
-      and(
-        eq(workspaceEvents.workspaceId, id),
-        gt(workspaceEvents.version, snapshotVersion),
-      ),
-    );
+    .where(eq(workspaceEvents.workspaceId, id));
   const eventCount = eventCountResult[0]?.count ?? 0;
   timings.countQuery = Date.now() - countStart;
 
-  // Only fetch events AFTER the snapshot version
   const PAGE_SIZE = 1000;
   let eventsData: any[] = [];
 
@@ -147,7 +59,6 @@ async function handleGET(
     // If we have fewer events than PAGE_SIZE, fetch all at once (no pagination needed)
     const eventsFetchStart = Date.now();
 
-    // Use optimized function that bypasses RLS (access already verified above)
     const queryStart = Date.now();
     const fastQueryResult = await db.execute(sql`
         SELECT 
@@ -160,7 +71,7 @@ async function handleGET(
           version
         FROM get_workspace_events_fast(
           ${id}::uuid,
-          ${snapshotVersion}::integer,
+          ${0}::integer,
           ${PAGE_SIZE}::integer
         )
       `);
@@ -198,7 +109,6 @@ async function handleGET(
             version
           FROM workspace_events
           WHERE workspace_id = ${id}::uuid
-            AND version > ${snapshotVersion}
           ORDER BY version ASC
           LIMIT ${PAGE_SIZE}
           OFFSET ${page * PAGE_SIZE}
@@ -245,27 +155,11 @@ async function handleGET(
   const maxVersion =
     eventsData && eventsData.length > 0
       ? Math.max(...eventsData.map((e) => e.version))
-      : snapshotVersion || 0;
-
-  // Strip heavy OCR page payloads — client doesn't need them in event responses.
-  if (latestSnapshot?.state)
-    stripOcrPagesFromState(
-      latestSnapshot.state as {
-        items?: Array<{ type?: string; data?: unknown }>;
-      },
-    );
-  events.forEach(stripPdfOcrFromEventPayload);
+      : 0;
 
   const response: EventResponse = {
     events,
     version: maxVersion,
-    snapshot:
-      latestSnapshot && typeof latestSnapshot.snapshotVersion === "number"
-        ? {
-            version: latestSnapshot.snapshotVersion,
-            state: latestSnapshot.state as any,
-          }
-        : undefined,
   };
 
   const totalTime = Date.now() - startTime;
@@ -323,7 +217,7 @@ async function handlePOST(
   if (event.type === "ITEM_CREATED") {
     const item = event.payload?.item;
     if (item?.name != null && item?.type) {
-      const state = await loadWorkspaceState(id);
+      const state = await loadWorkspaceItemsState(id);
       if (
         hasDuplicateName(
           state.items,
@@ -345,7 +239,7 @@ async function handlePOST(
     const itemId = event.payload?.id;
     const newName = event.payload.changes.name;
     if (itemId && newName) {
-      const state = await loadWorkspaceState(id);
+      const state = await loadWorkspaceItemsState(id);
       const existingItem = state.items.find(
         (i: { id: string }) => i.id === itemId,
       );
@@ -374,47 +268,12 @@ async function handlePOST(
 
   // Use the append function to handle versioning and conflicts
   const appendStart = Date.now();
-  const result = await db.execute(sql`
-      SELECT append_workspace_event(
-        ${id}::uuid,
-        ${event.id}::text,
-        ${event.type}::text,
-        ${JSON.stringify(event.payload)}::jsonb,
-        ${event.timestamp}::bigint,
-        ${event.userId}::text,
-        ${baseVersion}::integer,
-        ${event.userName || null}::text
-      ) as result
-    `);
+  const appendResult = await appendWorkspaceEventWithProjection({
+    workspaceId: id,
+    event,
+    baseVersion,
+  });
   timings.appendFunction = Date.now() - appendStart;
-
-  if (!result || result.length === 0 || !result[0]) {
-    return NextResponse.json(
-      { error: "Failed to append event" },
-      { status: 500 },
-    );
-  }
-
-  // PostgreSQL returns result as string like "(6,t)" - need to parse it
-  const rawResult = result[0].result as string;
-
-  // Parse the PostgreSQL tuple format "(version,conflict)"
-  const match = rawResult.match(/\((\d+),(t|f)\)/);
-  if (!match) {
-    console.error(
-      `[POST /api/workspaces/${id}/events] Failed to parse PostgreSQL result:`,
-      rawResult,
-    );
-    return NextResponse.json(
-      { error: "Invalid database response" },
-      { status: 500 },
-    );
-  }
-
-  const appendResult = {
-    version: parseInt(match[1], 10),
-    conflict: match[2] === "t",
-  };
 
   // Check for conflict
   if (appendResult.conflict) {
@@ -445,7 +304,6 @@ async function handlePOST(
           id: e.eventId,
         }) as WorkspaceEvent,
     );
-    events.forEach(stripPdfOcrFromEventPayload);
 
     const totalTime = Date.now() - startTime;
     timings.total = totalTime;
@@ -456,16 +314,6 @@ async function handlePOST(
       currentEvents: events,
     });
   }
-
-  // Success - no conflict
-  // Check if we need to create a snapshot (async, non-blocking)
-  checkAndCreateSnapshot(id).catch((err) => {
-    console.error(
-      `[POST /api/workspaces/${id}/events] Failed to create snapshot:`,
-      err,
-    );
-    // Don't fail the request if snapshot creation fails
-  });
 
   await broadcastWorkspaceEventFromServer(id, {
     ...event,
