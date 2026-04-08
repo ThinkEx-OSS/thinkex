@@ -9,6 +9,10 @@ interface OpenWorkspaceItemViewProps {
   items: Item[];
   onUpdateItem: (itemId: string, updates: Partial<Item>) => void;
   onUpdateItemData: (itemId: string, updater: (prev: ItemData) => ItemData) => void;
+  onUpdateItemUserStateData: (
+    itemId: string,
+    updater: (prev: ItemData) => ItemData,
+  ) => void;
   onFlushPendingChanges: (itemId: string) => void;
 }
 
@@ -20,6 +24,7 @@ export function OpenWorkspaceItemView({
   items,
   onUpdateItem,
   onUpdateItemData,
+  onUpdateItemUserStateData,
   onFlushPendingChanges,
 }: OpenWorkspaceItemViewProps) {
   const openItems = useUIStore((state) => state.openItems);
@@ -57,7 +62,9 @@ export function OpenWorkspaceItemView({
       onClose={() => handleClose(currentItem.id)}
       onUpdateItem={(updates) => onUpdateItem(currentItem.id, updates)}
       onUpdateItemData={(updater) => onUpdateItemData(currentItem.id, updater)}
-      onFlushPendingChanges={onFlushPendingChanges}
+      onUpdateItemUserStateData={(updater) =>
+        onUpdateItemUserStateData(currentItem.id, updater)
+      }
     />
   );
 }

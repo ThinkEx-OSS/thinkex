@@ -37,7 +37,9 @@ interface WorkspaceCardContentProps {
   onSubtitleChange: (value: string) => void;
   onTitleFocus: () => void;
   onTitleBlur: () => void;
-  onUpdateItemData: (updater: (prev: Item["data"]) => Item["data"]) => void;
+  onUpdateItemUserStateData: (
+    updater: (prev: Item["data"]) => Item["data"],
+  ) => void;
 }
 
 export function WorkspaceCardContent({
@@ -52,7 +54,7 @@ export function WorkspaceCardContent({
   onSubtitleChange,
   onTitleFocus,
   onTitleBlur,
-  onUpdateItemData,
+  onUpdateItemUserStateData,
 }: WorkspaceCardContentProps) {
   const isCompactTextCard =
     (item.type === "pdf" ||
@@ -141,7 +143,7 @@ export function WorkspaceCardContent({
         <div className="flex-1 min-h-0">
           <QuizContent
             item={item}
-            onUpdateData={onUpdateItemData}
+            onUpdateUserStateData={onUpdateItemUserStateData}
             isScrollLocked={isScrollLocked}
           />
         </div>

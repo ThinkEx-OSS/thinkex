@@ -267,6 +267,7 @@ function DashboardContent({
       items={state.items}
       onUpdateItem={operations.updateItem}
       onUpdateItemData={operations.updateItemData}
+      onUpdateItemUserStateData={operations.updateItemUserStateData}
       onFlushPendingChanges={operations.flushPendingChanges}
     />
   );
@@ -433,17 +434,13 @@ function DashboardContent({
             currentWorkspaceId={currentWorkspaceId}
             currentSlug={currentSlug}
             state={state}
-            addItem={operations.createItem}
-            updateItem={operations.updateItem}
-            deleteItem={operations.deleteItem}
-            updateAllItems={operations.updateAllItems}
+            operations={operations}
             isChatMaximized={isChatMaximized}
             isDesktop={isDesktop}
             isChatExpanded={isChatExpanded}
             setIsChatExpanded={setIsChatExpanded}
             openWorkspaceItem={openWorkspaceItem}
             titleInputRef={titleInputRef as React.RefObject<HTMLInputElement>}
-            operations={operations}
             scrollAreaRef={scrollAreaRef as React.RefObject<HTMLDivElement>}
             workspaceTitle={currentWorkspaceTitle}
             workspaceIcon={currentWorkspaceIcon}

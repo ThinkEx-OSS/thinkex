@@ -59,6 +59,7 @@ export function PDFViewerModal({
           onUpdateItemData={(updater) =>
             onUpdateItem({ data: updater(item.data) as Item["data"] })
           }
+          onUpdateItemUserStateData={() => {}}
         />
       </div>
     </div>

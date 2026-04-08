@@ -20,6 +20,10 @@ interface WorkspaceContentProps {
   viewState: WorkspaceState;
   addItem: (type: CardType, name?: string, initialData?: Partial<Item['data']>) => string;
   updateItem: (itemId: string, updates: Partial<Item>) => void;
+  updateItemUserStateData: (
+    itemId: string,
+    updater: (prev: Item["data"]) => Item["data"],
+  ) => void;
   deleteItem: (itemId: string) => void;
   updateAllItems: (items: Item[]) => void;
   openWorkspaceItem: (itemId: string | null) => void;
@@ -40,6 +44,7 @@ export default function WorkspaceContent({
   viewState,
   addItem,
   updateItem,
+  updateItemUserStateData,
   deleteItem,
   updateAllItems,
   openWorkspaceItem,
@@ -303,6 +308,7 @@ export default function WorkspaceContent({
           onDragStart={handleDragStart}
           onDragStop={handleDragStop}
           onUpdateItem={handleUpdateItem}
+          onUpdateItemUserStateData={updateItemUserStateData}
           onDeleteItem={handleDeleteItem}
           onUpdateAllItems={handleUpdateAllItems}
           onOpenModal={handleOpenModal}

@@ -22,6 +22,7 @@ interface ItemPanelContentProps {
     onMaximize: () => void;
     onUpdateItem: (updates: Partial<Item>) => void;
     onUpdateItemData: (updater: (prev: ItemData) => ItemData) => void;
+    onUpdateItemUserStateData: (updater: (prev: ItemData) => ItemData) => void;
 }
 
 export function ItemPanelContent({
@@ -30,6 +31,7 @@ export function ItemPanelContent({
     onMaximize,
     onUpdateItem,
     onUpdateItemData,
+    onUpdateItemUserStateData,
 }: ItemPanelContentProps) {
     const isChatExpanded = useUIStore((state) => state.isChatExpanded);
     const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
@@ -161,7 +163,7 @@ export function ItemPanelContent({
                 ) : isYouTube ? (
                     <YouTubePanelContent
                         item={item}
-                        onUpdateItemData={onUpdateItemData}
+                        onUpdateUserStateData={onUpdateItemUserStateData}
                     />
                 ) : isWebsite ? (
                     <WebsitePanelContent
@@ -172,6 +174,7 @@ export function ItemPanelContent({
                         key={item.id}
                         item={item}
                         onUpdateData={onUpdateItemData}
+                        onUpdateUserStateData={onUpdateItemUserStateData}
                         quizClassName={item.type === 'quiz' ? 'p-4 md:p-5 lg:p-6' : undefined}
                     />
                 )}

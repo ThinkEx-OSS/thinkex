@@ -35,6 +35,10 @@ interface WorkspaceGridProps {
   onDragStart: () => void;
   onDragStop: (layout: LayoutItem[]) => void;
   onUpdateItem: (itemId: string, updates: Partial<Item>) => void;
+  onUpdateItemUserStateData: (
+    itemId: string,
+    updater: (prev: Item["data"]) => Item["data"],
+  ) => void;
   onDeleteItem: (itemId: string) => void;
   onUpdateAllItems: (items: Item[]) => void;
   onOpenModal: (itemId: string) => void;
@@ -61,6 +65,7 @@ function WorkspaceGridComponent({
   onDragStart,
   onDragStop,
   onUpdateItem,
+  onUpdateItemUserStateData,
   onDeleteItem,
   onUpdateAllItems,
   onOpenModal,
@@ -674,6 +679,7 @@ function WorkspaceGridComponent({
             workspaceIcon={workspaceIcon}
             workspaceColor={workspaceColor}
             onUpdateItem={handleUpdateItem}
+            onUpdateItemUserStateData={onUpdateItemUserStateData}
             onDeleteItem={handleDeleteItem}
             onOpenModal={handleOpenModal}
             onMoveItem={onMoveItem}
@@ -685,6 +691,7 @@ function WorkspaceGridComponent({
     allItems,
     displayItems,
     handleUpdateItem,
+    onUpdateItemUserStateData,
     handleDeleteItem,
     handleOpenModal,
     onMoveItem,

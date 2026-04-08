@@ -21,6 +21,7 @@ import {
   getLayoutForBreakpoint,
   findNextAvailablePosition,
 } from "@/lib/workspace-state/grid-layout-helpers";
+import { diffItemDataPatch } from "@/lib/workspace/workspace-item-model";
 import {
   hasDuplicateName,
   getNextUniqueDefaultName,
@@ -64,6 +65,10 @@ export interface WorkspaceOperations {
   ) => string[];
   updateItem: (id: string, changes: Partial<Item>) => void;
   updateItemData: (
+    itemId: string,
+    updater: (prev: Item["data"]) => Item["data"],
+  ) => void;
+  updateItemUserStateData: (
     itemId: string,
     updater: (prev: Item["data"]) => Item["data"],
   ) => void;
@@ -113,11 +118,17 @@ export function useWorkspaceOperations(
   const updateItemDataDebounceRef = useRef<Map<string, NodeJS.Timeout>>(
     new Map(),
   );
+  const updateItemUserStateDebounceRef = useRef<Map<string, NodeJS.Timeout>>(
+    new Map(),
+  );
   // Store pending changes to merge them
   const pendingItemChangesRef = useRef<Map<string, Partial<Item>>>(new Map());
   const pendingItemDataUpdatersRef = useRef<
     Map<string, (prev: Item["data"]) => Item["data"]>
   >(new Map());
+  const pendingItemUserStateDataRef = useRef<Map<string, Item["data"]>>(
+    new Map(),
+  );
 
   const getCachedState = useCallback(() => {
     if (!workspaceId) return null;
@@ -165,20 +176,48 @@ export function useWorkspaceOperations(
     [getLatestItemFromState],
   );
 
+  const setCachedItemData = useCallback(
+    (itemId: string, data: Item["data"]) => {
+      if (!workspaceId) return;
+      queryClient.setQueryData<WorkspaceStatePayload>(
+        workspaceStateQueryKey(workspaceId),
+        (current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            state: {
+              ...current.state,
+              items: current.state.items.map((item) =>
+                item.id === itemId ? { ...item, data } : item,
+              ),
+            },
+          };
+        },
+      );
+    },
+    [queryClient, workspaceId],
+  );
+
   // Cleanup timeouts on unmount
   useEffect(() => {
     const updateItemDebounces = updateItemDebounceRef.current;
     const updateItemDataDebounces = updateItemDataDebounceRef.current;
+    const updateItemUserStateDebounces =
+      updateItemUserStateDebounceRef.current;
     const pendingItemChanges = pendingItemChangesRef.current;
     const pendingItemDataUpdaters = pendingItemDataUpdatersRef.current;
+    const pendingItemUserStateData = pendingItemUserStateDataRef.current;
     return () => {
       // Clear all pending timeouts
       updateItemDebounces.forEach((timeout) => clearTimeout(timeout));
       updateItemDataDebounces.forEach((timeout) => clearTimeout(timeout));
+      updateItemUserStateDebounces.forEach((timeout) => clearTimeout(timeout));
       updateItemDebounces.clear();
       updateItemDataDebounces.clear();
+      updateItemUserStateDebounces.clear();
       pendingItemChanges.clear();
       pendingItemDataUpdaters.clear();
+      pendingItemUserStateData.clear();
     };
   }, []);
 
@@ -620,7 +659,9 @@ export function useWorkspaceOperations(
             "ITEM_UPDATED",
             {
               id: itemId,
-              changes: { data: newData },
+              changes: {
+                data: diffItemDataPatch(latestItem.data, newData) as Item["data"],
+              },
               name: latestItem.name,
             },
             userId,
@@ -635,7 +676,92 @@ export function useWorkspaceOperations(
 
       updateItemDataDebounceRef.current.set(itemId, timeout);
     },
-    [workspaceId, queryClient, currentState, mutation, userId, userName],
+    [currentState, getCachedState, mutation, queryClient, userId, userName, workspaceId],
+  );
+
+  const persistItemUserStateData = useCallback(
+    async (itemId: string) => {
+      if (!workspaceId) return;
+
+      const latestItem = getLatestItemFromState(itemId);
+      const latestData =
+        pendingItemUserStateDataRef.current.get(itemId) ?? latestItem?.data;
+
+      if (!latestItem || latestData === undefined) {
+        pendingItemUserStateDataRef.current.delete(itemId);
+        updateItemUserStateDebounceRef.current.delete(itemId);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `/api/workspaces/${workspaceId}/item-user-state`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              itemId,
+              itemType: latestItem.type,
+              data: latestData,
+            }),
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to persist user state: ${response.status}`);
+        }
+      } catch (error) {
+        logger.error("Failed to persist workspace item user state", {
+          workspaceId,
+          itemId,
+          error,
+        });
+        toast.error("Failed to save personal progress");
+        await queryClient.invalidateQueries({
+          queryKey: workspaceStateQueryKey(workspaceId),
+        });
+      } finally {
+        pendingItemUserStateDataRef.current.delete(itemId);
+        updateItemUserStateDebounceRef.current.delete(itemId);
+      }
+    },
+    [getLatestItemFromState, queryClient, workspaceId],
+  );
+
+  const updateItemUserStateData = useCallback(
+    (itemId: string, updater: (prev: Item["data"]) => Item["data"]) => {
+      const latestItem = getLatestItemWithPendingChanges(itemId);
+      if (!latestItem) {
+        logger.warn("updateItemUserStateData: item not found", {
+          workspaceId,
+          itemId,
+        });
+        return;
+      }
+
+      const nextData = updater(latestItem.data);
+      setCachedItemData(itemId, nextData);
+      pendingItemUserStateDataRef.current.set(itemId, nextData);
+
+      const existingTimeout = updateItemUserStateDebounceRef.current.get(itemId);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+      }
+
+      const timeout = setTimeout(() => {
+        void persistItemUserStateData(itemId);
+      }, 500);
+
+      updateItemUserStateDebounceRef.current.set(itemId, timeout);
+    },
+    [
+      getLatestItemWithPendingChanges,
+      persistItemUserStateData,
+      setCachedItemData,
+      workspaceId,
+    ],
   );
 
   // Update all items at once (used for layout changes, reordering, and bulk delete)
@@ -748,7 +874,7 @@ export function useWorkspaceOperations(
         );
       }
     },
-    [workspaceId, queryClient, currentState, mutation, userId, userName],
+    [currentState, getCachedState, mutation, queryClient, userId, userName, workspaceId],
   );
 
   // =====================================================
@@ -936,10 +1062,11 @@ export function useWorkspaceOperations(
       );
     },
     [
-      workspaceId,
-      queryClient,
       currentState.items,
+      getCachedState,
+      queryClient,
       updateAllItems,
+      workspaceId,
     ],
   );
 
@@ -1030,7 +1157,9 @@ export function useWorkspaceOperations(
               "ITEM_UPDATED",
               {
                 id: itemId,
-                changes: { data: newData },
+                changes: {
+                  data: diffItemDataPatch(latestItem.data, newData) as Item["data"],
+                },
                 name: latestItem.name,
               },
               userId,
@@ -1046,8 +1175,15 @@ export function useWorkspaceOperations(
           }
         }
       }
+
+      const pendingUserStateTimeout =
+        updateItemUserStateDebounceRef.current.get(itemId);
+      if (pendingUserStateTimeout) {
+        clearTimeout(pendingUserStateTimeout);
+        void persistItemUserStateData(itemId);
+      }
     },
-    [getLatestItemFromState, mutation, userId, userName],
+    [getLatestItemFromState, mutation, persistItemUserStateData, userId, userName],
   );
 
   const getDocumentMarkdownForExport = useCallback(
@@ -1064,6 +1200,7 @@ export function useWorkspaceOperations(
     createItems,
     updateItem,
     updateItemData,
+    updateItemUserStateData,
     deleteItem,
     updateAllItems,
     flushPendingChanges,

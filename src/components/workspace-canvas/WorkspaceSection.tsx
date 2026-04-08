@@ -1,7 +1,7 @@
 import React, { RefObject, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import type { WorkspaceState, Item, CardType } from "@/lib/workspace-state/types";
+import type { WorkspaceState, Item } from "@/lib/workspace-state/types";
 import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import type { WorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import WorkspaceContent from "./WorkspaceContent";
@@ -75,14 +75,8 @@ interface WorkspaceSectionProps {
   currentSlug: string | null;
   state: WorkspaceState;
 
-  // Operations
-  addItem: (type: CardType, name?: string, initialData?: Partial<Item['data']>) => string;
-  updateItem: (itemId: string, updates: Partial<Item>) => void;
-  deleteItem: (itemId: string) => void;
-  updateAllItems: (items: Item[]) => void;
-
-  // Full operations object for advanced functionality
-  operations?: WorkspaceOperations;
+  // Workspace operations
+  operations: WorkspaceOperations;
 
   // Layout state
   isChatMaximized: boolean;
@@ -116,10 +110,7 @@ export function WorkspaceSection({
   currentWorkspaceId,
   currentSlug,
   state,
-  addItem,
-  updateItem,
-  deleteItem,
-  updateAllItems,
+  operations,
   isChatMaximized,
   isDesktop,
   isChatExpanded,
@@ -130,7 +121,6 @@ export function WorkspaceSection({
   workspaceTitle,
   workspaceIcon,
   workspaceColor,
-  operations,
   openItemView,
 }: WorkspaceSectionProps) {
   // Card selection state from UI store
@@ -167,13 +157,10 @@ export function WorkspaceSection({
   const { handleCreatedItems } = useReactiveNavigation(state);
 
   const handleYouTubeCreate = useCallback((url: string, name: string, thumbnail?: string) => {
-    if (addItem) {
-      addItem("youtube", name, { url, thumbnail });
-    }
-  }, [addItem]);
+    operations.createItem("youtube", name, { url, thumbnail });
+  }, [operations]);
 
   const handleWebsiteCreate = useCallback((url: string, name: string, favicon?: string) => {
-    if (!operations) return;
     operations.createItems([{
       type: 'website',
       name,
@@ -181,6 +168,13 @@ export function WorkspaceSection({
       initialLayout: DEFAULT_CARD_DIMENSIONS.website,
     }]);
   }, [operations]);
+
+  const handleUpdateItemUserStateData = useCallback(
+    (itemId: string, updater: (prev: Item["data"]) => Item["data"]) => {
+      operations.updateItemUserStateData(itemId, updater);
+    },
+    [operations],
+  );
 
   // Handle delete request (from button or keyboard)
   const handleDeleteRequest = React.useCallback(() => {
@@ -255,7 +249,7 @@ export function WorkspaceSection({
     // Filter out all selected items at once using Set.has() for O(1) lookup
     const remainingItems = state.items.filter(item => !selectedCardIds.has(item.id));
     const deletedCount = selectedCardIds.size;
-    updateAllItems(remainingItems);
+    operations.updateAllItems(remainingItems);
     setShowDeleteDialog(false);
     clearCardSelection();
     if (deletedCount > 0) {
@@ -267,7 +261,7 @@ export function WorkspaceSection({
 
   // Handle move selected items to folder
   const handleMoveSelected = () => {
-    if (!operations || selectedCardIdsArray.length === 0) {
+    if (selectedCardIdsArray.length === 0) {
       return;
     }
     setShowMoveDialog(true);
@@ -275,7 +269,7 @@ export function WorkspaceSection({
 
   // Handle move confirmation from dialog
   const handleMoveConfirm = (itemIds: string[], folderId: string | null) => {
-    if (!operations || itemIds.length === 0) {
+    if (itemIds.length === 0) {
       return;
     }
     operations.moveItemsToFolder(itemIds, folderId);
@@ -287,7 +281,7 @@ export function WorkspaceSection({
 
   // Handle creating a new folder from selected cards
   const handleCreateFolderFromSelection = () => {
-    if (!operations || selectedCardIdsArray.length === 0) {
+    if (selectedCardIdsArray.length === 0) {
       return;
     }
 
@@ -315,7 +309,7 @@ export function WorkspaceSection({
 
   // Handle file upload from workspace pickers/empty states
   const handlePDFUpload = useCallback(async (files: File[]) => {
-    if (!operations || !currentWorkspaceId) {
+    if (!currentWorkspaceId) {
       throw new Error('Workspace operations not available');
     }
 
@@ -396,8 +390,6 @@ export function WorkspaceSection({
     openFilePicker();
   }, [openFilePicker]);
   const handleAudioReady = useCallback(async (file: File) => {
-    if (!addItem) return;
-
     const loadingToastId = toast.loading("Uploading audio...");
 
     try {
@@ -416,7 +408,7 @@ export function WorkspaceSection({
       });
       const title = `${dateStr} ${timeStr} Recording`;
 
-      const itemId = addItem("audio", title, {
+      const itemId = operations.createItem("audio", title, {
         fileUrl,
         filename: file.name,
         fileSize: file.size,
@@ -446,7 +438,7 @@ export function WorkspaceSection({
         error instanceof Error ? error.message : "Failed to upload audio",
       );
     }
-  }, [addItem, currentWorkspaceId, handleCreatedItems]);
+  }, [currentWorkspaceId, handleCreatedItems, operations]);
 
   // Get search params for invite check
   const searchParams = useSearchParams();
@@ -495,19 +487,20 @@ export function WorkspaceSection({
                 (<WorkspaceContent
                   key={`workspace-content-${state.workspaceId || 'none'}`}
                   viewState={state}
-                  addItem={addItem}
-                  updateItem={updateItem}
-                  deleteItem={deleteItem}
-                  updateAllItems={updateAllItems}
+                  addItem={operations.createItem}
+                  updateItem={operations.updateItem}
+                  updateItemUserStateData={handleUpdateItemUserStateData}
+                  deleteItem={operations.deleteItem}
+                  updateAllItems={operations.updateAllItems}
                   openWorkspaceItem={openWorkspaceItem}
                   scrollContainerRef={scrollAreaRef}
                   onGridDragStateChange={setIsGridDragging}
                   workspaceName={workspaceTitle || "Workspace"}
                   workspaceIcon={workspaceIcon}
                   workspaceColor={workspaceColor}
-                  onMoveItem={operations?.moveItemToFolder}
-                  onMoveItems={operations?.moveItemsToFolder}
-                  onDeleteFolderWithContents={operations?.deleteFolderWithContents}
+                  onMoveItem={operations.moveItemToFolder}
+                  onMoveItems={operations.moveItemsToFolder}
+                  onDeleteFolderWithContents={operations.deleteFolderWithContents}
                   onPDFUpload={handlePDFUpload}
                   onItemCreated={handleCreatedItems}
                 />)
@@ -526,35 +519,33 @@ export function WorkspaceSection({
         </ContextMenuTrigger>
 
         {/* Right-Click Context Menu */}
-        {addItem && (
-          <ContextMenuContent className="w-56">
-            {renderWorkspaceMenuItems({
-              callbacks: {
-                onCreateDocument: () => {
-                  if (addItem) {
-                    const itemId = addItem("document");
-                    if (handleCreatedItems && itemId) {
-                      handleCreatedItems([itemId]);
-                    }
-                  }
-                },
-                onCreateFolder: () => { if (addItem) addItem("folder"); },
-                onUpload: () => handleUploadMenuItemClick(),
-                onAudio: () => openAudioDialog(),
-                onYouTube: () => setShowYouTubeDialog(true),
-                onWebsite: () => setShowWebsiteDialog(true),
-                onFlashcards: () => setShowFlashcardsDialog(true),
-                onQuiz: () => setShowQuizDialog(true),
+        <ContextMenuContent className="w-56">
+          {renderWorkspaceMenuItems({
+            callbacks: {
+              onCreateDocument: () => {
+                const itemId = operations.createItem("document");
+                if (handleCreatedItems && itemId) {
+                  handleCreatedItems([itemId]);
+                }
               },
-              MenuItem: ContextMenuItem,
-              MenuSub: ContextMenuSub,
-              MenuSubTrigger: ContextMenuSubTrigger,
-              MenuSubContent: ContextMenuSubContent,
-              MenuLabel: ContextMenuLabel,
-              showUpload: !!(operations && currentWorkspaceId),
-            })}
-          </ContextMenuContent>
-        )}
+              onCreateFolder: () => {
+                operations.createItem("folder");
+              },
+              onUpload: () => handleUploadMenuItemClick(),
+              onAudio: () => openAudioDialog(),
+              onYouTube: () => setShowYouTubeDialog(true),
+              onWebsite: () => setShowWebsiteDialog(true),
+              onFlashcards: () => setShowFlashcardsDialog(true),
+              onQuiz: () => setShowQuizDialog(true),
+            },
+            MenuItem: ContextMenuItem,
+            MenuSub: ContextMenuSub,
+            MenuSubTrigger: ContextMenuSubTrigger,
+            MenuSubContent: ContextMenuSubContent,
+            MenuLabel: ContextMenuLabel,
+            showUpload: !!currentWorkspaceId,
+          })}
+        </ContextMenuContent>
       </ContextMenu>
       {/* Selection Action Bar - show when cards are selected */}
       {(state.items ?? []).length > 0 && !isChatMaximized && selectedCardIds.size > 0 && (

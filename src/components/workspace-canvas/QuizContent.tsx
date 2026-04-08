@@ -11,12 +11,17 @@ import { useUIStore } from "@/lib/stores/ui-store";
 
 interface QuizContentProps {
     item: Item;
-    onUpdateData: (updater: (prev: ItemData) => ItemData) => void;
+    onUpdateUserStateData: (updater: (prev: ItemData) => ItemData) => void;
     isScrollLocked?: boolean;
     className?: string; // Optional (e.g. padding when in modal)
 }
 
-export function QuizContent({ item, onUpdateData, isScrollLocked = false, className }: QuizContentProps) {
+export function QuizContent({
+    item,
+    onUpdateUserStateData,
+    isScrollLocked = false,
+    className,
+}: QuizContentProps) {
     const quizData = item.data as QuizData;
     const questions = quizData.questions || [];
     const aui = useAui();
@@ -78,7 +83,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false, classN
                 setShowHint(false);
 
                 // Clear completedAt since we're no longer complete
-                onUpdateData((prev) => {
+                onUpdateUserStateData((prev) => {
                     const current = prev as QuizData;
                     return {
                         ...current,
@@ -102,7 +107,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false, classN
         // Update refs for next comparison
         prevQuestionCountRef.current = currentCount;
         prevQuestionIdsRef.current = currentIds;
-    }, [questions, showResults, answeredQuestions.length, currentIndex, onUpdateData]);
+    }, [questions, showResults, answeredQuestions.length, currentIndex, onUpdateUserStateData]);
 
     // Check if current question was already answered
     const previousAnswer = useMemo(() => {
@@ -123,7 +128,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false, classN
 
     // Persist session state
     const persistSession = useCallback((updates: Partial<QuizSessionData>) => {
-        onUpdateData((prev) => {
+        onUpdateUserStateData((prev) => {
             const current = prev as QuizData;
             return {
                 ...current,
@@ -135,7 +140,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false, classN
                 },
             };
         });
-    }, [onUpdateData, currentIndex, answeredQuestions]);
+    }, [onUpdateUserStateData, currentIndex, answeredQuestions]);
 
     // Handle answer selection
     const handleSelectAnswer = (index: number) => {
@@ -207,7 +212,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false, classN
         setShowHint(false);
         setAnsweredQuestions([]);
         setShowResults(false);
-        onUpdateData((prev) => {
+        onUpdateUserStateData((prev) => {
             const current = prev as QuizData;
             return {
                 ...current,

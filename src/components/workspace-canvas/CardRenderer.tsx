@@ -4,9 +4,6 @@ import type {
   Item,
   ItemData,
   PdfData,
-  FlashcardData,
-  YouTubeData,
-  ImageData,
   DocumentData,
 } from "@/lib/workspace-state/types";
 import { DocumentEditor } from "@/components/editor/DocumentEditor";
@@ -20,10 +17,11 @@ import { QuizContent } from "./QuizContent";
 export function CardRenderer(props: {
   item: Item;
   onUpdateData: (updater: (prev: ItemData) => ItemData) => void;
+  onUpdateUserStateData?: (updater: (prev: ItemData) => ItemData) => void;
   layoutKey?: string | number;
   quizClassName?: string; // Optional padding/className for quiz when shown in modal
 }) {
-  const { item, onUpdateData, quizClassName } = props;
+  const { item, onUpdateData, onUpdateUserStateData, quizClassName } = props;
 
   if (item.type === "pdf") {
     const pdfData = item.data as PdfData;
@@ -47,7 +45,7 @@ export function CardRenderer(props: {
     return (
       <QuizContent
         item={item}
-        onUpdateData={onUpdateData}
+        onUpdateUserStateData={onUpdateUserStateData ?? onUpdateData}
         className={quizClassName}
       />
     );

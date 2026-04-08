@@ -30,6 +30,10 @@ interface WorkspaceCardProps {
   workspaceIcon?: string | null;
   workspaceColor?: string | null;
   onUpdateItem: (itemId: string, updates: Partial<Item>) => void;
+  onUpdateItemUserStateData: (
+    itemId: string,
+    updater: (prev: Item["data"]) => Item["data"],
+  ) => void;
   onDeleteItem: (itemId: string) => void;
   onOpenModal: (itemId: string) => void;
   // NOTE: isSelected is now subscribed directly from the store to prevent
@@ -48,6 +52,7 @@ function WorkspaceCard({
   workspaceIcon,
   workspaceColor,
   onUpdateItem,
+  onUpdateItemUserStateData,
   onDeleteItem,
   onOpenModal,
   onMoveItem,
@@ -494,10 +499,8 @@ function WorkspaceCard({
               onSubtitleChange={handleSubtitleChange}
               onTitleFocus={handleTitleFocus}
               onTitleBlur={handleTitleBlur}
-              onUpdateItemData={(updater) =>
-                onUpdateItem(item.id, {
-                  data: updater(item.data) as Item["data"],
-                })
+              onUpdateItemUserStateData={(updater) =>
+                onUpdateItemUserStateData(item.id, updater)
               }
             />
           </article>

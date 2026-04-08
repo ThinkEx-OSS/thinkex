@@ -11,8 +11,7 @@ interface CardDetailModalProps {
   onClose: () => void;
   onUpdateItem: (updates: Partial<Item>) => void;
   onUpdateItemData: (updater: (prev: ItemData) => ItemData) => void;
-
-  onFlushPendingChanges?: (itemId: string) => void;
+  onUpdateItemUserStateData: (updater: (prev: ItemData) => ItemData) => void;
 }
 
 export function CardDetailModal({
@@ -21,8 +20,7 @@ export function CardDetailModal({
   onClose,
   onUpdateItem,
   onUpdateItemData,
-
-  onFlushPendingChanges,
+  onUpdateItemUserStateData,
 }: CardDetailModalProps) {
   // Handle escape key
   const handleEscape = useCallback(
@@ -71,6 +69,7 @@ export function CardDetailModal({
           onMaximize={() => useUIStore.getState().openWorkspaceItem(null)}
           onUpdateItem={onUpdateItem}
           onUpdateItemData={onUpdateItemData}
+          onUpdateItemUserStateData={onUpdateItemUserStateData}
         />
       </div>
     </div>

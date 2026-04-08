@@ -17,34 +17,47 @@ const PROGRESS_SAVE_INTERVAL_MS = 10000; // Save every 10s while playing
 
 interface YouTubePanelContentProps {
   item: Item;
-  onUpdateItemData: (updater: (prev: ItemData) => ItemData) => void;
+  onUpdateUserStateData: (updater: (prev: ItemData) => ItemData) => void;
 }
 
 export function YouTubePanelContent({
   item,
-  onUpdateItemData: _onUpdateItemData,
+  onUpdateUserStateData,
 }: YouTubePanelContentProps) {
   const youtubeData = item.data as YouTubeData;
   const videoId = extractYouTubeVideoId(youtubeData.url);
   const playlistId = extractYouTubePlaylistId(youtubeData.url);
   const progressKey = getYouTubeProgressKey(videoId, playlistId);
   const stored = getYouTubeProgress(progressKey);
-  const startSeconds = stored?.progress ?? 0;
-  const savedPlaybackRate = stored?.playbackRate;
+  const startSeconds = youtubeData.progress ?? stored?.progress ?? 0;
+  const savedPlaybackRate = youtubeData.playbackRate ?? stored?.playbackRate;
 
   const saveStateRef = useRef<
     (opts: { seconds: number; playbackRate?: number }) => void
   >(undefined);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const playerStateRef = useRef<YT.Player | null>(null);
 
   const saveState = useCallback(
     (opts: { seconds: number; playbackRate?: number }) => {
       setYouTubeProgress(progressKey, opts.seconds, opts.playbackRate);
+      onUpdateUserStateData((prev) => {
+        const current = prev as YouTubeData;
+        return {
+          ...current,
+          ...(opts.seconds >= 0 ? { progress: Math.floor(opts.seconds) } : {}),
+          ...(opts.playbackRate != null && opts.playbackRate > 0
+            ? { playbackRate: opts.playbackRate }
+            : {}),
+        };
+      });
     },
-    [progressKey]
+    [onUpdateUserStateData, progressKey]
   );
 
-  saveStateRef.current = saveState;
+  useEffect(() => {
+    saveStateRef.current = saveState;
+  }, [saveState]);
 
   const { containerRef, playerRef, isReady } = useYouTubePlayer({
     videoId: videoId ?? null,
@@ -60,7 +73,7 @@ export function YouTubePanelContent({
       rel: 0,
     },
     onStateChange: useCallback((state: YT.PlayerState) => {
-      const player = playerRef.current;
+      const player = playerStateRef.current;
       if (!player) return;
 
       // Clear any existing interval
@@ -82,7 +95,7 @@ export function YouTubePanelContent({
         // Save progress periodically while playing
         progressIntervalRef.current = setInterval(() => {
           try {
-            const currentPlayer = playerRef.current;
+            const currentPlayer = playerStateRef.current;
             if (currentPlayer?.getPlayerState?.() === YT.PlayerState.PLAYING) {
               saveStateRef.current?.({
                 seconds: currentPlayer.getCurrentTime(),
@@ -96,6 +109,10 @@ export function YouTubePanelContent({
       }
     }, []),
   });
+
+  useEffect(() => {
+    playerStateRef.current = playerRef.current;
+  }, [isReady, playerRef]);
 
   // Apply saved playback rate and style iframe once ready
   useEffect(() => {
@@ -129,17 +146,17 @@ export function YouTubePanelContent({
     } catch {
       // Player may have been destroyed
     }
-  }, [isReady, playerRef]);
+  }, [isReady, playerRef, savedPlaybackRate]);
 
   // Cleanup interval and save final state on unmount (e.g. when closing split view)
   useEffect(() => {
     return () => {
+      const player = playerStateRef.current;
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
         progressIntervalRef.current = null;
       }
       try {
-        const player = playerRef.current;
         if (player?.getCurrentTime != null) {
           saveStateRef.current?.({
             seconds: player.getCurrentTime(),
