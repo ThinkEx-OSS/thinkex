@@ -5,43 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1768802558046,
-      "tag": "0000_sad_wallflower",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1771377459878,
-      "tag": "0002_add_workspace_share_links",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1771631691687,
-      "tag": "0002_deep_shadowcat",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1771686859689,
-      "tag": "0003_elite_harrier",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1771800000000,
-      "tag": "0004_add_chat_threads_head_message_id",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1771800001000,
-      "tag": "0005_add_chat_messages_thread_message_unique",
+      "when": 1775677707017,
+      "tag": "0000_baseline",
       "breakpoints": true
     }
   ]
