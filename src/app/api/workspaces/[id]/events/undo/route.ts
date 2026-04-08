@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, workspaceEvents } from "@/lib/db/client";
 import { eq, gt, and } from "drizzle-orm";
 import { requireAuth, verifyWorkspaceAccess, withErrorHandling } from "@/lib/api/workspace-helpers";
+import { backfillWorkspaceItemsProjection } from "@/lib/workspace/workspace-items-projection";
 
 /**
  * POST /api/workspaces/[id]/events/undo
@@ -29,23 +30,21 @@ async function handlePOST(
 
   await verifyWorkspaceAccess(id, userId, "editor");
 
-  // Don't allow reverting past version 1 (WORKSPACE_CREATED)
-  if (targetVersion < 1) {
-    return NextResponse.json(
-      { error: "Cannot revert past the initial workspace creation" },
-      { status: 400 }
-    );
-  }
-
-  const result = await db
-    .delete(workspaceEvents)
-    .where(
-      and(
-        eq(workspaceEvents.workspaceId, id),
-        gt(workspaceEvents.version, targetVersion)
+  const result = await db.transaction(async (tx) => {
+    const deletedEvents = await tx
+      .delete(workspaceEvents)
+      .where(
+        and(
+          eq(workspaceEvents.workspaceId, id),
+          gt(workspaceEvents.version, targetVersion)
+        )
       )
-    )
-    .returning({ version: workspaceEvents.version });
+      .returning({ version: workspaceEvents.version });
+
+    return deletedEvents;
+  });
+
+  await backfillWorkspaceItemsProjection(id);
 
   return NextResponse.json({
     success: true,

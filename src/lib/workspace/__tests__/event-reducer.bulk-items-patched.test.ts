@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { eventReducer } from "../event-reducer";
-import type { AgentState, ImageData, Item, PdfData } from "@/lib/workspace-state/types";
+import type { ImageData, Item, PdfData, WorkspaceState } from "@/lib/workspace-state/types";
 import type { WorkspaceEvent } from "../events";
 
 describe("eventReducer BULK_ITEMS_PATCHED", () => {
   it("deep merges OCR changes across multiple items in one event", () => {
-    const state: AgentState = {
-      globalTitle: "Test",
+    const state: WorkspaceState = {
       workspaceId: "ws-1",
       items: [
         {

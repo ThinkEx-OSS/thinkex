@@ -1,4 +1,4 @@
-import type { AgentState } from "@/lib/workspace-state/types";
+import type { WorkspaceState } from "@/lib/workspace-state/types";
 import type { WorkspaceEvent } from "./events";
 import { initialState } from "@/lib/workspace-state/state";
 
@@ -7,16 +7,10 @@ import { initialState } from "@/lib/workspace-state/state";
  * This is the heart of event sourcing - state is derived by reducing events
  */
 export function eventReducer(
-  state: AgentState,
+  state: WorkspaceState,
   event: WorkspaceEvent,
-): AgentState {
+): WorkspaceState {
   switch (event.type) {
-    case "WORKSPACE_CREATED":
-      return {
-        ...state,
-        globalTitle: event.payload.title,
-      };
-
     case "ITEM_CREATED": {
       const item = event.payload.item;
       const now = event.timestamp || Date.now();
@@ -94,24 +88,6 @@ export function eventReducer(
           ),
       };
     }
-
-    case "GLOBAL_TITLE_SET":
-      return {
-        ...state,
-        globalTitle: event.payload.title,
-      };
-
-    case "GLOBAL_DESCRIPTION_SET":
-      // No-op: globalDescription removed from state
-      return state;
-
-    case "WORKSPACE_SNAPSHOT":
-      // Used for migration from old workspace_states table
-      // Replaces entire state with snapshot
-      return {
-        ...event.payload,
-        workspaceId: state.workspaceId, // Preserve workspace ID
-      };
 
     case "BULK_ITEMS_UPDATED": {
       const p = event.payload;
@@ -283,21 +259,21 @@ export function eventReducer(
  *
  * @param events - Events to replay
  * @param workspaceId - Workspace ID to set in state
- * @param snapshotState - Optional snapshot state to start from (optimization)
+ * @param baseState - Optional starting state for offline utilities that resume from a known checkpoint
  */
 export function replayEvents(
   events: WorkspaceEvent[],
   workspaceId?: string,
-  snapshotState?: AgentState,
-): AgentState {
+  baseState?: WorkspaceState,
+): WorkspaceState {
   const replayStart = performance.now();
 
-  const baseState = snapshotState || {
+  const initialReplayState = baseState || {
     ...initialState,
     workspaceId: workspaceId || initialState.workspaceId,
   };
 
-  const finalState = events.reduce(eventReducer, baseState);
+  const finalState = events.reduce(eventReducer, initialReplayState);
 
   const replayTime = performance.now() - replayStart;
   // Only log if replay is slow (>50ms) or if we're replaying many events (>100)

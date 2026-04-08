@@ -1,9 +1,9 @@
-import type { AgentState, Item, CardType } from "@/lib/workspace-state/types";
+import type { WorkspaceState, Item, CardType } from "@/lib/workspace-state/types";
 
 export interface ValidationResult {
   isValid: boolean;
   error?: string;
-  data?: AgentState;
+  data?: WorkspaceState;
 }
 
 const VALID_CARD_TYPES: CardType[] = ["document", "pdf", "flashcard"];
@@ -44,9 +44,8 @@ export function validateImportedJSON(jsonString: string): ValidationResult {
       }
     }
 
-    const validatedState: AgentState = {
+    const validatedState: WorkspaceState = {
       items: parsed.items,
-      globalTitle: typeof parsed.globalTitle === 'string' ? parsed.globalTitle : "",
     };
 
     return {
@@ -104,17 +103,13 @@ function validateItem(item: any, index: number): string | null {
   return null;
 }
 
-export function generateImportPreview(state: AgentState): string {
+export function generateImportPreview(state: WorkspaceState): string {
   const itemCounts = state.items.reduce((acc, item) => {
     acc[item.type] = (acc[item.type] || 0) + 1;
     return acc;
   }, {} as Record<CardType, number>);
 
   const parts: string[] = [];
-
-  if (state.globalTitle) {
-    parts.push(`Title: "${state.globalTitle}"`);
-  }
 
   if (state.items.length > 0) {
     const itemSummary = Object.entries(itemCounts)
