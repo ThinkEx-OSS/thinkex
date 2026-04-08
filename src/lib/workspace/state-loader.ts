@@ -1,40 +1,17 @@
-import { db, workspaceEvents, workspaceSnapshots } from "@/lib/db/client";
-import { eq, asc, desc, gt, and } from "drizzle-orm";
+import { db, workspaceEvents } from "@/lib/db/client";
+import { eq, asc } from "drizzle-orm";
 import { replayEvents } from "./event-reducer";
-import type { AgentState } from "@/lib/workspace-state/types";
+import type { WorkspaceCanvasState } from "@/lib/workspace-state/types";
 import type { WorkspaceEvent } from "./events";
+import { initialState } from "@/lib/workspace-state/state";
 
-/**
- * Load current workspace state by replaying events from the latest snapshot
- * This replaces direct reads from workspace_states table
- */
-export async function loadWorkspaceState(workspaceId: string): Promise<AgentState> {
+/** Load current workspace canvas state by replaying all events. */
+export async function loadWorkspaceState(workspaceId: string): Promise<WorkspaceCanvasState> {
   try {
-    // Get the latest snapshot for this workspace (highest version number)
-    const latestSnapshot = await db
-      .select()
-      .from(workspaceSnapshots)
-      .where(eq(workspaceSnapshots.workspaceId, workspaceId))
-      .orderBy(desc(workspaceSnapshots.snapshotVersion))
-      .limit(1);
-
-    let baseState: AgentState | undefined;
-    let fromVersion = 0;
-
-    if (latestSnapshot[0]) {
-      baseState = latestSnapshot[0].state as AgentState;
-      fromVersion = latestSnapshot[0].snapshotVersion;
-    }
-
-    // Get all events since the snapshot (or all events if no snapshot)
     const events = await db
       .select()
       .from(workspaceEvents)
-      .where(
-        fromVersion > 0 
-          ? and(eq(workspaceEvents.workspaceId, workspaceId), gt(workspaceEvents.version, fromVersion))
-          : eq(workspaceEvents.workspaceId, workspaceId)
-      )
+      .where(eq(workspaceEvents.workspaceId, workspaceId))
       .orderBy(asc(workspaceEvents.version));
 
     // Transform to WorkspaceEvent format
@@ -49,17 +26,9 @@ export async function loadWorkspaceState(workspaceId: string): Promise<AgentStat
     } as WorkspaceEvent));
 
     // Replay events to get current state
-    const currentState = replayEvents(workspaceEvents_typed, workspaceId, baseState);
-
-    return currentState;
+    return replayEvents(workspaceEvents_typed);
   } catch (error) {
     console.error("Error loading workspace state from events:", error);
-    
-    // Fallback to empty state if event loading fails
-    return {
-      items: [],
-      globalTitle: "",
-      workspaceId: workspaceId,
-    };
+    return initialState;
   }
 }

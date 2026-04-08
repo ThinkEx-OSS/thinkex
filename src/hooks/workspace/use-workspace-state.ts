@@ -2,7 +2,7 @@ import { useMemo, useRef } from "react";
 import { useWorkspaceEvents } from "./use-workspace-events";
 import { replayEvents } from "@/lib/workspace/event-reducer";
 import { initialState } from "@/lib/workspace-state/state";
-import type { AgentState } from "@/lib/workspace-state/types";
+import type { WorkspaceCanvasState } from "@/lib/workspace-state/types";
 
 /**
  * Hook to get derived workspace state from events
@@ -11,22 +11,20 @@ import type { AgentState } from "@/lib/workspace-state/types";
 export function useWorkspaceState(workspaceId: string | null) {
   const { data: eventLog, isLoading, error, refetch } = useWorkspaceEvents(workspaceId);
 
-  const prevStateRef = useRef<AgentState | null>(null);
+  const prevStateRef = useRef<WorkspaceCanvasState | null>(null);
   const stateUpdateCountRef = useRef(0);
 
-  // Derive state by replaying events (with snapshot optimization)
-  const state: AgentState = useMemo(() => {
+  // Derive state by replaying the workspace event log.
+  const state: WorkspaceCanvasState = useMemo(() => {
     const replayStart = performance.now();
     stateUpdateCountRef.current += 1;
     const updateNumber = stateUpdateCountRef.current;
     
     if (!eventLog || !workspaceId) {
-      return { ...initialState, workspaceId: workspaceId || undefined };
+      return initialState;
     }
 
-    // Use snapshot as base state if available, then replay delta events
-    const snapshotState = eventLog.snapshot?.state;
-    const replayedState = replayEvents(eventLog.events, workspaceId, snapshotState);
+    const replayedState = replayEvents(eventLog.events);
     
     const replayTime = performance.now() - replayStart;
     const prevItemsCount = prevStateRef.current?.items.length || 0;
@@ -54,4 +52,3 @@ export function useWorkspaceState(workspaceId: string | null) {
     refetch,
   };
 }
-

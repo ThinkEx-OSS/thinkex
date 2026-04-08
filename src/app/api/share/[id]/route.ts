@@ -29,11 +29,6 @@ export async function GET(
     // Get workspace state by replaying events
     const state = await loadWorkspaceState(id);
 
-    // Ensure state has workspace metadata if empty
-    if (!state.globalTitle) {
-      state.globalTitle = workspace[0].name || "";
-    }
-
     // Return workspace data for forking (public access)
     return NextResponse.json({
       workspace: {
@@ -50,4 +45,3 @@ export async function GET(
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
-

@@ -1,7 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { createEvent } from "@/lib/workspace/events";
-import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 import type { OcrItemResult } from "@/lib/ocr/types";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
@@ -95,5 +94,4 @@ export async function persistOcrResults(
   );
 
   await appendWorkspaceEvent(workspaceId, event);
-  checkAndCreateSnapshot(workspaceId).catch(() => {});
 }

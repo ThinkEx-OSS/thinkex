@@ -5,7 +5,6 @@ import { Fragment, useState, useRef, useEffect, useCallback, useMemo, useLayoutE
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Search, X, ChevronRight, FolderOpen, Plus, Settings, Share2, Loader2, ExternalLink } from "lucide-react";
-import { LuCalendar } from "react-icons/lu";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Kbd } from "@/components/ui/kbd";
@@ -181,8 +180,6 @@ interface WorkspaceHeaderProps {
   // Save indicator props
   isSaving?: boolean;
   currentWorkspaceId?: string | null;
-  // Version control props
-  onShowHistory?: () => void;
   // Chat button props
   isDesktop?: boolean;
   isChatExpanded?: boolean;
@@ -227,7 +224,6 @@ export function WorkspaceHeader({
   onOpenSearch,
   isSaving,
   currentWorkspaceId,
-  onShowHistory,
   isDesktop = true,
   isChatExpanded = false,
   setIsChatExpanded,
@@ -1112,32 +1108,6 @@ export function WorkspaceHeader({
               >
                 Share
               </Button>
-            )}
-
-            {onShowHistory && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={onShowHistory}
-                    disabled={isSaving}
-                    className={cn(
-                      "h-8 w-8 flex items-center justify-center rounded-md transition-colors pointer-events-auto cursor-pointer",
-                      "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent",
-                      isSaving && "cursor-default"
-                    )}
-                    aria-label="Version history"
-                  >
-                    {isSaving ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <LuCalendar className="h-4 w-4" />
-                    )}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  Version history
-                </TooltipContent>
-              </Tooltip>
             )}
 
             {/* Search - opens command palette */}

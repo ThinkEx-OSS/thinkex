@@ -11,7 +11,7 @@ import {
   userProfiles,
   workspaceCollaborators
 } from './schema';
-import type { AgentState } from '@/lib/workspace-state/types';
+import type { WorkspaceCanvasState } from '@/lib/workspace-state/types';
 
 // Base database types (what Drizzle returns)
 export type Workspace = InferSelectModel<typeof workspaces>;
@@ -37,7 +37,7 @@ export type PermissionLevel = 'viewer' | 'editor';
 
 // Extended types for frontend use
 export interface WorkspaceWithState extends Workspace {
-  state?: AgentState;
+  state?: WorkspaceCanvasState;
   isShared?: boolean;
   permissionLevel?: 'viewer' | 'editor' | 'admin'; // admin is implied for owner but good to have in types
 }

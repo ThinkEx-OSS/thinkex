@@ -37,7 +37,6 @@ vi.mock("@/lib/db/client", () => ({
 
 vi.mock("@/lib/db/schema", () => ({
   workspaceCollaborators: {
-    workspaceId: "workspaceId",
     userId: "userId",
     permissionLevel: "permissionLevel",
   },
@@ -109,8 +108,6 @@ describe("workspaceWorker edit end-to-end paths", () => {
           },
         },
       ],
-      globalTitle: "",
-      workspaceId: "ws-1",
     });
 
     mockExecute
@@ -168,8 +165,6 @@ describe("workspaceWorker edit end-to-end paths", () => {
           },
         },
       ],
-      globalTitle: "",
-      workspaceId: "ws-1",
     });
 
     mockExecute
@@ -232,8 +227,6 @@ describe("workspaceWorker edit end-to-end paths", () => {
           },
         },
       ],
-      globalTitle: "",
-      workspaceId: "ws-1",
     });
 
     const result = await workspaceWorker("edit", {
@@ -274,8 +267,6 @@ describe("workspaceWorker edit end-to-end paths", () => {
           },
         },
       ],
-      globalTitle: "",
-      workspaceId: "ws-1",
     });
 
     const result = await workspaceWorker("edit", {
@@ -303,8 +294,6 @@ describe("workspaceWorker edit end-to-end paths", () => {
           data: { markdown },
         },
       ],
-      globalTitle: "",
-      workspaceId: "ws-1",
     });
 
     mockExecute
@@ -371,8 +360,6 @@ describe("workspaceWorker edit end-to-end paths", () => {
           },
         },
       ],
-      globalTitle: "",
-      workspaceId: "ws-1",
     });
 
     const result = await workspaceWorker("edit", {

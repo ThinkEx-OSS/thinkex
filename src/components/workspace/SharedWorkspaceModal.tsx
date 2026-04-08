@@ -14,7 +14,7 @@ import { IconRenderer } from "@/hooks/use-icon-picker";
 import { SwatchesPicker, ColorResult } from "react-color";
 import { SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { AgentState } from "@/lib/workspace-state/types";
+import type { WorkspaceCanvasState } from "@/lib/workspace-state/types";
 import { useCreateWorkspace } from "@/hooks/workspace/use-create-workspace";
 
 interface SharedWorkspaceData {
@@ -24,7 +24,7 @@ interface SharedWorkspaceData {
     description: string;
     icon: string | null;
     color: CardColor | null;
-    state: AgentState;
+    state: WorkspaceCanvasState;
   };
 }
 

@@ -254,7 +254,7 @@ function CreateQuizToolRenderer({
         moveItemToFolder={operations.moveItemToFolder}
         allItems={workspaceState?.items || []}
         workspaceName={
-          currentWorkspace?.name || workspaceState?.globalTitle || "Workspace"
+          currentWorkspace?.name || "Workspace"
         }
         workspaceIcon={currentWorkspace?.icon}
         workspaceColor={currentWorkspace?.color}

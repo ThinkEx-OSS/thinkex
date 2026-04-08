@@ -102,11 +102,6 @@ async function handleGET(
   // Get workspace state by replaying events (full mode)
   const state = await loadWorkspaceState(workspace.id);
 
-  // Ensure state has workspace metadata if empty
-  if (!state.globalTitle) {
-    state.globalTitle = workspace.name || "";
-  }
-
   return NextResponse.json({
     workspace: {
       ...workspace,
@@ -118,4 +113,3 @@ async function handleGET(
 }
 
 export const GET = withErrorHandling(handleGET, "GET /api/workspaces/slug/[slug]");
-

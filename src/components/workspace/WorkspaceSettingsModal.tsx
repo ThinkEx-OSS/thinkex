@@ -266,7 +266,7 @@ export default function WorkspaceSettingsModal({
                     <div>
                       <p className="text-sm font-medium">Delete Workspace</p>
                       <p className="text-xs text-muted-foreground">
-                        Delete this workspace and all its data. You can restore from version history if needed.
+                        Delete this workspace and all its data. This action cannot be undone right now.
                       </p>
                     </div>
                     <Button
@@ -303,7 +303,7 @@ export default function WorkspaceSettingsModal({
             <AlertDialogTitle>Delete Workspace</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete &quot;{workspace?.name}&quot;? This will
-              delete all data in this workspace. You can restore from version history if needed.
+              delete all data in this workspace. This action cannot be undone right now.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -1,21 +1,21 @@
-import type { AgentState } from "@/lib/workspace-state/types";
+import type { WorkspaceCanvasState } from "@/lib/workspace-state/types";
 import type { WorkspaceEvent } from "./events";
-import { initialState } from "@/lib/workspace-state/state";
+import {
+  initialState,
+  normalizeWorkspaceCanvasState,
+} from "@/lib/workspace-state/state";
 
 /**
  * Event Reducer: Pure function that applies an event to state
  * This is the heart of event sourcing - state is derived by reducing events
  */
 export function eventReducer(
-  state: AgentState,
+  state: WorkspaceCanvasState,
   event: WorkspaceEvent,
-): AgentState {
+): WorkspaceCanvasState {
   switch (event.type) {
     case "WORKSPACE_CREATED":
-      return {
-        ...state,
-        globalTitle: event.payload.title,
-      };
+      return state;
 
     case "ITEM_CREATED": {
       const item = event.payload.item;
@@ -96,22 +96,11 @@ export function eventReducer(
     }
 
     case "GLOBAL_TITLE_SET":
-      return {
-        ...state,
-        globalTitle: event.payload.title,
-      };
-
     case "GLOBAL_DESCRIPTION_SET":
-      // No-op: globalDescription removed from state
       return state;
 
     case "WORKSPACE_SNAPSHOT":
-      // Used for migration from old workspace_states table
-      // Replaces entire state with snapshot
-      return {
-        ...event.payload,
-        workspaceId: state.workspaceId, // Preserve workspace ID
-      };
+      return normalizeWorkspaceCanvasState(event.payload);
 
     case "BULK_ITEMS_UPDATED": {
       const p = event.payload;
@@ -144,7 +133,7 @@ export function eventReducer(
         return { ...state, items: [...state.items, ...added] };
       }
 
-      // Older events: full items snapshot
+      // Older events may include a full items payload.
       if (p.items && p.items.length >= 0) {
         const newItemIds = new Set(p.items.map((i) => i.id));
         const deletedFolderIds = new Set(
@@ -282,22 +271,17 @@ export function eventReducer(
  * This is a pure function - same events always produce same state
  *
  * @param events - Events to replay
- * @param workspaceId - Workspace ID to set in state
- * @param snapshotState - Optional snapshot state to start from (optimization)
+ * @param baseState - Optional base state to start from
  */
 export function replayEvents(
   events: WorkspaceEvent[],
-  workspaceId?: string,
-  snapshotState?: AgentState,
-): AgentState {
+  baseState: WorkspaceCanvasState = initialState,
+): WorkspaceCanvasState {
   const replayStart = performance.now();
-
-  const baseState = snapshotState || {
-    ...initialState,
-    workspaceId: workspaceId || initialState.workspaceId,
-  };
-
-  const finalState = events.reduce(eventReducer, baseState);
+  const finalState = events.reduce(
+    eventReducer,
+    normalizeWorkspaceCanvasState(baseState),
+  );
 
   const replayTime = performance.now() - replayStart;
   // Only log if replay is slow (>50ms) or if we're replaying many events (>100)

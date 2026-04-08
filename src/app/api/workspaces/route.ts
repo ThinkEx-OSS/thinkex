@@ -3,7 +3,8 @@ import { getTemplateInitialState } from "@/lib/workspace/templates";
 import { generateSlug } from "@/lib/workspace/slug";
 import type { WorkspaceWithState, WorkspaceTemplate } from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
-import { randomUUID } from "crypto";
+import { normalizeWorkspaceCanvasState } from "@/lib/workspace-state/state";
+import { createEvent } from "@/lib/workspace/events";
 import { db, workspaces } from "@/lib/db/client";
 import { workspaceCollaborators } from "@/lib/db/schema";
 import { eq, desc, asc, sql, inArray } from "drizzle-orm";
@@ -218,97 +219,34 @@ async function handlePOST(request: NextRequest) {
     throw new Error("Failed to create workspace after multiple attempts");
   }
 
-  // Create initial state - use custom state if provided, otherwise use template
-  let initialState;
-  if (customInitialState) {
-    // Use provided initial state (already validated on client side)
-    initialState = customInitialState;
-    initialState.workspaceId = workspace.id;
-    if (!initialState.globalTitle) {
-      initialState.globalTitle = name;
-    }
-  } else {
-    // Use template-based initial state
-    initialState = getTemplateInitialState(effectiveTemplate);
-    initialState.workspaceId = workspace.id;
-    initialState.globalTitle = name;
-  }
+  const initialState = customInitialState
+    ? normalizeWorkspaceCanvasState(customInitialState)
+    : getTemplateInitialState(effectiveTemplate);
 
-  // Note: No need to create workspace_states record - state is now managed via events
+  if (initialState.items.length > 0) {
+    const event = createEvent(
+      "BULK_ITEMS_CREATED",
+      { items: initialState.items },
+      userId,
+      user.name || user.email || undefined,
+    );
 
-  // Determine if we need a WORKSPACE_SNAPSHOT (has items) or just WORKSPACE_CREATED (empty)
-  const hasItems = initialState.items && initialState.items.length > 0;
-
-  // For workspaces with items (custom or template-based), create WORKSPACE_SNAPSHOT
-  // This sets the entire state in one event, including title, description, and items
-  if (customInitialState || hasItems) {
-    const eventId = randomUUID();
-    const timestamp = Date.now();
-
-    // Use user info from requireAuthWithUserInfo to avoid duplicate session fetch
-    const userName = user.name || user.email || undefined;
-
-    // Create snapshot event first (starts at version 0, creates version 1)
     try {
       await db.execute(sql`
           SELECT append_workspace_event(
             ${workspace.id}::uuid,
-            ${eventId}::text,
-            ${'WORKSPACE_SNAPSHOT'}::text,
-            ${JSON.stringify(initialState)}::jsonb,
-            ${timestamp}::bigint,
-            ${userId}::text,
-            ${0}::integer,
-            ${userName || null}::text
-          )
-        `);
-
-      // If snapshot creation succeeded, we're done (it includes title/description)
-      // No need for separate WORKSPACE_CREATED event
-    } catch (eventError) {
-      console.error("Error creating WORKSPACE_SNAPSHOT event:", eventError);
-      // If snapshot fails, create WORKSPACE_CREATED as fallback
-      try {
-        const createdEventId = randomUUID();
-        const createdTimestamp = Date.now();
-        await db.execute(sql`
-            SELECT append_workspace_event(
-              ${workspace.id}::uuid,
-              ${createdEventId}::text,
-              ${'WORKSPACE_CREATED'}::text,
-              ${JSON.stringify({ title: name, description: description || "" })}::jsonb,
-              ${createdTimestamp}::bigint,
-              ${userId}::text,
-              ${0}::integer,
-              ${null}::text
-            )
-          `);
-      } catch (createdError) {
-        console.error("Error creating WORKSPACE_CREATED event:", createdError);
-      }
-    }
-  } else {
-    // For empty workspaces, just create WORKSPACE_CREATED event
-    try {
-      const eventId = randomUUID();
-      const timestamp = Date.now();
-
-      await db.execute(sql`
-          SELECT append_workspace_event(
-            ${workspace.id}::uuid,
-            ${eventId}::text,
-            ${'WORKSPACE_CREATED'}::text,
-            ${JSON.stringify({ title: name, description: description || "" })}::jsonb,
-            ${timestamp}::bigint,
-            ${userId}::text,
-            ${0}::integer,
-            ${null}::text
+            ${event.id}::text,
+            ${event.type}::text,
+            ${JSON.stringify(event.payload)}::jsonb,
+            ${event.timestamp}::bigint,
+            ${event.userId}::text,
+            0::integer,
+            ${event.userName || null}::text
           )
         `);
     } catch (eventError) {
-      // If event creation fails, continue – workspace exists in DB,
-      // but event-sourced title/description may be missing
-      console.error("Error creating WORKSPACE_CREATED event:", eventError);
+      await db.delete(workspaces).where(eq(workspaces.id, workspace.id));
+      throw eventError;
     }
   }
 

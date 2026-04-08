@@ -1,5 +1,5 @@
 import {
-  AgentState,
+  WorkspaceCanvasState,
   CardType,
   ItemData,
   PdfData,
@@ -13,19 +13,22 @@ import {
   DocumentData,
 } from "@/lib/workspace-state/types";
 
-
-
-export const initialState: AgentState = {
+export const initialState: WorkspaceCanvasState = {
   items: [],
-  globalTitle: "",
-  lastAction: "",
-
 };
 
-export function isNonEmptyAgentState(value: unknown): value is AgentState {
-  if (value == null || typeof value !== "object") return false;
-  const keys = Object.keys(value as Record<string, unknown>);
-  return keys.length > 0;
+export function normalizeWorkspaceCanvasState(
+  value: unknown,
+): WorkspaceCanvasState {
+  if (value == null || typeof value !== "object") {
+    return { ...initialState };
+  }
+
+  const items = Array.isArray((value as { items?: unknown }).items)
+    ? ((value as { items: WorkspaceCanvasState["items"] }).items ?? [])
+    : [];
+
+  return { items };
 }
 
 export function defaultDataFor(type: CardType): ItemData {
@@ -57,5 +60,3 @@ export function defaultDataFor(type: CardType): ItemData {
     }
   }
 }
-
-

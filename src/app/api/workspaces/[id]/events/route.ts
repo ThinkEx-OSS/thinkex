@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { WorkspaceEvent, EventResponse } from "@/lib/workspace/events";
-import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
+import { loadWorkspaceState } from "@/lib/workspace/state-loader";
+import { hasDuplicateName } from "@/lib/workspace/unique-name";
+import { db, workspaceEvents } from "@/lib/db/client";
+import { eq, gt, asc, sql, and } from "drizzle-orm";
+import {
+  requireAuth,
+  verifyWorkspaceAccess,
+  withErrorHandling,
+} from "@/lib/api/workspace-helpers";
+import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
 
 /** Strip heavy OCR page payloads from OCR-backed items — client refetches item state as needed. */
 function stripOcrPagesFromItem(item: { type?: string; data?: unknown }): void {
@@ -12,12 +21,6 @@ function stripOcrPagesFromItem(item: { type?: string; data?: unknown }): void {
     const d = item.data as Record<string, unknown>;
     delete d.ocrPages;
   }
-}
-
-function stripOcrPagesFromState(
-  state: { items?: Array<{ type?: string; data?: unknown }> } | undefined,
-): void {
-  state?.items?.forEach(stripOcrPagesFromItem);
 }
 
 function stripPdfOcrFromEventPayload(event: WorkspaceEvent): void {
@@ -50,105 +53,34 @@ function stripPdfOcrFromEventPayload(event: WorkspaceEvent): void {
       stripOcrPagesFromItem,
     );
   }
-  if (event.type === "WORKSPACE_SNAPSHOT" && p?.items) {
-    (p.items as Array<{ type?: string; data?: unknown }>).forEach(
-      stripOcrPagesFromItem,
-    );
-  }
 }
-
-import { loadWorkspaceState } from "@/lib/workspace/state-loader";
-import { hasDuplicateName } from "@/lib/workspace/unique-name";
-import { db, workspaceEvents } from "@/lib/db/client";
-import { eq, gt, asc, sql, and } from "drizzle-orm";
-import {
-  requireAuth,
-  verifyWorkspaceAccess,
-  withErrorHandling,
-} from "@/lib/api/workspace-helpers";
-import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
 
 /**
  * GET /api/workspaces/[id]/events
  * Fetch all events for a workspace (owner or collaborator)
  */
 async function handleGET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const startTime = Date.now();
-  const timings: Record<string, number> = {};
-
-  // Start independent operations in parallel
   const paramsPromise = params;
   const authPromise = requireAuth();
 
   const paramsResolved = await paramsPromise;
   const id = paramsResolved.id;
-
-  const authStart = Date.now();
   const userId = await authPromise;
-  timings.auth = Date.now() - authStart;
-
-  // Check if user has access (owner or collaborator)
-  const workspaceCheckStart = Date.now();
   await verifyWorkspaceAccess(id, userId, "viewer");
-  timings.workspaceCheck = Date.now() - workspaceCheckStart;
-
-  // Get only the latest snapshot (not all snapshots - loaded on demand for version history)
-  // Use optimized function that bypasses RLS (access already verified above)
-  const snapshotStart = Date.now();
-  const latestSnapshotData = await db.execute(sql`
-      SELECT 
-        id,
-        snapshot_version as "snapshotVersion",
-        state,
-        event_count as "eventCount",
-        created_at as "createdAt"
-      FROM get_latest_snapshot_fast(${id}::uuid)
-    `);
-  timings.snapshotFetch = Date.now() - snapshotStart;
-
-  const latestSnapshot = latestSnapshotData[0] as
-    | {
-        id?: string;
-        snapshotVersion?: number;
-        state?: any;
-        eventCount?: number;
-        createdAt?: string;
-      }
-    | undefined;
-  const snapshotVersion =
-    typeof latestSnapshot?.snapshotVersion === "number"
-      ? latestSnapshot.snapshotVersion
-      : 0;
-
-  // Check how many events we need to fetch
-  const countStart = Date.now();
   const eventCountResult = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(workspaceEvents)
-    .where(
-      and(
-        eq(workspaceEvents.workspaceId, id),
-        gt(workspaceEvents.version, snapshotVersion),
-      ),
-    );
+    .where(eq(workspaceEvents.workspaceId, id));
   const eventCount = eventCountResult[0]?.count ?? 0;
-  timings.countQuery = Date.now() - countStart;
 
-  // Only fetch events AFTER the snapshot version
   const PAGE_SIZE = 1000;
   let eventsData: any[] = [];
 
   if (eventCount === 0) {
-    timings.eventsFetch = 0;
   } else if (eventCount <= PAGE_SIZE) {
-    // If we have fewer events than PAGE_SIZE, fetch all at once (no pagination needed)
-    const eventsFetchStart = Date.now();
-
-    // Use optimized function that bypasses RLS (access already verified above)
-    const queryStart = Date.now();
     const fastQueryResult = await db.execute(sql`
         SELECT 
           event_id as "eventId",
@@ -160,13 +92,11 @@ async function handleGET(
           version
         FROM get_workspace_events_fast(
           ${id}::uuid,
-          ${snapshotVersion}::integer,
+          0::integer,
           ${PAGE_SIZE}::integer
         )
       `);
-    const queryTime = Date.now() - queryStart;
 
-    // Transform result to match expected format
     eventsData = fastQueryResult.map((row: any) => ({
       eventId: row.eventId,
       eventType: row.eventType,
@@ -176,12 +106,7 @@ async function handleGET(
       userName: row.userName,
       version: row.version,
     }));
-    timings.eventsFetch = Date.now() - eventsFetchStart;
-    timings.eventsQuery = queryTime;
-    timings.eventsDataProcessing = timings.eventsFetch - queryTime;
   } else {
-    // Only paginate if we have more than PAGE_SIZE events
-    const eventsFetchStart = Date.now();
     let allEvents: any[] = [];
     let page = 0;
     let hasMore = true;
@@ -194,11 +119,10 @@ async function handleGET(
             payload,
             timestamp,
             user_id as "userId",
-            user_name as "userName",
-            version
-          FROM workspace_events
-          WHERE workspace_id = ${id}::uuid
-            AND version > ${snapshotVersion}
+          user_name as "userName",
+          version
+        FROM workspace_events
+        WHERE workspace_id = ${id}::uuid
           ORDER BY version ASC
           LIMIT ${PAGE_SIZE}
           OFFSET ${page * PAGE_SIZE}
@@ -220,11 +144,8 @@ async function handleGET(
     }
 
     eventsData = allEvents;
-    timings.eventsFetch = Date.now() - eventsFetchStart;
   }
 
-  // Transform database events to WorkspaceEvent format
-  const transformStart = Date.now();
   const events: WorkspaceEvent[] = eventsData.map(
     (e) =>
       ({
@@ -239,37 +160,18 @@ async function handleGET(
         version: e.version,
       }) as WorkspaceEvent,
   );
-  timings.transform = Date.now() - transformStart;
 
-  // Version should be the max version from database, not events.length
   const maxVersion =
     eventsData && eventsData.length > 0
       ? Math.max(...eventsData.map((e) => e.version))
-      : snapshotVersion || 0;
+      : 0;
 
-  // Strip heavy OCR page payloads — client doesn't need them in event responses.
-  if (latestSnapshot?.state)
-    stripOcrPagesFromState(
-      latestSnapshot.state as {
-        items?: Array<{ type?: string; data?: unknown }>;
-      },
-    );
   events.forEach(stripPdfOcrFromEventPayload);
 
   const response: EventResponse = {
     events,
     version: maxVersion,
-    snapshot:
-      latestSnapshot && typeof latestSnapshot.snapshotVersion === "number"
-        ? {
-            version: latestSnapshot.snapshotVersion,
-            state: latestSnapshot.state as any,
-          }
-        : undefined,
   };
-
-  const totalTime = Date.now() - startTime;
-  timings.total = totalTime;
 
   return NextResponse.json(response);
 }
@@ -456,16 +358,6 @@ async function handlePOST(
       currentEvents: events,
     });
   }
-
-  // Success - no conflict
-  // Check if we need to create a snapshot (async, non-blocking)
-  checkAndCreateSnapshot(id).catch((err) => {
-    console.error(
-      `[POST /api/workspaces/${id}/events] Failed to create snapshot:`,
-      err,
-    );
-    // Don't fail the request if snapshot creation fails
-  });
 
   await broadcastWorkspaceEventFromServer(id, {
     ...event,

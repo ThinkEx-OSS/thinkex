@@ -79,7 +79,7 @@ export function createDocumentTool(ctx: WorkspaceToolContext) {
  */
 export function createDeleteItemTool(ctx: WorkspaceToolContext) {
     return withSanitizedModelOutput(tool({
-        description: "Delete a workspace item by name. Can be restored from version history.",
+        description: "Delete a workspace item by name. This permanently removes it from the workspace.",
         inputSchema: zodSchema(
             z.object({
                 itemName: z.string().describe("Item name or virtual path (e.g. pdfs/Report.pdf) to delete"),

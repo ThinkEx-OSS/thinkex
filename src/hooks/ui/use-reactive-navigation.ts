@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigateToItem } from "./use-navigate-to-item";
-import type { AgentState } from "@/lib/workspace-state/types";
+import type { WorkspaceCanvasState } from "@/lib/workspace-state/types";
 
 /**
  * Hook to handle navigation and selection after item creation.
  * It waits for the item to appear in the workspace state before attempting to scroll to it,
  * solving race conditions and stale closure issues.
  */
-export function useReactiveNavigation(workspaceState: AgentState) {
+export function useReactiveNavigation(workspaceState: WorkspaceCanvasState) {
     const [pendingNavigationId, setPendingNavigationId] = useState<string | null>(null);
     const navigateToItem = useNavigateToItem();
 

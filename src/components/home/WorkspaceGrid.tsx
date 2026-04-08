@@ -380,7 +380,7 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
               onClick={async () => {
                 if (
                   confirm(
-                    `Delete ${selectedIds.size} workspaces? You can restore from version history if needed.`,
+                    `Delete ${selectedIds.size} workspaces? This action cannot be undone right now.`,
                   )
                 ) {
                   const ids = Array.from(selectedIds);

@@ -1,4 +1,4 @@
-import type { Item, AgentState } from "@/lib/workspace-state/types";
+import type { Item, WorkspaceCanvasState } from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
 /** Payload shape for historical FOLDER_* events (folders are items today; replay still parses these). */
 type FolderEventRecord = {
@@ -14,7 +14,7 @@ type FolderEventRecord = {
  * State is derived by replaying events in order
  */
 
-type WorkspaceEventBase =
+type LegacyWorkspaceCompatibilityEvent =
   | {
       type: "WORKSPACE_CREATED";
       payload: { title: string; description: string };
@@ -23,6 +23,33 @@ type WorkspaceEventBase =
       userName?: string;
       id: string;
     }
+  | {
+      type: "GLOBAL_TITLE_SET";
+      payload: { title: string };
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
+    }
+  | {
+      type: "GLOBAL_DESCRIPTION_SET";
+      payload: { description: string };
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
+    }
+  | {
+      type: "WORKSPACE_SNAPSHOT";
+      payload: WorkspaceCanvasState;
+      timestamp: number;
+      userId: string;
+      userName?: string;
+      id: string;
+    };
+
+type WorkspaceEventBase =
+  | LegacyWorkspaceCompatibilityEvent
   | {
       type: "ITEM_CREATED";
       payload: { id: string; item: Item };
@@ -62,30 +89,6 @@ type WorkspaceEventBase =
       id: string;
     }
   | {
-      type: "GLOBAL_TITLE_SET";
-      payload: { title: string };
-      timestamp: number;
-      userId: string;
-      userName?: string;
-      id: string;
-    }
-  | {
-      type: "GLOBAL_DESCRIPTION_SET";
-      payload: { description: string };
-      timestamp: number;
-      userId: string;
-      userName?: string;
-      id: string;
-    }
-  | {
-      type: "WORKSPACE_SNAPSHOT";
-      payload: AgentState;
-      timestamp: number;
-      userId: string;
-      userName?: string;
-      id: string;
-    }
-  | {
       type: "BULK_ITEMS_UPDATED";
       payload: {
         layoutUpdates?: Array<{
@@ -100,7 +103,7 @@ type WorkspaceEventBase =
         deletedIds?: string[];
         /** New items to append – only the added items, not full list */
         addedItems?: Item[];
-        /** Full items snapshot (older events; prefer deletedIds/addedItems). */
+        /** Full items payload from older bulk-update events. */
         items?: Item[];
       };
       timestamp: number;
@@ -184,23 +187,6 @@ export interface EventLog {
   workspaceId: string;
   events: WorkspaceEvent[];
   version: number; // Increments with each event
-  snapshot?: {
-    version: number;
-    state: AgentState;
-  };
-  snapshots?: SnapshotInfo[]; // All snapshots for version history
-}
-
-/**
- * Snapshot metadata for version history
- * Note: Different from WorkspaceSnapshot as it uses 'version' instead of 'snapshotVersion'
- */
-export interface SnapshotInfo {
-  id: string;
-  version: number;
-  eventCount: number;
-  createdAt: string;
-  state: AgentState;
 }
 
 /**
@@ -211,11 +197,6 @@ export interface EventResponse {
   version: number;
   conflict?: boolean;
   currentEvents?: WorkspaceEvent[];
-  snapshot?: {
-    version: number;
-    state: AgentState;
-  };
-  snapshots?: SnapshotInfo[]; // All snapshots for version history
 }
 
 /**

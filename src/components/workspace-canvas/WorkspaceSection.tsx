@@ -1,7 +1,7 @@
 import React, { RefObject, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import type { AgentState, Item, CardType } from "@/lib/workspace-state/types";
+import type { WorkspaceCanvasState, Item, CardType } from "@/lib/workspace-state/types";
 import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import type { WorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import WorkspaceContent from "./WorkspaceContent";
@@ -73,7 +73,7 @@ interface WorkspaceSectionProps {
   // Workspace state
   currentWorkspaceId: string | null;
   currentSlug: string | null;
-  state: AgentState;
+  state: WorkspaceCanvasState;
 
   // Operations
   addItem: (type: CardType, name?: string, initialData?: Partial<Item['data']>) => string;
@@ -493,7 +493,7 @@ export function WorkspaceSection({
               ) : (
                 /* Workspace content - assumes workspace exists (home route handles no-workspace state) */
                 (<WorkspaceContent
-                  key={`workspace-content-${state.workspaceId || 'none'}`}
+                  key={`workspace-content-${currentWorkspaceId || "none"}`}
                   viewState={state}
                   addItem={addItem}
                   updateItem={updateItem}
@@ -587,8 +587,8 @@ export function WorkspaceSection({
             <AlertDialogTitle>Delete {selectedCardIds.size === 1 ? 'Card' : 'Cards'}</AlertDialogTitle>
             <AlertDialogDescription>
               {selectedCardIds.size === 1
-                ? 'Are you sure you want to delete this card? You can restore from version history if needed.'
-                : `Are you sure you want to delete ${selectedCardIds.size} cards? You can restore from version history if needed.`
+                ? 'Are you sure you want to delete this card? This action cannot be undone right now.'
+                : `Are you sure you want to delete ${selectedCardIds.size} cards? This action cannot be undone right now.`
               }
             </AlertDialogDescription>
           </AlertDialogHeader>

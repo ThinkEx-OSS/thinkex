@@ -9,7 +9,7 @@ import type {
   Item,
   ItemData,
   CardType,
-  AgentState,
+  WorkspaceCanvasState,
   DocumentData,
 } from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
@@ -68,8 +68,6 @@ export interface WorkspaceOperations {
   ) => void;
   deleteItem: (id: string) => void;
   updateAllItems: (items: Item[]) => void;
-  setGlobalTitle: (title: string) => void;
-
   flushPendingChanges: (itemId: string) => void;
   getDocumentMarkdownForExport: (itemId: string) => string;
   // Folder operations
@@ -96,7 +94,7 @@ export interface WorkspaceOperations {
  */
 export function useWorkspaceOperations(
   workspaceId: string | null,
-  currentState: AgentState,
+  currentState: WorkspaceCanvasState,
 ): WorkspaceOperations {
   const { data: session } = useSession();
   const user = session?.user;
@@ -128,11 +126,7 @@ export function useWorkspaceOperations(
           "events",
         ]);
         if (cacheData?.events) {
-          const latestState = replayEvents(
-            cacheData.events,
-            workspaceId,
-            cacheData.snapshot?.state,
-          );
+          const latestState = replayEvents(cacheData.events);
           const cachedItem = latestState.items.find(
             (item) => item.id === itemId,
           );
@@ -155,11 +149,7 @@ export function useWorkspaceOperations(
         "events",
       ]);
       if (cacheData?.events) {
-        return replayEvents(
-          cacheData.events,
-          workspaceId,
-          cacheData.snapshot?.state,
-        ).items;
+        return replayEvents(cacheData.events).items;
       }
     }
 
@@ -570,7 +560,7 @@ export function useWorkspaceOperations(
         }
       }
 
-      // Delete the card (create event) - include name for version history display
+      // Delete the card (include name for UX copy and diagnostics)
       const event = createEvent(
         "ITEM_DELETED",
         { id, name: itemToDelete?.name },
@@ -581,19 +571,6 @@ export function useWorkspaceOperations(
       mutation.mutate(event);
     },
     [mutation, userId, userName, currentState.items],
-  );
-
-  const setGlobalTitle = useCallback(
-    (title: string) => {
-      const event = createEvent(
-        "GLOBAL_TITLE_SET",
-        { title },
-        userId,
-        userName,
-      );
-      mutation.mutate(event);
-    },
-    [mutation, userId, userName],
   );
 
   // Helper for updating item data (used by field actions)
@@ -630,11 +607,7 @@ export function useWorkspaceOperations(
               "events",
             ]);
             if (cacheData?.events) {
-              const latestState = replayEvents(
-                cacheData.events,
-                workspaceId,
-                cacheData.snapshot?.state,
-              );
+              const latestState = replayEvents(cacheData.events);
               latestItem = latestState.items.find((item) => item.id === itemId);
             }
           }
@@ -650,11 +623,7 @@ export function useWorkspaceOperations(
                 ])
               : null;
             const itemCount = cacheData?.events
-              ? replayEvents(
-                  cacheData.events,
-                  workspaceId!,
-                  cacheData.snapshot?.state,
-                ).items.length
+              ? replayEvents(cacheData.events).items.length
               : 0;
             logger.warn(
               `[OCR/UPDATE] updateItemData: Item ${itemId} not found. Item may have been deleted. Cache has ${itemCount} items.`,
@@ -679,7 +648,7 @@ export function useWorkspaceOperations(
             dataKeys: Object.keys(newData),
           });
 
-          // Emit update event with new data - include name for version history display
+          // Emit update event with new data and item name
           const event = createEvent(
             "ITEM_UPDATED",
             {
@@ -712,7 +681,7 @@ export function useWorkspaceOperations(
       // CRITICAL FIX: Read the latest state from cache (including optimistic updates)
       // instead of using the potentially stale currentState prop
       // This ensures we compare against the most recent state even when a previous mutation is pending
-      let latestState: AgentState;
+      let latestState: WorkspaceCanvasState;
       if (workspaceId) {
         const cacheData = queryClient.getQueryData<EventResponse>([
           "workspace",
@@ -720,12 +689,7 @@ export function useWorkspaceOperations(
           "events",
         ]);
         if (cacheData?.events) {
-          // Replay events to get current state including optimistic updates
-          latestState = replayEvents(
-            cacheData.events,
-            workspaceId,
-            cacheData.snapshot?.state,
-          );
+          latestState = replayEvents(cacheData.events);
         } else {
           // Fallback to prop if cache is empty (shouldn't happen in normal flow)
           latestState = currentState;
@@ -969,11 +933,7 @@ export function useWorkspaceOperations(
           "events",
         ]);
         if (cacheData?.events) {
-          const latestState = replayEvents(
-            cacheData.events,
-            workspaceId,
-            cacheData.snapshot?.state,
-          );
+          const latestState = replayEvents(cacheData.events);
           latestItems = latestState.items;
         } else {
           latestItems = currentState.items;
@@ -1169,7 +1129,6 @@ export function useWorkspaceOperations(
     updateItemData,
     deleteItem,
     updateAllItems,
-    setGlobalTitle,
     flushPendingChanges,
     getDocumentMarkdownForExport,
     // Folder operations
