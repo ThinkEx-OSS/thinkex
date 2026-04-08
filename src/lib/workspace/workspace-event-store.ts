@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import type { WorkspaceEvent } from "./events";
 import { projectWorkspaceEvent } from "./workspace-items-projection";
+import { normalizeWorkspaceEventItems } from "./workspace-item-model";
 
 export interface AppendWorkspaceEventResult {
   version: number;
@@ -44,7 +45,8 @@ export async function appendWorkspaceEventWithProjection(params: {
   event: WorkspaceEvent;
   baseVersion: number;
 }): Promise<AppendWorkspaceEventResult> {
-  const { workspaceId, event, baseVersion } = params;
+  const { workspaceId, baseVersion } = params;
+  const event = normalizeWorkspaceEventItems(params.event);
 
   const appendOnce = async (executor: { execute: typeof db.execute }) => {
     const result = await executor.execute(sql`

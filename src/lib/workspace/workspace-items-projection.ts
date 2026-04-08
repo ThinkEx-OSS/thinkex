@@ -2,11 +2,20 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
   type Database,
+  workspaceItemContent,
+  workspaceItemExtracted,
   workspaceItemProjectionState,
   workspaceItems,
-  workspaces,
+  workspaceItemUserState,
 } from "@/lib/db/client";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
+import {
+  buildWorkspaceItemProjection,
+  normalizeItem,
+  normalizeItems,
+  rehydrateItemData,
+  type WorkspaceItemUserState as WorkspaceItemUserStatePayload,
+} from "@/lib/workspace/workspace-item-model";
 import { eventReducer } from "@/lib/workspace/event-reducer";
 import { initialState } from "@/lib/workspace-state/state";
 import type { Item, WorkspaceState } from "@/lib/workspace-state/types";
@@ -20,16 +29,17 @@ function normalizeNullable<T>(value: T | null | undefined): T | null {
 }
 
 function serializeComparableItem(item: Item) {
+  const normalized = normalizeItem(item);
   return JSON.stringify({
-    id: item.id,
-    type: item.type,
-    name: item.name,
-    subtitle: item.subtitle,
-    data: item.data ?? null,
-    color: normalizeNullable(item.color),
-    folderId: normalizeNullable(item.folderId),
-    layout: normalizeNullable(item.layout),
-    lastModified: item.lastModified ?? null,
+    id: normalized.id,
+    type: normalized.type,
+    name: normalized.name,
+    subtitle: normalized.subtitle,
+    data: normalized.data ?? null,
+    color: normalizeNullable(normalized.color),
+    folderId: normalizeNullable(normalized.folderId),
+    layout: normalizeNullable(normalized.layout),
+    lastModified: normalized.lastModified ?? null,
   });
 }
 
@@ -46,7 +56,7 @@ export function didProjectedItemChange(
   return !itemsEqual(previousItem, nextItem);
 }
 
-function projectionRowToItem(row: {
+type ProjectionCoreRow = {
   itemId: string;
   type: string;
   name: string;
@@ -56,40 +66,195 @@ function projectionRowToItem(row: {
   folderId: string | null;
   layout: unknown;
   lastModified: number | null;
-}): Item {
-  return {
+};
+
+type ProjectionContentRow = {
+  itemId: string;
+  textContent: string | null;
+  structuredData: unknown;
+  assetData: unknown;
+  embedData: unknown;
+  sourceData: unknown;
+};
+
+type ProjectionExtractedRow = {
+  itemId: string;
+  contentPreview: string | null;
+  ocrText: string | null;
+  transcriptText: string | null;
+  ocrPages: unknown;
+  transcriptSegments: unknown;
+};
+
+type ProjectionUserStateRow = {
+  itemId: string;
+  state: WorkspaceItemUserStatePayload;
+};
+
+function projectionRowToItem(
+  row: ProjectionCoreRow,
+  contentRow?: ProjectionContentRow,
+  extractedRow?: ProjectionExtractedRow,
+  userStateRow?: ProjectionUserStateRow,
+): Item {
+  return normalizeItem({
     id: row.itemId,
     type: row.type as Item["type"],
     name: row.name,
     subtitle: row.subtitle,
-    data: row.data as Item["data"],
+    data: rehydrateItemData(
+      row.type as Item["type"],
+      row.data,
+      contentRow
+        ? {
+            textContent: contentRow.textContent,
+            structuredData: contentRow.structuredData,
+            assetData: contentRow.assetData,
+            embedData: contentRow.embedData,
+            sourceData: contentRow.sourceData,
+          }
+        : null,
+      extractedRow
+        ? {
+            contentPreview: extractedRow.contentPreview,
+            ocrText: extractedRow.ocrText,
+            transcriptText: extractedRow.transcriptText,
+            ocrPages: extractedRow.ocrPages,
+            transcriptSegments: extractedRow.transcriptSegments,
+          }
+        : null,
+      userStateRow?.state ?? null,
+    ),
     ...(row.color ? { color: row.color as Item["color"] } : {}),
     ...(row.folderId ? { folderId: row.folderId } : {}),
     ...(row.layout ? { layout: row.layout as Item["layout"] } : {}),
     ...(typeof row.lastModified === "number"
       ? { lastModified: row.lastModified }
       : {}),
-  };
+  });
 }
 
-function itemToProjectionRow(
+function normalizeSharedProjectedItem(item: Item): Item {
+  const projection = buildWorkspaceItemProjection(item);
+  return normalizeItem({
+    ...item,
+    data: rehydrateItemData(
+      item.type,
+      projection.data,
+      projection.content,
+      projection.extracted,
+      null,
+    ),
+  });
+}
+
+async function overlayUserStateOnItems(
+  workspaceId: string,
+  items: Item[],
+  currentUserId: string | null,
+): Promise<Item[]> {
+  if (!currentUserId || items.length === 0) {
+    return items;
+  }
+
+  const rows = await db
+    .select({
+      itemId: workspaceItemUserState.itemId,
+      state: workspaceItemUserState.state,
+    })
+    .from(workspaceItemUserState)
+    .where(
+      and(
+        eq(workspaceItemUserState.workspaceId, workspaceId),
+        eq(workspaceItemUserState.userId, currentUserId),
+      ),
+    );
+
+  if (rows.length === 0) {
+    return items;
+  }
+
+  const stateByItemId = new Map<string, WorkspaceItemUserStatePayload>(
+    rows.map((row) => [row.itemId, row.state as WorkspaceItemUserStatePayload]),
+  );
+
+  return items.map((item) => {
+    const userState = stateByItemId.get(item.id);
+    if (!userState) {
+      return item;
+    }
+
+    return normalizeItem({
+      ...item,
+      data: rehydrateItemData(item.type, item.data, null, null, userState),
+    });
+  });
+}
+
+function itemToProjectionRows(
   workspaceId: string,
   item: Item,
   sourceVersion: number,
+  userId: string | null,
 ) {
+  const projection = buildWorkspaceItemProjection(item);
+  const updatedAt = new Date().toISOString();
+
   return {
-    workspaceId,
-    itemId: item.id,
-    type: item.type,
-    name: item.name,
-    subtitle: item.subtitle,
-    data: item.data,
-    color: item.color ?? null,
-    folderId: item.folderId ?? null,
-    layout: item.layout ?? null,
-    lastModified: item.lastModified ?? null,
-    sourceVersion,
-    updatedAt: new Date().toISOString(),
+    coreRow: {
+      workspaceId,
+      itemId: item.id,
+      type: item.type,
+      name: item.name,
+      subtitle: item.subtitle,
+      data: projection.data,
+      dataSchemaVersion: projection.dataSchemaVersion,
+      color: item.color ?? null,
+      folderId: item.folderId ?? null,
+      layout: item.layout ?? null,
+      lastModified: item.lastModified ?? null,
+      sourceVersion,
+      contentHash: projection.contentHash,
+      sourceCount: projection.sourceCount,
+      hasOcr: projection.hasOcr,
+      ocrStatus: projection.ocrStatus,
+      ocrPageCount: projection.ocrPageCount,
+      hasTranscript: projection.hasTranscript,
+      processingStatus: projection.processingStatus,
+      updatedAt,
+    },
+    contentRow: {
+      workspaceId,
+      itemId: item.id,
+      dataSchemaVersion: projection.dataSchemaVersion,
+      contentHash: projection.contentHash,
+      textContent: projection.content.textContent,
+      structuredData: projection.content.structuredData,
+      assetData: projection.content.assetData,
+      embedData: projection.content.embedData,
+      sourceData: projection.content.sourceData,
+      updatedAt,
+    },
+    extractedRow: {
+      workspaceId,
+      itemId: item.id,
+      searchText: projection.extracted.searchText,
+      contentPreview: projection.extracted.contentPreview,
+      ocrText: projection.extracted.ocrText,
+      transcriptText: projection.extracted.transcriptText,
+      ocrPages: projection.extracted.ocrPages,
+      transcriptSegments: projection.extracted.transcriptSegments,
+      updatedAt,
+    },
+    userStateRow: projection.userState && userId
+      ? {
+          workspaceId,
+          itemId: item.id,
+          userId,
+          state: projection.userState,
+          updatedAt,
+        }
+      : null,
   };
 }
 
@@ -123,24 +288,82 @@ export async function getWorkspaceEventVersion(
 export async function loadProjectedWorkspaceItems(
   workspaceId: string,
   executor: DbExecutor = db,
+  currentUserId: string | null = null,
 ): Promise<Item[]> {
-  const rows = await executor
-    .select({
-      itemId: workspaceItems.itemId,
-      type: workspaceItems.type,
-      name: workspaceItems.name,
-      subtitle: workspaceItems.subtitle,
-      data: workspaceItems.data,
-      color: workspaceItems.color,
-      folderId: workspaceItems.folderId,
-      layout: workspaceItems.layout,
-      lastModified: workspaceItems.lastModified,
-    })
-    .from(workspaceItems)
-    .where(eq(workspaceItems.workspaceId, workspaceId))
-    .orderBy(asc(workspaceItems.itemId));
+  const [coreRows, contentRows, extractedRows, userStateRows] = await Promise.all([
+    executor
+      .select({
+        itemId: workspaceItems.itemId,
+        type: workspaceItems.type,
+        name: workspaceItems.name,
+        subtitle: workspaceItems.subtitle,
+        data: workspaceItems.data,
+        color: workspaceItems.color,
+        folderId: workspaceItems.folderId,
+        layout: workspaceItems.layout,
+        lastModified: workspaceItems.lastModified,
+      })
+      .from(workspaceItems)
+      .where(eq(workspaceItems.workspaceId, workspaceId))
+      .orderBy(asc(workspaceItems.itemId)),
+    executor
+      .select({
+        itemId: workspaceItemContent.itemId,
+        textContent: workspaceItemContent.textContent,
+        structuredData: workspaceItemContent.structuredData,
+        assetData: workspaceItemContent.assetData,
+        embedData: workspaceItemContent.embedData,
+        sourceData: workspaceItemContent.sourceData,
+      })
+      .from(workspaceItemContent)
+      .where(eq(workspaceItemContent.workspaceId, workspaceId)),
+    executor
+      .select({
+        itemId: workspaceItemExtracted.itemId,
+        contentPreview: workspaceItemExtracted.contentPreview,
+        ocrText: workspaceItemExtracted.ocrText,
+        transcriptText: workspaceItemExtracted.transcriptText,
+        ocrPages: workspaceItemExtracted.ocrPages,
+        transcriptSegments: workspaceItemExtracted.transcriptSegments,
+      })
+      .from(workspaceItemExtracted)
+      .where(eq(workspaceItemExtracted.workspaceId, workspaceId)),
+    currentUserId
+      ? executor
+          .select({
+            itemId: workspaceItemUserState.itemId,
+            state: workspaceItemUserState.state,
+          })
+          .from(workspaceItemUserState)
+          .where(
+            and(
+              eq(workspaceItemUserState.workspaceId, workspaceId),
+              eq(workspaceItemUserState.userId, currentUserId),
+            ),
+          )
+      : Promise.resolve([]),
+  ]);
 
-  return rows.map(projectionRowToItem);
+  const contentById = new Map(contentRows.map((row) => [row.itemId, row]));
+  const extractedById = new Map(extractedRows.map((row) => [row.itemId, row]));
+  const userStateById = new Map<string, ProjectionUserStateRow>(
+    userStateRows.map((row) => [
+      row.itemId,
+      {
+        itemId: row.itemId,
+        state: row.state as WorkspaceItemUserStatePayload,
+      },
+    ]),
+  );
+
+  return coreRows.map((row) =>
+    projectionRowToItem(
+      row,
+      contentById.get(row.itemId),
+      extractedById.get(row.itemId),
+      userStateById.get(row.itemId),
+    ),
+  );
 }
 
 async function isProjectionCurrent(workspaceId: string): Promise<boolean> {
@@ -154,30 +377,33 @@ async function isProjectionCurrent(workspaceId: string): Promise<boolean> {
 
 export async function loadWorkspaceItems(
   workspaceId: string,
+  currentUserId: string | null = null,
 ): Promise<Item[]> {
   if (await isProjectionCurrent(workspaceId)) {
-    return loadProjectedWorkspaceItems(workspaceId);
+    return loadProjectedWorkspaceItems(workspaceId, db, currentUserId);
   }
 
   const state = await loadWorkspaceState(workspaceId);
-  return state.items;
+  return overlayUserStateOnItems(workspaceId, state.items, currentUserId);
 }
 
 export async function loadWorkspaceItemsState(
   workspaceId: string,
+  currentUserId: string | null = null,
 ): Promise<Pick<WorkspaceState, "items">> {
   return {
-    items: await loadWorkspaceItems(workspaceId),
+    items: await loadWorkspaceItems(workspaceId, currentUserId),
   };
 }
 
 export async function loadWorkspaceCurrentState(
   workspaceId: string,
+  currentUserId: string | null = null,
 ): Promise<WorkspaceState> {
   return {
     ...initialState,
     workspaceId,
-    items: await loadWorkspaceItems(workspaceId),
+    items: await loadWorkspaceItems(workspaceId, currentUserId),
   };
 }
 
@@ -192,7 +418,7 @@ export function applyEventToProjectedItems(
     items: previousItems,
   };
 
-  return eventReducer(previousState, event).items;
+  return normalizeItems(eventReducer(previousState, event).items);
 }
 
 async function upsertProjectionCheckpoint(
@@ -221,6 +447,7 @@ async function syncProjectedItems(
   previousItems: Item[],
   nextItems: Item[],
   sourceVersion: number,
+  eventUserId: string | null,
   executor: DbExecutor = db,
 ) {
   const previousItemsById = new Map(previousItems.map((item) => [item.id, item]));
@@ -241,39 +468,109 @@ async function syncProjectedItems(
 
   const changedProjectionRows = nextItems.flatMap((item) => {
     const previousItem = previousItemsById.get(item.id);
-
     if (!didProjectedItemChange(previousItem, item)) {
       return [];
     }
-
-    return [
-      itemToProjectionRow(
-        workspaceId,
-        item,
-        sourceVersion,
-      ),
-    ];
+    return [itemToProjectionRows(workspaceId, item, sourceVersion, eventUserId)];
   });
 
-  if (changedProjectionRows.length > 0) {
+  if (changedProjectionRows.length === 0) {
+    return;
+  }
+
+  await executor
+    .insert(workspaceItems)
+    .values(changedProjectionRows.map((row) => row.coreRow))
+    .onConflictDoUpdate({
+      target: [workspaceItems.workspaceId, workspaceItems.itemId],
+      set: {
+        type: sql`excluded.type`,
+        name: sql`excluded.name`,
+        subtitle: sql`excluded.subtitle`,
+        data: sql`excluded.data`,
+        dataSchemaVersion: sql`excluded.data_schema_version`,
+        color: sql`excluded.color`,
+        folderId: sql`excluded.folder_id`,
+        layout: sql`excluded.layout`,
+        lastModified: sql`excluded.last_modified`,
+        sourceVersion: sql`excluded.source_version`,
+        contentHash: sql`excluded.content_hash`,
+        sourceCount: sql`excluded.source_count`,
+        hasOcr: sql`excluded.has_ocr`,
+        ocrStatus: sql`excluded.ocr_status`,
+        ocrPageCount: sql`excluded.ocr_page_count`,
+        hasTranscript: sql`excluded.has_transcript`,
+        processingStatus: sql`excluded.processing_status`,
+        updatedAt: sql`excluded.updated_at`,
+      },
+    });
+
+  await executor
+    .insert(workspaceItemContent)
+    .values(changedProjectionRows.map((row) => row.contentRow))
+    .onConflictDoUpdate({
+      target: [workspaceItemContent.workspaceId, workspaceItemContent.itemId],
+      set: {
+        dataSchemaVersion: sql`excluded.data_schema_version`,
+        contentHash: sql`excluded.content_hash`,
+        textContent: sql`excluded.text_content`,
+        structuredData: sql`excluded.structured_data`,
+        assetData: sql`excluded.asset_data`,
+        embedData: sql`excluded.embed_data`,
+        sourceData: sql`excluded.source_data`,
+        updatedAt: sql`excluded.updated_at`,
+      },
+    });
+
+  await executor
+    .insert(workspaceItemExtracted)
+    .values(changedProjectionRows.map((row) => row.extractedRow))
+    .onConflictDoUpdate({
+      target: [workspaceItemExtracted.workspaceId, workspaceItemExtracted.itemId],
+      set: {
+        searchText: sql`excluded.search_text`,
+        contentPreview: sql`excluded.content_preview`,
+        ocrText: sql`excluded.ocr_text`,
+        transcriptText: sql`excluded.transcript_text`,
+        ocrPages: sql`excluded.ocr_pages`,
+        transcriptSegments: sql`excluded.transcript_segments`,
+        updatedAt: sql`excluded.updated_at`,
+      },
+    });
+
+  const userStateRows = changedProjectionRows.flatMap((row) =>
+    row.userStateRow ? [row.userStateRow] : [],
+  );
+  if (userStateRows.length > 0) {
     await executor
-      .insert(workspaceItems)
-      .values(changedProjectionRows)
+      .insert(workspaceItemUserState)
+      .values(userStateRows)
       .onConflictDoUpdate({
-        target: [workspaceItems.workspaceId, workspaceItems.itemId],
+        target: [
+          workspaceItemUserState.workspaceId,
+          workspaceItemUserState.itemId,
+          workspaceItemUserState.userId,
+        ],
         set: {
-          type: sql`excluded.type`,
-          name: sql`excluded.name`,
-          subtitle: sql`excluded.subtitle`,
-          data: sql`excluded.data`,
-          color: sql`excluded.color`,
-          folderId: sql`excluded.folder_id`,
-          layout: sql`excluded.layout`,
-          lastModified: sql`excluded.last_modified`,
-          sourceVersion: sql`excluded.source_version`,
+          state: sql`excluded.state`,
           updatedAt: sql`excluded.updated_at`,
         },
       });
+  }
+
+  const itemIdsWithoutUserState = changedProjectionRows
+    .filter((row) => !row.userStateRow)
+    .map((row) => row.coreRow.itemId);
+  if (itemIdsWithoutUserState.length > 0 && eventUserId) {
+    await executor
+      .delete(workspaceItemUserState)
+      .where(
+        and(
+          eq(workspaceItemUserState.workspaceId, workspaceId),
+          eq(workspaceItemUserState.userId, eventUserId),
+          inArray(workspaceItemUserState.itemId, itemIdsWithoutUserState),
+        ),
+      );
   }
 }
 
@@ -288,7 +585,11 @@ export async function projectWorkspaceEvent(
     );
   }
 
-  const previousItems = await loadProjectedWorkspaceItems(workspaceId, executor);
+  const previousItems = await loadProjectedWorkspaceItems(
+    workspaceId,
+    executor,
+    event.userId ?? null,
+  );
   const nextItems = applyEventToProjectedItems(previousItems, workspaceId, event);
 
   await syncProjectedItems(
@@ -296,100 +597,44 @@ export async function projectWorkspaceEvent(
     previousItems,
     nextItems,
     event.version,
+    event.userId ?? null,
     executor,
   );
   await upsertProjectionCheckpoint(workspaceId, event.version, executor);
 }
 
-export async function backfillWorkspaceItemsProjection(
+/**
+ * Rebuild projection tables from the replayed event stream (e.g. after undo).
+ * Preserves per-user `workspace_item_user_state` rows except for items removed
+ * (CASCADE deletes those with the item row).
+ */
+export async function rebuildWorkspaceItemsProjectionFromEvents(
   workspaceId: string,
   executor: DbExecutor = db,
 ): Promise<{ workspaceId: string; version: number; itemCount: number }> {
-  const [state, version] = await Promise.all([
-    loadWorkspaceState(workspaceId),
+  const [state, version, previousItems] = await Promise.all([
+    loadWorkspaceState(workspaceId, executor),
     getWorkspaceEventVersion(workspaceId, executor),
+    loadProjectedWorkspaceItems(workspaceId, executor, null),
   ]);
 
+  const nextItems = normalizeItems(state.items);
+
   await executor.transaction(async (tx: DbExecutor) => {
-    await tx
-      .delete(workspaceItems)
-      .where(eq(workspaceItems.workspaceId, workspaceId));
-
-    if (state.items.length > 0) {
-      await tx.insert(workspaceItems).values(
-        state.items.map((item) => itemToProjectionRow(workspaceId, item, version)),
-      );
-    }
-
+    await syncProjectedItems(
+      workspaceId,
+      previousItems,
+      nextItems,
+      version,
+      null,
+      tx,
+    );
     await upsertProjectionCheckpoint(workspaceId, version, tx);
   });
 
   return {
     workspaceId,
     version,
-    itemCount: state.items.length,
-  };
-}
-
-export async function backfillAllWorkspaceItemsProjection(): Promise<{
-  workspaceCount: number;
-  totalItems: number;
-}> {
-  const rows = await db
-    .select({ id: workspaces.id })
-    .from(workspaces)
-    .orderBy(asc(workspaces.id));
-
-  let totalItems = 0;
-  for (const row of rows) {
-    const result = await backfillWorkspaceItemsProjection(row.id);
-    totalItems += result.itemCount;
-  }
-
-  return {
-    workspaceCount: rows.length,
-    totalItems,
-  };
-}
-
-export async function reconcileWorkspaceItemsProjection(workspaceId: string): Promise<{
-  matches: boolean;
-  replayedCount: number;
-  projectedCount: number;
-  missingItemIds: string[];
-  extraItemIds: string[];
-  mismatchedItemIds: string[];
-}> {
-  const [replayedState, projectedItems] = await Promise.all([
-    loadWorkspaceState(workspaceId),
-    loadProjectedWorkspaceItems(workspaceId),
-  ]);
-
-  const replayedMap = new Map(replayedState.items.map((item) => [item.id, item]));
-  const projectedMap = new Map(projectedItems.map((item) => [item.id, item]));
-
-  const missingItemIds = replayedState.items
-    .filter((item) => !projectedMap.has(item.id))
-    .map((item) => item.id);
-  const extraItemIds = projectedItems
-    .filter((item) => !replayedMap.has(item.id))
-    .map((item) => item.id);
-  const mismatchedItemIds = replayedState.items
-    .filter((item) => {
-      const projected = projectedMap.get(item.id);
-      return projected && !itemsEqual(item, projected);
-    })
-    .map((item) => item.id);
-
-  return {
-    matches:
-      missingItemIds.length === 0 &&
-      extraItemIds.length === 0 &&
-      mismatchedItemIds.length === 0,
-    replayedCount: replayedState.items.length,
-    projectedCount: projectedItems.length,
-    missingItemIds,
-    extraItemIds,
-    mismatchedItemIds,
+    itemCount: nextItems.length,
   };
 }

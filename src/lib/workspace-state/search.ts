@@ -1,26 +1,11 @@
-import type { Item, PdfData, DocumentData } from "./types";
-import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
+import type { Item } from "./types";
+import { getItemSearchBody } from "@/lib/workspace/workspace-item-model";
 
 /**
  * Extracts searchable text from an item's data field
  */
 function getSearchableDataText(item: Item): string {
-  const { data, type } = item;
-
-  switch (type) {
-    case "pdf": {
-      const pdfData = data as PdfData;
-      return getOcrPagesTextContent(pdfData.ocrPages);
-    }
-
-    case "document": {
-      const documentData = data as DocumentData;
-      return documentData.markdown ?? "";
-    }
-
-    default:
-      return "";
-  }
+  return getItemSearchBody(item);
 }
 
 /**

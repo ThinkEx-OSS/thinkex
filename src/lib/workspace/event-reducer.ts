@@ -1,6 +1,7 @@
 import type { WorkspaceState } from "@/lib/workspace-state/types";
 import type { WorkspaceEvent } from "./events";
 import { initialState } from "@/lib/workspace-state/state";
+import { normalizeItem } from "./workspace-item-model";
 
 /**
  * Event Reducer: Pure function that applies an event to state
@@ -12,7 +13,7 @@ export function eventReducer(
 ): WorkspaceState {
   switch (event.type) {
     case "ITEM_CREATED": {
-      const item = event.payload.item;
+      const item = normalizeItem(event.payload.item);
       const now = event.timestamp || Date.now();
       return {
         ...state,
@@ -26,7 +27,7 @@ export function eventReducer(
         ...state,
         items: state.items.map((item) =>
           item.id === event.payload.id
-            ? {
+            ? normalizeItem({
                 ...item,
                 ...event.payload.changes,
                 // Deep merge data field to preserve existing properties like sources
@@ -37,7 +38,7 @@ export function eventReducer(
                     }
                   : item.data,
                 lastModified: now,
-              }
+              })
             : item,
         ),
       };
@@ -55,7 +56,7 @@ export function eventReducer(
           const update = updateMap.get(item.id);
           if (!update) return item;
 
-          return {
+          return normalizeItem({
             ...item,
             ...update.changes,
             data: update.changes.data
@@ -65,7 +66,7 @@ export function eventReducer(
                 }
               : item.data,
             lastModified: now,
-          };
+          });
         }),
       };
     }
@@ -113,10 +114,12 @@ export function eventReducer(
 
       // Items added: send only addedItems
       if (p.addedItems && p.addedItems.length > 0) {
-        const added = p.addedItems.map((item) => ({
-          ...item,
-          lastModified: now,
-        }));
+        const added = p.addedItems.map((item) =>
+          normalizeItem({
+            ...item,
+            lastModified: now,
+          }),
+        );
         return { ...state, items: [...state.items, ...added] };
       }
 
@@ -129,9 +132,11 @@ export function eventReducer(
             .map((i) => i.id),
         );
         const cleanedItems = p.items.map((item) =>
-          item.folderId && deletedFolderIds.has(item.folderId)
-            ? { ...item, folderId: undefined, layout: undefined }
-            : item,
+          normalizeItem(
+            item.folderId && deletedFolderIds.has(item.folderId)
+              ? { ...item, folderId: undefined, layout: undefined }
+              : item,
+          ),
         );
         return { ...state, items: cleanedItems };
       }
@@ -156,10 +161,12 @@ export function eventReducer(
 
     case "BULK_ITEMS_CREATED": {
       const now = event.timestamp || Date.now();
-      const itemsWithModified = event.payload.items.map((item) => ({
-        ...item,
-        lastModified: now,
-      }));
+      const itemsWithModified = event.payload.items.map((item) =>
+        normalizeItem({
+          ...item,
+          lastModified: now,
+        }),
+      );
       return {
         ...state,
         items: [...state.items, ...itemsWithModified],
@@ -222,7 +229,7 @@ export function eventReducer(
 
     case "FOLDER_CREATED_WITH_ITEMS": {
       const now = event.timestamp || Date.now();
-      const folder = { ...event.payload.folder, lastModified: now };
+      const folder = normalizeItem({ ...event.payload.folder, lastModified: now });
       const itemIdsSet = new Set(event.payload.itemIds);
       const folderId = folder.id;
 
