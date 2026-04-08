@@ -1,5 +1,4 @@
 import type {
-  AgentState,
   Item,
   PdfData,
   FlashcardData,
@@ -10,6 +9,7 @@ import type {
   AudioData,
   WebsiteData,
   DocumentData,
+  WorkspaceState,
 } from "@/lib/workspace-state/types";
 import { getVirtualPath } from "./workspace-fs";
 import { getPdfSourceUrl } from "@/lib/pdf/pdf-item";
@@ -71,7 +71,7 @@ function formatItemMetadata(
  * Replaces per-card context registration — send this once in workspace context.
  * Content is available via selected cards context or on-demand workspace tools.
  */
-export function formatWorkspaceFS(state: AgentState): string {
+export function formatWorkspaceFS(state: WorkspaceState): string {
   const { items = [] } = state;
   const contentItems = items.filter((i) => i.type !== "folder");
   if (contentItems.length === 0) {
@@ -92,14 +92,13 @@ ${entries.join("\n")}
 /**
  * Formats minimal workspace context (metadata and system instructions only)
  * Workspace FS (formatWorkspaceFS) provides the item tree and metadata only.
- * @param workspaceNameFallback - Fallback from DB (workspace.name) when state.globalTitle is empty
+ * @param workspaceNameFallback - Canonical workspace name from `workspaces.name`
  */
 export function formatWorkspaceContext(
-  state: AgentState,
+  state: WorkspaceState,
   workspaceNameFallback?: string,
 ): string {
-  const displayTitle =
-    state.globalTitle || workspaceNameFallback || "(untitled)";
+  const displayTitle = workspaceNameFallback || "(untitled)";
   const currentDate = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",

@@ -2,7 +2,7 @@
  * Shared utilities for AI tools
  */
 
-import { loadWorkspaceState } from "@/lib/workspace/state-loader";
+import { loadWorkspaceItemsState } from "@/lib/workspace/workspace-items-projection";
 import type { Item } from "@/lib/workspace-state/types";
 import type { WorkspaceToolContext } from "./workspace-tools";
 import { resolveItemByPath } from "./workspace-search-utils";
@@ -59,7 +59,7 @@ export async function loadStateForTool(
         return { success: false, message: "No workspace context available" };
     }
 
-    const state = await loadWorkspaceState(ctx.workspaceId);
+    const state = await loadWorkspaceItemsState(ctx.workspaceId);
     return { success: true, state };
 }
 

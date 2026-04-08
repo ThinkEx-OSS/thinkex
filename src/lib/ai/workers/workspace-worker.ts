@@ -3,7 +3,7 @@ import { createPatch, diffLines } from "diff";
 import { auth } from "@/lib/auth";
 import { db, workspaces } from "@/lib/db/client";
 import { workspaceCollaborators } from "@/lib/db/schema";
-import { eq, sql, and } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { createEvent } from "@/lib/workspace/events";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import { getRandomCardColor } from "@/lib/workspace-state/colors";
@@ -20,7 +20,6 @@ import type {
 } from "@/lib/workspace-state/types";
 import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
 import { executeWorkspaceOperation } from "./common";
-import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import { hasDuplicateName } from "@/lib/workspace/unique-name";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 import {
@@ -31,6 +30,14 @@ import {
 import { parseJsonWithRepair } from "@/lib/utils/json-repair";
 import { buildPdfDataFromUpload } from "@/lib/pdf/pdf-item";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
+import {
+  getWorkspaceEventVersion,
+  loadWorkspaceItemsState,
+} from "@/lib/workspace/workspace-items-projection";
+import {
+  appendWorkspaceEventAtCurrentVersionWithProjection,
+  appendWorkspaceEventWithProjection,
+} from "@/lib/workspace/workspace-event-store";
 
 /** Create params for a single item (used by create and bulkCreate). Exported for autogen. */
 export type CreateItemParams = {
@@ -179,62 +186,6 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
   };
 }
 
-/**
- * Parse the PostgreSQL result from append_workspace_event
- * Returns { version: number, conflict: boolean }
- * Defensively handles various formats and falls back to safe defaults on parse failure.
- */
-function parseAppendResult(rawResult: string | any): {
-  version: number;
-  conflict: boolean;
-} {
-  // If it's already an object, try to extract version and conflict
-  if (typeof rawResult === "object" && rawResult !== null) {
-    // Coerce version to number, handling string-typed fields
-    const versionNum =
-      typeof rawResult.version === "number"
-        ? rawResult.version
-        : Number(rawResult.version);
-    const version = isNaN(versionNum) ? 0 : versionNum;
-
-    // Normalize conflict from boolean or string ('t'/'f'/'true'/'false')
-    let conflict = false;
-    if (typeof rawResult.conflict === "boolean") {
-      conflict = rawResult.conflict;
-    } else if (typeof rawResult.conflict === "string") {
-      const conflictStr = rawResult.conflict.toLowerCase().trim();
-      conflict = conflictStr === "t" || conflictStr === "true";
-    }
-
-    return { version, conflict };
-  }
-
-  // PostgreSQL returns result as string like "(6,t)" - need to parse it
-  // Make regex more lenient: allow whitespace, case-insensitive, accept 'true'/'false'
-  const resultString =
-    typeof rawResult === "string" ? rawResult : String(rawResult);
-  // Match: (number, t|f|true|false) with optional whitespace
-  const match = resultString.match(/\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i);
-
-  if (!match) {
-    logger.error(
-      `[WORKSPACE-WORKER] Failed to parse PostgreSQL result:`,
-      rawResult,
-    );
-    // Fall back to safe defaults instead of throwing
-    return { version: 0, conflict: false };
-  }
-
-  const versionNum = parseInt(match[1], 10);
-  const conflictStr = match[2].toLowerCase();
-  const conflict = conflictStr === "t" || conflictStr === "true";
-
-  return {
-    version: isNaN(versionNum) ? 0 : versionNum,
-    conflict,
-  };
-}
-
 async function broadcastPersistedWorkspaceEvent(
   workspaceId: string,
   event: WorkspaceEvent,
@@ -244,6 +195,23 @@ async function broadcastPersistedWorkspaceEvent(
     ...event,
     version,
   });
+}
+
+async function appendWorkspaceEventOrThrow(
+  workspaceId: string,
+  event: WorkspaceEvent,
+  conflictMessage: string,
+): Promise<{ version: number; conflict: boolean }> {
+  const result = await appendWorkspaceEventAtCurrentVersionWithProjection({
+    workspaceId,
+    event,
+  });
+
+  if (result.conflict) {
+    throw new Error(conflictMessage);
+  }
+
+  return result;
 }
 
 /**
@@ -391,7 +359,7 @@ export async function workspaceWorker(
         // Handle different actions
         if (action === "create") {
           const item = await buildItemFromCreateParams(params);
-          const currentState = await loadWorkspaceState(params.workspaceId);
+          const currentState = await loadWorkspaceItemsState(params.workspaceId);
           if (
             hasDuplicateName(
               currentState.items,
@@ -425,35 +393,15 @@ export async function workspaceWorker(
           let retryCount = 0;
 
           // Get initial version
-          const currentVersionResult = await db.execute(sql`
-          SELECT get_workspace_version(${params.workspaceId}::uuid) as version
-        `);
-          const baseVersionRaw = currentVersionResult[0]?.version;
-          baseVersion =
-            typeof baseVersionRaw === "number"
-              ? baseVersionRaw
-              : Number(baseVersionRaw) || 0;
+          baseVersion = await getWorkspaceEventVersion(params.workspaceId);
           appendResult = { version: baseVersion, conflict: false };
 
           while (retryCount <= maxRetries) {
-            const eventResult = await db.execute(sql`
-            SELECT append_workspace_event(
-              ${params.workspaceId}::uuid,
-              ${event.id}::text,
-              ${event.type}::text,
-              ${JSON.stringify(event.payload)}::jsonb,
-              ${event.timestamp}::bigint,
-              ${event.userId}::text,
-              ${baseVersion}::integer,
-              ${event.userName ?? null}::text
-            ) as result
-          `);
-
-            if (!eventResult || eventResult.length === 0) {
-              throw new Error(`Failed to create ${item.type}`);
-            }
-
-            appendResult = parseAppendResult(eventResult[0].result);
+            appendResult = await appendWorkspaceEventWithProjection({
+              workspaceId: params.workspaceId,
+              event,
+              baseVersion,
+            });
 
             // If no conflict, we're done
             if (!appendResult.conflict) {
@@ -527,34 +475,11 @@ export async function workspaceWorker(
             userName,
           );
 
-          const currentVersionResult = await db.execute(sql`
-                    SELECT get_workspace_version(${params.workspaceId}::uuid) as version
-                `);
-          const baseVersion = Number(currentVersionResult[0]?.version) || 0;
-
-          const eventResult = await db.execute(sql`
-                    SELECT append_workspace_event(
-                        ${params.workspaceId}::uuid,
-                        ${event.id}::text,
-                        ${event.type}::text,
-                        ${JSON.stringify(event.payload)}::jsonb,
-                        ${event.timestamp}::bigint,
-                        ${event.userId}::text,
-                        ${baseVersion}::integer,
-                        ${event.userName ?? null}::text
-                    ) as result
-                `);
-
-          if (!eventResult || eventResult.length === 0) {
-            throw new Error("Failed to bulk create items");
-          }
-
-          const appendResult = parseAppendResult(eventResult[0].result);
-          if (appendResult.conflict) {
-            throw new Error(
-              "Workspace was modified by another user, please try again",
-            );
-          }
+          const appendResult = await appendWorkspaceEventOrThrow(
+            params.workspaceId,
+            event,
+            "Workspace was modified by another user, please try again",
+          );
 
           logger.info(
             `📝 [WORKSPACE-WORKER] Bulk created ${items.length} items`,
@@ -584,7 +509,7 @@ export async function workspaceWorker(
           }
 
           // Use helper to load current state (duplicated logic removed)
-          const currentState = await loadWorkspaceState(params.workspaceId);
+          const currentState = await loadWorkspaceItemsState(params.workspaceId);
 
           const existingItem = currentState.items.find(
             (i: any) => i.id === params.itemId,
@@ -650,38 +575,11 @@ export async function workspaceWorker(
             userName,
           );
 
-          const currentVersionResult = await db.execute(sql`
-          SELECT get_workspace_version(${params.workspaceId}::uuid) as version
-        `);
-
-          const baseVersion = currentVersionResult[0]?.version || 0;
-
-          const eventResult = await db.execute(sql`
-          SELECT append_workspace_event(
-            ${params.workspaceId}::uuid,
-            ${event.id}::text,
-            ${event.type}::text,
-            ${JSON.stringify(event.payload)}::jsonb,
-            ${event.timestamp}::bigint,
-              ${event.userId}::text,
-              ${baseVersion}::integer,
-              ${event.userName ?? null}::text
-          ) as result
-        `);
-
-          if (!eventResult || eventResult.length === 0) {
-            throw new Error(
-              "Failed to update flashcard deck: database returned no result",
-            );
-          }
-
-          const appendResult = parseAppendResult(eventResult[0].result);
-
-          if (appendResult.conflict) {
-            throw new Error(
-              "Workspace was modified by another user, please try again",
-            );
-          }
+          const appendResult = await appendWorkspaceEventOrThrow(
+            params.workspaceId,
+            event,
+            "Workspace was modified by another user, please try again",
+          );
 
           logger.info("🎴 [WORKSPACE-WORKER] Updated flashcard deck:", {
             itemId: params.itemId,
@@ -728,7 +626,7 @@ export async function workspaceWorker(
             titleUpdate: hasTitle,
           });
 
-          const currentState = await loadWorkspaceState(params.workspaceId);
+          const currentState = await loadWorkspaceItemsState(params.workspaceId);
 
           const existingItem = currentState.items.find(
             (i: any) => i.id === params.itemId,
@@ -793,54 +691,16 @@ export async function workspaceWorker(
               ?.length,
           });
 
-          const currentVersionResult = await db.execute(sql`
-          SELECT get_workspace_version(${params.workspaceId}::uuid) as version
-        `);
-
-          const baseVersion = currentVersionResult[0]?.version || 0;
-          logger.debug("📝 [UPDATE-QUIZ-DB] Current version:", { baseVersion });
-
           logger.debug("📝 [UPDATE-QUIZ-DB] Calling append_workspace_event...");
-          const eventResult = await db.execute(sql`
-          SELECT append_workspace_event(
-            ${params.workspaceId}::uuid,
-            ${event.id}::text,
-            ${event.type}::text,
-            ${JSON.stringify(event.payload)}::jsonb,
-            ${event.timestamp}::bigint,
-            ${event.userId}::text,
-            ${baseVersion}::integer,
-            ${event.userName ?? null}::text
-          ) as result
-        `);
-
-          logger.info("📝 [UPDATE-QUIZ-DB] append_workspace_event result:", {
-            hasResult: !!eventResult,
-            resultLength: eventResult?.length,
-            rawResult: JSON.stringify(eventResult),
-          });
-
-          if (!eventResult || eventResult.length === 0) {
-            logger.error(
-              "❌ [UPDATE-QUIZ-DB] No result from append_workspace_event",
-            );
-            throw new Error(
-              "Failed to update quiz: database returned no result",
-            );
-          }
-
-          const appendResult = parseAppendResult(eventResult[0].result);
+          const appendResult = await appendWorkspaceEventOrThrow(
+            params.workspaceId,
+            event,
+            "Workspace was modified by another user, please try again",
+          );
           logger.info("📝 [UPDATE-QUIZ-DB] Parsed result:", {
             version: appendResult.version,
             conflict: appendResult.conflict,
           });
-
-          if (appendResult.conflict) {
-            logger.error("❌ [UPDATE-QUIZ-DB] Version conflict detected");
-            throw new Error(
-              "Workspace was modified by another user, please try again",
-            );
-          }
 
           logger.info("🎯 [WORKSPACE-WORKER] Updated quiz:", {
             itemId: params.itemId,
@@ -883,7 +743,7 @@ export async function workspaceWorker(
             );
           }
 
-          const currentState = await loadWorkspaceState(params.workspaceId);
+          const currentState = await loadWorkspaceItemsState(params.workspaceId);
           const existingItem = currentState.items.find(
             (i: any) => i.id === params.itemId,
           );
@@ -937,36 +797,11 @@ export async function workspaceWorker(
             userName,
           );
 
-          const currentVersionResult = await db.execute(sql`
-          SELECT get_workspace_version(${params.workspaceId}::uuid) as version
-        `);
-          const baseVersion = currentVersionResult[0]?.version || 0;
-
-          const eventResult = await db.execute(sql`
-          SELECT append_workspace_event(
-            ${params.workspaceId}::uuid,
-            ${event.id}::text,
-            ${event.type}::text,
-            ${JSON.stringify(event.payload)}::jsonb,
-            ${event.timestamp}::bigint,
-              ${event.userId}::text,
-              ${baseVersion}::integer,
-              ${event.userName ?? null}::text
-          ) as result
-        `);
-
-          if (!eventResult || eventResult.length === 0) {
-            throw new Error(
-              "Failed to update PDF content: database returned no result",
-            );
-          }
-
-          const appendResult = parseAppendResult(eventResult[0].result);
-          if (appendResult.conflict) {
-            throw new Error(
-              "Workspace was modified by another user, please try again",
-            );
-          }
+          const appendResult = await appendWorkspaceEventOrThrow(
+            params.workspaceId,
+            event,
+            "Workspace was modified by another user, please try again",
+          );
 
           const contentLen = getOcrPagesTextContent(params.pdfOcrPages).length;
           logger.info("📄 [WORKSPACE-WORKER] Updated PDF OCR content:", {
@@ -1003,7 +838,7 @@ export async function workspaceWorker(
             );
           }
 
-          const currentState = await loadWorkspaceState(params.workspaceId);
+          const currentState = await loadWorkspaceItemsState(params.workspaceId);
           const existingItem = currentState.items.find(
             (i: any) => i.id === params.itemId,
           );
@@ -1042,36 +877,11 @@ export async function workspaceWorker(
             userName,
           );
 
-          const currentVersionResult = await db.execute(sql`
-          SELECT get_workspace_version(${params.workspaceId}::uuid) as version
-        `);
-          const baseVersion = currentVersionResult[0]?.version || 0;
-
-          const eventResult = await db.execute(sql`
-          SELECT append_workspace_event(
-            ${params.workspaceId}::uuid,
-            ${event.id}::text,
-            ${event.type}::text,
-            ${JSON.stringify(event.payload)}::jsonb,
-            ${event.timestamp}::bigint,
-            ${event.userId}::text,
-            ${baseVersion}::integer,
-            ${event.userName ?? null}::text
-          ) as result
-        `);
-
-          if (!eventResult || eventResult.length === 0) {
-            throw new Error(
-              "Failed to update image content: database returned no result",
-            );
-          }
-
-          const appendResult = parseAppendResult(eventResult[0].result);
-          if (appendResult.conflict) {
-            throw new Error(
-              "Workspace was modified by another user, please try again",
-            );
-          }
+          const appendResult = await appendWorkspaceEventOrThrow(
+            params.workspaceId,
+            event,
+            "Workspace was modified by another user, please try again",
+          );
 
           await broadcastPersistedWorkspaceEvent(
             params.workspaceId,
@@ -1106,7 +916,7 @@ export async function workspaceWorker(
             throw new Error("oldString and newString required for edit");
           }
 
-          const currentState = await loadWorkspaceState(params.workspaceId);
+          const currentState = await loadWorkspaceItemsState(params.workspaceId);
           const existingItem = currentState.items.find(
             (i: Item) => i.id === params.itemId,
           );
@@ -1197,24 +1007,11 @@ export async function workspaceWorker(
               userId,
               userName,
             );
-            const currentVersionResult = await db.execute(sql`
-                        SELECT get_workspace_version(${params.workspaceId}::uuid) as version
-                    `);
-            const baseVersion = currentVersionResult[0]?.version || 0;
-            const eventResult = await db.execute(sql`
-                        SELECT append_workspace_event(
-                            ${params.workspaceId}::uuid, ${event.id}::text, ${event.type}::text,
-                            ${JSON.stringify(event.payload)}::jsonb, ${event.timestamp}::bigint, ${event.userId}::text,
-                            ${baseVersion}::integer, ${event.userName ?? null}::text
-                        ) as result
-                    `);
-            if (!eventResult?.length)
-              throw new Error("Failed to update flashcard deck");
-            const appendResult = parseAppendResult(eventResult[0].result);
-            if (appendResult.conflict)
-              throw new Error(
-                "Workspace was modified by another user, please try again",
-              );
+            const appendResult = await appendWorkspaceEventOrThrow(
+              params.workspaceId,
+              event,
+              "Workspace was modified by another user, please try again",
+            );
 
             await broadcastPersistedWorkspaceEvent(
               params.workspaceId,
@@ -1332,23 +1129,11 @@ export async function workspaceWorker(
               userId,
               userName,
             );
-            const currentVersionResult = await db.execute(sql`
-                        SELECT get_workspace_version(${params.workspaceId}::uuid) as version
-                    `);
-            const baseVersion = currentVersionResult[0]?.version || 0;
-            const eventResult = await db.execute(sql`
-                        SELECT append_workspace_event(
-                            ${params.workspaceId}::uuid, ${event.id}::text, ${event.type}::text,
-                            ${JSON.stringify(event.payload)}::jsonb, ${event.timestamp}::bigint, ${event.userId}::text,
-                            ${baseVersion}::integer, ${event.userName ?? null}::text
-                        ) as result
-                    `);
-            if (!eventResult?.length) throw new Error("Failed to update quiz");
-            const appendResult = parseAppendResult(eventResult[0].result);
-            if (appendResult.conflict)
-              throw new Error(
-                "Workspace was modified by another user, please try again",
-              );
+            const appendResult = await appendWorkspaceEventOrThrow(
+              params.workspaceId,
+              event,
+              "Workspace was modified by another user, please try again",
+            );
 
             await broadcastPersistedWorkspaceEvent(
               params.workspaceId,
@@ -1439,24 +1224,11 @@ export async function workspaceWorker(
               userId,
               userName,
             );
-            const currentVersionResult = await db.execute(sql`
-                        SELECT get_workspace_version(${params.workspaceId}::uuid) as version
-                    `);
-            const baseVersion = currentVersionResult[0]?.version || 0;
-            const eventResult = await db.execute(sql`
-                        SELECT append_workspace_event(
-                            ${params.workspaceId}::uuid, ${event.id}::text, ${event.type}::text,
-                            ${JSON.stringify(event.payload)}::jsonb, ${event.timestamp}::bigint, ${event.userId}::text,
-                            ${baseVersion}::integer, ${event.userName ?? null}::text
-                        ) as result
-                    `);
-            if (!eventResult?.length)
-              throw new Error("Failed to update document");
-            const appendResult = parseAppendResult(eventResult[0].result);
-            if (appendResult.conflict)
-              throw new Error(
-                "Workspace was modified by another user, please try again",
-              );
+            const appendResult = await appendWorkspaceEventOrThrow(
+              params.workspaceId,
+              event,
+              "Workspace was modified by another user, please try again",
+            );
 
             await broadcastPersistedWorkspaceEvent(
               params.workspaceId,
@@ -1521,23 +1293,11 @@ export async function workspaceWorker(
               userId,
               userName,
             );
-            const currentVersionResult = await db.execute(sql`
-                        SELECT get_workspace_version(${params.workspaceId}::uuid) as version
-                    `);
-            const baseVersion = currentVersionResult[0]?.version || 0;
-            const eventResult = await db.execute(sql`
-                        SELECT append_workspace_event(
-                            ${params.workspaceId}::uuid, ${event.id}::text, ${event.type}::text,
-                            ${JSON.stringify(event.payload)}::jsonb, ${event.timestamp}::bigint, ${event.userId}::text,
-                            ${baseVersion}::integer, ${event.userName ?? null}::text
-                        ) as result
-                    `);
-            if (!eventResult?.length) throw new Error("Failed to update PDF");
-            const appendResult = parseAppendResult(eventResult[0].result);
-            if (appendResult.conflict)
-              throw new Error(
-                "Workspace was modified by another user, please try again",
-              );
+            const appendResult = await appendWorkspaceEventOrThrow(
+              params.workspaceId,
+              event,
+              "Workspace was modified by another user, please try again",
+            );
             await broadcastPersistedWorkspaceEvent(
               params.workspaceId,
               event,
@@ -1560,7 +1320,7 @@ export async function workspaceWorker(
             throw new Error("Item ID required for delete");
           }
 
-          const currentState = await loadWorkspaceState(params.workspaceId);
+          const currentState = await loadWorkspaceItemsState(params.workspaceId);
           const existingItem = currentState.items.find(
             (i: any) => i.id === params.itemId,
           );
@@ -1571,35 +1331,11 @@ export async function workspaceWorker(
             userName,
           );
 
-          const currentVersionResult = await db.execute(sql`
-          SELECT get_workspace_version(${params.workspaceId}::uuid) as version
-        `);
-
-          const baseVersion = currentVersionResult[0]?.version || 0;
-
-          const eventResult = await db.execute(sql`
-          SELECT append_workspace_event(
-            ${params.workspaceId}::uuid,
-            ${event.id}::text,
-            ${event.type}::text,
-            ${JSON.stringify(event.payload)}::jsonb,
-            ${event.timestamp}::bigint,
-              ${event.userId}::text,
-              ${baseVersion}::integer,
-              ${event.userName ?? null}::text
-          ) as result
-        `);
-
-          if (!eventResult || eventResult.length === 0) {
-            throw new Error("Failed to delete item");
-          }
-
-          const appendResult = parseAppendResult(eventResult[0].result);
-          if (appendResult.conflict) {
-            throw new Error(
-              "Workspace was modified by another user, please try again",
-            );
-          }
+          const appendResult = await appendWorkspaceEventOrThrow(
+            params.workspaceId,
+            event,
+            "Workspace was modified by another user, please try again",
+          );
 
           logger.info("📝 [WORKSPACE-WORKER] Deleted item:", params.itemId);
 

@@ -1,60 +1,28 @@
-import { sql } from "drizzle-orm";
-import { db } from "@/lib/db/client";
 import { createEvent } from "@/lib/workspace/events";
-import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 import type { OcrItemResult } from "@/lib/ocr/types";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
 import type { ImageData, Item, PdfData } from "@/lib/workspace-state/types";
-
-const APPEND_RESULT_REGEX = /\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i;
+import { appendWorkspaceEventAtCurrentVersionWithProjection } from "@/lib/workspace/workspace-event-store";
 
 async function appendWorkspaceEvent(
   workspaceId: string,
   event: WorkspaceEvent,
 ): Promise<void> {
-  const versionResult = await db.execute(sql`
-    SELECT get_workspace_version(${workspaceId}::uuid) as version
-  `);
-  const baseVersion = versionResult[0]?.version ?? 0;
+  const result = await appendWorkspaceEventAtCurrentVersionWithProjection({
+    workspaceId,
+    event,
+  });
 
-  const appendResult = await db.execute(sql`
-    SELECT append_workspace_event(
-      ${workspaceId}::uuid,
-      ${event.id}::text,
-      ${event.type}::text,
-      ${JSON.stringify(event.payload)}::jsonb,
-      ${event.timestamp}::bigint,
-      ${event.userId}::text,
-      ${baseVersion}::integer,
-      NULL::text
-    ) as result
-  `);
-
-  if (!appendResult || appendResult.length === 0 || !appendResult[0]) {
+  if (result.conflict) {
     throw new Error(
-      "append_workspace_event returned no result — database may have failed",
-    );
-  }
-
-  const raw = appendResult[0].result as string;
-  const match = raw.match(APPEND_RESULT_REGEX);
-  if (!match) {
-    throw new Error(
-      `append_workspace_event returned unexpected format: ${raw}`,
-    );
-  }
-
-  const modified = match[2].toLowerCase();
-  if (modified === "t" || modified === "true") {
-    throw new Error(
-      `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${baseVersion}). Workflow will retry automatically.`,
+      `Version conflict appending event ${event.id} to workspace ${workspaceId}. Workflow will retry automatically.`,
     );
   }
 
   await broadcastWorkspaceEventFromServer(workspaceId, {
     ...event,
-    version: Number(match[1]),
+    version: result.version,
   });
 }
 
@@ -95,5 +63,4 @@ export async function persistOcrResults(
   );
 
   await appendWorkspaceEvent(workspaceId, event);
-  checkAndCreateSnapshot(workspaceId).catch(() => {});
 }

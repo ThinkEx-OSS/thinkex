@@ -3,8 +3,11 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 const mockGetSession = vi.fn();
 const mockHeaders = vi.fn();
 const mockLoadWorkspaceState = vi.fn();
+const mockGetWorkspaceEventVersion = vi.fn();
 const mockCreateEvent = vi.fn();
 const mockExecute = vi.fn();
+const mockAppendWorkspaceEventAtCurrentVersionWithProjection = vi.fn();
+const mockAppendWorkspaceEventWithProjection = vi.fn();
 const mockBroadcastWorkspaceEventFromServer = vi.fn();
 
 const mockLimit = vi.fn();
@@ -33,6 +36,22 @@ vi.mock("@/lib/db/client", () => ({
     id: "id",
     userId: "userId",
   },
+  workspaceItems: {
+    workspaceId: "workspaceId",
+    itemId: "itemId",
+    type: "type",
+    name: "name",
+    subtitle: "subtitle",
+    data: "data",
+    color: "color",
+    folderId: "folderId",
+    layout: "layout",
+    lastModified: "lastModified",
+  },
+  workspaceItemProjectionState: {
+    workspaceId: "workspaceId",
+    lastAppliedVersion: "lastAppliedVersion",
+  },
 }));
 
 vi.mock("@/lib/db/schema", () => ({
@@ -43,8 +62,17 @@ vi.mock("@/lib/db/schema", () => ({
   },
 }));
 
-vi.mock("@/lib/workspace/state-loader", () => ({
-  loadWorkspaceState: (...args: any[]) => mockLoadWorkspaceState(...args),
+vi.mock("@/lib/workspace/workspace-items-projection", () => ({
+  loadWorkspaceItemsState: (...args: any[]) => mockLoadWorkspaceState(...args),
+  getWorkspaceEventVersion: (...args: any[]) =>
+    mockGetWorkspaceEventVersion(...args),
+}));
+
+vi.mock("@/lib/workspace/workspace-event-store", () => ({
+  appendWorkspaceEventAtCurrentVersionWithProjection: (...args: any[]) =>
+    mockAppendWorkspaceEventAtCurrentVersionWithProjection(...args),
+  appendWorkspaceEventWithProjection: (...args: any[]) =>
+    mockAppendWorkspaceEventWithProjection(...args),
 }));
 
 vi.mock("@/lib/workspace/events", () => ({
@@ -78,6 +106,15 @@ describe("workspaceWorker edit end-to-end paths", () => {
     mockHeaders.mockResolvedValue(new Headers());
     mockGetSession.mockResolvedValue({ user: { id: "user-1" } });
     mockLimit.mockResolvedValue([{ userId: "user-1" }]); // workspace owner path
+    mockGetWorkspaceEventVersion.mockResolvedValue(0);
+    mockAppendWorkspaceEventAtCurrentVersionWithProjection.mockResolvedValue({
+      version: 1,
+      conflict: false,
+    });
+    mockAppendWorkspaceEventWithProjection.mockResolvedValue({
+      version: 1,
+      conflict: false,
+    });
     mockCreateEvent.mockImplementation((type: string, payload: unknown, userId: string) => ({
       id: "evt-1",
       type,
@@ -109,13 +146,13 @@ describe("workspaceWorker edit end-to-end paths", () => {
           },
         },
       ],
-      globalTitle: "",
       workspaceId: "ws-1",
     });
 
-    mockExecute
-      .mockResolvedValueOnce([{ version: 1 }]) // get_workspace_version
-      .mockResolvedValueOnce([{ result: "(2,f)" }]); // append_workspace_event
+    mockAppendWorkspaceEventAtCurrentVersionWithProjection.mockResolvedValueOnce({
+      version: 2,
+      conflict: false,
+    });
 
     const result = await workspaceWorker("edit", {
       workspaceId: "ws-1",
@@ -168,13 +205,13 @@ describe("workspaceWorker edit end-to-end paths", () => {
           },
         },
       ],
-      globalTitle: "",
       workspaceId: "ws-1",
     });
 
-    mockExecute
-      .mockResolvedValueOnce([{ version: 4 }]) // get_workspace_version
-      .mockResolvedValueOnce([{ result: "(5,f)" }]); // append_workspace_event
+    mockAppendWorkspaceEventAtCurrentVersionWithProjection.mockResolvedValueOnce({
+      version: 5,
+      conflict: false,
+    });
 
     const result = await workspaceWorker("edit", {
       workspaceId: "ws-1",
@@ -232,7 +269,6 @@ describe("workspaceWorker edit end-to-end paths", () => {
           },
         },
       ],
-      globalTitle: "",
       workspaceId: "ws-1",
     });
 
@@ -274,7 +310,6 @@ describe("workspaceWorker edit end-to-end paths", () => {
           },
         },
       ],
-      globalTitle: "",
       workspaceId: "ws-1",
     });
 
@@ -303,13 +338,13 @@ describe("workspaceWorker edit end-to-end paths", () => {
           data: { markdown },
         },
       ],
-      globalTitle: "",
       workspaceId: "ws-1",
     });
 
-    mockExecute
-      .mockResolvedValueOnce([{ version: 1 }]) // get_workspace_version
-      .mockResolvedValueOnce([{ result: "(2,f)" }]); // append_workspace_event
+    mockAppendWorkspaceEventAtCurrentVersionWithProjection.mockResolvedValueOnce({
+      version: 2,
+      conflict: false,
+    });
 
     const result = await workspaceWorker("edit", {
       workspaceId: "ws-1",
@@ -371,7 +406,6 @@ describe("workspaceWorker edit end-to-end paths", () => {
           },
         },
       ],
-      globalTitle: "",
       workspaceId: "ws-1",
     });
 

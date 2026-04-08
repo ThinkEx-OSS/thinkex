@@ -1,10 +1,8 @@
-import { sql } from "drizzle-orm";
-import { db } from "@/lib/db/client";
 import { createEvent } from "@/lib/workspace/events";
-import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
 import type { AudioData, Item } from "@/lib/workspace-state/types";
 import type { TranscribeResult } from "./transcribe";
+import { appendWorkspaceEventAtCurrentVersionWithProjection } from "@/lib/workspace/workspace-event-store";
 
 /**
  * Persist transcription result to workspace as ITEM_UPDATED event.
@@ -35,45 +33,19 @@ export async function persistAudioResult(
     userId,
   );
 
-  const versionResult = await db.execute(sql`
-    SELECT get_workspace_version(${workspaceId}::uuid) as version
-  `);
-  const baseVersion = versionResult[0]?.version ?? 0;
-
-  const appendResult = await db.execute(sql`
-    SELECT append_workspace_event(
-      ${workspaceId}::uuid,
-      ${event.id}::text,
-      ${event.type}::text,
-      ${JSON.stringify(event.payload)}::jsonb,
-      ${event.timestamp}::bigint,
-      ${event.userId}::text,
-      ${baseVersion}::integer,
-      NULL::text
-    ) as result
-  `);
-
-  const raw = appendResult[0]?.result as string | undefined;
-  if (raw) {
-    const match = raw.match(/\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i);
-    if (!match) {
-      throw new Error(
-        `append_workspace_event returned unexpected format: ${raw}`,
-      );
-    }
-    const modified = match[2].toLowerCase();
-    if (modified === "t" || modified === "true") {
-      throw new Error(
-        `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${versionResult[0]?.version ?? 0}). Workflow will retry automatically.`,
-      );
-    }
-
-    await broadcastWorkspaceEventFromServer(workspaceId, {
-      ...event,
-      version: Number(match[1]),
-    });
+  const appendResult = await appendWorkspaceEventAtCurrentVersionWithProjection({
+    workspaceId,
+    event,
+  });
+  if (appendResult.conflict) {
+    throw new Error(
+      `Version conflict appending event ${event.id} to workspace ${workspaceId}. Workflow will retry automatically.`,
+    );
   }
-  checkAndCreateSnapshot(workspaceId).catch(() => {});
+  await broadcastWorkspaceEventFromServer(workspaceId, {
+    ...event,
+    version: appendResult.version,
+  });
 }
 
 /**
@@ -102,43 +74,17 @@ export async function persistAudioFailure(
     userId,
   );
 
-  const versionResult = await db.execute(sql`
-    SELECT get_workspace_version(${workspaceId}::uuid) as version
-  `);
-  const baseVersion = versionResult[0]?.version ?? 0;
-
-  const appendResult = await db.execute(sql`
-    SELECT append_workspace_event(
-      ${workspaceId}::uuid,
-      ${event.id}::text,
-      ${event.type}::text,
-      ${JSON.stringify(event.payload)}::jsonb,
-      ${event.timestamp}::bigint,
-      ${event.userId}::text,
-      ${baseVersion}::integer,
-      NULL::text
-    ) as result
-  `);
-
-  const raw = appendResult[0]?.result as string | undefined;
-  if (raw) {
-    const match = raw.match(/\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i);
-    if (!match) {
-      throw new Error(
-        `append_workspace_event returned unexpected format: ${raw}`,
-      );
-    }
-    const modified = match[2].toLowerCase();
-    if (modified === "t" || modified === "true") {
-      throw new Error(
-        `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${versionResult[0]?.version ?? 0}). Workflow will retry automatically.`,
-      );
-    }
-
-    await broadcastWorkspaceEventFromServer(workspaceId, {
-      ...event,
-      version: Number(match[1]),
-    });
+  const appendResult = await appendWorkspaceEventAtCurrentVersionWithProjection({
+    workspaceId,
+    event,
+  });
+  if (appendResult.conflict) {
+    throw new Error(
+      `Version conflict appending event ${event.id} to workspace ${workspaceId}. Workflow will retry automatically.`,
+    );
   }
-  checkAndCreateSnapshot(workspaceId).catch(() => {});
+  await broadcastWorkspaceEventFromServer(workspaceId, {
+    ...event,
+    version: appendResult.version,
+  });
 }
