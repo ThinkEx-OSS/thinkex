@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm/relations";
 import {
   workspaces,
+  workspaceSnapshots,
   workspaceEvents,
   workspaceItems,
   workspaceItemContent,
@@ -14,6 +15,7 @@ import {
 // workspace_shares removed - sharing is now fork-based (users import copies)
 
 export const workspacesRelations = relations(workspaces, ({ many, one }) => ({
+  workspaceSnapshots: many(workspaceSnapshots),
   workspaceEvents: many(workspaceEvents),
   workspaceItems: many(workspaceItems),
   workspaceItemContent: many(workspaceItemContent),
@@ -21,6 +23,16 @@ export const workspacesRelations = relations(workspaces, ({ many, one }) => ({
   workspaceItemUserState: many(workspaceItemUserState),
   workspaceItemProjectionState: one(workspaceItemProjectionState),
 }));
+
+export const workspaceSnapshotsRelations = relations(
+  workspaceSnapshots,
+  ({ one }) => ({
+    workspace: one(workspaces, {
+      fields: [workspaceSnapshots.workspaceId],
+      references: [workspaces.id],
+    }),
+  }),
+);
 
 export const workspaceEventsRelations = relations(
   workspaceEvents,
