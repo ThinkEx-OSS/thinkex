@@ -1,14 +1,19 @@
-import { sql } from "drizzle-orm";
-import { db } from "@/lib/db/client";
 import { createEvent } from "@/lib/workspace/events";
-import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
+import { appendWorkspaceEventOrThrow } from "@/lib/workspace/workspace-event-store";
 import type { AudioData, Item } from "@/lib/workspace-state/types";
 import type { TranscribeResult } from "./transcribe";
 
-/**
- * Persist transcription result to workspace as ITEM_UPDATED event.
- * Durable step — retriable.
- */
+async function appendAudioEvent(
+  workspaceId: string,
+  event: ReturnType<typeof createEvent>,
+) {
+  await appendWorkspaceEventOrThrow({
+    workspaceId,
+    event,
+    conflictMessage: `Version conflict appending event ${event.id} to workspace ${workspaceId}. Workflow will retry automatically.`,
+  });
+}
+
 export async function persistAudioResult(
   workspaceId: string,
   itemId: string,
@@ -22,62 +27,21 @@ export async function persistAudioResult(
     {
       id: itemId,
       changes: {
-        data: ({
+        data: {
           summary: result.summary,
           segments: result.segments,
           ...(typeof result.duration === "number" &&
             result.duration > 0 && { duration: result.duration }),
           processingStatus: "complete" as const,
-        } satisfies Partial<AudioData>) as Item["data"],
+        } satisfies Partial<AudioData> as Item["data"],
       },
     },
     userId,
   );
 
-  const versionResult = await db.execute(sql`
-    SELECT get_workspace_version(${workspaceId}::uuid) as version
-  `);
-  const baseVersion = versionResult[0]?.version ?? 0;
-
-  const appendResult = await db.execute(sql`
-    SELECT append_workspace_event(
-      ${workspaceId}::uuid,
-      ${event.id}::text,
-      ${event.type}::text,
-      ${JSON.stringify(event.payload)}::jsonb,
-      ${event.timestamp}::bigint,
-      ${event.userId}::text,
-      ${baseVersion}::integer,
-      NULL::text
-    ) as result
-  `);
-
-  const raw = appendResult[0]?.result as string | undefined;
-  if (raw) {
-    const match = raw.match(/\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i);
-    if (!match) {
-      throw new Error(
-        `append_workspace_event returned unexpected format: ${raw}`,
-      );
-    }
-    const modified = match[2].toLowerCase();
-    if (modified === "t" || modified === "true") {
-      throw new Error(
-        `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${versionResult[0]?.version ?? 0}). Workflow will retry automatically.`,
-      );
-    }
-
-    await broadcastWorkspaceEventFromServer(workspaceId, {
-      ...event,
-      version: Number(match[1]),
-    });
-  }
+  await appendAudioEvent(workspaceId, event);
 }
 
-/**
- * Persist audio processing failure to workspace.
- * Durable step — retriable.
- */
 export async function persistAudioFailure(
   workspaceId: string,
   itemId: string,
@@ -91,51 +55,14 @@ export async function persistAudioFailure(
     {
       id: itemId,
       changes: {
-        data: ({
+        data: {
           processingStatus: "failed" as const,
           error,
-        } satisfies Partial<AudioData>) as Item["data"],
+        } satisfies Partial<AudioData> as Item["data"],
       },
     },
     userId,
   );
 
-  const versionResult = await db.execute(sql`
-    SELECT get_workspace_version(${workspaceId}::uuid) as version
-  `);
-  const baseVersion = versionResult[0]?.version ?? 0;
-
-  const appendResult = await db.execute(sql`
-    SELECT append_workspace_event(
-      ${workspaceId}::uuid,
-      ${event.id}::text,
-      ${event.type}::text,
-      ${JSON.stringify(event.payload)}::jsonb,
-      ${event.timestamp}::bigint,
-      ${event.userId}::text,
-      ${baseVersion}::integer,
-      NULL::text
-    ) as result
-  `);
-
-  const raw = appendResult[0]?.result as string | undefined;
-  if (raw) {
-    const match = raw.match(/\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i);
-    if (!match) {
-      throw new Error(
-        `append_workspace_event returned unexpected format: ${raw}`,
-      );
-    }
-    const modified = match[2].toLowerCase();
-    if (modified === "t" || modified === "true") {
-      throw new Error(
-        `Version conflict appending event ${event.id} to workspace ${workspaceId} (baseVersion=${versionResult[0]?.version ?? 0}). Workflow will retry automatically.`,
-      );
-    }
-
-    await broadcastWorkspaceEventFromServer(workspaceId, {
-      ...event,
-      version: Number(match[1]),
-    });
-  }
+  await appendAudioEvent(workspaceId, event);
 }

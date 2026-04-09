@@ -10,7 +10,7 @@ import { loadWorkspaceState } from "@/lib/workspace/state-loader";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -23,10 +23,13 @@ export async function GET(
       .limit(1);
 
     if (!workspace[0]) {
-      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Workspace not found" },
+        { status: 404 },
+      );
     }
 
-    // Get workspace state by replaying events
+    // Get workspace state from projection tables
     const state = await loadWorkspaceState(id);
 
     // Return workspace data for forking (public access)
@@ -42,6 +45,9 @@ export async function GET(
     });
   } catch (error) {
     console.error("Error in GET /api/share/[id]:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

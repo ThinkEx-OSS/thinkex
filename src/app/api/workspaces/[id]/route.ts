@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, workspaces } from "@/lib/db/client";
 import { eq, and, ne } from "drizzle-orm";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
-import { requireAuth, verifyWorkspaceOwnership, verifyWorkspaceAccess, withErrorHandling } from "@/lib/api/workspace-helpers";
+import {
+  requireAuth,
+  verifyWorkspaceOwnership,
+  verifyWorkspaceAccess,
+  withErrorHandling,
+} from "@/lib/api/workspace-helpers";
 import { generateSlug } from "@/lib/workspace/slug";
 
 /**
@@ -12,7 +17,7 @@ import { generateSlug } from "@/lib/workspace/slug";
  */
 async function handleGET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   // Start independent operations in parallel
   const paramsPromise = params;
@@ -22,7 +27,7 @@ async function handleGET(
   const userId = await authPromise;
 
   // Check access (owner or collaborator)
-  const accessInfo = await verifyWorkspaceAccess(id, userId, 'viewer');
+  const accessInfo = await verifyWorkspaceAccess(id, userId, "viewer");
 
   // Get workspace data
   const [workspace] = await db
@@ -35,8 +40,8 @@ async function handleGET(
     return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
   }
 
-  // Get workspace state by replaying events
-  const state = await loadWorkspaceState(id);
+  // Get current workspace state from projection tables
+  const state = await loadWorkspaceState(id, { userId });
 
   return NextResponse.json({
     workspace: {
@@ -56,7 +61,7 @@ export const GET = withErrorHandling(handleGET, "GET /api/workspaces/[id]");
  */
 async function handlePATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   // Start independent operations in parallel
   const paramsPromise = params;
@@ -98,29 +103,24 @@ async function handlePATCH(
   }
   if (nameChanged) {
     let newSlug = generateSlug(name!);
-    
+
     // Check for slug conflicts and resolve them
     let counter = 1;
     while (true) {
       const [existingWorkspace] = await db
         .select()
         .from(workspaces)
-        .where(
-          and(
-            eq(workspaces.slug, newSlug),
-            ne(workspaces.id, id)
-          )
-        )
+        .where(and(eq(workspaces.slug, newSlug), ne(workspaces.id, id)))
         .limit(1);
-      
+
       if (!existingWorkspace) break;
-      
+
       // If conflict exists, append counter
-      const baseSlug = generateSlug(name).replace(/-\d+$/, ''); // Remove existing counter if any
+      const baseSlug = generateSlug(name).replace(/-\d+$/, ""); // Remove existing counter if any
       newSlug = `${baseSlug}-${counter}`;
       counter++;
     }
-    
+
     updateData.slug = newSlug;
   }
 
@@ -133,7 +133,10 @@ async function handlePATCH(
   return NextResponse.json({ workspace: updatedWorkspace });
 }
 
-export const PATCH = withErrorHandling(handlePATCH, "PATCH /api/workspaces/[id]");
+export const PATCH = withErrorHandling(
+  handlePATCH,
+  "PATCH /api/workspaces/[id]",
+);
 
 /**
  * DELETE /api/workspaces/[id]
@@ -141,7 +144,7 @@ export const PATCH = withErrorHandling(handlePATCH, "PATCH /api/workspaces/[id]"
  */
 async function handleDELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   // Start independent operations in parallel
   const paramsPromise = params;
@@ -154,11 +157,12 @@ async function handleDELETE(
   await verifyWorkspaceOwnership(id, userId);
 
   // Delete workspace (cascade removes related workspace data)
-  await db
-    .delete(workspaces)
-    .where(eq(workspaces.id, id));
+  await db.delete(workspaces).where(eq(workspaces.id, id));
 
   return NextResponse.json({ success: true });
 }
 
-export const DELETE = withErrorHandling(handleDELETE, "DELETE /api/workspaces/[id]");
+export const DELETE = withErrorHandling(
+  handleDELETE,
+  "DELETE /api/workspaces/[id]",
+);

@@ -9,13 +9,13 @@ import { requireAuth, withErrorHandling } from "@/lib/api/workspace-helpers";
  * GET /api/workspaces/slug/[slug]
  * Get a workspace by slug (more user-friendly than UUID)
  * Supports owner and collaborators
- * 
+ *
  * Query params:
  * - metadata=true: Return only workspace metadata (faster, for initial load)
  */
 async function handleGET(
   request: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: Promise<{ slug: string }> },
 ) {
   // Start independent operations in parallel
   const paramsPromise = params;
@@ -25,18 +25,13 @@ async function handleGET(
   const userId = await authPromise;
 
   // Check if metadata-only mode is requested (faster path for initial workspace load)
-  const metadataOnly = request.nextUrl.searchParams.get('metadata') === 'true';
+  const metadataOnly = request.nextUrl.searchParams.get("metadata") === "true";
 
   // Get workspace by slug - first check ownership
   const [ownedWorkspace] = await db
     .select()
     .from(workspaces)
-    .where(
-      and(
-        eq(workspaces.slug, slug),
-        eq(workspaces.userId, userId)
-      )
-    )
+    .where(and(eq(workspaces.slug, slug), eq(workspaces.userId, userId)))
     .limit(1);
 
   let workspace = ownedWorkspace;
@@ -55,25 +50,27 @@ async function handleGET(
     if (candidateWorkspaces.length > 0) {
       // Check if user is a collaborator on any of these workspaces
       // We can do this efficiently by querying for valid collaborations
-      const candidateIds = candidateWorkspaces.map(w => w.id);
+      const candidateIds = candidateWorkspaces.map((w) => w.id);
 
       const [validCollab] = await db
         .select({
           permissionLevel: workspaceCollaborators.permissionLevel,
-          workspaceId: workspaceCollaborators.workspaceId
+          workspaceId: workspaceCollaborators.workspaceId,
         })
         .from(workspaceCollaborators)
         .where(
           and(
             inArray(workspaceCollaborators.workspaceId, candidateIds),
-            eq(workspaceCollaborators.userId, userId)
-          )
+            eq(workspaceCollaborators.userId, userId),
+          ),
         )
         .limit(1);
 
       if (validCollab) {
         // Found the specific workspace instance this user has access to
-        const foundWorkspace = candidateWorkspaces.find(w => w.id === validCollab.workspaceId);
+        const foundWorkspace = candidateWorkspaces.find(
+          (w) => w.id === validCollab.workspaceId,
+        );
         if (foundWorkspace) {
           workspace = foundWorkspace;
           isShared = true;
@@ -99,8 +96,8 @@ async function handleGET(
     });
   }
 
-  // Get workspace state by replaying events (full mode)
-  const state = await loadWorkspaceState(workspace.id);
+  // Get current workspace state from projection tables
+  const state = await loadWorkspaceState(workspace.id, { userId });
 
   return NextResponse.json({
     workspace: {
@@ -112,4 +109,7 @@ async function handleGET(
   });
 }
 
-export const GET = withErrorHandling(handleGET, "GET /api/workspaces/slug/[slug]");
+export const GET = withErrorHandling(
+  handleGET,
+  "GET /api/workspaces/slug/[slug]",
+);

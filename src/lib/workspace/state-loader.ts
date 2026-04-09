@@ -1,34 +1,37 @@
-import { db, workspaceEvents } from "@/lib/db/client";
-import { eq, asc } from "drizzle-orm";
-import { replayEvents } from "./event-reducer";
+import { db } from "@/lib/db/client";
 import type { Item } from "@/lib/workspace-state/types";
-import type { WorkspaceEvent } from "./events";
-import { initialItems } from "@/lib/workspace-state/state";
+import { loadWorkspaceProjectionState } from "./workspace-items-projector";
 
-/** Load current workspace items by replaying all events. */
-export async function loadWorkspaceState(workspaceId: string): Promise<Item[]> {
-  try {
-    const events = await db
-      .select()
-      .from(workspaceEvents)
-      .where(eq(workspaceEvents.workspaceId, workspaceId))
-      .orderBy(asc(workspaceEvents.version));
+export interface LoadWorkspaceStateOptions {
+  userId?: string | null;
+}
 
-    // Transform to WorkspaceEvent format
-    const workspaceEvents_typed: WorkspaceEvent[] = events.map((e: any) => ({
-      type: e.eventType,
-      payload: e.payload,
-      timestamp: e.timestamp,
-      userId: e.userId,
-      userName: e.userName || undefined,
-      id: e.eventId,
-      version: e.version,
-    } as WorkspaceEvent));
+export interface WorkspaceStatePayload {
+  state: Item[];
+  version: number;
+}
 
-    // Replay events to get current state
-    return replayEvents(workspaceEvents_typed);
-  } catch (error) {
-    console.error("Error loading workspace state from events:", error);
-    return initialItems;
-  }
+export async function loadWorkspaceStatePayload(
+  workspaceId: string,
+  options: LoadWorkspaceStateOptions = {},
+): Promise<WorkspaceStatePayload> {
+  return db.transaction(async (tx: any) => {
+    const projection = await loadWorkspaceProjectionState(tx, {
+      workspaceId,
+      userId: options.userId,
+    });
+
+    return {
+      state: projection.items,
+      version: projection.version,
+    };
+  });
+}
+
+export async function loadWorkspaceState(
+  workspaceId: string,
+  options: LoadWorkspaceStateOptions = {},
+): Promise<Item[]> {
+  const statePayload = await loadWorkspaceStatePayload(workspaceId, options);
+  return statePayload.state;
 }

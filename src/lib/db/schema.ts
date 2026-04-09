@@ -200,7 +200,7 @@ export const workspaces = pgTable(
   ],
 );
 
-// workspace_states table removed - state is now managed via event sourcing
+// workspace_states table removed - current state lives in workspace item tables
 
 // workspace_shares table removed - sharing is now fork-based (users import copies)
 
@@ -248,6 +248,7 @@ export const userProfiles = pgTable(
   ],
 );
 
+// Retained temporarily for operational safety; runtime current-state reads no longer use snapshots.
 export const workspaceSnapshots = pgTable(
   "workspace_snapshots",
   {

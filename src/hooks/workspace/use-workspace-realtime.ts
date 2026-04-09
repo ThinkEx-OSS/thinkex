@@ -12,6 +12,8 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase-client";
 import { logger } from "@/lib/utils/logger";
 import type { EventResponse, WorkspaceEvent } from "@/lib/workspace/events";
+import { workspaceEventsQueryKey } from "./use-workspace-events";
+import { applyConfirmedWorkspaceEventToStateQuery } from "./workspace-state-cache";
 
 interface WorkspaceRealtimeOptions {
   onStatusChange?: (
@@ -127,11 +129,9 @@ export function useWorkspaceRealtime(
 
       onRemoteEvent?.(event);
 
-      const existing = queryClient.getQueryData<EventResponse>([
-        "workspace",
-        workspaceId,
-        "events",
-      ]);
+      const existing = queryClient.getQueryData<EventResponse>(
+        workspaceEventsQueryKey(workspaceId),
+      );
 
       const hasVersionGap =
         !!existing &&
@@ -139,12 +139,13 @@ export function useWorkspaceRealtime(
         event.version > existing.version + 1;
 
       queryClient.setQueryData<EventResponse>(
-        ["workspace", workspaceId, "events"],
+        workspaceEventsQueryKey(workspaceId),
         (old) => {
           if (!old) return old;
           return mergeRealtimeEvent(old, event);
         },
       );
+      applyConfirmedWorkspaceEventToStateQuery(queryClient, workspaceId, event);
 
       if (hasVersionGap) {
         logger.warn("[REALTIME] Detected workspace event version gap", {
@@ -155,7 +156,7 @@ export function useWorkspaceRealtime(
         });
 
         queryClient.invalidateQueries({
-          queryKey: ["workspace", workspaceId, "events"],
+          queryKey: workspaceEventsQueryKey(workspaceId),
         });
       }
     });

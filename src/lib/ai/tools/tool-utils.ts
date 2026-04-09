@@ -19,33 +19,35 @@ import { resolveItemByPath } from "./workspace-search-utils";
  */
 /** Fields to strip from tool results before sending to the model. */
 const MODEL_STRIP_FIELDS = new Set([
-    "event",           // full workspace event — large, client-only (cache update)
-    "version",         // workspace version number — client-only (cache update)
-    "itemId",          // internal ID — model references items by name
-    "quizId",          // alias for itemId
-    "noteId",          // alias for itemId
-    "interactionId",   // deep research internal ID
-    "cardCount",       // redundant with message
-    "questionCount",   // redundant with message
-    "deletedItem",     // redundant with message
-    "itemName",        // redundant with message
-    "title",           // redundant with message
+  "event", // full workspace event — large, client-only (cache update)
+  "version", // workspace version number — client-only (cache update)
+  "itemId", // internal ID — model references items by name
+  "quizId", // alias for itemId
+  "noteId", // alias for itemId
+  "interactionId", // deep research internal ID
+  "cardCount", // redundant with message
+  "questionCount", // redundant with message
+  "deletedItem", // redundant with message
+  "itemName", // redundant with message
+  "title", // redundant with message
 ]);
 
-export function withSanitizedModelOutput<T extends Record<string, any>>(toolDef: T): T {
-    (toolDef as any).toModelOutput = ({ output }: { output: any }) => {
-        if (output && typeof output === "object" && !Array.isArray(output)) {
-            const sanitized: Record<string, any> = {};
-            for (const key of Object.keys(output)) {
-                if (!MODEL_STRIP_FIELDS.has(key)) {
-                    sanitized[key] = output[key];
-                }
-            }
-            return { type: "json" as const, value: sanitized };
+export function withSanitizedModelOutput<T extends Record<string, any>>(
+  toolDef: T,
+): T {
+  (toolDef as any).toModelOutput = ({ output }: { output: any }) => {
+    if (output && typeof output === "object" && !Array.isArray(output)) {
+      const sanitized: Record<string, any> = {};
+      for (const key of Object.keys(output)) {
+        if (!MODEL_STRIP_FIELDS.has(key)) {
+          sanitized[key] = output[key];
         }
-        return { type: "json" as const, value: output };
-    };
-    return toolDef;
+      }
+      return { type: "json" as const, value: sanitized };
+    }
+    return { type: "json" as const, value: output };
+  };
+  return toolDef;
 }
 
 /**
@@ -53,14 +55,18 @@ export function withSanitizedModelOutput<T extends Record<string, any>>(toolDef:
  * Security is enforced by workspace-worker, so we just load state here
  */
 export async function loadStateForTool(
-    ctx: WorkspaceToolContext
-): Promise<{ success: true; state: Item[] } | { success: false; message: string }> {
-    if (!ctx.workspaceId) {
-        return { success: false, message: "No workspace context available" };
-    }
+  ctx: WorkspaceToolContext,
+): Promise<
+  { success: true; state: Item[] } | { success: false; message: string }
+> {
+  if (!ctx.workspaceId) {
+    return { success: false, message: "No workspace context available" };
+  }
 
-    const state = await loadWorkspaceState(ctx.workspaceId);
-    return { success: true, state };
+  const state = await loadWorkspaceState(ctx.workspaceId, {
+    userId: ctx.userId,
+  });
+  return { success: true, state };
 }
 
 /**
@@ -70,21 +76,21 @@ export async function loadStateForTool(
  * If itemType is provided, only returns items of that type.
  */
 export function resolveItem(
-    items: Item[],
-    input: string,
-    itemType?: Item["type"]
+  items: Item[],
+  input: string,
+  itemType?: Item["type"],
 ): Item | undefined {
-    const trimmed = input.trim();
-    if (!trimmed) return undefined;
+  const trimmed = input.trim();
+  if (!trimmed) return undefined;
 
-    // 1. Try virtual path first when input looks like a path
-    if (trimmed.includes("/")) {
-        const byPath = resolveItemByPath(items, trimmed);
-        if (byPath && (!itemType || byPath.type === itemType)) return byPath;
-    }
+  // 1. Try virtual path first when input looks like a path
+  if (trimmed.includes("/")) {
+    const byPath = resolveItemByPath(items, trimmed);
+    if (byPath && (!itemType || byPath.type === itemType)) return byPath;
+  }
 
-    // 2. Fall back to fuzzy name match
-    return fuzzyMatchItem(items, trimmed, itemType);
+  // 2. Fall back to fuzzy name match
+  return fuzzyMatchItem(items, trimmed, itemType);
 }
 
 /**
@@ -93,36 +99,47 @@ export function resolveItem(
  * If itemType is provided, only matches items of that type
  */
 export function fuzzyMatchItem(
-    items: Item[],
-    searchName: string,
-    itemType?: Item["type"]
+  items: Item[],
+  searchName: string,
+  itemType?: Item["type"],
 ): Item | undefined {
-    const normalizedSearch = searchName.toLowerCase().trim();
-    const filteredItems = itemType ? items.filter(item => item.type === itemType) : items;
+  const normalizedSearch = searchName.toLowerCase().trim();
+  const filteredItems = itemType
+    ? items.filter((item) => item.type === itemType)
+    : items;
 
-    // 1. Exact match
-    let matched = filteredItems.find(item => item.name.toLowerCase().trim() === normalizedSearch);
+  // 1. Exact match
+  let matched = filteredItems.find(
+    (item) => item.name.toLowerCase().trim() === normalizedSearch,
+  );
 
-    // 2. Contains match (item name contains search)
-    if (!matched) {
-        matched = filteredItems.find(item => item.name.toLowerCase().includes(normalizedSearch));
-    }
+  // 2. Contains match (item name contains search)
+  if (!matched) {
+    matched = filteredItems.find((item) =>
+      item.name.toLowerCase().includes(normalizedSearch),
+    );
+  }
 
-    // 3. Reverse contains match (search contains item name)
-    if (!matched) {
-        matched = filteredItems.find(item => normalizedSearch.includes(item.name.toLowerCase().trim()));
-    }
+  // 3. Reverse contains match (search contains item name)
+  if (!matched) {
+    matched = filteredItems.find((item) =>
+      normalizedSearch.includes(item.name.toLowerCase().trim()),
+    );
+  }
 
-    return matched;
+  return matched;
 }
 
 /**
  * Get a formatted list of available items of a given type
  */
-export function getAvailableItemsList(items: Item[], itemType: Item["type"]): string {
-    const filtered = items.filter(item => item.type === itemType);
-    if (filtered.length === 0) {
-        return "";
-    }
-    return filtered.map(item => `"${item.name}"`).join(", ");
+export function getAvailableItemsList(
+  items: Item[],
+  itemType: Item["type"],
+): string {
+  const filtered = items.filter((item) => item.type === itemType);
+  if (filtered.length === 0) {
+    return "";
+  }
+  return filtered.map((item) => `"${item.name}"`).join(", ");
 }

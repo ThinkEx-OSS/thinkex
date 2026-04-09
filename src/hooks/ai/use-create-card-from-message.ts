@@ -26,7 +26,9 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
   const message = useMessage();
   const thread = useThread(); // Access the full thread to find sources
 
-  const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+  const currentWorkspaceId = useWorkspaceStore(
+    (state) => state.currentWorkspaceId,
+  );
   const queryClient = useQueryClient();
 
   const extractSourcesFromParts = (parts: unknown) => {
@@ -103,20 +105,28 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
 
         // Extract sources from the thread history
         // We look backwards from the current message to find the relevant webSearch result
-        let sources: Array<{ title: string; url: string; favicon?: string }> | undefined;
+        let sources:
+          | Array<{ title: string; url: string; favicon?: string }>
+          | undefined;
 
         try {
           // Use any cast since standard types might differ
           const messages = (thread as any).messages || [];
-          const currentIndex = messages.findIndex((m: any) => m.id === message.id);
+          const currentIndex = messages.findIndex(
+            (m: any) => m.id === message.id,
+          );
 
           if (currentIndex !== -1) {
-            const allSources: Array<{ title: string; url: string; favicon?: string }> = [];
+            const allSources: Array<{
+              title: string;
+              url: string;
+              favicon?: string;
+            }> = [];
 
             for (let i = currentIndex; i >= 0; i--) {
               const msg = messages[i];
 
-              if (msg.role === 'user' && i !== currentIndex) {
+              if (msg.role === "user" && i !== currentIndex) {
                 break;
               }
 
@@ -125,11 +135,16 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
 
             if (allSources.length > 0) {
               sources = allSources;
-              logger.debug("📝 [CREATE-CARD] Found sources in thread history", { count: sources.length });
+              logger.debug("📝 [CREATE-CARD] Found sources in thread history", {
+                count: sources.length,
+              });
             }
           }
         } catch (err) {
-          logger.warn("📝 [CREATE-CARD] Error extracting sources from thread", err);
+          logger.warn(
+            "📝 [CREATE-CARD] Error extracting sources from thread",
+            err,
+          );
         }
 
         const response = await fetch("/api/cards/from-message", {
@@ -171,7 +186,7 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
         console.error("Error creating card:", error);
         toast.error(
           error instanceof Error ? error.message : "Failed to create card",
-          { id: toastId }
+          { id: toastId },
         );
         throw error;
       } finally {
