@@ -1,5 +1,7 @@
 import { createEvent } from "@/lib/workspace/events";
 import { appendWorkspaceEventOrThrow } from "@/lib/workspace/workspace-event-store";
+import { db, workspaceItemExtracted } from "@/lib/db/client";
+import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
 import type { OcrItemResult } from "@/lib/ocr/types";
 import type { ImageData, Item, PdfData } from "@/lib/workspace-state/types";
 
@@ -10,19 +12,45 @@ export async function persistOcrResults(
 ): Promise<void> {
   "use step";
 
+  for (const result of results) {
+    const ocrPages = result.ok ? result.pages : [];
+    const ocrText = getOcrPagesTextContent(ocrPages) || null;
+
+    await db
+      .insert(workspaceItemExtracted)
+      .values({
+        workspaceId,
+        itemId: result.itemId,
+        searchText: ocrText ?? "",
+        ocrText,
+        ocrPages: ocrPages as unknown as Record<string, unknown>,
+        updatedAt: new Date().toISOString(),
+      })
+      .onConflictDoUpdate({
+        target: [
+          workspaceItemExtracted.workspaceId,
+          workspaceItemExtracted.itemId,
+        ],
+        set: {
+          ocrText,
+          ocrPages: ocrPages as unknown as Record<string, unknown>,
+          searchText: ocrText ?? "",
+          updatedAt: new Date().toISOString(),
+        },
+      });
+  }
+
   const event = createEvent(
     "BULK_ITEMS_PATCHED",
     {
       updates: results.map((result) => {
-        const dataPatch = (
+        const statusPatch = (
           result.ok
             ? {
-                ocrPages: result.pages,
                 ocrStatus: "complete" as const,
                 ocrError: undefined,
               }
             : {
-                ocrPages: [],
                 ocrStatus: "failed" as const,
                 ocrError: result.error,
               }
@@ -31,7 +59,7 @@ export async function persistOcrResults(
         return {
           id: result.itemId,
           changes: {
-            data: dataPatch as Item["data"],
+            data: statusPatch as Item["data"],
           },
         };
       }),

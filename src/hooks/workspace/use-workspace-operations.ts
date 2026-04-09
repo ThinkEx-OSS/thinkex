@@ -1,4 +1,5 @@
 import { useCallback, useRef, useEffect } from "react";
+import { Debouncer } from "@tanstack/pacer/debouncer";
 import { useSession } from "@/lib/auth-client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -30,6 +31,8 @@ import {
   getNextUniqueDefaultName,
 } from "@/lib/workspace/unique-name";
 import { filterItemIdsForFolderCreation } from "@/lib/workspace-state/search";
+
+const ITEM_UPDATE_DEBOUNCE_MS = 500;
 
 function getAllDescendantIds(folderId: string, items: Item[]): string[] {
   const directChildren = items.filter((item) => item.folderId === folderId);
@@ -108,10 +111,11 @@ export function useWorkspaceOperations(
   const userId = user?.id || "anonymous";
   const userName = user?.name || user?.email || undefined;
 
-  // Debounce refs for updateItem and updateItemData
-  // Maps item ID to timeout ID
-  const updateItemDebounceRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
-  const updateItemDataDebounceRef = useRef<Map<string, NodeJS.Timeout>>(
+  // Debouncer refs for updateItem and updateItemData keyed by item ID.
+  const updateItemDebouncerRef = useRef<Map<string, Debouncer<() => void>>>(
+    new Map(),
+  );
+  const updateItemDataDebouncerRef = useRef<Map<string, Debouncer<() => void>>>(
     new Map(),
   );
   // Store pending changes to merge them
@@ -167,18 +171,169 @@ export function useWorkspaceOperations(
     [getLatestItemFromState],
   );
 
+  const commitPendingItemUpdate = useCallback(
+    (itemId: string) => {
+      const finalChanges = pendingItemChangesRef.current.get(itemId);
+      if (!finalChanges) {
+        updateItemDebouncerRef.current.delete(itemId);
+        return;
+      }
+
+      const latestItems = getLatestItemsFromState();
+      const item = latestItems.find((candidate) => candidate.id === itemId);
+      if (!item) {
+        pendingItemChangesRef.current.delete(itemId);
+        updateItemDebouncerRef.current.delete(itemId);
+        return;
+      }
+
+      const newName = finalChanges.name ?? item.name;
+      const newType = finalChanges.type ?? item.type;
+      const folderId = finalChanges.folderId ?? item.folderId ?? null;
+
+      if (newName && newType && "name" in finalChanges) {
+        if (hasDuplicateName(latestItems, newName, newType, folderId, itemId)) {
+          toast.error(
+            `A ${newType} named "${newName}" already exists in this folder`,
+          );
+          pendingItemChangesRef.current.delete(itemId);
+          updateItemDebouncerRef.current.delete(itemId);
+          return;
+        }
+      }
+
+      mutation.mutate(
+        createEvent(
+          "ITEM_UPDATED",
+          { id: itemId, changes: finalChanges, name: newName },
+          userId,
+          userName,
+        ),
+      );
+
+      pendingItemChangesRef.current.delete(itemId);
+      updateItemDebouncerRef.current.delete(itemId);
+    },
+    [getLatestItemsFromState, mutation, userId, userName],
+  );
+
+  const commitPendingItemDataUpdate = useCallback(
+    (itemId: string) => {
+      const finalUpdater = pendingItemDataUpdatersRef.current.get(itemId);
+      if (!finalUpdater) {
+        updateItemDataDebouncerRef.current.delete(itemId);
+        return;
+      }
+
+      // Read latest state from cache instead of relying on closure state so
+      // newly-created items remain addressable while optimistic events settle.
+      let latestItem: Item | undefined;
+      if (workspaceId) {
+        const cacheData = queryClient.getQueryData<EventResponse>(
+          workspaceEventsQueryKey(workspaceId),
+        );
+        if (cacheData?.events) {
+          const latestState = deriveWorkspaceStateFromCaches({
+            workspaceId,
+            stateData: getCachedWorkspaceState(queryClient, workspaceId),
+            eventLog: cacheData,
+          }).state;
+          latestItem = latestState.find((item) => item.id === itemId);
+        }
+      }
+      if (!latestItem) {
+        latestItem = currentItems.find((item) => item.id === itemId);
+      }
+      if (!latestItem) {
+        const cacheData = workspaceId
+          ? queryClient.getQueryData<EventResponse>(
+              workspaceEventsQueryKey(workspaceId),
+            )
+          : null;
+        const itemCount = cacheData?.events
+          ? deriveWorkspaceStateFromCaches({
+              workspaceId,
+              stateData: getCachedWorkspaceState(queryClient, workspaceId),
+              eventLog: cacheData,
+            }).state.length
+          : 0;
+        logger.warn(
+          `[OCR/UPDATE] updateItemData: Item ${itemId} not found. Item may have been deleted. Cache has ${itemCount} items.`,
+          {
+            itemId,
+            workspaceId,
+          },
+        );
+        pendingItemDataUpdatersRef.current.delete(itemId);
+        updateItemDataDebouncerRef.current.delete(itemId);
+        return;
+      }
+
+      const newData = finalUpdater(latestItem.data);
+
+      mutation.mutate(
+        createEvent(
+          "ITEM_UPDATED",
+          {
+            id: itemId,
+            changes: { data: newData },
+            name: latestItem.name,
+          },
+          userId,
+          userName,
+        ),
+      );
+
+      pendingItemDataUpdatersRef.current.delete(itemId);
+      updateItemDataDebouncerRef.current.delete(itemId);
+    },
+    [workspaceId, queryClient, currentItems, mutation, userId, userName],
+  );
+
+  const getOrCreateUpdateItemDebouncer = useCallback(
+    (itemId: string) => {
+      const existing = updateItemDebouncerRef.current.get(itemId);
+      if (existing) {
+        return existing;
+      }
+
+      const debouncer = new Debouncer(() => commitPendingItemUpdate(itemId), {
+        wait: ITEM_UPDATE_DEBOUNCE_MS,
+      });
+      updateItemDebouncerRef.current.set(itemId, debouncer);
+      return debouncer;
+    },
+    [commitPendingItemUpdate],
+  );
+
+  const getOrCreateUpdateItemDataDebouncer = useCallback(
+    (itemId: string) => {
+      const existing = updateItemDataDebouncerRef.current.get(itemId);
+      if (existing) {
+        return existing;
+      }
+
+      const debouncer = new Debouncer(
+        () => commitPendingItemDataUpdate(itemId),
+        { wait: ITEM_UPDATE_DEBOUNCE_MS },
+      );
+      updateItemDataDebouncerRef.current.set(itemId, debouncer);
+      return debouncer;
+    },
+    [commitPendingItemDataUpdate],
+  );
+
   // Cleanup timeouts on unmount
   useEffect(() => {
-    const updateItemDebounces = updateItemDebounceRef.current;
-    const updateItemDataDebounces = updateItemDataDebounceRef.current;
+    const updateItemDebouncers = updateItemDebouncerRef.current;
+    const updateItemDataDebouncers = updateItemDataDebouncerRef.current;
     const pendingItemChanges = pendingItemChangesRef.current;
     const pendingItemDataUpdaters = pendingItemDataUpdatersRef.current;
     return () => {
-      // Clear all pending timeouts
-      updateItemDebounces.forEach((timeout) => clearTimeout(timeout));
-      updateItemDataDebounces.forEach((timeout) => clearTimeout(timeout));
-      updateItemDebounces.clear();
-      updateItemDataDebounces.clear();
+      updateItemDebouncers.forEach((debouncer) => debouncer.cancel());
+      updateItemDataDebouncers.forEach((debouncer) => debouncer.cancel());
+      updateItemDebouncers.clear();
+      updateItemDataDebouncers.clear();
       pendingItemChanges.clear();
       pendingItemDataUpdaters.clear();
     };
@@ -191,16 +346,6 @@ export function useWorkspaceOperations(
       initialData?: Partial<Item["data"]>,
       initialLayout?: { w: number; h: number },
     ) => {
-      // Validate type is a valid CardType
-      logger.debug(
-        "🔧 [CREATE-ITEM] Received type:",
-        type,
-        "typeof:",
-        typeof type,
-        "value:",
-        JSON.stringify(type),
-      );
-
       const validTypes: CardType[] = [
         "pdf",
         "flashcard",
@@ -214,19 +359,6 @@ export function useWorkspaceOperations(
       ];
       const validType = validTypes.includes(type) ? type : "document";
 
-      if (validType !== type) {
-        logger.warn(
-          `🔧 [CREATE-ITEM] Invalid type "${type}" (typeof ${typeof type}), using "document" instead`,
-        );
-      }
-
-      logger.debug("🔧 [CREATE-ITEM] Creating item:", {
-        type: validType,
-        name,
-        userId,
-        workspaceId,
-        hasInitialData: !!initialData,
-      });
       const id = generateItemId();
 
       // Merge default data with initial data
@@ -235,13 +367,7 @@ export function useWorkspaceOperations(
         ? { ...baseData, ...initialData }
         : baseData;
 
-      // Get active folder - auto-assign new items to the currently viewed folder
       const activeFolderId = useUIStore.getState().activeFolderId;
-      logger.debug("🔧 [CREATE-ITEM] Active folder:", { activeFolderId });
-
-      logger.debug("🔧 [CREATE-ITEM] Base data:", baseData);
-      logger.debug("🔧 [CREATE-ITEM] Initial data:", initialData);
-      logger.debug("🔧 [CREATE-ITEM] Merged data:", mergedData);
 
       const folderId = activeFolderId ?? null;
       const finalName =
@@ -296,13 +422,6 @@ export function useWorkspaceOperations(
         return [];
       }
 
-      logger.debug("🔧 [CREATE-ITEMS] Creating items:", {
-        count: items.length,
-        userId,
-        workspaceId,
-      });
-
-      // Get active folder - auto-assign new items to the currently viewed folder
       const activeFolderId = useUIStore.getState().activeFolderId;
 
       // Get items in current view for layout calculation
@@ -334,12 +453,6 @@ export function useWorkspaceOperations(
           ];
           const validType = validTypes.includes(type) ? type : "document";
 
-          if (validType !== type) {
-            logger.warn(
-              `🔧 [CREATE-ITEMS] Invalid type "${type}", using "document" instead`,
-            );
-          }
-
           const id = generateItemId();
           const folderId = activeFolderId ?? null;
           const allItemsSoFar = [...itemsInCurrentView, ...itemsSoFar];
@@ -352,9 +465,6 @@ export function useWorkspaceOperations(
             name &&
             hasDuplicateName(allItemsSoFar, finalName, validType, folderId)
           ) {
-            logger.warn(
-              `🔧 [CREATE-ITEMS] Skipping duplicate: ${finalName} (${validType})`,
-            );
             return null;
           }
 
@@ -442,71 +552,16 @@ export function useWorkspaceOperations(
 
   const updateItem = useCallback(
     (id: string, changes: Partial<Item>) => {
-      // Merge with any pending changes for this item
       const existingPending = pendingItemChangesRef.current.get(id) || {};
       const mergedChanges = { ...existingPending, ...changes };
       pendingItemChangesRef.current.set(id, mergedChanges);
-
-      // Clear existing debounce for this item
-      const existingTimeout = updateItemDebounceRef.current.get(id);
-      if (existingTimeout) {
-        clearTimeout(existingTimeout);
-      }
-
-      // Set new debounce (500ms delay)
-      const timeout = setTimeout(() => {
-        const finalChanges = pendingItemChangesRef.current.get(id);
-        if (finalChanges) {
-          const latestItems = getLatestItemsFromState();
-          const item = latestItems.find((i) => i.id === id);
-          if (!item) {
-            pendingItemChangesRef.current.delete(id);
-            updateItemDebounceRef.current.delete(id);
-            return;
-          }
-
-          const newName = (finalChanges as Partial<Item>).name ?? item?.name;
-          const newType = (finalChanges as Partial<Item>).type ?? item?.type;
-          const folderId =
-            (finalChanges as Partial<Item>).folderId ?? item?.folderId ?? null;
-
-          if (newName && newType && "name" in finalChanges) {
-            if (hasDuplicateName(latestItems, newName, newType, folderId, id)) {
-              toast.error(
-                `A ${newType} named "${newName}" already exists in this folder`,
-              );
-              pendingItemChangesRef.current.delete(id);
-              updateItemDebounceRef.current.delete(id);
-              return;
-            }
-          }
-
-          logger.debug("⏱️ [DEBOUNCE] updateItem firing after 500ms:", {
-            id,
-            changes: finalChanges,
-          });
-          const event = createEvent(
-            "ITEM_UPDATED",
-            { id, changes: finalChanges, name: newName },
-            userId,
-            userName,
-          );
-          mutation.mutate(event);
-          // Clean up
-          pendingItemChangesRef.current.delete(id);
-          updateItemDebounceRef.current.delete(id);
-        }
-      }, 500);
-
-      updateItemDebounceRef.current.set(id, timeout);
+      getOrCreateUpdateItemDebouncer(id).maybeExecute();
     },
-    [mutation, userId, userName, getLatestItemsFromState],
+    [getOrCreateUpdateItemDebouncer],
   );
 
   const deleteItem = useCallback(
     async (id: string) => {
-      logger.debug("🗑️ [DELETE-ITEM] Deleting item:", { id, userId, userName });
-
       // If this is a PDF card, delete the file from Supabase storage first
       const itemToDelete = currentItems.find((item) => item.id === id);
       if (itemToDelete && itemToDelete.type === "pdf") {
@@ -516,9 +571,6 @@ export function useWorkspaceOperations(
         };
         if (pdfData?.fileUrl) {
           try {
-            logger.debug("🗑️ [DELETE-ITEM] Deleting PDF file from Supabase:", {
-              fileUrl: pdfData.fileUrl,
-            });
             const deleteResponse = await fetch(
               `/api/delete-file?url=${encodeURIComponent(pdfData.fileUrl)}`,
               {
@@ -530,18 +582,10 @@ export function useWorkspaceOperations(
               const errorData = await deleteResponse
                 .json()
                 .catch(() => ({ error: "Failed to delete file" }));
-              logger.warn(
-                "🗑️ [DELETE-ITEM] Failed to delete PDF file from Supabase:",
-                errorData.error,
-              );
-              // Continue with card deletion even if file deletion fails (file might not exist)
-            } else {
-              logger.debug(
-                "🗑️ [DELETE-ITEM] Successfully deleted PDF file from Supabase",
-              );
+              logger.warn("Failed to delete PDF file:", errorData.error);
             }
           } catch (error) {
-            logger.error("🗑️ [DELETE-ITEM] Error deleting PDF file:", error);
+            logger.error("Error deleting PDF file:", error);
             // Continue with card deletion even if file deletion fails
           }
         }
@@ -554,7 +598,6 @@ export function useWorkspaceOperations(
         userId,
         userName,
       );
-      logger.debug("🗑️ [DELETE-ITEM] Created event:", event);
       mutation.mutate(event);
     },
     [mutation, userId, userName, currentItems],
@@ -563,113 +606,24 @@ export function useWorkspaceOperations(
   // Helper for updating item data (used by field actions)
   const updateItemData = useCallback(
     (itemId: string, updater: (prev: Item["data"]) => Item["data"]) => {
-      // Chain updaters if there's already a pending one
       const existingUpdater = pendingItemDataUpdatersRef.current.get(itemId);
       if (existingUpdater) {
-        // Chain the updaters: apply existing, then new
         pendingItemDataUpdatersRef.current.set(itemId, (prev: Item["data"]) =>
           updater(existingUpdater(prev)),
         );
       } else {
         pendingItemDataUpdatersRef.current.set(itemId, updater);
       }
-
-      // Clear existing debounce for this item
-      const existingTimeout = updateItemDataDebounceRef.current.get(itemId);
-      if (existingTimeout) {
-        clearTimeout(existingTimeout);
-      }
-
-      // Set new debounce (500ms delay)
-      const timeout = setTimeout(() => {
-        const finalUpdater = pendingItemDataUpdatersRef.current.get(itemId);
-        if (finalUpdater) {
-          // CRITICAL: Read latest state from cache (not currentState closure) so we get
-          // items created after this callback was invoked (e.g. OCR completing after PDF create)
-          let latestItem: Item | undefined;
-          if (workspaceId) {
-            const cacheData = queryClient.getQueryData<EventResponse>(
-              workspaceEventsQueryKey(workspaceId),
-            );
-            if (cacheData?.events) {
-              const latestState = deriveWorkspaceStateFromCaches({
-                workspaceId,
-                stateData: getCachedWorkspaceState(queryClient, workspaceId),
-                eventLog: cacheData,
-              }).state;
-              latestItem = latestState.find((item) => item.id === itemId);
-            }
-          }
-          if (!latestItem) {
-            latestItem = currentItems.find((item) => item.id === itemId);
-          }
-          if (!latestItem) {
-            const cacheData = workspaceId
-              ? queryClient.getQueryData<EventResponse>(
-                  workspaceEventsQueryKey(workspaceId),
-                )
-              : null;
-            const itemCount = cacheData?.events
-              ? deriveWorkspaceStateFromCaches({
-                  workspaceId,
-                  stateData: getCachedWorkspaceState(queryClient, workspaceId),
-                  eventLog: cacheData,
-                }).state.length
-              : 0;
-            logger.warn(
-              `[OCR/UPDATE] updateItemData: Item ${itemId} not found. Item may have been deleted. Cache has ${itemCount} items.`,
-              {
-                itemId,
-                workspaceId,
-              },
-            );
-            pendingItemDataUpdatersRef.current.delete(itemId);
-            updateItemDataDebounceRef.current.delete(itemId);
-            return;
-          }
-
-          // Apply the final updater to get new data
-          const newData = finalUpdater(latestItem.data);
-
-          const ocrStatus = (newData as { ocrStatus?: string })?.ocrStatus;
-          logger.debug("[OCR/UPDATE] updateItemData firing:", {
-            itemId,
-            itemName: latestItem.name,
-            ocrStatus,
-            dataKeys: Object.keys(newData),
-          });
-
-          // Emit update event with new data and item name
-          const event = createEvent(
-            "ITEM_UPDATED",
-            {
-              id: itemId,
-              changes: { data: newData },
-              name: latestItem.name,
-            },
-            userId,
-            userName,
-          );
-          mutation.mutate(event);
-          // Clean up
-          pendingItemDataUpdatersRef.current.delete(itemId);
-          updateItemDataDebounceRef.current.delete(itemId);
-        }
-      }, 500);
-
-      updateItemDataDebounceRef.current.set(itemId, timeout);
+      getOrCreateUpdateItemDataDebouncer(itemId).maybeExecute();
     },
-    [workspaceId, queryClient, currentItems, mutation, userId, userName],
+    [getOrCreateUpdateItemDataDebouncer],
   );
 
   // Update all items at once (used for layout changes, reordering, and bulk delete)
   const updateAllItems = useCallback(
     (items: Item[]) => {
-      logger.debug("🔧 [BULK-UPDATE] Updating all items:", {
-        count: items.length,
-      });
-
-      // CRITICAL FIX: Read the latest state from cache (including optimistic updates)
+      // Read the latest state from cache (including optimistic updates)
+      // instead of using the potentially stale currentState prop (including optimistic updates)
       // instead of using the potentially stale currentState prop
       // This ensures we compare against the most recent state even when a previous mutation is pending
       let latestState: Item[];
@@ -702,9 +656,6 @@ export function useWorkspaceOperations(
         const deletedIds = latestState
           .filter((i) => !newIds.has(i.id))
           .map((i) => i.id);
-        logger.debug("🔧 [BULK-UPDATE] Bulk delete, sending deletedIds only", {
-          deletedIds,
-        });
         mutation.mutate(
           createEvent(
             "BULK_ITEMS_UPDATED",
@@ -719,9 +670,6 @@ export function useWorkspaceOperations(
       // Count increased: items added – send only the new items (typically 1–2)
       if (items.length > previousItemCount) {
         const addedItems = items.filter((i) => !currentIds.has(i.id));
-        logger.debug("🔧 [BULK-UPDATE] Items added, sending addedItems only", {
-          count: addedItems.length,
-        });
         mutation.mutate(
           createEvent(
             "BULK_ITEMS_UPDATED",
@@ -783,10 +731,6 @@ export function useWorkspaceOperations(
           userName,
         );
         mutation.mutate(event);
-      } else {
-        logger.debug(
-          "🔧 [BULK-UPDATE] No layout changes detected, skipping event",
-        );
       }
     },
     [workspaceId, queryClient, currentItems, mutation, userId, userName],
@@ -805,10 +749,6 @@ export function useWorkspaceOperations(
       if (color) {
         updateItem(folderId, { color });
       }
-      logger.debug("📁 [FOLDER-CREATE] Created folder item:", {
-        folderId,
-        name,
-      });
       return folderId;
     },
     [createItem, updateItem],
@@ -827,21 +767,12 @@ export function useWorkspaceOperations(
       );
 
       if (safeItemIds.length === 0) {
-        logger.warn(
-          "📁 [FOLDER-CREATE-WITH-ITEMS] No valid items after cycle filter, skipping",
-        );
         toast.error(
           "Cannot create folder: selected items would create a circular reference.",
         );
         return ""; // Return empty string since no folder was created
       }
 
-      logger.debug("📁 [FOLDER-CREATE-WITH-ITEMS] Active folder:", {
-        activeFolderId,
-        safeItemIds,
-      });
-
-      // Generate folder ID
       const folderId = generateItemId();
 
       const baseData = defaultDataFor("folder");
@@ -866,12 +797,6 @@ export function useWorkspaceOperations(
 
       mutation.mutate(event);
 
-      logger.debug("📁 [FOLDER-CREATE-WITH-ITEMS] Created folder with items:", {
-        folderId,
-        name,
-        itemCount: safeItemIds.length,
-      });
-
       // Show success toast
       toast.success(
         `Folder created with ${safeItemIds.length} item${safeItemIds.length === 1 ? "" : "s"}`,
@@ -885,10 +810,6 @@ export function useWorkspaceOperations(
   // updateFolder now just calls updateItem (folders are items)
   const updateFolder = useCallback(
     (folderId: string, changes: Partial<Item>) => {
-      logger.debug("📁 [FOLDER-UPDATE] Updating folder item:", {
-        folderId,
-        changes,
-      });
       updateItem(folderId, changes);
     },
     [updateItem],
@@ -900,10 +821,6 @@ export function useWorkspaceOperations(
       const folder = currentItems?.find(
         (i) => i.id === folderId && i.type === "folder",
       );
-      logger.debug("📁 [FOLDER-DELETE] Deleting folder item:", {
-        folderId,
-        folderName: folder?.name,
-      });
       deleteItem(folderId);
       toast.success(
         folder ? `Folder "${folder.name}" deleted` : "Folder deleted",
@@ -940,22 +857,12 @@ export function useWorkspaceOperations(
       const folder = latestItems.find(
         (i) => i.id === folderId && i.type === "folder",
       );
-      logger.debug(
-        "📁 [FOLDER-DELETE-WITH-CONTENTS] Deleting folder and contents:",
-        { folderId, folderName: folder?.name },
-      );
-
       // Find all descendant items recursively (handles nested folders)
       const allDescendantIds = getAllDescendantIds(folderId, latestItems);
 
       // Create set of all IDs to delete (descendants + folder itself)
       const idsToDelete = new Set([...allDescendantIds, folderId]);
       const itemCount = allDescendantIds.length;
-
-      logger.debug("📁 [FOLDER-DELETE-WITH-CONTENTS] Found items to delete:", {
-        itemCount,
-        itemIds: [...idsToDelete],
-      });
 
       // Delete PDF files from storage (fire-and-forget, non-blocking)
       // This is best-effort cleanup - files may become orphaned if this fails
@@ -971,12 +878,7 @@ export function useWorkspaceOperations(
               {
                 method: "DELETE",
               },
-            ).catch((err) =>
-              logger.warn(
-                "📁 [FOLDER-DELETE-WITH-CONTENTS] Failed to delete PDF file:",
-                err,
-              ),
-            );
+            ).catch(() => {});
           }
         }
       }
@@ -999,10 +901,6 @@ export function useWorkspaceOperations(
   const moveItemToFolder = useCallback(
     (itemId: string, folderId: string | null) => {
       const item = currentItems.find((i) => i.id === itemId);
-      logger.debug("📁 [ITEM-MOVE] Moving item to folder:", {
-        itemId,
-        folderId,
-      });
       const event = createEvent(
         "ITEM_MOVED_TO_FOLDER",
         { itemId, folderId, itemName: item?.name },
@@ -1019,10 +917,6 @@ export function useWorkspaceOperations(
       const itemNames = itemIds
         .map((id) => currentItems.find((i) => i.id === id)?.name)
         .filter((n): n is string => n != null);
-      logger.debug("📁 [ITEMS-MOVE] Moving items to folder:", {
-        itemIds,
-        folderId,
-      });
       const event = createEvent(
         "ITEMS_MOVED_TO_FOLDER",
         { itemIds, folderId, itemNames },
@@ -1035,73 +929,10 @@ export function useWorkspaceOperations(
   );
 
   // Flush pending debounced changes for an item (called when modal closes)
-  const flushPendingChanges = useCallback(
-    (itemId: string) => {
-      logger.debug("💾 [FLUSH] Flushing pending changes for item:", { itemId });
-
-      // Flush updateItem pending changes
-      const pendingItemTimeout = updateItemDebounceRef.current.get(itemId);
-      if (pendingItemTimeout) {
-        clearTimeout(pendingItemTimeout);
-        updateItemDebounceRef.current.delete(itemId);
-
-        const pendingChanges = pendingItemChangesRef.current.get(itemId);
-        if (pendingChanges) {
-          const item = getLatestItemFromState(itemId);
-          const name = (pendingChanges as Partial<Item>).name ?? item?.name;
-          logger.debug("💾 [FLUSH] Sending pending updateItem changes:", {
-            itemId,
-            changes: pendingChanges,
-          });
-          const event = createEvent(
-            "ITEM_UPDATED",
-            { id: itemId, changes: pendingChanges, name },
-            userId,
-            userName,
-          );
-          mutation.mutate(event);
-          pendingItemChangesRef.current.delete(itemId);
-        }
-      }
-
-      // Flush updateItemData pending changes
-      const pendingDataTimeout = updateItemDataDebounceRef.current.get(itemId);
-      if (pendingDataTimeout) {
-        clearTimeout(pendingDataTimeout);
-        updateItemDataDebounceRef.current.delete(itemId);
-
-        const pendingUpdater = pendingItemDataUpdatersRef.current.get(itemId);
-        if (pendingUpdater) {
-          // Get the latest item state
-          const latestItem = getLatestItemFromState(itemId);
-          if (latestItem) {
-            logger.debug("💾 [FLUSH] Sending pending updateItemData changes:", {
-              itemId,
-            });
-            const newData = pendingUpdater(latestItem.data);
-            const event = createEvent(
-              "ITEM_UPDATED",
-              {
-                id: itemId,
-                changes: { data: newData },
-                name: latestItem.name,
-              },
-              userId,
-              userName,
-            );
-            mutation.mutate(event);
-            pendingItemDataUpdatersRef.current.delete(itemId);
-          } else {
-            logger.warn(
-              `💾 [FLUSH] Item ${itemId} not found when flushing pending data changes`,
-            );
-            pendingItemDataUpdatersRef.current.delete(itemId);
-          }
-        }
-      }
-    },
-    [getLatestItemFromState, mutation, userId, userName],
-  );
+  const flushPendingChanges = useCallback((itemId: string) => {
+    updateItemDebouncerRef.current.get(itemId)?.flush();
+    updateItemDataDebouncerRef.current.get(itemId)?.flush();
+  }, []);
 
   const getDocumentMarkdownForExport = useCallback(
     (itemId: string) => {

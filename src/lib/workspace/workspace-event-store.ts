@@ -69,7 +69,6 @@ export async function getWorkspaceVersion(
   const result = await db.execute(sql`
     SELECT get_workspace_version(${workspaceId}::uuid) as version
   `);
-
   return Number(result[0]?.version ?? 0);
 }
 
@@ -183,6 +182,11 @@ export async function appendWorkspaceEventUsingCurrentVersionWithRetry(params: {
       return result;
     }
 
+    logger.warn("[EVENT-STORE] Conflict, retrying", {
+      workspaceId: params.workspaceId,
+      attempt: attempt + 1,
+      nextBaseVersion: result.version,
+    });
     baseVersion = result.version;
     attempt += 1;
   }

@@ -25,8 +25,10 @@ export function applyConfirmedWorkspaceEventToState(
     return stateData;
   }
 
+  const nextState = eventReducer(stateData.state, event);
+
   return {
-    state: eventReducer(stateData.state, event),
+    state: nextState,
     version: event.version,
   };
 }

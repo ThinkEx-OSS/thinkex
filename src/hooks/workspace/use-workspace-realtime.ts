@@ -87,7 +87,6 @@ export function useWorkspaceRealtime(
   const cleanup = useCallback(() => {
     if (!channelRef.current) return;
 
-    logger.debug("[REALTIME] Cleaning up workspace events channel");
     removeChannel(channelRef.current);
     channelRef.current = null;
     setIsConnected(false);
@@ -106,7 +105,6 @@ export function useWorkspaceRealtime(
     const supabase = getSupabaseClient();
     const channelName = `workspace:${workspaceId}:events`;
     onStatusChange?.("connecting");
-    logger.debug("[REALTIME] Subscribing to workspace channel", channelName);
 
     const channel = supabase.channel(channelName, {
       config: {
@@ -162,7 +160,6 @@ export function useWorkspaceRealtime(
     });
 
     channel.subscribe((status) => {
-      logger.debug("[REALTIME] Workspace channel status", status);
       switch (status) {
         case "SUBSCRIBED":
           setIsConnected(true);

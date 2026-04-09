@@ -1,71 +1,44 @@
-const POLL_INTERVAL_MS = 10_000;
+import { pollTask } from "@/lib/tasks/poll-task";
+
+const AUDIO_COMPLETE_EVENT = "audio-processing-complete";
+const POLL_INTERVAL_MS = 5_000;
+const MAX_POLL_ATTEMPTS = 120;
 
 /**
  * Polls the audio processing status endpoint until the workflow completes or fails.
  * Dispatches audio-processing-complete when done.
  */
-export async function pollAudioProcessing(runId: string, itemId: string): Promise<void> {
-  const dispatchError = (error: string) => {
+export async function pollAudioProcessing(
+  runId: string,
+  itemId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const dispatchComplete = (detail: Record<string, unknown>) => {
+    if (typeof window === "undefined") return;
     window.dispatchEvent(
-      new CustomEvent("audio-processing-complete", {
-        detail: { itemId, error },
-      })
+      new CustomEvent(AUDIO_COMPLETE_EVENT, { detail: { itemId, ...detail } }),
     );
   };
 
-  while (true) {
-    try {
-      const res = await fetch(`/api/audio/process/status?runId=${encodeURIComponent(runId)}`);
-      if (!res.ok) {
-        dispatchError(`Status check failed: ${res.status}`);
-        return;
-      }
-      const data = await res.json();
+  const result = await pollTask({
+    statusUrl: `/api/audio/process/status?runId=${encodeURIComponent(runId)}`,
+    intervalMs: POLL_INTERVAL_MS,
+    maxAttempts: MAX_POLL_ATTEMPTS,
+    signal,
+  });
 
-      if (data.status === "completed") {
-        window.dispatchEvent(
-          new CustomEvent("audio-processing-complete", {
-            detail: {
-              itemId,
-              summary: data.result.summary,
-              segments: data.result.segments,
-              duration: data.result.duration,
-            },
-          })
-        );
-        return;
-      }
-
-      if (data.status === "failed") {
-        window.dispatchEvent(
-          new CustomEvent("audio-processing-complete", {
-            detail: {
-              itemId,
-              error: data.error || "Processing failed",
-            },
-          })
-        );
-        return;
-      }
-
-      if (data.status === "cancelled") {
-        window.dispatchEvent(
-          new CustomEvent("audio-processing-complete", {
-            detail: {
-              itemId,
-              error: data.error || "Processing cancelled",
-            },
-          })
-        );
-        return;
-      }
-
-      await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-    } catch (err) {
-      dispatchError(
-        err instanceof Error ? err.message : "Network or parse error during polling"
-      );
-      return;
-    }
+  if (result.status === "completed" && result.data) {
+    const resultData = result.data.result as
+      | { summary?: string; segments?: unknown[]; duration?: number }
+      | undefined;
+    dispatchComplete({
+      summary: resultData?.summary,
+      segments: resultData?.segments,
+      duration: resultData?.duration,
+    });
+  } else {
+    dispatchComplete({ error: result.error ?? "Processing failed" });
   }
 }
+
+export { AUDIO_COMPLETE_EVENT };

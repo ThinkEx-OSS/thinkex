@@ -1,17 +1,11 @@
-import { headers } from "next/headers";
 import { createPatch, diffLines } from "diff";
-import { auth } from "@/lib/auth";
-import { db, workspaces } from "@/lib/db/client";
 import {
   appendWorkspaceEventOrThrow,
   appendWorkspaceEventUsingCurrentVersionWithRetry,
 } from "@/lib/workspace/workspace-event-store";
-import { workspaceCollaborators } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
 import { createEvent } from "@/lib/workspace/events";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import { getRandomCardColor } from "@/lib/workspace-state/colors";
-import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
 import { logger } from "@/lib/utils/logger";
 import type {
   Item,
@@ -23,10 +17,13 @@ import type {
   FlashcardItem,
   DocumentData,
 } from "@/lib/workspace-state/types";
-import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
 import { executeWorkspaceOperation } from "./common";
-import { loadWorkspaceState } from "@/lib/workspace/state-loader";
-import { hasDuplicateName } from "@/lib/workspace/unique-name";
+import {
+  requireMutationIdentity,
+  requireWorkspaceEditor,
+  loadWorkspaceItemsForValidation,
+  checkDuplicateName,
+} from "@/lib/workspace/mutation-helpers";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 import {
   replace as applyReplace,
@@ -305,68 +302,16 @@ export async function workspaceWorker(
     params.workspaceId,
     async () => {
       try {
-        logger.debug("📝 [WORKSPACE-WORKER] Action:", action, params);
-
-        // Get current user
-        const session = await auth.api.getSession({
-          headers: await headers(),
-        });
-        if (!session) {
-          throw new Error("User not authenticated");
-        }
-        const userId = session.user.id;
-        const userName = session.user.name || session.user.email || undefined;
-
-        // Verify workspace access - owner OR editor collaborator
-        const workspace = await db
-          .select({ userId: workspaces.userId })
-          .from(workspaces)
-          .where(eq(workspaces.id, params.workspaceId))
-          .limit(1);
-
-        if (!workspace[0]) {
-          throw new Error("Workspace not found");
-        }
-
-        // Check if user is owner
-        const isOwner = workspace[0].userId === userId;
-
-        // If not owner, check if user is an editor collaborator
-        if (!isOwner) {
-          const [collaborator] = await db
-            .select({ permissionLevel: workspaceCollaborators.permissionLevel })
-            .from(workspaceCollaborators)
-            .where(
-              and(
-                eq(workspaceCollaborators.workspaceId, params.workspaceId),
-                eq(workspaceCollaborators.userId, userId),
-              ),
-            )
-            .limit(1);
-
-          if (!collaborator || collaborator.permissionLevel !== "editor") {
-            throw new Error("Access denied - editor permission required");
-          }
-        }
+        const { userId, userName } = await requireMutationIdentity();
+        await requireWorkspaceEditor(params.workspaceId, userId);
 
         // Handle different actions
         if (action === "create") {
           const item = await buildItemFromCreateParams(params);
-          const currentState = normalizeWorkspaceItems(
-            await loadWorkspaceState(params.workspaceId, { userId }),
-          );
-          if (
-            hasDuplicateName(
-              currentState,
-              item.name,
-              item.type,
-              item.folderId ?? null,
-            )
-          ) {
-            return {
-              success: false,
-              message: `A ${item.type} named "${item.name}" already exists in this folder`,
-            };
+          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
+          const dupError = checkDuplicateName(currentState, item.name, item.type, item.folderId ?? null);
+          if (dupError) {
+            return { success: false, message: dupError };
           }
           const event = createEvent(
             "ITEM_CREATED",
@@ -380,8 +325,6 @@ export async function workspaceWorker(
             event,
             2,
           );
-
-          logger.info(`📝 [WORKSPACE-WORKER] Created ${item.type}:`, item.name);
 
           // Include card count for flashcard decks (use created item.data.cards, not params)
           const flashcardCards =
@@ -412,6 +355,17 @@ export async function workspaceWorker(
           const items = await Promise.all(
             params.items.map((p) => buildItemFromCreateParams(p)),
           );
+
+          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
+          for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            const preceding = [...currentState, ...items.slice(0, i)];
+            const dupError = checkDuplicateName(preceding, item.name, item.type, item.folderId ?? null);
+            if (dupError) {
+              return { success: false, message: dupError };
+            }
+          }
+
           const event = createEvent(
             "BULK_ITEMS_CREATED",
             { items },
@@ -424,9 +378,6 @@ export async function workspaceWorker(
             event,
           );
 
-          logger.info(
-            `📝 [WORKSPACE-WORKER] Bulk created ${items.length} items`,
-          );
           return {
             success: true,
             message: `Bulk created ${items.length} items successfully`,
@@ -446,10 +397,7 @@ export async function workspaceWorker(
             throw new Error("Cards to add required for flashcard update");
           }
 
-          // Use helper to load current state (duplicated logic removed)
-          const currentState = normalizeWorkspaceItems(
-            await loadWorkspaceState(params.workspaceId, { userId }),
-          );
+          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
 
           const existingItem = currentState.find(
             (i: any) => i.id === params.itemId,
@@ -486,20 +434,9 @@ export async function workspaceWorker(
 
           // Handle title update if provided
           if (params.title) {
-            logger.debug("🎴 [UPDATE-FLASHCARD] Updating title:", params.title);
-            if (
-              hasDuplicateName(
-                currentState,
-                params.title,
-                existingItem.type,
-                existingItem.folderId ?? null,
-                params.itemId,
-              )
-            ) {
-              return {
-                success: false,
-                message: `A ${existingItem.type} named "${params.title}" already exists in this folder`,
-              };
+            const dupError = checkDuplicateName(currentState, params.title, existingItem.type, existingItem.folderId ?? null, params.itemId);
+            if (dupError) {
+              return { success: false, message: dupError };
             }
             changes.name = params.title;
           }
@@ -519,13 +456,6 @@ export async function workspaceWorker(
             params.workspaceId,
             event,
           );
-
-          logger.info("🎴 [WORKSPACE-WORKER] Updated flashcard deck:", {
-            itemId: params.itemId,
-            cardsAdded: newCards.length,
-            totalCards: updatedData.cards.length,
-            newTitle: params.title,
-          });
 
           return {
             success: true,
@@ -553,15 +483,7 @@ export async function workspaceWorker(
             );
           }
 
-          logger.debug("🎯 [WORKSPACE-WORKER] Updating quiz:", {
-            itemId: params.itemId,
-            questionsToAdd: questionsToAdd?.length ?? 0,
-            titleUpdate: hasTitle,
-          });
-
-          const currentState = normalizeWorkspaceItems(
-            await loadWorkspaceState(params.workspaceId, { userId }),
-          );
+          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
 
           const existingItem = currentState.find(
             (i: any) => i.id === params.itemId,
@@ -589,20 +511,9 @@ export async function workspaceWorker(
           const changes: any = hasQuestions ? { data: updatedData } : {};
 
           if (params.title) {
-            logger.debug("🎯 [UPDATE-QUIZ] Updating title:", params.title);
-            if (
-              hasDuplicateName(
-                currentState,
-                params.title,
-                existingItem.type,
-                existingItem.folderId ?? null,
-                params.itemId,
-              )
-            ) {
-              return {
-                success: false,
-                message: `A ${existingItem.type} named "${params.title}" already exists in this folder`,
-              };
+            const dupError = checkDuplicateName(currentState, params.title, existingItem.type, existingItem.folderId ?? null, params.itemId);
+            if (dupError) {
+              return { success: false, message: dupError };
             }
             changes.name = params.title;
           }
@@ -618,27 +529,10 @@ export async function workspaceWorker(
             userName,
           );
 
-          logger.debug("📝 [UPDATE-QUIZ-DB] Created event:", {
-            eventId: event.id,
-            eventType: event.type,
-            payloadId: event.payload.id,
-            questionsInPayload: (event.payload.changes?.data as any)?.questions
-              ?.length,
-          });
-
           const appendResult = await persistWorkspaceEvent(
             params.workspaceId,
             event,
           );
-          logger.info("📝 [UPDATE-QUIZ-DB] Persisted result:", {
-            version: appendResult.version,
-          });
-
-          logger.info("🎯 [WORKSPACE-WORKER] Updated quiz:", {
-            itemId: params.itemId,
-            questionsAdded: questionsToAdd?.length ?? 0,
-            totalQuestions: updatedData.questions.length,
-          });
 
           return {
             success: true,
@@ -669,9 +563,7 @@ export async function workspaceWorker(
             );
           }
 
-          const currentState = normalizeWorkspaceItems(
-            await loadWorkspaceState(params.workspaceId, { userId }),
-          );
+          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
           const existingItem = currentState.find(
             (i: any) => i.id === params.itemId,
           );
@@ -697,19 +589,9 @@ export async function workspaceWorker(
           const changes: Partial<Item> = { data: updatedData };
 
           if (params.title) {
-            if (
-              hasDuplicateName(
-                currentState,
-                params.title,
-                existingItem.type,
-                existingItem.folderId ?? null,
-                params.itemId,
-              )
-            ) {
-              return {
-                success: false,
-                message: `A ${existingItem.type} named "${params.title}" already exists in this folder`,
-              };
+            const dupError = checkDuplicateName(currentState, params.title, existingItem.type, existingItem.folderId ?? null, params.itemId);
+            if (dupError) {
+              return { success: false, message: dupError };
             }
             changes.name = params.title;
           }
@@ -730,16 +612,11 @@ export async function workspaceWorker(
             event,
           );
 
-          const contentLen = getOcrPagesTextContent(params.pdfOcrPages).length;
-          logger.info("📄 [WORKSPACE-WORKER] Updated PDF OCR content:", {
-            itemId: params.itemId,
-            contentLength: contentLen,
-          });
 
           return {
             success: true,
             itemId: params.itemId,
-            message: `Cached OCR content for PDF "${existingItem.name}" (${contentLen} chars)`,
+            message: `Cached OCR content for PDF "${existingItem.name}"`,
             event,
             version: appendResult.version,
           };
@@ -759,9 +636,7 @@ export async function workspaceWorker(
             );
           }
 
-          const currentState = normalizeWorkspaceItems(
-            await loadWorkspaceState(params.workspaceId, { userId }),
-          );
+          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
           const existingItem = currentState.find(
             (i: any) => i.id === params.itemId,
           );
@@ -832,9 +707,7 @@ export async function workspaceWorker(
             throw new Error("oldString and newString required for edit");
           }
 
-          const currentState = normalizeWorkspaceItems(
-            await loadWorkspaceState(params.workspaceId, { userId }),
-          );
+          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
           const existingItem = currentState.find(
             (i: Item) => i.id === params.itemId,
           );
@@ -898,19 +771,9 @@ export async function workspaceWorker(
               data: { ...data, cards: newCards } as FlashcardData,
             };
             if (rename) {
-              if (
-                hasDuplicateName(
-                  currentState,
-                  rename,
-                  "flashcard",
-                  existingItem.folderId ?? null,
-                  params.itemId,
-                )
-              ) {
-                return {
-                  success: false,
-                  message: `A flashcard deck named "${rename}" already exists in this folder`,
-                };
+              const dupError = checkDuplicateName(currentState, rename, "flashcard", existingItem.folderId ?? null, params.itemId);
+              if (dupError) {
+                return { success: false, message: dupError };
               }
               changes.name = rename;
             }
@@ -1013,19 +876,9 @@ export async function workspaceWorker(
 
             const changes: Partial<Item> = { data: updatedData };
             if (rename) {
-              if (
-                hasDuplicateName(
-                  currentState,
-                  rename,
-                  "quiz",
-                  existingItem.folderId ?? null,
-                  params.itemId,
-                )
-              ) {
-                return {
-                  success: false,
-                  message: `A quiz named "${rename}" already exists in this folder`,
-                };
+              const dupError = checkDuplicateName(currentState, rename, "quiz", existingItem.folderId ?? null, params.itemId);
+              if (dupError) {
+                return { success: false, message: dupError };
               }
               changes.name = rename;
             }
@@ -1059,19 +912,9 @@ export async function workspaceWorker(
             const changes: Partial<Item> = {};
             const docData = existingItem.data as DocumentData;
             if (rename) {
-              if (
-                hasDuplicateName(
-                  currentState,
-                  rename,
-                  "document",
-                  existingItem.folderId ?? null,
-                  params.itemId,
-                )
-              ) {
-                return {
-                  success: false,
-                  message: `A document named "${rename}" already exists in this folder`,
-                };
+              const dupError = checkDuplicateName(currentState, rename, "document", existingItem.folderId ?? null, params.itemId);
+              if (dupError) {
+                return { success: false, message: dupError };
               }
               changes.name = rename;
             }
@@ -1169,19 +1012,9 @@ export async function workspaceWorker(
                   "PDFs can only be renamed. Use oldString='', newString='', and newName='new name'.",
               };
             }
-            if (
-              hasDuplicateName(
-                currentState,
-                rename,
-                "pdf",
-                existingItem.folderId ?? null,
-                params.itemId,
-              )
-            ) {
-              return {
-                success: false,
-                message: `A PDF named "${rename}" already exists in this folder`,
-              };
+            const dupError = checkDuplicateName(currentState, rename, "pdf", existingItem.folderId ?? null, params.itemId);
+            if (dupError) {
+              return { success: false, message: dupError };
             }
             const changes: Partial<Item> = { name: rename };
             const event = createEvent(
@@ -1211,9 +1044,7 @@ export async function workspaceWorker(
             throw new Error("Item ID required for delete");
           }
 
-          const currentState = normalizeWorkspaceItems(
-            await loadWorkspaceState(params.workspaceId, { userId }),
-          );
+          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
           const existingItem = currentState.find(
             (i: any) => i.id === params.itemId,
           );
@@ -1228,8 +1059,6 @@ export async function workspaceWorker(
             params.workspaceId,
             event,
           );
-
-          logger.info("📝 [WORKSPACE-WORKER] Deleted item:", params.itemId);
 
           return {
             success: true,
@@ -1248,7 +1077,7 @@ export async function workspaceWorker(
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
-        logger.error("📝 [WORKSPACE-WORKER] Error:", errorMessage);
+        logger.error("[WORKSPACE-WORKER] Error:", errorMessage);
         return {
           success: false,
           message: `Failed: ${errorMessage}`,

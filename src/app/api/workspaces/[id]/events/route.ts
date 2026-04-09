@@ -11,7 +11,7 @@ import { hasDuplicateName } from "@/lib/workspace/unique-name";
 import { db, workspaceEvents } from "@/lib/db/client";
 import { eq, sql } from "drizzle-orm";
 import {
-  requireAuth,
+  requireAuthWithUserInfo,
   verifyWorkspaceAccess,
   withErrorHandling,
 } from "@/lib/api/workspace-helpers";
@@ -25,11 +25,11 @@ async function handleGET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const paramsPromise = params;
-  const authPromise = requireAuth();
+  const authPromise = requireAuthWithUserInfo();
 
   const paramsResolved = await paramsPromise;
   const id = paramsResolved.id;
-  const userId = await authPromise;
+  const { userId } = await authPromise;
   await verifyWorkspaceAccess(id, userId, "viewer");
   const eventCountResult = await db
     .select({ count: sql<number>`count(*)::int` })
@@ -153,36 +153,45 @@ async function handlePOST(
   const startTime = Date.now();
   const timings: Record<string, number> = {};
 
-  // Start independent operations in parallel
   const paramsPromise = params;
-  const authPromise = requireAuth();
+  const authPromise = requireAuthWithUserInfo();
   const bodyPromise = request.json();
 
   const paramsResolved = await paramsPromise;
   const id = paramsResolved.id;
 
   const authStart = Date.now();
-  const userId = await authPromise;
+  const { userId, name: userName } = await authPromise;
   timings.auth = Date.now() - authStart;
 
   const bodyStart = Date.now();
   const body = await bodyPromise;
   timings.bodyParse = Date.now() - bodyStart;
-  const { event, baseVersion } = body;
 
-  if (!event || baseVersion === undefined || isNaN(baseVersion)) {
+  const { event: rawEvent, baseVersion } = body ?? {};
+  if (
+    !rawEvent ||
+    typeof rawEvent.type !== "string" ||
+    typeof rawEvent.id !== "string" ||
+    baseVersion === undefined ||
+    isNaN(baseVersion)
+  ) {
     return NextResponse.json(
       { error: "Event and valid baseVersion are required" },
       { status: 400 },
     );
   }
 
-  // Check if user has editor access (owner or editor collaborator)
+  const event: WorkspaceEvent = {
+    ...rawEvent,
+    userId,
+    userName,
+  };
+
   const workspaceCheckStart = Date.now();
   await verifyWorkspaceAccess(id, userId, "editor");
   timings.workspaceCheck = Date.now() - workspaceCheckStart;
 
-  // Validate unique name for ITEM_CREATED and ITEM_UPDATED (when name changes)
   if (event.type === "ITEM_CREATED") {
     const item = event.payload?.item;
     if (item?.name != null && item?.type) {
@@ -201,13 +210,13 @@ async function handlePOST(
   }
   if (event.type === "ITEM_UPDATED" && event.payload?.changes?.name != null) {
     const itemId = event.payload?.id;
-    const newName = event.payload.changes.name;
+    const newName = event.payload.changes.name as string;
     if (itemId && newName) {
       const state = await loadWorkspaceState(id, { userId });
       const existingItem = state.find((i: { id: string }) => i.id === itemId);
       if (existingItem) {
         const newFolderId =
-          event.payload.changes.folderId ?? existingItem.folderId ?? null;
+          (event.payload.changes as Record<string, unknown>).folderId as string | undefined ?? existingItem.folderId ?? null;
         if (
           hasDuplicateName(
             state,
