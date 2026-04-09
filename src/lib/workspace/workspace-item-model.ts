@@ -484,7 +484,16 @@ export function normalizeItemData(type: CardType, rawData: unknown): ItemData {
     return parsed.data;
   }
 
-  return emptyDataForType(type);
+  const fallback = {
+    ...emptyDataForType(type),
+    ...(isRecord(rawData) ? rawData : {}),
+  };
+
+  try {
+    return schema.parse(fallback);
+  } catch {
+    return fallback as ItemData;
+  }
 }
 
 export function normalizeItem(item: Item): Item {
@@ -719,6 +728,10 @@ export function buildWorkspaceItemTableRows(params: {
   userId?: string;
 }): WorkspaceItemTableRows {
   const split = splitWorkspaceItem(params.item);
+
+  if (split.userStates.length > 0 && !params.userId) {
+    throw new Error("userId is required for items with user state");
+  }
 
   return {
     item: {

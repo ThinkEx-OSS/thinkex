@@ -14,14 +14,14 @@ import {
 
 // workspace_shares removed - sharing is now fork-based (users import copies)
 
-export const workspacesRelations = relations(workspaces, ({ many }) => ({
+export const workspacesRelations = relations(workspaces, ({ many, one }) => ({
   workspaceSnapshots: many(workspaceSnapshots),
   workspaceEvents: many(workspaceEvents),
   workspaceItems: many(workspaceItems),
   workspaceItemContent: many(workspaceItemContent),
   workspaceItemExtracted: many(workspaceItemExtracted),
   workspaceItemUserState: many(workspaceItemUserState),
-  workspaceItemProjectionState: many(workspaceItemProjectionState),
+  workspaceItemProjectionState: one(workspaceItemProjectionState),
 }));
 
 export const workspaceSnapshotsRelations = relations(
@@ -44,12 +44,18 @@ export const workspaceEventsRelations = relations(
   }),
 );
 
-export const workspaceItemsRelations = relations(workspaceItems, ({ one }) => ({
-  workspace: one(workspaces, {
-    fields: [workspaceItems.workspaceId],
-    references: [workspaces.id],
+export const workspaceItemsRelations = relations(
+  workspaceItems,
+  ({ one, many }) => ({
+    workspace: one(workspaces, {
+      fields: [workspaceItems.workspaceId],
+      references: [workspaces.id],
+    }),
+    workspaceItemContent: many(workspaceItemContent),
+    workspaceItemExtracted: many(workspaceItemExtracted),
+    workspaceItemUserState: many(workspaceItemUserState),
   }),
-}));
+);
 
 export const workspaceItemContentRelations = relations(
   workspaceItemContent,

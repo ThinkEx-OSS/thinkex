@@ -1,0 +1,4 @@
+CREATE INDEX "idx_workspace_items_workspace_ocr_page_count" ON "workspace_items" USING btree ("workspace_id" uuid_ops,"ocr_page_count" int4_ops);--> statement-breakpoint
+CREATE INDEX "idx_workspace_items_workspace_has_transcript" ON "workspace_items" USING btree ("workspace_id" uuid_ops,"has_transcript" bool_ops);--> statement-breakpoint
+CREATE INDEX "idx_workspace_items_workspace_source_count" ON "workspace_items" USING btree ("workspace_id" uuid_ops,"source_count" int4_ops);--> statement-breakpoint
+DROP POLICY "Users can write workspace item projection state they have write access to" ON "workspace_item_projection_state" CASCADE;

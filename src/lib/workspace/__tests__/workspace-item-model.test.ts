@@ -4,6 +4,7 @@ import {
   WORKSPACE_ITEM_PRIMARY_USER_STATE_KEY,
   buildWorkspaceItemTableRows,
   getWorkspaceItemCapabilities,
+  normalizeItemData,
   rehydrateWorkspaceItem,
   splitWorkspaceItem,
 } from "../workspace-item-model";
@@ -255,5 +256,118 @@ describe("workspace item model", () => {
         userStates: rows.userStates,
       }),
     ).toEqual(item);
+  });
+
+  it("round-trips the remaining item types through split and rehydrate", () => {
+    const cases: Item[] = [
+      {
+        id: "quiz-1",
+        type: "quiz",
+        name: "Quiz",
+        subtitle: "",
+        data: {
+          title: "Pop Quiz",
+          questions: [
+            {
+              id: "q-1",
+              type: "multiple_choice",
+              questionText: "Question?",
+              options: ["A", "B", "C", "D"],
+              correctIndex: 0,
+              explanation: "Because",
+            },
+          ],
+          session: {
+            currentIndex: 0,
+            answeredQuestions: [
+              { questionId: "q-1", userAnswer: 0, isCorrect: true },
+            ],
+          },
+        },
+      },
+      {
+        id: "image-1",
+        type: "image",
+        name: "Image",
+        subtitle: "",
+        data: {
+          url: "https://example.com/image.png",
+          altText: "Diagram",
+          caption: "Figure 1",
+          ocrStatus: "complete",
+          ocrPages: [{ index: 0, markdown: "Caption text" }],
+        },
+      },
+      {
+        id: "website-1",
+        type: "website",
+        name: "Website",
+        subtitle: "",
+        data: {
+          url: "https://example.com",
+          favicon: "https://example.com/favicon.ico",
+        },
+      },
+      {
+        id: "folder-1",
+        type: "folder",
+        name: "Folder",
+        subtitle: "",
+        data: {},
+      },
+    ];
+
+    for (const item of cases) {
+      const rows = buildWorkspaceItemTableRows({
+        workspaceId: "workspace-1",
+        item,
+        sourceVersion: 4,
+        userId: item.type === "quiz" ? "user-1" : undefined,
+      });
+
+      expect(
+        rehydrateWorkspaceItem({
+          shell: rows.item,
+          content: rows.content,
+          extracted: rows.extracted,
+          userStates: rows.userStates,
+        }),
+      ).toEqual(item);
+    }
+  });
+
+  it("preserves valid item fields when normalization encounters malformed optional data", () => {
+    expect(
+      normalizeItemData("audio", {
+        fileUrl: "https://example.com/audio.mp3",
+        filename: "audio.mp3",
+        processingStatus: "complete",
+        segments: "not-an-array",
+      }),
+    ).toMatchObject({
+      fileUrl: "https://example.com/audio.mp3",
+      filename: "audio.mp3",
+      processingStatus: "complete",
+      segments: "not-an-array",
+    });
+  });
+
+  it("throws when user-scoped state exists but userId is omitted", () => {
+    expect(() =>
+      buildWorkspaceItemTableRows({
+        workspaceId: "workspace-1",
+        item: {
+          id: "flash-2",
+          type: "flashcard",
+          name: "Deck",
+          subtitle: "",
+          data: {
+            cards: [{ id: "card-1", front: "Front", back: "Back" }],
+            currentIndex: 1,
+          },
+        },
+        sourceVersion: 2,
+      }),
+    ).toThrow("userId is required for items with user state");
   });
 });

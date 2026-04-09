@@ -440,6 +440,21 @@ export const workspaceItems = pgTable(
       table.hasOcr.asc().nullsLast().op("bool_ops"),
       table.ocrStatus.asc().nullsLast().op("text_ops"),
     ),
+    index("idx_workspace_items_workspace_ocr_page_count").using(
+      "btree",
+      table.workspaceId.asc().nullsLast().op("uuid_ops"),
+      table.ocrPageCount.asc().nullsLast().op("int4_ops"),
+    ),
+    index("idx_workspace_items_workspace_has_transcript").using(
+      "btree",
+      table.workspaceId.asc().nullsLast().op("uuid_ops"),
+      table.hasTranscript.asc().nullsLast().op("bool_ops"),
+    ),
+    index("idx_workspace_items_workspace_source_count").using(
+      "btree",
+      table.workspaceId.asc().nullsLast().op("uuid_ops"),
+      table.sourceCount.desc().nullsFirst().op("int4_ops"),
+    ),
     foreignKey({
       columns: [table.workspaceId],
       foreignColumns: [workspaces.id],
@@ -681,24 +696,6 @@ export const workspaceItemProjectionState = pgTable(
   WHERE ((workspaces.id = workspace_item_projection_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
    FROM workspace_collaborators c
   WHERE ((c.workspace_id = workspace_item_projection_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))`,
-      },
-    ),
-    pgPolicy(
-      "Users can write workspace item projection state they have write access to",
-      {
-        as: "permissive",
-        for: "all",
-        to: ["public"],
-        using: sql`(EXISTS ( SELECT 1
-   FROM workspaces
-  WHERE ((workspaces.id = workspace_item_projection_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
-   FROM workspace_collaborators c
-  WHERE ((c.workspace_id = workspace_item_projection_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))`,
-        withCheck: sql`(EXISTS ( SELECT 1
-   FROM workspaces
-  WHERE ((workspaces.id = workspace_item_projection_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
-   FROM workspace_collaborators c
-  WHERE ((c.workspace_id = workspace_item_projection_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))`,
       },
     ),
   ],
