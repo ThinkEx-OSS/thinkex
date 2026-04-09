@@ -1,5 +1,6 @@
 import { createEvent } from "@/lib/workspace/events";
 import { appendWorkspaceEventOrThrow } from "@/lib/workspace/workspace-event-store";
+import { db, workspaceItemExtracted } from "@/lib/db/client";
 import type { AudioData, Item } from "@/lib/workspace-state/types";
 import type { TranscribeResult } from "./transcribe";
 
@@ -22,6 +23,33 @@ export async function persistAudioResult(
 ): Promise<void> {
   "use step";
 
+  const transcriptText = result.segments
+    ?.map((s) => s.content)
+    .join("\n") || null;
+
+  await db
+    .insert(workspaceItemExtracted)
+    .values({
+      workspaceId,
+      itemId,
+      searchText: transcriptText ?? "",
+      transcriptText,
+      transcriptSegments: result.segments as unknown as Record<string, unknown>,
+      updatedAt: new Date().toISOString(),
+    })
+    .onConflictDoUpdate({
+      target: [
+        workspaceItemExtracted.workspaceId,
+        workspaceItemExtracted.itemId,
+      ],
+      set: {
+        transcriptText,
+        transcriptSegments: result.segments as unknown as Record<string, unknown>,
+        searchText: transcriptText ?? "",
+        updatedAt: new Date().toISOString(),
+      },
+    });
+
   const event = createEvent(
     "ITEM_UPDATED",
     {
@@ -29,7 +57,6 @@ export async function persistAudioResult(
       changes: {
         data: {
           summary: result.summary,
-          segments: result.segments,
           ...(typeof result.duration === "number" &&
             result.duration > 0 && { duration: result.duration }),
           processingStatus: "complete" as const,
