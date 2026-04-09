@@ -1,4 +1,5 @@
 import { db } from "@/lib/db/client";
+import { logger } from "@/lib/utils/logger";
 import type { Item } from "@/lib/workspace-state/types";
 import { loadWorkspaceProjectionState } from "./workspace-items-projector";
 

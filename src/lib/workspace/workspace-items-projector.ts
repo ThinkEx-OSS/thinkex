@@ -209,13 +209,15 @@ async function readProjectedWorkspaceState(
     getWorkspaceProjectionCheckpoint(client, workspaceId),
   ]);
 
+  const items = await loadProjectedItemsByShellRows(
+    client,
+    workspaceId,
+    shellRows as Array<typeof workspaceItems.$inferSelect>,
+    userId,
+  );
+
   return {
-    items: await loadProjectedItemsByShellRows(
-      client,
-      workspaceId,
-      shellRows as Array<typeof workspaceItems.$inferSelect>,
-      userId,
-    ),
+    items,
     version,
   };
 }
