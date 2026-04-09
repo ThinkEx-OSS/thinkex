@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useCallback } from "react";
+import { useAsyncDebouncer } from "@tanstack/react-pacer/async-debouncer";
 import { useMessage, useThread } from "@assistant-ui/react";
 import { toast } from "sonner";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
@@ -20,9 +21,6 @@ interface CreateCardOptions {
  */
 export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
   const { debounceMs = 300 } = options; // Reduced from 1000ms to 300ms
-  const [isCreating, setIsCreating] = useState(false);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-
   const message = useMessage();
   const thread = useThread(); // Access the full thread to find sources
 
@@ -66,21 +64,8 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
     });
   };
 
-  const createCard = useCallback(async () => {
-    // Clear any existing debounce timer
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-
-    // Set up debounced execution
-    debounceTimerRef.current = setTimeout(async () => {
-      // Prevent creation if already in progress
-      if (isCreating) {
-        toast.error("Card creation already in progress");
-        return;
-      }
-
-      // Get message content
+  const createCardDebouncer = useAsyncDebouncer(
+    useCallback(async () => {
       const content = message.content
         .filter((part) => part.type === "text")
         .map((part) => (part as any).text)
@@ -96,21 +81,16 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
         return;
       }
 
-      setIsCreating(true);
       const toastId = toast.loading("Creating card...");
 
       try {
-        // Get the current active folder ID
         const activeFolderId = useUIStore.getState().activeFolderId;
 
-        // Extract sources from the thread history
-        // We look backwards from the current message to find the relevant webSearch result
         let sources:
           | Array<{ title: string; url: string; favicon?: string }>
           | undefined;
 
         try {
-          // Use any cast since standard types might differ
           const messages = (thread as any).messages || [];
           const currentIndex = messages.findIndex(
             (m: any) => m.id === message.id,
@@ -167,20 +147,14 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
 
         const result = await response.json();
 
-        // Invalidate React Query cache to refresh the UI immediately
-        if (currentWorkspaceId) {
-          logger.debug("🔄 [CREATE-CARD-BUTTON] Invalidating workspace cache", {
-            workspaceId: currentWorkspaceId.substring(0, 8),
-          });
-
-          // Force refetch workspace events to show the new card
-          queryClient.invalidateQueries({
-            queryKey: ["workspace", currentWorkspaceId, "events"],
-          });
-        }
+        logger.debug("🔄 [CREATE-CARD-BUTTON] Invalidating workspace cache", {
+          workspaceId: currentWorkspaceId.substring(0, 8),
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["workspace", currentWorkspaceId, "events"],
+        });
 
         toast.success("Card created successfully!", { id: toastId });
-
         return result;
       } catch (error) {
         console.error("Error creating card:", error);
@@ -188,19 +162,32 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
           error instanceof Error ? error.message : "Failed to create card",
           { id: toastId },
         );
-        throw error;
-      } finally {
-        setIsCreating(false);
       }
-    }, debounceMs);
-  }, [message, thread, currentWorkspaceId, isCreating, debounceMs]);
+    }, [message, thread, currentWorkspaceId, queryClient]),
+    { wait: debounceMs },
+    (state) => ({
+      isExecuting: state.isExecuting,
+      isPending: state.isPending,
+    }),
+  );
 
-  // Cleanup on unmount
-  const cleanup = useCallback(() => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
+  const createCard = useCallback(() => {
+    if (createCardDebouncer.state.isExecuting) {
+      toast.error("Card creation already in progress");
+      return;
     }
-  }, []);
+
+    void createCardDebouncer.maybeExecute();
+  }, [createCardDebouncer]);
+
+  const cleanup = useCallback(() => {
+    createCardDebouncer.cancel();
+    createCardDebouncer.abort();
+  }, [createCardDebouncer]);
+
+  const isCreating =
+    createCardDebouncer.state.isExecuting ||
+    createCardDebouncer.state.isPending;
 
   return {
     createCard,

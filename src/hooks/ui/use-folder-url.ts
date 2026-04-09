@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { useDebouncer } from "@tanstack/react-pacer/debouncer";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useUIStore } from "@/lib/stores/ui-store";
 
@@ -38,11 +39,39 @@ export function useFolderUrl() {
   const activeFolderId = useUIStore((state) => state.activeFolderId);
   const openItems = useUIStore((state) => state.openItems);
 
-  const setActiveFolderIdDirect = useUIStore((state) => state._setActiveFolderIdDirect);
+  const setActiveFolderIdDirect = useUIStore(
+    (state) => state._setActiveFolderIdDirect,
+  );
   const setOpenItemsFromUrl = useUIStore((state) => state._setOpenItemsFromUrl);
 
   const isSyncingFromUrl = useRef(false);
   const lastPushedState = useRef<UrlState | undefined>(undefined);
+  const pushUrlState = useCallback(
+    (next: UrlState) => {
+      lastPushedState.current = next;
+
+      const params = new URLSearchParams(searchParams.toString());
+
+      if (next.folder) params.set("folder", next.folder);
+      else params.delete("folder");
+
+      if (next.items.length > 0) {
+        params.set("items", next.items.join(","));
+      } else {
+        params.delete("items");
+      }
+
+      params.delete("focus");
+      params.delete("item");
+
+      const qs = params.toString();
+      router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+  const pushUrlDebouncer = useDebouncer(pushUrlState, {
+    wait: DEBOUNCE_MS,
+  });
 
   const parseUrlState = (): UrlState => {
     const folder = searchParams.get("folder") || null;
@@ -85,6 +114,7 @@ export function useFolderUrl() {
     const storeItems = openItemsToUrlList(openItems);
 
     if (isSyncingFromUrl.current) {
+      pushUrlDebouncer.cancel();
       lastPushedState.current = {
         folder: activeFolderId,
         items: storeItems,
@@ -107,28 +137,12 @@ export function useFolderUrl() {
       return;
     }
 
-    const tid = setTimeout(() => {
-      lastPushedState.current = next;
-
-      const params = new URLSearchParams(searchParams.toString());
-
-      if (next.folder) params.set("folder", next.folder);
-      else params.delete("folder");
-
-      if (next.items.length > 0) {
-        params.set("items", next.items.join(","));
-      } else {
-        params.delete("items");
-      }
-
-      params.delete("focus");
-      params.delete("item");
-
-      const qs = params.toString();
-      router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    }, DEBOUNCE_MS);
-
-    return () => clearTimeout(tid);
+    pushUrlDebouncer.maybeExecute(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeFolderId, openItems.primary, openItems.secondary]);
+  }, [
+    activeFolderId,
+    openItems.primary,
+    openItems.secondary,
+    pushUrlDebouncer,
+  ]);
 }
