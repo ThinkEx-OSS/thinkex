@@ -21,7 +21,7 @@ export function useWorkspaceState(workspaceId: string | null) {
     const updateNumber = stateUpdateCountRef.current;
     
     if (!eventLog || !workspaceId) {
-      return initialItems;
+      return [...initialItems];
     }
 
     const replayedItems = replayEvents(eventLog.events);

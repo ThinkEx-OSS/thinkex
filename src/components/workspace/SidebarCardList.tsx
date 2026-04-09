@@ -847,8 +847,8 @@ function SidebarCardList() {
 
     // Get all items
     const allItems = useMemo(() => {
-        return state?.items || [];
-    }, [state?.items]);
+        return state || [];
+    }, [state]);
 
     // Get root-level folders (folders with no folderId)
     const rootFolders = useMemo(() => {
@@ -909,7 +909,7 @@ function SidebarCardList() {
         );
     }
 
-    const totalCards = (state?.items || []).filter(item => item.type !== 'folder').length;
+    const totalCards = (state || []).filter(item => item.type !== 'folder').length;
 
     if (totalCards === 0) {
         return (
