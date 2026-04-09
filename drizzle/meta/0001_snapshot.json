@@ -1,5 +1,5 @@
 {
-  "id": "4e24ff29-3255-4fc2-9d4a-256bf371a7d2",
+  "id": "77a2e4b0-3244-4eda-8ffd-41ba7999b3e1",
   "prevId": "a4f859f9-1fa2-42e1-ab7d-bfc9a4b3491f",
   "version": "7",
   "dialect": "postgresql",
@@ -111,8 +111,12 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -218,8 +222,12 @@
           "name": "chat_messages_thread_id_chat_threads_id_fk",
           "tableFrom": "chat_messages",
           "tableTo": "chat_threads",
-          "columnsFrom": ["thread_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "thread_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -229,7 +237,10 @@
         "chat_messages_thread_message_key": {
           "name": "chat_messages_thread_message_key",
           "nullsNotDistinct": false,
-          "columns": ["thread_id", "message_id"]
+          "columns": [
+            "thread_id",
+            "message_id"
+          ]
         }
       },
       "policies": {},
@@ -368,8 +379,12 @@
           "name": "chat_threads_workspace_id_workspaces_id_fk",
           "tableFrom": "chat_threads",
           "tableTo": "workspaces",
-          "columnsFrom": ["workspace_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -377,8 +392,12 @@
           "name": "chat_threads_user_id_user_id_fk",
           "tableFrom": "chat_threads",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -390,7 +409,9 @@
           "name": "chat_threads_user_scoped",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": ["authenticated"],
+          "to": [
+            "authenticated"
+          ],
           "using": "((chat_threads.user_id = (auth.jwt() ->> 'sub'::text))\n   AND ((EXISTS ( SELECT 1 FROM workspaces w\n   WHERE ((w.id = chat_threads.workspace_id) AND (w.user_id = (auth.jwt() ->> 'sub'::text)))))\n   OR (EXISTS ( SELECT 1 FROM workspace_collaborators c\n   WHERE ((c.workspace_id = chat_threads.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))))"
         }
       },
@@ -490,8 +511,12 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -501,7 +526,9 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": ["token"]
+          "columns": [
+            "token"
+          ]
         }
       },
       "policies": {},
@@ -589,7 +616,9 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": ["email"]
+          "columns": [
+            "email"
+          ]
         }
       },
       "policies": {},
@@ -665,7 +694,9 @@
         "user_profiles_user_id_key": {
           "name": "user_profiles_user_id_key",
           "nullsNotDistinct": false,
-          "columns": ["user_id"]
+          "columns": [
+            "user_id"
+          ]
         }
       },
       "policies": {
@@ -673,20 +704,26 @@
           "name": "Users can insert their own profile",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": ["authenticated"],
+          "to": [
+            "authenticated"
+          ],
           "withCheck": "(( SELECT (auth.jwt() ->> 'sub'::text)) = user_id)"
         },
         "Users can update their own profile": {
           "name": "Users can update their own profile",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         },
         "Users can view their own profile": {
           "name": "Users can view their own profile",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         }
       },
       "checkConstraints": {},
@@ -879,8 +916,12 @@
           "name": "workspace_collaborators_workspace_id_fkey",
           "tableFrom": "workspace_collaborators",
           "tableTo": "workspaces",
-          "columnsFrom": ["workspace_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -890,12 +931,17 @@
         "workspace_collaborators_invite_token_unique": {
           "name": "workspace_collaborators_invite_token_unique",
           "nullsNotDistinct": false,
-          "columns": ["invite_token"]
+          "columns": [
+            "invite_token"
+          ]
         },
         "workspace_collaborators_workspace_user_unique": {
           "name": "workspace_collaborators_workspace_user_unique",
           "nullsNotDistinct": false,
-          "columns": ["workspace_id", "user_id"]
+          "columns": [
+            "workspace_id",
+            "user_id"
+          ]
         }
       },
       "policies": {
@@ -903,14 +949,18 @@
           "name": "Owners can manage collaborators",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": ["authenticated"],
+          "to": [
+            "authenticated"
+          ],
           "using": "(EXISTS ( SELECT 1\n   FROM workspaces w\n  WHERE ((w.id = workspace_collaborators.workspace_id) AND (w.user_id = (auth.jwt() ->> 'sub'::text)))))"
         },
         "Collaborators can view their access": {
           "name": "Collaborators can view their access",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["authenticated"],
+          "to": [
+            "authenticated"
+          ],
           "using": "(user_id = (auth.jwt() ->> 'sub'::text))"
         }
       },
@@ -1069,8 +1119,12 @@
           "name": "workspace_events_workspace_id_fkey",
           "tableFrom": "workspace_events",
           "tableTo": "workspaces",
-          "columnsFrom": ["workspace_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1080,7 +1134,9 @@
         "workspace_events_event_id_key": {
           "name": "workspace_events_event_id_key",
           "nullsNotDistinct": false,
-          "columns": ["event_id"]
+          "columns": [
+            "event_id"
+          ]
         }
       },
       "policies": {
@@ -1088,14 +1144,18 @@
           "name": "Users can insert workspace events they have write access to",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": ["public"],
+          "to": [
+            "public"
+          ],
           "withCheck": "(EXISTS ( SELECT 1\n   FROM workspaces\n  WHERE ((workspaces.id = workspace_events.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_events.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))"
         },
         "Users can read workspace events they have access to": {
           "name": "Users can read workspace events they have access to",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["public"],
+          "to": [
+            "public"
+          ],
           "using": "(EXISTS ( SELECT 1\n   FROM workspaces\n  WHERE ((workspaces.id = workspace_events.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_events.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))"
         }
       },
@@ -1213,8 +1273,12 @@
           "name": "workspace_invites_workspace_id_fkey",
           "tableFrom": "workspace_invites",
           "tableTo": "workspaces",
-          "columnsFrom": ["workspace_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1224,7 +1288,9 @@
         "workspace_invites_token_key": {
           "name": "workspace_invites_token_key",
           "nullsNotDistinct": false,
-          "columns": ["token"]
+          "columns": [
+            "token"
+          ]
         }
       },
       "policies": {
@@ -1232,14 +1298,18 @@
           "name": "Public can view invite by token",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["public"],
+          "to": [
+            "public"
+          ],
           "using": "true"
         },
         "Users can insert invites for workspaces they own/edit": {
           "name": "Users can insert invites for workspaces they own/edit",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": ["authenticated"],
+          "to": [
+            "authenticated"
+          ],
           "withCheck": "(EXISTS ( SELECT 1\n   FROM workspaces w\n  WHERE ((w.id = workspace_invites.workspace_id) AND (w.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_invites.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))"
         }
       },
@@ -1337,8 +1407,14 @@
           "name": "workspace_item_content_workspace_item_fkey",
           "tableFrom": "workspace_item_content",
           "tableTo": "workspace_items",
-          "columnsFrom": ["workspace_id", "item_id"],
-          "columnsTo": ["workspace_id", "item_id"],
+          "columnsFrom": [
+            "workspace_id",
+            "item_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "item_id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1346,7 +1422,10 @@
       "compositePrimaryKeys": {
         "workspace_item_content_pkey": {
           "name": "workspace_item_content_pkey",
-          "columns": ["workspace_id", "item_id"]
+          "columns": [
+            "workspace_id",
+            "item_id"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -1355,14 +1434,18 @@
           "name": "Users can read workspace item content they have access to",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["public"],
+          "to": [
+            "public"
+          ],
           "using": "(EXISTS ( SELECT 1\n   FROM workspaces\n  WHERE ((workspaces.id = workspace_item_content.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_item_content.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))"
         },
         "Users can write workspace item content they have write access to": {
           "name": "Users can write workspace item content they have write access to",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": ["public"],
+          "to": [
+            "public"
+          ],
           "using": "(EXISTS ( SELECT 1\n   FROM workspaces\n  WHERE ((workspaces.id = workspace_item_content.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_item_content.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))",
           "withCheck": "(EXISTS ( SELECT 1\n   FROM workspaces\n  WHERE ((workspaces.id = workspace_item_content.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_item_content.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))"
         }
@@ -1454,8 +1537,14 @@
           "name": "workspace_item_extracted_workspace_item_fkey",
           "tableFrom": "workspace_item_extracted",
           "tableTo": "workspace_items",
-          "columnsFrom": ["workspace_id", "item_id"],
-          "columnsTo": ["workspace_id", "item_id"],
+          "columnsFrom": [
+            "workspace_id",
+            "item_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "item_id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1463,7 +1552,10 @@
       "compositePrimaryKeys": {
         "workspace_item_extracted_pkey": {
           "name": "workspace_item_extracted_pkey",
-          "columns": ["workspace_id", "item_id"]
+          "columns": [
+            "workspace_id",
+            "item_id"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -1472,14 +1564,18 @@
           "name": "Users can read workspace item extracted data they have access to",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["public"],
+          "to": [
+            "public"
+          ],
           "using": "(EXISTS ( SELECT 1\n   FROM workspaces\n  WHERE ((workspaces.id = workspace_item_extracted.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_item_extracted.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))"
         },
         "Users can write workspace item extracted data they have write access to": {
           "name": "Users can write workspace item extracted data they have write access to",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": ["public"],
+          "to": [
+            "public"
+          ],
           "using": "(EXISTS ( SELECT 1\n   FROM workspaces\n  WHERE ((workspaces.id = workspace_item_extracted.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_item_extracted.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))",
           "withCheck": "(EXISTS ( SELECT 1\n   FROM workspaces\n  WHERE ((workspaces.id = workspace_item_extracted.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_item_extracted.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))"
         }
@@ -1541,8 +1637,12 @@
           "name": "workspace_item_projection_state_workspace_id_fkey",
           "tableFrom": "workspace_item_projection_state",
           "tableTo": "workspaces",
-          "columnsFrom": ["workspace_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1554,16 +1654,10 @@
           "name": "Users can read workspace item projection state they have access to",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["public"],
+          "to": [
+            "public"
+          ],
           "using": "(EXISTS ( SELECT 1\n   FROM workspaces\n  WHERE ((workspaces.id = workspace_item_projection_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_item_projection_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))"
-        },
-        "Users can write workspace item projection state they have write access to": {
-          "name": "Users can write workspace item projection state they have write access to",
-          "as": "PERMISSIVE",
-          "for": "ALL",
-          "to": ["public"],
-          "using": "(EXISTS ( SELECT 1\n   FROM workspaces\n  WHERE ((workspaces.id = workspace_item_projection_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_item_projection_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))",
-          "withCheck": "(EXISTS ( SELECT 1\n   FROM workspaces\n  WHERE ((workspaces.id = workspace_item_projection_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_item_projection_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))"
         }
       },
       "checkConstraints": {},
@@ -1685,8 +1779,14 @@
           "name": "workspace_item_user_state_workspace_item_fkey",
           "tableFrom": "workspace_item_user_state",
           "tableTo": "workspace_items",
-          "columnsFrom": ["workspace_id", "item_id"],
-          "columnsTo": ["workspace_id", "item_id"],
+          "columnsFrom": [
+            "workspace_id",
+            "item_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "item_id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1694,7 +1794,12 @@
       "compositePrimaryKeys": {
         "workspace_item_user_state_pkey": {
           "name": "workspace_item_user_state_pkey",
-          "columns": ["workspace_id", "item_id", "user_id", "state_key"]
+          "columns": [
+            "workspace_id",
+            "item_id",
+            "user_id",
+            "state_key"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -1703,14 +1808,18 @@
           "name": "Users can read their workspace item user state",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["public"],
+          "to": [
+            "public"
+          ],
           "using": "((workspace_item_user_state.user_id = (auth.jwt() ->> 'sub'::text)) AND ((EXISTS ( SELECT 1\n   FROM workspaces\n  WHERE ((workspaces.id = workspace_item_user_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_item_user_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))))"
         },
         "Users can write their workspace item user state": {
           "name": "Users can write their workspace item user state",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": ["public"],
+          "to": [
+            "public"
+          ],
           "using": "((workspace_item_user_state.user_id = (auth.jwt() ->> 'sub'::text)) AND ((EXISTS ( SELECT 1\n   FROM workspaces\n  WHERE ((workspaces.id = workspace_item_user_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_item_user_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))))",
           "withCheck": "((workspace_item_user_state.user_id = (auth.jwt() ->> 'sub'::text)) AND ((EXISTS ( SELECT 1\n   FROM workspaces\n  WHERE ((workspaces.id = workspace_item_user_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_item_user_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))))"
         }
@@ -2013,6 +2122,75 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "idx_workspace_items_workspace_ocr_page_count": {
+          "name": "idx_workspace_items_workspace_ocr_page_count",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "uuid_ops"
+            },
+            {
+              "expression": "ocr_page_count",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "int4_ops"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_workspace_items_workspace_has_transcript": {
+          "name": "idx_workspace_items_workspace_has_transcript",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "uuid_ops"
+            },
+            {
+              "expression": "has_transcript",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "bool_ops"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_workspace_items_workspace_source_count": {
+          "name": "idx_workspace_items_workspace_source_count",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "uuid_ops"
+            },
+            {
+              "expression": "source_count",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "first",
+              "opclass": "int4_ops"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -2020,8 +2198,12 @@
           "name": "workspace_items_workspace_id_fkey",
           "tableFrom": "workspace_items",
           "tableTo": "workspaces",
-          "columnsFrom": ["workspace_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2029,7 +2211,10 @@
       "compositePrimaryKeys": {
         "workspace_items_pkey": {
           "name": "workspace_items_pkey",
-          "columns": ["workspace_id", "item_id"]
+          "columns": [
+            "workspace_id",
+            "item_id"
+          ]
         }
       },
       "uniqueConstraints": {},
@@ -2038,14 +2223,18 @@
           "name": "Users can read workspace items they have access to",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["public"],
+          "to": [
+            "public"
+          ],
           "using": "(EXISTS ( SELECT 1\n   FROM workspaces\n  WHERE ((workspaces.id = workspace_items.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_items.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))"
         },
         "Users can write workspace items they have write access to": {
           "name": "Users can write workspace items they have write access to",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": ["public"],
+          "to": [
+            "public"
+          ],
           "using": "(EXISTS ( SELECT 1\n   FROM workspaces\n  WHERE ((workspaces.id = workspace_items.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_items.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))",
           "withCheck": "(EXISTS ( SELECT 1\n   FROM workspaces\n  WHERE ((workspaces.id = workspace_items.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_items.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))"
         }
@@ -2136,8 +2325,12 @@
           "name": "workspace_share_links_workspace_id_fkey",
           "tableFrom": "workspace_share_links",
           "tableTo": "workspaces",
-          "columnsFrom": ["workspace_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2147,12 +2340,16 @@
         "workspace_share_links_token_key": {
           "name": "workspace_share_links_token_key",
           "nullsNotDistinct": false,
-          "columns": ["token"]
+          "columns": [
+            "token"
+          ]
         },
         "workspace_share_links_workspace_key": {
           "name": "workspace_share_links_workspace_key",
           "nullsNotDistinct": false,
-          "columns": ["workspace_id"]
+          "columns": [
+            "workspace_id"
+          ]
         }
       },
       "policies": {
@@ -2160,14 +2357,18 @@
           "name": "Public can view share link by token",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["public"],
+          "to": [
+            "public"
+          ],
           "using": "true"
         },
         "Owners and editors can manage share links": {
           "name": "Owners and editors can manage share links",
           "as": "PERMISSIVE",
           "for": "ALL",
-          "to": ["authenticated"],
+          "to": [
+            "authenticated"
+          ],
           "using": "(EXISTS ( SELECT 1\n   FROM workspaces w\n  WHERE ((w.id = workspace_share_links.workspace_id) AND (w.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1\n   FROM workspace_collaborators c\n  WHERE ((c.workspace_id = workspace_share_links.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))"
         }
       },
@@ -2263,8 +2464,12 @@
           "name": "workspace_snapshots_workspace_id_fkey",
           "tableFrom": "workspace_snapshots",
           "tableTo": "workspaces",
-          "columnsFrom": ["workspace_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "workspace_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2274,7 +2479,10 @@
         "workspace_snapshots_workspace_id_snapshot_version_key": {
           "name": "workspace_snapshots_workspace_id_snapshot_version_key",
           "nullsNotDistinct": false,
-          "columns": ["workspace_id", "snapshot_version"]
+          "columns": [
+            "workspace_id",
+            "snapshot_version"
+          ]
         }
       },
       "policies": {
@@ -2282,14 +2490,18 @@
           "name": "Service role can insert workspace snapshots",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": ["public"],
+          "to": [
+            "public"
+          ],
           "withCheck": "true"
         },
         "Users can read workspace snapshots they have access to": {
           "name": "Users can read workspace snapshots they have access to",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["public"]
+          "to": [
+            "public"
+          ]
         }
       },
       "checkConstraints": {},
@@ -2504,26 +2716,34 @@
           "name": "Users can delete their own workspaces",
           "as": "PERMISSIVE",
           "for": "DELETE",
-          "to": ["authenticated"],
+          "to": [
+            "authenticated"
+          ],
           "using": "(( SELECT (auth.jwt() ->> 'sub'::text)) = user_id)"
         },
         "Users can insert their own workspaces": {
           "name": "Users can insert their own workspaces",
           "as": "PERMISSIVE",
           "for": "INSERT",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         },
         "Users can update their own workspaces": {
           "name": "Users can update their own workspaces",
           "as": "PERMISSIVE",
           "for": "UPDATE",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         },
         "Users can view their own workspaces": {
           "name": "Users can view their own workspaces",
           "as": "PERMISSIVE",
           "for": "SELECT",
-          "to": ["authenticated"]
+          "to": [
+            "authenticated"
+          ]
         }
       },
       "checkConstraints": {},

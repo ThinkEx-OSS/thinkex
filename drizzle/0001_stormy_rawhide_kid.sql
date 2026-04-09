@@ -90,6 +90,9 @@ CREATE INDEX "idx_workspace_items_workspace_updated" ON "workspace_items" USING 
 CREATE INDEX "idx_workspace_items_workspace_version" ON "workspace_items" USING btree ("workspace_id" uuid_ops,"source_version" int4_ops);--> statement-breakpoint
 CREATE INDEX "idx_workspace_items_workspace_processing" ON "workspace_items" USING btree ("workspace_id" uuid_ops,"processing_status" text_ops);--> statement-breakpoint
 CREATE INDEX "idx_workspace_items_workspace_ocr" ON "workspace_items" USING btree ("workspace_id" uuid_ops,"has_ocr" bool_ops,"ocr_status" text_ops);--> statement-breakpoint
+CREATE INDEX "idx_workspace_items_workspace_ocr_page_count" ON "workspace_items" USING btree ("workspace_id" uuid_ops,"ocr_page_count" int4_ops);--> statement-breakpoint
+CREATE INDEX "idx_workspace_items_workspace_has_transcript" ON "workspace_items" USING btree ("workspace_id" uuid_ops,"has_transcript" bool_ops);--> statement-breakpoint
+CREATE INDEX "idx_workspace_items_workspace_source_count" ON "workspace_items" USING btree ("workspace_id" uuid_ops,"source_count" int4_ops);--> statement-breakpoint
 CREATE POLICY "Users can read workspace item content they have access to" ON "workspace_item_content" AS PERMISSIVE FOR SELECT TO public USING ((EXISTS ( SELECT 1
    FROM workspaces
   WHERE ((workspaces.id = workspace_item_content.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
@@ -123,15 +126,6 @@ CREATE POLICY "Users can read workspace item projection state they have access t
   WHERE ((workspaces.id = workspace_item_projection_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
    FROM workspace_collaborators c
   WHERE ((c.workspace_id = workspace_item_projection_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text))))));--> statement-breakpoint
-CREATE POLICY "Users can write workspace item projection state they have write access to" ON "workspace_item_projection_state" AS PERMISSIVE FOR ALL TO public USING ((EXISTS ( SELECT 1
-   FROM workspaces
-  WHERE ((workspaces.id = workspace_item_projection_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
-   FROM workspace_collaborators c
-  WHERE ((c.workspace_id = workspace_item_projection_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))) WITH CHECK ((EXISTS ( SELECT 1
-   FROM workspaces
-  WHERE ((workspaces.id = workspace_item_projection_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
-   FROM workspace_collaborators c
-  WHERE ((c.workspace_id = workspace_item_projection_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text)))));--> statement-breakpoint
 CREATE POLICY "Users can read their workspace item user state" ON "workspace_item_user_state" AS PERMISSIVE FOR SELECT TO public USING (((workspace_item_user_state.user_id = (auth.jwt() ->> 'sub'::text)) AND ((EXISTS ( SELECT 1
    FROM workspaces
   WHERE ((workspaces.id = workspace_item_user_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
