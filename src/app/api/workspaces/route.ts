@@ -246,6 +246,16 @@ async function handlePOST(request: NextRequest) {
     : getTemplateInitialItems(effectiveTemplate);
 
   if (initialItems.length > 0) {
+    await db
+      .insert(workspaceItemProjectionState)
+      .values({
+        workspaceId: workspace.id,
+        lastAppliedVersion: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+      .onConflictDoNothing();
+
     const event = createEvent(
       "BULK_ITEMS_CREATED",
       { items: initialItems },

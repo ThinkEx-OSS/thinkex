@@ -17,6 +17,7 @@ import {
   rehydrateWorkspaceItem,
 } from "./workspace-item-model";
 import { stableStringify } from "./workspace-item-model-shared";
+import { WorkspaceProjectionNotReadyError } from "./workspace-projection-errors";
 
 export type WorkspaceProjectionClient = Pick<
   typeof db,
@@ -46,10 +47,15 @@ function mapEventRowToWorkspaceEvent(
   } as WorkspaceEvent;
 }
 
-async function getProjectionCheckpoint(
+export interface WorkspaceProjectionCheckpoint {
+  exists: boolean;
+  lastAppliedVersion: number;
+}
+
+export async function getWorkspaceProjectionCheckpoint(
   client: WorkspaceProjectionClient,
   workspaceId: string,
-): Promise<number> {
+): Promise<WorkspaceProjectionCheckpoint> {
   const [row] = await client
     .select({
       lastAppliedVersion: workspaceItemProjectionState.lastAppliedVersion,
@@ -58,7 +64,17 @@ async function getProjectionCheckpoint(
     .where(eq(workspaceItemProjectionState.workspaceId, workspaceId))
     .limit(1);
 
-  return row?.lastAppliedVersion ?? 0;
+  if (!row) {
+    return {
+      exists: false,
+      lastAppliedVersion: 0,
+    };
+  }
+
+  return {
+    exists: true,
+    lastAppliedVersion: row.lastAppliedVersion,
+  };
 }
 
 export async function getLatestWorkspaceEventVersion(
@@ -108,7 +124,9 @@ async function readProjectedWorkspaceState(
       .from(workspaceItems)
       .where(eq(workspaceItems.workspaceId, workspaceId))
       .orderBy(asc(workspaceItems.createdAt), asc(workspaceItems.itemId)),
-    getProjectionCheckpoint(client, workspaceId),
+    getWorkspaceProjectionCheckpoint(client, workspaceId).then(
+      (checkpoint) => checkpoint.lastAppliedVersion,
+    ),
   ]);
 
   if (shellRows.length === 0) {
@@ -437,7 +455,9 @@ export async function syncWorkspaceProjectionToVersion(
     return 0;
   }
 
-  const currentCheckpoint = await getProjectionCheckpoint(client, workspaceId);
+  const currentCheckpoint = (
+    await getWorkspaceProjectionCheckpoint(client, workspaceId)
+  ).lastAppliedVersion;
   if (currentCheckpoint >= targetVersion) {
     return currentCheckpoint;
   }
@@ -472,6 +492,31 @@ export async function syncWorkspaceProjectionToVersion(
   return Math.max(lastAppliedVersion, currentCheckpoint);
 }
 
+export async function assertWorkspaceProjectionReady(
+  client: WorkspaceProjectionClient,
+  workspaceId: string,
+): Promise<number> {
+  const [checkpoint, latestEventVersion] = await Promise.all([
+    getWorkspaceProjectionCheckpoint(client, workspaceId),
+    getLatestWorkspaceEventVersion(client, workspaceId),
+  ]);
+
+  if (
+    !checkpoint.exists ||
+    checkpoint.lastAppliedVersion !== latestEventVersion
+  ) {
+    throw new WorkspaceProjectionNotReadyError({
+      workspaceId,
+      lastAppliedVersion: checkpoint.exists
+        ? checkpoint.lastAppliedVersion
+        : null,
+      latestEventVersion,
+    });
+  }
+
+  return checkpoint.lastAppliedVersion;
+}
+
 export async function projectWorkspaceEvent(
   client: WorkspaceProjectionClient,
   params: {
@@ -480,11 +525,24 @@ export async function projectWorkspaceEvent(
     version: number;
   },
 ): Promise<void> {
-  await syncWorkspaceProjectionToVersion(
+  const checkpoint = await getWorkspaceProjectionCheckpoint(
     client,
     params.workspaceId,
-    params.version - 1,
   );
+
+  if (
+    !checkpoint.exists ||
+    checkpoint.lastAppliedVersion !== params.version - 1
+  ) {
+    throw new WorkspaceProjectionNotReadyError({
+      workspaceId: params.workspaceId,
+      lastAppliedVersion: checkpoint.exists
+        ? checkpoint.lastAppliedVersion
+        : null,
+      latestEventVersion: params.version - 1,
+    });
+  }
+
   await applyWorkspaceEventProjectionInternal(client, params);
 }
 

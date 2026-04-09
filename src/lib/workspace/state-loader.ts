@@ -1,10 +1,8 @@
 import { db } from "@/lib/db/client";
 import type { Item } from "@/lib/workspace-state/types";
-import { initialItems } from "@/lib/workspace-state/state";
 import {
-  getLatestWorkspaceEventVersion,
+  assertWorkspaceProjectionReady,
   loadWorkspaceProjectionSnapshot,
-  syncWorkspaceProjectionToVersion,
 } from "./workspace-items-projector";
 
 export interface LoadWorkspaceStateOptions {
@@ -20,34 +18,19 @@ export async function loadWorkspaceStateSnapshot(
   workspaceId: string,
   options: LoadWorkspaceStateOptions = {},
 ): Promise<WorkspaceStateSnapshot> {
-  try {
-    return await db.transaction(async (tx: any) => {
-      const latestVersion = await getLatestWorkspaceEventVersion(
-        tx,
-        workspaceId,
-      );
-      await syncWorkspaceProjectionToVersion(tx, workspaceId, latestVersion);
+  return db.transaction(async (tx: any) => {
+    await assertWorkspaceProjectionReady(tx, workspaceId);
 
-      const snapshot = await loadWorkspaceProjectionSnapshot(tx, {
-        workspaceId,
-        userId: options.userId,
-      });
-
-      return {
-        state: snapshot.items,
-        version: snapshot.version,
-      };
+    const snapshot = await loadWorkspaceProjectionSnapshot(tx, {
+      workspaceId,
+      userId: options.userId,
     });
-  } catch (error) {
-    console.error(
-      "Error loading workspace state from projection tables:",
-      error,
-    );
+
     return {
-      state: initialItems,
-      version: 0,
+      state: snapshot.items,
+      version: snapshot.version,
     };
-  }
+  });
 }
 
 export async function loadWorkspaceState(

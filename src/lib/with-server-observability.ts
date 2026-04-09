@@ -5,32 +5,35 @@ import {
   capturePostHogServerException,
   flushPostHogServer,
 } from "@/lib/posthog-server";
+import { WorkspaceProjectionNotReadyError } from "@/lib/workspace/workspace-projection-errors";
 
 type RouteHandler<TArgs extends [Request, ...unknown[]]> = (
   ...args: TArgs
 ) => Promise<Response>;
 
-type ObservabilityProperties = Record<string, string | number | boolean | undefined>;
+type ObservabilityProperties = Record<
+  string,
+  string | number | boolean | undefined
+>;
 
 type ObservabilityMetadata = {
   distinctId?: string;
   properties?: ObservabilityProperties;
 };
 
-export type ServerObservabilityOptions<
-  TArgs extends [Request, ...unknown[]],
-> = {
-  routeName: string;
-  getMetadata?: (...args: TArgs) => Promise<ObservabilityMetadata> | ObservabilityMetadata;
-};
+export type ServerObservabilityOptions<TArgs extends [Request, ...unknown[]]> =
+  {
+    routeName: string;
+    getMetadata?: (
+      ...args: TArgs
+    ) => Promise<ObservabilityMetadata> | ObservabilityMetadata;
+  };
 
 function getResponseStatus(response: Response | undefined): number | undefined {
   return response?.status;
 }
 
-export function withServerObservability<
-  TArgs extends [Request, ...unknown[]],
->(
+export function withServerObservability<TArgs extends [Request, ...unknown[]]>(
   handler: RouteHandler<TArgs>,
   options: ServerObservabilityOptions<TArgs>,
 ): RouteHandler<TArgs> {
@@ -39,8 +42,9 @@ export function withServerObservability<
     const startedAt = Date.now();
     const method = request.method;
     const path = new URL(request.url).pathname;
-    const metadata =
-      options.getMetadata ? await Promise.resolve(options.getMetadata(...args)) : undefined;
+    const metadata = options.getMetadata
+      ? await Promise.resolve(options.getMetadata(...args))
+      : undefined;
 
     after(async () => {
       await flushPostHogServer();
@@ -77,6 +81,24 @@ export function withServerObservability<
         });
 
         return error;
+      }
+
+      if (error instanceof WorkspaceProjectionNotReadyError) {
+        capturePostHogServerEvent("server_request", {
+          distinctId: metadata?.distinctId,
+          properties: {
+            route_name: options.routeName,
+            method,
+            path,
+            status: 503,
+            duration_ms: Date.now() - startedAt,
+            failed: true,
+            ...metadata?.properties,
+          },
+        });
+
+        console.error(`Projection not ready in ${options.routeName}:`, error);
+        return NextResponse.json({ error: error.message }, { status: 503 });
       }
 
       capturePostHogServerException(error, {
