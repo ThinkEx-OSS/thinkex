@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EventResponse, WorkspaceEvent } from "@/lib/workspace/events";
-import { sanitizeWorkspaceEventForClient } from "@/lib/workspace/client-safe-events";
+import { toClientWorkspaceEvent } from "@/lib/workspace/workspace-event-client-payload";
 import type { Item } from "@/lib/workspace-state/types";
 import { deriveWorkspaceStateFromCaches } from "./workspace-state-cache";
 
@@ -61,7 +61,7 @@ describe("workspace-state-cache", () => {
     ]);
   });
 
-  it("returns empty initial state before the projection snapshot arrives", () => {
+  it("returns empty initial state before the projection payload arrives", () => {
     const derived = deriveWorkspaceStateFromCaches({
       workspaceId: "ws-1",
       stateData: null,
@@ -109,7 +109,7 @@ describe("workspace-state-cache", () => {
 
     const eventLog: EventResponse = {
       version: 3,
-      events: [sanitizeWorkspaceEventForClient(leakedConfirmedEvent)],
+      events: [toClientWorkspaceEvent(leakedConfirmedEvent)],
     };
 
     const derived = deriveWorkspaceStateFromCaches({

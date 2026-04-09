@@ -4,7 +4,7 @@ import {
   verifyWorkspaceAccess,
   withErrorHandling,
 } from "@/lib/api/workspace-helpers";
-import { loadWorkspaceStateSnapshot } from "@/lib/workspace/state-loader";
+import { loadWorkspaceStatePayload } from "@/lib/workspace/state-loader";
 
 async function handleGET(
   _request: NextRequest,
@@ -18,8 +18,8 @@ async function handleGET(
 
   await verifyWorkspaceAccess(id, userId, "viewer");
 
-  const snapshot = await loadWorkspaceStateSnapshot(id, { userId });
-  return NextResponse.json(snapshot);
+  const statePayload = await loadWorkspaceStatePayload(id, { userId });
+  return NextResponse.json(statePayload);
 }
 
 export const GET = withErrorHandling(

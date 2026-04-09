@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
-import { sanitizeWorkspaceEventForClient } from "@/lib/workspace/client-safe-events";
+import { toClientWorkspaceEvent } from "@/lib/workspace/workspace-event-client-payload";
 
-describe("client-safe-events", () => {
+describe("workspace-event-client-payload", () => {
   it("strips per-user fields and heavy OCR payloads without mutating the original event", () => {
     const event: WorkspaceEvent = {
       id: "evt-1",
@@ -58,7 +58,7 @@ describe("client-safe-events", () => {
       version: 10,
     };
 
-    const sanitized = sanitizeWorkspaceEventForClient(event);
+    const sanitized = toClientWorkspaceEvent(event);
     const items = (
       sanitized.payload as { items: Array<{ data: Record<string, unknown> }> }
     ).items;

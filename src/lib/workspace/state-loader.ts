@@ -6,24 +6,24 @@ export interface LoadWorkspaceStateOptions {
   userId?: string | null;
 }
 
-export interface WorkspaceStateSnapshot {
+export interface WorkspaceStatePayload {
   state: Item[];
   version: number;
 }
 
-export async function loadWorkspaceStateSnapshot(
+export async function loadWorkspaceStatePayload(
   workspaceId: string,
   options: LoadWorkspaceStateOptions = {},
-): Promise<WorkspaceStateSnapshot> {
+): Promise<WorkspaceStatePayload> {
   return db.transaction(async (tx: any) => {
-    const snapshot = await loadWorkspaceProjectionSnapshot(tx, {
+    const projection = await loadWorkspaceProjectionSnapshot(tx, {
       workspaceId,
       userId: options.userId,
     });
 
     return {
-      state: snapshot.items,
-      version: snapshot.version,
+      state: projection.items,
+      version: projection.version,
     };
   });
 }
@@ -32,6 +32,6 @@ export async function loadWorkspaceState(
   workspaceId: string,
   options: LoadWorkspaceStateOptions = {},
 ): Promise<Item[]> {
-  const snapshot = await loadWorkspaceStateSnapshot(workspaceId, options);
-  return snapshot.state;
+  const statePayload = await loadWorkspaceStatePayload(workspaceId, options);
+  return statePayload.state;
 }

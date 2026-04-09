@@ -6,7 +6,7 @@ import {
 } from "@/lib/workspace/events";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import { appendWorkspaceEventWithBaseVersion } from "@/lib/workspace/workspace-event-store";
-import { sanitizeWorkspaceEventsForClient } from "@/lib/workspace/client-safe-events";
+import { toClientWorkspaceEvents } from "@/lib/workspace/workspace-event-client-payload";
 import { hasDuplicateName } from "@/lib/workspace/unique-name";
 import { db, workspaceEvents } from "@/lib/db/client";
 import { eq, sql } from "drizzle-orm";
@@ -130,7 +130,7 @@ async function handleGET(
       : 0;
 
   const response: EventResponse = {
-    events: sanitizeWorkspaceEventsForClient(events),
+    events: toClientWorkspaceEvents(events),
     version: maxVersion,
   };
 

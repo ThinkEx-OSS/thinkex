@@ -49,9 +49,7 @@ function stripPerUserStateFromItemChanges(
   delete data.playbackRate;
 }
 
-export function sanitizeWorkspaceEventForClient(
-  event: WorkspaceEvent,
-): WorkspaceEvent {
+export function toClientWorkspaceEvent(event: WorkspaceEvent): WorkspaceEvent {
   const sanitized = structuredClone(event);
   const payload = sanitized.payload as Record<string, unknown>;
 
@@ -112,8 +110,8 @@ export function sanitizeWorkspaceEventForClient(
   return sanitized;
 }
 
-export function sanitizeWorkspaceEventsForClient(
+export function toClientWorkspaceEvents(
   events: WorkspaceEvent[],
 ): WorkspaceEvent[] {
-  return events.map((event) => sanitizeWorkspaceEventForClient(event));
+  return events.map((event) => toClientWorkspaceEvent(event));
 }
