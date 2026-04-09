@@ -202,11 +202,6 @@ export function useWorkspaceOperations(
         }
       }
 
-      logger.debug("⏱️ [DEBOUNCE] updateItem firing after 500ms:", {
-        id: itemId,
-        changes: finalChanges,
-      });
-
       mutation.mutate(
         createEvent(
           "ITEM_UPDATED",
@@ -275,13 +270,6 @@ export function useWorkspaceOperations(
       }
 
       const newData = finalUpdater(latestItem.data);
-      const ocrStatus = (newData as { ocrStatus?: string })?.ocrStatus;
-      logger.debug("[OCR/UPDATE] updateItemData firing:", {
-        itemId,
-        itemName: latestItem.name,
-        ocrStatus,
-        dataKeys: Object.keys(newData),
-      });
 
       mutation.mutate(
         createEvent(
@@ -358,16 +346,6 @@ export function useWorkspaceOperations(
       initialData?: Partial<Item["data"]>,
       initialLayout?: { w: number; h: number },
     ) => {
-      // Validate type is a valid CardType
-      logger.debug(
-        "🔧 [CREATE-ITEM] Received type:",
-        type,
-        "typeof:",
-        typeof type,
-        "value:",
-        JSON.stringify(type),
-      );
-
       const validTypes: CardType[] = [
         "pdf",
         "flashcard",
@@ -381,19 +359,6 @@ export function useWorkspaceOperations(
       ];
       const validType = validTypes.includes(type) ? type : "document";
 
-      if (validType !== type) {
-        logger.warn(
-          `🔧 [CREATE-ITEM] Invalid type "${type}" (typeof ${typeof type}), using "document" instead`,
-        );
-      }
-
-      logger.debug("🔧 [CREATE-ITEM] Creating item:", {
-        type: validType,
-        name,
-        userId,
-        workspaceId,
-        hasInitialData: !!initialData,
-      });
       const id = generateItemId();
 
       // Merge default data with initial data
@@ -402,13 +367,7 @@ export function useWorkspaceOperations(
         ? { ...baseData, ...initialData }
         : baseData;
 
-      // Get active folder - auto-assign new items to the currently viewed folder
       const activeFolderId = useUIStore.getState().activeFolderId;
-      logger.debug("🔧 [CREATE-ITEM] Active folder:", { activeFolderId });
-
-      logger.debug("🔧 [CREATE-ITEM] Base data:", baseData);
-      logger.debug("🔧 [CREATE-ITEM] Initial data:", initialData);
-      logger.debug("🔧 [CREATE-ITEM] Merged data:", mergedData);
 
       const folderId = activeFolderId ?? null;
       const finalName =
@@ -463,13 +422,6 @@ export function useWorkspaceOperations(
         return [];
       }
 
-      logger.debug("🔧 [CREATE-ITEMS] Creating items:", {
-        count: items.length,
-        userId,
-        workspaceId,
-      });
-
-      // Get active folder - auto-assign new items to the currently viewed folder
       const activeFolderId = useUIStore.getState().activeFolderId;
 
       // Get items in current view for layout calculation
@@ -501,12 +453,6 @@ export function useWorkspaceOperations(
           ];
           const validType = validTypes.includes(type) ? type : "document";
 
-          if (validType !== type) {
-            logger.warn(
-              `🔧 [CREATE-ITEMS] Invalid type "${type}", using "document" instead`,
-            );
-          }
-
           const id = generateItemId();
           const folderId = activeFolderId ?? null;
           const allItemsSoFar = [...itemsInCurrentView, ...itemsSoFar];
@@ -519,9 +465,6 @@ export function useWorkspaceOperations(
             name &&
             hasDuplicateName(allItemsSoFar, finalName, validType, folderId)
           ) {
-            logger.warn(
-              `🔧 [CREATE-ITEMS] Skipping duplicate: ${finalName} (${validType})`,
-            );
             return null;
           }
 
@@ -619,8 +562,6 @@ export function useWorkspaceOperations(
 
   const deleteItem = useCallback(
     async (id: string) => {
-      logger.debug("🗑️ [DELETE-ITEM] Deleting item:", { id, userId, userName });
-
       // If this is a PDF card, delete the file from Supabase storage first
       const itemToDelete = currentItems.find((item) => item.id === id);
       if (itemToDelete && itemToDelete.type === "pdf") {
@@ -630,9 +571,6 @@ export function useWorkspaceOperations(
         };
         if (pdfData?.fileUrl) {
           try {
-            logger.debug("🗑️ [DELETE-ITEM] Deleting PDF file from Supabase:", {
-              fileUrl: pdfData.fileUrl,
-            });
             const deleteResponse = await fetch(
               `/api/delete-file?url=${encodeURIComponent(pdfData.fileUrl)}`,
               {
@@ -644,18 +582,10 @@ export function useWorkspaceOperations(
               const errorData = await deleteResponse
                 .json()
                 .catch(() => ({ error: "Failed to delete file" }));
-              logger.warn(
-                "🗑️ [DELETE-ITEM] Failed to delete PDF file from Supabase:",
-                errorData.error,
-              );
-              // Continue with card deletion even if file deletion fails (file might not exist)
-            } else {
-              logger.debug(
-                "🗑️ [DELETE-ITEM] Successfully deleted PDF file from Supabase",
-              );
+              logger.warn("Failed to delete PDF file:", errorData.error);
             }
           } catch (error) {
-            logger.error("🗑️ [DELETE-ITEM] Error deleting PDF file:", error);
+            logger.error("Error deleting PDF file:", error);
             // Continue with card deletion even if file deletion fails
           }
         }
@@ -668,7 +598,6 @@ export function useWorkspaceOperations(
         userId,
         userName,
       );
-      logger.debug("🗑️ [DELETE-ITEM] Created event:", event);
       mutation.mutate(event);
     },
     [mutation, userId, userName, currentItems],
@@ -693,11 +622,8 @@ export function useWorkspaceOperations(
   // Update all items at once (used for layout changes, reordering, and bulk delete)
   const updateAllItems = useCallback(
     (items: Item[]) => {
-      logger.debug("🔧 [BULK-UPDATE] Updating all items:", {
-        count: items.length,
-      });
-
-      // CRITICAL FIX: Read the latest state from cache (including optimistic updates)
+      // Read the latest state from cache (including optimistic updates)
+      // instead of using the potentially stale currentState prop (including optimistic updates)
       // instead of using the potentially stale currentState prop
       // This ensures we compare against the most recent state even when a previous mutation is pending
       let latestState: Item[];
@@ -730,9 +656,6 @@ export function useWorkspaceOperations(
         const deletedIds = latestState
           .filter((i) => !newIds.has(i.id))
           .map((i) => i.id);
-        logger.debug("🔧 [BULK-UPDATE] Bulk delete, sending deletedIds only", {
-          deletedIds,
-        });
         mutation.mutate(
           createEvent(
             "BULK_ITEMS_UPDATED",
@@ -747,9 +670,6 @@ export function useWorkspaceOperations(
       // Count increased: items added – send only the new items (typically 1–2)
       if (items.length > previousItemCount) {
         const addedItems = items.filter((i) => !currentIds.has(i.id));
-        logger.debug("🔧 [BULK-UPDATE] Items added, sending addedItems only", {
-          count: addedItems.length,
-        });
         mutation.mutate(
           createEvent(
             "BULK_ITEMS_UPDATED",
@@ -811,10 +731,6 @@ export function useWorkspaceOperations(
           userName,
         );
         mutation.mutate(event);
-      } else {
-        logger.debug(
-          "🔧 [BULK-UPDATE] No layout changes detected, skipping event",
-        );
       }
     },
     [workspaceId, queryClient, currentItems, mutation, userId, userName],
@@ -833,10 +749,6 @@ export function useWorkspaceOperations(
       if (color) {
         updateItem(folderId, { color });
       }
-      logger.debug("📁 [FOLDER-CREATE] Created folder item:", {
-        folderId,
-        name,
-      });
       return folderId;
     },
     [createItem, updateItem],
@@ -855,21 +767,12 @@ export function useWorkspaceOperations(
       );
 
       if (safeItemIds.length === 0) {
-        logger.warn(
-          "📁 [FOLDER-CREATE-WITH-ITEMS] No valid items after cycle filter, skipping",
-        );
         toast.error(
           "Cannot create folder: selected items would create a circular reference.",
         );
         return ""; // Return empty string since no folder was created
       }
 
-      logger.debug("📁 [FOLDER-CREATE-WITH-ITEMS] Active folder:", {
-        activeFolderId,
-        safeItemIds,
-      });
-
-      // Generate folder ID
       const folderId = generateItemId();
 
       const baseData = defaultDataFor("folder");
@@ -894,12 +797,6 @@ export function useWorkspaceOperations(
 
       mutation.mutate(event);
 
-      logger.debug("📁 [FOLDER-CREATE-WITH-ITEMS] Created folder with items:", {
-        folderId,
-        name,
-        itemCount: safeItemIds.length,
-      });
-
       // Show success toast
       toast.success(
         `Folder created with ${safeItemIds.length} item${safeItemIds.length === 1 ? "" : "s"}`,
@@ -913,10 +810,6 @@ export function useWorkspaceOperations(
   // updateFolder now just calls updateItem (folders are items)
   const updateFolder = useCallback(
     (folderId: string, changes: Partial<Item>) => {
-      logger.debug("📁 [FOLDER-UPDATE] Updating folder item:", {
-        folderId,
-        changes,
-      });
       updateItem(folderId, changes);
     },
     [updateItem],
@@ -928,10 +821,6 @@ export function useWorkspaceOperations(
       const folder = currentItems?.find(
         (i) => i.id === folderId && i.type === "folder",
       );
-      logger.debug("📁 [FOLDER-DELETE] Deleting folder item:", {
-        folderId,
-        folderName: folder?.name,
-      });
       deleteItem(folderId);
       toast.success(
         folder ? `Folder "${folder.name}" deleted` : "Folder deleted",
@@ -968,22 +857,12 @@ export function useWorkspaceOperations(
       const folder = latestItems.find(
         (i) => i.id === folderId && i.type === "folder",
       );
-      logger.debug(
-        "📁 [FOLDER-DELETE-WITH-CONTENTS] Deleting folder and contents:",
-        { folderId, folderName: folder?.name },
-      );
-
       // Find all descendant items recursively (handles nested folders)
       const allDescendantIds = getAllDescendantIds(folderId, latestItems);
 
       // Create set of all IDs to delete (descendants + folder itself)
       const idsToDelete = new Set([...allDescendantIds, folderId]);
       const itemCount = allDescendantIds.length;
-
-      logger.debug("📁 [FOLDER-DELETE-WITH-CONTENTS] Found items to delete:", {
-        itemCount,
-        itemIds: [...idsToDelete],
-      });
 
       // Delete PDF files from storage (fire-and-forget, non-blocking)
       // This is best-effort cleanup - files may become orphaned if this fails
@@ -999,12 +878,7 @@ export function useWorkspaceOperations(
               {
                 method: "DELETE",
               },
-            ).catch((err) =>
-              logger.warn(
-                "📁 [FOLDER-DELETE-WITH-CONTENTS] Failed to delete PDF file:",
-                err,
-              ),
-            );
+            ).catch(() => {});
           }
         }
       }
@@ -1027,10 +901,6 @@ export function useWorkspaceOperations(
   const moveItemToFolder = useCallback(
     (itemId: string, folderId: string | null) => {
       const item = currentItems.find((i) => i.id === itemId);
-      logger.debug("📁 [ITEM-MOVE] Moving item to folder:", {
-        itemId,
-        folderId,
-      });
       const event = createEvent(
         "ITEM_MOVED_TO_FOLDER",
         { itemId, folderId, itemName: item?.name },
@@ -1047,10 +917,6 @@ export function useWorkspaceOperations(
       const itemNames = itemIds
         .map((id) => currentItems.find((i) => i.id === id)?.name)
         .filter((n): n is string => n != null);
-      logger.debug("📁 [ITEMS-MOVE] Moving items to folder:", {
-        itemIds,
-        folderId,
-      });
       const event = createEvent(
         "ITEMS_MOVED_TO_FOLDER",
         { itemIds, folderId, itemNames },
@@ -1064,8 +930,6 @@ export function useWorkspaceOperations(
 
   // Flush pending debounced changes for an item (called when modal closes)
   const flushPendingChanges = useCallback((itemId: string) => {
-    logger.debug("💾 [FLUSH] Flushing pending changes for item:", { itemId });
-
     updateItemDebouncerRef.current.get(itemId)?.flush();
     updateItemDataDebouncerRef.current.get(itemId)?.flush();
   }, []);

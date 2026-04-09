@@ -16,7 +16,7 @@ async function fetchWorkspaceState(
     throw new Error(`Failed to fetch workspace state: ${response.statusText}`);
   }
 
-  return response.json();
+  return (await response.json()) as WorkspaceStateResponse;
 }
 
 export function useWorkspaceState(workspaceId: string | null) {
