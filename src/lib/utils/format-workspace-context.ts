@@ -291,14 +291,6 @@ function formatWebsiteDetails(data: WebsiteData): string[] {
   return details.length > 0 ? [`   - ${details.join(", ")}`] : [];
 }
 
-/**
- * Truncates text to specified length with ellipsis
- */
-function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength - 3) + "...";
-}
-
 interface RichContent {
   images: string[];
   mathExpressions: string[];

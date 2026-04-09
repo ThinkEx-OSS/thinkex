@@ -4,6 +4,7 @@ import { ImageIcon, Music, Link as LinkIcon, X, CheckCircle2, AlertCircle } from
 import { CgNotes } from "react-icons/cg";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { truncateText } from "@/lib/utils/truncate-text";
 import { isYouTubeUrl } from "@/contexts/HomeAttachmentsContext";
 import type { FileItem } from "@/contexts/HomeAttachmentsContext";
 
@@ -11,11 +12,6 @@ function getFileIcon(file: File) {
   if (file.type.startsWith("image/")) return ImageIcon;
   if (file.type.startsWith("audio/")) return Music;
   return CgNotes;
-}
-
-function truncate(str: string, maxLen: number) {
-  if (str.length <= maxLen) return str;
-  return str.slice(0, maxLen - 3) + "...";
 }
 
 function getLinkDisplay(url: string) {
@@ -29,7 +25,7 @@ function getLinkDisplay(url: string) {
     }
     return u.hostname;
   } catch {
-    return truncate(url, 30);
+    return truncateText(url, 30);
   }
 }
 
@@ -81,7 +77,7 @@ export function HomeAttachmentCards({
                   <Icon className="size-4 shrink-0 text-muted-foreground" />
                 )}
                 <span className="truncate text-sm" title={displayName}>
-                  {truncate(displayName, 24)}
+                  {truncateText(displayName, 24)}
                 </span>
                 <button
                   type="button"
@@ -110,7 +106,7 @@ export function HomeAttachmentCards({
         >
           <LinkIcon className="size-4 shrink-0 text-muted-foreground" />
           <span className="truncate text-sm" title={url}>
-            {truncate(getLinkDisplay(url), 24)}
+            {truncateText(getLinkDisplay(url), 24)}
           </span>
           <button
             type="button"
