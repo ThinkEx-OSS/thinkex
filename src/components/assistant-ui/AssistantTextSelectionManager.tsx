@@ -26,7 +26,6 @@ import { getHighlightColorById } from "@/lib/utils/highlight-colors";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useAuiState } from "@assistant-ui/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { invalidateWorkspaceStateQuery } from "@/hooks/workspace/workspace-state-cache";
 import {
   Dialog,
   DialogContent,
@@ -893,7 +892,6 @@ export default function AssistantTextSelectionManager({
         queryClient.invalidateQueries({
           queryKey: ["workspace", workspaceId, "events"],
         });
-        void invalidateWorkspaceStateQuery(queryClient, workspaceId);
       }
 
       toast.success(

@@ -13,7 +13,7 @@ import { getSupabaseClient } from "@/lib/supabase-client";
 import { logger } from "@/lib/utils/logger";
 import type { EventResponse, WorkspaceEvent } from "@/lib/workspace/events";
 import { workspaceEventsQueryKey } from "./use-workspace-events";
-import { invalidateWorkspaceStateQuery } from "./workspace-state-cache";
+import { applyConfirmedWorkspaceEventToStateQuery } from "./workspace-state-cache";
 
 interface WorkspaceRealtimeOptions {
   onStatusChange?: (
@@ -145,7 +145,7 @@ export function useWorkspaceRealtime(
           return mergeRealtimeEvent(old, event);
         },
       );
-      void invalidateWorkspaceStateQuery(queryClient, workspaceId);
+      applyConfirmedWorkspaceEventToStateQuery(queryClient, workspaceId, event);
 
       if (hasVersionGap) {
         logger.warn("[REALTIME] Detected workspace event version gap", {

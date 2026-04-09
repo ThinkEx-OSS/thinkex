@@ -1,6 +1,5 @@
 import { useMemo, useCallback, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { invalidateWorkspaceStateQuery } from "@/hooks/workspace/workspace-state-cache";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Plus, Upload } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
@@ -101,7 +100,6 @@ export default function WorkspaceContent({
         queryClient.invalidateQueries({
           queryKey: ["workspace", workspaceId, "events"],
         });
-        void invalidateWorkspaceStateQuery(queryClient, workspaceId);
       }
     };
 
@@ -139,7 +137,6 @@ export default function WorkspaceContent({
         queryClient.invalidateQueries({
           queryKey: ["workspace", workspaceId, "events"],
         });
-        void invalidateWorkspaceStateQuery(queryClient, workspaceId);
       }
     };
 

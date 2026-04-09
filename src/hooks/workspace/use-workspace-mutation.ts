@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { WorkspaceEvent, EventResponse } from "@/lib/workspace/events";
 import { workspaceEventsQueryKey } from "./use-workspace-events";
-import { invalidateWorkspaceStateQuery } from "./workspace-state-cache";
+import { applyConfirmedWorkspaceEventToStateQuery } from "./workspace-state-cache";
 import { logger } from "@/lib/utils/logger";
 import { useRef } from "react";
 import { toast } from "sonner";
@@ -357,19 +357,11 @@ export function useWorkspaceMutation(workspaceId: string | null) {
 
                       // Clean up retry counter
                       retryAttemptsRef.current.delete(event.id);
-                      void invalidateWorkspaceStateQuery(
-                        queryClient,
-                        workspaceId,
-                      );
 
                       // Force full refetch
                       queryClient.invalidateQueries({
                         queryKey: workspaceEventsQueryKey(workspaceId),
                       });
-                      void invalidateWorkspaceStateQuery(
-                        queryClient,
-                        workspaceId,
-                      );
                     } else {
                       // Retry succeeded!
                       logger.debug(
@@ -399,6 +391,14 @@ export function useWorkspaceMutation(workspaceId: string | null) {
 
                       // Clean up retry counter
                       retryAttemptsRef.current.delete(event.id);
+                      applyConfirmedWorkspaceEventToStateQuery(
+                        queryClient,
+                        workspaceId,
+                        {
+                          ...event,
+                          version: retryResult.version,
+                        },
+                      );
                     }
                   })
                   .catch((err) => {
@@ -454,7 +454,6 @@ export function useWorkspaceMutation(workspaceId: string | null) {
           queryClient.invalidateQueries({
             queryKey: workspaceEventsQueryKey(workspaceId),
           });
-          void invalidateWorkspaceStateQuery(queryClient, workspaceId);
         }
       } else {
         // Success! No conflict
@@ -482,7 +481,10 @@ export function useWorkspaceMutation(workspaceId: string | null) {
         );
 
         logger.debug("✅ [SUCCESS] Version updated to:", data.version);
-        void invalidateWorkspaceStateQuery(queryClient, workspaceId);
+        applyConfirmedWorkspaceEventToStateQuery(queryClient, workspaceId, {
+          ...event,
+          version: data.version,
+        });
       }
     },
   });

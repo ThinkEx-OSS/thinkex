@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useQueryClient } from "@tanstack/react-query";
-import { invalidateWorkspaceStateQuery } from "@/hooks/workspace/workspace-state-cache";
 import { logger } from "@/lib/utils/logger";
 import { normalizeWebSearchResult } from "@/lib/ai/web-search-shared";
 import { CHAT_TOOL, toolPartMatchesCanonical } from "@/lib/ai/chat-tool-names";
@@ -178,7 +177,6 @@ export function useCreateCardFromMessage(options: CreateCardOptions = {}) {
           queryClient.invalidateQueries({
             queryKey: ["workspace", currentWorkspaceId, "events"],
           });
-          void invalidateWorkspaceStateQuery(queryClient, currentWorkspaceId);
         }
 
         toast.success("Card created successfully!", { id: toastId });

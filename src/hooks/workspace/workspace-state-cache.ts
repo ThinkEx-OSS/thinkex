@@ -2,7 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { initialItems } from "@/lib/workspace-state/state";
 import type { Item } from "@/lib/workspace-state/types";
 import { eventReducer } from "@/lib/workspace/event-reducer";
-import type { EventResponse } from "@/lib/workspace/events";
+import type { EventResponse, WorkspaceEvent } from "@/lib/workspace/events";
 
 export interface WorkspaceStateResponse {
   state: Item[];
@@ -11,6 +11,24 @@ export interface WorkspaceStateResponse {
 
 export function workspaceStateQueryKey(workspaceId: string | null) {
   return ["workspace", workspaceId, "state"] as const;
+}
+
+export function applyConfirmedWorkspaceEventToState(
+  stateData: WorkspaceStateResponse | null | undefined,
+  event: WorkspaceEvent,
+): WorkspaceStateResponse | null {
+  if (!stateData || typeof event.version !== "number") {
+    return stateData ?? null;
+  }
+
+  if (event.version <= stateData.version) {
+    return stateData;
+  }
+
+  return {
+    state: eventReducer(stateData.state, event),
+    version: event.version,
+  };
 }
 
 export function deriveWorkspaceStateFromCaches(params: {
@@ -66,15 +84,17 @@ export function getCachedWorkspaceState(
   );
 }
 
-export async function invalidateWorkspaceStateQuery(
+export function applyConfirmedWorkspaceEventToStateQuery(
   queryClient: QueryClient,
   workspaceId: string | null,
-): Promise<void> {
+  event: WorkspaceEvent,
+): void {
   if (!workspaceId) {
     return;
   }
 
-  await queryClient.invalidateQueries({
-    queryKey: workspaceStateQueryKey(workspaceId),
-  });
+  queryClient.setQueryData<WorkspaceStateResponse | null>(
+    workspaceStateQueryKey(workspaceId),
+    (old) => applyConfirmedWorkspaceEventToState(old, event),
+  );
 }

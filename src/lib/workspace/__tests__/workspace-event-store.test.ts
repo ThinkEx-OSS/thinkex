@@ -45,6 +45,7 @@ describe("workspace-event-store", () => {
     mockTransaction.mockImplementation(async (callback: any) =>
       callback({ execute: mockExecute }),
     );
+    mockBroadcast.mockResolvedValue(undefined);
   });
 
   it("projects and broadcasts persisted events on success", async () => {
@@ -78,6 +79,29 @@ describe("workspace-event-store", () => {
     expect(mockBroadcast).toHaveBeenCalledWith("ws-1", {
       ...event,
       version: 7,
+    });
+  });
+
+  it("does not wait for realtime broadcast completion", async () => {
+    mockExecute.mockResolvedValueOnce([{ result: "(7,f)" }]);
+    mockBroadcast.mockImplementation(() => new Promise(() => undefined));
+
+    const { appendWorkspaceEventWithBaseVersion } =
+      await import("@/lib/workspace/workspace-event-store");
+
+    await expect(
+      appendWorkspaceEventWithBaseVersion({
+        workspaceId: "ws-1",
+        event,
+        baseVersion: 6,
+      }),
+    ).resolves.toEqual({
+      conflict: false,
+      version: 7,
+      persistedEvent: {
+        ...event,
+        version: 7,
+      },
     });
   });
 

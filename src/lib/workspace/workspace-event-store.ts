@@ -1,6 +1,7 @@
 import { db } from "@/lib/db/client";
 import { sql } from "drizzle-orm";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
+import { logger } from "@/lib/utils/logger";
 import type { WorkspaceEvent } from "./events";
 import { projectWorkspaceEvent } from "./workspace-items-projector";
 
@@ -114,7 +115,17 @@ async function appendWorkspaceEventInTransaction(
   });
 
   if (!result.conflict) {
-    await broadcastWorkspaceEventFromServer(workspaceId, result.persistedEvent);
+    void broadcastWorkspaceEventFromServer(
+      workspaceId,
+      result.persistedEvent,
+    ).catch((error) => {
+      logger.error("Failed to broadcast persisted workspace event", {
+        workspaceId,
+        eventId: result.persistedEvent.id,
+        version: result.persistedEvent.version,
+        error,
+      });
+    });
   }
 
   return result;
