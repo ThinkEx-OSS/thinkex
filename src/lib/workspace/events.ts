@@ -10,8 +10,9 @@ type FolderEventRecord = {
 };
 
 /**
- * Event Sourcing: All workspace changes are represented as immutable events
- * State is derived by replaying events in order
+ * Event Sourcing: All workspace changes are represented as immutable events.
+ * The event log remains the canonical mutation history, while projection tables
+ * serve current-state reads.
  */
 
 type LegacyWorkspaceCompatibilityEvent =
@@ -130,7 +131,11 @@ type WorkspaceEventBase =
     }
   | {
       type: "FOLDER_UPDATED";
-      payload: { id: string; changes: Partial<FolderEventRecord>; name?: string };
+      payload: {
+        id: string;
+        changes: Partial<FolderEventRecord>;
+        name?: string;
+      };
       timestamp: number;
       userId: string;
       userName?: string;

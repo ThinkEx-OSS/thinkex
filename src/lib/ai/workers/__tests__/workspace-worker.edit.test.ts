@@ -5,6 +5,7 @@ const mockHeaders = vi.fn();
 const mockLoadWorkspaceState = vi.fn();
 const mockCreateEvent = vi.fn();
 const mockExecute = vi.fn();
+const mockTransaction = vi.fn();
 const mockBroadcastWorkspaceEventFromServer = vi.fn();
 
 const mockLimit = vi.fn();
@@ -26,8 +27,12 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/lib/db/client", () => ({
   db: {
-    select: (...args: any[]) => (mockSelect as (...a: any[]) => unknown).apply(null, args),
-    execute: (...args: any[]) => (mockExecute as (...a: any[]) => unknown).apply(null, args),
+    select: (...args: any[]) =>
+      (mockSelect as (...a: any[]) => unknown).apply(null, args),
+    execute: (...args: any[]) =>
+      (mockExecute as (...a: any[]) => unknown).apply(null, args),
+    transaction: (...args: any[]) =>
+      (mockTransaction as (...a: any[]) => unknown).apply(null, args),
   },
   workspaces: {
     id: "id",
@@ -59,6 +64,48 @@ vi.mock("@/lib/workspace/unique-name", () => ({
   hasDuplicateName: () => false,
 }));
 
+vi.mock("@/lib/workspace/workspace-event-store", () => ({
+  appendWorkspaceEventOrThrow: async ({ workspaceId, event }: any) => {
+    const result = await mockTransaction(async (tx: any) => {
+      await tx.execute();
+      return tx.execute();
+    });
+    const raw = result?.[0]?.result as string | undefined;
+    const match = raw?.match(/\((\d+),(t|f|true|false)\)/i);
+    const version = match ? Number(match[1]) : 0;
+    await mockBroadcastWorkspaceEventFromServer(workspaceId, {
+      ...event,
+      version,
+    });
+    return {
+      conflict: false,
+      version,
+      persistedEvent: { ...event, version },
+    };
+  },
+  appendWorkspaceEventUsingCurrentVersionWithRetry: async ({
+    workspaceId,
+    event,
+  }: any) => {
+    const result = await mockTransaction(async (tx: any) => {
+      await tx.execute();
+      return tx.execute();
+    });
+    const raw = result?.[0]?.result as string | undefined;
+    const match = raw?.match(/\((\d+),(t|f|true|false)\)/i);
+    const version = match ? Number(match[1]) : 0;
+    await mockBroadcastWorkspaceEventFromServer(workspaceId, {
+      ...event,
+      version,
+    });
+    return {
+      conflict: false,
+      version,
+      persistedEvent: { ...event, version },
+    };
+  },
+}));
+
 describe("workspaceWorker edit end-to-end paths", () => {
   let workspaceWorker: typeof import("@/lib/ai/workers/workspace-worker").workspaceWorker;
   let workspaceOperationQueues: Map<string, Promise<unknown>>;
@@ -77,13 +124,18 @@ describe("workspaceWorker edit end-to-end paths", () => {
     mockHeaders.mockResolvedValue(new Headers());
     mockGetSession.mockResolvedValue({ user: { id: "user-1" } });
     mockLimit.mockResolvedValue([{ userId: "user-1" }]); // workspace owner path
-    mockCreateEvent.mockImplementation((type: string, payload: unknown, userId: string) => ({
-      id: "evt-1",
-      type,
-      payload,
-      timestamp: 123,
-      userId,
-    }));
+    mockTransaction.mockImplementation(async (callback: any) =>
+      callback({ execute: mockExecute }),
+    );
+    mockCreateEvent.mockImplementation(
+      (type: string, payload: unknown, userId: string) => ({
+        id: "evt-1",
+        type,
+        payload,
+        timestamp: 123,
+        userId,
+      }),
+    );
   });
 
   it("edits quiz JSON and appends question near end", async () => {
@@ -246,7 +298,7 @@ describe("workspaceWorker edit end-to-end paths", () => {
           ],
         },
         null,
-        2
+        2,
       ),
     });
 
@@ -325,7 +377,10 @@ describe("workspaceWorker edit end-to-end paths", () => {
         }),
       }),
     );
-    const eventPayload = mockCreateEvent.mock.calls[0][1] as { id: string; changes: Record<string, unknown> };
+    const eventPayload = mockCreateEvent.mock.calls[0][1] as {
+      id: string;
+      changes: Record<string, unknown>;
+    };
     expect(eventPayload.id).toBe("doc-1");
     expect(eventPayload.changes).toEqual({ name: "Renamed Document" });
   });
@@ -376,4 +431,3 @@ describe("workspaceWorker edit end-to-end paths", () => {
     expect(result.message).toMatch(/multiple matches/i);
   });
 });
-

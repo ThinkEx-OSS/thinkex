@@ -1,34 +1,59 @@
-import { db, workspaceEvents } from "@/lib/db/client";
-import { eq, asc } from "drizzle-orm";
-import { replayEvents } from "./event-reducer";
+import { db } from "@/lib/db/client";
 import type { Item } from "@/lib/workspace-state/types";
-import type { WorkspaceEvent } from "./events";
 import { initialItems } from "@/lib/workspace-state/state";
+import {
+  getLatestWorkspaceEventVersion,
+  loadWorkspaceProjectionSnapshot,
+  syncWorkspaceProjectionToVersion,
+} from "./workspace-items-projector";
 
-/** Load current workspace items by replaying all events. */
-export async function loadWorkspaceState(workspaceId: string): Promise<Item[]> {
+export interface LoadWorkspaceStateOptions {
+  userId?: string | null;
+}
+
+export interface WorkspaceStateSnapshot {
+  state: Item[];
+  version: number;
+}
+
+export async function loadWorkspaceStateSnapshot(
+  workspaceId: string,
+  options: LoadWorkspaceStateOptions = {},
+): Promise<WorkspaceStateSnapshot> {
   try {
-    const events = await db
-      .select()
-      .from(workspaceEvents)
-      .where(eq(workspaceEvents.workspaceId, workspaceId))
-      .orderBy(asc(workspaceEvents.version));
+    return await db.transaction(async (tx: any) => {
+      const latestVersion = await getLatestWorkspaceEventVersion(
+        tx,
+        workspaceId,
+      );
+      await syncWorkspaceProjectionToVersion(tx, workspaceId, latestVersion);
 
-    // Transform to WorkspaceEvent format
-    const workspaceEvents_typed: WorkspaceEvent[] = events.map((e: any) => ({
-      type: e.eventType,
-      payload: e.payload,
-      timestamp: e.timestamp,
-      userId: e.userId,
-      userName: e.userName || undefined,
-      id: e.eventId,
-      version: e.version,
-    } as WorkspaceEvent));
+      const snapshot = await loadWorkspaceProjectionSnapshot(tx, {
+        workspaceId,
+        userId: options.userId,
+      });
 
-    // Replay events to get current state
-    return replayEvents(workspaceEvents_typed);
+      return {
+        state: snapshot.items,
+        version: snapshot.version,
+      };
+    });
   } catch (error) {
-    console.error("Error loading workspace state from events:", error);
-    return initialItems;
+    console.error(
+      "Error loading workspace state from projection tables:",
+      error,
+    );
+    return {
+      state: initialItems,
+      version: 0,
+    };
   }
+}
+
+export async function loadWorkspaceState(
+  workspaceId: string,
+  options: LoadWorkspaceStateOptions = {},
+): Promise<Item[]> {
+  const snapshot = await loadWorkspaceStateSnapshot(workspaceId, options);
+  return snapshot.state;
 }

@@ -1,5 +1,6 @@
 import { useMemo, useCallback, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { invalidateWorkspaceStateQuery } from "@/hooks/workspace/workspace-state-cache";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Plus, Upload } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
@@ -18,7 +19,11 @@ import {
 
 interface WorkspaceContentProps {
   viewState: Item[];
-  addItem: (type: CardType, name?: string, initialData?: Partial<Item['data']>) => string;
+  addItem: (
+    type: CardType,
+    name?: string,
+    initialData?: Partial<Item["data"]>,
+  ) => string;
   updateItem: (itemId: string, updates: Partial<Item>) => void;
   deleteItem: (itemId: string) => void;
   updateAllItems: (items: Item[]) => void;
@@ -59,9 +64,11 @@ export default function WorkspaceContent({
   const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
 
   const localScrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const scrollContainerRef = externalScrollContainerRef || localScrollContainerRef;
+  const scrollContainerRef =
+    externalScrollContainerRef || localScrollContainerRef;
 
-  const { handleDragStart: onDragStart, handleDragStop: onDragStop } = useAutoScroll(scrollContainerRef);
+  const { handleDragStart: onDragStart, handleDragStop: onDragStop } =
+    useAutoScroll(scrollContainerRef);
 
   const { selectedCardIdsArray } = useSelectedCardIds();
 
@@ -74,10 +81,13 @@ export default function WorkspaceContent({
     return filterItemsByFolder(viewState, activeFolderId ?? null);
   }, [viewState, activeFolderId]);
 
-  const handleOpenFolder = useCallback((folderId: string) => {
-    setActiveFolderId(folderId);
-    onOpenFolder?.(folderId);
-  }, [setActiveFolderId, onOpenFolder]);
+  const handleOpenFolder = useCallback(
+    (folderId: string) => {
+      setActiveFolderId(folderId);
+      onOpenFolder?.(folderId);
+    },
+    [setActiveFolderId, onOpenFolder],
+  );
 
   useEffect(() => {
     const handleOcrComplete = (e: Event) => {
@@ -91,6 +101,7 @@ export default function WorkspaceContent({
         queryClient.invalidateQueries({
           queryKey: ["workspace", workspaceId, "events"],
         });
+        void invalidateWorkspaceStateQuery(queryClient, workspaceId);
       }
     };
 
@@ -102,10 +113,13 @@ export default function WorkspaceContent({
 
   useEffect(() => {
     const handleAudioComplete = (e: Event) => {
-      const { itemId, retrying } = (e as CustomEvent<{
-        itemId?: string;
-        retrying?: boolean;
-      }>).detail ?? {};
+      const { itemId, retrying } =
+        (
+          e as CustomEvent<{
+            itemId?: string;
+            retrying?: boolean;
+          }>
+        ).detail ?? {};
       if (!itemId) return;
 
       const existingData = viewState.find((i) => i.id === itemId)?.data ?? {};
@@ -125,30 +139,46 @@ export default function WorkspaceContent({
         queryClient.invalidateQueries({
           queryKey: ["workspace", workspaceId, "events"],
         });
+        void invalidateWorkspaceStateQuery(queryClient, workspaceId);
       }
     };
 
     window.addEventListener("audio-processing-complete", handleAudioComplete);
     return () => {
-      window.removeEventListener("audio-processing-complete", handleAudioComplete);
+      window.removeEventListener(
+        "audio-processing-complete",
+        handleAudioComplete,
+      );
     };
   }, [updateItem, viewState, workspaceId, queryClient]);
 
-  const handleUpdateItem = useCallback((itemId: string, updates: Partial<Item>) => {
-    updateItem(itemId, updates);
-  }, [updateItem]);
+  const handleUpdateItem = useCallback(
+    (itemId: string, updates: Partial<Item>) => {
+      updateItem(itemId, updates);
+    },
+    [updateItem],
+  );
 
-  const handleDeleteItem = useCallback((itemId: string) => {
-    deleteItem(itemId);
-  }, [deleteItem]);
+  const handleDeleteItem = useCallback(
+    (itemId: string) => {
+      deleteItem(itemId);
+    },
+    [deleteItem],
+  );
 
-  const handleUpdateAllItems = useCallback((items: Item[]) => {
-    updateAllItems(items);
-  }, [updateAllItems]);
+  const handleUpdateAllItems = useCallback(
+    (items: Item[]) => {
+      updateAllItems(items);
+    },
+    [updateAllItems],
+  );
 
-  const handleOpenModal = useCallback((itemId: string) => {
-    openWorkspaceItem(itemId);
-  }, [openWorkspaceItem]);
+  const handleOpenModal = useCallback(
+    (itemId: string) => {
+      openWorkspaceItem(itemId);
+    },
+    [openWorkspaceItem],
+  );
 
   const emptyStateUploadInputId = "workspace-empty-file-upload";
 
@@ -168,7 +198,9 @@ export default function WorkspaceContent({
 
       Array.from(files).forEach((file) => {
         if (file.size > MAX_FILE_SIZE_BYTES) {
-          oversizedFiles.push(`${file.name} (${(file.size / (1024 * 1024)).toFixed(1)}MB)`);
+          oversizedFiles.push(
+            `${file.name} (${(file.size / (1024 * 1024)).toFixed(1)}MB)`,
+          );
         } else {
           validFiles.push(file);
         }
@@ -176,7 +208,7 @@ export default function WorkspaceContent({
 
       if (oversizedFiles.length > 0) {
         toast.error(
-          `The following file${oversizedFiles.length > 1 ? 's' : ''} exceed${oversizedFiles.length === 1 ? 's' : ''} the ${MAX_FILE_SIZE_MB}MB limit:\n${oversizedFiles.join('\n')}`
+          `The following file${oversizedFiles.length > 1 ? "s" : ""} exceed${oversizedFiles.length === 1 ? "s" : ""} the ${MAX_FILE_SIZE_MB}MB limit:\n${oversizedFiles.join("\n")}`,
         );
       }
 
@@ -190,7 +222,9 @@ export default function WorkspaceContent({
       const totalSize = validFiles.reduce((sum, f) => sum + f.size, 0);
       if (totalSize > MAX_COMBINED_BYTES) {
         const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(1);
-        toast.error(`Total file size (${totalSizeMB}MB) exceeds the 100MB combined limit`);
+        toast.error(
+          `Total file size (${totalSizeMB}MB) exceeds the 100MB combined limit`,
+        );
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
@@ -213,7 +247,7 @@ export default function WorkspaceContent({
         fileInputRef.current.value = "";
       }
     },
-    [onPDFUpload]
+    [onPDFUpload],
   );
 
   const handleDragStart = useCallback(() => {
@@ -229,7 +263,9 @@ export default function WorkspaceContent({
   if (viewState.length === 0 || (isFiltering && filteredItems.length === 0)) {
     return (
       <div className="flex-1 py-4 overflow-hidden">
-        <div className={`${selectedCardIdsArray.length > 0 ? 'pb-20' : ''} size-full workspace-grid-container px-4 sm:px-6`}>
+        <div
+          className={`${selectedCardIdsArray.length > 0 ? "pb-20" : ""} size-full workspace-grid-container px-4 sm:px-6`}
+        >
           <EmptyState className="w-full min-w-0 max-w-full">
             <div className="mx-auto max-w-2xl w-full text-center px-4 sm:px-6 py-10 min-w-0">
               <input
@@ -253,7 +289,8 @@ export default function WorkspaceContent({
                     : "This workspace is empty"}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Add {WORKSPACE_FILE_UPLOAD_DESCRIPTION} here, or click to choose files.
+                  Add {WORKSPACE_FILE_UPLOAD_DESCRIPTION} here, or click to
+                  choose files.
                 </p>
               </label>
 
@@ -262,12 +299,16 @@ export default function WorkspaceContent({
                   <div className="w-full border-t border-border"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-4 py-1.5 bg-muted text-muted-foreground rounded-lg">or</span>
+                  <span className="px-4 py-1.5 bg-muted text-muted-foreground rounded-lg">
+                    or
+                  </span>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">Create your first item to get started</p>
+                <p className="text-sm text-muted-foreground">
+                  Create your first item to get started
+                </p>
                 <button
                   onClick={() => {
                     const itemId = addItem("document");
@@ -295,7 +336,7 @@ export default function WorkspaceContent({
     <div className="py-4">
       <div className={selectedCardIdsArray.length > 0 ? "pb-20" : undefined}>
         <WorkspaceGrid
-          key={activeFolderId ?? 'root'}
+          key={activeFolderId ?? "root"}
           items={filteredItems}
           allItems={viewState}
           isFiltered={isFiltering}

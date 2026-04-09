@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTemplateInitialItems } from "@/lib/workspace/templates";
 import { generateSlug } from "@/lib/workspace/slug";
-import type { WorkspaceWithState, WorkspaceTemplate } from "@/lib/workspace-state/types";
+import type {
+  WorkspaceWithState,
+  WorkspaceTemplate,
+} from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
 import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
 import { createEvent } from "@/lib/workspace/events";
 import { db, workspaces } from "@/lib/db/client";
 import { workspaceCollaborators } from "@/lib/db/schema";
-import { eq, desc, asc, sql, inArray } from "drizzle-orm";
-import { requireAuth, requireAuthWithUserInfo, withErrorHandling } from "@/lib/api/workspace-helpers";
+import { eq, desc, asc, inArray } from "drizzle-orm";
+import {
+  requireAuth,
+  requireAuthWithUserInfo,
+  withErrorHandling,
+} from "@/lib/api/workspace-helpers";
+import { appendWorkspaceEventOrThrow } from "@/lib/workspace/workspace-event-store";
+import { workspaceItemProjectionState } from "@/lib/db/schema";
 
 /**
  * GET /api/workspaces
@@ -31,14 +40,14 @@ async function handleGET() {
     .select({
       workspaceId: workspaceCollaborators.workspaceId,
       permissionLevel: workspaceCollaborators.permissionLevel,
-      lastOpenedAt: workspaceCollaborators.lastOpenedAt
+      lastOpenedAt: workspaceCollaborators.lastOpenedAt,
     })
     .from(workspaceCollaborators)
     .where(eq(workspaceCollaborators.userId, userId));
 
   let sharedWorkspaces: typeof ownedWorkspaces = [];
   if (collaborations.length > 0) {
-    const sharedWorkspaceIds = collaborations.map(c => c.workspaceId);
+    const sharedWorkspaceIds = collaborations.map((c) => c.workspaceId);
     sharedWorkspaces = await db
       .select()
       .from(workspaces)
@@ -46,19 +55,21 @@ async function handleGET() {
   }
 
   // Create a map of permission levels and lastOpened for shared workspaces
-  const collaborationMap = new Map(collaborations.map(c => [c.workspaceId, c]));
+  const collaborationMap = new Map(
+    collaborations.map((c) => [c.workspaceId, c]),
+  );
 
   // Format owned workspaces
   const ownedList = ownedWorkspaces.map((w) => ({
     id: w.id,
     userId: w.userId,
     name: w.name,
-    description: w.description || '',
-    template: (w.template as WorkspaceTemplate) || 'blank',
+    description: w.description || "",
+    template: (w.template as WorkspaceTemplate) || "blank",
     isPublic: w.isPublic || false,
-    createdAt: w.createdAt || '',
-    updatedAt: w.updatedAt || '',
-    slug: w.slug || '',
+    createdAt: w.createdAt || "",
+    updatedAt: w.updatedAt || "",
+    slug: w.slug || "",
     icon: w.icon,
     sortOrder: w.sortOrder ?? null,
     color: w.color as CardColor | null,
@@ -73,25 +84,25 @@ async function handleGET() {
       id: w.id,
       userId: w.userId,
       name: w.name,
-      description: w.description || '',
-      template: (w.template as WorkspaceTemplate) || 'blank',
+      description: w.description || "",
+      template: (w.template as WorkspaceTemplate) || "blank",
       isPublic: w.isPublic || false,
-      createdAt: w.createdAt || '',
-      updatedAt: w.updatedAt || '',
-      slug: w.slug || '',
+      createdAt: w.createdAt || "",
+      updatedAt: w.updatedAt || "",
+      slug: w.slug || "",
       icon: w.icon,
       sortOrder: w.sortOrder ?? null,
       color: w.color as CardColor | null,
       lastOpenedAt: collaboration?.lastOpenedAt ?? null, // Collaborator uses junction field
       isShared: true,
-      permissionLevel: collaboration?.permissionLevel || 'viewer',
+      permissionLevel: collaboration?.permissionLevel || "viewer",
       sharedAt: (collaboration as any)?.createdAt || null, // Use createdAt from collaborator record if available
     };
   });
 
   // Merge lists (filtering out shared workspaces that are also owned)
-  const ownedIds = new Set(ownedList.map(w => w.id));
-  const uniqueSharedList = sharedList.filter(w => !ownedIds.has(w.id));
+  const ownedIds = new Set(ownedList.map((w) => w.id));
+  const uniqueSharedList = sharedList.filter((w) => !ownedIds.has(w.id));
   const workspaceList = [...ownedList, ...uniqueSharedList];
 
   // Sort by unseen shared first, then lastOpenedAt DESC, then sortOrder ASC, then updatedAt DESC
@@ -103,8 +114,12 @@ async function handleGET() {
 
     if (aIsUnseenShared && bIsUnseenShared) {
       // Both unseen: sort by sharedAt if available, otherwise fallback to updatedAt
-      const sharedA = (a as any).sharedAt ? new Date((a as any).sharedAt).getTime() : 0;
-      const sharedB = (b as any).sharedAt ? new Date((b as any).sharedAt).getTime() : 0;
+      const sharedA = (a as any).sharedAt
+        ? new Date((a as any).sharedAt).getTime()
+        : 0;
+      const sharedB = (b as any).sharedAt
+        ? new Date((b as any).sharedAt).getTime()
+        : 0;
       if (sharedA !== sharedB) return sharedB - sharedA;
       // Fallback to update time if sharedAt is missing/same
       const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
@@ -112,14 +127,16 @@ async function handleGET() {
       return dateB - dateA;
     }
     if (aIsUnseenShared) return -1; // a goes first
-    if (bIsUnseenShared) return 1;  // b goes first
+    if (bIsUnseenShared) return 1; // b goes first
 
     // 1. lastOpenedAt DESC (most recent first)
     if (a.lastOpenedAt && b.lastOpenedAt) {
-      return new Date(b.lastOpenedAt).getTime() - new Date(a.lastOpenedAt).getTime();
+      return (
+        new Date(b.lastOpenedAt).getTime() - new Date(a.lastOpenedAt).getTime()
+      );
     }
     if (a.lastOpenedAt) return -1; // a has date, goes first
-    if (b.lastOpenedAt) return 1;  // b has date, goes first
+    if (b.lastOpenedAt) return 1; // b has date, goes first
 
     // 2. sortOrder ASC (nulls last)
     if (a.sortOrder !== null && b.sortOrder !== null) {
@@ -137,11 +154,7 @@ async function handleGET() {
   return NextResponse.json({ workspaces: workspaceList });
 }
 
-export const GET = withErrorHandling(
-  handleGET,
-  "GET /api/workspaces"
-);
-
+export const GET = withErrorHandling(handleGET, "GET /api/workspaces");
 
 /**
  * POST /api/workspaces
@@ -153,18 +166,27 @@ async function handlePOST(request: NextRequest) {
   const userId = user.userId;
 
   const body = await request.json();
-  const { name, description, template, is_public, icon, color, initialItems: customInitialItems } = body;
+  const {
+    name,
+    description,
+    template,
+    is_public,
+    icon,
+    color,
+    initialItems: customInitialItems,
+  } = body;
 
   // Use the provided template, defaulting to "blank"
-  const effectiveTemplate: WorkspaceTemplate = (template && [
-    "blank",
-    "getting_started",
-  ].includes(template))
-    ? template
-    : "blank";
+  const effectiveTemplate: WorkspaceTemplate =
+    template && ["blank", "getting_started"].includes(template)
+      ? template
+      : "blank";
 
   if (typeof name !== "string" || name.trim() === "") {
-    return NextResponse.json({ error: "Name is required and must be a string" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Name is required and must be a string" },
+      { status: 400 },
+    );
   }
 
   // Get max sort_order for this user to set new workspace at the end
@@ -206,7 +228,7 @@ async function handlePOST(request: NextRequest) {
       break; // Success
     } catch (error: any) {
       // Postgres unique constraint violation code is 23505
-      if (error?.code === '23505') {
+      if (error?.code === "23505") {
         attempts++;
         if (attempts === MAX_ATTEMPTS) throw error;
         continue;
@@ -232,34 +254,37 @@ async function handlePOST(request: NextRequest) {
     );
 
     try {
-      await db.execute(sql`
-          SELECT append_workspace_event(
-            ${workspace.id}::uuid,
-            ${event.id}::text,
-            ${event.type}::text,
-            ${JSON.stringify(event.payload)}::jsonb,
-            ${event.timestamp}::bigint,
-            ${event.userId}::text,
-            0::integer,
-            ${event.userName || null}::text
-          )
-        `);
+      await appendWorkspaceEventOrThrow({
+        workspaceId: workspace.id,
+        event,
+        baseVersion: 0,
+      });
     } catch (eventError) {
       await db.delete(workspaces).where(eq(workspaces.id, workspace.id));
       throw eventError;
     }
+  } else {
+    await db
+      .insert(workspaceItemProjectionState)
+      .values({
+        workspaceId: workspace.id,
+        lastAppliedVersion: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+      .onConflictDoNothing();
   }
 
   // Return workspace with full state for immediate use
-  return NextResponse.json({
-    workspace: {
-      ...workspace,
-      state: initialItems,
-    }
-  }, { status: 201 });
+  return NextResponse.json(
+    {
+      workspace: {
+        ...workspace,
+        state: initialItems,
+      },
+    },
+    { status: 201 },
+  );
 }
 
-export const POST = withErrorHandling(
-  handlePOST,
-  "POST /api/workspaces"
-);
+export const POST = withErrorHandling(handlePOST, "POST /api/workspaces");

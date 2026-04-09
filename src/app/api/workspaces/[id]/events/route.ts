@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { WorkspaceEvent, EventResponse } from "@/lib/workspace/events";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
+import { appendWorkspaceEventWithBaseVersion } from "@/lib/workspace/workspace-event-store";
 import { hasDuplicateName } from "@/lib/workspace/unique-name";
 import { db, workspaceEvents } from "@/lib/db/client";
 import { eq, gt, asc, sql, and } from "drizzle-orm";
@@ -9,7 +10,6 @@ import {
   verifyWorkspaceAccess,
   withErrorHandling,
 } from "@/lib/api/workspace-helpers";
-import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
 
 /** Strip heavy OCR page payloads from OCR-backed items — client refetches item state as needed. */
 function stripOcrPagesFromItem(item: { type?: string; data?: unknown }): void {
@@ -225,14 +225,9 @@ async function handlePOST(
   if (event.type === "ITEM_CREATED") {
     const item = event.payload?.item;
     if (item?.name != null && item?.type) {
-      const state = await loadWorkspaceState(id);
+      const state = await loadWorkspaceState(id, { userId });
       if (
-        hasDuplicateName(
-          state,
-          item.name,
-          item.type,
-          item.folderId ?? null,
-        )
+        hasDuplicateName(state, item.name, item.type, item.folderId ?? null)
       ) {
         return NextResponse.json(
           {
@@ -247,10 +242,8 @@ async function handlePOST(
     const itemId = event.payload?.id;
     const newName = event.payload.changes.name;
     if (itemId && newName) {
-      const state = await loadWorkspaceState(id);
-      const existingItem = state.find(
-        (i: { id: string }) => i.id === itemId,
-      );
+      const state = await loadWorkspaceState(id, { userId });
+      const existingItem = state.find((i: { id: string }) => i.id === itemId);
       if (existingItem) {
         const newFolderId =
           event.payload.changes.folderId ?? existingItem.folderId ?? null;
@@ -274,49 +267,13 @@ async function handlePOST(
     }
   }
 
-  // Use the append function to handle versioning and conflicts
   const appendStart = Date.now();
-  const result = await db.execute(sql`
-      SELECT append_workspace_event(
-        ${id}::uuid,
-        ${event.id}::text,
-        ${event.type}::text,
-        ${JSON.stringify(event.payload)}::jsonb,
-        ${event.timestamp}::bigint,
-        ${event.userId}::text,
-        ${baseVersion}::integer,
-        ${event.userName || null}::text
-      ) as result
-    `);
+  const appendResult = await appendWorkspaceEventWithBaseVersion({
+    workspaceId: id,
+    event,
+    baseVersion,
+  });
   timings.appendFunction = Date.now() - appendStart;
-
-  if (!result || result.length === 0 || !result[0]) {
-    return NextResponse.json(
-      { error: "Failed to append event" },
-      { status: 500 },
-    );
-  }
-
-  // PostgreSQL returns result as string like "(6,t)" - need to parse it
-  const rawResult = result[0].result as string;
-
-  // Parse the PostgreSQL tuple format "(version,conflict)"
-  const match = rawResult.match(/\((\d+),(t|f)\)/);
-  if (!match) {
-    console.error(
-      `[POST /api/workspaces/${id}/events] Failed to parse PostgreSQL result:`,
-      rawResult,
-    );
-    return NextResponse.json(
-      { error: "Invalid database response" },
-      { status: 500 },
-    );
-  }
-
-  const appendResult = {
-    version: parseInt(match[1], 10),
-    conflict: match[2] === "t",
-  };
 
   // Check for conflict
   if (appendResult.conflict) {
@@ -358,11 +315,6 @@ async function handlePOST(
       currentEvents: events,
     });
   }
-
-  await broadcastWorkspaceEventFromServer(id, {
-    ...event,
-    version: appendResult.version,
-  });
 
   const totalTime = Date.now() - startTime;
   timings.total = totalTime;

@@ -1,54 +1,52 @@
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useWorkspaceEvents } from "./use-workspace-events";
-import { replayEvents } from "@/lib/workspace/event-reducer";
-import { initialItems } from "@/lib/workspace-state/state";
-import type { Item } from "@/lib/workspace-state/types";
+import {
+  deriveWorkspaceStateFromCaches,
+  type WorkspaceStateResponse,
+  workspaceStateQueryKey,
+} from "./workspace-state-cache";
 
-/**
- * Hook to get derived workspace state from events
- * State is computed by replaying events (pure function, no mutations)
- */
+async function fetchWorkspaceState(
+  workspaceId: string,
+): Promise<WorkspaceStateResponse> {
+  const response = await fetch(`/api/workspaces/${workspaceId}/state`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch workspace state: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
 export function useWorkspaceState(workspaceId: string | null) {
-  const { data: eventLog, isLoading, error, refetch } = useWorkspaceEvents(workspaceId);
+  const stateQuery = useQuery({
+    queryKey: workspaceStateQueryKey(workspaceId),
+    queryFn: () => fetchWorkspaceState(workspaceId!),
+    enabled: !!workspaceId,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
+  });
+  const eventsQuery = useWorkspaceEvents(workspaceId);
 
-  const prevItemsRef = useRef<Item[] | null>(null);
-  const stateUpdateCountRef = useRef(0);
-
-  // Derive state by replaying the workspace event log.
-  const state: Item[] = useMemo(() => {
-    const replayStart = performance.now();
-    stateUpdateCountRef.current += 1;
-    const updateNumber = stateUpdateCountRef.current;
-    
-    if (!eventLog || !workspaceId) {
-      return [...initialItems];
-    }
-
-    const replayedItems = replayEvents(eventLog.events);
-    
-    const replayTime = performance.now() - replayStart;
-    const prevItemsCount = prevItemsRef.current?.length || 0;
-    const itemsChanged = prevItemsCount !== replayedItems.length;
-    
-    // Only log if replay is slow (>50ms), items count changed significantly, or first update
-    // This reduces log noise from fast, frequent replays during optimistic updates
-    const shouldLog = replayTime > 50 || 
-                      (itemsChanged && Math.abs(prevItemsCount - replayedItems.length) > 5) || 
-                      updateNumber === 1;
-    
-    if (shouldLog) {
-      // Logging removed - use logger if needed
-    }
-    
-    prevItemsRef.current = replayedItems;
-    return replayedItems;
-  }, [eventLog, workspaceId]);
+  const derived = useMemo(
+    () =>
+      deriveWorkspaceStateFromCaches({
+        workspaceId,
+        stateData: stateQuery.data,
+        eventLog: eventsQuery.data,
+      }),
+    [workspaceId, stateQuery.data, eventsQuery.data],
+  );
 
   return {
-    state,
-    isLoading,
-    error,
-    version: eventLog?.version ?? 0,
-    refetch,
+    state: derived.state,
+    isLoading: stateQuery.isLoading && !stateQuery.data,
+    error: stateQuery.error ?? eventsQuery.error,
+    version: derived.version,
+    refetch: async () => {
+      await Promise.all([stateQuery.refetch(), eventsQuery.refetch()]);
+    },
   };
 }

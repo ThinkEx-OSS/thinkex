@@ -4,7 +4,11 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceMutation } from "./use-workspace-mutation";
 import { createEvent, type EventResponse } from "@/lib/workspace/events";
-import { replayEvents } from "@/lib/workspace/event-reducer";
+import { workspaceEventsQueryKey } from "./use-workspace-events";
+import {
+  deriveWorkspaceStateFromCaches,
+  getCachedWorkspaceState,
+} from "./workspace-state-cache";
 import type {
   Item,
   ItemData,
@@ -116,44 +120,29 @@ export function useWorkspaceOperations(
     Map<string, (prev: Item["data"]) => Item["data"]>
   >(new Map());
 
-  const getLatestItemFromState = useCallback(
-    (itemId: string) => {
-      if (workspaceId) {
-        const cacheData = queryClient.getQueryData<EventResponse>([
-          "workspace",
-          workspaceId,
-          "events",
-        ]);
-        if (cacheData?.events) {
-          const latestState = replayEvents(cacheData.events);
-          const cachedItem = latestState.find(
-            (item) => item.id === itemId,
-          );
-          if (cachedItem) {
-            return cachedItem;
-          }
-        }
-      }
-
-      return currentItems.find((item) => item.id === itemId);
-    },
-    [workspaceId, queryClient, currentItems],
-  );
-
   const getLatestItemsFromState = useCallback(() => {
-    if (workspaceId) {
-      const cacheData = queryClient.getQueryData<EventResponse>([
-        "workspace",
-        workspaceId,
-        "events",
-      ]);
-      if (cacheData?.events) {
-        return replayEvents(cacheData.events);
-      }
+    if (!workspaceId) {
+      return currentItems;
     }
 
-    return currentItems;
+    const stateData = getCachedWorkspaceState(queryClient, workspaceId);
+    const eventData = queryClient.getQueryData<EventResponse>(
+      workspaceEventsQueryKey(workspaceId),
+    );
+    const derived = deriveWorkspaceStateFromCaches({
+      workspaceId,
+      stateData,
+      eventLog: eventData,
+    });
+
+    return stateData ? derived.state : currentItems;
   }, [workspaceId, queryClient, currentItems]);
+
+  const getLatestItemFromState = useCallback(
+    (itemId: string) =>
+      getLatestItemsFromState().find((item) => item.id === itemId),
+    [getLatestItemsFromState],
+  );
 
   const getLatestItemWithPendingChanges = useCallback(
     (itemId: string) => {
@@ -256,8 +245,7 @@ export function useWorkspaceOperations(
 
       const folderId = activeFolderId ?? null;
       const finalName =
-        name ||
-        getNextUniqueDefaultName(currentItems, validType, folderId);
+        name || getNextUniqueDefaultName(currentItems, validType, folderId);
 
       let layout: Item["layout"] = undefined;
       if (initialLayout) {
@@ -600,13 +588,15 @@ export function useWorkspaceOperations(
           // items created after this callback was invoked (e.g. OCR completing after PDF create)
           let latestItem: Item | undefined;
           if (workspaceId) {
-            const cacheData = queryClient.getQueryData<EventResponse>([
-              "workspace",
-              workspaceId,
-              "events",
-            ]);
+            const cacheData = queryClient.getQueryData<EventResponse>(
+              workspaceEventsQueryKey(workspaceId),
+            );
             if (cacheData?.events) {
-              const latestState = replayEvents(cacheData.events);
+              const latestState = deriveWorkspaceStateFromCaches({
+                workspaceId,
+                stateData: getCachedWorkspaceState(queryClient, workspaceId),
+                eventLog: cacheData,
+              }).state;
               latestItem = latestState.find((item) => item.id === itemId);
             }
           }
@@ -615,14 +605,16 @@ export function useWorkspaceOperations(
           }
           if (!latestItem) {
             const cacheData = workspaceId
-              ? queryClient.getQueryData<EventResponse>([
-                  "workspace",
-                  workspaceId,
-                  "events",
-                ])
+              ? queryClient.getQueryData<EventResponse>(
+                  workspaceEventsQueryKey(workspaceId),
+                )
               : null;
             const itemCount = cacheData?.events
-              ? replayEvents(cacheData.events).length
+              ? deriveWorkspaceStateFromCaches({
+                  workspaceId,
+                  stateData: getCachedWorkspaceState(queryClient, workspaceId),
+                  eventLog: cacheData,
+                }).state.length
               : 0;
             logger.warn(
               `[OCR/UPDATE] updateItemData: Item ${itemId} not found. Item may have been deleted. Cache has ${itemCount} items.`,
@@ -682,13 +674,15 @@ export function useWorkspaceOperations(
       // This ensures we compare against the most recent state even when a previous mutation is pending
       let latestState: Item[];
       if (workspaceId) {
-        const cacheData = queryClient.getQueryData<EventResponse>([
-          "workspace",
-          workspaceId,
-          "events",
-        ]);
+        const cacheData = queryClient.getQueryData<EventResponse>(
+          workspaceEventsQueryKey(workspaceId),
+        );
         if (cacheData?.events) {
-          latestState = replayEvents(cacheData.events);
+          latestState = deriveWorkspaceStateFromCaches({
+            workspaceId,
+            stateData: getCachedWorkspaceState(queryClient, workspaceId),
+            eventLog: cacheData,
+          }).state;
         } else {
           // Fallback to prop if cache is empty (shouldn't happen in normal flow)
           latestState = currentItems;
@@ -926,13 +920,15 @@ export function useWorkspaceOperations(
       // (same pattern as updateAllItems - currentState prop can be stale)
       let latestItems: Item[];
       if (workspaceId) {
-        const cacheData = queryClient.getQueryData<EventResponse>([
-          "workspace",
-          workspaceId,
-          "events",
-        ]);
+        const cacheData = queryClient.getQueryData<EventResponse>(
+          workspaceEventsQueryKey(workspaceId),
+        );
         if (cacheData?.events) {
-          const latestState = replayEvents(cacheData.events);
+          const latestState = deriveWorkspaceStateFromCaches({
+            workspaceId,
+            stateData: getCachedWorkspaceState(queryClient, workspaceId),
+            eventLog: cacheData,
+          }).state;
           latestItems = latestState;
         } else {
           latestItems = currentItems;
@@ -997,12 +993,7 @@ export function useWorkspaceOperations(
           : `Folder and ${itemCount} ${itemCount === 1 ? "item" : "items"} deleted`,
       );
     },
-    [
-      workspaceId,
-      queryClient,
-      currentItems,
-      updateAllItems,
-    ],
+    [workspaceId, queryClient, currentItems, updateAllItems],
   );
 
   const moveItemToFolder = useCallback(
