@@ -298,13 +298,13 @@ async function handlePOST(req: Request) {
         return {
           model: escalationModel,
           providerOptions: {
-            ...providerOptions,
             gateway: {
-              ...((providerOptions as any)?.gateway ?? {}),
+              caching: "auto",
               models: [escalationModelId],
+              ...(userId ? { user: userId } : {}),
             },
             google: {
-              ...((providerOptions as any)?.google ?? {}),
+              grounding: {},
               thinkingConfig: {
                 thinkingLevel: "high",
                 includeThoughts: true,
