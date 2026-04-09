@@ -22,7 +22,7 @@ export type WorkspaceProjectionClient = Pick<
   "delete" | "execute" | "insert" | "select" | "update"
 >;
 
-export interface WorkspaceProjectionSnapshot {
+export interface WorkspaceProjectionStatePayload {
   items: Item[];
   version: number;
 }
@@ -199,7 +199,7 @@ async function readProjectedWorkspaceState(
   client: WorkspaceProjectionClient,
   workspaceId: string,
   userId?: string | null,
-): Promise<WorkspaceProjectionSnapshot> {
+): Promise<WorkspaceProjectionStatePayload> {
   const [shellRows, version] = await Promise.all([
     client
       .select()
@@ -774,12 +774,12 @@ export async function projectWorkspaceEvent(
   await applyWorkspaceEventProjectionInternal(client, params);
 }
 
-export async function loadWorkspaceProjectionSnapshot(
+export async function loadWorkspaceProjectionState(
   client: WorkspaceProjectionClient,
   params: {
     workspaceId: string;
     userId?: string | null;
   },
-): Promise<WorkspaceProjectionSnapshot> {
+): Promise<WorkspaceProjectionStatePayload> {
   return readProjectedWorkspaceState(client, params.workspaceId, params.userId);
 }

@@ -248,6 +248,7 @@ export const userProfiles = pgTable(
   ],
 );
 
+// Retained temporarily for operational safety; runtime current-state reads no longer use snapshots.
 export const workspaceSnapshots = pgTable(
   "workspace_snapshots",
   {

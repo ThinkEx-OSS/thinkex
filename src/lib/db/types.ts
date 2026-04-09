@@ -7,7 +7,6 @@ import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
 import {
   workspaces,
   workspaceEvents,
-  workspaceSnapshots,
   workspaceItems,
   workspaceItemContent,
   workspaceItemExtracted,
@@ -27,11 +26,6 @@ export type WorkspaceInsert = InferInsertModel<typeof workspaces>;
 
 export type WorkspaceEvent = InferSelectModel<typeof workspaceEvents>;
 export type WorkspaceEventInsert = InferInsertModel<typeof workspaceEvents>;
-
-export type WorkspaceSnapshot = InferSelectModel<typeof workspaceSnapshots>;
-export type WorkspaceSnapshotInsert = InferInsertModel<
-  typeof workspaceSnapshots
->;
 
 export type WorkspaceItem = InferSelectModel<typeof workspaceItems>;
 export type WorkspaceItemInsert = InferInsertModel<typeof workspaceItems>;

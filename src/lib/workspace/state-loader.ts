@@ -1,6 +1,6 @@
 import { db } from "@/lib/db/client";
 import type { Item } from "@/lib/workspace-state/types";
-import { loadWorkspaceProjectionSnapshot } from "./workspace-items-projector";
+import { loadWorkspaceProjectionState } from "./workspace-items-projector";
 
 export interface LoadWorkspaceStateOptions {
   userId?: string | null;
@@ -16,7 +16,7 @@ export async function loadWorkspaceStatePayload(
   options: LoadWorkspaceStateOptions = {},
 ): Promise<WorkspaceStatePayload> {
   return db.transaction(async (tx: any) => {
-    const projection = await loadWorkspaceProjectionSnapshot(tx, {
+    const projection = await loadWorkspaceProjectionState(tx, {
       workspaceId,
       userId: options.userId,
     });
