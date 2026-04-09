@@ -111,8 +111,8 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
 
   // Get preview text from workspace
   const getPreviewText = (workspace: WorkspaceWithState) => {
-    if (workspace.state?.items && workspace.state.items.length > 0) {
-      const firstItem = workspace.state.items[0];
+    if (workspace.state && workspace.state.length > 0) {
+      const firstItem = workspace.state[0];
       if (firstItem.type === "document") {
         const documentData = firstItem.data as { markdown?: string };
         if (documentData.markdown) {
@@ -380,7 +380,7 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
               onClick={async () => {
                 if (
                   confirm(
-                    `Delete ${selectedIds.size} workspaces? You can restore from version history if needed.`,
+                    `Delete ${selectedIds.size} workspaces? This action cannot be undone right now.`,
                   )
                 ) {
                   const ids = Array.from(selectedIds);

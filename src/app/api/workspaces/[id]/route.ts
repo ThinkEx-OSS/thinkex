@@ -38,11 +38,6 @@ async function handleGET(
   // Get workspace state by replaying events
   const state = await loadWorkspaceState(id);
 
-  // Ensure state has workspace metadata if empty
-  if (!state.globalTitle) {
-    state.globalTitle = workspace.name || "";
-  }
-
   return NextResponse.json({
     workspace: {
       ...workspace,
@@ -158,7 +153,7 @@ async function handleDELETE(
   // Check ownership
   await verifyWorkspaceOwnership(id, userId);
 
-  // Delete workspace (cascade will delete events and snapshots)
+  // Delete workspace (cascade removes related workspace data)
   await db
     .delete(workspaces)
     .where(eq(workspaces.id, id));
@@ -167,4 +162,3 @@ async function handleDELETE(
 }
 
 export const DELETE = withErrorHandling(handleDELETE, "DELETE /api/workspaces/[id]");
-

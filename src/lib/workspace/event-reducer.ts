@@ -1,36 +1,31 @@
-import type { AgentState } from "@/lib/workspace-state/types";
+import type { Item } from "@/lib/workspace-state/types";
 import type { WorkspaceEvent } from "./events";
-import { initialState } from "@/lib/workspace-state/state";
+import {
+  initialItems,
+  normalizeWorkspaceItems,
+} from "@/lib/workspace-state/state";
 
 /**
  * Event Reducer: Pure function that applies an event to state
  * This is the heart of event sourcing - state is derived by reducing events
  */
 export function eventReducer(
-  state: AgentState,
+  state: Item[],
   event: WorkspaceEvent,
-): AgentState {
+): Item[] {
   switch (event.type) {
     case "WORKSPACE_CREATED":
-      return {
-        ...state,
-        globalTitle: event.payload.title,
-      };
+      return state;
 
     case "ITEM_CREATED": {
       const item = event.payload.item;
       const now = event.timestamp || Date.now();
-      return {
-        ...state,
-        items: [...state.items, { ...item, lastModified: now }],
-      };
+      return [...state, { ...item, lastModified: now }];
     }
 
     case "ITEM_UPDATED": {
       const now = event.timestamp || Date.now();
-      return {
-        ...state,
-        items: state.items.map((item) =>
+      return state.map((item) =>
           item.id === event.payload.id
             ? {
                 ...item,
@@ -45,8 +40,7 @@ export function eventReducer(
                 lastModified: now,
               }
             : item,
-        ),
-      };
+        );
     }
 
     case "BULK_ITEMS_PATCHED": {
@@ -55,9 +49,7 @@ export function eventReducer(
         event.payload.updates.map((update) => [update.id, update]),
       );
 
-      return {
-        ...state,
-        items: state.items.map((item) => {
+      return state.map((item) => {
           const update = updateMap.get(item.id);
           if (!update) return item;
 
@@ -72,18 +64,15 @@ export function eventReducer(
               : item.data,
             lastModified: now,
           };
-        }),
-      };
+        });
     }
 
     case "ITEM_DELETED": {
       const deletedItemId = event.payload.id;
-      const deletedItem = state.items.find((item) => item.id === deletedItemId);
+      const deletedItem = state.find((item) => item.id === deletedItemId);
       const isFolder = deletedItem?.type === "folder";
 
-      return {
-        ...state,
-        items: state.items
+      return state
           .filter((item) => item.id !== deletedItemId)
           // If deleting a folder-type item, clear folderId and layout from items that were in it
           // Layout is cleared so items get fresh positioning in root (same as when moving to folder)
@@ -91,27 +80,15 @@ export function eventReducer(
             isFolder && item.folderId === deletedItemId
               ? { ...item, folderId: undefined, layout: undefined }
               : item,
-          ),
-      };
+          );
     }
 
     case "GLOBAL_TITLE_SET":
-      return {
-        ...state,
-        globalTitle: event.payload.title,
-      };
-
     case "GLOBAL_DESCRIPTION_SET":
-      // No-op: globalDescription removed from state
       return state;
 
     case "WORKSPACE_SNAPSHOT":
-      // Used for migration from old workspace_states table
-      // Replaces entire state with snapshot
-      return {
-        ...event.payload,
-        workspaceId: state.workspaceId, // Preserve workspace ID
-      };
+      return normalizeWorkspaceItems(event.payload);
 
     case "BULK_ITEMS_UPDATED": {
       const p = event.payload;
@@ -121,18 +98,18 @@ export function eventReducer(
       if (p.deletedIds && p.deletedIds.length > 0) {
         const deletedSet = new Set(p.deletedIds);
         const deletedFolderIds = new Set(
-          state.items
+          state
             .filter((i) => deletedSet.has(i.id) && i.type === "folder")
             .map((i) => i.id),
         );
-        const remaining = state.items
+        const remaining = state
           .filter((i) => !deletedSet.has(i.id))
           .map((item) =>
             item.folderId && deletedFolderIds.has(item.folderId)
               ? { ...item, folderId: undefined, layout: undefined }
               : item,
           );
-        return { ...state, items: remaining };
+        return remaining;
       }
 
       // Items added: send only addedItems
@@ -141,14 +118,14 @@ export function eventReducer(
           ...item,
           lastModified: now,
         }));
-        return { ...state, items: [...state.items, ...added] };
+        return [...state, ...added];
       }
 
-      // Older events: full items snapshot
+      // Older events may include a full items payload.
       if (p.items && p.items.length >= 0) {
         const newItemIds = new Set(p.items.map((i) => i.id));
         const deletedFolderIds = new Set(
-          state.items
+          state
             .filter((i) => i.type === "folder" && !newItemIds.has(i.id))
             .map((i) => i.id),
         );
@@ -157,22 +134,19 @@ export function eventReducer(
             ? { ...item, folderId: undefined, layout: undefined }
             : item,
         );
-        return { ...state, items: cleanedItems };
+        return cleanedItems;
       }
 
       // Layout-only: apply layout changes to existing items
       const layoutUpdates = p.layoutUpdates ?? [];
       if (layoutUpdates.length > 0) {
         const layoutMap = new Map(layoutUpdates.map((u) => [u.id, u]));
-        return {
-          ...state,
-          items: state.items.map((item) => {
+        return state.map((item) => {
             const u = layoutMap.get(item.id);
             return u
               ? { ...item, layout: { x: u.x, y: u.y, w: u.w, h: u.h } }
               : item;
-          }),
-        };
+          });
       }
 
       return state;
@@ -180,14 +154,11 @@ export function eventReducer(
 
     case "BULK_ITEMS_CREATED": {
       const now = event.timestamp || Date.now();
-      const itemsWithModified = event.payload.items.map((item) => ({
+      const itemsWithModified = event.payload.items.map((item: Item) => ({
         ...item,
         lastModified: now,
       }));
-      return {
-        ...state,
-        items: [...state.items, ...itemsWithModified],
-      };
+      return [...state, ...itemsWithModified];
     }
 
     case "FOLDER_CREATED":
@@ -199,21 +170,16 @@ export function eventReducer(
     case "FOLDER_DELETED": {
       // Historical event: clear folderId from items that pointed at the removed folder id
       const deletedFolderId = event.payload.id;
-      return {
-        ...state,
-        items: state.items.map((item) =>
+      return state.map((item) =>
           item.folderId === deletedFolderId
             ? { ...item, folderId: undefined }
             : item,
-        ),
-      };
+        );
     }
 
     case "ITEM_MOVED_TO_FOLDER": {
       // Clear layout when item moves to a new folder so it gets fresh positioning
-      return {
-        ...state,
-        items: state.items.map((item) =>
+      return state.map((item) =>
           item.id === event.payload.itemId
             ? {
                 ...item,
@@ -221,15 +187,14 @@ export function eventReducer(
                 layout: undefined, // Clear layout for fresh positioning in new folder
               }
             : item,
-        ),
-      };
+        );
     }
 
     case "ITEMS_MOVED_TO_FOLDER": {
       const itemIdsSet = new Set(event.payload.itemIds);
       const targetFolderId = event.payload.folderId ?? undefined;
       // Clear layout when items move to a new folder so they get fresh positioning
-      const updatedItems = state.items.map((item) =>
+      const updatedItems = state.map((item) =>
         itemIdsSet.has(item.id)
           ? {
               ...item,
@@ -238,10 +203,7 @@ export function eventReducer(
             }
           : item,
       );
-      return {
-        ...state,
-        items: updatedItems,
-      };
+      return updatedItems;
     }
 
     case "FOLDER_CREATED_WITH_ITEMS": {
@@ -251,7 +213,7 @@ export function eventReducer(
       const folderId = folder.id;
 
       // Add the folder to items, then update items to move them into the folder
-      const updatedItems = state.items.map((item) =>
+      const updatedItems = state.map((item) =>
         itemIdsSet.has(item.id)
           ? {
               ...item,
@@ -264,10 +226,7 @@ export function eventReducer(
 
       updatedItems.push(folder);
 
-      return {
-        ...state,
-        items: updatedItems,
-      };
+      return updatedItems;
     }
 
     default:
@@ -282,22 +241,14 @@ export function eventReducer(
  * This is a pure function - same events always produce same state
  *
  * @param events - Events to replay
- * @param workspaceId - Workspace ID to set in state
- * @param snapshotState - Optional snapshot state to start from (optimization)
+ * @param baseState - Optional base state to start from
  */
 export function replayEvents(
   events: WorkspaceEvent[],
-  workspaceId?: string,
-  snapshotState?: AgentState,
-): AgentState {
+  baseState: Item[] = initialItems,
+): Item[] {
   const replayStart = performance.now();
-
-  const baseState = snapshotState || {
-    ...initialState,
-    workspaceId: workspaceId || initialState.workspaceId,
-  };
-
-  const finalState = events.reduce(eventReducer, baseState);
+  const finalState = events.reduce(eventReducer, normalizeWorkspaceItems(baseState));
 
   const replayTime = performance.now() - replayStart;
   // Only log if replay is slow (>50ms) or if we're replaying many events (>100)

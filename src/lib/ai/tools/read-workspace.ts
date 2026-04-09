@@ -7,6 +7,7 @@ import { formatItemContent } from "@/lib/utils/format-workspace-context";
 import { getVirtualPath } from "@/lib/utils/workspace-fs";
 import type { WorkspaceToolContext } from "./workspace-tools";
 import type { DocumentData } from "@/lib/workspace-state/types";
+import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
 
 const DEFAULT_LIMIT = 500;
 const MAX_LIMIT = 2000;
@@ -97,8 +98,7 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
             const accessResult = await loadStateForTool(ctx);
             if (!accessResult.success) return accessResult;
 
-            const { state } = accessResult;
-            const items = state.items;
+            const items = normalizeWorkspaceItems(accessResult.state);
 
             let item = null;
 

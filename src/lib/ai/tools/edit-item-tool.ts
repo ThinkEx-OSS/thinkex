@@ -5,6 +5,7 @@ import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
 import { loadStateForTool, resolveItem, withSanitizedModelOutput } from "./tool-utils";
 import { getVirtualPath } from "@/lib/utils/workspace-fs";
+import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
 
 const EDITABLE_TYPES = ["flashcard", "quiz", "pdf", "document"] as const;
 
@@ -101,11 +102,11 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                     return accessResult;
                 }
 
-                const { state } = accessResult;
-                const matchedItem = resolveItem(state.items, itemName);
+                const state = normalizeWorkspaceItems(accessResult.state);
+                const matchedItem = resolveItem(state, itemName);
 
                 if (!matchedItem) {
-                    const sample = state.items
+                    const sample = state
                         .filter((i) => i.type !== "folder")
                         .slice(0, 5)
                         .map((i) => `"${i.name}" (${i.type})`)
@@ -116,12 +117,12 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                     };
                 }
 
-                const contentItems = state.items.filter((i) => i.type !== "folder");
+                const contentItems = state.filter((i) => i.type !== "folder");
                 const sameNameCandidates = contentItems.filter(
                     (i) => i.name.toLowerCase().trim() === matchedItem.name.toLowerCase().trim()
                 );
                 if (sameNameCandidates.length > 1) {
-                    const paths = sameNameCandidates.map((c) => getVirtualPath(c, state.items)).join(", ");
+                    const paths = sameNameCandidates.map((c) => getVirtualPath(c, state)).join(", ");
                     return {
                         success: false,
                         message: `Multiple items named "${matchedItem.name}". Disambiguate using path: ${paths}`,

@@ -42,13 +42,7 @@ function mergeRealtimeEvent(
   old: EventResponse,
   event: WorkspaceEvent,
 ): EventResponse {
-  const snapshotVersion = old.snapshot?.version ?? 0;
-
   if (old.events.some((existing) => existing.id === event.id)) {
-    return old;
-  }
-
-  if (typeof event.version === "number" && event.version <= snapshotVersion) {
     return old;
   }
 

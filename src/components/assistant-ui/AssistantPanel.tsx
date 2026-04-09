@@ -119,9 +119,9 @@ function WorkspaceContextWrapperContent({
   }, [isLoading, state, onReady]);
 
   // Extract workspace items for context display
-  const items = state?.items || [];
+  const items = state;
 
-  // Workspace name from DB (fallback when state.globalTitle is empty, e.g. after rename in Settings)
+  // Workspace name comes from canonical workspace metadata.
   const { currentWorkspace } = useWorkspaceContext();
 
   // Inject minimal workspace context (metadata and system instructions only)

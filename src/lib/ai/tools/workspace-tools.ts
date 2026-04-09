@@ -5,6 +5,7 @@ import { workspaceWorker } from "@/lib/ai/workers";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import type { Item } from "@/lib/workspace-state/types";
 import { loadStateForTool, resolveItem, getAvailableItemsList, withSanitizedModelOutput } from "./tool-utils";
+import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
 
 // Note: Edit functionality is in edit-item-tool.ts (item_edit)
 
@@ -79,7 +80,7 @@ export function createDocumentTool(ctx: WorkspaceToolContext) {
  */
 export function createDeleteItemTool(ctx: WorkspaceToolContext) {
     return withSanitizedModelOutput(tool({
-        description: "Delete a workspace item by name. Can be restored from version history.",
+        description: "Delete a workspace item by name. This permanently removes it from the workspace.",
         inputSchema: zodSchema(
             z.object({
                 itemName: z.string().describe("Item name or virtual path (e.g. pdfs/Report.pdf) to delete"),
@@ -103,13 +104,13 @@ export function createDeleteItemTool(ctx: WorkspaceToolContext) {
                     return accessResult;
                 }
 
-                const { state } = accessResult;
+                const state = normalizeWorkspaceItems(accessResult.state);
 
                 // Resolve by virtual path or fuzzy name match (any type)
-                const matchedItem = resolveItem(state.items, itemName);
+                const matchedItem = resolveItem(state, itemName);
 
                 if (!matchedItem) {
-                    const availableItems = state.items.map(i => `"${i.name}" (${i.type})`).slice(0, 5).join(", ");
+                    const availableItems = state.map(i => `"${i.name}" (${i.type})`).slice(0, 5).join(", ");
                     return {
                         success: false,
                         message: `Could not find item "${itemName}". ${availableItems ? `Available items: ${availableItems}` : 'No items found in workspace.'}`,

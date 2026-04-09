@@ -1,5 +1,5 @@
 import {
-  AgentState,
+  Item,
   CardType,
   ItemData,
   PdfData,
@@ -13,19 +13,22 @@ import {
   DocumentData,
 } from "@/lib/workspace-state/types";
 
+export const initialItems: Item[] = [];
 
+export function normalizeWorkspaceItems(value: unknown): Item[] {
+  if (Array.isArray(value)) {
+    return value as Item[];
+  }
 
-export const initialState: AgentState = {
-  items: [],
-  globalTitle: "",
-  lastAction: "",
+  if (value == null || typeof value !== "object") {
+    return [...initialItems];
+  }
 
-};
+  if (Array.isArray((value as { items?: unknown }).items)) {
+    return ((value as { items: Item[] }).items ?? []) as Item[];
+  }
 
-export function isNonEmptyAgentState(value: unknown): value is AgentState {
-  if (value == null || typeof value !== "object") return false;
-  const keys = Object.keys(value as Record<string, unknown>);
-  return keys.length > 0;
+  return [...initialItems];
 }
 
 export function defaultDataFor(type: CardType): ItemData {
@@ -57,5 +60,3 @@ export function defaultDataFor(type: CardType): ItemData {
     }
   }
 }
-
-

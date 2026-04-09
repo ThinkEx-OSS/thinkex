@@ -1,4 +1,7 @@
-import type { AgentState, TemplateDefinition } from "@/lib/workspace-state/types";
+import type {
+  Item,
+  TemplateDefinition,
+} from "@/lib/workspace-state/types";
 import { getDistinctCardColor, type CardColor } from "@/lib/workspace-state/colors";
 
 /**
@@ -21,10 +24,7 @@ export const WORKSPACE_TEMPLATES: TemplateDefinition[] = [
     name: "Blank",
     description: "Start from scratch",
     template: "blank",
-    initialState: {
-      items: [],
-      globalTitle: "",
-    },
+    initialItems: [],
   },
   (() => {
     const sampleColors = generateDistinctColors(3);
@@ -32,8 +32,7 @@ export const WORKSPACE_TEMPLATES: TemplateDefinition[] = [
       name: "Getting Started",
       description: "Start with sample content",
       template: "getting_started",
-      initialState: {
-        items: [
+      initialItems: [
           {
             id: "sample-document-1",
             type: "document",
@@ -68,8 +67,6 @@ export const WORKSPACE_TEMPLATES: TemplateDefinition[] = [
             layout: { x: 2, y: 0, w: 2, h: 5 },
           }
         ],
-        globalTitle: "",
-      },
     };
   })(),
 ];
@@ -84,10 +81,7 @@ export function getTemplateByType(template: string): TemplateDefinition {
 /**
  * Get initial state for a template
  */
-export function getTemplateInitialState(template: string): AgentState {
+export function getTemplateInitialItems(template: string): Item[] {
   const templateDef = getTemplateByType(template);
-  return {
-    items: templateDef.initialState.items || [],
-    globalTitle: templateDef.initialState.globalTitle || "",
-  };
+  return structuredClone(templateDef.initialItems);
 }

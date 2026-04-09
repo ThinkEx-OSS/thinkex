@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
-import { initialState } from "@/lib/workspace-state/state";
+import { initialItems } from "@/lib/workspace-state/state";
 import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
 import {
     Collapsible,
@@ -207,7 +207,7 @@ const YouTubeSearchContent: FC<{
 }> = ({ args, status, result }) => {
     const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
     const { state: workspaceState } = useWorkspaceState(workspaceId);
-    const operations = useWorkspaceOperations(workspaceId, workspaceState || initialState);
+    const operations = useWorkspaceOperations(workspaceId, workspaceState || initialItems);
 
     const [addedVideos, setAddedVideos] = useState<Set<string>>(new Set());
     const [addingVideos, setAddingVideos] = useState<Set<string>>(new Set());
@@ -219,14 +219,14 @@ const YouTubeSearchContent: FC<{
 
     // Effect to handle scrolling to new items once they exist in state
     useEffect(() => {
-        if (scrollToId && workspaceState?.items) {
-            const item = workspaceState.items.find(i => i.id === scrollToId);
+        if (scrollToId) {
+            const item = workspaceState.find(i => i.id === scrollToId);
             if (item) {
                 navigateToItem(scrollToId);
                 setScrollToId(null);
             }
         }
-    }, [scrollToId, workspaceState?.items, navigateToItem]);
+    }, [scrollToId, workspaceState, navigateToItem]);
 
     const handleAddVideo = async (video: VideoResult) => {
         if (addedVideos.has(video.id) || addingVideos.has(video.id)) return;

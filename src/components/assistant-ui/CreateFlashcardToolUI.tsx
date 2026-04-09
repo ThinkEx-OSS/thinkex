@@ -19,7 +19,7 @@ import type { MouseEvent, ReactNode } from "react";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
-import { initialState } from "@/lib/workspace-state/state";
+import { initialItems } from "@/lib/workspace-state/state";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import type { FlashcardResult } from "@/lib/ai/tool-result-schemas";
 import { parseFlashcardResult } from "@/lib/ai/tool-result-schemas";
@@ -75,18 +75,18 @@ const CreateFlashcardReceipt = ({
 
   // Get the current item from workspace state
   const currentItem = useMemo(() => {
-    if (!result.itemId || !workspaceState?.items) return undefined;
-    return workspaceState.items.find((item: Item) => item.id === result.itemId);
-  }, [result.itemId, workspaceState?.items]);
+    if (!result.itemId) return undefined;
+    return workspaceState.find((item: Item) => item.id === result.itemId);
+  }, [result.itemId, workspaceState]);
 
   // Get folder name if item is in a folder
   const folderName = useMemo(() => {
-    if (!currentItem?.folderId || !workspaceState?.items) return null;
-    const folder = workspaceState.items.find(
+    if (!currentItem?.folderId) return null;
+    const folder = workspaceState.find(
       (item: Item) => item.id === currentItem.folderId,
     );
     return folder?.name || null;
-  }, [currentItem?.folderId, workspaceState?.items]);
+  }, [currentItem?.folderId, workspaceState]);
 
   const argsObj = isCreateFlashcardArgsObject(args) ? args : null;
   const argsTitle = argsObj?.title;
@@ -235,7 +235,7 @@ function CreateFlashcardToolRenderer({
   const { state: workspaceState } = useWorkspaceState(workspaceId);
   const operations = useWorkspaceOperations(
     workspaceId,
-    workspaceState || initialState,
+    workspaceState || initialItems,
   );
 
   const workspaceContext = useWorkspaceContext();
@@ -282,9 +282,9 @@ function CreateFlashcardToolRenderer({
         result={parsed}
         status={status}
         moveItemToFolder={operations.moveItemToFolder}
-        allItems={workspaceState?.items || []}
+        allItems={workspaceState || []}
         workspaceName={
-          currentWorkspace?.name || workspaceState?.globalTitle || "Workspace"
+          currentWorkspace?.name || "Workspace"
         }
         workspaceIcon={currentWorkspace?.icon}
         workspaceColor={currentWorkspace?.color}

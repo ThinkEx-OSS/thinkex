@@ -6,7 +6,7 @@ import { useSession, signIn } from "@/lib/auth-client";
 import SharedWorkspaceModal from "@/components/workspace/SharedWorkspaceModal";
 import { AuthPageBackground } from "@/components/auth/AuthPageBackground";
 import { Loader2 } from "lucide-react";
-import type { AgentState } from "@/lib/workspace-state/types";
+import type { Item } from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
 
 interface SharedWorkspaceData {
@@ -16,7 +16,7 @@ interface SharedWorkspaceData {
     description: string;
     icon: string | null;
     color: CardColor | null;
-    state: AgentState;
+    state: Item[];
   };
 }
 
@@ -94,7 +94,7 @@ export default function SharePage() {
             is_public: false,
             icon: shareData.workspace.icon,
             color: shareData.workspace.color,
-            initialState: shareData.workspace.state,
+            initialItems: shareData.workspace.state,
           }),
         });
 

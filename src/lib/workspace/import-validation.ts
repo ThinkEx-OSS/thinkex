@@ -1,9 +1,12 @@
-import type { AgentState, Item, CardType } from "@/lib/workspace-state/types";
+import type {
+  Item,
+  CardType,
+} from "@/lib/workspace-state/types";
 
 export interface ValidationResult {
   isValid: boolean;
   error?: string;
-  data?: AgentState;
+  data?: Item[];
 }
 
 const VALID_CARD_TYPES: CardType[] = ["document", "pdf", "flashcard"];
@@ -11,30 +14,21 @@ const VALID_CARD_TYPES: CardType[] = ["document", "pdf", "flashcard"];
 export function validateImportedJSON(jsonString: string): ValidationResult {
   try {
     const parsed = JSON.parse(jsonString);
+    const items = Array.isArray(parsed)
+      ? parsed
+      : parsed && typeof parsed === "object" && Array.isArray(parsed.items)
+        ? parsed.items
+        : null;
 
-    if (!parsed || typeof parsed !== 'object') {
+    if (!items) {
       return {
         isValid: false,
-        error: "JSON must be an object"
+        error: "JSON must be an item array or an object with an 'items' array",
       };
     }
 
-    if (!('items' in parsed)) {
-      return {
-        isValid: false,
-        error: "JSON must contain an 'items' array"
-      };
-    }
-
-    if (!Array.isArray(parsed.items)) {
-      return {
-        isValid: false,
-        error: "'items' must be an array"
-      };
-    }
-
-    for (let i = 0; i < parsed.items.length; i++) {
-      const item = parsed.items[i];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
       const itemError = validateItem(item, i);
       if (itemError) {
         return {
@@ -44,14 +38,9 @@ export function validateImportedJSON(jsonString: string): ValidationResult {
       }
     }
 
-    const validatedState: AgentState = {
-      items: parsed.items,
-      globalTitle: typeof parsed.globalTitle === 'string' ? parsed.globalTitle : "",
-    };
-
     return {
       isValid: true,
-      data: validatedState
+      data: items,
     };
 
   } catch (error) {
@@ -104,19 +93,15 @@ function validateItem(item: any, index: number): string | null {
   return null;
 }
 
-export function generateImportPreview(state: AgentState): string {
-  const itemCounts = state.items.reduce((acc, item) => {
+export function generateImportPreview(items: Item[]): string {
+  const itemCounts = items.reduce((acc, item) => {
     acc[item.type] = (acc[item.type] || 0) + 1;
     return acc;
   }, {} as Record<CardType, number>);
 
   const parts: string[] = [];
 
-  if (state.globalTitle) {
-    parts.push(`Title: "${state.globalTitle}"`);
-  }
-
-  if (state.items.length > 0) {
+  if (items.length > 0) {
     const itemSummary = Object.entries(itemCounts)
       .map(([type, count]) => `${count} ${type}${count > 1 ? 's' : ''}`)
       .join(', ');

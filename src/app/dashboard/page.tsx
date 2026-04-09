@@ -7,7 +7,6 @@ import { useKeyboardShortcuts } from "@/hooks/ui/use-keyboard-shortcuts";
 import useMediaQuery from "@/hooks/ui/use-media-query";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
-import { useWorkspaceHistory } from "@/hooks/workspace/use-workspace-history";
 import { useWorkspaceEvents } from "@/hooks/workspace/use-workspace-events";
 import { useTextSelectionAgent } from "@/hooks/workspace/use-text-selection-agent";
 import {
@@ -35,7 +34,6 @@ import {
 import { PdfEngineWrapper } from "@/components/pdf/PdfEngineWrapper";
 import WorkspaceSettingsModal from "@/components/workspace/WorkspaceSettingsModal";
 import ShareWorkspaceDialog from "@/components/workspace/ShareWorkspaceDialog";
-import { VersionHistoryDialog } from "@/components/workspace/VersionHistoryModal";
 import { RealtimeProvider } from "@/contexts/RealtimeContext";
 import { toast } from "sonner";
 import { InviteGuard } from "@/components/workspace/InviteGuard";
@@ -100,7 +98,6 @@ function DashboardContent({
   const {
     state,
     isLoading: isLoadingWorkspace,
-    version,
   } = useWorkspaceState(currentWorkspaceId);
 
   // Open audio recorder when landing from home Record flow (store flag set before navigate).
@@ -142,9 +139,6 @@ function DashboardContent({
   // Workspace operations (emits events with optimistic updates)
   const operations = useWorkspaceOperations(currentWorkspaceId, state);
 
-  // Version control (history only)
-  const { revertToVersion: revertToVersionRaw } =
-    useWorkspaceHistory(currentWorkspaceId);
   const { data: eventLog } = useWorkspaceEvents(currentWorkspaceId);
 
   // Track sign-in prompt dismissal per workspace for anonymous users.
@@ -156,7 +150,6 @@ function DashboardContent({
   // Workspace settings/share modals (lifted so header can open them)
   const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
   const [showWorkspaceShare, setShowWorkspaceShare] = useState(false);
-  const [showVersionHistory, setShowVersionHistory] = useState(false);
 
   const showSignInPrompt =
     !!session?.user?.isAnonymous &&
@@ -186,7 +179,7 @@ function DashboardContent({
 
   // Mark as saved when workspace is loaded from events
   useEffect(() => {
-    if (!isLoadingWorkspace && currentWorkspaceId && state.items) {
+    if (!isLoadingWorkspace && currentWorkspaceId) {
       // Use the last event's timestamp if available, otherwise use current time
       let lastSavedDate: Date;
       if (eventLog?.events && eventLog.events.length > 0) {
@@ -219,7 +212,7 @@ function DashboardContent({
   }, [
     isLoadingWorkspace,
     currentWorkspaceId,
-    state.items,
+    state,
     eventLog,
     updateLastSaved,
     updateHasUnsavedChanges,
@@ -240,14 +233,6 @@ function DashboardContent({
     (state) => state.setShowCreateWorkspaceModal,
   );
 
-  // Version revert: close ShareWorkspaceDialog on success (history is shown there)
-  const revertToVersion = useCallback(
-    async (targetVersion: number) => {
-      await revertToVersionRaw(targetVersion);
-      setShowWorkspaceShare(false);
-    },
-    [revertToVersionRaw, setShowWorkspaceShare],
-  );
   const toggleChatExpanded = useUIStore((state) => state.toggleChatExpanded);
   const toggleChatMaximized = useUIStore((state) => state.toggleChatMaximized);
 
@@ -280,7 +265,7 @@ function DashboardContent({
 
   const openWorkspaceItemView = (
     <OpenWorkspaceItemView
-      items={state.items}
+      items={state}
       onUpdateItem={operations.updateItem}
       onUpdateItemData={operations.updateItemData}
       onFlushPendingChanges={operations.flushPendingChanges}
@@ -354,10 +339,6 @@ function DashboardContent({
     [operations, currentWorkspaceId, handleCreatedItems],
   );
 
-  const handleShowHistory = useCallback(() => {
-    setShowVersionHistory(true);
-  }, []);
-
   return (
     <PdfEngineWrapper>
       {/* <OnboardingVideoDialog
@@ -395,24 +376,23 @@ function DashboardContent({
               isDesktop={isDesktop}
               isChatExpanded={isChatExpanded}
               setIsChatExpanded={setIsChatExpanded}
-              workspaceName={currentWorkspaceTitle || state.globalTitle}
+              workspaceName={currentWorkspaceTitle}
               workspaceIcon={currentWorkspaceIcon}
               workspaceColor={currentWorkspaceColor}
               addItem={operations.createItem}
               onPDFUpload={handleWorkspacePdfUpload}
               onItemCreated={handleCreatedItems}
-              items={state.items || []}
+              items={state}
               onRenameFolder={(folderId, newName) => {
                 operations.updateItem(folderId, { name: newName });
               }}
               onOpenSettings={() => setShowWorkspaceSettings(true)}
               onOpenShare={() => setShowWorkspaceShare(true)}
-              onShowHistory={handleShowHistory}
               activeOpenWorkspaceItem={(() => {
                 if (!primaryOpenItemId || workspaceOpenMode !== "single") {
                   return null;
                 }
-                return state.items?.find((i) => i.id === primaryOpenItemId) ?? null;
+                return state.find((i) => i.id === primaryOpenItemId) ?? null;
               })()}
               onCloseActiveItem={(id) => {
                 operations.flushPendingChanges(id);
@@ -478,18 +458,10 @@ function DashboardContent({
         open={showWorkspaceShare}
         onOpenChange={setShowWorkspaceShare}
       />
-      <VersionHistoryDialog
-        open={showVersionHistory}
-        onOpenChange={setShowVersionHistory}
-        events={eventLog?.events || []}
-        currentVersion={version}
-        onRevertToVersion={revertToVersion}
-        items={currentWorkspace?.state?.items || []}
-      />
       <WorkspaceSearchDialog
         open={searchDialogOpen}
         onOpenChange={setSearchDialogOpen}
-        items={state.items ?? []}
+        items={state}
         currentWorkspaceId={currentWorkspaceId}
         isLoadingWorkspace={isLoadingWorkspace}
       />

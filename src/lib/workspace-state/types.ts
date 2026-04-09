@@ -180,13 +180,6 @@ export interface Item {
   lastModified?: number;
 }
 
-export interface AgentState {
-  items: Item[]; // Includes folder-type items (type: 'folder')
-  globalTitle: string;
-  lastAction?: string;
-  workspaceId?: string; // Supabase workspace ID for persistence
-}
-
 // =====================================================
 // WORKSPACE TYPES
 // =====================================================
@@ -205,5 +198,5 @@ export interface TemplateDefinition {
   name: string;
   description: string;
   template: WorkspaceTemplate;
-  initialState: Partial<AgentState>;
+  initialItems: Item[];
 }

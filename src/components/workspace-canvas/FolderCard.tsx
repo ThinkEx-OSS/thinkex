@@ -513,7 +513,7 @@ function FolderCardComponent({
                         <div className="flex-1">
                           <div className="font-medium text-sm text-destructive">Delete items</div>
                           <div className="text-xs text-muted-foreground">
-                            Delete folder and all {itemCount} {itemCount === 1 ? 'item' : 'items'} inside (can be restored from version history)
+                            Delete folder and all {itemCount} {itemCount === 1 ? 'item' : 'items'} inside
                           </div>
                         </div>
                       </label>

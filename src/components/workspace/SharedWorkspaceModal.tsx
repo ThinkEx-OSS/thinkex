@@ -14,7 +14,7 @@ import { IconRenderer } from "@/hooks/use-icon-picker";
 import { SwatchesPicker, ColorResult } from "react-color";
 import { SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { AgentState } from "@/lib/workspace-state/types";
+import type { Item } from "@/lib/workspace-state/types";
 import { useCreateWorkspace } from "@/hooks/workspace/use-create-workspace";
 
 interface SharedWorkspaceData {
@@ -24,7 +24,7 @@ interface SharedWorkspaceData {
     description: string;
     icon: string | null;
     color: CardColor | null;
-    state: AgentState;
+    state: Item[];
   };
 }
 
@@ -107,7 +107,7 @@ function SharedWorkspaceModalContent({
         is_public: false,
         icon: selectedIcon,
         color: selectedColor,
-        initialState: workspaceData.workspace.state,
+        initialItems: workspaceData.workspace.state,
       });
 
       toast.success("Workspace created successfully");
@@ -122,7 +122,7 @@ function SharedWorkspaceModalContent({
   };
 
   const hasData = workspaceData !== null;
-  const itemCount = workspaceData?.workspace.state?.items?.length || 0;
+  const itemCount = workspaceData?.workspace.state?.length || 0;
 
   return (
       <DialogContent
@@ -338,4 +338,3 @@ export default function SharedWorkspaceModal({
     </Dialog>
   );
 }
-

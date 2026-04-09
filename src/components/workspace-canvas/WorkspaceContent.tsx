@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Plus, Upload } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
-import type { AgentState, Item, CardType } from "@/lib/workspace-state/types";
+import type { Item, CardType } from "@/lib/workspace-state/types";
 import { filterItemsByFolder } from "@/lib/workspace-state/search";
 import { useAutoScroll } from "@/hooks/ui/use-auto-scroll";
 import { WorkspaceGrid } from "./WorkspaceGrid";
@@ -17,7 +17,7 @@ import {
 } from "@/lib/uploads/workspace-upload-config";
 
 interface WorkspaceContentProps {
-  viewState: AgentState;
+  viewState: Item[];
   addItem: (type: CardType, name?: string, initialData?: Partial<Item['data']>) => string;
   updateItem: (itemId: string, updates: Partial<Item>) => void;
   deleteItem: (itemId: string) => void;
@@ -71,8 +71,8 @@ export default function WorkspaceContent({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredItems = useMemo(() => {
-    return filterItemsByFolder(viewState.items ?? [], activeFolderId ?? null);
-  }, [viewState.items, activeFolderId]);
+    return filterItemsByFolder(viewState, activeFolderId ?? null);
+  }, [viewState, activeFolderId]);
 
   const handleOpenFolder = useCallback((folderId: string) => {
     setActiveFolderId(folderId);
@@ -108,7 +108,7 @@ export default function WorkspaceContent({
       }>).detail ?? {};
       if (!itemId) return;
 
-      const existingData = viewState.items.find((i) => i.id === itemId)?.data ?? {};
+      const existingData = viewState.find((i) => i.id === itemId)?.data ?? {};
 
       if (retrying) {
         updateItem(itemId, {
@@ -132,7 +132,7 @@ export default function WorkspaceContent({
     return () => {
       window.removeEventListener("audio-processing-complete", handleAudioComplete);
     };
-  }, [updateItem, viewState.items, workspaceId, queryClient]);
+  }, [updateItem, viewState, workspaceId, queryClient]);
 
   const handleUpdateItem = useCallback((itemId: string, updates: Partial<Item>) => {
     updateItem(itemId, updates);
@@ -226,7 +226,7 @@ export default function WorkspaceContent({
 
   const isFiltering = activeFolderId !== null;
 
-  if ((viewState.items ?? []).length === 0 || (isFiltering && filteredItems.length === 0)) {
+  if (viewState.length === 0 || (isFiltering && filteredItems.length === 0)) {
     return (
       <div className="flex-1 py-4 overflow-hidden">
         <div className={`${selectedCardIdsArray.length > 0 ? 'pb-20' : ''} size-full workspace-grid-container px-4 sm:px-6`}>
@@ -297,7 +297,7 @@ export default function WorkspaceContent({
         <WorkspaceGrid
           key={activeFolderId ?? 'root'}
           items={filteredItems}
-          allItems={viewState.items}
+          allItems={viewState}
           isFiltered={isFiltering}
           isTemporaryFilter={false}
           onDragStart={handleDragStart}

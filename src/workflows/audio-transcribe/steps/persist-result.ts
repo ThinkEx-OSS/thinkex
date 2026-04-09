@@ -1,7 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { createEvent } from "@/lib/workspace/events";
-import { checkAndCreateSnapshot } from "@/lib/workspace/snapshot-manager";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
 import type { AudioData, Item } from "@/lib/workspace-state/types";
 import type { TranscribeResult } from "./transcribe";
@@ -73,7 +72,6 @@ export async function persistAudioResult(
       version: Number(match[1]),
     });
   }
-  checkAndCreateSnapshot(workspaceId).catch(() => {});
 }
 
 /**
@@ -140,5 +138,4 @@ export async function persistAudioFailure(
       version: Number(match[1]),
     });
   }
-  checkAndCreateSnapshot(workspaceId).catch(() => {});
 }

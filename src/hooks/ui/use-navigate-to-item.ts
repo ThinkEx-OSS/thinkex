@@ -18,11 +18,11 @@ export function useNavigateToItem() {
 
     const navigateToItem = useCallback(
         (itemId: string, options?: { silent?: boolean }): boolean => {
-            if (!workspaceState?.items) {
+            if (!workspaceState) {
                 if (!options?.silent) toast.error("Workspace not loaded");
                 return false;
             }
-            const item = workspaceState.items.find((i) => i.id === itemId);
+            const item = workspaceState.find((i) => i.id === itemId);
             if (!item) {
                 if (!options?.silent) toast.error("Item no longer exists");
                 return false;
@@ -123,7 +123,7 @@ export function useNavigateToItem() {
             }, 50);
             return true;
         },
-        [workspaceState?.items, setActiveFolderId]
+        [workspaceState, setActiveFolderId]
     );
     return navigateToItem;
 }
