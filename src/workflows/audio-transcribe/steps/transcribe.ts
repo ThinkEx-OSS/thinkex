@@ -4,6 +4,7 @@ import {
   createPartFromUri,
   createUserContent,
 } from "@google/genai";
+import { getModelForPurpose } from "@/lib/ai/models";
 
 export interface TranscribeResult {
   summary: string;
@@ -16,7 +17,7 @@ export interface TranscribeResult {
  */
 export async function transcribeWithGemini(
   fileUri: string,
-  mimeType: string
+  mimeType: string,
 ): Promise<TranscribeResult> {
   "use step";
 
@@ -36,11 +37,8 @@ Requirements:
 4. Provide the total duration of the audio in seconds (a single number, e.g. 180.5 for 3 minutes).`;
 
   const response = await client.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: createUserContent([
-      createPartFromUri(fileUri, mimeType),
-      prompt,
-    ]),
+    model: getModelForPurpose("audio-transcribe"),
+    contents: createUserContent([createPartFromUri(fileUri, mimeType), prompt]),
     config: {
       responseMimeType: "application/json",
       responseSchema: {

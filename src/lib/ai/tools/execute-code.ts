@@ -1,13 +1,8 @@
 import { z } from "zod";
-import {
-  tool,
-  generateText,
-  stepCountIs,
-  zodSchema,
-  type ToolSet,
-} from "ai";
+import { tool, generateText, stepCountIs, zodSchema, type ToolSet } from "ai";
 import { google, type GoogleLanguageModelOptions } from "@ai-sdk/google";
 import { buildCodeExecuteToolDescription } from "@/lib/ai/code-execute-environment";
+import { getModelForPurpose } from "@/lib/ai/models";
 import {
   CodeExecuteResultSchema,
   type CodeExecuteResult,
@@ -32,7 +27,9 @@ function buildStepsFromToolResults(
   for (const tr of toolResults) {
     if (tr.toolName !== "code_execution") continue;
     const input = tr.input as { language?: string; code?: string } | undefined;
-    const output = tr.output as { outcome?: string; output?: string } | undefined;
+    const output = tr.output as
+      | { outcome?: string; output?: string }
+      | undefined;
     steps.push({
       language: input?.language,
       code: input?.code,
@@ -51,7 +48,7 @@ export async function executeCodeWithGemini(
   options?: { abortSignal?: AbortSignal },
 ): Promise<CodeExecuteResult> {
   const { text, toolResults } = await generateText({
-    model: google("gemini-3.1-pro-preview"),
+    model: google(getModelForPurpose("code-execute")),
     tools: codeTools,
     stopWhen: stepCountIs(INNER_STEP_CAP),
     abortSignal: options?.abortSignal,

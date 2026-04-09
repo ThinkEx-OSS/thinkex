@@ -22,6 +22,7 @@ import {
 import { withServerObservability } from "@/lib/with-server-observability";
 import { normalizeLegacyToolMessages } from "@/lib/ai/legacy-tool-message-compat";
 import type { ReplySelection } from "@/lib/stores/ui-store";
+import { getDefaultChatModelId, resolveGatewayModelId } from "@/lib/ai/models";
 
 /**
  * Extract workspaceId from system context or request body
@@ -158,7 +159,9 @@ async function handlePOST(req: Request) {
     // Convert messages (pass tools so toModelOutput strips event from historical tool results)
     let convertedMessages;
     try {
-      convertedMessages = await convertToModelMessages(validatedMessages, { tools });
+      convertedMessages = await convertToModelMessages(validatedMessages, {
+        tools,
+      });
     } catch (convertError) {
       logger.error("❌ [CHAT-API] convertToModelMessages FAILED:", {
         error:
@@ -181,19 +184,9 @@ async function handlePOST(req: Request) {
     // Get pre-formatted selected cards context from client (no DB fetch needed)
     const selectedCardsContext = getSelectedCardsContext(body);
 
-    // Get model ID and ensure it has the correct prefix for Gateway
-    let modelId = body.modelId || "gemini-3-flash-preview";
-
-    // Auto-prefix with google/ if it looks like a gemini model and lacks prefix
-    // This allows existing client code to work without changes
-    if (modelId.startsWith("gemini-") && !modelId.startsWith("google/")) {
-      modelId = `google/${modelId}`;
-    }
-
-    // Auto-prefix with anthropic/ if it looks like a Claude model and lacks prefix
-    if (modelId.includes("claude") && !modelId.startsWith("anthropic/")) {
-      modelId = `anthropic/${modelId}`;
-    }
+    const modelId = resolveGatewayModelId(
+      body.modelId || getDefaultChatModelId(),
+    );
 
     // Inject selected cards + reply selections into the last user message
     injectSelectionContext(

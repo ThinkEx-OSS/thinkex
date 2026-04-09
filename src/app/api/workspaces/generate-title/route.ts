@@ -8,6 +8,7 @@ import {
   WORKSPACE_ICON_NAMES,
   formatIconForStorage,
 } from "@/lib/workspace-icons";
+import { getModelForPurpose } from "@/lib/ai/models";
 
 const MAX_TITLE_LENGTH = 60;
 
@@ -25,7 +26,7 @@ async function handlePOST(request: NextRequest) {
     if (error instanceof SyntaxError || error instanceof TypeError) {
       return NextResponse.json(
         { error: "invalid JSON payload" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     throw error;
@@ -36,21 +37,29 @@ async function handlePOST(request: NextRequest) {
   if (!prompt) {
     return NextResponse.json(
       { error: "prompt is required and must be a non-empty string" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   const { output } = await generateText({
-    model: google("gemini-2.5-flash-lite"),
+    model: google(getModelForPurpose("title-generation")),
     experimental_telemetry: {
       isEnabled: true,
       metadata: { "tcc.conversational": "true" },
     },
     output: Output.object({
       schema: z.object({
-        title: z.string().describe("A short, concise workspace title (max 5-6 words)"),
-        icon: z.string().describe("A Lucide icon name that represents the topic (must be one of the available icons)"),
-        color: z.string().describe("A hex color code that fits the topic theme"),
+        title: z
+          .string()
+          .describe("A short, concise workspace title (max 5-6 words)"),
+        icon: z
+          .string()
+          .describe(
+            "A Lucide icon name that represents the topic (must be one of the available icons)",
+          ),
+        color: z
+          .string()
+          .describe("A hex color code that fits the topic theme"),
       }),
     }),
     system: `You are a helpful assistant that generates workspace metadata. 
@@ -76,7 +85,12 @@ Generate appropriate workspace title, icon, and color for this topic.`,
 
   // Validate icon - must be in the available icons list
   let icon = output.icon?.trim();
-  if (!icon || !WORKSPACE_ICON_NAMES.includes(icon as (typeof WORKSPACE_ICON_NAMES)[number])) {
+  if (
+    !icon ||
+    !WORKSPACE_ICON_NAMES.includes(
+      icon as (typeof WORKSPACE_ICON_NAMES)[number],
+    )
+  ) {
     icon = "Folder";
   }
   const iconStored = formatIconForStorage(icon);
@@ -92,4 +106,7 @@ Generate appropriate workspace title, icon, and color for this topic.`,
   return NextResponse.json({ title, icon: iconStored, color });
 }
 
-export const POST = withErrorHandling(handlePOST, "POST /api/workspaces/generate-title");
+export const POST = withErrorHandling(
+  handlePOST,
+  "POST /api/workspaces/generate-title",
+);
