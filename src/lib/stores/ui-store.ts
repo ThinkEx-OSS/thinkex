@@ -1,6 +1,7 @@
-import { create } from 'zustand';
-import { devtools, persist, createJSONStorage } from 'zustand/middleware';
-import { PANEL_DEFAULTS } from '@/lib/layout-constants';
+import { create } from "zustand";
+import { devtools, persist, createJSONStorage } from "zustand/middleware";
+import { PANEL_DEFAULTS } from "@/lib/layout-constants";
+import { getDefaultChatModelId } from "@/lib/ai/models";
 
 /**
  * UI Store - Manages all UI state (chat, modals, search, layout, reply context)
@@ -8,7 +9,7 @@ import { PANEL_DEFAULTS } from '@/lib/layout-constants';
  */
 
 /** Column / keyboard focus when two items are open (split). */
-export type WorkspaceItemSlot = 'primary' | 'secondary';
+export type WorkspaceItemSlot = "primary" | "secondary";
 
 /**
  * Up to two workspace items “open” at once.
@@ -26,14 +27,16 @@ export interface OpenWorkspaceItems {
  * - `single` — one item fullscreen (see OpenWorkspaceItemView)
  * - `split` — two items side by side (future)
  */
-export type WorkspaceOpenMode = 'grid' | 'single' | 'split';
+export type WorkspaceOpenMode = "grid" | "single" | "split";
 
-export function deriveWorkspaceOpenMode(openItems: OpenWorkspaceItems): WorkspaceOpenMode {
+export function deriveWorkspaceOpenMode(
+  openItems: OpenWorkspaceItems,
+): WorkspaceOpenMode {
   const hasPrimary = openItems.primary != null;
   const hasSecondary = openItems.secondary != null;
-  if (!hasPrimary && !hasSecondary) return 'grid';
-  if (hasPrimary && hasSecondary) return 'split';
-  return 'single';
+  if (!hasPrimary && !hasSecondary) return "grid";
+  if (hasPrimary && hasSecondary) return "split";
+  return "single";
 }
 
 /** Quoted passage attached to the composer as reply / “referring to” context. */
@@ -42,7 +45,10 @@ export interface ReplySelection {
   title?: string;
 }
 
-const emptyOpenItems = (): OpenWorkspaceItems => ({ primary: null, secondary: null });
+const emptyOpenItems = (): OpenWorkspaceItems => ({
+  primary: null,
+  secondary: null,
+});
 
 interface UIState {
   // Chat state
@@ -76,7 +82,11 @@ interface UIState {
   replySelections: ReplySelection[];
 
   // Citation highlight: when opening document/PDF from citation click, highlight/search this quote
-  citationHighlightQuery: { itemId: string; query: string; pageNumber?: number } | null;
+  citationHighlightQuery: {
+    itemId: string;
+    query: string;
+    pageNumber?: number;
+  } | null;
 
   // PDF active page: itemId -> current page when PDF is open (for selected-card context)
   activePdfPageByItemId: Record<string, number>;
@@ -101,7 +111,9 @@ interface UIState {
   closeWorkspaceItem: (itemId: string) => void;
   closeAllWorkspaceItems: () => void;
   setActiveWorkspaceItemSlot: (slot: WorkspaceItemSlot) => void;
-  setItemPrompt: (prompt: { itemId: string; x: number; y: number } | null) => void;
+  setItemPrompt: (
+    prompt: { itemId: string; x: number; y: number } | null,
+  ) => void;
 
   setShowCreateWorkspaceModal: (show: boolean) => void;
   setShowSheetModal: (show: boolean) => void;
@@ -130,7 +142,9 @@ interface UIState {
   addReplySelection: (selection: ReplySelection) => void;
   removeReplySelection: (index: number) => void;
   clearReplySelections: () => void;
-  setCitationHighlightQuery: (query: { itemId: string; query: string; pageNumber?: number } | null) => void;
+  setCitationHighlightQuery: (
+    query: { itemId: string; query: string; pageNumber?: number } | null,
+  ) => void;
   setActivePdfPage: (itemId: string, page: number | null) => void;
 
   // Utility actions
@@ -148,7 +162,7 @@ const initialState = {
   workspacePanelSize: PANEL_DEFAULTS.WORKSPACE_WITH_CHAT, // Default when chat is expanded
 
   openItems: emptyOpenItems(),
-  activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
+  activeWorkspaceItemSlot: "primary" as WorkspaceItemSlot,
 
   itemPrompt: null,
 
@@ -156,7 +170,7 @@ const initialState = {
   showSheetModal: false,
 
   activeFolderId: null,
-  selectedModelId: 'gemini-3-flash-preview',
+  selectedModelId: getDefaultChatModelId(),
 
   // Card selection
   selectedCardIds: new Set<string>(),
@@ -181,52 +195,63 @@ export const useUIStore = create<UIState>()(
 
         navigateToRoot: () => {
           set((state) => {
-            if (state.activeFolderId === null && deriveWorkspaceOpenMode(state.openItems) === 'grid') return {};
+            if (
+              state.activeFolderId === null &&
+              deriveWorkspaceOpenMode(state.openItems) === "grid"
+            )
+              return {};
             return {
               activeFolderId: null,
               openItems: emptyOpenItems(),
-              activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
+              activeWorkspaceItemSlot: "primary" as WorkspaceItemSlot,
             };
           });
         },
 
         navigateToFolder: (folderId) => {
           set((state) => {
-            if (state.activeFolderId === folderId && deriveWorkspaceOpenMode(state.openItems) === 'grid') return {};
+            if (
+              state.activeFolderId === folderId &&
+              deriveWorkspaceOpenMode(state.openItems) === "grid"
+            )
+              return {};
             return {
               activeFolderId: folderId,
               openItems: emptyOpenItems(),
-              activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
+              activeWorkspaceItemSlot: "primary" as WorkspaceItemSlot,
             };
           });
         },
 
-        _setActiveFolderIdDirect: (folderId) => set({ activeFolderId: folderId }),
+        _setActiveFolderIdDirect: (folderId) =>
+          set({ activeFolderId: folderId }),
 
         // URL sync only — restores open items from the URL (does not change card selection)
-        _setOpenItemsFromUrl: (ids) => set(() => {
-          const valid = ids.filter(Boolean).slice(0, 2);
-          if (valid.length === 0) {
+        _setOpenItemsFromUrl: (ids) =>
+          set(() => {
+            const valid = ids.filter(Boolean).slice(0, 2);
+            if (valid.length === 0) {
+              return {
+                openItems: emptyOpenItems(),
+                activeWorkspaceItemSlot: "primary" as WorkspaceItemSlot,
+              };
+            }
+            const primary = valid[0] ?? null;
+            const secondary = valid.length >= 2 ? valid[1]! : null;
             return {
-              openItems: emptyOpenItems(),
-              activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
+              openItems: { primary, secondary },
+              activeWorkspaceItemSlot: "primary" as WorkspaceItemSlot,
             };
-          }
-          const primary = valid[0] ?? null;
-          const secondary = valid.length >= 2 ? valid[1]! : null;
-          return {
-            openItems: { primary, secondary },
-            activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
-          };
-        }),
+          }),
 
         openWorkspaceItem: (id) => {
           set((state) => {
             if (id === null) {
-              if (deriveWorkspaceOpenMode(state.openItems) === 'grid') return {};
+              if (deriveWorkspaceOpenMode(state.openItems) === "grid")
+                return {};
               return {
                 openItems: emptyOpenItems(),
-                activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
+                activeWorkspaceItemSlot: "primary" as WorkspaceItemSlot,
                 citationHighlightQuery: null,
               };
             }
@@ -238,7 +263,7 @@ export const useUIStore = create<UIState>()(
             }
             return {
               openItems: { primary: id, secondary: null },
-              activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
+              activeWorkspaceItemSlot: "primary" as WorkspaceItemSlot,
             };
           });
         },
@@ -250,7 +275,9 @@ export const useUIStore = create<UIState>()(
             if (id === state.openItems.secondary) return {};
             return {
               openItems: { primary: state.openItems.primary, secondary: id },
-              activeWorkspaceItemSlot: id ? state.activeWorkspaceItemSlot : 'primary',
+              activeWorkspaceItemSlot: id
+                ? state.activeWorkspaceItemSlot
+                : "primary",
             };
           });
         },
@@ -265,73 +292,82 @@ export const useUIStore = create<UIState>()(
             if (primary === itemId) {
               return {
                 openItems: emptyOpenItems(),
-                activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
+                activeWorkspaceItemSlot: "primary" as WorkspaceItemSlot,
                 citationHighlightQuery: null,
               };
             }
             return {
               openItems: { primary, secondary: null },
-              activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
+              activeWorkspaceItemSlot: "primary" as WorkspaceItemSlot,
             };
           });
         },
 
         closeAllWorkspaceItems: () => {
           set((state) => {
-            if (deriveWorkspaceOpenMode(state.openItems) === 'grid') return {};
+            if (deriveWorkspaceOpenMode(state.openItems) === "grid") return {};
             return {
               openItems: emptyOpenItems(),
-              activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
+              activeWorkspaceItemSlot: "primary" as WorkspaceItemSlot,
               citationHighlightQuery: null,
             };
           });
         },
 
-        setActiveWorkspaceItemSlot: (slot) => set({ activeWorkspaceItemSlot: slot }),
+        setActiveWorkspaceItemSlot: (slot) =>
+          set({ activeWorkspaceItemSlot: slot }),
 
         setItemPrompt: (prompt) => set({ itemPrompt: prompt }),
 
-        setShowCreateWorkspaceModal: (show) => set({ showCreateWorkspaceModal: show }),
+        setShowCreateWorkspaceModal: (show) =>
+          set({ showCreateWorkspaceModal: show }),
         setShowSheetModal: (show) => set({ showSheetModal: show }),
 
         setSelectedModelId: (modelId) => set({ selectedModelId: modelId }),
 
         // Card selection actions
-        toggleCardSelection: (id) => set((state) => {
-          const newSet = new Set(state.selectedCardIds);
-          if (newSet.has(id)) {
-            newSet.delete(id);
-          } else {
-            newSet.add(id);
-          }
-          return { selectedCardIds: newSet };
-        }),
+        toggleCardSelection: (id) =>
+          set((state) => {
+            const newSet = new Set(state.selectedCardIds);
+            if (newSet.has(id)) {
+              newSet.delete(id);
+            } else {
+              newSet.add(id);
+            }
+            return { selectedCardIds: newSet };
+          }),
 
         clearCardSelection: () => set({ selectedCardIds: new Set<string>() }),
 
         selectMultipleCards: (ids) => set({ selectedCardIds: new Set(ids) }),
 
         // Scroll lock actions
-        setItemScrollLocked: (itemId, isLocked) => set((state) => {
-          const newMap = new Map(state.itemScrollLocked);
-          newMap.set(itemId, isLocked);
-          return { itemScrollLocked: newMap };
-        }),
-        toggleItemScrollLocked: (itemId) => set((state) => {
-          const newMap = new Map(state.itemScrollLocked);
-          const current = newMap.get(itemId) ?? true;
-          newMap.set(itemId, !current);
-          return { itemScrollLocked: newMap };
-        }),
+        setItemScrollLocked: (itemId, isLocked) =>
+          set((state) => {
+            const newMap = new Map(state.itemScrollLocked);
+            newMap.set(itemId, isLocked);
+            return { itemScrollLocked: newMap };
+          }),
+        toggleItemScrollLocked: (itemId) =>
+          set((state) => {
+            const newMap = new Map(state.itemScrollLocked);
+            const current = newMap.get(itemId) ?? true;
+            newMap.set(itemId, !current);
+            return { itemScrollLocked: newMap };
+          }),
 
         // Reply selection actions
-        addReplySelection: (selection) => set((state) => {
-          const newSelections = [...state.replySelections, selection];
-          return { replySelections: newSelections };
-        }),
-        removeReplySelection: (index) => set((state) => ({
-          replySelections: state.replySelections.filter((_, i) => i !== index),
-        })),
+        addReplySelection: (selection) =>
+          set((state) => {
+            const newSelections = [...state.replySelections, selection];
+            return { replySelections: newSelections };
+          }),
+        removeReplySelection: (index) =>
+          set((state) => ({
+            replySelections: state.replySelections.filter(
+              (_, i) => i !== index,
+            ),
+          })),
         clearReplySelections: () => set({ replySelections: [] }),
         setCitationHighlightQuery: (query) => {
           set({ citationHighlightQuery: query });
@@ -349,38 +385,43 @@ export const useUIStore = create<UIState>()(
         },
 
         // Utility actions
-        resetChatState: () => set({
-          isChatExpanded: initialState.isChatExpanded,
-          isChatMaximized: initialState.isChatMaximized,
-          workspacePanelSize: initialState.workspacePanelSize,
-        }),
+        resetChatState: () =>
+          set({
+            isChatExpanded: initialState.isChatExpanded,
+            isChatMaximized: initialState.isChatMaximized,
+            workspacePanelSize: initialState.workspacePanelSize,
+          }),
 
         // Chat actions
         setIsChatExpanded: (expanded) => set({ isChatExpanded: expanded }),
-        toggleChatExpanded: () => set((state) => ({ isChatExpanded: !state.isChatExpanded })),
+        toggleChatExpanded: () =>
+          set((state) => ({ isChatExpanded: !state.isChatExpanded })),
         setIsChatMaximized: (maximized) => set({ isChatMaximized: maximized }),
-        toggleChatMaximized: () => set((state) => ({ isChatMaximized: !state.isChatMaximized })),
-        setIsThreadListVisible: (visible) => set({ isThreadListVisible: visible }),
-        toggleThreadListVisible: () => set((state) => ({ isThreadListVisible: !state.isThreadListVisible })),
+        toggleChatMaximized: () =>
+          set((state) => ({ isChatMaximized: !state.isChatMaximized })),
+        setIsThreadListVisible: (visible) =>
+          set({ isThreadListVisible: visible }),
+        toggleThreadListVisible: () =>
+          set((state) => ({ isThreadListVisible: !state.isThreadListVisible })),
         setWorkspacePanelSize: (size) => set({ workspacePanelSize: size }),
 
         closeAllModals: () =>
           set({
             openItems: emptyOpenItems(),
-            activeWorkspaceItemSlot: 'primary' as WorkspaceItemSlot,
+            activeWorkspaceItemSlot: "primary" as WorkspaceItemSlot,
             itemPrompt: null,
             showCreateWorkspaceModal: false,
             showSheetModal: false,
           }),
       }),
       {
-        name: 'thinkex-ui-preferences-v3',
+        name: "thinkex-ui-preferences-v3",
         storage: createJSONStorage(() => localStorage),
         partialize: (state) => ({ selectedModelId: state.selectedModelId }),
       },
     ),
-    { name: 'UI Store' }
-  )
+    { name: "UI Store" },
+  ),
 );
 
 export const selectWorkspaceOpenMode = (state: UIState) =>
@@ -394,6 +435,7 @@ export const selectSelectedCardIdsArray = (state: UIState): string[] => {
 export const selectReplySelections = (state: UIState) => state.replySelections;
 
 export const selectItemScrollLocked =
-  (itemId: string) => (state: UIState): boolean => {
+  (itemId: string) =>
+  (state: UIState): boolean => {
     return state.itemScrollLocked.get(itemId) ?? true;
   };
