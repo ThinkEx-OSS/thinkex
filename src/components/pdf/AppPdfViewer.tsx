@@ -10,7 +10,7 @@ import { RenderLayer, RenderPluginPackage } from '@embedpdf/plugin-render/react'
 import { ZoomPluginPackage, ZoomMode, ZoomGestureWrapper, useZoom } from '@embedpdf/plugin-zoom/react';
 import { PanPluginPackage } from '@embedpdf/plugin-pan/react';
 
-import { SelectionPluginPackage, SelectionLayer, useSelectionCapability, SelectionSelectionMenuProps } from '@embedpdf/plugin-selection/react';
+import { SelectionPluginPackage, TextSelection, useSelectionCapability, SelectionSelectionMenuProps } from '@embedpdf/plugin-selection/react';
 import { RotatePluginPackage, Rotate } from '@embedpdf/plugin-rotate/react';
 import { FullscreenPluginPackage } from '@embedpdf/plugin-fullscreen/react';
 import { InteractionManagerPluginPackage, PagePointerProvider } from '@embedpdf/plugin-interaction-manager/react';
@@ -1028,8 +1028,8 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
                                         style={{ pointerEvents: 'none' }}
                                       />
 
-                                      {/* Selection layer for text selection - Rendered below annotation layer but allows text selection */}
-                                      <SelectionLayer
+                                      {/* TextSelection only (not SelectionLayer): avoids MarqueeSelection empty-space rubber-band; selection still uses registerSelectionOnPage */}
+                                      <TextSelection
                                         documentId={activeDocumentId}
                                         pageIndex={pageIndex}
                                         background="rgba(147, 197, 253, 0.55)"

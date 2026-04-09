@@ -125,6 +125,20 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
          
     }, [documentId]);
 
+    useEffect(() => {
+        if (!captureState.isMarqueeCaptureActive) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== "Escape") return;
+            e.preventDefault();
+            e.stopPropagation();
+            captureRef.current?.toggleMarqueeCapture();
+        };
+        document.addEventListener("keydown", onKeyDown, { capture: true });
+        return () => {
+            document.removeEventListener("keydown", onKeyDown, { capture: true });
+        };
+    }, [captureState.isMarqueeCaptureActive]);
+
 
     const zoomPercent = zoomState?.currentZoomLevel
         ? Math.round(zoomState.currentZoomLevel * 100)
@@ -147,7 +161,9 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
                     <Camera className={iconClass} />
                 </button>
             </TooltipTrigger>
-            <TooltipContent>{captureState.isMarqueeCaptureActive ? "Cancel Capture" : "Capture Area"}</TooltipContent>
+            <TooltipContent>
+                {captureState.isMarqueeCaptureActive ? "Cancel capture (Esc)" : "Capture Area"}
+            </TooltipContent>
         </Tooltip>
     );
 
