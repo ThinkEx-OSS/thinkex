@@ -5,7 +5,6 @@ import {
   capturePostHogServerException,
   flushPostHogServer,
 } from "@/lib/posthog-server";
-import { WorkspaceProjectionNotReadyError } from "@/lib/workspace/workspace-projection-errors";
 
 type RouteHandler<TArgs extends [Request, ...unknown[]]> = (
   ...args: TArgs
@@ -81,24 +80,6 @@ export function withServerObservability<TArgs extends [Request, ...unknown[]]>(
         });
 
         return error;
-      }
-
-      if (error instanceof WorkspaceProjectionNotReadyError) {
-        capturePostHogServerEvent("server_request", {
-          distinctId: metadata?.distinctId,
-          properties: {
-            route_name: options.routeName,
-            method,
-            path,
-            status: 503,
-            duration_ms: Date.now() - startedAt,
-            failed: true,
-            ...metadata?.properties,
-          },
-        });
-
-        console.error(`Projection not ready in ${options.routeName}:`, error);
-        return NextResponse.json({ error: error.message }, { status: 503 });
       }
 
       capturePostHogServerException(error, {

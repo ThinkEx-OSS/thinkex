@@ -200,7 +200,7 @@ export const workspaces = pgTable(
   ],
 );
 
-// workspace_states table removed - state is now managed via event sourcing
+// workspace_states table removed - current state lives in workspace item tables
 
 // workspace_shares table removed - sharing is now fork-based (users import copies)
 
@@ -244,52 +244,6 @@ export const userProfiles = pgTable(
       as: "permissive",
       for: "select",
       to: ["authenticated"],
-    }),
-  ],
-);
-
-export const workspaceSnapshots = pgTable(
-  "workspace_snapshots",
-  {
-    id: uuid().defaultRandom().primaryKey().notNull(),
-    workspaceId: uuid("workspace_id").notNull(),
-    snapshotVersion: integer("snapshot_version").notNull(),
-    state: jsonb().notNull(),
-    eventCount: integer("event_count").notNull(),
-    createdAt: timestamp("created_at", {
-      withTimezone: true,
-      mode: "string",
-    }).defaultNow(),
-  },
-  (table) => [
-    index("idx_workspace_snapshots_version").using(
-      "btree",
-      table.workspaceId.asc().nullsLast().op("uuid_ops"),
-      table.snapshotVersion.desc().nullsFirst().op("int4_ops"),
-    ),
-    index("idx_workspace_snapshots_workspace").using(
-      "btree",
-      table.workspaceId.asc().nullsLast().op("uuid_ops"),
-    ),
-    foreignKey({
-      columns: [table.workspaceId],
-      foreignColumns: [workspaces.id],
-      name: "workspace_snapshots_workspace_id_fkey",
-    }).onDelete("cascade"),
-    unique("workspace_snapshots_workspace_id_snapshot_version_key").on(
-      table.workspaceId,
-      table.snapshotVersion,
-    ),
-    pgPolicy("Service role can insert workspace snapshots", {
-      as: "permissive",
-      for: "insert",
-      to: ["public"],
-      withCheck: sql`true`,
-    }),
-    pgPolicy("Users can read workspace snapshots they have access to", {
-      as: "permissive",
-      for: "select",
-      to: ["public"],
     }),
   ],
 );

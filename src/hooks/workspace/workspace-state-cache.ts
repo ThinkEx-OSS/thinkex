@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { initialItems } from "@/lib/workspace-state/state";
 import type { Item } from "@/lib/workspace-state/types";
-import { replayEvents } from "@/lib/workspace/event-reducer";
+import { eventReducer } from "@/lib/workspace/event-reducer";
 import type { EventResponse } from "@/lib/workspace/events";
 
 export interface WorkspaceStateResponse {
@@ -40,11 +40,13 @@ export function deriveWorkspaceStateFromCaches(params: {
       typeof event.version !== "number" || event.version > stateData.version,
   );
 
+  const derivedState =
+    deltaEvents.length > 0
+      ? deltaEvents.reduce(eventReducer, stateData.state)
+      : stateData.state;
+
   return {
-    state:
-      deltaEvents.length > 0
-        ? replayEvents(deltaEvents, stateData.state)
-        : stateData.state,
+    state: derivedState,
     version: Math.max(stateData.version, eventLog?.version ?? 0),
   };
 }

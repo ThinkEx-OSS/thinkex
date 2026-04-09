@@ -49,23 +49,6 @@ function stripPerUserStateFromItemChanges(
   delete data.playbackRate;
 }
 
-function stripClientUnsafeFieldsFromSnapshotPayload(
-  payload: Item[] | { items?: Item[] },
-): void {
-  if (Array.isArray(payload)) {
-    payload.forEach((item) => {
-      stripOcrPagesFromItem(item);
-      stripPerUserStateFromItem(item);
-    });
-    return;
-  }
-
-  payload.items?.forEach((item) => {
-    stripOcrPagesFromItem(item);
-    stripPerUserStateFromItem(item);
-  });
-}
-
 export function sanitizeWorkspaceEventForClient(
   event: WorkspaceEvent,
 ): WorkspaceEvent {
@@ -73,11 +56,6 @@ export function sanitizeWorkspaceEventForClient(
   const payload = sanitized.payload as Record<string, unknown>;
 
   switch (sanitized.type) {
-    case "WORKSPACE_SNAPSHOT":
-      stripClientUnsafeFieldsFromSnapshotPayload(
-        sanitized.payload as Item[] | { items?: Item[] },
-      );
-      break;
     case "ITEM_CREATED":
       if (payload.item) {
         stripOcrPagesFromItem(payload.item as Item);

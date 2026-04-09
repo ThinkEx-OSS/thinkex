@@ -1,13 +1,12 @@
 import {
   db,
-  workspaceEvents,
   workspaceItemContent,
   workspaceItemExtracted,
   workspaceItemProjectionState,
   workspaceItemUserState,
   workspaceItems,
 } from "@/lib/db/client";
-import { and, asc, eq, gt, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import type { Item } from "@/lib/workspace-state/types";
 import { eventReducer } from "./event-reducer";
 import type { WorkspaceEvent } from "./events";
@@ -17,7 +16,6 @@ import {
   rehydrateWorkspaceItem,
 } from "./workspace-item-model";
 import { stableStringify } from "./workspace-item-model-shared";
-import { WorkspaceProjectionNotReadyError } from "./workspace-projection-errors";
 
 export type WorkspaceProjectionClient = Pick<
   typeof db,
@@ -33,29 +31,10 @@ function toIsoTimestamp(timestamp: number | undefined): string {
   return new Date(timestamp ?? Date.now()).toISOString();
 }
 
-function mapEventRowToWorkspaceEvent(
-  row: typeof workspaceEvents.$inferSelect,
-): WorkspaceEvent {
-  return {
-    type: row.eventType as WorkspaceEvent["type"],
-    payload: row.payload as WorkspaceEvent["payload"],
-    timestamp: row.timestamp,
-    userId: row.userId,
-    userName: row.userName ?? undefined,
-    id: row.eventId,
-    version: row.version,
-  } as WorkspaceEvent;
-}
-
-export interface WorkspaceProjectionCheckpoint {
-  exists: boolean;
-  lastAppliedVersion: number;
-}
-
-export async function getWorkspaceProjectionCheckpoint(
+async function getWorkspaceProjectionCheckpoint(
   client: WorkspaceProjectionClient,
   workspaceId: string,
-): Promise<WorkspaceProjectionCheckpoint> {
+): Promise<{ exists: boolean; lastAppliedVersion: number }> {
   const [row] = await client
     .select({
       lastAppliedVersion: workspaceItemProjectionState.lastAppliedVersion,
@@ -75,20 +54,6 @@ export async function getWorkspaceProjectionCheckpoint(
     exists: true,
     lastAppliedVersion: row.lastAppliedVersion,
   };
-}
-
-export async function getLatestWorkspaceEventVersion(
-  client: WorkspaceProjectionClient,
-  workspaceId: string,
-): Promise<number> {
-  const [row] = await client
-    .select({
-      version: sql<number>`coalesce(max(${workspaceEvents.version}), 0)::int`,
-    })
-    .from(workspaceEvents)
-    .where(eq(workspaceEvents.workspaceId, workspaceId));
-
-  return Number(row?.version ?? 0);
 }
 
 async function upsertProjectionCheckpoint(
@@ -445,78 +410,6 @@ async function applyWorkspaceEventProjectionInternal(
   await upsertProjectionCheckpoint(client, params.workspaceId, params.version);
 }
 
-export async function syncWorkspaceProjectionToVersion(
-  client: WorkspaceProjectionClient,
-  workspaceId: string,
-  targetVersion: number,
-): Promise<number> {
-  if (targetVersion <= 0) {
-    await upsertProjectionCheckpoint(client, workspaceId, 0);
-    return 0;
-  }
-
-  const currentCheckpoint = (
-    await getWorkspaceProjectionCheckpoint(client, workspaceId)
-  ).lastAppliedVersion;
-  if (currentCheckpoint >= targetVersion) {
-    return currentCheckpoint;
-  }
-
-  const eventRows = await client
-    .select()
-    .from(workspaceEvents)
-    .where(
-      and(
-        eq(workspaceEvents.workspaceId, workspaceId),
-        gt(workspaceEvents.version, currentCheckpoint),
-        lte(workspaceEvents.version, targetVersion),
-      ),
-    )
-    .orderBy(asc(workspaceEvents.version));
-
-  let lastAppliedVersion = currentCheckpoint;
-
-  for (const row of eventRows) {
-    await applyWorkspaceEventProjectionInternal(client, {
-      workspaceId,
-      event: mapEventRowToWorkspaceEvent(row),
-      version: row.version,
-    });
-    lastAppliedVersion = row.version;
-  }
-
-  if (lastAppliedVersion === 0) {
-    await upsertProjectionCheckpoint(client, workspaceId, 0);
-  }
-
-  return Math.max(lastAppliedVersion, currentCheckpoint);
-}
-
-export async function assertWorkspaceProjectionReady(
-  client: WorkspaceProjectionClient,
-  workspaceId: string,
-): Promise<number> {
-  const [checkpoint, latestEventVersion] = await Promise.all([
-    getWorkspaceProjectionCheckpoint(client, workspaceId),
-    getLatestWorkspaceEventVersion(client, workspaceId),
-  ]);
-
-  if (
-    !checkpoint.exists ||
-    checkpoint.lastAppliedVersion !== latestEventVersion
-  ) {
-    throw new WorkspaceProjectionNotReadyError({
-      workspaceId,
-      lastAppliedVersion: checkpoint.exists
-        ? checkpoint.lastAppliedVersion
-        : null,
-      latestEventVersion,
-    });
-  }
-
-  return checkpoint.lastAppliedVersion;
-}
-
 export async function projectWorkspaceEvent(
   client: WorkspaceProjectionClient,
   params: {
@@ -525,24 +418,6 @@ export async function projectWorkspaceEvent(
     version: number;
   },
 ): Promise<void> {
-  const checkpoint = await getWorkspaceProjectionCheckpoint(
-    client,
-    params.workspaceId,
-  );
-
-  if (
-    !checkpoint.exists ||
-    checkpoint.lastAppliedVersion !== params.version - 1
-  ) {
-    throw new WorkspaceProjectionNotReadyError({
-      workspaceId: params.workspaceId,
-      lastAppliedVersion: checkpoint.exists
-        ? checkpoint.lastAppliedVersion
-        : null,
-      latestEventVersion: params.version - 1,
-    });
-  }
-
   await applyWorkspaceEventProjectionInternal(client, params);
 }
 

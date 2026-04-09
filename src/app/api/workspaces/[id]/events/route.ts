@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { WorkspaceEvent, EventResponse } from "@/lib/workspace/events";
+import {
+  isClientVisibleWorkspaceEvent,
+  type EventResponse,
+  type WorkspaceEvent,
+} from "@/lib/workspace/events";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import { appendWorkspaceEventWithBaseVersion } from "@/lib/workspace/workspace-event-store";
 import { sanitizeWorkspaceEventsForClient } from "@/lib/workspace/client-safe-events";
 import { hasDuplicateName } from "@/lib/workspace/unique-name";
 import { db, workspaceEvents } from "@/lib/db/client";
-import { eq, gt, asc, sql, and } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import {
   requireAuth,
   verifyWorkspaceAccess,
@@ -103,20 +107,22 @@ async function handleGET(
     eventsData = allEvents;
   }
 
-  const events: WorkspaceEvent[] = eventsData.map(
-    (e) =>
-      ({
-        type: e.eventType,
-        payload: e.payload,
-        timestamp: Number.isFinite(Number(e.timestamp))
-          ? Number(e.timestamp)
-          : Date.now(),
-        userId: e.userId,
-        userName: e.userName || undefined,
-        id: e.eventId,
-        version: e.version,
-      }) as WorkspaceEvent,
-  );
+  const events = eventsData
+    .map(
+      (e) =>
+        ({
+          type: e.eventType,
+          payload: e.payload,
+          timestamp: Number.isFinite(Number(e.timestamp))
+            ? Number(e.timestamp)
+            : Date.now(),
+          userId: e.userId,
+          userName: e.userName || undefined,
+          id: e.eventId,
+          version: e.version,
+        }) as WorkspaceEvent,
+    )
+    .filter(isClientVisibleWorkspaceEvent);
 
   const maxVersion =
     eventsData && eventsData.length > 0
@@ -230,42 +236,13 @@ async function handlePOST(
   });
   timings.appendFunction = Date.now() - appendStart;
 
-  // Check for conflict
   if (appendResult.conflict) {
-    // Fetch current events for client to merge
-    const conflictFetchStart = Date.now();
-    const currentEvents = await db
-      .select()
-      .from(workspaceEvents)
-      .where(
-        and(
-          eq(workspaceEvents.workspaceId, id),
-          gt(workspaceEvents.version, baseVersion),
-        ),
-      )
-      .orderBy(asc(workspaceEvents.version));
-    timings.conflictFetch = Date.now() - conflictFetchStart;
-
-    const events: WorkspaceEvent[] = currentEvents.map(
-      (e) =>
-        ({
-          type: e.eventType,
-          payload: e.payload,
-          timestamp: Number.isFinite(Number(e.timestamp))
-            ? Number(e.timestamp)
-            : Date.now(),
-          userId: e.userId,
-          userName: e.userName || undefined,
-          id: e.eventId,
-        }) as WorkspaceEvent,
-    );
     const totalTime = Date.now() - startTime;
     timings.total = totalTime;
 
     return NextResponse.json({
       conflict: true,
       version: appendResult.version,
-      currentEvents: sanitizeWorkspaceEventsForClient(events),
     });
   }
 

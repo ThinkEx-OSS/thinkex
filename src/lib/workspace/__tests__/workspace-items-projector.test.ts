@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Item } from "@/lib/workspace-state/types";
-import { replayEvents } from "@/lib/workspace/event-reducer";
+import { eventReducer } from "@/lib/workspace/event-reducer";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 import { deriveWorkspaceProjectionChangeSet } from "@/lib/workspace/workspace-items-projector";
 import { buildWorkspaceItemTableRows } from "@/lib/workspace/workspace-item-model";
@@ -98,7 +98,7 @@ describe("workspace-items-projector", () => {
       },
     ];
 
-    expect(applyEvents(events)).toEqual(replayEvents(events));
+    expect(applyEvents(events)).toEqual(events.reduce(eventReducer, []));
   });
 
   it("clears child folder and layout when bulk deleting folders", () => {

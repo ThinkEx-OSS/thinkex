@@ -7,7 +7,6 @@ import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
 import {
   workspaces,
   workspaceEvents,
-  workspaceSnapshots,
   workspaceItems,
   workspaceItemContent,
   workspaceItemExtracted,
@@ -22,16 +21,11 @@ import type { Item } from "@/lib/workspace-state/types";
 export type Workspace = InferSelectModel<typeof workspaces>;
 export type WorkspaceInsert = InferInsertModel<typeof workspaces>;
 
-// WorkspaceState types removed - state is now managed via event sourcing
+// WorkspaceState types removed - current state lives in workspace item tables
 // WorkspaceShare types removed - sharing is now fork-based (users import copies)
 
 export type WorkspaceEvent = InferSelectModel<typeof workspaceEvents>;
 export type WorkspaceEventInsert = InferInsertModel<typeof workspaceEvents>;
-
-export type WorkspaceSnapshot = InferSelectModel<typeof workspaceSnapshots>;
-export type WorkspaceSnapshotInsert = InferInsertModel<
-  typeof workspaceSnapshots
->;
 
 export type WorkspaceItem = InferSelectModel<typeof workspaceItems>;
 export type WorkspaceItemInsert = InferInsertModel<typeof workspaceItems>;

@@ -1,56 +1,11 @@
 import type { Item } from "@/lib/workspace-state/types";
-import type { CardColor } from "@/lib/workspace-state/colors";
-/** Payload shape for historical FOLDER_* events (folders are items today; replay still parses these). */
-type FolderEventRecord = {
-  id: string;
-  name: string;
-  color?: CardColor;
-  createdAt: number;
-  layout?: { x: number; y: number; w: number; h: number };
-};
 
 /**
- * Event Sourcing: All workspace changes are represented as immutable events.
- * The event log remains the canonical mutation history, while projection tables
- * serve current-state reads.
+ * Workspace mutations persisted for conflict resolution and realtime confirmation.
+ * Current state is loaded from projection tables, not reconstructed from this log.
  */
 
-type LegacyWorkspaceCompatibilityEvent =
-  | {
-      type: "WORKSPACE_CREATED";
-      payload: { title: string; description: string };
-      timestamp: number;
-      userId: string;
-      userName?: string;
-      id: string;
-    }
-  | {
-      type: "GLOBAL_TITLE_SET";
-      payload: { title: string };
-      timestamp: number;
-      userId: string;
-      userName?: string;
-      id: string;
-    }
-  | {
-      type: "GLOBAL_DESCRIPTION_SET";
-      payload: { description: string };
-      timestamp: number;
-      userId: string;
-      userName?: string;
-      id: string;
-    }
-  | {
-      type: "WORKSPACE_SNAPSHOT";
-      payload: Item[] | { items?: Item[] };
-      timestamp: number;
-      userId: string;
-      userName?: string;
-      id: string;
-    };
-
 type WorkspaceEventBase =
-  | LegacyWorkspaceCompatibilityEvent
   | {
       type: "ITEM_CREATED";
       payload: { id: string; item: Item };
@@ -100,12 +55,8 @@ type WorkspaceEventBase =
           h: number;
         }>;
         previousItemCount?: number;
-        /** IDs of items to delete – minimal payload for bulk delete (no item data sent) */
         deletedIds?: string[];
-        /** New items to append – only the added items, not full list */
         addedItems?: Item[];
-        /** Full items payload from older bulk-update events. */
-        items?: Item[];
       };
       timestamp: number;
       userId: string;
@@ -122,36 +73,8 @@ type WorkspaceEventBase =
       id: string;
     }
   | {
-      type: "FOLDER_CREATED";
-      payload: { folder: FolderEventRecord };
-      timestamp: number;
-      userId: string;
-      userName?: string;
-      id: string;
-    }
-  | {
-      type: "FOLDER_UPDATED";
-      payload: {
-        id: string;
-        changes: Partial<FolderEventRecord>;
-        name?: string;
-      };
-      timestamp: number;
-      userId: string;
-      userName?: string;
-      id: string;
-    }
-  | {
-      type: "FOLDER_DELETED";
-      payload: { id: string; name?: string };
-      timestamp: number;
-      userId: string;
-      userName?: string;
-      id: string;
-    }
-  | {
       type: "ITEM_MOVED_TO_FOLDER";
-      payload: { itemId: string; folderId: string | null; itemName?: string }; // null = remove from folder
+      payload: { itemId: string; folderId: string | null; itemName?: string };
       timestamp: number;
       userId: string;
       userName?: string;
@@ -163,7 +86,7 @@ type WorkspaceEventBase =
         itemIds: string[];
         folderId: string | null;
         itemNames?: string[];
-      }; // Bulk operation
+      };
       timestamp: number;
       userId: string;
       userName?: string;
@@ -171,7 +94,7 @@ type WorkspaceEventBase =
     }
   | {
       type: "FOLDER_CREATED_WITH_ITEMS";
-      payload: { folder: Item; itemIds: string[] }; // Create folder and move items atomically
+      payload: { folder: Item; itemIds: string[] };
       timestamp: number;
       userId: string;
       userName?: string;
@@ -185,23 +108,34 @@ export type WorkspaceEvent = WorkspaceEventBase & {
   version?: number;
 };
 
-/**
- * Event log with version for conflict detection
- */
-export interface EventLog {
-  workspaceId: string;
-  events: WorkspaceEvent[];
-  version: number; // Increments with each event
+const CLIENT_VISIBLE_WORKSPACE_EVENT_TYPES = new Set<WorkspaceEvent["type"]>([
+  "ITEM_CREATED",
+  "ITEM_UPDATED",
+  "BULK_ITEMS_PATCHED",
+  "ITEM_DELETED",
+  "BULK_ITEMS_UPDATED",
+  "BULK_ITEMS_CREATED",
+  "ITEM_MOVED_TO_FOLDER",
+  "ITEMS_MOVED_TO_FOLDER",
+  "FOLDER_CREATED_WITH_ITEMS",
+]);
+
+export type ClientWorkspaceEvent = WorkspaceEvent;
+
+export function isClientVisibleWorkspaceEvent(event: {
+  type: string;
+}): event is ClientWorkspaceEvent {
+  return CLIENT_VISIBLE_WORKSPACE_EVENT_TYPES.has(
+    event.type as WorkspaceEvent["type"],
+  );
 }
 
 /**
  * Response from event API
  */
 export interface EventResponse {
-  events: WorkspaceEvent[];
+  events: ClientWorkspaceEvent[];
   version: number;
-  conflict?: boolean;
-  currentEvents?: WorkspaceEvent[];
 }
 
 /**
