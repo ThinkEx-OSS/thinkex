@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 export const EscalateModelResultSchema = z.object({
-  analysis: z.string(),
+  escalated: z.boolean(),
+  reason: z.string(),
 });
 
 export type EscalateModelResult = z.infer<typeof EscalateModelResultSchema>;

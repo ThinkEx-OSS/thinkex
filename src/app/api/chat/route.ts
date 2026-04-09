@@ -14,6 +14,7 @@ import type { UIMessage } from "ai";
 import { logger } from "@/lib/utils/logger";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { CHAT_TOOL } from "@/lib/ai/chat-tool-names";
 import { createChatTools } from "@/lib/ai/tools";
 import {
   capturePostHogServerException,
@@ -22,7 +23,11 @@ import {
 import { withServerObservability } from "@/lib/with-server-observability";
 import { normalizeLegacyToolMessages } from "@/lib/ai/legacy-tool-message-compat";
 import type { ReplySelection } from "@/lib/stores/ui-store";
-import { getDefaultChatModelId, resolveGatewayModelId } from "@/lib/ai/models";
+import {
+  getDefaultChatModelId,
+  getModelForPurpose,
+  resolveGatewayModelId,
+} from "@/lib/ai/models";
 
 /**
  * Extract workspaceId from system context or request body
@@ -261,6 +266,53 @@ async function handlePOST(req: Request) {
       system,
       messages: convertedMessages,
       stopWhen: stepCountIs(25),
+      prepareStep: ({ steps }) => {
+        const wasEscalated = steps.some((step) =>
+          step.toolCalls.some((tc) => tc.toolName === CHAT_TOOL.ESCALATE_MODEL),
+        );
+
+        if (!wasEscalated) return undefined;
+
+        const escalationModelId = resolveGatewayModelId(
+          getModelForPurpose("escalation"),
+        );
+        const posthogClient = getPostHogServerClient();
+        const escalationTracedModel = posthogClient
+          ? withTracing(gateway(escalationModelId) as any, posthogClient, {
+              posthogDistinctId: userId || "anonymous",
+              posthogProperties: {
+                workspaceId,
+                activeFolderId,
+                modelId: escalationModelId,
+                escalated: true,
+              },
+            })
+          : (gateway(escalationModelId) as any);
+
+        const escalationModel = wrapLanguageModel({
+          model: escalationTracedModel,
+          middleware:
+            process.env.NODE_ENV === "development" ? devToolsMiddleware() : [],
+        });
+
+        return {
+          model: escalationModel,
+          providerOptions: {
+            ...providerOptions,
+            gateway: {
+              ...((providerOptions as any)?.gateway ?? {}),
+              models: [escalationModelId],
+            },
+            google: {
+              ...((providerOptions as any)?.google ?? {}),
+              thinkingConfig: {
+                thinkingLevel: "high",
+                includeThoughts: true,
+              },
+            },
+          },
+        };
+      },
       tools,
       providerOptions,
       headers: {

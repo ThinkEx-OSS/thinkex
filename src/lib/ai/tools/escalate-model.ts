@@ -1,69 +1,36 @@
 import { z } from "zod";
-import { tool, generateText, zodSchema } from "ai";
-import { google } from "@ai-sdk/google";
-import type { GoogleLanguageModelOptions } from "@ai-sdk/google";
-import { getModelForPurpose } from "@/lib/ai/models";
+import { tool, zodSchema } from "ai";
 import {
   EscalateModelResultSchema,
   type EscalateModelResult,
 } from "@/lib/ai/escalate-model-shared";
 
 /**
- * Delegate a complex reasoning task to a higher-intelligence model with extended thinking.
+ * Signal tool — calling this triggers a model switch via prepareStep in the chat route.
+ * The tool itself does no LLM work; it just returns an acknowledgment.
  */
-export async function escalateToHigherModel(
-  problem: string,
-  options?: { abortSignal?: AbortSignal },
-): Promise<EscalateModelResult> {
-  const modelId = getModelForPurpose("escalation");
-
-  const { text } = await generateText({
-    model: google(modelId),
-    abortSignal: options?.abortSignal,
-    experimental_telemetry: { isEnabled: true },
-    providerOptions: {
-      google: {
-        thinkingConfig: {
-          thinkingLevel: "high",
-          includeThoughts: false,
-        },
-      } satisfies GoogleLanguageModelOptions,
-    },
-    system: `You are an expert reasoning assistant. Analyze the problem below thoroughly and precisely.
-
-Think step by step. Consider edge cases. Verify your reasoning. If the problem involves math or logic, check your work.
-
-Provide a clear, well-structured analysis followed by a definitive answer. Be thorough but concise.`,
-    prompt: problem,
-  });
-
-  return {
-    analysis: text.trim() || "No analysis produced.",
-  };
-}
-
 export function createEscalateModelTool() {
   return tool({
     description: [
-      "Escalate a complex reasoning problem to a higher-intelligence model with extended thinking capabilities.",
-      "Use when a problem requires careful multi-step reasoning, complex analysis, or when you want to verify your thinking on a hard problem.",
-      "Pass a self-contained problem description — the delegate does not see the chat history.",
+      "Escalate to a higher-intelligence model for the remainder of this response.",
+      "Call this when the current problem requires deeper reasoning, complex analysis, or careful verification.",
+      "After calling, you will be upgraded to a more capable model that will continue the response with full context.",
     ].join(" "),
     inputSchema: zodSchema(
       z.object({
-        problem: z
+        reason: z
           .string()
           .min(1)
-          .max(32_000)
+          .max(500)
           .describe(
-            "Self-contained problem description with all necessary context, data, and constraints. The delegate model does not see the chat history.",
+            "Brief explanation of why escalation is needed (e.g. 'complex multi-step math proof', 'nuanced legal analysis')",
           ),
       }),
     ),
     strict: true,
     outputSchema: zodSchema(EscalateModelResultSchema),
-    execute: async ({ problem }, { abortSignal }) => {
-      return await escalateToHigherModel(problem, { abortSignal });
+    execute: async ({ reason }): Promise<EscalateModelResult> => {
+      return { escalated: true, reason };
     },
   });
 }
