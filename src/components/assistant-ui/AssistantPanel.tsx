@@ -15,8 +15,6 @@ interface AssistantPanelProps {
   setIsChatExpanded?: (expanded: boolean) => void;
   isChatMaximized?: boolean;
   setIsChatMaximized?: (maximized: boolean) => void;
-  onSingleSelect?: (text: string, range?: Range) => void | Promise<void>;
-  onMultiSelect?: (selections: Array<{ text: string; id: string; range?: Range }>) => void | Promise<void>;
   onReady?: () => void;
 }
 
@@ -25,8 +23,6 @@ export function AssistantPanel({
   setIsChatExpanded,
   isChatMaximized = false,
   setIsChatMaximized,
-  onSingleSelect,
-  onMultiSelect,
   onReady,
 }: AssistantPanelProps) {
   // Don't render if no workspaceId
@@ -42,8 +38,6 @@ export function AssistantPanel({
         setIsChatExpanded={setIsChatExpanded}
         isChatMaximized={isChatMaximized}
         setIsChatMaximized={setIsChatMaximized}
-        onSingleSelect={onSingleSelect}
-        onMultiSelect={onMultiSelect}
         onReady={onReady}
       />
     </>
@@ -55,16 +49,12 @@ function WorkspaceContextWrapper({
   setIsChatExpanded,
   isChatMaximized,
   setIsChatMaximized,
-  onSingleSelect,
-  onMultiSelect,
   onReady,
 }: {
   workspaceId?: string | null;
   setIsChatExpanded?: (expanded: boolean) => void;
   isChatMaximized?: boolean;
   setIsChatMaximized?: (maximized: boolean) => void;
-  onSingleSelect?: (text: string, range?: Range) => void | Promise<void>;
-  onMultiSelect?: (selections: Array<{ text: string; id: string; range?: Range }>) => void | Promise<void>;
   onReady?: () => void;
 }) {
   // Fetch current workspace state (includes loading state)
@@ -78,8 +68,6 @@ function WorkspaceContextWrapper({
         setIsChatExpanded={setIsChatExpanded}
         isChatMaximized={isChatMaximized}
         setIsChatMaximized={setIsChatMaximized}
-        onSingleSelect={onSingleSelect}
-        onMultiSelect={onMultiSelect}
         onReady={onReady}
         state={state}
         isLoading={isLoading}
@@ -95,8 +83,6 @@ function WorkspaceContextWrapperContent({
   setIsChatExpanded,
   isChatMaximized,
   setIsChatMaximized,
-  onSingleSelect,
-  onMultiSelect,
   onReady,
   state,
   isLoading,
@@ -105,8 +91,6 @@ function WorkspaceContextWrapperContent({
   setIsChatExpanded?: (expanded: boolean) => void;
   isChatMaximized?: boolean;
   setIsChatMaximized?: (maximized: boolean) => void;
-  onSingleSelect?: (text: string, range?: Range) => void | Promise<void>;
-  onMultiSelect?: (selections: Array<{ text: string; id: string; range?: Range }>) => void | Promise<void>;
   onReady?: () => void;
   state: ReturnType<typeof useWorkspaceState>["state"];
   isLoading: boolean;
@@ -158,12 +142,8 @@ function WorkspaceContextWrapperContent({
         <Thread items={items} />
       </div>
 
-      {/* Text Selection Manager for highlighting assistant responses */}
-      <AssistantTextSelectionManager
-        className="absolute inset-0 pointer-events-none"
-        onSingleSelect={onSingleSelect}
-        onMultiSelect={onMultiSelect}
-      />
+      {/* Text selection → Ask AI (composer context) */}
+      <AssistantTextSelectionManager className="absolute inset-0 pointer-events-none" />
     </div>
   );
 }

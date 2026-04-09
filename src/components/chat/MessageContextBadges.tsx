@@ -4,24 +4,16 @@ import { memo } from "react";
 import { useAuiState } from "@assistant-ui/react";
 import { BsArrowReturnRight } from "react-icons/bs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-
-type ReplySelectionMeta = {
-  text: string;
-  messageContext?: string;
-  userPrompt?: string;
-  title?: string;
-};
+import type { ReplySelection } from "@/lib/stores/ui-store";
+import { ReplySelectionRichText } from "@/components/chat/ReplySelectionRichText";
 
 type MessageCustomMetadata = {
-  replySelections?: ReplySelectionMeta[];
+  replySelections?: ReplySelection[];
 };
 
-const truncate = (text: string, max: number) =>
-  text.length <= max ? text : text.slice(0, max).trim() + "...";
-
 /**
- * Renders persisted context badges for reply context
- * from message.metadata.custom when viewing user messages in history.
+ * Renders persisted “Ask AI” text context from message.metadata.custom
+ * when viewing user messages in history.
  */
 function MessageContextBadgesImpl() {
   const message = useAuiState((s) => s.message);
@@ -39,15 +31,18 @@ function MessageContextBadgesImpl() {
       {replySelections?.map((sel, i) => (
         <Tooltip key={i}>
           <TooltipTrigger asChild>
-            <div className="inline-flex items-center gap-1.5 rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 cursor-default">
-              <BsArrowReturnRight className="h-3.5 w-3.5 shrink-0 text-blue-500" />
-              <span className="text-xs text-blue-700 dark:text-blue-300">
+            <div className="inline-flex items-center gap-1.5 rounded-md border border-blue-600/25 bg-blue-600/10 px-2 py-0.5 cursor-default">
+              <BsArrowReturnRight className="h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
+              <span className="text-xs text-blue-800 dark:text-blue-200">
                 {truncate(sel.text, 40)}
               </span>
             </div>
           </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-sm whitespace-pre-wrap break-words">
-            {sel.text}
+          <TooltipContent
+            side="top"
+            className="max-w-sm whitespace-pre-wrap break-words [&_.katex]:text-[0.9em]"
+          >
+            <ReplySelectionRichText text={sel.text} />
           </TooltipContent>
         </Tooltip>
       ))}

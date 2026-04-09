@@ -93,7 +93,6 @@ import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import { useFeatureFlagEnabled } from "posthog-js/react";
 import { toast } from "sonner";
-import { useCreateCardFromMessage } from "@/hooks/ai/use-create-card-from-message";
 import { filterItems } from "@/lib/workspace-state/search";
 import { useSession } from "@/lib/auth-client";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
@@ -915,7 +914,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
       <ComposerAttachments />
       {/* Card Context Display - shows selected cards inside input area */}
       <CardContextDisplay items={items} />
-      {/* Reply Context Display - shows reply selections */}
+      {/* Ask AI context chips (text selections from chat / PDF / document) */}
       <ReplyContextDisplay />
       <div className="relative">
         <ComposerPrimitive.Input
@@ -1178,9 +1177,6 @@ const AssistantMessage: FC = () => {
 };
 
 const AssistantActionBar: FC = () => {
-  const { createCard, isCreating } = useCreateCardFromMessage({
-    debounceMs: 300,
-  });
   const { content } = useMessage();
 
   const textContent = useMemo(() => {
@@ -1215,16 +1211,6 @@ const AssistantActionBar: FC = () => {
           <RefreshCwIcon />
         </TooltipIconButton>
       </ActionBarPrimitive.Reload>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={createCard}
-        disabled={isCreating}
-        className="!px-1 gap-1 h-6 text-xs font-medium hover:bg-sidebar-accent"
-      >
-        <FileText className={cn("h-3 w-3", isCreating && "animate-pulse")} />
-        <span>Save as Document</span>
-      </Button>
     </ActionBarPrimitive.Root>
   );
 };

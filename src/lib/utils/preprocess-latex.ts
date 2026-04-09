@@ -62,7 +62,15 @@ function preprocessCitations(markdown: string): string {
 // Currency pattern: $ followed by digits, optional commas/decimals, optional k/M/B — e.g. $5, $19.99, $100k, $100M
 // Must NOT be preceded by another $ (to avoid matching inside $$...$$)
 // Must NOT be followed by $ — e.g. $127$ or ($127$ or $127$. is math, not currency
-const CURRENCY_REGEX = /(?<!\$)\$(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?(?:[kKmMbB])?)(?!\$)\b/g;
+export const CURRENCY_REGEX =
+  /(?<!\$)\$(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?(?:[kKmMbB])?)(?!\$)\b/g;
+
+/** Same as preprocess steps 3–4: TeX-style delimiters → remark-math / TipTap-style `$…$` and `$$…$$`. */
+export function convertTexDelimitersToDollars(s: string): string {
+  return s
+    .replace(/\\\(([\s\S]*?)\\\)/g, (_match, math: string) => `$${math}$`)
+    .replace(/\\\[([\s\S]*?)\\\]/g, (_match, math: string) => `$$${math}$$`);
+}
 
 export function preprocessLatex(markdown: string): string {
   if (!markdown) return markdown;
@@ -85,15 +93,8 @@ export function preprocessLatex(markdown: string): string {
     return `\x00CUR${currencies.length - 1}\x00`;
   });
 
-  // 3. Convert \(...\) → $...$ (inline math)
-  result = result.replace(/\\\(([\s\S]*?)\\\)/g, (_match, math) => {
-    return `$${math}$`;
-  });
-
-  // 4. Convert \[...\] → $$...$$ (display math)
-  result = result.replace(/\\\[([\s\S]*?)\\\]/g, (_match, math) => {
-    return `$$${math}$$`;
-  });
+  // 3–4. Convert \(...\) / \[...\] → $...$ / $$...$$
+  result = convertTexDelimitersToDollars(result);
 
   // 5. Restore protected currency values
   result = result.replace(/\x00CUR(\d+)\x00/g, (_match, idx) => {

@@ -22,10 +22,6 @@ interface DashboardLayoutProps {
   setIsChatExpanded: (expanded: boolean) => void;
   setIsChatMaximized: (maximized: boolean) => void;
 
-  // Text selection handlers
-  onSingleSelect?: (text: string) => void | Promise<void>;
-  onMultiSelect?: (selections: Array<{ text: string; id: string }>) => void | Promise<void>;
-
   // Component slots
   workspaceSection: React.ReactNode;
   workspaceHeader?: React.ReactNode; // Header that spans above sidebar + workspace
@@ -44,8 +40,6 @@ export function DashboardLayout({
   isChatMaximized,
   setIsChatExpanded,
   setIsChatMaximized,
-  onSingleSelect,
-  onMultiSelect,
   workspaceSection,
   workspaceHeader,
 }: DashboardLayoutProps) {
@@ -67,8 +61,6 @@ export function DashboardLayout({
                 setIsChatExpanded={setIsChatExpanded}
                 isChatMaximized={effectiveChatMaximized}
                 setIsChatMaximized={setIsChatMaximized}
-                onSingleSelect={onSingleSelect}
-                onMultiSelect={onMultiSelect}
               />
             </div>
           </AssistantDropzone>
@@ -131,8 +123,6 @@ export function DashboardLayout({
                     setIsChatExpanded={setIsChatExpanded}
                     isChatMaximized={effectiveChatMaximized}
                     setIsChatMaximized={setIsChatMaximized}
-                    onSingleSelect={onSingleSelect}
-                    onMultiSelect={onMultiSelect}
                   />
                 </AssistantDropzone>
               </ResizablePanel>

@@ -23,10 +23,11 @@ import { SearchPluginPackage, SearchLayer, useSearch } from '@embedpdf/plugin-se
 import { MatchFlag } from '@embedpdf/models';
 import { ExportPluginPackage } from '@embedpdf/plugin-export/react';
 
-import { Loader2, ChevronLeft, ChevronRight, Copy, Check, Trash2, Search, X as XIcon, ArrowUp, ArrowDown } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, Trash2, Search, X as XIcon, ArrowUp, ArrowDown } from 'lucide-react';
 import { FaQuoteRight } from "react-icons/fa6";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
+import { askAiPrimaryButtonClass } from "@/lib/ui/ask-ai-toolbar-styles";
 import { toast } from "sonner";
 import { useMemo, ReactNode, useState, useEffect, useRef, useCallback } from 'react';
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
@@ -209,18 +210,6 @@ const TextSelectionMenu = ({
   const { provides: selectionCapability } = useSelectionCapability();
   const { state: scrollState } = useScroll(documentId);
   const addReplySelection = useUIStore((state) => state.addReplySelection);
-  const [copied, setCopied] = useState(false);
-
-  // Copy handler
-  const handleCopy = useCallback(async () => {
-    const scope = selectionCapability?.forDocument(documentId);
-    if (!scope) return;
-
-    await scope.copyToClipboard();
-    scope.clear();
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [selectionCapability, documentId]);
 
   // Ask AI handler
   const handleAskAI = useCallback(() => {
@@ -271,26 +260,13 @@ const TextSelectionMenu = ({
         side={placement.suggestTop ? "top" : "bottom"}
         sideOffset={8}
         align="center"
-        className="w-auto p-0.5 rounded-full border shadow-lg bg-popover text-popover-foreground"
+        className="w-auto min-w-0 border-0 bg-transparent p-0 text-popover-foreground shadow-none outline-none ring-0 ring-offset-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <div className="flex items-center gap-0.5">
-          <button
-            onClick={handleCopy}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full hover:bg-muted transition-colors text-xs font-medium"
-          >
-            {copied ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
-            {copied ? 'Copied' : 'Copy'}
-          </button>
-          <div className="w-px h-2.5 bg-border" />
-          <button
-            onClick={handleAskAI}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full hover:bg-muted transition-colors text-xs font-medium text-blue-400 hover:text-blue-300"
-          >
-            <FaQuoteRight size={12} />
-            Ask AI
-          </button>
-        </div>
+        <button type="button" onClick={handleAskAI} className={askAiPrimaryButtonClass}>
+          <FaQuoteRight className="size-3.5 shrink-0" />
+          Ask AI
+        </button>
       </PopoverContent>
     </Popover>
   );

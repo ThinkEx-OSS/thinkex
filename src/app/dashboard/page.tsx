@@ -8,7 +8,6 @@ import useMediaQuery from "@/hooks/ui/use-media-query";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import { useWorkspaceEvents } from "@/hooks/workspace/use-workspace-events";
-import { useTextSelectionAgent } from "@/hooks/workspace/use-text-selection-agent";
 import {
   WorkspaceProvider,
   useWorkspaceContext,
@@ -272,10 +271,6 @@ function DashboardContent({
     />
   );
 
-  // Text selection handlers - delegate to agent for intelligent processing
-  const { handleCreateInstantNote, handleCreateCardFromSelections } =
-    useTextSelectionAgent(operations);
-
   // Handle reactive navigation for new items
   const { handleCreatedItems } = useReactiveNavigation(state);
 
@@ -363,8 +358,6 @@ function DashboardContent({
         isChatMaximized={isChatMaximized}
         setIsChatExpanded={setIsChatExpanded}
         setIsChatMaximized={setIsChatMaximized}
-        onSingleSelect={handleCreateInstantNote}
-        onMultiSelect={handleCreateCardFromSelections}
         workspaceHeader={
           !isChatMaximized &&
           currentWorkspaceId &&
