@@ -1,15 +1,12 @@
 "use client";
 
 import React, { useRef, useEffect, useCallback } from "react";
-import { getSelectionMessageId } from "@/lib/utils/get-selection-message-id";
 import { extractSelectionTextForReply } from "@/lib/utils/selection-text-extraction";
 
 export interface SelectionInfo {
   text: string;
   position: { x: number; y: number };
   range: Range;
-  /** Same as MessagePrimitive.Root `data-message-id` when the selection is inside one message. */
-  messageId: string;
 }
 
 export interface AssistantThreadSelectionProps {
@@ -44,7 +41,6 @@ function calculateTooltipPosition(range: Range): { x: number; y: number } {
 
 /**
  * Captures assistant-thread text selection for the Ask AI toolbar.
- * - Single-message only (`data-message-id` on anchor/focus), matching assistant-ui SelectionToolbar.
  * - Assistant body only (`.aui-assistant-message-content`).
  * - Commits on mouseup / keyup via rAF (not on every selectionchange while dragging).
  */
@@ -96,12 +92,6 @@ export function AssistantThreadSelection({
         return;
       }
 
-      const messageId = getSelectionMessageId(selection);
-      if (!messageId) {
-        clear();
-        return;
-      }
-
       const startEl =
         range.startContainer.nodeType === Node.TEXT_NODE
           ? range.startContainer.parentElement
@@ -127,7 +117,6 @@ export function AssistantThreadSelection({
         text: selectedText,
         position,
         range: range.cloneRange(),
-        messageId,
       };
 
       currentSelectionRef.current = selectionInfo;

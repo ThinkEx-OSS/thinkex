@@ -40,8 +40,6 @@ export function deriveWorkspaceOpenMode(openItems: OpenWorkspaceItems): Workspac
 export interface ReplySelection {
   text: string;
   title?: string;
-  /** Source assistant message id when quoted from the thread (assistant-ui `data-message-id`). */
-  messageId?: string;
 }
 
 const emptyOpenItems = (): OpenWorkspaceItems => ({ primary: null, secondary: null });
