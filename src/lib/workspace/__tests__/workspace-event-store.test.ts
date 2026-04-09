@@ -5,6 +5,7 @@ const mockExecute = vi.fn();
 const mockTransaction = vi.fn();
 const mockProjectWorkspaceEvent = vi.fn();
 const mockBroadcast = vi.fn();
+const mockAcquireWorkspaceProjectionLock = vi.fn();
 
 vi.mock("@/lib/db/client", () => ({
   db: {
@@ -19,6 +20,11 @@ vi.mock("@/lib/workspace/workspace-items-projector", () => ({
 
 vi.mock("@/lib/realtime/server-broadcast", () => ({
   broadcastWorkspaceEventFromServer: (...args: any[]) => mockBroadcast(...args),
+}));
+
+vi.mock("@/lib/workspace/workspace-projection-lock", () => ({
+  acquireWorkspaceProjectionLock: (...args: any[]) =>
+    mockAcquireWorkspaceProjectionLock(...args),
 }));
 
 const event: WorkspaceEvent = {
@@ -79,6 +85,10 @@ describe("workspace-event-store", () => {
       ...event,
       version: 7,
     });
+    expect(mockAcquireWorkspaceProjectionLock).toHaveBeenCalledWith(
+      { execute: mockExecute },
+      "ws-1",
+    );
   });
 
   it("returns conflicts without projecting or broadcasting", async () => {
@@ -97,6 +107,10 @@ describe("workspace-event-store", () => {
       conflict: true,
       version: 9,
     });
+    expect(mockAcquireWorkspaceProjectionLock).toHaveBeenCalledWith(
+      { execute: mockExecute },
+      "ws-1",
+    );
     expect(mockProjectWorkspaceEvent).not.toHaveBeenCalled();
     expect(mockBroadcast).not.toHaveBeenCalled();
   });

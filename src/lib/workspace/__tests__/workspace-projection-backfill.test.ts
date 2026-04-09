@@ -4,6 +4,7 @@ const mockTransaction = vi.fn();
 const mockSelect = vi.fn();
 const mockGetLatestWorkspaceEventVersion = vi.fn();
 const mockSyncWorkspaceProjectionToVersion = vi.fn();
+const mockAcquireWorkspaceProjectionLock = vi.fn();
 
 const workspaceItemUserState = {
   workspaceId: "workspace_item_user_state.workspace_id",
@@ -43,6 +44,11 @@ vi.mock("@/lib/workspace/workspace-items-projector", () => ({
     mockSyncWorkspaceProjectionToVersion(...args),
 }));
 
+vi.mock("@/lib/workspace/workspace-projection-lock", () => ({
+  acquireWorkspaceProjectionLock: (...args: any[]) =>
+    mockAcquireWorkspaceProjectionLock(...args),
+}));
+
 describe("workspace-projection-backfill", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -68,6 +74,7 @@ describe("workspace-projection-backfill", () => {
 
     const result = await backfillWorkspaceProjection("ws-1");
 
+    expect(mockAcquireWorkspaceProjectionLock).toHaveBeenCalledWith(tx, "ws-1");
     expect(deletedTables).toEqual([
       workspaceItemUserState,
       workspaceItemContent,
@@ -114,6 +121,16 @@ describe("workspace-projection-backfill", () => {
 
     const results = await backfillAllWorkspaceProjections();
 
+    expect(mockAcquireWorkspaceProjectionLock).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      "ws-1",
+    );
+    expect(mockAcquireWorkspaceProjectionLock).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      "ws-blank",
+    );
     expect(mockTransaction).toHaveBeenCalledTimes(2);
     expect(mockSyncWorkspaceProjectionToVersion).toHaveBeenNthCalledWith(
       1,

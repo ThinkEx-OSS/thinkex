@@ -13,6 +13,7 @@ import {
   syncWorkspaceProjectionToVersion,
   type WorkspaceProjectionClient,
 } from "./workspace-items-projector";
+import { acquireWorkspaceProjectionLock } from "./workspace-projection-lock";
 
 export interface WorkspaceProjectionBackfillResult {
   workspaceId: string;
@@ -44,6 +45,7 @@ export async function backfillWorkspaceProjection(
   workspaceId: string,
 ): Promise<WorkspaceProjectionBackfillResult> {
   return db.transaction(async (tx: any) => {
+    await acquireWorkspaceProjectionLock(tx, workspaceId);
     await resetWorkspaceProjection(tx, workspaceId);
     const latestEventVersion = await getLatestWorkspaceEventVersion(
       tx,

@@ -20,7 +20,7 @@
     "db:studio": "drizzle-kit studio",
     "db:drop": "drizzle-kit drop",
     "db:reset": "pnpm db:drop && pnpm db:push",
-    "workspace:backfill-projections": "bun ./src/scripts/backfill-workspace-projections.ts",
+    "workspace:backfill-projections": "node --experimental-strip-types ./src/scripts/backfill-workspace-projections.ts",
     "deps:check": "knip",
     "deps:update": "pnpm update --interactive",
     "format": "prettier --write .",

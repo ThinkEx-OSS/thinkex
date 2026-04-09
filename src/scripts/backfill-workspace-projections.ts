@@ -3,14 +3,14 @@ import {
   listWorkspaceIdsForProjectionBackfill,
 } from "../lib/workspace/workspace-projection-backfill";
 
-function parseWorkspaceIds(argv: string[]): string[] {
+export function parseWorkspaceIds(argv: string[]): string[] {
   return argv
     .filter((arg) => arg.startsWith("--workspace-id="))
     .map((arg) => arg.slice("--workspace-id=".length))
     .filter(Boolean);
 }
 
-async function main() {
+export async function main() {
   const workspaceIds = parseWorkspaceIds(process.argv.slice(2));
   const targetWorkspaceIds =
     workspaceIds.length > 0
@@ -34,7 +34,9 @@ async function main() {
   console.log("[workspace-projection-backfill] Done");
 }
 
-main().catch((error) => {
-  console.error("[workspace-projection-backfill] Failed", error);
-  process.exitCode = 1;
-});
+if (import.meta.main) {
+  main().catch((error) => {
+    console.error("[workspace-projection-backfill] Failed", error);
+    process.exitCode = 1;
+  });
+}

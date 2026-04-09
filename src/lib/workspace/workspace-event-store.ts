@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { broadcastWorkspaceEventFromServer } from "@/lib/realtime/server-broadcast";
 import type { WorkspaceEvent } from "./events";
 import { projectWorkspaceEvent } from "./workspace-items-projector";
+import { acquireWorkspaceProjectionLock } from "./workspace-projection-lock";
 
 const APPEND_RESULT_REGEX = /\(\s*(\d+)\s*,\s*(t|f|true|false)\s*\)/i;
 
@@ -71,6 +72,8 @@ async function appendWorkspaceEventInTransaction(
   baseVersion: number,
 ): Promise<WorkspaceEventAppendResult> {
   const result = await db.transaction(async (tx: any) => {
+    await acquireWorkspaceProjectionLock(tx, workspaceId);
+
     const appendResultRows = await tx.execute(sql`
       SELECT append_workspace_event(
         ${workspaceId}::uuid,
