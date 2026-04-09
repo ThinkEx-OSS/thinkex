@@ -27,15 +27,22 @@ export function parseWorkspaceAppendResult(rawResult: unknown): {
   conflict: boolean;
 } {
   if (typeof rawResult === "object" && rawResult !== null) {
-    const version = Number((rawResult as { version?: unknown }).version ?? 0);
+    const rawVersion = (rawResult as { version?: unknown }).version;
+    const version = Number(rawVersion);
     const rawConflict = (rawResult as { conflict?: unknown }).conflict;
     const conflict =
       rawConflict === true ||
       (typeof rawConflict === "string" &&
         ["t", "true"].includes(rawConflict.toLowerCase().trim()));
 
+    if (rawVersion === undefined || !Number.isFinite(version)) {
+      throw new Error(
+        `append_workspace_event returned unexpected object format: ${JSON.stringify(rawResult)}`,
+      );
+    }
+
     return {
-      version: Number.isFinite(version) ? version : 0,
+      version,
       conflict,
     };
   }
