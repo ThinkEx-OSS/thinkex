@@ -8,6 +8,13 @@
       "when": 1768802558046,
       "tag": "0000_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1775704317855,
+      "tag": "0001_stormy_rawhide_kid",
+      "breakpoints": true
     }
   ]
 }
