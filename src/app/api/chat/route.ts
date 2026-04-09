@@ -1,4 +1,3 @@
-import { gateway } from "ai";
 import {
   streamText,
   smoothStream,
@@ -23,6 +22,11 @@ import { withServerObservability } from "@/lib/with-server-observability";
 import { normalizeLegacyToolMessages } from "@/lib/ai/legacy-tool-message-compat";
 import type { ReplySelection } from "@/lib/stores/ui-store";
 import { getDefaultChatModelId, resolveGatewayModelId } from "@/lib/ai/models";
+import {
+  buildGatewayProviderOptions,
+  createGatewayLanguageModel,
+  getGatewayAttributionHeaders,
+} from "@/lib/ai/gateway-provider-options";
 
 /**
  * Extract workspaceId from system context or request body
@@ -196,8 +200,9 @@ async function handlePOST(req: Request) {
     );
 
     const posthogClient = getPostHogServerClient();
+    const baseGatewayModel = createGatewayLanguageModel(modelId);
     const tracedModel = posthogClient
-      ? withTracing(gateway(modelId) as any, posthogClient, {
+      ? withTracing(baseGatewayModel as any, posthogClient, {
           posthogDistinctId: userId || "anonymous",
           posthogProperties: {
             workspaceId,
@@ -205,7 +210,7 @@ async function handlePOST(req: Request) {
             modelId,
           },
         })
-      : (gateway(modelId) as any);
+      : (baseGatewayModel as any);
 
     // Use AI Gateway
     const model = wrapLanguageModel({
@@ -220,41 +225,8 @@ async function handlePOST(req: Request) {
       modelId,
     });
 
-    // Configure Google Thinking capabilities
-    const googleConfig: any = {
-      grounding: {
-        // googleSearchRetrieval removed to force usage of explicit web_search tool
-      },
-      thinkingConfig: {
-        includeThoughts: true,
-      },
-    };
+    const providerOptions = buildGatewayProviderOptions(modelId, { userId });
 
-    // Gemini 3 Flash: set thinkingLevel (Gemini 2.5 uses default dynamic budget)
-    if (modelId.includes("gemini-3-flash")) {
-      googleConfig.thinkingConfig.thinkingLevel = "minimal";
-    }
-
-    // Prepare provider options.
-    // Prefer Bedrock first for Claude models, then fall back to Anthropic.
-    // Non-Claude models stay on their native providers.
-    const gatewayOptions: any = {
-      caching: "auto",
-      models: [modelId],
-      ...(userId ? { user: userId } : {}),
-    };
-
-    if (modelId.startsWith("anthropic/")) {
-      gatewayOptions.order = ["bedrock", "anthropic"];
-      gatewayOptions.only = ["bedrock", "anthropic"];
-    }
-
-    const providerOptions: any = {
-      gateway: gatewayOptions,
-      google: googleConfig,
-    };
-
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://thinkex.app";
     const result = streamText({
       model: model,
       temperature: 1.0,
@@ -262,11 +234,8 @@ async function handlePOST(req: Request) {
       messages: convertedMessages,
       stopWhen: stepCountIs(25),
       tools,
-      providerOptions,
-      headers: {
-        "http-referer": appUrl,
-        "x-title": "ThinkEx",
-      },
+      providerOptions: providerOptions as any,
+      headers: getGatewayAttributionHeaders(),
       experimental_telemetry: {
         isEnabled: true,
         metadata: {

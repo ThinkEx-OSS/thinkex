@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { google } from "@ai-sdk/google";
 import { streamText, generateText, Output } from "ai";
 import { z } from "zod";
 import { executeWebSearch } from "@/lib/ai/tools/web-search";
@@ -29,7 +28,12 @@ import {
   type UploadedAsset,
 } from "@/lib/uploads/uploaded-asset";
 import { startAssetProcessing } from "@/lib/uploads/start-asset-processing";
-import { getModelForPurpose } from "@/lib/ai/models";
+import { getGatewayModelIdForPurpose } from "@/lib/ai/models";
+import {
+  buildGatewayProviderOptions,
+  createGatewayLanguageModel,
+  getGatewayAttributionHeaders,
+} from "@/lib/ai/gateway-provider-options";
 
 const MAX_TITLE_LENGTH = 60;
 const LOG_TRUNCATE = 400;
@@ -147,6 +151,7 @@ async function runSearchPhase(
   hasAttachments: boolean,
   hasUserLinks: boolean,
   send: (ev: StreamEvent) => void,
+  userId: string,
 ): Promise<{
   searchContext: string;
   sources: Array<{ title: string; url: string }>;
@@ -155,8 +160,13 @@ async function runSearchPhase(
     return { searchContext: "", sources: [] };
   }
 
+  const gatewayModelId = getGatewayModelIdForPurpose("autogen-search");
   const { output } = await generateText({
-    model: google(getModelForPurpose("autogen-search")),
+    model: createGatewayLanguageModel(gatewayModelId),
+    providerOptions: buildGatewayProviderOptions(gatewayModelId, {
+      userId,
+    }) as any,
+    headers: getGatewayAttributionHeaders(),
     experimental_telemetry: {
       isEnabled: true,
       metadata: { "tcc.conversational": "true" },
@@ -235,6 +245,7 @@ async function runDistillationAgent(
   linkContext: string,
   sources: Array<{ title: string; url: string }>,
   send: (ev: StreamEvent) => void,
+  userId: string,
 ): Promise<DistillationResult> {
   let output: DistilledOutput | undefined;
 
@@ -250,8 +261,13 @@ async function runDistillationAgent(
       )
     : userMessage.content;
 
+  const gatewayModelId = getGatewayModelIdForPurpose("autogen-distill");
   const { partialOutputStream } = streamText({
-    model: google(getModelForPurpose("autogen-distill")),
+    model: createGatewayLanguageModel(gatewayModelId),
+    providerOptions: buildGatewayProviderOptions(gatewayModelId, {
+      userId,
+    }) as any,
+    headers: getGatewayAttributionHeaders(),
     experimental_telemetry: {
       isEnabled: true,
       metadata: { "tcc.conversational": "true" },
@@ -732,7 +748,13 @@ export async function POST(request: NextRequest) {
         const linksList = links ?? [];
         const [{ searchContext, sources: searchSources }, linkContext] =
           await Promise.all([
-            runSearchPhase(prompt, hasParts, linksList.length > 0, send),
+            runSearchPhase(
+              prompt,
+              hasParts,
+              linksList.length > 0,
+              send,
+              userId,
+            ),
             fetchReferenceLinksContext(linksList, send),
           ]);
 
@@ -749,6 +771,7 @@ export async function POST(request: NextRequest) {
           linkContext,
           searchSources,
           send,
+          userId,
         );
 
         const { metadata, contentSummary, youtubeSearchTerm } = distilled;
@@ -814,8 +837,15 @@ export async function POST(request: NextRequest) {
         const documentQuizFn = async () => {
           type OutputType = z.infer<typeof DOCUMENT_QUIZ_SCHEMA>;
           let output: OutputType | undefined;
+          const contentGatewayModelId =
+            getGatewayModelIdForPurpose("autogen-content");
           const { partialOutputStream } = streamText({
-            model: google(getModelForPurpose("autogen-content")),
+            model: createGatewayLanguageModel(contentGatewayModelId),
+            providerOptions: buildGatewayProviderOptions(
+              contentGatewayModelId,
+              { userId },
+            ) as any,
+            headers: getGatewayAttributionHeaders(),
             experimental_telemetry: {
               isEnabled: true,
               metadata: { "tcc.conversational": "true" },

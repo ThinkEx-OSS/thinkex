@@ -2,10 +2,20 @@ export type ModelProvider = "google" | "anthropic" | "openai";
 
 export type ModelTier = "lite" | "fast" | "standard" | "pro";
 
+/** AI Gateway provider routing (e.g. Bedrock before Anthropic API for Claude). */
+export type GatewayRouting = {
+  order: string[];
+  only: string[];
+};
+
 export interface ModelDefinition {
   id: string;
   provider: ModelProvider;
   tier: ModelTier;
+  /** Optional Gateway routing when multiple backends serve the same logical model. */
+  gateway?: {
+    routing?: GatewayRouting;
+  };
   ui?: {
     providerLabel: string;
     displayName: string;
@@ -72,6 +82,12 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
     id: "claude-sonnet-4.6",
     provider: "anthropic",
     tier: "pro",
+    gateway: {
+      routing: {
+        order: ["bedrock", "anthropic"],
+        only: ["bedrock", "anthropic"],
+      },
+    },
     ui: {
       providerLabel: "Claude",
       displayName: "Claude Sonnet 4.6",
@@ -86,6 +102,12 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
     id: "claude-haiku-4.5",
     provider: "anthropic",
     tier: "fast",
+    gateway: {
+      routing: {
+        order: ["bedrock", "anthropic"],
+        only: ["bedrock", "anthropic"],
+      },
+    },
     ui: {
       providerLabel: "Claude",
       displayName: "Claude Haiku 4.5",
@@ -126,6 +148,11 @@ const PURPOSE_MODEL_MAP: Record<ModelPurpose, string> = {
 
 export function getModelForPurpose(purpose: ModelPurpose): string {
   return PURPOSE_MODEL_MAP[purpose];
+}
+
+/** Resolved `provider/model` id for Vercel AI Gateway + `getModelForPurpose`. */
+export function getGatewayModelIdForPurpose(purpose: ModelPurpose): string {
+  return resolveGatewayModelId(getModelForPurpose(purpose));
 }
 
 export function getModelDefinition(id: string): ModelDefinition | undefined {
