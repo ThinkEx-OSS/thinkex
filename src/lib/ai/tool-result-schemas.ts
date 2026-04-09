@@ -9,6 +9,7 @@ import {
   CodeExecuteResultSchema,
   normalizeCodeExecuteResult,
 } from "@/lib/ai/code-execute-shared";
+import { EscalateModelResultSchema } from "@/lib/ai/tools/escalate-model";
 
 /**
  * Shared schemas and parsers for tool results. Used by assistant-ui Tool UIs
@@ -32,7 +33,9 @@ export type WorkspaceResult = z.infer<typeof WorkspaceResultSchema>;
 export const EditItemResultSchema = baseWorkspace
   .extend({
     diff: z.string().optional(),
-    filediff: z.object({ additions: z.number(), deletions: z.number() }).optional(),
+    filediff: z
+      .object({ additions: z.number(), deletions: z.number() })
+      .optional(),
     cardCount: z.number().optional(),
     questionCount: z.number().optional(),
   })
@@ -74,11 +77,13 @@ export function parseWorkspaceResult(input: unknown): WorkspaceResult {
 }
 
 /** selectCards */
-export const SelectCardsResultSchema = baseWorkspace.extend({
-  message: z.string(),
-  addedCount: z.number().optional(),
-  invalidIds: z.array(z.string()).optional(),
-}).passthrough();
+export const SelectCardsResultSchema = baseWorkspace
+  .extend({
+    message: z.string(),
+    addedCount: z.number().optional(),
+    invalidIds: z.array(z.string()).optional(),
+  })
+  .passthrough();
 
 export type SelectCardsResult = z.infer<typeof SelectCardsResultSchema>;
 
@@ -87,13 +92,15 @@ export function parseSelectCardsResult(input: unknown): SelectCardsResult {
 }
 
 /** quiz_create */
-export const QuizResultSchema = baseWorkspace.extend({
-  quizId: z.string().optional(),
-  title: z.string().optional(),
-  questionCount: z.number().optional(),
-  questionsAdded: z.number().optional(),
-  totalQuestions: z.number().optional(),
-}).passthrough();
+export const QuizResultSchema = baseWorkspace
+  .extend({
+    quizId: z.string().optional(),
+    title: z.string().optional(),
+    questionCount: z.number().optional(),
+    questionsAdded: z.number().optional(),
+    totalQuestions: z.number().optional(),
+  })
+  .passthrough();
 
 export type QuizResult = z.infer<typeof QuizResultSchema>;
 
@@ -111,13 +118,17 @@ export function parseQuizResult(input: unknown): QuizResult {
 }
 
 /** flashcards_create */
-export const FlashcardResultSchema = baseWorkspace.extend({
-  title: z.string().optional(),
-  cardCount: z.number().optional(),
-  cardsAdded: z.number().optional(),
-  deckName: z.string().optional(),
-  cards: z.array(z.object({ front: z.string(), back: z.string() })).optional(),
-}).passthrough();
+export const FlashcardResultSchema = baseWorkspace
+  .extend({
+    title: z.string().optional(),
+    cardCount: z.number().optional(),
+    cardsAdded: z.number().optional(),
+    deckName: z.string().optional(),
+    cards: z
+      .array(z.object({ front: z.string(), back: z.string() }))
+      .optional(),
+  })
+  .passthrough();
 
 export type FlashcardResult = z.infer<typeof FlashcardResultSchema>;
 
@@ -135,7 +146,10 @@ export function parseFlashcardResult(input: unknown): FlashcardResult {
 }
 
 /** web_fetch – result is string or { text, metadata } */
-export const URLContextResultSchema = z.union([z.string(), ProcessUrlsOutputSchema]);
+export const URLContextResultSchema = z.union([
+  z.string(),
+  ProcessUrlsOutputSchema,
+]);
 
 export type URLContextResult = z.infer<typeof URLContextResultSchema>;
 
@@ -163,4 +177,14 @@ export function parseCodeExecuteResult(input: unknown): CodeExecuteResult {
   }
 
   return parseWithSchema(CodeExecuteResultSchema, input, "CodeExecuteResult");
+}
+
+export type EscalateModelResult = z.infer<typeof EscalateModelResultSchema>;
+
+export function parseEscalateModelResult(input: unknown): EscalateModelResult {
+  return parseWithSchema(
+    EscalateModelResultSchema,
+    input,
+    "EscalateModelResult",
+  );
 }

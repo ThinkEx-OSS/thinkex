@@ -17,6 +17,7 @@ export const CHAT_TOOL = {
   YOUTUBE_SEARCH: "youtube_search",
   YOUTUBE_ADD: "youtube_add",
   CODE_EXECUTE: "code_execute",
+  ESCALATE_MODEL: "escalate_model",
 } as const;
 
 export type ChatToolName = (typeof CHAT_TOOL)[keyof typeof CHAT_TOOL];
@@ -89,6 +90,8 @@ export function isCanonicalChatToolName(name: string): name is ChatToolName {
 }
 
 /** Autogen / SSE events that mirror the web search tool */
-export function matchesWebSearchStreamToolName(name: string | undefined): boolean {
+export function matchesWebSearchStreamToolName(
+  name: string | undefined,
+): boolean {
   return name === CHAT_TOOL.WEB_SEARCH || name === "webSearch";
 }

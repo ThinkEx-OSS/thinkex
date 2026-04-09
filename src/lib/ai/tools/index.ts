@@ -21,6 +21,7 @@ import { createWebSearchTool } from "./web-search";
 import { createSearchWorkspaceTool } from "./search-workspace";
 import { createReadWorkspaceTool } from "./read-workspace";
 import { createExecuteCodeTool } from "./execute-code";
+import { createEscalateModelTool } from "./escalate-model";
 import { logger } from "@/lib/utils/logger";
 import { CHAT_TOOL } from "@/lib/ai/chat-tool-names";
 
@@ -58,6 +59,7 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
     // Search
     [CHAT_TOOL.WEB_SEARCH]: createWebSearchTool(),
     [CHAT_TOOL.CODE_EXECUTE]: createExecuteCodeTool(),
+    [CHAT_TOOL.ESCALATE_MODEL]: createEscalateModelTool(),
     [CHAT_TOOL.WORKSPACE_SEARCH]: createSearchWorkspaceTool(ctx),
     [CHAT_TOOL.WORKSPACE_READ]: createReadWorkspaceTool(ctx),
 
