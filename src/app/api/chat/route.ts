@@ -21,6 +21,7 @@ import {
 } from "@/lib/posthog-server";
 import { withServerObservability } from "@/lib/with-server-observability";
 import { normalizeLegacyToolMessages } from "@/lib/ai/legacy-tool-message-compat";
+import type { ReplySelection } from "@/lib/stores/ui-store";
 
 /**
  * Extract workspaceId from system context or request body
@@ -56,7 +57,7 @@ function getSelectedCardsContext(body: any): string {
 function injectSelectionContext(
   messages: any[],
   custom?: {
-    replySelections?: Array<{ text: string; title?: string }>;
+    replySelections?: ReplySelection[];
   },
   selectedCardsContext?: string,
 ): void {

@@ -103,6 +103,7 @@ import {
 } from "@/lib/tiptap-utils";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
+import { askAiPrimaryButtonClass } from "@/lib/ui/ask-ai-toolbar-styles";
 import { toast } from "sonner";
 
 // --- Styles ---
@@ -743,18 +744,14 @@ function AskAiBubbleMenu({
         inline: true,
       }}
     >
-      <div className="flex items-center rounded-full p-0.5">
-        <Button
-          type="button"
-          variant="default"
-          size="sm"
-          onClick={handleAskAI}
-          className="h-8 rounded-full border-0 !bg-blue-500 px-3 text-xs font-medium !text-white shadow-sm transition-colors hover:!bg-blue-600 hover:!text-white"
-        >
-          <FaQuoteRight className="size-3.5" />
-          <span>Ask AI</span>
-        </Button>
-      </div>
+      <button
+        type="button"
+        onClick={handleAskAI}
+        className={askAiPrimaryButtonClass}
+      >
+        <FaQuoteRight className="size-3.5 shrink-0" />
+        <span>Ask AI</span>
+      </button>
     </BubbleMenu>
   );
 }

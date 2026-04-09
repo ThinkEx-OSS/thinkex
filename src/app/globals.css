@@ -496,26 +496,6 @@ body.marquee-selecting iframe {
   background: transparent;
 }
 
-/* Highlight Tooltip Styles */
-.highlight-tooltip-container {
-  pointer-events: auto;
-  z-index: 9999;
-}
-
-.highlight-tooltip-action {
-  cursor: pointer;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.highlight-tooltip-action:hover {
-  transform: scale(1.05);
-}
-
-.highlight-tooltip-action:active {
-  transform: scale(0.95);
-}
-
 /* Ensure tooltip appears above all other elements */
 [data-radix-popper-content-wrapper] {
   z-index: 9999 !important;

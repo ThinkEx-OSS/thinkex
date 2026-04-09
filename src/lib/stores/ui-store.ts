@@ -3,7 +3,7 @@ import { devtools, persist, createJSONStorage } from 'zustand/middleware';
 import { PANEL_DEFAULTS } from '@/lib/layout-constants';
 
 /**
- * UI Store - Manages all UI state (chat, modals, search, layout, text selection)
+ * UI Store - Manages all UI state (chat, modals, search, layout, reply context)
  * This replaces scattered useState hooks in dashboard
  */
 
@@ -36,6 +36,12 @@ export function deriveWorkspaceOpenMode(openItems: OpenWorkspaceItems): Workspac
   return 'single';
 }
 
+/** Quoted passage attached to the composer as reply / “referring to” context. */
+export interface ReplySelection {
+  text: string;
+  title?: string;
+}
+
 const emptyOpenItems = (): OpenWorkspaceItems => ({ primary: null, secondary: null });
 
 interface UIState {
@@ -60,12 +66,6 @@ interface UIState {
   activeFolderId: string | null; // Active folder for filtering
   selectedModelId: string; // Selected AI model ID
 
-  // Text selection state
-  inMultiSelectMode: boolean;
-  inSingleSelectMode: boolean;
-  tooltipVisible: boolean;
-  selectedHighlightColorId: string;
-
   // Card selection state (user actions only — opening a panel does not change selection)
   selectedCardIds: Set<string>;
 
@@ -73,7 +73,7 @@ interface UIState {
   itemScrollLocked: Map<string, boolean>;
 
   // Reply selection state
-  replySelections: Array<{ text: string; messageContext?: string; userPrompt?: string; title?: string }>;
+  replySelections: Array<{ text: string; title?: string }>;
 
   // Citation highlight: when opening document/PDF from citation click, highlight/search this quote
   citationHighlightQuery: { itemId: string; query: string; pageNumber?: number } | null;
@@ -117,16 +117,6 @@ interface UIState {
   _setOpenItemsFromUrl: (ids: string[]) => void;
   setSelectedModelId: (modelId: string) => void;
 
-  // Actions - Text selection
-  setInMultiSelectMode: (inMultiMode: boolean) => void;
-  setInSingleSelectMode: (inSingleMode: boolean) => void;
-  setTooltipVisible: (visible: boolean) => void;
-  setSelectedHighlightColorId: (colorId: string) => void;
-  enterMultiSelectMode: () => void;
-  exitMultiSelectMode: () => void;
-  enterSingleSelectMode: () => void;
-  exitSingleSelectMode: () => void;
-
   // Actions - Card selection
   toggleCardSelection: (id: string) => void;
   clearCardSelection: () => void;
@@ -137,7 +127,7 @@ interface UIState {
   toggleItemScrollLocked: (itemId: string) => void;
 
   // Actions - Reply selection
-  addReplySelection: (selection: { text: string; messageContext?: string; userPrompt?: string; title?: string }) => void;
+  addReplySelection: (selection: ReplySelection) => void;
   removeReplySelection: (index: number) => void;
   clearReplySelections: () => void;
   setCitationHighlightQuery: (query: { itemId: string; query: string; pageNumber?: number } | null) => void;
@@ -167,12 +157,6 @@ const initialState = {
 
   activeFolderId: null,
   selectedModelId: 'gemini-3-flash-preview',
-
-  // Text selection
-  inMultiSelectMode: false,
-  inSingleSelectMode: false,
-  tooltipVisible: false,
-  selectedHighlightColorId: 'blue',
 
   // Card selection
   selectedCardIds: new Set<string>(),
@@ -311,16 +295,6 @@ export const useUIStore = create<UIState>()(
         setShowSheetModal: (show) => set({ showSheetModal: show }),
 
         setSelectedModelId: (modelId) => set({ selectedModelId: modelId }),
-
-        // Text selection actions
-        setInMultiSelectMode: (inMultiMode) => set({ inMultiSelectMode: inMultiMode }),
-        setInSingleSelectMode: (inSingleMode) => set({ inSingleSelectMode: inSingleMode }),
-        setTooltipVisible: (visible) => set({ tooltipVisible: visible }),
-        setSelectedHighlightColorId: (colorId) => set({ selectedHighlightColorId: colorId }),
-        enterMultiSelectMode: () => set({ inMultiSelectMode: true, inSingleSelectMode: false, tooltipVisible: true }),
-        exitMultiSelectMode: () => set({ inMultiSelectMode: false, tooltipVisible: false }),
-        enterSingleSelectMode: () => set({ inSingleSelectMode: true, inMultiSelectMode: false, tooltipVisible: true }),
-        exitSingleSelectMode: () => set({ inSingleSelectMode: false, tooltipVisible: false }),
 
         // Card selection actions
         toggleCardSelection: (id) => set((state) => {

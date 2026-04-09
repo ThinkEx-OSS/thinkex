@@ -35,12 +35,8 @@ import {
   getCardTypeIcon,
 } from "@/components/chat/WorkspaceItemPicker";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  useUIStore,
-  selectReplySelections,
-} from "@/lib/stores/ui-store";
+import { useUIStore } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
-import { useShallow } from "zustand/react/shallow";
 import type { Item } from "@/lib/workspace-state/types";
 import { useAui } from "@assistant-ui/react";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
@@ -241,7 +237,6 @@ export function PromptBuilderDialog({
   const aui = useAui();
   const formId = useId();
 
-  const replySelections = useUIStore(useShallow(selectReplySelections));
   const { selectedCardIds } = useSelectedCardIds();
   const defaultCount = config.defaultCount ?? 10;
   const [countInput, setCountInput] = useState(String(defaultCount));
