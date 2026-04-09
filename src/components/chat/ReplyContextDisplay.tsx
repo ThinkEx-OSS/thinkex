@@ -5,6 +5,7 @@ import { X, ChevronDown, ChevronUp } from "lucide-react";
 import { BsArrowReturnRight } from "react-icons/bs";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ReplySelectionRichText } from "@/components/chat/ReplySelectionRichText";
 
 /**
  * Displays “Ask AI” text selections as chips above the chat input.
@@ -18,12 +19,6 @@ function ReplyContextDisplayImpl() {
 
   // Show expand button if there are more than 3 selections (likely to overflow)
   const showExpandButton = replySelections.length > 3;
-
-  // Helper function to truncate text for display
-  const truncateText = (text: string, maxLength: number = 30) => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength).trim() + "...";
-  };
 
   if (!hasReplies) return null;
 
@@ -57,14 +52,17 @@ function ReplyContextDisplayImpl() {
                   </button>
                 </div>
 
-                {/* Selection Text */}
-                <span className="text-xs max-w-[200px] truncate text-blue-800 dark:text-blue-200">
-                  {truncateText(selection.text)}
+                {/* Selection text (KaTeX for $…$ / $$…$$, same rules as preprocess-latex) */}
+                <span className="text-xs max-w-[200px] min-w-0 line-clamp-1 text-blue-800 dark:text-blue-200 [&_.katex]:text-[0.85em]">
+                  <ReplySelectionRichText text={selection.text} />
                 </span>
               </div>
             </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-sm whitespace-pre-wrap break-words">
-              {selection.text}
+            <TooltipContent
+              side="top"
+              className="max-w-sm whitespace-pre-wrap break-words [&_.katex]:text-[0.9em]"
+            >
+              <ReplySelectionRichText text={selection.text} />
             </TooltipContent>
           </Tooltip>
         ))}

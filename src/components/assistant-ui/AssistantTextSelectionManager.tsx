@@ -88,6 +88,7 @@ export default function AssistantTextSelectionManager({
     addReplySelection({
       text: currentSelection.text,
       title: "Assistant message",
+      messageId: currentSelection.messageId,
     });
 
     setCurrentSelection(null);

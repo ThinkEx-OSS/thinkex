@@ -390,6 +390,10 @@ export function SelectionTooltip({
           }
         }}
         style={floatingStyles}
+        onMouseDown={(e) => {
+          // Keep the browser selection until click (same idea as assistant-ui SelectionToolbar).
+          e.preventDefault();
+        }}
         className={cn(
           "selection-tooltip-container pointer-events-auto z-[9999]",
           "inline-flex flex-row items-center gap-1 shadow-none outline-none ring-0",

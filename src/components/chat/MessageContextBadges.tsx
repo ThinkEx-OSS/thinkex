@@ -5,13 +5,11 @@ import { useAuiState } from "@assistant-ui/react";
 import { BsArrowReturnRight } from "react-icons/bs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ReplySelection } from "@/lib/stores/ui-store";
+import { ReplySelectionRichText } from "@/components/chat/ReplySelectionRichText";
 
 type MessageCustomMetadata = {
   replySelections?: ReplySelection[];
 };
-
-const truncate = (text: string, max: number) =>
-  text.length <= max ? text : text.slice(0, max).trim() + "...";
 
 /**
  * Renders persisted “Ask AI” text context from message.metadata.custom
@@ -40,8 +38,11 @@ function MessageContextBadgesImpl() {
               </span>
             </div>
           </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-sm whitespace-pre-wrap break-words">
-            {sel.text}
+          <TooltipContent
+            side="top"
+            className="max-w-sm whitespace-pre-wrap break-words [&_.katex]:text-[0.9em]"
+          >
+            <ReplySelectionRichText text={sel.text} />
           </TooltipContent>
         </Tooltip>
       ))}

@@ -40,6 +40,8 @@ export function deriveWorkspaceOpenMode(openItems: OpenWorkspaceItems): Workspac
 export interface ReplySelection {
   text: string;
   title?: string;
+  /** Source assistant message id when quoted from the thread (assistant-ui `data-message-id`). */
+  messageId?: string;
 }
 
 const emptyOpenItems = (): OpenWorkspaceItems => ({ primary: null, secondary: null });
@@ -73,7 +75,7 @@ interface UIState {
   itemScrollLocked: Map<string, boolean>;
 
   // Reply selection state
-  replySelections: Array<{ text: string; title?: string }>;
+  replySelections: ReplySelection[];
 
   // Citation highlight: when opening document/PDF from citation click, highlight/search this quote
   citationHighlightQuery: { itemId: string; query: string; pageNumber?: number } | null;
