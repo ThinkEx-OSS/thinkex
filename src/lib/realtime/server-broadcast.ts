@@ -3,6 +3,7 @@ import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "@/lib/utils/logger";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
+import { sanitizeWorkspaceEventForClient } from "@/lib/workspace/client-safe-events";
 
 let realtimeBroadcastClient: SupabaseClient | null = null;
 let didWarnMissingEnv = false;
@@ -48,7 +49,10 @@ export async function broadcastWorkspaceEventFromServer(
 
   try {
     // REST broadcast from the server (no WebSocket). See https://supabase.com/docs/guides/realtime/broadcast
-    const result = await channel.httpSend("workspace_event", event);
+    const result = await channel.httpSend(
+      "workspace_event",
+      sanitizeWorkspaceEventForClient(event),
+    );
     if (!result.success) {
       logger.error("[REALTIME] httpSend broadcast failed", {
         workspaceId,

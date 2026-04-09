@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EventResponse, WorkspaceEvent } from "@/lib/workspace/events";
+import { sanitizeWorkspaceEventForClient } from "@/lib/workspace/client-safe-events";
 import type { Item } from "@/lib/workspace-state/types";
 import { deriveWorkspaceStateFromCaches } from "./workspace-state-cache";
 
@@ -69,5 +70,60 @@ describe("workspace-state-cache", () => {
 
     expect(derived.state).toEqual([]);
     expect(derived.version).toBe(5);
+  });
+
+  it("does not leak another user's confirmed per-user state via delta overlay", () => {
+    const stateData = {
+      state: [
+        {
+          id: "yt-1",
+          type: "youtube",
+          name: "Video",
+          subtitle: "",
+          data: {
+            url: "https://youtu.be/1",
+            progress: 12,
+            playbackRate: 1,
+          },
+        },
+      ] satisfies Item[],
+      version: 2,
+    };
+
+    const leakedConfirmedEvent: WorkspaceEvent = {
+      id: "evt-confirmed",
+      type: "ITEM_UPDATED",
+      payload: {
+        id: "yt-1",
+        changes: {
+          data: {
+            progress: 77,
+            playbackRate: 1.75,
+          },
+        },
+      },
+      timestamp: Date.now(),
+      userId: "other-user",
+      version: 3,
+    } as WorkspaceEvent;
+
+    const eventLog: EventResponse = {
+      version: 3,
+      events: [sanitizeWorkspaceEventForClient(leakedConfirmedEvent)],
+    };
+
+    const derived = deriveWorkspaceStateFromCaches({
+      workspaceId: "ws-1",
+      stateData,
+      eventLog,
+    });
+
+    expect(derived.state).toEqual([
+      {
+        ...stateData.state[0],
+        lastModified: leakedConfirmedEvent.timestamp,
+      },
+    ]);
+    expect(derived.version).toBe(3);
   });
 });

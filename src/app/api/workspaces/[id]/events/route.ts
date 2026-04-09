@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { WorkspaceEvent, EventResponse } from "@/lib/workspace/events";
 import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import { appendWorkspaceEventWithBaseVersion } from "@/lib/workspace/workspace-event-store";
+import { sanitizeWorkspaceEventsForClient } from "@/lib/workspace/client-safe-events";
 import { hasDuplicateName } from "@/lib/workspace/unique-name";
 import { db, workspaceEvents } from "@/lib/db/client";
 import { eq, gt, asc, sql, and } from "drizzle-orm";
@@ -10,50 +11,6 @@ import {
   verifyWorkspaceAccess,
   withErrorHandling,
 } from "@/lib/api/workspace-helpers";
-
-/** Strip heavy OCR page payloads from OCR-backed items — client refetches item state as needed. */
-function stripOcrPagesFromItem(item: { type?: string; data?: unknown }): void {
-  if (
-    (item?.type === "pdf" || item?.type === "image") &&
-    item.data &&
-    typeof item.data === "object"
-  ) {
-    const d = item.data as Record<string, unknown>;
-    delete d.ocrPages;
-  }
-}
-
-function stripPdfOcrFromEventPayload(event: WorkspaceEvent): void {
-  const p = event.payload as Record<string, unknown>;
-  if (event.type === "ITEM_CREATED" && p?.item)
-    stripOcrPagesFromItem(p.item as { type?: string; data?: unknown });
-  if (event.type === "ITEM_UPDATED") {
-    const changes = p?.changes as Record<string, unknown> | undefined;
-    if (changes?.data && typeof changes.data === "object") {
-      const d = changes.data as Record<string, unknown>;
-      delete d.ocrPages;
-    }
-  }
-  if (event.type === "BULK_ITEMS_PATCHED") {
-    const updates = p?.updates as
-      | Array<{ changes?: { data?: unknown } }>
-      | undefined;
-    updates?.forEach((update) => {
-      if (update?.changes?.data && typeof update.changes.data === "object") {
-        const d = update.changes.data as Record<string, unknown>;
-        delete d.ocrPages;
-      }
-    });
-  }
-  if (event.type === "BULK_ITEMS_UPDATED") {
-    (
-      p?.addedItems as Array<{ type?: string; data?: unknown }> | undefined
-    )?.forEach(stripOcrPagesFromItem);
-    (p?.items as Array<{ type?: string; data?: unknown }> | undefined)?.forEach(
-      stripOcrPagesFromItem,
-    );
-  }
-}
 
 /**
  * GET /api/workspaces/[id]/events
@@ -166,10 +123,8 @@ async function handleGET(
       ? Math.max(...eventsData.map((e) => e.version))
       : 0;
 
-  events.forEach(stripPdfOcrFromEventPayload);
-
   const response: EventResponse = {
-    events,
+    events: sanitizeWorkspaceEventsForClient(events),
     version: maxVersion,
   };
 
@@ -304,15 +259,13 @@ async function handlePOST(
           id: e.eventId,
         }) as WorkspaceEvent,
     );
-    events.forEach(stripPdfOcrFromEventPayload);
-
     const totalTime = Date.now() - startTime;
     timings.total = totalTime;
 
     return NextResponse.json({
       conflict: true,
       version: appendResult.version,
-      currentEvents: events,
+      currentEvents: sanitizeWorkspaceEventsForClient(events),
     });
   }
 
