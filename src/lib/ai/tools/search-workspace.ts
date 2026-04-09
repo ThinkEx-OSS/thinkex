@@ -5,6 +5,7 @@ import { extractSearchableText } from "./workspace-search-utils";
 import { getVirtualPath } from "@/lib/utils/workspace-fs";
 import type { WorkspaceToolContext } from "./workspace-tools";
 import type { Item } from "@/lib/workspace-state/types";
+import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
 
 const MAX_LINE_LENGTH = 2000;
 const MAX_MATCHES = 100;
@@ -65,8 +66,8 @@ export function createSearchWorkspaceTool(ctx: WorkspaceToolContext) {
                 };
             }
 
-            const { state } = accessResult;
-            let items: Item[] = state.items.filter((i) => i.type !== "folder");
+            const state = normalizeWorkspaceItems(accessResult.state);
+            let items: Item[] = state.filter((i) => i.type !== "folder");
 
             if (include) {
                 const type = include.toLowerCase().trim();
@@ -76,7 +77,7 @@ export function createSearchWorkspaceTool(ctx: WorkspaceToolContext) {
             const normalizedPrefix = pathPrefix?.trim().replace(/\/+$/, "");
             if (normalizedPrefix) {
                 items = items.filter((item) => {
-                    const vp = getVirtualPath(item, state.items);
+                    const vp = getVirtualPath(item, state);
                     return vp.startsWith(normalizedPrefix) || vp.startsWith(normalizedPrefix + "/");
                 });
             }
@@ -86,8 +87,8 @@ export function createSearchWorkspaceTool(ctx: WorkspaceToolContext) {
             const matches: Match[] = [];
 
             for (const item of items) {
-                const { header, content } = extractSearchableText(item, state.items);
-                const vpath = getVirtualPath(item, state.items);
+                const { header, content } = extractSearchableText(item, state);
+                const vpath = getVirtualPath(item, state);
 
                 const truncate = (s: string) =>
                     s.length > MAX_LINE_LENGTH ? s.substring(0, MAX_LINE_LENGTH) + "..." : s;

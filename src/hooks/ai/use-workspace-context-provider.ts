@@ -1,6 +1,6 @@
 import { useAssistantContext } from "@assistant-ui/react";
 import { useCallback, useMemo } from "react";
-import type { WorkspaceCanvasState } from "@/lib/workspace-state/types";
+import type { Item } from "@/lib/workspace-state/types";
 import { formatWorkspaceContext } from "@/lib/utils/format-workspace-context";
 
 /**
@@ -11,12 +11,12 @@ import { formatWorkspaceContext } from "@/lib/utils/format-workspace-context";
  */
 export function useWorkspaceContextProvider(
   workspaceId: string | null,
-  state: WorkspaceCanvasState,
+  items: Item[],
   workspaceName?: string
 ) {
   const contextInstructions = useMemo(
-    () => (workspaceId ? formatWorkspaceContext(state, workspaceName) : ""),
-    [workspaceId, state, workspaceName]
+    () => (workspaceId ? formatWorkspaceContext(items, workspaceName) : ""),
+    [workspaceId, items, workspaceName]
   );
 
   const getContext = useCallback(() => contextInstructions, [contextInstructions]);

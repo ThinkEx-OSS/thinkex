@@ -109,9 +109,9 @@ const CitationRenderer = memo(
     const setCitationHighlightQuery = useUIStore((s) => s.setCitationHighlightQuery);
 
     const handleWorkspaceItemClick = () => {
-      if (!workspaceState?.items || !title) return;
+      if (!title) return;
       // Resolve by virtual path first (e.g. "pdfs/Syllabus.pdf") — AI may cite using paths from <workspace>
-      const items = workspaceState.items;
+      const items = workspaceState;
       const byPath = resolveItemByPath(items, title);
       const item =
         byPath && (byPath.type === "document" || byPath.type === "pdf")

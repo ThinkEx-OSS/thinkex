@@ -119,7 +119,7 @@ function WorkspaceContextWrapperContent({
   }, [isLoading, state, onReady]);
 
   // Extract workspace items for context display
-  const items = state?.items || [];
+  const items = state;
 
   // Workspace name comes from canonical workspace metadata.
   const { currentWorkspace } = useWorkspaceContext();

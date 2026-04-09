@@ -228,7 +228,7 @@ async function handlePOST(
       const state = await loadWorkspaceState(id);
       if (
         hasDuplicateName(
-          state.items,
+          state,
           item.name,
           item.type,
           item.folderId ?? null,
@@ -248,7 +248,7 @@ async function handlePOST(
     const newName = event.payload.changes.name;
     if (itemId && newName) {
       const state = await loadWorkspaceState(id);
-      const existingItem = state.items.find(
+      const existingItem = state.find(
         (i: { id: string }) => i.id === itemId,
       );
       if (existingItem) {
@@ -256,7 +256,7 @@ async function handlePOST(
           event.payload.changes.folderId ?? existingItem.folderId ?? null;
         if (
           hasDuplicateName(
-            state.items,
+            state,
             newName,
             existingItem.type,
             newFolderId,

@@ -55,9 +55,9 @@ const EditItemReceipt = ({ args, result, status }: EditItemReceiptProps) => {
   const navigateToItem = useNavigateToItem();
 
   const card = useMemo(() => {
-    if (!result.itemId || !workspaceState?.items) return undefined;
-    return workspaceState.items.find((item: Item) => item.id === result.itemId);
-  }, [result.itemId, workspaceState?.items]);
+    if (!result.itemId) return undefined;
+    return workspaceState.find((item: Item) => item.id === result.itemId);
+  }, [result.itemId, workspaceState]);
 
   const handleViewCard = () => {
     if (!result.itemId) return;

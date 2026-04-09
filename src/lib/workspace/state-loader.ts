@@ -1,12 +1,12 @@
 import { db, workspaceEvents } from "@/lib/db/client";
 import { eq, asc } from "drizzle-orm";
 import { replayEvents } from "./event-reducer";
-import type { WorkspaceCanvasState } from "@/lib/workspace-state/types";
+import type { Item } from "@/lib/workspace-state/types";
 import type { WorkspaceEvent } from "./events";
-import { initialState } from "@/lib/workspace-state/state";
+import { initialItems } from "@/lib/workspace-state/state";
 
-/** Load current workspace canvas state by replaying all events. */
-export async function loadWorkspaceState(workspaceId: string): Promise<WorkspaceCanvasState> {
+/** Load current workspace items by replaying all events. */
+export async function loadWorkspaceState(workspaceId: string): Promise<Item[]> {
   try {
     const events = await db
       .select()
@@ -29,6 +29,6 @@ export async function loadWorkspaceState(workspaceId: string): Promise<Workspace
     return replayEvents(workspaceEvents_typed);
   } catch (error) {
     console.error("Error loading workspace state from events:", error);
-    return initialState;
+    return initialItems;
   }
 }

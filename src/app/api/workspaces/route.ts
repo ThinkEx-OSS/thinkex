@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTemplateInitialState } from "@/lib/workspace/templates";
+import { getTemplateInitialItems } from "@/lib/workspace/templates";
 import { generateSlug } from "@/lib/workspace/slug";
 import type { WorkspaceWithState, WorkspaceTemplate } from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
-import { normalizeWorkspaceCanvasState } from "@/lib/workspace-state/state";
+import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
 import { createEvent } from "@/lib/workspace/events";
 import { db, workspaces } from "@/lib/db/client";
 import { workspaceCollaborators } from "@/lib/db/schema";
@@ -153,7 +153,7 @@ async function handlePOST(request: NextRequest) {
   const userId = user.userId;
 
   const body = await request.json();
-  const { name, description, template, is_public, icon, color, initialState: customInitialState } = body;
+  const { name, description, template, is_public, icon, color, initialItems: customInitialItems } = body;
 
   // Use the provided template, defaulting to "blank"
   const effectiveTemplate: WorkspaceTemplate = (template && [
@@ -219,14 +219,14 @@ async function handlePOST(request: NextRequest) {
     throw new Error("Failed to create workspace after multiple attempts");
   }
 
-  const initialState = customInitialState
-    ? normalizeWorkspaceCanvasState(customInitialState)
-    : getTemplateInitialState(effectiveTemplate);
+  const initialItems = customInitialItems
+    ? normalizeWorkspaceItems(customInitialItems)
+    : getTemplateInitialItems(effectiveTemplate);
 
-  if (initialState.items.length > 0) {
+  if (initialItems.length > 0) {
     const event = createEvent(
       "BULK_ITEMS_CREATED",
-      { items: initialState.items },
+      { items: initialItems },
       userId,
       user.name || user.email || undefined,
     );
@@ -254,7 +254,7 @@ async function handlePOST(request: NextRequest) {
   return NextResponse.json({
     workspace: {
       ...workspace,
-      state: initialState,
+      state: initialItems,
     }
   }, { status: 201 });
 }

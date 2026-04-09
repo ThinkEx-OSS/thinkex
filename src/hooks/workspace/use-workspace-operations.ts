@@ -9,7 +9,6 @@ import type {
   Item,
   ItemData,
   CardType,
-  WorkspaceCanvasState,
   DocumentData,
 } from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
@@ -94,7 +93,7 @@ export interface WorkspaceOperations {
  */
 export function useWorkspaceOperations(
   workspaceId: string | null,
-  currentState: WorkspaceCanvasState,
+  currentItems: Item[],
 ): WorkspaceOperations {
   const { data: session } = useSession();
   const user = session?.user;
@@ -127,7 +126,7 @@ export function useWorkspaceOperations(
         ]);
         if (cacheData?.events) {
           const latestState = replayEvents(cacheData.events);
-          const cachedItem = latestState.items.find(
+          const cachedItem = latestState.find(
             (item) => item.id === itemId,
           );
           if (cachedItem) {
@@ -136,9 +135,9 @@ export function useWorkspaceOperations(
         }
       }
 
-      return currentState.items.find((item) => item.id === itemId);
+      return currentItems.find((item) => item.id === itemId);
     },
-    [workspaceId, queryClient, currentState.items],
+    [workspaceId, queryClient, currentItems],
   );
 
   const getLatestItemsFromState = useCallback(() => {
@@ -149,12 +148,12 @@ export function useWorkspaceOperations(
         "events",
       ]);
       if (cacheData?.events) {
-        return replayEvents(cacheData.events).items;
+        return replayEvents(cacheData.events);
       }
     }
 
-    return currentState.items;
-  }, [workspaceId, queryClient, currentState.items]);
+    return currentItems;
+  }, [workspaceId, queryClient, currentItems]);
 
   const getLatestItemWithPendingChanges = useCallback(
     (itemId: string) => {
@@ -258,11 +257,11 @@ export function useWorkspaceOperations(
       const folderId = activeFolderId ?? null;
       const finalName =
         name ||
-        getNextUniqueDefaultName(currentState.items, validType, folderId);
+        getNextUniqueDefaultName(currentItems, validType, folderId);
 
       let layout: Item["layout"] = undefined;
       if (initialLayout) {
-        const itemsInView = currentState.items.filter((item) =>
+        const itemsInView = currentItems.filter((item) =>
           activeFolderId ? item.folderId === activeFolderId : !item.folderId,
         );
         const position = findNextAvailablePosition(
@@ -292,7 +291,7 @@ export function useWorkspaceOperations(
 
       return id; // Return ID for further operations
     },
-    [mutation, userId, userName, workspaceId, currentState.items],
+    [mutation, userId, userName, workspaceId, currentItems],
   );
 
   const createItems = useCallback(
@@ -320,12 +319,12 @@ export function useWorkspaceOperations(
 
       // Get items in current view for layout calculation
       // We need to maintain a running list including newly created items to prevent stacking
-      const currentItems = currentState.items.filter((item) =>
+      const itemsInCurrentView = currentItems.filter((item) =>
         activeFolderId ? item.folderId === activeFolderId : !item.folderId,
       );
 
       // Mutable array to track items for position calculation as we generate them
-      const itemsForLayout = [...currentItems];
+      const itemsForLayout = [...itemsInCurrentView];
 
       // Track items we're creating to detect within-batch duplicates
       const itemsSoFar: Item[] = [];
@@ -355,7 +354,7 @@ export function useWorkspaceOperations(
 
           const id = generateItemId();
           const folderId = activeFolderId ?? null;
-          const allItemsSoFar = [...currentState.items, ...itemsSoFar];
+          const allItemsSoFar = [...itemsInCurrentView, ...itemsSoFar];
           const finalName =
             name ||
             getNextUniqueDefaultName(allItemsSoFar, validType, folderId);
@@ -450,7 +449,7 @@ export function useWorkspaceOperations(
       // Return array of created item IDs
       return createdItems.map((item) => item.id);
     },
-    [mutation, userId, userName, workspaceId, currentState.items],
+    [mutation, userId, userName, workspaceId, currentItems],
   );
 
   const updateItem = useCallback(
@@ -521,7 +520,7 @@ export function useWorkspaceOperations(
       logger.debug("🗑️ [DELETE-ITEM] Deleting item:", { id, userId, userName });
 
       // If this is a PDF card, delete the file from Supabase storage first
-      const itemToDelete = currentState.items.find((item) => item.id === id);
+      const itemToDelete = currentItems.find((item) => item.id === id);
       if (itemToDelete && itemToDelete.type === "pdf") {
         const pdfData = itemToDelete.data as {
           fileUrl?: string;
@@ -570,7 +569,7 @@ export function useWorkspaceOperations(
       logger.debug("🗑️ [DELETE-ITEM] Created event:", event);
       mutation.mutate(event);
     },
-    [mutation, userId, userName, currentState.items],
+    [mutation, userId, userName, currentItems],
   );
 
   // Helper for updating item data (used by field actions)
@@ -608,11 +607,11 @@ export function useWorkspaceOperations(
             ]);
             if (cacheData?.events) {
               const latestState = replayEvents(cacheData.events);
-              latestItem = latestState.items.find((item) => item.id === itemId);
+              latestItem = latestState.find((item) => item.id === itemId);
             }
           }
           if (!latestItem) {
-            latestItem = currentState.items.find((item) => item.id === itemId);
+            latestItem = currentItems.find((item) => item.id === itemId);
           }
           if (!latestItem) {
             const cacheData = workspaceId
@@ -623,7 +622,7 @@ export function useWorkspaceOperations(
                 ])
               : null;
             const itemCount = cacheData?.events
-              ? replayEvents(cacheData.events).items.length
+              ? replayEvents(cacheData.events).length
               : 0;
             logger.warn(
               `[OCR/UPDATE] updateItemData: Item ${itemId} not found. Item may have been deleted. Cache has ${itemCount} items.`,
@@ -668,7 +667,7 @@ export function useWorkspaceOperations(
 
       updateItemDataDebounceRef.current.set(itemId, timeout);
     },
-    [workspaceId, queryClient, currentState, mutation, userId, userName],
+    [workspaceId, queryClient, currentItems, mutation, userId, userName],
   );
 
   // Update all items at once (used for layout changes, reordering, and bulk delete)
@@ -681,7 +680,7 @@ export function useWorkspaceOperations(
       // CRITICAL FIX: Read the latest state from cache (including optimistic updates)
       // instead of using the potentially stale currentState prop
       // This ensures we compare against the most recent state even when a previous mutation is pending
-      let latestState: WorkspaceCanvasState;
+      let latestState: Item[];
       if (workspaceId) {
         const cacheData = queryClient.getQueryData<EventResponse>([
           "workspace",
@@ -692,21 +691,21 @@ export function useWorkspaceOperations(
           latestState = replayEvents(cacheData.events);
         } else {
           // Fallback to prop if cache is empty (shouldn't happen in normal flow)
-          latestState = currentState;
+          latestState = currentItems;
         }
       } else {
-        latestState = currentState;
+        latestState = currentItems;
       }
 
-      const previousItemCount = latestState.items.length;
-      const currentIds = new Set(latestState.items.map((i) => i.id));
+      const previousItemCount = latestState.length;
+      const currentIds = new Set(latestState.map((i) => i.id));
       const newIds = new Set(items.map((i) => i.id));
 
       // Send only what changed – no full item data (avoids huge payloads for textbooks)
 
       // Count decreased: bulk delete – send only deletedIds
       if (items.length < previousItemCount) {
-        const deletedIds = latestState.items
+        const deletedIds = latestState
           .filter((i) => !newIds.has(i.id))
           .map((i) => i.id);
         logger.debug("🔧 [BULK-UPDATE] Bulk delete, sending deletedIds only", {
@@ -750,7 +749,7 @@ export function useWorkspaceOperations(
         h: number;
       }> = [];
       const currentItemsMap = new Map(
-        latestState.items.map((item) => [item.id, item]),
+        latestState.map((item) => [item.id, item]),
       );
 
       for (const item of items) {
@@ -796,7 +795,7 @@ export function useWorkspaceOperations(
         );
       }
     },
-    [workspaceId, queryClient, currentState, mutation, userId, userName],
+    [workspaceId, queryClient, currentItems, mutation, userId, userName],
   );
 
   // =====================================================
@@ -904,7 +903,7 @@ export function useWorkspaceOperations(
   // deleteFolder now just calls deleteItem (folders are items)
   const deleteFolder = useCallback(
     (folderId: string) => {
-      const folder = currentState.items?.find(
+      const folder = currentItems?.find(
         (i) => i.id === folderId && i.type === "folder",
       );
       logger.debug("📁 [FOLDER-DELETE] Deleting folder item:", {
@@ -916,7 +915,7 @@ export function useWorkspaceOperations(
         folder ? `Folder "${folder.name}" deleted` : "Folder deleted",
       );
     },
-    [deleteItem, currentState.items],
+    [deleteItem, currentItems],
   );
 
   // deleteFolderWithContents deletes the folder and all items inside it (including nested)
@@ -934,12 +933,12 @@ export function useWorkspaceOperations(
         ]);
         if (cacheData?.events) {
           const latestState = replayEvents(cacheData.events);
-          latestItems = latestState.items;
+          latestItems = latestState;
         } else {
-          latestItems = currentState.items;
+          latestItems = currentItems;
         }
       } else {
-        latestItems = currentState.items;
+        latestItems = currentItems;
       }
 
       const folder = latestItems.find(
@@ -1001,14 +1000,14 @@ export function useWorkspaceOperations(
     [
       workspaceId,
       queryClient,
-      currentState.items,
+      currentItems,
       updateAllItems,
     ],
   );
 
   const moveItemToFolder = useCallback(
     (itemId: string, folderId: string | null) => {
-      const item = currentState.items.find((i) => i.id === itemId);
+      const item = currentItems.find((i) => i.id === itemId);
       logger.debug("📁 [ITEM-MOVE] Moving item to folder:", {
         itemId,
         folderId,
@@ -1021,13 +1020,13 @@ export function useWorkspaceOperations(
       );
       mutation.mutate(event);
     },
-    [mutation, userId, userName, currentState.items],
+    [mutation, userId, userName, currentItems],
   );
 
   const moveItemsToFolder = useCallback(
     (itemIds: string[], folderId: string | null) => {
       const itemNames = itemIds
-        .map((id) => currentState.items.find((i) => i.id === id)?.name)
+        .map((id) => currentItems.find((i) => i.id === id)?.name)
         .filter((n): n is string => n != null);
       logger.debug("📁 [ITEMS-MOVE] Moving items to folder:", {
         itemIds,
@@ -1041,7 +1040,7 @@ export function useWorkspaceOperations(
       );
       mutation.mutate(event);
     },
-    [mutation, userId, userName, currentState.items],
+    [mutation, userId, userName, currentItems],
   );
 
   // Flush pending debounced changes for an item (called when modal closes)

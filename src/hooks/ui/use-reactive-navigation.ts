@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigateToItem } from "./use-navigate-to-item";
-import type { WorkspaceCanvasState } from "@/lib/workspace-state/types";
+import type { Item } from "@/lib/workspace-state/types";
 
 /**
  * Hook to handle navigation and selection after item creation.
  * It waits for the item to appear in the workspace state before attempting to scroll to it,
  * solving race conditions and stale closure issues.
  */
-export function useReactiveNavigation(workspaceState: WorkspaceCanvasState) {
+export function useReactiveNavigation(workspaceState: Item[]) {
     const [pendingNavigationId, setPendingNavigationId] = useState<string | null>(null);
     const navigateToItem = useNavigateToItem();
 
@@ -20,8 +20,8 @@ export function useReactiveNavigation(workspaceState: WorkspaceCanvasState) {
 
     // Effect to handle navigation once item appears in state
     useEffect(() => {
-        if (pendingNavigationId && workspaceState?.items) {
-            const itemExists = workspaceState.items.some(i => i.id === pendingNavigationId);
+        if (pendingNavigationId) {
+            const itemExists = workspaceState.some(i => i.id === pendingNavigationId);
             if (itemExists) {
                 // Slight delay to ensure DOM is ready (grid layout positioning)
                 setTimeout(() => {
@@ -30,7 +30,7 @@ export function useReactiveNavigation(workspaceState: WorkspaceCanvasState) {
                 }, 50);
             }
         }
-    }, [workspaceState?.items, pendingNavigationId, navigateToItem]);
+    }, [workspaceState, pendingNavigationId, navigateToItem]);
 
     return { handleCreatedItems };
 }

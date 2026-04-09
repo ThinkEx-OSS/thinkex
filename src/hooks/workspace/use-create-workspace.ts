@@ -3,7 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { WorkspaceWithState, WorkspaceTemplate } from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
-import type { WorkspaceCanvasState } from "@/lib/workspace-state/types";
+import type { Item } from "@/lib/workspace-state/types";
 
 interface CreateWorkspaceParams {
   name: string;
@@ -12,7 +12,7 @@ interface CreateWorkspaceParams {
   template?: WorkspaceTemplate;
   description?: string;
   is_public?: boolean;
-  initialState?: WorkspaceCanvasState;
+  initialItems?: Item[];
 }
 
 interface CreateWorkspaceResponse {
@@ -20,9 +20,7 @@ interface CreateWorkspaceResponse {
     id: string;
     slug: string;
     name: string;
-    state?: {
-      items?: Array<unknown>;
-    };
+    state?: Item[];
   };
 }
 
@@ -140,7 +138,7 @@ export function useCreateWorkspaceFromPrompt() {
     prompt: string,
     options?: {
       template?: WorkspaceTemplate;
-      initialState?: WorkspaceCanvasState;
+      initialItems?: Item[];
       onSuccess?: (workspace: CreateWorkspaceResponse["workspace"]) => void;
       onError?: (error: Error) => void;
     }
@@ -155,7 +153,7 @@ export function useCreateWorkspaceFromPrompt() {
         icon: icon || null,
         color: (color as CardColor) || null,
         template: options?.template || "getting_started",
-        initialState: options?.initialState,
+        initialItems: options?.initialItems,
       });
 
       options?.onSuccess?.(result.workspace);

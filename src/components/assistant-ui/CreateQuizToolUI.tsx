@@ -16,7 +16,7 @@ import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { toast } from "sonner";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
-import { initialState } from "@/lib/workspace-state/state";
+import { initialItems } from "@/lib/workspace-state/state";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import type { QuizResult } from "@/lib/ai/tool-result-schemas";
 import { parseQuizResult } from "@/lib/ai/tool-result-schemas";
@@ -64,7 +64,7 @@ const CreateQuizReceipt = ({
   const currentItem = useMemo(() => {
     const targetId = result.itemId || result.quizId;
     if (!targetId) return undefined;
-    const fromWorkspace = workspaceState?.items?.find(
+    const fromWorkspace = workspaceState?.find(
       (item: Item) => item.id === targetId,
     );
     if (fromWorkspace) return fromWorkspace;
@@ -78,16 +78,16 @@ const CreateQuizReceipt = ({
       data: {},
       folderId: undefined,
     };
-  }, [result.itemId, result.quizId, result, workspaceState?.items, allItems]);
+  }, [result.itemId, result.quizId, result, workspaceState, allItems]);
 
   // Get folder name if item is in a folder
   const folderName = useMemo(() => {
-    if (!currentItem?.folderId || !workspaceState?.items) return null;
-    const folder = workspaceState.items.find(
+    if (!currentItem?.folderId) return null;
+    const folder = workspaceState.find(
       (item: Item) => item.id === currentItem.folderId,
     );
     return folder?.name || null;
-  }, [currentItem?.folderId, workspaceState?.items]);
+  }, [currentItem?.folderId, workspaceState]);
 
   const handleViewCard = () => {
     const targetId = result.itemId || result.quizId;
@@ -214,7 +214,7 @@ function CreateQuizToolRenderer({
   const { state: workspaceState } = useWorkspaceState(workspaceId);
   const operations = useWorkspaceOperations(
     workspaceId,
-    workspaceState || initialState,
+    workspaceState || initialItems,
   );
   const workspaceContext = useWorkspaceContext();
   const currentWorkspace = workspaceContext.workspaces.find(
@@ -252,7 +252,7 @@ function CreateQuizToolRenderer({
         result={parsed}
         status={status as ToolStatus}
         moveItemToFolder={operations.moveItemToFolder}
-        allItems={workspaceState?.items || []}
+        allItems={workspaceState || []}
         workspaceName={
           currentWorkspace?.name || "Workspace"
         }

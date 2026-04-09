@@ -1,7 +1,7 @@
 import React, { RefObject, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import type { WorkspaceCanvasState, Item, CardType } from "@/lib/workspace-state/types";
+import type { Item, CardType } from "@/lib/workspace-state/types";
 import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import type { WorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import WorkspaceContent from "./WorkspaceContent";
@@ -73,7 +73,7 @@ interface WorkspaceSectionProps {
   // Workspace state
   currentWorkspaceId: string | null;
   currentSlug: string | null;
-  state: WorkspaceCanvasState;
+  state: Item[];
 
   // Operations
   addItem: (type: CardType, name?: string, initialData?: Partial<Item['data']>) => string;
@@ -253,7 +253,7 @@ export function WorkspaceSection({
   // Handle bulk delete - delete all selected items in one operation
   const handleBulkDelete = () => {
     // Filter out all selected items at once using Set.has() for O(1) lookup
-    const remainingItems = state.items.filter(item => !selectedCardIds.has(item.id));
+    const remainingItems = state.filter(item => !selectedCardIds.has(item.id));
     const deletedCount = selectedCardIds.size;
     updateAllItems(remainingItems);
     setShowDeleteDialog(false);
@@ -296,7 +296,7 @@ export function WorkspaceSection({
     const safeItemIds = filterItemIdsForFolderCreation(
       selectedCardIdsArray,
       activeFolderId,
-      state.items ?? []
+      state
     );
 
     if (safeItemIds.length === 0) {
@@ -517,7 +517,7 @@ export function WorkspaceSection({
               {!isChatMaximized && currentWorkspaceId && !isLoadingWorkspace && (
                 <MarqueeSelector
                   scrollContainerRef={scrollAreaRef}
-                  cardIds={state.items.map(item => item.id)}
+                  cardIds={state.map(item => item.id)}
                   isGridDragging={isGridDragging}
                 />
               )}
@@ -557,7 +557,7 @@ export function WorkspaceSection({
         )}
       </ContextMenu>
       {/* Selection Action Bar - show when cards are selected */}
-      {(state.items ?? []).length > 0 && !isChatMaximized && selectedCardIds.size > 0 && (
+      {state.length > 0 && !isChatMaximized && selectedCardIds.size > 0 && (
         <SelectionActionBar
           selectedCount={selectedCardIds.size}
           onClearSelection={clearCardSelection}
@@ -571,8 +571,8 @@ export function WorkspaceSection({
         <MoveToDialog
           open={showMoveDialog}
           onOpenChange={setShowMoveDialog}
-          items={state.items.filter(item => selectedCardIdsArray.includes(item.id))}
-          allItems={state.items}
+          items={state.filter(item => selectedCardIdsArray.includes(item.id))}
+          allItems={state}
           workspaceName={workspaceTitle || "Workspace"}
           workspaceIcon={workspaceIcon}
           workspaceColor={workspaceColor}
@@ -627,7 +627,7 @@ export function WorkspaceSection({
         open={showQuizDialog}
         onOpenChange={setShowQuizDialog}
         action="quiz"
-        items={state.items ?? []}
+        items={state}
         onBeforeSubmit={() => { if (isDesktop && setIsChatExpanded && !isChatExpanded) setIsChatExpanded(true); }}
       />
       {/* Flashcards Prompt Builder Dialog */}
@@ -635,7 +635,7 @@ export function WorkspaceSection({
         open={showFlashcardsDialog}
         onOpenChange={setShowFlashcardsDialog}
         action="flashcards"
-        items={state.items ?? []}
+        items={state}
         onBeforeSubmit={() => { if (isDesktop && setIsChatExpanded && !isChatExpanded) setIsChatExpanded(true); }}
       />
       {/* Floating recording indicator (visible when dialog is closed but recording is active) */}

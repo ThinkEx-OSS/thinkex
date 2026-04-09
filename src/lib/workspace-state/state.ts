@@ -1,5 +1,5 @@
 import {
-  WorkspaceCanvasState,
+  Item,
   CardType,
   ItemData,
   PdfData,
@@ -13,22 +13,22 @@ import {
   DocumentData,
 } from "@/lib/workspace-state/types";
 
-export const initialState: WorkspaceCanvasState = {
-  items: [],
-};
+export const initialItems: Item[] = [];
 
-export function normalizeWorkspaceCanvasState(
-  value: unknown,
-): WorkspaceCanvasState {
-  if (value == null || typeof value !== "object") {
-    return { ...initialState };
+export function normalizeWorkspaceItems(value: unknown): Item[] {
+  if (Array.isArray(value)) {
+    return value as Item[];
   }
 
-  const items = Array.isArray((value as { items?: unknown }).items)
-    ? ((value as { items: WorkspaceCanvasState["items"] }).items ?? [])
-    : [];
+  if (value == null || typeof value !== "object") {
+    return [...initialItems];
+  }
 
-  return { items };
+  if (Array.isArray((value as { items?: unknown }).items)) {
+    return ((value as { items: Item[] }).items ?? []) as Item[];
+  }
+
+  return [...initialItems];
 }
 
 export function defaultDataFor(type: CardType): ItemData {

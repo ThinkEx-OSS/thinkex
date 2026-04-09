@@ -7,6 +7,7 @@ import { eq, sql, and } from "drizzle-orm";
 import { createEvent } from "@/lib/workspace/events";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import { getRandomCardColor } from "@/lib/workspace-state/colors";
+import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
 import { logger } from "@/lib/utils/logger";
 import type {
   Item,
@@ -391,10 +392,10 @@ export async function workspaceWorker(
         // Handle different actions
         if (action === "create") {
           const item = await buildItemFromCreateParams(params);
-          const currentState = await loadWorkspaceState(params.workspaceId);
+          const currentState = normalizeWorkspaceItems(await loadWorkspaceState(params.workspaceId));
           if (
             hasDuplicateName(
-              currentState.items,
+              currentState,
               item.name,
               item.type,
               item.folderId ?? null,
@@ -584,9 +585,9 @@ export async function workspaceWorker(
           }
 
           // Use helper to load current state (duplicated logic removed)
-          const currentState = await loadWorkspaceState(params.workspaceId);
+          const currentState = normalizeWorkspaceItems(await loadWorkspaceState(params.workspaceId));
 
-          const existingItem = currentState.items.find(
+          const existingItem = currentState.find(
             (i: any) => i.id === params.itemId,
           );
           if (!existingItem) {
@@ -624,7 +625,7 @@ export async function workspaceWorker(
             logger.debug("🎴 [UPDATE-FLASHCARD] Updating title:", params.title);
             if (
               hasDuplicateName(
-                currentState.items,
+                currentState,
                 params.title,
                 existingItem.type,
                 existingItem.folderId ?? null,
@@ -728,9 +729,9 @@ export async function workspaceWorker(
             titleUpdate: hasTitle,
           });
 
-          const currentState = await loadWorkspaceState(params.workspaceId);
+          const currentState = normalizeWorkspaceItems(await loadWorkspaceState(params.workspaceId));
 
-          const existingItem = currentState.items.find(
+          const existingItem = currentState.find(
             (i: any) => i.id === params.itemId,
           );
           if (!existingItem) {
@@ -759,7 +760,7 @@ export async function workspaceWorker(
             logger.debug("🎯 [UPDATE-QUIZ] Updating title:", params.title);
             if (
               hasDuplicateName(
-                currentState.items,
+                currentState,
                 params.title,
                 existingItem.type,
                 existingItem.folderId ?? null,
@@ -883,8 +884,8 @@ export async function workspaceWorker(
             );
           }
 
-          const currentState = await loadWorkspaceState(params.workspaceId);
-          const existingItem = currentState.items.find(
+          const currentState = normalizeWorkspaceItems(await loadWorkspaceState(params.workspaceId));
+          const existingItem = currentState.find(
             (i: any) => i.id === params.itemId,
           );
           if (!existingItem) {
@@ -911,7 +912,7 @@ export async function workspaceWorker(
           if (params.title) {
             if (
               hasDuplicateName(
-                currentState.items,
+                currentState,
                 params.title,
                 existingItem.type,
                 existingItem.folderId ?? null,
@@ -1003,8 +1004,8 @@ export async function workspaceWorker(
             );
           }
 
-          const currentState = await loadWorkspaceState(params.workspaceId);
-          const existingItem = currentState.items.find(
+          const currentState = normalizeWorkspaceItems(await loadWorkspaceState(params.workspaceId));
+          const existingItem = currentState.find(
             (i: any) => i.id === params.itemId,
           );
           if (!existingItem) {
@@ -1106,8 +1107,8 @@ export async function workspaceWorker(
             throw new Error("oldString and newString required for edit");
           }
 
-          const currentState = await loadWorkspaceState(params.workspaceId);
-          const existingItem = currentState.items.find(
+          const currentState = normalizeWorkspaceItems(await loadWorkspaceState(params.workspaceId));
+          const existingItem = currentState.find(
             (i: Item) => i.id === params.itemId,
           );
           if (!existingItem) {
@@ -1172,7 +1173,7 @@ export async function workspaceWorker(
             if (rename) {
               if (
                 hasDuplicateName(
-                  currentState.items,
+                  currentState,
                   rename,
                   "flashcard",
                   existingItem.folderId ?? null,
@@ -1307,7 +1308,7 @@ export async function workspaceWorker(
             if (rename) {
               if (
                 hasDuplicateName(
-                  currentState.items,
+                  currentState,
                   rename,
                   "quiz",
                   existingItem.folderId ?? null,
@@ -1372,7 +1373,7 @@ export async function workspaceWorker(
             if (rename) {
               if (
                 hasDuplicateName(
-                  currentState.items,
+                  currentState,
                   rename,
                   "document",
                   existingItem.folderId ?? null,
@@ -1502,7 +1503,7 @@ export async function workspaceWorker(
             }
             if (
               hasDuplicateName(
-                currentState.items,
+                currentState,
                 rename,
                 "pdf",
                 existingItem.folderId ?? null,
@@ -1560,8 +1561,8 @@ export async function workspaceWorker(
             throw new Error("Item ID required for delete");
           }
 
-          const currentState = await loadWorkspaceState(params.workspaceId);
-          const existingItem = currentState.items.find(
+          const currentState = normalizeWorkspaceItems(await loadWorkspaceState(params.workspaceId));
+          const existingItem = currentState.find(
             (i: any) => i.id === params.itemId,
           );
           const event = createEvent(

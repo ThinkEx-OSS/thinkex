@@ -61,11 +61,11 @@ export function WorkspaceRuntimeProvider({
   }, [selectedCardIdsSet, viewingItemIds]);
 
   const selectedCardsContext = useMemo(() => {
-    if (!workspaceState?.items || contextCardIds.size === 0) {
+    if (contextCardIds.size === 0) {
       return "";
     }
 
-    const contextItems = workspaceState.items.filter((item) =>
+    const contextItems = workspaceState.filter((item) =>
       contextCardIds.has(item.id),
     );
 
@@ -75,12 +75,12 @@ export function WorkspaceRuntimeProvider({
 
     return formatSelectedCardsMetadata(
       contextItems,
-      workspaceState.items,
+      workspaceState,
       activePdfPageByItemId,
       viewingItemIds,
     );
   }, [
-    workspaceState?.items,
+    workspaceState,
     contextCardIds,
     activePdfPageByItemId,
     viewingItemIds,

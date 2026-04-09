@@ -179,7 +179,7 @@ function DashboardContent({
 
   // Mark as saved when workspace is loaded from events
   useEffect(() => {
-    if (!isLoadingWorkspace && currentWorkspaceId && state.items) {
+    if (!isLoadingWorkspace && currentWorkspaceId) {
       // Use the last event's timestamp if available, otherwise use current time
       let lastSavedDate: Date;
       if (eventLog?.events && eventLog.events.length > 0) {
@@ -212,7 +212,7 @@ function DashboardContent({
   }, [
     isLoadingWorkspace,
     currentWorkspaceId,
-    state.items,
+    state,
     eventLog,
     updateLastSaved,
     updateHasUnsavedChanges,
@@ -265,7 +265,7 @@ function DashboardContent({
 
   const openWorkspaceItemView = (
     <OpenWorkspaceItemView
-      items={state.items}
+      items={state}
       onUpdateItem={operations.updateItem}
       onUpdateItemData={operations.updateItemData}
       onFlushPendingChanges={operations.flushPendingChanges}
@@ -382,7 +382,7 @@ function DashboardContent({
               addItem={operations.createItem}
               onPDFUpload={handleWorkspacePdfUpload}
               onItemCreated={handleCreatedItems}
-              items={state.items || []}
+              items={state}
               onRenameFolder={(folderId, newName) => {
                 operations.updateItem(folderId, { name: newName });
               }}
@@ -392,7 +392,7 @@ function DashboardContent({
                 if (!primaryOpenItemId || workspaceOpenMode !== "single") {
                   return null;
                 }
-                return state.items?.find((i) => i.id === primaryOpenItemId) ?? null;
+                return state.find((i) => i.id === primaryOpenItemId) ?? null;
               })()}
               onCloseActiveItem={(id) => {
                 operations.flushPendingChanges(id);
@@ -461,7 +461,7 @@ function DashboardContent({
       <WorkspaceSearchDialog
         open={searchDialogOpen}
         onOpenChange={setSearchDialogOpen}
-        items={state.items ?? []}
+        items={state}
         currentWorkspaceId={currentWorkspaceId}
         isLoadingWorkspace={isLoadingWorkspace}
       />

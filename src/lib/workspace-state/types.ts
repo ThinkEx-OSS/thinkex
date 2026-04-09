@@ -180,10 +180,6 @@ export interface Item {
   lastModified?: number;
 }
 
-export interface WorkspaceCanvasState {
-  items: Item[]; // Includes folder-type items (type: 'folder')
-}
-
 // =====================================================
 // WORKSPACE TYPES
 // =====================================================
@@ -202,5 +198,5 @@ export interface TemplateDefinition {
   name: string;
   description: string;
   template: WorkspaceTemplate;
-  initialState: WorkspaceCanvasState;
+  initialItems: Item[];
 }

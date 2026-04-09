@@ -26,16 +26,14 @@ import { SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/col
 import { validateImportedJSON, generateImportPreview, type ValidationResult } from "@/lib/workspace/import-validation";
 import { Textarea } from "@/components/ui/textarea";
 import { Upload } from "lucide-react";
-import type { WorkspaceCanvasState } from "@/lib/workspace-state/types";
+import type { Item } from "@/lib/workspace-state/types";
 
 
 interface Workspace {
   id: string;
   slug: string;
   name: string;
-  state?: {
-    items?: Array<unknown>;
-  };
+  state?: Item[];
 }
 
 interface CreateWorkspaceModalProps {
@@ -47,7 +45,7 @@ interface CreateWorkspaceModalProps {
     description?: string;
     icon?: string | null;
     color?: CardColor | null;
-    initialState?: WorkspaceCanvasState;
+    initialItems?: Item[];
   };
 }
 
@@ -66,8 +64,8 @@ export default function CreateWorkspaceModal({
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<WorkspaceTemplate>("blank");
   const [error, setError] = useState("");
-  const [importMode, setImportMode] = useState<"template" | "json">(initialData?.initialState ? "json" : "template");
-  const [jsonInput, setJsonInput] = useState(initialData?.initialState ? JSON.stringify(initialData.initialState, null, 2) : "");
+  const [importMode, setImportMode] = useState<"template" | "json">(initialData?.initialItems ? "json" : "template");
+  const [jsonInput, setJsonInput] = useState(initialData?.initialItems ? JSON.stringify(initialData.initialItems, null, 2) : "");
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
 
   // Collaboration state
@@ -80,9 +78,9 @@ export default function CreateWorkspaceModal({
       setName(initialData.name || "");
       setSelectedIcon(initialData.icon || null);
       setSelectedColor(initialData.color || null);
-      if (initialData.initialState) {
+      if (initialData.initialItems) {
         setImportMode("json");
-        const jsonString = JSON.stringify(initialData.initialState, null, 2);
+        const jsonString = JSON.stringify(initialData.initialItems, null, 2);
         setJsonInput(jsonString);
         const result = validateImportedJSON(jsonString);
         setValidationResult(result);
@@ -156,7 +154,7 @@ export default function CreateWorkspaceModal({
         is_public: false,
         icon: selectedIcon,
         color: selectedColor,
-        initialState: importMode === "json" && validationResult?.data ? validationResult.data : undefined,
+        initialItems: importMode === "json" && validationResult?.data ? validationResult.data : undefined,
       },
       {
         onSuccess: async ({ workspace }) => {
@@ -247,10 +245,10 @@ export default function CreateWorkspaceModal({
           setName(initialData.name || "");
           setSelectedIcon(initialData.icon || null);
           setSelectedColor(initialData.color || null);
-          if (initialData.initialState) {
+          if (initialData.initialItems) {
             setImportMode("json");
-            setJsonInput(JSON.stringify(initialData.initialState, null, 2));
-            const result = validateImportedJSON(JSON.stringify(initialData.initialState, null, 2));
+            setJsonInput(JSON.stringify(initialData.initialItems, null, 2));
+            const result = validateImportedJSON(JSON.stringify(initialData.initialItems, null, 2));
             setValidationResult(result);
           } else {
             setImportMode("template");

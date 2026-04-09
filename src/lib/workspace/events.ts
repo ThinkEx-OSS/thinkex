@@ -1,4 +1,4 @@
-import type { Item, WorkspaceCanvasState } from "@/lib/workspace-state/types";
+import type { Item } from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
 /** Payload shape for historical FOLDER_* events (folders are items today; replay still parses these). */
 type FolderEventRecord = {
@@ -41,7 +41,7 @@ type LegacyWorkspaceCompatibilityEvent =
     }
   | {
       type: "WORKSPACE_SNAPSHOT";
-      payload: WorkspaceCanvasState;
+      payload: Item[] | { items?: Item[] };
       timestamp: number;
       userId: string;
       userName?: string;

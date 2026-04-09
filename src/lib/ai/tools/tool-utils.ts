@@ -54,7 +54,7 @@ export function withSanitizedModelOutput<T extends Record<string, any>>(toolDef:
  */
 export async function loadStateForTool(
     ctx: WorkspaceToolContext
-): Promise<{ success: true; state: { items: Item[] } } | { success: false; message: string }> {
+): Promise<{ success: true; state: Item[] } | { success: false; message: string }> {
     if (!ctx.workspaceId) {
         return { success: false, message: "No workspace context available" };
     }
