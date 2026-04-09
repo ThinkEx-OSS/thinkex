@@ -9,7 +9,7 @@ import {
   CodeExecuteResultSchema,
   normalizeCodeExecuteResult,
 } from "@/lib/ai/code-execute-shared";
-import { EscalateModelResultSchema } from "@/lib/ai/tools/escalate-model";
+import { EscalateModelResultSchema } from "@/lib/ai/escalate-model-shared";
 
 /**
  * Shared schemas and parsers for tool results. Used by assistant-ui Tool UIs

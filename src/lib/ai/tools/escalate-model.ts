@@ -3,12 +3,10 @@ import { tool, generateText, zodSchema } from "ai";
 import { google } from "@ai-sdk/google";
 import type { GoogleLanguageModelOptions } from "@ai-sdk/google";
 import { getModelForPurpose } from "@/lib/ai/models";
-
-export const EscalateModelResultSchema = z.object({
-  analysis: z.string(),
-});
-
-export type EscalateModelResult = z.infer<typeof EscalateModelResultSchema>;
+import {
+  EscalateModelResultSchema,
+  type EscalateModelResult,
+} from "@/lib/ai/escalate-model-shared";
 
 /**
  * Delegate a complex reasoning task to a higher-intelligence model with extended thinking.
