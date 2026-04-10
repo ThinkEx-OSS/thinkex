@@ -15,6 +15,13 @@
       "when": 1775704317855,
       "tag": "0001_stormy_rawhide_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775793600000,
+      "tag": "0002_zero_publication",
+      "breakpoints": true
     }
   ]
 }
