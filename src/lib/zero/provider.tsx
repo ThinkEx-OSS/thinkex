@@ -4,7 +4,7 @@ import { ZeroProvider as BaseZeroProvider } from "@rocicorp/zero/react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "@/lib/auth-client";
-import { getZero } from "./client";
+import { destroyZero, getZero } from "./client";
 
 export function ZeroProvider({ children }: { children: ReactNode }) {
   const { data: session, isPending } = useSession();
@@ -12,14 +12,16 @@ export function ZeroProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
+    setToken(null);
+
     if (!userId) {
-      setToken(null);
       return;
     }
 
     const controller = new AbortController();
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
-    void (async () => {
+    const fetchToken = async () => {
       try {
         const response = await fetch("/api/zero/token", {
           credentials: "include",
@@ -32,21 +34,37 @@ export function ZeroProvider({ children }: { children: ReactNode }) {
 
         const data = (await response.json()) as { token?: string };
         setToken(data.token ?? null);
+
+        refreshTimer = setTimeout(fetchToken, 55 * 60 * 1000);
       } catch (error) {
         if (!controller.signal.aborted) {
-          console.error("[zero] Failed to initialize auth token", error);
+          console.error("[zero] Failed to fetch token", error);
           setToken(null);
         }
       }
-    })();
+    };
+
+    void fetchToken();
 
     return () => {
       controller.abort();
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+      }
     };
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      destroyZero();
+    }
   }, [userId]);
 
   const zero = useMemo(() => {
     if (!userId || !token) {
+      if (!userId) {
+        destroyZero();
+      }
       return null;
     }
 

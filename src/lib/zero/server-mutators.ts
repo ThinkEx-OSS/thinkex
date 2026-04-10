@@ -232,6 +232,32 @@ export const serverMutators = defineServerMutators(mutators, {
       const parsed = zeroMutatorSchemas.item.delete.parse(args);
       const wrappedTx = getWrappedTransaction(tx);
       await assertWorkspaceWriteAccess(wrappedTx, parsed.workspaceId, ctx.userId);
+
+      const [shell] = await wrappedTx
+        .select({ type: workspaceItems.type })
+        .from(workspaceItems)
+        .where(
+          and(
+            eq(workspaceItems.workspaceId, parsed.workspaceId),
+            eq(workspaceItems.itemId, parsed.id),
+          ),
+        )
+        .limit(1);
+
+      let childIds: string[] = [];
+      if (shell?.type === "folder") {
+        const children = await wrappedTx
+          .select({ itemId: workspaceItems.itemId })
+          .from(workspaceItems)
+          .where(
+            and(
+              eq(workspaceItems.workspaceId, parsed.workspaceId),
+              eq(workspaceItems.folderId, parsed.id),
+            ),
+          );
+        childIds = children.map((child) => child.itemId);
+      }
+
       await wrappedTx
         .delete(workspaceItemExtracted)
         .where(
@@ -241,6 +267,14 @@ export const serverMutators = defineServerMutators(mutators, {
           ),
         );
       await mutators.item.delete.fn({ tx, ctx, args: parsed });
+
+      if (childIds.length > 0) {
+        await syncExtractedRows(wrappedTx, {
+          workspaceId: parsed.workspaceId,
+          itemIds: childIds,
+          userId: ctx.userId,
+        });
+      }
     }),
     createMany: defineServerMutator(async ({ tx, ctx, args }) => {
       const parsed = zeroMutatorSchemas.item.createMany.parse(args);
@@ -269,14 +303,14 @@ export const serverMutators = defineServerMutators(mutators, {
       const wrappedTx = getWrappedTransaction(tx);
       await assertWorkspaceWriteAccess(wrappedTx, parsed.workspaceId, ctx.userId);
       await mutators.item.updateMany.fn({ tx, ctx, args: parsed });
-      const affectedIds = parsed.deletedIds?.length
-        ? parsed.deletedIds
-        : parsed.addedItems?.length
-          ? parsed.addedItems.map((item) => item.id)
-          : (parsed.layoutUpdates ?? []).map((update) => update.id);
+      const affectedIds = [
+        ...(parsed.deletedIds ?? []),
+        ...(parsed.addedItems ?? []).map((item) => item.id),
+        ...(parsed.layoutUpdates ?? []).map((update) => update.id),
+      ];
       await syncExtractedRows(wrappedTx, {
         workspaceId: parsed.workspaceId,
-        itemIds: affectedIds,
+        itemIds: [...new Set(affectedIds)],
         userId: ctx.userId,
       });
     }),
@@ -301,7 +335,7 @@ export const serverMutators = defineServerMutators(mutators, {
       await mutators.folder.createWithItems.fn({ tx, ctx, args: parsed });
       await syncExtractedRows(wrappedTx, {
         workspaceId: parsed.workspaceId,
-        itemIds: [parsed.folder.id],
+        itemIds: [parsed.folder.id, ...parsed.itemIds],
         userId: ctx.userId,
       });
     }),

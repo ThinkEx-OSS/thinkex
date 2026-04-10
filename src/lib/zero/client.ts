@@ -24,9 +24,20 @@ let zeroInstance: ReturnType<typeof createZeroInstance> | null = null;
 let zeroUserId: string | null = null;
 let zeroAuthToken: string | null = null;
 
+export function destroyZero() {
+  if (!zeroInstance) {
+    return;
+  }
+
+  void zeroInstance.close();
+  zeroInstance = null;
+  zeroUserId = null;
+  zeroAuthToken = null;
+}
+
 export function getZero(params: { userId: string; auth: string }) {
   if (!zeroInstance || zeroUserId !== params.userId) {
-    void zeroInstance?.close();
+    destroyZero();
     zeroInstance = createZeroInstance(params);
     zeroUserId = params.userId;
     zeroAuthToken = params.auth;

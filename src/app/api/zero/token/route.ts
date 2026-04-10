@@ -10,7 +10,15 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const secret = new TextEncoder().encode(process.env.ZERO_AUTH_SECRET!);
+  const zeroAuthSecret = process.env.ZERO_AUTH_SECRET;
+  if (!zeroAuthSecret) {
+    return NextResponse.json(
+      { error: "ZERO_AUTH_SECRET is not configured" },
+      { status: 500 },
+    );
+  }
+
+  const secret = new TextEncoder().encode(zeroAuthSecret);
   const token = await new SignJWT({
     sub: session.user.id,
     name: session.user.name,

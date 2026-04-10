@@ -65,6 +65,10 @@ const itemSchema = z.object({
   lastModified: z.number().int().optional(),
 });
 
+const folderItemSchema = itemSchema.extend({
+  type: z.literal("folder"),
+});
+
 const itemChangesSchema = z.object({
   name: z.string().optional(),
   subtitle: z.string().optional(),
@@ -138,7 +142,7 @@ export const zeroMutatorSchemas = {
   folder: {
     createWithItems: z.object({
       workspaceId: z.string().uuid(),
-      folder: itemSchema,
+      folder: folderItemSchema,
       itemIds: z.array(z.string().uuid()),
     }),
   },
@@ -473,7 +477,6 @@ export const mutators = defineZeroMutators({
             itemId,
           });
         }
-        return;
       }
 
       if (parsed.addedItems?.length) {
@@ -490,42 +493,39 @@ export const mutators = defineZeroMutators({
             sourceVersion: 0,
           });
         }
-        return;
       }
 
-      if (!parsed.layoutUpdates?.length) {
-        return;
-      }
+      if (parsed.layoutUpdates?.length) {
+        const now = Date.now();
 
-      const now = Date.now();
+        for (const layoutUpdate of parsed.layoutUpdates) {
+          const existing = await loadItem(tx, {
+            workspaceId: parsed.workspaceId,
+            itemId: layoutUpdate.id,
+          });
 
-      for (const layoutUpdate of parsed.layoutUpdates) {
-        const existing = await loadItem(tx, {
-          workspaceId: parsed.workspaceId,
-          itemId: layoutUpdate.id,
-        });
+          if (!existing) {
+            throw new ApplicationError(
+              `Workspace item ${layoutUpdate.id} was not found.`,
+            );
+          }
 
-        if (!existing) {
-          throw new ApplicationError(
-            `Workspace item ${layoutUpdate.id} was not found.`,
-          );
-        }
-
-        await upsertItem(tx, {
-          workspaceId: parsed.workspaceId,
-          userId: ctx.userId,
-          sourceVersion: existing.sourceVersion,
-          item: {
-            ...existing.item,
-            layout: {
-              x: layoutUpdate.x,
-              y: layoutUpdate.y,
-              w: layoutUpdate.w,
-              h: layoutUpdate.h,
+          await upsertItem(tx, {
+            workspaceId: parsed.workspaceId,
+            userId: ctx.userId,
+            sourceVersion: existing.sourceVersion,
+            item: {
+              ...existing.item,
+              layout: {
+                x: layoutUpdate.x,
+                y: layoutUpdate.y,
+                w: layoutUpdate.w,
+                h: layoutUpdate.h,
+              },
+              lastModified: now,
             },
-            lastModified: now,
-          },
-        });
+          });
+        }
       }
     }),
     move: defineZeroMutator(async ({ tx, ctx, args }) => {
