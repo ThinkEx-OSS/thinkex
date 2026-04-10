@@ -82,7 +82,7 @@ export async function injectToolBridge(
 
   await jail.set(
     "_host_console_log",
-    new ivm.default.Reference((...args: any[]) => {
+    new ivm.Reference((...args: any[]) => {
       const msg = args
         .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
         .join(" ");
@@ -99,7 +99,7 @@ export async function injectToolBridge(
   for (const [sandboxName, executor] of executorMap) {
     const canonicalName = SANDBOX_TO_CANONICAL[sandboxName]!;
 
-    const hostFn = new ivm.default.Reference(async (argsJson: string) => {
+    const hostFn = new ivm.Reference(async (argsJson: string) => {
       const start = performance.now();
       let input: unknown;
       let output: unknown;
