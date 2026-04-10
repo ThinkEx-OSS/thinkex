@@ -1,40 +1,26 @@
 import {
-  downloadAndUploadToGemini,
-  transcribeWithGemini,
+  transcribeWithAssemblyAI,
   persistAudioResult,
   persistAudioFailure,
 } from "./steps";
 
 /**
- * Durable workflow for audio transcription.
+ * Durable workflow for audio transcription using AssemblyAI.
  * Steps are retriable and survive restarts.
  * Persists result to workspace on success or failure.
- *
- * @param fileUrl - URL of the audio file (must be from allowed hosts)
- * @param mimeType - MIME type of the audio
- * @param workspaceId - Workspace to update
- * @param itemId - Audio card item ID
- * @param userId - User ID for event attribution
  */
 export async function audioTranscribeWorkflow(
   fileUrl: string,
   mimeType: string,
   workspaceId: string,
   itemId: string,
-  userId: string
+  userId: string,
 ) {
   "use workflow";
 
   try {
-    const { fileUri, mimeType: geminiMimeType } = await downloadAndUploadToGemini(
-      fileUrl,
-      mimeType
-    );
-
-    const result = await transcribeWithGemini(fileUri, geminiMimeType);
-
+    const result = await transcribeWithAssemblyAI(fileUrl, mimeType);
     await persistAudioResult(workspaceId, itemId, userId, result);
-
     return result;
   } catch (err) {
     const errorMessage =

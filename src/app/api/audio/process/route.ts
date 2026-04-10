@@ -12,15 +12,14 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/audio/process
- * Receives an audio file URL, runs a durable workflow to download, upload to Gemini,
- * and transcribe. Returns structured transcript + summary.
+ * Receives an audio file URL and runs a durable AssemblyAI transcription workflow.
  */
 async function handlePOST(req: NextRequest) {
   const userId = await requireAuth();
 
-  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+  if (!process.env.ASSEMBLYAI_API_KEY) {
     return NextResponse.json(
-      { error: "GOOGLE_GENERATIVE_AI_API_KEY is not set" },
+      { error: "ASSEMBLYAI_API_KEY is not set" },
       { status: 500 },
     );
   }
@@ -29,10 +28,7 @@ async function handlePOST(req: NextRequest) {
   const { fileUrl, filename, mimeType, itemId, workspaceId } = body;
 
   if (!fileUrl || typeof fileUrl !== "string") {
-    return NextResponse.json(
-      { error: "fileUrl is required" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "fileUrl is required" }, { status: 400 });
   }
 
   if (!itemId || typeof itemId !== "string") {
@@ -74,10 +70,7 @@ async function handlePOST(req: NextRequest) {
   });
 }
 
-export const POST = withErrorHandling(
-  handlePOST,
-  "POST /api/audio/process",
-);
+export const POST = withErrorHandling(handlePOST, "POST /api/audio/process");
 
 function guessMimeType(filenameOrUrl: string): string {
   const lower = filenameOrUrl.toLowerCase();

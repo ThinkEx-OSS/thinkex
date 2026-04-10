@@ -109,6 +109,7 @@
     "@tiptap/starter-kit": "3.22.2",
     "@vercel/otel": "^2.1.1",
     "ai": "^6.0.146",
+    "assemblyai": "^4.29.0",
     "assistant-stream": "^0.3.10",
     "better-auth": "^1.6.2",
     "class-variance-authority": "^0.7.1",

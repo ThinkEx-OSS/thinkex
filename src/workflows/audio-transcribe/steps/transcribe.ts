@@ -1,10 +1,4 @@
-import {
-  GoogleGenAI,
-  Type,
-  createPartFromUri,
-  createUserContent,
-} from "@google/genai";
-import { getModelForPurpose } from "@/lib/ai/models";
+import { AssemblyAI, type TranscribeParams } from "assemblyai";
 
 export interface TranscribeResult {
   summary: string;
@@ -12,83 +6,102 @@ export interface TranscribeResult {
   duration?: number;
 }
 
-/**
- * Step: Call Gemini to transcribe audio and generate summary + segments.
- */
-export async function transcribeWithGemini(
-  fileUri: string,
+const MAX_AUDIO_SIZE = 200 * 1024 * 1024;
+
+function formatTimestamp(startMs: number): string {
+  const totalSeconds = Math.floor(startMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+export async function transcribeWithAssemblyAI(
+  fileUrl: string,
   mimeType: string,
 ): Promise<TranscribeResult> {
   "use step";
 
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  const apiKey = process.env.ASSEMBLYAI_API_KEY;
   if (!apiKey) {
-    throw new Error("GOOGLE_GENERATIVE_AI_API_KEY is not set");
+    throw new Error("ASSEMBLYAI_API_KEY is not set");
   }
 
-  const client = new GoogleGenAI({ apiKey });
+  const audioResponse = await fetch(fileUrl, { redirect: "error" });
+  if (!audioResponse.ok) {
+    throw new Error("Failed to download audio");
+  }
 
-  const prompt = `Process this audio file and generate a detailed transcription and summary.
+  const contentLength = Number(
+    audioResponse.headers.get("content-length") || "0",
+  );
+  if (contentLength > MAX_AUDIO_SIZE) {
+    throw new Error("Audio file exceeds the 200 MB size limit");
+  }
 
-Requirements:
-1. Provide a comprehensive summary of the entire audio content.
-2. Identify distinct speakers (e.g., Speaker 1, Speaker 2, or names if context allows).
-3. Provide accurate timestamps for each segment (Format: MM:SS).
-4. Provide the total duration of the audio in seconds (a single number, e.g. 180.5 for 3 minutes).`;
+  const audioBuffer = await audioResponse.arrayBuffer();
+  if (audioBuffer.byteLength > MAX_AUDIO_SIZE) {
+    throw new Error("Audio file exceeds the 200 MB size limit");
+  }
 
-  const response = await client.models.generateContent({
-    model: getModelForPurpose("audio-transcribe"),
-    contents: createUserContent([createPartFromUri(fileUri, mimeType), prompt]),
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          summary: {
-            type: Type.STRING,
-            description: "A concise summary of the audio content.",
-          },
-          duration: {
-            type: Type.NUMBER,
-            description: "Total duration of the audio in seconds.",
-          },
-          segments: {
-            type: Type.ARRAY,
-            description:
-              "List of transcribed segments with speaker and timestamp.",
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                speaker: { type: Type.STRING },
-                timestamp: { type: Type.STRING },
-                content: { type: Type.STRING },
-              },
-              required: ["speaker", "timestamp", "content"],
-            },
-          },
-        },
-        required: ["summary", "segments"],
-      },
-    },
+  const client = new AssemblyAI({ apiKey });
+  const audioFile = new Blob([audioBuffer], {
+    type:
+      mimeType ||
+      audioResponse.headers.get("content-type") ||
+      "application/octet-stream",
+  });
+  const audioUrl = await client.files.upload(audioFile);
+
+  const transcriptParams = {
+    audio_url: audioUrl,
+    speech_models: ["universal-3-pro", "universal-2"],
+    language_detection: true,
+    speaker_labels: true,
+    summarization: true,
+    summary_model: "informative",
+    summary_type: "paragraph",
+  } as unknown as TranscribeParams;
+
+  const transcript = await client.transcripts.transcribe(transcriptParams);
+
+  if (transcript.status === "error") {
+    throw new Error(transcript.error || "AssemblyAI transcription failed");
+  }
+
+  if (transcript.status !== "completed") {
+    throw new Error(
+      `AssemblyAI transcription did not complete: ${transcript.status}`,
+    );
+  }
+
+  const speakerMap = new Map<string, string>();
+  let speakerCount = 0;
+
+  const segments = (transcript.utterances ?? []).map((utterance) => {
+    const sourceSpeaker =
+      typeof utterance.speaker === "string" && utterance.speaker.length > 0
+        ? utterance.speaker
+        : "unknown";
+
+    if (!speakerMap.has(sourceSpeaker)) {
+      speakerCount += 1;
+      speakerMap.set(sourceSpeaker, `Speaker ${speakerCount}`);
+    }
+
+    return {
+      speaker: speakerMap.get(sourceSpeaker) ?? sourceSpeaker,
+      timestamp: formatTimestamp(utterance.start ?? 0),
+      content: utterance.text,
+    };
   });
 
-  const resultText = response.text;
-  if (!resultText) {
-    throw new Error("No response from Gemini");
-  }
-
-  const result = JSON.parse(resultText) as {
-    summary: string;
-    segments: Array<{ speaker: string; timestamp: string; content: string }>;
-    duration?: number;
-  };
-
   return {
-    summary: result.summary,
-    segments: result.segments,
+    summary: transcript.summary ?? "",
+    segments,
     duration:
-      typeof result.duration === "number" && result.duration > 0
-        ? result.duration
+      typeof transcript.audio_duration === "number" &&
+      transcript.audio_duration > 0
+        ? transcript.audio_duration
         : undefined,
   };
 }

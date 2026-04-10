@@ -34,7 +34,6 @@ export type ModelPurpose =
   | "autogen-search"
   | "autogen-distill"
   | "autogen-content"
-  | "audio-transcribe"
   | "escalation";
 
 const PROVIDER_PREFIX_RE = /^(google|anthropic|openai)\//;
@@ -142,7 +141,6 @@ const PURPOSE_MODEL_MAP: Record<ModelPurpose, string> = {
   "autogen-search": "gemini-2.5-flash-lite",
   "autogen-distill": "gemini-2.5-flash-lite",
   "autogen-content": "gemini-2.5-flash",
-  "audio-transcribe": "gemini-2.5-flash",
   escalation: "gemini-3.1-pro-preview",
 };
 
