@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import {
   Mic,
@@ -15,9 +15,14 @@ import {
   Copy,
   Check,
 } from "lucide-react";
-import type { Item, AudioData, AudioSegment } from "@/lib/workspace-state/types";
+import type {
+  Item,
+  AudioData,
+  AudioSegment,
+} from "@/lib/workspace-state/types";
 import { cn } from "@/lib/utils";
 import { startAudioProcessing } from "@/lib/audio/start-audio-processing";
+import { useTranscriptSegments } from "@/hooks/workspace/use-transcript-segments";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -60,7 +65,11 @@ interface AudioCardContentProps {
   isScrollLocked?: boolean;
 }
 
-export function AudioCardContent({ item, isCompact = false, isScrollLocked = false }: AudioCardContentProps) {
+export function AudioCardContent({
+  item,
+  isCompact = false,
+  isScrollLocked = false,
+}: AudioCardContentProps) {
   const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
   const audioData = item.data as AudioData;
   const [isRetrying, setIsRetrying] = useState(false);
@@ -73,7 +82,7 @@ export function AudioCardContent({ item, isCompact = false, isScrollLocked = fal
     window.dispatchEvent(
       new CustomEvent("audio-processing-complete", {
         detail: { itemId: item.id, retrying: true },
-      })
+      }),
     );
 
     startAudioProcessing({
@@ -83,7 +92,14 @@ export function AudioCardContent({ item, isCompact = false, isScrollLocked = fal
       filename: audioData.filename,
       mimeType: audioData.mimeType || "audio/webm",
     }).finally(() => setIsRetrying(false));
-  }, [audioData.fileUrl, audioData.filename, audioData.mimeType, item.id, workspaceId, isRetrying]);
+  }, [
+    audioData.fileUrl,
+    audioData.filename,
+    audioData.mimeType,
+    item.id,
+    workspaceId,
+    isRetrying,
+  ]);
 
   // ── Loading / Error states ──────────────────────────────────────────────
 
@@ -92,7 +108,9 @@ export function AudioCardContent({ item, isCompact = false, isScrollLocked = fal
       <div className="flex flex-col items-center justify-center gap-3 h-full p-6 text-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         <p className="text-sm text-muted-foreground">Uploading audio...</p>
-        <p className="text-xs text-muted-foreground/80">Don&apos;t close — upload in progress</p>
+        <p className="text-xs text-muted-foreground/80">
+          Don&apos;t close — upload in progress
+        </p>
       </div>
     );
   }
@@ -105,7 +123,9 @@ export function AudioCardContent({ item, isCompact = false, isScrollLocked = fal
           <Loader2 className="absolute -top-1 -right-1 h-4 w-4 animate-spin text-primary" />
         </div>
         <div>
-          <p className="text-sm font-medium text-foreground">Analyzing audio...</p>
+          <p className="text-sm font-medium text-foreground">
+            Analyzing audio...
+          </p>
           <p className="text-xs text-muted-foreground mt-1">
             Generating transcript and summary
           </p>
@@ -122,7 +142,9 @@ export function AudioCardContent({ item, isCompact = false, isScrollLocked = fal
       <div className="flex flex-col items-center justify-center gap-3 h-full p-6 text-center">
         <AlertCircle className="h-8 w-8 text-destructive/70" />
         <div>
-          <p className="text-sm font-medium text-foreground">Processing failed</p>
+          <p className="text-sm font-medium text-foreground">
+            Processing failed
+          </p>
           <p className="text-xs text-muted-foreground mt-1">
             {audioData.error || "An error occurred while processing the audio."}
           </p>
@@ -148,7 +170,15 @@ export function AudioCardContent({ item, isCompact = false, isScrollLocked = fal
 
   // ── Complete state ──────────────────────────────────────────────────────
 
-  return <AudioCardComplete audioData={audioData} isCompact={isCompact} isScrollLocked={isScrollLocked} />;
+  return (
+    <AudioCardComplete
+      workspaceId={workspaceId}
+      itemId={item.id}
+      audioData={audioData}
+      isCompact={isCompact}
+      isScrollLocked={isScrollLocked}
+    />
+  );
 }
 
 // ─── Complete state (with player) ───────────────────────────────────────────
@@ -161,26 +191,22 @@ function getDurationFromSegments(segments: AudioSegment[] | undefined): number {
 }
 
 function AudioCardComplete({
+  workspaceId,
+  itemId,
   audioData,
   isCompact,
   isScrollLocked,
 }: {
+  workspaceId: string | null;
+  itemId: string;
   audioData: AudioData;
   isCompact: boolean;
   isScrollLocked?: boolean;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
-
-  const durationFromSegments = getDurationFromSegments(audioData.segments);
-  const initialDuration =
-    (audioData.duration != null && audioData.duration > 0)
-      ? audioData.duration
-      : durationFromSegments;
-
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(initialDuration);
   const [isMuted] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [activeSegmentIdx, setActiveSegmentIdx] = useState(-1);
@@ -188,26 +214,72 @@ function AudioCardComplete({
   const [showSummary, setShowSummary] = useState(true);
   const [showTimeline, setShowTimeline] = useState(true);
 
-  // Build speaker → color map
-  const speakerColorMap = useRef(new Map<string, string>());
-  if (audioData.segments) {
+  const hasEagerSegments =
+    Array.isArray(audioData.segments) && audioData.segments.length > 0;
+  const shouldFetchSegments =
+    !hasEagerSegments &&
+    audioData.processingStatus === "complete" &&
+    (isCompact || showTimeline);
+  const {
+    data: transcriptData,
+    isLoading: isLoadingSegments,
+    error: transcriptError,
+  } = useTranscriptSegments(workspaceId, itemId, shouldFetchSegments);
+  const segments = hasEagerSegments
+    ? (audioData.segments ?? [])
+    : (transcriptData?.segments ?? []);
+  const transcript =
+    (hasEagerSegments ? audioData.transcript : null) ??
+    transcriptData?.transcript ??
+    audioData.transcript ??
+    (segments.length > 0
+      ? segments
+          .map(
+            (segment) =>
+              `[${segment.timestamp}] ${segment.speaker}: ${segment.content}`,
+          )
+          .join("\n")
+      : null);
+
+  const durationFromSegments = getDurationFromSegments(segments);
+  const initialDuration =
+    audioData.duration != null && audioData.duration > 0
+      ? audioData.duration
+      : durationFromSegments;
+  const [duration, setDuration] = useState(initialDuration);
+  const speakerColorMap = useMemo(() => {
+    const map = new Map<string, string>();
     let colorIdx = 0;
-    for (const seg of audioData.segments) {
-      if (!speakerColorMap.current.has(seg.speaker)) {
-        speakerColorMap.current.set(
-          seg.speaker,
-          SPEAKER_COLORS[colorIdx % SPEAKER_COLORS.length]
+
+    for (const segment of segments) {
+      if (!map.has(segment.speaker)) {
+        map.set(
+          segment.speaker,
+          SPEAKER_COLORS[colorIdx % SPEAKER_COLORS.length],
         );
-        colorIdx++;
+        colorIdx += 1;
       }
     }
-  }
+
+    return map;
+  }, [segments]);
+
+  useEffect(() => {
+    if (audioData.duration != null && audioData.duration > 0) {
+      setDuration(audioData.duration);
+      return;
+    }
+
+    if (durationFromSegments > 0) {
+      setDuration(durationFromSegments);
+    }
+  }, [audioData.duration, durationFromSegments]);
 
   // ── Audio event handlers (only for non-compact view) ────────────────────────
 
   useEffect(() => {
     if (isCompact) return; // Skip audio setup in compact view
-    
+
     const audio = audioRef.current;
     if (!audio) return;
 
@@ -222,7 +294,10 @@ function AudioCardComplete({
     const onEnded = () => {
       setIsPlaying(false);
       // WebM/MediaRecorder often has NaN duration - capture actual length when playback ends
-      if (audio.currentTime > 0 && (!audio.duration || !isFinite(audio.duration))) {
+      if (
+        audio.currentTime > 0 &&
+        (!audio.duration || !isFinite(audio.duration))
+      ) {
         setDuration(audio.currentTime);
       }
       setCurrentTime(0);
@@ -256,19 +331,19 @@ function AudioCardComplete({
 
   // Track active segment based on current time (only for non-compact view)
   useEffect(() => {
-    if (isCompact || !audioData.segments || audioData.segments.length === 0) return;
+    if (isCompact || segments.length === 0) return;
     let active = -1;
-    for (let i = 0; i < audioData.segments.length; i++) {
-      const segTime = parseTimestamp(audioData.segments[i].timestamp);
+    for (let i = 0; i < segments.length; i++) {
+      const segTime = parseTimestamp(segments[i].timestamp);
       if (currentTime >= segTime) active = i;
       else break;
     }
     setActiveSegmentIdx(active);
-  }, [currentTime, audioData.segments, isCompact]);
+  }, [currentTime, segments, isCompact]);
 
   const togglePlay = useCallback(() => {
     if (isCompact) return; // Disable in compact view
-    
+
     const audio = audioRef.current;
     if (!audio) return;
     if (audio.paused) {
@@ -298,32 +373,38 @@ function AudioCardComplete({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isCompact, togglePlay]);
 
-  const seekTo = useCallback((seconds: number) => {
-    if (isCompact) return; // Disable in compact view
-    
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.currentTime = seconds;
-    setCurrentTime(seconds);
-    if (audio.paused) {
-      audio.play().catch(() => {
-        // play() can reject if interrupted by another call or browser policy
-      });
-    }
-    // isPlaying state is driven by 'play'/'pause' events — no manual set here
-  }, [isCompact]);
+  const seekTo = useCallback(
+    (seconds: number) => {
+      if (isCompact) return; // Disable in compact view
+
+      const audio = audioRef.current;
+      if (!audio) return;
+      audio.currentTime = seconds;
+      setCurrentTime(seconds);
+      if (audio.paused) {
+        audio.play().catch(() => {
+          // play() can reject if interrupted by another call or browser policy
+        });
+      }
+      // isPlaying state is driven by 'play'/'pause' events — no manual set here
+    },
+    [isCompact],
+  );
 
   const handleProgressClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (isCompact) return; // Disable in compact view
-      
+
       const bar = progressRef.current;
       if (!bar || !duration) return;
       const rect = bar.getBoundingClientRect();
-      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const pct = Math.max(
+        0,
+        Math.min(1, (e.clientX - rect.left) / rect.width),
+      );
       seekTo(pct * duration);
     },
-    [duration, seekTo, isCompact]
+    [duration, seekTo, isCompact],
   );
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
@@ -331,7 +412,14 @@ function AudioCardComplete({
   return (
     <div className="flex flex-col h-full">
       {/* Hidden audio element (only for non-compact view) */}
-      {!isCompact && <audio ref={audioRef} src={audioData.fileUrl} muted={isMuted} preload="metadata" />}
+      {!isCompact && (
+        <audio
+          ref={audioRef}
+          src={audioData.fileUrl}
+          muted={isMuted}
+          preload="metadata"
+        />
+      )}
 
       {/* ── Player (only in full view) ─────────────────────────────────────────── */}
       {!isCompact && (
@@ -397,10 +485,12 @@ function AudioCardComplete({
       )}
 
       {/* ── Scrollable content ──────────────────────────────────────────── */}
-      <div className={cn(
-        "flex-1 min-h-0 px-4 pb-4 space-y-3",
-        isScrollLocked ? "overflow-hidden" : "overflow-y-auto"
-      )}>
+      <div
+        className={cn(
+          "flex-1 min-h-0 px-4 pb-4 space-y-3",
+          isScrollLocked ? "overflow-hidden" : "overflow-y-auto",
+        )}
+      >
         {/* Summary */}
         {audioData.summary && (
           <div className="space-y-1.5 pt-2">
@@ -437,33 +527,41 @@ function AudioCardComplete({
           </div>
         )}
 
-        {/* Segments */}
-        {audioData.segments && audioData.segments.length > 0 && (
+        {audioData.processingStatus === "complete" && (
           <div className="space-y-1.5">
             {isCompact ? (
               <>
                 <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                   Timeline
                 </h4>
-                <div className="space-y-1 p-1 -m-1">
-                  {/* Show only first 3 segments in compact view */}
-                  {audioData.segments.slice(0, 3).map((segment, idx) => (
-                    <SegmentRow
-                      key={idx}
-                      segment={segment}
-                      isActive={false}
-                      speakerColor={speakerColorMap.current.get(segment.speaker) ?? SPEAKER_COLORS[0]}
-                      onSeek={undefined}
-                      isCompact={isCompact}
-                    />
-                  ))}
-                  {/* Show ellipsis if there are more than 3 segments */}
-                  {audioData.segments.length > 3 && (
-                    <div className="text-center text-[10px] text-muted-foreground py-2">
-                      ... {audioData.segments.length - 3} more timestamps
-                    </div>
-                  )}
-                </div>
+                {isLoadingSegments && segments.length === 0 ? (
+                  <TranscriptSegmentsSkeleton compact />
+                ) : transcriptError ? (
+                  <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                    Failed to load transcript.
+                  </div>
+                ) : segments.length > 0 ? (
+                  <div className="space-y-1 p-1 -m-1">
+                    {segments.slice(0, 3).map((segment, idx) => (
+                      <SegmentRow
+                        key={idx}
+                        segment={segment}
+                        isActive={false}
+                        speakerColor={
+                          speakerColorMap.get(segment.speaker) ??
+                          SPEAKER_COLORS[0]
+                        }
+                        onSeek={undefined}
+                        isCompact={isCompact}
+                      />
+                    ))}
+                    {segments.length > 3 && (
+                      <div className="text-center text-[10px] text-muted-foreground py-2">
+                        ... {segments.length - 3} more timestamps
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </>
             ) : (
               <>
@@ -479,36 +577,48 @@ function AudioCardComplete({
                     <ChevronDown className="h-3 w-3" />
                   )}
                 </button>
-                {showTimeline && (
-                  <div className="space-y-1 p-1 -m-1 max-h-[500px] overflow-y-auto">
-                    {/* Show all segments in full modal view */}
-                    {audioData.segments.map((segment, idx) => (
-                      <SegmentRow
-                        key={idx}
-                        segment={segment}
-                        isActive={idx === activeSegmentIdx}
-                        speakerColor={speakerColorMap.current.get(segment.speaker) ?? SPEAKER_COLORS[0]}
-                        onSeek={() => seekTo(parseTimestamp(segment.timestamp))}
-                        isCompact={isCompact}
-                      />
-                    ))}
-                  </div>
-                )}
+                {showTimeline &&
+                  (isLoadingSegments && segments.length === 0 ? (
+                    <TranscriptSegmentsSkeleton />
+                  ) : transcriptError ? (
+                    <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                      Failed to load transcript.
+                    </div>
+                  ) : segments.length > 0 ? (
+                    <div className="space-y-1 p-1 -m-1 max-h-[500px] overflow-y-auto">
+                      {segments.map((segment, idx) => (
+                        <SegmentRow
+                          key={idx}
+                          segment={segment}
+                          isActive={idx === activeSegmentIdx}
+                          speakerColor={
+                            speakerColorMap.get(segment.speaker) ??
+                            SPEAKER_COLORS[0]
+                          }
+                          onSeek={() =>
+                            seekTo(parseTimestamp(segment.timestamp))
+                          }
+                          isCompact={isCompact}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                      Transcript unavailable.
+                    </div>
+                  ))}
               </>
             )}
           </div>
         )}
 
         {/* Copy Timeline as Transcript */}
-        {audioData.segments && audioData.segments.length > 0 && !isCompact && (
+        {!!transcript && !isCompact && (
           <div className="pt-1">
             <button
               type="button"
               onClick={() => {
-                const text = audioData.segments!
-                  .map((s) => `[${s.timestamp}] ${s.speaker}: ${s.content}`)
-                  .join("\n");
-                navigator.clipboard.writeText(text).then(() => {
+                navigator.clipboard.writeText(transcript).then(() => {
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2000);
                 });
@@ -525,6 +635,27 @@ function AudioCardComplete({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function TranscriptSegmentsSkeleton({
+  compact = false,
+}: {
+  compact?: boolean;
+}) {
+  return (
+    <div className={cn("space-y-2", compact && "p-1 -m-1")}>
+      {Array.from({ length: compact ? 2 : 3 }).map((_, index) => (
+        <div
+          key={index}
+          className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2"
+        >
+          <div className="h-3 w-24 rounded bg-muted animate-pulse" />
+          <div className="mt-2 h-3 w-full rounded bg-muted animate-pulse" />
+          <div className="mt-1 h-3 w-4/5 rounded bg-muted animate-pulse" />
+        </div>
+      ))}
     </div>
   );
 }
@@ -552,10 +683,8 @@ function SegmentRow({
       className={cn(
         "w-full text-left rounded-lg p-2 transition-all cursor-pointer group",
         "hover:bg-muted/50",
-        isActive
-          ? "bg-primary/5 ring-1 ring-primary/20"
-          : "bg-transparent",
-        !onSeek && "cursor-default pointer-events-none"
+        isActive ? "bg-primary/5 ring-1 ring-primary/20" : "bg-transparent",
+        !onSeek && "cursor-default pointer-events-none",
       )}
     >
       {/* Header: timestamp + speaker + emotion */}
@@ -566,7 +695,7 @@ function SegmentRow({
         <span
           className={cn(
             "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
-            speakerColor
+            speakerColor,
           )}
         >
           {segment.speaker}
@@ -577,16 +706,18 @@ function SegmentRow({
             {segment.language}
           </span>
         )}
-        {segment.emotion && segment.emotion !== "neutral" && EMOTION_ICONS[segment.emotion] && (
-          <span className="text-xs">{EMOTION_ICONS[segment.emotion]}</span>
-        )}
+        {segment.emotion &&
+          segment.emotion !== "neutral" &&
+          EMOTION_ICONS[segment.emotion] && (
+            <span className="text-xs">{EMOTION_ICONS[segment.emotion]}</span>
+          )}
       </div>
 
       {/* Content */}
       <p
         className={cn(
           "text-sm text-foreground/90 leading-relaxed",
-          isCompact && "line-clamp-2"
+          isCompact && "line-clamp-2",
         )}
       >
         {segment.content}

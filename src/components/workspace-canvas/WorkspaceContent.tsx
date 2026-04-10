@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/empty-state";
 import type { Item, CardType } from "@/lib/workspace-state/types";
 import { filterItemsByFolder } from "@/lib/workspace-state/search";
 import { useAutoScroll } from "@/hooks/ui/use-auto-scroll";
+import { transcriptSegmentsQueryKey } from "@/hooks/workspace/use-transcript-segments";
 import { WorkspaceGrid } from "./WorkspaceGrid";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
@@ -136,6 +137,9 @@ export default function WorkspaceContent({
       if (workspaceId) {
         queryClient.invalidateQueries({
           queryKey: ["workspace", workspaceId, "events"],
+        });
+        queryClient.invalidateQueries({
+          queryKey: transcriptSegmentsQueryKey(workspaceId, itemId),
         });
       }
     };
