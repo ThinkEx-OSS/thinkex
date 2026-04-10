@@ -1,8 +1,3 @@
--- Drop user state table (user state persistence removed entirely)
-DROP TABLE IF EXISTS workspace_item_user_state;
-
--- Drop projection state table (no longer needed - Zero syncs directly)
-DROP TABLE IF EXISTS workspace_item_projection_state;
-
--- Drop events table (no longer needed - no event sourcing)
-DROP TABLE IF EXISTS workspace_events;
+-- Tables workspace_item_user_state, workspace_item_projection_state, and workspace_events
+-- are no longer used by the application (replaced by Zero sync).
+-- Data is preserved intentionally; tables can be dropped manually when no longer needed.
