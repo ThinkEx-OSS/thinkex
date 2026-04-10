@@ -7,6 +7,7 @@ import type { Item, CardType } from "@/lib/workspace-state/types";
 import { filterItemsByFolder } from "@/lib/workspace-state/search";
 import { useAutoScroll } from "@/hooks/ui/use-auto-scroll";
 import { transcriptSegmentsQueryKey } from "@/hooks/workspace/use-transcript-segments";
+import { AUDIO_COMPLETE_EVENT } from "@/lib/audio/poll-audio-processing";
 import { WorkspaceGrid } from "./WorkspaceGrid";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
@@ -116,9 +117,9 @@ export default function WorkspaceContent({
         ).detail ?? {};
       if (!itemId) return;
 
-      const existingData = viewState.find((i) => i.id === itemId)?.data ?? {};
-
       if (retrying) {
+        const existingData =
+          viewState.find((item) => item.id === itemId)?.data ?? {};
         updateItem(itemId, {
           data: {
             ...existingData,
@@ -129,19 +130,16 @@ export default function WorkspaceContent({
         return;
       }
 
-      if (workspaceId) {
-        queryClient.invalidateQueries({
-          queryKey: transcriptSegmentsQueryKey(workspaceId, itemId),
-        });
-      }
+      if (!workspaceId) return;
+
+      queryClient.invalidateQueries({
+        queryKey: transcriptSegmentsQueryKey(workspaceId, itemId),
+      });
     };
 
-    window.addEventListener("audio-processing-complete", handleAudioComplete);
+    window.addEventListener(AUDIO_COMPLETE_EVENT, handleAudioComplete);
     return () => {
-      window.removeEventListener(
-        "audio-processing-complete",
-        handleAudioComplete,
-      );
+      window.removeEventListener(AUDIO_COMPLETE_EVENT, handleAudioComplete);
     };
   }, [updateItem, viewState, workspaceId, queryClient]);
 

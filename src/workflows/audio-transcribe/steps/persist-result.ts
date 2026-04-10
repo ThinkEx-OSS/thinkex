@@ -1,31 +1,23 @@
-import { createEvent } from "@/lib/workspace/events";
-import { appendWorkspaceEventOrThrow } from "@/lib/workspace/workspace-event-store";
-import { db, workspaceItemExtracted } from "@/lib/db/client";
-import type { AudioData, Item } from "@/lib/workspace-state/types";
+import {
+  db,
+  workspaceItemContent,
+  workspaceItemExtracted,
+  workspaceItems,
+} from "@/lib/db/client";
+import { and, eq } from "drizzle-orm";
 import type { TranscribeResult } from "./transcribe";
-
-async function appendAudioEvent(
-  workspaceId: string,
-  event: ReturnType<typeof createEvent>,
-) {
-  await appendWorkspaceEventOrThrow({
-    workspaceId,
-    event,
-    conflictMessage: `Version conflict appending event ${event.id} to workspace ${workspaceId}. Workflow will retry automatically.`,
-  });
-}
 
 export async function persistAudioResult(
   workspaceId: string,
   itemId: string,
-  userId: string,
+  _userId: string,
   result: TranscribeResult,
 ): Promise<void> {
   "use step";
 
-  const transcriptText = result.segments
-    ?.map((s) => s.content)
-    .join("\n") || null;
+  const transcriptText =
+    result.segments?.map((s) => s.content).join("\n") || null;
+  const updatedAt = new Date().toISOString();
 
   await db
     .insert(workspaceItemExtracted)
@@ -35,7 +27,7 @@ export async function persistAudioResult(
       searchText: transcriptText ?? "",
       transcriptText,
       transcriptSegments: result.segments as unknown as Record<string, unknown>,
-      updatedAt: new Date().toISOString(),
+      updatedAt,
     })
     .onConflictDoUpdate({
       target: [
@@ -44,52 +36,77 @@ export async function persistAudioResult(
       ],
       set: {
         transcriptText,
-        transcriptSegments: result.segments as unknown as Record<string, unknown>,
+        transcriptSegments: result.segments as unknown as Record<
+          string,
+          unknown
+        >,
         searchText: transcriptText ?? "",
-        updatedAt: new Date().toISOString(),
+        updatedAt,
       },
     });
 
-  const event = createEvent(
-    "ITEM_UPDATED",
-    {
-      id: itemId,
-      changes: {
-        data: {
-          summary: result.summary,
-          ...(typeof result.duration === "number" &&
-            result.duration > 0 && { duration: result.duration }),
-          processingStatus: "complete" as const,
-        } satisfies Partial<AudioData> as Item["data"],
-      },
-    },
-    userId,
-  );
+  await db
+    .update(workspaceItems)
+    .set({
+      processingStatus: "complete",
+      hasTranscript: true,
+      lastModified: Date.now(),
+    })
+    .where(
+      and(
+        eq(workspaceItems.workspaceId, workspaceId),
+        eq(workspaceItems.itemId, itemId),
+      ),
+    );
 
-  await appendAudioEvent(workspaceId, event);
+  await db
+    .update(workspaceItemContent)
+    .set({
+      structuredData: {
+        summary: result.summary,
+        ...(typeof result.duration === "number" && result.duration > 0
+          ? { duration: result.duration }
+          : {}),
+      },
+    })
+    .where(
+      and(
+        eq(workspaceItemContent.workspaceId, workspaceId),
+        eq(workspaceItemContent.itemId, itemId),
+      ),
+    );
 }
 
 export async function persistAudioFailure(
   workspaceId: string,
   itemId: string,
-  userId: string,
+  _userId: string,
   error: string,
 ): Promise<void> {
   "use step";
 
-  const event = createEvent(
-    "ITEM_UPDATED",
-    {
-      id: itemId,
-      changes: {
-        data: {
-          processingStatus: "failed" as const,
-          error,
-        } satisfies Partial<AudioData> as Item["data"],
-      },
-    },
-    userId,
-  );
+  await db
+    .update(workspaceItems)
+    .set({
+      processingStatus: "failed",
+      lastModified: Date.now(),
+    })
+    .where(
+      and(
+        eq(workspaceItems.workspaceId, workspaceId),
+        eq(workspaceItems.itemId, itemId),
+      ),
+    );
 
-  await appendAudioEvent(workspaceId, event);
+  await db
+    .update(workspaceItemContent)
+    .set({
+      structuredData: { error },
+    })
+    .where(
+      and(
+        eq(workspaceItemContent.workspaceId, workspaceId),
+        eq(workspaceItemContent.itemId, itemId),
+      ),
+    );
 }

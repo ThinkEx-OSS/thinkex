@@ -1,15 +1,7 @@
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { useZero } from "@rocicorp/zero/react";
 import { Debouncer } from "@tanstack/pacer/debouncer";
-import { useSession } from "@/lib/auth-client";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
-import { useWorkspaceMutation } from "./use-workspace-mutation";
-import { createEvent, type EventResponse } from "@/lib/workspace/events";
-import { workspaceEventsQueryKey } from "./use-workspace-events";
-import {
-  deriveWorkspaceStateFromCaches,
-  getCachedWorkspaceState,
-} from "./workspace-state-cache";
 import type {
   Item,
   ItemData,
@@ -17,7 +9,6 @@ import type {
   DocumentData,
 } from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
-import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import { defaultDataFor } from "@/lib/workspace-state/item-helpers";
 import { getRandomCardColor } from "@/lib/workspace-state/colors";
 import { logger } from "@/lib/utils/logger";
@@ -31,8 +22,22 @@ import {
   getNextUniqueDefaultName,
 } from "@/lib/workspace/unique-name";
 import { filterItemIdsForFolderCreation } from "@/lib/workspace-state/search";
+import {
+  sanitizeWorkspaceItemChanges,
+  sanitizeWorkspaceItemForPersistence,
+} from "@/lib/workspace/workspace-item-write";
 
 const ITEM_UPDATE_DEBOUNCE_MS = 500;
+
+type WorkspaceItemMutatorChanges = {
+  name?: string;
+  subtitle?: string;
+  data?: Record<string, unknown>;
+  color?: string | null;
+  folderId?: string | null;
+  layout?: Record<string, unknown> | null;
+  lastModified?: number;
+};
 
 function getAllDescendantIds(folderId: string, items: Item[]): string[] {
   const directChildren = items.filter((item) => item.folderId === folderId);
@@ -46,6 +51,40 @@ function getAllDescendantIds(folderId: string, items: Item[]): string[] {
   }
 
   return descendantIds;
+}
+
+function toMutatorChanges(changes: Partial<Item>): WorkspaceItemMutatorChanges {
+  const sanitized = sanitizeWorkspaceItemChanges(changes);
+  const mutatorChanges: WorkspaceItemMutatorChanges = {};
+
+  if (sanitized.name !== undefined) {
+    mutatorChanges.name = sanitized.name;
+  }
+  if (sanitized.subtitle !== undefined) {
+    mutatorChanges.subtitle = sanitized.subtitle;
+  }
+  if (sanitized.data !== undefined) {
+    mutatorChanges.data = sanitized.data as Record<string, unknown>;
+  }
+  if (sanitized.color !== undefined) {
+    mutatorChanges.color = sanitized.color ?? null;
+  }
+  if (sanitized.folderId !== undefined) {
+    mutatorChanges.folderId = sanitized.folderId ?? null;
+  }
+  if (sanitized.layout !== undefined) {
+    mutatorChanges.layout =
+      (sanitized.layout as Record<string, unknown> | undefined) ?? null;
+  }
+  if (sanitized.lastModified !== undefined) {
+    mutatorChanges.lastModified = sanitized.lastModified;
+  }
+
+  return mutatorChanges;
+}
+
+function isEmptyChanges(changes: WorkspaceItemMutatorChanges): boolean {
+  return Object.keys(changes).length === 0;
 }
 
 /**
@@ -76,7 +115,6 @@ export interface WorkspaceOperations {
   updateAllItems: (items: Item[]) => void;
   flushPendingChanges: (itemId: string) => void;
   getDocumentMarkdownForExport: (itemId: string) => string;
-  // Folder operations
   createFolder: (name: string, color?: CardColor) => string;
   createFolderWithItems: (
     name: string,
@@ -93,54 +131,47 @@ export interface WorkspaceOperations {
   error: Error | null;
 }
 
-/**
- * High-level workspace operations hook
- * Wraps useWorkspaceMutation with convenient methods for common operations
- * All operations emit events for optimistic updates
- */
 export function useWorkspaceOperations(
   workspaceId: string | null,
   currentItems: Item[],
 ): WorkspaceOperations {
-  const { data: session } = useSession();
-  const user = session?.user;
-  const queryClient = useQueryClient();
+  const zero = useZero() as any;
 
-  const mutation = useWorkspaceMutation(workspaceId);
+  const workspaceIdRef = useRef(workspaceId);
+  const currentItemsRef = useRef(currentItems);
+  const zeroRef = useRef<any>(zero);
 
-  const userId = user?.id || "anonymous";
-  const userName = user?.name || user?.email || undefined;
-
-  // Debouncer refs for updateItem and updateItemData keyed by item ID.
   const updateItemDebouncerRef = useRef<Map<string, Debouncer<() => void>>>(
     new Map(),
   );
   const updateItemDataDebouncerRef = useRef<Map<string, Debouncer<() => void>>>(
     new Map(),
   );
-  // Store pending changes to merge them
   const pendingItemChangesRef = useRef<Map<string, Partial<Item>>>(new Map());
   const pendingItemDataUpdatersRef = useRef<
     Map<string, (prev: Item["data"]) => Item["data"]>
   >(new Map());
+  const commitPendingItemUpdateRef = useRef<(itemId: string) => void>(() => {});
+  const commitPendingItemDataUpdateRef = useRef<(itemId: string) => void>(
+    () => {},
+  );
 
-  const getLatestItemsFromState = useCallback(() => {
-    if (!workspaceId) {
-      return currentItems;
-    }
+  useEffect(() => {
+    workspaceIdRef.current = workspaceId;
+  }, [workspaceId]);
 
-    const stateData = getCachedWorkspaceState(queryClient, workspaceId);
-    const eventData = queryClient.getQueryData<EventResponse>(
-      workspaceEventsQueryKey(workspaceId),
-    );
-    const derived = deriveWorkspaceStateFromCaches({
-      workspaceId,
-      stateData,
-      eventLog: eventData,
-    });
+  useEffect(() => {
+    currentItemsRef.current = currentItems;
+  }, [currentItems]);
 
-    return stateData ? derived.state : currentItems;
-  }, [workspaceId, queryClient, currentItems]);
+  useEffect(() => {
+    zeroRef.current = zero;
+  }, [zero]);
+
+  const getLatestItemsFromState = useCallback(
+    () => currentItemsRef.current,
+    [],
+  );
 
   const getLatestItemFromState = useCallback(
     (itemId: string) =>
@@ -155,7 +186,7 @@ export function useWorkspaceOperations(
 
       const pendingChanges = pendingItemChangesRef.current.get(itemId);
       const itemWithPendingChanges = pendingChanges
-        ? { ...item, ...pendingChanges }
+        ? ({ ...item, ...pendingChanges } as Item)
         : item;
 
       const pendingUpdater = pendingItemDataUpdatersRef.current.get(itemId);
@@ -179,6 +210,7 @@ export function useWorkspaceOperations(
         return;
       }
 
+      const currentWorkspaceId = workspaceIdRef.current;
       const latestItems = getLatestItemsFromState();
       const item = latestItems.find((candidate) => candidate.id === itemId);
       if (!item) {
@@ -202,19 +234,23 @@ export function useWorkspaceOperations(
         }
       }
 
-      mutation.mutate(
-        createEvent(
-          "ITEM_UPDATED",
-          { id: itemId, changes: finalChanges, name: newName },
-          userId,
-          userName,
-        ),
-      );
+      const changes = toMutatorChanges(finalChanges);
+      if (!currentWorkspaceId || isEmptyChanges(changes)) {
+        pendingItemChangesRef.current.delete(itemId);
+        updateItemDebouncerRef.current.delete(itemId);
+        return;
+      }
+
+      zeroRef.current.mutate.item.update({
+        workspaceId: currentWorkspaceId,
+        id: itemId,
+        changes,
+      });
 
       pendingItemChangesRef.current.delete(itemId);
       updateItemDebouncerRef.current.delete(itemId);
     },
-    [getLatestItemsFromState, mutation, userId, userName],
+    [getLatestItemsFromState],
   );
 
   const commitPendingItemDataUpdate = useCallback(
@@ -225,43 +261,14 @@ export function useWorkspaceOperations(
         return;
       }
 
-      // Read latest state from cache instead of relying on closure state so
-      // newly-created items remain addressable while optimistic events settle.
-      let latestItem: Item | undefined;
-      if (workspaceId) {
-        const cacheData = queryClient.getQueryData<EventResponse>(
-          workspaceEventsQueryKey(workspaceId),
-        );
-        if (cacheData?.events) {
-          const latestState = deriveWorkspaceStateFromCaches({
-            workspaceId,
-            stateData: getCachedWorkspaceState(queryClient, workspaceId),
-            eventLog: cacheData,
-          }).state;
-          latestItem = latestState.find((item) => item.id === itemId);
-        }
-      }
+      const currentWorkspaceId = workspaceIdRef.current;
+      const latestItem = getLatestItemFromState(itemId);
       if (!latestItem) {
-        latestItem = currentItems.find((item) => item.id === itemId);
-      }
-      if (!latestItem) {
-        const cacheData = workspaceId
-          ? queryClient.getQueryData<EventResponse>(
-              workspaceEventsQueryKey(workspaceId),
-            )
-          : null;
-        const itemCount = cacheData?.events
-          ? deriveWorkspaceStateFromCaches({
-              workspaceId,
-              stateData: getCachedWorkspaceState(queryClient, workspaceId),
-              eventLog: cacheData,
-            }).state.length
-          : 0;
         logger.warn(
-          `[OCR/UPDATE] updateItemData: Item ${itemId} not found. Item may have been deleted. Cache has ${itemCount} items.`,
+          `[OCR/UPDATE] updateItemData: Item ${itemId} not found. Item may have been deleted.`,
           {
             itemId,
-            workspaceId,
+            workspaceId: currentWorkspaceId,
           },
         );
         pendingItemDataUpdatersRef.current.delete(itemId);
@@ -269,66 +276,69 @@ export function useWorkspaceOperations(
         return;
       }
 
-      const newData = finalUpdater(latestItem.data);
+      const newData = sanitizeWorkspaceItemForPersistence({
+        ...latestItem,
+        data: finalUpdater(latestItem.data),
+      }).data;
 
-      mutation.mutate(
-        createEvent(
-          "ITEM_UPDATED",
-          {
-            id: itemId,
-            changes: { data: newData },
-            name: latestItem.name,
-          },
-          userId,
-          userName,
-        ),
-      );
+      if (currentWorkspaceId) {
+        zeroRef.current.mutate.item.update({
+          workspaceId: currentWorkspaceId,
+          id: itemId,
+          changes: { data: newData as Record<string, unknown> },
+        });
+      }
 
       pendingItemDataUpdatersRef.current.delete(itemId);
       updateItemDataDebouncerRef.current.delete(itemId);
     },
-    [workspaceId, queryClient, currentItems, mutation, userId, userName],
+    [getLatestItemFromState],
   );
 
-  const getOrCreateUpdateItemDebouncer = useCallback(
-    (itemId: string) => {
-      const existing = updateItemDebouncerRef.current.get(itemId);
-      if (existing) {
-        return existing;
-      }
+  useEffect(() => {
+    commitPendingItemUpdateRef.current = commitPendingItemUpdate;
+  }, [commitPendingItemUpdate]);
 
-      const debouncer = new Debouncer(() => commitPendingItemUpdate(itemId), {
+  useEffect(() => {
+    commitPendingItemDataUpdateRef.current = commitPendingItemDataUpdate;
+  }, [commitPendingItemDataUpdate]);
+
+  const getOrCreateUpdateItemDebouncer = useCallback((itemId: string) => {
+    const existing = updateItemDebouncerRef.current.get(itemId);
+    if (existing) {
+      return existing;
+    }
+
+    const debouncer = new Debouncer(
+      () => commitPendingItemUpdateRef.current(itemId),
+      {
         wait: ITEM_UPDATE_DEBOUNCE_MS,
-      });
-      updateItemDebouncerRef.current.set(itemId, debouncer);
-      return debouncer;
-    },
-    [commitPendingItemUpdate],
-  );
+      },
+    );
+    updateItemDebouncerRef.current.set(itemId, debouncer);
+    return debouncer;
+  }, []);
 
-  const getOrCreateUpdateItemDataDebouncer = useCallback(
-    (itemId: string) => {
-      const existing = updateItemDataDebouncerRef.current.get(itemId);
-      if (existing) {
-        return existing;
-      }
+  const getOrCreateUpdateItemDataDebouncer = useCallback((itemId: string) => {
+    const existing = updateItemDataDebouncerRef.current.get(itemId);
+    if (existing) {
+      return existing;
+    }
 
-      const debouncer = new Debouncer(
-        () => commitPendingItemDataUpdate(itemId),
-        { wait: ITEM_UPDATE_DEBOUNCE_MS },
-      );
-      updateItemDataDebouncerRef.current.set(itemId, debouncer);
-      return debouncer;
-    },
-    [commitPendingItemDataUpdate],
-  );
+    const debouncer = new Debouncer(
+      () => commitPendingItemDataUpdateRef.current(itemId),
+      { wait: ITEM_UPDATE_DEBOUNCE_MS },
+    );
+    updateItemDataDebouncerRef.current.set(itemId, debouncer);
+    return debouncer;
+  }, []);
 
-  // Cleanup timeouts on unmount
   useEffect(() => {
     const updateItemDebouncers = updateItemDebouncerRef.current;
     const updateItemDataDebouncers = updateItemDataDebouncerRef.current;
     const pendingItemChanges = pendingItemChangesRef.current;
     const pendingItemDataUpdaters = pendingItemDataUpdatersRef.current;
+
     return () => {
       updateItemDebouncers.forEach((debouncer) => debouncer.cancel());
       updateItemDataDebouncers.forEach((debouncer) => debouncer.cancel());
@@ -358,24 +368,21 @@ export function useWorkspaceOperations(
         "document",
       ];
       const validType = validTypes.includes(type) ? type : "document";
+      const id = crypto.randomUUID();
+      const activeFolderId = useUIStore.getState().activeFolderId;
+      const folderId = activeFolderId ?? null;
+      const finalName =
+        name ||
+        getNextUniqueDefaultName(currentItemsRef.current, validType, folderId);
 
-      const id = generateItemId();
-
-      // Merge default data with initial data
       const baseData = defaultDataFor(validType);
       const mergedData = initialData
         ? { ...baseData, ...initialData }
         : baseData;
 
-      const activeFolderId = useUIStore.getState().activeFolderId;
-
-      const folderId = activeFolderId ?? null;
-      const finalName =
-        name || getNextUniqueDefaultName(currentItems, validType, folderId);
-
       let layout: Item["layout"] = undefined;
       if (initialLayout) {
-        const itemsInView = currentItems.filter((item) =>
+        const itemsInView = currentItemsRef.current.filter((item) =>
           activeFolderId ? item.folderId === activeFolderId : !item.folderId,
         );
         const position = findNextAvailablePosition(
@@ -388,24 +395,38 @@ export function useWorkspaceOperations(
         layout = { lg: position };
       }
 
-      const item: Item = {
+      const item = sanitizeWorkspaceItemForPersistence({
         id,
         type: validType,
         name: finalName,
         subtitle: "",
         data: mergedData as ItemData,
-        color: getRandomCardColor(), // Assign random color to new cards
-        folderId: activeFolderId ?? undefined, // Auto-assign to active folder
+        color: getRandomCardColor(),
+        folderId: activeFolderId ?? undefined,
         ...(layout && { layout }),
-      };
+      });
 
-      const event = createEvent("ITEM_CREATED", { id, item }, userId, userName);
+      if (workspaceIdRef.current) {
+        zeroRef.current.mutate.item.create({
+          workspaceId: workspaceIdRef.current,
+          id,
+          item: {
+            id: item.id,
+            type: item.type,
+            name: item.name,
+            subtitle: item.subtitle,
+            data: item.data as Record<string, unknown>,
+            color: item.color ?? null,
+            folderId: item.folderId ?? null,
+            layout:
+              (item.layout as Record<string, unknown> | undefined) ?? null,
+          },
+        });
+      }
 
-      mutation.mutate(event);
-
-      return id; // Return ID for further operations
+      return id;
     },
-    [mutation, userId, userName, workspaceId, currentItems],
+    [],
   );
 
   const createItems = useCallback(
@@ -423,23 +444,14 @@ export function useWorkspaceOperations(
       }
 
       const activeFolderId = useUIStore.getState().activeFolderId;
-
-      // Get items in current view for layout calculation
-      // We need to maintain a running list including newly created items to prevent stacking
-      const itemsInCurrentView = currentItems.filter((item) =>
+      const itemsInCurrentView = currentItemsRef.current.filter((item) =>
         activeFolderId ? item.folderId === activeFolderId : !item.folderId,
       );
-
-      // Mutable array to track items for position calculation as we generate them
       const itemsForLayout = [...itemsInCurrentView];
-
-      // Track items we're creating to detect within-batch duplicates
       const itemsSoFar: Item[] = [];
 
-      // Create all items
       const createdItems: Item[] = items
         .map(({ type, name, initialData, initialLayout }) => {
-          // Validate type is a valid CardType
           const validTypes: CardType[] = [
             "pdf",
             "flashcard",
@@ -452,15 +464,13 @@ export function useWorkspaceOperations(
             "document",
           ];
           const validType = validTypes.includes(type) ? type : "document";
-
-          const id = generateItemId();
+          const id = crypto.randomUUID();
           const folderId = activeFolderId ?? null;
           const allItemsSoFar = [...itemsInCurrentView, ...itemsSoFar];
           const finalName =
             name ||
             getNextUniqueDefaultName(allItemsSoFar, validType, folderId);
 
-          // Check duplicate against existing + already-created in this batch (only when explicit name given)
           if (
             name &&
             hasDuplicateName(allItemsSoFar, finalName, validType, folderId)
@@ -468,26 +478,23 @@ export function useWorkspaceOperations(
             return null;
           }
 
-          // Merge default data with initial data
           const baseData = defaultDataFor(validType);
           const mergedData = initialData
             ? { ...baseData, ...initialData }
             : baseData;
 
-          // Calculate layout if initial dimensions provided
-          let layout = undefined;
-          let layoutPlaceholderItem: Item | null = null;
+          let layout: Item["layout"] | undefined;
           if (initialLayout) {
             const position = findNextAvailablePosition(
               itemsForLayout,
               validType,
-              4, // Default cols
+              4,
               initialLayout.w,
               initialLayout.h,
             );
 
             layout = { lg: position };
-            layoutPlaceholderItem = {
+            itemsForLayout.push({
               id,
               type: validType,
               name: finalName,
@@ -496,22 +503,19 @@ export function useWorkspaceOperations(
               color: getRandomCardColor(),
               folderId: activeFolderId ?? undefined,
               layout,
-            };
-
-            // Add placeholder item to layout tracking array so next item doesn't overlap
-            itemsForLayout.push(layoutPlaceholderItem);
+            });
           }
 
-          const newItem: Item = {
+          const newItem = sanitizeWorkspaceItemForPersistence({
             id,
             type: validType,
             name: finalName,
             subtitle: "",
             data: mergedData as ItemData,
-            color: getRandomCardColor(), // Assign random color to new cards
-            folderId: activeFolderId ?? undefined, // Auto-assign to active folder
+            color: getRandomCardColor(),
+            folderId: activeFolderId ?? undefined,
             layout,
-          };
+          });
           itemsSoFar.push(newItem);
           return newItem;
         })
@@ -528,26 +532,31 @@ export function useWorkspaceOperations(
         );
       }
 
-      // Create single batch event with all items
-      const event = createEvent(
-        "BULK_ITEMS_CREATED",
-        { items: createdItems },
-        userId,
-        userName,
-      );
+      if (workspaceIdRef.current) {
+        zeroRef.current.mutate.item.createMany({
+          workspaceId: workspaceIdRef.current,
+          items: createdItems.map((item) => ({
+            id: item.id,
+            type: item.type,
+            name: item.name,
+            subtitle: item.subtitle,
+            data: item.data as Record<string, unknown>,
+            color: item.color ?? null,
+            folderId: item.folderId ?? null,
+            layout:
+              (item.layout as Record<string, unknown> | undefined) ?? null,
+          })),
+        });
+      }
 
-      mutation.mutate(event);
-
-      // Show success toast with count
       if (options?.showSuccessToast !== false) {
         const itemCount = createdItems.length;
         toast.success(`${itemCount} card${itemCount === 1 ? "" : "s"} created`);
       }
 
-      // Return array of created item IDs
       return createdItems.map((item) => item.id);
     },
-    [mutation, userId, userName, workspaceId, currentItems],
+    [],
   );
 
   const updateItem = useCallback(
@@ -560,50 +569,45 @@ export function useWorkspaceOperations(
     [getOrCreateUpdateItemDebouncer],
   );
 
-  const deleteItem = useCallback(
-    async (id: string) => {
-      // If this is a PDF card, delete the file from Supabase storage first
-      const itemToDelete = currentItems.find((item) => item.id === id);
-      if (itemToDelete && itemToDelete.type === "pdf") {
-        const pdfData = itemToDelete.data as {
-          fileUrl?: string;
-          filename?: string;
-        };
-        if (pdfData?.fileUrl) {
-          try {
-            const deleteResponse = await fetch(
-              `/api/delete-file?url=${encodeURIComponent(pdfData.fileUrl)}`,
-              {
-                method: "DELETE",
-              },
-            );
+  const deleteItem = useCallback(async (id: string) => {
+    const itemToDelete = currentItemsRef.current.find((item) => item.id === id);
+    if (itemToDelete && itemToDelete.type === "pdf") {
+      const pdfData = itemToDelete.data as {
+        fileUrl?: string;
+        filename?: string;
+      };
+      if (pdfData?.fileUrl) {
+        try {
+          const deleteResponse = await fetch(
+            `/api/delete-file?url=${encodeURIComponent(pdfData.fileUrl)}`,
+            {
+              method: "DELETE",
+            },
+          );
 
-            if (!deleteResponse.ok) {
-              const errorData = await deleteResponse
-                .json()
-                .catch(() => ({ error: "Failed to delete file" }));
-              logger.warn("Failed to delete PDF file:", errorData.error);
-            }
-          } catch (error) {
-            logger.error("Error deleting PDF file:", error);
-            // Continue with card deletion even if file deletion fails
+          if (!deleteResponse.ok) {
+            const errorData = await deleteResponse
+              .json()
+              .catch(() => ({ error: "Failed to delete file" }));
+            logger.warn("Failed to delete PDF file:", errorData.error);
           }
+        } catch (error) {
+          logger.error("Error deleting PDF file:", error);
         }
       }
+    }
 
-      // Delete the card (include name for UX copy and diagnostics)
-      const event = createEvent(
-        "ITEM_DELETED",
-        { id, name: itemToDelete?.name },
-        userId,
-        userName,
-      );
-      mutation.mutate(event);
-    },
-    [mutation, userId, userName, currentItems],
-  );
+    if (!workspaceIdRef.current) {
+      return;
+    }
 
-  // Helper for updating item data (used by field actions)
+    zeroRef.current.mutate.item.delete({
+      workspaceId: workspaceIdRef.current,
+      id,
+      name: itemToDelete?.name,
+    });
+  }, []);
+
   const updateItemData = useCallback(
     (itemId: string, updater: (prev: Item["data"]) => Item["data"]) => {
       const existingUpdater = pendingItemDataUpdatersRef.current.get(itemId);
@@ -619,147 +623,138 @@ export function useWorkspaceOperations(
     [getOrCreateUpdateItemDataDebouncer],
   );
 
-  // Update all items at once (used for layout changes, reordering, and bulk delete)
-  const updateAllItems = useCallback(
-    (items: Item[]) => {
-      // Read the latest state from cache (including optimistic updates)
-      // instead of using the potentially stale currentState prop (including optimistic updates)
-      // instead of using the potentially stale currentState prop
-      // This ensures we compare against the most recent state even when a previous mutation is pending
-      let latestState: Item[];
-      if (workspaceId) {
-        const cacheData = queryClient.getQueryData<EventResponse>(
-          workspaceEventsQueryKey(workspaceId),
-        );
-        if (cacheData?.events) {
-          latestState = deriveWorkspaceStateFromCaches({
-            workspaceId,
-            stateData: getCachedWorkspaceState(queryClient, workspaceId),
-            eventLog: cacheData,
-          }).state;
-        } else {
-          // Fallback to prop if cache is empty (shouldn't happen in normal flow)
-          latestState = currentItems;
-        }
-      } else {
-        latestState = currentItems;
+  const updateAllItems = useCallback((items: Item[]) => {
+    const currentWorkspaceId = workspaceIdRef.current;
+    if (!currentWorkspaceId) {
+      return;
+    }
+
+    const latestState = currentItemsRef.current;
+    const previousItemCount = latestState.length;
+    const currentIds = new Set(latestState.map((item) => item.id));
+    const newIds = new Set(items.map((item) => item.id));
+
+    if (items.length < previousItemCount) {
+      const deletedIds = latestState
+        .filter((item) => !newIds.has(item.id))
+        .map((item) => item.id);
+      if (deletedIds.length > 0) {
+        zeroRef.current.mutate.item.updateMany({
+          workspaceId: currentWorkspaceId,
+          deletedIds,
+          previousItemCount,
+        });
       }
+      return;
+    }
 
-      const previousItemCount = latestState.length;
-      const currentIds = new Set(latestState.map((i) => i.id));
-      const newIds = new Set(items.map((i) => i.id));
+    if (items.length > previousItemCount) {
+      const addedItems = items
+        .filter((item) => !currentIds.has(item.id))
+        .map((item) => sanitizeWorkspaceItemForPersistence(item));
 
-      // Send only what changed – no full item data (avoids huge payloads for textbooks)
-
-      // Count decreased: bulk delete – send only deletedIds
-      if (items.length < previousItemCount) {
-        const deletedIds = latestState
-          .filter((i) => !newIds.has(i.id))
-          .map((i) => i.id);
-        mutation.mutate(
-          createEvent(
-            "BULK_ITEMS_UPDATED",
-            { deletedIds, previousItemCount },
-            userId,
-            userName,
-          ),
-        );
-        return;
-      }
-
-      // Count increased: items added – send only the new items (typically 1–2)
-      if (items.length > previousItemCount) {
-        const addedItems = items.filter((i) => !currentIds.has(i.id));
-        mutation.mutate(
-          createEvent(
-            "BULK_ITEMS_UPDATED",
-            { addedItems, previousItemCount },
-            userId,
-            userName,
-          ),
-        );
-        return;
-      }
-
-      // Extract only layout changes to minimize payload size
-      // Compare with latest state (from cache) to find items whose layout changed
-      const layoutUpdates: Array<{
-        id: string;
-        x: number;
-        y: number;
-        w: number;
-        h: number;
-      }> = [];
-      const currentItemsMap = new Map(
-        latestState.map((item) => [item.id, item]),
-      );
-
-      for (const item of items) {
-        const currentItem = currentItemsMap.get(item.id);
-        const currentLayout = currentItem
-          ? getLayoutForBreakpoint(currentItem, "lg")
-          : undefined;
-        const newLayout = getLayoutForBreakpoint(item, "lg");
-
-        // Only include if layout exists and has changed
-        if (
-          newLayout &&
-          (!currentLayout ||
-            currentLayout.x !== newLayout.x ||
-            currentLayout.y !== newLayout.y ||
-            currentLayout.w !== newLayout.w ||
-            currentLayout.h !== newLayout.h)
-        ) {
-          layoutUpdates.push({
+      if (addedItems.length > 0) {
+        zeroRef.current.mutate.item.updateMany({
+          workspaceId: currentWorkspaceId,
+          addedItems: addedItems.map((item) => ({
             id: item.id,
-            x: newLayout.x,
-            y: newLayout.y,
-            w: newLayout.w,
-            h: newLayout.h,
-          });
-        }
+            type: item.type,
+            name: item.name,
+            subtitle: item.subtitle,
+            data: item.data as Record<string, unknown>,
+            color: item.color ?? null,
+            folderId: item.folderId ?? null,
+            layout:
+              (item.layout as Record<string, unknown> | undefined) ?? null,
+          })),
+          previousItemCount,
+        });
       }
-      // Only create event if there are actual layout changes
-      if (layoutUpdates.length > 0) {
-        const event = createEvent(
-          "BULK_ITEMS_UPDATED",
-          {
-            layoutUpdates,
-            previousItemCount,
-          },
-          userId,
-          userName,
-        );
-        mutation.mutate(event);
-      }
-    },
-    [workspaceId, queryClient, currentItems, mutation, userId, userName],
-  );
+      return;
+    }
 
-  // =====================================================
-  // FOLDER OPERATIONS
-  // Folders are now items with type: 'folder'
-  // =====================================================
+    const layoutUpdates: Array<{
+      id: string;
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+    }> = [];
+    const currentItemsMap = new Map(latestState.map((item) => [item.id, item]));
+
+    for (const item of items) {
+      const currentItem = currentItemsMap.get(item.id);
+      const currentLayout = currentItem
+        ? getLayoutForBreakpoint(currentItem, "lg")
+        : undefined;
+      const newLayout = getLayoutForBreakpoint(item, "lg");
+
+      if (
+        newLayout &&
+        (!currentLayout ||
+          currentLayout.x !== newLayout.x ||
+          currentLayout.y !== newLayout.y ||
+          currentLayout.w !== newLayout.w ||
+          currentLayout.h !== newLayout.h)
+      ) {
+        layoutUpdates.push({
+          id: item.id,
+          x: newLayout.x,
+          y: newLayout.y,
+          w: newLayout.w,
+          h: newLayout.h,
+        });
+      }
+    }
+
+    if (layoutUpdates.length > 0) {
+      zeroRef.current.mutate.item.updateMany({
+        workspaceId: currentWorkspaceId,
+        layoutUpdates,
+        previousItemCount,
+      });
+    }
+  }, []);
 
   const createFolder = useCallback(
     (name: string, color?: CardColor): string => {
-      // Create a folder as an item with type: 'folder'
-      const folderId = createItem("folder", name);
-      // Update color if provided (createItem uses random color)
-      if (color) {
-        updateItem(folderId, { color });
+      const folderId = crypto.randomUUID();
+      const activeFolderId = useUIStore.getState().activeFolderId;
+      const folder = sanitizeWorkspaceItemForPersistence({
+        id: folderId,
+        type: "folder",
+        name: name || "New Folder",
+        subtitle: "",
+        data: defaultDataFor("folder") as ItemData,
+        color: color || getRandomCardColor(),
+        folderId: activeFolderId ?? undefined,
+      });
+
+      if (workspaceIdRef.current) {
+        zeroRef.current.mutate.item.create({
+          workspaceId: workspaceIdRef.current,
+          id: folderId,
+          item: {
+            id: folder.id,
+            type: folder.type,
+            name: folder.name,
+            subtitle: folder.subtitle,
+            data: folder.data as Record<string, unknown>,
+            color: folder.color ?? null,
+            folderId: folder.folderId ?? null,
+            layout: null,
+          },
+        });
       }
+
       return folderId;
     },
-    [createItem, updateItem],
+    [],
   );
 
   const createFolderWithItems = useCallback(
     (name: string, itemIds: string[], color?: CardColor): string => {
-      // Get active folder - auto-assign new folder to the currently viewed folder
       const activeFolderId = useUIStore.getState().activeFolderId;
-
-      // Prevent cycles: exclude active folder and its ancestors from selection
       const safeItemIds = filterItemIdsForFolderCreation(
         itemIds,
         activeFolderId,
@@ -770,44 +765,46 @@ export function useWorkspaceOperations(
         toast.error(
           "Cannot create folder: selected items would create a circular reference.",
         );
-        return ""; // Return empty string since no folder was created
+        return "";
       }
 
-      const folderId = generateItemId();
-
-      const baseData = defaultDataFor("folder");
-
-      const folder: Item = {
+      const folderId = crypto.randomUUID();
+      const folder = sanitizeWorkspaceItemForPersistence({
         id: folderId,
         type: "folder",
         name: name || "New Folder",
         subtitle: "",
-        data: baseData as ItemData,
+        data: defaultDataFor("folder") as ItemData,
         color: color || getRandomCardColor(),
-        folderId: activeFolderId ?? undefined, // Auto-assign to active folder (can be nested)
-      };
+        folderId: activeFolderId ?? undefined,
+      });
 
-      // Create single atomic event that creates folder and moves items
-      const event = createEvent(
-        "FOLDER_CREATED_WITH_ITEMS",
-        { folder, itemIds: safeItemIds },
-        userId,
-        userName,
-      );
+      if (workspaceIdRef.current) {
+        zeroRef.current.mutate.folder.createWithItems({
+          workspaceId: workspaceIdRef.current,
+          folder: {
+            id: folder.id,
+            type: "folder",
+            name: folder.name,
+            subtitle: folder.subtitle,
+            data: folder.data as Record<string, unknown>,
+            color: folder.color ?? null,
+            folderId: folder.folderId ?? null,
+            layout: null,
+          },
+          itemIds: safeItemIds,
+        });
+      }
 
-      mutation.mutate(event);
-
-      // Show success toast
       toast.success(
         `Folder created with ${safeItemIds.length} item${safeItemIds.length === 1 ? "" : "s"}`,
       );
 
       return folderId;
     },
-    [mutation, userId, userName, getLatestItemsFromState],
+    [getLatestItemsFromState],
   );
 
-  // updateFolder now just calls updateItem (folders are items)
   const updateFolder = useCallback(
     (folderId: string, changes: Partial<Item>) => {
       updateItem(folderId, changes);
@@ -815,57 +812,29 @@ export function useWorkspaceOperations(
     [updateItem],
   );
 
-  // deleteFolder now just calls deleteItem (folders are items)
   const deleteFolder = useCallback(
     (folderId: string) => {
-      const folder = currentItems?.find(
-        (i) => i.id === folderId && i.type === "folder",
+      const folder = currentItemsRef.current.find(
+        (item) => item.id === folderId && item.type === "folder",
       );
-      deleteItem(folderId);
+      void deleteItem(folderId);
       toast.success(
         folder ? `Folder "${folder.name}" deleted` : "Folder deleted",
       );
     },
-    [deleteItem, currentItems],
+    [deleteItem],
   );
 
-  // deleteFolderWithContents deletes the folder and all items inside it (including nested)
-  // Uses atomic bulk update pattern (same as handleBulkDelete in WorkspaceSection)
   const deleteFolderWithContents = useCallback(
     (folderId: string) => {
-      // CRITICAL: Read latest state from cache to avoid stale data issues
-      // (same pattern as updateAllItems - currentState prop can be stale)
-      let latestItems: Item[];
-      if (workspaceId) {
-        const cacheData = queryClient.getQueryData<EventResponse>(
-          workspaceEventsQueryKey(workspaceId),
-        );
-        if (cacheData?.events) {
-          const latestState = deriveWorkspaceStateFromCaches({
-            workspaceId,
-            stateData: getCachedWorkspaceState(queryClient, workspaceId),
-            eventLog: cacheData,
-          }).state;
-          latestItems = latestState;
-        } else {
-          latestItems = currentItems;
-        }
-      } else {
-        latestItems = currentItems;
-      }
-
+      const latestItems = getLatestItemsFromState();
       const folder = latestItems.find(
-        (i) => i.id === folderId && i.type === "folder",
+        (item) => item.id === folderId && item.type === "folder",
       );
-      // Find all descendant items recursively (handles nested folders)
       const allDescendantIds = getAllDescendantIds(folderId, latestItems);
-
-      // Create set of all IDs to delete (descendants + folder itself)
       const idsToDelete = new Set([...allDescendantIds, folderId]);
       const itemCount = allDescendantIds.length;
 
-      // Delete PDF files from storage (fire-and-forget, non-blocking)
-      // This is best-effort cleanup - files may become orphaned if this fails
       const itemsToDelete = latestItems.filter((item) =>
         idsToDelete.has(item.id),
       );
@@ -883,11 +852,20 @@ export function useWorkspaceOperations(
         }
       }
 
-      // Atomic bulk delete using updateAllItems pattern (single BULK_ITEMS_UPDATED event)
-      const remainingItems = latestItems.filter(
-        (item) => !idsToDelete.has(item.id),
-      );
-      updateAllItems(remainingItems);
+      const currentWorkspaceId = workspaceIdRef.current;
+      if (currentWorkspaceId) {
+        for (const descendantId of allDescendantIds) {
+          zeroRef.current.mutate.item.delete({
+            workspaceId: currentWorkspaceId,
+            id: descendantId,
+          });
+        }
+        zeroRef.current.mutate.item.delete({
+          workspaceId: currentWorkspaceId,
+          id: folderId,
+          name: folder?.name,
+        });
+      }
 
       toast.success(
         folder
@@ -895,40 +873,52 @@ export function useWorkspaceOperations(
           : `Folder and ${itemCount} ${itemCount === 1 ? "item" : "items"} deleted`,
       );
     },
-    [workspaceId, queryClient, currentItems, updateAllItems],
+    [getLatestItemsFromState],
   );
 
   const moveItemToFolder = useCallback(
     (itemId: string, folderId: string | null) => {
-      const item = currentItems.find((i) => i.id === itemId);
-      const event = createEvent(
-        "ITEM_MOVED_TO_FOLDER",
-        { itemId, folderId, itemName: item?.name },
-        userId,
-        userName,
+      const currentWorkspaceId = workspaceIdRef.current;
+      if (!currentWorkspaceId) {
+        return;
+      }
+
+      const item = currentItemsRef.current.find(
+        (candidate) => candidate.id === itemId,
       );
-      mutation.mutate(event);
+      zeroRef.current.mutate.item.move({
+        workspaceId: currentWorkspaceId,
+        itemId,
+        folderId,
+        itemName: item?.name,
+      });
     },
-    [mutation, userId, userName, currentItems],
+    [],
   );
 
   const moveItemsToFolder = useCallback(
     (itemIds: string[], folderId: string | null) => {
+      const currentWorkspaceId = workspaceIdRef.current;
+      if (!currentWorkspaceId) {
+        return;
+      }
+
       const itemNames = itemIds
-        .map((id) => currentItems.find((i) => i.id === id)?.name)
-        .filter((n): n is string => n != null);
-      const event = createEvent(
-        "ITEMS_MOVED_TO_FOLDER",
-        { itemIds, folderId, itemNames },
-        userId,
-        userName,
-      );
-      mutation.mutate(event);
+        .map(
+          (id) => currentItemsRef.current.find((item) => item.id === id)?.name,
+        )
+        .filter((name): name is string => name != null);
+
+      zeroRef.current.mutate.item.moveMany({
+        workspaceId: currentWorkspaceId,
+        itemIds,
+        folderId,
+        itemNames,
+      });
     },
-    [mutation, userId, userName, currentItems],
+    [],
   );
 
-  // Flush pending debounced changes for an item (called when modal closes)
   const flushPendingChanges = useCallback((itemId: string) => {
     updateItemDebouncerRef.current.get(itemId)?.flush();
     updateItemDataDebouncerRef.current.get(itemId)?.flush();
@@ -952,7 +942,6 @@ export function useWorkspaceOperations(
     updateAllItems,
     flushPendingChanges,
     getDocumentMarkdownForExport,
-    // Folder operations
     createFolder,
     createFolderWithItems,
     updateFolder,
@@ -960,8 +949,8 @@ export function useWorkspaceOperations(
     deleteFolderWithContents,
     moveItemToFolder,
     moveItemsToFolder,
-    isPending: mutation.isPending,
-    isError: mutation.isError,
-    error: mutation.error,
+    isPending: false,
+    isError: false,
+    error: null,
   };
 }

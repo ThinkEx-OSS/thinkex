@@ -35,6 +35,7 @@ import WorkspaceSettingsModal from "@/components/workspace/WorkspaceSettingsModa
 import ShareWorkspaceDialog from "@/components/workspace/ShareWorkspaceDialog";
 import { RealtimeProvider } from "@/contexts/RealtimeContext";
 import { ZeroProvider } from "@/lib/zero/provider";
+import { useConnectionState } from "@rocicorp/zero/react";
 import { toast } from "sonner";
 import { InviteGuard } from "@/components/workspace/InviteGuard";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
@@ -83,22 +84,14 @@ function DashboardContent({
   // }, [shouldShowOnboarding, isLoadingOnboarding]);
   // Get workspace context (now only manages workspace list)
   const { currentSlug, switchWorkspace } = useWorkspaceContext();
-
-  // Get save status from Zustand store
-  const {
-    isSaving,
-    updateSaveStatus,
-    updateLastSaved,
-    updateHasUnsavedChanges,
-  } = useWorkspaceStore();
+  const zeroConnectionState = useConnectionState();
+  const isSaving = zeroConnectionState.name === "connecting";
 
   // ===== EVENT-BASED STATE MANAGEMENT =====
   // Event sourcing + React Query replaces the old autosave/loader hooks
   // State is derived from events, mutations are optimistic
-  const {
-    state,
-    isLoading: isLoadingWorkspace,
-  } = useWorkspaceState(currentWorkspaceId);
+  const { state, isLoading: isLoadingWorkspace } =
+    useWorkspaceState(currentWorkspaceId);
 
   // Open audio recorder when landing from home Record flow (store flag set before navigate).
   const openAudioDialog = useAudioRecordingStore((s) => s.openDialog);
@@ -161,62 +154,6 @@ function DashboardContent({
 
   // Get sidebar state and controls
   const { toggleSidebar } = useSidebar();
-
-  // Update save status based on mutation status
-  useEffect(() => {
-    updateSaveStatus(operations.isPending);
-    if (!operations.isPending && !operations.isError) {
-      updateHasUnsavedChanges(false);
-      updateLastSaved(new Date());
-    }
-  }, [
-    operations.isPending,
-    operations.isError,
-    updateSaveStatus,
-    updateHasUnsavedChanges,
-    updateLastSaved,
-  ]);
-
-  // Mark as saved when workspace is loaded from events
-  useEffect(() => {
-    if (!isLoadingWorkspace && currentWorkspaceId) {
-      // Use the last event's timestamp if available, otherwise use current time
-      let lastSavedDate: Date;
-      if (eventLog?.events && eventLog.events.length > 0) {
-        // Events are ordered by version, so the last event is the most recent
-        const lastEvent = eventLog.events[eventLog.events.length - 1];
-        // Ensure timestamp exists and is valid
-        if (lastEvent.timestamp != null) {
-          // Ensure timestamp is a number (might be string from JSON)
-          const timestamp =
-            typeof lastEvent.timestamp === "number"
-              ? lastEvent.timestamp
-              : Number(lastEvent.timestamp);
-          lastSavedDate = new Date(timestamp);
-          // Validate the date is valid
-          if (isNaN(lastSavedDate.getTime())) {
-            // If invalid, fallback to current time
-            lastSavedDate = new Date();
-          }
-        } else {
-          // If timestamp is missing, fallback to current time
-          lastSavedDate = new Date();
-        }
-      } else {
-        // Fallback to current time if no events exist (new workspace)
-        lastSavedDate = new Date();
-      }
-      updateLastSaved(lastSavedDate);
-      updateHasUnsavedChanges(false);
-    }
-  }, [
-    isLoadingWorkspace,
-    currentWorkspaceId,
-    state,
-    eventLog,
-    updateLastSaved,
-    updateHasUnsavedChanges,
-  ]);
 
   // UI State from Zustand stores - using individual selectors to prevent unnecessary re-renders
   // NOTE: Each selector only triggers a re-render when that specific value changes
@@ -360,9 +297,7 @@ function DashboardContent({
         setIsChatExpanded={setIsChatExpanded}
         setIsChatMaximized={setIsChatMaximized}
         workspaceHeader={
-          !isChatMaximized &&
-          currentWorkspaceId &&
-          !isLoadingWorkspace ? (
+          !isChatMaximized && currentWorkspaceId && !isLoadingWorkspace ? (
             <WorkspaceHeader
               onOpenSearch={() => setSearchDialogOpen(true)}
               currentWorkspaceId={currentWorkspaceId}

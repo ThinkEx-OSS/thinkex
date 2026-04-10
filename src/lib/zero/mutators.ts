@@ -10,6 +10,10 @@ import {
   buildWorkspaceItemTableRows,
   rehydrateWorkspaceItem,
 } from "@/lib/workspace/workspace-item-model";
+import {
+  sanitizeWorkspaceItemChanges,
+  sanitizeWorkspaceItemForPersistence,
+} from "@/lib/workspace/workspace-item-write";
 import { schema, zql } from "./zero-schema.gen";
 import type { ZeroContext } from "./client";
 
@@ -54,13 +58,13 @@ const jsonObjectSchema: z.ZodType<{ [key: string]: JsonValue }> = z.record(
 );
 
 const itemSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string(),
   type: cardTypeSchema,
   name: z.string(),
   subtitle: z.string().default(""),
   data: jsonObjectSchema,
   color: z.string().nullable().optional(),
-  folderId: z.string().uuid().nullable().optional(),
+  folderId: z.string().nullable().optional(),
   layout: jsonObjectSchema.nullable().optional(),
   lastModified: z.number().int().optional(),
 });
@@ -74,13 +78,13 @@ const itemChangesSchema = z.object({
   subtitle: z.string().optional(),
   data: jsonObjectSchema.optional(),
   color: z.string().nullable().optional(),
-  folderId: z.string().uuid().nullable().optional(),
+  folderId: z.string().nullable().optional(),
   layout: jsonObjectSchema.nullable().optional(),
   lastModified: z.number().int().optional(),
 });
 
 const layoutUpdateSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string(),
   x: z.number(),
   y: z.number(),
   w: z.number(),
@@ -91,18 +95,18 @@ export const zeroMutatorSchemas = {
   item: {
     create: z.object({
       workspaceId: z.string().uuid(),
-      id: z.string().uuid(),
+      id: z.string(),
       item: itemSchema,
     }),
     update: z.object({
       workspaceId: z.string().uuid(),
-      id: z.string().uuid(),
+      id: z.string(),
       changes: itemChangesSchema,
       name: z.string().optional(),
     }),
     delete: z.object({
       workspaceId: z.string().uuid(),
-      id: z.string().uuid(),
+      id: z.string(),
       name: z.string().optional(),
     }),
     createMany: z.object({
@@ -113,7 +117,7 @@ export const zeroMutatorSchemas = {
       workspaceId: z.string().uuid(),
       updates: z.array(
         z.object({
-          id: z.string().uuid(),
+          id: z.string(),
           changes: itemChangesSchema,
           name: z.string().optional(),
         }),
@@ -123,19 +127,19 @@ export const zeroMutatorSchemas = {
       workspaceId: z.string().uuid(),
       layoutUpdates: z.array(layoutUpdateSchema).optional(),
       previousItemCount: z.number().int().optional(),
-      deletedIds: z.array(z.string().uuid()).optional(),
+      deletedIds: z.array(z.string()).optional(),
       addedItems: z.array(itemSchema).optional(),
     }),
     move: z.object({
       workspaceId: z.string().uuid(),
-      itemId: z.string().uuid(),
-      folderId: z.string().uuid().nullable(),
+      itemId: z.string(),
+      folderId: z.string().nullable(),
       itemName: z.string().optional(),
     }),
     moveMany: z.object({
       workspaceId: z.string().uuid(),
-      itemIds: z.array(z.string().uuid()),
-      folderId: z.string().uuid().nullable(),
+      itemIds: z.array(z.string()),
+      folderId: z.string().nullable(),
       itemNames: z.array(z.string()).optional(),
     }),
   },
@@ -143,13 +147,13 @@ export const zeroMutatorSchemas = {
     createWithItems: z.object({
       workspaceId: z.string().uuid(),
       folder: folderItemSchema,
-      itemIds: z.array(z.string().uuid()),
+      itemIds: z.array(z.string()),
     }),
   },
 } as const;
 
 function toItem(input: z.infer<typeof itemSchema>): Item {
-  return {
+  return sanitizeWorkspaceItemForPersistence({
     id: input.id,
     type: input.type,
     name: input.name,
@@ -161,11 +165,13 @@ function toItem(input: z.infer<typeof itemSchema>): Item {
     ...(input.folderId !== undefined
       ? { folderId: input.folderId ?? undefined }
       : {}),
-    ...(input.layout !== undefined ? { layout: input.layout ?? undefined } : {}),
+    ...(input.layout !== undefined
+      ? { layout: input.layout ?? undefined }
+      : {}),
     ...(input.lastModified !== undefined
       ? { lastModified: input.lastModified }
       : {}),
-  };
+  });
 }
 
 function mergeItemChanges(
@@ -173,30 +179,39 @@ function mergeItemChanges(
   changes: z.infer<typeof itemChangesSchema>,
   lastModified: number,
 ): Item {
+  const sanitizedChanges = sanitizeWorkspaceItemChanges(
+    changes as Partial<Item>,
+  ) as z.infer<typeof itemChangesSchema>;
   const next: Item = {
     ...existing,
-    ...(changes.name !== undefined ? { name: changes.name } : {}),
-    ...(changes.subtitle !== undefined ? { subtitle: changes.subtitle } : {}),
-    ...(changes.color !== undefined
-      ? { color: (changes.color ?? undefined) as Item["color"] }
+    ...(sanitizedChanges.name !== undefined
+      ? { name: sanitizedChanges.name }
       : {}),
-    ...(changes.folderId !== undefined
-      ? { folderId: changes.folderId ?? undefined }
+    ...(sanitizedChanges.subtitle !== undefined
+      ? { subtitle: sanitizedChanges.subtitle }
       : {}),
-    ...(changes.layout !== undefined ? { layout: changes.layout ?? undefined } : {}),
-    ...(changes.lastModified !== undefined
-      ? { lastModified: changes.lastModified }
+    ...(sanitizedChanges.color !== undefined
+      ? { color: (sanitizedChanges.color ?? undefined) as Item["color"] }
+      : {}),
+    ...(sanitizedChanges.folderId !== undefined
+      ? { folderId: sanitizedChanges.folderId ?? undefined }
+      : {}),
+    ...(sanitizedChanges.layout !== undefined
+      ? { layout: sanitizedChanges.layout ?? undefined }
+      : {}),
+    ...(sanitizedChanges.lastModified !== undefined
+      ? { lastModified: sanitizedChanges.lastModified }
       : { lastModified }),
     data:
-      changes.data !== undefined
+      sanitizedChanges.data !== undefined
         ? ({
             ...(existing.data as Record<string, unknown>),
-            ...changes.data,
+            ...sanitizedChanges.data,
           } as Item["data"])
         : existing.data,
   };
 
-  return next;
+  return sanitizeWorkspaceItemForPersistence(next);
 }
 
 function toMutateShellRow(
@@ -223,13 +238,10 @@ function toMutateContentRow(
 async function loadItem(
   tx: ZeroTx,
   params: { workspaceId: string; itemId: string },
-): Promise<
-  | {
-      item: Item;
-      sourceVersion: number;
-    }
-  | null
-> {
+): Promise<{
+  item: Item;
+  sourceVersion: number;
+} | null> {
   const shell = await tx.run(
     zql.workspace_items
       .where("workspaceId", params.workspaceId)
@@ -266,7 +278,8 @@ async function loadItem(
         ? {
             textContent: content.textContent ?? null,
             structuredData:
-              (content.structuredData as Record<string, unknown> | null) ?? null,
+              (content.structuredData as Record<string, unknown> | null) ??
+              null,
             assetData:
               (content.assetData as Record<string, unknown> | null) ?? null,
             embedData:
@@ -297,7 +310,9 @@ async function insertItem(
   });
 
   await tx.mutate.workspace_items.insert(toMutateShellRow(rows.item));
-  await tx.mutate.workspace_item_content.insert(toMutateContentRow(rows.content));
+  await tx.mutate.workspace_item_content.insert(
+    toMutateContentRow(rows.content),
+  );
 }
 
 async function upsertItem(
@@ -317,7 +332,9 @@ async function upsertItem(
   });
 
   await tx.mutate.workspace_items.update(toMutateShellRow(rows.item));
-  await tx.mutate.workspace_item_content.upsert(toMutateContentRow(rows.content));
+  await tx.mutate.workspace_item_content.upsert(
+    toMutateContentRow(rows.content),
+  );
 }
 
 async function deleteItemById(
@@ -407,7 +424,9 @@ export const mutators = defineZeroMutators({
       });
 
       if (!existing) {
-        throw new ApplicationError(`Workspace item ${parsed.id} was not found.`);
+        throw new ApplicationError(
+          `Workspace item ${parsed.id} was not found.`,
+        );
       }
 
       const next = mergeItemChanges(existing.item, parsed.changes, Date.now());
