@@ -18,6 +18,7 @@ export const CodeExecuteResultSchema = z.object({
       }),
     )
     .optional(),
+  error: z.boolean().optional(),
 });
 
 export type CodeExecuteStep = z.infer<typeof CodeExecuteStepSchema>;

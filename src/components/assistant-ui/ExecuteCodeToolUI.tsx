@@ -40,7 +40,7 @@ function ExecuteCodeResult({
   result: CodeExecuteResult | undefined;
 }) {
   const [showCode, setShowCode] = useState(false);
-  const hasError = result?.answer?.startsWith("Error:");
+  const hasError = result?.error === true;
   const hasCharts = Boolean(result?.charts?.length);
 
   return (

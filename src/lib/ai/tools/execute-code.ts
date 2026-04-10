@@ -15,10 +15,22 @@ export async function executeCodeWithE2B(
 ): Promise<CodeExecuteResult> {
   options?.abortSignal?.throwIfAborted();
 
-  const sandbox = await Sandbox.create();
+  const sandbox = await Sandbox.create({
+    signal: options?.abortSignal,
+  } as never);
+  const onAbort = () => {
+    sandbox.kill().catch(() => {});
+  };
+
+  options?.abortSignal?.addEventListener("abort", onAbort, { once: true });
 
   try {
-    const execution = await sandbox.runCode(code);
+    const execution = await sandbox.runCode(
+      code,
+      {
+        signal: options?.abortSignal,
+      } as never,
+    );
 
     const steps: CodeExecuteStep[] = [
       {
@@ -52,9 +64,11 @@ export async function executeCodeWithE2B(
       answer,
       steps: steps.length > 0 ? steps : undefined,
       charts: charts.length > 0 ? charts : undefined,
+      error: Boolean(execution.error),
     };
   } finally {
-    await sandbox.kill();
+    options?.abortSignal?.removeEventListener("abort", onAbort);
+    await sandbox.kill().catch(() => {});
   }
 }
 
