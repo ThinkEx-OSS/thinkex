@@ -9,15 +9,12 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: '**',
+        protocol: "https",
+        hostname: "**",
       },
     ],
   },
-  serverExternalPackages: [
-    "postgres",
-    "drizzle-orm",
-  ],
+  serverExternalPackages: ["postgres", "drizzle-orm", "isolated-vm"],
   skipTrailingSlashRedirect: true,
 
   async headers() {
@@ -28,7 +25,10 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=()" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(self), geolocation=()",
+          },
         ],
       },
     ];
@@ -37,7 +37,9 @@ const nextConfig: NextConfig = {
 
 const sourceMapsEnabled =
   process.env.NODE_ENV === "production" &&
-  Boolean(process.env.POSTHOG_PERSONAL_API_KEY && process.env.POSTHOG_PROJECT_ID);
+  Boolean(
+    process.env.POSTHOG_PERSONAL_API_KEY && process.env.POSTHOG_PROJECT_ID,
+  );
 
 export default withPostHogConfig(withWorkflow(nextConfig), {
   personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY ?? "",
