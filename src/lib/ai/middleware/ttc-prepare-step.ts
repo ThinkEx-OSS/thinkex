@@ -96,7 +96,7 @@ export function createTTCPrepareStep() {
     const batchedInput = compressibleSegments
       .map((seg, idx) => {
         const protected_ = wrapProtectedContent(seg.text);
-        return `${DELIMITER_PREFIX}${idx}${DELIMITER_SUFFIX}\n${protected_}`;
+        return `<ttc_safe>${DELIMITER_PREFIX}${idx}${DELIMITER_SUFFIX}</ttc_safe>\n${protected_}`;
       })
       .join("\n\n");
 
@@ -119,6 +119,17 @@ export function createTTCPrepareStep() {
       `${DELIMITER_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\d+${DELIMITER_SUFFIX.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*`,
     );
     const compressedParts = result.output.split(delimiterRegex).filter(Boolean);
+
+    if (compressedParts.length !== compressibleSegments.length) {
+      logger.warn(
+        "⚠️ [TTC] Segment count mismatch after compression — falling back to original messages",
+        {
+          expected: compressibleSegments.length,
+          got: compressedParts.length,
+        },
+      );
+      return undefined;
+    }
 
     const newMessages = messages.map((msg: any, msgIdx: number) => {
       const segsForMsg = compressibleSegments
