@@ -21,18 +21,6 @@ function extractTextFromContent(content: unknown): string {
     .join("\n");
 }
 
-function wrapProtectedContent(text: string): string {
-  let result = text.replace(
-    /(```[\s\S]*?```)/g,
-    "<ttc_safe>$1</ttc_safe>",
-  );
-  result = result.replace(
-    /^(\s*[\[{][\s\S]*?[\]}]\s*)$/gm,
-    "<ttc_safe>$1</ttc_safe>",
-  );
-  return result;
-}
-
 function stripSafeTags(text: string): string {
   return text.replace(/<\/?ttc_safe>/g, "");
 }
@@ -95,8 +83,7 @@ export function createTTCPrepareStep() {
     const DELIMITER_SUFFIX = ">>>";
     const batchedInput = compressibleSegments
       .map((seg, idx) => {
-        const protected_ = wrapProtectedContent(seg.text);
-        return `<ttc_safe>${DELIMITER_PREFIX}${idx}${DELIMITER_SUFFIX}</ttc_safe>\n${protected_}`;
+        return `<ttc_safe>${DELIMITER_PREFIX}${idx}${DELIMITER_SUFFIX}</ttc_safe>\n${seg.text}`;
       })
       .join("\n\n");
 
