@@ -59,15 +59,36 @@ export async function persistAudioResult(
       ),
     );
 
+  const [contentRow] = await db
+    .select({
+      assetData: workspaceItemContent.assetData,
+    })
+    .from(workspaceItemContent)
+    .where(
+      and(
+        eq(workspaceItemContent.workspaceId, workspaceId),
+        eq(workspaceItemContent.itemId, itemId),
+      ),
+    )
+    .limit(1);
+
+  const currentAssetData =
+    (contentRow?.assetData as Record<string, unknown> | null) ?? {};
+
   await db
     .update(workspaceItemContent)
     .set({
       structuredData: {
         summary: result.summary,
-        ...(typeof result.duration === "number" && result.duration > 0
-          ? { duration: result.duration }
-          : {}),
       },
+      ...(typeof result.duration === "number" && result.duration > 0
+        ? {
+            assetData: {
+              ...currentAssetData,
+              duration: result.duration,
+            },
+          }
+        : {}),
     })
     .where(
       and(
