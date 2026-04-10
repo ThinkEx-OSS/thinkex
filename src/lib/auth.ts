@@ -23,9 +23,7 @@ import { workspaces, userProfiles } from "@/lib/db/schema";
 
 const baseURL = getBaseURL();
 const authSecret =
-  process.env.BETTER_AUTH_SECRET ||
-  process.env.AUTH_SECRET ||
-  "dev-build-secret-0123456789abcdef0123456789abcdef";
+  process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET;
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
