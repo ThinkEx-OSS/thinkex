@@ -20,79 +20,82 @@ export async function persistOcrResults(
     const ocrText = getOcrPagesTextContent(ocrPages) || null;
     const updatedAt = new Date().toISOString();
 
-    await db
-      .insert(workspaceItemExtracted)
-      .values({
-        workspaceId,
-        itemId: result.itemId,
-        searchText: ocrText ?? "",
-        ocrText,
-        ocrPages: ocrPages as unknown as Record<string, unknown>,
-        updatedAt,
-      })
-      .onConflictDoUpdate({
-        target: [
-          workspaceItemExtracted.workspaceId,
-          workspaceItemExtracted.itemId,
-        ],
-        set: {
+    await db.transaction(async (tx) => {
+      await tx
+        .insert(workspaceItemExtracted)
+        .values({
+          workspaceId,
+          itemId: result.itemId,
+          searchText: ocrText ?? "",
           ocrText,
           ocrPages: ocrPages as unknown as Record<string, unknown>,
-          searchText: ocrText ?? "",
           updatedAt,
-        },
-      });
+        })
+        .onConflictDoUpdate({
+          target: [
+            workspaceItemExtracted.workspaceId,
+            workspaceItemExtracted.itemId,
+          ],
+          set: {
+            ocrText,
+            ocrPages: ocrPages as unknown as Record<string, unknown>,
+            searchText: ocrText ?? "",
+            updatedAt,
+          },
+        });
 
-    await db
-      .update(workspaceItems)
-      .set({
-        ocrStatus: result.ok ? "complete" : "failed",
-        hasOcr: result.ok && ocrPages.length > 0,
-        ocrPageCount: ocrPages.length,
-        lastModified: Date.now(),
-      })
-      .where(
-        and(
-          eq(workspaceItems.workspaceId, workspaceId),
-          eq(workspaceItems.itemId, result.itemId),
-        ),
-      );
+      await tx
+        .update(workspaceItems)
+        .set({
+          ocrStatus: result.ok ? "complete" : "failed",
+          hasOcr: result.ok && ocrPages.length > 0,
+          ocrPageCount: ocrPages.length,
+          lastModified: Date.now(),
+        })
+        .where(
+          and(
+            eq(workspaceItems.workspaceId, workspaceId),
+            eq(workspaceItems.itemId, result.itemId),
+          ),
+        );
 
-    const [contentRow] = await db
-      .select({
-        assetData: workspaceItemContent.assetData,
-      })
-      .from(workspaceItemContent)
-      .where(
-        and(
-          eq(workspaceItemContent.workspaceId, workspaceId),
-          eq(workspaceItemContent.itemId, result.itemId),
-        ),
-      )
-      .limit(1);
+      const [contentRow] = await tx
+        .select({
+          assetData: workspaceItemContent.assetData,
+        })
+        .from(workspaceItemContent)
+        .where(
+          and(
+            eq(workspaceItemContent.workspaceId, workspaceId),
+            eq(workspaceItemContent.itemId, result.itemId),
+          ),
+        )
+        .limit(1);
 
-    const currentAssetData =
-      (contentRow?.assetData as Record<string, unknown> | null) ?? {};
-    const nextAssetData = result.ok
-      ? (() => {
-          const { ocrError: _ocrError, ...rest } = currentAssetData;
-          return rest;
-        })()
-      : {
-          ...currentAssetData,
-          ocrError: result.error,
-        };
+      const currentAssetData =
+        (contentRow?.assetData as Record<string, unknown> | null) ?? {};
+      const nextAssetData = result.ok
+        ? (() => {
+            const { ocrError: _ocrError, ...rest } = currentAssetData;
+            return rest;
+          })()
+        : {
+            ...currentAssetData,
+            ocrError: result.error,
+          };
 
-    await db
-      .update(workspaceItemContent)
-      .set({
-        assetData: nextAssetData,
-      })
-      .where(
-        and(
-          eq(workspaceItemContent.workspaceId, workspaceId),
-          eq(workspaceItemContent.itemId, result.itemId),
-        ),
-      );
+      await tx
+        .update(workspaceItemContent)
+        .set({
+          assetData: nextAssetData,
+          updatedAt,
+        })
+        .where(
+          and(
+            eq(workspaceItemContent.workspaceId, workspaceId),
+            eq(workspaceItemContent.itemId, result.itemId),
+          ),
+        );
+    });
   }
 }

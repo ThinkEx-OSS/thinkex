@@ -19,83 +19,89 @@ export async function persistAudioResult(
     result.segments?.map((s) => s.content).join("\n") || null;
   const updatedAt = new Date().toISOString();
 
-  await db
-    .insert(workspaceItemExtracted)
-    .values({
-      workspaceId,
-      itemId,
-      searchText: transcriptText ?? "",
-      transcriptText,
-      transcriptSegments: result.segments as unknown as Record<string, unknown>,
-      updatedAt,
-    })
-    .onConflictDoUpdate({
-      target: [
-        workspaceItemExtracted.workspaceId,
-        workspaceItemExtracted.itemId,
-      ],
-      set: {
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(workspaceItemExtracted)
+      .values({
+        workspaceId,
+        itemId,
+        searchText: transcriptText ?? "",
         transcriptText,
         transcriptSegments: result.segments as unknown as Record<
           string,
           unknown
         >,
-        searchText: transcriptText ?? "",
         updatedAt,
-      },
-    });
+      })
+      .onConflictDoUpdate({
+        target: [
+          workspaceItemExtracted.workspaceId,
+          workspaceItemExtracted.itemId,
+        ],
+        set: {
+          transcriptText,
+          transcriptSegments: result.segments as unknown as Record<
+            string,
+            unknown
+          >,
+          searchText: transcriptText ?? "",
+          updatedAt,
+        },
+      });
 
-  await db
-    .update(workspaceItems)
-    .set({
-      processingStatus: "complete",
-      hasTranscript: true,
-      lastModified: Date.now(),
-    })
-    .where(
-      and(
-        eq(workspaceItems.workspaceId, workspaceId),
-        eq(workspaceItems.itemId, itemId),
-      ),
-    );
+    await tx
+      .update(workspaceItems)
+      .set({
+        processingStatus: "complete",
+        hasTranscript: true,
+        lastModified: Date.now(),
+      })
+      .where(
+        and(
+          eq(workspaceItems.workspaceId, workspaceId),
+          eq(workspaceItems.itemId, itemId),
+        ),
+      );
 
-  const [contentRow] = await db
-    .select({
-      assetData: workspaceItemContent.assetData,
-    })
-    .from(workspaceItemContent)
-    .where(
-      and(
-        eq(workspaceItemContent.workspaceId, workspaceId),
-        eq(workspaceItemContent.itemId, itemId),
-      ),
-    )
-    .limit(1);
+    const [contentRow] = await tx
+      .select({
+        assetData: workspaceItemContent.assetData,
+      })
+      .from(workspaceItemContent)
+      .where(
+        and(
+          eq(workspaceItemContent.workspaceId, workspaceId),
+          eq(workspaceItemContent.itemId, itemId),
+        ),
+      )
+      .limit(1);
 
-  const currentAssetData =
-    (contentRow?.assetData as Record<string, unknown> | null) ?? {};
+    const currentAssetData =
+      (contentRow?.assetData as Record<string, unknown> | null) ?? {};
 
-  await db
-    .update(workspaceItemContent)
-    .set({
-      structuredData: {
-        summary: result.summary,
-      },
-      ...(typeof result.duration === "number" && result.duration > 0
-        ? {
-            assetData: {
-              ...currentAssetData,
-              duration: result.duration,
-            },
-          }
-        : {}),
-    })
-    .where(
-      and(
-        eq(workspaceItemContent.workspaceId, workspaceId),
-        eq(workspaceItemContent.itemId, itemId),
-      ),
-    );
+    await tx
+      .update(workspaceItemContent)
+      .set({
+        structuredData: {
+          summary: result.summary,
+        },
+        ...(typeof result.duration === "number" && result.duration > 0
+          ? {
+              assetData: {
+                ...currentAssetData,
+                duration: result.duration,
+              },
+            }
+          : {}),
+        updatedAt,
+      })
+      .where(
+        and(
+          eq(workspaceItemContent.workspaceId, workspaceId),
+          eq(workspaceItemContent.itemId, itemId),
+        ),
+      );
+  });
 }
 
 export async function persistAudioFailure(
@@ -106,28 +112,33 @@ export async function persistAudioFailure(
 ): Promise<void> {
   "use step";
 
-  await db
-    .update(workspaceItems)
-    .set({
-      processingStatus: "failed",
-      lastModified: Date.now(),
-    })
-    .where(
-      and(
-        eq(workspaceItems.workspaceId, workspaceId),
-        eq(workspaceItems.itemId, itemId),
-      ),
-    );
+  const updatedAt = new Date().toISOString();
 
-  await db
-    .update(workspaceItemContent)
-    .set({
-      structuredData: { error },
-    })
-    .where(
-      and(
-        eq(workspaceItemContent.workspaceId, workspaceId),
-        eq(workspaceItemContent.itemId, itemId),
-      ),
-    );
+  await db.transaction(async (tx) => {
+    await tx
+      .update(workspaceItems)
+      .set({
+        processingStatus: "failed",
+        lastModified: Date.now(),
+      })
+      .where(
+        and(
+          eq(workspaceItems.workspaceId, workspaceId),
+          eq(workspaceItems.itemId, itemId),
+        ),
+      );
+
+    await tx
+      .update(workspaceItemContent)
+      .set({
+        structuredData: { error },
+        updatedAt,
+      })
+      .where(
+        and(
+          eq(workspaceItemContent.workspaceId, workspaceId),
+          eq(workspaceItemContent.itemId, itemId),
+        ),
+      );
+  });
 }
