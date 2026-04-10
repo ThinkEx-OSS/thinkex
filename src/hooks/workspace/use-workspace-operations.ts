@@ -25,7 +25,7 @@ import { filterItemIdsForFolderCreation } from "@/lib/workspace-state/search";
 import {
   sanitizeWorkspaceItemChanges,
   sanitizeWorkspaceItemForPersistence,
-} from "@/lib/workspace/workspace-item-write";
+} from "@/lib/workspace/workspace-item-sanitize";
 
 const ITEM_UPDATE_DEBOUNCE_MS = 500;
 

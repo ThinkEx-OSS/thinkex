@@ -31,9 +31,9 @@ import {
   deleteWorkspaceItemById,
   insertWorkspaceItem,
   loadWorkspaceItemRecord,
-  sanitizeWorkspaceItemForPersistence,
   upsertWorkspaceItem,
 } from "@/lib/workspace/workspace-item-write";
+import { sanitizeWorkspaceItemForPersistence } from "@/lib/workspace/workspace-item-sanitize";
 
 /** Create params for a single item (used by create and bulkCreate). Exported for autogen. */
 export type CreateItemParams = {

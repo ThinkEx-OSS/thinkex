@@ -61,7 +61,6 @@ export function useWorkspaceState(workspaceId: string | null) {
             }
           : null,
         extracted: null,
-        userStates: null,
       });
     });
   }, [rows]);

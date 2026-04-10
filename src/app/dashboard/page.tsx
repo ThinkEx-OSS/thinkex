@@ -7,7 +7,6 @@ import { useKeyboardShortcuts } from "@/hooks/ui/use-keyboard-shortcuts";
 import useMediaQuery from "@/hooks/ui/use-media-query";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
-import { useWorkspaceEvents } from "@/hooks/workspace/use-workspace-events";
 import {
   WorkspaceProvider,
   useWorkspaceContext,
@@ -87,9 +86,6 @@ function DashboardContent({
   const zeroConnectionState = useConnectionState();
   const isSaving = zeroConnectionState.name === "connecting";
 
-  // ===== EVENT-BASED STATE MANAGEMENT =====
-  // Event sourcing + React Query replaces the old autosave/loader hooks
-  // State is derived from events, mutations are optimistic
   const { state, isLoading: isLoadingWorkspace } =
     useWorkspaceState(currentWorkspaceId);
 
@@ -129,10 +125,8 @@ function DashboardContent({
     setShouldOpenOnWorkspaceLoad,
   ]);
 
-  // Workspace operations (emits events with optimistic updates)
+  // Workspace operations
   const operations = useWorkspaceOperations(currentWorkspaceId, state);
-
-  const { data: eventLog } = useWorkspaceEvents(currentWorkspaceId);
 
   // Track sign-in prompt dismissal per workspace for anonymous users.
   const [
@@ -146,10 +140,9 @@ function DashboardContent({
 
   const showSignInPrompt =
     !!session?.user?.isAnonymous &&
-    !!eventLog &&
     !isLoadingWorkspace &&
     !!currentWorkspaceId &&
-    (eventLog.events?.length ?? 0) >= 15 &&
+    state.length >= 15 &&
     dismissedSignInPromptWorkspaceId !== currentWorkspaceId;
 
   // Get sidebar state and controls

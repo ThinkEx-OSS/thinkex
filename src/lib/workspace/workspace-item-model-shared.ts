@@ -15,11 +15,7 @@ import type {
   YouTubeData,
 } from "@/lib/workspace-state/types";
 import { itemCapabilities } from "./workspace-item-model-schemas";
-import {
-  WORKSPACE_ITEM_PRIMARY_USER_STATE_KEY,
-  type WorkspaceItemCapability,
-  type WorkspaceItemUserStateProjection,
-} from "./workspace-item-model-types";
+import type { WorkspaceItemCapability } from "./workspace-item-model-types";
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -81,10 +77,7 @@ function formatQuizQuestions(
 ): string {
   const questionText = questions
     .map((question) =>
-      [
-        question.questionText,
-        question.options.join("\n"),
-      ]
+      [question.questionText, question.options.join("\n")]
         .filter(Boolean)
         .join("\n"),
     )
@@ -133,19 +126,6 @@ function getDomain(url: string | undefined): string {
   } catch {
     return "";
   }
-}
-
-export function findPrimaryUserState(
-  userStates: WorkspaceItemUserStateProjection[] | null | undefined,
-  type: CardType,
-): Record<string, unknown> | null {
-  const match = userStates?.find(
-    (userState) =>
-      userState.stateKey === WORKSPACE_ITEM_PRIMARY_USER_STATE_KEY &&
-      userState.stateType === type,
-  );
-
-  return match?.state ?? null;
 }
 
 export function nullIfEmptyString(value: string | undefined): string | null {

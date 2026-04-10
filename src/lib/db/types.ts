@@ -6,26 +6,16 @@
 import type { InferSelectModel, InferInsertModel } from "drizzle-orm";
 import {
   workspaces,
-  workspaceEvents,
   workspaceItems,
   workspaceItemContent,
   workspaceItemExtracted,
-  workspaceItemProjectionState,
-  workspaceItemUserState,
   userProfiles,
   workspaceCollaborators,
 } from "./schema";
 import type { Item } from "@/lib/workspace-state/types";
 
-// Base database types (what Drizzle returns)
 export type Workspace = InferSelectModel<typeof workspaces>;
 export type WorkspaceInsert = InferInsertModel<typeof workspaces>;
-
-// WorkspaceState types removed - current state lives in workspace item tables
-// WorkspaceShare types removed - sharing is now fork-based (users import copies)
-
-export type WorkspaceEvent = InferSelectModel<typeof workspaceEvents>;
-export type WorkspaceEventInsert = InferInsertModel<typeof workspaceEvents>;
 
 export type WorkspaceItem = InferSelectModel<typeof workspaceItems>;
 export type WorkspaceItemInsert = InferInsertModel<typeof workspaceItems>;
@@ -44,20 +34,6 @@ export type WorkspaceItemExtractedInsert = InferInsertModel<
   typeof workspaceItemExtracted
 >;
 
-export type WorkspaceItemProjectionState = InferSelectModel<
-  typeof workspaceItemProjectionState
->;
-export type WorkspaceItemProjectionStateInsert = InferInsertModel<
-  typeof workspaceItemProjectionState
->;
-
-export type WorkspaceItemUserState = InferSelectModel<
-  typeof workspaceItemUserState
->;
-export type WorkspaceItemUserStateInsert = InferInsertModel<
-  typeof workspaceItemUserState
->;
-
 export type UserProfile = InferSelectModel<typeof userProfiles>;
 export type UserProfileInsert = InferInsertModel<typeof userProfiles>;
 
@@ -70,14 +46,12 @@ export type WorkspaceCollaboratorInsert = InferInsertModel<
 
 export type PermissionLevel = "viewer" | "editor";
 
-// Extended types for frontend use
 export interface WorkspaceWithState extends Workspace {
   state?: Item[];
   isShared?: boolean;
-  permissionLevel?: "viewer" | "editor" | "admin"; // admin is implied for owner but good to have in types
+  permissionLevel?: "viewer" | "editor" | "admin";
 }
 
-// API response types
 export interface WorkspacesResponse {
   workspaces: WorkspaceWithState[];
 }

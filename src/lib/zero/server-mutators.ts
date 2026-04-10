@@ -140,14 +140,12 @@ async function syncExtractedRow(
           sourceData: (content.sourceData as never[] | null) ?? null,
         }
       : null,
-    userStates: null,
   });
 
   const rows = buildWorkspaceItemTableRows({
     workspaceId: params.workspaceId,
     item,
     sourceVersion: shell.sourceVersion,
-    userId: params.userId ?? undefined,
   });
 
   await wrappedTx

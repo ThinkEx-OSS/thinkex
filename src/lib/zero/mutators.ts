@@ -13,7 +13,7 @@ import {
 import {
   sanitizeWorkspaceItemChanges,
   sanitizeWorkspaceItemForPersistence,
-} from "@/lib/workspace/workspace-item-write";
+} from "@/lib/workspace/workspace-item-sanitize";
 import { schema, zql } from "./zero-schema.gen";
 import type { ZeroContext } from "./client";
 
@@ -287,7 +287,6 @@ async function loadItem(
             sourceData: (content.sourceData as never[] | null) ?? null,
           }
         : null,
-      userStates: null,
     }),
     sourceVersion: shell.sourceVersion,
   };
@@ -306,7 +305,6 @@ async function insertItem(
     workspaceId: params.workspaceId,
     item: params.item,
     sourceVersion: params.sourceVersion ?? 0,
-    userId: params.userId ?? undefined,
   });
 
   await tx.mutate.workspace_items.insert(toMutateShellRow(rows.item));
@@ -328,7 +326,6 @@ async function upsertItem(
     workspaceId: params.workspaceId,
     item: params.item,
     sourceVersion: params.sourceVersion,
-    userId: params.userId ?? undefined,
   });
 
   await tx.mutate.workspace_items.update(toMutateShellRow(rows.item));

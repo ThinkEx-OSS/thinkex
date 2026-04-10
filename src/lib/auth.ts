@@ -19,9 +19,13 @@ const getBaseURL = () => {
 };
 
 import { eq } from "drizzle-orm";
-import { workspaces, workspaceEvents, userProfiles } from "@/lib/db/schema";
+import { workspaces, userProfiles } from "@/lib/db/schema";
 
 const baseURL = getBaseURL();
+const authSecret =
+  process.env.BETTER_AUTH_SECRET ||
+  process.env.AUTH_SECRET ||
+  "dev-build-secret-0123456789abcdef0123456789abcdef";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -49,7 +53,7 @@ export const auth = betterAuth({
       accessType: "offline",
     },
   },
-  secret: process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET,
+  secret: authSecret,
   baseURL,
   trustedOrigins: [
     "https://www.thinkex.app",
@@ -163,12 +167,6 @@ export const auth = betterAuth({
               .set({ userId: newUser.user.id })
               .where(eq(workspaces.userId, anonymousUser.user.id));
 
-            // 3. Migrate Workspace Events
-            // Also move the history/events to the new user so they don't get orphaned
-            await db
-              .update(workspaceEvents)
-              .set({ userId: newUser.user.id })
-              .where(eq(workspaceEvents.userId, anonymousUser.user.id));
           } catch (error) {
             console.error("Failed to migrate anonymous user data:", error);
             // We log but don't throw to allow the account linking to complete

@@ -10,40 +10,7 @@ import {
   buildWorkspaceItemTableRows,
   rehydrateWorkspaceItem,
 } from "./workspace-item-model";
-
-function stripUserStateFromData(data: Item["data"]): Item["data"] {
-  if (!data || typeof data !== "object") {
-    return data;
-  }
-
-  const nextData = structuredClone(data) as Record<string, unknown>;
-  delete nextData.currentIndex;
-  delete nextData.session;
-  delete nextData.progress;
-  delete nextData.playbackRate;
-
-  return nextData as Item["data"];
-}
-
-export function sanitizeWorkspaceItemForPersistence(item: Item): Item {
-  return {
-    ...item,
-    data: stripUserStateFromData(item.data),
-  };
-}
-
-export function sanitizeWorkspaceItemChanges(
-  changes: Partial<Item>,
-): Partial<Item> {
-  if (changes.data === undefined) {
-    return changes;
-  }
-
-  return {
-    ...changes,
-    data: stripUserStateFromData(changes.data),
-  };
-}
+import { sanitizeWorkspaceItemForPersistence } from "./workspace-item-sanitize";
 
 type DbExecutor = typeof db | any;
 
@@ -125,7 +92,6 @@ export async function loadWorkspaceItemRecord(
             transcriptSegments: (extracted.transcriptSegments as any) ?? null,
           }
         : null,
-      userStates: null,
     }),
     sourceVersion: shell.sourceVersion,
   };
