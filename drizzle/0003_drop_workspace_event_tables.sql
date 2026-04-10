@@ -1,3 +1,0 @@
--- Tables workspace_item_user_state, workspace_item_projection_state, and workspace_events
--- are no longer used by the application (replaced by Zero sync).
--- Data is preserved intentionally; tables can be dropped manually when no longer needed.
