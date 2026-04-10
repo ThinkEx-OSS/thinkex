@@ -74,7 +74,7 @@ export function ZeroProvider({ children }: { children: ReactNode }) {
   }
 
   if (!zero) {
-    return <>{children}</>;
+    return null;
   }
 
   return <BaseZeroProvider zero={zero}>{children}</BaseZeroProvider>;
