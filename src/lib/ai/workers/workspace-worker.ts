@@ -215,7 +215,6 @@ export async function workspaceWorker(
     | "bulkCreate"
     | "delete"
     | "edit"
-    | "updateFlashcard"
     | "updateQuiz"
     | "updatePdfContent"
     | "updateImageContent",
@@ -253,7 +252,6 @@ export async function workspaceWorker(
     pdfOcrError?: string;
     flashcardData?: {
       cards?: { front: string; back: string }[]; // For creating flashcards
-      cardsToAdd?: { front: string; back: string }[]; // For updating flashcards (appending)
     };
     quizData?: QuizData; // For creating quizzes
     questionsToAdd?: QuizQuestion[]; // For updating quizzes (appending questions)
@@ -289,7 +287,6 @@ export async function workspaceWorker(
   success: boolean;
   message: string;
   itemId?: string;
-  cardsAdded?: number;
   cardCount?: number;
   event?: WorkspaceEvent;
   version?: number;
@@ -383,87 +380,6 @@ export async function workspaceWorker(
             message: `Bulk created ${items.length} items successfully`,
             version: appendResult.version,
             itemIds: items.map((i) => i.id),
-          };
-        }
-
-        if (action === "updateFlashcard") {
-          if (!params.itemId) {
-            throw new Error("Item ID required for flashcard update");
-          }
-          if (
-            !params.flashcardData?.cardsToAdd ||
-            params.flashcardData.cardsToAdd.length === 0
-          ) {
-            throw new Error("Cards to add required for flashcard update");
-          }
-
-          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
-
-          const existingItem = currentState.find(
-            (i: any) => i.id === params.itemId,
-          );
-          if (!existingItem) {
-            throw new Error(
-              `Flashcard deck not found with ID: ${params.itemId}`,
-            );
-          }
-
-          if (existingItem.type !== "flashcard") {
-            throw new Error(
-              `Item "${existingItem.name}" is not a flashcard deck (type: ${existingItem.type})`,
-            );
-          }
-
-          const existingData = existingItem.data as { cards?: any[] };
-          const existingCards = existingData?.cards || [];
-
-          // Generate new cards with IDs and parsed blocks
-          const newCards = params.flashcardData.cardsToAdd.map((card) => ({
-            id: generateItemId(),
-            front: card.front,
-            back: card.back,
-          }));
-
-          // Merge existing cards with new cards
-          const updatedData = {
-            ...existingData,
-            cards: [...existingCards, ...newCards],
-          };
-
-          const changes: any = { data: updatedData };
-
-          // Handle title update if provided
-          if (params.title) {
-            const dupError = checkDuplicateName(currentState, params.title, existingItem.type, existingItem.folderId ?? null, params.itemId);
-            if (dupError) {
-              return { success: false, message: dupError };
-            }
-            changes.name = params.title;
-          }
-
-          const event = createEvent(
-            "ITEM_UPDATED",
-            {
-              id: params.itemId,
-              changes,
-              name: changes.name ?? existingItem.name,
-            },
-            userId,
-            userName,
-          );
-
-          const appendResult = await persistWorkspaceEvent(
-            params.workspaceId,
-            event,
-          );
-
-          return {
-            success: true,
-            itemId: params.itemId,
-            cardsAdded: newCards.length,
-            message: `Added ${newCards.length} card${newCards.length !== 1 ? "s" : ""} to flashcard deck${params.title ? ` and renamed to "${params.title}"` : ""}`,
-            event,
-            version: appendResult.version,
           };
         }
 

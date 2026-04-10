@@ -115,7 +115,6 @@ export function parseQuizResult(input: unknown): QuizResult {
 export const FlashcardResultSchema = baseWorkspace.extend({
   title: z.string().optional(),
   cardCount: z.number().optional(),
-  cardsAdded: z.number().optional(),
   deckName: z.string().optional(),
   cards: z.array(flashcardCardInputSchema).optional(),
 }).passthrough();
