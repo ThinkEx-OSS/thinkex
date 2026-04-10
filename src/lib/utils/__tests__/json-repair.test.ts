@@ -34,7 +34,7 @@ describe("parseJsonWithRepair", () => {
     const malformed = `
       {
         "questions": [
-          {"id":"q1","type":"multiple_choice","questionText":"Q1","options":["A","B","C","D"],"correctIndex":0,"explanation":"ok"},
+          {"id":"q1","type":"multiple_choice","questionText":"Q1","options":["A","B","C","D"],"correctIndex":0},
         ],
       }
     `;

@@ -3,7 +3,7 @@
 import { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import type { Item, ItemData, QuizData, QuizQuestion, QuizSessionData } from "@/lib/workspace-state/types";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, XCircle, Lightbulb, ChevronLeft, ChevronRight, RotateCcw, Trophy, Plus } from "lucide-react";
+import { CheckCircle2, XCircle, ChevronLeft, ChevronRight, RotateCcw, Trophy, Plus } from "lucide-react";
 import { StreamdownMarkdown } from "@/components/ui/streamdown-markdown";
 import { toast } from "sonner";
 import { useAui } from "@assistant-ui/react";
@@ -29,7 +29,6 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false, classN
     const [currentIndex, setCurrentIndex] = useState(quizData.session?.currentIndex || 0);
     const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
     const [isSubmitted, setIsSubmitted] = useState(false);
-    const [showHint, setShowHint] = useState(false);
     const [answeredQuestions, setAnsweredQuestions] = useState<QuizSessionData["answeredQuestions"]>(
         quizData.session?.answeredQuestions || []
     );
@@ -75,7 +74,6 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false, classN
                 setCurrentIndex(prevCount); // Go to first new question
                 setSelectedAnswer(null);
                 setIsSubmitted(false);
-                setShowHint(false);
 
                 // Clear completedAt since we're no longer complete
                 onUpdateData((prev) => {
@@ -118,7 +116,6 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false, classN
             setSelectedAnswer(null);
             setIsSubmitted(false);
         }
-        setShowHint(false);
     }, [currentIndex, previousAnswer]);
 
     // Persist session state
@@ -204,7 +201,6 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false, classN
         setCurrentIndex(0);
         setSelectedAnswer(null);
         setIsSubmitted(false);
-        setShowHint(false);
         setAnsweredQuestions([]);
         setShowResults(false);
         onUpdateData((prev) => {
@@ -295,7 +291,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false, classN
                             ))}
                         </div>
 
-                        {/* Hint Area Skeleton */}
+                        {/* Progress Bar Skeleton */}
                         <div className="mt-4 flex items-center justify-between">
                             <div className="flex-1 mx-4">
                                 <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
@@ -448,25 +444,9 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false, classN
                     })}
                 </div>
 
-                {/* Hint */}
-                {showHint && currentQuestion.hint && (
-                    <div className="mt-4 mb-2 p-3 bg-yellow-100/50 border border-yellow-300/50 rounded-lg text-sm text-yellow-800/90 dark:bg-yellow-500/10 dark:border-yellow-500/20 dark:text-yellow-200/90">
-                        {currentQuestion.hint}
-                    </div>
-                )}
                 <div className="mt-4 flex items-center justify-between">
-                    {/* Left: Hint */}
+                    {/* Left: spacer */}
                     <div>
-                        {currentQuestion.hint && !isSubmitted && (
-                            <button
-                                onMouseDown={preventFocusSteal}
-                                onClick={(e) => { stopPropagation(e); setShowHint(!showHint); }}
-                                className="flex items-center gap-2 text-sm text-yellow-600/80 hover:text-yellow-600 transition-colors cursor-pointer dark:text-yellow-400/80 dark:hover:text-yellow-400"
-                            >
-                                <Lightbulb className="w-4 h-4" />
-                                {showHint ? "Hide hint" : "Hint"}
-                            </button>
-                        )}
                     </div>
 
                     {/* Center: Progress bar */}
@@ -480,7 +460,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false, classN
                     </div>
                 </div>
 
-                {/* Explanation */}
+                {/* Correct/Incorrect feedback */}
                 {isSubmitted && (
                     <div className={cn(
                         "mt-4 p-4 rounded-lg border",
@@ -488,7 +468,7 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false, classN
                             ? "bg-green-100/50 border-green-300/50 dark:bg-green-500/10 dark:border-green-500/20"
                             : "bg-red-100/50 border-red-300/50 dark:bg-red-500/10 dark:border-red-500/20"
                     )}>
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2">
                             {selectedAnswer === currentQuestion.correctIndex ? (
                                 <>
                                     <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -500,11 +480,6 @@ export function QuizContent({ item, onUpdateData, isScrollLocked = false, classN
                                     <span className="font-medium text-red-600 dark:text-red-400">Incorrect</span>
                                 </>
                             )}
-                        </div>
-                        <div className="text-sm text-gray-700 prose prose-sm max-w-none dark:text-foreground dark:prose-invert">
-                            <StreamdownMarkdown>
-                                {currentQuestion.explanation}
-                            </StreamdownMarkdown>
                         </div>
                     </div>
                 )}

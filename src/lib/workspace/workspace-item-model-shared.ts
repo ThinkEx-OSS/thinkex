@@ -84,9 +84,6 @@ function formatQuizQuestions(
       [
         question.questionText,
         question.options.join("\n"),
-        question.hint ?? "",
-        question.explanation,
-        question.sourceContext ?? "",
       ]
         .filter(Boolean)
         .join("\n"),

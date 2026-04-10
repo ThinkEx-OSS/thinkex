@@ -6,6 +6,7 @@ import { loadWorkspaceState } from "@/lib/workspace/state-loader";
 import type { Item } from "@/lib/workspace-state/types";
 import { loadStateForTool, resolveItem, getAvailableItemsList, withSanitizedModelOutput } from "./tool-utils";
 import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
+import { sourceSchema } from "@/lib/workspace-state/item-data-schemas";
 
 // Note: Edit functionality is in edit-item-tool.ts (item_edit)
 
@@ -26,13 +27,7 @@ export function createDocumentTool(ctx: WorkspaceToolContext) {
             z.object({
                 title: z.string().describe("The title of the document card"),
                 content: z.string().describe("The markdown body content. CRITICAL: DO NOT repeat the title in content — the title is displayed separately. Start with subheadings or body text only."),
-                sources: z.array(
-                    z.object({
-                        title: z.string().describe("Title of the source page"),
-                        url: z.string().describe("URL of the source"),
-                        favicon: z.string().optional().describe("Optional favicon URL"),
-                    })
-                ).optional().describe("Optional sources from web search or deep research"),
+                sources: z.array(sourceSchema).optional().describe("Optional sources from web search or deep research"),
             })
         ),
         strict: true,

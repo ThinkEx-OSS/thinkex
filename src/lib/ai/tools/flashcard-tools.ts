@@ -4,6 +4,7 @@ import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
 import { withSanitizedModelOutput } from "./tool-utils";
+import { flashcardCardInputSchema } from "@/lib/workspace-state/item-data-schemas";
 /**
  * Create the flashcards_create tool
  */
@@ -13,12 +14,7 @@ export function createFlashcardsTool(ctx: WorkspaceToolContext) {
         inputSchema: zodSchema(
             z.object({
                 title: z.string().nullable().describe("The title of the flashcard deck (defaults to 'Flashcard Deck' if not provided)"),
-                cards: z.array(
-                    z.object({
-                        front: z.string().describe("The question or term on the front of the card"),
-                        back: z.string().describe("The answer or definition on the back of the card"),
-                    })
-                ).min(1).describe("Array of flashcard objects, each with 'front' and 'back' properties"),
+                cards: z.array(flashcardCardInputSchema).min(1).describe("Array of flashcard objects, each with 'front' and 'back' properties"),
             })
         ),
         strict: true,

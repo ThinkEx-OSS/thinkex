@@ -57,7 +57,7 @@ export function extractSearchableText(
       const content = questions
         .map(
           (q) =>
-            `${q.questionText}\n${q.options?.join("\n") ?? ""}\n${q.explanation ?? ""}`,
+            `${q.questionText}\n${q.options?.join("\n") ?? ""}`,
         )
         .join("\n\n");
       return body(content);

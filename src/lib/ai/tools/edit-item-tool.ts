@@ -6,6 +6,7 @@ import type { WorkspaceToolContext } from "./workspace-tools";
 import { loadStateForTool, resolveItem, withSanitizedModelOutput } from "./tool-utils";
 import { getVirtualPath } from "@/lib/utils/workspace-fs";
 import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
+import { sourceSchema } from "@/lib/workspace-state/item-data-schemas";
 
 const EDITABLE_TYPES = ["flashcard", "quiz", "pdf", "document"] as const;
 
@@ -37,13 +38,7 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                         .describe("Replace every occurrence of oldString; use for renaming or changing repeated text."),
                     newName: z.string().optional().describe("Rename the item to this. If not provided, the existing name is preserved."),
                     sources: z
-                        .array(
-                            z.object({
-                                title: z.string().describe("Title of the source page"),
-                                url: z.string().describe("URL of the source"),
-                                favicon: z.string().optional().describe("Optional favicon URL"),
-                            })
-                        )
+                        .array(sourceSchema)
                         .optional()
                         .describe("Optional sources to attach to the edited item"),
                 })
