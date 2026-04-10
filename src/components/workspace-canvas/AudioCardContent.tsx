@@ -229,6 +229,7 @@ function AudioCardComplete({
     ? (audioData.segments ?? [])
     : (transcriptData?.segments ?? []);
   const transcript =
+    (hasEagerSegments ? audioData.transcript : null) ??
     transcriptData?.transcript ??
     audioData.transcript ??
     (segments.length > 0
@@ -535,6 +536,10 @@ function AudioCardComplete({
                 </h4>
                 {isLoadingSegments && segments.length === 0 ? (
                   <TranscriptSegmentsSkeleton compact />
+                ) : transcriptError ? (
+                  <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                    Failed to load transcript.
+                  </div>
                 ) : segments.length > 0 ? (
                   <div className="space-y-1 p-1 -m-1">
                     {segments.slice(0, 3).map((segment, idx) => (
