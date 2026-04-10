@@ -25,8 +25,11 @@ export const flashcardItemSchema = z.object({
   back: z.string().default(""),
 });
 
-/** Tool/API input variant — no `id` (generated server-side) */
-export const flashcardCardInputSchema = flashcardItemSchema.omit({ id: true });
+/** Tool/API input variant — no `id`, fields required (no defaults) */
+export const flashcardCardInputSchema = z.object({
+  front: z.string(),
+  back: z.string(),
+});
 
 export const flashcardDataSchema = z.object({
   cards: z.array(flashcardItemSchema).default([]),
@@ -45,7 +48,10 @@ export const quizQuestionSchema = z.object({
 
 /** Tool/API input variant — no `id`, with option-count validation */
 export const quizQuestionInputSchema = quizQuestionSchema
-  .omit({ id: true })
+  .omit({ id: true, correctIndex: true })
+  .extend({
+    correctIndex: z.number().int().min(0),
+  })
   .refine(
     (q) => {
       const requiredCount = q.type === "true_false" ? 2 : 4;

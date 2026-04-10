@@ -13,7 +13,7 @@ import { FirecrawlClient } from "@/lib/ai/utils/firecrawl";
 import { findNextAvailablePosition } from "@/lib/workspace-state/grid-layout-helpers";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import type { Item, QuizQuestion } from "@/lib/workspace-state/types";
-import { quizQuestionInputSchema } from "@/lib/workspace-state/item-data-schemas";
+import { quizQuestionSchema } from "@/lib/workspace-state/item-data-schemas";
 import { CANVAS_CARD_COLORS } from "@/lib/workspace-state/colors";
 import {
   WORKSPACE_ICON_NAMES,
@@ -823,7 +823,7 @@ export async function POST(request: NextRequest) {
           document: z.object({ title: z.string(), content: z.string() }),
           quiz: z.object({
             title: z.string(),
-            questions: z.array(quizQuestionInputSchema).min(5).max(10),
+            questions: z.array(quizQuestionSchema.omit({ id: true })).min(5).max(10),
           }),
         });
 
