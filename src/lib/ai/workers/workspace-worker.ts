@@ -862,8 +862,6 @@ export async function workspaceWorker(
                   questionText,
                   options,
                   correctIndex,
-                  hint: q?.hint,
-                  explanation: String(q?.explanation ?? ""),
                 };
               },
             );

@@ -9,6 +9,7 @@ import {
   CodeExecuteResultSchema,
   normalizeCodeExecuteResult,
 } from "@/lib/ai/code-execute-shared";
+import { flashcardCardInputSchema } from "@/lib/workspace-state/item-data-schemas";
 
 /**
  * Shared schemas and parsers for tool results. Used by assistant-ui Tool UIs
@@ -116,7 +117,7 @@ export const FlashcardResultSchema = baseWorkspace.extend({
   cardCount: z.number().optional(),
   cardsAdded: z.number().optional(),
   deckName: z.string().optional(),
-  cards: z.array(z.object({ front: z.string(), back: z.string() })).optional(),
+  cards: z.array(flashcardCardInputSchema).optional(),
 }).passthrough();
 
 export type FlashcardResult = z.infer<typeof FlashcardResultSchema>;

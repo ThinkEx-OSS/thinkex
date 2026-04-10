@@ -274,7 +274,6 @@ describe("workspace item model", () => {
               questionText: "Question?",
               options: ["A", "B", "C", "D"],
               correctIndex: 0,
-              explanation: "Because",
             },
           ],
           session: {

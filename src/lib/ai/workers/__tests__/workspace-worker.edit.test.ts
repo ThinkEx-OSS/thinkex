@@ -154,7 +154,6 @@ describe("workspaceWorker edit end-to-end paths", () => {
                 questionText: "Q1",
                 options: ["A", "B", "C", "D"],
                 correctIndex: 0,
-                explanation: "e1",
               },
             ],
           },
@@ -180,7 +179,6 @@ describe("workspaceWorker edit end-to-end paths", () => {
         '      "questionText": "Q2",',
         '      "options": ["A", "B", "C", "D"],',
         '      "correctIndex": 1,',
-        '      "explanation": "e2"',
         "    }",
         "  ]",
         "}",
@@ -263,7 +261,6 @@ describe("workspaceWorker edit end-to-end paths", () => {
         questionText: "Q1",
         options: ["A", "B", "C", "D"],
         correctIndex: 0,
-        explanation: "e1",
       },
     ];
 
@@ -401,7 +398,6 @@ describe("workspaceWorker edit end-to-end paths", () => {
                 questionText: "Same",
                 options: ["A", "B", "C", "D"],
                 correctIndex: 0,
-                explanation: "dup",
               },
               {
                 id: "q2",
@@ -409,7 +405,6 @@ describe("workspaceWorker edit end-to-end paths", () => {
                 questionText: "Same",
                 options: ["A", "B", "C", "D"],
                 correctIndex: 1,
-                explanation: "dup",
               },
             ],
           },

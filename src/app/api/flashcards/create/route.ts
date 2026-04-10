@@ -4,15 +4,12 @@ import { auth } from "@/lib/auth";
 import { logger } from "@/lib/utils/logger";
 import { headers } from "next/headers";
 import { z } from "zod";
+import { flashcardCardInputSchema } from "@/lib/workspace-state/item-data-schemas";
 
 const createFlashcardSchema = z.object({
     workspaceId: z.string().uuid(),
     title: z.string().min(1),
-    cards: z.array(z.object({
-        front: z.string(),
-        back: z.string()
-    })).min(1),
-
+    cards: z.array(flashcardCardInputSchema).min(1),
 });
 
 export async function POST(req: Request) {
