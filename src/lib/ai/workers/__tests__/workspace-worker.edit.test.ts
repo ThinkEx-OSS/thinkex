@@ -170,19 +170,21 @@ describe("workspaceWorker edit end-to-end paths", () => {
       itemId: "quiz-1",
       itemType: "quiz",
       itemName: "Quiz 1",
-      oldString: "  ]\n}",
-      newString: [
-        "    ,",
-        "    {",
-        '      "id": "q2",',
-        '      "type": "multiple_choice",',
-        '      "questionText": "Q2",',
-        '      "options": ["A", "B", "C", "D"],',
-        '      "correctIndex": 1,',
-        "    }",
-        "  ]",
-        "}",
-      ].join("\n"),
+      edits: [{
+        oldText: "  ]\n}",
+        newText: [
+          "    ,",
+          "    {",
+          '      "id": "q2",',
+          '      "type": "multiple_choice",',
+          '      "questionText": "Q2",',
+          '      "options": ["A", "B", "C", "D"],',
+          '      "correctIndex": 1,',
+          "    }",
+          "  ]",
+          "}",
+        ].join("\n"),
+      }],
     });
 
     expect(result.success).toBe(true);
@@ -226,14 +228,15 @@ describe("workspaceWorker edit end-to-end paths", () => {
       itemId: "deck-1",
       itemType: "flashcard",
       itemName: "Deck 1",
-      oldString: "  ]\n}",
-      // intentionally malformed but repairable (single quotes + trailing comma)
-      newString: [
-        "    ,",
-        "    {'id':'c2','front':'f2','back':'b2'},",
-        "  ]",
-        "}",
-      ].join("\n"),
+      edits: [{
+        oldText: "  ]\n}",
+        newText: [
+          "    ,",
+          "    {'id':'c2','front':'f2','back':'b2'},",
+          "  ]",
+          "}",
+        ].join("\n"),
+      }],
     });
 
     expect(result.success).toBe(true);
@@ -283,20 +286,21 @@ describe("workspaceWorker edit end-to-end paths", () => {
       itemId: "quiz-1",
       itemType: "quiz",
       itemName: "Quiz 1",
-      oldString: JSON.stringify({ questions: initialQuestions }, null, 2),
-      // repair may parse this, but schema should reject 3 options for MC
-      newString: JSON.stringify(
-        {
-          questions: [
-            {
-              ...initialQuestions[0],
-              options: ["A", "B", "C"],
-            },
-          ],
-        },
-        null,
-        2,
-      ),
+      edits: [{
+        oldText: JSON.stringify({ questions: initialQuestions }, null, 2),
+        newText: JSON.stringify(
+          {
+            questions: [
+              {
+                ...initialQuestions[0],
+                options: ["A", "B", "C"],
+              },
+            ],
+          },
+          null,
+          2,
+        ),
+      }],
     });
 
     expect(result.success).toBe(false);
@@ -323,12 +327,14 @@ describe("workspaceWorker edit end-to-end paths", () => {
       itemId: "deck-1",
       itemType: "flashcard",
       itemName: "Deck 1",
-      oldString: "{",
-      newString: "{ ???",
+      edits: [{
+        oldText: '{\n  "cards": [',
+        newText: "{ ??? invalid [",
+      }],
     });
 
     expect(result.success).toBe(false);
-    expect(result.message).toMatch(/Invalid JSON after edit/i);
+    expect(result.message).toMatch(/Invalid JSON after edit|Invalid structure/i);
   });
 
   it("rename-only: updates document name without touching content", async () => {
@@ -354,8 +360,7 @@ describe("workspaceWorker edit end-to-end paths", () => {
       itemId: "doc-1",
       itemType: "document",
       itemName: "My Document",
-      oldString: "",
-      newString: "",
+      edits: [],
       newName: "Renamed Document",
     });
 
@@ -382,7 +387,7 @@ describe("workspaceWorker edit end-to-end paths", () => {
     expect(eventPayload.changes).toEqual({ name: "Renamed Document" });
   });
 
-  it("fails with clear message when oldString is ambiguous", async () => {
+  it("fails with clear message when oldText is ambiguous", async () => {
     mockLoadWorkspaceState.mockResolvedValue({
       items: [
         {
@@ -417,12 +422,13 @@ describe("workspaceWorker edit end-to-end paths", () => {
       itemId: "quiz-1",
       itemType: "quiz",
       itemName: "Quiz 1",
-      oldString: '"questionText": "Same"',
-      newString: '"questionText": "Updated"',
-      replaceAll: false,
+      edits: [{
+        oldText: '"questionText": "Same"',
+        newText: '"questionText": "Updated"',
+      }],
     });
 
     expect(result.success).toBe(false);
-    expect(result.message).toMatch(/multiple matches/i);
+    expect(result.message).toMatch(/occurrences/i);
   });
 });

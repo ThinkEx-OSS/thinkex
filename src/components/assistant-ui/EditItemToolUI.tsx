@@ -21,9 +21,7 @@ import type { Item } from "@/lib/workspace-state/types";
 
 type EditItemArgs = {
   itemName: string;
-  oldString: string;
-  newString: string;
-  replaceAll?: boolean;
+  edits: Array<{ oldText: string; newText: string }>;
   newName?: string;
 };
 

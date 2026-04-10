@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  applyEdits,
   replace,
   normalizeLineEndings,
-  unescapeString,
   trimDiff,
 } from "@/lib/utils/edit-replace";
 
@@ -20,76 +20,109 @@ describe("normalizeLineEndings", () => {
   });
 });
 
-describe("replace (edit/replace for oldString/newString)", () => {
-  it("performs exact string replacement", () => {
+describe("applyEdits", () => {
+  it("performs exact single replacement", () => {
     const content = "# Title\n\nHello world";
-    expect(replace(content, "Hello world", "Goodbye world")).toBe(
-      "# Title\n\nGoodbye world"
-    );
+    const result = applyEdits(content, [{ oldText: "Hello world", newText: "Goodbye world" }]);
+    expect(result.newContent).toBe("# Title\n\nGoodbye world");
   });
 
-  it("replace with normalized line endings (worker normalizes before calling)", () => {
-    const contentWithCrlf = "# Title\r\n\r\nHello world";
-    const oldStr = "# Title\n\nHello world";
-    // After normalizing both (as worker does), replace succeeds.
-    // Raw CRLF may or may not match depending on replacers; we always normalize.
-    const normalized = contentWithCrlf.replaceAll("\r\n", "\n");
-    expect(replace(normalized, oldStr, "# Title\n\nHi")).toBe("# Title\n\nHi");
+  it("applies two disjoint replacements in one call", () => {
+    const content = "aaa\nbbb\nccc";
+    const result = applyEdits(content, [
+      { oldText: "aaa", newText: "AAA" },
+      { oldText: "ccc", newText: "CCC" },
+    ]);
+    expect(result.newContent).toBe("AAA\nbbb\nCCC");
   });
 
-  it("throws when oldString not found", () => {
+  it("edits applied to original content, not incrementally", () => {
+    const content = "foo bar baz";
+    const result = applyEdits(content, [
+      { oldText: "foo", newText: "XXX" },
+      { oldText: "baz", newText: "YYY" },
+    ]);
+    expect(result.newContent).toBe("XXX bar YYY");
+  });
+
+  it("throws on overlapping edits", () => {
+    const content = "abcdef";
     expect(() =>
-      replace("actual content", "typo contnet", "replacement")
-    ).toThrow("Could not find oldString");
+      applyEdits(content, [
+        { oldText: "abcd", newText: "X" },
+        { oldText: "cdef", newText: "Y" },
+      ])
+    ).toThrow(/overlap/i);
   });
 
-  it("throws when oldString matches multiple times without replaceAll", () => {
+  it("throws on duplicate oldText (matches multiple locations)", () => {
+    const content = "foo bar foo bar";
     expect(() =>
-      replace("foo bar foo bar", "foo bar", "replaced")
-    ).toThrow("multiple matches");
+      applyEdits(content, [{ oldText: "foo bar", newText: "replaced" }])
+    ).toThrow(/occurrences/i);
   });
 
-  it("replaces all occurrences when replaceAll=true", () => {
-    expect(
-      replace("foo bar foo bar", "foo bar", "x", true)
-    ).toBe("x x");
+  it("throws multi-edit duplicate error with index", () => {
+    const content = "foo bar foo bar";
+    expect(() =>
+      applyEdits(content, [
+        { oldText: "foo bar", newText: "replaced" },
+        { oldText: "something", newText: "else" },
+      ])
+    ).toThrow(/edits\[0\]/);
   });
 
-  it("uses LineTrimmedReplacer when exact match has extra whitespace", () => {
-    const content = "  line1  \n  line2  \n  line3  ";
-    const find = "line1\nline2\nline3";
-    const result = replace(content, find, "replaced");
-    expect(result).toBe("replaced");
+  it("throws on empty oldText", () => {
+    expect(() =>
+      applyEdits("content", [{ oldText: "", newText: "new" }])
+    ).toThrow(/oldText must not be empty/i);
   });
 
-  it("preserves newlines and indentation in replacement", () => {
-    const content = "before\n  indented\nafter";
-    expect(
-      replace(content, "  indented", "  modified")
-    ).toBe("before\n  modified\nafter");
+  it("throws multi-edit empty oldText error with index", () => {
+    expect(() =>
+      applyEdits("content", [
+        { oldText: "content", newText: "x" },
+        { oldText: "", newText: "new" },
+      ])
+    ).toThrow(/edits\[1\]\.oldText must not be empty/);
   });
 
-  it("handles math block format from workspace_read", () => {
-    const content = "# Note\n\n$$\nx^2\n$$\n\nMore text";
-    expect(replace(content, "$$\nx^2\n$$\n\n", "$$\n2x\n$$\n\n")).toBe(
-      "# Note\n\n$$\n2x\n$$\n\nMore text"
-    );
+  it("throws when no changes made (replacement produces identical content)", () => {
+    const content = "hello";
+    expect(() =>
+      applyEdits(content, [{ oldText: "hello", newText: "hello" }])
+    ).toThrow(/No changes made/i);
   });
 
-  it("handles oldString wrapped in code fences", () => {
-    const content = "{\n  \"cards\": []\n}";
-    const oldFenced = "```json\n{\n  \"cards\": []\n}\n```";
-    const result = replace(content, oldFenced, "{\"cards\":[{\"front\":\"A\",\"back\":\"B\"}]}");
-    expect(result).toBe("{\"cards\":[{\"front\":\"A\",\"back\":\"B\"}]}");
+  it("throws when oldText not found (single edit)", () => {
+    expect(() =>
+      applyEdits("actual content", [{ oldText: "typo contnet", newText: "replacement" }])
+    ).toThrow(/Could not find the exact text/);
   });
 
-  it("normalizes fenced JSON newString in JSON edit contexts", () => {
-    const content = "{\n  \"questions\": []\n}";
+  it("throws when oldText not found (multi edit)", () => {
+    expect(() =>
+      applyEdits("actual content", [
+        { oldText: "actual", newText: "new" },
+        { oldText: "missing", newText: "x" },
+      ])
+    ).toThrow(/Could not find edits\[1\]/);
+  });
+
+  it("unwraps code fence from oldText for JSON contexts", () => {
+    const content = '{\n  "cards": []\n}';
+    const oldFenced = '```json\n{\n  "cards": []\n}\n```';
+    const result = applyEdits(content, [{ oldText: oldFenced, newText: '{"cards":[{"front":"A","back":"B"}]}' }]);
+    expect(result.newContent).toBe('{"cards":[{"front":"A","back":"B"}]}');
+  });
+
+  it("normalizes fenced JSON newText in JSON edit contexts", () => {
+    const content = '{\n  "questions": []\n}';
     const oldTail = "[]\n}";
-    const fencedNew = "```json\n[\n  {\n    \"id\": \"q2\"\n  }\n]\n```";
-    const result = replace(content, oldTail, fencedNew);
-    expect(result).toContain('"id": "q2"');
-    expect(result).not.toContain("```");
+    const fencedNew = '```json\n[\n  {\n    "id": "q2"\n  }\n]\n```';
+    const result = applyEdits(content, [{ oldText: oldTail, newText: fencedNew }]);
+    expect(result.newContent).toContain('"id": "q2"');
+    expect(result.newContent).not.toContain("```");
   });
 
   it("supports appending a quiz question near end of JSON", () => {
@@ -121,9 +154,9 @@ describe("replace (edit/replace for oldString/newString)", () => {
       "}",
     ].join("\n");
 
-    const result = replace(content, oldTail, newTail);
-    expect(result).toContain('"id": "q2"');
-    expect(result).toContain('"questionText": "Q2"');
+    const result = applyEdits(content, [{ oldText: oldTail, newText: newTail }]);
+    expect(result.newContent).toContain('"id": "q2"');
+    expect(result.newContent).toContain('"questionText": "Q2"');
   });
 
   it("supports appending a flashcard near end of JSON", () => {
@@ -151,24 +184,48 @@ describe("replace (edit/replace for oldString/newString)", () => {
       "}",
     ].join("\n");
 
-    const result = replace(content, oldTail, newTail);
-    expect(result).toContain('"id": "c2"');
-    expect(result).toContain('"front": "f2"');
+    const result = applyEdits(content, [{ oldText: oldTail, newText: newTail }]);
+    expect(result.newContent).toContain('"id": "c2"');
+    expect(result.newContent).toContain('"front": "f2"');
   });
 
-  it("preserves ambiguity error when multiple matches remain", () => {
-    const content = "foo\nfoo\nfoo";
-    expect(() => replace(content, "foo", "bar")).toThrow("multiple matches");
+  it("preserves newlines and indentation in replacement", () => {
+    const content = "before\n  indented\nafter";
+    const result = applyEdits(content, [{ oldText: "  indented", newText: "  modified" }]);
+    expect(result.newContent).toBe("before\n  modified\nafter");
+  });
+
+  it("handles CRLF normalization", () => {
+    const contentWithCrlf = "# Title\r\n\r\nHello world";
+    const result = applyEdits(contentWithCrlf, [{ oldText: "# Title\n\nHello world", newText: "# Title\n\nHi" }]);
+    expect(result.newContent).toBe("# Title\n\nHi");
+  });
+
+  it("returns baseContent as normalized content", () => {
+    const content = "hello\r\nworld";
+    const result = applyEdits(content, [{ oldText: "hello", newText: "goodbye" }]);
+    expect(result.baseContent).toBe("hello\nworld");
   });
 });
 
-describe("unescapeString", () => {
-  it("converts literal \\n to newline", () => {
-    expect(unescapeString("a\\nb")).toBe("a\nb");
+describe("replace (deprecated wrapper)", () => {
+  it("performs exact string replacement", () => {
+    const content = "# Title\n\nHello world";
+    expect(replace(content, "Hello world", "Goodbye world")).toBe(
+      "# Title\n\nGoodbye world"
+    );
   });
 
-  it("converts \\$ to $", () => {
-    expect(unescapeString("\\$5")).toBe("$5");
+  it("throws when oldString and newString are identical", () => {
+    expect(() => replace("content", "content", "content")).toThrow(
+      /No changes to apply/
+    );
+  });
+
+  it("throws when oldString not found", () => {
+    expect(() =>
+      replace("actual content", "typo contnet", "replacement")
+    ).toThrow(/Could not find/);
   });
 });
 
@@ -176,7 +233,6 @@ describe("trimDiff", () => {
   it("trims common indentation from diff lines", () => {
     const diff = "--- a\n+++ b\n-    content\n+    new";
     const result = trimDiff(diff);
-    // trimDiff finds min leading whitespace (4) and trims that from each content line
     expect(result).toContain("-content");
     expect(result).toContain("+new");
     expect(result).not.toContain("-    content");
