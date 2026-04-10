@@ -11,7 +11,6 @@ import {
   workspaceCollaborators,
   workspaceItemContent,
   workspaceItemExtracted,
-  workspaceItemUserState,
   workspaceItems,
   workspaces,
 } from "@/lib/db/schema";
@@ -116,19 +115,6 @@ async function syncExtractedRow(
     )
     .limit(1);
 
-  const userStates = params.userId
-    ? await wrappedTx
-        .select()
-        .from(workspaceItemUserState)
-        .where(
-          and(
-            eq(workspaceItemUserState.workspaceId, params.workspaceId),
-            eq(workspaceItemUserState.itemId, params.itemId),
-            eq(workspaceItemUserState.userId, params.userId),
-          ),
-        )
-    : [];
-
   const item = rehydrateWorkspaceItem({
     shell: {
       itemId: shell.itemId,
@@ -154,12 +140,7 @@ async function syncExtractedRow(
           sourceData: (content.sourceData as never[] | null) ?? null,
         }
       : null,
-    userStates: userStates.map((row) => ({
-      stateKey: row.stateKey,
-      stateType: row.stateType as never,
-      stateSchemaVersion: row.stateSchemaVersion,
-      state: row.state as Record<string, unknown>,
-    })),
+    userStates: null,
   });
 
   const rows = buildWorkspaceItemTableRows({

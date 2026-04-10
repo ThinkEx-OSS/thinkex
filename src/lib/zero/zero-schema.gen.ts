@@ -51,31 +51,13 @@ const workspaceItemContent = table("workspace_item_content")
   })
   .primaryKey("workspaceId", "itemId");
 
-const workspaceItemUserState = table("workspace_item_user_state")
-  .from("workspace_item_user_state")
-  .columns({
-    workspaceId: string().from("workspace_id"),
-    itemId: string().from("item_id"),
-    userId: string().from("user_id"),
-    stateKey: string().from("state_key"),
-    stateType: string().from("state_type"),
-    stateSchemaVersion: number().from("state_schema_version"),
-    state: json(),
-  })
-  .primaryKey("workspaceId", "itemId", "userId", "stateKey");
-
 const workspaceItemsRelationships = relationships(
   workspaceItems,
-  ({ one, many }) => ({
+  ({ one }) => ({
     workspaceItemContent: one({
       sourceField: ["workspaceId", "itemId"],
       destField: ["workspaceId", "itemId"],
       destSchema: workspaceItemContent,
-    }),
-    workspaceItemUserState: many({
-      sourceField: ["workspaceId", "itemId"],
-      destField: ["workspaceId", "itemId"],
-      destSchema: workspaceItemUserState,
     }),
   }),
 );
@@ -91,24 +73,9 @@ const workspaceItemContentRelationships = relationships(
   }),
 );
 
-const workspaceItemUserStateRelationships = relationships(
-  workspaceItemUserState,
-  ({ one }) => ({
-    workspaceItem: one({
-      sourceField: ["workspaceId", "itemId"],
-      destField: ["workspaceId", "itemId"],
-      destSchema: workspaceItems,
-    }),
-  }),
-);
-
 export const schema = createSchema({
-  tables: [workspaceItems, workspaceItemContent, workspaceItemUserState],
-  relationships: [
-    workspaceItemsRelationships,
-    workspaceItemContentRelationships,
-    workspaceItemUserStateRelationships,
-  ],
+  tables: [workspaceItems, workspaceItemContent],
+  relationships: [workspaceItemsRelationships, workspaceItemContentRelationships],
 });
 
 export type ZeroSchema = typeof schema;
@@ -116,8 +83,6 @@ export type ZeroSchema = typeof schema;
 export type WorkspaceItemsRow = Row<(typeof schema)["tables"]["workspace_items"]>;
 export type WorkspaceItemContentRow =
   Row<(typeof schema)["tables"]["workspace_item_content"]>;
-export type WorkspaceItemUserStateRow =
-  Row<(typeof schema)["tables"]["workspace_item_user_state"]>;
 
 export const zql = createBuilder(schema);
 export const builder = zql;
