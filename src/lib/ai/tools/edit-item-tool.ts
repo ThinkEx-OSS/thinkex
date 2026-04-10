@@ -69,11 +69,16 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                 };
             }
 
-            if (!isRenameOnly && edits.length === 1 && edits[0].oldText !== "" && edits[0].oldText === edits[0].newText) {
-                return {
-                    success: false,
-                    message: "No changes to apply: oldText and newText are identical.",
-                };
+            for (let i = 0; i < edits.length; i++) {
+                const e = edits[i];
+                if (e.oldText !== "" && e.oldText === e.newText) {
+                    return {
+                        success: false,
+                        message: edits.length === 1
+                            ? `No changes to apply: oldText and newText are identical.`
+                            : `No changes to apply: edits[${i}].oldText and newText are identical.`,
+                    };
+                }
             }
 
             if (!ctx.workspaceId) {

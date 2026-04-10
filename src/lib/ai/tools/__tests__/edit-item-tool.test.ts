@@ -222,4 +222,17 @@ describe("createEditItemTool", () => {
     );
     expect(result.success).toBe(true);
   });
+
+  it("rejects no-op edit entry in multi-edit array", async () => {
+    const tool: any = createEditItemTool(ctx);
+    const result = await tool.execute({
+      itemName: "My Document",
+      edits: [
+        { oldText: "real", newText: "REAL" },
+        { oldText: "same", newText: "same" },
+      ],
+    });
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/edits\[1\].*identical/);
+  });
 });

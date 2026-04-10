@@ -65,13 +65,12 @@ function normalizeReplacementText(content: string, newString: string): string {
   return normalized;
 }
 
-function buildSearchCandidates(oldString: string): string[] {
+function buildSearchCandidates(oldString: string, contentLooksJson: boolean): string[] {
   const candidates = new Set<string>();
-  const base = oldString;
-  const noFence = unwrapSingleCodeFence(base);
-
-  for (const c of [base, noFence]) {
-    if (c.length > 0) candidates.add(c);
+  candidates.add(oldString);
+  if (contentLooksJson) {
+    const noFence = unwrapSingleCodeFence(oldString);
+    if (noFence.length > 0) candidates.add(noFence);
   }
   return Array.from(candidates);
 }
@@ -100,6 +99,7 @@ function countOccurrences(content: string, oldText: string): number {
 
 export function applyEdits(content: string, edits: Edit[]): AppliedEditsResult {
   const normalizedContent = normalizeLineEndings(content);
+  const contentLooksJson = /"questions"\s*:|"cards"\s*:|^\s*[\[{]/.test(normalizedContent);
   const normalizedEdits = edits.map(e => ({
     oldText: normalizeLineEndings(e.oldText),
     newText: normalizeLineEndings(e.newText),
@@ -124,7 +124,7 @@ export function applyEdits(content: string, edits: Edit[]): AppliedEditsResult {
 
   for (let i = 0; i < normalizedEdits.length; i++) {
     const edit = normalizedEdits[i];
-    const candidates = buildSearchCandidates(edit.oldText);
+    const candidates = buildSearchCandidates(edit.oldText, contentLooksJson);
     const replacementText = normalizeReplacementText(normalizedContent, edit.newText);
     let matched = false;
 
