@@ -97,18 +97,13 @@ export default function WorkspaceContent({
       if (detail?.error) {
         console.error("[OCR-processing-complete] OCR failed:", detail.error);
       }
-      if (workspaceId) {
-        queryClient.invalidateQueries({
-          queryKey: ["workspace", workspaceId, "events"],
-        });
-      }
     };
 
     window.addEventListener(OCR_COMPLETE_EVENT, handleOcrComplete);
     return () => {
       window.removeEventListener(OCR_COMPLETE_EVENT, handleOcrComplete);
     };
-  }, [workspaceId, queryClient]);
+  }, []);
 
   useEffect(() => {
     const handleAudioComplete = (e: Event) => {
@@ -135,9 +130,6 @@ export default function WorkspaceContent({
       }
 
       if (workspaceId) {
-        queryClient.invalidateQueries({
-          queryKey: ["workspace", workspaceId, "events"],
-        });
         queryClient.invalidateQueries({
           queryKey: transcriptSegmentsQueryKey(workspaceId, itemId),
         });

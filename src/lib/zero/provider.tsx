@@ -61,17 +61,19 @@ export function ZeroProvider({ children }: { children: ReactNode }) {
   }, [userId]);
 
   const zero = useMemo(() => {
-    if (!userId || !token) {
-      if (!userId) {
-        destroyZero();
-      }
+    if (!userId) {
+      destroyZero();
       return null;
     }
 
-    return getZero({ userId, auth: token });
+    return getZero({ userId, auth: token ?? "" });
   }, [token, userId]);
 
-  if (isPending || !zero) {
+  if (isPending) {
+    return null;
+  }
+
+  if (!zero) {
     return <>{children}</>;
   }
 

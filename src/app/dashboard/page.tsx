@@ -34,6 +34,7 @@ import { PdfEngineWrapper } from "@/components/pdf/PdfEngineWrapper";
 import WorkspaceSettingsModal from "@/components/workspace/WorkspaceSettingsModal";
 import ShareWorkspaceDialog from "@/components/workspace/ShareWorkspaceDialog";
 import { RealtimeProvider } from "@/contexts/RealtimeContext";
+import { ZeroProvider } from "@/lib/zero/provider";
 import { toast } from "sonner";
 import { InviteGuard } from "@/components/workspace/InviteGuard";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
@@ -510,12 +511,14 @@ function DashboardView() {
   useFolderUrl();
 
   return (
-    <RealtimeProvider workspaceId={currentWorkspaceId}>
-      <DashboardContent
-        currentWorkspace={currentWorkspace}
-        loadingCurrentWorkspace={loadingCurrentWorkspace}
-      />
-    </RealtimeProvider>
+    <ZeroProvider>
+      <RealtimeProvider workspaceId={currentWorkspaceId}>
+        <DashboardContent
+          currentWorkspace={currentWorkspace}
+          loadingCurrentWorkspace={loadingCurrentWorkspace}
+        />
+      </RealtimeProvider>
+    </ZeroProvider>
   );
 }
 

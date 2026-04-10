@@ -1,52 +1,84 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useWorkspaceEvents } from "./use-workspace-events";
-import {
-  deriveWorkspaceStateFromCaches,
-  type WorkspaceStateResponse,
-  workspaceStateQueryKey,
-} from "./workspace-state-cache";
+import { useQuery } from "@rocicorp/zero/react";
+import { rehydrateWorkspaceItem } from "@/lib/workspace/workspace-item-model";
+import type { WorkspaceItemContentProjection } from "@/lib/workspace/workspace-item-model-types";
+import type { Item } from "@/lib/workspace-state/types";
+import { zql } from "@/lib/zero/zero-schema.gen";
+import type {
+  WorkspaceItemContentRow,
+  WorkspaceItemsRow,
+} from "@/lib/zero/zero-schema.gen";
 
-async function fetchWorkspaceState(
-  workspaceId: string,
-): Promise<WorkspaceStateResponse> {
-  const response = await fetch(`/api/workspaces/${workspaceId}/state`);
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch workspace state: ${response.statusText}`);
-  }
-
-  return (await response.json()) as WorkspaceStateResponse;
-}
+type WorkspaceItemQueryRow = WorkspaceItemsRow & {
+  workspaceItemContent?: readonly WorkspaceItemContentRow[] | WorkspaceItemContentRow;
+};
 
 export function useWorkspaceState(workspaceId: string | null) {
-  const stateQuery = useQuery({
-    queryKey: workspaceStateQueryKey(workspaceId),
-    queryFn: () => fetchWorkspaceState(workspaceId!),
-    enabled: !!workspaceId,
-    staleTime: 1000 * 30,
-    gcTime: 1000 * 60 * 10,
-    refetchOnWindowFocus: false,
-  });
-  const eventsQuery = useWorkspaceEvents(workspaceId);
-
-  const derived = useMemo(
-    () =>
-      deriveWorkspaceStateFromCaches({
-        workspaceId,
-        stateData: stateQuery.data,
-        eventLog: eventsQuery.data,
-      }),
-    [workspaceId, stateQuery.data, eventsQuery.data],
+  const [rawRows, status] = useQuery(
+    workspaceId
+      ? zql.workspace_items
+          .where("workspaceId", workspaceId)
+          .related("workspaceItemContent")
+      : null,
   );
+  const rows = rawRows as unknown as readonly WorkspaceItemQueryRow[] | undefined;
+
+  const state = useMemo<Item[]>(() => {
+    if (!rows) {
+      return [];
+    }
+
+    return rows.map((row) => {
+      const contentRow = Array.isArray(row.workspaceItemContent)
+        ? row.workspaceItemContent[0] ?? null
+        : (row.workspaceItemContent ?? null);
+
+      return rehydrateWorkspaceItem({
+        shell: {
+          itemId: row.itemId,
+          type: row.type as Item["type"],
+          name: row.name,
+          subtitle: row.subtitle,
+          color: (row.color as Item["color"]) ?? null,
+          folderId: row.folderId ?? null,
+          layout: (row.layout as Item["layout"]) ?? null,
+          lastModified: row.lastModified ?? null,
+          ocrStatus: row.ocrStatus ?? null,
+          processingStatus: row.processingStatus ?? null,
+        },
+        content: contentRow
+          ? {
+              textContent: contentRow.textContent ?? null,
+              structuredData:
+                (contentRow.structuredData as Record<string, unknown>) ?? null,
+              assetData:
+                (contentRow.assetData as Record<string, unknown>) ?? null,
+              embedData:
+                (contentRow.embedData as Record<string, unknown>) ?? null,
+              sourceData:
+                (contentRow.sourceData as WorkspaceItemContentProjection["sourceData"]) ??
+                null,
+            }
+          : null,
+        extracted: null,
+        userStates: null,
+      });
+    });
+  }, [rows]);
+
+  const error = useMemo(() => {
+    if (status.type !== "error") {
+      return null;
+    }
+
+    return new Error(status.error.message);
+  }, [status]);
 
   return {
-    state: derived.state,
-    isLoading: stateQuery.isLoading && !stateQuery.data,
-    error: stateQuery.error ?? eventsQuery.error,
-    version: derived.version,
-    refetch: async () => {
-      await Promise.all([stateQuery.refetch(), eventsQuery.refetch()]);
-    },
+    state,
+    isLoading: Boolean(workspaceId) && status.type === "unknown",
+    error,
+    version: 0,
+    refetch: async () => {},
   };
 }
