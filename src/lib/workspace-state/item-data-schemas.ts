@@ -40,7 +40,7 @@ export const quizQuestionSchema = z.object({
   type: z.enum(["multiple_choice", "true_false"]),
   questionText: z.string(),
   options: z.array(z.string()).default([]),
-  correctIndex: z.number().int().default(0),
+  correctIndex: z.number().int().min(0).default(0),
 });
 
 /** Tool/API input variant — no `id`, with option-count validation */
