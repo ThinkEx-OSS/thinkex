@@ -27,6 +27,7 @@ import {
   createGatewayLanguageModel,
   getGatewayAttributionHeaders,
 } from "@/lib/ai/gateway-provider-options";
+import { createTTCPrepareStep } from "@/lib/ai/middleware/ttc-prepare-step";
 
 /**
  * Extract workspaceId from system context or request body
@@ -234,6 +235,7 @@ async function handlePOST(req: Request) {
       messages: convertedMessages,
       stopWhen: stepCountIs(25),
       tools,
+      prepareStep: createTTCPrepareStep(),
       providerOptions: providerOptions as any,
       headers: getGatewayAttributionHeaders(),
       experimental_telemetry: {
