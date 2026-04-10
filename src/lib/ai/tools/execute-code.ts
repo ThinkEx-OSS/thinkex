@@ -9,15 +9,25 @@ import {
   type CodeExecuteStep,
 } from "@/lib/ai/code-execute-shared";
 
+const SANDBOX_TIMEOUT_MS = 300_000;
+const EXECUTION_TIMEOUT_MS = 60_000;
+
+function truncateTraceback(traceback: string, maxLines = 20): string {
+  const lines = traceback.split("\n");
+  if (lines.length <= maxLines) {
+    return traceback;
+  }
+
+  return `...[truncated]\n${lines.slice(-maxLines).join("\n")}`;
+}
+
 export async function executeCodeWithE2B(
   code: string,
   options?: { abortSignal?: AbortSignal },
 ): Promise<CodeExecuteResult> {
   options?.abortSignal?.throwIfAborted();
 
-  const sandbox = await Sandbox.create({
-    signal: options?.abortSignal,
-  } as never);
+  const sandbox = await Sandbox.create({ timeoutMs: SANDBOX_TIMEOUT_MS });
   const onAbort = () => {
     sandbox.kill().catch(() => {});
   };
@@ -25,12 +35,9 @@ export async function executeCodeWithE2B(
   options?.abortSignal?.addEventListener("abort", onAbort, { once: true });
 
   try {
-    const execution = await sandbox.runCode(
-      code,
-      {
-        signal: options?.abortSignal,
-      } as never,
-    );
+    const execution = await sandbox.runCode(code, {
+      timeoutMs: EXECUTION_TIMEOUT_MS,
+    });
 
     const steps: CodeExecuteStep[] = [
       {
@@ -55,7 +62,7 @@ export async function executeCodeWithE2B(
 
     const textParts = execution.results.map((result) => result.text).filter(Boolean);
     const answer = execution.error
-      ? `Error: ${execution.error.name}: ${execution.error.value}\n${execution.error.traceback}`
+      ? `Error: ${execution.error.name}: ${execution.error.value}\n${truncateTraceback(execution.error.traceback)}`
       : textParts.join("\n") ||
         steps[0]?.output ||
         "Execution completed successfully.";

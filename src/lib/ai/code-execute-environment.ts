@@ -12,6 +12,7 @@ export function getCodeExecutionSystemInstructions(): string {
 Use code_execute when: exact arithmetic or algebra verification, numerical simulation, statistical analysis, parsing/transforming structured data in Python, matplotlib/seaborn/plotly charts, or multi-step computation where mistakes are likely without execution.
 Do NOT use for: tasks that are pure explanation with no computation benefit, or when the user only wants code snippets to run locally (answer in chat instead).
 The sandbox is an E2B cloud environment running Python. You can pip install any package. Common libraries like numpy, pandas, matplotlib, scipy, seaborn are available by default.
+Execution timeout: 60 seconds. Avoid long-running operations; if a task may exceed this, suggest batching or sampling.
 Charts: matplotlib/seaborn plots are auto-captured and displayed to the user inline. Always call plt.show() at the end of plotting code.
 For workspace data, use workspace_read first, then embed the needed data directly in your Python code as a variable.
 Write complete, self-contained Python code in the \`code\` parameter. Use print() for text output. Do not assume any prior execution state — each call gets a fresh sandbox.
