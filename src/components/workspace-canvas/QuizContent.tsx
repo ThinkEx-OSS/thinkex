@@ -280,11 +280,17 @@ export function QuizContent({
 
     const composer = aui?.composer?.();
     if (composer) {
-      composer.setText(
-        `Give me a hint for this question in "${item.name}": ${currentQuestion.questionText}`,
-      );
-      useUIStore.getState().setIsChatExpanded(true);
-      focusComposerInput(true);
+      try {
+        composer.setText(
+          `Give me a hint for this question in "${item.name}": ${currentQuestion.questionText}`,
+        );
+        useUIStore.getState().setIsChatExpanded(true);
+        focusComposerInput(true);
+      } catch (error) {
+        toast.error("Failed to send request. Please try again.");
+      }
+    } else {
+      toast.error("Chat not available. Please try again.");
     }
   };
 
@@ -295,17 +301,23 @@ export function QuizContent({
 
     const composer = aui?.composer?.();
     if (composer) {
-      const userAnswer =
-        selectedAnswer !== null
-          ? currentQuestion.options[selectedAnswer]
-          : "N/A";
-      const correctAnswer =
-        currentQuestion.options[currentQuestion.correctIndex];
-      composer.setText(
-        `Explain this question in "${item.name}": ${currentQuestion.questionText}\n\nI answered: ${userAnswer}\nCorrect answer: ${correctAnswer}`,
-      );
-      useUIStore.getState().setIsChatExpanded(true);
-      focusComposerInput(true);
+      try {
+        const userAnswer =
+          selectedAnswer !== null
+            ? currentQuestion.options[selectedAnswer]
+            : "N/A";
+        const correctAnswer =
+          currentQuestion.options[currentQuestion.correctIndex];
+        composer.setText(
+          `Explain this question in "${item.name}": ${currentQuestion.questionText}\n\nI answered: ${userAnswer}\nCorrect answer: ${correctAnswer}`,
+        );
+        useUIStore.getState().setIsChatExpanded(true);
+        focusComposerInput(true);
+      } catch (error) {
+        toast.error("Failed to send request. Please try again.");
+      }
+    } else {
+      toast.error("Chat not available. Please try again.");
     }
   };
 
