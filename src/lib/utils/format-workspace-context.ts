@@ -13,6 +13,7 @@ import type {
 import { getVirtualPath } from "./workspace-fs";
 import { getPdfSourceUrl } from "@/lib/pdf/pdf-item";
 import { getCodeExecutionSystemInstructions } from "@/lib/ai/code-execute-environment";
+import { getCodeComposeSystemInstructions } from "@/lib/ai/code-compose/type-stubs";
 
 /**
  * Formats item metadata only (no content). Used for workspace context in system prompt.
@@ -146,6 +147,8 @@ Use internal knowledge for: creative writing, coding, general concepts, summariz
 If the information is time-sensitive, niche, or uncertain, prefer web_search.
 
 ${getCodeExecutionSystemInstructions()}
+
+${getCodeComposeSystemInstructions()}
 
 PDF: Always try workspace_read first for workspace PDFs (pageStart/pageEnd for page ranges). If content is not yet extracted, tell the user it is still being prepared and try again shortly.
 PDF VISUALS: PDF OCR in this workspace gives you textual structure from the PDF, including normal text and inline tables, but not visual understanding of charts, figures, diagrams, or screenshots embedded in the PDF. Do not claim you can see those visuals unless the user has separately attached a screenshot/image of that region. If the user needs help with a chart or figure from a PDF, tell them to open the PDF and use the camera button in the top right of the open pdf panelto add a screenshot of that area to chat.

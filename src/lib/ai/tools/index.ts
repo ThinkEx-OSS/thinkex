@@ -21,6 +21,7 @@ import { createWebSearchTool } from "./web-search";
 import { createSearchWorkspaceTool } from "./search-workspace";
 import { createReadWorkspaceTool } from "./read-workspace";
 import { createExecuteCodeTool } from "./execute-code";
+import { createCodeComposeTool } from "../code-compose/execute";
 import { logger } from "@/lib/utils/logger";
 import { CHAT_TOOL } from "@/lib/ai/chat-tool-names";
 
@@ -51,33 +52,24 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
     logger.error("❌ frontendTools failed:", e);
   }
 
-  return {
-    // URL processing
+  const directTools: Record<string, any> = {
     [CHAT_TOOL.WEB_FETCH]: createProcessUrlsTool(),
-
-    // Search
     [CHAT_TOOL.WEB_SEARCH]: createWebSearchTool(),
     [CHAT_TOOL.CODE_EXECUTE]: createExecuteCodeTool(),
     [CHAT_TOOL.WORKSPACE_SEARCH]: createSearchWorkspaceTool(ctx),
     [CHAT_TOOL.WORKSPACE_READ]: createReadWorkspaceTool(ctx),
-
-    // Workspace operations
     [CHAT_TOOL.DOCUMENT_CREATE]: createDocumentTool(ctx),
     [CHAT_TOOL.ITEM_EDIT]: createEditItemTool(ctx),
-
     [CHAT_TOOL.ITEM_DELETE]: createDeleteItemTool(ctx),
-
-    // Flashcards
     [CHAT_TOOL.FLASHCARDS_CREATE]: createFlashcardsTool(ctx),
-
-    // Quizzes
     [CHAT_TOOL.QUIZ_CREATE]: createQuizTool(ctx),
-
-    // YouTube
     [CHAT_TOOL.YOUTUBE_SEARCH]: createSearchYoutubeTool(),
     [CHAT_TOOL.YOUTUBE_ADD]: createAddYoutubeVideoTool(ctx),
+  };
 
-    // Client tools from frontend
+  return {
+    ...directTools,
+    [CHAT_TOOL.CODE_COMPOSE]: createCodeComposeTool(directTools),
     ...frontendClientTools,
   };
 }

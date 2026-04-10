@@ -17,6 +17,7 @@ export const CHAT_TOOL = {
   YOUTUBE_SEARCH: "youtube_search",
   YOUTUBE_ADD: "youtube_add",
   CODE_EXECUTE: "code_execute",
+  CODE_COMPOSE: "code_compose",
 } as const;
 
 export type ChatToolName = (typeof CHAT_TOOL)[keyof typeof CHAT_TOOL];
@@ -38,6 +39,7 @@ export const LEGACY_CHAT_TOOL_NAMES: Record<string, ChatToolName> = {
   searchYoutube: CHAT_TOOL.YOUTUBE_SEARCH,
   addYoutubeVideo: CHAT_TOOL.YOUTUBE_ADD,
   executeCode: CHAT_TOOL.CODE_EXECUTE,
+  codeCompose: CHAT_TOOL.CODE_COMPOSE,
   // Intermediate snake_case (pre–resource_action rename)
   process_urls: CHAT_TOOL.WEB_FETCH,
   search_workspace: CHAT_TOOL.WORKSPACE_SEARCH,
@@ -50,6 +52,7 @@ export const LEGACY_CHAT_TOOL_NAMES: Record<string, ChatToolName> = {
   search_youtube: CHAT_TOOL.YOUTUBE_SEARCH,
   add_youtube_video: CHAT_TOOL.YOUTUBE_ADD,
   youtube_video_add: CHAT_TOOL.YOUTUBE_ADD,
+  code_orchestrate: CHAT_TOOL.CODE_COMPOSE,
 };
 
 const canonicalToLegacy = (() => {

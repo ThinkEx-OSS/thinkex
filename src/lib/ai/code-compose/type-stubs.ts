@@ -138,6 +138,28 @@ export function generateTypeStubs(): string {
 }
 
 /**
+ * System prompt fragment: when/how to use code_compose.
+ */
+export function getCodeComposeSystemInstructions(): string {
+  return `CODE COMPOSE (code_compose):
+Use code_compose when you need to orchestrate 2+ tool calls, especially:
+- Parallel fetches: searching the web for multiple topics at once
+- Aggregation: reading multiple workspace items and combining their content
+- Data transformation: fetching data then filtering, sorting, or computing statistics
+- Conditional workflows: "if the search finds X, then create Y, otherwise Z"
+- Batch operations: creating multiple flashcard decks or documents from a data source
+
+Do NOT use code_compose when:
+- A single direct tool call suffices (just call the tool directly)
+- The user wants step-by-step confirmation between operations
+- You need to create one item and show it to the user before proceeding
+
+Write JavaScript (not TypeScript). The code runs in a V8 sandbox with access to external_* functions that map to workspace tools. All external_* calls are async — use await and Promise.all() for parallelism. Math and string operations execute in the JS runtime (exact, not predicted). End code with a return statement.
+
+After code_compose returns, explain results to the user in plain language. Never show the code or raw JSON output.`;
+}
+
+/**
  * Mapping from sandbox function name → canonical CHAT_TOOL name.
  * Used by the tool bridge to route external_* calls to real tool executors.
  */
