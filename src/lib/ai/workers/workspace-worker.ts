@@ -26,7 +26,7 @@ import {
 } from "@/lib/workspace/mutation-helpers";
 import type { WorkspaceEvent } from "@/lib/workspace/events";
 import {
-  replace as applyReplace,
+  applyEdits,
   trimDiff,
   normalizeLineEndings,
 } from "@/lib/utils/edit-replace";
@@ -224,10 +224,8 @@ export async function workspaceWorker(
     items?: CreateItemParams[];
     title?: string;
     content?: string; // For create
-    /** Cline convention: oldString+newString. oldString='' = full rewrite, else targeted edit (edit action) */
-    oldString?: string;
-    newString?: string;
-    replaceAll?: boolean;
+    /** Multi-edit array: each {oldText, newText} is matched against the original content */
+    edits?: Array<{ oldText: string; newText: string }>;
     itemId?: string;
     /** Display name for diff header (e.g. item title) */
     itemName?: string;
@@ -612,15 +610,12 @@ export async function workspaceWorker(
           if (!params.itemId || !params.itemType) {
             throw new Error("Item ID and itemType required for edit");
           }
-          const isRenameOnly =
-            params.newName &&
-            (params.oldString === undefined || params.oldString === "") &&
-            (params.newString === undefined || params.newString === "");
+          const isRenameOnly = params.newName && (!params.edits || params.edits.length === 0);
           if (
             !isRenameOnly &&
-            (params.oldString === undefined || params.newString === undefined)
+            (!params.edits || params.edits.length === 0)
           ) {
-            throw new Error("oldString and newString required for edit");
+            throw new Error("edits array required for edit");
           }
 
           const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
@@ -632,9 +627,6 @@ export async function workspaceWorker(
           }
 
           const rename = params.newName;
-          const replaceAll = !!params.replaceAll;
-          const oldStr = String(params.oldString ?? "");
-          const newStr = String(params.newString ?? "");
 
           if (existingItem.type === "flashcard") {
             const data = existingItem.data as FlashcardData;
@@ -649,12 +641,12 @@ export async function workspaceWorker(
             };
             let serialized = JSON.stringify(payload, null, 2);
             if (!isRenameOnly) {
-              serialized = applyReplace(
-                normalizeLineEndings(serialized),
-                normalizeLineEndings(oldStr),
-                normalizeLineEndings(newStr),
-                replaceAll,
-              );
+              if (params.edits!.length === 1 && params.edits![0].oldText === "") {
+                serialized = params.edits![0].newText;
+              } else {
+                const { newContent } = applyEdits(serialized, params.edits!);
+                serialized = newContent;
+              }
             }
 
             let parsed: {
@@ -669,7 +661,7 @@ export async function workspaceWorker(
               const detail = e instanceof Error ? e.message : String(e);
               throw new Error(
                 `Invalid JSON after edit. The edited flashcard content is not valid JSON (even after repair). ` +
-                  `Try replacing a larger unique block, or use full rewrite with oldString='' and a complete {"cards":[...]} JSON object. ` +
+                  `Try replacing a larger unique block, or use full rewrite with a single edit with oldText='' and a complete {"cards":[...]} JSON object. ` +
                   `Details: ${detail}`,
               );
             }
@@ -725,12 +717,12 @@ export async function workspaceWorker(
             const payload = { questions };
             let serialized = JSON.stringify(payload, null, 2);
             if (!isRenameOnly) {
-              serialized = applyReplace(
-                normalizeLineEndings(serialized),
-                normalizeLineEndings(oldStr),
-                normalizeLineEndings(newStr),
-                replaceAll,
-              );
+              if (params.edits!.length === 1 && params.edits![0].oldText === "") {
+                serialized = params.edits![0].newText;
+              } else {
+                const { newContent } = applyEdits(serialized, params.edits!);
+                serialized = newContent;
+              }
             }
 
             let parsed: { questions?: QuizQuestion[] };
@@ -743,7 +735,7 @@ export async function workspaceWorker(
               const detail = e instanceof Error ? e.message : String(e);
               throw new Error(
                 `Invalid JSON after edit. The edited quiz content is not valid JSON (even after repair). ` +
-                  `Only edit the {"questions":[...]} JSON, and replace a larger unique block (or do full rewrite with oldString=''). ` +
+                  `Only edit the {"questions":[...]} JSON, and replace a larger unique block (or do full rewrite with a single edit with oldText=''). ` +
                   `Details: ${detail}`,
               );
             }
@@ -839,19 +831,13 @@ export async function workspaceWorker(
               contentOld = "";
               contentNew = "";
             } else {
-              if (oldStr === "") {
+              if (params.edits!.length === 1 && params.edits![0].oldText === "") {
                 contentOld = "";
-                contentNew = newStr;
+                contentNew = params.edits![0].newText;
               } else {
                 contentOld = normalizeLineEndings(docData.markdown ?? "");
-                const normOld = normalizeLineEndings(oldStr);
-                const normNew = normalizeLineEndings(newStr);
-                contentNew = applyReplace(
-                  contentOld,
-                  normOld,
-                  normNew,
-                  replaceAll,
-                );
+                const { newContent } = applyEdits(contentOld, params.edits!);
+                contentNew = newContent;
               }
               changes.data = {
                 markdown: contentNew,
@@ -923,7 +909,7 @@ export async function workspaceWorker(
               return {
                 success: false,
                 message:
-                  "PDFs can only be renamed. Use oldString='', newString='', and newName='new name'.",
+                  "PDFs can only be renamed. Use empty edits array [] with newName='new name'.",
               };
             }
             const dupError = checkDuplicateName(currentState, rename, "pdf", existingItem.folderId ?? null, params.itemId);
