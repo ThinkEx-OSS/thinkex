@@ -102,10 +102,11 @@ export function createTTCPrepareStep() {
       ).toFixed(1),
     });
 
+    const cleanedOutput = stripSafeTags(result.output);
     const delimiterRegex = new RegExp(
       `${DELIMITER_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\d+${DELIMITER_SUFFIX.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*`,
     );
-    const compressedParts = result.output.split(delimiterRegex).filter(Boolean);
+    const compressedParts = cleanedOutput.split(delimiterRegex).filter(Boolean);
 
     if (compressedParts.length !== compressibleSegments.length) {
       logger.warn(
@@ -130,7 +131,7 @@ export function createTTCPrepareStep() {
         if (!seg || !compressedParts[seg.segIdx]) return part;
         return {
           ...part,
-          text: stripSafeTags(compressedParts[seg.segIdx].trim()),
+          text: compressedParts[seg.segIdx].trim(),
         };
       });
 

@@ -25,7 +25,7 @@ class TokenCompanyClient {
       this.client = null;
       return;
     }
-    this.client = new TokenClient({ apiKey });
+    this.client = new TokenClient({ apiKey, timeout: 5_000 });
   }
 
   get isEnabled(): boolean {
