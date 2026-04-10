@@ -11,7 +11,25 @@ import type { AssistantToolUIProps } from "@assistant-ui/react";
 
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-shell";
+import {
+  ImageFilename,
+  ImagePreview,
+  ImageRoot,
+  ImageZoom,
+} from "@/components/assistant-ui/image";
 import type { CodeExecuteResult } from "@/lib/ai/tool-result-schemas";
+
+function chartDataUrl(chart: { type: string; data: string }): string {
+  return `data:${chart.type};base64,${chart.data}`;
+}
+
+function chartLabel(chartType: string, index: number): string {
+  const n = index + 1;
+  if (chartType === "image/png") return `Chart ${n}.png`;
+  if (chartType === "image/jpeg") return `Chart ${n}.jpg`;
+  if (chartType === "image/svg+xml") return `Chart ${n}.svg`;
+  return `Chart ${n}`;
+}
 
 export const renderExecuteCodeToolUI: AssistantToolUIProps<
   { code: string },
@@ -96,14 +114,20 @@ function ExecuteCodeResult({
 
       {hasCharts ? (
         <div className="flex flex-wrap gap-2">
-          {result?.charts?.map((chart, index) => (
-            <img
-              key={index}
-              src={`data:${chart.type};base64,${chart.data}`}
-              alt={`Chart ${index + 1}`}
-              className="max-w-full rounded-md border border-border/40"
-            />
-          ))}
+          {result?.charts?.map((chart, index) => {
+            const src = chartDataUrl(chart);
+            const label = chartLabel(chart.type, index);
+            return (
+              <div key={index} className="min-w-0 max-w-full">
+                <ImageRoot>
+                  <ImageZoom src={src} alt={label}>
+                    <ImagePreview src={src} alt={label} />
+                  </ImageZoom>
+                  <ImageFilename>{label}</ImageFilename>
+                </ImageRoot>
+              </div>
+            );
+          })}
         </div>
       ) : null}
     </div>
