@@ -57,6 +57,7 @@
     "@embedpdf/plugin-tiling": "^2.14.0",
     "@embedpdf/plugin-viewport": "^2.14.0",
     "@embedpdf/plugin-zoom": "^2.14.0",
+    "@e2b/code-interpreter": "^2.4.0",
     "@floating-ui/react": "^0.27.19",
     "@google/genai": "^1.48.0",
     "@lottiefiles/dotlottie-react": "^0.18.9",

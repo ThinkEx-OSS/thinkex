@@ -29,7 +29,6 @@ export interface ModelDefinition {
 export type ModelPurpose =
   | "default-chat"
   | "web-search"
-  | "code-execute"
   | "title-generation"
   | "autogen-search"
   | "autogen-distill"
@@ -137,7 +136,6 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
 const PURPOSE_MODEL_MAP: Record<ModelPurpose, string> = {
   "default-chat": "gemini-3-flash-preview",
   "web-search": "gemini-2.5-flash-lite",
-  "code-execute": "gemini-3.1-pro-preview",
   "title-generation": "gemini-2.5-flash-lite",
   "autogen-search": "gemini-2.5-flash-lite",
   "autogen-distill": "gemini-2.5-flash-lite",
