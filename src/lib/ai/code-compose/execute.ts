@@ -11,7 +11,6 @@
  * 4. Final return value is sent back as the tool result
  */
 
-import ivm from "isolated-vm";
 import { tool, zodSchema } from "ai";
 import { z } from "zod";
 import { logger } from "@/lib/utils/logger";
@@ -26,6 +25,15 @@ import { generateTypeStubs } from "./type-stubs";
 
 const ISOLATE_MEMORY_MB = 128;
 const EXECUTION_TIMEOUT_MS = 30_000;
+
+let _ivm: typeof import("isolated-vm") | null = null;
+
+async function getIvm() {
+  if (!_ivm) {
+    _ivm = await import("isolated-vm");
+  }
+  return _ivm;
+}
 
 export const CodeComposeResultSchema = z.object({
   success: z.boolean(),
@@ -93,12 +101,13 @@ async function executeInSandbox(
     };
   }
 
-  const isolate = new ivm.Isolate({ memoryLimit: ISOLATE_MEMORY_MB });
+  const ivm = await getIvm();
+  const isolate = new ivm.default.Isolate({ memoryLimit: ISOLATE_MEMORY_MB });
 
   try {
     const context = await isolate.createContext();
 
-    await injectToolBridge(context, buildToolExecutorMap(tools), traces);
+    await injectToolBridge(ivm, context, buildToolExecutorMap(tools), traces);
 
     const wrappedCode = `
       (async () => {

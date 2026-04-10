@@ -9,7 +9,6 @@
  * This is the only escape hatch from the sandbox — all I/O goes through here.
  */
 
-import ivm from "isolated-vm";
 import { logger } from "@/lib/utils/logger";
 import { SANDBOX_TO_CANONICAL } from "./type-stubs";
 
@@ -74,7 +73,8 @@ export function buildToolExecutorMap(
  * Also injects console_log for debugging.
  */
 export async function injectToolBridge(
-  context: ivm.Context,
+  ivm: any,
+  context: any,
   executorMap: ToolExecutorMap,
   traces: ExternalCallTrace[],
 ): Promise<void> {
@@ -82,7 +82,7 @@ export async function injectToolBridge(
 
   await jail.set(
     "_host_console_log",
-    new ivm.Reference((...args: any[]) => {
+    new ivm.default.Reference((...args: any[]) => {
       const msg = args
         .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
         .join(" ");
@@ -99,7 +99,7 @@ export async function injectToolBridge(
   for (const [sandboxName, executor] of executorMap) {
     const canonicalName = SANDBOX_TO_CANONICAL[sandboxName]!;
 
-    const hostFn = new ivm.Reference(async (argsJson: string) => {
+    const hostFn = new ivm.default.Reference(async (argsJson: string) => {
       const start = performance.now();
       let input: unknown;
       let output: unknown;
