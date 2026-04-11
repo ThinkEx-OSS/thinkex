@@ -29,7 +29,6 @@ import {
   InlineCitation,
   UrlCitation,
 } from "@/components/ai-elements/inline-citation";
-import { useAssistantMessageContext } from "@/components/assistant-ui/thread";
 import { Badge } from "@/components/ui/badge";
 import { MarkdownLink } from "@/components/ui/markdown-link";
 import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
@@ -268,8 +267,8 @@ type MarkdownTextProps = Partial<TextMessagePartProps> & {
 
 const MarkdownTextImpl = (props: MarkdownTextProps) => {
   const streamingVariant = props.streamingVariant ?? "default";
-  const { text } = useMessagePartText();
-  const { isRunning } = useAssistantMessageContext();
+  const { text, status } = useMessagePartText();
+  const isRunning = status.type === "running";
 
   const animateConfig =
     streamingVariant === "reasoning"
