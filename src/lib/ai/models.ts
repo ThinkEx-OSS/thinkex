@@ -8,6 +8,23 @@ export type GatewayRouting = {
   only: string[];
 };
 
+export interface ReasoningConfig {
+  google?: {
+    thinkingConfig: {
+      includeThoughts?: boolean;
+      thinkingLevel?: "minimal" | "low" | "medium" | "high";
+      thinkingBudget?: number;
+    };
+  };
+  anthropic?: {
+    thinking: { type: "adaptive" } | { type: "enabled"; budgetTokens: number };
+  };
+  openai?: {
+    reasoningEffort?: "none" | "low" | "medium" | "high" | "xhigh";
+    reasoningSummary?: "auto" | "concise" | "detailed";
+  };
+}
+
 export interface ModelDefinition {
   id: string;
   provider: ModelProvider;
@@ -15,6 +32,9 @@ export interface ModelDefinition {
   /** Optional Gateway routing when multiple backends serve the same logical model. */
   gateway?: {
     routing?: GatewayRouting;
+    /** Fallback models tried in order if primary fails (gateway `models` option). Use full `provider/model` format. */
+    fallbacks?: string[];
+    reasoning?: ReasoningConfig;
   };
   ui?: {
     providerLabel: string;
@@ -33,16 +53,27 @@ export type ModelPurpose =
   | "autogen-search"
   | "autogen-distill"
   | "autogen-content"
-  | "audio-transcribe"
-  | "escalation";
+  | "audio-transcribe";
 
-const PROVIDER_PREFIX_RE = /^(google|anthropic|openai)\//;
+const PROVIDER_PREFIX_RE = /^(google|anthropic|openai|azure)\//;
 
 export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
   "gemini-3.1-pro-preview": {
     id: "gemini-3.1-pro-preview",
     provider: "google",
     tier: "pro",
+    gateway: {
+      routing: {
+        order: ["vertex", "google"],
+        only: ["vertex", "google"],
+      },
+      fallbacks: ["anthropic/claude-sonnet-4.6", "openai/gpt-5-chat"],
+      reasoning: {
+        google: {
+          thinkingConfig: { includeThoughts: true },
+        },
+      },
+    },
     ui: {
       providerLabel: "Gemini",
       displayName: "Gemini 3.1 Pro",
@@ -57,6 +88,21 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
     id: "gemini-3-flash-preview",
     provider: "google",
     tier: "fast",
+    gateway: {
+      routing: {
+        order: ["vertex", "google"],
+        only: ["vertex", "google"],
+      },
+      fallbacks: ["anthropic/claude-haiku-4.5", "openai/gpt-5-chat"],
+      reasoning: {
+        google: {
+          thinkingConfig: {
+            includeThoughts: true,
+            thinkingLevel: "minimal",
+          },
+        },
+      },
+    },
     ui: {
       providerLabel: "Gemini",
       displayName: "Gemini 3.0 Flash",
@@ -71,11 +117,35 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
     id: "gemini-2.5-flash",
     provider: "google",
     tier: "fast",
+    gateway: {
+      routing: {
+        order: ["vertex", "google"],
+        only: ["vertex", "google"],
+      },
+      fallbacks: ["google/gemini-3-flash-preview"],
+      reasoning: {
+        google: {
+          thinkingConfig: { includeThoughts: true, thinkingBudget: 1024 },
+        },
+      },
+    },
   },
   "gemini-2.5-flash-lite": {
     id: "gemini-2.5-flash-lite",
     provider: "google",
     tier: "lite",
+    gateway: {
+      routing: {
+        order: ["vertex", "google"],
+        only: ["vertex", "google"],
+      },
+      fallbacks: ["google/gemini-2.5-flash"],
+      reasoning: {
+        google: {
+          thinkingConfig: { includeThoughts: false },
+        },
+      },
+    },
   },
   "claude-sonnet-4.6": {
     id: "claude-sonnet-4.6",
@@ -83,8 +153,14 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
     tier: "pro",
     gateway: {
       routing: {
-        order: ["bedrock", "anthropic"],
-        only: ["bedrock", "anthropic"],
+        order: ["bedrock", "azure", "anthropic"],
+        only: ["bedrock", "azure", "anthropic"],
+      },
+      fallbacks: ["google/gemini-3.1-pro-preview", "openai/gpt-5-chat"],
+      reasoning: {
+        anthropic: {
+          thinking: { type: "adaptive" },
+        },
       },
     },
     ui: {
@@ -103,8 +179,14 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
     tier: "fast",
     gateway: {
       routing: {
-        order: ["bedrock", "anthropic"],
-        only: ["bedrock", "anthropic"],
+        order: ["bedrock", "azure", "anthropic"],
+        only: ["bedrock", "azure", "anthropic"],
+      },
+      fallbacks: ["google/gemini-3-flash-preview", "openai/gpt-5-chat"],
+      reasoning: {
+        anthropic: {
+          thinking: { type: "adaptive" },
+        },
       },
     },
     ui: {
@@ -121,6 +203,22 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
     id: "gpt-5-chat",
     provider: "openai",
     tier: "standard",
+    gateway: {
+      routing: {
+        order: ["openai", "azure"],
+        only: ["openai", "azure"],
+      },
+      fallbacks: [
+        "anthropic/claude-sonnet-4.6",
+        "google/gemini-3.1-pro-preview",
+      ],
+      reasoning: {
+        openai: {
+          reasoningEffort: "medium",
+          reasoningSummary: "auto",
+        },
+      },
+    },
     ui: {
       providerLabel: "ChatGPT",
       displayName: "GPT 5",
@@ -141,7 +239,6 @@ const PURPOSE_MODEL_MAP: Record<ModelPurpose, string> = {
   "autogen-distill": "gemini-2.5-flash-lite",
   "autogen-content": "gemini-2.5-flash",
   "audio-transcribe": "gemini-2.5-flash",
-  escalation: "gemini-3.1-pro-preview",
 };
 
 export function getModelForPurpose(purpose: ModelPurpose): string {
