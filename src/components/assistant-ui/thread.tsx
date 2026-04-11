@@ -42,7 +42,7 @@ import {
 
 import type { FC } from "react";
 import { createContext, useContext } from "react";
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { memo, useEffect, useRef, useState, useMemo, useCallback } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -83,17 +83,12 @@ import { ReplyContextDisplay } from "@/components/chat/ReplyContextDisplay";
 import { MessageContextBadges } from "@/components/chat/MessageContextBadges";
 import { MentionMenu } from "@/components/chat/MentionMenu";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import {
-  useUIStore,
-  selectReplySelections,
-} from "@/lib/stores/ui-store";
+import { useUIStore, selectReplySelections } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { useShallow } from "zustand/react/shallow";
-import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import { useFeatureFlagEnabled } from "posthog-js/react";
 import { toast } from "sonner";
-import { filterItems } from "@/lib/workspace-state/search";
 import { useSession } from "@/lib/auth-client";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { buildWorkspaceItemDefinitionsFromAssets } from "@/lib/uploads/uploaded-asset";
@@ -121,39 +116,37 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
 
   return (
     <ThreadPrimitive.Root
-        className="aui-root aui-thread-root @container flex h-full flex-col bg-sidebar"
-        style={{
-          ["--thread-max-width" as string]: "50rem",
-        }}
+      className="aui-root aui-thread-root @container flex h-full flex-col bg-sidebar"
+      style={{
+        ["--thread-max-width" as string]: "50rem",
+      }}
+    >
+      <ThreadPrimitive.Viewport
+        ref={viewportRef}
+        turnAnchor="top"
+        autoScroll={false}
+        className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll px-4"
       >
-        <ThreadPrimitive.Viewport
-          ref={viewportRef}
-          turnAnchor="top"
-          autoScroll={false}
-          className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll px-4"
-        >
-          <AuiIf condition={({ thread }) => thread.isLoading}>
-            <ThreadLoadingSkeleton />
-          </AuiIf>
-          <AuiIf
-            condition={({ thread }) => thread.isEmpty && !thread.isLoading}
-          >
-            <ThreadWelcome items={items} />
-          </AuiIf>
+        <AuiIf condition={({ thread }) => thread.isLoading}>
+          <ThreadLoadingSkeleton />
+        </AuiIf>
+        <AuiIf condition={({ thread }) => thread.isEmpty && !thread.isLoading}>
+          <ThreadWelcome items={items} />
+        </AuiIf>
 
-          <ThreadPrimitive.Messages
-            components={{
-              UserMessage,
-              EditComposer,
-              AssistantMessage,
-            }}
-          />
-        </ThreadPrimitive.Viewport>
+        <ThreadPrimitive.Messages
+          components={{
+            UserMessage,
+            EditComposer,
+            AssistantMessage,
+          }}
+        />
+      </ThreadPrimitive.Viewport>
 
-        <div className="aui-thread-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-shrink-0 flex-col gap-4 overflow-visible rounded-t-3xl bg-sidebar px-4 pb-3 md:pb-4">
-          <ComposerHoverWrapper items={items} />
-        </div>
-      </ThreadPrimitive.Root>
+      <div className="aui-thread-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-shrink-0 flex-col gap-4 overflow-visible rounded-t-3xl bg-sidebar px-4 pb-3 md:pb-4">
+        <ComposerHoverWrapper items={items} />
+      </div>
+    </ThreadPrimitive.Root>
   );
 };
 
@@ -400,10 +393,9 @@ const ComposerHoverWrapper: FC<ComposerHoverWrapperProps> = ({ items }) => {
     null,
   );
   const isThreadEmpty = useAuiState(({ thread }) => thread?.isEmpty ?? true);
-  const composerText = useAuiState(
-    (s) => (s as { composer?: { text?: string } })?.composer?.text ?? "",
+  const hasComposerText = useAuiState((s) =>
+    Boolean((s as { composer?: { text?: string } })?.composer?.text?.trim()),
   );
-  const hasComposerText = Boolean(composerText?.trim());
 
   const handleDirectFill = useCallback(
     (fill: string) => {
@@ -548,7 +540,7 @@ interface ComposerProps {
   items: Item[];
 }
 
-const Composer: FC<ComposerProps> = ({ items }) => {
+const Composer = memo(function Composer({ items }: ComposerProps) {
   const currentWorkspaceId = useWorkspaceStore(
     (state) => state.currentWorkspaceId,
   );
@@ -559,20 +551,15 @@ const Composer: FC<ComposerProps> = ({ items }) => {
   );
   const { selectedCardIds } = useSelectedCardIds();
 
-  // Get workspace state and operations for PDF card creation
-  const { state: workspaceState } = useWorkspaceState(currentWorkspaceId);
-  const operations = useWorkspaceOperations(currentWorkspaceId, workspaceState);
+  const operations = useWorkspaceOperations(currentWorkspaceId, items);
 
-  // Watch for thread changes to auto-focus composer (built-in assistant-ui behavior)
   const mainThreadId = useAuiState(
     ({ threads }) => (threads as any)?.mainThreadId,
   );
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Auto-focus composer when thread changes
   useEffect(() => {
     if (mainThreadId && inputRef.current) {
-      // Small delay to ensure DOM is ready after thread switch
       const timeoutId = setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
@@ -580,7 +567,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
     }
   }, [mainThreadId]);
 
-  // Mention menu state
   const [mentionMenuOpen, setMentionMenuOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionStartIndex, setMentionStartIndex] = useState<number | null>(
@@ -588,19 +574,15 @@ const Composer: FC<ComposerProps> = ({ items }) => {
   );
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
 
-  // Handle input changes for @ mention detection
   const handleInput = useCallback(
     (e: React.FormEvent<HTMLTextAreaElement>) => {
       const textarea = e.currentTarget;
       const value = textarea.value;
       const cursorPos = textarea.selectionStart ?? 0;
 
-      // Check if we're currently tracking a mention
       if (mentionStartIndex !== null) {
-        // Extract the query from @ to cursor
         const query = value.slice(mentionStartIndex + 1, cursorPos);
 
-        // Check if we've moved before the @ or if there's a space/newline after @
         if (
           cursorPos <= mentionStartIndex ||
           query.includes(" ") ||
@@ -617,15 +599,12 @@ const Composer: FC<ComposerProps> = ({ items }) => {
     [mentionStartIndex],
   );
 
-  // Handle keydown for @ detection and menu control
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       const textarea = e.currentTarget;
 
-      // Detect @ key
       if (e.key === "@" && !mentionMenuOpen) {
         const cursorPos = textarea.selectionStart ?? 0;
-        // Check if @ is at start or preceded by whitespace
         const charBefore = cursorPos > 0 ? textarea.value[cursorPos - 1] : " ";
         if (charBefore === " " || charBefore === "\n" || cursorPos === 0) {
           setMentionMenuOpen(true);
@@ -634,7 +613,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         }
       }
 
-      // Close menu on Escape
       if (e.key === "Escape" && mentionMenuOpen) {
         e.preventDefault();
         setMentionMenuOpen(false);
@@ -642,7 +620,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         setMentionQuery("");
       }
 
-      // Prevent default behavior when menu is open for arrow keys and Enter
       if (
         mentionMenuOpen &&
         ["ArrowUp", "ArrowDown", "Enter"].includes(e.key)
@@ -653,16 +630,13 @@ const Composer: FC<ComposerProps> = ({ items }) => {
     [mentionMenuOpen],
   );
 
-  // Clear the @query from input (extracted for reuse)
   const clearMentionQuery = useCallback(() => {
     if (mentionStartIndex !== null && inputRef.current) {
       const textarea = inputRef.current;
       const currentValue = textarea.value;
 
-      // Calculate what to remove: from the @ symbol to current cursor/end of query
       const atSymbolIndex = mentionStartIndex;
 
-      // Find where the query ends (current text after @ until space/newline or end)
       let queryEndIndex = mentionStartIndex;
       while (
         queryEndIndex < currentValue.length &&
@@ -675,17 +649,13 @@ const Composer: FC<ComposerProps> = ({ items }) => {
       const textBefore = currentValue.substring(0, atSymbolIndex);
       const textAfter = currentValue.substring(queryEndIndex);
 
-      // Set the new value without the @query
       const newValue = textBefore + textAfter;
 
-      // Update the textarea value
       aui?.composer()?.setText(newValue);
 
-      // Reset mention state
       setMentionQuery("");
       setMentionStartIndex(null);
 
-      // Focus and position cursor at where the @ was
       setTimeout(() => {
         if (inputRef.current) {
           inputRef.current.focus();
@@ -696,16 +666,13 @@ const Composer: FC<ComposerProps> = ({ items }) => {
     }
   }, [mentionStartIndex, aui]);
 
-  // Handle mention selection - toggle item, keep menu open for multi-select
   const handleMentionSelect = useCallback(
     (item: Item) => {
       toggleCardSelection(item.id);
-      // Don't close menu or clear query - allow selecting multiple items
     },
     [toggleCardSelection],
   );
 
-  // Handle mention menu close - remove the @query from input
   const handleMentionMenuClose = useCallback(
     (open: boolean) => {
       if (!open) {
@@ -720,13 +687,10 @@ const Composer: FC<ComposerProps> = ({ items }) => {
     const clipboardData = e.clipboardData;
     if (!clipboardData || !currentWorkspaceId) return;
 
-    // Check if clipboard contains files (images or other file types)
     const files = Array.from(clipboardData.files) as File[];
 
     if (files.length > 0) {
       e.preventDefault();
-      // Add the first file (or prioritize images if multiple files) as an attachment
-      // It will be uploaded when the message is sent
       const imageFile = files.find((file: File) =>
         file.type.startsWith("image/"),
       );
@@ -742,7 +706,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
       return;
     }
 
-    // Also check clipboard items for image data (e.g., screenshots)
     const clipboardItems = Array.from(
       clipboardData.items,
     ) as DataTransferItem[];
@@ -755,7 +718,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
       const file = imageItem.getAsFile();
       if (file) {
         try {
-          // Add as attachment - will be uploaded when message is sent
           await aui?.composer()?.addAttachment(file);
         } catch (error) {
           console.error("Failed to add image attachment:", error);
@@ -763,13 +725,8 @@ const Composer: FC<ComposerProps> = ({ items }) => {
       }
       return;
     }
-
-    // Check if clipboard contains a URL (logic removed)
   };
 
-  /**
-   * Process PDF attachments in the background without blocking message sending
-   */
   const processPdfAttachmentsInBackground = async (
     pdfAttachments: any[],
     workspaceId: string,
@@ -798,7 +755,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
           },
         });
 
-        // Show success toast
         if (failedFiles.length === 0) {
           toast.success(getDocumentUploadSuccessMessage(uploads.length));
         } else {
@@ -823,8 +779,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
     <ComposerPrimitive.Root
       className="aui-composer-root relative flex w-full flex-col rounded-lg border border-sidebar-border bg-sidebar-accent px-3.5 pt-2 pb-1 shadow-[0_9px_9px_0px_rgba(0,0,0,0.01),0_2px_5px_0px_rgba(0,0,0,0.06)] dark:border-sidebar-border/15"
       onClick={(e) => {
-        // Focus the input when clicking anywhere in the composer area
-        // This allows users to easily return focus after interacting with quizzes or other cards
         if (inputRef.current && !e.defaultPrevented) {
           inputRef.current.focus();
         }
@@ -832,20 +786,17 @@ const Composer: FC<ComposerProps> = ({ items }) => {
       onSubmit={async (e) => {
         e.preventDefault();
 
-        // Wait for attachment uploads before sending (same UX as home input)
         if (useAttachmentUploadStore.getState().uploadingIds.size > 0) {
           toast.info("Please wait for uploads to finish before sending");
           return;
         }
 
-        // Get the current composer state
         const composerState = aui?.composer()?.getState();
         if (!composerState) return;
 
         const currentText = composerState.text;
         const attachments = composerState.attachments || [];
 
-        // Prevent empty messages when reply context already provides content.
         const hasReplyContext = replySelections.length > 0;
         if (
           !currentText.trim() &&
@@ -855,7 +806,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
           return;
         }
 
-        // Detect PDF attachments for background processing
         const pdfAttachments = attachments.filter((att) => {
           const file = att.file;
           return (
@@ -866,7 +816,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
           );
         });
 
-        // Process PDFs in background - don't block message sending
         if (pdfAttachments.length > 0 && currentWorkspaceId) {
           processPdfAttachmentsInBackground(
             pdfAttachments,
@@ -875,21 +824,9 @@ const Composer: FC<ComposerProps> = ({ items }) => {
           );
         }
 
-        // Get selected cards for context
-        const selectedItems = items.filter((item) =>
-          selectedCardIds.has(item.id),
-        );
-
-        // Combine all context: selected cards, reply texts, and user message
-        // Use placeholder when empty so AI SDK accepts (backend injects reply context into message)
         let modifiedText =
-          currentText.trim() ||
-          (hasReplyContext ? "Empty message" : "");
+          currentText.trim() || (hasReplyContext ? "Empty message" : "");
 
-        // Attach per-request context as metadata via runConfig
-        // This flows through as body.metadata.custom on the server
-        // IMPORTANT: Always set runConfig (even empty) to clear stale data from previous sends,
-        // because the composer does NOT reset runConfig after send().
         const customMetadata: Record<string, unknown> = {};
         if (replySelections.length > 0) {
           customMetadata.replySelections = replySelections;
@@ -902,19 +839,14 @@ const Composer: FC<ComposerProps> = ({ items }) => {
               : {},
           );
 
-        // Set the modified text and send
         aui?.composer()?.setText(modifiedText);
         aui?.composer()?.send();
 
-        // Clear all per-request state immediately — captured in runConfig before send()
         clearReplySelections();
       }}
     >
-      {/* Attachment Display - shows uploaded files */}
       <ComposerAttachments />
-      {/* Card Context Display - shows selected cards inside input area */}
       <CardContextDisplay items={items} />
-      {/* Ask AI context chips (text selections from chat / PDF / document) */}
       <ReplyContextDisplay />
       <div className="relative">
         <ComposerPrimitive.Input
@@ -929,7 +861,6 @@ const Composer: FC<ComposerProps> = ({ items }) => {
           onKeyDown={handleKeyDown}
           onInput={handleInput}
         />
-        {/* Mention Menu */}
         <MentionMenu
           open={mentionMenuOpen}
           onOpenChange={handleMentionMenuClose}
@@ -944,33 +875,27 @@ const Composer: FC<ComposerProps> = ({ items }) => {
           }
         />
       </div>
-      <ComposerAction items={items} />
+      <ComposerAction />
     </ComposerPrimitive.Root>
   );
-};
+});
 
-interface ComposerActionProps {
-  items: Item[];
-}
+interface ComposerActionProps {}
 
-const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
+const ComposerAction = memo(function ComposerAction(_: ComposerActionProps) {
   const { data: session } = useSession();
   useAui();
   const hasUploading = useAttachmentUploadStore((s) => s.uploadingIds.size > 0);
   const isAnonymous = session?.user?.isAnonymous ?? false;
-  const { selectedCardIds } = useSelectedCardIds();
-  const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
 
   const [isWarningPopoverOpen, setIsWarningPopoverOpen] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
 
-  // AI Debug button: always show in dev, only when feature flag enabled in prod
   const isDev = process.env.NODE_ENV === "development";
   const aiDebugFlagEnabled = useFeatureFlagEnabled("ai-debug-feedback");
   const showAiDebugButton = isDev || aiDebugFlagEnabled === true;
 
-  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (hoverTimeoutRef.current) {
@@ -978,11 +903,6 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
       }
     };
   }, []);
-
-  // Filter items for the dropdown based on selected tags
-  const filteredItems = useMemo(() => {
-    return filterItems(items, "");
-  }, [items]);
 
   return (
     <div className="aui-composer-action-wrapper relative mb-2 flex items-center justify-between">
@@ -992,7 +912,6 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
           <ComposerAddAttachment />
         </div>
         <ModelPicker />
-        {/* AI Debug Button - feature flag in prod, localhost debugger in dev */}
         {showAiDebugButton && (
           <button
             type="button"
@@ -1013,7 +932,6 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
           open={isFeedbackDialogOpen}
           onOpenChange={setIsFeedbackDialogOpen}
         />
-        {/* Warning icon for anonymous users */}
         {isAnonymous && (
           <Popover
             open={isWarningPopoverOpen}
@@ -1129,7 +1047,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
       </div>
     </div>
   );
-};
+});
 
 const MessageError: FC = () => {
   return (

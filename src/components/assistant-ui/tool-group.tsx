@@ -189,28 +189,45 @@ const ToolGroupImpl: FC<
   PropsWithChildren<{ startIndex: number; endIndex: number }>
 > = ({ children, startIndex, endIndex }) => {
   const toolCount = endIndex - startIndex + 1;
-
-  // Match `ReasoningGroup` behavior: mark active while the *current streaming part*
-  // is a tool-call within this group's index range.
-  const isToolGroupStreaming = useAuiState(({ message }) => {
-    if (message.status?.type !== "running") return false;
-    const lastIndex = message.parts.length - 1;
-    if (lastIndex < 0) return false;
-    const lastType = message.parts[lastIndex]?.type;
-    if (lastType !== "tool-call") return false;
-    return lastIndex >= startIndex && lastIndex <= endIndex;
+  const toolGroupStateRef = useRef({
+    isToolGroupStreaming: false,
+    isLastMessage: false,
   });
+  const { isToolGroupStreaming, isLastMessage } = useAuiState(
+    ({ thread, message }) => {
+      const messages = (
+        thread as unknown as { messages?: Array<{ id?: string }> }
+      )?.messages;
+      const isLastMessage =
+        Array.isArray(messages) && messages.length > 0
+          ? messages[messages.length - 1]?.id === message.id
+          : false;
 
-  const isLastMessage = useAuiState(({ thread, message }) => {
-    const messages = (thread as unknown as { messages?: Array<{ id?: string }> })?.messages ?? [];
-    const idx = messages.findIndex((m) => m.id === message.id);
-    return idx >= 0 && idx === messages.length - 1;
-  });
+      let isToolGroupStreaming = false;
+      if (message.status?.type === "running") {
+        const lastIndex = message.parts.length - 1;
+        if (lastIndex >= 0 && message.parts[lastIndex]?.type === "tool-call") {
+          isToolGroupStreaming =
+            lastIndex >= startIndex && lastIndex <= endIndex;
+        }
+      }
+
+      const next = { isToolGroupStreaming, isLastMessage };
+      const prev = toolGroupStateRef.current;
+      if (
+        prev.isToolGroupStreaming === next.isToolGroupStreaming &&
+        prev.isLastMessage === next.isLastMessage
+      ) {
+        return prev;
+      }
+      toolGroupStateRef.current = next;
+      return next;
+    },
+  );
 
   const [isManuallyOpen, setIsManuallyOpen] = useState(isLastMessage);
   const isOpen = isToolGroupStreaming || isManuallyOpen;
 
-  // Only auto-collapse when this message is no longer the last one (newer messages below)
   useEffect(() => {
     if (!isLastMessage) {
       setIsManuallyOpen(false);
@@ -225,14 +242,16 @@ const ToolGroupImpl: FC<
     [isToolGroupStreaming],
   );
 
-  // Only group when there are more than 1 consecutive tool call.
-  // IMPORTANT: this check must stay *after* hooks to avoid conditional hook calls.
   if (toolCount <= 1) {
     return <>{children}</>;
   }
 
   return (
-    <ToolGroupRoot variant="ghost" open={isOpen} onOpenChange={handleOpenChange}>
+    <ToolGroupRoot
+      variant="ghost"
+      open={isOpen}
+      onOpenChange={handleOpenChange}
+    >
       <ToolGroupTrigger count={toolCount} active={isToolGroupStreaming} />
       <ToolGroupContent aria-busy={isToolGroupStreaming}>
         {children}

@@ -1,6 +1,14 @@
 "use client";
 
-import { memo, useCallback, useRef, useState, useEffect, useLayoutEffect, forwardRef } from "react";
+import {
+  memo,
+  useCallback,
+  useRef,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  forwardRef,
+} from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { ChevronDownIcon } from "lucide-react";
 import {
@@ -213,7 +221,7 @@ const ReasoningText = forwardRef<HTMLDivElement, React.ComponentProps<"div">>(
         {...props}
       />
     );
-  }
+  },
 );
 
 const ReasoningImpl: ReasoningMessagePartComponent = () => (
@@ -226,47 +234,74 @@ const ReasoningGroupImpl: ReasoningGroupComponent = ({
   endIndex,
 }) => {
   const textContainerRef = useRef<HTMLDivElement>(null);
-  const isReasoningStreaming = useAuiState(({ message }) => {
-    if (message.status?.type !== "running") return false;
-    const lastIndex = message.parts.length - 1;
-    if (lastIndex < 0) return false;
-    const lastType = message.parts[lastIndex]?.type;
-    if (lastType !== "reasoning") return false;
-    return lastIndex >= startIndex && lastIndex <= endIndex;
+  const reasoningStateRef = useRef({
+    isReasoningStreaming: false,
+    isLastMessage: false,
+    reasoningTextLen: 0,
   });
+  const {
+    isReasoningStreaming,
+    isLastMessage,
+    reasoningTextLen: reasoningTextSnapshot,
+  } = useAuiState(({ thread, message }) => {
+    const messages = (
+      thread as unknown as { messages?: Array<{ id?: string }> }
+    )?.messages;
+    const isLastMessage =
+      Array.isArray(messages) && messages.length > 0
+        ? messages[messages.length - 1]?.id === message.id
+        : false;
 
-  const isLastMessage = useAuiState(({ thread, message }) => {
-    const messages = (thread as unknown as { messages?: Array<{ id?: string }> })?.messages ?? [];
-    const idx = messages.findIndex((m) => m.id === message.id);
-    return idx >= 0 && idx === messages.length - 1;
-  });
-
-  // Subscribe to reasoning text length so we re-run scroll effect on each stream chunk
-  const reasoningTextSnapshot = useAuiState(({ message }) => {
-    let len = 0;
-    for (let i = startIndex; i <= endIndex && i < message.parts.length; i++) {
-      const p = message.parts[i] as { type?: string; text?: string } | undefined;
-      if (p?.type === "reasoning" && typeof p.text === "string") len += p.text.length;
+    let isReasoningStreaming = false;
+    if (message.status?.type === "running") {
+      const lastIndex = message.parts.length - 1;
+      if (lastIndex >= 0) {
+        const lastType = message.parts[lastIndex]?.type;
+        if (
+          lastType === "reasoning" &&
+          lastIndex >= startIndex &&
+          lastIndex <= endIndex
+        ) {
+          isReasoningStreaming = true;
+        }
+      }
     }
-    return len;
+
+    let reasoningTextLen = 0;
+    for (let i = startIndex; i <= endIndex && i < message.parts.length; i++) {
+      const part = message.parts[i] as
+        | { type?: string; text?: string }
+        | undefined;
+      if (part?.type === "reasoning" && typeof part.text === "string") {
+        reasoningTextLen += part.text.length;
+      }
+    }
+
+    const next = { isReasoningStreaming, isLastMessage, reasoningTextLen };
+    const prev = reasoningStateRef.current;
+    if (
+      prev.isReasoningStreaming === next.isReasoningStreaming &&
+      prev.isLastMessage === next.isLastMessage &&
+      prev.reasoningTextLen === next.reasoningTextLen
+    ) {
+      return prev;
+    }
+    reasoningStateRef.current = next;
+    return next;
   });
 
   const [isManuallyOpen, setIsManuallyOpen] = useState(false);
   const isOpen = isReasoningStreaming || isManuallyOpen;
 
-  // Auto-scroll to bottom as reasoning streams (like assistant-ui Viewport autoScroll)
-  // reasoningTextSnapshot ensures we run on every stream chunk
   useLayoutEffect(() => {
     if (!isReasoningStreaming || !textContainerRef.current) return;
     const el = textContainerRef.current;
-    // Only skip scroll if user has clearly scrolled up (e.g. >80px from bottom)
     const fromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     if (fromBottom <= 80) {
       el.scrollTop = el.scrollHeight;
     }
   }, [isReasoningStreaming, reasoningTextSnapshot]);
 
-  // Auto-collapse when streaming finishes
   useEffect(() => {
     if (!isReasoningStreaming) {
       setIsManuallyOpen(false);
@@ -281,7 +316,6 @@ const ReasoningGroupImpl: ReasoningGroupComponent = ({
     [isReasoningStreaming],
   );
 
-  // Fully hide old reasoning (not in last message) - no trigger, no content
   if (!isLastMessage) return null;
 
   return (
