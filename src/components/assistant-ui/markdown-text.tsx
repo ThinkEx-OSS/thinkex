@@ -88,10 +88,9 @@ function extractCitationText(children: ReactNode): string {
 
 const CitationRenderer = memo(
   ({ children }: { children?: ReactNode }) => {
+    const ctx = useContext(CitationContext);
     const ref = extractCitationText(children);
     if (!ref) return null;
-
-    const ctx = useContext(CitationContext);
 
     const url = ctx ? getCitationUrl(ref, ctx.citationUrls) : undefined;
     if (url) {
@@ -206,10 +205,25 @@ const MarkdownTextImpl = (props: MarkdownTextProps) => {
   const openWorkspaceItem = useUIStore((s) => s.openWorkspaceItem);
   const setCitationHighlightQuery = useUIStore((s) => s.setCitationHighlightQuery);
 
-  const { text: processedText, citationUrls } = useMemo(
+  const citationUrlsRef = useRef<Map<string, string>>(new Map());
+
+  const { text: processedText, citationUrls: rawCitationUrls } = useMemo(
     () => preprocessLatex(text),
     [text]
   );
+
+  const citationUrls = useMemo(() => {
+    const prev = citationUrlsRef.current;
+    if (prev.size === rawCitationUrls.size) {
+      let same = true;
+      for (const [k, v] of rawCitationUrls) {
+        if (prev.get(k) !== v) { same = false; break; }
+      }
+      if (same) return prev;
+    }
+    citationUrlsRef.current = rawCitationUrls;
+    return rawCitationUrls;
+  }, [rawCitationUrls]);
 
   const citationCtx = useMemo(() => ({
     workspaceState,
