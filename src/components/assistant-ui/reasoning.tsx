@@ -236,9 +236,9 @@ const ReasoningGroupImpl: ReasoningGroupComponent = ({
   });
 
   const isLastMessage = useAuiState(({ thread, message }) => {
-    const messages = (thread as unknown as { messages?: Array<{ id?: string }> })?.messages ?? [];
-    const idx = messages.findIndex((m) => m.id === message.id);
-    return idx >= 0 && idx === messages.length - 1;
+    const messages = (thread as unknown as { messages?: Array<{ id?: string }> })?.messages;
+    if (!messages || messages.length === 0) return false;
+    return messages[messages.length - 1]?.id === message.id;
   });
 
   // Subscribe to reasoning text length so we re-run scroll effect on each stream chunk

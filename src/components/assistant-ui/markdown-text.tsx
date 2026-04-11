@@ -5,13 +5,16 @@ import "streamdown/styles.css";
 import { createCodePlugin } from "@streamdown/code";
 import { mermaid } from "@streamdown/mermaid";
 import { createMathPlugin } from "@streamdown/math";
-import { useMessagePartText, useAuiState, type TextMessagePartProps } from "@assistant-ui/react";
+import { useMessagePartText, type TextMessagePartProps } from "@assistant-ui/react";
 import {
   Children,
+  createContext,
   isValidElement,
   memo,
+  useContext,
   useRef,
   useEffect,
+  useMemo,
   type ReactNode,
 } from "react";
 import type {
@@ -30,13 +33,23 @@ import { getCitationUrl } from "@/lib/utils/preprocess-latex";
 import { resolveItemByPath } from "@/lib/ai/tools/workspace-search-utils";
 import { preprocessLatex } from "@/lib/utils/preprocess-latex";
 import { cn } from "@/lib/utils";
+import type { Item } from "@/lib/workspace-state/types";
 
 const math = createMathPlugin({ singleDollarTextMath: true });
 const code = createCodePlugin({
   themes: ["one-dark-pro", "one-dark-pro"],
 }) as CodeHighlighterPlugin;
 
-/** Parse page number from citation ref (e.g. "Title | quote | p. 5" or "Title | p. 5"). */
+type CitationContextValue = {
+  workspaceState: Item[];
+  navigateToItem: ReturnType<typeof useNavigateToItem>;
+  openWorkspaceItem: (id: string) => void;
+  setCitationHighlightQuery: (query: { itemId: string; query: string; pageNumber?: number }) => void;
+  citationUrls: Map<string, string>;
+};
+
+const CitationContext = createContext<CitationContextValue | null>(null);
+
 function parseCitationPage(ref: string): { title: string; quote?: string; pageNumber?: number } {
   const segments = ref.split(/\s*\|\s*/).map((s) => s.trim()).filter(Boolean);
   if (segments.length === 0) return { title: "" };
@@ -56,7 +69,6 @@ function parseCitationPage(ref: string): { title: string; quote?: string; pageNu
   return { title, quote: quote || undefined, pageNumber };
 }
 
-/** Extract raw text from citation element children (handles nested elements). */
 function extractCitationText(children: ReactNode): string {
   if (typeof children === "string") return children.trim();
   if (children == null) return "";
@@ -74,43 +86,35 @@ function extractCitationText(children: ReactNode): string {
     .trim();
 }
 
-/**
- * SurfSense-style citation renderer.
- * Content is the ref itself: urlciteN (URL), or Title, or Title|quote (workspace).
- */
 const CitationRenderer = memo(
   ({ children }: { children?: ReactNode }) => {
     const ref = extractCitationText(children);
     if (!ref) return null;
 
-    // URL placeholder (from preprocess): render as direct link
-    const url = getCitationUrl(ref);
+    const ctx = useContext(CitationContext);
+
+    const url = ctx ? getCitationUrl(ref, ctx.citationUrls) : undefined;
     if (url) {
       return <UrlCitation url={url} />;
     }
 
-    // Direct URL (in case preprocess didn't run, e.g. edge case)
     if (ref.startsWith("http://") || ref.startsWith("https://")) {
       return <UrlCitation url={ref} />;
     }
 
-    // Workspace citation: Title, Title|quote, or Title|quote|p. 5 (with optional page)
+    if (!ctx) return null;
+
+    const { workspaceState, navigateToItem, openWorkspaceItem, setCitationHighlightQuery } = ctx;
+
     const parsed = parseCitationPage(ref);
     const { title: parsedTitle, quote: parsedQuote, pageNumber } = parsed;
     const title = parsedTitle;
     const quote = parsedQuote;
 
-    const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
-    const { state: workspaceState } = useWorkspaceState(workspaceId);
-    const navigateToItem = useNavigateToItem();
-    const openWorkspaceItem = useUIStore((s) => s.openWorkspaceItem);
-    // Normalize for matching: trim, lowercase, strip .pdf (model may include it; items often don't)
     const titleNorm = (s: string) => s.trim().toLowerCase().replace(/\.pdf$/i, "");
-    const setCitationHighlightQuery = useUIStore((s) => s.setCitationHighlightQuery);
 
     const handleWorkspaceItemClick = () => {
       if (!title) return;
-      // Resolve by virtual path first (e.g. "pdfs/Syllabus.pdf") — AI may cite using paths from <workspace>
       const items = workspaceState;
       const byPath = resolveItemByPath(items, title);
       const item =
@@ -122,7 +126,6 @@ const CitationRenderer = memo(
                 titleNorm(i.name) === titleNorm(title)
             );
       if (!item) return;
-      // Set citation highlight: for PDFs with page, or when we have a quote to search
       if (quote?.trim() || (pageNumber != null && item.type === "pdf")) {
         setCitationHighlightQuery({
           itemId: item.id,
@@ -134,11 +137,10 @@ const CitationRenderer = memo(
       openWorkspaceItem(item.id);
     };
 
-    // For path-like refs (e.g. pdfs/Syllabus.pdf), show basename in badge
     const displayTitle = title.includes("/") ? title.split("/").pop() ?? title : title;
     const badgeLabel =
-      displayTitle.slice(0, 20) + (displayTitle.length > 20 ? "…" : "") +
-      (pageNumber != null ? ` · p.${pageNumber}` : "");
+      displayTitle.slice(0, 20) + (displayTitle.length > 20 ? "\u2026" : "") +
+      (pageNumber != null ? ` \u00b7 p.${pageNumber}` : "");
 
     return (
       <InlineCitation>
@@ -163,9 +165,34 @@ const CitationRenderer = memo(
 );
 CitationRenderer.displayName = "CitationRenderer";
 
-/** Props from assistant-ui when used as Text component, or optional when used directly (e.g. in Reasoning) */
+const MarkdownA = (props: AnchorHTMLAttributes<HTMLAnchorElement> & { node?: any }) => (
+  <MarkdownLink {...props} />
+);
+
+const MarkdownCitation = (props: any) => (
+  <CitationRenderer>{props.children}</CitationRenderer>
+);
+
+const MarkdownOl = ({ children, node, ...props }: HTMLAttributes<HTMLOListElement> & { node?: any }) => (
+  <ol className="ml-4 list-outside list-decimal whitespace-normal" {...props}>
+    {children}
+  </ol>
+);
+
+const MarkdownUl = ({ children, node, ...props }: HTMLAttributes<HTMLUListElement> & { node?: any }) => (
+  <ul className="ml-4 list-outside list-disc whitespace-normal" {...props}>
+    {children}
+  </ul>
+);
+
+const STREAMDOWN_COMPONENTS = {
+  a: MarkdownA,
+  citation: MarkdownCitation,
+  ol: MarkdownOl,
+  ul: MarkdownUl,
+} as const;
+
 type MarkdownTextProps = Partial<TextMessagePartProps> & {
-  /** Use "reasoning" for smoother streaming in reasoning blocks (blurIn, longer duration) */
   streamingVariant?: "default" | "reasoning";
 };
 
@@ -173,8 +200,24 @@ const MarkdownTextImpl = (props: MarkdownTextProps) => {
   const streamingVariant = props.streamingVariant ?? "default";
   const { text, status } = useMessagePartText();
 
-  const threadId = useAuiState(({ threads }) => (threads as any)?.mainThreadId);
-  const messageId = useAuiState(({ message }) => (message as any)?.id);
+  const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
+  const { state: workspaceState } = useWorkspaceState(workspaceId);
+  const navigateToItem = useNavigateToItem();
+  const openWorkspaceItem = useUIStore((s) => s.openWorkspaceItem);
+  const setCitationHighlightQuery = useUIStore((s) => s.setCitationHighlightQuery);
+
+  const { text: processedText, citationUrls } = useMemo(
+    () => preprocessLatex(text),
+    [text]
+  );
+
+  const citationCtx = useMemo(() => ({
+    workspaceState,
+    navigateToItem,
+    openWorkspaceItem,
+    setCitationHighlightQuery,
+    citationUrls,
+  }), [workspaceState, navigateToItem, openWorkspaceItem, setCitationHighlightQuery, citationUrls]);
 
   const animateConfig =
     streamingVariant === "reasoning"
@@ -183,10 +226,6 @@ const MarkdownTextImpl = (props: MarkdownTextProps) => {
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Combine thread and message ID for unique key per message
-  const key = `${threadId || 'no-thread'}-${messageId || 'no-message'}`;
-
-  // Set up wheel event handlers for all code blocks to prevent vertical scroll trapping
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -197,11 +236,9 @@ const MarkdownTextImpl = (props: MarkdownTextProps) => {
 
       if (!preElement) return;
 
-      // If user is primarily scrolling vertically (more vertical than horizontal movement)
       const isVerticalScroll = Math.abs(e.deltaY) > Math.abs(e.deltaX);
 
       if (isVerticalScroll) {
-        // Always let vertical scroll bubble up to parent - don't let code block trap it
         const scrollParent = preElement.closest('.aui-thread-viewport') as HTMLElement;
         if (scrollParent) {
           scrollParent.scrollTop += e.deltaY;
@@ -216,9 +253,8 @@ const MarkdownTextImpl = (props: MarkdownTextProps) => {
     return () => {
       container.removeEventListener('wheel', handleWheel, { capture: true });
     };
-  }, [threadId, messageId]);
+  }, []);
 
-  // Ensure copied content keeps rich HTML but strips background/highlight styles
   const handleCopy = (event: ReactClipboardEvent<HTMLDivElement>) => {
     if (typeof window === "undefined") return;
 
@@ -228,11 +264,9 @@ const MarkdownTextImpl = (props: MarkdownTextProps) => {
     const range = selection.getRangeAt(0);
     const fragment = range.cloneContents();
 
-    // Wrap in a temporary container so we can serialize + sanitize
     const wrapper = document.createElement("div");
     wrapper.appendChild(fragment);
 
-    // Strip background/highlight styles from copied HTML
     wrapper.querySelectorAll<HTMLElement>("*").forEach((el) => {
       el.style?.removeProperty("background");
       el.style?.removeProperty("background-color");
@@ -253,44 +287,29 @@ const MarkdownTextImpl = (props: MarkdownTextProps) => {
   };
 
   return (
-    <div key={key} ref={containerRef} className="aui-md" onCopy={handleCopy}>
-      <Streamdown
-        allowedTags={{ citation: [] }}
-        animated={animateConfig}
-        isAnimating={status.type === "running"}
-        className={cn(
-          "streamdown-content size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-        )}
-        linkSafety={{ enabled: false }}
-        plugins={{ code, mermaid, math }}
-        components={{
-          a: (props: AnchorHTMLAttributes<HTMLAnchorElement> & { node?: any }) => (
-            <MarkdownLink {...props} />
-          ),
-           
-          citation: (props: any) => (
-            <CitationRenderer>{props.children}</CitationRenderer>
-          ),
-          ol: ({ children, node, ...props }: HTMLAttributes<HTMLOListElement> & { node?: any }) => (
-            <ol className="ml-4 list-outside list-decimal whitespace-normal" {...props}>
-              {children}
-            </ol>
-          ),
-          ul: ({ children, node, ...props }: HTMLAttributes<HTMLUListElement> & { node?: any }) => (
-            <ul className="ml-4 list-outside list-disc whitespace-normal" {...props}>
-              {children}
-            </ul>
-          ),
-        }}
-        mermaid={{
-          config: {
-            theme: 'dark',
-          },
-        }}
-      >
-        {preprocessLatex(text)}
-      </Streamdown>
-    </div>
+    <CitationContext.Provider value={citationCtx}>
+      <div ref={containerRef} className="aui-md" onCopy={handleCopy}>
+        <Streamdown
+          mode="streaming"
+          allowedTags={{ citation: [] }}
+          animated={animateConfig}
+          isAnimating={status.type === "running"}
+          className={cn(
+            "streamdown-content size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+          )}
+          linkSafety={{ enabled: false }}
+          plugins={{ code, mermaid, math }}
+          components={STREAMDOWN_COMPONENTS}
+          mermaid={{
+            config: {
+              theme: 'dark',
+            },
+          }}
+        >
+          {processedText}
+        </Streamdown>
+      </div>
+    </CitationContext.Provider>
   );
 };
 

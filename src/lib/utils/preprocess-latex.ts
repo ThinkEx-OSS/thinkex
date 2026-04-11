@@ -12,51 +12,37 @@
  * Preserves code blocks (``` and inline `) so their contents are never modified.
  */
 
-// Storage for URL citations replaced during preprocess to avoid GFM autolink interference.
-// Populated in preprocessCitations, consumed by CitationRenderer.
-let _pendingUrlCitations = new Map<string, string>();
-let _urlCiteIdx = 0;
-
-/** Get a stored URL by placeholder key (urlcite0, urlcite1, etc.). */
-export function getCitationUrl(placeholder: string): string | undefined {
-  return _pendingUrlCitations.get(placeholder);
+export function getCitationUrl(placeholder: string, citationUrls: Map<string, string>): string | undefined {
+  return citationUrls.get(placeholder);
 }
 
-/**
- * Handles citation markup.
- * - Model outputs <citation>X</citation> directly for workspace refs.
- * - For <citation>https://...</citation>, replaces URL with placeholder to avoid GFM autolinks.
- * - Fallback: [citation:X] → <citation>X</citation> for legacy or model slip-ups.
- */
-function preprocessCitations(markdown: string): string {
-  if (!markdown) return markdown;
-  _pendingUrlCitations = new Map();
-  _urlCiteIdx = 0;
+function preprocessCitations(markdown: string): { text: string; citationUrls: Map<string, string> } {
+  const citationUrls = new Map<string, string>();
+  if (!markdown) return { text: markdown, citationUrls };
+  let urlCiteIdx = 0;
 
-  // URLs inside <citation>: replace with placeholder to avoid GFM autolinks
   let out = markdown.replace(
     /<citation>(https?:\/\/[^<]+)<\/citation>/g,
     (_, url: string) => {
-      const key = `urlcite${_urlCiteIdx++}`;
-      _pendingUrlCitations.set(key, url.trim());
+      const key = `urlcite${urlCiteIdx++}`;
+      citationUrls.set(key, url.trim());
       return `<citation>${key}</citation>`;
     }
   );
 
-  // Fallback: [citation:X] → <citation>X</citation> (legacy format; URL in brackets also gets placeholder)
   out = out.replace(/\[citation:\s*([^\]]+)\s*\]/g, (_, content: string) => {
     const trimmed = content.trim();
     if (!trimmed) return "";
     const urlMatch = trimmed.match(/^(https?:\/\/\S+)$/);
     if (urlMatch) {
-      const key = `urlcite${_urlCiteIdx++}`;
-      _pendingUrlCitations.set(key, urlMatch[1].trim());
+      const key = `urlcite${urlCiteIdx++}`;
+      citationUrls.set(key, urlMatch[1].trim());
       return `<citation>${key}</citation>`;
     }
     return `<citation>${trimmed}</citation>`;
   });
 
-  return out;
+  return { text: out, citationUrls };
 }
 
 // Currency pattern: $ followed by digits, optional commas/decimals, optional k/M/B — e.g. $5, $19.99, $100k, $100M
@@ -72,39 +58,32 @@ export function convertTexDelimitersToDollars(s: string): string {
     .replace(/\\\[([\s\S]*?)\\\]/g, (_match, math: string) => `$$${math}$$`);
 }
 
-export function preprocessLatex(markdown: string): string {
-  if (!markdown) return markdown;
+export function preprocessLatex(markdown: string): { text: string; citationUrls: Map<string, string> } {
+  if (!markdown) return { text: markdown, citationUrls: new Map() };
 
-  // 0. Convert [citation:X] to <citation>X</citation> (SurfSense-style inline)
-  markdown = preprocessCitations(markdown);
+  const { text: withCitations, citationUrls } = preprocessCitations(markdown);
 
-  // 1. Protect code blocks and inline code from modification
   const preserved: string[] = [];
-  let result = markdown.replace(/```[\s\S]*?```|`[^`\n]+`/g, (match: string) => {
+  let result = withCitations.replace(/```[\s\S]*?```|`[^`\n]+`/g, (match: string) => {
     preserved.push(match);
     return `\x00CODE${preserved.length - 1}\x00`;
   });
 
-  // 2. Protect currency values from being parsed as math delimiters
-  //    e.g. "$19.99" → placeholder, restored at the end
   const currencies: string[] = [];
   result = result.replace(CURRENCY_REGEX, (match) => {
     currencies.push(match);
     return `\x00CUR${currencies.length - 1}\x00`;
   });
 
-  // 3–4. Convert \(...\) / \[...\] → $...$ / $$...$$
   result = convertTexDelimitersToDollars(result);
 
-  // 5. Restore protected currency values
   result = result.replace(/\x00CUR(\d+)\x00/g, (_match, idx) => {
     return currencies[Number(idx)];
   });
 
-  // 6. Restore protected code blocks
   result = result.replace(/\x00CODE(\d+)\x00/g, (_match, idx) => {
     return preserved[Number(idx)];
   });
 
-  return result;
+  return { text: result, citationUrls };
 }

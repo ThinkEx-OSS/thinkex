@@ -17,15 +17,17 @@ type MessageCustomMetadata = {
  * when viewing user messages in history.
  */
 function MessageContextBadgesImpl() {
-  const message = useAuiState((s) => s.message);
-  if (!message || message.role !== "user") return null;
+  const badgeData = useAuiState((s) => {
+    const msg = s.message;
+    if (!msg || msg.role !== "user") return null;
+    const custom = (msg.metadata as { custom?: MessageCustomMetadata } | undefined)?.custom;
+    const selections = custom?.replySelections;
+    return selections && selections.length > 0 ? selections : null;
+  });
 
-  const custom = (message.metadata as { custom?: MessageCustomMetadata } | undefined)?.custom;
-  if (!custom) return null;
+  if (!badgeData) return null;
 
-  const { replySelections } = custom;
-  const hasAny = replySelections && replySelections.length > 0;
-  if (!hasAny) return null;
+  const replySelections = badgeData;
 
   return (
     <div className="mb-2 flex flex-wrap gap-1.5">

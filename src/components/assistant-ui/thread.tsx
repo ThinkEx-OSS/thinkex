@@ -400,10 +400,12 @@ const ComposerHoverWrapper: FC<ComposerHoverWrapperProps> = ({ items }) => {
     null,
   );
   const isThreadEmpty = useAuiState(({ thread }) => thread?.isEmpty ?? true);
-  const composerText = useAuiState(
-    (s) => (s as { composer?: { text?: string } })?.composer?.text ?? "",
+  const hasComposerText = useAuiState(
+    (s) => {
+      const text = (s as { composer?: { text?: string } })?.composer?.text;
+      return Boolean(text?.trim());
+    },
   );
-  const hasComposerText = Boolean(composerText?.trim());
 
   const handleDirectFill = useCallback(
     (fill: string) => {

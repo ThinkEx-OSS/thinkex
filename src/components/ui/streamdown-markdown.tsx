@@ -57,7 +57,7 @@ const StreamdownMarkdownImpl: React.FC<StreamdownMarkdownProps> = ({
           },
         }}
       >
-        {preprocessLatex(children)}
+        {preprocessLatex(children).text}
       </Streamdown>
     </div>
   );
