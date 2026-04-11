@@ -15,18 +15,34 @@ export function buildGatewayProviderOptions(
 ): Record<string, unknown> {
   const gatewayOptions: Record<string, unknown> = {
     caching: "auto",
-    models: [gatewayModelId],
     ...(ctx.userId ? { user: ctx.userId } : {}),
   };
 
   const def = getModelDefinition(gatewayModelId);
+
+  if (def?.gateway?.fallbacks?.length) {
+    gatewayOptions.models = def.gateway.fallbacks;
+  }
+
   if (def?.gateway?.routing) {
     gatewayOptions.order = def.gateway.routing.order;
     gatewayOptions.only = def.gateway.routing.only;
   } else if (gatewayModelId.startsWith("anthropic/")) {
-    gatewayOptions.order = ["bedrock", "anthropic"];
-    gatewayOptions.only = ["bedrock", "anthropic"];
+    gatewayOptions.order = ["bedrock", "azure", "anthropic"];
+    gatewayOptions.only = ["bedrock", "azure", "anthropic"];
   }
+
+  gatewayOptions.providerTimeouts = {
+    byok: {
+      bedrock: 12000,
+      anthropic: 10000,
+      google: 10000,
+      vertex: 12000,
+      openai: 10000,
+    },
+  };
+
+  const providerSpecificOptions: Record<string, unknown> = {};
 
   const googleConfig: Record<string, unknown> = {
     grounding: {
@@ -42,9 +58,18 @@ export function buildGatewayProviderOptions(
       "minimal";
   }
 
+  providerSpecificOptions.google = googleConfig;
+
+  if (gatewayModelId.startsWith("openai/") || gatewayModelId.includes("gpt-")) {
+    providerSpecificOptions.openai = {
+      reasoningEffort: "medium",
+      reasoningSummary: "auto",
+    };
+  }
+
   return {
     gateway: gatewayOptions,
-    google: googleConfig,
+    ...providerSpecificOptions,
   };
 }
 
