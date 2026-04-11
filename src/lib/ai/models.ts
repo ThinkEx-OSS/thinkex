@@ -35,8 +35,7 @@ export type ModelPurpose =
   | "autogen-search"
   | "autogen-distill"
   | "autogen-content"
-  | "audio-transcribe"
-  | "escalation";
+  | "audio-transcribe";
 
 const PROVIDER_PREFIX_RE = /^(google|anthropic|openai|azure)\//;
 
@@ -158,7 +157,10 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
         order: ["openai", "azure"],
         only: ["openai", "azure"],
       },
-      fallbacks: ["anthropic/claude-sonnet-4.6", "google/gemini-3.1-pro-preview"],
+      fallbacks: [
+        "anthropic/claude-sonnet-4.6",
+        "google/gemini-3.1-pro-preview",
+      ],
     },
     ui: {
       providerLabel: "ChatGPT",
@@ -180,7 +182,6 @@ const PURPOSE_MODEL_MAP: Record<ModelPurpose, string> = {
   "autogen-distill": "gemini-2.5-flash-lite",
   "autogen-content": "gemini-2.5-flash",
   "audio-transcribe": "gemini-2.5-flash",
-  escalation: "gemini-3.1-pro-preview",
 };
 
 export function getModelForPurpose(purpose: ModelPurpose): string {

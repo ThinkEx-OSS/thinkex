@@ -5,7 +5,12 @@ import {
   WebSearchResultSchema,
   type WebSearchResult,
 } from "@/lib/ai/web-search-shared";
-import { getModelForPurpose } from "@/lib/ai/models";
+import { getGatewayModelIdForPurpose } from "@/lib/ai/models";
+import {
+  buildGatewayProviderOptions,
+  createGatewayLanguageModel,
+  getGatewayAttributionHeaders,
+} from "@/lib/ai/gateway-provider-options";
 
 const VERTEX_REDIRECT_HOST = "vertexaisearch.cloud.google.com";
 const VERTEX_REDIRECT_PATH = "/grounding-api-redirect/";
@@ -107,8 +112,11 @@ export async function resolveGroundingChunksToSources(
 export async function executeWebSearch(
   query: string,
 ): Promise<WebSearchResult> {
+  const gatewayModelId = getGatewayModelIdForPurpose("web-search");
   const { text, providerMetadata } = await generateText({
-    model: google(getModelForPurpose("web-search")),
+    model: createGatewayLanguageModel(gatewayModelId),
+    providerOptions: buildGatewayProviderOptions(gatewayModelId) as any,
+    headers: getGatewayAttributionHeaders(),
     tools: {
       googleSearch: google.tools.googleSearch({}),
     } as ToolSet,
@@ -123,6 +131,12 @@ Key findings:
 - [Additional findings]`,
     stopWhen: stepCountIs(10),
   });
+  const resolvedProvider =
+    (providerMetadata as any)?.gateway?.routing?.resolvedProvider ??
+    (providerMetadata as any)?.gateway?.routing?.finalProvider;
+  if (resolvedProvider) {
+    console.log("[web-search] Gateway resolved provider:", resolvedProvider);
+  }
 
   const groundingMetadata = (
     providerMetadata?.google as {

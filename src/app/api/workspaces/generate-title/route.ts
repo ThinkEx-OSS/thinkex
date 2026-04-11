@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { google } from "@ai-sdk/google";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { requireAuth, withErrorHandling } from "@/lib/api/workspace-helpers";
@@ -8,7 +7,12 @@ import {
   WORKSPACE_ICON_NAMES,
   formatIconForStorage,
 } from "@/lib/workspace-icons";
-import { getModelForPurpose } from "@/lib/ai/models";
+import { getGatewayModelIdForPurpose } from "@/lib/ai/models";
+import {
+  buildGatewayProviderOptions,
+  createGatewayLanguageModel,
+  getGatewayAttributionHeaders,
+} from "@/lib/ai/gateway-provider-options";
 
 const MAX_TITLE_LENGTH = 60;
 
@@ -17,7 +21,7 @@ const MAX_TITLE_LENGTH = 60;
  * Generate a concise workspace title, icon, and color from a user prompt.
  */
 async function handlePOST(request: NextRequest) {
-  await requireAuth();
+  const userId = await requireAuth();
 
   let body;
   try {
@@ -41,8 +45,13 @@ async function handlePOST(request: NextRequest) {
     );
   }
 
-  const { output } = await generateText({
-    model: google(getModelForPurpose("title-generation")),
+  const gatewayModelId = getGatewayModelIdForPurpose("title-generation");
+  const { output, providerMetadata } = await generateText({
+    model: createGatewayLanguageModel(gatewayModelId),
+    providerOptions: buildGatewayProviderOptions(gatewayModelId, {
+      userId,
+    }) as any,
+    headers: getGatewayAttributionHeaders(),
     experimental_telemetry: {
       isEnabled: true,
       metadata: { "tcc.conversational": "true" },
@@ -74,6 +83,15 @@ Available colors should be vibrant and match the topic theme. Use hex format lik
 
 Generate appropriate workspace title, icon, and color for this topic.`,
   });
+  const provider =
+    (providerMetadata as any)?.gateway?.routing?.resolvedProvider ??
+    (providerMetadata as any)?.gateway?.routing?.finalProvider;
+  if (provider) {
+    console.log(
+      "[workspaces/generate-title] Gateway resolved provider:",
+      provider,
+    );
+  }
 
   let title = output.title.trim();
   if (title.length > MAX_TITLE_LENGTH) {
