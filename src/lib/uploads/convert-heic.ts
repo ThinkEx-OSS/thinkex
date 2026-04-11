@@ -30,11 +30,9 @@ export async function convertHeicToJpegIfNeeded(file: File): Promise<File> {
 
   // Fast sync gate — skip obviously non-HEIC files
   if (!isHeicFile(file)) {
-    // Some browsers (especially Android/Windows) report HEIC files as
-    // "application/octet-stream". Fall through to magic-byte check for
-    // files with no recognized image MIME type.
-    const hasImageMime = file.type.startsWith("image/");
-    if (hasImageMime) return file;
+    // Only fall through for ambiguous MIME types that might actually be HEIC
+    const isAmbiguousMime = file.type === "" || file.type === "application/octet-stream";
+    if (!isAmbiguousMime) return file;
   }
 
   try {
@@ -48,7 +46,9 @@ export async function convertHeicToJpegIfNeeded(file: File): Promise<File> {
       type: "image/jpeg",
       quality: 0.9,
     });
-    const name = file.name.replace(HEIC_EXTS, ".jpg");
+    const name = HEIC_EXTS.test(file.name)
+      ? file.name.replace(HEIC_EXTS, ".jpg")
+      : file.name.replace(/(\.[^.]+)?$/, ".jpg");
 
     return new File([jpegBlob], name, { type: "image/jpeg" });
   } catch (err) {
