@@ -35,6 +35,7 @@ export function buildGatewayProviderOptions(
   gatewayOptions.providerTimeouts = {
     byok: {
       bedrock: 12000,
+      azure: 10000,
       anthropic: 10000,
       google: 10000,
       vertex: 12000,
@@ -43,28 +44,30 @@ export function buildGatewayProviderOptions(
   };
 
   const providerSpecificOptions: Record<string, unknown> = {};
+  const reasoning = def?.gateway?.reasoning;
 
   const googleConfig: Record<string, unknown> = {
     grounding: {
       // googleSearchRetrieval removed to force usage of explicit web_search tool
     },
-    thinkingConfig: {
-      includeThoughts: true,
-    },
   };
 
-  if (gatewayModelId.includes("gemini-3-flash")) {
-    (googleConfig.thinkingConfig as Record<string, unknown>).thinkingLevel =
-      "minimal";
+  if (reasoning?.google) {
+    Object.assign(googleConfig, reasoning.google);
+  } else if (gatewayModelId.includes("gemini")) {
+    googleConfig.thinkingConfig = {
+      includeThoughts: true,
+    };
   }
 
   providerSpecificOptions.google = googleConfig;
 
-  if (gatewayModelId.startsWith("openai/") || gatewayModelId.includes("gpt-")) {
-    providerSpecificOptions.openai = {
-      reasoningEffort: "medium",
-      reasoningSummary: "auto",
-    };
+  if (reasoning?.anthropic) {
+    providerSpecificOptions.anthropic = reasoning.anthropic;
+  }
+
+  if (reasoning?.openai) {
+    providerSpecificOptions.openai = reasoning.openai;
   }
 
   return {

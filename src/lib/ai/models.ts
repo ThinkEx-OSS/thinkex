@@ -8,6 +8,23 @@ export type GatewayRouting = {
   only: string[];
 };
 
+export interface ReasoningConfig {
+  google?: {
+    thinkingConfig: {
+      includeThoughts?: boolean;
+      thinkingLevel?: "minimal" | "low" | "medium" | "high";
+      thinkingBudget?: number;
+    };
+  };
+  anthropic?: {
+    thinking: { type: "adaptive" } | { type: "enabled"; budgetTokens: number };
+  };
+  openai?: {
+    reasoningEffort?: "none" | "low" | "medium" | "high" | "xhigh";
+    reasoningSummary?: "auto" | "concise" | "detailed";
+  };
+}
+
 export interface ModelDefinition {
   id: string;
   provider: ModelProvider;
@@ -17,6 +34,7 @@ export interface ModelDefinition {
     routing?: GatewayRouting;
     /** Fallback models tried in order if primary fails (gateway `models` option). Use full `provider/model` format. */
     fallbacks?: string[];
+    reasoning?: ReasoningConfig;
   };
   ui?: {
     providerLabel: string;
@@ -50,6 +68,11 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
         only: ["vertex", "google"],
       },
       fallbacks: ["anthropic/claude-sonnet-4.6", "openai/gpt-5-chat"],
+      reasoning: {
+        google: {
+          thinkingConfig: { includeThoughts: true },
+        },
+      },
     },
     ui: {
       providerLabel: "Gemini",
@@ -71,6 +94,14 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
         only: ["vertex", "google"],
       },
       fallbacks: ["anthropic/claude-haiku-4.5", "openai/gpt-5-chat"],
+      reasoning: {
+        google: {
+          thinkingConfig: {
+            includeThoughts: true,
+            thinkingLevel: "minimal",
+          },
+        },
+      },
     },
     ui: {
       providerLabel: "Gemini",
@@ -92,6 +123,11 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
         only: ["vertex", "google"],
       },
       fallbacks: ["google/gemini-3-flash-preview"],
+      reasoning: {
+        google: {
+          thinkingConfig: { includeThoughts: true, thinkingBudget: 1024 },
+        },
+      },
     },
   },
   "gemini-2.5-flash-lite": {
@@ -104,6 +140,11 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
         only: ["vertex", "google"],
       },
       fallbacks: ["google/gemini-2.5-flash"],
+      reasoning: {
+        google: {
+          thinkingConfig: { includeThoughts: false },
+        },
+      },
     },
   },
   "claude-sonnet-4.6": {
@@ -116,6 +157,11 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
         only: ["bedrock", "azure", "anthropic"],
       },
       fallbacks: ["google/gemini-3.1-pro-preview", "openai/gpt-5-chat"],
+      reasoning: {
+        anthropic: {
+          thinking: { type: "adaptive" },
+        },
+      },
     },
     ui: {
       providerLabel: "Claude",
@@ -137,6 +183,11 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
         only: ["bedrock", "azure", "anthropic"],
       },
       fallbacks: ["google/gemini-3-flash-preview", "openai/gpt-5-chat"],
+      reasoning: {
+        anthropic: {
+          thinking: { type: "adaptive" },
+        },
+      },
     },
     ui: {
       providerLabel: "Claude",
@@ -161,6 +212,12 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
         "anthropic/claude-sonnet-4.6",
         "google/gemini-3.1-pro-preview",
       ],
+      reasoning: {
+        openai: {
+          reasoningEffort: "medium",
+          reasoningSummary: "auto",
+        },
+      },
     },
     ui: {
       providerLabel: "ChatGPT",
