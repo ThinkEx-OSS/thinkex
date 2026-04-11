@@ -171,15 +171,10 @@ type MarkdownTextProps = Partial<TextMessagePartProps> & {
 
 const MarkdownTextImpl = (props: MarkdownTextProps) => {
   const streamingVariant = props.streamingVariant ?? "default";
-  // Get the text content from assistant-ui context
-  const { text } = useMessagePartText();
+  const { text, status } = useMessagePartText();
 
-  // Get thread and message ID for unique key per message
   const threadId = useAuiState(({ threads }) => (threads as any)?.mainThreadId);
   const messageId = useAuiState(({ message }) => (message as any)?.id);
-
-  // Check if the message is currently streaming
-  const isRunning = useAuiState(({ thread }) => (thread as any)?.isRunning ?? false);
 
   const animateConfig =
     streamingVariant === "reasoning"
@@ -262,7 +257,7 @@ const MarkdownTextImpl = (props: MarkdownTextProps) => {
       <Streamdown
         allowedTags={{ citation: [] }}
         animated={animateConfig}
-        isAnimating={isRunning}
+        isAnimating={status.type === "running"}
         className={cn(
           "streamdown-content size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
         )}
