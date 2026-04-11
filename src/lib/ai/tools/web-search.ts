@@ -122,7 +122,7 @@ export async function executeWebSearch(
       ...baseProviderOptions,
       gateway: {
         ...baseProviderOptions.gateway,
-        only: ["google"],
+        only: ["google"], // google.tools.googleSearch requires Google AI provider, not Vertex
         order: ["google"],
       },
     },
