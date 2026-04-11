@@ -61,13 +61,14 @@ export function convertTexDelimitersToDollars(s: string): string {
 export function preprocessLatex(markdown: string): { text: string; citationUrls: Map<string, string> } {
   if (!markdown) return { text: markdown, citationUrls: new Map() };
 
-  const { text: withCitations, citationUrls } = preprocessCitations(markdown);
-
   const preserved: string[] = [];
-  let result = withCitations.replace(/```[\s\S]*?```|`[^`\n]+`/g, (match: string) => {
+  let result = markdown.replace(/```[\s\S]*?```|`[^`\n]+`/g, (match: string) => {
     preserved.push(match);
     return `\x00CODE${preserved.length - 1}\x00`;
   });
+
+  const { text: withCitations, citationUrls } = preprocessCitations(result);
+  result = withCitations;
 
   const currencies: string[] = [];
   result = result.replace(CURRENCY_REGEX, (match) => {

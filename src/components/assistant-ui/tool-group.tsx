@@ -204,7 +204,9 @@ const ToolGroupImpl: FC<
   const isLastMessage = useAuiState(({ thread, message }) => {
     const messages = (thread as unknown as { messages?: Array<{ id?: string }> })?.messages;
     if (!messages || messages.length === 0) return false;
-    return messages[messages.length - 1]?.id === message.id;
+    const lastId = messages[messages.length - 1]?.id;
+    if (!lastId || !message.id) return false;
+    return lastId === message.id;
   });
 
   const [isManuallyOpen, setIsManuallyOpen] = useState(isLastMessage);

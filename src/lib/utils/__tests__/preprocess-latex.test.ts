@@ -98,4 +98,22 @@ describe("preprocessLatex - currency and math", () => {
       expect(citationUrls.size).toBe(0);
     });
   });
+
+  describe("code block protection for citations", () => {
+    it("does not rewrite citations inside fenced code blocks", () => {
+      const { text, citationUrls } = preprocessLatex(
+        "```\n<citation>https://example.com</citation>\n```"
+      );
+      expect(text).toBe("```\n<citation>https://example.com</citation>\n```");
+      expect(citationUrls.size).toBe(0);
+    });
+
+    it("does not rewrite citations inside inline code", () => {
+      const { text, citationUrls } = preprocessLatex(
+        "Use `<citation>test</citation>` in code"
+      );
+      expect(text).toBe("Use `<citation>test</citation>` in code");
+      expect(citationUrls.size).toBe(0);
+    });
+  });
 });
