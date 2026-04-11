@@ -13,7 +13,7 @@ import { eq } from "drizzle-orm";
  */
 export async function setThreadArchived(
   threadId: string,
-  isArchived: boolean
+  isArchived: boolean,
 ): Promise<Response> {
   const userId = await requireAuth();
 
@@ -24,7 +24,7 @@ export async function setThreadArchived(
     .limit(1);
 
   if (!thread) {
-    return NextResponse.json({ error: "Thread not found" }, { status: 404 });
+    throw NextResponse.json({ error: "Thread not found" }, { status: 404 });
   }
 
   await verifyWorkspaceAccess(thread.workspaceId, userId, "editor");

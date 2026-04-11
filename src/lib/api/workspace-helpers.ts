@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { db, workspaces } from "@/lib/db/client";
-import { workspaceCollaborators } from "@/lib/db/schema";
+import { chatThreads, workspaceCollaborators } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { withServerObservability } from "@/lib/with-server-observability";
 
@@ -10,7 +10,11 @@ import { withServerObservability } from "@/lib/with-server-observability";
  * Get authenticated user from session
  * Returns userId, name, and email or null if not authenticated
  */
-export async function getAuthenticatedUser(): Promise<{ userId: string; name?: string; email?: string } | null> {
+export async function getAuthenticatedUser(): Promise<{
+  userId: string;
+  name?: string;
+  email?: string;
+} | null> {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -32,7 +36,7 @@ export async function getAuthenticatedUser(): Promise<{ userId: string; name?: s
  */
 export async function verifyWorkspaceOwnership(
   workspaceId: string,
-  userId: string
+  userId: string,
 ): Promise<{ userId: string }> {
   const workspace = await db
     .select({ userId: workspaces.userId })
@@ -59,8 +63,11 @@ export async function verifyWorkspaceOwnership(
 export async function verifyWorkspaceAccess(
   workspaceId: string,
   userId: string,
-  requiredPermission: 'viewer' | 'editor' = 'viewer'
-): Promise<{ isOwner: boolean; permissionLevel: 'owner' | 'editor' | 'viewer' }> {
+  requiredPermission: "viewer" | "editor" = "viewer",
+): Promise<{
+  isOwner: boolean;
+  permissionLevel: "owner" | "editor" | "viewer";
+}> {
   // Check if workspace exists and get owner
   const workspace = await db
     .select({ userId: workspaces.userId })
@@ -74,7 +81,7 @@ export async function verifyWorkspaceAccess(
 
   // Owner has full access
   if (workspace[0].userId === userId) {
-    return { isOwner: true, permissionLevel: 'owner' };
+    return { isOwner: true, permissionLevel: "owner" };
   }
 
   // Check if user is a collaborator
@@ -84,8 +91,8 @@ export async function verifyWorkspaceAccess(
     .where(
       and(
         eq(workspaceCollaborators.workspaceId, workspaceId),
-        eq(workspaceCollaborators.userId, userId)
-      )
+        eq(workspaceCollaborators.userId, userId),
+      ),
     )
     .limit(1);
 
@@ -94,9 +101,12 @@ export async function verifyWorkspaceAccess(
   }
 
   // Check if user has required permission level
-  const permLevel = collaborator.permissionLevel as 'editor' | 'viewer';
-  if (requiredPermission === 'editor' && permLevel !== 'editor') {
-    throw NextResponse.json({ error: "Editor access required" }, { status: 403 });
+  const permLevel = collaborator.permissionLevel as "editor" | "viewer";
+  if (requiredPermission === "editor" && permLevel !== "editor") {
+    throw NextResponse.json(
+      { error: "Editor access required" },
+      { status: 403 },
+    );
   }
 
   return { isOwner: false, permissionLevel: permLevel };
@@ -108,11 +118,36 @@ export async function verifyWorkspaceAccess(
  */
 export function verifyThreadOwnership(
   thread: { userId: string },
-  userId: string
+  userId: string,
 ): void {
   if (thread.userId !== userId) {
     throw NextResponse.json({ error: "Access denied" }, { status: 403 });
   }
+}
+
+/**
+ * Look up a chat thread by ID, verify workspace access and thread ownership.
+ * Throws NextResponse (caught by `if (error instanceof Response)` blocks) on failure.
+ */
+export async function getThreadAndVerify(
+  threadId: string,
+  userId: string,
+  permission: "viewer" | "editor" = "viewer",
+) {
+  const [thread] = await db
+    .select()
+    .from(chatThreads)
+    .where(eq(chatThreads.id, threadId))
+    .limit(1);
+
+  if (!thread) {
+    throw NextResponse.json({ error: "Thread not found" }, { status: 404 });
+  }
+
+  await verifyWorkspaceAccess(thread.workspaceId, userId, permission);
+  verifyThreadOwnership(thread, userId);
+
+  return thread;
 }
 
 /**
@@ -121,7 +156,7 @@ export function verifyThreadOwnership(
  */
 export async function verifyWorkspaceOwnershipWithData(
   workspaceId: string,
-  userId: string
+  userId: string,
 ): Promise<typeof workspaces.$inferSelect> {
   const workspace = await db
     .select()
@@ -145,7 +180,7 @@ export async function verifyWorkspaceOwnershipWithData(
  */
 export function withErrorHandling<T extends [Request, ...unknown[]]>(
   handler: (...args: T) => Promise<NextResponse>,
-  routeName: string
+  routeName: string,
 ) {
   return withServerObservability(handler, {
     routeName,
@@ -167,7 +202,11 @@ export async function requireAuth(): Promise<string> {
  * Require authentication with user info - returns userId, name, and email or throws 401
  * Use this when you need user name/email to avoid duplicate session fetches
  */
-export async function requireAuthWithUserInfo(): Promise<{ userId: string; name?: string; email?: string }> {
+export async function requireAuthWithUserInfo(): Promise<{
+  userId: string;
+  name?: string;
+  email?: string;
+}> {
   const user = await getAuthenticatedUser();
   if (!user) {
     throw NextResponse.json({ error: "Unauthorized" }, { status: 401 });

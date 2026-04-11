@@ -26,7 +26,7 @@ type ThreadHistoryAui = {
  * Uses topological sort with created_at + id as tiebreakers for stable ordering.
  */
 export function sortParentsBeforeChildren<
-  T extends { parentId: string | null; message: { id: string } }
+  T extends { parentId: string | null; message: { id: string } },
 >(items: T[], getCreatedAt: (item: T) => string): T[] {
   const output: T[] = [];
   const added = new Set<string>();
@@ -41,12 +41,10 @@ export function sortParentsBeforeChildren<
     items.filter(
       (m) =>
         !added.has(m.message.id) &&
-        (
-          m.parentId === null ||
+        (m.parentId === null ||
           added.has(m.parentId) ||
           !allIds.has(m.parentId) ||
-          m.parentId === m.message.id
-        )
+          m.parentId === m.message.id),
     );
 
   while (output.length < items.length) {
@@ -73,7 +71,7 @@ export function sortParentsBeforeChildren<
 
 export function createCustomThreadHistoryAdapter(
   aui: ThreadHistoryAui,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = fetch,
 ): ThreadHistoryAdapter {
   return {
     async load() {
@@ -83,7 +81,7 @@ export function createCustomThreadHistoryAdapter(
       // No-op: ExternalStoreRuntime uses withFormat for persistence
     },
     withFormat<TMessage, TStorageFormat extends Record<string, unknown>>(
-      formatAdapter: MessageFormatAdapter<TMessage, TStorageFormat>
+      formatAdapter: MessageFormatAdapter<TMessage, TStorageFormat>,
     ): GenericThreadHistoryAdapter<TMessage> {
       return {
         async append(item: MessageFormatItem<TMessage>) {
@@ -102,20 +100,28 @@ export function createCustomThreadHistoryAdapter(
                 format: formatAdapter.format,
                 content: encoded,
               }),
-            }
+            },
           );
 
           if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             throw new Error(
               (err as { error?: string }).error ||
-                `Failed to save message: ${res.status}`
+                `Failed to save message: ${res.status}`,
             );
           }
         },
-        async update(item: MessageFormatItem<TMessage>, localMessageId: string) {
+        async update(
+          item: MessageFormatItem<TMessage>,
+          localMessageId: string,
+        ) {
           const remoteId = aui.threadListItem().getState().remoteId;
-          if (!remoteId) return;
+          if (!remoteId) {
+            console.warn(
+              "[thread-history] update() skipped: thread not yet initialized (no remoteId)",
+            );
+            return;
+          }
 
           const encoded = formatAdapter.encode(item) as TStorageFormat;
 
@@ -125,14 +131,14 @@ export function createCustomThreadHistoryAdapter(
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ content: encoded }),
-            }
+            },
           );
 
           if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             throw new Error(
               (err as { error?: string }).error ||
-                `Failed to update message: ${res.status}`
+                `Failed to update message: ${res.status}`,
             );
           }
         },
@@ -141,7 +147,7 @@ export function createCustomThreadHistoryAdapter(
           if (!remoteId) return { messages: [] };
 
           const res = await fetchImpl(
-            `/api/threads/${encodeURIComponent(remoteId)}/messages?format=${encodeURIComponent(formatAdapter.format)}`
+            `/api/threads/${encodeURIComponent(remoteId)}/messages?format=${encodeURIComponent(formatAdapter.format)}`,
           );
           if (!res.ok) {
             throw new Error(`Failed to load messages: ${res.status}`);
@@ -155,13 +161,10 @@ export function createCustomThreadHistoryAdapter(
             return { messages: [], headId: apiHeadId };
           }
 
-          const filtered = messages.filter(
-            (m: { format?: string }) => m.format === formatAdapter.format
-          );
           type DecodedItem = MessageFormatItem<TMessage> & {
             created_at: string;
           };
-          const decoded: DecodedItem[] = filtered.map(
+          const decoded: DecodedItem[] = messages.map(
             (m: {
               id: string;
               parent_id: string | null;
@@ -179,7 +182,7 @@ export function createCustomThreadHistoryAdapter(
                 ...d,
                 created_at: m.created_at ?? new Date().toISOString(),
               };
-            }
+            },
           );
 
           type SortableItem = {
@@ -189,7 +192,7 @@ export function createCustomThreadHistoryAdapter(
           };
           const sorted = sortParentsBeforeChildren(
             decoded as SortableItem[],
-            (d) => d.created_at
+            (d) => d.created_at,
           ) as DecodedItem[];
 
           const headId =
@@ -224,6 +227,6 @@ export function useCustomThreadHistoryAdapter(): ThreadHistoryAdapter {
 
   return useMemo<ThreadHistoryAdapter>(
     () => createCustomThreadHistoryAdapter(aui),
-    [aui]
+    [aui],
   );
 }
