@@ -1,0 +1,69 @@
+diff --git a/dist/ui/use-chat/AssistantChatTransport.d.ts b/dist/ui/use-chat/AssistantChatTransport.d.ts
+index 69bb6ced774c0136c2d8dfd2b84645487629efb1..16a5a26baf8ffe99851d5b771defd2b2c4c32a50 100644
+--- a/dist/ui/use-chat/AssistantChatTransport.d.ts
++++ b/dist/ui/use-chat/AssistantChatTransport.d.ts
+@@ -2,7 +2,12 @@ import type { AssistantRuntime } from "@assistant-ui/core";
+ import { DefaultChatTransport, HttpChatTransportInitOptions, UIMessage } from "ai";
+ export declare class AssistantChatTransport<UI_MESSAGE extends UIMessage> extends DefaultChatTransport<UI_MESSAGE> {
+     private runtime;
++    private _initializeThread?;
+     constructor(initOptions?: HttpChatTransportInitOptions<UI_MESSAGE>);
+     setRuntime(runtime: AssistantRuntime): void;
++    setInitializeThread(fn: () => Promise<{
++        remoteId: string;
++        externalId: string | undefined;
++    }>): void;
+ }
+ //# sourceMappingURL=AssistantChatTransport.d.ts.map
+diff --git a/dist/ui/use-chat/AssistantChatTransport.js b/dist/ui/use-chat/AssistantChatTransport.js
+index e565c3dac32b8ca61084be68ba4f1a13d8ee92db..e23a1b60d5862ddf764edefe24b364a2aa22f783 100644
+--- a/dist/ui/use-chat/AssistantChatTransport.js
++++ b/dist/ui/use-chat/AssistantChatTransport.js
+@@ -2,12 +2,13 @@ import { DefaultChatTransport, } from "ai";
+ import { toToolsJSONSchema } from "assistant-stream";
+ export class AssistantChatTransport extends DefaultChatTransport {
+     runtime;
++    _initializeThread;
+     constructor(initOptions) {
+         super({
+             ...initOptions,
+             prepareSendMessagesRequest: async (options) => {
+                 const context = this.runtime?.thread.getModelContext();
+-                const id = (await this.runtime?.threads.mainItem.initialize())?.remoteId ??
++                const id = (await (this._initializeThread?.() ?? this.runtime?.threads.mainItem.initialize()))?.remoteId ??
+                     options.id;
+                 const optionsEx = {
+                     ...options,
+@@ -37,5 +38,8 @@ export class AssistantChatTransport extends DefaultChatTransport {
+     setRuntime(runtime) {
+         this.runtime = runtime;
+     }
++    setInitializeThread(fn) {
++        this._initializeThread = fn;
++    }
+ }
+ //# sourceMappingURL=AssistantChatTransport.js.map
+diff --git a/dist/ui/use-chat/useChatRuntime.js b/dist/ui/use-chat/useChatRuntime.js
+index fb759f407ca281ef4734518b95bc91a036ff9b87..e5bda544055940afcf7fac3e53e2ef5ae1b8ca19 100644
+--- a/dist/ui/use-chat/useChatRuntime.js
++++ b/dist/ui/use-chat/useChatRuntime.js
+@@ -1,7 +1,7 @@
+ "use client";
+ import { useChat } from "@ai-sdk/react";
+ import { useCloudThreadListAdapter, useRemoteThreadListRuntime, } from "@assistant-ui/core/react";
+-import { useAuiState } from "@assistant-ui/store";
++import { useAui, useAuiState } from "@assistant-ui/store";
+ import { useAISDKRuntime, } from "./useAISDKRuntime.js";
+ import { AssistantChatTransport } from "./AssistantChatTransport.js";
+ import { useEffect, useMemo, useRef } from "react";
+@@ -33,8 +33,10 @@ const useChatThreadRuntime = (options) => {
+         adapters,
+         ...(toCreateMessage && { toCreateMessage }),
+     });
++    const aui = useAui();
+     if (transport instanceof AssistantChatTransport) {
+         transport.setRuntime(runtime);
++        transport.setInitializeThread(() => aui.threadListItem().initialize());
+     }
+     return runtime;
+ };
