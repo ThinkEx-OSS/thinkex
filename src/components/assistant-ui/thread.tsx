@@ -925,6 +925,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
           autoFocus
           aria-label="Message input"
           maxLength={10000}
+          cancelOnEscape={false}
           onPaste={handlePaste}
           onKeyDown={handleKeyDown}
           onInput={handleInput}
