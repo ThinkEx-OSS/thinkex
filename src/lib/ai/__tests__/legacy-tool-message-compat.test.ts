@@ -5,9 +5,20 @@ vi.mock("@/lib/ai/workers", () => ({
   workspaceWorker: vi.fn(),
 }));
 
+vi.mock("@e2b/code-interpreter", () => ({
+  Sandbox: class {
+    static create = vi.fn();
+  },
+}));
+
 import { CHAT_TOOL } from "../chat-tool-names";
 import { createEditItemTool } from "../tools/edit-item-tool";
-import { normalizeLegacyItemEditInput, normalizeLegacyToolMessages } from "../legacy-tool-message-compat";
+import { createExecuteCodeTool } from "../tools/execute-code";
+import {
+  normalizeLegacyCodeExecuteInput,
+  normalizeLegacyItemEditInput,
+  normalizeLegacyToolMessages,
+} from "../legacy-tool-message-compat";
 
 describe("normalizeLegacyToolMessages", () => {
   it("normalizes legacy processUrls jsonInput tool args and drops instruction", () => {
@@ -288,6 +299,51 @@ describe("normalizeLegacyToolMessages", () => {
       edits: [{ oldText: "a", newText: "b" }],
     };
     expect(normalizeLegacyItemEditInput(input)).toBe(input);
+  });
+
+  it("maps legacy code_execute task to code for safeValidateUIMessages", async () => {
+    const messages = [
+      {
+        id: "1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-code_execute",
+            toolCallId: "call_py",
+            state: "input-available",
+            input: { task: "print(1+1)" },
+          },
+        ],
+      },
+    ] as UIMessage[];
+
+    const tools = {
+      [CHAT_TOOL.CODE_EXECUTE]: createExecuteCodeTool(),
+    };
+    const normalized = normalizeLegacyToolMessages(messages, {
+      availableToolNames: Object.keys(tools),
+    });
+    const part = normalized[0]?.parts[0];
+    expect(part).toMatchObject({
+      type: "tool-code_execute",
+      input: { code: "print(1+1)" },
+    });
+    const input = part && "input" in part ? part.input : undefined;
+    expect(input).not.toHaveProperty("task");
+
+    const validation = await safeValidateUIMessages({ messages: normalized, tools });
+    expect(validation.success).toBe(true);
+  });
+
+  it("normalizeLegacyCodeExecuteInput drops task when code is already set", () => {
+    expect(normalizeLegacyCodeExecuteInput({ code: "print('a')", task: "print('b')" })).toEqual({
+      code: "print('a')",
+    });
+  });
+
+  it("normalizeLegacyCodeExecuteInput maps task when code missing or empty", () => {
+    expect(normalizeLegacyCodeExecuteInput({ task: "x" })).toEqual({ code: "x" });
+    expect(normalizeLegacyCodeExecuteInput({ code: "", task: "y" })).toEqual({ code: "y" });
   });
 
   it("allows validation to succeed after downgrading removed tools", async () => {
