@@ -79,12 +79,7 @@ export function WorkspaceRuntimeProvider({
       activePdfPageByItemId,
       viewingItemIds,
     );
-  }, [
-    workspaceState,
-    contextCardIds,
-    activePdfPageByItemId,
-    viewingItemIds,
-  ]);
+  }, [workspaceState, contextCardIds, activePdfPageByItemId, viewingItemIds]);
 
   // Per AI SDK, transport `body` is `Resolvable<object>` — if it is a function, `resolve()`
   // calls it on every sendMessages (see @ai-sdk/provider-utils resolve()). That gives
@@ -99,6 +94,7 @@ export function WorkspaceRuntimeProvider({
     activeFolderId,
     selectedCardsContext: "",
   });
+  const threadRemoteIdRef = useRef<string | null>(null);
   chatApiPayloadRef.current.workspaceId = workspaceId;
   chatApiPayloadRef.current.modelId = selectedModelId;
   chatApiPayloadRef.current.activeFolderId = activeFolderId;
@@ -175,7 +171,7 @@ export function WorkspaceRuntimeProvider({
   }, []);
 
   const threadListAdapter = useMemo(
-    () => createThreadListAdapter(workspaceId),
+    () => createThreadListAdapter(workspaceId, threadRemoteIdRef),
     [workspaceId],
   );
 
@@ -183,7 +179,10 @@ export function WorkspaceRuntimeProvider({
     () =>
       new AssistantChatTransport({
         api: "/api/chat",
-        body: () => ({ ...chatApiPayloadRef.current }),
+        body: () => ({
+          ...chatApiPayloadRef.current,
+          threadId: threadRemoteIdRef.current,
+        }),
       }),
     // Body snapshot comes from the ref via Resolvable function above.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable transport instance

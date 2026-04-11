@@ -1,6 +1,11 @@
 "use client";
 
-import { type FC, type PropsWithChildren, useMemo } from "react";
+import {
+  type FC,
+  type MutableRefObject,
+  type PropsWithChildren,
+  useMemo,
+} from "react";
 import {
   type ThreadMessage,
   type RemoteThreadListAdapter,
@@ -8,20 +13,19 @@ import {
 } from "@assistant-ui/react";
 import { createAssistantStream } from "assistant-stream";
 import { useCustomThreadHistoryAdapter } from "./custom-thread-history-adapter";
+import { ThreadRemoteIdSync } from "./ThreadRemoteIdBridge";
 import { SupabaseAttachmentAdapter } from "@/lib/attachments/supabase-attachment-adapter";
 
 const attachmentsInstance = new SupabaseAttachmentAdapter();
 
-function CustomThreadListProviderInner({
-  children,
-}: PropsWithChildren) {
+function CustomThreadListProviderInner({ children }: PropsWithChildren) {
   const history = useCustomThreadHistoryAdapter();
   const adapters = useMemo(
     () => ({
       history,
       attachments: attachmentsInstance,
     }),
-    [history]
+    [history],
   );
   return (
     <RuntimeAdapterProvider adapters={adapters}>
@@ -31,13 +35,18 @@ function CustomThreadListProviderInner({
 }
 
 export function createThreadListAdapter(
-  workspaceId: string
+  workspaceId: string,
+  threadRemoteIdRef: MutableRefObject<string | null>,
 ): RemoteThreadListAdapter {
-  const unstable_Provider: FC<PropsWithChildren> = function CustomThreadListProvider({
-    children,
-  }) {
-    return <CustomThreadListProviderInner>{children}</CustomThreadListProviderInner>;
-  };
+  const unstable_Provider: FC<PropsWithChildren> =
+    function CustomThreadListProvider({ children }) {
+      return (
+        <CustomThreadListProviderInner>
+          <ThreadRemoteIdSync remoteIdRef={threadRemoteIdRef} />
+          {children}
+        </CustomThreadListProviderInner>
+      );
+    };
 
   return {
     async list() {
@@ -47,12 +56,19 @@ export function createThreadListAdapter(
       if (!res.ok) throw new Error(`Failed to list threads: ${res.status}`);
       const data = await res.json();
       return {
-        threads: (data.threads ?? []).map((t: { remoteId: string; status?: string; title?: string; externalId?: string }) => ({
-          remoteId: t.remoteId,
-          status: t.status ?? "regular",
-          title: t.title,
-          externalId: t.externalId,
-        })),
+        threads: (data.threads ?? []).map(
+          (t: {
+            remoteId: string;
+            status?: string;
+            title?: string;
+            externalId?: string;
+          }) => ({
+            remoteId: t.remoteId,
+            status: t.status ?? "regular",
+            title: t.title,
+            externalId: t.externalId,
+          }),
+        ),
       };
     },
 
@@ -64,7 +80,10 @@ export function createThreadListAdapter(
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error((err as { error?: string }).error ?? `Failed to create thread: ${res.status}`);
+        throw new Error(
+          (err as { error?: string }).error ??
+            `Failed to create thread: ${res.status}`,
+        );
       }
       const data = await res.json();
       return {
@@ -113,10 +132,7 @@ export function createThreadListAdapter(
       };
     },
 
-    async generateTitle(
-      remoteId: string,
-      messages: readonly ThreadMessage[]
-    ) {
+    async generateTitle(remoteId: string, messages: readonly ThreadMessage[]) {
       return createAssistantStream(async (controller) => {
         const res = await fetch(`/api/threads/${remoteId}/title`, {
           method: "POST",
