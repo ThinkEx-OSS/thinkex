@@ -113,9 +113,19 @@ export async function executeWebSearch(
   query: string,
 ): Promise<WebSearchResult> {
   const gatewayModelId = getGatewayModelIdForPurpose("web-search");
+  const baseProviderOptions = buildGatewayProviderOptions(
+    gatewayModelId,
+  ) as Record<string, any>;
   const { text, providerMetadata } = await generateText({
     model: createGatewayLanguageModel(gatewayModelId),
-    providerOptions: buildGatewayProviderOptions(gatewayModelId) as any,
+    providerOptions: {
+      ...baseProviderOptions,
+      gateway: {
+        ...baseProviderOptions.gateway,
+        only: ["google"],
+        order: ["google"],
+      },
+    },
     headers: getGatewayAttributionHeaders(),
     tools: {
       googleSearch: google.tools.googleSearch({}),
