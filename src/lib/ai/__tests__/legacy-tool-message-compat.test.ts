@@ -1,6 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { safeValidateUIMessages, type UIMessage } from "ai";
-import { normalizeLegacyToolMessages } from "../legacy-tool-message-compat";
+
+vi.mock("@/lib/ai/workers", () => ({
+  workspaceWorker: vi.fn(),
+}));
+
+import { CHAT_TOOL } from "../chat-tool-names";
+import { createEditItemTool } from "../tools/edit-item-tool";
+import { normalizeLegacyItemEditInput, normalizeLegacyToolMessages } from "../legacy-tool-message-compat";
 
 describe("normalizeLegacyToolMessages", () => {
   it("normalizes legacy processUrls jsonInput tool args and drops instruction", () => {
@@ -225,6 +232,62 @@ describe("normalizeLegacyToolMessages", () => {
       type: "text",
       text: expect.stringContaining("magic_fetch"),
     });
+  });
+
+  it("maps legacy item_edit oldString/newString to edits for safeValidateUIMessages", async () => {
+    const messages = [
+      {
+        id: "1",
+        role: "assistant",
+        parts: [
+          {
+            type: "tool-item_edit",
+            toolCallId: "call_edit",
+            state: "input-available",
+            input: {
+              itemName: "Study Guide",
+              oldString: "alpha",
+              newString: "beta",
+              replaceAll: false,
+            },
+          },
+        ],
+      },
+    ] as UIMessage[];
+
+    const tools = {
+      [CHAT_TOOL.ITEM_EDIT]: createEditItemTool({
+        workspaceId: "ws-1",
+        userId: "user-1",
+      }),
+    };
+    const normalized = normalizeLegacyToolMessages(messages, {
+      availableToolNames: Object.keys(tools),
+    });
+    const part = normalized[0]?.parts[0];
+    expect(part).toMatchObject({
+      type: "tool-item_edit",
+      input: {
+        itemName: "Study Guide",
+        edits: [{ oldText: "alpha", newText: "beta" }],
+      },
+    });
+    const input = part && "input" in part ? part.input : undefined;
+    expect(input && typeof input === "object").toBeTruthy();
+    expect(input).not.toHaveProperty("oldString");
+    expect(input).not.toHaveProperty("newString");
+    expect(input).not.toHaveProperty("replaceAll");
+
+    const validation = await safeValidateUIMessages({ messages: normalized, tools });
+    expect(validation.success).toBe(true);
+  });
+
+  it("normalizeLegacyItemEditInput leaves new-format payloads unchanged", () => {
+    const input = {
+      itemName: "Doc",
+      edits: [{ oldText: "a", newText: "b" }],
+    };
+    expect(normalizeLegacyItemEditInput(input)).toBe(input);
   });
 
   it("allows validation to succeed after downgrading removed tools", async () => {
