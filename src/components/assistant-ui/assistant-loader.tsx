@@ -1,26 +1,14 @@
 "use client";
 
-import { memo, lazy, Suspense } from "react";
-import { useAuiState } from "@assistant-ui/react";
+import { lazy, Suspense } from "react";
 import { useTheme } from "next-themes";
 
 const DotLottieReact = lazy(() =>
   import("@lottiefiles/dotlottie-react").then((m) => ({ default: m.DotLottieReact }))
 );
 
-const AssistantLoaderImpl = () => {
+export const AssistantLoaderVisual = () => {
     const { resolvedTheme } = useTheme();
-    const isRunning = useAuiState(
-        ({ message }) => (message as { status?: { type: string } })?.status?.type === "running"
-    );
-
-    const isMessageEmpty = useAuiState(({ message }) => {
-        const msg = message as any;
-        return !msg?.content || (Array.isArray(msg.content) && msg.content.length === 0);
-    });
-
-    if (!isRunning || !isMessageEmpty) return null;
-
     const lottieSrc = resolvedTheme === 'light' ? '/thinkexlight.lottie' : '/logo.lottie';
 
     return (
@@ -38,5 +26,3 @@ const AssistantLoaderImpl = () => {
         </div>
     );
 };
-
-export const AssistantLoader = memo(AssistantLoaderImpl);

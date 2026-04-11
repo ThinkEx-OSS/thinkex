@@ -69,7 +69,7 @@ import {
   ComposerAddAttachment,
   UserMessageAttachments,
 } from "@/components/assistant-ui/attachment";
-import { AssistantLoader } from "@/components/assistant-ui/assistant-loader";
+import { AssistantLoaderVisual } from "@/components/assistant-ui/assistant-loader";
 import { File as FileComponent } from "@/components/assistant-ui/file";
 import { isOfficeDocument } from "@/lib/uploads/office-document-validation";
 import { Sources } from "@/components/assistant-ui/sources";
@@ -1144,6 +1144,19 @@ const MessageError: FC = () => {
   );
 };
 
+const ASSISTANT_MESSAGE_PARTS = {
+  Text: MarkdownText,
+  File: FileComponent,
+  Source: Sources,
+  Image,
+  Reasoning: Reasoning,
+  ReasoningGroup: ReasoningGroup,
+  ToolGroup,
+  tools: {
+    Fallback: ToolFallback,
+  },
+} as const;
+
 const AssistantMessage: FC = () => {
   return (
     <MessagePrimitive.Root asChild>
@@ -1152,21 +1165,13 @@ const AssistantMessage: FC = () => {
         data-role="assistant"
       >
         <div className="aui-assistant-message-content mx-2 leading-7 break-words text-foreground">
-          <AssistantLoader />
-          <MessagePrimitive.Parts
-            components={{
-              Text: MarkdownText,
-              File: FileComponent,
-              Source: Sources,
-              Image,
-              Reasoning: Reasoning,
-              ReasoningGroup: ReasoningGroup,
-              ToolGroup,
-              tools: {
-                Fallback: ToolFallback,
-              },
-            }}
-          />
+          <AuiIf condition={({ message }) =>
+            (message as any).status?.type === "running" &&
+            (!(message as any).content || (Array.isArray((message as any).content) && (message as any).content.length === 0))
+          }>
+            <AssistantLoaderVisual />
+          </AuiIf>
+          <MessagePrimitive.Parts components={ASSISTANT_MESSAGE_PARTS} />
           <MessageError />
         </div>
 
@@ -1245,6 +1250,11 @@ const UserMessageText: FC = () => {
   return <div className="whitespace-pre-wrap">{text}</div>;
 };
 
+const USER_MESSAGE_PARTS = {
+  Text: UserMessageText,
+  File: FileComponent,
+} as const;
+
 const UserMessage: FC = () => {
   const [expanded, setExpanded] = useState(false);
   const message = useMessage();
@@ -1284,12 +1294,7 @@ const UserMessage: FC = () => {
           <MessageContextBadges />
           <UserMessageTruncateContext.Provider value={truncateCtxValue}>
             <div className="aui-user-message-content relative rounded-lg bg-muted px-3 py-2 break-words text-foreground text-sm">
-              <MessagePrimitive.Parts
-                components={{
-                  Text: UserMessageText,
-                  File: FileComponent,
-                }}
-              />
+              <MessagePrimitive.Parts components={USER_MESSAGE_PARTS} />
               {showExpand && (
                 <div className="flex justify-end pt-1.5 mt-1.5">
                   <button
