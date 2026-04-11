@@ -304,7 +304,7 @@ const MarkdownTextImpl = (props: MarkdownTextProps) => {
     <CitationContext.Provider value={citationCtx}>
       <div ref={containerRef} className="aui-md" onCopy={handleCopy}>
         <Streamdown
-          mode="streaming"
+          mode={status.type === "running" ? "streaming" : "static"}
           allowedTags={{ citation: [] }}
           animated={animateConfig}
           isAnimating={status.type === "running"}
