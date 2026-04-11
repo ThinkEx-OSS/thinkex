@@ -18,6 +18,7 @@ import {
   type ReasoningGroupComponent,
 } from "@assistant-ui/react";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
+import { useAssistantMessageContext } from "@/components/assistant-ui/thread";
 import {
   Collapsible,
   CollapsibleContent,
@@ -234,61 +235,49 @@ const ReasoningGroupImpl: ReasoningGroupComponent = ({
   endIndex,
 }) => {
   const textContainerRef = useRef<HTMLDivElement>(null);
+  const { isLastMessage } = useAssistantMessageContext();
   const reasoningStateRef = useRef({
     isReasoningStreaming: false,
-    isLastMessage: false,
     reasoningTextLen: 0,
   });
-  const {
-    isReasoningStreaming,
-    isLastMessage,
-    reasoningTextLen: reasoningTextSnapshot,
-  } = useAuiState(({ thread, message }) => {
-    const messages = (
-      thread as unknown as { messages?: Array<{ id?: string }> }
-    )?.messages;
-    const isLastMessage =
-      Array.isArray(messages) && messages.length > 0
-        ? messages[messages.length - 1]?.id === message.id
-        : false;
-
-    let isReasoningStreaming = false;
-    if (message.status?.type === "running") {
-      const lastIndex = message.parts.length - 1;
-      if (lastIndex >= 0) {
-        const lastType = message.parts[lastIndex]?.type;
-        if (
-          lastType === "reasoning" &&
-          lastIndex >= startIndex &&
-          lastIndex <= endIndex
-        ) {
-          isReasoningStreaming = true;
+  const { isReasoningStreaming, reasoningTextLen: reasoningTextSnapshot } =
+    useAuiState(({ message }) => {
+      let isReasoningStreaming = false;
+      if (message.status?.type === "running") {
+        const lastIndex = message.parts.length - 1;
+        if (lastIndex >= 0) {
+          const lastType = message.parts[lastIndex]?.type;
+          if (
+            lastType === "reasoning" &&
+            lastIndex >= startIndex &&
+            lastIndex <= endIndex
+          ) {
+            isReasoningStreaming = true;
+          }
         }
       }
-    }
 
-    let reasoningTextLen = 0;
-    for (let i = startIndex; i <= endIndex && i < message.parts.length; i++) {
-      const part = message.parts[i] as
-        | { type?: string; text?: string }
-        | undefined;
-      if (part?.type === "reasoning" && typeof part.text === "string") {
-        reasoningTextLen += part.text.length;
+      let reasoningTextLen = 0;
+      for (let i = startIndex; i <= endIndex && i < message.parts.length; i++) {
+        const part = message.parts[i] as
+          | { type?: string; text?: string }
+          | undefined;
+        if (part?.type === "reasoning" && typeof part.text === "string") {
+          reasoningTextLen += part.text.length;
+        }
       }
-    }
 
-    const next = { isReasoningStreaming, isLastMessage, reasoningTextLen };
-    const prev = reasoningStateRef.current;
-    if (
-      prev.isReasoningStreaming === next.isReasoningStreaming &&
-      prev.isLastMessage === next.isLastMessage &&
-      prev.reasoningTextLen === next.reasoningTextLen
-    ) {
-      return prev;
-    }
-    reasoningStateRef.current = next;
-    return next;
-  });
+      const next = { isReasoningStreaming, reasoningTextLen };
+      const prev = reasoningStateRef.current;
+      if (
+        prev.isReasoningStreaming === next.isReasoningStreaming &&
+        prev.reasoningTextLen === next.reasoningTextLen
+      ) {
+        return prev;
+      }
+      reasoningStateRef.current = next;
+      return next;
+    });
 
   const [isManuallyOpen, setIsManuallyOpen] = useState(false);
   const isOpen = isReasoningStreaming || isManuallyOpen;

@@ -12,6 +12,7 @@ import {
 import { ChevronDownIcon, LoaderIcon } from "lucide-react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { useAuiState, useScrollLock } from "@assistant-ui/react";
+import { useAssistantMessageContext } from "@/components/assistant-ui/thread";
 import {
   Collapsible,
   CollapsibleContent,
@@ -189,41 +190,27 @@ const ToolGroupImpl: FC<
   PropsWithChildren<{ startIndex: number; endIndex: number }>
 > = ({ children, startIndex, endIndex }) => {
   const toolCount = endIndex - startIndex + 1;
+  const { isLastMessage } = useAssistantMessageContext();
   const toolGroupStateRef = useRef({
     isToolGroupStreaming: false,
-    isLastMessage: false,
   });
-  const { isToolGroupStreaming, isLastMessage } = useAuiState(
-    ({ thread, message }) => {
-      const messages = (
-        thread as unknown as { messages?: Array<{ id?: string }> }
-      )?.messages;
-      const isLastMessage =
-        Array.isArray(messages) && messages.length > 0
-          ? messages[messages.length - 1]?.id === message.id
-          : false;
-
-      let isToolGroupStreaming = false;
-      if (message.status?.type === "running") {
-        const lastIndex = message.parts.length - 1;
-        if (lastIndex >= 0 && message.parts[lastIndex]?.type === "tool-call") {
-          isToolGroupStreaming =
-            lastIndex >= startIndex && lastIndex <= endIndex;
-        }
+  const { isToolGroupStreaming } = useAuiState(({ message }) => {
+    let isToolGroupStreaming = false;
+    if (message.status?.type === "running") {
+      const lastIndex = message.parts.length - 1;
+      if (lastIndex >= 0 && message.parts[lastIndex]?.type === "tool-call") {
+        isToolGroupStreaming = lastIndex >= startIndex && lastIndex <= endIndex;
       }
+    }
 
-      const next = { isToolGroupStreaming, isLastMessage };
-      const prev = toolGroupStateRef.current;
-      if (
-        prev.isToolGroupStreaming === next.isToolGroupStreaming &&
-        prev.isLastMessage === next.isLastMessage
-      ) {
-        return prev;
-      }
-      toolGroupStateRef.current = next;
-      return next;
-    },
-  );
+    const next = { isToolGroupStreaming };
+    const prev = toolGroupStateRef.current;
+    if (prev.isToolGroupStreaming === next.isToolGroupStreaming) {
+      return prev;
+    }
+    toolGroupStateRef.current = next;
+    return next;
+  });
 
   const [isManuallyOpen, setIsManuallyOpen] = useState(isLastMessage);
   const isOpen = isToolGroupStreaming || isManuallyOpen;

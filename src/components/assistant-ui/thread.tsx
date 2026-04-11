@@ -111,6 +111,21 @@ interface ThreadProps {
   items?: Item[];
 }
 
+interface AssistantMessageContextType {
+  isRunning: boolean;
+  isLastMessage: boolean;
+  isEmpty: boolean;
+}
+
+const AssistantMessageContext = createContext<AssistantMessageContextType>({
+  isRunning: false,
+  isLastMessage: false,
+  isEmpty: true,
+});
+
+export const useAssistantMessageContext = () =>
+  useContext(AssistantMessageContext);
+
 export const Thread: FC<ThreadProps> = ({ items = [] }) => {
   const viewportRef = useRef<HTMLDivElement>(null);
 
@@ -1060,37 +1075,70 @@ const MessageError: FC = () => {
 };
 
 const AssistantMessage: FC = () => {
-  return (
-    <MessagePrimitive.Root asChild>
-      <div
-        className="aui-assistant-message-root relative mx-auto w-full max-w-[var(--thread-max-width)] animate-in pb-4 duration-150 ease-out fade-in slide-in-from-bottom-1 last:mb-4"
-        data-role="assistant"
-      >
-        <div className="aui-assistant-message-content mx-2 leading-7 break-words text-foreground">
-          <AssistantLoader />
-          <MessagePrimitive.Parts
-            components={{
-              Text: MarkdownText,
-              File: FileComponent,
-              Source: Sources,
-              Image,
-              Reasoning: Reasoning,
-              ReasoningGroup: ReasoningGroup,
-              ToolGroup,
-              tools: {
-                Fallback: ToolFallback,
-              },
-            }}
-          />
-          <MessageError />
-        </div>
+  const msgCtxRef = useRef<AssistantMessageContextType>({
+    isRunning: false,
+    isLastMessage: false,
+    isEmpty: true,
+  });
+  const msgCtx = useAuiState(({ thread, message }) => {
+    const messages = (
+      thread as unknown as { messages?: Array<{ id?: string }> }
+    )?.messages;
+    const isLastMessage =
+      Array.isArray(messages) && messages.length > 0
+        ? messages[messages.length - 1]?.id === message.id
+        : false;
+    const isRunning = message.status?.type === "running";
+    const isEmpty =
+      !message.content ||
+      (Array.isArray(message.content) && message.content.length === 0);
 
-        <div className="aui-assistant-message-footer mt-2 ml-2 flex">
-          <BranchPicker />
-          <AssistantActionBar />
+    const next = { isRunning, isLastMessage, isEmpty };
+    const prev = msgCtxRef.current;
+    if (
+      prev.isRunning === next.isRunning &&
+      prev.isLastMessage === next.isLastMessage &&
+      prev.isEmpty === next.isEmpty
+    ) {
+      return prev;
+    }
+    msgCtxRef.current = next;
+    return next;
+  });
+
+  return (
+    <AssistantMessageContext.Provider value={msgCtx}>
+      <MessagePrimitive.Root asChild>
+        <div
+          className="aui-assistant-message-root relative mx-auto w-full max-w-[var(--thread-max-width)] animate-in pb-4 duration-150 ease-out fade-in slide-in-from-bottom-1 last:mb-4"
+          data-role="assistant"
+        >
+          <div className="aui-assistant-message-content mx-2 leading-7 break-words text-foreground">
+            <AssistantLoader />
+            <MessagePrimitive.Parts
+              components={{
+                Text: MarkdownText,
+                File: FileComponent,
+                Source: Sources,
+                Image,
+                Reasoning: Reasoning,
+                ReasoningGroup: ReasoningGroup,
+                ToolGroup,
+                tools: {
+                  Fallback: ToolFallback,
+                },
+              }}
+            />
+            <MessageError />
+          </div>
+
+          <div className="aui-assistant-message-footer mt-2 ml-2 flex">
+            <BranchPicker />
+            <AssistantActionBar />
+          </div>
         </div>
-      </div>
-    </MessagePrimitive.Root>
+      </MessagePrimitive.Root>
+    </AssistantMessageContext.Provider>
   );
 };
 

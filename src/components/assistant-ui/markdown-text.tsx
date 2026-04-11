@@ -7,7 +7,6 @@ import { mermaid } from "@streamdown/mermaid";
 import { createMathPlugin } from "@streamdown/math";
 import {
   useMessagePartText,
-  useAuiState,
   type TextMessagePartProps,
 } from "@assistant-ui/react";
 import {
@@ -30,6 +29,7 @@ import {
   InlineCitation,
   UrlCitation,
 } from "@/components/ai-elements/inline-citation";
+import { useAssistantMessageContext } from "@/components/assistant-ui/thread";
 import { Badge } from "@/components/ui/badge";
 import { MarkdownLink } from "@/components/ui/markdown-link";
 import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
@@ -269,30 +269,7 @@ type MarkdownTextProps = Partial<TextMessagePartProps> & {
 const MarkdownTextImpl = (props: MarkdownTextProps) => {
   const streamingVariant = props.streamingVariant ?? "default";
   const { text } = useMessagePartText();
-  const mdStateRef = useRef({
-    threadId: "no-thread",
-    messageId: "no-message",
-    isRunning: false,
-  });
-  const { threadId, messageId, isRunning } = useAuiState(
-    ({ threads, thread, message }) => {
-      const next = {
-        threadId: (threads as any)?.mainThreadId ?? "no-thread",
-        messageId: (message as any)?.id ?? "no-message",
-        isRunning: (thread as any)?.isRunning ?? false,
-      };
-      const prev = mdStateRef.current;
-      if (
-        prev.threadId === next.threadId &&
-        prev.messageId === next.messageId &&
-        prev.isRunning === next.isRunning
-      ) {
-        return prev;
-      }
-      mdStateRef.current = next;
-      return next;
-    },
-  );
+  const { isRunning } = useAssistantMessageContext();
 
   const animateConfig =
     streamingVariant === "reasoning"
@@ -300,8 +277,6 @@ const MarkdownTextImpl = (props: MarkdownTextProps) => {
       : { animation: "fadeIn" as const, duration: 200, easing: "ease-out" };
 
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const key = `${threadId}-${messageId}`;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -335,7 +310,7 @@ const MarkdownTextImpl = (props: MarkdownTextProps) => {
     return () => {
       container.removeEventListener("wheel", handleWheel, { capture: true });
     };
-  }, [threadId, messageId]);
+  }, []);
 
   const handleCopy = (event: ReactClipboardEvent<HTMLDivElement>) => {
     if (typeof window === "undefined") return;
@@ -370,7 +345,7 @@ const MarkdownTextImpl = (props: MarkdownTextProps) => {
 
   return (
     <CitationContextProvider>
-      <div key={key} ref={containerRef} className="aui-md" onCopy={handleCopy}>
+      <div ref={containerRef} className="aui-md" onCopy={handleCopy}>
         <Streamdown
           allowedTags={{ citation: [] }}
           animated={animateConfig}
