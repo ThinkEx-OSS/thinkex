@@ -133,8 +133,7 @@ async function handlePOST(req: Request) {
     workspaceId = extractWorkspaceId(body);
     activeFolderId = body.activeFolderId;
     // AssistantChatTransport passes thread remoteId as body.id (see assistant-ui react-ai-sdk)
-    const rawThreadId = body.id ?? body.threadId ?? null;
-    const threadId = rawThreadId === "DEFAULT_THREAD_ID" ? null : rawThreadId;
+    const threadId = body.id ?? body.threadId ?? null;
 
     // Create tools using the modular factory (before convertToModelMessages so
     // toModelOutput can sanitize historical tool results for the model)
