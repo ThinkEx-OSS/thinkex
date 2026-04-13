@@ -18,6 +18,7 @@ export interface ReasoningConfig {
   };
   anthropic?: {
     thinking: { type: "adaptive" } | { type: "enabled"; budgetTokens: number };
+    effort?: "low" | "medium" | "high" | "max";
   };
   openai?: {
     reasoningEffort?: "none" | "low" | "medium" | "high" | "xhigh";
@@ -160,6 +161,7 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
       reasoning: {
         anthropic: {
           thinking: { type: "adaptive" },
+          effort: "low",
         },
       },
     },
