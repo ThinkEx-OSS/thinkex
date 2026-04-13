@@ -3,25 +3,25 @@ import { useQuery } from "@rocicorp/zero/react";
 import { rehydrateWorkspaceItem } from "@/lib/workspace/workspace-item-model";
 import type { WorkspaceItemContentProjection } from "@/lib/workspace/workspace-item-model-types";
 import type { Item } from "@/lib/workspace-state/types";
-import { zql } from "@/lib/zero/zero-schema.gen";
+import { queries } from "@/lib/zero/queries";
 import type {
   WorkspaceItemContentRow,
   WorkspaceItemsRow,
 } from "@/lib/zero/zero-schema.gen";
 
 type WorkspaceItemQueryRow = WorkspaceItemsRow & {
-  workspaceItemContent?: readonly WorkspaceItemContentRow[] | WorkspaceItemContentRow;
+  workspaceItemContent?:
+    | readonly WorkspaceItemContentRow[]
+    | WorkspaceItemContentRow;
 };
 
 export function useWorkspaceState(workspaceId: string | null) {
   const [rawRows, status] = useQuery(
-    workspaceId
-      ? zql.workspace_items
-          .where("workspaceId", workspaceId)
-          .related("workspaceItemContent")
-      : null,
+    workspaceId ? queries.workspace.items({ workspaceId }) : null,
   );
-  const rows = rawRows as unknown as readonly WorkspaceItemQueryRow[] | undefined;
+  const rows = rawRows as unknown as
+    | readonly WorkspaceItemQueryRow[]
+    | undefined;
 
   const state = useMemo<Item[]>(() => {
     if (!rows) {
@@ -30,7 +30,7 @@ export function useWorkspaceState(workspaceId: string | null) {
 
     return rows.map((row) => {
       const contentRow = Array.isArray(row.workspaceItemContent)
-        ? row.workspaceItemContent[0] ?? null
+        ? (row.workspaceItemContent[0] ?? null)
         : (row.workspaceItemContent ?? null);
 
       return rehydrateWorkspaceItem({

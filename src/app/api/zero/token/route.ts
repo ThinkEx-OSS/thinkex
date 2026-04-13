@@ -1,10 +1,9 @@
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { SignJWT } from "jose";
-import { auth } from "@/lib/auth";
+import { getZeroTokenSession } from "@/lib/zero/token-session";
 
 export async function GET() {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getZeroTokenSession();
 
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

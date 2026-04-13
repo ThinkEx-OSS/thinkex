@@ -75,14 +75,22 @@ const workspaceItemContentRelationships = relationships(
 
 export const schema = createSchema({
   tables: [workspaceItems, workspaceItemContent],
-  relationships: [workspaceItemsRelationships, workspaceItemContentRelationships],
+  relationships: [
+    workspaceItemsRelationships,
+    workspaceItemContentRelationships,
+  ],
+  enableLegacyQueries: false,
+  enableLegacyMutators: false,
 });
 
 export type ZeroSchema = typeof schema;
 
-export type WorkspaceItemsRow = Row<(typeof schema)["tables"]["workspace_items"]>;
-export type WorkspaceItemContentRow =
-  Row<(typeof schema)["tables"]["workspace_item_content"]>;
+export type WorkspaceItemsRow = Row<
+  (typeof schema)["tables"]["workspace_items"]
+>;
+export type WorkspaceItemContentRow = Row<
+  (typeof schema)["tables"]["workspace_item_content"]
+>;
 
 export const zql = createBuilder(schema);
 export const builder = zql;

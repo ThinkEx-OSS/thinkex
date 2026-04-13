@@ -6,11 +6,14 @@ export interface ZeroContext {
   userId: string | null;
 }
 
+const appURL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
 function createZeroInstance(params: { userId: string; auth: string }) {
   return new Zero({
     schema,
     cacheURL: process.env.NEXT_PUBLIC_ZERO_SERVER!,
-    mutateURL: "/api/zero/mutate",
+    mutateURL: `${appURL}/api/zero/mutate`,
+    queryURL: `${appURL}/api/zero/query`,
     userID: params.userId,
     auth: params.auth,
     context: {

@@ -12,6 +12,7 @@ import type { CardColor } from "@/lib/workspace-state/colors";
 import { defaultDataFor } from "@/lib/workspace-state/item-helpers";
 import { getRandomCardColor } from "@/lib/workspace-state/colors";
 import { logger } from "@/lib/utils/logger";
+import { mutators } from "@/lib/zero/mutators";
 import { useUIStore } from "@/lib/stores/ui-store";
 import {
   getLayoutForBreakpoint,
@@ -29,13 +30,23 @@ import {
 
 const ITEM_UPDATE_DEBOUNCE_MS = 500;
 
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+type JsonObject = { [key: string]: JsonValue };
+
 type WorkspaceItemMutatorChanges = {
   name?: string;
   subtitle?: string;
-  data?: Record<string, unknown>;
+  data?: JsonObject;
   color?: string | null;
   folderId?: string | null;
-  layout?: Record<string, unknown> | null;
+  layout?: JsonObject | null;
   lastModified?: number;
 };
 
@@ -64,7 +75,7 @@ function toMutatorChanges(changes: Partial<Item>): WorkspaceItemMutatorChanges {
     mutatorChanges.subtitle = sanitized.subtitle;
   }
   if (sanitized.data !== undefined) {
-    mutatorChanges.data = sanitized.data as Record<string, unknown>;
+    mutatorChanges.data = sanitized.data as JsonObject;
   }
   if (sanitized.color !== undefined) {
     mutatorChanges.color = sanitized.color ?? null;
@@ -74,7 +85,7 @@ function toMutatorChanges(changes: Partial<Item>): WorkspaceItemMutatorChanges {
   }
   if (sanitized.layout !== undefined) {
     mutatorChanges.layout =
-      (sanitized.layout as Record<string, unknown> | undefined) ?? null;
+      (sanitized.layout as JsonObject | undefined) ?? null;
   }
   if (sanitized.lastModified !== undefined) {
     mutatorChanges.lastModified = sanitized.lastModified;
@@ -135,11 +146,11 @@ export function useWorkspaceOperations(
   workspaceId: string | null,
   currentItems: Item[],
 ): WorkspaceOperations {
-  const zero = useZero() as any;
+  const zero = useZero();
 
   const workspaceIdRef = useRef(workspaceId);
   const currentItemsRef = useRef(currentItems);
-  const zeroRef = useRef<any>(zero);
+  const zeroRef = useRef(zero);
 
   const updateItemDebouncerRef = useRef<Map<string, Debouncer<() => void>>>(
     new Map(),
@@ -241,11 +252,13 @@ export function useWorkspaceOperations(
         return;
       }
 
-      zeroRef.current.mutate.item.update({
-        workspaceId: currentWorkspaceId,
-        id: itemId,
-        changes,
-      });
+      zeroRef.current.mutate(
+        mutators.item.update({
+          workspaceId: currentWorkspaceId,
+          id: itemId,
+          changes,
+        }),
+      );
 
       pendingItemChangesRef.current.delete(itemId);
       updateItemDebouncerRef.current.delete(itemId);
@@ -282,11 +295,13 @@ export function useWorkspaceOperations(
       }).data;
 
       if (currentWorkspaceId) {
-        zeroRef.current.mutate.item.update({
-          workspaceId: currentWorkspaceId,
-          id: itemId,
-          changes: { data: newData as Record<string, unknown> },
-        });
+        zeroRef.current.mutate(
+          mutators.item.update({
+            workspaceId: currentWorkspaceId,
+            id: itemId,
+            changes: { data: newData as JsonObject },
+          }),
+        );
       }
 
       pendingItemDataUpdatersRef.current.delete(itemId);
@@ -407,21 +422,22 @@ export function useWorkspaceOperations(
       });
 
       if (workspaceIdRef.current) {
-        zeroRef.current.mutate.item.create({
-          workspaceId: workspaceIdRef.current,
-          id,
-          item: {
-            id: item.id,
-            type: item.type,
-            name: item.name,
-            subtitle: item.subtitle,
-            data: item.data as Record<string, unknown>,
-            color: item.color ?? null,
-            folderId: item.folderId ?? null,
-            layout:
-              (item.layout as Record<string, unknown> | undefined) ?? null,
-          },
-        });
+        zeroRef.current.mutate(
+          mutators.item.create({
+            workspaceId: workspaceIdRef.current,
+            id,
+            item: {
+              id: item.id,
+              type: item.type,
+              name: item.name,
+              subtitle: item.subtitle,
+              data: item.data as JsonObject,
+              color: item.color ?? null,
+              folderId: item.folderId ?? null,
+              layout: (item.layout as JsonObject | undefined) ?? null,
+            },
+          }),
+        );
       }
 
       return id;
@@ -533,20 +549,21 @@ export function useWorkspaceOperations(
       }
 
       if (workspaceIdRef.current) {
-        zeroRef.current.mutate.item.createMany({
-          workspaceId: workspaceIdRef.current,
-          items: createdItems.map((item) => ({
-            id: item.id,
-            type: item.type,
-            name: item.name,
-            subtitle: item.subtitle,
-            data: item.data as Record<string, unknown>,
-            color: item.color ?? null,
-            folderId: item.folderId ?? null,
-            layout:
-              (item.layout as Record<string, unknown> | undefined) ?? null,
-          })),
-        });
+        zeroRef.current.mutate(
+          mutators.item.createMany({
+            workspaceId: workspaceIdRef.current,
+            items: createdItems.map((item) => ({
+              id: item.id,
+              type: item.type,
+              name: item.name,
+              subtitle: item.subtitle,
+              data: item.data as JsonObject,
+              color: item.color ?? null,
+              folderId: item.folderId ?? null,
+              layout: (item.layout as JsonObject | undefined) ?? null,
+            })),
+          }),
+        );
       }
 
       if (options?.showSuccessToast !== false) {
@@ -601,11 +618,13 @@ export function useWorkspaceOperations(
       return;
     }
 
-    zeroRef.current.mutate.item.delete({
-      workspaceId: workspaceIdRef.current,
-      id,
-      name: itemToDelete?.name,
-    });
+    zeroRef.current.mutate(
+      mutators.item.delete({
+        workspaceId: workspaceIdRef.current,
+        id,
+        name: itemToDelete?.name,
+      }),
+    );
   }, []);
 
   const updateItemData = useCallback(
@@ -639,11 +658,13 @@ export function useWorkspaceOperations(
         .filter((item) => !newIds.has(item.id))
         .map((item) => item.id);
       if (deletedIds.length > 0) {
-        zeroRef.current.mutate.item.updateMany({
-          workspaceId: currentWorkspaceId,
-          deletedIds,
-          previousItemCount,
-        });
+        zeroRef.current.mutate(
+          mutators.item.updateMany({
+            workspaceId: currentWorkspaceId,
+            deletedIds,
+            previousItemCount,
+          }),
+        );
       }
       return;
     }
@@ -654,21 +675,22 @@ export function useWorkspaceOperations(
         .map((item) => sanitizeWorkspaceItemForPersistence(item));
 
       if (addedItems.length > 0) {
-        zeroRef.current.mutate.item.updateMany({
-          workspaceId: currentWorkspaceId,
-          addedItems: addedItems.map((item) => ({
-            id: item.id,
-            type: item.type,
-            name: item.name,
-            subtitle: item.subtitle,
-            data: item.data as Record<string, unknown>,
-            color: item.color ?? null,
-            folderId: item.folderId ?? null,
-            layout:
-              (item.layout as Record<string, unknown> | undefined) ?? null,
-          })),
-          previousItemCount,
-        });
+        zeroRef.current.mutate(
+          mutators.item.updateMany({
+            workspaceId: currentWorkspaceId,
+            addedItems: addedItems.map((item) => ({
+              id: item.id,
+              type: item.type,
+              name: item.name,
+              subtitle: item.subtitle,
+              data: item.data as JsonObject,
+              color: item.color ?? null,
+              folderId: item.folderId ?? null,
+              layout: (item.layout as JsonObject | undefined) ?? null,
+            })),
+            previousItemCount,
+          }),
+        );
       }
       return;
     }
@@ -708,11 +730,13 @@ export function useWorkspaceOperations(
     }
 
     if (layoutUpdates.length > 0) {
-      zeroRef.current.mutate.item.updateMany({
-        workspaceId: currentWorkspaceId,
-        layoutUpdates,
-        previousItemCount,
-      });
+      zeroRef.current.mutate(
+        mutators.item.updateMany({
+          workspaceId: currentWorkspaceId,
+          layoutUpdates,
+          previousItemCount,
+        }),
+      );
     }
   }, []);
 
@@ -731,20 +755,22 @@ export function useWorkspaceOperations(
       });
 
       if (workspaceIdRef.current) {
-        zeroRef.current.mutate.item.create({
-          workspaceId: workspaceIdRef.current,
-          id: folderId,
-          item: {
-            id: folder.id,
-            type: folder.type,
-            name: folder.name,
-            subtitle: folder.subtitle,
-            data: folder.data as Record<string, unknown>,
-            color: folder.color ?? null,
-            folderId: folder.folderId ?? null,
-            layout: null,
-          },
-        });
+        zeroRef.current.mutate(
+          mutators.item.create({
+            workspaceId: workspaceIdRef.current,
+            id: folderId,
+            item: {
+              id: folder.id,
+              type: folder.type,
+              name: folder.name,
+              subtitle: folder.subtitle,
+              data: folder.data as JsonObject,
+              color: folder.color ?? null,
+              folderId: folder.folderId ?? null,
+              layout: null,
+            },
+          }),
+        );
       }
 
       return folderId;
@@ -780,20 +806,22 @@ export function useWorkspaceOperations(
       });
 
       if (workspaceIdRef.current) {
-        zeroRef.current.mutate.folder.createWithItems({
-          workspaceId: workspaceIdRef.current,
-          folder: {
-            id: folder.id,
-            type: "folder",
-            name: folder.name,
-            subtitle: folder.subtitle,
-            data: folder.data as Record<string, unknown>,
-            color: folder.color ?? null,
-            folderId: folder.folderId ?? null,
-            layout: null,
-          },
-          itemIds: safeItemIds,
-        });
+        zeroRef.current.mutate(
+          mutators.folder.createWithItems({
+            workspaceId: workspaceIdRef.current,
+            folder: {
+              id: folder.id,
+              type: "folder",
+              name: folder.name,
+              subtitle: folder.subtitle,
+              data: folder.data as JsonObject,
+              color: folder.color ?? null,
+              folderId: folder.folderId ?? null,
+              layout: null,
+            },
+            itemIds: safeItemIds,
+          }),
+        );
       }
 
       toast.success(
@@ -855,16 +883,20 @@ export function useWorkspaceOperations(
       const currentWorkspaceId = workspaceIdRef.current;
       if (currentWorkspaceId) {
         for (const descendantId of allDescendantIds) {
-          zeroRef.current.mutate.item.delete({
-            workspaceId: currentWorkspaceId,
-            id: descendantId,
-          });
+          zeroRef.current.mutate(
+            mutators.item.delete({
+              workspaceId: currentWorkspaceId,
+              id: descendantId,
+            }),
+          );
         }
-        zeroRef.current.mutate.item.delete({
-          workspaceId: currentWorkspaceId,
-          id: folderId,
-          name: folder?.name,
-        });
+        zeroRef.current.mutate(
+          mutators.item.delete({
+            workspaceId: currentWorkspaceId,
+            id: folderId,
+            name: folder?.name,
+          }),
+        );
       }
 
       toast.success(
@@ -886,12 +918,14 @@ export function useWorkspaceOperations(
       const item = currentItemsRef.current.find(
         (candidate) => candidate.id === itemId,
       );
-      zeroRef.current.mutate.item.move({
-        workspaceId: currentWorkspaceId,
-        itemId,
-        folderId,
-        itemName: item?.name,
-      });
+      zeroRef.current.mutate(
+        mutators.item.move({
+          workspaceId: currentWorkspaceId,
+          itemId,
+          folderId,
+          itemName: item?.name,
+        }),
+      );
     },
     [],
   );
@@ -909,12 +943,14 @@ export function useWorkspaceOperations(
         )
         .filter((name): name is string => name != null);
 
-      zeroRef.current.mutate.item.moveMany({
-        workspaceId: currentWorkspaceId,
-        itemIds,
-        folderId,
-        itemNames,
-      });
+      zeroRef.current.mutate(
+        mutators.item.moveMany({
+          workspaceId: currentWorkspaceId,
+          itemIds,
+          folderId,
+          itemNames,
+        }),
+      );
     },
     [],
   );

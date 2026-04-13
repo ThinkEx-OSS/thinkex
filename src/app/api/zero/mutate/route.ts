@@ -1,19 +1,18 @@
-import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { zeroDrizzle } from "@rocicorp/zero/server/adapters/drizzle";
-import { handleMutateRequest } from "@rocicorp/zero/server";
 import { mustGetMutator } from "@rocicorp/zero";
-import { auth } from "@/lib/auth";
+import { handleMutateRequest } from "@rocicorp/zero/server";
+import { zeroDrizzle } from "@rocicorp/zero/server/adapters/drizzle";
 import { db } from "@/lib/db/client";
+import { getZeroContext } from "@/lib/zero/auth";
 import { serverMutators } from "@/lib/zero/server-mutators";
 import { schema } from "@/lib/zero/zero-schema.gen";
 
 const dbProvider = zeroDrizzle(schema, db);
 
 export async function POST(request: NextRequest) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const ctx = await getZeroContext(request);
 
-  if (!session) {
+  if (!ctx.userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -22,13 +21,7 @@ export async function POST(request: NextRequest) {
     async (transact) => {
       return transact(async (tx, name, args) => {
         const mutator = mustGetMutator(serverMutators, name);
-        await mutator.fn({
-          tx,
-          args,
-          ctx: {
-            userId: session.user.id,
-          },
-        });
+        await mutator.fn({ tx, args, ctx });
       });
     },
     request,
