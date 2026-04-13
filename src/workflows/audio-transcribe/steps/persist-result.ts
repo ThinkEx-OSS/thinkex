@@ -56,7 +56,7 @@ export async function persistAudioResult(
       id: itemId,
       changes: {
         data: {
-          ...(result.summary != null ? { summary: result.summary } : {}),
+          summary: result.summary ?? "",
           ...(typeof result.duration === "number" &&
             result.duration > 0 && { duration: result.duration }),
           processingStatus: "complete" as const,
