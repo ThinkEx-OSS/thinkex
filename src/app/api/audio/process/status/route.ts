@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     if (!runId) {
       return NextResponse.json(
         { error: "runId is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -30,32 +30,28 @@ export async function GET(req: NextRequest) {
     if (!(await run.exists)) {
       return NextResponse.json(
         { status: "not_found", error: "Run not found or expired" },
-        { status: 404 }
+        { status: 404 },
       );
     }
     const status = await run.status;
 
     if (status === "completed") {
-      // Workflow persists to DB; we prefer run.returnValue for immediate data.
-      // If Vercel API returns invalid response (e.g. missing "key" field), fall back to empty —
-      // client invalidates workspace and refetches real data from DB.
       let result: {
-        summary: string;
+        summary?: string;
         segments: Array<{ speaker: string; timestamp: string; content: string }>;
         duration?: number;
-      } = { summary: "", segments: [] };
+      } = { segments: [] };
       try {
         const r = (await run.returnValue) as typeof result;
-        if (r?.summary !== undefined) result.summary = r.summary ?? "";
+        if (r?.summary !== undefined) result.summary = r.summary ?? undefined;
         if (r?.segments) result.segments = r.segments ?? [];
         if (typeof r?.duration === "number") result.duration = r.duration;
       } catch (_) {
-        // Vercel Workflow API can throw when polling return value in production.
       }
       return NextResponse.json({
         status: "completed",
         result: {
-          summary: result.summary,
+          ...(result.summary ? { summary: result.summary } : {}),
           segments: result.segments,
           duration: result.duration,
         },
@@ -89,7 +85,7 @@ export async function GET(req: NextRequest) {
         error:
           error instanceof Error ? error.message : "Failed to get status",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
