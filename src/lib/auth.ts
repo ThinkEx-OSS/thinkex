@@ -22,8 +22,7 @@ import { eq } from "drizzle-orm";
 import { workspaces, userProfiles } from "@/lib/db/schema";
 
 const baseURL = getBaseURL();
-const authSecret =
-  process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET;
+const authSecret = process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET;
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -34,7 +33,10 @@ export const auth = betterAuth({
       create: {
         after: async (user) => {
           try {
-            await db.insert(userProfiles).values({ userId: user.id }).onConflictDoNothing({ target: userProfiles.userId });
+            await db
+              .insert(userProfiles)
+              .values({ userId: user.id })
+              .onConflictDoNothing({ target: userProfiles.userId });
           } catch (err) {
             console.error("[auth] Failed to create user profile:", err);
           }
@@ -57,12 +59,18 @@ export const auth = betterAuth({
     "https://www.thinkex.app",
     "https://thinkex.app",
     "https://thinkexv2-git-dev-chakrabortyurjit-gmailcoms-projects.vercel.app",
-    ...(process.env.NEXT_PUBLIC_APP_URL ? [process.env.NEXT_PUBLIC_APP_URL] : []),
+    ...(process.env.NEXT_PUBLIC_APP_URL
+      ? [process.env.NEXT_PUBLIC_APP_URL]
+      : []),
     ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
-    ...(process.env.NEXT_PUBLIC_VERCEL_URL ? [`https://${process.env.NEXT_PUBLIC_VERCEL_URL}`] : []),
+    ...(process.env.NEXT_PUBLIC_VERCEL_URL
+      ? [`https://${process.env.NEXT_PUBLIC_VERCEL_URL}`]
+      : []),
     // Chrome extension: in dev accept any origin; in prod require CHROME_EXTENSION_ID
     ...(process.env.NODE_ENV === "development" ? ["*"] : []),
-    ...(process.env.CHROME_EXTENSION_ID ? [`chrome-extension://${process.env.CHROME_EXTENSION_ID}`] : []),
+    ...(process.env.CHROME_EXTENSION_ID
+      ? [`chrome-extension://${process.env.CHROME_EXTENSION_ID}`]
+      : []),
   ],
   // Session configuration - 30 days for better user experience
   session: {
@@ -95,6 +103,10 @@ export const auth = betterAuth({
   advanced: {
     // Force secure cookies (HTTPS only) - critical for preventing session hijacking
     useSecureCookies: process.env.NODE_ENV === "production",
+    crossSubDomainCookies: {
+      enabled: process.env.NODE_ENV === "production",
+      domain: process.env.ZERO_COOKIE_DOMAIN ?? ".thinkex.app",
+    },
     // Explicitly configure cookie attributes for maximum security
     cookies: {
       session_token: {
@@ -131,7 +143,7 @@ export const auth = betterAuth({
             const existingSlugs = new Set(
               existingUserWorkspaces
                 .map((w) => w.slug)
-                .filter((slug): slug is string => !!slug)
+                .filter((slug): slug is string => !!slug),
             );
 
             // Get anonymous user's workspaces
@@ -164,7 +176,6 @@ export const auth = betterAuth({
               .update(workspaces)
               .set({ userId: newUser.user.id })
               .where(eq(workspaces.userId, anonymousUser.user.id));
-
           } catch (error) {
             console.error("Failed to migrate anonymous user data:", error);
             // We log but don't throw to allow the account linking to complete
