@@ -43,10 +43,12 @@ export async function GET(req: NextRequest) {
       } = { segments: [] };
       try {
         const r = (await run.returnValue) as typeof result;
-        if (r?.summary !== undefined) result.summary = r.summary ?? undefined;
+        if (r?.summary) result.summary = r.summary;
         if (r?.segments) result.segments = r.segments ?? [];
         if (typeof r?.duration === "number") result.duration = r.duration;
       } catch (_) {
+        // Vercel Workflow API can throw when polling returnValue in production;
+        // fall through so the client gets an empty result and refetches from DB.
       }
       return NextResponse.json({
         status: "completed",

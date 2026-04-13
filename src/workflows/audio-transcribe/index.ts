@@ -1,12 +1,13 @@
 import {
-  transcribeWithAssemblyAI,
+  submitTranscription,
+  pollTranscription,
   persistAudioResult,
   persistAudioFailure,
 } from "./steps";
 
 /**
  * Durable workflow for audio transcription via AssemblyAI.
- * Steps: transcribe → persist.
+ * Steps: submit → poll (with retries) → persist.
  */
 export async function audioTranscribeWorkflow(
   fileUrl: string,
@@ -18,7 +19,8 @@ export async function audioTranscribeWorkflow(
   "use workflow";
 
   try {
-    const result = await transcribeWithAssemblyAI(fileUrl);
+    const transcriptId = await submitTranscription(fileUrl);
+    const result = await pollTranscription(transcriptId);
 
     await persistAudioResult(workspaceId, itemId, userId, result);
 
