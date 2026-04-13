@@ -185,11 +185,6 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
         only: ["bedrock", "azure", "anthropic"],
       },
       fallbacks: ["google/gemini-3-flash-preview", "openai/gpt-5-chat"],
-      reasoning: {
-        anthropic: {
-          thinking: { type: "adaptive" },
-        },
-      },
     },
     ui: {
       providerLabel: "Claude",
