@@ -32,7 +32,7 @@ const workspaceItems = table("workspace_items")
     ocrPageCount: number().from("ocr_page_count"),
     hasTranscript: boolean().from("has_transcript"),
     sourceCount: number().from("source_count"),
-    createdAt: string().from("created_at").optional(),
+    createdAt: number().from("created_at").optional(),
   })
   .primaryKey("workspaceId", "itemId");
 
