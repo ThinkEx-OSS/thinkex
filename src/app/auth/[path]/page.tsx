@@ -1,3 +1,4 @@
+import Script from "next/script";
 import { SignInForm, SignUpForm } from "@/components/auth/AuthForms";
 import { ThinkExLogo } from "@/components/ui/thinkex-logo";
 import { db } from "@/lib/db/client";
@@ -77,6 +78,10 @@ export default async function AuthPage({
 
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center p-4 md:p-6 overflow-hidden">
+      <Script
+        src="https://accounts.google.com/gsi/client"
+        strategy="afterInteractive"
+      />
       {/* Auth content */}
       <div className="relative z-10 w-full max-w-sm flex flex-col items-center gap-6 rounded-xl shadow-2xl bg-background border border-border/40 p-6 md:p-8">
         {/* Logo - same as footer */}

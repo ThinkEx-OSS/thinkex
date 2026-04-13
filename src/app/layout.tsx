@@ -7,7 +7,6 @@ import { QueryProvider } from "@/components/query-provider";
 import { PostHogProvider } from "@/components/providers/PostHogProvider";
 import AppProviders from "@/components/providers/AppProviders";
 import "./globals.css";
-import "katex/dist/katex.min.css";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -87,10 +86,6 @@ export default function RootLayout({
           <PostHogProvider>
             <QueryProvider>
               <Providers>
-                <Script
-                  src="https://accounts.google.com/gsi/client"
-                  strategy="afterInteractive"
-                />
                 {children}
               </Providers>
             </QueryProvider>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useSession, signOut } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -14,7 +15,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AccountModal } from "@/components/auth/AccountModal";
+
+const AccountModal = dynamic(
+  () => import("@/components/auth/AccountModal").then(mod => ({ default: mod.AccountModal })),
+  { ssr: false }
+);
 
 export function UserProfileDropdown() {
   const { data: session } = useSession();
@@ -39,7 +44,6 @@ export function UserProfileDropdown() {
     router.push("/home");
   }, [router]);
 
-  // Anonymous user: show sign in/up buttons
   if (session?.user?.isAnonymous) {
     return (
       <div className="flex items-center gap-2 py-1">
