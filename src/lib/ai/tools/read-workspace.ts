@@ -180,6 +180,24 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
 
             const vpath = getVirtualPath(item, items);
 
+            const pdfOutputFields: {
+                totalPages?: number;
+                pageRange?: { start?: number; end?: number };
+            } = {};
+            if (item.type === "pdf") {
+                const ocr = (item.data as { ocrPages?: unknown[] }).ocrPages;
+                const ocrLen = Array.isArray(ocr) ? ocr.length : 0;
+                if (ocrLen > 0) {
+                    pdfOutputFields.totalPages = ocrLen;
+                }
+                if (pdfPageRange) {
+                    pdfOutputFields.pageRange = {
+                        start: pdfPageRange.pageStart,
+                        end: pdfPageRange.pageEnd,
+                    };
+                }
+            }
+
             return {
                 success: true,
                 itemName: item.name,
@@ -192,16 +210,7 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
                 hasMore,
                 rangeNote,
                 ...(hasMore && { nextLineStart: lineEnd + 1 }),
-                ...(item.type === "pdf" &&
-                    Array.isArray((item.data as { ocrPages?: unknown[] })?.ocrPages) && {
-                    totalPages: (item.data as { ocrPages: unknown[] }).ocrPages.length,
-                    ...(pdfPageRange && {
-                        pageRange: {
-                            start: pdfPageRange.pageStart,
-                            end: pdfPageRange.pageEnd,
-                        },
-                    }),
-                }),
+                ...pdfOutputFields,
             };
         },
     });
