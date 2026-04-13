@@ -15,19 +15,33 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { InitialAuth } from "./HomeShell";
 
 const AccountModal = dynamic(
   () => import("@/components/auth/AccountModal").then(mod => ({ default: mod.AccountModal })),
   { ssr: false }
 );
 
-export function UserProfileDropdown() {
+interface UserProfileDropdownProps {
+  initialAuth?: InitialAuth;
+}
+
+export function UserProfileDropdown({ initialAuth }: UserProfileDropdownProps) {
   const { data: session } = useSession();
   const router = useRouter();
   const [showAccountModal, setShowAccountModal] = useState(false);
 
-  const userName = session?.user?.name || session?.user?.email || "User";
-  const userImage = session?.user?.image || undefined;
+  const isAnonymous = session !== undefined
+    ? !session || !!session.user?.isAnonymous
+    : (initialAuth?.isAnonymous ?? true);
+
+  const userName = session !== undefined
+    ? (session?.user?.name || session?.user?.email || "User")
+    : (initialAuth?.userName || "User");
+
+  const userImage = session !== undefined
+    ? (session?.user?.image || undefined)
+    : (initialAuth?.userImage || undefined);
 
   const getInitials = (name: string) => {
     if (name === "User") return "U";
@@ -44,7 +58,7 @@ export function UserProfileDropdown() {
     router.push("/home");
   }, [router]);
 
-  if (session?.user?.isAnonymous) {
+  if (isAnonymous) {
     return (
       <div className="flex items-center gap-2 py-1">
         <Link href="/auth/sign-in">

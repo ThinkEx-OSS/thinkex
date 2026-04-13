@@ -7,15 +7,17 @@ import { Input } from "@/components/ui/input";
 import { UserProfileDropdown } from "./UserProfileDropdown";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ThinkExLogo } from "@/components/ui/thinkex-logo";
+import type { InitialAuth } from "./HomeShell";
 
 interface HomeTopBarProps {
   showBackground: boolean;
   showSearch: boolean;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  initialAuth: InitialAuth;
 }
 
-export function HomeTopBar({ showBackground, showSearch, searchQuery, onSearchChange }: HomeTopBarProps) {
+export function HomeTopBar({ showBackground, showSearch, searchQuery, onSearchChange, initialAuth }: HomeTopBarProps) {
   return (
     <header
       className={cn(
@@ -69,7 +71,7 @@ export function HomeTopBar({ showBackground, showSearch, searchQuery, onSearchCh
 
       <div className="flex items-center gap-2">
         <ThemeToggle />
-        <UserProfileDropdown />
+        <UserProfileDropdown initialAuth={initialAuth} />
       </div>
     </header>
   );

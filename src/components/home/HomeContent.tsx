@@ -33,6 +33,7 @@ import {
 import { HomeActionCards } from "./HomeActionCards";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import type { InitialAuth } from "./HomeShell";
 
 const RecordWorkspaceDialog = dynamic(
   () => import("@/components/modals/RecordWorkspaceDialog").then(mod => ({ default: mod.RecordWorkspaceDialog })),
@@ -197,9 +198,10 @@ function HeroAttachmentsSection({
 
 interface HomeContentProps {
   showDemoVideo: boolean;
+  initialAuth: InitialAuth;
 }
 
-export function HomeContent({ showDemoVideo }: HomeContentProps) {
+export function HomeContent({ showDemoVideo, initialAuth }: HomeContentProps) {
   const router = useRouter();
   const setShouldOpenOnWorkspaceLoad = useAudioRecordingStore(
     (s) => s.setShouldOpenOnWorkspaceLoad,
@@ -363,6 +365,7 @@ export function HomeContent({ showDemoVideo }: HomeContentProps) {
         showSearch={!showDemoVideo && showTopBarSearch}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        initialAuth={initialAuth}
       />
 
       <HomeAttachmentsProvider>

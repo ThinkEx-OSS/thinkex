@@ -6,18 +6,26 @@ import { HomeLayout } from "@/components/layout/HomeLayout";
 import { HomeContent } from "@/components/home/HomeContent";
 import { AnonymousSessionHandler } from "@/components/layout/SessionHandler";
 
-interface HomeShellProps {
-  showDemoVideo: boolean;
+export interface InitialAuth {
+  isAnonymous: boolean;
+  userName: string | null;
+  userImage: string | null;
 }
 
-export function HomeShell({ showDemoVideo }: HomeShellProps) {
+interface HomeShellProps {
+  showDemoVideo: boolean;
+  initialAuth: InitialAuth;
+  initialWorkspaces: any[] | null;
+}
+
+export function HomeShell({ showDemoVideo, initialAuth, initialWorkspaces }: HomeShellProps) {
   return (
     <>
       <MobileWarning />
       <AnonymousSessionHandler>
-        <WorkspaceProvider>
+        <WorkspaceProvider initialWorkspaces={initialWorkspaces}>
           <HomeLayout>
-            <HomeContent showDemoVideo={showDemoVideo} />
+            <HomeContent showDemoVideo={showDemoVideo} initialAuth={initialAuth} />
           </HomeLayout>
         </WorkspaceProvider>
       </AnonymousSessionHandler>
