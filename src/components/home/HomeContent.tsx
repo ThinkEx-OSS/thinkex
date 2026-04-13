@@ -222,7 +222,6 @@ export function HomeContent({ showDemoVideo }: HomeContentProps) {
   const heroRef = useRef<HTMLDivElement>(null);
   const workspacesRef = useRef<HTMLDivElement>(null);
 
-  const scrollYRef = useRef(0);
   const [showTopBarBg, setShowTopBarBg] = useState(false);
   const [showTopBarSearch, setShowTopBarSearch] = useState(false);
 
@@ -230,7 +229,6 @@ export function HomeContent({ showDemoVideo }: HomeContentProps) {
     const handleScroll = () => {
       if (!scrollRef.current) return;
       const y = scrollRef.current.scrollTop;
-      scrollYRef.current = y;
 
       setShowTopBarBg(y > 200);
       setShowTopBarSearch(y > 300);
