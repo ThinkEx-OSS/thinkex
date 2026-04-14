@@ -299,12 +299,12 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
                 )}
                 {/* Collaborator count — for workspaces YOU OWN that have collaborators */}
                 {!workspace.isShared &&
-                  (workspace as any).collaboratorCount > 0 && (
+                  (workspace.collaboratorCount ?? 0) > 0 && (
                     <div className="absolute top-2 right-2 z-10">
                       <div className="bg-background/80 text-foreground text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 backdrop-blur-sm border border-border shadow-sm">
                         <Users className="h-3 w-3" />
                         <span className="font-medium">
-                          {(workspace as any).collaboratorCount}
+                          {workspace.collaboratorCount}
                         </span>
                       </div>
                     </div>

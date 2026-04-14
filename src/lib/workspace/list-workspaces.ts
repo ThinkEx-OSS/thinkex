@@ -27,44 +27,44 @@ export interface WorkspaceListItem {
 export async function listWorkspacesForUser(
   userId: string,
 ): Promise<WorkspaceListItem[]> {
-  const ownedWorkspaces = await db
-    .select()
-    .from(workspaces)
-    .where(eq(workspaces.userId, userId));
-
-  const collaborations = await db
-    .select({
-      workspaceId: workspaceCollaborators.workspaceId,
-      permissionLevel: workspaceCollaborators.permissionLevel,
-      lastOpenedAt: workspaceCollaborators.lastOpenedAt,
-      createdAt: workspaceCollaborators.createdAt,
-    })
-    .from(workspaceCollaborators)
-    .where(eq(workspaceCollaborators.userId, userId));
-
-  let sharedWorkspaces: typeof ownedWorkspaces = [];
-  if (collaborations.length > 0) {
-    const sharedWorkspaceIds = collaborations.map((c) => c.workspaceId);
-    sharedWorkspaces = await db
-      .select()
-      .from(workspaces)
-      .where(inArray(workspaces.id, sharedWorkspaceIds));
-  }
-
-  const ownedIds = ownedWorkspaces.map((w) => w.id);
-  let collaboratorCounts = new Map<string, number>();
-  if (ownedIds.length > 0) {
-    const counts = await db
+  const [ownedWorkspaces, collaborations] = await Promise.all([
+    db.select().from(workspaces).where(eq(workspaces.userId, userId)),
+    db
       .select({
         workspaceId: workspaceCollaborators.workspaceId,
-        count: sql<number>`count(*)::int`,
+        permissionLevel: workspaceCollaborators.permissionLevel,
+        lastOpenedAt: workspaceCollaborators.lastOpenedAt,
+        createdAt: workspaceCollaborators.createdAt,
       })
       .from(workspaceCollaborators)
-      .where(inArray(workspaceCollaborators.workspaceId, ownedIds))
-      .groupBy(workspaceCollaborators.workspaceId);
+      .where(eq(workspaceCollaborators.userId, userId)),
+  ]);
 
-    collaboratorCounts = new Map(counts.map((c) => [c.workspaceId, c.count]));
-  }
+  const ownedIds = ownedWorkspaces.map((w) => w.id);
+  const sharedWorkspaceIds = collaborations.map((c) => c.workspaceId);
+
+  const [sharedWorkspaces, collaboratorCountRows] = await Promise.all([
+    sharedWorkspaceIds.length > 0
+      ? db
+          .select()
+          .from(workspaces)
+          .where(inArray(workspaces.id, sharedWorkspaceIds))
+      : Promise.resolve([] as typeof ownedWorkspaces),
+    ownedIds.length > 0
+      ? db
+          .select({
+            workspaceId: workspaceCollaborators.workspaceId,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(workspaceCollaborators)
+          .where(inArray(workspaceCollaborators.workspaceId, ownedIds))
+          .groupBy(workspaceCollaborators.workspaceId)
+      : Promise.resolve([]),
+  ]);
+
+  const collaboratorCounts = new Map(
+    collaboratorCountRows.map((c) => [c.workspaceId, c.count]),
+  );
 
   const collaborationMap = new Map(
     collaborations.map((c) => [c.workspaceId, c]),

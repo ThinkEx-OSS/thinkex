@@ -29,14 +29,18 @@ export default async function HomePage() {
         initialWorkspaces = workspaceList;
       }
     } else if (session) {
+      showDemoVideo = false;
       initialAuth = {
         isAnonymous: false,
         userName: session.user.name || null,
         userImage: session.user.image || null,
       };
-      const workspaceList = await listWorkspacesForUser(session.user.id);
-      initialWorkspaces = workspaceList;
-      showDemoVideo = false;
+      try {
+        const workspaceList = await listWorkspacesForUser(session.user.id);
+        initialWorkspaces = workspaceList;
+      } catch (error) {
+        console.error("[home] Failed to fetch workspaces:", error);
+      }
     }
   } catch (error) {
     console.error("[home] Failed to check session:", error);
