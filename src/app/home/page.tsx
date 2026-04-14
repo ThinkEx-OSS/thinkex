@@ -25,9 +25,7 @@ export default async function HomePage() {
     if (session?.user.isAnonymous) {
       const workspaceList = await listWorkspacesForUser(session.user.id);
       showDemoVideo = workspaceList.length === 0;
-      if (!showDemoVideo) {
-        initialWorkspaces = workspaceList;
-      }
+      initialWorkspaces = workspaceList;
     } else if (session) {
       showDemoVideo = false;
       initialAuth = {
