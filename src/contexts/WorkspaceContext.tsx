@@ -9,7 +9,7 @@ import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 
 /**
  * Simplified WorkspaceContext - ONLY manages workspace list
- * 
+ *
  * State management responsibilities:
  * - Workspace list: WorkspaceContext (this file)
  * - Current workspace & save status: Zustand (workspace-store.ts)
@@ -21,7 +21,10 @@ interface WorkspaceContextType {
   workspaces: WorkspaceWithState[];
   loadingWorkspaces: boolean;
   loadWorkspaces: () => Promise<void>;
-  updateWorkspaceLocal: (workspaceId: string, updates: Partial<WorkspaceWithState>) => void;
+  updateWorkspaceLocal: (
+    workspaceId: string,
+    updates: Partial<WorkspaceWithState>,
+  ) => void;
 
   // Current workspace (loaded by slug for direct access)
   currentWorkspace: WorkspaceWithState | null;
@@ -38,10 +41,18 @@ interface WorkspaceContextType {
 
 const WorkspaceContext = createContext<WorkspaceContextType | null>(null);
 
-export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
+export function WorkspaceProvider({
+  children,
+  initialWorkspaces,
+}: {
+  children: React.ReactNode;
+  initialWorkspaces?: WorkspaceWithState[] | null;
+}) {
   const router = useRouter();
   const pathname = usePathname();
-  const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+  const currentWorkspaceId = useWorkspaceStore(
+    (state) => state.currentWorkspaceId,
+  );
   const queryClient = useQueryClient();
 
   // Derive current slug synchronously from pathname (no useEffect delay)
@@ -59,11 +70,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   // Fetch full workspace list lazily (for sidebar, workspace switching)
   // This is deferred - not needed for initial workspace render
   const { data: workspacesData, isLoading: loadingWorkspaces } = useQuery({
-    queryKey: ['workspaces'],
-    queryFn: async () => {
+    queryKey: ["workspaces"],
+    queryFn: async (): Promise<WorkspaceWithState[]> => {
       const response = await fetch("/api/workspaces");
       if (!response.ok) {
-        throw new Error('Failed to fetch workspaces');
+        throw new Error("Failed to fetch workspaces");
       }
       const data = await response.json();
       return data.workspaces || [];
@@ -71,37 +82,48 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
     retry: 3,
+    ...(initialWorkspaces !== null && initialWorkspaces !== undefined
+      ? {
+          initialData: initialWorkspaces,
+          initialDataUpdatedAt: Date.now(),
+        }
+      : {}),
   });
 
   // Find cached workspace in list to use as initial data for instant loading
   const cachedWorkspace = useMemo(() => {
     if (!currentSlug || !workspacesData) return undefined;
-    return workspacesData.find((w: WorkspaceWithState) => w.slug === currentSlug);
+    return workspacesData.find(
+      (w: WorkspaceWithState) => w.slug === currentSlug,
+    );
   }, [currentSlug, workspacesData]);
 
   // Fetch current workspace by slug (fast path for direct workspace access)
   // This loads only the workspace metadata needed, not the entire list or state
   // State is loaded separately by useWorkspaceState hook
-  const { data: currentWorkspaceData, isLoading: loadingCurrentWorkspace } = useQuery({
-    queryKey: ['workspace-by-slug', currentSlug],
-    queryFn: async () => {
-      if (!currentSlug) return null;
-      // Use metadata=true for faster loading - skip state replay
-      const response = await fetch(`/api/workspaces/slug/${currentSlug}?metadata=true`);
-      if (!response.ok) {
-        if (response.status === 404) return null;
-        throw new Error('Failed to fetch workspace');
-      }
-      const data = await response.json();
-      return data.workspace || null;
-    },
-    enabled: !!currentSlug,
-    initialData: cachedWorkspace, // Use cached data from list if available
-    initialDataUpdatedAt: cachedWorkspace ? Date.now() : undefined, // Treat as fresh
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
-    retry: 1, // Don't retry much for single workspace
-  });
+  const { data: currentWorkspaceData, isLoading: loadingCurrentWorkspace } =
+    useQuery({
+      queryKey: ["workspace-by-slug", currentSlug],
+      queryFn: async () => {
+        if (!currentSlug) return null;
+        // Use metadata=true for faster loading - skip state replay
+        const response = await fetch(
+          `/api/workspaces/slug/${currentSlug}?metadata=true`,
+        );
+        if (!response.ok) {
+          if (response.status === 404) return null;
+          throw new Error("Failed to fetch workspace");
+        }
+        const data = await response.json();
+        return data.workspace || null;
+      },
+      enabled: !!currentSlug,
+      initialData: cachedWorkspace, // Use cached data from list if available
+      initialDataUpdatedAt: cachedWorkspace ? Date.now() : undefined, // Treat as fresh
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes
+      retry: 1, // Don't retry much for single workspace
+    });
 
   const currentWorkspace = currentWorkspaceData || null;
 
@@ -110,7 +132,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     const list = workspacesData || [];
     // If we have a current workspace loaded by slug but it's not in the list yet,
     // add it so the UI can display it immediately
-    if (currentWorkspace && !list.some((w: WorkspaceWithState) => w.id === currentWorkspace.id)) {
+    if (
+      currentWorkspace &&
+      !list.some((w: WorkspaceWithState) => w.id === currentWorkspace.id)
+    ) {
       return [currentWorkspace, ...list];
     }
     return list;
@@ -118,7 +143,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   // Load workspaces function for compatibility
   const loadWorkspaces = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+    await queryClient.invalidateQueries({ queryKey: ["workspaces"] });
   }, [queryClient]);
 
   // Switch workspace
@@ -126,7 +151,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     (slug: string) => {
       router.push(`/workspace/${slug}`);
     },
-    [router]
+    [router],
   );
 
   // Delete workspace mutation
@@ -136,28 +161,35 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         method: "DELETE",
       });
       if (!response.ok) {
-        throw new Error('Failed to delete workspace');
+        throw new Error("Failed to delete workspace");
       }
       return workspaceId;
     },
     onSuccess: (deletedWorkspaceId) => {
       // Update cache immediately
-      queryClient.setQueryData(['workspaces'], (old: WorkspaceWithState[] | undefined) => {
-        if (!old) return [];
-        const remainingWorkspaces = old.filter((w) => w.id !== deletedWorkspaceId);
+      queryClient.setQueryData(
+        ["workspaces"],
+        (old: WorkspaceWithState[] | undefined) => {
+          if (!old) return [];
+          const remainingWorkspaces = old.filter(
+            (w) => w.id !== deletedWorkspaceId,
+          );
 
-        // If we deleted the current workspace, switch to first available
-        // Only switch if we are actively in that workspace (checked via currentSlug)
-        if (deletedWorkspaceId === currentWorkspaceId && currentSlug) {
-          if (remainingWorkspaces.length > 0) {
-            switchWorkspace(remainingWorkspaces[0].slug || remainingWorkspaces[0].id);
-          } else {
-            router.push("/home");
+          // If we deleted the current workspace, switch to first available
+          // Only switch if we are actively in that workspace (checked via currentSlug)
+          if (deletedWorkspaceId === currentWorkspaceId && currentSlug) {
+            if (remainingWorkspaces.length > 0) {
+              switchWorkspace(
+                remainingWorkspaces[0].slug || remainingWorkspaces[0].id,
+              );
+            } else {
+              router.push("/home");
+            }
           }
-        }
 
-        return remainingWorkspaces;
-      });
+          return remainingWorkspaces;
+        },
+      );
 
       toast.success("Workspace deleted successfully");
     },
@@ -171,49 +203,63 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     async (workspaceId: string) => {
       await deleteWorkspaceMutation.mutateAsync(workspaceId);
     },
-    [deleteWorkspaceMutation]
+    [deleteWorkspaceMutation],
   );
 
   // Optimistically update a single workspace locally without refetching
-  const updateWorkspaceLocal = useCallback((workspaceId: string, updates: Partial<WorkspaceWithState>) => {
-    queryClient.setQueryData(['workspaces'], (old: WorkspaceWithState[] | undefined) => {
-      if (!old) return [];
-      return old.map((w) => (w.id === workspaceId ? { ...w, ...updates } : w));
-    });
-  }, [queryClient]);
+  const updateWorkspaceLocal = useCallback(
+    (workspaceId: string, updates: Partial<WorkspaceWithState>) => {
+      queryClient.setQueryData(
+        ["workspaces"],
+        (old: WorkspaceWithState[] | undefined) => {
+          if (!old) return [];
+          return old.map((w) =>
+            w.id === workspaceId ? { ...w, ...updates } : w,
+          );
+        },
+      );
+    },
+    [queryClient],
+  );
 
   // Track workspace open with optimistic update
-  const markWorkspaceOpened = useCallback((workspaceId: string) => {
-    // 1. Optimistic update: Move to top and update lastOpenedAt
-    queryClient.setQueryData(['workspaces'], (old: WorkspaceWithState[] | undefined) => {
-      if (!old) return [];
+  const markWorkspaceOpened = useCallback(
+    (workspaceId: string) => {
+      // 1. Optimistic update: Move to top and update lastOpenedAt
+      queryClient.setQueryData(
+        ["workspaces"],
+        (old: WorkspaceWithState[] | undefined) => {
+          if (!old) return [];
 
-      const now = new Date().toISOString();
-      const workspaceIndex = old.findIndex(w => w.id === workspaceId);
+          const now = new Date().toISOString();
+          const workspaceIndex = old.findIndex((w) => w.id === workspaceId);
 
-      if (workspaceIndex === -1) return old;
+          if (workspaceIndex === -1) return old;
 
-      const workspace = { ...old[workspaceIndex], lastOpenedAt: now };
-      const newWorkspaces = [...old];
+          const workspace = { ...old[workspaceIndex], lastOpenedAt: now };
+          const newWorkspaces = [...old];
 
-      // Remove from current position
-      newWorkspaces.splice(workspaceIndex, 1);
+          // Remove from current position
+          newWorkspaces.splice(workspaceIndex, 1);
 
-      // Add to front (assuming recent first sort)
-      newWorkspaces.unshift(workspace);
+          // Add to front (assuming recent first sort)
+          newWorkspaces.unshift(workspace);
 
-      return newWorkspaces;
-    });
+          return newWorkspaces;
+        },
+      );
 
-    // 2. Fire and forget API call
-    fetch(`/api/workspaces/${workspaceId}/track-open`, {
-      method: "POST",
-    }).catch((error) => {
-      console.error("Failed to track workspace open:", error);
-      // We could revert the optimistic update here if strict consistency is needed,
-      // but for "recent workspaces" it's acceptable to keep it until next refetch.
-    });
-  }, [queryClient]);
+      // 2. Fire and forget API call
+      fetch(`/api/workspaces/${workspaceId}/track-open`, {
+        method: "POST",
+      }).catch((error) => {
+        console.error("Failed to track workspace open:", error);
+        // We could revert the optimistic update here if strict consistency is needed,
+        // but for "recent workspaces" it's acceptable to keep it until next refetch.
+      });
+    },
+    [queryClient],
+  );
 
   const value: WorkspaceContextType = {
     workspaces,
@@ -238,7 +284,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 export function useWorkspaceContext() {
   const context = useContext(WorkspaceContext);
   if (!context) {
-    throw new Error("useWorkspaceContext must be used within WorkspaceProvider");
+    throw new Error(
+      "useWorkspaceContext must be used within WorkspaceProvider",
+    );
   }
   return context;
 }

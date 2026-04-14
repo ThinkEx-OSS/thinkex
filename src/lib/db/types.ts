@@ -75,6 +75,7 @@ export interface WorkspaceWithState extends Workspace {
   state?: Item[];
   isShared?: boolean;
   permissionLevel?: "viewer" | "editor" | "admin"; // admin is implied for owner but good to have in types
+  collaboratorCount?: number;
 }
 
 // API response types

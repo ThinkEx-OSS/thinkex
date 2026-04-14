@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import React, { type FC, memo, useState } from "react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import ShikiHighlighter from "react-shiki";
@@ -36,7 +37,10 @@ const useCopyToClipboard = ({
   return { isCopied, copyToClipboard };
 };
 
-const CodeHeader: FC<{ language?: string; code: string }> = ({ language, code }) => {
+const CodeHeader: FC<{ language?: string; code: string }> = ({
+  language,
+  code,
+}) => {
   const { isCopied, copyToClipboard } = useCopyToClipboard();
   const onCopy = () => {
     if (!code || isCopied) return;
@@ -55,7 +59,6 @@ const CodeHeader: FC<{ language?: string; code: string }> = ({ language, code })
     </div>
   );
 };
-
 
 const components: Components = {
   h1: ({ className, ...props }) => (
@@ -138,13 +141,19 @@ const components: Components = {
   ),
   ul: ({ className, ...props }) => (
     <ul
-      className={cn("aui-md-ul my-5 ml-6 list-disc [&>li]:mt-2 text-sm", className)}
+      className={cn(
+        "aui-md-ul my-5 ml-6 list-disc [&>li]:mt-2 text-sm",
+        className,
+      )}
       {...props}
     />
   ),
   ol: ({ className, ...props }) => (
     <ol
-      className={cn("aui-md-ol my-5 ml-6 list-decimal [&>li]:mt-2 text-sm", className)}
+      className={cn(
+        "aui-md-ol my-5 ml-6 list-decimal [&>li]:mt-2 text-sm",
+        className,
+      )}
       {...props}
     />
   ),
@@ -195,14 +204,15 @@ const components: Components = {
   ),
   pre: ({ className, children, ...props }: any) => {
     const codeElement = React.Children.toArray(children)[0] as any;
-    if (codeElement && codeElement.type === 'code') {
+    if (codeElement && codeElement.type === "code") {
       const codeProps = codeElement.props || {};
       const language = codeProps.className?.replace(/^language-/, "") || "";
-      const code = typeof codeProps.children === 'string'
-        ? codeProps.children
-        : Array.isArray(codeProps.children)
-          ? codeProps.children.join('')
-          : String(codeProps.children || '');
+      const code =
+        typeof codeProps.children === "string"
+          ? codeProps.children
+          : Array.isArray(codeProps.children)
+            ? codeProps.children.join("")
+            : String(codeProps.children || "");
 
       if (language && code) {
         return (
@@ -215,7 +225,7 @@ const components: Components = {
               showLanguage={false}
               defaultColor="light-dark()"
               className={cn(
-                "aui-shiki-base [&_pre]:overflow-x-auto [&_pre]:rounded-b-lg [&_pre]:!bg-sidebar-accent [&_pre]:p-4 [&_*]:opacity-100"
+                "aui-shiki-base [&_pre]:overflow-x-auto [&_pre]:rounded-b-lg [&_pre]:!bg-sidebar-accent [&_pre]:p-4 [&_*]:opacity-100",
               )}
             >
               {code.trim()}
@@ -260,7 +270,7 @@ const components: Components = {
  */
 const StandaloneMarkdownImpl: FC<StandaloneMarkdownProps> = ({
   children,
-  className
+  className,
 }) => {
   return (
     <div className={cn("aui-md", className)}>
@@ -277,4 +287,3 @@ const StandaloneMarkdownImpl: FC<StandaloneMarkdownProps> = ({
 
 export const StandaloneMarkdown = memo(StandaloneMarkdownImpl);
 StandaloneMarkdown.displayName = "StandaloneMarkdown";
-
