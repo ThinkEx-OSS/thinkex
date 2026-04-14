@@ -3,7 +3,7 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { ChevronDown } from "lucide-react";
 
-const DEMO_VIDEO_SRC = "";
+const DEMO_VIDEO_SRC = "/finaldemo.mp4";
 const hasDemoVideo = DEMO_VIDEO_SRC.length > 0;
 
 const overlayButtonClass =
