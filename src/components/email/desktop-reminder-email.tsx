@@ -13,22 +13,7 @@ import {
   Text,
 } from "@react-email/components";
 
-interface InviteEmailTemplateProps {
-  inviterName?: string;
-  workspaceName: string;
-  workspaceUrl: string;
-  permissionLevel?: string;
-}
-
-export function InviteEmailTemplate({
-  inviterName,
-  workspaceName,
-  workspaceUrl,
-  permissionLevel,
-}: Readonly<InviteEmailTemplateProps>) {
-  const roleText = permissionLevel === "viewer" ? "a Viewer" : "an Editor";
-  const previewText = `${inviterName || "Someone"} invited you to "${workspaceName}" on ThinkEx`;
-
+export function DesktopReminderEmail() {
   return (
     <Html>
       <Head />
@@ -41,7 +26,7 @@ export function InviteEmailTemplate({
           padding: 0,
         }}
       >
-        <Preview>{previewText}</Preview>
+        <Preview>Open ThinkEx on your desktop to get started</Preview>
         <Container
           style={{
             backgroundColor: "#ffffff",
@@ -71,19 +56,13 @@ export function InviteEmailTemplate({
               padding: 0,
             }}
           >
-            You&apos;re invited to collaborate!
+            Continue on your desktop
           </Heading>
           <Text
             style={{ fontSize: "14px", lineHeight: "24px", color: "#525f7f" }}
           >
-            <strong style={{ color: "#000" }}>
-              {inviterName || "Someone"}
-            </strong>{" "}
-            has invited you to join the workspace{" "}
-            <strong style={{ color: "#000" }}>
-              &ldquo;{workspaceName}&rdquo;
-            </strong>
-            {permissionLevel ? ` as ${roleText}` : ""}.
+            ThinkEx works best on a desktop or laptop computer. Click the button
+            below to open ThinkEx and start organizing your knowledge.
           </Text>
           <Section
             style={{
@@ -93,7 +72,7 @@ export function InviteEmailTemplate({
             }}
           >
             <Button
-              href={workspaceUrl}
+              href="https://thinkex.app"
               style={{
                 backgroundColor: "#000000",
                 borderRadius: "6px",
@@ -106,18 +85,18 @@ export function InviteEmailTemplate({
                 display: "inline-block",
               }}
             >
-              Join Workspace
+              Open ThinkEx
             </Button>
           </Section>
           <Text
             style={{ fontSize: "14px", lineHeight: "24px", color: "#525f7f" }}
           >
-            or copy and paste this link into your browser:{" "}
+            or visit:{" "}
             <Link
-              href={workspaceUrl}
+              href="https://thinkex.app"
               style={{ color: "#556cd6", textDecoration: "none" }}
             >
-              {workspaceUrl}
+              thinkex.app
             </Link>
           </Text>
           <Hr style={{ border: "1px solid #eaeaea", margin: "26px 0" }} />
@@ -132,13 +111,6 @@ export function InviteEmailTemplate({
             The Workspace That Thinks With You
           </Text>
           <Text
-            style={{ fontSize: "11px", lineHeight: "16px", color: "#8898aa" }}
-          >
-            You received this email because {inviterName || "someone"} invited
-            you to collaborate on ThinkEx. If you believe this was sent in
-            error, you can safely ignore this email.
-          </Text>
-          <Text
             style={{ fontSize: "11px", color: "#8898aa", marginTop: "12px" }}
           >
             © {new Date().getFullYear()} ThinkEx
@@ -149,4 +121,4 @@ export function InviteEmailTemplate({
   );
 }
 
-export default InviteEmailTemplate;
+export default DesktopReminderEmail;
