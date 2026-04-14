@@ -7,17 +7,19 @@ import { Input } from "@/components/ui/input";
 import { UserProfileDropdown } from "./UserProfileDropdown";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ThinkExLogo } from "@/components/ui/thinkex-logo";
-import type { InitialAuth } from "./HomeShell";
 
 interface HomeTopBarProps {
-  showBackground: boolean;
-  showSearch: boolean;
+  scrollY: number;
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  initialAuth: InitialAuth;
 }
 
-export function HomeTopBar({ showBackground, showSearch, searchQuery, onSearchChange, initialAuth }: HomeTopBarProps) {
+export function HomeTopBar({ scrollY, searchQuery, onSearchChange }: HomeTopBarProps) {
+  // Show search bar after scrolling past hero content (300px) — unmount when hidden so autoFocus runs when it mounts
+  const showSearch = scrollY > 300;
+  // Background: starts fading at 200px, fully opaque at 500px
+  const bgOpacity = Math.min(Math.max((scrollY - 200) / 300, 0), 1);
+
   return (
     <header
       className={cn(
@@ -26,9 +28,10 @@ export function HomeTopBar({ showBackground, showSearch, searchQuery, onSearchCh
         "transition-all duration-300"
       )}
       style={{
-        backgroundColor: showBackground ? `hsl(240 5.9% 10% / 0.18)` : "transparent",
+        backgroundColor: `hsl(240 5.9% 10% / ${0.18 * bgOpacity})`,
       }}
     >
+      {/* Left: Logo */}
       <Link href="/home" className="flex items-center gap-2 group">
         <div className="relative h-6 w-6 flex items-center justify-center transition-transform group-hover:scale-105">
           <ThinkExLogo size={24} priority />
@@ -36,6 +39,7 @@ export function HomeTopBar({ showBackground, showSearch, searchQuery, onSearchCh
         <span className="text-lg font-medium whitespace-nowrap">ThinkEx</span>
       </Link>
 
+      {/* Center: Search bar (mounted when visible so autoFocus works) */}
       {showSearch && (
         <div className="absolute left-1/2 -translate-x-1/2 transition-all duration-300">
           <div
@@ -69,9 +73,10 @@ export function HomeTopBar({ showBackground, showSearch, searchQuery, onSearchCh
         </div>
       )}
 
+      {/* Right: Theme toggle + User profile */}
       <div className="flex items-center gap-2">
         <ThemeToggle />
-        <UserProfileDropdown initialAuth={initialAuth} />
+        <UserProfileDropdown />
       </div>
     </header>
   );

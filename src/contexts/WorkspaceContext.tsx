@@ -38,7 +38,7 @@ interface WorkspaceContextType {
 
 const WorkspaceContext = createContext<WorkspaceContextType | null>(null);
 
-export function WorkspaceProvider({ children, initialWorkspaces }: { children: React.ReactNode; initialWorkspaces?: any[] | null }) {
+export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
@@ -71,10 +71,6 @@ export function WorkspaceProvider({ children, initialWorkspaces }: { children: R
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
     retry: 3,
-    ...(initialWorkspaces ? {
-      initialData: initialWorkspaces,
-      initialDataUpdatedAt: Date.now(),
-    } : {}),
   });
 
   // Find cached workspace in list to use as initial data for instant loading
