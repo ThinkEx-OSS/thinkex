@@ -3,7 +3,6 @@
 import { HomeContent } from "@/components/home/HomeContent";
 import { HomeLayout } from "@/components/layout/HomeLayout";
 import { AnonymousSessionHandler } from "@/components/layout/SessionHandler";
-import { QueryProvider } from "@/components/query-provider";
 import { MobileWarning } from "@/components/ui/MobileWarning";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import type { WorkspaceListItem } from "@/lib/workspace/list-workspaces";
@@ -29,16 +28,14 @@ export function HomeShell({
     <>
       <MobileWarning />
       <AnonymousSessionHandler>
-        <QueryProvider>
-          <WorkspaceProvider initialWorkspaces={initialWorkspaces}>
-            <HomeLayout>
-              <HomeContent
-                showDemoVideo={showDemoVideo}
-                initialAuth={initialAuth}
-              />
-            </HomeLayout>
-          </WorkspaceProvider>
-        </QueryProvider>
+        <WorkspaceProvider initialWorkspaces={initialWorkspaces}>
+          <HomeLayout>
+            <HomeContent
+              showDemoVideo={showDemoVideo}
+              initialAuth={initialAuth}
+            />
+          </HomeLayout>
+        </WorkspaceProvider>
       </AnonymousSessionHandler>
     </>
   );
