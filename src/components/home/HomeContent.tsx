@@ -6,12 +6,13 @@ import {
   useEffect,
   useCallback,
 } from "react";
-import { HomePromptInput } from "./HomePromptInput";
+import dynamic from "next/dynamic";
 import { DynamicTagline } from "./DynamicTagline";
 import { WorkspaceGrid } from "./WorkspaceGrid";
 import { HomeTopBar } from "./HomeTopBar";
 import { FloatingWorkspaceCards } from "@/components/background/FloatingWorkspaceCards";
 import { HeroGlow } from "./HeroGlow";
+import { DemoVideoSection } from "./DemoVideoSection";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ChevronDown } from "lucide-react";
@@ -23,7 +24,6 @@ import {
   HomeAttachmentsProvider,
   useHomeAttachments,
 } from "@/contexts/HomeAttachmentsContext";
-import { LinkInputDialog } from "./LinkInputDialog";
 import { HomeHeroDropzone } from "./HomeHeroDropzone";
 import {
   HOME_FILE_UPLOAD_ACCEPT_STRING,
@@ -31,9 +31,24 @@ import {
 } from "@/lib/uploads/home-upload-config";
 
 import { HomeActionCards } from "./HomeActionCards";
-import { RecordWorkspaceDialog } from "@/components/modals/RecordWorkspaceDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import type { InitialAuth } from "./HomeShell";
+
+const RecordWorkspaceDialog = dynamic(
+  () => import("@/components/modals/RecordWorkspaceDialog").then(mod => ({ default: mod.RecordWorkspaceDialog })),
+  { ssr: false }
+);
+
+const LinkInputDialog = dynamic(
+  () => import("./LinkInputDialog").then(mod => ({ default: mod.LinkInputDialog })),
+  { ssr: false }
+);
+
+const HomePromptInput = dynamic(
+  () => import("./HomePromptInput").then(mod => ({ default: mod.HomePromptInput })),
+  { ssr: false }
+);
 
 interface HeroAttachmentsSectionProps {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -49,7 +64,6 @@ interface HeroAttachmentsSectionProps {
   onClearPastedText: () => void;
 }
 
-/** Try to get an image from clipboard. Returns File or null. */
 async function getClipboardImage(): Promise<File | null> {
   try {
     const items = await navigator.clipboard.read();
@@ -182,12 +196,16 @@ function HeroAttachmentsSection({
   );
 }
 
-export function HomeContent() {
+interface HomeContentProps {
+  showDemoVideo: boolean;
+  initialAuth: InitialAuth;
+}
+
+export function HomeContent({ showDemoVideo, initialAuth }: HomeContentProps) {
   const router = useRouter();
   const setShouldOpenOnWorkspaceLoad = useAudioRecordingStore(
     (s) => s.setShouldOpenOnWorkspaceLoad,
   );
-  const [scrollY, setScrollY] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [heroVisible, setHeroVisible] = useState(true);
 
@@ -206,16 +224,17 @@ export function HomeContent() {
   const heroRef = useRef<HTMLDivElement>(null);
   const workspacesRef = useRef<HTMLDivElement>(null);
 
-  // Scroll tracking
+  const [showTopBarBg, setShowTopBarBg] = useState(false);
+  const [showTopBarSearch, setShowTopBarSearch] = useState(false);
+
   useEffect(() => {
     const handleScroll = () => {
-      if (scrollRef.current) {
-        setScrollY(scrollRef.current.scrollTop);
-        // Hide scroll hint as soon as user scrolls past the hero
-        if (scrollRef.current.scrollTop >= 100) {
-          setShowScrollHint(false);
-        }
-      }
+      if (!scrollRef.current) return;
+      const y = scrollRef.current.scrollTop;
+
+      setShowTopBarBg(y > 200);
+      setShowTopBarSearch(y > 300);
+      if (y >= 100) setShowScrollHint(false);
     };
 
     const el = scrollRef.current;
@@ -223,7 +242,6 @@ export function HomeContent() {
     return () => el?.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // IntersectionObserver for section visibility and focus management
   useEffect(() => {
     const heroEl = heroRef.current;
     const workspacesEl = workspacesRef.current;
@@ -251,23 +269,30 @@ export function HomeContent() {
     return () => observer.disconnect();
   }, []);
 
-  // Mouse tracking for scroll hint pill — only track when hero is visible and workspaces aren't yet
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
+    let rafId: number | null = null;
 
     function handleMouseMove(e: MouseEvent) {
-      if (!el) return;
-      // Only show hint when near top of page (not scrolled) AND mouse in bottom 20%
-      const rect = el.getBoundingClientRect();
-      const relativeY = e.clientY - rect.top;
-      const nearBottom = relativeY > rect.height * 0.8;
-      const atTop = el.scrollTop < 100;
-      setShowScrollHint(nearBottom && atTop);
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const relativeY = e.clientY - rect.top;
+        const nearBottom = relativeY > rect.height * 0.8;
+        const atTop = el.scrollTop < 100;
+        setShowScrollHint(nearBottom && atTop);
+      });
     }
 
     function handleMouseLeave() {
       setShowScrollHint(false);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
     }
 
     el.addEventListener("mousemove", handleMouseMove);
@@ -275,6 +300,7 @@ export function HomeContent() {
     return () => {
       el.removeEventListener("mousemove", handleMouseMove);
       el.removeEventListener("mouseleave", handleMouseLeave);
+      if (rafId !== null) cancelAnimationFrame(rafId);
     };
   }, []);
 
@@ -334,28 +360,26 @@ export function HomeContent() {
         createWorkspacePending={createWorkspace.isPending}
       />
 
-      {/* Fixed Top Bar */}
       <HomeTopBar
-        scrollY={scrollY}
+        showBackground={showTopBarBg}
+        showSearch={!showDemoVideo && showTopBarSearch}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        initialAuth={initialAuth}
       />
 
-      {/* Scrollable Content */}
       <HomeAttachmentsProvider>
         <HomeHeroDropzone onFilesDropped={() => setShowPromptInput(true)}>
           <div
             ref={scrollRef}
             className="relative h-full w-full overflow-y-auto"
           >
-            {/* Floating Card Background with spotlight reveal effect */}
             <div className="absolute inset-x-0 top-0 h-[185vh] z-0 select-none overflow-hidden">
               <FloatingWorkspaceCards
                 bottomGradientHeight="40%"
               />
             </div>
 
-            {/* Gradient fade from hero to workspaces section */}
             <div
               className="fixed bottom-0 left-0 right-0 h-[40vh] pointer-events-none z-[5]"
               style={{
@@ -364,11 +388,10 @@ export function HomeContent() {
               }}
             />
 
-            {/* Scroll hint arrow — appears when cursor enters bottom 20% */}
             <div
               className={cn(
                 "fixed bottom-8 left-1/2 -translate-x-1/2 z-[20] transition-all duration-300 ease-out",
-                showScrollHint && hasWorkspaces
+                showScrollHint && hasWorkspaces && !showDemoVideo
                   ? "opacity-100 translate-y-0"
                   : "opacity-0 translate-y-2 pointer-events-none",
               )}
@@ -382,16 +405,13 @@ export function HomeContent() {
               </button>
             </div>
 
-            {/* Hero Section */}
             <div
               ref={heroRef}
               className="relative z-10 h-[75vh] flex flex-col items-center justify-center text-center px-6"
             >
               <div className="w-full max-w-[760px] relative">
-                {/* Hero Glow Effect */}
                 <HeroGlow />
 
-                {/* Dynamic tagline with mask wipe animation */}
                 <div className="mb-10 relative z-10">
                   <DynamicTagline />
                 </div>
@@ -412,23 +432,24 @@ export function HomeContent() {
               </div>
             </div>
 
-            {/* Workspaces Section - Allow scrolling within */}
             <div
               ref={workspacesRef}
               className="relative z-10 px-6 pb-8 pt-8 min-h-screen bg-gradient-to-b from-transparent via-background to-background"
             >
               <div className="w-full max-w-6xl mx-auto h-full">
-                {/* Your Workspaces */}
-                <div className="bg-sidebar backdrop-blur-xl border border-border/50 rounded-2xl p-6 shadow-2xl">
-                  <h2 className="text-lg font-normal text-muted-foreground mb-4">
-                    Recent workspaces
-                  </h2>
-                  <WorkspaceGrid searchQuery={searchQuery} />
-                </div>
+                {showDemoVideo ? (
+                  <DemoVideoSection />
+                ) : (
+                  <div className="bg-sidebar backdrop-blur-xl border border-border/50 rounded-2xl p-6 shadow-2xl">
+                    <h2 className="text-lg font-normal text-muted-foreground mb-4">
+                      Recent workspaces
+                    </h2>
+                    <WorkspaceGrid searchQuery={searchQuery} />
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Footer */}
             <div className="relative z-10">
               <SiteFooter />
             </div>
