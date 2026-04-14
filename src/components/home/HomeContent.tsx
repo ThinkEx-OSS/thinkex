@@ -213,6 +213,7 @@ export function HomeContent({ showDemoVideo, initialAuth }: HomeContentProps) {
 
   const { workspaces, loadingWorkspaces } = useWorkspaceContext();
   const hasWorkspaces = !loadingWorkspaces && workspaces.length > 0;
+  const effectiveShowDemo = showDemoVideo && !hasWorkspaces;
   const createWorkspace = useCreateWorkspace();
 
   const [showRecordDialog, setShowRecordDialog] = useState(false);
@@ -359,7 +360,7 @@ export function HomeContent({ showDemoVideo, initialAuth }: HomeContentProps) {
 
       <HomeTopBar
         showBackground={showTopBarBg}
-        showSearch={!showDemoVideo && showTopBarSearch}
+        showSearch={!effectiveShowDemo && showTopBarSearch}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         initialAuth={initialAuth}
@@ -386,7 +387,7 @@ export function HomeContent({ showDemoVideo, initialAuth }: HomeContentProps) {
             <div
               className={cn(
                 "fixed bottom-8 left-1/2 -translate-x-1/2 z-[20] transition-all duration-300 ease-out",
-                showScrollHint && hasWorkspaces && !showDemoVideo
+                showScrollHint && hasWorkspaces && !effectiveShowDemo
                   ? "opacity-100 translate-y-0"
                   : "opacity-0 translate-y-2 pointer-events-none",
               )}
@@ -432,7 +433,7 @@ export function HomeContent({ showDemoVideo, initialAuth }: HomeContentProps) {
               className="relative z-10 px-6 pb-8 pt-8 min-h-screen bg-gradient-to-b from-transparent via-background to-background"
             >
               <div className="w-full max-w-6xl mx-auto h-full">
-                {showDemoVideo ? (
+                {effectiveShowDemo ? (
                   <DemoVideoSection />
                 ) : (
                   <div className="bg-sidebar backdrop-blur-xl border border-border/50 rounded-2xl p-6 shadow-2xl">
