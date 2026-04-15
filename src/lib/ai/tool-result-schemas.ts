@@ -5,10 +5,6 @@ import {
   WebSearchResultSchema,
   normalizeWebSearchResult,
 } from "@/lib/ai/web-search-shared";
-import {
-  CodeExecuteResultSchema,
-  normalizeCodeExecuteResult,
-} from "@/lib/ai/code-execute-shared";
 import { flashcardCardInputSchema } from "@/lib/workspace-state/item-data-schemas";
 
 /**
@@ -28,17 +24,6 @@ const baseWorkspace = z
 /** document_create, item_edit */
 export const WorkspaceResultSchema = baseWorkspace;
 export type WorkspaceResult = z.infer<typeof WorkspaceResultSchema>;
-
-/** item_edit - extends WorkspaceResult with diff, filediff, cardCount, questionCount */
-export const EditItemResultSchema = baseWorkspace
-  .extend({
-    diff: z.string().optional(),
-    filediff: z.object({ additions: z.number(), deletions: z.number() }).optional(),
-    cardCount: z.number().optional(),
-    questionCount: z.number().optional(),
-  })
-  .passthrough();
-export type EditItemResult = z.infer<typeof EditItemResultSchema>;
 
 function createCoerceFunction<T extends { success: boolean; message?: string }>(
   schema: z.ZodType<T>,
@@ -72,19 +57,6 @@ export function parseWorkspaceResult(input: unknown): WorkspaceResult {
     return parseWithSchema(WorkspaceResultSchema, input, "WorkspaceResult");
   }
   return coerceToWorkspaceResult(input);
-}
-
-/** selectCards */
-export const SelectCardsResultSchema = baseWorkspace.extend({
-  message: z.string(),
-  addedCount: z.number().optional(),
-  invalidIds: z.array(z.string()).optional(),
-}).passthrough();
-
-export type SelectCardsResult = z.infer<typeof SelectCardsResultSchema>;
-
-export function parseSelectCardsResult(input: unknown): SelectCardsResult {
-  return parseWithSchema(SelectCardsResultSchema, input, "SelectCardsResult");
 }
 
 /** quiz_create */
@@ -140,27 +112,44 @@ export const URLContextResultSchema = z.union([z.string(), ProcessUrlsOutputSche
 export type URLContextResult = z.infer<typeof URLContextResultSchema>;
 
 export function parseURLContextResult(input: unknown): URLContextResult {
-  return parseWithSchema(URLContextResultSchema, input, "URLContextResult");
+  if (typeof input === "string") {
+    return input;
+  }
+
+  if (input == null) {
+    return "";
+  }
+
+  if (typeof input !== "object") {
+    return String(input);
+  }
+
+  if (Array.isArray(input)) {
+    return JSON.stringify(input);
+  }
+
+  const res = ProcessUrlsOutputSchema.safeParse(input);
+  if (res.success) {
+    return res.data;
+  }
+
+  const obj = input as Record<string, unknown>;
+  if (typeof obj.text === "string") {
+    return obj.text;
+  }
+
+  if (typeof obj.message === "string") {
+    return obj.message;
+  }
+
+  return JSON.stringify(input);
 }
 
-export type WebSearchResult = z.infer<typeof WebSearchResultSchema>;
-
-export function parseWebSearchResult(input: unknown): WebSearchResult {
+export function parseWebSearchResult(input: unknown): z.infer<typeof WebSearchResultSchema> {
   const normalized = normalizeWebSearchResult(input);
   if (normalized) {
     return normalized;
   }
 
   return parseWithSchema(WebSearchResultSchema, input, "WebSearchResult");
-}
-
-export type CodeExecuteResult = z.infer<typeof CodeExecuteResultSchema>;
-
-export function parseCodeExecuteResult(input: unknown): CodeExecuteResult {
-  const normalized = normalizeCodeExecuteResult(input);
-  if (normalized) {
-    return normalized;
-  }
-
-  return parseWithSchema(CodeExecuteResultSchema, input, "CodeExecuteResult");
 }

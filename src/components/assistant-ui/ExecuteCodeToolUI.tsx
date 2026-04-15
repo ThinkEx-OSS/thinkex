@@ -17,7 +17,7 @@ import {
   ImageRoot,
   ImageZoom,
 } from "@/components/assistant-ui/image";
-import type { CodeExecuteResult } from "@/lib/ai/tool-result-schemas";
+import type { CodeExecuteResult } from "@/lib/ai/code-execute-shared";
 
 function chartDataUrl(chart: { type: string; data: string }): string {
   return `data:${chart.type};base64,${chart.data}`;
