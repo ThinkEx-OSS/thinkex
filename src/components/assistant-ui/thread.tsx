@@ -116,36 +116,6 @@ interface ThreadProps {
   items?: Item[];
 }
 
-/**
- * Scrolls the viewport to bottom when an AI run completes.
- *
- * With `autoScroll={false}` + `turnAnchor="top"`, assistant-ui doesn't
- * auto-scroll on content resize. When the run ends (streaming → complete),
- * content height can change slightly (Streamdown finalizes, action bar appears),
- * causing a jarring scroll position jump. This component detects the
- * transition and snaps to bottom.
- */
-const ScrollOnRunEnd: FC<{
-  viewportRef: React.RefObject<HTMLDivElement | null>;
-}> = ({ viewportRef }) => {
-  const isRunning = useAuiState(({ thread }) => thread.isRunning);
-  const wasRunningRef = useRef(false);
-
-  useEffect(() => {
-    if (wasRunningRef.current && !isRunning && viewportRef.current) {
-      requestAnimationFrame(() => {
-        viewportRef.current?.scrollTo({
-          top: viewportRef.current.scrollHeight,
-          behavior: "instant",
-        });
-      });
-    }
-    wasRunningRef.current = isRunning;
-  }, [isRunning, viewportRef]);
-
-  return null;
-};
-
 export const Thread: FC<ThreadProps> = ({ items = [] }) => {
   const viewportRef = useRef<HTMLDivElement>(null);
 
@@ -178,7 +148,6 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
               AssistantMessage,
             }}
           />
-          <ScrollOnRunEnd viewportRef={viewportRef} />
         </ThreadPrimitive.Viewport>
 
         <div className="aui-thread-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-shrink-0 flex-col gap-4 overflow-visible rounded-t-3xl bg-sidebar px-4 pb-3 md:pb-4">
