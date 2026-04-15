@@ -12,6 +12,13 @@ function isRateLimited(key: string, maxAttempts: number): boolean {
 
   if (!entry || now > entry.resetAt) {
     rateLimitMap.set(key, { count: 1, resetAt: now + WINDOW_MS });
+    if (rateLimitMap.size > 100) {
+      for (const [existingKey, value] of rateLimitMap) {
+        if (now > value.resetAt) {
+          rateLimitMap.delete(existingKey);
+        }
+      }
+    }
     return false;
   }
 
@@ -25,21 +32,38 @@ function isRateLimited(key: string, maxAttempts: number): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 },
+      );
+    }
+
+    const { email } = body as { email?: unknown };
 
     if (!email || typeof email !== "string") {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail.length > 254) {
       return NextResponse.json(
         { error: "Invalid email address" },
         { status: 400 },
       );
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(normalizedEmail)) {
+      return NextResponse.json(
+        { error: "Invalid email address" },
+        { status: 400 },
+      );
+    }
+
     const ipAddress =
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       "unknown";

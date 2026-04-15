@@ -15,7 +15,7 @@ import {
 
 export function DesktopReminderEmail() {
   return (
-    <Html>
+    <Html lang="en">
       <Head />
       <Body
         style={{

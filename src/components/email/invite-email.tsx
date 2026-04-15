@@ -30,7 +30,7 @@ export function InviteEmailTemplate({
   const previewText = `${inviterName || "Someone"} invited you to "${workspaceName}" on ThinkEx`;
 
   return (
-    <Html>
+    <Html lang="en">
       <Head />
       <Body
         style={{
@@ -115,7 +115,11 @@ export function InviteEmailTemplate({
             or copy and paste this link into your browser:{" "}
             <Link
               href={workspaceUrl}
-              style={{ color: "#556cd6", textDecoration: "none" }}
+              style={{
+                color: "#556cd6",
+                textDecoration: "none",
+                wordBreak: "break-all",
+              }}
             >
               {workspaceUrl}
             </Link>
