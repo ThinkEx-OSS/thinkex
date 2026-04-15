@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth/minimal";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { anonymous } from "better-auth/plugins";
+import { autumn } from "autumn-js/better-auth";
 import { db } from "@/lib/db/client";
 
 // Determine the base URL - prioritize explicit config, then Vercel URL, then localhost
@@ -177,6 +178,7 @@ export const auth = betterAuth({
         }
       },
     }),
+    autumn(),
     // Automatically set cookies in server actions
     // Make sure this is the last plugin in the array
     nextCookies(),

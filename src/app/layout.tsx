@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import { AutumnProvider } from "autumn-js/react";
 
 // Using system fonts instead of custom fonts
 import { Providers } from "@/components/providers";
@@ -85,13 +86,22 @@ export default function RootLayout({
         <AppProviders>
           <PostHogProvider>
             <QueryProvider>
-              <Providers>
-                <Script
-                  src="https://accounts.google.com/gsi/client"
-                  strategy="afterInteractive"
-                />
-                {children}
-              </Providers>
+              <AutumnProvider
+                backendUrl={
+                  process.env.NEXT_PUBLIC_BETTER_AUTH_URL ||
+                  process.env.BETTER_AUTH_URL ||
+                  ""
+                }
+                useBetterAuth
+              >
+                <Providers>
+                  <Script
+                    src="https://accounts.google.com/gsi/client"
+                    strategy="afterInteractive"
+                  />
+                  {children}
+                </Providers>
+              </AutumnProvider>
             </QueryProvider>
           </PostHogProvider>
         </AppProviders>
