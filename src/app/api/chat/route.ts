@@ -29,7 +29,7 @@ import {
 } from "@/lib/ai/gateway-provider-options";
 import { db } from "@/lib/db/client";
 import { chatThreads } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   compactMessages,
   type CompressionState,
@@ -154,7 +154,12 @@ async function handlePOST(req: Request) {
           lastInputTokens: chatThreads.lastInputTokens,
         })
         .from(chatThreads)
-        .where(eq(chatThreads.id, threadId))
+        .where(
+          and(
+            eq(chatThreads.id, threadId),
+            eq(chatThreads.userId, userId ?? ""),
+          ),
+        )
         .limit(1);
       if (thread) {
         compressionState = thread;

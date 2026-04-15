@@ -14,15 +14,21 @@ import {
 } from "./prompts";
 
 let consecutiveFailures = 0;
+let lastFailureTime = 0;
 const MAX_FAILURES = 3;
+const BREAKER_RESET_MS = 60_000;
 
 export async function compressMessages(
   messagesToCompress: UIMessage[],
   existingSummary?: string | null,
 ): Promise<string | null> {
   if (consecutiveFailures >= MAX_FAILURES) {
-    logger.warn("🗜️ [COMPACTOR] Circuit breaker open — skipping compression");
-    return null;
+    if (Date.now() - lastFailureTime < BREAKER_RESET_MS) {
+      logger.warn("🗜️ [COMPACTOR] Circuit breaker open — skipping compression");
+      return null;
+    }
+    logger.info("🗜️ [COMPACTOR] Circuit breaker reset after timeout");
+    consecutiveFailures = 0;
   }
 
   try {
@@ -59,6 +65,7 @@ export async function compressMessages(
     return summary;
   } catch (error) {
     consecutiveFailures++;
+    lastFailureTime = Date.now();
     logger.error("🗜️ [COMPACTOR] Compression failed", {
       error: error instanceof Error ? error.message : String(error),
       consecutiveFailures,

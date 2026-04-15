@@ -3,6 +3,7 @@ import { logger } from "@/lib/utils/logger";
 import { compressMessages } from "./compressor";
 import { makeSummaryUIMessage } from "./prompts";
 import {
+  estimateTokens,
   estimateUIMessagesTokens,
   getContextBudget,
   getPreserveThreshold,
@@ -30,6 +31,7 @@ export async function compactMessages(
   const preserveThreshold = getPreserveThreshold(modelId);
   const estimatedTokens =
     state.lastInputTokens ?? estimateUIMessagesTokens(messages);
+  let needsRecompression = false;
 
   logger.debug("🗜️ [COMPACTOR] Evaluating budget", {
     estimatedTokens,
@@ -46,7 +48,7 @@ export async function compactMessages(
     if (cutoffIdx !== -1) {
       const recentMessages = messages.slice(cutoffIdx + 1);
       const recentTokens = estimateUIMessagesTokens(recentMessages);
-      const summaryTokens = state.compressionSummary.length * 0.3;
+      const summaryTokens = estimateTokens(state.compressionSummary);
       const totalWithSummary = recentTokens + summaryTokens;
 
       if (totalWithSummary < budget) {
@@ -66,14 +68,16 @@ export async function compactMessages(
       logger.info(
         "🗜️ [COMPACTOR] Re-compressing — conversation grew past budget",
       );
+      needsRecompression = true;
     } else {
       logger.warn("🗜️ [COMPACTOR] Stale cache — discarding summary", {
         missingMessageId: state.compressedUpToMessageId,
       });
+      needsRecompression = true;
     }
   }
 
-  if (estimatedTokens < budget) {
+  if (estimatedTokens < budget && !needsRecompression) {
     return { messages, updatedState: null };
   }
 
@@ -121,7 +125,7 @@ export async function compactMessages(
     updatedState: {
       compressionSummary: summary,
       compressedUpToMessageId: cutoffMessageId,
-      lastInputTokens: state.lastInputTokens,
+      lastInputTokens: null,
     },
   };
 }
