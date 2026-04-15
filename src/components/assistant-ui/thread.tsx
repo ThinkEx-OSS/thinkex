@@ -61,6 +61,7 @@ import Link from "next/link";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
 import { AIFeedbackDialog } from "@/components/assistant-ui/AIFeedbackDialog";
+import { ChatSettingsDropdown } from "@/components/assistant-ui/ChatSettingsDropdown";
 
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { useAttachmentUploadStore } from "@/lib/stores/attachment-upload-store";
@@ -83,10 +84,7 @@ import { ReplyContextDisplay } from "@/components/chat/ReplyContextDisplay";
 import { MessageContextBadges } from "@/components/chat/MessageContextBadges";
 import { MentionMenu } from "@/components/chat/MentionMenu";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import {
-  useUIStore,
-  selectReplySelections,
-} from "@/lib/stores/ui-store";
+import { useUIStore, selectReplySelections } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { useShallow } from "zustand/react/shallow";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
@@ -121,39 +119,37 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
 
   return (
     <ThreadPrimitive.Root
-        className="aui-root aui-thread-root @container flex h-full flex-col bg-sidebar"
-        style={{
-          ["--thread-max-width" as string]: "50rem",
-        }}
+      className="aui-root aui-thread-root @container flex h-full flex-col bg-sidebar"
+      style={{
+        ["--thread-max-width" as string]: "50rem",
+      }}
+    >
+      <ThreadPrimitive.Viewport
+        ref={viewportRef}
+        turnAnchor="top"
+        autoScroll={false}
+        className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll px-4"
       >
-        <ThreadPrimitive.Viewport
-          ref={viewportRef}
-          turnAnchor="top"
-          autoScroll={false}
-          className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll px-4"
-        >
-          <AuiIf condition={({ thread }) => thread.isLoading}>
-            <ThreadLoadingSkeleton />
-          </AuiIf>
-          <AuiIf
-            condition={({ thread }) => thread.isEmpty && !thread.isLoading}
-          >
-            <ThreadWelcome items={items} />
-          </AuiIf>
+        <AuiIf condition={({ thread }) => thread.isLoading}>
+          <ThreadLoadingSkeleton />
+        </AuiIf>
+        <AuiIf condition={({ thread }) => thread.isEmpty && !thread.isLoading}>
+          <ThreadWelcome items={items} />
+        </AuiIf>
 
-          <ThreadPrimitive.Messages
-            components={{
-              UserMessage,
-              EditComposer,
-              AssistantMessage,
-            }}
-          />
-        </ThreadPrimitive.Viewport>
+        <ThreadPrimitive.Messages
+          components={{
+            UserMessage,
+            EditComposer,
+            AssistantMessage,
+          }}
+        />
+      </ThreadPrimitive.Viewport>
 
-        <div className="aui-thread-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-shrink-0 flex-col gap-4 overflow-visible rounded-t-3xl bg-sidebar px-4 pb-3 md:pb-4">
-          <ComposerHoverWrapper items={items} />
-        </div>
-      </ThreadPrimitive.Root>
+      <div className="aui-thread-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-shrink-0 flex-col gap-4 overflow-visible rounded-t-3xl bg-sidebar px-4 pb-3 md:pb-4">
+        <ComposerHoverWrapper items={items} />
+      </div>
+    </ThreadPrimitive.Root>
   );
 };
 
@@ -883,8 +879,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         // Combine all context: selected cards, reply texts, and user message
         // Use placeholder when empty so AI SDK accepts (backend injects reply context into message)
         let modifiedText =
-          currentText.trim() ||
-          (hasReplyContext ? "Empty message" : "");
+          currentText.trim() || (hasReplyContext ? "Empty message" : "");
 
         // Attach per-request context as metadata via runConfig
         // This flows through as body.metadata.custom on the server
@@ -993,6 +988,7 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
           <ComposerAddAttachment />
         </div>
         <ModelPicker />
+        <ChatSettingsDropdown />
         {/* AI Debug Button - feature flag in prod, localhost debugger in dev */}
         {showAiDebugButton && (
           <button
