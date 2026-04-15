@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
+import {
+  withErrorHandling,
+  requireAuth,
+  verifyWorkspaceAccess,
+} from "@/lib/api/workspace-helpers";
 import { db } from "@/lib/db/client";
 import { workspaceShareLinks } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-import { withErrorHandling, requireAuth, verifyWorkspaceAccess } from "@/lib/api/workspace-helpers";
-
-function generateToken(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
+import { generateSecureToken } from "@/lib/utils/generate-token";
 
 async function handlePOST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const userId = await requireAuth();
   const { id: workspaceId } = await params;
@@ -31,7 +30,7 @@ async function handlePOST(
   let token: string;
   if (existing) {
     if (new Date(existing.expiresAt) < new Date()) {
-      token = generateToken();
+      token = generateSecureToken();
       await db
         .update(workspaceShareLinks)
         .set({ token, expiresAt: expiresAt.toISOString() })
@@ -40,7 +39,7 @@ async function handlePOST(
       token = existing.token;
     }
   } else {
-    token = generateToken();
+    token = generateSecureToken();
     await db.insert(workspaceShareLinks).values({
       workspaceId,
       token,
@@ -50,9 +49,12 @@ async function handlePOST(
   }
 
   const baseUrl = request.nextUrl.origin;
-  const url = `${baseUrl}/invite/link/${token}`;
+  const url = `${baseUrl}/invite/claim/${token}`;
 
   return NextResponse.json({ token, url });
 }
 
-export const POST = withErrorHandling(handlePOST, "POST /api/workspaces/[id]/share-link");
+export const POST = withErrorHandling(
+  handlePOST,
+  "POST /api/workspaces/[id]/share-link",
+);
