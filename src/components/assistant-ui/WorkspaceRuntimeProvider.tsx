@@ -45,6 +45,7 @@ export function WorkspaceRuntimeProvider({
   children,
 }: WorkspaceRuntimeProviderProps) {
   const selectedModelId = useUIStore((state) => state.selectedModelId);
+  const isMemoryEnabled = useUIStore((state) => state.isMemoryEnabled);
   const activeFolderId = useUIStore((state) => state.activeFolderId);
   const selectedCardIdsSet = useUIStore((state) => state.selectedCardIds);
   const activePdfPageByItemId = useUIStore(
@@ -79,12 +80,7 @@ export function WorkspaceRuntimeProvider({
       activePdfPageByItemId,
       viewingItemIds,
     );
-  }, [
-    workspaceState,
-    contextCardIds,
-    activePdfPageByItemId,
-    viewingItemIds,
-  ]);
+  }, [workspaceState, contextCardIds, activePdfPageByItemId, viewingItemIds]);
 
   // Per AI SDK, transport `body` is `Resolvable<object>` — if it is a function, `resolve()`
   // calls it on every sendMessages (see @ai-sdk/provider-utils resolve()). That gives
@@ -96,11 +92,13 @@ export function WorkspaceRuntimeProvider({
   const chatApiPayloadRef = useRef({
     workspaceId,
     modelId: selectedModelId,
+    isMemoryEnabled,
     activeFolderId,
     selectedCardsContext: "",
   });
   chatApiPayloadRef.current.workspaceId = workspaceId;
   chatApiPayloadRef.current.modelId = selectedModelId;
+  chatApiPayloadRef.current.isMemoryEnabled = isMemoryEnabled;
   chatApiPayloadRef.current.activeFolderId = activeFolderId;
   chatApiPayloadRef.current.selectedCardsContext = selectedCardsContext;
 

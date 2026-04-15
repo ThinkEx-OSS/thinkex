@@ -9,6 +9,7 @@ import {
 } from "ai";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 import { withTracing } from "@posthog/ai";
+import { withSupermemory } from "@supermemory/tools/ai-sdk";
 import type { UIMessage } from "ai";
 import { logger } from "@/lib/utils/logger";
 import { auth } from "@/lib/auth";
@@ -132,6 +133,7 @@ async function handlePOST(req: Request) {
     const system = body.system || "";
     workspaceId = extractWorkspaceId(body);
     activeFolderId = body.activeFolderId;
+    const isMemoryEnabled = body.isMemoryEnabled ?? true;
     // AssistantChatTransport passes thread remoteId as body.id (see assistant-ui react-ai-sdk)
     const threadId = body.id ?? body.threadId ?? null;
 
@@ -212,9 +214,20 @@ async function handlePOST(req: Request) {
         })
       : (baseGatewayModel as any);
 
+    const supermemoryApiKey = process.env.SUPERMEMORY_API_KEY;
+    const memoryModel =
+      supermemoryApiKey && userId && isMemoryEnabled
+        ? withSupermemory(tracedModel, userId, {
+            apiKey: supermemoryApiKey,
+            mode: "full",
+            addMemory: "always",
+            conversationId: threadId ?? undefined,
+          })
+        : tracedModel;
+
     // Use AI Gateway
     const model = wrapLanguageModel({
-      model: tracedModel,
+      model: memoryModel,
       middleware:
         process.env.NODE_ENV === "development" ? devToolsMiddleware() : [],
     });
