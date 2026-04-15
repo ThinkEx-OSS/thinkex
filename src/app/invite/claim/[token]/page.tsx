@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import {
@@ -12,6 +12,34 @@ import {
 import InviteErrorPage from "./InviteErrorPage";
 
 export const dynamic = "force-dynamic";
+
+async function claimAndResolveSlug(params: {
+  workspaceId: string;
+  userId: string;
+  permissionLevel: string;
+}): Promise<{ slug: string | null }> {
+  await db
+    .insert(workspaceCollaborators)
+    .values({
+      workspaceId: params.workspaceId,
+      userId: params.userId,
+      permissionLevel: params.permissionLevel,
+    })
+    .onConflictDoNothing({
+      target: [
+        workspaceCollaborators.workspaceId,
+        workspaceCollaborators.userId,
+      ],
+    });
+
+  const [workspace] = await db
+    .select({ slug: workspaces.slug })
+    .from(workspaces)
+    .where(eq(workspaces.id, params.workspaceId))
+    .limit(1);
+
+  return { slug: workspace?.slug ?? null };
+}
 
 export default async function InviteClaimPage({
   params,
@@ -34,6 +62,7 @@ export default async function InviteClaimPage({
   }
 
   let workspaceSlug: string | null = null;
+  let invitedEmail: string | null = null;
   let error:
     | "expired"
     | "not-found"
@@ -55,40 +84,22 @@ export default async function InviteClaimPage({
       emailInvite.email.toLowerCase() !== session.user.email.toLowerCase()
     ) {
       error = "email-mismatch";
+      invitedEmail = emailInvite.email;
     } else {
-      const [existing] = await db
-        .select()
-        .from(workspaceCollaborators)
-        .where(
-          and(
-            eq(workspaceCollaborators.workspaceId, emailInvite.workspaceId),
-            eq(workspaceCollaborators.userId, session.user.id),
-          ),
-        )
-        .limit(1);
+      const { slug } = await claimAndResolveSlug({
+        workspaceId: emailInvite.workspaceId,
+        userId: session.user.id,
+        permissionLevel: emailInvite.permissionLevel,
+      });
 
-      if (!existing) {
-        await db.insert(workspaceCollaborators).values({
-          workspaceId: emailInvite.workspaceId,
-          userId: session.user.id,
-          permissionLevel: emailInvite.permissionLevel,
-        });
-      }
-
-      await db
-        .delete(workspaceInvites)
-        .where(eq(workspaceInvites.id, emailInvite.id));
-
-      const [workspace] = await db
-        .select({ slug: workspaces.slug })
-        .from(workspaces)
-        .where(eq(workspaces.id, emailInvite.workspaceId))
-        .limit(1);
-
-      workspaceSlug = workspace?.slug ?? null;
-
-      if (!workspaceSlug) {
+      if (!slug) {
         error = "workspace-deleted";
+      } else {
+        await db
+          .delete(workspaceInvites)
+          .where(eq(workspaceInvites.id, emailInvite.id));
+
+        workspaceSlug = slug;
       }
     }
   }
@@ -104,35 +115,16 @@ export default async function InviteClaimPage({
       if (new Date(shareLink.expiresAt) < new Date()) {
         error = "expired";
       } else {
-        const [existing] = await db
-          .select()
-          .from(workspaceCollaborators)
-          .where(
-            and(
-              eq(workspaceCollaborators.workspaceId, shareLink.workspaceId),
-              eq(workspaceCollaborators.userId, session.user.id),
-            ),
-          )
-          .limit(1);
+        const { slug } = await claimAndResolveSlug({
+          workspaceId: shareLink.workspaceId,
+          userId: session.user.id,
+          permissionLevel: shareLink.permissionLevel,
+        });
 
-        if (!existing) {
-          await db.insert(workspaceCollaborators).values({
-            workspaceId: shareLink.workspaceId,
-            userId: session.user.id,
-            permissionLevel: shareLink.permissionLevel,
-          });
-        }
-
-        const [workspace] = await db
-          .select({ slug: workspaces.slug })
-          .from(workspaces)
-          .where(eq(workspaces.id, shareLink.workspaceId))
-          .limit(1);
-
-        workspaceSlug = workspace?.slug ?? null;
-
-        if (!workspaceSlug) {
+        if (!slug) {
           error = "workspace-deleted";
+        } else {
+          workspaceSlug = slug;
         }
       }
     } else {
@@ -144,5 +136,7 @@ export default async function InviteClaimPage({
     redirect(`/workspace/${workspaceSlug}`);
   }
 
-  return <InviteErrorPage error={error ?? "not-found"} />;
+  return (
+    <InviteErrorPage error={error ?? "not-found"} invitedEmail={invitedEmail} />
+  );
 }

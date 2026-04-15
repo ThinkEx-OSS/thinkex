@@ -11,7 +11,7 @@ type InviteError =
   | "workspace-deleted";
 
 const inviteErrorContent: Record<
-  InviteError,
+  Exclude<InviteError, "email-mismatch">,
   { title: string; description: string }
 > = {
   expired: {
@@ -23,19 +23,30 @@ const inviteErrorContent: Record<
     title: "Invalid Invite",
     description: "This invite link is invalid or has already been used.",
   },
-  "email-mismatch": {
-    title: "Wrong Account",
-    description:
-      "This invite is for a different email address. Log out and sign in with the correct account.",
-  },
   "workspace-deleted": {
     title: "Workspace Unavailable",
     description: "This workspace no longer exists.",
   },
 };
 
-export default function InviteErrorPage({ error }: { error: InviteError }) {
-  const content = inviteErrorContent[error] ?? inviteErrorContent["not-found"];
+export default function InviteErrorPage({
+  error,
+  invitedEmail,
+}: {
+  error: InviteError;
+  invitedEmail?: string | null;
+}) {
+  const title =
+    error === "email-mismatch"
+      ? "Wrong Account"
+      : (inviteErrorContent[error] ?? inviteErrorContent["not-found"]).title;
+  const description =
+    error === "email-mismatch"
+      ? invitedEmail
+        ? `This invite was sent to ${invitedEmail}. Log out and sign in with that account to accept.`
+        : "This invite is for a different email address. Log out and sign in with the correct account."
+      : (inviteErrorContent[error] ?? inviteErrorContent["not-found"])
+          .description;
 
   return (
     <div className="flex min-h-screen w-full flex-col items-center justify-center gap-6 p-8 text-center animate-in fade-in duration-500">
@@ -44,10 +55,8 @@ export default function InviteErrorPage({ error }: { error: InviteError }) {
       </div>
 
       <div className="max-w-md space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {content.title}
-        </h1>
-        <p className="text-muted-foreground">{content.description}</p>
+        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        <p className="text-muted-foreground">{description}</p>
       </div>
 
       <div className="flex gap-4">
