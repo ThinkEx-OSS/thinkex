@@ -148,8 +148,12 @@ export function parseURLContextResult(input: unknown): URLContextResult {
     return "";
   }
 
-  if (typeof input !== "object" || Array.isArray(input)) {
+  if (typeof input !== "object") {
     return String(input);
+  }
+
+  if (Array.isArray(input)) {
+    return JSON.stringify(input);
   }
 
   const res = ProcessUrlsOutputSchema.safeParse(input);
