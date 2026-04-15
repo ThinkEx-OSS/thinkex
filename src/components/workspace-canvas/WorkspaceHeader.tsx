@@ -4,7 +4,7 @@ import type React from "react";
 import { Fragment, useState, useRef, useEffect, useCallback, useMemo, useLayoutEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, X, ChevronRight, FolderOpen, Plus, Settings, Share2, Loader2, ExternalLink } from "lucide-react";
+import { Search, X, ChevronRight, FolderOpen, Plus, Settings, Share2, Loader2, ExternalLink, MessageSquareText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Kbd } from "@/components/ui/kbd";
@@ -67,6 +67,22 @@ const BREADCRUMB_DRAG_TARGET_CLASS =
   "bg-blue-500/10 text-sidebar-foreground ring-1 ring-inset ring-blue-500/50";
 const BREADCRUMB_MENU_ITEM_CLASS =
   "flex items-center gap-1.5 rounded-md px-2 py-1.5 cursor-pointer";
+/** Shared shell for header toolbar controls — same border/hover as labeled actions; icon-only uses square hit target */
+const WORKSPACE_HEADER_TOOLBAR_BTN_BASE =
+  "h-8 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors pointer-events-auto cursor-pointer outline-none";
+/** Icon + label with border (primary toolbar CTA, e.g. New) */
+const WORKSPACE_HEADER_BORDERED_ACTION_CLASS = cn(
+  WORKSPACE_HEADER_TOOLBAR_BTN_BASE,
+  "inline-flex items-center gap-2 px-2 text-sm box-border whitespace-nowrap relative",
+);
+/** Text-only actions (Feedback, Share) — no border; hover shifts label/icon color only */
+const WORKSPACE_HEADER_TEXT_ACTION_CLASS =
+  "inline-flex h-8 items-center gap-1.5 rounded-md px-1 text-sm font-normal text-muted-foreground transition-colors hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/50 pointer-events-auto cursor-pointer bg-transparent border-0 shadow-none";
+/** Icon-only (Search) — same visual family; tooltip + aria-label carry the name */
+const WORKSPACE_HEADER_TOOLBAR_ICON_ONLY_CLASS = cn(
+  WORKSPACE_HEADER_TOOLBAR_BTN_BASE,
+  "w-8 shrink-0 flex items-center justify-center",
+);
 
 type BreadcrumbEntry =
   | {
@@ -1099,15 +1115,25 @@ export function WorkspaceHeader({
             {/* Collaborator Avatars - show who's in the workspace */}
             <CollaboratorAvatars />
 
+            {/* Feedback button — PostHog survey targets this via CSS selector */}
+            <button
+              type="button"
+              className={WORKSPACE_HEADER_TEXT_ACTION_CLASS}
+              data-attr="feedback-button"
+            >
+              <MessageSquareText className="h-4 w-4 shrink-0" />
+              Feedback
+            </button>
+
             {onOpenShare && (
-              <Button
-                variant="ghost"
-                size="sm"
+              <button
+                type="button"
                 onClick={onOpenShare}
-                className="h-8 px-2 text-muted-foreground hover:text-foreground font-normal relative"
+                className={WORKSPACE_HEADER_TEXT_ACTION_CLASS}
               >
+                <Share2 className="h-4 w-4 shrink-0" />
                 Share
-              </Button>
+              </button>
             )}
 
             {/* Search - opens command palette */}
@@ -1115,10 +1141,7 @@ export function WorkspaceHeader({
               <TooltipTrigger asChild>
                 <button
                   onClick={() => onOpenSearch?.()}
-                  className={cn(
-                    "h-8 w-8 flex items-center justify-center rounded-md transition-colors pointer-events-auto cursor-pointer",
-                    "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent"
-                  )}
+                  className={WORKSPACE_HEADER_TOOLBAR_ICON_ONLY_CLASS}
                   data-tour="search-bar"
                   aria-label="Search workspace"
                 >
@@ -1130,15 +1153,13 @@ export function WorkspaceHeader({
               </TooltipContent>
             </Tooltip>
 
-            {/* New Button */}
+            {/* New Button - keeps bordered style as primary CTA */}
             {addItem && (
               <DropdownMenu open={isNewMenuOpen} onOpenChange={setIsNewMenuOpen}>
                 <DropdownMenuTrigger asChild>
                   <button
                     className={cn(
-                      "h-8 outline-none rounded-md text-sm pointer-events-auto whitespace-nowrap relative cursor-pointer box-border",
-                      "inline-flex items-center gap-2 px-2",
-                      "border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors",
+                      WORKSPACE_HEADER_BORDERED_ACTION_CLASS,
                       isNewMenuOpen && "text-sidebar-foreground bg-accent"
                     )}
                     data-tour="add-card-button"
