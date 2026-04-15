@@ -4,7 +4,7 @@ import type React from "react";
 import { Fragment, useState, useRef, useEffect, useCallback, useMemo, useLayoutEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, X, ChevronRight, FolderOpen, Plus, Settings, Share2, Loader2, ExternalLink } from "lucide-react";
+import { Search, X, ChevronRight, FolderOpen, Plus, Settings, Share2, Loader2, ExternalLink, MessageSquareText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Kbd } from "@/components/ui/kbd";
@@ -1099,13 +1099,26 @@ export function WorkspaceHeader({
             {/* Collaborator Avatars - show who's in the workspace */}
             <CollaboratorAvatars />
 
+            {/* Feedback button — PostHog survey targets this via CSS selector */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-muted-foreground hover:text-foreground font-normal"
+              data-attr="feedback-button"
+            >
+              <MessageSquareText className="h-4 w-4" />
+              Feedback
+            </Button>
+
+            {/* Share button — now with icon */}
             {onOpenShare && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onOpenShare}
-                className="h-8 px-2 text-muted-foreground hover:text-foreground font-normal relative"
+                className="h-8 px-2 text-muted-foreground hover:text-foreground font-normal"
               >
+                <Share2 className="h-4 w-4" />
                 Share
               </Button>
             )}
@@ -1130,7 +1143,7 @@ export function WorkspaceHeader({
               </TooltipContent>
             </Tooltip>
 
-            {/* New Button */}
+            {/* New Button - keeps bordered style as primary CTA */}
             {addItem && (
               <DropdownMenu open={isNewMenuOpen} onOpenChange={setIsNewMenuOpen}>
                 <DropdownMenuTrigger asChild>
