@@ -4,6 +4,7 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import { ChevronDown } from "lucide-react";
 
 const DEMO_VIDEO_SRC = "/finaldemo.mp4";
+const DEMO_VIDEO_POSTER = "/finaldemo-poster.png";
 const hasDemoVideo = DEMO_VIDEO_SRC.length > 0;
 
 const overlayButtonClass =
@@ -85,6 +86,7 @@ export function DemoVideoSection() {
             <video
               ref={videoRef}
               src={DEMO_VIDEO_SRC}
+              poster={DEMO_VIDEO_POSTER}
               muted
               playsInline
               className="w-full h-full cursor-pointer object-cover"
