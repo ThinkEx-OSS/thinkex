@@ -27,6 +27,13 @@ import {
   createGatewayLanguageModel,
   getGatewayAttributionHeaders,
 } from "@/lib/ai/gateway-provider-options";
+import { db } from "@/lib/db/client";
+import { chatThreads } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import {
+  compactMessages,
+  type CompressionState,
+} from "@/lib/ai/context-compactor";
 
 /**
  * Extract workspaceId from system context or request body
@@ -134,6 +141,25 @@ async function handlePOST(req: Request) {
     activeFolderId = body.activeFolderId;
     // AssistantChatTransport passes thread remoteId as body.id (see assistant-ui react-ai-sdk)
     const threadId = body.id ?? body.threadId ?? null;
+    let compressionState: CompressionState = {
+      compressionSummary: null,
+      compressedUpToMessageId: null,
+      lastInputTokens: null,
+    };
+    if (threadId) {
+      const [thread] = await db
+        .select({
+          compressionSummary: chatThreads.compressionSummary,
+          compressedUpToMessageId: chatThreads.compressedUpToMessageId,
+          lastInputTokens: chatThreads.lastInputTokens,
+        })
+        .from(chatThreads)
+        .where(eq(chatThreads.id, threadId))
+        .limit(1);
+      if (thread) {
+        compressionState = thread;
+      }
+    }
 
     // Create tools using the modular factory (before convertToModelMessages so
     // toModelOutput can sanitize historical tool results for the model)
@@ -159,11 +185,21 @@ async function handlePOST(req: Request) {
     }
 
     const validatedMessages = validation.data;
+    const compactionModelId = resolveGatewayModelId(
+      body.modelId || getDefaultChatModelId(),
+    );
+    const compaction = await compactMessages(
+      validatedMessages,
+      compressionState,
+      compactionModelId,
+    );
+    const messagesToConvert = compaction.messages;
+    let pendingCompressionUpdate = compaction.updatedState;
 
     // Convert messages (pass tools so toModelOutput strips event from historical tool results)
     let convertedMessages;
     try {
-      convertedMessages = await convertToModelMessages(validatedMessages, {
+      convertedMessages = await convertToModelMessages(messagesToConvert, {
         tools,
       });
     } catch (convertError) {
@@ -188,9 +224,7 @@ async function handlePOST(req: Request) {
     // Get pre-formatted selected cards context from client (no DB fetch needed)
     const selectedCardsContext = getSelectedCardsContext(body);
 
-    const modelId = resolveGatewayModelId(
-      body.modelId || getDefaultChatModelId(),
-    );
+    const modelId = compactionModelId;
 
     // Inject selected cards + reply selections into the last user message
     injectSelectionContext(
@@ -250,13 +284,42 @@ async function handlePOST(req: Request) {
           inputTokens: usage?.inputTokens,
           outputTokens: usage?.outputTokens,
           totalTokens: usage?.totalTokens,
-          cachedInputTokens: usage?.cachedInputTokens, // Standard property
+          cachedInputTokens: usage?.cachedInputTokens,
           reasoningTokens: usage?.reasoningTokens,
-          // Note: Extended provider-specific properties might not be available consistently via Gateway
           finishReason,
         };
 
         logger.info("📊 [CHAT-API] Final Token Usage:", usageInfo);
+
+        if (threadId && (usage?.inputTokens || pendingCompressionUpdate)) {
+          const updates: Record<string, unknown> = {};
+          if (usage?.inputTokens) {
+            updates.lastInputTokens = usage.inputTokens;
+          }
+          if (pendingCompressionUpdate) {
+            updates.compressionSummary =
+              pendingCompressionUpdate.compressionSummary;
+            updates.compressedUpToMessageId =
+              pendingCompressionUpdate.compressedUpToMessageId;
+          }
+          db.update(chatThreads)
+            .set(updates)
+            .where(eq(chatThreads.id, threadId))
+            .then(() => {
+              logger.debug("🗜️ [COMPACTOR] Compression state persisted", {
+                threadId,
+              });
+            })
+            .catch((err) => {
+              logger.error(
+                "🗜️ [COMPACTOR] Failed to persist compression state",
+                {
+                  error: err instanceof Error ? err.message : String(err),
+                  threadId,
+                },
+              );
+            });
+        }
       },
       onStepFinish: (result) => {
         // stepType exists in runtime but may not be in type definitions

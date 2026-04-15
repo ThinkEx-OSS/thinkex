@@ -896,6 +896,12 @@ export const chatThreads = pgTable(
     }).defaultNow(),
     /** Tip of current branch for threaded conversations; used when loading history. */
     headMessageId: text("head_message_id"),
+    /** Cached LLM-generated summary of compressed messages */
+    compressionSummary: text("compression_summary"),
+    /** The message ID up to which messages have been compressed into the summary */
+    compressedUpToMessageId: text("compressed_up_to_message_id"),
+    /** Token count from the last model response (usage.inputTokens from onFinish) */
+    lastInputTokens: integer("last_input_tokens"),
   },
   (table) => [
     index("idx_chat_threads_workspace").using(
