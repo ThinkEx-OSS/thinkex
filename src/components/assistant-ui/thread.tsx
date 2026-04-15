@@ -1144,7 +1144,7 @@ const MessageError: FC = () => {
 
 const AssistantMessage: FC = () => {
   return (
-    <MessagePrimitive.Root asChild fillClampThreshold="0px" fillClampOffset="20em">
+    <MessagePrimitive.Root asChild>
       <div
         className="aui-assistant-message-root relative mx-auto w-full max-w-[var(--thread-max-width)] animate-in pb-4 duration-150 ease-out fade-in slide-in-from-bottom-1 last:mb-4"
         data-role="assistant"
