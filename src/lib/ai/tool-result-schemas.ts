@@ -140,7 +140,33 @@ export const URLContextResultSchema = z.union([z.string(), ProcessUrlsOutputSche
 export type URLContextResult = z.infer<typeof URLContextResultSchema>;
 
 export function parseURLContextResult(input: unknown): URLContextResult {
-  return parseWithSchema(URLContextResultSchema, input, "URLContextResult");
+  if (typeof input === "string") {
+    return input;
+  }
+
+  if (input == null) {
+    return "";
+  }
+
+  if (typeof input !== "object" || Array.isArray(input)) {
+    return String(input);
+  }
+
+  const res = ProcessUrlsOutputSchema.safeParse(input);
+  if (res.success) {
+    return res.data;
+  }
+
+  const obj = input as Record<string, unknown>;
+  if (typeof obj.text === "string") {
+    return obj.text;
+  }
+
+  if (typeof obj.message === "string") {
+    return obj.message;
+  }
+
+  return JSON.stringify(input);
 }
 
 export type WebSearchResult = z.infer<typeof WebSearchResultSchema>;
