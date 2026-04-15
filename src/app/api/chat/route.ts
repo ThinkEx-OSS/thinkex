@@ -133,7 +133,7 @@ async function handlePOST(req: Request) {
     const system = body.system || "";
     workspaceId = extractWorkspaceId(body);
     activeFolderId = body.activeFolderId;
-    const isMemoryEnabled = body.isMemoryEnabled ?? true;
+    const isMemoryEnabled = body.isMemoryEnabled ?? false;
     // AssistantChatTransport passes thread remoteId as body.id (see assistant-ui react-ai-sdk)
     const threadId = body.id ?? body.threadId ?? null;
 
