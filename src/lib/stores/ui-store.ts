@@ -68,6 +68,7 @@ interface UIState {
   // Modal state
   showCreateWorkspaceModal: boolean;
   showSheetModal: boolean;
+  showUpgradeDialog: boolean;
 
   activeFolderId: string | null; // Active folder for filtering
   selectedModelId: string; // Selected AI model ID
@@ -117,6 +118,7 @@ interface UIState {
 
   setShowCreateWorkspaceModal: (show: boolean) => void;
   setShowSheetModal: (show: boolean) => void;
+  setShowUpgradeDialog: (show: boolean) => void;
 
   setActiveFolderId: (folderId: string | null) => void;
   /** Atomic: close panels and clear folder. Use when panel is focused and user navigates back. */
@@ -168,6 +170,7 @@ const initialState = {
 
   showCreateWorkspaceModal: false,
   showSheetModal: false,
+  showUpgradeDialog: false,
 
   activeFolderId: null,
   selectedModelId: getDefaultChatModelId(),
@@ -322,6 +325,7 @@ export const useUIStore = create<UIState>()(
         setShowCreateWorkspaceModal: (show) =>
           set({ showCreateWorkspaceModal: show }),
         setShowSheetModal: (show) => set({ showSheetModal: show }),
+        setShowUpgradeDialog: (show) => set({ showUpgradeDialog: show }),
 
         setSelectedModelId: (modelId) => set({ selectedModelId: modelId }),
 
@@ -412,6 +416,7 @@ export const useUIStore = create<UIState>()(
             itemPrompt: null,
             showCreateWorkspaceModal: false,
             showSheetModal: false,
+            showUpgradeDialog: false,
           }),
       }),
       {

@@ -13,6 +13,7 @@ import {
 import type { UIMessage } from "ai";
 import { useMemo, useCallback, useRef } from "react";
 import { AssistantAvailableProvider } from "@/contexts/AssistantAvailabilityContext";
+import { UpgradeDialog } from "@/components/billing/UpgradeDialog";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { toast } from "sonner";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
@@ -25,6 +26,12 @@ import { chatToolToolkit } from "@/components/assistant-ui/chat-toolkit";
 interface WorkspaceRuntimeProviderProps {
   workspaceId: string;
   children: React.ReactNode;
+}
+
+function UpgradeDialogConnected() {
+  const open = useUIStore((state) => state.showUpgradeDialog);
+  const setOpen = useUIStore((state) => state.setShowUpgradeDialog);
+  return <UpgradeDialog open={open} onOpenChange={setOpen} />;
 }
 
 function createWorkspaceChatRuntimeHook(
@@ -79,12 +86,7 @@ export function WorkspaceRuntimeProvider({
       activePdfPageByItemId,
       viewingItemIds,
     );
-  }, [
-    workspaceState,
-    contextCardIds,
-    activePdfPageByItemId,
-    viewingItemIds,
-  ]);
+  }, [workspaceState, contextCardIds, activePdfPageByItemId, viewingItemIds]);
 
   // Per AI SDK, transport `body` is `Resolvable<object>` — if it is a function, `resolve()`
   // calls it on every sendMessages (see @ai-sdk/provider-utils resolve()). That gives
@@ -131,6 +133,11 @@ export function WorkspaceRuntimeProvider({
         description:
           "Unable to reach the server. Please check your connection.",
       });
+    } else if (
+      combinedMessage.includes("credits_exhausted") ||
+      combinedMessage.includes("premium ai messages")
+    ) {
+      useUIStore.getState().setShowUpgradeDialog(true);
     } else if (
       combinedMessage.includes("500") ||
       combinedMessage.includes("internal server")
@@ -206,7 +213,10 @@ export function WorkspaceRuntimeProvider({
 
   return (
     <AssistantRuntimeProvider runtime={runtime} aui={aui}>
-      <AssistantAvailableProvider>{children}</AssistantAvailableProvider>
+      <AssistantAvailableProvider>
+        {children}
+        <UpgradeDialogConnected />
+      </AssistantAvailableProvider>
     </AssistantRuntimeProvider>
   );
 }

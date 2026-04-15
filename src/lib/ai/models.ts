@@ -252,6 +252,18 @@ export function getModelDefinition(id: string): ModelDefinition | undefined {
   return MODEL_REGISTRY[raw];
 }
 
+/**
+ * Whether a model ID refers to a premium (paid) chat model.
+ * Only models with tier "pro" are premium (Gemini Pro, Claude Sonnet).
+ * GPT-5 (tier "standard"), Flash/Haiku (tier "fast"/"lite"), and
+ * internal models (no `ui` field) are all free.
+ */
+export function isPremiumChatModel(modelId: string): boolean {
+  const def = getModelDefinition(modelId);
+  if (!def || !def.ui) return false;
+  return def.tier === "pro";
+}
+
 export function resolveGatewayModelId(input: string): string {
   if (PROVIDER_PREFIX_RE.test(input)) return input;
 

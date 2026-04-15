@@ -125,37 +125,12 @@ function ModelPickerRow({
               {model.ui.description}
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-md border bg-muted/40 px-2.5 py-2">
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                Speed
-              </div>
-              <div className="mt-1 font-medium text-foreground">
-                {model.ui.speed}
-              </div>
+          <div className="rounded-md border bg-muted/40 px-2.5 py-2 text-xs">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              Speed
             </div>
-            <div className="rounded-md border bg-muted/40 px-2.5 py-2">
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                Cost
-              </div>
-              <div className="mt-1 flex items-center gap-0.5 font-medium">
-                {Array.from({ length: 3 }, (_, index) => {
-                  const isActive = index < model.ui.costLevel;
-                  return (
-                    <span
-                      key={index}
-                      className={cn(
-                        "text-sm leading-none",
-                        isActive
-                          ? "text-foreground"
-                          : "text-muted-foreground/35",
-                      )}
-                    >
-                      $
-                    </span>
-                  );
-                })}
-              </div>
+            <div className="mt-1 font-medium text-foreground">
+              {model.ui.speed}
             </div>
           </div>
           <div>
