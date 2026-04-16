@@ -1,0 +1,2 @@
+patchedDependencies:
+  autumn-js@1.2.9: patches/autumn-js@1.2.9.patch
