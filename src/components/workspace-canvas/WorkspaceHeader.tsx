@@ -41,7 +41,6 @@ import {
   exportMarkdownToGoogleDoc,
   getGoogleOAuthClientId,
 } from "@/lib/exportToGoogleDocs";
-import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import { getFolderPath } from "@/lib/workspace-state/search";
 import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";
 import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
@@ -899,7 +898,7 @@ export function WorkspaceHeader({
 
   const handleWebsiteCreate = useCallback((url: string, name: string, favicon?: string) => {
     if (!addItem) return;
-    addItem("website", name, { url, favicon }, DEFAULT_CARD_DIMENSIONS.website);
+    addItem("website", name, { url, favicon });
     setIsNewMenuOpen(false);
   }, [addItem]);
 

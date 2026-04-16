@@ -23,10 +23,6 @@ import { getRandomCardColor } from "@/lib/workspace-state/colors";
 import { logger } from "@/lib/utils/logger";
 import { useUIStore } from "@/lib/stores/ui-store";
 import {
-  getLayoutForBreakpoint,
-  findNextAvailablePosition,
-} from "@/lib/workspace-state/grid-layout-helpers";
-import {
   hasDuplicateName,
   getNextUniqueDefaultName,
 } from "@/lib/workspace/unique-name";
@@ -373,21 +369,6 @@ export function useWorkspaceOperations(
       const finalName =
         name || getNextUniqueDefaultName(currentItems, validType, folderId);
 
-      let layout: Item["layout"] = undefined;
-      if (initialLayout) {
-        const itemsInView = currentItems.filter((item) =>
-          activeFolderId ? item.folderId === activeFolderId : !item.folderId,
-        );
-        const position = findNextAvailablePosition(
-          itemsInView,
-          validType,
-          4,
-          initialLayout.w,
-          initialLayout.h,
-        );
-        layout = { lg: position };
-      }
-
       const item: Item = {
         id,
         type: validType,
@@ -396,7 +377,6 @@ export function useWorkspaceOperations(
         data: mergedData as ItemData,
         color: getRandomCardColor(), // Assign random color to new cards
         folderId: activeFolderId ?? undefined, // Auto-assign to active folder
-        ...(layout && { layout }),
       };
 
       const event = createEvent("ITEM_CREATED", { id, item }, userId, userName);
@@ -424,15 +404,6 @@ export function useWorkspaceOperations(
 
       const activeFolderId = useUIStore.getState().activeFolderId;
 
-      // Get items in current view for layout calculation
-      // We need to maintain a running list including newly created items to prevent stacking
-      const itemsInCurrentView = currentItems.filter((item) =>
-        activeFolderId ? item.folderId === activeFolderId : !item.folderId,
-      );
-
-      // Mutable array to track items for position calculation as we generate them
-      const itemsForLayout = [...itemsInCurrentView];
-
       // Track items we're creating to detect within-batch duplicates
       const itemsSoFar: Item[] = [];
 
@@ -455,7 +426,7 @@ export function useWorkspaceOperations(
 
           const id = generateItemId();
           const folderId = activeFolderId ?? null;
-          const allItemsSoFar = [...itemsInCurrentView, ...itemsSoFar];
+          const allItemsSoFar = [...currentItems, ...itemsSoFar];
           const finalName =
             name ||
             getNextUniqueDefaultName(allItemsSoFar, validType, folderId);
@@ -474,34 +445,6 @@ export function useWorkspaceOperations(
             ? { ...baseData, ...initialData }
             : baseData;
 
-          // Calculate layout if initial dimensions provided
-          let layout = undefined;
-          let layoutPlaceholderItem: Item | null = null;
-          if (initialLayout) {
-            const position = findNextAvailablePosition(
-              itemsForLayout,
-              validType,
-              4, // Default cols
-              initialLayout.w,
-              initialLayout.h,
-            );
-
-            layout = { lg: position };
-            layoutPlaceholderItem = {
-              id,
-              type: validType,
-              name: finalName,
-              subtitle: "",
-              data: baseData as ItemData,
-              color: getRandomCardColor(),
-              folderId: activeFolderId ?? undefined,
-              layout,
-            };
-
-            // Add placeholder item to layout tracking array so next item doesn't overlap
-            itemsForLayout.push(layoutPlaceholderItem);
-          }
-
           const newItem: Item = {
             id,
             type: validType,
@@ -510,7 +453,6 @@ export function useWorkspaceOperations(
             data: mergedData as ItemData,
             color: getRandomCardColor(), // Assign random color to new cards
             folderId: activeFolderId ?? undefined, // Auto-assign to active folder
-            layout,
           };
           itemsSoFar.push(newItem);
           return newItem;
@@ -681,57 +623,6 @@ export function useWorkspaceOperations(
         return;
       }
 
-      // Extract only layout changes to minimize payload size
-      // Compare with latest state (from cache) to find items whose layout changed
-      const layoutUpdates: Array<{
-        id: string;
-        x: number;
-        y: number;
-        w: number;
-        h: number;
-      }> = [];
-      const currentItemsMap = new Map(
-        latestState.map((item) => [item.id, item]),
-      );
-
-      for (const item of items) {
-        const currentItem = currentItemsMap.get(item.id);
-        const currentLayout = currentItem
-          ? getLayoutForBreakpoint(currentItem, "lg")
-          : undefined;
-        const newLayout = getLayoutForBreakpoint(item, "lg");
-
-        // Only include if layout exists and has changed
-        if (
-          newLayout &&
-          (!currentLayout ||
-            currentLayout.x !== newLayout.x ||
-            currentLayout.y !== newLayout.y ||
-            currentLayout.w !== newLayout.w ||
-            currentLayout.h !== newLayout.h)
-        ) {
-          layoutUpdates.push({
-            id: item.id,
-            x: newLayout.x,
-            y: newLayout.y,
-            w: newLayout.w,
-            h: newLayout.h,
-          });
-        }
-      }
-      // Only create event if there are actual layout changes
-      if (layoutUpdates.length > 0) {
-        const event = createEvent(
-          "BULK_ITEMS_UPDATED",
-          {
-            layoutUpdates,
-            previousItemCount,
-          },
-          userId,
-          userName,
-        );
-        mutation.mutate(event);
-      }
     },
     [workspaceId, queryClient, currentItems, mutation, userId, userName],
   );

@@ -1,7 +1,6 @@
 import React, { RefObject, useState, useCallback } from "react";
 import { toast } from "sonner";
 import type { Item, CardType } from "@/lib/workspace-state/types";
-import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import type { WorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import WorkspaceContent from "./WorkspaceContent";
 import SelectionActionBar from "./SelectionActionBar";
@@ -181,7 +180,6 @@ export function WorkspaceSection({
           type: "website",
           name,
           initialData: { url, favicon },
-          initialLayout: DEFAULT_CARD_DIMENSIONS.website,
         },
       ]);
     },
@@ -383,7 +381,6 @@ export function WorkspaceSection({
       }
 
       const itemDefinitions = buildWorkspaceItemDefinitionsFromAssets(uploads, {
-        imageLayout: DEFAULT_CARD_DIMENSIONS.image,
       });
 
       const createdIds = operations.createItems(itemDefinitions, {

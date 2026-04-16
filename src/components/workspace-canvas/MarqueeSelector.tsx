@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { createRectFromPoints, getIntersectingCards, type Rectangle } from "@/lib/utils/marquee-utils";
-import { useAutoScroll } from "@/hooks/ui/use-auto-scroll";
 
 interface MarqueeSelectorProps {
   scrollContainerRef: React.RefObject<HTMLElement | null>;
@@ -32,10 +31,6 @@ export function MarqueeSelector({
   const isDraggingRef = useRef(false);
   const startPointRef = useRef({ x: 0, y: 0 });
 
-  // Use autoscroll hook for smooth scrolling during selection
-  const { handleDragStart: startAutoScroll, handleDragStop: stopAutoScroll } = useAutoScroll(
-    scrollContainerRef as React.RefObject<HTMLDivElement | null>
-  );
 
   // Cancel marquee selection if grid starts dragging
   useEffect(() => {
@@ -43,9 +38,8 @@ export function MarqueeSelector({
       setIsSelecting(false);
       setMarqueeRect(null);
       isDraggingRef.current = false;
-      stopAutoScroll(); // Stop autoscroll when canceling
     }
-  }, [isGridDragging, isSelecting, stopAutoScroll]);
+  }, [isGridDragging, isSelecting]);
 
   // Add/remove class on body to disable pointer events on iframes during marquee selection
   useEffect(() => {
@@ -103,15 +97,13 @@ export function MarqueeSelector({
     setIsSelecting(true);
     isDraggingRef.current = true;
 
-    // Start autoscroll for marquee selection
-    startAutoScroll();
 
     // Prevent text selection and other drag behaviors during marquee
     e.preventDefault();
     e.stopPropagation();
 
     return true;
-  }, [scrollContainerRef, startAutoScroll]);
+  }, [scrollContainerRef]);
 
   const handleMouseDown = useCallback((e: MouseEvent) => {
     // Only start marquee on left click
@@ -129,7 +121,7 @@ export function MarqueeSelector({
       target.closest('article') ||           // Card itself
       target.closest('button') ||            // Any button
       target.closest('[role="button"]') ||   // Button role elements
-      target.closest('.react-grid-item') ||  // Grid item wrapper
+      target.closest('[data-workspace-card]') ||  // Grid item wrapper
       target.classList.contains('drag-handle') || // Drag handle
       target.tagName === 'INPUT' ||          // Input fields
       target.tagName === 'TEXTAREA'          // Text areas
@@ -165,13 +157,11 @@ export function MarqueeSelector({
     setIsSelecting(true);
     isDraggingRef.current = true;
 
-    // Start autoscroll for marquee selection
-    startAutoScroll();
 
     // Prevent text selection and other drag behaviors during marquee
     e.preventDefault();
     e.stopPropagation();
-  }, [scrollContainerRef, startAutoScroll]);
+  }, [scrollContainerRef]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDraggingRef.current || isGridDragging) return;
@@ -199,8 +189,6 @@ export function MarqueeSelector({
     isDraggingRef.current = false;
     setIsSelecting(false);
 
-    // Stop autoscroll when selection ends
-    stopAutoScroll();
 
     // Get intersecting cards and add to selection
     if (marqueeRect && marqueeRect.width > 3 && marqueeRect.height > 3) {
@@ -218,7 +206,7 @@ export function MarqueeSelector({
     }
 
     setMarqueeRect(null);
-  }, [marqueeRect, cardIds, scrollContainerRef, selectMultipleCards, selectedCardIds, stopAutoScroll]);
+  }, [marqueeRect, cardIds, scrollContainerRef, selectMultipleCards, selectedCardIds]);
 
   // Set up mouse event listeners on scroll container (normal marquee)
   useEffect(() => {

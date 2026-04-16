@@ -9,7 +9,6 @@ import {
 import type { Item, DocumentData } from "@/lib/workspace-state/types";
 import type { ColorResult } from "react-color";
 import { useUIStore, selectItemScrollLocked } from "@/lib/stores/ui-store";
-import { getLayoutForBreakpoint } from "@/lib/workspace-state/grid-layout-helpers";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -82,10 +81,7 @@ function WorkspaceCard({
   const toggleItemScrollLocked = useUIStore(
     (state) => state.toggleItemScrollLocked,
   );
-  const layout = getLayoutForBreakpoint(item, "lg");
-
-  // Derive preview mode from the grid layout instead of observing DOM size.
-  const shouldShowPreview = (layout?.w ?? 1) > 1 && (layout?.h ?? 4) > 4;
+  const shouldShowPreview = false;
 
   // Track minimal local drag detection (only if grid hasn't detected drag)
   const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
@@ -596,13 +592,6 @@ export const WorkspaceCardMemoized = memo(
       if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
     }
 
-    // Compare layout (use lg breakpoint for comparison)
-    const prevLayout = getLayoutForBreakpoint(prevProps.item, "lg");
-    const nextLayout = getLayoutForBreakpoint(nextProps.item, "lg");
-    if (prevLayout?.x !== nextLayout?.x) return false;
-    if (prevLayout?.y !== nextLayout?.y) return false;
-    if (prevLayout?.w !== nextLayout?.w) return false;
-    if (prevLayout?.h !== nextLayout?.h) return false;
 
     // NOTE: isSelected is now subscribed directly from the store, not a prop
 

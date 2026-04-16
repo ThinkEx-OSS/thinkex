@@ -75,10 +75,7 @@ export interface Item {
   data: ItemData;
   color?: CardColor; // background color for the card
   folderId?: string; // Single folder assignment (flat structure)
-  /**
-   * Layout position for the workspace grid.
-   * May be responsive (`ResponsiveLayouts`) or a flat `LayoutPosition` (treated as `lg`).
-   */
+  /** @deprecated Layout field is no longer used. Cards use CSS grid auto-layout. */
   layout?: ResponsiveLayouts | LayoutPosition;
   /** Timestamp (ms) when item was last modified. Set by event reducer. Used for AI conflict detection. */
   lastModified?: number;

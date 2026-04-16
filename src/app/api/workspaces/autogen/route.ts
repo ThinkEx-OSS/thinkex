@@ -10,7 +10,6 @@ import { generateSlug } from "@/lib/workspace/slug";
 import { workspaceWorker, type CreateItemParams } from "@/lib/ai/workers";
 import { searchVideos } from "@/lib/youtube";
 import { FirecrawlClient } from "@/lib/ai/utils/firecrawl";
-import { findNextAvailablePosition } from "@/lib/workspace-state/grid-layout-helpers";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import type { Item, QuizQuestion } from "@/lib/workspace-state/types";
 import { quizQuestionSchema } from "@/lib/workspace-state/item-data-schemas";
@@ -565,20 +564,6 @@ export async function POST(request: NextRequest) {
         });
 
         // Create PDF and image items immediately so OCR can start (runs in parallel with Phase 1)
-        // Seed with known content-item positions so files are placed around them (matching pre-restructuring layout)
-        // Always reserve YouTube footprint so a later searched YouTube item (AUTOGEN_LAYOUTS.youtube) never overlaps early PDFs/images
-        const pdfItemLayouts: Pick<Item, "type" | "layout">[] = [
-          {
-            type: "document",
-            layout: AUTOGEN_LAYOUTS.document as Item["layout"],
-          },
-          { type: "quiz", layout: AUTOGEN_LAYOUTS.quiz as Item["layout"] },
-          {
-            type: "youtube",
-            layout: AUTOGEN_LAYOUTS.youtube as Item["layout"],
-          },
-        ];
-
         const documentAssets: UploadedAsset[] = documentFileUrls.map((pdf) =>
           createUploadedAsset({
             fileUrl: pdf.url,
@@ -600,13 +585,6 @@ export async function POST(request: NextRequest) {
 
         const pdfCreateParams: CreateItemParams[] = [];
         for (const asset of documentAssets) {
-          const position = findNextAvailablePosition(
-            pdfItemLayouts as Item[],
-            "pdf",
-            4,
-            AUTOGEN_LAYOUTS.pdf.w,
-            AUTOGEN_LAYOUTS.pdf.h,
-          );
           const pdfItemId = generateItemId();
           const itemDefinition = buildWorkspaceItemDefinitionFromAsset(asset);
           if (itemDefinition.type !== "pdf") continue;
@@ -615,20 +593,11 @@ export async function POST(request: NextRequest) {
             title: asset.name,
             itemType: "pdf",
             pdfData: itemDefinition.initialData as CreateItemParams["pdfData"],
-            layout: position,
           });
-          pdfItemLayouts.push({ type: "pdf", layout: position });
         }
 
         const imageCreateParams: CreateItemParams[] = [];
         for (const asset of imageAssets) {
-          const position = findNextAvailablePosition(
-            pdfItemLayouts as Item[],
-            "image",
-            4,
-            AUTOGEN_LAYOUTS.image.w,
-            AUTOGEN_LAYOUTS.image.h,
-          );
           const imgItemId = generateItemId();
           const itemDefinition = buildWorkspaceItemDefinitionFromAsset(asset);
           if (itemDefinition.type !== "image") continue;
@@ -638,9 +607,7 @@ export async function POST(request: NextRequest) {
             itemType: "image",
             imageData:
               itemDefinition.initialData as CreateItemParams["imageData"],
-            layout: position,
           });
-          pdfItemLayouts.push({ type: "image", layout: position });
         }
 
         const fileCreateParams = [...pdfCreateParams, ...imageCreateParams];

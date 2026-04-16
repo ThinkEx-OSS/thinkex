@@ -80,15 +80,6 @@ function validateItem(item: any, index: number): string | null {
     return `Item ${index + 1}: 'color' must be a string if provided`;
   }
 
-  if (item.layout !== undefined) {
-    if (typeof item.layout !== 'object' ||
-      typeof item.layout.x !== 'number' ||
-      typeof item.layout.y !== 'number' ||
-      typeof item.layout.w !== 'number' ||
-      typeof item.layout.h !== 'number') {
-      return `Item ${index + 1}: 'layout' must have numeric x, y, w, h properties if provided`;
-    }
-  }
 
   return null;
 }

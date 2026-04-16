@@ -5,7 +5,6 @@ import { Plus, Upload } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import type { Item, CardType } from "@/lib/workspace-state/types";
 import { filterItemsByFolder } from "@/lib/workspace-state/search";
-import { useAutoScroll } from "@/hooks/ui/use-auto-scroll";
 import { transcriptSegmentsQueryKey } from "@/hooks/workspace/use-transcript-segments";
 import { WorkspaceGrid } from "./WorkspaceGrid";
 import { useUIStore } from "@/lib/stores/ui-store";
@@ -67,8 +66,6 @@ export default function WorkspaceContent({
   const scrollContainerRef =
     externalScrollContainerRef || localScrollContainerRef;
 
-  const { handleDragStart: onDragStart, handleDragStop: onDragStop } =
-    useAutoScroll(scrollContainerRef);
 
   const { selectedCardIdsArray } = useSelectedCardIds();
 
@@ -251,13 +248,6 @@ export default function WorkspaceContent({
     [onPDFUpload],
   );
 
-  const handleDragStart = useCallback(() => {
-    onDragStart();
-  }, [onDragStart]);
-
-  const handleDragStop = useCallback(() => {
-    onDragStop();
-  }, [onDragStop]);
 
   const isFiltering = activeFolderId !== null;
 
@@ -342,8 +332,6 @@ export default function WorkspaceContent({
           allItems={viewState}
           isFiltered={isFiltering}
           isTemporaryFilter={false}
-          onDragStart={handleDragStart}
-          onDragStop={handleDragStop}
           onUpdateItem={handleUpdateItem}
           onDeleteItem={handleDeleteItem}
           onUpdateAllItems={handleUpdateAllItems}
