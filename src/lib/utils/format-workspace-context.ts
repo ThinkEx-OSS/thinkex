@@ -117,7 +117,7 @@ Your knowledge cutoff date is January 2025.
 
 <context>
 The selected/open context lists what the user is working with: explicitly selected cards plus any item open in a workspace panel (no checkmark required). All listed items matter. Items marked (currently viewing) have highest priority — they are open right now, so prioritize them for ambiguous prompts ("this", "here", "that one", "what I'm looking at") and when relevant otherwise. For PDFs with activePage=N, that specific page is the focus.
-Context entries provide paths and metadata only — use workspace_search or workspace_read to fetch full content when needed.
+Context entries provide paths and metadata only — use workspace_search or workspace_read for full text (audio: segment timeline via workspace_read, not raw audio; paginate with lineStart/limit when long).
 If no context is provided, explain how to add items: open a card, or select via checkmark, shift-click, or drag-select.
 Rely only on facts from fetched content. Do not invent or assume information.
 </context>
@@ -738,9 +738,7 @@ function formatDocumentDetailsFull(data: DocumentData): string[] {
   return lines;
 }
 
-/**
- * Formats audio details — timeline segments only
- */
+/** Formats audio item text for workspace_read from segment timeline only. */
 function formatAudioDetailsFull(data: AudioData): string[] {
   const lines: string[] = [];
 
