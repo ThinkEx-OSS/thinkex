@@ -214,6 +214,13 @@ export function WorkspaceRuntimeProvider({
             console.warn("[WorkspaceRuntimeProvider] Thread init failed:", e);
           }
 
+          if (process.env.NODE_ENV === "development") {
+            console.debug(
+              "[WorkspaceRuntimeProvider] Thread ID for request:",
+              threadRemoteId ?? "(fallback)",
+            );
+          }
+
           return {
             body: {
               ...options.body,
