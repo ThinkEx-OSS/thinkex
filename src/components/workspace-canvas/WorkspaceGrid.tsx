@@ -1,4 +1,10 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { DragDropProvider } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { move } from "@dnd-kit/helpers";
@@ -124,6 +130,8 @@ function WorkspaceGridComponent({
     return counts;
   }, [allItems]);
   const [hoveredFolderId, setHoveredFolderId] = useState<string | null>(null);
+  const [isDraggingItem, setIsDraggingItem] = useState(false);
+  const pointerPositionRef = useRef({ x: 0, y: 0 });
 
   const folders = useMemo(
     () => items.filter((item) => item.type === "folder"),
@@ -163,52 +171,78 @@ function WorkspaceGridComponent({
     [],
   );
 
-  const handleDragStart = useCallback(() => {
-    setHoveredFolderId(null);
-    onGridDragStateChange?.(true);
-  }, [onGridDragStateChange]);
+  useEffect(() => {
+    if (!isDraggingItem) {
+      return;
+    }
 
-  const handleDragMove = useCallback(
+    const handlePointerMove = (event: PointerEvent) => {
+      pointerPositionRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+      };
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+    };
+  }, [isDraggingItem]);
+
+  const handleDragStart = useCallback(
     (
       event: Parameters<
-        NonNullable<React.ComponentProps<typeof DragDropProvider>["onDragMove"]>
+        NonNullable<
+          React.ComponentProps<typeof DragDropProvider>["onDragStart"]
+        >
       >[0],
     ) => {
       const sourceId = event.operation.source?.id;
+
+      setHoveredFolderId(null);
+      setIsDraggingItem(false);
+      pointerPositionRef.current = { x: 0, y: 0 };
+      onGridDragStateChange?.(true);
+
       if (typeof sourceId !== "string") {
-        setHoveredFolderId(null);
         return;
       }
 
       const draggedItem = items.find((item) => item.id === sourceId);
-      if (!draggedItem || draggedItem.type === "folder") {
-        setHoveredFolderId(null);
-        return;
+      if (draggedItem && draggedItem.type !== "folder") {
+        setIsDraggingItem(true);
       }
-
-      if (typeof document === "undefined") {
-        setHoveredFolderId(null);
-        return;
-      }
-
-      const position = event.operation.position.current;
-      const elements = document.elementsFromPoint(position.x, position.y);
-      let foundFolderId: string | null = null;
-
-      for (const element of elements) {
-        const folderElement = element.closest("[data-folder-id]");
-        if (folderElement instanceof HTMLElement) {
-          foundFolderId = folderElement.getAttribute("data-folder-id");
-          break;
-        }
-      }
-
-      setHoveredFolderId((currentFolderId) =>
-        currentFolderId === foundFolderId ? currentFolderId : foundFolderId,
-      );
     },
-    [items],
+    [items, onGridDragStateChange],
   );
+
+  const handleDragMove = useCallback(() => {
+    if (!isDraggingItem || typeof document === "undefined") {
+      setHoveredFolderId(null);
+      return;
+    }
+
+    const { x, y } = pointerPositionRef.current;
+    if (x === 0 && y === 0) {
+      return;
+    }
+
+    const elements = document.elementsFromPoint(x, y);
+    let foundFolderId: string | null = null;
+
+    for (const element of elements) {
+      const folderElement = element.closest("[data-folder-id]");
+      if (folderElement instanceof HTMLElement) {
+        foundFolderId = folderElement.getAttribute("data-folder-id");
+        break;
+      }
+    }
+
+    setHoveredFolderId((currentFolderId) =>
+      currentFolderId === foundFolderId ? currentFolderId : foundFolderId,
+    );
+  }, [isDraggingItem]);
 
   const handleDragEnd = useCallback(
     (
@@ -218,6 +252,8 @@ function WorkspaceGridComponent({
     ) => {
       const currentHoveredFolderId = hoveredFolderId;
       setHoveredFolderId(null);
+      setIsDraggingItem(false);
+      pointerPositionRef.current = { x: 0, y: 0 };
       onGridDragStateChange?.(false);
 
       if (event.canceled) {
