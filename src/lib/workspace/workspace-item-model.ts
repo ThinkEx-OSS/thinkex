@@ -10,18 +10,12 @@ import type {
   PdfData,
   QuizData,
   QuizQuestion,
-  QuizSessionData,
   WebsiteData,
   YouTubeData,
 } from "@/lib/workspace-state/types";
 import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
+import { emptyDataForType, itemDataSchemas } from "./workspace-item-model-schemas";
 import {
-  emptyDataForType,
-  itemDataSchemas,
-  quizSessionSchema,
-} from "./workspace-item-model-schemas";
-import {
-  findPrimaryUserState,
   getItemContentPreview,
   getItemSearchIndex,
   getWorkspaceItemCapabilities,
@@ -32,14 +26,11 @@ import {
 } from "./workspace-item-model-shared";
 import {
   WORKSPACE_ITEM_DATA_SCHEMA_VERSION,
-  WORKSPACE_ITEM_PRIMARY_USER_STATE_KEY,
-  WORKSPACE_ITEM_USER_STATE_SCHEMA_VERSION,
   type WorkspaceItemContentProjection,
   type WorkspaceItemExtractedProjection,
   type WorkspaceItemShellProjection,
   type WorkspaceItemSplitResult,
   type WorkspaceItemTableRows,
-  type WorkspaceItemUserStateProjection,
 } from "./workspace-item-model-types";
 
 export * from "./workspace-item-model-types";
@@ -73,67 +64,6 @@ export function normalizeItem(item: Item): Item {
   };
 }
 
-export function extractWorkspaceItemUserStates(
-  item: Item,
-): WorkspaceItemUserStateProjection[] {
-  const normalized = normalizeItem(item);
-
-  switch (normalized.type) {
-    case "flashcard": {
-      const data = normalized.data as FlashcardData;
-      if (data.currentIndex == null) {
-        return [];
-      }
-
-      return [
-        {
-          stateKey: WORKSPACE_ITEM_PRIMARY_USER_STATE_KEY,
-          stateType: normalized.type,
-          stateSchemaVersion: WORKSPACE_ITEM_USER_STATE_SCHEMA_VERSION,
-          state: { currentIndex: data.currentIndex },
-        },
-      ];
-    }
-    case "quiz": {
-      const data = normalized.data as QuizData;
-      if (!data.session) {
-        return [];
-      }
-
-      return [
-        {
-          stateKey: WORKSPACE_ITEM_PRIMARY_USER_STATE_KEY,
-          stateType: normalized.type,
-          stateSchemaVersion: WORKSPACE_ITEM_USER_STATE_SCHEMA_VERSION,
-          state: { session: data.session },
-        },
-      ];
-    }
-    case "youtube": {
-      const data = normalized.data as YouTubeData;
-      if (data.progress == null && data.playbackRate == null) {
-        return [];
-      }
-
-      return [
-        {
-          stateKey: WORKSPACE_ITEM_PRIMARY_USER_STATE_KEY,
-          stateType: normalized.type,
-          stateSchemaVersion: WORKSPACE_ITEM_USER_STATE_SCHEMA_VERSION,
-          state: {
-            ...(data.progress != null ? { progress: data.progress } : {}),
-            ...(data.playbackRate != null
-              ? { playbackRate: data.playbackRate }
-              : {}),
-          },
-        },
-      ];
-    }
-    default:
-      return [];
-  }
-}
-
 export function rehydrateWorkspaceItemData(
   type: CardType,
   shell: Partial<
@@ -141,11 +71,9 @@ export function rehydrateWorkspaceItemData(
   >,
   content: Partial<WorkspaceItemContentProjection> | null | undefined,
   extracted: Partial<WorkspaceItemExtractedProjection> | null | undefined,
-  userStates: WorkspaceItemUserStateProjection[] | null | undefined = [],
 ): ItemData {
   const contentRecord = content ?? {};
   const extractedRecord = extracted ?? {};
-  const primaryUserState = findPrimaryUserState(userStates, type);
 
   let merged: ItemData;
 
@@ -256,9 +184,6 @@ export function rehydrateWorkspaceItemData(
         cards: Array.isArray(structuredData.cards)
           ? (structuredData.cards as FlashcardItem[])
           : [],
-        ...(typeof primaryUserState?.currentIndex === "number"
-          ? { currentIndex: primaryUserState.currentIndex }
-          : {}),
       } satisfies FlashcardData;
       break;
     }
@@ -266,9 +191,6 @@ export function rehydrateWorkspaceItemData(
       const structuredData = isRecord(contentRecord.structuredData)
         ? contentRecord.structuredData
         : {};
-      const parsedSession = quizSessionSchema.safeParse(
-        primaryUserState?.session,
-      );
       merged = {
         ...(typeof structuredData.title === "string"
           ? { title: structuredData.title }
@@ -276,9 +198,6 @@ export function rehydrateWorkspaceItemData(
         questions: Array.isArray(structuredData.questions)
           ? (structuredData.questions as QuizQuestion[])
           : [],
-        ...(parsedSession.success
-          ? { session: parsedSession.data as QuizSessionData }
-          : {}),
       } satisfies QuizData;
       break;
     }
@@ -290,12 +209,6 @@ export function rehydrateWorkspaceItemData(
         url: typeof embedData.url === "string" ? embedData.url : "",
         ...(typeof embedData.thumbnail === "string"
           ? { thumbnail: embedData.thumbnail }
-          : {}),
-        ...(typeof primaryUserState?.progress === "number"
-          ? { progress: primaryUserState.progress }
-          : {}),
-        ...(typeof primaryUserState?.playbackRate === "number"
-          ? { playbackRate: primaryUserState.playbackRate }
           : {}),
       } satisfies YouTubeData;
       break;
@@ -327,12 +240,11 @@ function normalizeSharedItemData(
   extracted: WorkspaceItemExtractedProjection,
   shell?: Pick<WorkspaceItemShellProjection, "ocrStatus" | "processingStatus">,
 ): ItemData {
-  return rehydrateWorkspaceItemData(type, shell ?? {}, content, extracted, []);
+  return rehydrateWorkspaceItemData(type, shell ?? {}, content, extracted);
 }
 
 export function splitWorkspaceItem(item: Item): WorkspaceItemSplitResult {
   const normalized = normalizeItem(item);
-  const userStates = extractWorkspaceItemUserStates(normalized);
 
   const content: WorkspaceItemContentProjection = {
     textContent: null,
@@ -482,7 +394,6 @@ export function splitWorkspaceItem(item: Item): WorkspaceItemSplitResult {
     },
     content,
     extracted,
-    userStates,
   };
 }
 
@@ -490,15 +401,8 @@ export function buildWorkspaceItemTableRows(params: {
   workspaceId: string;
   item: Item;
   sourceVersion: number;
-  userId?: string;
 }): WorkspaceItemTableRows {
   const split = splitWorkspaceItem(params.item);
-
-  if (split.userStates.length > 0 && !params.userId) {
-    throw new Error("userId is required for items with user state");
-  }
-
-  const userId = params.userId;
 
   return {
     item: {
@@ -518,14 +422,6 @@ export function buildWorkspaceItemTableRows(params: {
       itemId: split.shell.itemId,
       ...split.extracted,
     },
-    userStates: userId
-      ? split.userStates.map((userState) => ({
-          workspaceId: params.workspaceId,
-          itemId: split.shell.itemId,
-          userId,
-          ...userState,
-        }))
-      : [],
   };
 }
 
@@ -545,9 +441,8 @@ export function rehydrateWorkspaceItem(params: {
   >;
   content?: Partial<WorkspaceItemContentProjection> | null;
   extracted?: Partial<WorkspaceItemExtractedProjection> | null;
-  userStates?: WorkspaceItemUserStateProjection[] | null;
 }): Item {
-  const { shell, content, extracted, userStates } = params;
+  const { shell, content, extracted } = params;
 
   return {
     id: shell.itemId,
@@ -562,7 +457,6 @@ export function rehydrateWorkspaceItem(params: {
       },
       content,
       extracted,
-      userStates,
     ),
     ...(shell.color ? { color: shell.color } : {}),
     ...(shell.folderId ? { folderId: shell.folderId } : {}),

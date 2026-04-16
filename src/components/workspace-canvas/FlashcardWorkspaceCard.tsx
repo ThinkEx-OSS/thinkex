@@ -173,9 +173,7 @@ export function FlashcardWorkspaceCard({
   const flashcardData = item.data as FlashcardData;
 
   // Navigation State
-  const [currentIndex, setCurrentIndex] = useState(
-    flashcardData.currentIndex || 0,
-  );
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   const cards = useMemo(
     () => flashcardData.cards ?? [],
@@ -195,7 +193,6 @@ export function FlashcardWorkspaceCard({
     // For now just local state is smooth, maybe updating item is fine.
     // Let's keep it local for now, prop update on unmount?
     setCurrentIndex(newIndex);
-    // If we want persistence: onUpdateItem(item.id, { data: { ...flashcardData, currentIndex: newIndex }});
   }, []);
 
   const currentCard = useMemo((): FlashcardItem => {

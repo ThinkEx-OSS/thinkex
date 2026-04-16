@@ -8,7 +8,6 @@ import {
   youtubeDataSchema,
   imageDataSchema,
   quizQuestionSchema,
-  quizSessionSchema,
   quizDataSchema,
   audioSegmentSchema,
   audioDataSchema,
@@ -36,7 +35,6 @@ export type FolderData = z.infer<typeof folderDataSchema>;
 export type YouTubeData = z.infer<typeof youtubeDataSchema>;
 export type ImageData = z.infer<typeof imageDataSchema>;
 export type QuizQuestion = z.infer<typeof quizQuestionSchema>;
-export type QuizSessionData = z.infer<typeof quizSessionSchema>;
 export type QuizData = z.infer<typeof quizDataSchema>;
 export type AudioSegment = z.infer<typeof audioSegmentSchema>;
 export type AudioData = z.infer<typeof audioDataSchema>;
@@ -54,7 +52,6 @@ export type ItemData =
   | WebsiteData
   | DocumentData;
 
-/** Layout position for a single breakpoint */
 export interface LayoutPosition {
   x: number;
   y: number;
@@ -62,31 +59,21 @@ export interface LayoutPosition {
   h: number;
 }
 
-/** Responsive layouts for different breakpoints */
 export interface ResponsiveLayouts {
-  lg?: LayoutPosition; // 4-column layout
+  lg?: LayoutPosition;
 }
 
 export interface Item {
   id: string;
   type: CardType;
-  name: string; // editable title
-  subtitle: string; // subtitle shown under the title
+  name: string;
+  subtitle: string;
   data: ItemData;
-  color?: CardColor; // background color for the card
-  folderId?: string; // Single folder assignment (flat structure)
-  /**
-   * Layout position for the workspace grid.
-   * May be responsive (`ResponsiveLayouts`) or a flat `LayoutPosition` (treated as `lg`).
-   */
+  color?: CardColor;
+  folderId?: string;
   layout?: ResponsiveLayouts | LayoutPosition;
-  /** Timestamp (ms) when item was last modified. Set by event reducer. Used for AI conflict detection. */
   lastModified?: number;
 }
-
-// =====================================================
-// WORKSPACE TYPES
-// =====================================================
 
 export type WorkspaceTemplate = "blank" | "getting_started";
 

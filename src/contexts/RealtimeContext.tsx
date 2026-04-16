@@ -8,7 +8,7 @@
 "use client";
 
 import React, { createContext, useContext, useMemo } from "react";
-import { useWorkspaceRealtime } from "@/hooks/workspace/use-workspace-realtime";
+import { useConnectionState } from "@rocicorp/zero/react";
 import {
   useWorkspacePresence,
   type CollaboratorPresence,
@@ -37,10 +37,21 @@ export function RealtimeProvider({
   workspaceId,
 }: RealtimeProviderProps) {
   const { data: session } = useSession();
+  const zeroConnectionState = useConnectionState();
 
-  // Track connection status
-  const [connectionStatus, setConnectionStatus] =
-    React.useState<RealtimeContextType["connectionStatus"]>("connecting");
+  const connectionStatus = useMemo<RealtimeContextType["connectionStatus"]>(
+    () => {
+      switch (zeroConnectionState.name) {
+        case "connected":
+          return "connected";
+        case "connecting":
+          return "connecting";
+        default:
+          return "disconnected";
+      }
+    },
+    [zeroConnectionState],
+  );
 
   // Current user info for presence
   const currentUser = session?.user
@@ -50,11 +61,6 @@ export function RealtimeProvider({
         image: session.user.image ?? undefined,
       }
     : null;
-
-  // Subscribe to realtime events
-  useWorkspaceRealtime(workspaceId, {
-    onStatusChange: setConnectionStatus,
-  });
 
   // Track presence (which users are in workspace)
   const { collaborators } = useWorkspacePresence(workspaceId, {

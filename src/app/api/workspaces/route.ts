@@ -7,7 +7,6 @@ import type {
 } from "@/lib/workspace-state/types";
 import type { CardColor } from "@/lib/workspace-state/colors";
 import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
-import { createEvent } from "@/lib/workspace/events";
 import { db, workspaces } from "@/lib/db/client";
 import { workspaceCollaborators } from "@/lib/db/schema";
 import { eq, desc, asc, inArray } from "drizzle-orm";
@@ -16,8 +15,7 @@ import {
   requireAuthWithUserInfo,
   withErrorHandling,
 } from "@/lib/api/workspace-helpers";
-import { appendWorkspaceEventOrThrow } from "@/lib/workspace/workspace-event-store";
-import { workspaceItemProjectionState } from "@/lib/db/schema";
+import { insertWorkspaceItem } from "@/lib/workspace/workspace-item-write";
 
 /**
  * GET /api/workspaces
@@ -245,44 +243,19 @@ async function handlePOST(request: NextRequest) {
     ? normalizeWorkspaceItems(customInitialItems)
     : getTemplateInitialItems(effectiveTemplate);
 
-  if (initialItems.length > 0) {
-    await db
-      .insert(workspaceItemProjectionState)
-      .values({
-        workspaceId: workspace.id,
-        lastAppliedVersion: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
-      .onConflictDoNothing();
-
-    const event = createEvent(
-      "BULK_ITEMS_CREATED",
-      { items: initialItems },
-      userId,
-      user.name || user.email || undefined,
-    );
-
-    try {
-      await appendWorkspaceEventOrThrow({
-        workspaceId: workspace.id,
-        event,
-        baseVersion: 0,
-      });
-    } catch (eventError) {
-      await db.delete(workspaces).where(eq(workspaces.id, workspace.id));
-      throw eventError;
-    }
-  } else {
-    await db
-      .insert(workspaceItemProjectionState)
-      .values({
-        workspaceId: workspace.id,
-        lastAppliedVersion: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
-      .onConflictDoNothing();
+  try {
+    await db.transaction(async (tx) => {
+      for (const item of initialItems) {
+        await insertWorkspaceItem(tx, {
+          workspaceId: workspace.id,
+          item,
+          sourceVersion: 0,
+        });
+      }
+    });
+  } catch (insertError) {
+    await db.delete(workspaces).where(eq(workspaces.id, workspace.id));
+    throw insertError;
   }
 
   // Return workspace with full state for immediate use

@@ -2,7 +2,7 @@
  * Shared utilities for AI tools
  */
 
-import { loadWorkspaceState } from "@/lib/workspace/state-loader";
+import { loadWorkspaceState } from "@/lib/workspace/workspace-state-read";
 import type { Item } from "@/lib/workspace-state/types";
 import type { WorkspaceToolContext } from "./workspace-tools";
 import { resolveItemByPath } from "./workspace-search-utils";

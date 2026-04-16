@@ -3,16 +3,14 @@ import { mutators } from "./mutators";
 import { schema } from "./zero-schema.gen";
 
 export interface ZeroContext {
-  userId: string | null;
+  userId: string;
 }
 
-function createZeroInstance(params: { userId: string; auth: string }) {
+function createZeroInstance(params: { userId: string }) {
   return new Zero({
     schema,
     cacheURL: process.env.NEXT_PUBLIC_ZERO_SERVER!,
-    mutateURL: "/api/zero/mutate",
     userID: params.userId,
-    auth: params.auth,
     context: {
       userId: params.userId,
     },
@@ -22,7 +20,6 @@ function createZeroInstance(params: { userId: string; auth: string }) {
 
 let zeroInstance: ReturnType<typeof createZeroInstance> | null = null;
 let zeroUserId: string | null = null;
-let zeroAuthToken: string | null = null;
 
 export function destroyZero() {
   if (!zeroInstance) {
@@ -32,21 +29,14 @@ export function destroyZero() {
   void zeroInstance.close();
   zeroInstance = null;
   zeroUserId = null;
-  zeroAuthToken = null;
 }
 
-export function getZero(params: { userId: string; auth: string }) {
+export function getZero(params: { userId: string }) {
   if (!zeroInstance || zeroUserId !== params.userId) {
     destroyZero();
     zeroInstance = createZeroInstance(params);
     zeroUserId = params.userId;
-    zeroAuthToken = params.auth;
     return zeroInstance;
-  }
-
-  if (zeroAuthToken !== params.auth) {
-    zeroAuthToken = params.auth;
-    void zeroInstance.connection.connect({ auth: params.auth });
   }
 
   return zeroInstance;

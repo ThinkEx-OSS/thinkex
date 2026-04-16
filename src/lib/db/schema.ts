@@ -11,7 +11,6 @@ import {
   uniqueIndex,
   integer,
   unique,
-  check,
   bigint,
   primaryKey,
 } from "drizzle-orm/pg-core";
@@ -295,72 +294,6 @@ export const workspaceSnapshots = pgTable(
   ],
 );
 
-export const workspaceEvents = pgTable(
-  "workspace_events",
-  {
-    id: uuid().defaultRandom().primaryKey().notNull(),
-    workspaceId: uuid("workspace_id").notNull(),
-    eventId: text("event_id").notNull(),
-    eventType: text("event_type").notNull(),
-    payload: jsonb().notNull(),
-    // You can use { mode: "bigint" } if numbers are exceeding js number limitations
-    timestamp: bigint({ mode: "number" }).notNull(),
-    userId: text("user_id").notNull(),
-    version: integer().notNull(),
-    createdAt: timestamp("created_at", {
-      withTimezone: true,
-      mode: "string",
-    }).defaultNow(),
-    userName: text("user_name"),
-  },
-  (table) => [
-    index("idx_workspace_events_event_id").using(
-      "btree",
-      table.eventId.asc().nullsLast().op("text_ops"),
-    ),
-    index("idx_workspace_events_timestamp").using(
-      "btree",
-      table.workspaceId.asc().nullsLast().op("uuid_ops"),
-      table.timestamp.asc().nullsLast().op("int8_ops"),
-    ),
-    index("idx_workspace_events_user_name").using(
-      "btree",
-      table.userName.asc().nullsLast().op("text_ops"),
-    ),
-    index("idx_workspace_events_workspace").using(
-      "btree",
-      table.workspaceId.asc().nullsLast().op("uuid_ops"),
-      table.version.asc().nullsLast().op("int4_ops"),
-    ),
-    foreignKey({
-      columns: [table.workspaceId],
-      foreignColumns: [workspaces.id],
-      name: "workspace_events_workspace_id_fkey",
-    }).onDelete("cascade"),
-    unique("workspace_events_event_id_key").on(table.eventId),
-    pgPolicy("Users can insert workspace events they have write access to", {
-      as: "permissive",
-      for: "insert",
-      to: ["public"],
-      withCheck: sql`(EXISTS ( SELECT 1
-   FROM workspaces
-  WHERE ((workspaces.id = workspace_events.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
-   FROM workspace_collaborators c
-  WHERE ((c.workspace_id = workspace_events.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)) AND (c.permission_level = 'editor'::text))))`,
-    }),
-    pgPolicy("Users can read workspace events they have access to", {
-      as: "permissive",
-      for: "select",
-      to: ["public"],
-      using: sql`(EXISTS ( SELECT 1
-   FROM workspaces
-  WHERE ((workspaces.id = workspace_events.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
-   FROM workspace_collaborators c
-  WHERE ((c.workspace_id = workspace_events.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))`,
-    }),
-  ],
-);
-
 const workspaceItemsReadAccessSql = sql`(EXISTS ( SELECT 1
    FROM workspaces
   WHERE ((workspaces.id = workspace_items.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
@@ -601,106 +534,6 @@ export const workspaceItemExtracted = pgTable(
   ],
 );
 
-export const workspaceItemUserState = pgTable(
-  "workspace_item_user_state",
-  {
-    workspaceId: uuid("workspace_id").notNull(),
-    itemId: text("item_id").notNull(),
-    userId: text("user_id").notNull(),
-    stateKey: text("state_key").default("item").notNull(),
-    stateType: text("state_type").notNull(),
-    stateSchemaVersion: integer("state_schema_version").default(1).notNull(),
-    state: jsonb().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
-      .defaultNow()
-      .notNull(),
-  },
-  (table) => [
-    primaryKey({
-      columns: [table.workspaceId, table.itemId, table.userId, table.stateKey],
-      name: "workspace_item_user_state_pkey",
-    }),
-    index("idx_workspace_item_user_state_workspace_user").using(
-      "btree",
-      table.workspaceId.asc().nullsLast().op("uuid_ops"),
-      table.userId.asc().nullsLast().op("text_ops"),
-    ),
-    index("idx_workspace_item_user_state_item").using(
-      "btree",
-      table.workspaceId.asc().nullsLast().op("uuid_ops"),
-      table.itemId.asc().nullsLast().op("text_ops"),
-      table.userId.asc().nullsLast().op("text_ops"),
-    ),
-    foreignKey({
-      columns: [table.workspaceId, table.itemId],
-      foreignColumns: [workspaceItems.workspaceId, workspaceItems.itemId],
-      name: "workspace_item_user_state_workspace_item_fkey",
-    }).onDelete("cascade"),
-    pgPolicy("Users can read their workspace item user state", {
-      as: "permissive",
-      for: "select",
-      to: ["public"],
-      using: sql`((workspace_item_user_state.user_id = (auth.jwt() ->> 'sub'::text)) AND ((EXISTS ( SELECT 1
-   FROM workspaces
-  WHERE ((workspaces.id = workspace_item_user_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
-   FROM workspace_collaborators c
-  WHERE ((c.workspace_id = workspace_item_user_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))))`,
-    }),
-    pgPolicy("Users can write their workspace item user state", {
-      as: "permissive",
-      for: "all",
-      to: ["public"],
-      using: sql`((workspace_item_user_state.user_id = (auth.jwt() ->> 'sub'::text)) AND ((EXISTS ( SELECT 1
-   FROM workspaces
-  WHERE ((workspaces.id = workspace_item_user_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
-   FROM workspace_collaborators c
-  WHERE ((c.workspace_id = workspace_item_user_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))))`,
-      withCheck: sql`((workspace_item_user_state.user_id = (auth.jwt() ->> 'sub'::text)) AND ((EXISTS ( SELECT 1
-   FROM workspaces
-  WHERE ((workspaces.id = workspace_item_user_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
-   FROM workspace_collaborators c
-  WHERE ((c.workspace_id = workspace_item_user_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))))`,
-    }),
-  ],
-);
-
-export const workspaceItemProjectionState = pgTable(
-  "workspace_item_projection_state",
-  {
-    workspaceId: uuid("workspace_id").primaryKey().notNull(),
-    lastAppliedVersion: integer("last_applied_version").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
-      .defaultNow()
-      .notNull(),
-  },
-  (table) => [
-    index("idx_workspace_item_projection_state_version").using(
-      "btree",
-      table.lastAppliedVersion.desc().nullsFirst().op("int4_ops"),
-    ),
-    foreignKey({
-      columns: [table.workspaceId],
-      foreignColumns: [workspaces.id],
-      name: "workspace_item_projection_state_workspace_id_fkey",
-    }).onDelete("cascade"),
-    pgPolicy(
-      "Users can read workspace item projection state they have access to",
-      {
-        as: "permissive",
-        for: "select",
-        to: ["public"],
-        using: sql`(EXISTS ( SELECT 1
-   FROM workspaces
-  WHERE ((workspaces.id = workspace_item_projection_state.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
-   FROM workspace_collaborators c
-  WHERE ((c.workspace_id = workspace_item_projection_state.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))`,
-      },
-    ),
-  ],
-);
 
 export const workspaceCollaborators = pgTable(
   "workspace_collaborators",

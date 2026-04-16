@@ -40,7 +40,6 @@ export function defaultDataFor(type: CardType): ItemData {
     case "flashcard":
       return {
         cards: [],
-        currentIndex: 0,
       } as FlashcardData;
     case "folder":
       return {} as FolderData;
