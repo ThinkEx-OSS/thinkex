@@ -1,5 +1,6 @@
 "use client";
 
+import { useCustomer } from "autumn-js/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +28,50 @@ const AccountModal = dynamic(
 
 interface UserProfileDropdownProps {
   initialAuth?: InitialAuth;
+}
+
+type PremiumBalance = {
+  balance?: number;
+  limit?: number;
+  unlimited?: boolean;
+  remaining?: number;
+  granted?: number;
+};
+
+function CreditsBadge() {
+  const { customer } = useCustomer() as {
+    customer?: {
+      features?: {
+        premium_message?: PremiumBalance;
+      };
+      balances?: {
+        premium_message?: PremiumBalance;
+      };
+    } | null;
+  };
+
+  const premiumBalance =
+    customer?.features?.premium_message ?? customer?.balances?.premium_message;
+
+  if (!premiumBalance || premiumBalance.unlimited) return null;
+
+  const remaining = premiumBalance.balance ?? premiumBalance.remaining ?? 0;
+  const limit = premiumBalance.limit ?? premiumBalance.granted ?? 0;
+  const pct = limit > 0 ? (remaining / limit) * 100 : 0;
+  const dotColor =
+    pct > 20 ? "bg-green-500" : pct > 0 ? "bg-amber-500" : "bg-red-500";
+
+  return (
+    <>
+      <div className="px-2 py-1.5">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <div className={`h-2 w-2 rounded-full ${dotColor}`} />
+          <span>{remaining} premium messages left</span>
+        </div>
+      </div>
+      <DropdownMenuSeparator />
+    </>
+  );
 }
 
 export function UserProfileDropdown({ initialAuth }: UserProfileDropdownProps) {
@@ -84,7 +129,7 @@ export function UserProfileDropdown({ initialAuth }: UserProfileDropdownProps) {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
-            className="p-1 rounded-md hover:bg-white/10 transition-colors cursor-pointer"
+            className="cursor-pointer rounded-md p-1 transition-colors hover:bg-white/10"
             aria-label={`Open menu for ${userName}`}
             aria-haspopup="menu"
           >
@@ -97,6 +142,7 @@ export function UserProfileDropdown({ initialAuth }: UserProfileDropdownProps) {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" sideOffset={8}>
+          <CreditsBadge />
           <DropdownMenuItem
             onClick={() => setShowAccountModal(true)}
             className="cursor-pointer"

@@ -21,7 +21,11 @@ import {
 import { withServerObservability } from "@/lib/with-server-observability";
 import { normalizeLegacyToolMessages } from "@/lib/ai/legacy-tool-message-compat";
 import type { ReplySelection } from "@/lib/stores/ui-store";
-import { getDefaultChatModelId, resolveGatewayModelId } from "@/lib/ai/models";
+import {
+  getDefaultChatModelId,
+  isPremiumChatModel,
+  resolveGatewayModelId,
+} from "@/lib/ai/models";
 import {
   buildGatewayProviderOptions,
   createGatewayLanguageModel,
@@ -54,6 +58,17 @@ function getSelectedCardsContext(body: any): string {
   // Client now sends pre-formatted context string
   return body.selectedCardsContext || "";
 }
+
+type AutumnBillingAPI = {
+  check: (args: {
+    headers: Awaited<ReturnType<typeof headers>>;
+    body: { featureId: string };
+  }) => Promise<{ allowed: boolean }>;
+  track: (args: {
+    headers: Awaited<ReturnType<typeof headers>>;
+    body: { featureId: string; value: number };
+  }) => Promise<unknown>;
+};
 
 /**
  * Inject user-selected context (selected cards + reply quotes / workspace passages) into the last user message.
@@ -123,9 +138,11 @@ async function handlePOST(req: Request) {
   try {
     // FIX: Parallelize headers() and req.json() to eliminate waterfall
     const [headersObj, body] = await Promise.all([headers(), req.json()]);
+    const autumnBilling = auth.api as typeof auth.api & AutumnBillingAPI;
 
     // Get authenticated user ID
     const session = await auth.api.getSession({ headers: headersObj });
+    const isAnonymousUser = Boolean(session?.user?.isAnonymous);
     userId = session?.user?.id || null;
 
     const { messages = [] }: { messages?: UIMessage[] } = body;
@@ -188,9 +205,8 @@ async function handlePOST(req: Request) {
     // Get pre-formatted selected cards context from client (no DB fetch needed)
     const selectedCardsContext = getSelectedCardsContext(body);
 
-    const modelId = resolveGatewayModelId(
-      body.modelId || getDefaultChatModelId(),
-    );
+    const rawModelId = body.modelId || getDefaultChatModelId();
+    const modelId = resolveGatewayModelId(rawModelId);
 
     // Inject selected cards + reply selections into the last user message
     injectSelectionContext(
@@ -198,6 +214,32 @@ async function handlePOST(req: Request) {
       body.metadata?.custom,
       selectedCardsContext,
     );
+
+    if (userId && !isAnonymousUser && isPremiumChatModel(rawModelId)) {
+      try {
+        const checkResult = await autumnBilling.check({
+          headers: headersObj,
+          body: { featureId: "premium_message" },
+        });
+
+        if (!checkResult.allowed) {
+          return new Response(
+            JSON.stringify({
+              error: "credits_exhausted",
+              message:
+                "You've used all your premium AI messages for this month. Upgrade to Pro for unlimited access, or switch to another model.",
+              code: "CREDITS_EXHAUSTED",
+            }),
+            {
+              status: 403,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+      } catch (err) {
+        console.error("[billing] Autumn check failed, allowing request:", err);
+      }
+    }
 
     const posthogClient = getPostHogServerClient();
     const baseGatewayModel = createGatewayLanguageModel(modelId);
@@ -245,7 +287,7 @@ async function handlePOST(req: Request) {
         },
       },
       experimental_transform: smoothStream({ chunking: "word", delayInMs: 15 }),
-      onFinish: ({ usage, finishReason }) => {
+      onFinish: async ({ usage, finishReason }) => {
         const usageInfo = {
           inputTokens: usage?.inputTokens,
           outputTokens: usage?.outputTokens,
@@ -257,6 +299,17 @@ async function handlePOST(req: Request) {
         };
 
         logger.info("📊 [CHAT-API] Final Token Usage:", usageInfo);
+
+        if (userId && !isAnonymousUser && isPremiumChatModel(rawModelId)) {
+          try {
+            await autumnBilling.track({
+              headers: headersObj,
+              body: { featureId: "premium_message", value: 1 },
+            });
+          } catch (err) {
+            console.error("[billing] Autumn track failed:", err);
+          }
+        }
       },
       onStepFinish: (result) => {
         // stepType exists in runtime but may not be in type definitions

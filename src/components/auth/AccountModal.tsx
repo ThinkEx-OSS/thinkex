@@ -1,19 +1,7 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { authClient, useSession } from "@/lib/auth-client";
-import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +12,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { authClient, useSession } from "@/lib/auth-client";
+import { CreditCard, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface AccountModalProps {
   open: boolean;
@@ -43,6 +44,7 @@ export function AccountModal({ open, onOpenChange }: AccountModalProps) {
         </DialogHeader>
         <div className="mt-4 space-y-6">
           <ProfileForm user={session.user} />
+          <BillingSection />
           <DangerZone />
         </div>
       </DialogContent>
@@ -71,13 +73,13 @@ function ProfileForm({ user }: { user: any }) {
 
   return (
     <form onSubmit={handleUpdateProfile} className="space-y-4">
-      <div className="flex items-center gap-4 mb-6">
+      <div className="mb-6 flex items-center gap-4">
         <Avatar className="h-16 w-16">
           <AvatarImage src={user.image} />
           <AvatarFallback>{user.name?.charAt(0) || "U"}</AvatarFallback>
         </Avatar>
         <div className="flex flex-col gap-1">
-          <span className="font-medium text-lg">{user.name}</span>
+          <span className="text-lg font-medium">{user.name}</span>
           <span className="text-sm text-muted-foreground">{user.email}</span>
         </div>
       </div>
@@ -99,6 +101,23 @@ function ProfileForm({ user }: { user: any }) {
         </Button>
       </div>
     </form>
+  );
+}
+
+function BillingSection() {
+  return (
+    <div className="border-t pt-6">
+      <h3 className="mb-2 text-lg font-medium">Billing</h3>
+      <p className="mb-4 text-sm text-muted-foreground">
+        Manage your subscription, view usage, and update payment methods.
+      </p>
+      <Link href="/billing">
+        <Button variant="outline" className="gap-2">
+          <CreditCard className="h-4 w-4" />
+          Manage Billing
+        </Button>
+      </Link>
+    </div>
   );
 }
 
@@ -127,14 +146,14 @@ function DangerZone() {
   return (
     <>
       <div className="border-t pt-6">
-        <h3 className="text-lg font-medium text-destructive mb-2">Danger Zone</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Permanently delete your account and all of your content. This action cannot be undone.
+        <h3 className="mb-2 text-lg font-medium text-destructive">
+          Danger Zone
+        </h3>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Permanently delete your account and all of your content. This action
+          cannot be undone.
         </p>
-        <Button
-          variant="destructive"
-          onClick={() => setShowDeleteAlert(true)}
-        >
+        <Button variant="destructive" onClick={() => setShowDeleteAlert(true)}>
           Delete Account
         </Button>
       </div>
@@ -144,8 +163,8 @@ function DangerZone() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete your account
-              and remove your data from our servers.
+              This action cannot be undone. This will permanently delete your
+              account and remove your data from our servers.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -155,7 +174,7 @@ function DangerZone() {
                 e.preventDefault();
                 handleDeleteAccount();
               }}
-              className="bg-red-500 hover:bg-red-600 focus:ring-red-500 text-white"
+              className="bg-red-500 text-white hover:bg-red-600 focus:ring-red-500"
               disabled={isDeleting}
             >
               {isDeleting ? "Deleting..." : "Delete Account"}

@@ -1,0 +1,13 @@
+diff --git a/dist/better-auth/chunk-LRULDM7S.mjs b/dist/better-auth/chunk-LRULDM7S.mjs
+index 31334ee65452ccbf47388e1d4cd79ce7d1f908ce..4e24d0ed9013cd9968df667738d47aba98afd2e2 100644
+--- a/dist/better-auth/chunk-LRULDM7S.mjs
++++ b/dist/better-auth/chunk-LRULDM7S.mjs
+@@ -6,7 +6,7 @@ import {
+ } from "./chunk-GJAMWZNZ.mjs";
+ 
+ // src/better-auth/utils/createAutumnEndpoint.ts
+-import { createAuthEndpoint } from "better-auth/plugins";
++import { createAuthEndpoint } from "better-auth/api";
+ var getRouteConfig = (routeName) => {
+   const route = routeConfigs.find((r) => r.route === routeName);
+   if (!route) throw new Error(`Route not found: ${routeName}`);
