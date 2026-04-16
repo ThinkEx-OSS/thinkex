@@ -21,6 +21,7 @@ import {
   Brain,
   Play,
   Search,
+  Zap,
 } from "lucide-react";
 import { FaWandMagicSparkles } from "react-icons/fa6";
 import { LuBook } from "react-icons/lu";
@@ -83,10 +84,7 @@ import { ReplyContextDisplay } from "@/components/chat/ReplyContextDisplay";
 import { MessageContextBadges } from "@/components/chat/MessageContextBadges";
 import { MentionMenu } from "@/components/chat/MentionMenu";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import {
-  useUIStore,
-  selectReplySelections,
-} from "@/lib/stores/ui-store";
+import { useUIStore, selectReplySelections } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { useShallow } from "zustand/react/shallow";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
@@ -95,6 +93,7 @@ import { useFeatureFlagEnabled } from "posthog-js/react";
 import { toast } from "sonner";
 import { filterItems } from "@/lib/workspace-state/search";
 import { useSession } from "@/lib/auth-client";
+import { isPremiumChatModel } from "@/lib/ai/models";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { buildWorkspaceItemDefinitionsFromAssets } from "@/lib/uploads/uploaded-asset";
 import { uploadSelectedFiles } from "@/lib/uploads/upload-selection";
@@ -110,6 +109,7 @@ import {
   type PromptBuilderAction,
 } from "@/components/assistant-ui/PromptBuilderDialog";
 import { ModelPicker } from "@/components/assistant-ui/ModelPicker";
+import { useCustomer } from "autumn-js/react";
 import { ThinkExLogo } from "@/components/ui/thinkex-logo";
 
 interface ThreadProps {
@@ -121,39 +121,37 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
 
   return (
     <ThreadPrimitive.Root
-        className="aui-root aui-thread-root @container flex h-full flex-col bg-sidebar"
-        style={{
-          ["--thread-max-width" as string]: "50rem",
-        }}
+      className="aui-root aui-thread-root @container flex h-full flex-col bg-sidebar"
+      style={{
+        ["--thread-max-width" as string]: "50rem",
+      }}
+    >
+      <ThreadPrimitive.Viewport
+        ref={viewportRef}
+        turnAnchor="top"
+        autoScroll={false}
+        className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll px-4"
       >
-        <ThreadPrimitive.Viewport
-          ref={viewportRef}
-          turnAnchor="top"
-          autoScroll={false}
-          className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll px-4"
-        >
-          <AuiIf condition={({ thread }) => thread.isLoading}>
-            <ThreadLoadingSkeleton />
-          </AuiIf>
-          <AuiIf
-            condition={({ thread }) => thread.isEmpty && !thread.isLoading}
-          >
-            <ThreadWelcome items={items} />
-          </AuiIf>
+        <AuiIf condition={({ thread }) => thread.isLoading}>
+          <ThreadLoadingSkeleton />
+        </AuiIf>
+        <AuiIf condition={({ thread }) => thread.isEmpty && !thread.isLoading}>
+          <ThreadWelcome items={items} />
+        </AuiIf>
 
-          <ThreadPrimitive.Messages
-            components={{
-              UserMessage,
-              EditComposer,
-              AssistantMessage,
-            }}
-          />
-        </ThreadPrimitive.Viewport>
+        <ThreadPrimitive.Messages
+          components={{
+            UserMessage,
+            EditComposer,
+            AssistantMessage,
+          }}
+        />
+      </ThreadPrimitive.Viewport>
 
-        <div className="aui-thread-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-shrink-0 flex-col gap-4 overflow-visible rounded-t-3xl bg-sidebar px-4 pb-3 md:pb-4">
-          <ComposerHoverWrapper items={items} />
-        </div>
-      </ThreadPrimitive.Root>
+      <div className="aui-thread-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-shrink-0 flex-col gap-4 overflow-visible rounded-t-3xl bg-sidebar px-4 pb-3 md:pb-4">
+        <ComposerHoverWrapper items={items} />
+      </div>
+    </ThreadPrimitive.Root>
   );
 };
 
@@ -883,8 +881,7 @@ const Composer: FC<ComposerProps> = ({ items }) => {
         // Combine all context: selected cards, reply texts, and user message
         // Use placeholder when empty so AI SDK accepts (backend injects reply context into message)
         let modifiedText =
-          currentText.trim() ||
-          (hasReplyContext ? "Empty message" : "");
+          currentText.trim() || (hasReplyContext ? "Empty message" : "");
 
         // Attach per-request context as metadata via runConfig
         // This flows through as body.metadata.custom on the server
@@ -956,13 +953,38 @@ interface ComposerActionProps {
 
 const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
   const { data: session } = useSession();
+  const { customer } = useCustomer() as {
+    customer?: {
+      features?: {
+        premium_message?: {
+          balance?: number;
+          limit?: number;
+          unlimited?: boolean;
+          remaining?: number;
+          granted?: number;
+        };
+      };
+      balances?: {
+        premium_message?: {
+          balance?: number;
+          limit?: number;
+          unlimited?: boolean;
+          remaining?: number;
+          granted?: number;
+        };
+      };
+    } | null;
+  };
   useAui();
   const hasUploading = useAttachmentUploadStore((s) => s.uploadingIds.size > 0);
   const isAnonymous = session?.user?.isAnonymous ?? false;
   const { selectedCardIds } = useSelectedCardIds();
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
+  const selectedModelId = useUIStore((state) => state.selectedModelId);
+  const setSelectedModelId = useUIStore((state) => state.setSelectedModelId);
 
   const [isWarningPopoverOpen, setIsWarningPopoverOpen] = useState(false);
+  const [isLowCreditsPopoverOpen, setIsLowCreditsPopoverOpen] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false);
 
@@ -984,6 +1006,19 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
   const filteredItems = useMemo(() => {
     return filterItems(items, "");
   }, [items]);
+
+  const premiumBalance =
+    customer?.features?.premium_message ?? customer?.balances?.premium_message;
+  const remainingPremiumMessages =
+    premiumBalance?.balance ?? premiumBalance?.remaining ?? 0;
+  const premiumLimit = premiumBalance?.limit ?? premiumBalance?.granted ?? 0;
+  const hasLowPremiumCredits =
+    !isAnonymous &&
+    !!premiumBalance &&
+    !premiumBalance.unlimited &&
+    premiumLimit > 0 &&
+    remainingPremiumMessages / premiumLimit < 0.2;
+  const isPremiumModelSelected = isPremiumChatModel(selectedModelId);
 
   return (
     <div className="aui-composer-action-wrapper relative mb-2 flex items-center justify-between">
@@ -1086,6 +1121,89 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
                       Sign up
                     </Button>
                   </Link>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
+        {hasLowPremiumCredits && (
+          <Popover
+            open={isLowCreditsPopoverOpen}
+            onOpenChange={(open) => {
+              setIsLowCreditsPopoverOpen(open);
+              if (!open) {
+                focusComposerInput();
+              }
+            }}
+          >
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                onMouseEnter={() => {
+                  if (hoverTimeoutRef.current) {
+                    clearTimeout(hoverTimeoutRef.current);
+                  }
+                  setIsLowCreditsPopoverOpen(true);
+                }}
+                onMouseLeave={() => {
+                  hoverTimeoutRef.current = setTimeout(() => {
+                    setIsLowCreditsPopoverOpen(false);
+                  }, 100);
+                }}
+                className="ml-1 flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-1 text-xs text-amber-600 transition-colors hover:bg-amber-500/15 dark:text-amber-400"
+                aria-label={`${remainingPremiumMessages} premium messages left this month`}
+              >
+                <Zap className="h-3.5 w-3.5" />
+                <span>{remainingPremiumMessages} left</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              side="top"
+              align="start"
+              sideOffset={8}
+              onMouseEnter={() => {
+                if (hoverTimeoutRef.current) {
+                  clearTimeout(hoverTimeoutRef.current);
+                }
+                setIsLowCreditsPopoverOpen(true);
+              }}
+              onMouseLeave={() => {
+                hoverTimeoutRef.current = setTimeout(() => {
+                  setIsLowCreditsPopoverOpen(false);
+                }, 100);
+              }}
+              className="w-72 p-3"
+            >
+              <div className="space-y-3">
+                <p className="text-sm text-foreground">
+                  You have {remainingPremiumMessages} premium messages left this
+                  month.
+                  {isPremiumModelSelected
+                    ? " Your current model uses premium credits."
+                    : " Premium credits are only used by premium models."}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Link href="/billing" className="flex-1">
+                    <Button
+                      size="sm"
+                      className="h-7 w-full text-xs"
+                      onClick={() => setIsLowCreditsPopoverOpen(false)}
+                    >
+                      Upgrade
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      setSelectedModelId("gemini-3-flash-preview");
+                      setIsLowCreditsPopoverOpen(false);
+                      focusComposerInput();
+                    }}
+                  >
+                    Use free model
+                  </Button>
                 </div>
               </div>
             </PopoverContent>
