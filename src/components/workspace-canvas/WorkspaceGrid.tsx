@@ -72,24 +72,12 @@ function SortableDroppableFolder({
   const { isDropTarget } = useDroppable({
     id: `folder-drop-${id}`,
     element: dropElement,
-    accept: (source) => {
-      const result =
-        typeof source.id === "string" &&
-        source.id !== id &&
-        canAcceptDrop(source.id as string);
-      console.log(
-        `[folder-drop] accept called for folder=${id}, source.id=${source.id}, source.type=${source.type}, result=${result}`,
-      );
-      return result;
-    },
+    accept: (source) =>
+      typeof source.id === "string" &&
+      source.id !== id &&
+      canAcceptDrop(source.id as string),
     collisionPriority: 100,
   });
-  if (dropElement) {
-    const rect = dropElement.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) {
-      console.warn(`[folder-drop] id=${id} has zero-size bounding box!`, rect);
-    }
-  }
   const [sortElement, setSortElement] = useState<Element | null>(null);
   const { isDragging } = useSortable({
     id,
@@ -100,27 +88,29 @@ function SortableDroppableFolder({
     type: "folder",
   });
 
-  console.log(
-    `[folder-drop] id=${id} isDropTarget=${isDropTarget} isDragging=${isDragging} dropElement=${!!dropElement} sortElement=${!!sortElement}`,
-  );
-
   return (
     <div
       ref={setDropElement}
       className="size-full min-w-0 transition-[outline] duration-150"
       style={{
-        outline: isDropTarget
-          ? "2px solid hsl(var(--primary))"
-          : "2px solid transparent",
-        outlineOffset: "-2px",
         borderRadius: "1rem",
+        boxShadow: isDropTarget
+          ? "inset 0 0 0 2px hsl(var(--primary)), 0 0 12px 2px hsl(var(--primary) / 0.3)"
+          : "none",
+        transition: "box-shadow 150ms ease",
       }}
     >
       <div
         ref={setSortElement}
         data-workspace-card
+        data-drop-target={isDropTarget || undefined}
         className="size-full"
-        style={{ opacity: isDragging ? 0.4 : 1, cursor: "grab" }}
+        style={{
+          opacity: isDragging ? 0.4 : 1,
+          cursor: "grab",
+          transform: isDropTarget ? "scale(1.02)" : "scale(1)",
+          transition: "transform 150ms ease",
+        }}
       >
         {children}
       </div>
@@ -299,33 +289,6 @@ function WorkspaceGridComponent({
       <DragDropProvider
         onBeforeDragStart={handleBeforeDragStart}
         onDragStart={handleDragStart}
-        onCollision={(event) => {
-          console.log(
-            "[collision]",
-            event.collisions?.map((c: any) => ({
-              id: c.id,
-              priority: c.priority,
-            })),
-          );
-        }}
-        onDragMove={(event) => {
-          if (Date.now() % 1000 < 50) {
-            console.log(
-              "[dragmove] source:",
-              event.operation.source?.id,
-              "target:",
-              event.operation.target?.id,
-            );
-          }
-        }}
-        onDragOver={(event) => {
-          console.log(
-            "[dragover] target:",
-            event.operation.target?.id,
-            "source:",
-            event.operation.source?.id,
-          );
-        }}
         onDragEnd={handleDragEnd}
       >
         {folders.length > 0 ? (
