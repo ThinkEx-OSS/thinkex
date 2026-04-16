@@ -20,6 +20,7 @@ import {
 } from "@/lib/posthog-server";
 import { withServerObservability } from "@/lib/with-server-observability";
 import { normalizeLegacyToolMessages } from "@/lib/ai/legacy-tool-message-compat";
+import { maybeWithSupermemory } from "@/lib/ai/supermemory";
 import type { ReplySelection } from "@/lib/stores/ui-store";
 import { getDefaultChatModelId, resolveGatewayModelId } from "@/lib/ai/models";
 import {
@@ -134,6 +135,8 @@ async function handlePOST(req: Request) {
     activeFolderId = body.activeFolderId;
     // AssistantChatTransport passes thread remoteId as body.id (see assistant-ui react-ai-sdk)
     const threadId = body.id ?? body.threadId ?? null;
+    // Client-controlled memory toggle (composer settings menu). Server double-checks auth/api key.
+    const memoryEnabled = body.memoryEnabled === true;
     logger.info("🧵 [CHAT-API] Thread ID:", {
       threadId,
       isDefault: threadId === "DEFAULT_THREAD_ID",
@@ -212,13 +215,25 @@ async function handlePOST(req: Request) {
             workspaceId,
             activeFolderId,
             modelId,
+            memoryEnabled,
           },
         })
       : (baseGatewayModel as any);
 
+    // Supermemory: personalizes prompts via user profile + search, and
+    // auto-saves conversation turns when userId + SUPERMEMORY_API_KEY present.
+    // Sits inside wrapLanguageModel (devtools stays outermost) and outside
+    // withTracing so PostHog telemetry captures the *final* prompt the model
+    // actually receives (with memories already injected).
+    const memoryWrappedModel = maybeWithSupermemory(tracedModel, {
+      userId: userId ?? "",
+      threadId,
+      memoryEnabled,
+    });
+
     // Use AI Gateway
     const model = wrapLanguageModel({
-      model: tracedModel,
+      model: memoryWrappedModel,
       middleware:
         process.env.NODE_ENV === "development" ? devToolsMiddleware() : [],
     });

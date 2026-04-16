@@ -71,6 +71,7 @@ interface UIState {
 
   activeFolderId: string | null; // Active folder for filtering
   selectedModelId: string; // Selected AI model ID
+  memoryEnabled: boolean; // Supermemory: inject user profile + auto-save conversations
 
   // Card selection state (user actions only — opening a panel does not change selection)
   selectedCardIds: Set<string>;
@@ -128,6 +129,7 @@ interface UIState {
   /** URL sync only — restores open items from `items` query (up to two ids for split) */
   _setOpenItemsFromUrl: (ids: string[]) => void;
   setSelectedModelId: (modelId: string) => void;
+  setMemoryEnabled: (enabled: boolean) => void;
 
   // Actions - Card selection
   toggleCardSelection: (id: string) => void;
@@ -171,6 +173,7 @@ const initialState = {
 
   activeFolderId: null,
   selectedModelId: getDefaultChatModelId(),
+  memoryEnabled: true,
 
   // Card selection
   selectedCardIds: new Set<string>(),
@@ -324,6 +327,7 @@ export const useUIStore = create<UIState>()(
         setShowSheetModal: (show) => set({ showSheetModal: show }),
 
         setSelectedModelId: (modelId) => set({ selectedModelId: modelId }),
+        setMemoryEnabled: (enabled) => set({ memoryEnabled: enabled }),
 
         // Card selection actions
         toggleCardSelection: (id) =>
@@ -417,7 +421,10 @@ export const useUIStore = create<UIState>()(
       {
         name: "thinkex-ui-preferences-v3",
         storage: createJSONStorage(() => localStorage),
-        partialize: (state) => ({ selectedModelId: state.selectedModelId }),
+        partialize: (state) => ({
+          selectedModelId: state.selectedModelId,
+          memoryEnabled: state.memoryEnabled,
+        }),
       },
     ),
     { name: "UI Store" },
