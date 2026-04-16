@@ -15,7 +15,6 @@ import {
   requireAuthWithUserInfo,
   withErrorHandling,
 } from "@/lib/api/workspace-helpers";
-import { workspaceItemProjectionState } from "@/lib/db/schema";
 import { insertWorkspaceItem } from "@/lib/workspace/workspace-item-write";
 
 /**
@@ -246,16 +245,6 @@ async function handlePOST(request: NextRequest) {
 
   try {
     await db.transaction(async (tx) => {
-      await tx
-        .insert(workspaceItemProjectionState)
-        .values({
-          workspaceId: workspace.id,
-          lastAppliedVersion: 0,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        })
-        .onConflictDoNothing();
-
       for (const item of initialItems) {
         await insertWorkspaceItem(tx, {
           workspaceId: workspace.id,

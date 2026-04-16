@@ -25,7 +25,9 @@ import {
 import { Resend } from "resend";
 import { InviteEmailTemplate } from "@/components/email/invite-email";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResend() {
+  return process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+}
 
 // GET /api/workspaces/[id]/collaborators
 async function handleGET(
@@ -195,6 +197,10 @@ async function handlePOST(
         try {
             const identifier = ws.slug || workspaceId;
             const workspaceUrl = `https://thinkex.app/workspace/${identifier}`;
+            const resend = getResend();
+            if (!resend) {
+                throw new Error("RESEND_API_KEY is not configured");
+            }
             const { data, error } = await resend.emails.send(
                 {
                     from: 'ThinkEx <hello@thinkex.app>',
@@ -283,6 +289,10 @@ async function handlePOST(
     try {
         const identifier = ws.slug || workspaceId;
         const workspaceUrl = `https://thinkex.app/workspace/${identifier}?invite=${token}`;
+        const resend = getResend();
+        if (!resend) {
+            throw new Error("RESEND_API_KEY is not configured");
+        }
         const { error } = await resend.emails.send(
             {
                 from: 'ThinkEx <hello@thinkex.app>',

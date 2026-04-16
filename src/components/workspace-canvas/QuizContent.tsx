@@ -6,7 +6,6 @@ import type {
   ItemData,
   QuizData,
   QuizQuestion,
-  QuizSessionData,
 } from "@/lib/workspace-state/types";
 import { cn } from "@/lib/utils";
 import {
@@ -52,7 +51,7 @@ export function QuizContent({
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [answeredQuestions, setAnsweredQuestions] = useState<
-    QuizSessionData["answeredQuestions"]
+    Array<{ questionId: string; userAnswer: number; isCorrect: boolean }>
   >([]);
   const [showResults, setShowResults] = useState(false);
 

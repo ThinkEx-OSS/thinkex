@@ -10,8 +10,6 @@ import type {
 } from "@/lib/workspace-state/types";
 
 export const WORKSPACE_ITEM_DATA_SCHEMA_VERSION = 1;
-export const WORKSPACE_ITEM_USER_STATE_SCHEMA_VERSION = 1;
-export const WORKSPACE_ITEM_PRIMARY_USER_STATE_KEY = "item";
 
 export type WorkspaceItemCapability =
   | "asset_ref"
@@ -20,8 +18,7 @@ export type WorkspaceItemCapability =
   | "sources"
   | "structured_content"
   | "text_content"
-  | "transcript_content"
-  | "user_state";
+  | "transcript_content";
 
 export interface WorkspaceItemShellProjection {
   itemId: string;
@@ -59,18 +56,10 @@ export interface WorkspaceItemExtractedProjection {
   transcriptSegments: AudioSegment[] | null;
 }
 
-export interface WorkspaceItemUserStateProjection {
-  stateKey: string;
-  stateType: CardType;
-  stateSchemaVersion: number;
-  state: Record<string, unknown>;
-}
-
 export interface WorkspaceItemSplitResult {
   shell: WorkspaceItemShellProjection;
   content: WorkspaceItemContentProjection;
   extracted: WorkspaceItemExtractedProjection;
-  userStates: WorkspaceItemUserStateProjection[];
 }
 
 export interface WorkspaceItemTableRows {
@@ -88,11 +77,4 @@ export interface WorkspaceItemTableRows {
     workspaceId: string;
     itemId: string;
   };
-  userStates: Array<
-    WorkspaceItemUserStateProjection & {
-      workspaceId: string;
-      itemId: string;
-      userId: string;
-    }
-  >;
 }
