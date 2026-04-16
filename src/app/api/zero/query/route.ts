@@ -14,7 +14,7 @@ type QueryRequest = {
   args?: readonly unknown[];
 };
 
-async function assertWorkspaceReadAccess(
+async function hasWorkspaceReadAccess(
   workspaceId: string,
   userId: string,
 ): Promise<boolean> {
@@ -82,8 +82,15 @@ export async function POST(request: NextRequest) {
       ),
     ];
 
+    if (workspaceIds.length === 0) {
+      return NextResponse.json(
+        { error: "No workspace context provided" },
+        { status: 400 },
+      );
+    }
+
     for (const workspaceId of workspaceIds) {
-      const hasAccess = await assertWorkspaceReadAccess(workspaceId, userId);
+      const hasAccess = await hasWorkspaceReadAccess(workspaceId, userId);
       if (!hasAccess) {
         throw new Error(WORKSPACE_ACCESS_DENIED_ERROR);
       }
