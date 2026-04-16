@@ -1,11 +1,12 @@
 import {
   ApplicationError,
   type Transaction,
-  defineMutatorWithType,
-  defineMutatorsWithType,
+  defineMutator,
+  defineMutators,
 } from "@rocicorp/zero";
 import type { DrizzleTransaction } from "@rocicorp/zero/server/adapters/drizzle";
 import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@/lib/db/client";
 import {
   workspaceCollaborators,
@@ -18,17 +19,16 @@ import {
   buildWorkspaceItemTableRows,
   rehydrateWorkspaceItem,
 } from "@/lib/workspace/workspace-item-model";
-import { mutators, zeroMutatorSchemas } from "./mutators";
-import type { ZeroContext } from "./client";
+import { mutators as sharedMutators, zeroMutatorSchemas } from "./mutators";
 import { schema } from "./zero-schema.gen";
 
-const defineServerMutator = defineMutatorWithType<
-  typeof schema,
-  ZeroContext,
-  DrizzleTransaction<typeof db>
->();
-const defineServerMutators = defineMutatorsWithType<typeof schema>();
 type ServerZeroTx = Transaction<typeof schema, DrizzleTransaction<typeof db>>;
+
+type WorkspaceArgs = { workspaceId: string };
+
+type SharedServerMutator = {
+  fn: (params: { tx: any; ctx: any; args: any }) => Promise<void>;
+};
 
 async function assertWorkspaceWriteAccess(
   wrappedTx: DrizzleTransaction<typeof db>,
@@ -140,14 +140,12 @@ async function syncExtractedRow(
           sourceData: (content.sourceData as never[] | null) ?? null,
         }
       : null,
-    userStates: null,
   });
 
   const rows = buildWorkspaceItemTableRows({
     workspaceId: params.workspaceId,
     item,
     sourceVersion: shell.sourceVersion,
-    userId: params.userId ?? undefined,
   });
 
   await wrappedTx
@@ -164,7 +162,10 @@ async function syncExtractedRow(
       updatedAt: new Date().toISOString(),
     })
     .onConflictDoUpdate({
-      target: [workspaceItemExtracted.workspaceId, workspaceItemExtracted.itemId],
+      target: [
+        workspaceItemExtracted.workspaceId,
+        workspaceItemExtracted.itemId,
+      ],
       set: {
         searchText: rows.extracted.searchText,
         contentPreview: rows.extracted.contentPreview,
@@ -194,9 +195,7 @@ async function syncExtractedRows(
   }
 }
 
-function getWrappedTransaction(
-  tx: ServerZeroTx,
-) {
+function getWrappedTransaction(tx: ServerZeroTx) {
   if (tx.location !== "server") {
     throw new ApplicationError("Server-only mutator");
   }
@@ -204,140 +203,144 @@ function getWrappedTransaction(
   return tx.dbTransaction.wrappedTransaction;
 }
 
-export const serverMutators = defineServerMutators(mutators, {
+function withAuth<TArgs extends WorkspaceArgs>(
+  schema: z.ZodType<TArgs>,
+  sharedMutator: SharedServerMutator,
+  getItemIds: (args: TArgs) => string[],
+) {
+  return defineMutator(schema as any, async ({ tx, ctx, args }) => {
+    const validatedArgs = args as unknown as TArgs;
+    const wrappedTx = getWrappedTransaction(tx as ServerZeroTx);
+    await assertWorkspaceWriteAccess(
+      wrappedTx,
+      validatedArgs.workspaceId,
+      ctx.userId,
+    );
+    await sharedMutator.fn({ tx, ctx, args: validatedArgs });
+
+    const itemIds = [...new Set(getItemIds(validatedArgs))];
+    if (itemIds.length > 0) {
+      await syncExtractedRows(wrappedTx, {
+        workspaceId: validatedArgs.workspaceId,
+        itemIds,
+        userId: ctx.userId,
+      });
+    }
+  });
+}
+
+function withAuthOnly<TArgs extends WorkspaceArgs>(
+  schema: z.ZodType<TArgs>,
+  sharedMutator: SharedServerMutator,
+) {
+  return defineMutator(schema as any, async ({ tx, ctx, args }) => {
+    const validatedArgs = args as unknown as TArgs;
+    const wrappedTx = getWrappedTransaction(tx as ServerZeroTx);
+    await assertWorkspaceWriteAccess(
+      wrappedTx,
+      validatedArgs.workspaceId,
+      ctx.userId,
+    );
+    await sharedMutator.fn({ tx, ctx, args: validatedArgs });
+  });
+}
+
+export const serverMutators = defineMutators(sharedMutators, {
   item: {
-    create: defineServerMutator(async ({ tx, ctx, args }) => {
-      const parsed = zeroMutatorSchemas.item.create.parse(args);
-      const wrappedTx = getWrappedTransaction(tx);
-      await assertWorkspaceWriteAccess(wrappedTx, parsed.workspaceId, ctx.userId);
-      await mutators.item.create.fn({ tx, ctx, args: parsed });
-      await syncExtractedRows(wrappedTx, {
-        workspaceId: parsed.workspaceId,
-        itemIds: [parsed.id],
-        userId: ctx.userId,
-      });
-    }),
-    update: defineServerMutator(async ({ tx, ctx, args }) => {
-      const parsed = zeroMutatorSchemas.item.update.parse(args);
-      const wrappedTx = getWrappedTransaction(tx);
-      await assertWorkspaceWriteAccess(wrappedTx, parsed.workspaceId, ctx.userId);
-      await mutators.item.update.fn({ tx, ctx, args: parsed });
-      await syncExtractedRows(wrappedTx, {
-        workspaceId: parsed.workspaceId,
-        itemIds: [parsed.id],
-        userId: ctx.userId,
-      });
-    }),
-    delete: defineServerMutator(async ({ tx, ctx, args }) => {
-      const parsed = zeroMutatorSchemas.item.delete.parse(args);
-      const wrappedTx = getWrappedTransaction(tx);
-      await assertWorkspaceWriteAccess(wrappedTx, parsed.workspaceId, ctx.userId);
+    create: withAuth(
+      zeroMutatorSchemas.item.create,
+      sharedMutators.item.create,
+      (args) => [args.id],
+    ),
+    update: withAuth(
+      zeroMutatorSchemas.item.update,
+      sharedMutators.item.update,
+      (args) => [args.id],
+    ),
+    delete: defineMutator(
+      zeroMutatorSchemas.item.delete,
+      async ({ tx, ctx, args }) => {
+        const wrappedTx = getWrappedTransaction(tx as ServerZeroTx);
+        await assertWorkspaceWriteAccess(
+          wrappedTx,
+          args.workspaceId,
+          ctx.userId,
+        );
 
-      const [shell] = await wrappedTx
-        .select({ type: workspaceItems.type })
-        .from(workspaceItems)
-        .where(
-          and(
-            eq(workspaceItems.workspaceId, parsed.workspaceId),
-            eq(workspaceItems.itemId, parsed.id),
-          ),
-        )
-        .limit(1);
-
-      let childIds: string[] = [];
-      if (shell?.type === "folder") {
-        const children = await wrappedTx
-          .select({ itemId: workspaceItems.itemId })
+        const [shell] = await wrappedTx
+          .select({ type: workspaceItems.type })
           .from(workspaceItems)
           .where(
             and(
-              eq(workspaceItems.workspaceId, parsed.workspaceId),
-              eq(workspaceItems.folderId, parsed.id),
+              eq(workspaceItems.workspaceId, args.workspaceId),
+              eq(workspaceItems.itemId, args.id),
+            ),
+          )
+          .limit(1);
+
+        let childIds: string[] = [];
+        if (shell?.type === "folder") {
+          const children = await wrappedTx
+            .select({ itemId: workspaceItems.itemId })
+            .from(workspaceItems)
+            .where(
+              and(
+                eq(workspaceItems.workspaceId, args.workspaceId),
+                eq(workspaceItems.folderId, args.id),
+              ),
+            );
+          childIds = children.map((child) => child.itemId);
+        }
+
+        await wrappedTx
+          .delete(workspaceItemExtracted)
+          .where(
+            and(
+              eq(workspaceItemExtracted.workspaceId, args.workspaceId),
+              eq(workspaceItemExtracted.itemId, args.id),
             ),
           );
-        childIds = children.map((child) => child.itemId);
-      }
+        await sharedMutators.item.delete.fn({ tx, ctx, args });
 
-      await wrappedTx
-        .delete(workspaceItemExtracted)
-        .where(
-          and(
-            eq(workspaceItemExtracted.workspaceId, parsed.workspaceId),
-            eq(workspaceItemExtracted.itemId, parsed.id),
-          ),
-        );
-      await mutators.item.delete.fn({ tx, ctx, args: parsed });
-
-      if (childIds.length > 0) {
-        await syncExtractedRows(wrappedTx, {
-          workspaceId: parsed.workspaceId,
-          itemIds: childIds,
-          userId: ctx.userId,
-        });
-      }
-    }),
-    createMany: defineServerMutator(async ({ tx, ctx, args }) => {
-      const parsed = zeroMutatorSchemas.item.createMany.parse(args);
-      const wrappedTx = getWrappedTransaction(tx);
-      await assertWorkspaceWriteAccess(wrappedTx, parsed.workspaceId, ctx.userId);
-      await mutators.item.createMany.fn({ tx, ctx, args: parsed });
-      await syncExtractedRows(wrappedTx, {
-        workspaceId: parsed.workspaceId,
-        itemIds: parsed.items.map((item) => item.id),
-        userId: ctx.userId,
-      });
-    }),
-    patchMany: defineServerMutator(async ({ tx, ctx, args }) => {
-      const parsed = zeroMutatorSchemas.item.patchMany.parse(args);
-      const wrappedTx = getWrappedTransaction(tx);
-      await assertWorkspaceWriteAccess(wrappedTx, parsed.workspaceId, ctx.userId);
-      await mutators.item.patchMany.fn({ tx, ctx, args: parsed });
-      await syncExtractedRows(wrappedTx, {
-        workspaceId: parsed.workspaceId,
-        itemIds: parsed.updates.map((update) => update.id),
-        userId: ctx.userId,
-      });
-    }),
-    updateMany: defineServerMutator(async ({ tx, ctx, args }) => {
-      const parsed = zeroMutatorSchemas.item.updateMany.parse(args);
-      const wrappedTx = getWrappedTransaction(tx);
-      await assertWorkspaceWriteAccess(wrappedTx, parsed.workspaceId, ctx.userId);
-      await mutators.item.updateMany.fn({ tx, ctx, args: parsed });
-      const affectedIds = [
-        ...(parsed.deletedIds ?? []),
-        ...(parsed.addedItems ?? []).map((item) => item.id),
-        ...(parsed.layoutUpdates ?? []).map((update) => update.id),
-      ];
-      await syncExtractedRows(wrappedTx, {
-        workspaceId: parsed.workspaceId,
-        itemIds: [...new Set(affectedIds)],
-        userId: ctx.userId,
-      });
-    }),
-    move: defineServerMutator(async ({ tx, ctx, args }) => {
-      const parsed = zeroMutatorSchemas.item.move.parse(args);
-      const wrappedTx = getWrappedTransaction(tx);
-      await assertWorkspaceWriteAccess(wrappedTx, parsed.workspaceId, ctx.userId);
-      await mutators.item.move.fn({ tx, ctx, args: parsed });
-    }),
-    moveMany: defineServerMutator(async ({ tx, ctx, args }) => {
-      const parsed = zeroMutatorSchemas.item.moveMany.parse(args);
-      const wrappedTx = getWrappedTransaction(tx);
-      await assertWorkspaceWriteAccess(wrappedTx, parsed.workspaceId, ctx.userId);
-      await mutators.item.moveMany.fn({ tx, ctx, args: parsed });
-    }),
+        if (childIds.length > 0) {
+          await syncExtractedRows(wrappedTx, {
+            workspaceId: args.workspaceId,
+            itemIds: childIds,
+            userId: ctx.userId,
+          });
+        }
+      },
+    ),
+    createMany: withAuth(
+      zeroMutatorSchemas.item.createMany,
+      sharedMutators.item.createMany,
+      (args) => args.items.map((item) => item.id),
+    ),
+    patchMany: withAuth(
+      zeroMutatorSchemas.item.patchMany,
+      sharedMutators.item.patchMany,
+      (args) => args.updates.map((update) => update.id),
+    ),
+    updateMany: withAuth(
+      zeroMutatorSchemas.item.updateMany,
+      sharedMutators.item.updateMany,
+      (args) => [
+        ...(args.deletedIds ?? []),
+        ...(args.addedItems ?? []).map((item) => item.id),
+        ...(args.layoutUpdates ?? []).map((update) => update.id),
+      ],
+    ),
+    move: withAuthOnly(zeroMutatorSchemas.item.move, sharedMutators.item.move),
+    moveMany: withAuthOnly(
+      zeroMutatorSchemas.item.moveMany,
+      sharedMutators.item.moveMany,
+    ),
   },
   folder: {
-    createWithItems: defineServerMutator(async ({ tx, ctx, args }) => {
-      const parsed = zeroMutatorSchemas.folder.createWithItems.parse(args);
-      const wrappedTx = getWrappedTransaction(tx);
-      await assertWorkspaceWriteAccess(wrappedTx, parsed.workspaceId, ctx.userId);
-      await mutators.folder.createWithItems.fn({ tx, ctx, args: parsed });
-      await syncExtractedRows(wrappedTx, {
-        workspaceId: parsed.workspaceId,
-        itemIds: [parsed.folder.id, ...parsed.itemIds],
-        userId: ctx.userId,
-      });
-    }),
+    createWithItems: withAuth(
+      zeroMutatorSchemas.folder.createWithItems,
+      sharedMutators.folder.createWithItems,
+      (args) => [args.folder.id, ...args.itemIds],
+    ),
   },
 });

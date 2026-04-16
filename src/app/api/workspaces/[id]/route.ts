@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, workspaces } from "@/lib/db/client";
 import { eq, and, ne } from "drizzle-orm";
-import { loadWorkspaceState } from "@/lib/workspace/state-loader";
+import { loadWorkspaceState } from "@/lib/workspace/workspace-state-read";
 import {
   requireAuth,
   verifyWorkspaceOwnership,

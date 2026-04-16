@@ -1,8 +1,8 @@
 import {
   ApplicationError,
   type Transaction,
-  defineMutatorWithType,
-  defineMutatorsWithType,
+  defineMutator,
+  defineMutators,
 } from "@rocicorp/zero";
 import { z } from "zod";
 import type { Item } from "@/lib/workspace-state/types";
@@ -10,11 +10,12 @@ import {
   buildWorkspaceItemTableRows,
   rehydrateWorkspaceItem,
 } from "@/lib/workspace/workspace-item-model";
+import {
+  sanitizeWorkspaceItemChanges,
+  sanitizeWorkspaceItemForPersistence,
+} from "@/lib/workspace/workspace-item-sanitize";
 import { schema, zql } from "./zero-schema.gen";
-import type { ZeroContext } from "./client";
 
-const defineZeroMutator = defineMutatorWithType<typeof schema, ZeroContext>();
-const defineZeroMutators = defineMutatorsWithType<typeof schema>();
 type ZeroTx = Transaction<typeof schema>;
 
 const cardTypeSchema = z.enum([
@@ -37,30 +38,52 @@ type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
-const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
-  z.union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.null(),
-    z.array(jsonValueSchema),
-    z.record(z.string(), jsonValueSchema),
-  ]),
-);
+type JsonObject = { [key: string]: JsonValue };
 
-const jsonObjectSchema: z.ZodType<{ [key: string]: JsonValue }> = z.record(
-  z.string(),
-  jsonValueSchema,
-);
+function isJsonValue(value: unknown): value is JsonValue {
+  if (value === null) {
+    return true;
+  }
+
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return value.every(isJsonValue);
+  }
+
+  if (typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).every(isJsonValue);
+  }
+
+  return false;
+}
+
+function isJsonObject(value: unknown): value is JsonObject {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    isJsonValue(value)
+  );
+}
+
+const jsonValueSchema = z.custom<JsonValue>(isJsonValue);
+const jsonObjectSchema = z.custom<JsonObject>(isJsonObject);
 
 const itemSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string(),
   type: cardTypeSchema,
   name: z.string(),
   subtitle: z.string().default(""),
   data: jsonObjectSchema,
   color: z.string().nullable().optional(),
-  folderId: z.string().uuid().nullable().optional(),
+  folderId: z.string().nullable().optional(),
   layout: jsonObjectSchema.nullable().optional(),
   lastModified: z.number().int().optional(),
 });
@@ -74,13 +97,13 @@ const itemChangesSchema = z.object({
   subtitle: z.string().optional(),
   data: jsonObjectSchema.optional(),
   color: z.string().nullable().optional(),
-  folderId: z.string().uuid().nullable().optional(),
+  folderId: z.string().nullable().optional(),
   layout: jsonObjectSchema.nullable().optional(),
   lastModified: z.number().int().optional(),
 });
 
 const layoutUpdateSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string(),
   x: z.number(),
   y: z.number(),
   w: z.number(),
@@ -91,18 +114,18 @@ export const zeroMutatorSchemas = {
   item: {
     create: z.object({
       workspaceId: z.string().uuid(),
-      id: z.string().uuid(),
+      id: z.string(),
       item: itemSchema,
     }),
     update: z.object({
       workspaceId: z.string().uuid(),
-      id: z.string().uuid(),
+      id: z.string(),
       changes: itemChangesSchema,
       name: z.string().optional(),
     }),
     delete: z.object({
       workspaceId: z.string().uuid(),
-      id: z.string().uuid(),
+      id: z.string(),
       name: z.string().optional(),
     }),
     createMany: z.object({
@@ -113,7 +136,7 @@ export const zeroMutatorSchemas = {
       workspaceId: z.string().uuid(),
       updates: z.array(
         z.object({
-          id: z.string().uuid(),
+          id: z.string(),
           changes: itemChangesSchema,
           name: z.string().optional(),
         }),
@@ -123,19 +146,19 @@ export const zeroMutatorSchemas = {
       workspaceId: z.string().uuid(),
       layoutUpdates: z.array(layoutUpdateSchema).optional(),
       previousItemCount: z.number().int().optional(),
-      deletedIds: z.array(z.string().uuid()).optional(),
+      deletedIds: z.array(z.string()).optional(),
       addedItems: z.array(itemSchema).optional(),
     }),
     move: z.object({
       workspaceId: z.string().uuid(),
-      itemId: z.string().uuid(),
-      folderId: z.string().uuid().nullable(),
+      itemId: z.string(),
+      folderId: z.string().nullable(),
       itemName: z.string().optional(),
     }),
     moveMany: z.object({
       workspaceId: z.string().uuid(),
-      itemIds: z.array(z.string().uuid()),
-      folderId: z.string().uuid().nullable(),
+      itemIds: z.array(z.string()),
+      folderId: z.string().nullable(),
       itemNames: z.array(z.string()).optional(),
     }),
   },
@@ -143,13 +166,13 @@ export const zeroMutatorSchemas = {
     createWithItems: z.object({
       workspaceId: z.string().uuid(),
       folder: folderItemSchema,
-      itemIds: z.array(z.string().uuid()),
+      itemIds: z.array(z.string()),
     }),
   },
 } as const;
 
 function toItem(input: z.infer<typeof itemSchema>): Item {
-  return {
+  return sanitizeWorkspaceItemForPersistence({
     id: input.id,
     type: input.type,
     name: input.name,
@@ -161,11 +184,13 @@ function toItem(input: z.infer<typeof itemSchema>): Item {
     ...(input.folderId !== undefined
       ? { folderId: input.folderId ?? undefined }
       : {}),
-    ...(input.layout !== undefined ? { layout: input.layout ?? undefined } : {}),
+    ...(input.layout !== undefined
+      ? { layout: input.layout ?? undefined }
+      : {}),
     ...(input.lastModified !== undefined
       ? { lastModified: input.lastModified }
       : {}),
-  };
+  });
 }
 
 function mergeItemChanges(
@@ -173,30 +198,39 @@ function mergeItemChanges(
   changes: z.infer<typeof itemChangesSchema>,
   lastModified: number,
 ): Item {
+  const sanitizedChanges = sanitizeWorkspaceItemChanges(
+    changes as Partial<Item>,
+  ) as z.infer<typeof itemChangesSchema>;
   const next: Item = {
     ...existing,
-    ...(changes.name !== undefined ? { name: changes.name } : {}),
-    ...(changes.subtitle !== undefined ? { subtitle: changes.subtitle } : {}),
-    ...(changes.color !== undefined
-      ? { color: (changes.color ?? undefined) as Item["color"] }
+    ...(sanitizedChanges.name !== undefined
+      ? { name: sanitizedChanges.name }
       : {}),
-    ...(changes.folderId !== undefined
-      ? { folderId: changes.folderId ?? undefined }
+    ...(sanitizedChanges.subtitle !== undefined
+      ? { subtitle: sanitizedChanges.subtitle }
       : {}),
-    ...(changes.layout !== undefined ? { layout: changes.layout ?? undefined } : {}),
-    ...(changes.lastModified !== undefined
-      ? { lastModified: changes.lastModified }
+    ...(sanitizedChanges.color !== undefined
+      ? { color: (sanitizedChanges.color ?? undefined) as Item["color"] }
+      : {}),
+    ...(sanitizedChanges.folderId !== undefined
+      ? { folderId: sanitizedChanges.folderId ?? undefined }
+      : {}),
+    ...(sanitizedChanges.layout !== undefined
+      ? { layout: sanitizedChanges.layout ?? undefined }
+      : {}),
+    ...(sanitizedChanges.lastModified !== undefined
+      ? { lastModified: sanitizedChanges.lastModified }
       : { lastModified }),
     data:
-      changes.data !== undefined
+      sanitizedChanges.data !== undefined
         ? ({
             ...(existing.data as Record<string, unknown>),
-            ...changes.data,
+            ...sanitizedChanges.data,
           } as Item["data"])
         : existing.data,
   };
 
-  return next;
+  return sanitizeWorkspaceItemForPersistence(next);
 }
 
 function toMutateShellRow(
@@ -223,13 +257,10 @@ function toMutateContentRow(
 async function loadItem(
   tx: ZeroTx,
   params: { workspaceId: string; itemId: string },
-): Promise<
-  | {
-      item: Item;
-      sourceVersion: number;
-    }
-  | null
-> {
+): Promise<{
+  item: Item;
+  sourceVersion: number;
+} | null> {
   const shell = await tx.run(
     zql.workspace_items
       .where("workspaceId", params.workspaceId)
@@ -266,7 +297,8 @@ async function loadItem(
         ? {
             textContent: content.textContent ?? null,
             structuredData:
-              (content.structuredData as Record<string, unknown> | null) ?? null,
+              (content.structuredData as Record<string, unknown> | null) ??
+              null,
             assetData:
               (content.assetData as Record<string, unknown> | null) ?? null,
             embedData:
@@ -274,7 +306,6 @@ async function loadItem(
             sourceData: (content.sourceData as never[] | null) ?? null,
           }
         : null,
-      userStates: null,
     }),
     sourceVersion: shell.sourceVersion,
   };
@@ -293,11 +324,12 @@ async function insertItem(
     workspaceId: params.workspaceId,
     item: params.item,
     sourceVersion: params.sourceVersion ?? 0,
-    userId: params.userId ?? undefined,
   });
 
   await tx.mutate.workspace_items.insert(toMutateShellRow(rows.item));
-  await tx.mutate.workspace_item_content.insert(toMutateContentRow(rows.content));
+  await tx.mutate.workspace_item_content.insert(
+    toMutateContentRow(rows.content),
+  );
 }
 
 async function upsertItem(
@@ -313,11 +345,12 @@ async function upsertItem(
     workspaceId: params.workspaceId,
     item: params.item,
     sourceVersion: params.sourceVersion,
-    userId: params.userId ?? undefined,
   });
 
   await tx.mutate.workspace_items.update(toMutateShellRow(rows.item));
-  await tx.mutate.workspace_item_content.upsert(toMutateContentRow(rows.content));
+  await tx.mutate.workspace_item_content.upsert(
+    toMutateContentRow(rows.content),
+  );
 }
 
 async function deleteItemById(
@@ -381,110 +414,67 @@ async function deleteItemById(
   }
 }
 
-export const mutators = defineZeroMutators({
+export const mutators = defineMutators({
   item: {
-    create: defineZeroMutator(async ({ tx, ctx, args }) => {
-      const parsed = zeroMutatorSchemas.item.create.parse(args);
-      const now = Date.now();
-      const item = toItem({
-        ...parsed.item,
-        id: parsed.id,
-        lastModified: now,
-      });
+    create: defineMutator(
+      zeroMutatorSchemas.item.create,
+      async ({ tx, ctx, args }) => {
+        const now = Date.now();
+        const item = toItem({
+          ...args.item,
+          id: args.id,
+          lastModified: now,
+        });
 
-      await insertItem(tx, {
-        workspaceId: parsed.workspaceId,
-        item,
-        userId: ctx.userId,
-        sourceVersion: 0,
-      });
-    }),
-    update: defineZeroMutator(async ({ tx, ctx, args }) => {
-      const parsed = zeroMutatorSchemas.item.update.parse(args);
-      const existing = await loadItem(tx, {
-        workspaceId: parsed.workspaceId,
-        itemId: parsed.id,
-      });
-
-      if (!existing) {
-        throw new ApplicationError(`Workspace item ${parsed.id} was not found.`);
-      }
-
-      const next = mergeItemChanges(existing.item, parsed.changes, Date.now());
-
-      await upsertItem(tx, {
-        workspaceId: parsed.workspaceId,
-        item: next,
-        sourceVersion: existing.sourceVersion,
-        userId: ctx.userId,
-      });
-    }),
-    delete: defineZeroMutator(async ({ tx, ctx, args }) => {
-      const parsed = zeroMutatorSchemas.item.delete.parse(args);
-      await deleteItemById(tx, {
-        workspaceId: parsed.workspaceId,
-        itemId: parsed.id,
-      });
-    }),
-    createMany: defineZeroMutator(async ({ tx, ctx, args }) => {
-      const parsed = zeroMutatorSchemas.item.createMany.parse(args);
-      const now = Date.now();
-
-      for (const rawItem of parsed.items) {
         await insertItem(tx, {
-          workspaceId: parsed.workspaceId,
-          item: toItem({
-            ...rawItem,
-            lastModified: now,
-          }),
+          workspaceId: args.workspaceId,
+          item,
           userId: ctx.userId,
           sourceVersion: 0,
         });
-      }
-    }),
-    patchMany: defineZeroMutator(async ({ tx, ctx, args }) => {
-      const parsed = zeroMutatorSchemas.item.patchMany.parse(args);
-      const now = Date.now();
-
-      for (const update of parsed.updates) {
+      },
+    ),
+    update: defineMutator(
+      zeroMutatorSchemas.item.update,
+      async ({ tx, ctx, args }) => {
         const existing = await loadItem(tx, {
-          workspaceId: parsed.workspaceId,
-          itemId: update.id,
+          workspaceId: args.workspaceId,
+          itemId: args.id,
         });
 
         if (!existing) {
           throw new ApplicationError(
-            `Workspace item ${update.id} was not found.`,
+            `Workspace item ${args.id} was not found.`,
           );
         }
 
-        const next = mergeItemChanges(existing.item, update.changes, now);
+        const next = mergeItemChanges(existing.item, args.changes, Date.now());
 
         await upsertItem(tx, {
-          workspaceId: parsed.workspaceId,
+          workspaceId: args.workspaceId,
           item: next,
           sourceVersion: existing.sourceVersion,
           userId: ctx.userId,
         });
-      }
-    }),
-    updateMany: defineZeroMutator(async ({ tx, ctx, args }) => {
-      const parsed = zeroMutatorSchemas.item.updateMany.parse(args);
-      if (parsed.deletedIds?.length) {
-        for (const itemId of parsed.deletedIds) {
-          await deleteItemById(tx, {
-            workspaceId: parsed.workspaceId,
-            itemId,
-          });
-        }
-      }
-
-      if (parsed.addedItems?.length) {
+      },
+    ),
+    delete: defineMutator(
+      zeroMutatorSchemas.item.delete,
+      async ({ tx, ctx, args }) => {
+        await deleteItemById(tx, {
+          workspaceId: args.workspaceId,
+          itemId: args.id,
+        });
+      },
+    ),
+    createMany: defineMutator(
+      zeroMutatorSchemas.item.createMany,
+      async ({ tx, ctx, args }) => {
         const now = Date.now();
 
-        for (const rawItem of parsed.addedItems) {
+        for (const rawItem of args.items) {
           await insertItem(tx, {
-            workspaceId: parsed.workspaceId,
+            workspaceId: args.workspaceId,
             item: toItem({
               ...rawItem,
               lastModified: now,
@@ -493,131 +483,198 @@ export const mutators = defineZeroMutators({
             sourceVersion: 0,
           });
         }
-      }
-
-      if (parsed.layoutUpdates?.length) {
+      },
+    ),
+    patchMany: defineMutator(
+      zeroMutatorSchemas.item.patchMany,
+      async ({ tx, ctx, args }) => {
         const now = Date.now();
 
-        for (const layoutUpdate of parsed.layoutUpdates) {
+        for (const update of args.updates) {
           const existing = await loadItem(tx, {
-            workspaceId: parsed.workspaceId,
-            itemId: layoutUpdate.id,
+            workspaceId: args.workspaceId,
+            itemId: update.id,
           });
 
           if (!existing) {
             throw new ApplicationError(
-              `Workspace item ${layoutUpdate.id} was not found.`,
+              `Workspace item ${update.id} was not found.`,
+            );
+          }
+
+          const next = mergeItemChanges(existing.item, update.changes, now);
+
+          await upsertItem(tx, {
+            workspaceId: args.workspaceId,
+            item: next,
+            sourceVersion: existing.sourceVersion,
+            userId: ctx.userId,
+          });
+        }
+      },
+    ),
+    updateMany: defineMutator(
+      zeroMutatorSchemas.item.updateMany,
+      async ({ tx, ctx, args }) => {
+        if (args.deletedIds?.length) {
+          for (const itemId of args.deletedIds) {
+            await deleteItemById(tx, {
+              workspaceId: args.workspaceId,
+              itemId,
+            });
+          }
+        }
+
+        if (args.addedItems?.length) {
+          const now = Date.now();
+
+          for (const rawItem of args.addedItems) {
+            await insertItem(tx, {
+              workspaceId: args.workspaceId,
+              item: toItem({
+                ...rawItem,
+                lastModified: now,
+              }),
+              userId: ctx.userId,
+              sourceVersion: 0,
+            });
+          }
+        }
+
+        if (args.layoutUpdates?.length) {
+          const now = Date.now();
+
+          for (const layoutUpdate of args.layoutUpdates) {
+            const existing = await loadItem(tx, {
+              workspaceId: args.workspaceId,
+              itemId: layoutUpdate.id,
+            });
+
+            if (!existing) {
+              throw new ApplicationError(
+                `Workspace item ${layoutUpdate.id} was not found.`,
+              );
+            }
+
+            await upsertItem(tx, {
+              workspaceId: args.workspaceId,
+              userId: ctx.userId,
+              sourceVersion: existing.sourceVersion,
+              item: {
+                ...existing.item,
+                layout: {
+                  x: layoutUpdate.x,
+                  y: layoutUpdate.y,
+                  w: layoutUpdate.w,
+                  h: layoutUpdate.h,
+                },
+                lastModified: now,
+              },
+            });
+          }
+        }
+      },
+    ),
+    move: defineMutator(
+      zeroMutatorSchemas.item.move,
+      async ({ tx, ctx, args }) => {
+        const existing = await loadItem(tx, {
+          workspaceId: args.workspaceId,
+          itemId: args.itemId,
+        });
+
+        if (!existing) {
+          throw new ApplicationError(
+            `Workspace item ${args.itemId} was not found.`,
+          );
+        }
+
+        await upsertItem(tx, {
+          workspaceId: args.workspaceId,
+          userId: ctx.userId,
+          sourceVersion: existing.sourceVersion,
+          item: {
+            ...existing.item,
+            folderId: args.folderId ?? undefined,
+            layout: undefined,
+            lastModified: Date.now(),
+          },
+        });
+      },
+    ),
+    moveMany: defineMutator(
+      zeroMutatorSchemas.item.moveMany,
+      async ({ tx, ctx, args }) => {
+        const now = Date.now();
+
+        for (const itemId of args.itemIds) {
+          const existing = await loadItem(tx, {
+            workspaceId: args.workspaceId,
+            itemId,
+          });
+
+          if (!existing) {
+            throw new ApplicationError(
+              `Workspace item ${itemId} was not found.`,
             );
           }
 
           await upsertItem(tx, {
-            workspaceId: parsed.workspaceId,
+            workspaceId: args.workspaceId,
             userId: ctx.userId,
             sourceVersion: existing.sourceVersion,
             item: {
               ...existing.item,
-              layout: {
-                x: layoutUpdate.x,
-                y: layoutUpdate.y,
-                w: layoutUpdate.w,
-                h: layoutUpdate.h,
-              },
+              folderId: args.folderId ?? undefined,
+              layout: undefined,
               lastModified: now,
             },
           });
         }
-      }
-    }),
-    move: defineZeroMutator(async ({ tx, ctx, args }) => {
-      const parsed = zeroMutatorSchemas.item.move.parse(args);
-      const existing = await loadItem(tx, {
-        workspaceId: parsed.workspaceId,
-        itemId: parsed.itemId,
-      });
-
-      if (!existing) {
-        throw new ApplicationError(
-          `Workspace item ${parsed.itemId} was not found.`,
-        );
-      }
-
-      await upsertItem(tx, {
-        workspaceId: parsed.workspaceId,
-        userId: ctx.userId,
-        sourceVersion: existing.sourceVersion,
-        item: {
-          ...existing.item,
-          folderId: parsed.folderId ?? undefined,
-          layout: undefined,
-          lastModified: Date.now(),
-        },
-      });
-    }),
-    moveMany: defineZeroMutator(async ({ tx, ctx, args }) => {
-      const parsed = zeroMutatorSchemas.item.moveMany.parse(args);
-      const now = Date.now();
-
-      for (const itemId of parsed.itemIds) {
-        const existing = await loadItem(tx, {
-          workspaceId: parsed.workspaceId,
-          itemId,
-        });
-
-        if (!existing) {
-          throw new ApplicationError(`Workspace item ${itemId} was not found.`);
-        }
-
-        await upsertItem(tx, {
-          workspaceId: parsed.workspaceId,
-          userId: ctx.userId,
-          sourceVersion: existing.sourceVersion,
-          item: {
-            ...existing.item,
-            folderId: parsed.folderId ?? undefined,
-            layout: undefined,
-            lastModified: now,
-          },
-        });
-      }
-    }),
+      },
+    ),
   },
   folder: {
-    createWithItems: defineZeroMutator(async ({ tx, ctx, args }) => {
-      const parsed = zeroMutatorSchemas.folder.createWithItems.parse(args);
-      const now = Date.now();
+    createWithItems: defineMutator(
+      zeroMutatorSchemas.folder.createWithItems,
+      async ({ tx, ctx, args }) => {
+        const now = Date.now();
 
-      await insertItem(tx, {
-        workspaceId: parsed.workspaceId,
-        item: toItem({
-          ...parsed.folder,
-          lastModified: now,
-        }),
-        userId: ctx.userId,
-        sourceVersion: 0,
-      });
-
-      for (const itemId of parsed.itemIds) {
-        const existing = await loadItem(tx, {
-          workspaceId: parsed.workspaceId,
-          itemId,
-        });
-
-        if (!existing) {
-          throw new ApplicationError(`Workspace item ${itemId} was not found.`);
-        }
-
-        await upsertItem(tx, {
-          workspaceId: parsed.workspaceId,
-          userId: ctx.userId,
-          sourceVersion: existing.sourceVersion,
-          item: {
-            ...existing.item,
-            folderId: parsed.folder.id,
-            layout: undefined,
+        await insertItem(tx, {
+          workspaceId: args.workspaceId,
+          item: toItem({
+            ...args.folder,
             lastModified: now,
-          },
+          }),
+          userId: ctx.userId,
+          sourceVersion: 0,
         });
-      }
-    }),
+
+        for (const itemId of args.itemIds) {
+          const existing = await loadItem(tx, {
+            workspaceId: args.workspaceId,
+            itemId,
+          });
+
+          if (!existing) {
+            throw new ApplicationError(
+              `Workspace item ${itemId} was not found.`,
+            );
+          }
+
+          await upsertItem(tx, {
+            workspaceId: args.workspaceId,
+            userId: ctx.userId,
+            sourceVersion: existing.sourceVersion,
+            item: {
+              ...existing.item,
+              folderId: args.folder.id,
+              layout: undefined,
+              lastModified: now,
+            },
+          });
+        }
+      },
+    ),
   },
 });

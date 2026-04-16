@@ -1,9 +1,5 @@
 import { createPatch, diffLines } from "diff";
-import {
-  appendWorkspaceEventOrThrow,
-  appendWorkspaceEventUsingCurrentVersionWithRetry,
-} from "@/lib/workspace/workspace-event-store";
-import { createEvent } from "@/lib/workspace/events";
+import { db } from "@/lib/db/client";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import { getRandomCardColor } from "@/lib/workspace-state/colors";
 import { logger } from "@/lib/utils/logger";
@@ -24,7 +20,6 @@ import {
   loadWorkspaceItemsForValidation,
   checkDuplicateName,
 } from "@/lib/workspace/mutation-helpers";
-import type { WorkspaceEvent } from "@/lib/workspace/events";
 import {
   replace as applyReplace,
   trimDiff,
@@ -32,6 +27,13 @@ import {
 } from "@/lib/utils/edit-replace";
 import { parseJsonWithRepair } from "@/lib/utils/json-repair";
 import { buildPdfDataFromUpload } from "@/lib/pdf/pdf-item";
+import {
+  deleteWorkspaceItemById,
+  insertWorkspaceItem,
+  loadWorkspaceItemRecord,
+  upsertWorkspaceItem,
+} from "@/lib/workspace/workspace-item-write";
+import { sanitizeWorkspaceItemForPersistence } from "@/lib/workspace/workspace-item-sanitize";
 
 /** Create params for a single item (used by create and bulkCreate). Exported for autogen. */
 export type CreateItemParams = {
@@ -81,7 +83,7 @@ export type CreateItemParams = {
  * Build an Item from create params. Used by both create and bulkCreate.
  */
 async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
-  const itemId = p.id || generateItemId();
+  const itemId = p.id || crypto.randomUUID();
   const itemType = p.itemType || "document";
 
   let itemData: any;
@@ -180,27 +182,50 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
   };
 }
 
-async function persistWorkspaceEvent(
-  workspaceId: string,
-  event: WorkspaceEvent,
-) {
-  return appendWorkspaceEventOrThrow({
-    workspaceId,
-    event,
-    conflictMessage: "Workspace was modified by another user, please try again",
+async function createWorkspaceItem(workspaceId: string, item: Item) {
+  await db.transaction(async (tx) => {
+    await insertWorkspaceItem(tx, {
+      workspaceId,
+      item: sanitizeWorkspaceItemForPersistence(item),
+      sourceVersion: 0,
+    });
   });
 }
 
-async function persistWorkspaceEventWithRetry(
+async function createWorkspaceItems(workspaceId: string, items: Item[]) {
+  await db.transaction(async (tx) => {
+    for (const item of items) {
+      await insertWorkspaceItem(tx, {
+        workspaceId,
+        item: sanitizeWorkspaceItemForPersistence(item),
+        sourceVersion: 0,
+      });
+    }
+  });
+}
+
+async function updateWorkspaceItem(
   workspaceId: string,
-  event: WorkspaceEvent,
-  maxRetries = 0,
+  itemId: string,
+  updater: (item: Item) => Item,
 ) {
-  return appendWorkspaceEventUsingCurrentVersionWithRetry({
-    workspaceId,
-    event,
-    maxRetries,
-    conflictMessage: "Workspace was modified by another user, please try again",
+  await db.transaction(async (tx) => {
+    const existing = await loadWorkspaceItemRecord(tx, { workspaceId, itemId });
+    if (!existing) {
+      throw new Error(`Item not found with ID: ${itemId}`);
+    }
+
+    await upsertWorkspaceItem(tx, {
+      workspaceId,
+      sourceVersion: existing.sourceVersion,
+      item: sanitizeWorkspaceItemForPersistence(updater(existing.item)),
+    });
+  });
+}
+
+async function deleteWorkspaceItem(workspaceId: string, itemId: string) {
+  await db.transaction(async (tx) => {
+    await deleteWorkspaceItemById(tx, { workspaceId, itemId });
   });
 }
 
@@ -291,7 +316,7 @@ export async function workspaceWorker(
   itemId?: string;
   cardsAdded?: number;
   cardCount?: number;
-  event?: WorkspaceEvent;
+  event?: unknown;
   version?: number;
 }> {
   // For "create" and "bulkCreate" operations, allow parallel execution (bypass queue)
@@ -302,29 +327,26 @@ export async function workspaceWorker(
     params.workspaceId,
     async () => {
       try {
-        const { userId, userName } = await requireMutationIdentity();
+        const { userId } = await requireMutationIdentity();
         await requireWorkspaceEditor(params.workspaceId, userId);
 
         // Handle different actions
         if (action === "create") {
           const item = await buildItemFromCreateParams(params);
-          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
-          const dupError = checkDuplicateName(currentState, item.name, item.type, item.folderId ?? null);
+          const currentState = await loadWorkspaceItemsForValidation(
+            params.workspaceId,
+            userId,
+          );
+          const dupError = checkDuplicateName(
+            currentState,
+            item.name,
+            item.type,
+            item.folderId ?? null,
+          );
           if (dupError) {
             return { success: false, message: dupError };
           }
-          const event = createEvent(
-            "ITEM_CREATED",
-            { id: item.id, item },
-            userId,
-            userName,
-          );
-
-          const appendResult = await persistWorkspaceEventWithRetry(
-            params.workspaceId,
-            event,
-            2,
-          );
+          await createWorkspaceItem(params.workspaceId, item);
 
           // Include card count for flashcard decks (use created item.data.cards, not params)
           const flashcardCards =
@@ -342,8 +364,6 @@ export async function workspaceWorker(
             itemId: item.id,
             message: `Created ${item.type} "${item.name}" successfully`,
             cardCount,
-            event,
-            version: appendResult.version,
           };
         }
 
@@ -356,32 +376,29 @@ export async function workspaceWorker(
             params.items.map((p) => buildItemFromCreateParams(p)),
           );
 
-          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
+          const currentState = await loadWorkspaceItemsForValidation(
+            params.workspaceId,
+            userId,
+          );
           for (let i = 0; i < items.length; i++) {
             const item = items[i];
             const preceding = [...currentState, ...items.slice(0, i)];
-            const dupError = checkDuplicateName(preceding, item.name, item.type, item.folderId ?? null);
+            const dupError = checkDuplicateName(
+              preceding,
+              item.name,
+              item.type,
+              item.folderId ?? null,
+            );
             if (dupError) {
               return { success: false, message: dupError };
             }
           }
 
-          const event = createEvent(
-            "BULK_ITEMS_CREATED",
-            { items },
-            userId,
-            userName,
-          );
-
-          const appendResult = await persistWorkspaceEvent(
-            params.workspaceId,
-            event,
-          );
+          await createWorkspaceItems(params.workspaceId, items);
 
           return {
             success: true,
             message: `Bulk created ${items.length} items successfully`,
-            version: appendResult.version,
             itemIds: items.map((i) => i.id),
           };
         }
@@ -397,7 +414,10 @@ export async function workspaceWorker(
             throw new Error("Cards to add required for flashcard update");
           }
 
-          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
+          const currentState = await loadWorkspaceItemsForValidation(
+            params.workspaceId,
+            userId,
+          );
 
           const existingItem = currentState.find(
             (i: any) => i.id === params.itemId,
@@ -434,27 +454,27 @@ export async function workspaceWorker(
 
           // Handle title update if provided
           if (params.title) {
-            const dupError = checkDuplicateName(currentState, params.title, existingItem.type, existingItem.folderId ?? null, params.itemId);
+            const dupError = checkDuplicateName(
+              currentState,
+              params.title,
+              existingItem.type,
+              existingItem.folderId ?? null,
+              params.itemId,
+            );
             if (dupError) {
               return { success: false, message: dupError };
             }
             changes.name = params.title;
           }
 
-          const event = createEvent(
-            "ITEM_UPDATED",
-            {
-              id: params.itemId,
-              changes,
-              name: changes.name ?? existingItem.name,
-            },
-            userId,
-            userName,
-          );
-
-          const appendResult = await persistWorkspaceEvent(
+          await updateWorkspaceItem(
             params.workspaceId,
-            event,
+            params.itemId,
+            (item) => ({
+              ...item,
+              ...changes,
+              data: updatedData,
+            }),
           );
 
           return {
@@ -462,8 +482,6 @@ export async function workspaceWorker(
             itemId: params.itemId,
             cardsAdded: newCards.length,
             message: `Added ${newCards.length} card${newCards.length !== 1 ? "s" : ""} to flashcard deck${params.title ? ` and renamed to "${params.title}"` : ""}`,
-            event,
-            version: appendResult.version,
           };
         }
 
@@ -483,7 +501,10 @@ export async function workspaceWorker(
             );
           }
 
-          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
+          const currentState = await loadWorkspaceItemsForValidation(
+            params.workspaceId,
+            userId,
+          );
 
           const existingItem = currentState.find(
             (i: any) => i.id === params.itemId,
@@ -511,27 +532,27 @@ export async function workspaceWorker(
           const changes: any = hasQuestions ? { data: updatedData } : {};
 
           if (params.title) {
-            const dupError = checkDuplicateName(currentState, params.title, existingItem.type, existingItem.folderId ?? null, params.itemId);
+            const dupError = checkDuplicateName(
+              currentState,
+              params.title,
+              existingItem.type,
+              existingItem.folderId ?? null,
+              params.itemId,
+            );
             if (dupError) {
               return { success: false, message: dupError };
             }
             changes.name = params.title;
           }
 
-          const event = createEvent(
-            "ITEM_UPDATED",
-            {
-              id: params.itemId,
-              changes,
-              name: changes.name ?? existingItem.name,
-            },
-            userId,
-            userName,
-          );
-
-          const appendResult = await persistWorkspaceEvent(
+          await updateWorkspaceItem(
             params.workspaceId,
-            event,
+            params.itemId,
+            (item) => ({
+              ...item,
+              ...changes,
+              ...(hasQuestions ? { data: updatedData } : {}),
+            }),
           );
 
           return {
@@ -542,8 +563,6 @@ export async function workspaceWorker(
             message: hasQuestions
               ? `Added ${questionsToAdd!.length} question${questionsToAdd!.length !== 1 ? "s" : ""} to quiz`
               : "Quiz title updated.",
-            event,
-            version: appendResult.version,
           };
         }
 
@@ -563,7 +582,10 @@ export async function workspaceWorker(
             );
           }
 
-          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
+          const currentState = await loadWorkspaceItemsForValidation(
+            params.workspaceId,
+            userId,
+          );
           const existingItem = currentState.find(
             (i: any) => i.id === params.itemId,
           );
@@ -589,36 +611,33 @@ export async function workspaceWorker(
           const changes: Partial<Item> = { data: updatedData };
 
           if (params.title) {
-            const dupError = checkDuplicateName(currentState, params.title, existingItem.type, existingItem.folderId ?? null, params.itemId);
+            const dupError = checkDuplicateName(
+              currentState,
+              params.title,
+              existingItem.type,
+              existingItem.folderId ?? null,
+              params.itemId,
+            );
             if (dupError) {
               return { success: false, message: dupError };
             }
             changes.name = params.title;
           }
 
-          const event = createEvent(
-            "ITEM_UPDATED",
-            {
-              id: params.itemId,
-              changes,
-              name: changes.name ?? existingItem.name,
-            },
-            userId,
-            userName,
-          );
-
-          const appendResult = await persistWorkspaceEvent(
+          await updateWorkspaceItem(
             params.workspaceId,
-            event,
+            params.itemId,
+            (item) => ({
+              ...item,
+              ...changes,
+              data: updatedData,
+            }),
           );
-
 
           return {
             success: true,
             itemId: params.itemId,
             message: `Cached OCR content for PDF "${existingItem.name}"`,
-            event,
-            version: appendResult.version,
           };
         }
 
@@ -636,7 +655,10 @@ export async function workspaceWorker(
             );
           }
 
-          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
+          const currentState = await loadWorkspaceItemsForValidation(
+            params.workspaceId,
+            userId,
+          );
           const existingItem = currentState.find(
             (i: any) => i.id === params.itemId,
           );
@@ -664,20 +686,14 @@ export async function workspaceWorker(
           };
 
           const changes: Partial<Item> = { data: updatedData };
-          const event = createEvent(
-            "ITEM_UPDATED",
-            {
-              id: params.itemId,
-              changes,
-              name: existingItem.name,
-            },
-            userId,
-            userName,
-          );
-
-          const appendResult = await persistWorkspaceEvent(
+          await updateWorkspaceItem(
             params.workspaceId,
-            event,
+            params.itemId,
+            (item) => ({
+              ...item,
+              ...changes,
+              data: updatedData,
+            }),
           );
 
           return {
@@ -687,8 +703,6 @@ export async function workspaceWorker(
               params.imageOcrStatus === "failed"
                 ? "Marked image OCR as failed"
                 : `Cached OCR content for image "${existingItem.name}"`,
-            event,
-            version: appendResult.version,
           };
         }
 
@@ -707,7 +721,10 @@ export async function workspaceWorker(
             throw new Error("oldString and newString required for edit");
           }
 
-          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
+          const currentState = await loadWorkspaceItemsForValidation(
+            params.workspaceId,
+            userId,
+          );
           const existingItem = currentState.find(
             (i: Item) => i.id === params.itemId,
           );
@@ -771,34 +788,33 @@ export async function workspaceWorker(
               data: { ...data, cards: newCards } as FlashcardData,
             };
             if (rename) {
-              const dupError = checkDuplicateName(currentState, rename, "flashcard", existingItem.folderId ?? null, params.itemId);
+              const dupError = checkDuplicateName(
+                currentState,
+                rename,
+                "flashcard",
+                existingItem.folderId ?? null,
+                params.itemId,
+              );
               if (dupError) {
                 return { success: false, message: dupError };
               }
               changes.name = rename;
             }
 
-            const event = createEvent(
-              "ITEM_UPDATED",
-              {
-                id: params.itemId,
-                changes,
-                name: changes.name ?? existingItem.name,
-              },
-              userId,
-              userName,
-            );
-            const appendResult = await persistWorkspaceEvent(
+            await updateWorkspaceItem(
               params.workspaceId,
-              event,
+              params.itemId,
+              (item) => ({
+                ...item,
+                ...changes,
+                data: { ...data, cards: newCards } as FlashcardData,
+              }),
             );
 
             return {
               success: true,
               itemId: params.itemId,
               message: `Updated flashcard deck (${newCards.length} cards)`,
-              event,
-              version: appendResult.version,
               cardCount: newCards.length,
             };
           }
@@ -870,38 +886,36 @@ export async function workspaceWorker(
               ...data,
               questions: validatedQuestions,
             };
-            if (data.session) updatedData.session = data.session;
 
             const changes: Partial<Item> = { data: updatedData };
             if (rename) {
-              const dupError = checkDuplicateName(currentState, rename, "quiz", existingItem.folderId ?? null, params.itemId);
+              const dupError = checkDuplicateName(
+                currentState,
+                rename,
+                "quiz",
+                existingItem.folderId ?? null,
+                params.itemId,
+              );
               if (dupError) {
                 return { success: false, message: dupError };
               }
               changes.name = rename;
             }
 
-            const event = createEvent(
-              "ITEM_UPDATED",
-              {
-                id: params.itemId,
-                changes,
-                name: changes.name ?? existingItem.name,
-              },
-              userId,
-              userName,
-            );
-            const appendResult = await persistWorkspaceEvent(
+            await updateWorkspaceItem(
               params.workspaceId,
-              event,
+              params.itemId,
+              (item) => ({
+                ...item,
+                ...changes,
+                data: updatedData,
+              }),
             );
 
             return {
               success: true,
               itemId: params.itemId,
               message: `Updated quiz (${validatedQuestions.length} questions)`,
-              event,
-              version: appendResult.version,
               questionCount: validatedQuestions.length,
             };
           }
@@ -910,7 +924,13 @@ export async function workspaceWorker(
             const changes: Partial<Item> = {};
             const docData = existingItem.data as DocumentData;
             if (rename) {
-              const dupError = checkDuplicateName(currentState, rename, "document", existingItem.folderId ?? null, params.itemId);
+              const dupError = checkDuplicateName(
+                currentState,
+                rename,
+                "document",
+                existingItem.folderId ?? null,
+                params.itemId,
+              );
               if (dupError) {
                 return { success: false, message: dupError };
               }
@@ -962,16 +982,14 @@ export async function workspaceWorker(
               };
             }
 
-            const itemName = (changes.name ?? existingItem.name) as string;
-            const event = createEvent(
-              "ITEM_UPDATED",
-              { id: params.itemId, changes, name: itemName },
-              userId,
-              userName,
-            );
-            const appendResult = await persistWorkspaceEvent(
+            await updateWorkspaceItem(
               params.workspaceId,
-              event,
+              params.itemId,
+              (item) => ({
+                ...item,
+                ...changes,
+                ...(changes.data ? { data: changes.data } : {}),
+              }),
             );
 
             const diffOutput = trimDiff(
@@ -992,8 +1010,6 @@ export async function workspaceWorker(
               success: true,
               itemId: params.itemId,
               message: "Updated document successfully",
-              event,
-              version: appendResult.version,
               diff: diffOutput,
               filediff: {
                 additions: filediffAdditions,
@@ -1010,27 +1026,29 @@ export async function workspaceWorker(
                   "PDFs can only be renamed. Use oldString='', newString='', and newName='new name'.",
               };
             }
-            const dupError = checkDuplicateName(currentState, rename, "pdf", existingItem.folderId ?? null, params.itemId);
+            const dupError = checkDuplicateName(
+              currentState,
+              rename,
+              "pdf",
+              existingItem.folderId ?? null,
+              params.itemId,
+            );
             if (dupError) {
               return { success: false, message: dupError };
             }
             const changes: Partial<Item> = { name: rename };
-            const event = createEvent(
-              "ITEM_UPDATED",
-              { id: params.itemId, changes, name: rename },
-              userId,
-              userName,
-            );
-            const appendResult = await persistWorkspaceEvent(
+            await updateWorkspaceItem(
               params.workspaceId,
-              event,
+              params.itemId,
+              (item) => ({
+                ...item,
+                ...changes,
+              }),
             );
             return {
               success: true,
               itemId: params.itemId,
               message: `Renamed PDF to "${rename}"`,
-              event,
-              version: appendResult.version,
             };
           }
 
@@ -1042,28 +1060,21 @@ export async function workspaceWorker(
             throw new Error("Item ID required for delete");
           }
 
-          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
+          const currentState = await loadWorkspaceItemsForValidation(
+            params.workspaceId,
+            userId,
+          );
           const existingItem = currentState.find(
             (i: any) => i.id === params.itemId,
           );
-          const event = createEvent(
-            "ITEM_DELETED",
-            { id: params.itemId, name: existingItem?.name },
-            userId,
-            userName,
-          );
-
-          const appendResult = await persistWorkspaceEvent(
-            params.workspaceId,
-            event,
-          );
+          await deleteWorkspaceItem(params.workspaceId, params.itemId);
 
           return {
             success: true,
             itemId: params.itemId,
-            message: `Deleted item successfully`,
-            event,
-            version: appendResult.version,
+            message: existingItem
+              ? `Deleted \"${existingItem.name}\" successfully`
+              : "Deleted item successfully",
           };
         }
 

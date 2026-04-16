@@ -32,7 +32,7 @@ const workspaceItems = table("workspace_items")
     ocrPageCount: number().from("ocr_page_count"),
     hasTranscript: boolean().from("has_transcript"),
     sourceCount: number().from("source_count"),
-    createdAt: string().from("created_at").optional(),
+    createdAt: number().from("created_at").optional(),
   })
   .primaryKey("workspaceId", "itemId");
 
@@ -75,14 +75,22 @@ const workspaceItemContentRelationships = relationships(
 
 export const schema = createSchema({
   tables: [workspaceItems, workspaceItemContent],
-  relationships: [workspaceItemsRelationships, workspaceItemContentRelationships],
+  relationships: [
+    workspaceItemsRelationships,
+    workspaceItemContentRelationships,
+  ],
+  enableLegacyQueries: false,
+  enableLegacyMutators: false,
 });
 
 export type ZeroSchema = typeof schema;
 
-export type WorkspaceItemsRow = Row<(typeof schema)["tables"]["workspace_items"]>;
-export type WorkspaceItemContentRow =
-  Row<(typeof schema)["tables"]["workspace_item_content"]>;
+export type WorkspaceItemsRow = Row<
+  (typeof schema)["tables"]["workspace_items"]
+>;
+export type WorkspaceItemContentRow = Row<
+  (typeof schema)["tables"]["workspace_item_content"]
+>;
 
 export const zql = createBuilder(schema);
 export const builder = zql;

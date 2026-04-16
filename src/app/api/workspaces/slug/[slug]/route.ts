@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, workspaces } from "@/lib/db/client";
 import { workspaceCollaborators } from "@/lib/db/schema";
 import { eq, and, or, inArray } from "drizzle-orm";
-import { loadWorkspaceState } from "@/lib/workspace/state-loader";
+import { loadWorkspaceState } from "@/lib/workspace/workspace-state-read";
 import { requireAuth, withErrorHandling } from "@/lib/api/workspace-helpers";
 
 /**
