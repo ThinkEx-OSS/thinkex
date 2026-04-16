@@ -177,10 +177,7 @@ export function FlashcardWorkspaceCard({
     flashcardData.currentIndex || 0,
   );
 
-  const cards = useMemo(
-    () => flashcardData.cards ?? [],
-    [flashcardData.cards],
-  );
+  const cards = useMemo(() => flashcardData.cards ?? [], [flashcardData.cards]);
 
   // Ensure index is valid
   useEffect(() => {
@@ -202,10 +199,7 @@ export function FlashcardWorkspaceCard({
     if (cards.length === 0) {
       return EMPTY_FLASHCARD_PLACEHOLDER;
     }
-    const safeIndex = Math.min(
-      Math.max(0, currentIndex),
-      cards.length - 1,
-    );
+    const safeIndex = Math.min(Math.max(0, currentIndex), cards.length - 1);
     return cards[safeIndex] ?? EMPTY_FLASHCARD_PLACEHOLDER;
   }, [cards, currentIndex]);
 
@@ -214,39 +208,6 @@ export function FlashcardWorkspaceCard({
 
   // Tracking for flip debounce
   const lastFlipTimeRef = useRef<number>(0);
-
-  // Track minimal local drag detection (same pattern as WorkspaceCard)
-  const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
-  const hasMovedRef = useRef<boolean>(false);
-  const listenersActiveRef = useRef<boolean>(false);
-  const DRAG_THRESHOLD = 10; // pixels - movement beyond this prevents flip
-
-  // OPTIMIZED: Store handlers in refs so they can be added/removed dynamically
-  const handlersRef = useRef<{
-    handleGlobalMouseMove: ((e: MouseEvent) => void) | null;
-    handleGlobalMouseUp: (() => void) | null;
-  }>({ handleGlobalMouseMove: null, handleGlobalMouseUp: null });
-
-  // Cleanup listeners on unmount
-  useEffect(() => {
-    return () => {
-      if (
-        listenersActiveRef.current &&
-        handlersRef.current.handleGlobalMouseMove &&
-        handlersRef.current.handleGlobalMouseUp
-      ) {
-        document.removeEventListener(
-          "mousemove",
-          handlersRef.current.handleGlobalMouseMove,
-        );
-        document.removeEventListener(
-          "mouseup",
-          handlersRef.current.handleGlobalMouseUp,
-        );
-        listenersActiveRef.current = false;
-      }
-    };
-  }, []);
 
   const handleDelete = useCallback(() => {
     setShowDeleteDialog(true);
@@ -273,13 +234,11 @@ export function FlashcardWorkspaceCard({
     [item.id, onUpdateItem],
   );
 
-  // Helper function to hide tabs during flip animation
   const startFlipAnimation = useCallback(() => {
     setIsFlipping(true);
     setTimeout(() => setIsFlipping(false), FLIP_ANIMATION_DURATION);
   }, []);
 
-  // Debounced flip logic
   const handleFlip = useCallback(() => {
     const now = Date.now();
     if (now - lastFlipTimeRef.current < 200) return;
@@ -287,88 +246,6 @@ export function FlashcardWorkspaceCard({
     setIsFlipped((prev) => !prev);
     startFlipAnimation();
   }, [startFlipAnimation]);
-
-  // Handle mouse down - track initial position for drag detection
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      // Don't track if clicking on interactive elements
-      const target = e.target as HTMLElement;
-      if (
-        target.closest("button") ||
-        target.closest(".flashcard-control-button") ||
-        target.closest('[role="menuitem"]')
-      ) {
-        return;
-      }
-
-      // Check if clicking inside a text selection area
-      const selection = window.getSelection();
-      if (selection && selection.toString().length > 0) {
-        e.stopPropagation();
-        return;
-      }
-
-      mouseDownRef.current = { x: e.clientX, y: e.clientY };
-      hasMovedRef.current = false;
-
-      // Only add global listeners when mouseDown occurs
-      if (!listenersActiveRef.current) {
-        const handleGlobalMouseMove = (e: MouseEvent) => {
-          if (!mouseDownRef.current) return;
-
-          // Calculate movement delta
-          const deltaX = Math.abs(e.clientX - mouseDownRef.current.x);
-          const deltaY = Math.abs(e.clientY - mouseDownRef.current.y);
-
-          if (hasMovedRef.current) {
-            return;
-          }
-
-          // Check if user is selecting text
-          const selection = window.getSelection();
-          if (selection && selection.toString().length > 0) {
-            mouseDownRef.current = null;
-            hasMovedRef.current = false;
-            return;
-          }
-
-          // Check if movement exceeds threshold (drag detected)
-          if (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD) {
-            hasMovedRef.current = true;
-          }
-        };
-
-        const handleGlobalMouseUp = () => {
-          mouseDownRef.current = null;
-          // Clean up listeners
-          if (
-            listenersActiveRef.current &&
-            handlersRef.current.handleGlobalMouseMove &&
-            handlersRef.current.handleGlobalMouseUp
-          ) {
-            document.removeEventListener(
-              "mousemove",
-              handlersRef.current.handleGlobalMouseMove,
-            );
-            document.removeEventListener(
-              "mouseup",
-              handlersRef.current.handleGlobalMouseUp,
-            );
-            listenersActiveRef.current = false;
-            handlersRef.current.handleGlobalMouseMove = null;
-            handlersRef.current.handleGlobalMouseUp = null;
-          }
-        };
-
-        handlersRef.current.handleGlobalMouseMove = handleGlobalMouseMove;
-        handlersRef.current.handleGlobalMouseUp = handleGlobalMouseUp;
-        document.addEventListener("mousemove", handleGlobalMouseMove);
-        document.addEventListener("mouseup", handleGlobalMouseUp);
-        listenersActiveRef.current = true;
-      }
-    },
-    [DRAG_THRESHOLD],
-  );
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -386,17 +263,6 @@ export function FlashcardWorkspaceCard({
         return;
       }
 
-      // Prevent flipping if user was dragging
-      const wasDragging = hasMovedRef.current;
-      hasMovedRef.current = false; // Reset immediately after checking
-
-      if (wasDragging) {
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-
-      // Safe to flip - user clicked without dragging
       handleFlip();
     },
     [handleFlip, isScrollLocked, onToggleSelection, item.id],
@@ -455,7 +321,9 @@ export function FlashcardWorkspaceCard({
       ? "0 0 3px rgba(0, 0, 0, 0.8), 0 0 8px rgba(0, 0, 0, 0.5)"
       : undefined;
   const neutralControlBg =
-    resolvedTheme === "dark" ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)";
+    resolvedTheme === "dark"
+      ? "rgba(255, 255, 255, 0.1)"
+      : "rgba(0, 0, 0, 0.1)";
   const neutralControlHoverBg = "rgba(0, 0, 0, 0.5)";
   const selectedControlBg = isSelected
     ? "rgba(239, 68, 68, 0.3)"
@@ -467,7 +335,10 @@ export function FlashcardWorkspaceCard({
     backgroundColor,
     backdropFilter: "blur(8px)",
   });
-  const createControlHoverHandlers = (baseColor: string, hoverColor: string) => ({
+  const createControlHoverHandlers = (
+    baseColor: string,
+    hoverColor: string,
+  ) => ({
     onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) => {
       e.currentTarget.style.backgroundColor = hoverColor;
     },
@@ -483,7 +354,6 @@ export function FlashcardWorkspaceCard({
           id={`item-${item.id}`}
           className="group size-full relative rounded-md"
           style={{}}
-          onMouseDown={handleMouseDown}
           onClick={handleClick}
         >
           {/* Floating Controls */}

@@ -103,6 +103,17 @@ export function eventReducer(state: Item[], event: WorkspaceEvent): Item[] {
         return [...state, ...added];
       }
 
+      if (p.orderedIds && p.orderedIds.length > 0) {
+        const itemsById = new Map(state.map((item) => [item.id, item]));
+        const reordered = p.orderedIds
+          .map((id) => itemsById.get(id))
+          .filter((item): item is Item => Boolean(item));
+
+        if (reordered.length === state.length) {
+          return reordered;
+        }
+      }
+
       const layoutUpdates = p.layoutUpdates ?? [];
       if (layoutUpdates.length > 0) {
         const layoutMap = new Map(layoutUpdates.map((u) => [u.id, u]));

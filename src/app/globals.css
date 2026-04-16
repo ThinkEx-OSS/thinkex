@@ -1,5 +1,5 @@
-@import '../styles/_variables.scss';
-@import '../styles/_keyframe-animations.scss';
+@import "../styles/_variables.scss";
+@import "../styles/_keyframe-animations.scss";
 
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -40,14 +40,18 @@
   display: grid !important;
   grid-template-areas: "header actions" "body body";
 }
-.streamdown-content [data-streamdown="code-block"] > [data-streamdown="code-block-header"] {
+.streamdown-content
+  [data-streamdown="code-block"]
+  > [data-streamdown="code-block-header"] {
   grid-area: header;
 }
 .streamdown-content [data-streamdown="code-block"] > div:nth-child(2) {
   grid-area: actions;
   margin-top: 0 !important;
 }
-.streamdown-content [data-streamdown="code-block"] > [data-streamdown="code-block-body"] {
+.streamdown-content
+  [data-streamdown="code-block"]
+  > [data-streamdown="code-block-body"] {
   grid-area: body;
   padding-inline: 0;
   overflow-x: auto !important;
@@ -87,7 +91,7 @@
   --accent-foreground: oklch(0.22 0.01 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: #ffffff;
-  --border: oklch(0.90 0.032 85);
+  --border: oklch(0.9 0.032 85);
   --input: oklch(0.93 0.028 85);
   --ring: oklch(0.704 0.04 256.788);
   --chart-1: oklch(0.646 0.222 41.116);
@@ -102,11 +106,14 @@
   --sidebar-primary-foreground: oklch(0.98 0 0);
   --sidebar-accent: oklch(0.97 0.028 85);
   --sidebar-accent-foreground: oklch(0.22 0.01 0);
-  --sidebar-border: oklch(0.90 0.032 85);
+  --sidebar-border: oklch(0.9 0.032 85);
   --sidebar-ring: hsl(217.2 91.2% 59.8%);
-  --font-geist: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-inter: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-outfit: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-geist:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-inter:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-outfit:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --background: oklch(0.96 0.028 85);
   --foreground: oklch(0.22 0.01 0);
   --popover: oklch(0.98 0.025 85);
@@ -152,9 +159,13 @@
 
 @theme inline {
   /* Use system fonts as app-wide sans font */
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, sans-serif;
   --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -191,7 +202,8 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
-  --animate-shimmer: shimmer-sweep var(--shimmer-duration, 1000ms) linear infinite both;
+  --animate-shimmer: shimmer-sweep var(--shimmer-duration, 1000ms) linear
+    infinite both;
 
   @keyframes shimmer-sweep {
     from {
@@ -227,12 +239,29 @@
 }
 
 body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    Cantarell,
+    sans-serif;
 }
 
 body,
 html {
   height: 100%;
+}
+
+[data-workspace-card] {
+  cursor: grab;
+}
+
+[data-workspace-card]:active {
+  cursor: grabbing;
 }
 
 /*
@@ -268,20 +297,40 @@ html {
 
 /* Home action card icon hover animations - unified 0.8s ease-in-out, moderate intensity */
 @keyframes icon-upload-bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
 }
 @keyframes icon-link-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(0.92); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.92);
+  }
 }
 @keyframes icon-link-sway {
-  0%, 100% { transform: rotate(-4deg); }
-  50% { transform: rotate(4deg); }
+  0%,
+  100% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
 }
 @keyframes icon-paste-pop {
-  0%, 100% { transform: translateX(0); }
-  50% { transform: translateX(2px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(2px);
+  }
 }
 
 /* Subtle pulse animation for the add button */
@@ -290,7 +339,6 @@ html {
 }
 
 @keyframes pulseSubtle {
-
   0%,
   100% {
     opacity: 1;
@@ -374,13 +422,15 @@ html {
 }
 
 .gradient-border-animated {
-  background: linear-gradient(90deg,
-      #ef444480,
-      #eab30880,
-      #22c55e80,
-      #3b82f680,
-      #a855f780,
-      #ef444480);
+  background: linear-gradient(
+    90deg,
+    #ef444480,
+    #eab30880,
+    #22c55e80,
+    #3b82f680,
+    #a855f780,
+    #ef444480
+  );
   background-size: 200% 200%;
   animation: gradient-rotate 10s ease-in-out infinite;
 }
@@ -568,11 +618,11 @@ body.marquee-selecting iframe {
   background: transparent !important;
 }
 
-.color-picker-wrapper .swatches-picker>div {
+.color-picker-wrapper .swatches-picker > div {
   background: transparent !important;
 }
 
-.color-picker-wrapper .swatches-picker>div>div {
+.color-picker-wrapper .swatches-picker > div > div {
   background: transparent !important;
 }
 
@@ -584,8 +634,8 @@ body.marquee-selecting iframe {
 /* Override only white backgrounds (not the color swatches themselves) - use --popover to match dialog */
 .color-picker-wrapper [style*="background: rgb(255, 255, 255)"],
 .color-picker-wrapper [style*="background-color: rgb(255, 255, 255)"],
-.color-picker-wrapper [style*='background: rgb(255, 255, 255)'],
-.color-picker-wrapper [style*='background-color: rgb(255, 255, 255)'] {
+.color-picker-wrapper [style*="background: rgb(255, 255, 255)"],
+.color-picker-wrapper [style*="background-color: rgb(255, 255, 255)"] {
   background: var(--popover) !important;
   background-color: var(--popover) !important;
 }
@@ -597,7 +647,11 @@ body.marquee-selecting iframe {
 }
 
 /* Target the main container wrapper */
-.color-picker-wrapper .swatches-picker>div>div>div[style*="position: relative"] {
+.color-picker-wrapper
+  .swatches-picker
+  > div
+  > div
+  > div[style*="position: relative"] {
   background: var(--popover) !important;
 }
 
@@ -741,13 +795,15 @@ body:has(.card-detail-modal) .workspace-grid-container {
 }
 
 .gradient-border-animated {
-  background: linear-gradient(90deg,
-      #ef444480,
-      #eab30880,
-      #22c55e80,
-      #3b82f680,
-      #a855f780,
-      #ef444480);
+  background: linear-gradient(
+    90deg,
+    #ef444480,
+    #eab30880,
+    #22c55e80,
+    #3b82f680,
+    #a855f780,
+    #ef444480
+  );
   background-size: 200% 200%;
   animation: gradient-rotate 10s ease-in-out infinite;
 }

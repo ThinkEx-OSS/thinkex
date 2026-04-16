@@ -1,4 +1,4 @@
-import { useCallback, useState, memo, useRef, useEffect } from "react";
+import { useCallback, useState, memo } from "react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import {
@@ -57,9 +57,7 @@ function WorkspaceCard({
       ? ((item.data as DocumentData).markdown || "").trim()
       : "";
   const documentPreviewText =
-    item.type === "document"
-      ? documentMarkdownRaw || "Start writing..."
-      : "";
+    item.type === "document" ? documentMarkdownRaw || "Start writing..." : "";
   const documentAwaitingGeneration =
     item.type === "document" &&
     item.name === "Update me" &&
@@ -83,42 +81,6 @@ function WorkspaceCard({
   );
   const shouldShowPreview = false;
 
-  // Track minimal local drag detection (only if grid hasn't detected drag)
-  const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
-  const hasMovedRef = useRef<boolean>(false);
-  const listenersActiveRef = useRef<boolean>(false);
-  const DRAG_THRESHOLD = 10; // pixels - movement beyond this prevents click
-
-  // OPTIMIZED: Store handlers in refs so they can be added/removed dynamically
-  // This avoids adding 240+ listeners (120 cards * 2 listeners) on every render
-  const handlersRef = useRef<{
-    handleGlobalMouseMove: ((e: MouseEvent) => void) | null;
-    handleGlobalMouseUp: (() => void) | null;
-  }>({ handleGlobalMouseMove: null, handleGlobalMouseUp: null });
-
-  // Cleanup listeners on unmount
-  useEffect(() => {
-    const handlers = handlersRef.current;
-    return () => {
-      if (
-        listenersActiveRef.current &&
-        handlers.handleGlobalMouseMove &&
-        handlers.handleGlobalMouseUp
-      ) {
-        document.removeEventListener(
-          "mousemove",
-          handlers.handleGlobalMouseMove,
-        );
-        document.removeEventListener(
-          "mouseup",
-          handlers.handleGlobalMouseUp,
-        );
-        listenersActiveRef.current = false;
-      }
-    };
-  }, []);
-
-  // OPTIMIZED: Memoize ItemHeader callbacks to prevent inline function creation
   const handleNameChange = useCallback(
     (v: string) => {
       onUpdateItem(item.id, { name: v });
@@ -148,7 +110,6 @@ function WorkspaceCard({
     setIsEditingTitle(false);
   }, []);
 
-  // Handle color change from color picker
   const handleColorChange = useCallback(
     (color: ColorResult) => {
       onUpdateItem(item.id, { color: color.hex as CardColor });
@@ -191,121 +152,6 @@ function WorkspaceCard({
       toast.error("No content to copy");
     }
   }, [item.type, item.data]);
-
-  // Handle mouse down - track initial position for local movement detection
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      // Don't track if clicking on interactive elements or text inputs
-      const target = e.target as HTMLElement;
-      if (
-        target.closest("button") ||
-        target.closest("input") ||
-        target.closest("textarea") ||
-        target.closest('[role="menuitem"]') ||
-        target.closest('[contenteditable="true"]')
-      ) {
-        // Important: Stop propagation to prevent grid drag from starting
-        e.stopPropagation();
-        return;
-      }
-
-      // Check if clicking inside a text selection area (e.g., title textarea)
-      const selection = window.getSelection();
-      if (selection && selection.toString().length > 0) {
-        // User is selecting text, don't start drag tracking
-        e.stopPropagation();
-        return;
-      }
-
-      mouseDownRef.current = { x: e.clientX, y: e.clientY };
-      hasMovedRef.current = false;
-
-      // OPTIMIZED: Only add global listeners when mouseDown occurs, not on every render
-      if (!listenersActiveRef.current) {
-        const handleGlobalMouseMove = (e: MouseEvent) => {
-          if (!mouseDownRef.current) return;
-
-          // Calculate movement delta
-          const deltaX = Math.abs(e.clientX - mouseDownRef.current.x);
-          const deltaY = Math.abs(e.clientY - mouseDownRef.current.y);
-
-          // If drag already detected, don't cancel it - user is dragging
-          if (hasMovedRef.current) {
-            return;
-          }
-
-          // Check if user is selecting text - if so, don't treat as drag
-          const selection = window.getSelection();
-          if (selection && selection.toString().length > 0) {
-            mouseDownRef.current = null;
-            hasMovedRef.current = false;
-            return;
-          }
-
-          // Check if movement exceeds threshold
-          if (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD) {
-            hasMovedRef.current = true;
-          }
-        };
-
-        const handleGlobalMouseUp = () => {
-          mouseDownRef.current = null;
-          // Clean up listeners when mouse up
-          if (
-            listenersActiveRef.current &&
-            handlersRef.current.handleGlobalMouseMove &&
-            handlersRef.current.handleGlobalMouseUp
-          ) {
-            document.removeEventListener(
-              "mousemove",
-              handlersRef.current.handleGlobalMouseMove,
-            );
-            document.removeEventListener(
-              "mouseup",
-              handlersRef.current.handleGlobalMouseUp,
-            );
-            listenersActiveRef.current = false;
-            handlersRef.current.handleGlobalMouseMove = null;
-            handlersRef.current.handleGlobalMouseUp = null;
-          }
-        };
-
-        handlersRef.current.handleGlobalMouseMove = handleGlobalMouseMove;
-        handlersRef.current.handleGlobalMouseUp = handleGlobalMouseUp;
-        document.addEventListener("mousemove", handleGlobalMouseMove);
-        document.addEventListener("mouseup", handleGlobalMouseUp);
-        listenersActiveRef.current = true;
-      }
-    },
-    [DRAG_THRESHOLD],
-  );
-
-  // Handle mouse move on card - detect if user moved before releasing
-  // Note: This is a fallback - the global listener handles most cases
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    // The global listener handles this, but we keep this for local element-specific checks
-    if (!mouseDownRef.current) return;
-
-    // Only check for text input/selection if drag hasn't been detected yet
-    // This prevents starting a drag when user is trying to select text
-    const target = e.target as HTMLElement;
-    if (
-      target.closest("textarea") ||
-      target.closest("input") ||
-      target.closest('[contenteditable="true"]')
-    ) {
-      // User is interacting with text input, cancel drag tracking
-      mouseDownRef.current = null;
-      hasMovedRef.current = false;
-      return;
-    }
-  }, []);
-
-  // Handle mouse up - clear the mouse down tracking
-  // Note: The global listener also handles this, but we keep this for local cleanup
-  const handleMouseUp = useCallback(() => {
-    // Don't clear here - let the global listener handle it to ensure consistency
-  }, []);
 
   const handleCardClick = useCallback(
     (e: React.MouseEvent) => {
@@ -354,15 +200,7 @@ function WorkspaceCard({
         return;
       }
 
-      // Check if user moved mouse significantly (drag detected) or is editing title
-      // Store the value before resetting
-      const wasDragging = hasMovedRef.current;
-
-      // Reset the tracking immediately after checking
-      hasMovedRef.current = false;
-
-      // Prevent opening modal if user was dragging or is editing title
-      if (wasDragging || isEditingTitle) {
+      if (isEditingTitle) {
         e.preventDefault();
         e.stopPropagation();
         return;
@@ -371,13 +209,7 @@ function WorkspaceCard({
       // Default: open item in the left-pane overlay
       onOpenModal(item.id);
     },
-    [
-      isEditingTitle,
-      item.id,
-      item.type,
-      onOpenModal,
-      onToggleSelection,
-    ],
+    [isEditingTitle, item.id, item.type, onOpenModal, onToggleSelection],
   );
 
   const handleMove = useCallback(
@@ -397,11 +229,13 @@ function WorkspaceCard({
     item.type !== "youtube" &&
     item.type !== "image" &&
     item.type !== "quiz" &&
-    !(item.type === "document" && (!shouldShowPreview || documentAwaitingGeneration)) &&
+    !(
+      item.type === "document" &&
+      (!shouldShowPreview || documentAwaitingGeneration)
+    ) &&
     !(item.type === "pdf" && !shouldShowPreview) &&
     !(item.type === "audio" && !shouldShowPreview);
-  const useDarkFloatingControls =
-    item.type === "pdf" && shouldShowPreview;
+  const useDarkFloatingControls = item.type === "pdf" && shouldShowPreview;
 
   return (
     <ContextMenu>
@@ -449,9 +283,6 @@ function WorkspaceCard({
                   "border-color 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease-out",
               } as React.CSSProperties
             }
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
             onClick={handleCardClick}
           >
             <WorkspaceCardControls
@@ -591,7 +422,6 @@ export const WorkspaceCardMemoized = memo(
       const nextData = nextProps.item.data;
       if (JSON.stringify(prevData) !== JSON.stringify(nextData)) return false;
     }
-
 
     // NOTE: isSelected is now subscribed directly from the store, not a prop
 

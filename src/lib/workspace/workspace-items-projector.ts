@@ -543,6 +543,33 @@ async function updateProjectedLayouts(
   }
 }
 
+async function reorderProjectedItems(
+  client: WorkspaceProjectionClient,
+  params: {
+    workspaceId: string;
+    orderedIds: string[];
+    version: number;
+    timestamp: number;
+  },
+): Promise<void> {
+  for (const [index, itemId] of params.orderedIds.entries()) {
+    const orderedTimestamp = toIsoTimestamp(params.timestamp + index);
+    await client
+      .update(workspaceItems)
+      .set({
+        createdAt: orderedTimestamp,
+        updatedAt: orderedTimestamp,
+        sourceVersion: params.version,
+      })
+      .where(
+        and(
+          eq(workspaceItems.workspaceId, params.workspaceId),
+          eq(workspaceItems.itemId, itemId),
+        ),
+      );
+  }
+}
+
 async function applyReducerProjectionForItemIds(
   client: WorkspaceProjectionClient,
   params: {
@@ -710,6 +737,16 @@ async function applyWorkspaceEventProjectionInternal(
         await updateProjectedLayouts(client, {
           workspaceId: params.workspaceId,
           layoutUpdates: eventWithVersion.payload.layoutUpdates,
+          version: params.version,
+          timestamp: eventWithVersion.timestamp,
+        });
+        break;
+      }
+
+      if (eventWithVersion.payload.orderedIds?.length) {
+        await reorderProjectedItems(client, {
+          workspaceId: params.workspaceId,
+          orderedIds: eventWithVersion.payload.orderedIds,
           version: params.version,
           timestamp: eventWithVersion.timestamp,
         });

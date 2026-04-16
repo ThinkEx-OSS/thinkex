@@ -623,6 +623,23 @@ export function useWorkspaceOperations(
         return;
       }
 
+      const orderChanged = items.some(
+        (item, index) => item.id !== latestState[index]?.id,
+      );
+
+      if (orderChanged) {
+        mutation.mutate(
+          createEvent(
+            "BULK_ITEMS_UPDATED",
+            {
+              orderedIds: items.map((item) => item.id),
+              previousItemCount,
+            },
+            userId,
+            userName,
+          ),
+        );
+      }
     },
     [workspaceId, queryClient, currentItems, mutation, userId, userName],
   );

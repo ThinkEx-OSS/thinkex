@@ -57,6 +57,7 @@ type WorkspaceEventBase =
         previousItemCount?: number;
         deletedIds?: string[];
         addedItems?: Item[];
+        orderedIds?: string[];
       };
       timestamp: number;
       userId: string;
