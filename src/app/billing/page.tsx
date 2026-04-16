@@ -197,7 +197,7 @@ function formatPlanPrice(plan: Plan) {
     return "Free";
   }
 
-  const normalizedAmount = amount / 100;
+  const normalizedAmount = amount;
   return `$${normalizedAmount.toFixed(normalizedAmount % 1 === 0 ? 0 : 2)}/${interval === "year" ? "yr" : "mo"}`;
 }
 
