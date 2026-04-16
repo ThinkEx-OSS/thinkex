@@ -40,6 +40,8 @@ function SortableCard({
     id,
     index,
     element,
+    group: "items",
+    type: "item",
   });
 
   return (
@@ -54,7 +56,7 @@ function SortableCard({
   );
 }
 
-function DroppableFolderCard({
+function SortableDroppableFolder({
   id,
   index,
   canAcceptDrop,
@@ -65,12 +67,6 @@ function DroppableFolderCard({
   canAcceptDrop: (sourceId: string) => boolean;
   children: React.ReactNode;
 }) {
-  const [element, setElement] = useState<Element | null>(null);
-  const { isDragging } = useSortable({
-    id,
-    index,
-    element,
-  });
   const [dropElement, setDropElement] = useState<Element | null>(null);
   const { isDropTarget } = useDroppable({
     id: `folder-drop-${id}`,
@@ -81,26 +77,35 @@ function DroppableFolderCard({
       canAcceptDrop(source.id),
     collisionPriority: 100,
   });
-
-  const setRefs = useCallback((nextElement: Element | null) => {
-    setElement(nextElement);
-    setDropElement(nextElement);
-  }, []);
+  const [sortElement, setSortElement] = useState<Element | null>(null);
+  const { isDragging } = useSortable({
+    id,
+    index,
+    element: sortElement,
+    group: "folders",
+    type: "folder",
+  });
 
   return (
     <div
-      ref={setRefs}
-      data-workspace-card
-      className="size-full min-w-0"
+      ref={setDropElement}
+      className="size-full min-w-0 transition-[outline] duration-150"
       style={{
-        opacity: isDragging ? 0.4 : 1,
-        cursor: "grab",
-        outline: isDropTarget ? "2px solid hsl(var(--primary))" : "none",
+        outline: isDropTarget
+          ? "2px solid hsl(var(--primary))"
+          : "2px solid transparent",
         outlineOffset: "-2px",
         borderRadius: "1rem",
       }}
     >
-      {children}
+      <div
+        ref={setSortElement}
+        data-workspace-card
+        className="size-full"
+        style={{ opacity: isDragging ? 0.4 : 1, cursor: "grab" }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -129,6 +134,16 @@ function WorkspaceGridComponent({
     });
     return counts;
   }, [allItems]);
+
+  const folders = useMemo(
+    () => items.filter((item) => item.type === "folder"),
+    [items],
+  );
+
+  const nonFolderItems = useMemo(
+    () => items.filter((item) => item.type !== "folder"),
+    [items],
+  );
 
   const canAcceptDrop = useCallback(
     (sourceId: string) =>
@@ -186,13 +201,7 @@ function WorkspaceGridComponent({
         return;
       }
 
-      const draggedItem = allItems.find((item) => item.id === sourceId);
-      if (
-        draggedItem &&
-        draggedItem.type !== "folder" &&
-        typeof targetId === "string" &&
-        targetId.startsWith("folder-drop-")
-      ) {
+      if (typeof targetId === "string" && targetId.startsWith("folder-drop-")) {
         const folderId = targetId.replace("folder-drop-", "");
         if (sourceId !== folderId) {
           onMoveItem?.(sourceId, folderId);
@@ -200,11 +209,44 @@ function WorkspaceGridComponent({
         return;
       }
 
-      const reorderedVisibleItems = move(items, event);
-      if (reorderedVisibleItems === items) {
+      const draggedItem = items.find((item) => item.id === sourceId);
+      if (!draggedItem) {
         return;
       }
 
+      if (draggedItem.type === "folder") {
+        const reorderedFolders = move(folders, event);
+        if (reorderedFolders === folders) {
+          return;
+        }
+
+        const reorderedVisibleItems = [...reorderedFolders, ...nonFolderItems];
+        const reorderedIds = new Set(
+          reorderedVisibleItems.map((item) => item.id),
+        );
+        const reorderedQueue = [...reorderedVisibleItems];
+        const reorderedAllItems = allItems.map((item) =>
+          reorderedIds.has(item.id) ? (reorderedQueue.shift() ?? item) : item,
+        );
+
+        if (
+          reorderedAllItems.every(
+            (item, index) => item.id === allItems[index]?.id,
+          )
+        ) {
+          return;
+        }
+
+        onUpdateAllItems(reorderedAllItems);
+        return;
+      }
+
+      const reorderedItems = move(nonFolderItems, event);
+      if (reorderedItems === nonFolderItems) {
+        return;
+      }
+
+      const reorderedVisibleItems = [...folders, ...reorderedItems];
       const reorderedIds = new Set(
         reorderedVisibleItems.map((item) => item.id),
       );
@@ -223,7 +265,15 @@ function WorkspaceGridComponent({
 
       onUpdateAllItems(reorderedAllItems);
     },
-    [allItems, items, onGridDragStateChange, onMoveItem, onUpdateAllItems],
+    [
+      allItems,
+      folders,
+      items,
+      nonFolderItems,
+      onGridDragStateChange,
+      onMoveItem,
+      onUpdateAllItems,
+    ],
   );
 
   return (
@@ -233,17 +283,16 @@ function WorkspaceGridComponent({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div
-          className="grid gap-4"
-          style={{
-            gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-            gridAutoRows: "200px",
-            gridAutoFlow: "dense",
-          }}
-        >
-          {items.map((item, index) =>
-            item.type === "folder" ? (
-              <DroppableFolderCard
+        {folders.length > 0 ? (
+          <div
+            className="grid mb-4 gap-4"
+            style={{
+              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+              gridAutoRows: "200px",
+            }}
+          >
+            {folders.map((item, index) => (
+              <SortableDroppableFolder
                 key={item.id}
                 id={item.id}
                 index={index}
@@ -262,8 +311,21 @@ function WorkspaceGridComponent({
                   onDeleteFolderWithContents={onDeleteFolderWithContents}
                   onMoveItem={onMoveItem}
                 />
-              </DroppableFolderCard>
-            ) : item.type === "flashcard" ? (
+              </SortableDroppableFolder>
+            ))}
+          </div>
+        ) : null}
+
+        <div
+          className="grid gap-4"
+          style={{
+            gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+            gridAutoRows: "200px",
+            gridAutoFlow: "dense",
+          }}
+        >
+          {nonFolderItems.map((item, index) =>
+            item.type === "flashcard" ? (
               <SortableCard key={item.id} id={item.id} index={index}>
                 <FlashcardWorkspaceCard
                   item={item}
@@ -277,7 +339,7 @@ function WorkspaceGridComponent({
                   onMoveItem={onMoveItem}
                 />
               </SortableCard>
-            ) : (
+            ) : item.type !== "folder" ? (
               <SortableCard key={item.id} id={item.id} index={index}>
                 <WorkspaceCard
                   item={item}
@@ -291,7 +353,7 @@ function WorkspaceGridComponent({
                   onMoveItem={onMoveItem}
                 />
               </SortableCard>
-            ),
+            ) : null,
           )}
         </div>
       </DragDropProvider>
