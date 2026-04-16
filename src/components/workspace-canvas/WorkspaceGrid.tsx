@@ -1,11 +1,5 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { DragDropProvider } from "@dnd-kit/react";
+import React, { useCallback, useMemo, useState } from "react";
+import { DragDropProvider, useDroppable } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { move } from "@dnd-kit/helpers";
 import type { Item } from "@/lib/workspace-state/types";
@@ -63,22 +57,32 @@ function SortableCard({
   );
 }
 
-function SortableFolderCard({
+function SortableDroppableFolder({
   id,
   index,
-  isDropHovered,
+  canAcceptDrop,
   children,
 }: {
   id: string;
   index: number;
-  isDropHovered: boolean;
+  canAcceptDrop: (sourceId: string) => boolean;
   children: React.ReactNode;
 }) {
-  const [element, setElement] = useState<Element | null>(null);
+  const [dropElement, setDropElement] = useState<Element | null>(null);
+  const { isDropTarget } = useDroppable({
+    id: `folder-drop-${id}`,
+    element: dropElement,
+    accept: (source) =>
+      typeof source.id === "string" &&
+      source.id !== id &&
+      canAcceptDrop(source.id),
+    collisionPriority: 100,
+  });
+  const [sortElement, setSortElement] = useState<Element | null>(null);
   const { isDragging } = useSortable({
     id,
     index,
-    element,
+    element: sortElement,
     accept: "folder",
     group: "folders",
     type: "folder",
@@ -86,21 +90,24 @@ function SortableFolderCard({
 
   return (
     <div
-      ref={setElement}
+      ref={setDropElement}
       className="size-full min-w-0 transition-[outline] duration-150"
-      data-workspace-card
-      data-folder-id={id}
       style={{
-        opacity: isDragging ? 0.4 : 1,
-        cursor: "grab",
-        outline: isDropHovered
+        outline: isDropTarget
           ? "2px solid hsl(var(--primary))"
           : "2px solid transparent",
         outlineOffset: "-2px",
         borderRadius: "1rem",
       }}
     >
-      {children}
+      <div
+        ref={setSortElement}
+        data-workspace-card
+        className="size-full"
+        style={{ opacity: isDragging ? 0.4 : 1, cursor: "grab" }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -129,9 +136,6 @@ function WorkspaceGridComponent({
     });
     return counts;
   }, [allItems]);
-  const [hoveredFolderId, setHoveredFolderId] = useState<string | null>(null);
-  const [isDraggingItem, setIsDraggingItem] = useState(false);
-  const pointerPositionRef = useRef({ x: 0, y: 0 });
 
   const folders = useMemo(
     () => items.filter((item) => item.type === "folder"),
@@ -141,6 +145,12 @@ function WorkspaceGridComponent({
   const nonFolderItems = useMemo(
     () => items.filter((item) => item.type !== "folder"),
     [items],
+  );
+
+  const canAcceptDrop = useCallback(
+    (sourceId: string) =>
+      allItems.find((item) => item.id === sourceId)?.type !== "folder",
+    [allItems],
   );
 
   const handleBeforeDragStart = useCallback(
@@ -171,78 +181,9 @@ function WorkspaceGridComponent({
     [],
   );
 
-  useEffect(() => {
-    if (!isDraggingItem) {
-      return;
-    }
-
-    const handlePointerMove = (event: PointerEvent) => {
-      pointerPositionRef.current = {
-        x: event.clientX,
-        y: event.clientY,
-      };
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-    };
-  }, [isDraggingItem]);
-
-  const handleDragStart = useCallback(
-    (
-      event: Parameters<
-        NonNullable<
-          React.ComponentProps<typeof DragDropProvider>["onDragStart"]
-        >
-      >[0],
-    ) => {
-      const sourceId = event.operation.source?.id;
-
-      setHoveredFolderId(null);
-      setIsDraggingItem(false);
-      pointerPositionRef.current = { x: 0, y: 0 };
-      onGridDragStateChange?.(true);
-
-      if (typeof sourceId !== "string") {
-        return;
-      }
-
-      const draggedItem = items.find((item) => item.id === sourceId);
-      if (draggedItem && draggedItem.type !== "folder") {
-        setIsDraggingItem(true);
-      }
-    },
-    [items, onGridDragStateChange],
-  );
-
-  const handleDragMove = useCallback(() => {
-    if (!isDraggingItem || typeof document === "undefined") {
-      setHoveredFolderId(null);
-      return;
-    }
-
-    const { x, y } = pointerPositionRef.current;
-    if (x === 0 && y === 0) {
-      return;
-    }
-
-    const elements = document.elementsFromPoint(x, y);
-    let foundFolderId: string | null = null;
-
-    for (const element of elements) {
-      const folderElement = element.closest("[data-folder-id]");
-      if (folderElement instanceof HTMLElement) {
-        foundFolderId = folderElement.getAttribute("data-folder-id");
-        break;
-      }
-    }
-
-    setHoveredFolderId((currentFolderId) =>
-      currentFolderId === foundFolderId ? currentFolderId : foundFolderId,
-    );
-  }, [isDraggingItem]);
+  const handleDragStart = useCallback(() => {
+    onGridDragStateChange?.(true);
+  }, [onGridDragStateChange]);
 
   const handleDragEnd = useCallback(
     (
@@ -250,10 +191,6 @@ function WorkspaceGridComponent({
         NonNullable<React.ComponentProps<typeof DragDropProvider>["onDragEnd"]>
       >[0],
     ) => {
-      const currentHoveredFolderId = hoveredFolderId;
-      setHoveredFolderId(null);
-      setIsDraggingItem(false);
-      pointerPositionRef.current = { x: 0, y: 0 };
       onGridDragStateChange?.(false);
 
       if (event.canceled) {
@@ -261,18 +198,15 @@ function WorkspaceGridComponent({
       }
 
       const sourceId = event.operation.source?.id;
+      const targetId = event.operation.target?.id;
       if (typeof sourceId !== "string") {
         return;
       }
 
-      if (currentHoveredFolderId) {
-        const draggedItem = items.find((item) => item.id === sourceId);
-        if (
-          draggedItem &&
-          draggedItem.type !== "folder" &&
-          sourceId !== currentHoveredFolderId
-        ) {
-          onMoveItem?.(sourceId, currentHoveredFolderId);
+      if (typeof targetId === "string" && targetId.startsWith("folder-drop-")) {
+        const folderId = targetId.replace("folder-drop-", "");
+        if (sourceId !== folderId) {
+          onMoveItem?.(sourceId, folderId);
         }
         return;
       }
@@ -336,7 +270,6 @@ function WorkspaceGridComponent({
     [
       allItems,
       folders,
-      hoveredFolderId,
       items,
       nonFolderItems,
       onGridDragStateChange,
@@ -350,7 +283,6 @@ function WorkspaceGridComponent({
       <DragDropProvider
         onBeforeDragStart={handleBeforeDragStart}
         onDragStart={handleDragStart}
-        onDragMove={handleDragMove}
         onDragEnd={handleDragEnd}
       >
         {folders.length > 0 ? (
@@ -362,11 +294,11 @@ function WorkspaceGridComponent({
             }}
           >
             {folders.map((item, index) => (
-              <SortableFolderCard
+              <SortableDroppableFolder
                 key={item.id}
                 id={item.id}
                 index={index}
-                isDropHovered={hoveredFolderId === item.id}
+                canAcceptDrop={canAcceptDrop}
               >
                 <FolderCard
                   item={item}
@@ -381,7 +313,7 @@ function WorkspaceGridComponent({
                   onDeleteFolderWithContents={onDeleteFolderWithContents}
                   onMoveItem={onMoveItem}
                 />
-              </SortableFolderCard>
+              </SortableDroppableFolder>
             ))}
           </div>
         ) : null}
