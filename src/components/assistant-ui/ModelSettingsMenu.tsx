@@ -49,7 +49,6 @@ export function ModelSettingsMenu() {
         sideOffset={4}
         collisionPadding={12}
         className="w-72 p-3"
-        onOpenAutoFocus={(event) => event.preventDefault()}
         onCloseAutoFocus={(event) => event.preventDefault()}
       >
         <DropdownMenuItem
