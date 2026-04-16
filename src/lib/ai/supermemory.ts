@@ -16,26 +16,12 @@ export function maybeWithSupermemory<T>(
 ): T {
   const { userId, threadId, memoryEnabled } = options;
 
-  // HOTFIX KILL SWITCH (see ENG-059 follow-up).
-  //
-  // Published `@supermemory/tools@1.4.1` wraps the language model with
-  // `{ ...model, doGenerate, doStream }`. In AI SDK v6, `specificationVersion`,
-  // `provider`, `modelId`, and `supportedUrls` live on the LanguageModelV3
-  // prototype — spread drops them, so `streamText` throws
-  // `AI_UnsupportedModelVersionError: ... specification version "v2"`.
-  //
-  // Upstream PR https://github.com/supermemoryai/supermemory/pull/854 (merged
-  // into main as commit 76b0f27) replaces the spread with a Proxy. As of
-  // April 16 2026 that fix is NOT yet published to npm — `latest` is still
-  // 1.4.1 from March 19.
-  //
-  // Until a fixed version (expected 1.4.2+) is published:
-  //   - Disabled/unset: wrapper is a no-op. UI toggle is cosmetic but all
-  //     other plumbing (UI state, transport field, PostHog property, route
-  //     body read) stays intact.
-  //   - Enabled with the literal string "true": wrapper runs as before. Only
-  //     set this AFTER bumping `@supermemory/tools` to a version containing
-  //     PR #854.
+  // Server-side kill switch. Neutralizes the wrapper without touching UI,
+  // state, or transport plumbing — set the env to `false` to
+  // disable if upstream regresses or we need to bisect prod issues.
+  // History: disabled in ENG-061 when @supermemory/tools@1.4.1 broke AI SDK
+  // v6 (see https://github.com/supermemoryai/supermemory/pull/854); re-enabled
+  // in ENG-062 on @supermemory/tools@1.4.3+.
   if (process.env.SUPERMEMORY_ENABLED !== "true") {
     return model;
   }
