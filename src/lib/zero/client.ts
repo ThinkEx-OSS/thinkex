@@ -3,7 +3,7 @@ import { mutators } from "./mutators";
 import { schema } from "./zero-schema.gen";
 
 export interface ZeroContext {
-  userId: string | null;
+  userId: string;
 }
 
 function createZeroInstance(params: { userId: string }) {
