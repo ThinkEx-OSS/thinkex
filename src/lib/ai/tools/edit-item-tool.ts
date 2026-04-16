@@ -12,30 +12,30 @@ const EDITABLE_TYPES = ["flashcard", "quiz", "pdf", "document"] as const;
 
 /**
  * Create the item_edit tool - unified edit for documents, flashcards, quizzes, and PDFs.
- * Uses oldString/newString search-replace on raw content from workspace_read.
- * PDFs support RENAME ONLY: oldString='', newString='', newName='new name'.
+ * Uses edits[] multi-edit pattern on raw content from workspace_read.
+ * PDFs support RENAME ONLY: empty edits array with newName.
  */
 export function createEditItemTool(ctx: WorkspaceToolContext) {
     return withSanitizedModelOutput(tool({
         description:
-            "Edit a document, flashcard deck, quiz, or PDF. You must use workspace_read at least once before editing. DOCUMENTS: content is markdown from workspace_read. PDFs: RENAME ONLY — pass oldString='', newString='', and newName='new name'. PDF content cannot be edited. RENAME ONLY (documents/flashcards/quizzes): same pattern to rename without editing content. QUIZZES: workspace_read may show '--- Progress (read-only) ---' at the top. That block is READ-ONLY. Never include it in oldString or newString. Only edit the {\"questions\":[...]} JSON. FULL REWRITE: oldString='' and newString=entire new content (quizzes: only the JSON); use when targeted matching fails or the change is large (re-read if needed). TARGETED EDIT: oldString must match exactly. Copy the content from workspace_read as-is (it has no line prefixes). Match exact whitespace, indentation, newlines. Do NOT minify JSON. Edit FAILS if oldString not found or matches multiple times — add more context or use replaceAll.",
+            "Edit a document, flashcard deck, quiz, or PDF. You must use workspace_read at least once before editing. " +
+            "TARGETED EDIT: provide edits array with one or more {oldText, newText} pairs. Each oldText must match exactly and uniquely in the original content. Copy from workspace_read as-is. When changing multiple separate sections, use one call with multiple edits[] entries instead of multiple calls. " +
+            "FULL REWRITE: single edit with oldText='' and newText=entire new content (quizzes: only the JSON). " +
+            "RENAME ONLY: empty edits array [] with newName='new name'. " +
+            "PDFs: RENAME ONLY — empty edits array with newName. " +
+            "QUIZZES: workspace_read may show '--- Progress (read-only) ---' at the top. That block is READ-ONLY. Only edit the {\"questions\":[...]} JSON.",
         inputSchema: zodSchema(
             z
                 .object({
                     itemName: z
                         .string()
                         .describe("Name of the item to edit (document, flashcard deck, quiz, or PDF; matched by fuzzy search)"),
-                    oldString: z
-                        .string()
-                        .describe(
-                            "Text to find; '' = full rewrite. Targeted: copy from workspace_read as-is, match whitespace, enough context to be unique, or replaceAll."
-                        ),
-                    newString: z.string().describe("Replacement text (entire content if oldString is empty)"),
-                    replaceAll: z
-                        .boolean()
-                        .optional()
-                        .default(false)
-                        .describe("Replace every occurrence of oldString; use for renaming or changing repeated text."),
+                    edits: z.array(z.object({
+                        oldText: z.string().describe("Exact text to find in the original content. Must be unique. Copy from workspace_read as-is."),
+                        newText: z.string().describe("Replacement text for this edit."),
+                    })).describe(
+                        "One or more targeted replacements. Each edit is matched against the original content, not incrementally. Do not include overlapping edits. If two changes touch the same block or nearby lines, merge them into one edit instead. For full rewrite: use a single edit with oldText='' and newText=entire new content."
+                    ),
                     newName: z.string().optional().describe("Rename the item to this. If not provided, the existing name is preserved."),
                     sources: z
                         .array(sourceSchema)
@@ -47,13 +47,11 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
         strict: true,
         execute: async (input: {
             itemName: string;
-            oldString: string;
-            newString: string;
-            replaceAll?: boolean;
+            edits: Array<{ oldText: string; newText: string }>;
             newName?: string;
             sources?: Array<{ title: string; url: string; favicon?: string }>;
         }) => {
-            const { itemName, oldString, newString, replaceAll, newName } = input;
+            const { itemName, edits, newName } = input;
 
             if (!itemName) {
                 return {
@@ -62,26 +60,25 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                 };
             }
 
-            const isRenameOnly = Boolean(newName) && (oldString === undefined || oldString === null || oldString === "") && (newString === undefined || newString === null || newString === "");
-            if (!isRenameOnly && (oldString === undefined || oldString === null)) {
+            const isRenameOnly = Boolean(newName) && edits.length === 0;
+
+            if (!isRenameOnly && edits.length === 0) {
                 return {
                     success: false,
-                    message: "oldString is required. Use '' for full rewrite, or for rename-only pass oldString='', newString='', and newName.",
+                    message: "edits array is empty and no newName provided. Provide at least one edit or a newName for rename-only.",
                 };
             }
 
-            if (!isRenameOnly && (newString === undefined || newString === null)) {
-                return {
-                    success: false,
-                    message: "newString is required. For rename-only, pass oldString='', newString='', and newName.",
-                };
-            }
-
-            if (oldString === newString && !isRenameOnly) {
-                return {
-                    success: false,
-                    message: "No changes to apply: oldString and newString are identical.",
-                };
+            for (let i = 0; i < edits.length; i++) {
+                const e = edits[i];
+                if (e.oldText !== "" && e.oldText === e.newText) {
+                    return {
+                        success: false,
+                        message: edits.length === 1
+                            ? `No changes to apply: oldText and newText are identical.`
+                            : `No changes to apply: edits[${i}].oldText and newText are identical.`,
+                    };
+                }
             }
 
             if (!ctx.workspaceId) {
@@ -134,7 +131,7 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                 if (matchedItem.type === "pdf" && !isRenameOnly) {
                     return {
                         success: false,
-                        message: "PDFs can only be renamed, not edited. Use oldString='', newString='', and newName='new name'.",
+                        message: "PDFs can only be renamed, not edited. Use empty edits array [] with newName='new name'.",
                     };
                 }
 
@@ -150,9 +147,7 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                     itemId: matchedItem.id,
                     itemType: matchedItem.type as "flashcard" | "quiz" | "pdf" | "document",
                     itemName: matchedItem.name,
-                    oldString,
-                    newString,
-                    replaceAll,
+                    edits,
                     newName,
                     sources: input.sources,
                 });

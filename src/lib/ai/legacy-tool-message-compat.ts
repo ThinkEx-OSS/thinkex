@@ -16,6 +16,60 @@ function summarizeRemovedToolPart(toolName: string): string {
   return `[Legacy tool omitted: ${toolName}. This tool is no longer supported in chat history replay.]`;
 }
 
+/**
+ * Some models used `task` for Python source; code_execute schema expects `code`.
+ */
+export function normalizeLegacyCodeExecuteInput(input: unknown): unknown {
+  if (input === null || typeof input !== "object" || Array.isArray(input)) {
+    return input;
+  }
+  const o = input as Record<string, unknown>;
+  const code = o.code;
+  if (typeof code === "string" && code.length > 0) {
+    if (!("task" in o)) {
+      return input;
+    }
+    const next = { ...o };
+    delete next.task;
+    return next;
+  }
+  const task = o.task;
+  if (typeof task !== "string" || task.length === 0) {
+    return input;
+  }
+  const next = { ...o };
+  delete next.task;
+  return { ...next, code: task };
+}
+
+/**
+ * Older item_edit / editItem payloads used oldString + newString instead of edits[].
+ * Strips those keys so strict tool validation matches the current schema only.
+ */
+export function normalizeLegacyItemEditInput(input: unknown): unknown {
+  if (input === null || typeof input !== "object" || Array.isArray(input)) {
+    return input;
+  }
+  const o = input as Record<string, unknown>;
+  const edits = o.edits;
+  if (Array.isArray(edits) && edits.length > 0) {
+    return input;
+  }
+  if (typeof o.oldString !== "string" || typeof o.newString !== "string") {
+    return input;
+  }
+  const next = { ...o };
+  const oldText = next.oldString as string;
+  const newText = next.newString as string;
+  delete next.oldString;
+  delete next.newString;
+  delete next.replaceAll;
+  return {
+    ...next,
+    edits: [{ oldText, newText }],
+  };
+}
+
 export function normalizeLegacyToolMessages(
   messages: UIMessage[],
   options?: { availableToolNames?: Iterable<string> },
@@ -56,6 +110,14 @@ export function normalizeLegacyToolMessages(
       if (type === `tool-${CHAT_TOOL.WEB_FETCH}` && "input" in next) {
         const normalizedInput = normalizeProcessUrlsArgs(next.input);
         next = normalizedInput ? { ...next, input: normalizedInput } : next;
+      }
+
+      if (type === `tool-${CHAT_TOOL.CODE_EXECUTE}` && "input" in next) {
+        next = { ...next, input: normalizeLegacyCodeExecuteInput(next.input) };
+      }
+
+      if (type === `tool-${CHAT_TOOL.ITEM_EDIT}` && "input" in next) {
+        next = { ...next, input: normalizeLegacyItemEditInput(next.input) };
       }
 
       if (

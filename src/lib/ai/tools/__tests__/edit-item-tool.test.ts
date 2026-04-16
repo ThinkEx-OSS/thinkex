@@ -59,7 +59,7 @@ describe("createEditItemTool", () => {
 
   it("fails fast when itemName is missing", async () => {
     const tool: any = createEditItemTool(ctx);
-    const result = await tool.execute({ itemName: "", oldString: "a", newString: "b" });
+    const result = await tool.execute({ itemName: "", edits: [{ oldText: "a", newText: "b" }] });
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/itemName is required/i);
   });
@@ -67,7 +67,7 @@ describe("createEditItemTool", () => {
   it("returns loadStateForTool failure", async () => {
     mockLoadStateForTool.mockResolvedValueOnce({ success: false, message: "No workspace context available" });
     const tool: any = createEditItemTool(ctx);
-    const result = await tool.execute({ itemName: "My Document", oldString: "a", newString: "b" });
+    const result = await tool.execute({ itemName: "My Document", edits: [{ oldText: "a", newText: "b" }] });
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/No workspace context available/);
     expect(mockWorkspaceWorker).not.toHaveBeenCalled();
@@ -76,7 +76,7 @@ describe("createEditItemTool", () => {
   it("returns item not found message when resolveItem misses", async () => {
     mockResolveItem.mockReturnValueOnce(undefined);
     const tool: any = createEditItemTool(ctx);
-    const result = await tool.execute({ itemName: "Unknown", oldString: "a", newString: "b" });
+    const result = await tool.execute({ itemName: "Unknown", edits: [{ oldText: "a", newText: "b" }] });
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/Could not find item "Unknown"/);
   });
@@ -93,7 +93,7 @@ describe("createEditItemTool", () => {
       .mockReturnValueOnce("folder/My Document.md");
 
     const tool: any = createEditItemTool(ctx);
-    const result = await tool.execute({ itemName: "My Document", oldString: "a", newString: "b" });
+    const result = await tool.execute({ itemName: "My Document", edits: [{ oldText: "a", newText: "b" }] });
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/Multiple items named/);
     expect(result.message).toMatch(/Disambiguate using path/);
@@ -105,7 +105,7 @@ describe("createEditItemTool", () => {
     mockLoadStateForTool.mockResolvedValueOnce({ success: true, state: { items: [imageItem] } });
 
     const tool: any = createEditItemTool(ctx);
-    const result = await tool.execute({ itemName: "Figure", oldString: "a", newString: "b" });
+    const result = await tool.execute({ itemName: "Figure", edits: [{ oldText: "a", newText: "b" }] });
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/not editable/);
   });
@@ -116,7 +116,7 @@ describe("createEditItemTool", () => {
     mockLoadStateForTool.mockResolvedValueOnce({ success: true, state: { items: [pdfItem] } });
 
     const tool: any = createEditItemTool(ctx);
-    const contentEditResult = await tool.execute({ itemName: "Syllabus.pdf", oldString: "foo", newString: "bar" });
+    const contentEditResult = await tool.execute({ itemName: "Syllabus.pdf", edits: [{ oldText: "foo", newText: "bar" }] });
     expect(contentEditResult.success).toBe(false);
     expect(contentEditResult.message).toMatch(/rename only|can only be renamed/i);
 
@@ -126,8 +126,7 @@ describe("createEditItemTool", () => {
 
     const renameResult = await tool.execute({
       itemName: "Syllabus.pdf",
-      oldString: "",
-      newString: "",
+      edits: [],
       newName: "Course Syllabus.pdf",
     });
     expect(renameResult.success).toBe(true);
@@ -142,10 +141,8 @@ describe("createEditItemTool", () => {
     const tool: any = createEditItemTool(ctx);
     const result = await tool.execute({
       itemName: "My Document",
-      oldString: "old",
-      newString: "new",
+      edits: [{ oldText: "old", newText: "new" }],
       newName: "Renamed Document",
-      replaceAll: true,
       sources: [{ title: "Ref", url: "https://example.com" }],
     });
 
@@ -155,9 +152,7 @@ describe("createEditItemTool", () => {
         workspaceId: "ws-1",
         itemId: "doc-1",
         itemType: "document",
-        oldString: "old",
-        newString: "new",
-        replaceAll: true,
+        edits: [{ oldText: "old", newText: "new" }],
         newName: "Renamed Document",
       })
     );
@@ -165,12 +160,11 @@ describe("createEditItemTool", () => {
     expect(result.itemName).toBe("Renamed Document");
   });
 
-  it("supports rename-only with oldString='' and newString=''", async () => {
+  it("supports rename-only with empty edits array", async () => {
     const tool: any = createEditItemTool(ctx);
     const result = await tool.execute({
       itemName: "My Document",
-      oldString: "",
-      newString: "",
+      edits: [],
       newName: "Renamed Document",
     });
 
@@ -180,8 +174,7 @@ describe("createEditItemTool", () => {
         workspaceId: "ws-1",
         itemId: "doc-1",
         itemType: "document",
-        oldString: "",
-        newString: "",
+        edits: [],
         newName: "Renamed Document",
       })
     );
@@ -192,13 +185,54 @@ describe("createEditItemTool", () => {
   it("passes through worker failures", async () => {
     mockWorkspaceWorker.mockResolvedValueOnce({
       success: false,
-      message: "Found multiple matches for oldString",
+      message: "Found 2 occurrences of the text",
     });
     const tool: any = createEditItemTool(ctx);
-    const result = await tool.execute({ itemName: "My Document", oldString: "a", newString: "b" });
+    const result = await tool.execute({ itemName: "My Document", edits: [{ oldText: "a", newText: "b" }] });
 
     expect(result.success).toBe(false);
-    expect(result.message).toMatch(/multiple matches/i);
+    expect(result.message).toMatch(/occurrences/i);
+  });
+
+  it("rejects empty edits array without newName", async () => {
+    const tool: any = createEditItemTool(ctx);
+    const result = await tool.execute({ itemName: "My Document", edits: [] });
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/edits array is empty/);
+  });
+
+  it("supports multiple edits in one call", async () => {
+    const tool: any = createEditItemTool(ctx);
+    const result = await tool.execute({
+      itemName: "My Document",
+      edits: [
+        { oldText: "first", newText: "FIRST" },
+        { oldText: "second", newText: "SECOND" },
+      ],
+    });
+
+    expect(mockWorkspaceWorker).toHaveBeenCalledWith(
+      "edit",
+      expect.objectContaining({
+        edits: [
+          { oldText: "first", newText: "FIRST" },
+          { oldText: "second", newText: "SECOND" },
+        ],
+      })
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects no-op edit entry in multi-edit array", async () => {
+    const tool: any = createEditItemTool(ctx);
+    const result = await tool.execute({
+      itemName: "My Document",
+      edits: [
+        { oldText: "real", newText: "REAL" },
+        { oldText: "same", newText: "same" },
+      ],
+    });
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/edits\[1\].*identical/);
   });
 });
-

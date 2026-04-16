@@ -1,20 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTemplateInitialItems } from "@/lib/workspace/templates";
 import { generateSlug } from "@/lib/workspace/slug";
-import type {
-  WorkspaceWithState,
-  WorkspaceTemplate,
-} from "@/lib/workspace-state/types";
-import type { CardColor } from "@/lib/workspace-state/colors";
+import type { WorkspaceTemplate } from "@/lib/workspace-state/types";
 import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
 import { db, workspaces } from "@/lib/db/client";
-import { workspaceCollaborators } from "@/lib/db/schema";
-import { eq, desc, asc, inArray } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import {
   requireAuth,
   requireAuthWithUserInfo,
   withErrorHandling,
 } from "@/lib/api/workspace-helpers";
+import { listWorkspacesForUser } from "@/lib/workspace/list-workspaces";
 import { insertWorkspaceItem } from "@/lib/workspace/workspace-item-write";
 
 /**
@@ -23,132 +19,7 @@ import { insertWorkspaceItem } from "@/lib/workspace/workspace-item-write";
  */
 async function handleGET() {
   const userId = await requireAuth();
-
-  // User profile is created at sign-up via auth databaseHooks.user.create.after
-  // (No lazy-create here - avoids blocking every workspace load)
-
-  // Get workspaces owned by user
-  const ownedWorkspaces = await db
-    .select()
-    .from(workspaces)
-    .where(eq(workspaces.userId, userId));
-
-  // Get workspaces user is a collaborator on
-  const collaborations = await db
-    .select({
-      workspaceId: workspaceCollaborators.workspaceId,
-      permissionLevel: workspaceCollaborators.permissionLevel,
-      lastOpenedAt: workspaceCollaborators.lastOpenedAt,
-    })
-    .from(workspaceCollaborators)
-    .where(eq(workspaceCollaborators.userId, userId));
-
-  let sharedWorkspaces: typeof ownedWorkspaces = [];
-  if (collaborations.length > 0) {
-    const sharedWorkspaceIds = collaborations.map((c) => c.workspaceId);
-    sharedWorkspaces = await db
-      .select()
-      .from(workspaces)
-      .where(inArray(workspaces.id, sharedWorkspaceIds)); // No sort here, we sort in JS
-  }
-
-  // Create a map of permission levels and lastOpened for shared workspaces
-  const collaborationMap = new Map(
-    collaborations.map((c) => [c.workspaceId, c]),
-  );
-
-  // Format owned workspaces
-  const ownedList = ownedWorkspaces.map((w) => ({
-    id: w.id,
-    userId: w.userId,
-    name: w.name,
-    description: w.description || "",
-    template: (w.template as WorkspaceTemplate) || "blank",
-    isPublic: w.isPublic || false,
-    createdAt: w.createdAt || "",
-    updatedAt: w.updatedAt || "",
-    slug: w.slug || "",
-    icon: w.icon,
-    sortOrder: w.sortOrder ?? null,
-    color: w.color as CardColor | null,
-    lastOpenedAt: w.lastOpenedAt ?? null, // Owner uses workspace field
-    isShared: false,
-  }));
-
-  // Format shared workspaces
-  const sharedList = sharedWorkspaces.map((w) => {
-    const collaboration = collaborationMap.get(w.id);
-    return {
-      id: w.id,
-      userId: w.userId,
-      name: w.name,
-      description: w.description || "",
-      template: (w.template as WorkspaceTemplate) || "blank",
-      isPublic: w.isPublic || false,
-      createdAt: w.createdAt || "",
-      updatedAt: w.updatedAt || "",
-      slug: w.slug || "",
-      icon: w.icon,
-      sortOrder: w.sortOrder ?? null,
-      color: w.color as CardColor | null,
-      lastOpenedAt: collaboration?.lastOpenedAt ?? null, // Collaborator uses junction field
-      isShared: true,
-      permissionLevel: collaboration?.permissionLevel || "viewer",
-      sharedAt: (collaboration as any)?.createdAt || null, // Use createdAt from collaborator record if available
-    };
-  });
-
-  // Merge lists (filtering out shared workspaces that are also owned)
-  const ownedIds = new Set(ownedList.map((w) => w.id));
-  const uniqueSharedList = sharedList.filter((w) => !ownedIds.has(w.id));
-  const workspaceList = [...ownedList, ...uniqueSharedList];
-
-  // Sort by unseen shared first, then lastOpenedAt DESC, then sortOrder ASC, then updatedAt DESC
-  workspaceList.sort((a, b) => {
-    // 0. Unseen shared workspaces (isShared=true, lastOpenedAt=null) go to TOP
-    // Sort these by sharedAt DESC (newest shared first)
-    const aIsUnseenShared = a.isShared && !a.lastOpenedAt;
-    const bIsUnseenShared = b.isShared && !b.lastOpenedAt;
-
-    if (aIsUnseenShared && bIsUnseenShared) {
-      // Both unseen: sort by sharedAt if available, otherwise fallback to updatedAt
-      const sharedA = (a as any).sharedAt
-        ? new Date((a as any).sharedAt).getTime()
-        : 0;
-      const sharedB = (b as any).sharedAt
-        ? new Date((b as any).sharedAt).getTime()
-        : 0;
-      if (sharedA !== sharedB) return sharedB - sharedA;
-      // Fallback to update time if sharedAt is missing/same
-      const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-      const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-      return dateB - dateA;
-    }
-    if (aIsUnseenShared) return -1; // a goes first
-    if (bIsUnseenShared) return 1; // b goes first
-
-    // 1. lastOpenedAt DESC (most recent first)
-    if (a.lastOpenedAt && b.lastOpenedAt) {
-      return (
-        new Date(b.lastOpenedAt).getTime() - new Date(a.lastOpenedAt).getTime()
-      );
-    }
-    if (a.lastOpenedAt) return -1; // a has date, goes first
-    if (b.lastOpenedAt) return 1; // b has date, goes first
-
-    // 2. sortOrder ASC (nulls last)
-    if (a.sortOrder !== null && b.sortOrder !== null) {
-      return a.sortOrder - b.sortOrder;
-    }
-    if (a.sortOrder !== null) return -1; // a has order, goes first
-    if (b.sortOrder !== null) return 1;
-
-    // 3. updatedAt DESC (fallback)
-    const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-    const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-    return dateB - dateA;
-  });
-
+  const workspaceList = await listWorkspacesForUser(userId);
   return NextResponse.json({ workspaces: workspaceList });
 }
 
@@ -159,7 +30,6 @@ export const GET = withErrorHandling(handleGET, "GET /api/workspaces");
  * Create a new workspace
  */
 async function handlePOST(request: NextRequest) {
-  // Use requireAuthWithUserInfo to avoid duplicate session fetch
   const user = await requireAuthWithUserInfo();
   const userId = user.userId;
 
@@ -174,7 +44,6 @@ async function handlePOST(request: NextRequest) {
     initialItems: customInitialItems,
   } = body;
 
-  // Use the provided template, defaulting to "blank"
   const effectiveTemplate: WorkspaceTemplate =
     template && ["blank", "getting_started"].includes(template)
       ? template
@@ -187,7 +56,6 @@ async function handlePOST(request: NextRequest) {
     );
   }
 
-  // Get max sort_order for this user to set new workspace at the end
   const maxSortData = await db
     .select({ sortOrder: workspaces.sortOrder })
     .from(workspaces)
@@ -198,20 +66,18 @@ async function handlePOST(request: NextRequest) {
   const maxSortOrder = maxSortData[0]?.sortOrder ?? -1;
   const newSortOrder = maxSortOrder + 1;
 
-  // Create workspace with retry logic for slug collisions
   let workspace;
   let attempts = 0;
   const MAX_ATTEMPTS = 5;
 
   while (attempts < MAX_ATTEMPTS) {
     try {
-      // Generate slug
       const slug = generateSlug(name);
 
       [workspace] = await db
         .insert(workspaces)
         .values({
-          userId: userId,
+          userId,
           name,
           description: description || "",
           template: effectiveTemplate,
@@ -223,9 +89,8 @@ async function handlePOST(request: NextRequest) {
         })
         .returning();
 
-      break; // Success
+      break;
     } catch (error: any) {
-      // Postgres unique constraint violation code is 23505
       if (error?.code === "23505") {
         attempts++;
         if (attempts === MAX_ATTEMPTS) throw error;
@@ -258,7 +123,6 @@ async function handlePOST(request: NextRequest) {
     throw insertError;
   }
 
-  // Return workspace with full state for immediate use
   return NextResponse.json(
     {
       workspace: {

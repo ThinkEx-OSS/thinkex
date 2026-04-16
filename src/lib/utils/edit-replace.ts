@@ -1,411 +1,11 @@
 /**
- * Robust edit/replace utilities for workspace text editing (e.g. documents, quizzes).
- * Approaches sourced from Cline and Gemini CLI:
- * - https://github.com/cline/cline/blob/main/evals/diff-edits/diff-apply/diff-06-23-25.ts
- * - https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/utils/editCorrector.ts
- * - https://github.com/cline/cline/blob/main/evals/diff-edits/diff-apply/diff-06-26-25.ts
+ * Edit/replace utilities for workspace text editing (documents, quizzes, flashcards).
+ * Multi-edit pattern modeled after pi-mono's edit tool.
  */
 
 export function normalizeLineEndings(text: string): string {
   return text.replaceAll("\r\n", "\n");
 }
-
-export type Replacer = (content: string, find: string) => Generator<string, void, unknown>;
-
-// Similarity thresholds for block anchor fallback matching
-const SINGLE_CANDIDATE_SIMILARITY_THRESHOLD = 0.0;
-const MULTIPLE_CANDIDATES_SIMILARITY_THRESHOLD = 0.3;
-
-function levenshtein(a: string, b: string): number {
-  if (a === "" || b === "") {
-    return Math.max(a.length, b.length);
-  }
-  const matrix = Array.from({ length: a.length + 1 }, (_, i) =>
-    Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
-  );
-
-  for (let i = 1; i <= a.length; i++) {
-    for (let j = 1; j <= b.length; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + cost);
-    }
-  }
-  return matrix[a.length][b.length];
-}
-
-export const SimpleReplacer: Replacer = function* (_content, find) {
-  yield find;
-};
-
-export const LineTrimmedReplacer: Replacer = function* (content, find) {
-  const originalLines = content.split("\n");
-  const searchLines = find.split("\n");
-
-  if (searchLines[searchLines.length - 1] === "") {
-    searchLines.pop();
-  }
-
-  for (let i = 0; i <= originalLines.length - searchLines.length; i++) {
-    let matches = true;
-
-    for (let j = 0; j < searchLines.length; j++) {
-      const originalTrimmed = originalLines[i + j].trim();
-      const searchTrimmed = searchLines[j].trim();
-
-      if (originalTrimmed !== searchTrimmed) {
-        matches = false;
-        break;
-      }
-    }
-
-    if (matches) {
-      let matchStartIndex = 0;
-      for (let k = 0; k < i; k++) {
-        matchStartIndex += originalLines[k].length + 1;
-      }
-
-      let matchEndIndex = matchStartIndex;
-      for (let k = 0; k < searchLines.length; k++) {
-        matchEndIndex += originalLines[i + k].length;
-        if (k < searchLines.length - 1) {
-          matchEndIndex += 1;
-        }
-      }
-
-      yield content.substring(matchStartIndex, matchEndIndex);
-    }
-  }
-};
-
-export const BlockAnchorReplacer: Replacer = function* (content, find) {
-  const originalLines = content.split("\n");
-  const searchLines = find.split("\n");
-
-  if (searchLines.length < 3) {
-    return;
-  }
-
-  if (searchLines[searchLines.length - 1] === "") {
-    searchLines.pop();
-  }
-
-  const firstLineSearch = searchLines[0].trim();
-  const lastLineSearch = searchLines[searchLines.length - 1].trim();
-  const searchBlockSize = searchLines.length;
-
-  const candidates: Array<{ startLine: number; endLine: number }> = [];
-  for (let i = 0; i < originalLines.length; i++) {
-    if (originalLines[i].trim() !== firstLineSearch) {
-      continue;
-    }
-
-    for (let j = i + 2; j < originalLines.length; j++) {
-      if (originalLines[j].trim() === lastLineSearch) {
-        candidates.push({ startLine: i, endLine: j });
-        break;
-      }
-    }
-  }
-
-  if (candidates.length === 0) {
-    return;
-  }
-
-  if (candidates.length === 1) {
-    const { startLine, endLine } = candidates[0];
-    const actualBlockSize = endLine - startLine + 1;
-
-    let similarity = 0;
-    const linesToCheck = Math.min(searchBlockSize - 2, actualBlockSize - 2);
-
-    if (linesToCheck > 0) {
-      for (let j = 1; j < searchBlockSize - 1 && j < actualBlockSize - 1; j++) {
-        const originalLine = originalLines[startLine + j].trim();
-        const searchLine = searchLines[j].trim();
-        const maxLen = Math.max(originalLine.length, searchLine.length);
-        if (maxLen === 0) {
-          continue;
-        }
-        const distance = levenshtein(originalLine, searchLine);
-        similarity += (1 - distance / maxLen) / linesToCheck;
-
-        if (similarity >= SINGLE_CANDIDATE_SIMILARITY_THRESHOLD) {
-          break;
-        }
-      }
-    } else {
-      similarity = 1.0;
-    }
-
-    if (similarity >= SINGLE_CANDIDATE_SIMILARITY_THRESHOLD) {
-      let matchStartIndex = 0;
-      for (let k = 0; k < startLine; k++) {
-        matchStartIndex += originalLines[k].length + 1;
-      }
-      let matchEndIndex = matchStartIndex;
-      for (let k = startLine; k <= endLine; k++) {
-        matchEndIndex += originalLines[k].length;
-        if (k < endLine) {
-          matchEndIndex += 1;
-        }
-      }
-      yield content.substring(matchStartIndex, matchEndIndex);
-    }
-    return;
-  }
-
-  let bestMatch: { startLine: number; endLine: number } | null = null;
-  let maxSimilarity = -1;
-
-  for (const candidate of candidates) {
-    const { startLine, endLine } = candidate;
-    const actualBlockSize = endLine - startLine + 1;
-
-    let similarity = 0;
-    const linesToCheck = Math.min(searchBlockSize - 2, actualBlockSize - 2);
-
-    if (linesToCheck > 0) {
-      for (let j = 1; j < searchBlockSize - 1 && j < actualBlockSize - 1; j++) {
-        const originalLine = originalLines[startLine + j].trim();
-        const searchLine = searchLines[j].trim();
-        const maxLen = Math.max(originalLine.length, searchLine.length);
-        if (maxLen === 0) {
-          continue;
-        }
-        const distance = levenshtein(originalLine, searchLine);
-        similarity += 1 - distance / maxLen;
-      }
-      similarity /= linesToCheck;
-    } else {
-      similarity = 1.0;
-    }
-
-    if (similarity > maxSimilarity) {
-      maxSimilarity = similarity;
-      bestMatch = candidate;
-    }
-  }
-
-  if (maxSimilarity >= MULTIPLE_CANDIDATES_SIMILARITY_THRESHOLD && bestMatch) {
-    const { startLine, endLine } = bestMatch;
-    let matchStartIndex = 0;
-    for (let k = 0; k < startLine; k++) {
-      matchStartIndex += originalLines[k].length + 1;
-    }
-    let matchEndIndex = matchStartIndex;
-    for (let k = startLine; k <= endLine; k++) {
-      matchEndIndex += originalLines[k].length;
-      if (k < endLine) {
-        matchEndIndex += 1;
-      }
-    }
-    yield content.substring(matchStartIndex, matchEndIndex);
-  }
-};
-
-export const WhitespaceNormalizedReplacer: Replacer = function* (content, find) {
-  const normalizeWhitespace = (text: string) => text.replace(/\s+/g, " ").trim();
-  const normalizedFind = normalizeWhitespace(find);
-
-  const lines = content.split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (normalizeWhitespace(line) === normalizedFind) {
-      yield line;
-    } else {
-      const normalizedLine = normalizeWhitespace(line);
-      if (normalizedLine.includes(normalizedFind)) {
-        const words = find.trim().split(/\s+/);
-        if (words.length > 0) {
-          const pattern = words.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+");
-          try {
-            const regex = new RegExp(pattern);
-            const match = line.match(regex);
-            if (match) {
-              yield match[0];
-            }
-          } catch {
-            // Invalid regex pattern, skip
-          }
-        }
-      }
-    }
-  }
-
-  const findLines = find.split("\n");
-  if (findLines.length > 1) {
-    for (let i = 0; i <= lines.length - findLines.length; i++) {
-      const block = lines.slice(i, i + findLines.length);
-      if (normalizeWhitespace(block.join("\n")) === normalizedFind) {
-        yield block.join("\n");
-      }
-    }
-  }
-};
-
-export const IndentationFlexibleReplacer: Replacer = function* (content, find) {
-  const removeIndentation = (text: string) => {
-    const lines = text.split("\n");
-    const nonEmptyLines = lines.filter((line) => line.trim().length > 0);
-    if (nonEmptyLines.length === 0) return text;
-
-    const minIndent = Math.min(
-      ...nonEmptyLines.map((line) => {
-        const match = line.match(/^(\s*)/);
-        return match ? match[1].length : 0;
-      })
-    );
-
-    return lines.map((line) => (line.trim().length === 0 ? line : line.slice(minIndent))).join("\n");
-  };
-
-  const normalizedFind = removeIndentation(find);
-  const contentLines = content.split("\n");
-  const findLines = find.split("\n");
-
-  for (let i = 0; i <= contentLines.length - findLines.length; i++) {
-    const block = contentLines.slice(i, i + findLines.length).join("\n");
-    if (removeIndentation(block) === normalizedFind) {
-      yield block;
-    }
-  }
-};
-
-/**
- * Normalizes common escape sequences that LLMs produce when double-escaping.
- * e.g. literal \n → newline, \$ → $, \\ → \, \' → '
- */
-export function unescapeString(str: string): string {
-  return str.replace(/\\(n|t|r|'|"|`|\\|\n|\$)/g, (match, capturedChar: string) => {
-    switch (capturedChar) {
-      case "n":
-        return "\n";
-      case "t":
-        return "\t";
-      case "r":
-        return "\r";
-      case "'":
-        return "'";
-      case '"':
-        return '"';
-      case "`":
-        return "`";
-      case "\\":
-        return "\\";
-      case "\n":
-        return "\n";
-      case "$":
-        return "$";
-      default:
-        return match;
-    }
-  });
-}
-
-export const EscapeNormalizedReplacer: Replacer = function* (content, find) {
-
-  const unescapedFind = unescapeString(find);
-
-  if (content.includes(unescapedFind)) {
-    yield unescapedFind;
-  }
-
-  const lines = content.split("\n");
-  const findLines = unescapedFind.split("\n");
-
-  for (let i = 0; i <= lines.length - findLines.length; i++) {
-    const block = lines.slice(i, i + findLines.length).join("\n");
-    const unescapedBlock = unescapeString(block);
-
-    if (unescapedBlock === unescapedFind) {
-      yield block;
-    }
-  }
-};
-
-export const MultiOccurrenceReplacer: Replacer = function* (content, find) {
-  let startIndex = 0;
-
-  while (true) {
-    const index = content.indexOf(find, startIndex);
-    if (index === -1) break;
-
-    yield find;
-    startIndex = index + find.length;
-  }
-};
-
-export const TrimmedBoundaryReplacer: Replacer = function* (content, find) {
-  const trimmedFind = find.trim();
-
-  if (trimmedFind === find) {
-    return;
-  }
-
-  if (content.includes(trimmedFind)) {
-    yield trimmedFind;
-  }
-
-  const lines = content.split("\n");
-  const findLines = find.split("\n");
-
-  for (let i = 0; i <= lines.length - findLines.length; i++) {
-    const block = lines.slice(i, i + findLines.length).join("\n");
-
-    if (block.trim() === trimmedFind) {
-      yield block;
-    }
-  }
-};
-
-export const ContextAwareReplacer: Replacer = function* (content, find) {
-  const findLines = find.split("\n");
-  if (findLines.length < 3) {
-    return;
-  }
-
-  if (findLines[findLines.length - 1] === "") {
-    findLines.pop();
-  }
-
-  const contentLines = content.split("\n");
-  const firstLine = findLines[0].trim();
-  const lastLine = findLines[findLines.length - 1].trim();
-
-  for (let i = 0; i < contentLines.length; i++) {
-    if (contentLines[i].trim() !== firstLine) continue;
-
-    for (let j = i + 2; j < contentLines.length; j++) {
-      if (contentLines[j].trim() === lastLine) {
-        const blockLines = contentLines.slice(i, j + 1);
-        const block = blockLines.join("\n");
-
-        if (blockLines.length === findLines.length) {
-          let matchingLines = 0;
-          let totalNonEmptyLines = 0;
-
-          for (let k = 1; k < blockLines.length - 1; k++) {
-            const blockLine = blockLines[k].trim();
-            const findLine = findLines[k].trim();
-
-            if (blockLine.length > 0 || findLine.length > 0) {
-              totalNonEmptyLines++;
-              if (blockLine === findLine) {
-                matchingLines++;
-              }
-            }
-          }
-
-          if (totalNonEmptyLines === 0 || matchingLines / totalNonEmptyLines >= 0.5) {
-            yield block;
-            break;
-          }
-        }
-        break;
-      }
-    }
-  }
-};
 
 export function trimDiff(diff: string): string {
   const lines = diff.split("\n");
@@ -454,9 +54,7 @@ function normalizeReplacementText(content: string, newString: string): string {
   let normalized = newString;
   const contentLooksJson = /"questions"\s*:|"cards"\s*:|^\s*[\[{]/.test(content);
 
-  // Only unwrap full-value code fences for JSON-like content to avoid
-  // stripping intentional markdown code blocks in workspace content edits.
-    if (contentLooksJson) {
+  if (contentLooksJson) {
     const unwrapped = unwrapSingleCodeFence(normalized);
     const unwrappedLooksJson = /^\s*[\[{]/.test(unwrapped.trim());
     if (unwrapped !== normalized && unwrappedLooksJson) {
@@ -467,77 +65,132 @@ function normalizeReplacementText(content: string, newString: string): string {
   return normalized;
 }
 
-function buildSearchCandidates(oldString: string): string[] {
+function buildSearchCandidates(oldString: string, contentLooksJson: boolean): string[] {
   const candidates = new Set<string>();
-  const base = oldString;
-  const noFence = unwrapSingleCodeFence(base);
-
-  for (const c of [base, noFence]) {
-    if (c.length > 0) candidates.add(c);
+  candidates.add(oldString);
+  if (contentLooksJson) {
+    const noFence = unwrapSingleCodeFence(oldString);
+    if (noFence.length > 0) candidates.add(noFence);
   }
   return Array.from(candidates);
 }
 
-export function replace(content: string, oldString: string, newString: string, replaceAll = false): string {
+export interface Edit {
+  oldText: string;
+  newText: string;
+}
+
+export interface AppliedEditsResult {
+  baseContent: string;
+  newContent: string;
+}
+
+function findText(content: string, oldText: string): { found: boolean; index: number; matchLength: number } {
+  const index = content.indexOf(oldText);
+  if (index !== -1) {
+    return { found: true, index, matchLength: oldText.length };
+  }
+  return { found: false, index: -1, matchLength: 0 };
+}
+
+function countOccurrences(content: string, oldText: string): number {
+  return content.split(oldText).length - 1;
+}
+
+export function applyEdits(content: string, edits: Edit[]): AppliedEditsResult {
+  const normalizedContent = normalizeLineEndings(content);
+  const contentLooksJson = /"questions"\s*:|"cards"\s*:|^\s*[\[{]/.test(normalizedContent);
+  const normalizedEdits = edits.map(e => ({
+    oldText: normalizeLineEndings(e.oldText),
+    newText: normalizeLineEndings(e.newText),
+  }));
+
+  for (let i = 0; i < normalizedEdits.length; i++) {
+    if (normalizedEdits[i].oldText.length === 0) {
+      throw new Error(
+        normalizedEdits.length === 1
+          ? `oldText must not be empty.`
+          : `edits[${i}].oldText must not be empty.`
+      );
+    }
+  }
+
+  const matchedEdits: Array<{
+    editIndex: number;
+    matchIndex: number;
+    matchLength: number;
+    newText: string;
+  }> = [];
+
+  for (let i = 0; i < normalizedEdits.length; i++) {
+    const edit = normalizedEdits[i];
+    const candidates = buildSearchCandidates(edit.oldText, contentLooksJson);
+    const replacementText = normalizeReplacementText(normalizedContent, edit.newText);
+    let matched = false;
+
+    for (const candidate of candidates) {
+      const result = findText(normalizedContent, candidate);
+      if (result.found) {
+        const occurrences = countOccurrences(normalizedContent, candidate);
+        if (occurrences > 1) {
+          throw new Error(
+            normalizedEdits.length === 1
+              ? `Found ${occurrences} occurrences of the text. The text must be unique. Please provide more context to make it unique.`
+              : `Found ${occurrences} occurrences of edits[${i}]. Each oldText must be unique. Please provide more context to make it unique.`
+          );
+        }
+        matchedEdits.push({
+          editIndex: i,
+          matchIndex: result.index,
+          matchLength: result.matchLength,
+          newText: replacementText,
+        });
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched) {
+      throw new Error(
+        normalizedEdits.length === 1
+          ? `Could not find the exact text. The old text must match exactly including all whitespace and newlines.`
+          : `Could not find edits[${i}]. The oldText must match exactly including all whitespace and newlines.`
+      );
+    }
+  }
+
+  matchedEdits.sort((a, b) => a.matchIndex - b.matchIndex);
+  for (let i = 1; i < matchedEdits.length; i++) {
+    const prev = matchedEdits[i - 1];
+    const curr = matchedEdits[i];
+    if (prev.matchIndex + prev.matchLength > curr.matchIndex) {
+      throw new Error(
+        `edits[${prev.editIndex}] and edits[${curr.editIndex}] overlap. Merge them into one edit or target disjoint regions.`
+      );
+    }
+  }
+
+  let newContent = normalizedContent;
+  for (let i = matchedEdits.length - 1; i >= 0; i--) {
+    const edit = matchedEdits[i];
+    newContent =
+      newContent.substring(0, edit.matchIndex) +
+      edit.newText +
+      newContent.substring(edit.matchIndex + edit.matchLength);
+  }
+
+  if (normalizedContent === newContent) {
+    throw new Error(`No changes made. The replacements produced identical content.`);
+  }
+
+  return { baseContent: normalizedContent, newContent };
+}
+
+/** @deprecated Use applyEdits() for new code. Kept for any remaining callers. */
+export function replace(content: string, oldString: string, newString: string): string {
   if (oldString === newString) {
     throw new Error("No changes to apply: oldString and newString are identical.");
   }
-
-  const replacementText = normalizeReplacementText(content, newString);
-  let notFound = true;
-
-  const searchCandidates = buildSearchCandidates(oldString);
-
-  for (const candidate of searchCandidates) {
-    for (const replacer of [
-      SimpleReplacer,
-      LineTrimmedReplacer,
-      BlockAnchorReplacer,
-      WhitespaceNormalizedReplacer,
-      IndentationFlexibleReplacer,
-      EscapeNormalizedReplacer,
-      TrimmedBoundaryReplacer,
-      ContextAwareReplacer,
-      MultiOccurrenceReplacer,
-    ]) {
-      for (const search of replacer(content, candidate)) {
-        const index = content.indexOf(search);
-        if (index === -1) continue;
-        notFound = false;
-        if (replaceAll) {
-          return content.replaceAll(search, replacementText);
-        }
-        const lastIndex = content.lastIndexOf(search);
-        if (index !== lastIndex) continue;
-        return content.substring(0, index) + replacementText + content.substring(index + search.length);
-      }
-    }
-  }
-
-  if (notFound) {
-    const compactOld = oldString.replace(/\s+/g, " ").trim();
-    const isLikelyTooShort = compactOld.length > 0 && compactOld.length <= 6;
-    const looksLikeTailToken = ["]", "}", "],", "},"].includes(compactOld);
-    const jsonLike = /"questions"\s*:|"cards"\s*:/.test(content);
-
-    const hints: string[] = [];
-    if (isLikelyTooShort || looksLikeTailToken) {
-      hints.push("oldString appears too short/ambiguous (for example: ']' or '}').");
-    }
-    if (jsonLike) {
-      hints.push(
-        "For quiz/flashcard JSON edits, include a larger unique block (3-8 lines) with field names near the target section."
-      );
-      hints.push("If you're appending, replace the final JSON tail (for example, '  ]\\n}') with a longer unique tail.");
-    }
-
-    throw new Error(
-      `Could not find oldString in the file. ${
-        hints.join(" ")
-      } Ensure the snippet is copied exactly from workspace_read and is not truncated.`
-    );
-  }
-  throw new Error(
-    "Found multiple matches for oldString. oldString is likely too generic. Use a longer, unique snippet (3-8 lines with nearby field names/structure), or set replaceAll=true only when changing every occurrence is intentional."
-  );
+  const { newContent } = applyEdits(content, [{ oldText: oldString, newText: newString }]);
+  return newContent;
 }

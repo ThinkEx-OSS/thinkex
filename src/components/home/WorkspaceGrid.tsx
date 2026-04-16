@@ -283,10 +283,9 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
                     className="data-[state=checked]:bg-primary data-[state=checked]:border-primary border-white/50 bg-black/40 backdrop-blur-sm h-5 w-5"
                   />
                 </div>
-                {/* Shared Badge */}
+                {/* Shared Badge — for workspaces shared WITH you */}
                 {workspace.isShared && (
                   <div className="absolute top-2 right-2 z-10 flex gap-1.5">
-                    {/* New Badge for unseen shared workspaces */}
                     {!workspace.lastOpenedAt && (
                       <div className="bg-blue-600/90 text-foreground text-[10px] px-2 py-0.5 rounded-full flex items-center shadow-lg border border-blue-400 font-semibold animate-pulse dark:text-white">
                         NEW
@@ -298,6 +297,18 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
                     </div>
                   </div>
                 )}
+                {/* Collaborator count — for workspaces YOU OWN that have collaborators */}
+                {!workspace.isShared &&
+                  (workspace.collaboratorCount ?? 0) > 0 && (
+                    <div className="absolute top-2 right-2 z-10">
+                      <div className="bg-background/80 text-foreground text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 backdrop-blur-sm border border-border shadow-sm">
+                        <Users className="h-3 w-3" />
+                        <span className="font-medium">
+                          {workspace.collaboratorCount}
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
                 {/* Top section - content area */}
                 <div className="flex-1 p-3 relative">

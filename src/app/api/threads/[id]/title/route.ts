@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
 import { db } from "@/lib/db/client";
 import { chatThreads } from "@/lib/db/schema";
@@ -10,7 +9,12 @@ import {
 } from "@/lib/api/workspace-helpers";
 import { eq } from "drizzle-orm";
 import { withServerObservability } from "@/lib/with-server-observability";
-import { getModelForPurpose } from "@/lib/ai/models";
+import { getGatewayModelIdForPurpose } from "@/lib/ai/models";
+import {
+  buildGatewayProviderOptions,
+  createGatewayLanguageModel,
+  getGatewayAttributionHeaders,
+} from "@/lib/ai/gateway-provider-options";
 
 function extractTextFromMessage(msg: { content?: unknown[] }): string {
   if (!msg.content || !Array.isArray(msg.content)) return "";
@@ -69,8 +73,14 @@ export const POST = withServerObservability(
 
         if (conversationText.trim()) {
           try {
-            const { text } = await generateText({
-              model: google(getModelForPurpose("title-generation")),
+            const gatewayModelId =
+              getGatewayModelIdForPurpose("title-generation");
+            const { text, providerMetadata } = await generateText({
+              model: createGatewayLanguageModel(gatewayModelId),
+              providerOptions: buildGatewayProviderOptions(gatewayModelId, {
+                userId,
+              }) as any,
+              headers: getGatewayAttributionHeaders(),
               system: `Generate a very short chat title (2-6 words) that captures the topic. Output ONLY the title, no quotes or punctuation.`,
               prompt: `Conversation:\n\n${conversationText}\n\nTitle:`,
               experimental_telemetry: {
@@ -81,6 +91,15 @@ export const POST = withServerObservability(
                 },
               },
             });
+            const provider =
+              (providerMetadata as any)?.gateway?.routing?.resolvedProvider ??
+              (providerMetadata as any)?.gateway?.routing?.finalProvider;
+            if (provider) {
+              console.log(
+                "[threads/title] Gateway resolved provider:",
+                provider,
+              );
+            }
             const generated = text.trim().slice(0, 60);
             if (generated) title = generated;
           } catch (err) {

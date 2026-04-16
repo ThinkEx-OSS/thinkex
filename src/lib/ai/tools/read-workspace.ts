@@ -43,7 +43,8 @@ const ReadWorkspaceResultSchema = z.discriminatedUnion("success", [
 export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Read content of a workspace item by path or name. Works for documents, flashcards, PDFs, quizzes, images, audio, websites, and YouTube cards when readable content or metadata exists. Content is returned as raw lines with no line-number prefixes, so it can be copied directly into item_edit oldString. The response includes rangeNote: 'Full content' when returning the entire item, or 'Lines X–Y of Z' (and 'has more' if there is more). Use lineStart (1-indexed) to read later sections. For PDFs: pageStart and pageEnd for page ranges. Use workspace_search to find content in large items. Quizzes include progress at the top when started. Any line longer than 2000 characters is truncated. Avoid tiny repeated slices; read a larger window.",
+            "Read workspace item text by path or name (documents, flashcards, PDFs, quizzes, images, audio, websites, YouTube). Audio returns the segment timeline when present, not raw audio — paginate with lineStart/limit and nextLineStart when hasMore. " +
+            "Lines have no prefixes (safe for item_edit oldText). rangeNote indicates full vs partial read. PDFs: pageStart/pageEnd. Long lines truncated at 2000 chars. Default limit 500, max 2000 lines per call.",
         inputSchema: zodSchema(
             z.object({
                 path: z
@@ -180,6 +181,24 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
 
             const vpath = getVirtualPath(item, items);
 
+            const pdfOutputFields: {
+                totalPages?: number;
+                pageRange?: { start?: number; end?: number };
+            } = {};
+            if (item.type === "pdf") {
+                const ocr = (item.data as { ocrPages?: unknown[] }).ocrPages;
+                const ocrLen = Array.isArray(ocr) ? ocr.length : 0;
+                if (ocrLen > 0) {
+                    pdfOutputFields.totalPages = ocrLen;
+                }
+                if (pdfPageRange) {
+                    pdfOutputFields.pageRange = {
+                        start: pdfPageRange.pageStart,
+                        end: pdfPageRange.pageEnd,
+                    };
+                }
+            }
+
             return {
                 success: true,
                 itemName: item.name,
@@ -192,16 +211,7 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
                 hasMore,
                 rangeNote,
                 ...(hasMore && { nextLineStart: lineEnd + 1 }),
-                ...(item.type === "pdf" &&
-                    Array.isArray((item.data as { ocrPages?: unknown[] })?.ocrPages) && {
-                    totalPages: (item.data as { ocrPages: unknown[] }).ocrPages.length,
-                    ...(pdfPageRange && {
-                        pageRange: {
-                            start: pdfPageRange.pageStart,
-                            end: pdfPageRange.pageEnd,
-                        },
-                    }),
-                }),
+                ...pdfOutputFields,
             };
         },
     });

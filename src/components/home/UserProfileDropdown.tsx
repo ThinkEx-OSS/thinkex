@@ -1,12 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useSession, signOut } from "@/lib/auth-client";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { LogOut, User } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,15 +9,45 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AccountModal } from "@/components/auth/AccountModal";
+import { signOut, useSession } from "@/lib/auth-client";
+import dynamic from "next/dynamic";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useState } from "react";
+import { LogOut, User } from "lucide-react";
+import type { InitialAuth } from "./HomeShell";
 
-export function UserProfileDropdown() {
+const AccountModal = dynamic(
+  () =>
+    import("@/components/auth/AccountModal").then((mod) => ({
+      default: mod.AccountModal,
+    })),
+  { ssr: false },
+);
+
+interface UserProfileDropdownProps {
+  initialAuth?: InitialAuth;
+}
+
+export function UserProfileDropdown({ initialAuth }: UserProfileDropdownProps) {
   const { data: session } = useSession();
   const router = useRouter();
   const [showAccountModal, setShowAccountModal] = useState(false);
 
-  const userName = session?.user?.name || session?.user?.email || "User";
-  const userImage = session?.user?.image || undefined;
+  const isAnonymous =
+    session !== undefined
+      ? !session || !!session.user?.isAnonymous
+      : (initialAuth?.isAnonymous ?? true);
+
+  const userName =
+    session !== undefined
+      ? session?.user?.name || session?.user?.email || "User"
+      : (initialAuth?.userName ?? "User");
+
+  const userImage =
+    session !== undefined
+      ? session?.user?.image || undefined
+      : (initialAuth?.userImage ?? undefined);
 
   const getInitials = (name: string) => {
     if (name === "User") return "U";
@@ -39,8 +64,7 @@ export function UserProfileDropdown() {
     router.push("/home");
   }, [router]);
 
-  // Anonymous user: show sign in/up buttons
-  if (session?.user?.isAnonymous) {
+  if (isAnonymous) {
     return (
       <div className="flex items-center gap-2 py-1">
         <Link href="/auth/sign-in">
@@ -73,8 +97,10 @@ export function UserProfileDropdown() {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" sideOffset={8}>
-
-          <DropdownMenuItem onClick={() => setShowAccountModal(true)} className="cursor-pointer">
+          <DropdownMenuItem
+            onClick={() => setShowAccountModal(true)}
+            className="cursor-pointer"
+          >
             <User className="mr-2 h-4 w-4" />
             Account
           </DropdownMenuItem>
@@ -86,7 +112,10 @@ export function UserProfileDropdown() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <AccountModal open={showAccountModal} onOpenChange={setShowAccountModal} />
+      <AccountModal
+        open={showAccountModal}
+        onOpenChange={setShowAccountModal}
+      />
     </>
   );
 }

@@ -40,11 +40,29 @@ function createWorkspaceChatRuntimeHook(
   };
 }
 
+/**
+ * Bridges the outer RemoteThreadListRuntime's initialize() into a ref
+ * so the transport's prepareSendMessagesRequest can eagerly resolve the
+ * real thread remoteId before each chat request.
+ *
+ * Workaround for https://github.com/assistant-ui/assistant-ui/issues/3578
+ */
+function ThreadInitBridge({
+  initRef,
+}: {
+  initRef: React.MutableRefObject<(() => Promise<{ remoteId: string }>) | null>;
+}) {
+  const aui = useAui();
+  initRef.current = () => aui.threadListItem().initialize();
+  return null;
+}
+
 export function WorkspaceRuntimeProvider({
   workspaceId,
   children,
 }: WorkspaceRuntimeProviderProps) {
   const selectedModelId = useUIStore((state) => state.selectedModelId);
+  const memoryEnabled = useUIStore((state) => state.memoryEnabled);
   const activeFolderId = useUIStore((state) => state.activeFolderId);
   const selectedCardIdsSet = useUIStore((state) => state.selectedCardIds);
   const activePdfPageByItemId = useUIStore(
@@ -79,12 +97,7 @@ export function WorkspaceRuntimeProvider({
       activePdfPageByItemId,
       viewingItemIds,
     );
-  }, [
-    workspaceState,
-    contextCardIds,
-    activePdfPageByItemId,
-    viewingItemIds,
-  ]);
+  }, [workspaceState, contextCardIds, activePdfPageByItemId, viewingItemIds]);
 
   // Per AI SDK, transport `body` is `Resolvable<object>` — if it is a function, `resolve()`
   // calls it on every sendMessages (see @ai-sdk/provider-utils resolve()). That gives
@@ -96,11 +109,16 @@ export function WorkspaceRuntimeProvider({
   const chatApiPayloadRef = useRef({
     workspaceId,
     modelId: selectedModelId,
+    memoryEnabled,
     activeFolderId,
     selectedCardsContext: "",
   });
+  const threadInitRef = useRef<(() => Promise<{ remoteId: string }>) | null>(
+    null,
+  );
   chatApiPayloadRef.current.workspaceId = workspaceId;
   chatApiPayloadRef.current.modelId = selectedModelId;
+  chatApiPayloadRef.current.memoryEnabled = memoryEnabled;
   chatApiPayloadRef.current.activeFolderId = activeFolderId;
   chatApiPayloadRef.current.selectedCardsContext = selectedCardsContext;
 
@@ -184,6 +202,34 @@ export function WorkspaceRuntimeProvider({
       new AssistantChatTransport({
         api: "/api/chat",
         body: () => ({ ...chatApiPayloadRef.current }),
+        prepareSendMessagesRequest: async (options) => {
+          let threadRemoteId: string | undefined;
+
+          try {
+            const result = await threadInitRef.current?.();
+            threadRemoteId = result?.remoteId;
+          } catch (e) {
+            console.warn("[WorkspaceRuntimeProvider] Thread init failed:", e);
+          }
+
+          if (process.env.NODE_ENV === "development") {
+            console.debug(
+              "[WorkspaceRuntimeProvider] Thread ID for request:",
+              threadRemoteId ?? "(fallback)",
+            );
+          }
+
+          return {
+            body: {
+              ...options.body,
+              id: threadRemoteId ?? options.body?.id,
+              messages: options.messages,
+              trigger: options.trigger,
+              messageId: options.messageId,
+              metadata: options.requestMetadata,
+            },
+          };
+        },
       }),
     // Body snapshot comes from the ref via Resolvable function above.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable transport instance
@@ -206,6 +252,7 @@ export function WorkspaceRuntimeProvider({
 
   return (
     <AssistantRuntimeProvider runtime={runtime} aui={aui}>
+      <ThreadInitBridge initRef={threadInitRef} />
       <AssistantAvailableProvider>{children}</AssistantAvailableProvider>
     </AssistantRuntimeProvider>
   );

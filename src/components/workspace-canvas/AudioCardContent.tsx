@@ -694,10 +694,11 @@ function SegmentRow({
         </span>
         <span
           className={cn(
-            "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+            "inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full",
             speakerColor,
           )}
         >
+          <span className="font-normal opacity-75">Speaker:</span>
           {segment.speaker}
         </span>
         {segment.language && segment.language !== "English" && (

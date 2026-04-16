@@ -12,15 +12,15 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/audio/process
- * Receives an audio file URL, runs a durable workflow to download, upload to Gemini,
- * and transcribe. Returns structured transcript + summary.
+ * Receives an audio file URL, runs a durable workflow to transcribe it with
+ * AssemblyAI, and returns a workflow run ID for polling.
  */
 async function handlePOST(req: NextRequest) {
   const userId = await requireAuth();
 
-  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+  if (!process.env.ASSEMBLYAI_API_KEY) {
     return NextResponse.json(
-      { error: "GOOGLE_GENERATIVE_AI_API_KEY is not set" },
+      { error: "ASSEMBLYAI_API_KEY is not set" },
       { status: 500 },
     );
   }

@@ -10,6 +10,15 @@ export const CodeExecuteStepSchema = z.object({
 export const CodeExecuteResultSchema = z.object({
   answer: z.string(),
   steps: z.array(CodeExecuteStepSchema).optional(),
+  charts: z
+    .array(
+      z.object({
+        type: z.string(),
+        data: z.string(),
+      }),
+    )
+    .optional(),
+  error: z.boolean().optional(),
 });
 
 export type CodeExecuteStep = z.infer<typeof CodeExecuteStepSchema>;

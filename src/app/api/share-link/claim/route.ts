@@ -1,23 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
+import { and, eq } from "drizzle-orm";
+import { requireAuth, withErrorHandling } from "@/lib/api/workspace-helpers";
 import { db } from "@/lib/db/client";
-import { workspaceShareLinks, workspaceCollaborators, workspaces } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
-import { withErrorHandling } from "@/lib/api/workspace-helpers";
-import { auth } from "@/lib/auth";
+import {
+  user,
+  workspaceCollaborators,
+  workspaceShareLinks,
+  workspaces,
+} from "@/lib/db/schema";
 
 async function handlePOST(request: NextRequest) {
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  });
+  const userId = await requireAuth();
+  const [currentUser] = await db
+    .select({ isAnonymous: user.isAnonymous })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
 
-  if (!session || !session.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (session.user.isAnonymous) {
+  if (currentUser?.isAnonymous) {
     return NextResponse.json(
       { error: "Sign in with an account to join this workspace" },
-      { status: 403 }
+      { status: 403 },
     );
   }
 
@@ -34,7 +37,10 @@ async function handlePOST(request: NextRequest) {
     .limit(1);
 
   if (!shareLink) {
-    return NextResponse.json({ error: "Share link not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Share link not found" },
+      { status: 404 },
+    );
   }
 
   if (new Date(shareLink.expiresAt) < new Date()) {
@@ -47,15 +53,15 @@ async function handlePOST(request: NextRequest) {
     .where(
       and(
         eq(workspaceCollaborators.workspaceId, shareLink.workspaceId),
-        eq(workspaceCollaborators.userId, session.user.id)
-      )
+        eq(workspaceCollaborators.userId, userId),
+      ),
     )
     .limit(1);
 
   if (!existing) {
     await db.insert(workspaceCollaborators).values({
       workspaceId: shareLink.workspaceId,
-      userId: session.user.id,
+      userId,
       permissionLevel: shareLink.permissionLevel,
     });
   }

@@ -83,7 +83,7 @@ export async function persistAudioResult(
       .update(workspaceItemContent)
       .set({
         structuredData: {
-          summary: result.summary,
+          summary: result.summary ?? "",
         },
         ...(typeof result.duration === "number" && result.duration > 0
           ? {

@@ -1,97 +1,82 @@
 import { z } from "zod";
-import { tool, generateText, stepCountIs, zodSchema, type ToolSet } from "ai";
-import { google, type GoogleLanguageModelOptions } from "@ai-sdk/google";
+import { tool, zodSchema } from "ai";
+import { Sandbox } from "@e2b/code-interpreter";
+
 import { buildCodeExecuteToolDescription } from "@/lib/ai/code-execute-environment";
-import { getModelForPurpose } from "@/lib/ai/models";
 import {
   CodeExecuteResultSchema,
   type CodeExecuteResult,
   type CodeExecuteStep,
 } from "@/lib/ai/code-execute-shared";
 
-const INNER_STEP_CAP = 12;
+const SANDBOX_TIMEOUT_MS = 300_000;
+const EXECUTION_TIMEOUT_MS = 60_000;
 
-const codeTools = {
-  codeExecution: google.tools.codeExecution({}),
-} as ToolSet;
-
-function buildStepsFromToolResults(
-  toolResults: Array<{
-    toolName: string;
-    toolCallId: string;
-    input: unknown;
-    output: unknown;
-  }>,
-): CodeExecuteStep[] {
-  const steps: CodeExecuteStep[] = [];
-  for (const tr of toolResults) {
-    if (tr.toolName !== "code_execution") continue;
-    const input = tr.input as { language?: string; code?: string } | undefined;
-    const output = tr.output as
-      | { outcome?: string; output?: string }
-      | undefined;
-    steps.push({
-      language: input?.language,
-      code: input?.code,
-      outcome: output?.outcome,
-      output: output?.output ?? "",
-    });
+function truncateTraceback(traceback: string, maxLines = 20): string {
+  const lines = traceback.split("\n");
+  if (lines.length <= maxLines) {
+    return traceback;
   }
-  return steps;
+
+  return `...[truncated]\n${lines.slice(-maxLines).join("\n")}`;
 }
 
-/**
- * Run Gemini 3.1 Pro with Google code execution; return answer + optional execution steps.
- */
-export async function executeCodeWithGemini(
-  task: string,
+export async function executeCodeWithE2B(
+  code: string,
   options?: { abortSignal?: AbortSignal },
 ): Promise<CodeExecuteResult> {
-  const { text, toolResults } = await generateText({
-    model: google(getModelForPurpose("code-execute")),
-    tools: codeTools,
-    stopWhen: stepCountIs(INNER_STEP_CAP),
-    abortSignal: options?.abortSignal,
-    experimental_telemetry: { isEnabled: true },
-    providerOptions: {
-      google: {
-        thinkingConfig: {
-          thinkingLevel: "low",
-          includeThoughts: false,
-        },
-      } satisfies GoogleLanguageModelOptions,
-    },
-    prompt: `You are a precise assistant with access to Python code execution in a managed sandbox.
+  options?.abortSignal?.throwIfAborted();
 
-Solve the task below. Use the code execution tool when running Python would improve accuracy (math, data, verification). Use only libraries available in the Gemini code execution environment.
-
-When finished, end with a concise summary the user can read (the final answer).
-
-Task:
-${task}`,
-  });
-
-  const steps = buildStepsFromToolResults(
-    toolResults as Array<{
-      toolName: string;
-      toolCallId: string;
-      input: unknown;
-      output: unknown;
-    }>,
-  );
-
-  const answer =
-    typeof text === "string" && text.trim().length > 0
-      ? text.trim()
-      : steps.length > 0
-        ? (steps[steps.length - 1]?.output ?? "").trim() ||
-          "Execution finished with no summary text."
-        : "No result from code execution.";
-
-  return {
-    answer,
-    steps: steps.length > 0 ? steps : undefined,
+  const sandbox = await Sandbox.create({ timeoutMs: SANDBOX_TIMEOUT_MS });
+  const onAbort = () => {
+    sandbox.kill().catch(() => {});
   };
+
+  options?.abortSignal?.addEventListener("abort", onAbort, { once: true });
+
+  try {
+    const execution = await sandbox.runCode(code, {
+      timeoutMs: EXECUTION_TIMEOUT_MS,
+    });
+
+    const steps: CodeExecuteStep[] = [
+      {
+        language: "python",
+        code,
+        outcome: execution.error ? "ERROR" : "OK",
+        output: [...execution.logs.stdout, ...execution.logs.stderr].join("\n"),
+      },
+    ];
+
+    const charts: { type: string; data: string }[] = [];
+
+    for (const result of execution.results) {
+      if (result.png) {
+        charts.push({ type: "image/png", data: result.png });
+      } else if (result.jpeg) {
+        charts.push({ type: "image/jpeg", data: result.jpeg });
+      } else if (result.svg) {
+        charts.push({ type: "image/svg+xml", data: result.svg });
+      }
+    }
+
+    const textParts = execution.results.map((result) => result.text).filter(Boolean);
+    const answer = execution.error
+      ? `Error: ${execution.error.name}: ${execution.error.value}\n${truncateTraceback(execution.error.traceback)}`
+      : textParts.join("\n") ||
+        steps[0]?.output ||
+        "Execution completed successfully.";
+
+    return {
+      answer,
+      steps: steps.length > 0 ? steps : undefined,
+      charts: charts.length > 0 ? charts : undefined,
+      error: Boolean(execution.error),
+    };
+  } finally {
+    options?.abortSignal?.removeEventListener("abort", onAbort);
+    await sandbox.kill().catch(() => {});
+  }
 }
 
 export function createExecuteCodeTool() {
@@ -99,19 +84,19 @@ export function createExecuteCodeTool() {
     description: buildCodeExecuteToolDescription(),
     inputSchema: zodSchema(
       z.object({
-        task: z
+        code: z
           .string()
           .min(1)
-          .max(32_000)
+          .max(64_000)
           .describe(
-            "Self-contained instructions and data for the Python sandbox. Include all numbers, tables, and constraints needed; the delegate does not see the chat history.",
+            "Complete, runnable Python code. Use print() for text output. Use matplotlib plt.show() for charts. You can pip install packages inline with subprocess if needed.",
           ),
       }),
     ),
     strict: true,
     outputSchema: zodSchema(CodeExecuteResultSchema),
-    execute: async ({ task }, { abortSignal }) => {
-      return await executeCodeWithGemini(task, { abortSignal });
+    execute: async ({ code }, { abortSignal }) => {
+      return await executeCodeWithE2B(code, { abortSignal });
     },
   });
 }
