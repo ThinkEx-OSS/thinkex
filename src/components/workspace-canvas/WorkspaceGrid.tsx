@@ -40,6 +40,7 @@ function SortableCard({
     id,
     index,
     element,
+    accept: "item",
     group: "items",
     type: "item",
   });
@@ -72,6 +73,7 @@ function SortableFolderCard({
     id,
     index,
     element,
+    accept: "folder",
     group: "folders",
     type: "folder",
   });
