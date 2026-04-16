@@ -2,10 +2,11 @@ import { useState } from "react";
 import { Settings2 } from "lucide-react";
 
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
@@ -21,7 +22,7 @@ export function ModelSettingsMenu() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <Popover
+    <DropdownMenu
       open={isOpen}
       onOpenChange={(open) => {
         setIsOpen(open);
@@ -30,19 +31,19 @@ export function ModelSettingsMenu() {
     >
       <Tooltip>
         <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
+          <DropdownMenuTrigger asChild>
             <button
               type="button"
               aria-label="Chat settings"
-              className="ml-1 flex cursor-pointer items-center gap-1.5 rounded-md bg-sidebar-accent px-1.5 py-1 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="ml-0.5 flex cursor-pointer items-center gap-1.5 rounded-md bg-sidebar-accent px-1.5 py-1 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <Settings2 className="size-3.5" />
             </button>
-          </PopoverTrigger>
+          </DropdownMenuTrigger>
         </TooltipTrigger>
         <TooltipContent side="top">Chat settings</TooltipContent>
       </Tooltip>
-      <PopoverContent
+      <DropdownMenuContent
         align="start"
         side="top"
         sideOffset={4}
@@ -51,29 +52,31 @@ export function ModelSettingsMenu() {
         onOpenAutoFocus={(event) => event.preventDefault()}
         onCloseAutoFocus={(event) => event.preventDefault()}
       >
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <label
-                htmlFor="memory-toggle"
-                className="block cursor-pointer text-sm font-medium text-foreground"
-              >
-                Memory
-              </label>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Let ThinkEx remember facts about you across chats for more
-                personalized answers.
-              </p>
-            </div>
-            <Switch
-              id="memory-toggle"
-              checked={memoryEnabled}
-              onCheckedChange={setMemoryEnabled}
-              aria-label="Toggle memory"
-            />
+        <DropdownMenuItem
+          className="cursor-default items-start gap-3 rounded-md p-0 focus:bg-transparent data-[highlighted]:bg-transparent"
+          onSelect={(event) => event.preventDefault()}
+        >
+          <div className="min-w-0 flex-1 space-y-1">
+            <label
+              htmlFor="memory-toggle"
+              className="block cursor-pointer text-sm font-medium text-foreground"
+            >
+              Memory
+            </label>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Remember facts about you across workspaces and chats to
+              personalize answers.
+            </p>
           </div>
-        </div>
-      </PopoverContent>
-    </Popover>
+          <Switch
+            id="memory-toggle"
+            checked={memoryEnabled}
+            onCheckedChange={setMemoryEnabled}
+            aria-label="Toggle memory"
+            className="shrink-0"
+          />
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

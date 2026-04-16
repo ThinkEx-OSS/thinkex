@@ -987,8 +987,10 @@ const ComposerAction: FC<ComposerActionProps> = ({ items }) => {
         <div className="relative z-0">
           <ComposerAddAttachment />
         </div>
-        <ModelPicker />
         {!isAnonymous && <ModelSettingsMenu />}
+        <div className={cn(!isAnonymous && "ml-0.5")}>
+          <ModelPicker />
+        </div>
         {/* AI Debug Button - feature flag in prod, localhost debugger in dev */}
         {showAiDebugButton && (
           <button
