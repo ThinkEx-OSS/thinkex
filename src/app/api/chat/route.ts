@@ -136,7 +136,7 @@ async function handlePOST(req: Request) {
     // AssistantChatTransport passes thread remoteId as body.id (see assistant-ui react-ai-sdk)
     const threadId = body.id ?? body.threadId ?? null;
     // Client-controlled memory toggle (composer settings menu). Server double-checks auth/api key.
-    const memoryEnabled = body.memoryEnabled !== false;
+    const memoryEnabled = body.memoryEnabled === true;
     logger.info("🧵 [CHAT-API] Thread ID:", {
       threadId,
       isDefault: threadId === "DEFAULT_THREAD_ID",
