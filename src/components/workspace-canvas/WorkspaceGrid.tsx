@@ -72,12 +72,24 @@ function SortableDroppableFolder({
   const { isDropTarget } = useDroppable({
     id: `folder-drop-${id}`,
     element: dropElement,
-    accept: (source) =>
-      typeof source.id === "string" &&
-      source.id !== id &&
-      canAcceptDrop(source.id),
+    accept: (source) => {
+      const result =
+        typeof source.id === "string" &&
+        source.id !== id &&
+        canAcceptDrop(source.id as string);
+      console.log(
+        `[folder-drop] accept called for folder=${id}, source.id=${source.id}, source.type=${source.type}, result=${result}`,
+      );
+      return result;
+    },
     collisionPriority: 100,
   });
+  if (dropElement) {
+    const rect = dropElement.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      console.warn(`[folder-drop] id=${id} has zero-size bounding box!`, rect);
+    }
+  }
   const [sortElement, setSortElement] = useState<Element | null>(null);
   const { isDragging } = useSortable({
     id,
@@ -87,6 +99,10 @@ function SortableDroppableFolder({
     group: "folders",
     type: "folder",
   });
+
+  console.log(
+    `[folder-drop] id=${id} isDropTarget=${isDropTarget} isDragging=${isDragging} dropElement=${!!dropElement} sortElement=${!!sortElement}`,
+  );
 
   return (
     <div
@@ -283,6 +299,33 @@ function WorkspaceGridComponent({
       <DragDropProvider
         onBeforeDragStart={handleBeforeDragStart}
         onDragStart={handleDragStart}
+        onCollision={(event) => {
+          console.log(
+            "[collision]",
+            event.collisions?.map((c: any) => ({
+              id: c.id,
+              priority: c.priority,
+            })),
+          );
+        }}
+        onDragMove={(event) => {
+          if (Date.now() % 1000 < 50) {
+            console.log(
+              "[dragmove] source:",
+              event.operation.source?.id,
+              "target:",
+              event.operation.target?.id,
+            );
+          }
+        }}
+        onDragOver={(event) => {
+          console.log(
+            "[dragover] target:",
+            event.operation.target?.id,
+            "source:",
+            event.operation.source?.id,
+          );
+        }}
         onDragEnd={handleDragEnd}
       >
         {folders.length > 0 ? (
