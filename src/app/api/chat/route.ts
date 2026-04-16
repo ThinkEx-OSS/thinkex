@@ -287,7 +287,7 @@ async function handlePOST(req: Request) {
         },
       },
       experimental_transform: smoothStream({ chunking: "word", delayInMs: 15 }),
-      onFinish: ({ usage, finishReason }) => {
+      onFinish: async ({ usage, finishReason }) => {
         const usageInfo = {
           inputTokens: usage?.inputTokens,
           outputTokens: usage?.outputTokens,
@@ -301,14 +301,14 @@ async function handlePOST(req: Request) {
         logger.info("📊 [CHAT-API] Final Token Usage:", usageInfo);
 
         if (userId && !isAnonymousUser && isPremiumChatModel(rawModelId)) {
-          autumnBilling
-            .track({
+          try {
+            await autumnBilling.track({
               headers: headersObj,
               body: { featureId: "premium_message", value: 1 },
-            })
-            .catch((err: unknown) => {
-              console.error("[billing] Autumn track failed:", err);
             });
+          } catch (err) {
+            console.error("[billing] Autumn track failed:", err);
+          }
         }
       },
       onStepFinish: (result) => {
