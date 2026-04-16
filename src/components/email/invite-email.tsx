@@ -54,9 +54,9 @@ export function InviteEmailTemplate({
         >
           <Section style={{ marginTop: "32px", textAlign: "center" }}>
             <Img
-              src="https://thinkex.app/email-logo.png"
-              width="40"
-              height="40"
+              src="https://thinkex.app/thinkex-email-logo.png"
+              width="120"
+              height="120"
               alt="ThinkEx"
               style={{ margin: "0 auto" }}
             />
@@ -126,16 +126,6 @@ export function InviteEmailTemplate({
           </Text>
           <Hr style={{ border: "1px solid #eaeaea", margin: "26px 0" }} />
           <Text
-            style={{
-              fontSize: "12px",
-              lineHeight: "24px",
-              color: "#8898aa",
-              fontStyle: "italic",
-            }}
-          >
-            The Workspace That Thinks With You
-          </Text>
-          <Text
             style={{ fontSize: "11px", lineHeight: "16px", color: "#8898aa" }}
           >
             You received this email because {inviterName || "someone"} invited
@@ -145,7 +135,7 @@ export function InviteEmailTemplate({
           <Text
             style={{ fontSize: "11px", color: "#8898aa", marginTop: "12px" }}
           >
-            © {new Date().getFullYear()} ThinkEx
+            © {new Date().getFullYear()} ThinkEx Inc.
           </Text>
         </Container>
       </Body>
