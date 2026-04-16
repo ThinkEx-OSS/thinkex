@@ -197,7 +197,7 @@ function formatPlanPrice(plan: Plan) {
     return "Free";
   }
 
-  const normalizedAmount = amount > 100 ? amount / 100 : amount;
+  const normalizedAmount = amount / 100;
   return `$${normalizedAmount.toFixed(normalizedAmount % 1 === 0 ? 0 : 2)}/${interval === "year" ? "yr" : "mo"}`;
 }
 
@@ -474,6 +474,7 @@ function SubscriptionManagement() {
       toast.error("Unable to open billing portal", {
         description: "Please try again in a moment.",
       });
+    } finally {
       setIsPortalLoading(false);
     }
   };

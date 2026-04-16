@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useCustomer } from "autumn-js/react";
 import { Zap } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +40,7 @@ export function UpgradeModal({ open, onOpenChange }: UpgradeModalProps) {
         await autumnApi.attach({ planId: "pro" });
       }
     } catch {
+      toast.error("Unable to start checkout. Redirecting to billing page.");
       window.location.href = "/billing";
     } finally {
       setIsLoading(false);
