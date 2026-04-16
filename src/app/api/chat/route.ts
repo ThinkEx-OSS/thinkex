@@ -8,6 +8,7 @@ import {
   wrapLanguageModel,
 } from "ai";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
+import { Autumn } from "autumn-js";
 import { withTracing } from "@posthog/ai";
 import type { UIMessage } from "ai";
 import { logger } from "@/lib/utils/logger";
@@ -31,6 +32,10 @@ import {
   createGatewayLanguageModel,
   getGatewayAttributionHeaders,
 } from "@/lib/ai/gateway-provider-options";
+
+const autumn = new Autumn({
+  secretKey: process.env.AUTUMN_SECRET_KEY!,
+});
 
 /**
  * Extract workspaceId from system context or request body
@@ -58,17 +63,6 @@ function getSelectedCardsContext(body: any): string {
   // Client now sends pre-formatted context string
   return body.selectedCardsContext || "";
 }
-
-type AutumnBillingAPI = {
-  check: (args: {
-    headers: Awaited<ReturnType<typeof headers>>;
-    body: { featureId: string };
-  }) => Promise<{ allowed: boolean }>;
-  track: (args: {
-    headers: Awaited<ReturnType<typeof headers>>;
-    body: { featureId: string; value: number };
-  }) => Promise<unknown>;
-};
 
 /**
  * Inject user-selected context (selected cards + reply quotes / workspace passages) into the last user message.
@@ -138,7 +132,6 @@ async function handlePOST(req: Request) {
   try {
     // FIX: Parallelize headers() and req.json() to eliminate waterfall
     const [headersObj, body] = await Promise.all([headers(), req.json()]);
-    const autumnBilling = auth.api as typeof auth.api & AutumnBillingAPI;
 
     // Get authenticated user ID
     const session = await auth.api.getSession({ headers: headersObj });
@@ -217,9 +210,10 @@ async function handlePOST(req: Request) {
 
     if (userId && !isAnonymousUser && isPremiumChatModel(rawModelId)) {
       try {
-        const checkResult = await autumnBilling.check({
-          headers: headersObj,
-          body: { featureId: "premium_message" },
+        const checkResult = await autumn.check({
+          customerId: userId,
+          featureId: "premium_message",
+          requiredBalance: 1,
         });
 
         if (!checkResult.allowed) {
@@ -302,9 +296,10 @@ async function handlePOST(req: Request) {
 
         if (userId && !isAnonymousUser && isPremiumChatModel(rawModelId)) {
           try {
-            await autumnBilling.track({
-              headers: headersObj,
-              body: { featureId: "premium_message", value: 1 },
+            await autumn.track({
+              customerId: userId!,
+              featureId: "premium_message",
+              value: 1,
             });
           } catch (err) {
             console.error("[billing] Autumn track failed:", err);
