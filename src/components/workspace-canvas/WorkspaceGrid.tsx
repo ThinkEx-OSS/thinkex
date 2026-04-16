@@ -7,6 +7,43 @@ import { WorkspaceCard } from "./WorkspaceCard";
 import { FlashcardWorkspaceCard } from "./FlashcardWorkspaceCard";
 import { FolderCard } from "./FolderCard";
 
+const pointerIntersection = ({
+  dragOperation,
+  droppable,
+}: {
+  dragOperation: {
+    position: { current?: { x: number; y: number } };
+  };
+  droppable: {
+    id: string;
+    shape?: {
+      center: { x: number; y: number };
+      containsPoint: (point: { x: number; y: number }) => boolean;
+    };
+  };
+}) => {
+  const pointerCoordinates = dragOperation.position.current;
+  if (!pointerCoordinates || !droppable.shape) {
+    return null;
+  }
+
+  if (droppable.shape.containsPoint(pointerCoordinates)) {
+    const distance = Math.hypot(
+      droppable.shape.center.x - pointerCoordinates.x,
+      droppable.shape.center.y - pointerCoordinates.y,
+    );
+
+    return {
+      id: droppable.id,
+      value: 1 / Math.max(distance, 1),
+      type: 2,
+      priority: 3,
+    };
+  }
+
+  return null;
+};
+
 interface WorkspaceGridProps {
   items: Item[];
   allItems: Item[];
@@ -76,6 +113,7 @@ function SortableDroppableFolder({
       typeof source.id === "string" &&
       source.id !== id &&
       canAcceptDrop(source.id as string),
+    collisionDetector: pointerIntersection,
     collisionPriority: 100,
   });
   const [sortElement, setSortElement] = useState<Element | null>(null);
@@ -89,17 +127,15 @@ function SortableDroppableFolder({
   });
 
   return (
-    <div
-      ref={setDropElement}
-      className="size-full min-w-0 transition-[outline] duration-150"
-      style={{
-        borderRadius: "1rem",
-        boxShadow: isDropTarget
-          ? "inset 0 0 0 2px hsl(var(--primary)), 0 0 12px 2px hsl(var(--primary) / 0.3)"
-          : "none",
-        transition: "box-shadow 150ms ease",
-      }}
-    >
+    <div ref={setDropElement} className="relative size-full min-w-0">
+      {isDropTarget ? (
+        <div
+          className="pointer-events-none absolute inset-0 z-50 rounded-xl border-2 border-primary"
+          style={{
+            boxShadow: "0 0 16px 4px hsl(var(--primary) / 0.4)",
+          }}
+        />
+      ) : null}
       <div
         ref={setSortElement}
         data-workspace-card
