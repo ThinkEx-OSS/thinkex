@@ -7,43 +7,6 @@ import { WorkspaceCard } from "./WorkspaceCard";
 import { FlashcardWorkspaceCard } from "./FlashcardWorkspaceCard";
 import { FolderCard } from "./FolderCard";
 
-const pointerIntersection = ({
-  dragOperation,
-  droppable,
-}: {
-  dragOperation: {
-    position: { current?: { x: number; y: number } };
-  };
-  droppable: {
-    id: string;
-    shape?: {
-      center: { x: number; y: number };
-      containsPoint: (point: { x: number; y: number }) => boolean;
-    };
-  };
-}) => {
-  const pointerCoordinates = dragOperation.position.current;
-  if (!pointerCoordinates || !droppable.shape) {
-    return null;
-  }
-
-  if (droppable.shape.containsPoint(pointerCoordinates)) {
-    const distance = Math.hypot(
-      droppable.shape.center.x - pointerCoordinates.x,
-      droppable.shape.center.y - pointerCoordinates.y,
-    );
-
-    return {
-      id: droppable.id,
-      value: 1 / Math.max(distance, 1),
-      type: 2,
-      priority: 3,
-    };
-  }
-
-  return null;
-};
-
 interface WorkspaceGridProps {
   items: Item[];
   allItems: Item[];
@@ -105,29 +68,35 @@ function SortableDroppableFolder({
   canAcceptDrop: (sourceId: string) => boolean;
   children: React.ReactNode;
 }) {
-  const [dropElement, setDropElement] = useState<Element | null>(null);
-  const { isDropTarget } = useDroppable({
-    id: `folder-drop-${id}`,
-    element: dropElement,
-    accept: (source) =>
-      typeof source.id === "string" &&
-      source.id !== id &&
-      canAcceptDrop(source.id as string),
-    collisionDetector: pointerIntersection,
-    collisionPriority: 100,
-  });
-  const [sortElement, setSortElement] = useState<Element | null>(null);
+  const [element, setElement] = useState<Element | null>(null);
   const { isDragging } = useSortable({
     id,
     index,
-    element: sortElement,
+    element,
     accept: "folder",
     group: "folders",
     type: "folder",
   });
+  const { isDropTarget } = useDroppable({
+    id: `folder-drop-${id}`,
+    element,
+    accept: (source) =>
+      typeof source.id === "string" &&
+      source.id !== id &&
+      canAcceptDrop(source.id as string),
+    collisionPriority: 100,
+  });
 
   return (
-    <div ref={setDropElement} className="relative size-full min-w-0">
+    <div
+      ref={setElement}
+      data-workspace-card
+      className="relative size-full min-w-0"
+      style={{
+        opacity: isDragging ? 0.4 : 1,
+        cursor: "grab",
+      }}
+    >
       {isDropTarget ? (
         <div
           className="pointer-events-none absolute inset-0 z-50 rounded-xl border-2 border-primary"
@@ -136,20 +105,7 @@ function SortableDroppableFolder({
           }}
         />
       ) : null}
-      <div
-        ref={setSortElement}
-        data-workspace-card
-        data-drop-target={isDropTarget || undefined}
-        className="size-full"
-        style={{
-          opacity: isDragging ? 0.4 : 1,
-          cursor: "grab",
-          transform: isDropTarget ? "scale(1.02)" : "scale(1)",
-          transition: "transform 150ms ease",
-        }}
-      >
-        {children}
-      </div>
+      {children}
     </div>
   );
 }
