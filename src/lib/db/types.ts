@@ -50,6 +50,7 @@ export interface WorkspaceWithState extends Workspace {
   state?: Item[];
   isShared?: boolean;
   permissionLevel?: "viewer" | "editor" | "admin";
+  collaboratorCount?: number;
 }
 
 export interface WorkspacesResponse {
