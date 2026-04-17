@@ -158,7 +158,7 @@ const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({ scrollRef }) => {
   const virtualizer = useVirtualizer({
     count: messageCount,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 150,
+    estimateSize: () => 350,
     overscan: 5,
   });
 
@@ -174,7 +174,7 @@ const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({ scrollRef }) => {
     >
       {virtualizer.getVirtualItems().map((virtualRow) => (
         <div
-          key={virtualRow.index}
+          key={virtualRow.key}
           data-index={virtualRow.index}
           ref={virtualizer.measureElement}
           style={{
