@@ -39,8 +39,9 @@ import {
   useMessagePartText,
   useAuiState,
 } from "@assistant-ui/react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
-import type { FC } from "react";
+import type { FC, RefObject } from "react";
 import { createContext, useContext } from "react";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 
@@ -137,19 +138,60 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
           <ThreadWelcome items={items} />
         </AuiIf>
 
-        <ThreadPrimitive.Messages
-          components={{
-            UserMessage,
-            EditComposer,
-            AssistantMessage,
-          }}
-        />
+        <VirtualizedMessages scrollRef={viewportRef} />
       </ThreadPrimitive.Viewport>
 
       <div className="aui-thread-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-shrink-0 flex-col gap-4 overflow-visible rounded-t-3xl bg-sidebar px-4 pb-3 md:pb-4">
         <ComposerHoverWrapper items={items} />
       </div>
     </ThreadPrimitive.Root>
+  );
+};
+
+interface VirtualizedMessagesProps {
+  scrollRef: RefObject<HTMLDivElement | null>;
+}
+
+const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({ scrollRef }) => {
+  const messageCount = useAuiState((s) => s.thread.messages.length);
+
+  const virtualizer = useVirtualizer({
+    count: messageCount,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 350,
+    overscan: 5,
+  });
+
+  if (messageCount === 0) return null;
+
+  return (
+    <div
+      style={{
+        height: `${virtualizer.getTotalSize()}px`,
+        width: "100%",
+        position: "relative",
+      }}
+    >
+      {virtualizer.getVirtualItems().map((virtualRow) => (
+        <div
+          key={virtualRow.key}
+          data-index={virtualRow.index}
+          ref={virtualizer.measureElement}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            transform: `translateY(${virtualRow.start}px)`,
+          }}
+        >
+          <ThreadPrimitive.MessageByIndex
+            index={virtualRow.index}
+            components={MESSAGE_COMPONENTS}
+          />
+        </div>
+      ))}
+    </div>
   );
 };
 
@@ -396,10 +438,12 @@ const ComposerHoverWrapper: FC<ComposerHoverWrapperProps> = ({ items }) => {
     null,
   );
   const isThreadEmpty = useAuiState(({ thread }) => thread?.isEmpty ?? true);
-  const composerText = useAuiState(
-    (s) => (s as { composer?: { text?: string } })?.composer?.text ?? "",
+  const hasComposerText = useAuiState(
+    (s) =>
+      Boolean(
+        ((s as { composer?: { text?: string } })?.composer?.text ?? "").trim(),
+      ),
   );
-  const hasComposerText = Boolean(composerText?.trim());
 
   const handleDirectFill = useCallback(
     (fill: string) => {
@@ -1427,6 +1471,12 @@ const EditComposer: FC = () => {
       </ComposerPrimitive.Root>
     </div>
   );
+};
+
+const MESSAGE_COMPONENTS = {
+  UserMessage,
+  EditComposer,
+  AssistantMessage,
 };
 
 const BranchPicker: FC<BranchPickerPrimitive.Root.Props> = ({
