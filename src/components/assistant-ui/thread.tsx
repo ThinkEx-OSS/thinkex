@@ -43,6 +43,7 @@ import {
 import {
   defaultRangeExtractor,
   useVirtualizer,
+  type Range,
   type Virtualizer,
 } from "@tanstack/react-virtual";
 
@@ -120,21 +121,15 @@ interface ThreadProps {
   items?: Item[];
 }
 
-// Shared type alias: the @tanstack/react-virtual instance used throughout this
-// file. We lift it to Thread so the scroll controller can call scrollToIndex
-// directly without going through a handle wrapper.
+// Shared type: the @tanstack/react-virtual instance. Lifted to Thread so the
+// scroll controller can call scrollToIndex directly.
 type ThreadVirtualizer = Virtualizer<HTMLDivElement, HTMLDivElement>;
 
-// Estimated row height used before the virtualizer measures a row's actual
-// size. Matches the previous value — tuned for a typical assistant turn with
-// some markdown and a tool call.
+// Default row height before the virtualizer measures actual sizes.
 const ROW_ESTIMATE_SIZE = 350;
-// Breathing room above a user message when we scrollToIndex(..., { align: 'start' }).
-// Without this the message is flush against the viewport's top edge, which
-// looks wrong and hides MessageContextBadges on touch.
+// Breathing room above a user message when scrollToIndex(align:'start').
 const SCROLL_PADDING_START = 16;
-// Rows kept mounted outside the visible viewport (above and below) so smooth
-// scrolling doesn't flash blank regions. 5 matches TanStack's own docs example.
+// Rows kept mounted outside the viewport for smooth scrolling.
 const OVERSCAN = 5;
 
 export const Thread: FC<ThreadProps> = ({ items = [] }) => {
@@ -160,14 +155,9 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
       {/*
         Custom scroll container — intentionally NOT ThreadPrimitive.Viewport.
         assistant-ui's Viewport installs a ResizeObserver + subtree MutationObserver
-        on the scroll container and MessagePrimitive.Root injects inline min-height
-        on the last assistant message via ThreadViewportSlack. Both fight our
-        @tanstack/react-virtual virtualizer. We own scroll behavior here.
-
-        - `contain: strict` lets the browser treat this subtree as an independent
-          layout/paint root, cutting reflow cost during streaming.
-        - `overflow-anchor: none` disables the browser's native scroll-anchoring,
-          which otherwise fights the virtualizer when row sizes change.
+        that fights @tanstack/react-virtual. We own scroll behavior here instead.
+        • contain:strict = independent layout/paint root, cuts reflow during streaming
+        • overflow-anchor:none = disables browser scroll anchoring (fights the virtualizer)
       */}
       <div
         ref={viewportRef}
@@ -205,18 +195,11 @@ interface ThreadScrollControllerProps {
 }
 
 /**
- * Owns scroll behavior for the virtualized thread. Replaces assistant-ui's
- * ThreadPrimitive.Viewport + turnAnchor + ViewportSlack entirely.
- *
- * Behavior:
- * - thread.initialize (history first load) → bottom, instant.
- * - threadListItem.switchedTo (thread switch) → bottom, instant.
- * - thread.runStart (new user message sent) → anchor that user message at the
- *   top of the viewport with scrollPaddingStart breathing room, smooth.
- * - Streaming: no auto-scroll. User owns scroll.
- *
- * Everything goes through virtualizer.scrollToIndex so unmeasured rows use
- * the internal size ledger and built-in retry logic.
+ * Owns scroll behavior for the virtualized thread.
+ * • thread.initialize → bottom, instant
+ * • threadListItem.switchedTo → bottom, instant
+ * • thread.runStart → anchor the new user message at the top, smooth
+ * • Streaming: user owns scroll
  */
 const ThreadScrollController: FC<ThreadScrollControllerProps> = ({
   virtualizerRef,
@@ -225,47 +208,33 @@ const ThreadScrollController: FC<ThreadScrollControllerProps> = ({
 
   const scrollToLastIndex = useCallback(
     (align: "start" | "end", behavior: ScrollBehavior) => {
+      // Read live count from aui state; closure-based counts are unsafe
+      // against sibling-effect ordering (VirtualizedMessages may not have
+      // committed yet when the event fires).
       const count = aui?.thread()?.getState()?.messages.length ?? 0;
       if (count <= 0) return;
-      // Read the live count from aui state instead of any closure so we're
-      // safe against sibling effect ordering (VirtualizedMessages may not
-      // have committed the new count when this event fires).
-      const targetIndex = count - 1;
-      // rAF lets react-virtual see the new row count in its next commit
-      // before we scroll; scrollToIndex itself then retries internally for
-      // rows whose size hasn't been measured yet.
+      // rAF so react-virtual sees the new row count before we scroll;
+      // scrollToIndex retries internally for unmeasured rows.
       requestAnimationFrame(() => {
-        virtualizerRef.current?.scrollToIndex(targetIndex, { align, behavior });
+        virtualizerRef.current?.scrollToIndex(count - 1, { align, behavior });
       });
     },
     [aui, virtualizerRef],
   );
 
-  useAuiEvent("thread.initialize", () => {
-    scrollToLastIndex("end", "instant");
-  });
-
-  useAuiEvent("threadListItem.switchedTo", () => {
-    scrollToLastIndex("end", "instant");
-  });
-
-  useAuiEvent("thread.runStart", () => {
-    // At runStart the just-sent user message is at messages.length - 1.
-    // Anchoring it at the top mirrors the top-turnAnchor feel we previously
-    // got from assistant-ui, without the min-height injection that was
-    // fighting our virtualizer.
-    scrollToLastIndex("start", "smooth");
-  });
+  useAuiEvent("thread.initialize", () => scrollToLastIndex("end", "instant"));
+  useAuiEvent("threadListItem.switchedTo", () => scrollToLastIndex("end", "instant"));
+  useAuiEvent("thread.runStart", () => scrollToLastIndex("start", "smooth"));
 
   return null;
 };
 
 /**
- * Replacement for the hover tracking that `MessagePrimitive.Root` normally wires
- * up (via ThreadPrimitiveViewportSlack). Without this, ActionBarPrimitive
- * autohide="not-last" and MessagePrimitive.If lastOrHover would be permanently
- * hidden on non-last messages. We forward hover state into the aui message
- * client directly, which is what MessageRoot does under the hood.
+ * Forwards hover state to the aui message client — the only side-effect of
+ * MessagePrimitive.Root we still need (powers ActionBarPrimitive autohide and
+ * MessagePrimitive.If lastOrHover). We dropped MessagePrimitive.Root itself
+ * because its ThreadViewportSlack wrapper injects inline min-height that the
+ * virtualizer's measureElement reads as the row size.
  */
 const useMessageHoverHandlers = () => {
   const aui = useAui();
@@ -289,28 +258,25 @@ const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({
   virtualizerRef,
   enabled,
 }) => {
-  // Two separate subscriptions so a prolonged streaming session doesn't force
-  // a re-render for every token on selectors we don't care about.
-  const messageIds = useAuiState((s) => s.thread.messages.map((m) => m.id));
-  const messageCount = messageIds.length;
+  const aui = useAui();
+  // Subscribing to length + isRunning (both primitives) is enough to drive
+  // re-renders. getItemKey reads ids lazily from live aui state, so we don't
+  // need to subscribe to the whole messages array (which would allocate a
+  // new array identity on every streaming token).
+  const messageCount = useAuiState((s) => s.thread.messages.length);
   const isRunning = useAuiState((s) => s.thread.isRunning);
 
   // Pin the streaming assistant message into the rendered range even when the
   // user has scrolled away. Without this, scrolling up during a stream would
-  // unmount the message — which stops useMessagePartText from receiving chunks
-  // and flips hover/last state. Only active while thread.isRunning so we don't
-  // permanently pin once the run finishes.
+  // unmount the message — stopping useMessagePartText from receiving chunks
+  // and flipping hover/last state. Only active while thread.isRunning.
   const pinnedIndex = isRunning && messageCount > 0 ? messageCount - 1 : -1;
   const rangeExtractor = useCallback(
-    (range: Parameters<typeof defaultRangeExtractor>[0]) => {
+    (range: Range) => {
       const base = defaultRangeExtractor(range);
       if (pinnedIndex < 0 || base.includes(pinnedIndex)) return base;
-      // Insert while preserving ascending order so react-virtual renders them
-      // in DOM order (it otherwise re-orders absolutely-positioned rows
-      // naturally, but keeping the array sorted is cheaper for its internal
-      // diffing).
-      const next = [...base, pinnedIndex].sort((a, b) => a - b);
-      return next;
+      // Keep ascending order so react-virtual's internal diff is linear.
+      return [...base, pinnedIndex].sort((a, b) => a - b);
     },
     [pinnedIndex],
   );
@@ -321,15 +287,14 @@ const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({
     estimateSize: () => ROW_ESTIMATE_SIZE,
     overscan: OVERSCAN,
     enabled,
-    // Stable keys prevent measurementsCache invalidation when branches flip or
-    // messages are inserted/reordered.
-    getItemKey: (index) => messageIds[index] ?? index,
-    // Leave ROW_ESTIMATE_SIZE-worth of breathing room at the top when we
-    // scrollToIndex(..., { align: 'start' }). This is what makes the new user
-    // message sit nicely under any header/padding instead of the viewport edge.
+    // Stable keys by aui message id prevent measurementsCache invalidation
+    // on branch flips / reorders. Read live from aui state so this selector
+    // doesn't need to subscribe to the full messages array.
+    getItemKey: (index) =>
+      aui?.thread()?.getState()?.messages[index]?.id ?? index,
+    // Breathing room above a user message when scrollToIndex(align:'start').
     scrollPaddingStart: SCROLL_PADDING_START,
-    // Modern browsers expose a native `scrollend` event; opting into it lets
-    // TanStack skip its polling fallback for isScrolling.
+    // Native scrollend event on modern browsers skips TanStack's polling.
     useScrollendEvent: true,
     rangeExtractor,
   });
@@ -345,9 +310,9 @@ const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({
 
   if (messageCount === 0) return null;
 
-  // Docs pattern: translate the *wrapper* once by items[0].start, and render
-  // rows in natural document order inside it. That's cheaper than translating
-  // every row individually and plays nicely with contain:strict on the parent.
+  // Docs pattern: translate the wrapper once by items[0].start, render rows
+  // in natural document order inside. Cheaper than per-row transforms, works
+  // well with contain:strict on the parent.
   const items = virtualizer.getVirtualItems();
 
   return (
