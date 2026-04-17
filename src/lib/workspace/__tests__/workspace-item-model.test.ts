@@ -16,9 +16,7 @@ describe("workspace item model", () => {
       name: "Doc",
       subtitle: "Research notes",
       data: {
-        markdown: "# Hello
-
-World",
+        markdown: "# Hello\n\nWorld",
         sources: [{ title: "Ref", url: "https://example.com" }],
       },
       lastModified: 123,
@@ -36,9 +34,7 @@ World",
       hasTranscript: false,
     });
     expect(split.content).toEqual({
-      textContent: "# Hello
-
-World",
+      textContent: "# Hello\n\nWorld",
       structuredData: null,
       assetData: null,
       embedData: null,
