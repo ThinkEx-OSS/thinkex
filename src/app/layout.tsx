@@ -42,6 +42,7 @@ export const metadata: Metadata = {
     icon: {
       url: isDev ? "/favicon-dev.svg" : "/thinkexdarkfav.svg",
       type: "image/svg+xml",
+      sizes: "any",
     },
     apple: "/apple-touch-icon.png",
   },
