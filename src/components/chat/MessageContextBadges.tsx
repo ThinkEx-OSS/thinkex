@@ -5,7 +5,6 @@ import { useAuiState } from "@assistant-ui/react";
 import { BsArrowReturnRight } from "react-icons/bs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ReplySelection } from "@/lib/stores/ui-store";
-import { truncateText } from "@/lib/utils/truncate-text";
 import { ReplySelectionRichText } from "@/components/chat/ReplySelectionRichText";
 
 type MessageCustomMetadata = {
@@ -34,8 +33,8 @@ function MessageContextBadgesImpl() {
           <TooltipTrigger asChild>
             <div className="inline-flex items-center gap-1.5 rounded-md border border-blue-600/25 bg-blue-600/10 px-2 py-0.5 cursor-default">
               <BsArrowReturnRight className="h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
-              <span className="text-xs text-blue-800 dark:text-blue-200">
-                {truncateText(sel.text, 40)}
+              <span className="text-xs max-w-[200px] min-w-0 line-clamp-1 text-blue-800 dark:text-blue-200 [&_.katex]:text-[0.85em] [&_.katex-display]:inline [&_.katex-display]:m-0 [&_.katex-display>.katex]:inline">
+                <ReplySelectionRichText text={sel.text} />
               </span>
             </div>
           </TooltipTrigger>
