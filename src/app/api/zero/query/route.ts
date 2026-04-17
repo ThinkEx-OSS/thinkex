@@ -11,6 +11,8 @@ import { schema } from "@/lib/zero/zero-schema.gen";
 const WORKSPACE_ACCESS_DENIED_ERROR = "Workspace access denied";
 
 type QueryRequest = {
+  id?: unknown;
+  name?: unknown;
   args?: readonly unknown[];
 };
 
@@ -57,15 +59,38 @@ export async function POST(request: NextRequest) {
   const ctx = { userId };
 
   try {
+    /**
+     * `handleQueryRequest` calls the `TransformQueryFunction` callback
+     * synchronously, so we cannot do async workspace access checks inside that
+     * callback. We must extract workspace IDs up front and verify access before
+     * handing the request to Zero.
+     *
+     * Zero query request bodies are encoded as:
+     * `[tag, [{ id, name, args: [arg0, ...] }, ...]]`.
+     */
     const body = (await request.json()) as unknown;
     const queryRequests =
-      Array.isArray(body) && Array.isArray(body[1])
+      Array.isArray(body) && body.length > 1 && Array.isArray(body[1])
         ? (body[1] as QueryRequest[])
         : [];
+
+    if (queryRequests.length === 0) {
+      console.warn(
+        "Zero query request body did not match expected protocol format",
+        { body },
+      );
+    }
+
     const workspaceIds = [
       ...new Set(
         queryRequests.flatMap((queryRequest) => {
-          const args = queryRequest.args;
+          if (!queryRequest || typeof queryRequest !== "object") {
+            return [];
+          }
+
+          const args = Array.isArray(queryRequest.args)
+            ? queryRequest.args
+            : [];
           const firstArg = args?.[0];
 
           if (
@@ -75,6 +100,12 @@ export async function POST(request: NextRequest) {
             typeof firstArg.workspaceId === "string"
           ) {
             return [firstArg.workspaceId];
+          }
+
+          if (args.length > 0) {
+            console.warn("Zero query request args missing workspaceId", {
+              queryRequest,
+            });
           }
 
           return [];
