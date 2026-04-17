@@ -35,13 +35,14 @@ import {
   MessagePrimitive,
   ThreadPrimitive,
   useAui,
+  useAuiEvent,
   useMessage,
   useMessagePartText,
   useAuiState,
 } from "@assistant-ui/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
-import type { FC, RefObject } from "react";
+import type { FC, MutableRefObject, RefObject } from "react";
 import { createContext, useContext } from "react";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 
@@ -117,6 +118,7 @@ interface ThreadProps {
 
 export const Thread: FC<ThreadProps> = ({ items = [] }) => {
   const viewportRef = useRef<HTMLDivElement>(null);
+  const virtualizerHandleRef = useRef<VirtualizerHandle | null>(null);
 
   return (
     <ThreadPrimitive.Root
@@ -125,10 +127,17 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
         ["--thread-max-width" as string]: "50rem",
       }}
     >
-      <ThreadPrimitive.Viewport
+      {/*
+        Custom scroll container — intentionally NOT ThreadPrimitive.Viewport.
+        assistant-ui's Viewport installs a ResizeObserver + subtree MutationObserver
+        on the scroll container and MessagePrimitive.Root injects inline min-height
+        on the last assistant message via ThreadViewportSlack. Both fight our
+        @tanstack/react-virtual virtualizer (observers fire constantly, Slack's
+        injected min-height is read by measureElement as the row size). We own
+        scroll behavior via ThreadScrollController below.
+      */}
+      <div
         ref={viewportRef}
-        turnAnchor="top"
-        autoScroll={false}
         className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll px-4"
       >
         <AuiIf condition={({ thread }) => thread.isLoading}>
@@ -138,8 +147,15 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
           <ThreadWelcome items={items} />
         </AuiIf>
 
-        <VirtualizedMessages scrollRef={viewportRef} />
-      </ThreadPrimitive.Viewport>
+        <VirtualizedMessages
+          scrollRef={viewportRef}
+          virtualizerHandleRef={virtualizerHandleRef}
+        />
+        <ThreadScrollController
+          scrollRef={viewportRef}
+          virtualizerHandleRef={virtualizerHandleRef}
+        />
+      </div>
 
       <div className="aui-thread-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-shrink-0 flex-col gap-4 overflow-visible rounded-t-3xl bg-sidebar px-4 pb-3 md:pb-4">
         <ComposerHoverWrapper items={items} />
@@ -148,19 +164,153 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
   );
 };
 
-interface VirtualizedMessagesProps {
-  scrollRef: RefObject<HTMLDivElement | null>;
+/**
+ * Imperative handle exposed by VirtualizedMessages so ThreadScrollController
+ * can translate message indices into scrollTop offsets via @tanstack/react-virtual.
+ */
+interface VirtualizerHandle {
+  /** Returns the virtualRow.start for the given message index, or null if not currently mounted/measured. */
+  getRowOffset: (index: number) => number | null;
+  /** Returns current message count. */
+  getCount: () => number;
+  /** Returns the estimateSize() value used by the virtualizer (fallback for unmounted rows). */
+  getEstimatedSize: () => number;
 }
 
-const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({ scrollRef }) => {
+interface ThreadScrollControllerProps {
+  scrollRef: RefObject<HTMLDivElement | null>;
+  virtualizerHandleRef: MutableRefObject<VirtualizerHandle | null>;
+}
+
+/**
+ * Owns scroll behavior for the virtualized thread. Replaces assistant-ui's
+ * ThreadPrimitive.Viewport + turnAnchor + ViewportSlack entirely.
+ *
+ * Behavior:
+ * - thread.initialize (history first load) → bottom, instant.
+ * - threadListItem.switchedTo (thread switch) → bottom, instant.
+ * - thread.runStart (new user message sent) → anchor that user message at the top
+ *   of the viewport, smooth. The "new user message" is messages.length - 1 at runStart.
+ * - Streaming: no auto-scroll. User owns scroll.
+ *
+ * We never install ResizeObserver/MutationObserver on the scroll container —
+ * that loop is exactly what was fighting the virtualizer.
+ */
+const ThreadScrollController: FC<ThreadScrollControllerProps> = ({
+  scrollRef,
+  virtualizerHandleRef,
+}) => {
+  const scrollToBottom = useCallback(
+    (behavior: ScrollBehavior) => {
+      requestAnimationFrame(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        el.scrollTo({ top: el.scrollHeight, behavior });
+      });
+    },
+    [scrollRef],
+  );
+
+  const scrollIndexToTop = useCallback(
+    (targetIndex: number, behavior: ScrollBehavior) => {
+      // React-virtual may not have measured the new row yet. Retry across a few
+      // frames using the measured offset when available, falling back to
+      // estimateSize * index so we at least land close.
+      let attempts = 0;
+      const attempt = () => {
+        attempts += 1;
+        const el = scrollRef.current;
+        const handle = virtualizerHandleRef.current;
+        if (!el || !handle) return;
+        if (targetIndex < 0 || targetIndex >= handle.getCount()) return;
+
+        const measured = handle.getRowOffset(targetIndex);
+        const top = measured ?? targetIndex * handle.getEstimatedSize();
+        el.scrollTo({ top, behavior });
+
+        if (measured === null && attempts < 3) {
+          requestAnimationFrame(attempt);
+        }
+      };
+      requestAnimationFrame(attempt);
+    },
+    [scrollRef, virtualizerHandleRef],
+  );
+
+  useAuiEvent("thread.initialize", () => {
+    scrollToBottom("instant");
+  });
+
+  useAuiEvent("threadListItem.switchedTo", () => {
+    scrollToBottom("instant");
+  });
+
+  useAuiEvent("thread.runStart", () => {
+    const handle = virtualizerHandleRef.current;
+    if (!handle) return;
+    // At runStart, the just-sent user message is at messages.length - 1.
+    // The assistant placeholder is appended shortly after, so when the
+    // assistant row arrives our user message will naturally be one up.
+    const targetIndex = handle.getCount() - 1;
+    scrollIndexToTop(targetIndex, "smooth");
+  });
+
+  return null;
+};
+
+/**
+ * Replacement for the hover tracking that `MessagePrimitive.Root` normally wires
+ * up (via ThreadPrimitiveViewportSlack). Without this, ActionBarPrimitive
+ * autohide="not-last" and MessagePrimitive.If lastOrHover would be permanently
+ * hidden on non-last messages. We forward hover state into the aui message
+ * client directly, which is what MessageRoot does under the hood.
+ */
+const useMessageHoverHandlers = () => {
+  const aui = useAui();
+  const onMouseEnter = useCallback(() => {
+    aui?.message()?.setIsHovering?.(true);
+  }, [aui]);
+  const onMouseLeave = useCallback(() => {
+    aui?.message()?.setIsHovering?.(false);
+  }, [aui]);
+  return { onMouseEnter, onMouseLeave };
+};
+
+interface VirtualizedMessagesProps {
+  scrollRef: RefObject<HTMLDivElement | null>;
+  virtualizerHandleRef: MutableRefObject<VirtualizerHandle | null>;
+}
+
+const ROW_ESTIMATE_SIZE = 350;
+
+const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({
+  scrollRef,
+  virtualizerHandleRef,
+}) => {
   const messageCount = useAuiState((s) => s.thread.messages.length);
 
   const virtualizer = useVirtualizer({
     count: messageCount,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 350,
+    estimateSize: () => ROW_ESTIMATE_SIZE,
     overscan: 5,
   });
+
+  // Publish imperative handle for ThreadScrollController.
+  useEffect(() => {
+    virtualizerHandleRef.current = {
+      getRowOffset: (index) => {
+        const items = virtualizer.getVirtualItems();
+        const found = items.find((v) => v.index === index);
+        return found ? found.start : null;
+      },
+      getCount: () => messageCount,
+      getEstimatedSize: () => ROW_ESTIMATE_SIZE,
+    };
+    return () => {
+      virtualizerHandleRef.current = null;
+    };
+  }, [virtualizer, messageCount, virtualizerHandleRef]);
 
   if (messageCount === 0) return null;
 
@@ -1185,37 +1335,40 @@ const MessageError: FC = () => {
 };
 
 const AssistantMessage: FC = () => {
+  const message = useMessage();
+  const hover = useMessageHoverHandlers();
   return (
-    <MessagePrimitive.Root asChild>
-      <div
-        className="aui-assistant-message-root relative mx-auto w-full max-w-[var(--thread-max-width)] animate-in pb-4 duration-150 ease-out fade-in slide-in-from-bottom-1 last:mb-4"
-        data-role="assistant"
-      >
-        <div className="aui-assistant-message-content mx-2 leading-7 break-words text-foreground">
-          <AssistantLoader />
-          <MessagePrimitive.Parts
-            components={{
-              Text: MarkdownText,
-              File: FileComponent,
-              Source: Sources,
-              Image,
-              Reasoning: Reasoning,
-              ReasoningGroup: ReasoningGroup,
-              ToolGroup,
-              tools: {
-                Fallback: ToolFallback,
-              },
-            }}
-          />
-          <MessageError />
-        </div>
-
-        <div className="aui-assistant-message-footer mt-2 ml-2 flex">
-          <BranchPicker />
-          <AssistantActionBar />
-        </div>
+    <div
+      className="aui-assistant-message-root relative mx-auto w-full max-w-[var(--thread-max-width)] animate-in pb-4 duration-150 ease-out fade-in slide-in-from-bottom-1 last:mb-4"
+      data-role="assistant"
+      data-message-id={message.id}
+      onMouseEnter={hover.onMouseEnter}
+      onMouseLeave={hover.onMouseLeave}
+    >
+      <div className="aui-assistant-message-content mx-2 leading-7 break-words text-foreground">
+        <AssistantLoader />
+        <MessagePrimitive.Parts
+          components={{
+            Text: MarkdownText,
+            File: FileComponent,
+            Source: Sources,
+            Image,
+            Reasoning: Reasoning,
+            ReasoningGroup: ReasoningGroup,
+            ToolGroup,
+            tools: {
+              Fallback: ToolFallback,
+            },
+          }}
+        />
+        <MessageError />
       </div>
-    </MessagePrimitive.Root>
+
+      <div className="aui-assistant-message-footer mt-2 ml-2 flex">
+        <BranchPicker />
+        <AssistantActionBar />
+      </div>
+    </div>
   );
 };
 
@@ -1311,55 +1464,58 @@ const UserMessage: FC = () => {
     [expanded, showExpand],
   );
 
+  const hover = useMessageHoverHandlers();
+
   return (
-    <MessagePrimitive.Root asChild>
-      <div
-        className="aui-user-message-root mx-auto grid w-full max-w-[var(--thread-max-width)] animate-breathe-in auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 px-2 pt-4 pb-1 last:mb-5 [&:where(>*)]:col-start-2"
-        data-role="user"
-      >
-        {/* Attachments display */}
-        <UserMessageAttachments />
+    <div
+      className="aui-user-message-root mx-auto grid w-full max-w-[var(--thread-max-width)] animate-breathe-in auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 px-2 pt-4 pb-1 last:mb-5 [&:where(>*)]:col-start-2"
+      data-role="user"
+      data-message-id={message.id}
+      onMouseEnter={hover.onMouseEnter}
+      onMouseLeave={hover.onMouseLeave}
+    >
+      {/* Attachments display */}
+      <UserMessageAttachments />
 
-        <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0">
-          <MessageContextBadges />
-          <UserMessageTruncateContext.Provider value={truncateCtxValue}>
-            <div className="aui-user-message-content relative rounded-lg bg-muted px-3 py-2 break-words text-foreground text-sm">
-              <MessagePrimitive.Parts
-                components={{
-                  Text: UserMessageText,
-                  File: FileComponent,
-                }}
-              />
-              {showExpand && (
-                <div className="flex justify-end pt-1.5 mt-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setExpanded((e) => !e)}
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label={expanded ? "Show less" : "Show more"}
-                  >
-                    {expanded ? (
-                      <ChevronUp className="size-3.5" />
-                    ) : (
-                      <ChevronDown className="size-3.5" />
-                    )}
-                    {expanded ? "Show less" : "Show more"}
-                  </button>
-                </div>
-              )}
-            </div>
-          </UserMessageTruncateContext.Provider>
-        </div>
-
-        <div className="aui-user-message-footer ml-2 flex justify-end col-start-2 relative min-h-[20px]">
-          <div className="absolute right-0">
-            <UserActionBar />
+      <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0">
+        <MessageContextBadges />
+        <UserMessageTruncateContext.Provider value={truncateCtxValue}>
+          <div className="aui-user-message-content relative rounded-lg bg-muted px-3 py-2 break-words text-foreground text-sm">
+            <MessagePrimitive.Parts
+              components={{
+                Text: UserMessageText,
+                File: FileComponent,
+              }}
+            />
+            {showExpand && (
+              <div className="flex justify-end pt-1.5 mt-1.5">
+                <button
+                  type="button"
+                  onClick={() => setExpanded((e) => !e)}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={expanded ? "Show less" : "Show more"}
+                >
+                  {expanded ? (
+                    <ChevronUp className="size-3.5" />
+                  ) : (
+                    <ChevronDown className="size-3.5" />
+                  )}
+                  {expanded ? "Show less" : "Show more"}
+                </button>
+              </div>
+            )}
           </div>
-        </div>
-
-        <BranchPicker className="aui-user-branch-picker col-span-full col-start-1 row-start-3 -mr-1 justify-end" />
+        </UserMessageTruncateContext.Provider>
       </div>
-    </MessagePrimitive.Root>
+
+      <div className="aui-user-message-footer ml-2 flex justify-end col-start-2 relative min-h-[20px]">
+        <div className="absolute right-0">
+          <UserActionBar />
+        </div>
+      </div>
+
+      <BranchPicker className="aui-user-branch-picker col-span-full col-start-1 row-start-3 -mr-1 justify-end" />
+    </div>
   );
 };
 
