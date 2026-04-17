@@ -310,9 +310,12 @@ const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({
 
   if (messageCount === 0) return null;
 
-  // Docs pattern: translate the wrapper once by items[0].start, render rows
-  // in natural document order inside. Cheaper than per-row transforms, works
-  // well with contain:strict on the parent.
+  // Per-row absolute positioning (not the single-wrapper translate shown in
+  // TanStack's "dynamic" docs example). The wrapper-translate pattern assumes
+  // items is a CONTIGUOUS index range, but our rangeExtractor pins the
+  // streaming last assistant message so items can look like [5,6,7,...,42]
+  // while the user scrolls up. Translating per-row keeps each row at its true
+  // virtualRow.start regardless of gaps.
   const items = virtualizer.getVirtualItems();
 
   return (
@@ -323,28 +326,25 @@ const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({
         position: "relative",
       }}
     >
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%",
-          transform: `translateY(${items[0]?.start ?? 0}px)`,
-        }}
-      >
-        {items.map((virtualRow) => (
-          <div
-            key={virtualRow.key}
-            data-index={virtualRow.index}
-            ref={virtualizer.measureElement}
-          >
-            <ThreadPrimitive.MessageByIndex
-              index={virtualRow.index}
-              components={MESSAGE_COMPONENTS}
-            />
-          </div>
-        ))}
-      </div>
+      {items.map((virtualRow) => (
+        <div
+          key={virtualRow.key}
+          data-index={virtualRow.index}
+          ref={virtualizer.measureElement}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            transform: `translateY(${virtualRow.start}px)`,
+          }}
+        >
+          <ThreadPrimitive.MessageByIndex
+            index={virtualRow.index}
+            components={MESSAGE_COMPONENTS}
+          />
+        </div>
+      ))}
     </div>
   );
 };
