@@ -39,13 +39,10 @@ export const metadata: Metadata = {
     images: ["/opengraph.png"],
   },
   icons: {
-    icon: [
-      { url: isDev ? "/favicon-dev.svg" : "/newfav.ico", sizes: "32x32" },
-      {
-        url: isDev ? "/favicon-dev.svg" : "/thinkexdarkfav.svg",
-        type: "image/svg+xml",
-      },
-    ],
+    icon: {
+      url: isDev ? "/favicon-dev.svg" : "/thinkexdarkfav.svg",
+      type: "image/svg+xml",
+    },
     apple: "/apple-touch-icon.png",
   },
 };
