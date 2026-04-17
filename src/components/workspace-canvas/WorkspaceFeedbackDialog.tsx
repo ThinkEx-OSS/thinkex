@@ -22,7 +22,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { posthog } from "@/lib/posthog-client";
-import { toast } from "sonner";
 import { Bug, Lightbulb, MessageSquare } from "lucide-react";
 
 const SURVEY_ID = "019d934f-3f98-0000-1f14-af80eef4dcb0";
@@ -43,6 +42,7 @@ export function WorkspaceFeedbackDialog({
   >(undefined);
   const [feedback, setFeedback] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const hasCapturedShown = useRef(false);
   const didSubmitRef = useRef(false);
 
@@ -63,6 +63,7 @@ export function WorkspaceFeedbackDialog({
     if (!isSubmitting) {
       setFeedbackType(undefined);
       setFeedback("");
+      setIsSubmitted(false);
     }
   }, [open, isSubmitting]);
 
@@ -81,12 +82,9 @@ export function WorkspaceFeedbackDialog({
       feedback_type: feedbackType,
     });
 
-    toast.success("Feedback submitted—thank you!");
-    setFeedback("");
-    setFeedbackType(undefined);
-    onOpenChange(false);
+    setIsSubmitted(true);
     setIsSubmitting(false);
-  }, [feedback, feedbackType, onOpenChange]);
+  }, [feedback, feedbackType]);
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
@@ -105,93 +103,112 @@ export function WorkspaceFeedbackDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <form
-          className="contents"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (canSubmit) handleSubmit();
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>Share feedback</DialogTitle>
-            <DialogDescription>
-              What can we do to improve our app?
-            </DialogDescription>
-          </DialogHeader>
+        {isSubmitted ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Thank you!</DialogTitle>
+              <DialogDescription>
+                Your feedback has been submitted. We appreciate you taking the
+                time to help us improve.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button">Close</Button>
+              </DialogClose>
+            </DialogFooter>
+          </>
+        ) : (
+          <form
+            className="contents"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (canSubmit) handleSubmit();
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Share feedback</DialogTitle>
+              <DialogDescription>
+                What can we do to improve our app?
+              </DialogDescription>
+            </DialogHeader>
 
-          <FieldGroup className="gap-4">
-            <Field>
-              <Label htmlFor="workspace-feedback-type">Type</Label>
-              <Select
-                value={feedbackType}
-                onValueChange={(value) => setFeedbackType(value as FeedbackType)}
-                required
-              >
-                <SelectTrigger
-                  id="workspace-feedback-type"
-                  className="w-full"
+            <FieldGroup className="gap-4">
+              <Field>
+                <Label htmlFor="workspace-feedback-type">Type</Label>
+                <Select
+                  value={feedbackType}
+                  onValueChange={(value) =>
+                    setFeedbackType(value as FeedbackType)
+                  }
+                  required
                 >
-                  <SelectValue placeholder="Select feedback type" />
-                </SelectTrigger>
-                <SelectContent className="z-[100]">
-                  <SelectItem value="bug">
-                    <span className="flex items-center gap-2">
-                      <Bug
-                        className="size-4 shrink-0 text-muted-foreground"
-                        aria-hidden
-                      />
-                      Bug / something broken
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="feature">
-                    <span className="flex items-center gap-2">
-                      <Lightbulb
-                        className="size-4 shrink-0 text-muted-foreground"
-                        aria-hidden
-                      />
-                      Feature request
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="other">
-                    <span className="flex items-center gap-2">
-                      <MessageSquare
-                        className="size-4 shrink-0 text-muted-foreground"
-                        aria-hidden
-                      />
-                      Other
-                    </span>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
+                  <SelectTrigger
+                    id="workspace-feedback-type"
+                    className="w-full"
+                  >
+                    <SelectValue placeholder="Select feedback type" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[100]">
+                    <SelectItem value="bug">
+                      <span className="flex items-center gap-2">
+                        <Bug
+                          className="size-4 shrink-0 text-muted-foreground"
+                          aria-hidden
+                        />
+                        Bug / something broken
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="feature">
+                      <span className="flex items-center gap-2">
+                        <Lightbulb
+                          className="size-4 shrink-0 text-muted-foreground"
+                          aria-hidden
+                        />
+                        Feature request
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="other">
+                      <span className="flex items-center gap-2">
+                        <MessageSquare
+                          className="size-4 shrink-0 text-muted-foreground"
+                          aria-hidden
+                        />
+                        Other
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
 
-            <Field>
-              <Label htmlFor="workspace-feedback-message">Feedback</Label>
-              <Textarea
-                id="workspace-feedback-message"
-                name="feedback"
-                placeholder="Tell us what's on your mind..."
-                value={feedback}
-                onChange={(e) => setFeedback(e.target.value)}
-                rows={5}
-                className="resize-none"
-                required
-                autoFocus
-              />
-            </Field>
-          </FieldGroup>
+              <Field>
+                <Label htmlFor="workspace-feedback-message">Feedback</Label>
+                <Textarea
+                  id="workspace-feedback-message"
+                  name="feedback"
+                  placeholder="Tell us what's on your mind..."
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  rows={5}
+                  className="resize-none"
+                  required
+                  autoFocus
+                />
+              </Field>
+            </FieldGroup>
 
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={isSubmitting}>
-                Cancel
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline" disabled={isSubmitting}>
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button type="submit" disabled={!canSubmit}>
+                {isSubmitting ? "Submitting..." : "Submit feedback"}
               </Button>
-            </DialogClose>
-            <Button type="submit" disabled={!canSubmit}>
-              {isSubmitting ? "Submitting..." : "Submit feedback"}
-            </Button>
-          </DialogFooter>
-        </form>
+            </DialogFooter>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );
