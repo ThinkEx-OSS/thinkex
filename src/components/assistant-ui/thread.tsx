@@ -166,15 +166,20 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
 
 /**
  * Imperative handle exposed by VirtualizedMessages so ThreadScrollController
- * can translate message indices into scrollTop offsets via @tanstack/react-virtual.
+ * can position the viewport on a specific message index. We delegate to
+ * TanStack Virtual's own `scrollToIndex` so unmeasured rows use the internal
+ * size ledger (instead of reimplementing offset math ourselves).
  */
 interface VirtualizerHandle {
-  /** Returns the virtualRow.start for the given message index, or null if not currently mounted/measured. */
-  getRowOffset: (index: number) => number | null;
-  /** Returns current message count. */
-  getCount: () => number;
-  /** Returns the estimateSize() value used by the virtualizer (fallback for unmounted rows). */
-  getEstimatedSize: () => number;
+  /**
+   * Scroll so the row at `index` aligns according to `align`.
+   * Uses virtualizer.scrollToIndex internally, which retries across frames
+   * for rows whose size hasn't been measured yet.
+   */
+  scrollToIndex: (
+    index: number,
+    options?: { align?: "start" | "center" | "end" | "auto"; behavior?: ScrollBehavior },
+  ) => void;
 }
 
 interface ThreadScrollControllerProps {
@@ -200,6 +205,8 @@ const ThreadScrollController: FC<ThreadScrollControllerProps> = ({
   scrollRef,
   virtualizerHandleRef,
 }) => {
+  const aui = useAui();
+
   const scrollToBottom = useCallback(
     (behavior: ScrollBehavior) => {
       requestAnimationFrame(() => {
@@ -209,32 +216,6 @@ const ThreadScrollController: FC<ThreadScrollControllerProps> = ({
       });
     },
     [scrollRef],
-  );
-
-  const scrollIndexToTop = useCallback(
-    (targetIndex: number, behavior: ScrollBehavior) => {
-      // React-virtual may not have measured the new row yet. Retry across a few
-      // frames using the measured offset when available, falling back to
-      // estimateSize * index so we at least land close.
-      let attempts = 0;
-      const attempt = () => {
-        attempts += 1;
-        const el = scrollRef.current;
-        const handle = virtualizerHandleRef.current;
-        if (!el || !handle) return;
-        if (targetIndex < 0 || targetIndex >= handle.getCount()) return;
-
-        const measured = handle.getRowOffset(targetIndex);
-        const top = measured ?? targetIndex * handle.getEstimatedSize();
-        el.scrollTo({ top, behavior });
-
-        if (measured === null && attempts < 3) {
-          requestAnimationFrame(attempt);
-        }
-      };
-      requestAnimationFrame(attempt);
-    },
-    [scrollRef, virtualizerHandleRef],
   );
 
   useAuiEvent("thread.initialize", () => {
@@ -248,11 +229,24 @@ const ThreadScrollController: FC<ThreadScrollControllerProps> = ({
   useAuiEvent("thread.runStart", () => {
     const handle = virtualizerHandleRef.current;
     if (!handle) return;
-    // At runStart, the just-sent user message is at messages.length - 1.
-    // The assistant placeholder is appended shortly after, so when the
-    // assistant row arrives our user message will naturally be one up.
-    const targetIndex = handle.getCount() - 1;
-    scrollIndexToTop(targetIndex, "smooth");
+    // Read the live message count from the aui thread state at event time.
+    // Going through the handle's closure over `messageCount` is unsafe because
+    // React sibling effects may not have committed the new count yet when the
+    // event fires — we'd then scroll to the previous message.
+    const liveCount = aui?.thread()?.getState()?.messages.length ?? 0;
+    if (liveCount <= 0) return;
+    // The just-sent user message is at messages.length - 1 at runStart time.
+    // When the assistant row arrives the user message naturally ends up one up.
+    const targetIndex = liveCount - 1;
+    // scrollToIndex uses the virtualizer's internal size ledger (including
+    // previously measured heights) and retries internally for unmeasured rows.
+    // Wrap in rAF so react-virtual sees the new row count before we scroll.
+    requestAnimationFrame(() => {
+      virtualizerHandleRef.current?.scrollToIndex(targetIndex, {
+        align: "start",
+        behavior: "smooth",
+      });
+    });
   });
 
   return null;
@@ -296,21 +290,16 @@ const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({
     overscan: 5,
   });
 
-  // Publish imperative handle for ThreadScrollController.
+  // Publish imperative handle for ThreadScrollController. We expose the
+  // virtualizer's own scrollToIndex so callers don't have to recompute offsets.
   useEffect(() => {
     virtualizerHandleRef.current = {
-      getRowOffset: (index) => {
-        const items = virtualizer.getVirtualItems();
-        const found = items.find((v) => v.index === index);
-        return found ? found.start : null;
-      },
-      getCount: () => messageCount,
-      getEstimatedSize: () => ROW_ESTIMATE_SIZE,
+      scrollToIndex: (index, options) => virtualizer.scrollToIndex(index, options),
     };
     return () => {
       virtualizerHandleRef.current = null;
     };
-  }, [virtualizer, messageCount, virtualizerHandleRef]);
+  }, [virtualizer, virtualizerHandleRef]);
 
   if (messageCount === 0) return null;
 
