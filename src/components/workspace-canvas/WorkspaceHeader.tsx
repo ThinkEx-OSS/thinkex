@@ -1,12 +1,35 @@
 "use client";
 
 import type React from "react";
-import { Fragment, useState, useRef, useEffect, useCallback, useMemo, useLayoutEffect } from "react";
+import {
+  Fragment,
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+  useLayoutEffect,
+} from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, X, ChevronRight, FolderOpen, Plus, Settings, Share2, Loader2, ExternalLink, MessageSquareText } from "lucide-react";
+import {
+  Search,
+  X,
+  ChevronRight,
+  FolderOpen,
+  Plus,
+  Settings,
+  Share2,
+  Loader2,
+  ExternalLink,
+  MessageSquareText,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Kbd } from "@/components/ui/kbd";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ThinkExLogo } from "@/components/ui/thinkex-logo";
@@ -49,6 +72,7 @@ import { CollaboratorAvatars } from "@/components/workspace/CollaboratorAvatars"
 import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
+import { WorkspaceFeedbackDialog } from "./WorkspaceFeedbackDialog";
 import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
 const EMPTY_ITEMS: Item[] = [];
 const EMPTY_RESPONSIVE_BREADCRUMBS = {
@@ -176,15 +200,23 @@ function BreadcrumbSeparator({
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 48 48"
-      {...props}
-    >
-      <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917" />
-      <path fill="#FF3D00" d="m6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691" />
-      <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.9 11.9 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44" />
-      <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" {...props}>
+      <path
+        fill="#FFC107"
+        d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917"
+      />
+      <path
+        fill="#FF3D00"
+        d="m6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691"
+      />
+      <path
+        fill="#4CAF50"
+        d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.9 11.9 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44"
+      />
+      <path
+        fill="#1976D2"
+        d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917"
+      />
     </svg>
   );
 }
@@ -234,8 +266,6 @@ interface WorkspaceHeaderProps {
   googleLoginHint?: string | null;
 }
 
-
-
 export function WorkspaceHeader({
   onOpenSearch,
   isSaving,
@@ -265,14 +295,19 @@ export function WorkspaceHeader({
 }: WorkspaceHeaderProps) {
   const [isNewMenuOpen, setIsNewMenuOpen] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
-  const [renamingTarget, setRenamingTarget] = useState<{ id: string, type: 'folder' | 'item' } | null>(null);
+  const [renamingTarget, setRenamingTarget] = useState<{
+    id: string;
+    type: "folder" | "item";
+  } | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
   const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
   const [showQuizDialog, setShowQuizDialog] = useState(false);
   const [showFlashcardsDialog, setShowFlashcardsDialog] = useState(false);
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const [googleExportLoading, setGoogleExportLoading] = useState(false);
-  const [showExportFallbackDialog, setShowExportFallbackDialog] = useState(false);
+  const [showExportFallbackDialog, setShowExportFallbackDialog] =
+    useState(false);
   const [blockedExportUrl, setBlockedExportUrl] = useState<string | null>(null);
   const showAudioDialog = useAudioRecordingStore((s) => s.isDialogOpen);
   const openAudioDialog = useAudioRecordingStore((s) => s.openDialog);
@@ -282,7 +317,9 @@ export function WorkspaceHeader({
   const isWorkspaceRoute = pathname.startsWith("/workspace");
 
   // Track drag hover state for breadcrumb elements
-  const [hoveredBreadcrumbTarget, setHoveredBreadcrumbTarget] = useState<string | null>(null); // 'root' or folderId
+  const [hoveredBreadcrumbTarget, setHoveredBreadcrumbTarget] = useState<
+    string | null
+  >(null); // 'root' or folderId
   const isDraggingRef = useRef(false);
   const breadcrumbNavRef = useRef<HTMLElement>(null);
   const breadcrumbMeasureRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -302,9 +339,6 @@ export function WorkspaceHeader({
   // Consistent breadcrumb item styling
   const breadcrumbItemClass =
     "inline-flex h-7 max-w-full min-w-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors";
-
-
-
 
   // Get active folder from UI store
   const activeFolderId = useUIStore((state) => state.activeFolderId);
@@ -372,46 +406,60 @@ export function WorkspaceHeader({
   );
 
   // Handle folder click - switch folder or rename if already active (and no panel open)
-  const handleFolderClick = useCallback((folderId: string) => {
-    // If panel is open, delegate to parent (closes if focused, else just switches folder) — don't open rename
-    if (activeOpenWorkspaceItem) {
-      onNavigateToFolder?.(folderId);
-      return;
-    }
-    if (activeFolderId === folderId && onRenameFolder) {
-      // Folder is already active and no panel — open rename dialog
-      const folder = items.find(i => i.id === folderId && i.type === 'folder');
-      if (folder) {
-        setRenamingTarget({ id: folderId, type: 'folder' });
-        setRenameValue(folder.name);
-        setShowRenameDialog(true);
+  const handleFolderClick = useCallback(
+    (folderId: string) => {
+      // If panel is open, delegate to parent (closes if focused, else just switches folder) — don't open rename
+      if (activeOpenWorkspaceItem) {
+        onNavigateToFolder?.(folderId);
+        return;
       }
-    } else {
-      onNavigateToFolder?.(folderId);
-    }
-  }, [activeFolderId, activeOpenWorkspaceItem, items, onRenameFolder, onNavigateToFolder]);
+      if (activeFolderId === folderId && onRenameFolder) {
+        // Folder is already active and no panel — open rename dialog
+        const folder = items.find(
+          (i) => i.id === folderId && i.type === "folder",
+        );
+        if (folder) {
+          setRenamingTarget({ id: folderId, type: "folder" });
+          setRenameValue(folder.name);
+          setShowRenameDialog(true);
+        }
+      } else {
+        onNavigateToFolder?.(folderId);
+      }
+    },
+    [
+      activeFolderId,
+      activeOpenWorkspaceItem,
+      items,
+      onRenameFolder,
+      onNavigateToFolder,
+    ],
+  );
 
   // Handle rename
   const handleRename = useCallback(() => {
     if (!renamingTarget || !renameValue.trim()) return;
 
-    if (renamingTarget.type === 'folder' && onRenameFolder) {
+    if (renamingTarget.type === "folder" && onRenameFolder) {
       onRenameFolder(renamingTarget.id, renameValue.trim());
-      toast.success('Folder renamed');
-    } else if (renamingTarget.type === 'item' && onUpdateActiveItem) {
+      toast.success("Folder renamed");
+    } else if (renamingTarget.type === "item" && onUpdateActiveItem) {
       onUpdateActiveItem(renamingTarget.id, { name: renameValue.trim() });
-      toast.success('Item renamed');
+      toast.success("Item renamed");
     }
 
     setShowRenameDialog(false);
     setRenamingTarget(null);
   }, [onRenameFolder, onUpdateActiveItem, renamingTarget, renameValue]);
 
-  const openItemRenameDialog = useCallback((itemId: string, itemName: string) => {
-    setRenamingTarget({ id: itemId, type: "item" });
-    setRenameValue(itemName);
-    setShowRenameDialog(true);
-  }, []);
+  const openItemRenameDialog = useCallback(
+    (itemId: string, itemName: string) => {
+      setRenamingTarget({ id: itemId, type: "item" });
+      setRenameValue(itemName);
+      setShowRenameDialog(true);
+    },
+    [],
+  );
 
   useEffect(() => {
     const validKeys = new Set(breadcrumbEntries.map((entry) => entry.key));
@@ -445,17 +493,19 @@ export function WorkspaceHeader({
         widths.set(
           entry.key,
           Math.ceil(
-            breadcrumbMeasureRefs.current[entry.key]?.getBoundingClientRect().width ??
-              0,
+            breadcrumbMeasureRefs.current[entry.key]?.getBoundingClientRect()
+              .width ?? 0,
           ),
         );
       }
 
       const separatorWidth = Math.ceil(
-        breadcrumbSeparatorMeasureRef.current?.getBoundingClientRect().width ?? 18,
+        breadcrumbSeparatorMeasureRef.current?.getBoundingClientRect().width ??
+          18,
       );
       const ellipsisWidth = Math.ceil(
-        breadcrumbEllipsisMeasureRef.current?.getBoundingClientRect().width ?? 30,
+        breadcrumbEllipsisMeasureRef.current?.getBoundingClientRect().width ??
+          30,
       );
       const nextResponsiveBreadcrumbs = getResponsiveBreadcrumbs(
         breadcrumbEntries,
@@ -471,7 +521,10 @@ export function WorkspaceHeader({
             current.visibleTailKeys,
             nextResponsiveBreadcrumbs.visibleTailKeys,
           ) &&
-          areStringArraysEqual(current.hiddenKeys, nextResponsiveBreadcrumbs.hiddenKeys)
+          areStringArraysEqual(
+            current.hiddenKeys,
+            nextResponsiveBreadcrumbs.hiddenKeys,
+          )
         ) {
           return current;
         }
@@ -543,31 +596,39 @@ export function WorkspaceHeader({
     [workspaceBreadcrumbLabel, workspaceColor, workspaceIcon],
   );
 
-  const renderFolderBreadcrumbLabel = useCallback((entry: Extract<BreadcrumbEntry, { kind: "folder" }>) => (
-    <>
-      <FolderOpen
-        className="h-3.5 w-3.5 shrink-0"
-        style={{ color: entry.color || undefined }}
-      />
-      <span className={BREADCRUMB_FOLDER_TEXT_CLASS} title={entry.label}>
-        {entry.label}
-      </span>
-    </>
-  ), []);
+  const renderFolderBreadcrumbLabel = useCallback(
+    (entry: Extract<BreadcrumbEntry, { kind: "folder" }>) => (
+      <>
+        <FolderOpen
+          className="h-3.5 w-3.5 shrink-0"
+          style={{ color: entry.color || undefined }}
+        />
+        <span className={BREADCRUMB_FOLDER_TEXT_CLASS} title={entry.label}>
+          {entry.label}
+        </span>
+      </>
+    ),
+    [],
+  );
 
-  const renderItemBreadcrumbLabel = useCallback((entry: Extract<BreadcrumbEntry, { kind: "item" }>) => (
-    <>
-      <WorkspaceItemTypeIcon type={entry.itemType} className="h-3.5 w-3.5 shrink-0" />
-      <span className={BREADCRUMB_ITEM_TEXT_CLASS} title={entry.label}>
-        {entry.label}
-      </span>
-    </>
-  ), []);
+  const renderItemBreadcrumbLabel = useCallback(
+    (entry: Extract<BreadcrumbEntry, { kind: "item" }>) => (
+      <>
+        <WorkspaceItemTypeIcon
+          type={entry.itemType}
+          className="h-3.5 w-3.5 shrink-0"
+        />
+        <span className={BREADCRUMB_ITEM_TEXT_CLASS} title={entry.label}>
+          {entry.label}
+        </span>
+      </>
+    ),
+    [],
+  );
 
   const renderRootBreadcrumb = useCallback(() => {
     const rootHighlightClass =
-      hoveredBreadcrumbTarget === "root" &&
-      BREADCRUMB_DRAG_TARGET_CLASS;
+      hoveredBreadcrumbTarget === "root" && BREADCRUMB_DRAG_TARGET_CLASS;
 
     if (activeFolderId || activeOpenWorkspaceItem) {
       return (
@@ -630,8 +691,7 @@ export function WorkspaceHeader({
         className={cn(
           breadcrumbItemClass,
           "text-sidebar-foreground/75",
-          hoveredBreadcrumbTarget === "root" &&
-            BREADCRUMB_DRAG_TARGET_CLASS,
+          hoveredBreadcrumbTarget === "root" && BREADCRUMB_DRAG_TARGET_CLASS,
         )}
       >
         {renderRootBreadcrumbLabel()}
@@ -657,8 +717,7 @@ export function WorkspaceHeader({
         className={cn(
           breadcrumbItemClass,
           BREADCRUMB_INTERACTIVE_CLASS,
-          hoveredBreadcrumbTarget === entry.id &&
-            BREADCRUMB_DRAG_TARGET_CLASS,
+          hoveredBreadcrumbTarget === entry.id && BREADCRUMB_DRAG_TARGET_CLASS,
         )}
       >
         {renderFolderBreadcrumbLabel(entry)}
@@ -673,10 +732,18 @@ export function WorkspaceHeader({
   );
 
   const renderItemBreadcrumb = useCallback(
-    (entry: Extract<BreadcrumbEntry, { kind: "item" }>, measurement = false) => {
+    (
+      entry: Extract<BreadcrumbEntry, { kind: "item" }>,
+      measurement = false,
+    ) => {
       if (measurement) {
         return (
-          <div className={cn(breadcrumbItemClass, "group pr-0.5 text-sidebar-foreground/75")}>
+          <div
+            className={cn(
+              breadcrumbItemClass,
+              "group pr-0.5 text-sidebar-foreground/75",
+            )}
+          >
             {renderItemBreadcrumbLabel(entry)}
             <span
               aria-hidden="true"
@@ -803,13 +870,17 @@ export function WorkspaceHeader({
 
         if (folderId === null) {
           // Hovering over root - check if there's a root breadcrumb target
-          const rootTargets = document.querySelectorAll('[data-breadcrumb-target="root"]');
+          const rootTargets = document.querySelectorAll(
+            '[data-breadcrumb-target="root"]',
+          );
           if (rootTargets.length > 0) {
-            foundTarget = 'root';
+            foundTarget = "root";
           }
         } else {
           // Hovering over a folder - check if it's a breadcrumb target
-          const folderTargets = document.querySelectorAll(`[data-breadcrumb-target="folder"][data-folder-id="${folderId}"]`);
+          const folderTargets = document.querySelectorAll(
+            `[data-breadcrumb-target="folder"][data-folder-id="${folderId}"]`,
+          );
           if (folderTargets.length > 0) {
             foundTarget = folderId;
           }
@@ -823,85 +894,105 @@ export function WorkspaceHeader({
       }
     };
 
-    window.addEventListener('folder-drag-hover', handleDragHover);
+    window.addEventListener("folder-drag-hover", handleDragHover);
 
     return () => {
-      window.removeEventListener('folder-drag-hover', handleDragHover);
+      window.removeEventListener("folder-drag-hover", handleDragHover);
     };
   }, []);
 
-  const handleYouTubeCreate = useCallback((url: string, name: string, thumbnail?: string) => {
-    if (addItem) {
-      addItem("youtube", name, { url, thumbnail });
-    }
-    setIsNewMenuOpen(false);
-  }, [addItem]);
-
-  const handleAudioReady = useCallback(async (file: File) => {
-    if (!addItem) return;
-
-    // Import uploadFileDirect dynamically to avoid top-level client import issues
-    const { uploadFileDirect } = await import("@/lib/uploads/client-upload");
-
-    const loadingToastId = toast.loading("Uploading audio...");
-
-    try {
-      // Upload the audio file to storage
-      const { url: fileUrl } = await uploadFileDirect(file);
-
-      // Create the audio card immediately (shows "processing" state)
-      const now = new Date();
-      const dateStr = now.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: now.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
-      });
-      const timeStr = now.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
-      const title = `${dateStr} ${timeStr} Recording`;
-
-      const itemId = addItem("audio", title, {
-        fileUrl,
-        filename: file.name,
-        fileSize: file.size,
-        mimeType: file.type || "audio/webm",
-        processingStatus: "processing",
-      } as Partial<Item["data"]>);
-
-      if (onItemCreated && itemId) {
-        onItemCreated([itemId]);
+  const handleYouTubeCreate = useCallback(
+    (url: string, name: string, thumbnail?: string) => {
+      if (addItem) {
+        addItem("youtube", name, { url, thumbnail });
       }
+      setIsNewMenuOpen(false);
+    },
+    [addItem],
+  );
 
-      toast.dismiss(loadingToastId);
-      toast.success("Audio uploaded — analyzing with Gemini...");
+  const handleAudioReady = useCallback(
+    async (file: File) => {
+      if (!addItem) return;
 
-      if (currentWorkspaceId && itemId) {
-        void startAudioProcessing({
-          workspaceId: currentWorkspaceId,
-          itemId,
+      // Import uploadFileDirect dynamically to avoid top-level client import issues
+      const { uploadFileDirect } = await import("@/lib/uploads/client-upload");
+
+      const loadingToastId = toast.loading("Uploading audio...");
+
+      try {
+        // Upload the audio file to storage
+        const { url: fileUrl } = await uploadFileDirect(file);
+
+        // Create the audio card immediately (shows "processing" state)
+        const now = new Date();
+        const dateStr = now.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year:
+            now.getFullYear() !== new Date().getFullYear()
+              ? "numeric"
+              : undefined,
+        });
+        const timeStr = now.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        });
+        const title = `${dateStr} ${timeStr} Recording`;
+
+        const itemId = addItem("audio", title, {
           fileUrl,
           filename: file.name,
+          fileSize: file.size,
           mimeType: file.type || "audio/webm",
-        }).catch((processingError) => {
-          console.error("[WORKSPACE_HEADER] Failed to start audio processing:", processingError);
-        });
-      }
-    } catch (error: unknown) {
-      toast.dismiss(loadingToastId);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to upload audio",
-      );
-    }
-  }, [addItem, currentWorkspaceId, onItemCreated]);
+          processingStatus: "processing",
+        } as Partial<Item["data"]>);
 
-  const handleWebsiteCreate = useCallback((url: string, name: string, favicon?: string) => {
-    if (!addItem) return;
-    addItem("website", name, { url, favicon }, DEFAULT_CARD_DIMENSIONS.website);
-    setIsNewMenuOpen(false);
-  }, [addItem]);
+        if (onItemCreated && itemId) {
+          onItemCreated([itemId]);
+        }
+
+        toast.dismiss(loadingToastId);
+        toast.success("Audio uploaded — analyzing with Gemini...");
+
+        if (currentWorkspaceId && itemId) {
+          void startAudioProcessing({
+            workspaceId: currentWorkspaceId,
+            itemId,
+            fileUrl,
+            filename: file.name,
+            mimeType: file.type || "audio/webm",
+          }).catch((processingError) => {
+            console.error(
+              "[WORKSPACE_HEADER] Failed to start audio processing:",
+              processingError,
+            );
+          });
+        }
+      } catch (error: unknown) {
+        toast.dismiss(loadingToastId);
+        toast.error(
+          error instanceof Error ? error.message : "Failed to upload audio",
+        );
+      }
+    },
+    [addItem, currentWorkspaceId, onItemCreated],
+  );
+
+  const handleWebsiteCreate = useCallback(
+    (url: string, name: string, favicon?: string) => {
+      if (!addItem) return;
+      addItem(
+        "website",
+        name,
+        { url, favicon },
+        DEFAULT_CARD_DIMENSIONS.website,
+      );
+      setIsNewMenuOpen(false);
+    },
+    [addItem],
+  );
 
   const {
     fileInputRef,
@@ -918,10 +1009,7 @@ export function WorkspaceHeader({
 
   return (
     <div className="relative py-2 z-20 bg-sidebar">
-      <input
-        ref={fileInputRef}
-        {...fileInputProps}
-      />
+      <input ref={fileInputRef} {...fileInputProps} />
       {/* Main container with flex layout */}
       <div className="flex w-full items-center gap-3 px-3">
         {/* Left Side: Sidebar Toggle + Navigation Arrows + Breadcrumbs */}
@@ -942,7 +1030,8 @@ export function WorkspaceHeader({
               <SidebarTrigger />
             </TooltipTrigger>
             <TooltipContent side="right">
-              Toggle Sidebar <Kbd className="ml-1">{formatKeyboardShortcut('S', true)}</Kbd>
+              Toggle Sidebar{" "}
+              <Kbd className="ml-1">{formatKeyboardShortcut("S", true)}</Kbd>
             </TooltipContent>
           </Tooltip>
 
@@ -1016,22 +1105,33 @@ export function WorkspaceHeader({
           // Item open: show type-specific header actions (aligned with breadcrumbs)
           <div className="flex shrink-0 items-center gap-2 pointer-events-auto">
             {activeOpenWorkspaceItem.type === "pdf" && (
-              <div id="workspace-header-portal" className="flex items-center gap-2" />
+              <div
+                id="workspace-header-portal"
+                className="flex items-center gap-2"
+              />
             )}
 
-            {activeOpenWorkspaceItem.type === "website" && (() => {
-              const websiteData = activeOpenWorkspaceItem.data as import("@/lib/workspace-state/types").WebsiteData;
-              return (
-                <button
-                  className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer px-2"
-                  aria-label="Open link in new tab"
-                  onClick={() => window.open(websiteData.url, '_blank', 'noopener,noreferrer')}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  <span className="text-xs font-medium">Open</span>
-                </button>
-              );
-            })()}
+            {activeOpenWorkspaceItem.type === "website" &&
+              (() => {
+                const websiteData =
+                  activeOpenWorkspaceItem.data as import("@/lib/workspace-state/types").WebsiteData;
+                return (
+                  <button
+                    className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer px-2"
+                    aria-label="Open link in new tab"
+                    onClick={() =>
+                      window.open(
+                        websiteData.url,
+                        "_blank",
+                        "noopener,noreferrer",
+                      )
+                    }
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    <span className="text-xs font-medium">Open</span>
+                  </button>
+                );
+              })()}
 
             {activeOpenWorkspaceItem.type === "document" && (
               <DropdownMenu>
@@ -1048,7 +1148,11 @@ export function WorkspaceHeader({
                     <span className="text-xs font-medium">Export</span>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-40" sideOffset={8}>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-40"
+                  sideOffset={8}
+                >
                   <DropdownMenuItem
                     disabled={googleExportLoading}
                     onClick={async () => {
@@ -1056,7 +1160,7 @@ export function WorkspaceHeader({
                       if (!item || item.type !== "document") return;
                       if (!getGoogleOAuthClientId()) {
                         toast.error(
-                          "Set NEXT_PUBLIC_GOOGLE_CLIENT_ID in your environment to export to Google Docs."
+                          "Set NEXT_PUBLIC_GOOGLE_CLIENT_ID in your environment to export to Google Docs.",
                         );
                         return;
                       }
@@ -1065,14 +1169,20 @@ export function WorkspaceHeader({
                         const md = getDocumentMarkdownForExport
                           ? getDocumentMarkdownForExport(item.id)
                           : ((item.data as DocumentData).markdown ?? "");
-                        const result = await exportMarkdownToGoogleDoc(md, item.name, {
-                          loginHint: googleLoginHint,
-                        });
+                        const result = await exportMarkdownToGoogleDoc(
+                          md,
+                          item.name,
+                          {
+                            loginHint: googleLoginHint,
+                          },
+                        );
                         setBlockedExportUrl(result.url);
                         setShowExportFallbackDialog(true);
                       } catch (e) {
                         toast.error(
-                          e instanceof Error ? e.message : "Could not export to Google Docs"
+                          e instanceof Error
+                            ? e.message
+                            : "Could not export to Google Docs",
                         );
                       } finally {
                         setGoogleExportLoading(false);
@@ -1088,7 +1198,10 @@ export function WorkspaceHeader({
             )}
 
             {activeOpenWorkspaceItem.type === "pdf" && (
-              <div id="workspace-header-portal-right" className="flex items-center gap-2" />
+              <div
+                id="workspace-header-portal-right"
+                className="flex items-center gap-2"
+              />
             )}
 
             <button
@@ -1099,7 +1212,6 @@ export function WorkspaceHeader({
             >
               <X className="h-4 w-4" />
             </button>
-
 
             {setIsChatExpanded ? (
               <ChatFloatingButton
@@ -1115,11 +1227,11 @@ export function WorkspaceHeader({
             {/* Collaborator Avatars - show who's in the workspace */}
             <CollaboratorAvatars />
 
-            {/* Feedback button — PostHog survey targets this via CSS selector */}
+            {/* Feedback button — opens in-app feedback dialog; lifecycle events still sent to PostHog survey 019d934f-3f98-0000-1f14-af80eef4dcb0 */}
             <button
               type="button"
               className={WORKSPACE_HEADER_TEXT_ACTION_CLASS}
-              data-attr="feedback-button"
+              onClick={() => setShowFeedbackDialog(true)}
             >
               <MessageSquareText className="h-4 w-4 shrink-0" />
               Feedback
@@ -1149,18 +1261,22 @@ export function WorkspaceHeader({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                Search workspace <Kbd className="ml-1">{formatKeyboardShortcut('K')}</Kbd>
+                Search workspace{" "}
+                <Kbd className="ml-1">{formatKeyboardShortcut("K")}</Kbd>
               </TooltipContent>
             </Tooltip>
 
             {/* New Button - keeps bordered style as primary CTA */}
             {addItem && (
-              <DropdownMenu open={isNewMenuOpen} onOpenChange={setIsNewMenuOpen}>
+              <DropdownMenu
+                open={isNewMenuOpen}
+                onOpenChange={setIsNewMenuOpen}
+              >
                 <DropdownMenuTrigger asChild>
                   <button
                     className={cn(
                       WORKSPACE_HEADER_BORDERED_ACTION_CLASS,
-                      isNewMenuOpen && "text-sidebar-foreground bg-accent"
+                      isNewMenuOpen && "text-sidebar-foreground bg-accent",
                     )}
                     data-tour="add-card-button"
                   >
@@ -1168,7 +1284,11 @@ export function WorkspaceHeader({
                     <span>New</span>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56" sideOffset={8}>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-56"
+                  sideOffset={8}
+                >
                   {renderWorkspaceMenuItems({
                     callbacks: {
                       onCreateDocument: () => {
@@ -1179,11 +1299,22 @@ export function WorkspaceHeader({
                           }
                         }
                       },
-                      onCreateFolder: () => { if (addItem) addItem("folder"); },
+                      onCreateFolder: () => {
+                        if (addItem) addItem("folder");
+                      },
                       onUpload: handleUploadPickerOpen,
-                      onAudio: () => { openAudioDialog(); setIsNewMenuOpen(false); },
-                      onYouTube: () => { setShowYouTubeDialog(true); setIsNewMenuOpen(false); },
-                      onWebsite: () => { setShowWebsiteDialog(true); setIsNewMenuOpen(false); },
+                      onAudio: () => {
+                        openAudioDialog();
+                        setIsNewMenuOpen(false);
+                      },
+                      onYouTube: () => {
+                        setShowYouTubeDialog(true);
+                        setIsNewMenuOpen(false);
+                      },
+                      onWebsite: () => {
+                        setShowWebsiteDialog(true);
+                        setIsNewMenuOpen(false);
+                      },
                       onFlashcards: () => {
                         setShowFlashcardsDialog(true);
                         setIsNewMenuOpen(false);
@@ -1247,43 +1378,51 @@ export function WorkspaceHeader({
         </div>
       </div>
       {/* Rename Dialog */}
-      {
-        (onRenameFolder || onUpdateActiveItem) && (
-          <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
-            <DialogContent onClick={(e) => e.stopPropagation()}>
-              <DialogHeader>
-                <DialogTitle>Rename {renamingTarget?.type === 'folder' ? 'Folder' : 'Item'}</DialogTitle>
-                <DialogDescription>
-                  Enter a new name for this {renamingTarget?.type === 'folder' ? 'folder' : 'item'}.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="py-4">
-                <Input
-                  ref={renameInputRef}
-                  value={renameValue}
-                  onChange={(e) => setRenameValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && renameValue.trim()) {
-                      handleRename();
-                    } else if (e.key === 'Escape') {
-                      setShowRenameDialog(false);
-                    }
-                  }}
-                  placeholder={renamingTarget?.type === 'folder' ? 'Folder name' : 'Item name'}
-                />
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setShowRenameDialog(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleRename} disabled={!renameValue.trim()}>
-                  Rename
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )
-      }
+      {(onRenameFolder || onUpdateActiveItem) && (
+        <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
+          <DialogContent onClick={(e) => e.stopPropagation()}>
+            <DialogHeader>
+              <DialogTitle>
+                Rename {renamingTarget?.type === "folder" ? "Folder" : "Item"}
+              </DialogTitle>
+              <DialogDescription>
+                Enter a new name for this{" "}
+                {renamingTarget?.type === "folder" ? "folder" : "item"}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <Input
+                ref={renameInputRef}
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && renameValue.trim()) {
+                    handleRename();
+                  } else if (e.key === "Escape") {
+                    setShowRenameDialog(false);
+                  }
+                }}
+                placeholder={
+                  renamingTarget?.type === "folder"
+                    ? "Folder name"
+                    : "Item name"
+                }
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowRenameDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleRename} disabled={!renameValue.trim()}>
+                Rename
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
       <Dialog
         open={showExportFallbackDialog}
         onOpenChange={(open) => {
@@ -1353,7 +1492,10 @@ export function WorkspaceHeader({
       {/* Audio Recorder Dialog */}
       <AudioRecorderDialog
         open={showAudioDialog}
-        onOpenChange={(open) => { if (open) openAudioDialog(); else closeAudioDialog(); }}
+        onOpenChange={(open) => {
+          if (open) openAudioDialog();
+          else closeAudioDialog();
+        }}
         onAudioReady={handleAudioReady}
       />
       {/* Quiz Prompt Builder Dialog */}
@@ -1371,6 +1513,11 @@ export function WorkspaceHeader({
         action="flashcards"
         items={items}
         onBeforeSubmit={() => setIsChatExpanded?.(true)}
+      />
+      {/* Feedback Dialog — replaces legacy PostHog popover survey */}
+      <WorkspaceFeedbackDialog
+        open={showFeedbackDialog}
+        onOpenChange={setShowFeedbackDialog}
       />
     </div>
   );
