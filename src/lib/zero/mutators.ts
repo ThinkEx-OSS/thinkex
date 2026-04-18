@@ -365,24 +365,19 @@ async function updateShellOnly(
     }>;
   },
 ) {
-  const updates: Record<string, unknown> = {
+  await tx.mutate.workspace_items.update({
     workspaceId: params.workspaceId,
     itemId: params.itemId,
-  };
-
-  if ("layout" in params.shellChanges) {
-    updates.layout = params.shellChanges.layout ?? null;
-  }
-
-  if ("folderId" in params.shellChanges) {
-    updates.folderId = params.shellChanges.folderId ?? null;
-  }
-
-  if (params.shellChanges.lastModified !== undefined) {
-    updates.lastModified = params.shellChanges.lastModified;
-  }
-
-  await tx.mutate.workspace_items.update(updates);
+    ...("layout" in params.shellChanges
+      ? { layout: params.shellChanges.layout ?? null }
+      : {}),
+    ...("folderId" in params.shellChanges
+      ? { folderId: params.shellChanges.folderId ?? null }
+      : {}),
+    ...(params.shellChanges.lastModified !== undefined
+      ? { lastModified: params.shellChanges.lastModified }
+      : {}),
+  } as Parameters<typeof tx.mutate.workspace_items.update>[0]);
 }
 
 async function deleteItemById(
