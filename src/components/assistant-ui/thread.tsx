@@ -35,7 +35,6 @@ import {
   MessagePrimitive,
   ThreadPrimitive,
   useAui,
-  useAuiEvent,
   useMessage,
   useMessagePartText,
   useAuiState,
@@ -170,6 +169,25 @@ interface ThreadScrollControllerProps {
   captureBlankRef: RefObject<(() => void) | null>;
 }
 
+/**
+ * Owns scroll behavior for the virtualized thread. Three concerns:
+ *
+ * 1. LOAD / THREAD-SWITCH -> bottom, instant. Keyed on threadListItem.id +
+ *    messages.length. `settledThreadIdRef` guards against streaming-token
+ *    count ticks re-triggering the bottom-scroll.
+ *
+ * 2. NEW USER MESSAGE -> user pinned at top of viewport, smooth.
+ *    Driven by the `isRunning` state transition (false -> true) via a
+ *    post-commit effect rather than the `thread.runStart` event.
+ *    WHY: assistant-ui emits `runStart` synchronously inside the runtime's
+ *    repository mutation, BEFORE React commits the render that mounts the
+ *    new rows. At that moment `virtualizerRef.current` can still be null
+ *    (first message of a thread) and `viewportSize` can read 0. Waiting
+ *    for the post-commit effect guarantees the Virtualizer is mounted and
+ *    the new row is in the DOM.
+ *
+ * 3. STREAMING -> user owns scroll. Neither effect fires during a run.
+ */
 const ThreadScrollController: FC<ThreadScrollControllerProps> = ({
   virtualizerRef,
   captureBlankRef,
@@ -177,6 +195,7 @@ const ThreadScrollController: FC<ThreadScrollControllerProps> = ({
   const aui = useAui();
   const threadId = useAuiState((s) => s.threadListItem.id);
   const messageCount = useAuiState((s) => s.thread.messages.length);
+  const isRunning = useAuiState((s) => s.thread.isRunning);
 
   const scrollToLastIndex = useCallback(
     (count: number, align: "start" | "end", smooth: boolean) => {
@@ -188,8 +207,8 @@ const ThreadScrollController: FC<ThreadScrollControllerProps> = ({
     [virtualizerRef],
   );
 
+  // 1. Thread load/switch: snap to bottom once messages land.
   const settledThreadIdRef = useRef<string | null>(null);
-
   useEffect(() => {
     if (settledThreadIdRef.current !== threadId) {
       settledThreadIdRef.current = null;
@@ -200,11 +219,23 @@ const ThreadScrollController: FC<ThreadScrollControllerProps> = ({
     scrollToLastIndex(messageCount, "end", false);
   }, [threadId, messageCount, scrollToLastIndex]);
 
-  useAuiEvent("thread.runStart", () => {
+  // 2. isRunning false -> true: capture viewport blank + smooth-scroll the
+  // newly committed user message to the top. Effect-driven because by this
+  // point React has committed, the Virtualizer is mounted, and the row is
+  // in the DOM with a real measured height. `hasScrolledForRunRef` dedupes
+  // when message-count ticks during the run re-fire the effect.
+  const hasScrolledForRunRef = useRef(false);
+  useEffect(() => {
+    if (!isRunning) {
+      hasScrolledForRunRef.current = false;
+      return;
+    }
+    if (hasScrolledForRunRef.current) return;
+    hasScrolledForRunRef.current = true;
     captureBlankRef.current?.();
     const liveCount = aui?.thread()?.getState()?.messages.length ?? 0;
     scrollToLastIndex(liveCount, "start", true);
-  });
+  }, [isRunning, aui, captureBlankRef, scrollToLastIndex]);
 
   return null;
 };
@@ -282,8 +313,10 @@ const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({
   const assistantMinHeight =
     streamingAssistantIndex >= 0 ? Math.max(0, blankSize - lastUserSize) : 0;
 
-  if (messageCount === 0) return null;
-
+  // Always mount the Virtualizer — even when messageCount is 0 — so
+  // `virtualizerRef.current.viewportSize` is readable the moment the first
+  // message lands and `runStart` fires. The empty-state UI (ThreadWelcome /
+  // skeleton) is rendered by sibling AuiIf wrappers in Thread, not here.
   return (
     <Virtualizer
       ref={virtualizerRef}
