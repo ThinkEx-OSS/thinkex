@@ -321,14 +321,26 @@ export const serverMutators = defineMutators(sharedMutators, {
       sharedMutators.item.patchMany,
       (args) => args.updates.map((update) => update.id),
     ),
-    updateMany: withAuth(
+    updateMany: defineMutator(
       zeroMutatorSchemas.item.updateMany,
-      sharedMutators.item.updateMany,
-      (args) => [
-        ...(args.deletedIds ?? []),
-        ...(args.addedItems ?? []).map((item) => item.id),
-        ...(args.layoutUpdates ?? []).map((update) => update.id),
-      ],
+      async ({ tx, ctx, args }) => {
+        const wrappedTx = getWrappedTransaction(tx as ServerZeroTx);
+        await assertWorkspaceWriteAccess(wrappedTx, args.workspaceId, ctx.userId);
+        await sharedMutators.item.updateMany.fn({ tx, ctx, args });
+
+        const contentAffectedIds = [
+          ...(args.deletedIds ?? []),
+          ...(args.addedItems ?? []).map((item) => item.id),
+        ];
+
+        if (contentAffectedIds.length > 0) {
+          await syncExtractedRows(wrappedTx, {
+            workspaceId: args.workspaceId,
+            itemIds: [...new Set(contentAffectedIds)],
+            userId: ctx.userId,
+          });
+        }
+      },
     ),
     move: withAuthOnly(zeroMutatorSchemas.item.move, sharedMutators.item.move),
     moveMany: withAuthOnly(

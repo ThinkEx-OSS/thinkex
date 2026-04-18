@@ -14,7 +14,7 @@ import { useWorkspaceStore } from "@/lib/stores/workspace-store";
  * - Workspace list: WorkspaceContext (this file)
  * - Current workspace & save status: Zustand (workspace-store.ts)
  * - UI state: Zustand (ui-store.ts)
- * - Workspace data: Event sourcing + React Query
+ * - Workspace data: Zero sync + React Query
  */
 interface WorkspaceContextType {
   // Workspace list

@@ -353,6 +353,38 @@ async function upsertItem(
   );
 }
 
+async function updateShellOnly(
+  tx: ZeroTx,
+  params: {
+    workspaceId: string;
+    itemId: string;
+    shellChanges: Partial<{
+      layout: Item["layout"];
+      folderId: string | undefined;
+      lastModified: number;
+    }>;
+  },
+) {
+  const updates: Record<string, unknown> = {
+    workspaceId: params.workspaceId,
+    itemId: params.itemId,
+  };
+
+  if ("layout" in params.shellChanges) {
+    updates.layout = params.shellChanges.layout ?? null;
+  }
+
+  if ("folderId" in params.shellChanges) {
+    updates.folderId = params.shellChanges.folderId ?? null;
+  }
+
+  if (params.shellChanges.lastModified !== undefined) {
+    updates.lastModified = params.shellChanges.lastModified;
+  }
+
+  await tx.mutate.workspace_items.update(updates);
+}
+
 async function deleteItemById(
   tx: ZeroTx,
   params: {
@@ -386,25 +418,12 @@ async function deleteItemById(
         .where("workspaceId", params.workspaceId)
         .where("folderId", params.itemId),
     );
-
     const now = Date.now();
-
     for (const child of children) {
-      const loadedChild = await loadItem(tx, {
+      await updateShellOnly(tx, {
         workspaceId: params.workspaceId,
         itemId: child.itemId,
-      });
-
-      if (!loadedChild) {
-        continue;
-      }
-
-      await upsertItem(tx, {
-        workspaceId: params.workspaceId,
-        userId: null,
-        sourceVersion: loadedChild.sourceVersion,
-        item: {
-          ...loadedChild.item,
+        shellChanges: {
           folderId: undefined,
           layout: undefined,
           lastModified: now,
@@ -545,23 +564,10 @@ export const mutators = defineMutators({
           const now = Date.now();
 
           for (const layoutUpdate of args.layoutUpdates) {
-            const existing = await loadItem(tx, {
+            await updateShellOnly(tx, {
               workspaceId: args.workspaceId,
               itemId: layoutUpdate.id,
-            });
-
-            if (!existing) {
-              throw new ApplicationError(
-                `Workspace item ${layoutUpdate.id} was not found.`,
-              );
-            }
-
-            await upsertItem(tx, {
-              workspaceId: args.workspaceId,
-              userId: ctx.userId,
-              sourceVersion: existing.sourceVersion,
-              item: {
-                ...existing.item,
+              shellChanges: {
                 layout: {
                   x: layoutUpdate.x,
                   y: layoutUpdate.y,
@@ -577,24 +583,11 @@ export const mutators = defineMutators({
     ),
     move: defineMutator(
       zeroMutatorSchemas.item.move,
-      async ({ tx, ctx, args }) => {
-        const existing = await loadItem(tx, {
+      async ({ tx, args }) => {
+        await updateShellOnly(tx, {
           workspaceId: args.workspaceId,
           itemId: args.itemId,
-        });
-
-        if (!existing) {
-          throw new ApplicationError(
-            `Workspace item ${args.itemId} was not found.`,
-          );
-        }
-
-        await upsertItem(tx, {
-          workspaceId: args.workspaceId,
-          userId: ctx.userId,
-          sourceVersion: existing.sourceVersion,
-          item: {
-            ...existing.item,
+          shellChanges: {
             folderId: args.folderId ?? undefined,
             layout: undefined,
             lastModified: Date.now(),
@@ -604,27 +597,14 @@ export const mutators = defineMutators({
     ),
     moveMany: defineMutator(
       zeroMutatorSchemas.item.moveMany,
-      async ({ tx, ctx, args }) => {
+      async ({ tx, args }) => {
         const now = Date.now();
 
         for (const itemId of args.itemIds) {
-          const existing = await loadItem(tx, {
+          await updateShellOnly(tx, {
             workspaceId: args.workspaceId,
             itemId,
-          });
-
-          if (!existing) {
-            throw new ApplicationError(
-              `Workspace item ${itemId} was not found.`,
-            );
-          }
-
-          await upsertItem(tx, {
-            workspaceId: args.workspaceId,
-            userId: ctx.userId,
-            sourceVersion: existing.sourceVersion,
-            item: {
-              ...existing.item,
+            shellChanges: {
               folderId: args.folderId ?? undefined,
               layout: undefined,
               lastModified: now,
@@ -651,23 +631,10 @@ export const mutators = defineMutators({
         });
 
         for (const itemId of args.itemIds) {
-          const existing = await loadItem(tx, {
+          await updateShellOnly(tx, {
             workspaceId: args.workspaceId,
             itemId,
-          });
-
-          if (!existing) {
-            throw new ApplicationError(
-              `Workspace item ${itemId} was not found.`,
-            );
-          }
-
-          await upsertItem(tx, {
-            workspaceId: args.workspaceId,
-            userId: ctx.userId,
-            sourceVersion: existing.sourceVersion,
-            item: {
-              ...existing.item,
+            shellChanges: {
               folderId: args.folder.id,
               layout: undefined,
               lastModified: now,
