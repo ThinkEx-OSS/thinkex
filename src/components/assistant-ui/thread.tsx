@@ -129,6 +129,12 @@ type ThreadVirtualizer = Virtualizer<HTMLDivElement, HTMLDivElement>;
 const ROW_ESTIMATE_SIZE = 350;
 // Breathing room above a user message when scrollToIndex(align:'start').
 const SCROLL_PADDING_START = 16;
+// Bottom slack — extra space appended to the virtualized region so a freshly
+// sent user message can be anchored at the top of the viewport even when
+// the assistant hasn't streamed any content below it yet. Without this,
+// scrollToIndex(lastIndex, { align: 'start' }) clamps because the last
+// message is also the bottom of the scrollable area.
+const BOTTOM_SLACK_PX = 800;
 // Rows kept mounted outside the viewport for smooth scrolling.
 const OVERSCAN = 5;
 
@@ -196,8 +202,9 @@ interface ThreadScrollControllerProps {
 
 /**
  * Owns scroll behavior for the virtualized thread.
- * • thread.initialize → bottom, instant
- * • threadListItem.switchedTo → bottom, instant
+ * • thread.initialize → bottom, instant (first hydration of a thread runtime)
+ * • thread id change → bottom, instant (covers switching to a previously
+ *   loaded thread, where thread.initialize won't fire again)
  * • thread.runStart → anchor the new user message at the top, smooth
  * • Streaming: user owns scroll
  */
@@ -205,25 +212,46 @@ const ThreadScrollController: FC<ThreadScrollControllerProps> = ({
   virtualizerRef,
 }) => {
   const aui = useAui();
+  // Track the current thread id via the threadListItem.switchedTo event
+  // payload. We can't read it from thread state (no id field there) and we
+  // can't scroll inside the event itself because the new thread's messages
+  // haven't been imported yet \u2014 so we stash the id and react in an effect.
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
 
   const scrollToLastIndex = useCallback(
     (align: "start" | "end", behavior: ScrollBehavior) => {
       // Read live count from aui state; closure-based counts are unsafe
       // against sibling-effect ordering (VirtualizedMessages may not have
-      // committed yet when the event fires).
+      // committed yet when this fires).
       const count = aui?.thread()?.getState()?.messages.length ?? 0;
       if (count <= 0) return;
-      // rAF so react-virtual sees the new row count before we scroll;
-      // scrollToIndex retries internally for unmeasured rows.
+      // Two RAFs: first lets react-virtual commit the new row count, second
+      // gives measureElement a chance to register row sizes before we scroll.
+      // scrollToIndex itself also retries internally for unmeasured rows.
       requestAnimationFrame(() => {
-        virtualizerRef.current?.scrollToIndex(count - 1, { align, behavior });
+        requestAnimationFrame(() => {
+          virtualizerRef.current?.scrollToIndex(count - 1, { align, behavior });
+        });
       });
     },
     [aui, virtualizerRef],
   );
 
+  // First hydration of a thread runtime (per-instance event, fires once).
   useAuiEvent("thread.initialize", () => scrollToLastIndex("end", "instant"));
-  useAuiEvent("threadListItem.switchedTo", () => scrollToLastIndex("end", "instant"));
+
+  // Switching to a previously loaded thread does NOT re-fire thread.initialize
+  // (each thread runtime caches _isInitialized). Capture the threadId here, then
+  // react in an effect after React commits the new messages array.
+  useAuiEvent("threadListItem.switchedTo", ({ threadId }) => {
+    setActiveThreadId(threadId);
+  });
+  useEffect(() => {
+    if (!activeThreadId) return;
+    scrollToLastIndex("end", "instant");
+  }, [activeThreadId, scrollToLastIndex]);
+
+  // New user message sent \u2192 anchor at top with smooth animation.
   useAuiEvent("thread.runStart", () => scrollToLastIndex("start", "smooth"));
 
   return null;
@@ -294,6 +322,11 @@ const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({
       aui?.thread()?.getState()?.messages[index]?.id ?? index,
     // Breathing room above a user message when scrollToIndex(align:'start').
     scrollPaddingStart: SCROLL_PADDING_START,
+    // Bottom slack — padding appended after the last row so scrollToIndex(
+    // lastIndex, { align: 'start' }) can land the new user message at the top
+    // even when the assistant hasn't streamed content below it yet. Without
+    // this padding, getMaxScrollOffset clamps the scroll mid-viewport.
+    paddingEnd: BOTTOM_SLACK_PX,
     // Native scrollend event on modern browsers skips TanStack's polling.
     useScrollendEvent: true,
     rangeExtractor,
