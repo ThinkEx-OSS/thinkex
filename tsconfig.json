@@ -38,6 +38,9 @@
   "exclude": [
     "node_modules",
     "assistant-ui-main",
-    "tmp"
+    "tmp",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx"
   ]
 }

@@ -13,8 +13,6 @@ import {
   documentDataSchema,
 } from "@/lib/workspace-state/item-data-schemas";
 
-export { quizSessionSchema } from "@/lib/workspace-state/item-data-schemas";
-
 export const itemDataSchemas: Record<CardType, z.ZodType<ItemData>> = {
   pdf: pdfDataSchema as z.ZodType<ItemData>,
   flashcard: flashcardDataSchema as z.ZodType<ItemData>,
@@ -29,10 +27,10 @@ export const itemDataSchemas: Record<CardType, z.ZodType<ItemData>> = {
 
 export const itemCapabilities: Record<CardType, WorkspaceItemCapability[]> = {
   pdf: ["asset_ref", "ocr_content"],
-  flashcard: ["structured_content", "user_state"],
+  flashcard: ["structured_content"],
   folder: [],
-  youtube: ["embed_ref", "user_state"],
-  quiz: ["structured_content", "user_state"],
+  youtube: ["embed_ref"],
+  quiz: ["structured_content"],
   image: ["asset_ref", "ocr_content"],
   audio: ["asset_ref", "structured_content", "transcript_content"],
   website: ["embed_ref"],

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Item } from "@/lib/workspace-state/types";
 import {
-  WORKSPACE_ITEM_PRIMARY_USER_STATE_KEY,
   buildWorkspaceItemTableRows,
   getWorkspaceItemCapabilities,
   normalizeItemData,
@@ -42,7 +41,6 @@ describe("workspace item model", () => {
       sourceData: [{ title: "Ref", url: "https://example.com" }],
     });
     expect(split.extracted.searchText).toContain("hello");
-    expect(split.userStates).toEqual([]);
 
     expect(
       rehydrateWorkspaceItem({
@@ -105,114 +103,18 @@ describe("workspace item model", () => {
     ).toEqual(item);
   });
 
-  it("separates flashcard user state from shared structured content", () => {
-    const item: Item = {
+  it("keeps flashcard and youtube content fully shared", () => {
+    const flashcard: Item = {
       id: "flash-1",
       type: "flashcard",
       name: "Deck",
       subtitle: "",
       data: {
         cards: [{ id: "card-1", front: "Front", back: "Back" }],
-        currentIndex: 2,
       },
     };
 
-    const rows = buildWorkspaceItemTableRows({
-      workspaceId: "workspace-1",
-      item,
-      sourceVersion: 3,
-      userId: "user-1",
-    });
-
-    expect(rows.content.structuredData).toEqual({
-      cards: [{ id: "card-1", front: "Front", back: "Back" }],
-    });
-    expect(rows.item.contentHash).toBeTruthy();
-    expect(rows.userStates).toEqual([
-      {
-        workspaceId: "workspace-1",
-        itemId: "flash-1",
-        userId: "user-1",
-        stateKey: WORKSPACE_ITEM_PRIMARY_USER_STATE_KEY,
-        stateType: "flashcard",
-        stateSchemaVersion: 1,
-        state: { currentIndex: 2 },
-      },
-    ]);
-
-    const rehydrated = rehydrateWorkspaceItem({
-      shell: rows.item,
-      content: rows.content,
-      extracted: rows.extracted,
-      userStates: rows.userStates,
-    });
-
-    expect(rehydrated).toEqual(item);
-    expect(getWorkspaceItemCapabilities("flashcard")).toContain("user_state");
-  });
-
-  it("routes audio transcript/search data into extracted state and preserves shared processing metadata", () => {
-    const item: Item = {
-      id: "audio-1",
-      type: "audio",
-      name: "Recording",
-      subtitle: "",
-      data: {
-        fileUrl: "https://example.com/audio.mp3",
-        filename: "audio.mp3",
-        duration: 42,
-        mimeType: "audio/mpeg",
-        summary: "Lecture summary",
-        transcript: "Hello world transcript",
-        segments: [
-          {
-            speaker: "Speaker 1",
-            timestamp: "00:00",
-            content: "Hello world transcript",
-          },
-        ],
-        processingStatus: "complete",
-      },
-    };
-
-    const split = splitWorkspaceItem(item);
-
-    expect(split.shell).toMatchObject({
-      processingStatus: "complete",
-      hasTranscript: true,
-      hasOcr: false,
-    });
-    expect(split.content.assetData).toEqual({
-      fileUrl: "https://example.com/audio.mp3",
-      filename: "audio.mp3",
-      duration: 42,
-      mimeType: "audio/mpeg",
-    });
-    expect(split.content.structuredData).toEqual({
-      summary: "Lecture summary",
-    });
-    expect(split.extracted.transcriptText).toBe("Hello world transcript");
-    expect(split.extracted.transcriptSegments).toEqual([
-      {
-        speaker: "Speaker 1",
-        timestamp: "00:00",
-        content: "Hello world transcript",
-      },
-    ]);
-    expect(split.extracted.searchText).toContain("lecture summary");
-    expect(split.userStates).toEqual([]);
-
-    expect(
-      rehydrateWorkspaceItem({
-        shell: split.shell,
-        content: split.content,
-        extracted: split.extracted,
-      }),
-    ).toEqual(item);
-  });
-
-  it("keeps youtube playback state in user-state rows instead of shared content", () => {
-    const item: Item = {
+    const youtube: Item = {
       id: "yt-1",
       type: "youtube",
       name: "Video",
@@ -220,42 +122,18 @@ describe("workspace item model", () => {
       data: {
         url: "https://youtube.com/watch?v=abc123",
         thumbnail: "https://img.youtube.com/vi/abc123/default.jpg",
-        progress: 42,
-        playbackRate: 1.5,
       },
     };
 
-    const rows = buildWorkspaceItemTableRows({
-      workspaceId: "workspace-1",
-      item,
-      sourceVersion: 9,
-      userId: "user-1",
+    expect(buildWorkspaceItemTableRows({ workspaceId: "workspace-1", item: flashcard, sourceVersion: 1 }).content.structuredData).toEqual({
+      cards: [{ id: "card-1", front: "Front", back: "Back" }],
     });
-
-    expect(rows.content.embedData).toEqual({
+    expect(buildWorkspaceItemTableRows({ workspaceId: "workspace-1", item: youtube, sourceVersion: 1 }).content.embedData).toEqual({
       url: "https://youtube.com/watch?v=abc123",
       thumbnail: "https://img.youtube.com/vi/abc123/default.jpg",
     });
-    expect(rows.userStates).toEqual([
-      {
-        workspaceId: "workspace-1",
-        itemId: "yt-1",
-        userId: "user-1",
-        stateKey: WORKSPACE_ITEM_PRIMARY_USER_STATE_KEY,
-        stateType: "youtube",
-        stateSchemaVersion: 1,
-        state: { progress: 42, playbackRate: 1.5 },
-      },
-    ]);
-
-    expect(
-      rehydrateWorkspaceItem({
-        shell: rows.item,
-        content: rows.content,
-        extracted: rows.extracted,
-        userStates: rows.userStates,
-      }),
-    ).toEqual(item);
+    expect(getWorkspaceItemCapabilities("flashcard")).toEqual(["structured_content"]);
+    expect(getWorkspaceItemCapabilities("youtube")).toEqual(["embed_ref"]);
   });
 
   it("round-trips the remaining item types through split and rehydrate", () => {
@@ -276,12 +154,6 @@ describe("workspace item model", () => {
               correctIndex: 0,
             },
           ],
-          session: {
-            currentIndex: 0,
-            answeredQuestions: [
-              { questionId: "q-1", userAnswer: 0, isCorrect: true },
-            ],
-          },
         },
       },
       {
@@ -321,7 +193,6 @@ describe("workspace item model", () => {
         workspaceId: "workspace-1",
         item,
         sourceVersion: 4,
-        userId: item.type === "quiz" ? "user-1" : undefined,
       });
 
       expect(
@@ -329,7 +200,6 @@ describe("workspace item model", () => {
           shell: rows.item,
           content: rows.content,
           extracted: rows.extracted,
-          userStates: rows.userStates,
         }),
       ).toEqual(item);
     }
@@ -349,24 +219,5 @@ describe("workspace item model", () => {
       processingStatus: "complete",
       segments: "not-an-array",
     });
-  });
-
-  it("throws when user-scoped state exists but userId is omitted", () => {
-    expect(() =>
-      buildWorkspaceItemTableRows({
-        workspaceId: "workspace-1",
-        item: {
-          id: "flash-2",
-          type: "flashcard",
-          name: "Deck",
-          subtitle: "",
-          data: {
-            cards: [{ id: "card-1", front: "Front", back: "Back" }],
-            currentIndex: 1,
-          },
-        },
-        sourceVersion: 2,
-      }),
-    ).toThrow("userId is required for items with user state");
   });
 });

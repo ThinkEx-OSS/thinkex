@@ -6,7 +6,6 @@ import type {
   ItemData,
   QuizData,
   QuizQuestion,
-  QuizSessionData,
 } from "@/lib/workspace-state/types";
 import { cn } from "@/lib/utils";
 import {
@@ -35,7 +34,7 @@ interface QuizContentProps {
 
 export function QuizContent({
   item,
-  onUpdateData,
+  onUpdateData: _onUpdateData,
   isScrollLocked = false,
   className,
 }: QuizContentProps) {
@@ -48,24 +47,13 @@ export function QuizContent({
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
 
   // Session state
-  const [currentIndex, setCurrentIndex] = useState(
-    quizData.session?.currentIndex || 0,
-  );
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [answeredQuestions, setAnsweredQuestions] = useState<
-    QuizSessionData["answeredQuestions"]
-  >(quizData.session?.answeredQuestions || []);
-
-  // Initialize showResults based on whether quiz is completed
-  // Quiz is completed ONLY if: completedAt exists AND all questions are answered
-  const isInitiallyCompleted = !!(
-    quizData.session?.completedAt &&
-    quizData.session?.answeredQuestions?.length &&
-    questions.length > 0 &&
-    quizData.session.answeredQuestions.length >= questions.length
-  );
-  const [showResults, setShowResults] = useState(isInitiallyCompleted);
+    Array<{ questionId: string; userAnswer: number; isCorrect: boolean }>
+  >([]);
+  const [showResults, setShowResults] = useState(false);
 
   // Track previous question count and IDs to detect when new questions are added
   const prevQuestionCountRef = useRef(questions.length);
@@ -102,19 +90,6 @@ export function QuizContent({
         setCurrentIndex(prevCount); // Go to first new question
         setSelectedAnswer(null);
         setIsSubmitted(false);
-
-        // Clear completedAt since we're no longer complete
-        onUpdateData((prev) => {
-          const current = prev as QuizData;
-          return {
-            ...current,
-            session: {
-              ...current.session,
-              currentIndex: prevCount,
-              completedAt: undefined,
-            } as QuizSessionData,
-          };
-        });
       } else {
         // Just notify user
         toast.success(
@@ -130,13 +105,7 @@ export function QuizContent({
     // Update refs for next comparison
     prevQuestionCountRef.current = currentCount;
     prevQuestionIdsRef.current = currentIds;
-  }, [
-    questions,
-    showResults,
-    answeredQuestions.length,
-    currentIndex,
-    onUpdateData,
-  ]);
+  }, [questions, showResults, answeredQuestions.length, currentIndex]);
 
   // Check if current question was already answered
   const previousAnswer = useMemo(() => {
@@ -153,25 +122,6 @@ export function QuizContent({
       setIsSubmitted(false);
     }
   }, [currentIndex, previousAnswer]);
-
-  // Persist session state
-  const persistSession = useCallback(
-    (updates: Partial<QuizSessionData>) => {
-      onUpdateData((prev) => {
-        const current = prev as QuizData;
-        return {
-          ...current,
-          session: {
-            currentIndex,
-            answeredQuestions,
-            ...current.session,
-            ...updates,
-          },
-        };
-      });
-    },
-    [onUpdateData, currentIndex, answeredQuestions],
-  );
 
   // Handle answer selection
   const handleSelectAnswer = (index: number) => {
@@ -197,13 +147,6 @@ export function QuizContent({
 
     setAnsweredQuestions(newAnsweredQuestions);
     setIsSubmitted(true);
-
-    // Persist to data
-    persistSession({
-      currentIndex,
-      answeredQuestions: newAnsweredQuestions,
-      startedAt: quizData.session?.startedAt || Date.now(),
-    });
   };
 
   // Navigation
@@ -211,11 +154,9 @@ export function QuizContent({
     if (currentIndex < totalQuestions - 1) {
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);
-      persistSession({ currentIndex: nextIndex });
     } else {
       // Show results
       setShowResults(true);
-      persistSession({ completedAt: Date.now() });
     }
   };
 
@@ -224,7 +165,6 @@ export function QuizContent({
     if (currentIndex < totalQuestions - 1) {
       const nextIndex = currentIndex + 1;
       setCurrentIndex(nextIndex);
-      persistSession({ currentIndex: nextIndex });
     }
   };
 
@@ -232,7 +172,6 @@ export function QuizContent({
     if (currentIndex > 0) {
       const prevIndex = currentIndex - 1;
       setCurrentIndex(prevIndex);
-      persistSession({ currentIndex: prevIndex });
     }
   };
 
@@ -242,13 +181,6 @@ export function QuizContent({
     setIsSubmitted(false);
     setAnsweredQuestions([]);
     setShowResults(false);
-    onUpdateData((prev) => {
-      const current = prev as QuizData;
-      return {
-        ...current,
-        session: undefined,
-      };
-    });
   };
 
   // Handle Update Quiz - programmatically send message to add more questions

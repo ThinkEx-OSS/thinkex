@@ -692,31 +692,10 @@ function formatFlashcardDetailsFull(data: FlashcardData): string[] {
 
 /**
  * Formats quiz details as raw JSON (editable by item_edit).
- * Session progress is shown at top (read-only); item_edit only modifies the questions JSON.
  */
 function formatQuizDetailsFull(data: QuizData): string[] {
-  const questions = data.questions || [];
-  const session = data.session;
-  const lines: string[] = [];
-
-  if (session) {
-    const total = questions.length;
-    const answered = session.answeredQuestions?.length ?? 0;
-    const correct =
-      session.answeredQuestions?.filter((a) => a.isCorrect).length ?? 0;
-    const completed = !!(session.completedAt && total > 0 && answered >= total);
-    lines.push("--- Progress (read-only) ---");
-    lines.push(
-      `Current question: ${session.currentIndex + 1} of ${total || "?"}`,
-    );
-    lines.push(`Answered: ${answered} | Correct: ${correct}`);
-    lines.push(`Completed: ${completed ? "yes" : "no"}`);
-    lines.push("");
-  }
-
-  const payload = { questions };
-  lines.push(JSON.stringify(payload, null, 2));
-  return lines;
+  const payload = { questions: data.questions || [] };
+  return [JSON.stringify(payload, null, 2)];
 }
 
 /**

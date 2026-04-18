@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-// ── Shared sub-schemas ──
-
 export const ocrPageSchema = z.object({
   index: z.number().int().nonnegative().default(0),
   markdown: z.string().default(""),
@@ -17,15 +15,12 @@ export const sourceSchema = z.object({
   favicon: z.string().optional(),
 });
 
-// ── Flashcard schemas ──
-
 export const flashcardItemSchema = z.object({
   id: z.string(),
   front: z.string().default(""),
   back: z.string().default(""),
 });
 
-/** Tool/API input variant — no `id`, fields required (no defaults) */
 export const flashcardCardInputSchema = z.object({
   front: z.string(),
   back: z.string(),
@@ -33,10 +28,7 @@ export const flashcardCardInputSchema = z.object({
 
 export const flashcardDataSchema = z.object({
   cards: z.array(flashcardItemSchema).default([]),
-  currentIndex: z.number().int().nonnegative().optional(),
 });
-
-// ── Quiz schemas (slimmed down — NO hint, explanation, sourceContext) ──
 
 export const quizQuestionSchema = z.object({
   id: z.string(),
@@ -46,7 +38,6 @@ export const quizQuestionSchema = z.object({
   correctIndex: z.number().int().min(0).default(0),
 });
 
-/** Tool/API input variant — no `id`, with option-count validation */
 export const quizQuestionInputSchema = quizQuestionSchema
   .omit({ id: true, correctIndex: true })
   .extend({
@@ -65,28 +56,10 @@ export const quizQuestionInputSchema = quizQuestionSchema
     },
   );
 
-export const quizSessionSchema = z.object({
-  currentIndex: z.number().int().nonnegative().default(0),
-  answeredQuestions: z
-    .array(
-      z.object({
-        questionId: z.string(),
-        userAnswer: z.number().int(),
-        isCorrect: z.boolean(),
-      }),
-    )
-    .default([]),
-  startedAt: z.number().optional(),
-  completedAt: z.number().optional(),
-});
-
 export const quizDataSchema = z.object({
   title: z.string().optional(),
   questions: z.array(quizQuestionSchema).default([]),
-  session: quizSessionSchema.optional(),
 });
-
-// ── PDF schema ──
 
 export const pdfDataSchema = z.object({
   fileUrl: z.string().default(""),
@@ -97,8 +70,6 @@ export const pdfDataSchema = z.object({
   ocrPages: z.array(ocrPageSchema).optional(),
 });
 
-// ── Image schema ──
-
 export const imageDataSchema = z.object({
   url: z.string().default(""),
   altText: z.string().optional(),
@@ -107,8 +78,6 @@ export const imageDataSchema = z.object({
   ocrError: z.string().optional(),
   ocrPages: z.array(ocrPageSchema).optional(),
 });
-
-// ── Audio schemas ──
 
 export const audioSegmentSchema = z.object({
   speaker: z.string(),
@@ -133,29 +102,19 @@ export const audioDataSchema = z.object({
   error: z.string().optional(),
 });
 
-// ── YouTube schema ──
-
 export const youtubeDataSchema = z.object({
   url: z.string().default(""),
   thumbnail: z.string().optional(),
-  progress: z.number().nonnegative().optional(),
-  playbackRate: z.number().positive().optional(),
 });
-
-// ── Website schema ──
 
 export const websiteDataSchema = z.object({
   url: z.string().default(""),
   favicon: z.string().optional(),
 });
 
-// ── Document schema ──
-
 export const documentDataSchema = z.object({
   markdown: z.string().optional(),
   sources: z.array(sourceSchema).optional(),
 });
-
-// ── Folder schema ──
 
 export const folderDataSchema = z.object({}).passthrough();
