@@ -265,31 +265,44 @@ const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({
   const aui = useAui();
   const messageCount = useAuiState((s) => s.thread.messages.length);
   const isRunning = useAuiState((s) => s.thread.isRunning);
+  // Slack state lives for the lifetime of an entire turn (not just while
+  // streaming). We pin it to the specific assistant index that owns the
+  // blank so the space stays allocated after isRunning flips false, and
+  // only gets released when the NEXT turn starts or the thread changes
+  // identity (count shrinks below the pinned index).
   const [blankSize, setBlankSize] = useState(0);
   const [lastUserSize, setLastUserSize] = useState(0);
+  const [pinnedAssistantIndex, setPinnedAssistantIndex] = useState(-1);
+  const [pinnedUserIndex, setPinnedUserIndex] = useState(-1);
   const [measuredUserElement, setMeasuredUserElement] =
     useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     captureBlankRef.current = () => {
+      // Read the current count imperatively; the subscription may not have
+      // ticked yet inside the isRunning effect that triggers this call.
+      const count = aui?.thread()?.getState()?.messages.length ?? 0;
       setBlankSize(virtualizerRef.current?.viewportSize ?? 0);
+      // Pin the indexes for this turn. The assistant row is the last row,
+      // the user row is the one before it.
+      setPinnedAssistantIndex(count - 1);
+      setPinnedUserIndex(count - 2);
     };
     return () => {
       captureBlankRef.current = null;
     };
-  }, [captureBlankRef, virtualizerRef]);
+  }, [aui, captureBlankRef, virtualizerRef]);
 
+  // Release slack when the pinned indexes no longer exist in the list
+  // (thread cleared, switched, or messages deleted).
   useEffect(() => {
-    if (!isRunning && blankSize !== 0) {
+    if (pinnedAssistantIndex >= messageCount && pinnedAssistantIndex !== -1) {
       setBlankSize(0);
-    }
-  }, [isRunning, blankSize]);
-
-  useEffect(() => {
-    if (!isRunning && lastUserSize !== 0) {
       setLastUserSize(0);
+      setPinnedAssistantIndex(-1);
+      setPinnedUserIndex(-1);
     }
-  }, [isRunning, lastUserSize]);
+  }, [messageCount, pinnedAssistantIndex]);
 
   useEffect(() => {
     if (!measuredUserElement) return;
@@ -308,10 +321,8 @@ const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({
     setMeasuredUserElement(el);
   }, []);
 
-  const streamingAssistantIndex = isRunning ? messageCount - 1 : -1;
-  const measuredUserIndex = isRunning ? messageCount - 2 : -1;
   const assistantMinHeight =
-    streamingAssistantIndex >= 0 ? Math.max(0, blankSize - lastUserSize) : 0;
+    pinnedAssistantIndex >= 0 ? Math.max(0, blankSize - lastUserSize) : 0;
 
   // Always mount the Virtualizer — even when messageCount is 0 — so
   // `virtualizerRef.current.viewportSize` is readable the moment the first
@@ -321,24 +332,32 @@ const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({
     <Virtualizer
       ref={virtualizerRef}
       scrollRef={scrollRef}
+      // Only keep the assistant row force-mounted while it's actively
+      // streaming. Once isRunning flips false we still apply minHeight to
+      // the pinned row (so the slack persists) but we don't need to pin it
+      // against virtualization — it'll unmount normally once it scrolls
+      // out of the viewport.
       keepMounted={
-        streamingAssistantIndex >= 0 ? [streamingAssistantIndex] : undefined
+        isRunning && pinnedAssistantIndex >= 0
+          ? [pinnedAssistantIndex]
+          : undefined
       }
     >
       {Array.from({ length: messageCount }, (_, index) => {
         const message = aui?.thread()?.getState()?.messages[index];
         const id = message?.id ?? index;
         const role = message?.role;
-        const isStreamingAssistant =
-          role === "assistant" && index === streamingAssistantIndex;
-        const isMeasuredUser = role === "user" && index === measuredUserIndex;
+        const isPinnedAssistant =
+          role === "assistant" && index === pinnedAssistantIndex;
+        const isMeasuredUser =
+          role === "user" && index === pinnedUserIndex;
 
         return (
           <div
             key={id}
             ref={isMeasuredUser ? measureUserMessageRef : undefined}
             style={
-              isStreamingAssistant
+              isPinnedAssistant
                 ? { minHeight: `${assistantMinHeight}px` }
                 : undefined
             }
