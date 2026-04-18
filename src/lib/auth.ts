@@ -58,6 +58,7 @@ export const auth = betterAuth({
   trustedOrigins: [
     "https://www.thinkex.app",
     "https://thinkex.app",
+    "https://*.thinkex.app",
     "https://thinkexv2-git-dev-chakrabortyurjit-gmailcoms-projects.vercel.app",
     ...(process.env.NEXT_PUBLIC_APP_URL
       ? [process.env.NEXT_PUBLIC_APP_URL]
