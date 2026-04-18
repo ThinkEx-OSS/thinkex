@@ -197,11 +197,11 @@ const ThreadScrollController: FC<ThreadScrollControllerProps> = ({
   const messageCount = useAuiState((s) => s.thread.messages.length);
   const isRunning = useAuiState((s) => s.thread.isRunning);
 
-  const scrollToLastIndex = useCallback(
-    (count: number, align: "start" | "end", smooth: boolean) => {
-      if (count <= 0) return;
+  const scrollToIndex = useCallback(
+    (index: number, align: "start" | "end", smooth: boolean) => {
+      if (index < 0) return;
       requestAnimationFrame(() => {
-        virtualizerRef.current?.scrollToIndex(count - 1, { align, smooth });
+        virtualizerRef.current?.scrollToIndex(index, { align, smooth });
       });
     },
     [virtualizerRef],
@@ -216,38 +216,78 @@ const ThreadScrollController: FC<ThreadScrollControllerProps> = ({
     if (messageCount <= 0) return;
     if (settledThreadIdRef.current === threadId) return;
     settledThreadIdRef.current = threadId;
-    scrollToLastIndex(messageCount, "end", false);
-  }, [threadId, messageCount, scrollToLastIndex]);
+    scrollToIndex(messageCount - 1, "end", false);
+  }, [threadId, messageCount, scrollToIndex]);
 
-  // 2. isRunning false -> true: capture viewport blank + smooth-scroll the
-  // newly committed user message to the top. Effect-driven because by this
-  // point React has committed, the Virtualizer is mounted, and the row is
-  // in the DOM with a real measured height. `hasScrolledForRunRef` dedupes
-  // when message-count ticks during the run re-fire the effect.
-  const hasScrolledForRunRef = useRef(false);
+  // 2. isRunning false -> true for the ACTIVE thread: capture viewport blank +
+  // smooth-scroll the newly committed user message to the top. The user-row
+  // target matches virtua's chatbot demo exactly: scroll user to align:start,
+  // and the streaming assistant row beneath it carries minHeight slack so
+  // the user stays pinned even before assistant content streams in.
+  //
+  // Guard on `settledThreadIdRef.current === threadId` so that switching to
+  // an already-running thread doesn't re-fire this scroll (the settled
+  // effect above has already jumped to bottom). hasRunScrolledForThreadRef
+  // dedupes across streaming-token ticks within the same run.
+  const runScrolledForThreadRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isRunning) {
-      hasScrolledForRunRef.current = false;
+      runScrolledForThreadRef.current = null;
       return;
     }
-    if (hasScrolledForRunRef.current) return;
-    hasScrolledForRunRef.current = true;
+    // Only react once the thread-switch settling has completed for this id;
+    // prevents mount-time or thread-switch-to-running-thread re-scrolls.
+    if (settledThreadIdRef.current !== threadId) return;
+    // Dedupe per (thread, run): fire exactly once per false->true transition
+    // for this thread id. The ref resets when isRunning flips back to false,
+    // so the next run can fire again.
+    if (runScrolledForThreadRef.current === threadId) return;
+    runScrolledForThreadRef.current = threadId;
     captureBlankRef.current?.();
     const liveCount = aui?.thread()?.getState()?.messages.length ?? 0;
-    scrollToLastIndex(liveCount, "start", true);
-  }, [isRunning, aui, captureBlankRef, scrollToLastIndex]);
+    // Target the USER row, not the last row. At runStart the store holds
+    // [...prior, newUser, optimisticAssistant], so the user is at liveCount-2.
+    // If only the user has landed (count=liveCount-1), fall back to count-1.
+    const userIndex = liveCount >= 2 ? liveCount - 2 : liveCount - 1;
+    scrollToIndex(userIndex, "start", true);
+  }, [
+    isRunning,
+    threadId,
+    aui,
+    captureBlankRef,
+    scrollToIndex,
+  ]);
 
   return null;
 };
 
 const useMessageHoverHandlers = () => {
   const aui = useAui();
+  // Capture the message runtime at hook time so cleanup targets the same
+  // runtime even after the component unmounts (virtualization can remove a
+  // hovered row without ever firing mouseleave). Without this the message's
+  // isHovering state sticks true and its ActionBar stays pinned visible.
+  const hoveringRef = useRef(false);
+  const messageRef = useRef<ReturnType<typeof aui.message> | null>(null);
+  messageRef.current = aui?.message() ?? null;
+
   const onMouseEnter = useCallback(() => {
-    aui?.message()?.setIsHovering?.(true);
-  }, [aui]);
+    hoveringRef.current = true;
+    messageRef.current?.setIsHovering?.(true);
+  }, []);
   const onMouseLeave = useCallback(() => {
-    aui?.message()?.setIsHovering?.(false);
-  }, [aui]);
+    hoveringRef.current = false;
+    messageRef.current?.setIsHovering?.(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (hoveringRef.current) {
+        messageRef.current?.setIsHovering?.(false);
+      }
+    };
+  }, []);
+
   return { onMouseEnter, onMouseLeave };
 };
 
@@ -263,6 +303,7 @@ const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({
   captureBlankRef,
 }) => {
   const aui = useAui();
+  const threadId = useAuiState((s) => s.threadListItem.id);
   const messageCount = useAuiState((s) => s.thread.messages.length);
   const isRunning = useAuiState((s) => s.thread.isRunning);
   // Slack state lives for the lifetime of an entire turn (not just while
@@ -293,8 +334,18 @@ const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({
     };
   }, [aui, captureBlankRef, virtualizerRef]);
 
-  // Release slack when the pinned indexes no longer exist in the list
-  // (thread cleared, switched, or messages deleted).
+  // Release slack whenever the thread identity changes — otherwise stale
+  // minHeight can leak into a different thread if it happens to have
+  // enough messages to keep the pinned index valid.
+  useEffect(() => {
+    setBlankSize(0);
+    setLastUserSize(0);
+    setPinnedAssistantIndex(-1);
+    setPinnedUserIndex(-1);
+  }, [threadId]);
+
+  // Also release when the pinned indexes no longer exist in the list
+  // (messages deleted, thread cleared).
   useEffect(() => {
     if (pinnedAssistantIndex >= messageCount && pinnedAssistantIndex !== -1) {
       setBlankSize(0);
