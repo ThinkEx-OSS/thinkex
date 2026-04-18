@@ -113,13 +113,10 @@ export async function POST(request: NextRequest) {
       ),
     ];
 
-    if (workspaceIds.length === 0) {
-      return NextResponse.json(
-        { error: "No workspace context provided" },
-        { status: 400 },
-      );
-    }
-
+    // When workspace IDs are found, verify access. When none are found
+    // (e.g. Zero's initial connection handshake), pass through to
+    // handleQueryRequest — it will resolve the queries or return errors
+    // for any that require args.
     for (const workspaceId of workspaceIds) {
       const hasAccess = await hasWorkspaceReadAccess(workspaceId, userId);
       if (!hasAccess) {
