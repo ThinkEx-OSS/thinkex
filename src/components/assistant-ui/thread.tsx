@@ -201,29 +201,40 @@ interface ThreadScrollControllerProps {
 }
 
 /**
- * Owns scroll behavior for the virtualized thread.
- * • thread.initialize → bottom, instant (first hydration of a thread runtime)
- * • thread id change → bottom, instant (covers switching to a previously
- *   loaded thread, where thread.initialize won't fire again)
- * • thread.runStart → anchor the new user message at the top, smooth
- * • Streaming: user owns scroll
+ * Owns scroll behavior for the virtualized thread. Two concerns:
+ *
+ * 1. LOAD / THREAD-SWITCH -> bottom, instant. Tracked via `threadListItem.id`
+ *    + `thread.messages.length`. A ref-backed "last scrolled for" guard
+ *    ensures we only snap to bottom on thread identity changes — not on every
+ *    message count tick. Reading `messageCount` as a dep is what lets us
+ *    catch the initial hydration: the runtime emits `thread.initialize`
+ *    BEFORE `repository.import()`, so at event time count is 0. By making
+ *    the effect depend on count, it re-runs once messages land and we can
+ *    commit the scroll.
+ *
+ *    Mirrors assistant-ui's upstream `useThreadViewportAutoScroll`, except
+ *    we target the virtualizer's measurement ledger instead of the raw
+ *    `el.scrollHeight`.
+ *
+ * 2. NEW USER MESSAGE (thread.runStart) -> anchor at top, smooth. Event-driven
+ *    because we need the transition, not the steady state. Reads the latest
+ *    `messageCount` from the subscription via `useEffectEvent` semantics of
+ *    `useAuiEvent`. Organic growth during streaming is deliberately ignored —
+ *    the user owns scroll once anchored.
  */
 const ThreadScrollController: FC<ThreadScrollControllerProps> = ({
   virtualizerRef,
 }) => {
-  const aui = useAui();
-  // Track the current thread id via the threadListItem.switchedTo event
-  // payload. We can't read it from thread state (no id field there) and we
-  // can't scroll inside the event itself because the new thread's messages
-  // haven't been imported yet \u2014 so we stash the id and react in an effect.
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  // Reactive subscriptions: both drive the load/switch effect below. Using
+  // useAuiState over useAuiEvent lets us observe the settled state rather
+  // than racing event emission against React commits. `threadListItem.id`
+  // is the canonical thread identifier on the store proxy; `thread.threadId`
+  // only exists on the core runtime's ThreadState and isn't exposed here.
+  const threadId = useAuiState((s) => s.threadListItem.id);
+  const messageCount = useAuiState((s) => s.thread.messages.length);
 
-  const scrollToLastIndex = useCallback(
-    (align: "start" | "end", behavior: ScrollBehavior) => {
-      // Read live count from aui state; closure-based counts are unsafe
-      // against sibling-effect ordering (VirtualizedMessages may not have
-      // committed yet when this fires).
-      const count = aui?.thread()?.getState()?.messages.length ?? 0;
+  const scrollToIndex = useCallback(
+    (count: number, align: "start" | "end", behavior: ScrollBehavior) => {
       if (count <= 0) return;
       // Two RAFs: first lets react-virtual commit the new row count, second
       // gives measureElement a chance to register row sizes before we scroll.
@@ -234,25 +245,36 @@ const ThreadScrollController: FC<ThreadScrollControllerProps> = ({
         });
       });
     },
-    [aui, virtualizerRef],
+    [virtualizerRef],
   );
 
-  // First hydration of a thread runtime (per-instance event, fires once).
-  useAuiEvent("thread.initialize", () => scrollToLastIndex("end", "instant"));
+  // Track the thread we're currently "settled" on. Reset whenever the id
+  // changes so that visiting A → B → A re-scrolls A's bottom.
+  const settledThreadIdRef = useRef<string | null>(null);
 
-  // Switching to a previously loaded thread does NOT re-fire thread.initialize
-  // (each thread runtime caches _isInitialized). Capture the threadId here, then
-  // react in an effect after React commits the new messages array.
-  useAuiEvent("threadListItem.switchedTo", ({ threadId }) => {
-    setActiveThreadId(threadId);
-  });
   useEffect(() => {
-    if (!activeThreadId) return;
-    scrollToLastIndex("end", "instant");
-  }, [activeThreadId, scrollToLastIndex]);
+    // Reset settle marker whenever the visible thread id changes; this makes
+    // A → B → A trigger a bottom-scroll on the second visit to A.
+    if (settledThreadIdRef.current !== threadId) {
+      settledThreadIdRef.current = null;
+    }
+    // Wait for messages to land before committing the "settled" marker —
+    // ensureInitialized() fires before repository.import(), so on first
+    // mount messageCount is 0 and flips to N on the next commit.
+    if (messageCount <= 0) return;
+    if (settledThreadIdRef.current === threadId) return;
+    settledThreadIdRef.current = threadId;
+    scrollToIndex(messageCount, "end", "instant");
+  }, [threadId, messageCount, scrollToIndex]);
 
-  // New user message sent \u2192 anchor at top with smooth animation.
-  useAuiEvent("thread.runStart", () => scrollToLastIndex("start", "smooth"));
+  // New user message sent -> anchor at top with smooth animation. Event-driven
+  // because we need to react on the transition, not the steady state. The
+  // handler reads `messageCount` via useEffectEvent (always latest), and
+  // since runStart fires after the user message is appended to the store,
+  // `messageCount` already reflects the new row.
+  useAuiEvent("thread.runStart", () => {
+    scrollToIndex(messageCount, "start", "smooth");
+  });
 
   return null;
 };
