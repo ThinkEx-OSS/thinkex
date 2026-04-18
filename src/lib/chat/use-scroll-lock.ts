@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, type RefObject } from "react";
+import { useCallback, useEffect, useRef, type RefObject } from "react";
 
 function findClosestScrollableAncestor(el: HTMLElement | null): HTMLElement | null {
   let cur = el?.parentElement ?? null;
@@ -19,19 +19,36 @@ export function useScrollLock(
   ref: RefObject<HTMLElement | null>,
   durationMs: number,
 ): () => void {
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current != null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, []);
+
   return useCallback(() => {
     const el = ref.current;
     if (!el || typeof window === "undefined") return;
     const scrollable = findClosestScrollableAncestor(el);
     if (!scrollable) return;
+    if (rafRef.current != null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
     const locked = scrollable.scrollTop;
     const start = performance.now();
     const tick = () => {
       if (scrollable.scrollTop !== locked) scrollable.scrollTop = locked;
       if (performance.now() - start < durationMs) {
-        requestAnimationFrame(tick);
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        rafRef.current = null;
       }
     };
-    requestAnimationFrame(tick);
+    rafRef.current = requestAnimationFrame(tick);
   }, [ref, durationMs]);
 }

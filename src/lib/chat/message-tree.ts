@@ -86,9 +86,11 @@ export function getHeadPath(
   if (!resolvedHeadId) return [];
 
   const pathIds: string[] = [];
+  const seen = new Set<string>();
   let currentId: string | null | undefined = resolvedHeadId;
 
-  while (currentId != null) {
+  while (currentId != null && !seen.has(currentId)) {
+    seen.add(currentId);
     pathIds.push(currentId);
     currentId = parentMap.get(currentId);
   }

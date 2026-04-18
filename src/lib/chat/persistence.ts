@@ -1,4 +1,4 @@
-import type { ThreadListItem, StoredMessage } from "./types";
+import type { ThinkexUIMessage, ThreadListItem, StoredMessage } from "./types";
 import { STORAGE_FORMAT } from "./types";
 
 type F = typeof fetch;
@@ -153,13 +153,19 @@ export async function patchMessage(
 
 export async function generateTitle(
   remoteId: string,
-  messages: unknown[],
+  messages: ThinkexUIMessage[],
   f: F = fetch,
 ): Promise<string> {
+  const payload = messages.map((message) => ({
+    role: message.role,
+    content: message.parts
+      .filter((part): part is Extract<typeof part, { type: "text" }> => part.type === "text")
+      .map((part) => ({ type: "text" as const, text: part.text })),
+  }));
   const res = await f(`/api/threads/${encodeURIComponent(remoteId)}/title`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ messages: payload }),
   });
   await ensureOk(res);
   const body = (await res.json()) as { title: string };

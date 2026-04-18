@@ -197,6 +197,42 @@ describe("getHeadPath", () => {
   it("returns an empty path for an empty tree with no head", () => {
     expect(getHeadPath(new Map(), new Map(), new Map(), null, {})).toEqual([]);
   });
+
+  it("stops on a self-referential parent cycle", () => {
+    const messagesById = new Map<string, ThinkexUIMessage>([
+      ["A", createMessage("A")],
+    ]);
+    const parentMap = new Map<string, string | null>([["A", "A"]]);
+    const childrenMap = buildChildrenMap(parentMap);
+
+    expect(
+      getHeadPath(messagesById, parentMap, childrenMap, "A", {}).map(
+        (message) => message.id
+      )
+    ).toEqual(["A"]);
+  });
+
+  it(
+    "stops on a two-message parent cycle without hanging",
+    { timeout: 1000 },
+    () => {
+      const messagesById = new Map<string, ThinkexUIMessage>([
+        ["A", createMessage("A")],
+        ["B", createMessage("B")],
+      ]);
+      const parentMap = new Map<string, string | null>([
+        ["A", "B"],
+        ["B", "A"],
+      ]);
+      const childrenMap = buildChildrenMap(parentMap);
+
+      expect(
+        getHeadPath(messagesById, parentMap, childrenMap, "A", {}).map(
+          (message) => message.id
+        )
+      ).toEqual(["B", "A"]);
+    }
+  );
 });
 
 describe("getLatestLeafId", () => {
