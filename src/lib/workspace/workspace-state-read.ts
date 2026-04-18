@@ -8,7 +8,8 @@ import {
 import { rehydrateWorkspaceItem } from "./workspace-item-model";
 import type { Item } from "@/lib/workspace-state/types";
 
-type DbExecutor = typeof db | any;
+type DbTransaction = Parameters<(typeof db)["transaction"]>[0] extends (tx: infer T) => unknown ? T : never;
+type DbExecutor = typeof db | DbTransaction;
 
 async function readWorkspaceState(
   tx: DbExecutor,

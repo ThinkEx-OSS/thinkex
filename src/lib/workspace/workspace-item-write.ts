@@ -12,7 +12,8 @@ import {
 } from "./workspace-item-model";
 import { sanitizeWorkspaceItemForPersistence } from "./workspace-item-sanitize";
 
-type DbExecutor = typeof db | any;
+type DbTransaction = Parameters<(typeof db)["transaction"]>[0] extends (tx: infer T) => unknown ? T : never;
+type DbExecutor = typeof db | DbTransaction;
 
 export async function loadWorkspaceItemRecord(
   tx: DbExecutor,

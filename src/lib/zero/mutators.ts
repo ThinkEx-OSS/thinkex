@@ -73,7 +73,6 @@ function isJsonObject(value: unknown): value is JsonObject {
   );
 }
 
-const jsonValueSchema = z.custom<JsonValue>(isJsonValue);
 const jsonObjectSchema = z.custom<JsonObject>(isJsonObject);
 
 const itemSchema = z.object({
