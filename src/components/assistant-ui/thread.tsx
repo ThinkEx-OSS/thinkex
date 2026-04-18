@@ -40,14 +40,9 @@ import {
   useMessagePartText,
   useAuiState,
 } from "@assistant-ui/react";
-import {
-  defaultRangeExtractor,
-  useVirtualizer,
-  type Range,
-  type Virtualizer,
-} from "@tanstack/react-virtual";
+import { Virtualizer, type VirtualizerHandle } from "virtua";
 
-import type { FC, MutableRefObject, RefObject } from "react";
+import type { FC, RefObject } from "react";
 import { createContext, useContext } from "react";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 
@@ -121,35 +116,12 @@ interface ThreadProps {
   items?: Item[];
 }
 
-// Shared type: the @tanstack/react-virtual instance. Lifted to Thread so the
-// scroll controller can call scrollToIndex directly.
-type ThreadVirtualizer = Virtualizer<HTMLDivElement, HTMLDivElement>;
-
-// Default row height before the virtualizer measures actual sizes.
-const ROW_ESTIMATE_SIZE = 350;
-// Breathing room above a user message when scrollToIndex(align:'start').
-const SCROLL_PADDING_START = 16;
-// Bottom slack — extra space appended to the virtualized region so a freshly
-// sent user message can be anchored at the top of the viewport even when
-// the assistant hasn't streamed any content below it yet. Without this,
-// scrollToIndex(lastIndex, { align: 'start' }) clamps because the last
-// message is also the bottom of the scrollable area.
-const BOTTOM_SLACK_PX = 800;
-// Rows kept mounted outside the viewport for smooth scrolling.
-const OVERSCAN = 5;
+type ThreadVirtualizer = VirtualizerHandle;
 
 export const Thread: FC<ThreadProps> = ({ items = [] }) => {
   const viewportRef = useRef<HTMLDivElement>(null);
-  // Lifted so ThreadScrollController can imperatively scroll to an index
-  // without a separate "handle" abstraction.
   const virtualizerRef = useRef<ThreadVirtualizer | null>(null);
-
-  // Gate useVirtualizer behind mount so SSR/first-paint doesn't compute a
-  // range against a null scroll element (TanStack's `enabled` option).
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const captureBlankRef = useRef<(() => void) | null>(null);
 
   return (
     <ThreadPrimitive.Root
@@ -160,19 +132,13 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
     >
       {/*
         Custom scroll container — intentionally NOT ThreadPrimitive.Viewport.
-        assistant-ui's Viewport installs a ResizeObserver + subtree MutationObserver
-        that fights @tanstack/react-virtual. We own scroll behavior here instead.
-        • contain:strict = independent layout/paint root, cuts reflow during streaming
-        • overflow-anchor:none = disables browser scroll anchoring (fights the virtualizer)
+        assistant-ui's Viewport installs a ResizeObserver + subtree
+        MutationObserver that fights any virtualizer. We own scroll behavior.
       */}
       <div
         ref={viewportRef}
         className="aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll px-4"
-        style={{
-          contain: "strict",
-          overflowAnchor: "none",
-          scrollPaddingTop: `${SCROLL_PADDING_START}px`,
-        }}
+        style={{ contain: "strict", overflowAnchor: "none" }}
       >
         <AuiIf condition={({ thread }) => thread.isLoading}>
           <ThreadLoadingSkeleton />
@@ -184,9 +150,12 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
         <VirtualizedMessages
           scrollRef={viewportRef}
           virtualizerRef={virtualizerRef}
-          enabled={mounted}
+          captureBlankRef={captureBlankRef}
         />
-        <ThreadScrollController virtualizerRef={virtualizerRef} />
+        <ThreadScrollController
+          virtualizerRef={virtualizerRef}
+          captureBlankRef={captureBlankRef}
+        />
       </div>
 
       <div className="aui-thread-composer-wrapper mx-auto flex w-full max-w-[var(--thread-max-width)] flex-shrink-0 flex-col gap-4 overflow-visible rounded-t-3xl bg-sidebar px-4 pb-3 md:pb-4">
@@ -197,104 +166,49 @@ export const Thread: FC<ThreadProps> = ({ items = [] }) => {
 };
 
 interface ThreadScrollControllerProps {
-  virtualizerRef: MutableRefObject<ThreadVirtualizer | null>;
+  virtualizerRef: RefObject<ThreadVirtualizer | null>;
+  captureBlankRef: RefObject<(() => void) | null>;
 }
 
-/**
- * Owns scroll behavior for the virtualized thread. Two concerns:
- *
- * 1. LOAD / THREAD-SWITCH -> bottom, instant. Tracked via `threadListItem.id`
- *    + `thread.messages.length`. A ref-backed "last scrolled for" guard
- *    ensures we only snap to bottom on thread identity changes — not on every
- *    message count tick. Reading `messageCount` as a dep is what lets us
- *    catch the initial hydration: the runtime emits `thread.initialize`
- *    BEFORE `repository.import()`, so at event time count is 0. By making
- *    the effect depend on count, it re-runs once messages land and we can
- *    commit the scroll.
- *
- *    Mirrors assistant-ui's upstream `useThreadViewportAutoScroll`, except
- *    we target the virtualizer's measurement ledger instead of the raw
- *    `el.scrollHeight`.
- *
- * 2. NEW USER MESSAGE (thread.runStart) -> anchor at top, smooth. Event-driven.
- *    The count is read imperatively from the store inside the handler, NOT
- *    from the `messageCount` subscription closure: runStart fires
- *    synchronously between the repository mutation and React's commit, so
- *    `useEffectEvent`'s ref still holds the stale closure with the old count.
- *    Organic growth during streaming is deliberately ignored — the user owns
- *    scroll once anchored.
- */
 const ThreadScrollController: FC<ThreadScrollControllerProps> = ({
   virtualizerRef,
+  captureBlankRef,
 }) => {
   const aui = useAui();
-  // Reactive subscriptions: both drive the load/switch effect below. Using
-  // useAuiState over useAuiEvent lets us observe the settled state rather
-  // than racing event emission against React commits. `threadListItem.id`
-  // is the canonical thread identifier on the store proxy; `thread.threadId`
-  // only exists on the core runtime's ThreadState and isn't exposed here.
   const threadId = useAuiState((s) => s.threadListItem.id);
   const messageCount = useAuiState((s) => s.thread.messages.length);
 
-  const scrollToIndex = useCallback(
-    (count: number, align: "start" | "end", behavior: ScrollBehavior) => {
+  const scrollToLastIndex = useCallback(
+    (count: number, align: "start" | "end", smooth: boolean) => {
       if (count <= 0) return;
-      // Two RAFs: first lets react-virtual commit the new row count, second
-      // gives measureElement a chance to register row sizes before we scroll.
-      // scrollToIndex itself also retries internally for unmeasured rows.
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          virtualizerRef.current?.scrollToIndex(count - 1, { align, behavior });
-        });
+        virtualizerRef.current?.scrollToIndex(count - 1, { align, smooth });
       });
     },
     [virtualizerRef],
   );
 
-  // Track the thread we're currently "settled" on. Reset whenever the id
-  // changes so that visiting A → B → A re-scrolls A's bottom.
   const settledThreadIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Reset settle marker whenever the visible thread id changes; this makes
-    // A → B → A trigger a bottom-scroll on the second visit to A.
     if (settledThreadIdRef.current !== threadId) {
       settledThreadIdRef.current = null;
     }
-    // Wait for messages to land before committing the "settled" marker —
-    // ensureInitialized() fires before repository.import(), so on first
-    // mount messageCount is 0 and flips to N on the next commit.
     if (messageCount <= 0) return;
     if (settledThreadIdRef.current === threadId) return;
     settledThreadIdRef.current = threadId;
-    scrollToIndex(messageCount, "end", "instant");
-  }, [threadId, messageCount, scrollToIndex]);
+    scrollToLastIndex(messageCount, "end", false);
+  }, [threadId, messageCount, scrollToLastIndex]);
 
-  // New user message sent -> anchor at top with smooth animation. Event-driven
-  // because we need to react on the transition, not the steady state. We must
-  // read the count *imperatively from the store* here, not from the
-  // `messageCount` closure: `runStart` is emitted synchronously inside the
-  // runtime's append->startRun path, AFTER `repository.addOrUpdateMessage`
-  // appends the user message but BEFORE React commits the re-render. At that
-  // moment `useEffectEvent`'s ref (updated in useInsertionEffect, commit-phase)
-  // still points at the previous closure with the old count, so using the
-  // subscription value here would scroll to the last *previous* message.
-  // Reading `aui.thread().getState().messages.length` bypasses that window.
   useAuiEvent("thread.runStart", () => {
+    captureBlankRef.current?.();
     const liveCount = aui?.thread()?.getState()?.messages.length ?? 0;
-    scrollToIndex(liveCount, "start", "smooth");
+    scrollToLastIndex(liveCount, "start", true);
   });
 
   return null;
 };
 
-/**
- * Forwards hover state to the aui message client — the only side-effect of
- * MessagePrimitive.Root we still need (powers ActionBarPrimitive autohide and
- * MessagePrimitive.If lastOrHover). We dropped MessagePrimitive.Root itself
- * because its ThreadViewportSlack wrapper injects inline min-height that the
- * virtualizer's measureElement reads as the row size.
- */
 const useMessageHoverHandlers = () => {
   const aui = useAui();
   const onMouseEnter = useCallback(() => {
@@ -308,108 +222,102 @@ const useMessageHoverHandlers = () => {
 
 interface VirtualizedMessagesProps {
   scrollRef: RefObject<HTMLDivElement | null>;
-  virtualizerRef: MutableRefObject<ThreadVirtualizer | null>;
-  enabled: boolean;
+  virtualizerRef: RefObject<ThreadVirtualizer | null>;
+  captureBlankRef: RefObject<(() => void) | null>;
 }
 
 const VirtualizedMessages: FC<VirtualizedMessagesProps> = ({
   scrollRef,
   virtualizerRef,
-  enabled,
+  captureBlankRef,
 }) => {
   const aui = useAui();
-  // Subscribing to length + isRunning (both primitives) is enough to drive
-  // re-renders. getItemKey reads ids lazily from live aui state, so we don't
-  // need to subscribe to the whole messages array (which would allocate a
-  // new array identity on every streaming token).
   const messageCount = useAuiState((s) => s.thread.messages.length);
   const isRunning = useAuiState((s) => s.thread.isRunning);
+  const [blankSize, setBlankSize] = useState(0);
+  const [lastUserSize, setLastUserSize] = useState(0);
+  const [measuredUserElement, setMeasuredUserElement] =
+    useState<HTMLDivElement | null>(null);
 
-  // Pin the streaming assistant message into the rendered range even when the
-  // user has scrolled away. Without this, scrolling up during a stream would
-  // unmount the message — stopping useMessagePartText from receiving chunks
-  // and flipping hover/last state. Only active while thread.isRunning.
-  const pinnedIndex = isRunning && messageCount > 0 ? messageCount - 1 : -1;
-  const rangeExtractor = useCallback(
-    (range: Range) => {
-      const base = defaultRangeExtractor(range);
-      if (pinnedIndex < 0 || base.includes(pinnedIndex)) return base;
-      // Keep ascending order so react-virtual's internal diff is linear.
-      return [...base, pinnedIndex].sort((a, b) => a - b);
-    },
-    [pinnedIndex],
-  );
-
-  const virtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
-    count: messageCount,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_ESTIMATE_SIZE,
-    overscan: OVERSCAN,
-    enabled,
-    // Stable keys by aui message id prevent measurementsCache invalidation
-    // on branch flips / reorders. Read live from aui state so this selector
-    // doesn't need to subscribe to the full messages array.
-    getItemKey: (index) =>
-      aui?.thread()?.getState()?.messages[index]?.id ?? index,
-    // Breathing room above a user message when scrollToIndex(align:'start').
-    scrollPaddingStart: SCROLL_PADDING_START,
-    // Bottom slack — padding appended after the last row so scrollToIndex(
-    // lastIndex, { align: 'start' }) can land the new user message at the top
-    // even when the assistant hasn't streamed content below it yet. Without
-    // this padding, getMaxScrollOffset clamps the scroll mid-viewport.
-    paddingEnd: BOTTOM_SLACK_PX,
-    // Native scrollend event on modern browsers skips TanStack's polling.
-    useScrollendEvent: true,
-    rangeExtractor,
-  });
-
-  // Publish the instance up to Thread so ThreadScrollController can reach it
-  // without threading props through every render.
   useEffect(() => {
-    virtualizerRef.current = virtualizer;
-    return () => {
-      virtualizerRef.current = null;
+    captureBlankRef.current = () => {
+      setBlankSize(virtualizerRef.current?.viewportSize ?? 0);
     };
-  }, [virtualizer, virtualizerRef]);
+    return () => {
+      captureBlankRef.current = null;
+    };
+  }, [captureBlankRef, virtualizerRef]);
+
+  useEffect(() => {
+    if (!isRunning && blankSize !== 0) {
+      setBlankSize(0);
+    }
+  }, [isRunning, blankSize]);
+
+  useEffect(() => {
+    if (!isRunning && lastUserSize !== 0) {
+      setLastUserSize(0);
+    }
+  }, [isRunning, lastUserSize]);
+
+  useEffect(() => {
+    if (!measuredUserElement) return;
+    const update = () => {
+      setLastUserSize(measuredUserElement.getBoundingClientRect().height);
+    };
+    update();
+    const resizeObserver = new ResizeObserver(update);
+    resizeObserver.observe(measuredUserElement);
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [measuredUserElement]);
+
+  const measureUserMessageRef = useCallback((el: HTMLDivElement | null) => {
+    setMeasuredUserElement(el);
+  }, []);
+
+  const streamingAssistantIndex = isRunning ? messageCount - 1 : -1;
+  const measuredUserIndex = isRunning ? messageCount - 2 : -1;
+  const assistantMinHeight =
+    streamingAssistantIndex >= 0 ? Math.max(0, blankSize - lastUserSize) : 0;
 
   if (messageCount === 0) return null;
 
-  // Per-row absolute positioning (not the single-wrapper translate shown in
-  // TanStack's "dynamic" docs example). The wrapper-translate pattern assumes
-  // items is a CONTIGUOUS index range, but our rangeExtractor pins the
-  // streaming last assistant message so items can look like [5,6,7,...,42]
-  // while the user scrolls up. Translating per-row keeps each row at its true
-  // virtualRow.start regardless of gaps.
-  const items = virtualizer.getVirtualItems();
-
   return (
-    <div
-      style={{
-        height: `${virtualizer.getTotalSize()}px`,
-        width: "100%",
-        position: "relative",
-      }}
+    <Virtualizer
+      ref={virtualizerRef}
+      scrollRef={scrollRef}
+      keepMounted={
+        streamingAssistantIndex >= 0 ? [streamingAssistantIndex] : undefined
+      }
     >
-      {items.map((virtualRow) => (
-        <div
-          key={virtualRow.key}
-          data-index={virtualRow.index}
-          ref={virtualizer.measureElement}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            transform: `translateY(${virtualRow.start}px)`,
-          }}
-        >
-          <ThreadPrimitive.MessageByIndex
-            index={virtualRow.index}
-            components={MESSAGE_COMPONENTS}
-          />
-        </div>
-      ))}
-    </div>
+      {Array.from({ length: messageCount }, (_, index) => {
+        const message = aui?.thread()?.getState()?.messages[index];
+        const id = message?.id ?? index;
+        const role = message?.role;
+        const isStreamingAssistant =
+          role === "assistant" && index === streamingAssistantIndex;
+        const isMeasuredUser = role === "user" && index === measuredUserIndex;
+
+        return (
+          <div
+            key={id}
+            ref={isMeasuredUser ? measureUserMessageRef : undefined}
+            style={
+              isStreamingAssistant
+                ? { minHeight: `${assistantMinHeight}px` }
+                : undefined
+            }
+          >
+            <ThreadPrimitive.MessageByIndex
+              index={index}
+              components={MESSAGE_COMPONENTS}
+            />
+          </div>
+        );
+      })}
+    </Virtualizer>
   );
 };
 
