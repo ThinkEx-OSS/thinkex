@@ -216,15 +216,18 @@ interface ThreadScrollControllerProps {
  *    we target the virtualizer's measurement ledger instead of the raw
  *    `el.scrollHeight`.
  *
- * 2. NEW USER MESSAGE (thread.runStart) -> anchor at top, smooth. Event-driven
- *    because we need the transition, not the steady state. Reads the latest
- *    `messageCount` from the subscription via `useEffectEvent` semantics of
- *    `useAuiEvent`. Organic growth during streaming is deliberately ignored —
- *    the user owns scroll once anchored.
+ * 2. NEW USER MESSAGE (thread.runStart) -> anchor at top, smooth. Event-driven.
+ *    The count is read imperatively from the store inside the handler, NOT
+ *    from the `messageCount` subscription closure: runStart fires
+ *    synchronously between the repository mutation and React's commit, so
+ *    `useEffectEvent`'s ref still holds the stale closure with the old count.
+ *    Organic growth during streaming is deliberately ignored — the user owns
+ *    scroll once anchored.
  */
 const ThreadScrollController: FC<ThreadScrollControllerProps> = ({
   virtualizerRef,
 }) => {
+  const aui = useAui();
   // Reactive subscriptions: both drive the load/switch effect below. Using
   // useAuiState over useAuiEvent lets us observe the settled state rather
   // than racing event emission against React commits. `threadListItem.id`
@@ -268,12 +271,18 @@ const ThreadScrollController: FC<ThreadScrollControllerProps> = ({
   }, [threadId, messageCount, scrollToIndex]);
 
   // New user message sent -> anchor at top with smooth animation. Event-driven
-  // because we need to react on the transition, not the steady state. The
-  // handler reads `messageCount` via useEffectEvent (always latest), and
-  // since runStart fires after the user message is appended to the store,
-  // `messageCount` already reflects the new row.
+  // because we need to react on the transition, not the steady state. We must
+  // read the count *imperatively from the store* here, not from the
+  // `messageCount` closure: `runStart` is emitted synchronously inside the
+  // runtime's append->startRun path, AFTER `repository.addOrUpdateMessage`
+  // appends the user message but BEFORE React commits the re-render. At that
+  // moment `useEffectEvent`'s ref (updated in useInsertionEffect, commit-phase)
+  // still points at the previous closure with the old count, so using the
+  // subscription value here would scroll to the last *previous* message.
+  // Reading `aui.thread().getState().messages.length` bypasses that window.
   useAuiEvent("thread.runStart", () => {
-    scrollToIndex(messageCount, "start", "smooth");
+    const liveCount = aui?.thread()?.getState()?.messages.length ?? 0;
+    scrollToIndex(liveCount, "start", "smooth");
   });
 
   return null;
