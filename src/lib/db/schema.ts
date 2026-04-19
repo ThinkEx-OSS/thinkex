@@ -743,3 +743,53 @@ export const chatMessages = pgTable(
     ),
   ],
 );
+
+
+// === Chat v2 (parallel to assistant-ui chat) ===
+// MVP scope: user-scoped only, no workspace FK, no branching, no format column, no attachments column (attachments live inside parts), no RLS.
+
+export const chatV2 = pgTable(
+  "chat_v2",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    title: text("title").notNull().default("New chat"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("idx_chat_v2_user_created").using(
+      "btree",
+      table.userId.asc().nullsLast().op("text_ops"),
+      table.createdAt.desc().nullsFirst().op("timestamptz_ops"),
+    ),
+  ],
+);
+
+export const chatV2Message = pgTable(
+  "chat_v2_message",
+  {
+    id: uuid("id").primaryKey().notNull(),
+    chatId: uuid("chat_id")
+      .notNull()
+      .references(() => chatV2.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    parts: jsonb("parts").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("idx_chat_v2_message_chat_created").using(
+      "btree",
+      table.chatId.asc().nullsLast().op("uuid_ops"),
+      table.createdAt.asc().nullsLast().op("timestamptz_ops"),
+    ),
+  ],
+);
