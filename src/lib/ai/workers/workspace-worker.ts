@@ -623,11 +623,9 @@ export async function workspaceWorker(
           if (!params.itemId || !params.itemType) {
             throw new Error("Item ID and itemType required for edit");
           }
-          const isRenameOnly = params.newName && (!params.edits || params.edits.length === 0);
-          if (
-            !isRenameOnly &&
-            (!params.edits || params.edits.length === 0)
-          ) {
+          const isRenameOnly =
+            params.newName && (!params.edits || params.edits.length === 0);
+          if (!isRenameOnly && (!params.edits || params.edits.length === 0)) {
             throw new Error("edits array required for edit");
           }
 
@@ -657,7 +655,10 @@ export async function workspaceWorker(
             };
             let serialized = JSON.stringify(payload, null, 2);
             if (!isRenameOnly) {
-              if (params.edits!.length === 1 && params.edits![0].oldText === "") {
+              if (
+                params.edits!.length === 1 &&
+                params.edits![0].oldText === ""
+              ) {
                 serialized = params.edits![0].newText;
               } else {
                 const { newContent } = applyEdits(serialized, params.edits!);
@@ -732,7 +733,10 @@ export async function workspaceWorker(
             const payload = { questions };
             let serialized = JSON.stringify(payload, null, 2);
             if (!isRenameOnly) {
-              if (params.edits!.length === 1 && params.edits![0].oldText === "") {
+              if (
+                params.edits!.length === 1 &&
+                params.edits![0].oldText === ""
+              ) {
                 serialized = params.edits![0].newText;
               } else {
                 const { newContent } = applyEdits(serialized, params.edits!);
@@ -759,11 +763,18 @@ export async function workspaceWorker(
             }
 
             const validatedQuestions: QuizQuestion[] = parsed.questions.map(
-              (q, i) => {
+              (q: any, i: number) => {
                 const id = q?.id ?? generateItemId();
-                const type =
-                  q?.type === "true_false" ? "true_false" : "multiple_choice";
-                const questionText = String(q?.questionText ?? "");
+                const legacyType =
+                  q?.type === "true_false"
+                    ? "true_false"
+                    : q?.type === "multiple_choice"
+                      ? "multiple_choice"
+                      : undefined;
+                const questionText =
+                  typeof q?.question === "string"
+                    ? q.question
+                    : String(q?.questionText ?? "");
                 const options = Array.isArray(q?.options)
                   ? q.options.map(String)
                   : [];
@@ -771,21 +782,28 @@ export async function workspaceWorker(
                   typeof q?.correctIndex === "number"
                     ? Math.max(0, Math.min(q.correctIndex, options.length - 1))
                     : 0;
-                if (
-                  (type === "multiple_choice" && options.length !== 4) ||
-                  (type === "true_false" && options.length !== 2)
-                ) {
+                if (options.length !== 2 && options.length !== 4) {
                   throw new Error(
-                    `Question ${i + 1}: multiple_choice needs 4 options, true_false needs 2`,
+                    `Question ${i + 1}: must have exactly 2 options (true/false) or 4 options (multiple choice)`,
                   );
                 }
-                return {
+                const out: QuizQuestion = {
                   id,
-                  type,
-                  questionText,
+                  question: questionText,
                   options,
                   correctIndex,
                 };
+                if (legacyType) out.type = legacyType;
+                if (typeof q?.questionText === "string") {
+                  out.questionText = q.questionText;
+                }
+                if (typeof q?.explanation === "string") {
+                  out.explanation = q.explanation;
+                }
+                if (Array.isArray(q?.distractorRationales)) {
+                  out.distractorRationales = q.distractorRationales.map(String);
+                }
+                return out;
               },
             );
 
@@ -850,7 +868,10 @@ export async function workspaceWorker(
               contentOld = "";
               contentNew = "";
             } else {
-              if (params.edits!.length === 1 && params.edits![0].oldText === "") {
+              if (
+                params.edits!.length === 1 &&
+                params.edits![0].oldText === ""
+              ) {
                 contentOld = "";
                 contentNew = params.edits![0].newText;
               } else {

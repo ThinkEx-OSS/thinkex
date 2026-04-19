@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { useAui } from "@assistant-ui/react";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
+import { getQuestionText } from "@/lib/workspace-state/quiz-shuffle";
 
 interface QuizContentProps {
   item: Item;
@@ -214,7 +215,7 @@ export function QuizContent({
     if (composer) {
       try {
         composer.setText(
-          `Give me a hint for this question in "${item.name}": ${currentQuestion.questionText}`,
+          `Give me a hint for this question in "${item.name}": ${getQuestionText(currentQuestion)}`,
         );
         useUIStore.getState().setIsChatExpanded(true);
         focusComposerInput(true);
@@ -241,7 +242,7 @@ export function QuizContent({
         const correctAnswer =
           currentQuestion.options[currentQuestion.correctIndex];
         composer.setText(
-          `Explain this question in "${item.name}": ${currentQuestion.questionText}\n\nI answered: ${userAnswer}\nCorrect answer: ${correctAnswer}`,
+          `Explain this question in "${item.name}": ${getQuestionText(currentQuestion)}\n\nI answered: ${userAnswer}\nCorrect answer: ${correctAnswer}`,
         );
         useUIStore.getState().setIsChatExpanded(true);
         focusComposerInput(true);
@@ -451,7 +452,7 @@ export function QuizContent({
         <div className="mb-6">
           <div className="text-sm text-foreground prose prose-invert prose-sm max-w-none dark:text-white">
             <StreamdownMarkdown className="text-sm text-foreground prose prose-invert prose-sm max-w-none dark:text-white">
-              {currentQuestion.questionText}
+              {getQuestionText(currentQuestion)}
             </StreamdownMarkdown>
           </div>
         </div>
@@ -581,17 +582,25 @@ export function QuizContent({
                 </>
               )}
             </div>
-            <button
-              onMouseDown={preventFocusSteal}
-              onClick={(e) => {
-                stopPropagation(e);
-                handleAskExplain();
-              }}
-              className="mt-2 flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-800 transition-colors cursor-pointer dark:text-foreground/60 dark:hover:text-foreground/80"
-            >
-              <MessageCircleQuestion className="w-3.5 h-3.5" />
-              Ask AI to explain
-            </button>
+            {currentQuestion.explanation ? (
+              <div className="mt-2 text-sm text-gray-700 prose prose-sm max-w-none dark:text-foreground/80 dark:prose-invert">
+                <StreamdownMarkdown>
+                  {currentQuestion.explanation}
+                </StreamdownMarkdown>
+              </div>
+            ) : (
+              <button
+                onMouseDown={preventFocusSteal}
+                onClick={(e) => {
+                  stopPropagation(e);
+                  handleAskExplain();
+                }}
+                className="mt-2 flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-800 transition-colors cursor-pointer dark:text-foreground/60 dark:hover:text-foreground/80"
+              >
+                <MessageCircleQuestion className="w-3.5 h-3.5" />
+                Ask AI to explain
+              </button>
+            )}
           </div>
         )}
       </div>
