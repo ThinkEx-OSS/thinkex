@@ -64,6 +64,22 @@ describe("materializeQuizQuestion", () => {
     });
     expect(q1.id).not.toBe(q2.id);
   });
+
+  it("throws when correctAnswer duplicates a distractor", () => {
+    expect(() =>
+      materializeQuizQuestion({
+        rationale: "r",
+        question: "q",
+        correctAnswer: "Paris",
+        distractors: [
+          { text: "London", whyWrong: "x" },
+          { text: "paris", whyWrong: "y" },
+          { text: "Berlin", whyWrong: "z" },
+        ],
+        explanation: "e",
+      }),
+    ).toThrow(/duplicate option text/);
+  });
 });
 
 describe("getQuestionText", () => {
@@ -83,6 +99,18 @@ describe("getQuestionText", () => {
     expect(
       getQuestionText({
         id: "x",
+        questionText: "old",
+        options: [],
+        correctIndex: 0,
+      } as any),
+    ).toBe("old");
+  });
+
+  it("falls back when new field is empty", () => {
+    expect(
+      getQuestionText({
+        id: "x",
+        question: "   ",
         questionText: "old",
         options: [],
         correctIndex: 0,

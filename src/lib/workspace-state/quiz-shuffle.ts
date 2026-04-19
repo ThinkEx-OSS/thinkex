@@ -1,5 +1,7 @@
-import type { QuizQuestion } from "./types";
+import type { z } from "zod";
 import { generateItemId } from "./item-helpers";
+import { quizQuestionInputSchema } from "./item-data-schemas";
+import type { QuizQuestion } from "./types";
 
 function shuffleInPlace<T>(arr: T[]): T[] {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -9,17 +11,23 @@ function shuffleInPlace<T>(arr: T[]): T[] {
   return arr;
 }
 
-export interface QuizInputQuestion {
-  rationale: string;
-  question: string;
-  correctAnswer: string;
-  distractors: Array<{ text: string; whyWrong: string }>;
-  explanation: string;
-}
+export type QuizInputQuestion = z.infer<typeof quizQuestionInputSchema>;
 
 export function materializeQuizQuestion(
   input: QuizInputQuestion,
 ): QuizQuestion {
+  const allTexts = [
+    input.correctAnswer,
+    ...input.distractors.map((d) => d.text),
+  ];
+  const normalized = allTexts.map((t) => t.trim().toLowerCase());
+
+  if (new Set(normalized).size !== normalized.length) {
+    throw new Error(
+      `Quiz question has duplicate option text: ${JSON.stringify(allTexts)}. Each option (including correctAnswer) must be distinct.`,
+    );
+  }
+
   const correctText = input.correctAnswer;
   const entries: Array<{ text: string; whyWrong: string | null }> = [
     { text: correctText, whyWrong: null },
@@ -42,5 +50,8 @@ export function materializeQuizQuestion(
 }
 
 export function getQuestionText(q: QuizQuestion): string {
-  return q.question ?? q.questionText ?? "";
+  const newField = q.question?.trim() ? q.question : undefined;
+  const legacyField = q.questionText?.trim() ? q.questionText : undefined;
+
+  return newField ?? legacyField ?? "";
 }
