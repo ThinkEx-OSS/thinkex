@@ -3,31 +3,38 @@ import { getSessionCookie } from "better-auth/cookies";
 
 /**
  * Next.js Proxy for Better Auth
- * 
+ *
  * NOTE: getSessionCookie() only checks for cookie existence, not validation.
  * This is intentional for performance - we don't want to block requests with
  * database/API calls in proxy.
- * 
+ *
  * Actual security validation happens in:
  * - API routes using auth.api.getSession()
  * - Server components using auth.api.getSession()
- * 
+ *
  * This proxy is only for optimistic redirects based on cookie presence.
  */
 export async function proxy(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
   const { pathname } = request.nextUrl;
 
-  // Send all users from root to home - session handling happens there
+  // Root: send logged-in users to the dashboard, but serve the public
+  // marketing landing page to unauthenticated visitors so search engines
+  // and OAuth reviewers can see app info, features, and privacy links
+  // without going through any login or anonymous session creation.
   if (pathname === "/") {
-    return NextResponse.redirect(new URL("/home", request.url));
+    if (sessionCookie) {
+      return NextResponse.redirect(new URL("/home", request.url));
+    }
+    return NextResponse.next();
   }
 
   // Redirect authenticated users away from sign-in page only
   // Note: /sign-up is NOT blocked because anonymous users (who have a session cookie)
   // need to be able to reach the sign-up page to create a real account
   if (sessionCookie && pathname === "/sign-in") {
-    const redirectUrl = request.nextUrl.searchParams.get('redirect_url') || '/home';
+    const redirectUrl =
+      request.nextUrl.searchParams.get("redirect_url") || "/home";
     return NextResponse.redirect(new URL(redirectUrl, request.url));
   }
 
@@ -41,9 +48,8 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Skip Next.js internals and all static files, unless found in search params
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     // Always run for API routes
-    '/(api|trpc)(.*)',
+    "/(api|trpc)(.*)",
   ],
-}
-
+};
