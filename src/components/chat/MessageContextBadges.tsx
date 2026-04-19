@@ -1,7 +1,6 @@
 "use client";
 
 import { memo } from "react";
-import { useAuiState } from "@assistant-ui/react";
 import { BsArrowReturnRight } from "react-icons/bs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ReplySelection } from "@/lib/stores/ui-store";
@@ -13,14 +12,10 @@ type MessageCustomMetadata = {
 };
 
 function MessageContextBadgesImpl({
-  message: propMessage,
+  message,
 }: {
-  message?: ThinkexUIMessage;
+  message: ThinkexUIMessage;
 }) {
-  const auiMessage = useAuiState(
-    (state) => state.message as unknown as ThinkexUIMessage | undefined,
-  );
-  const message = propMessage ?? auiMessage;
   if (!message || message.role !== "user") return null;
 
   const custom = (message.metadata as { custom?: MessageCustomMetadata } | undefined)?.custom;

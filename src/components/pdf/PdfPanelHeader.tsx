@@ -17,9 +17,8 @@ import {
 
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { useAui } from "@assistant-ui/react";
 import { toast } from "sonner";
-import { focusComposerInput } from "@/lib/utils/composer-utils";
+import { useComposerOptional } from "@/components/chat-v2/runtime/composer-context";
 
 // PDF Plugin imports
 import { useZoom, ZoomMode } from '@embedpdf/plugin-zoom/react';
@@ -83,9 +82,9 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
     const captureRef = useRef(capture);
     captureRef.current = capture;
 
-    const aui = useAui();
-    const auiRef = useRef(aui);
-    auiRef.current = aui;
+    const composer = useComposerOptional();
+    const composerRef = useRef(composer);
+    composerRef.current = composer;
 
     const isChatExpanded = useUIStore((state) => state.isChatExpanded);
     const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
@@ -102,7 +101,11 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
                 const file = new File([result.blob], filename, { type: result.imageType });
 
                 // Add attachment to composer
-                await auiRef.current.composer().addAttachment(file);
+                await composerRef.current?.addAttachment(file);
+                if (!composerRef.current) {
+                    toast.error("Chat not available. Please try again.");
+                    return;
+                }
                 toast.success("Screenshot added to chat");
 
                 // Turn off capture mode
@@ -110,7 +113,7 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
 
                 // Focus composer similar to reply flow — expand chat if collapsed, then focus input
                 useUIStore.getState().setIsChatExpanded(true);
-                focusComposerInput();
+                setTimeout(() => composerRef.current?.focus(), 100);
 
             } catch (error) {
                 console.error("Failed to add capture attachment:", error);

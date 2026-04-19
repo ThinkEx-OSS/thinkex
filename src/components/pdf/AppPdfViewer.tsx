@@ -16,23 +16,23 @@ import { FullscreenPluginPackage } from '@embedpdf/plugin-fullscreen/react';
 import { InteractionManagerPluginPackage, PagePointerProvider } from '@embedpdf/plugin-interaction-manager/react';
 import { TilingPluginPackage, TilingLayer } from '@embedpdf/plugin-tiling/react';
 import { ThumbnailPluginPackage, ThumbnailsPane, ThumbImg } from '@embedpdf/plugin-thumbnail/react';
-import { AnnotationPluginPackage, AnnotationLayer, useAnnotationCapability, AnnotationSelectionMenuProps } from '@embedpdf/plugin-annotation/react';
+import { AnnotationPluginPackage, AnnotationLayer } from '@embedpdf/plugin-annotation/react';
 import { CapturePluginPackage, MarqueeCapture, useCapture } from '@embedpdf/plugin-capture/react';
 import { HistoryPluginPackage } from '@embedpdf/plugin-history/react';
 import { SearchPluginPackage, SearchLayer, useSearch } from '@embedpdf/plugin-search/react';
 import { MatchFlag } from '@embedpdf/models';
 import { ExportPluginPackage } from '@embedpdf/plugin-export/react';
 
-import { Loader2, ChevronLeft, ChevronRight, Trash2, Search, X as XIcon, ArrowUp, ArrowDown } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, Search, X as XIcon, ArrowUp, ArrowDown } from 'lucide-react';
 import { FaQuoteRight } from "react-icons/fa6";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { askAiPrimaryButtonClass } from "@/lib/ui/ask-ai-toolbar-styles";
 import { toast } from "sonner";
 import { useMemo, ReactNode, useState, useEffect, useRef, useCallback } from 'react';
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { AnnotationToolbar } from './AnnotationToolbar';
 import { PdfPasswordPrompt } from './PdfPasswordPrompt';
+import { useComposerOptional } from "@/components/chat-v2/runtime/composer-context";
 
 // ─────────────────────────────────────────────────────────
 // PDF State Persistence
@@ -175,31 +175,6 @@ const CaptureOverlay = ({ documentId }: { documentId: string }) => {
   );
 };
 
-const AnnotationSelectionMenu = ({
-  selected,
-  context,
-  // documentId, // Note: documentId comes from props spread in render, but explicit prop also works
-  menuWrapperProps,
-  rect,
-}: AnnotationSelectionMenuProps & { documentId: string }) => {
-  const { provides: annotationCapability } = useAnnotationCapability();
-  const documentId = (context.annotation.object as any).documentId || (menuWrapperProps as any).documentId;
-
-  const handleDelete = () => {
-    // If we have access to documentId via closure or prop, use it
-    const { pageIndex, id } = context.annotation.object;
-    // We need the documentId to get the scope. 
-    // In this specific integration, we pass documentId explicitly.
-  };
-
-  // Since we need documentId to delete, we'll implement a simpler inline delete in the toolbar for now,
-  // OR we can rely on the passed-in "documentId" prop if we wrap it correctly.
-
-  // Let's rely on the toolbar for deletion to keep this clean, or render a simple visual indicator.
-  // Actually, standard practice is to pass documentId.
-  return null;
-};
-
 // ... (TextSelectionMenu and PageControls remain unchanged)
 const TextSelectionMenu = ({
   menuWrapperProps,
@@ -210,6 +185,7 @@ const TextSelectionMenu = ({
   const { provides: selectionCapability } = useSelectionCapability();
   const { state: scrollState } = useScroll(documentId);
   const addReplySelection = useUIStore((state) => state.addReplySelection);
+  const composer = useComposerOptional();
 
   // Ask AI handler
   const handleAskAI = useCallback(() => {
@@ -236,7 +212,7 @@ const TextSelectionMenu = ({
           });
           scope.clear();
           toast.success("Added to context");
-          focusComposerInput();
+          composer?.focus();
         } else {
           console.warn("Ask AI: No text extracted");
         }
@@ -249,7 +225,14 @@ const TextSelectionMenu = ({
       console.error("Ask AI Error:", err);
       toast.error("Failed to add context");
     }
-  }, [selectionCapability, documentId, addReplySelection, scrollState?.currentPage, itemName]);
+  }, [
+    selectionCapability,
+    documentId,
+    addReplySelection,
+    scrollState?.currentPage,
+    itemName,
+    composer,
+  ]);
 
   return (
     <Popover open>

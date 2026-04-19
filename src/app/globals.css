@@ -218,11 +218,11 @@
   }
 }
 
-/* Prevent CSS smooth scrolling from interfering with assistant-ui's programmatic
-   scrollTo calls. The library uses scrollTo({ behavior: "auto" }) which defers
+/* Prevent CSS smooth scrolling from interfering with programmatic
+   scrollTo calls. The list uses scrollTo({ behavior: "auto" }) which defers
    to this CSS property — smooth animation races with DOM updates during streaming,
-   causing missed/janky scroll positions. See: assistant-ui/assistant-ui#3648 */
-.aui-thread-viewport {
+   causing missed/janky scroll positions. */
+.chat-v2-thread-viewport {
   scroll-behavior: auto;
 }
 

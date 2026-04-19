@@ -22,9 +22,8 @@ import {
 } from "lucide-react";
 import { StreamdownMarkdown } from "@/components/ui/streamdown-markdown";
 import { toast } from "sonner";
-import { useAui } from "@assistant-ui/react";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { focusComposerInput } from "@/lib/utils/composer-utils";
+import { useComposerOptional } from "@/components/chat-v2/runtime/composer-context";
 
 interface QuizContentProps {
   item: Item;
@@ -41,7 +40,7 @@ export function QuizContent({
 }: QuizContentProps) {
   const quizData = item.data as QuizData;
   const questions = quizData.questions || [];
-  const aui = useAui();
+  const composer = useComposerOptional();
 
   // UI store for card selection
   const selectedCardIds = useUIStore((state) => state.selectedCardIds);
@@ -259,7 +258,6 @@ export function QuizContent({
     }
 
     // Then send the message via composer
-    const composer = aui?.composer?.();
     if (composer) {
       try {
         composer.setText("Add 5 more questions to this quiz");
@@ -278,14 +276,13 @@ export function QuizContent({
       toggleCardSelection(item.id);
     }
 
-    const composer = aui?.composer?.();
     if (composer) {
       try {
         composer.setText(
           `Give me a hint for this question in "${item.name}": ${currentQuestion.questionText}`,
         );
         useUIStore.getState().setIsChatExpanded(true);
-        focusComposerInput(true);
+        setTimeout(() => composer.focus(), 100);
       } catch (error) {
         toast.error("Failed to send request. Please try again.");
       }
@@ -299,7 +296,6 @@ export function QuizContent({
       toggleCardSelection(item.id);
     }
 
-    const composer = aui?.composer?.();
     if (composer) {
       try {
         const userAnswer =
@@ -312,7 +308,7 @@ export function QuizContent({
           `Explain this question in "${item.name}": ${currentQuestion.questionText}\n\nI answered: ${userAnswer}\nCorrect answer: ${correctAnswer}`,
         );
         useUIStore.getState().setIsChatExpanded(true);
-        focusComposerInput(true);
+        setTimeout(() => composer.focus(), 100);
       } catch (error) {
         toast.error("Failed to send request. Please try again.");
       }

@@ -73,7 +73,7 @@ import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
 import { WorkspaceFeedbackDialog } from "./WorkspaceFeedbackDialog";
-import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
+import { PromptBuilderDialog } from "@/components/chat-v2/composer/PromptBuilderDialog";
 const EMPTY_ITEMS: Item[] = [];
 const EMPTY_RESPONSIVE_BREADCRUMBS = {
   visibleTailKeys: [] as string[],

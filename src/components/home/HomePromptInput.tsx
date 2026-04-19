@@ -5,7 +5,7 @@ import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
+import { TooltipIconButton } from "@/components/chat-v2/ui/tooltip-icon-button";
 import TypingText from "@/components/ui/typing-text";
 import {
   useHomeAttachments,

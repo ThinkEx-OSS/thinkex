@@ -48,7 +48,7 @@ import { AudioRecordingIndicator } from "./AudioRecordingIndicator";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 import { filterItemIdsForFolderCreation } from "@/lib/workspace-state/search";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
-import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
+import { PromptBuilderDialog } from "@/components/chat-v2/composer/PromptBuilderDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
