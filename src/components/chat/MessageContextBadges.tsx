@@ -6,17 +6,21 @@ import { BsArrowReturnRight } from "react-icons/bs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ReplySelection } from "@/lib/stores/ui-store";
 import { ReplySelectionRichText } from "@/components/chat/ReplySelectionRichText";
+import type { ThinkexUIMessage } from "@/lib/chat/types";
 
 type MessageCustomMetadata = {
   replySelections?: ReplySelection[];
 };
 
-/**
- * Renders persisted “Ask AI” text context from message.metadata.custom
- * when viewing user messages in history.
- */
-function MessageContextBadgesImpl() {
-  const message = useAuiState((s) => s.message);
+function MessageContextBadgesImpl({
+  message: propMessage,
+}: {
+  message?: ThinkexUIMessage;
+}) {
+  const auiMessage = useAuiState(
+    (state) => state.message as unknown as ThinkexUIMessage | undefined,
+  );
+  const message = propMessage ?? auiMessage;
   if (!message || message.role !== "user") return null;
 
   const custom = (message.metadata as { custom?: MessageCustomMetadata } | undefined)?.custom;
