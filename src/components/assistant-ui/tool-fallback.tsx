@@ -1,9 +1,9 @@
-import type { ToolCallMessagePartComponent } from "@assistant-ui/react";
+import type { ChatToolCallPartComponent } from "@/lib/chat/runtime";
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
-export const ToolFallback: ToolCallMessagePartComponent = ({
+export const ToolFallback: ChatToolCallPartComponent = ({
   toolName,
   argsText,
   result,

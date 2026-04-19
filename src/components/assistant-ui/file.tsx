@@ -11,7 +11,7 @@ import {
   BracesIcon,
   DownloadIcon,
 } from "lucide-react";
-import type { FileMessagePartComponent } from "@assistant-ui/react";
+import type { ChatFilePartComponent } from "@/lib/chat/runtime";
 import { cn } from "@/lib/utils";
 
 const fileVariants = cva(
@@ -187,7 +187,7 @@ function FileDownload({
   );
 }
 
-const FileImpl: FileMessagePartComponent = ({ filename, data, mimeType }) => {
+const FileImpl: ChatFilePartComponent = ({ filename, data, mimeType }) => {
   const bytes = getBase64Size(data);
 
   return (
@@ -206,7 +206,7 @@ const FileImpl: FileMessagePartComponent = ({ filename, data, mimeType }) => {
   );
 };
 
-const File = memo(FileImpl) as unknown as FileMessagePartComponent & {
+const File = memo(FileImpl) as unknown as ChatFilePartComponent & {
   Root: typeof FileRoot;
   Icon: typeof FileIconDisplay;
   Name: typeof FileName;

@@ -5,7 +5,12 @@ import "streamdown/styles.css";
 import { createCodePlugin } from "@streamdown/code";
 import { mermaid } from "@streamdown/mermaid";
 import { createMathPlugin } from "@streamdown/math";
-import { useMessagePartText, useAuiState, type TextMessagePartProps } from "@assistant-ui/react";
+import {
+  useChatMessagePartText,
+  useCurrentMessageId,
+  useMainThreadId,
+  type ChatTextPartProps,
+} from "@/lib/chat/runtime";
 import {
   Children,
   isValidElement,
@@ -164,17 +169,17 @@ const CitationRenderer = memo(
 CitationRenderer.displayName = "CitationRenderer";
 
 /** Props from assistant-ui when used as Text component, or optional when used directly (e.g. in Reasoning) */
-type MarkdownTextProps = Partial<TextMessagePartProps> & {
+type MarkdownTextProps = Partial<ChatTextPartProps> & {
   /** Use "reasoning" for smoother streaming in reasoning blocks (blurIn, longer duration) */
   streamingVariant?: "default" | "reasoning";
 };
 
 const MarkdownTextImpl = (props: MarkdownTextProps) => {
   const streamingVariant = props.streamingVariant ?? "default";
-  const { text, status } = useMessagePartText();
+  const { text, status } = useChatMessagePartText();
 
-  const threadId = useAuiState(({ threads }) => (threads as any)?.mainThreadId);
-  const messageId = useAuiState(({ message }) => (message as any)?.id);
+  const threadId = useMainThreadId();
+  const messageId = useCurrentMessageId();
 
   const animateConfig =
     streamingVariant === "reasoning"

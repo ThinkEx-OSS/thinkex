@@ -43,3 +43,24 @@ export interface ComposerActions {
   setRunConfig(config: { custom?: Record<string, unknown> }): void;
   getState(): ComposerStateSnapshot | undefined;
 }
+import type {
+  TextMessagePartProps,
+  FileMessagePartComponent,
+  ImageMessagePartComponent,
+  SourceMessagePartComponent,
+  ToolCallMessagePartComponent,
+  ReasoningMessagePartComponent,
+  ReasoningGroupComponent,
+} from "@assistant-ui/react";
+
+/**
+ * Type re-exports — the ACL owns the identity of these types so consumers never
+ * import them directly from @assistant-ui/react.
+ */
+export type ChatTextPartProps = TextMessagePartProps;
+export type ChatFilePartComponent = FileMessagePartComponent;
+export type ChatImagePartComponent = ImageMessagePartComponent;
+export type ChatSourcePartComponent = SourceMessagePartComponent;
+export type ChatToolCallPartComponent = ToolCallMessagePartComponent;
+export type ChatReasoningPartComponent = ReasoningMessagePartComponent;
+export type ChatReasoningGroupComponent = ReasoningGroupComponent;

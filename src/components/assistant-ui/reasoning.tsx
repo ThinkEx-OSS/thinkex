@@ -4,11 +4,13 @@ import { memo, useCallback, useRef, useState, useEffect, useLayoutEffect, forwar
 import { cva, type VariantProps } from "class-variance-authority";
 import { ChevronDownIcon } from "lucide-react";
 import {
-  useScrollLock,
-  useAuiState,
-  type ReasoningMessagePartComponent,
-  type ReasoningGroupComponent,
-} from "@assistant-ui/react";
+  useChatScrollLock,
+  useIsLastMessage,
+  useIsMessagePartStreaming,
+  useMessagePartTextLengthSnapshot,
+  type ChatReasoningGroupComponent,
+  type ChatReasoningPartComponent,
+} from "@/lib/chat/runtime";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import {
   Collapsible,
@@ -53,7 +55,7 @@ function ReasoningRoot({
 }: ReasoningRootProps) {
   const collapsibleRef = useRef<HTMLDivElement>(null);
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
-  const lockScroll = useScrollLock(collapsibleRef, ANIMATION_DURATION);
+  const lockScroll = useChatScrollLock(collapsibleRef, ANIMATION_DURATION);
 
   const isControlled = controlledOpen !== undefined;
   const isOpen = isControlled ? controlledOpen : uncontrolledOpen;
@@ -216,40 +218,22 @@ const ReasoningText = forwardRef<HTMLDivElement, React.ComponentProps<"div">>(
   }
 );
 
-const ReasoningImpl: ReasoningMessagePartComponent = () => (
+const ReasoningImpl: ChatReasoningPartComponent = () => (
   <MarkdownText streamingVariant="reasoning" />
 );
 
-const ReasoningGroupImpl: ReasoningGroupComponent = ({
+const ReasoningGroupImpl: ChatReasoningGroupComponent = ({
   children,
   startIndex,
   endIndex,
 }) => {
   const textContainerRef = useRef<HTMLDivElement>(null);
-  const isReasoningStreaming = useAuiState(({ message }) => {
-    if (message.status?.type !== "running") return false;
-    const lastIndex = message.parts.length - 1;
-    if (lastIndex < 0) return false;
-    const lastType = message.parts[lastIndex]?.type;
-    if (lastType !== "reasoning") return false;
-    return lastIndex >= startIndex && lastIndex <= endIndex;
-  });
+  const isReasoningStreaming = useIsMessagePartStreaming("reasoning", startIndex, endIndex);
 
-  const isLastMessage = useAuiState(({ thread, message }) => {
-    const messages = (thread as unknown as { messages?: Array<{ id?: string }> })?.messages ?? [];
-    const idx = messages.findIndex((m) => m.id === message.id);
-    return idx >= 0 && idx === messages.length - 1;
-  });
+  const isLastMessage = useIsLastMessage();
 
   // Subscribe to reasoning text length so we re-run scroll effect on each stream chunk
-  const reasoningTextSnapshot = useAuiState(({ message }) => {
-    let len = 0;
-    for (let i = startIndex; i <= endIndex && i < message.parts.length; i++) {
-      const p = message.parts[i] as { type?: string; text?: string } | undefined;
-      if (p?.type === "reasoning" && typeof p.text === "string") len += p.text.length;
-    }
-    return len;
-  });
+  const reasoningTextSnapshot = useMessagePartTextLengthSnapshot("reasoning", startIndex, endIndex);
 
   const [isManuallyOpen, setIsManuallyOpen] = useState(false);
   const isOpen = isReasoningStreaming || isManuallyOpen;
@@ -296,7 +280,7 @@ const ReasoningGroupImpl: ReasoningGroupComponent = ({
 
 const Reasoning = memo(
   ReasoningImpl,
-) as unknown as ReasoningMessagePartComponent & {
+) as unknown as ChatReasoningPartComponent & {
   Root: typeof ReasoningRoot;
   Trigger: typeof ReasoningTrigger;
   Content: typeof ReasoningContent;

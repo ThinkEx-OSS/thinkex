@@ -11,7 +11,11 @@ import {
 } from "react";
 import { ChevronDownIcon, LoaderIcon } from "lucide-react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { useAuiState, useScrollLock } from "@assistant-ui/react";
+import {
+  useChatScrollLock,
+  useIsLastMessage,
+  useIsMessagePartStreaming,
+} from "@/lib/chat/runtime";
 import {
   Collapsible,
   CollapsibleContent,
@@ -53,7 +57,7 @@ function ToolGroupRoot({
 }: ToolGroupRootProps) {
   const collapsibleRef = useRef<HTMLDivElement>(null);
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
-  const lockScroll = useScrollLock(collapsibleRef, ANIMATION_DURATION);
+  const lockScroll = useChatScrollLock(collapsibleRef, ANIMATION_DURATION);
 
   const isControlled = controlledOpen !== undefined;
   const isOpen = isControlled ? controlledOpen : uncontrolledOpen;
@@ -192,20 +196,9 @@ const ToolGroupImpl: FC<
 
   // Match `ReasoningGroup` behavior: mark active while the *current streaming part*
   // is a tool-call within this group's index range.
-  const isToolGroupStreaming = useAuiState(({ message }) => {
-    if (message.status?.type !== "running") return false;
-    const lastIndex = message.parts.length - 1;
-    if (lastIndex < 0) return false;
-    const lastType = message.parts[lastIndex]?.type;
-    if (lastType !== "tool-call") return false;
-    return lastIndex >= startIndex && lastIndex <= endIndex;
-  });
+  const isToolGroupStreaming = useIsMessagePartStreaming("tool-call", startIndex, endIndex);
 
-  const isLastMessage = useAuiState(({ thread, message }) => {
-    const messages = (thread as unknown as { messages?: Array<{ id?: string }> })?.messages ?? [];
-    const idx = messages.findIndex((m) => m.id === message.id);
-    return idx >= 0 && idx === messages.length - 1;
-  });
+  const isLastMessage = useIsLastMessage();
 
   const [isManuallyOpen, setIsManuallyOpen] = useState(isLastMessage);
   const isOpen = isToolGroupStreaming || isManuallyOpen;
