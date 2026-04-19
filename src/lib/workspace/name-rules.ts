@@ -17,6 +17,7 @@ export const MAX_ITEM_NAME_LENGTH = 255;
 // common consumer filesystems (Windows/NTFS). Rejecting them keeps the
 // item's raw name consistent with its virtual path representation.
 export const INVALID_NAME_CHARS_REGEX = /[\/\\\x00-\x1f<>:"|?*]/;
+export const INVALID_NAME_CHARS_REGEX_GLOBAL = /[\/\\\x00-\x1f<>:"|?*]/g;
 
 export const RESERVED_NAMES: ReadonlySet<string> = new Set([".", ".."]);
 
@@ -39,7 +40,8 @@ export function validateItemName(rawName: unknown): NameValidationResult {
   if (normalized.length === 0) {
     return { valid: false, error: "Name cannot be empty" };
   }
-  if (normalized.length > MAX_ITEM_NAME_LENGTH) {
+  const codePointLength = [...normalized].length;
+  if (codePointLength > MAX_ITEM_NAME_LENGTH) {
     return {
       valid: false,
       error: `Name is too long (max ${MAX_ITEM_NAME_LENGTH} characters)`,

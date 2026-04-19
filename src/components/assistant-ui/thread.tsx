@@ -40,6 +40,7 @@ import {
   useAuiState,
 } from "@assistant-ui/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { logger } from "@/lib/utils/logger";
 
 import type { FC, RefObject } from "react";
 import { createContext, useContext } from "react";
@@ -825,9 +826,21 @@ const Composer: FC<ComposerProps> = ({ items }) => {
       if (uploads.length > 0) {
         const pdfCardDefinitions =
           buildWorkspaceItemDefinitionsFromAssets(uploads);
-        const createdIds = operations.createItems(pdfCardDefinitions, {
-          showSuccessToast: false,
-        });
+        let createdIds: string[];
+        try {
+          createdIds = operations.createItems(pdfCardDefinitions, {
+            showSuccessToast: false,
+          });
+        } catch (error) {
+          logger.error(
+            "[ASSISTANT_THREAD] Failed to create uploaded PDF items:",
+            error,
+          );
+          toast.error(
+            `Could not create items: ${error instanceof Error ? error.message : "Unknown error"}`,
+          );
+          return;
+        }
 
         void startAssetProcessing({
           workspaceId,

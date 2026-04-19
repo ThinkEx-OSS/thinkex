@@ -31,6 +31,7 @@ export default function RenameDialog({
   onRename,
 }: RenameDialogProps) {
   const [renameValue, setRenameValue] = useState(currentName || "Untitled");
+  const [touched, setTouched] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const formId = useId();
   const validation = useMemo(
@@ -41,7 +42,12 @@ export default function RenameDialog({
   // Sync rename value when current name changes
   useEffect(() => {
     setRenameValue(currentName || "Untitled");
+    setTouched(false);
   }, [currentName]);
+
+  useEffect(() => {
+    if (open) setTouched(false);
+  }, [open]);
 
   // Auto-focus and select all text when dialog opens
   // Use setTimeout to ensure the element is fully rendered and focusable after dialog animation completes
@@ -111,7 +117,10 @@ export default function RenameDialog({
               ref={renameInputRef}
               autoFocus
               value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
+              onChange={(e) => {
+                setRenameValue(e.target.value);
+                setTouched(true);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
                   onOpenChange(false);
@@ -119,7 +128,7 @@ export default function RenameDialog({
               }}
               placeholder={getPlaceholder()}
             />
-            {!validation.valid && renameValue.length > 0 && (
+            {touched && !validation.valid && (
               <p className="text-xs text-destructive mt-2">
                 {validation.error}
               </p>

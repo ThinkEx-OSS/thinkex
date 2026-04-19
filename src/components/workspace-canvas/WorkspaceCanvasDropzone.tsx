@@ -29,6 +29,7 @@ import {
   WORKSPACE_FILE_UPLOAD_ACCEPT,
   WORKSPACE_FILE_UPLOAD_DESCRIPTION,
 } from "@/lib/uploads/workspace-upload-config";
+import { logger } from "@/lib/utils/logger";
 
 interface WorkspaceCanvasDropzoneProps {
   children: React.ReactNode;
@@ -140,9 +141,19 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
           const itemDefinitions = buildWorkspaceItemDefinitionsFromAssets(uploads, {
             imageLayout: DEFAULT_CARD_DIMENSIONS.image,
           });
-          const createdIds = operations.createItems(itemDefinitions, {
-            showSuccessToast: false,
-          });
+          let createdIds: string[];
+          try {
+            createdIds = operations.createItems(itemDefinitions, {
+              showSuccessToast: false,
+            });
+          } catch (error) {
+            logger.error("[WORKSPACE_DROPZONE] Failed to create uploaded items:", error);
+            toast.dismiss(loadingToastId);
+            toast.error(
+              `Could not create items: ${error instanceof Error ? error.message : "Unknown error"}`,
+            );
+            return;
+          }
           handleCreatedItems(createdIds);
 
           toast.dismiss(loadingToastId);

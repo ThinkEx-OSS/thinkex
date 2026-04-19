@@ -5,6 +5,7 @@ import type {
 } from "@/lib/workspace-state/types";
 import type { OcrCandidate } from "@/lib/ocr/types";
 import { buildPdfDataFromUpload, getPdfSourceUrl } from "@/lib/pdf/pdf-item";
+import { INVALID_NAME_CHARS_REGEX_GLOBAL } from "@/lib/workspace/name-rules";
 
 export type UploadedAssetKind = "file" | "image" | "audio";
 
@@ -41,6 +42,14 @@ export type WorkspaceItemDefinition =
 
 function getBaseName(filename: string): string {
   return filename.replace(/\.[^/.]+$/, "");
+}
+
+function toItemName(raw: string): string {
+  const cleaned = raw.replace(INVALID_NAME_CHARS_REGEX_GLOBAL, "-").trim();
+  if (cleaned.length === 0 || cleaned === "." || cleaned === "..") {
+    return "Untitled";
+  }
+  return cleaned;
 }
 
 function getResolvedContentType(params: {
@@ -97,13 +106,15 @@ export function buildWorkspaceItemDefinitionFromAsset(
   asset: UploadedAsset,
   options?: { imageLayout?: { w: number; h: number } }
 ): WorkspaceItemDefinition {
+  const itemName = toItemName(asset.name);
+
   if (asset.kind === "image") {
     return {
       type: "image",
-      name: asset.name,
+      name: itemName,
       initialData: {
         url: asset.fileUrl,
-        altText: asset.name,
+        altText: itemName,
         ocrStatus: "processing",
         ocrPages: [],
       },
@@ -114,7 +125,7 @@ export function buildWorkspaceItemDefinitionFromAsset(
   if (asset.kind === "audio") {
     return {
       type: "audio",
-      name: asset.name,
+      name: itemName,
       initialData: {
         fileUrl: asset.fileUrl,
         filename: asset.filename,
@@ -127,7 +138,7 @@ export function buildWorkspaceItemDefinitionFromAsset(
 
   return {
     type: "pdf",
-    name: asset.name,
+    name: itemName,
     initialData: buildPdfDataFromUpload({
       fileUrl: asset.fileUrl,
       filename: asset.filename,

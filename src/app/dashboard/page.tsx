@@ -53,6 +53,7 @@ import {
   getDocumentUploadPartialMessage,
   getDocumentUploadSuccessMessage,
 } from "@/lib/uploads/upload-feedback";
+import { logger } from "@/lib/utils/logger";
 
 // Main dashboard content component
 interface DashboardContentProps {
@@ -237,9 +238,19 @@ function DashboardContent({
       const pdfCardDefinitions =
         buildWorkspaceItemDefinitionsFromAssets(uploads);
 
-      const createdIds = operations.createItems(pdfCardDefinitions, {
-        showSuccessToast: false,
-      });
+      let createdIds: string[];
+      try {
+        createdIds = operations.createItems(pdfCardDefinitions, {
+          showSuccessToast: false,
+        });
+      } catch (error) {
+        logger.error("[DASHBOARD] Failed to create uploaded items:", error);
+        toast.dismiss(uploadToastId);
+        toast.error(
+          `Could not create items: ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
+        return;
+      }
       handleCreatedItems(createdIds);
 
       void startAssetProcessing({

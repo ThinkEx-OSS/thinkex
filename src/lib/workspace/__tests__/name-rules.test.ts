@@ -93,6 +93,30 @@ describe("validateItemName", () => {
     });
   });
 
+  it("counts emoji by Unicode code point length", () => {
+    expect(validateItemName("📘".repeat(MAX_ITEM_NAME_LENGTH))).toEqual({
+      valid: true,
+      normalized: "📘".repeat(MAX_ITEM_NAME_LENGTH),
+    });
+    expect(validateItemName("📘".repeat(MAX_ITEM_NAME_LENGTH + 1))).toEqual({
+      valid: false,
+      error: `Name is too long (max ${MAX_ITEM_NAME_LENGTH} characters)`,
+    });
+  });
+
+  it("counts mixed ascii and emoji names by code points", () => {
+    expect(
+      validateItemName("a".repeat(MAX_ITEM_NAME_LENGTH - 1) + "📘"),
+    ).toEqual({
+      valid: true,
+      normalized: "a".repeat(MAX_ITEM_NAME_LENGTH - 1) + "📘",
+    });
+    expect(validateItemName("a".repeat(MAX_ITEM_NAME_LENGTH) + "📘")).toEqual({
+      valid: false,
+      error: `Name is too long (max ${MAX_ITEM_NAME_LENGTH} characters)`,
+    });
+  });
+
   it("keeps default names valid and unchanged", () => {
     for (const raw of [
       "New Document 1",

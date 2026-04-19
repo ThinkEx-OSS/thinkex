@@ -29,7 +29,7 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                 .object({
                     itemName: z
                         .string()
-                        .describe("Exact name (case-insensitive) or virtual path of the item to edit. If multiple items share the same name, pass a virtual path to disambiguate."),
+                        .describe("Exact name (case-insensitive) or virtual path of a document, flashcard deck, quiz, or PDF. Folders and other non-editable types are ignored. If multiple editable items share the same name, pass a virtual path to disambiguate."),
                     edits: z.array(z.object({
                         oldText: z.string().describe("Exact text to find in the original content. Must be unique. Copy from workspace_read as-is."),
                         newText: z.string().describe("Replacement text for this edit."),
@@ -95,7 +95,10 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                 }
 
                 const state = normalizeWorkspaceItems(accessResult.state);
-                const resolved = resolveItem(state, itemName);
+                const editableItems = state.filter((i) =>
+                    EDITABLE_TYPES.includes(i.type as (typeof EDITABLE_TYPES)[number]),
+                );
+                const resolved = resolveItem(editableItems, itemName);
                 if (!resolved.ok) {
                     if (resolved.reason === "ambiguous") {
                         const paths = resolved.matches

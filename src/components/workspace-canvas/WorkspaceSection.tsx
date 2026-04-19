@@ -61,6 +61,7 @@ import {
   getDocumentUploadPartialMessage,
   getDocumentUploadSuccessMessage,
 } from "@/lib/uploads/upload-feedback";
+import { logger } from "@/lib/utils/logger";
 
 interface WorkspaceSectionProps {
   // Loading states
@@ -167,7 +168,15 @@ export function WorkspaceSection({
   const handleYouTubeCreate = useCallback(
     (url: string, name: string, thumbnail?: string) => {
       if (addItem) {
-        addItem("youtube", name, { url, thumbnail });
+        try {
+          addItem("youtube", name, { url, thumbnail });
+        } catch (error) {
+          logger.error("[WORKSPACE_SECTION] Failed to create YouTube item:", error);
+          toast.error(
+            error instanceof Error ? error.message : "Could not create YouTube item",
+          );
+          return;
+        }
       }
     },
     [addItem],
@@ -176,14 +185,21 @@ export function WorkspaceSection({
   const handleWebsiteCreate = useCallback(
     (url: string, name: string, favicon?: string) => {
       if (!operations) return;
-      operations.createItems([
-        {
-          type: "website",
-          name,
-          initialData: { url, favicon },
-          initialLayout: DEFAULT_CARD_DIMENSIONS.website,
-        },
-      ]);
+      try {
+        operations.createItems([
+          {
+            type: "website",
+            name,
+            initialData: { url, favicon },
+            initialLayout: DEFAULT_CARD_DIMENSIONS.website,
+          },
+        ]);
+      } catch (error) {
+        logger.error("[WORKSPACE_SECTION] Failed to create website item:", error);
+        toast.error(
+          error instanceof Error ? error.message : "Could not create item",
+        );
+      }
     },
     [operations],
   );
@@ -323,7 +339,18 @@ export function WorkspaceSection({
     }
 
     // Create folder with items atomically in a single event
-    operations.createFolderWithItems("New Folder", safeItemIds);
+    try {
+      operations.createFolderWithItems("New Folder", safeItemIds);
+    } catch (error) {
+      logger.error(
+        "[WORKSPACE_SECTION] Failed to create folder from selection:",
+        error,
+      );
+      toast.error(
+        error instanceof Error ? error.message : "Could not create folder",
+      );
+      return;
+    }
 
     // Clear the selection
     clearCardSelection();
@@ -386,9 +413,19 @@ export function WorkspaceSection({
         imageLayout: DEFAULT_CARD_DIMENSIONS.image,
       });
 
-      const createdIds = operations.createItems(itemDefinitions, {
-        showSuccessToast: false,
-      });
+      let createdIds: string[];
+      try {
+        createdIds = operations.createItems(itemDefinitions, {
+          showSuccessToast: false,
+        });
+      } catch (error) {
+        logger.error("[WORKSPACE_SECTION] Failed to create uploaded items:", error);
+        toast.dismiss(uploadToastId);
+        toast.error(
+          `Could not create items: ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
+        return;
+      }
       handleCreatedItems(createdIds);
 
       void startAssetProcessing({

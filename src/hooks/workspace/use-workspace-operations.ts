@@ -403,7 +403,7 @@ export function useWorkspaceOperations(
         const validation = validateItemName(name);
         if (!validation.valid) {
           toast.error(validation.error);
-          return "";
+          throw new Error(validation.error);
         }
         finalName = validation.normalized;
       } else {
@@ -490,6 +490,15 @@ export function useWorkspaceOperations(
       const itemsForLayout = [...itemsInCurrentView];
       const itemsSoFar: Item[] = [];
 
+      for (const { name } of items) {
+        if (name === undefined) continue;
+        const validation = validateItemName(name);
+        if (!validation.valid) {
+          toast.error(`Invalid item name: ${validation.error}`);
+          throw new Error(validation.error);
+        }
+      }
+
       const createdItems: Item[] = items
         .map(({ type, name, initialData, initialLayout }) => {
           const validTypes: CardType[] = [
@@ -508,11 +517,7 @@ export function useWorkspaceOperations(
           const folderId = activeFolderId ?? null;
           let finalName: string;
           if (name !== undefined) {
-            const validation = validateItemName(name);
-            if (!validation.valid) {
-              return null;
-            }
-            finalName = validation.normalized;
+            finalName = name.trim();
           } else {
             const allItemsSoFar = [...itemsInCurrentView, ...itemsSoFar];
             finalName = getNextUniqueDefaultName(
@@ -784,11 +789,10 @@ export function useWorkspaceOperations(
         const validation = validateItemName(name);
         if (!validation.valid) {
           toast.error(validation.error);
-          return null;
+          throw new Error(validation.error);
         }
         return validation.normalized;
       })();
-      if (resolvedName === null) return "";
 
       const folderId = crypto.randomUUID();
       const activeFolderId = useUIStore.getState().activeFolderId;
@@ -833,11 +837,10 @@ export function useWorkspaceOperations(
         const validation = validateItemName(name);
         if (!validation.valid) {
           toast.error(validation.error);
-          return null;
+          throw new Error(validation.error);
         }
         return validation.normalized;
       })();
-      if (resolvedName === null) return "";
 
       const activeFolderId = useUIStore.getState().activeFolderId;
       const safeItemIds = filterItemIdsForFolderCreation(

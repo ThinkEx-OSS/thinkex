@@ -74,6 +74,7 @@ import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
 import { WorkspaceFeedbackDialog } from "./WorkspaceFeedbackDialog";
 import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
+import { logger } from "@/lib/utils/logger";
 const EMPTY_ITEMS: Item[] = [];
 const EMPTY_RESPONSIVE_BREADCRUMBS = {
   visibleTailKeys: [] as string[],
@@ -301,6 +302,7 @@ export function WorkspaceHeader({
     type: "folder" | "item";
   } | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [renameTouched, setRenameTouched] = useState(false);
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
   const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
   const [showQuizDialog, setShowQuizDialog] = useState(false);
@@ -426,6 +428,7 @@ export function WorkspaceHeader({
         if (folder) {
           setRenamingTarget({ id: folderId, type: "folder" });
           setRenameValue(folder.name);
+          setRenameTouched(false);
           setShowRenameDialog(true);
         }
       } else {
@@ -468,6 +471,7 @@ export function WorkspaceHeader({
     (itemId: string, itemName: string) => {
       setRenamingTarget({ id: itemId, type: "item" });
       setRenameValue(itemName);
+      setRenameTouched(false);
       setShowRenameDialog(true);
     },
     [],
@@ -863,6 +867,12 @@ export function WorkspaceHeader({
     }
   }, [showRenameDialog]);
 
+  useEffect(() => {
+    if (showRenameDialog) {
+      setRenameTouched(false);
+    }
+  }, [showRenameDialog]);
+
   // Listen for drag hover events on breadcrumb elements
   useEffect(() => {
     const handleDragHover = (e: Event) => {
@@ -915,8 +925,15 @@ export function WorkspaceHeader({
 
   const handleYouTubeCreate = useCallback(
     (url: string, name: string, thumbnail?: string) => {
-      if (addItem) {
+      if (!addItem) return;
+      try {
         addItem("youtube", name, { url, thumbnail });
+      } catch (error) {
+        logger.error("[WORKSPACE_HEADER] Failed to create YouTube item:", error);
+        toast.error(
+          error instanceof Error ? error.message : "Could not create YouTube item",
+        );
+        return;
       }
       setIsNewMenuOpen(false);
     },
@@ -995,12 +1012,20 @@ export function WorkspaceHeader({
   const handleWebsiteCreate = useCallback(
     (url: string, name: string, favicon?: string) => {
       if (!addItem) return;
-      addItem(
-        "website",
-        name,
-        { url, favicon },
-        DEFAULT_CARD_DIMENSIONS.website,
-      );
+      try {
+        addItem(
+          "website",
+          name,
+          { url, favicon },
+          DEFAULT_CARD_DIMENSIONS.website,
+        );
+      } catch (error) {
+        logger.error("[WORKSPACE_HEADER] Failed to create website item:", error);
+        toast.error(
+          error instanceof Error ? error.message : "Could not create website item",
+        );
+        return;
+      }
       setIsNewMenuOpen(false);
     },
     [addItem],
@@ -1406,7 +1431,10 @@ export function WorkspaceHeader({
               <Input
                 ref={renameInputRef}
                 value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
+                onChange={(e) => {
+                  setRenameValue(e.target.value);
+                  setRenameTouched(true);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && renameValidation.valid) {
                     handleRename();
@@ -1420,7 +1448,7 @@ export function WorkspaceHeader({
                     : "Item name"
                 }
               />
-              {!renameValidation.valid && renameValue.length > 0 && (
+              {renameTouched && !renameValidation.valid && (
                 <p className="text-xs text-destructive mt-2">
                   {renameValidation.error}
                 </p>
