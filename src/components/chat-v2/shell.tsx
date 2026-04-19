@@ -22,20 +22,20 @@ export function ChatShell() {
   }, [chatId, setInput]);
 
   return (
-    <div className="flex h-dvh w-full flex-col overflow-hidden bg-background">
-      <header className="border-b border-border/50 bg-background/90 px-4 py-3 backdrop-blur md:px-6">
-        <div className="mx-auto flex w-full max-w-4xl items-center justify-between">
-          <div>
-            <div className="font-semibold text-sm text-foreground">ThinkEx</div>
-            <div className="text-muted-foreground text-xs">Chat v2</div>
-          </div>
-        </div>
-      </header>
+    <div
+      className="flex h-dvh w-full flex-col overflow-hidden bg-background"
+      style={{ ["--thread-max-width" as string]: "50rem" }}
+    >
+      <Messages
+        chatId={chatId}
+        isLoading={isLoading}
+        isReadonly={isReadonly}
+        messages={messages}
+        status={status}
+      />
 
-      <Messages chatId={chatId} isLoading={isLoading} isReadonly={isReadonly} messages={messages} status={status} />
-
-      <div className="border-t border-border/50 bg-background/95 px-2 py-3 backdrop-blur md:px-4 md:py-4">
-        {!isReadonly && (
+      {!isReadonly && (
+        <div className="mx-auto flex w-full max-w-[var(--thread-max-width)] flex-shrink-0 flex-col gap-4 overflow-visible rounded-t-3xl bg-sidebar px-4 pb-3 md:pb-4">
           <MultimodalInput
             input={input}
             isReadonly={isReadonly}
@@ -44,8 +44,8 @@ export function ChatShell() {
             status={status}
             stop={stop}
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

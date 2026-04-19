@@ -19,6 +19,7 @@ import useSWR from "swr";
 import { toast } from "sonner";
 import { useDataStream } from "@/components/chat-v2/data-stream-provider";
 import type { ChatMessage } from "@/lib/chat-v2/types";
+import { useUIStore } from "@/lib/stores/ui-store";
 import { fetcher, fetchWithErrorHandlers } from "@/lib/chat-v2/utils";
 
 type ActiveChatContextValue = {
@@ -50,6 +51,15 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
   const fallbackChatIdRef = useRef(crypto.randomUUID());
   const chatId = chatIdFromUrl ?? fallbackChatIdRef.current;
 
+  const selectedModelId = useUIStore((s) => s.selectedModelId);
+  const memoryEnabled = useUIStore((s) => s.memoryEnabled);
+  const activeFolderId = useUIStore((s) => s.activeFolderId);
+
+  const chatApiPayloadRef = useRef({ selectedModelId, memoryEnabled, activeFolderId });
+  chatApiPayloadRef.current.selectedModelId = selectedModelId;
+  chatApiPayloadRef.current.memoryEnabled = memoryEnabled;
+  chatApiPayloadRef.current.activeFolderId = activeFolderId;
+
   const { data: chatData, isLoading } = useSWR<{ messages: ChatMessage[]; isReadonly: boolean }>(
     `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/chat-v2/messages?chatId=${chatId}`,
     fetcher,
@@ -70,11 +80,15 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       fetch: fetchWithErrorHandlers,
       prepareSendMessagesRequest(request) {
         const lastMessage = request.messages.at(-1);
+        const payload = chatApiPayloadRef.current;
 
         return {
           body: {
             id: request.id,
             message: lastMessage,
+            modelId: payload.selectedModelId,
+            memoryEnabled: payload.memoryEnabled,
+            activeFolderId: payload.activeFolderId ?? undefined,
           },
         };
       },

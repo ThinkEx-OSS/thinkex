@@ -13,6 +13,7 @@ import {
 } from "@/components/ai-elements-v2/prompt-input";
 import { Button } from "@/components/ui/button";
 import type { ChatMessage } from "@/lib/chat-v2/types";
+import { ChatToolbar } from "./chat-toolbar";
 
 export function MultimodalInput({
   input,
@@ -53,9 +54,7 @@ export function MultimodalInput({
       parts: [{ type: "text", text: trimmedInput }],
     });
     setInput("");
-  },
-    [trimmedInput, isStreaming, isReadonly, sendMessage, setInput],
-  );
+  }, [trimmedInput, isStreaming, isReadonly, sendMessage, setInput]);
 
   return (
     <PromptInput
@@ -87,7 +86,7 @@ export function MultimodalInput({
       />
 
       <PromptInputFooter>
-        <div className="text-muted-foreground text-xs">ThinkEx</div>
+        <ChatToolbar />
         <PromptInputActions>
           {isStreaming ? (
             <Button onClick={stop} size="icon" type="button" variant="outline">

@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 export const PromptInput = ({ className, ...props }: ComponentProps<"form">) => (
   <form
     className={cn(
-      "flex w-full flex-col gap-3 rounded-2xl border border-border/50 bg-background/95 p-3 shadow-sm backdrop-blur",
+      "relative flex w-full flex-col gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent px-3.5 pt-2 pb-1 shadow-[0_9px_9px_0px_rgba(0,0,0,0.01),0_2px_5px_0px_rgba(0,0,0,0.06)] dark:border-sidebar-border/15",
       className,
     )}
     {...props}
@@ -24,7 +24,7 @@ export const PromptInputTextarea = forwardRef<
   <Textarea
     ref={ref}
     className={cn(
-      "min-h-[80px] resize-none border-0 bg-transparent px-0 py-0 text-sm shadow-none focus-visible:ring-0",
+      "aui-composer-input max-h-32 w-full resize-none border-0 bg-transparent px-0 py-1.5 text-sm text-sidebar-foreground shadow-none outline-none placeholder:text-sidebar-foreground/60 focus-visible:outline-none focus-visible:ring-0",
       className,
     )}
     {...props}

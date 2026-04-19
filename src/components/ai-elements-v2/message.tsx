@@ -2,13 +2,6 @@
 
 import type { UIMessage } from "ai";
 import type { ComponentProps, HTMLAttributes } from "react";
-import { memo } from "react";
-import { cjk } from "@streamdown/cjk";
-import { code } from "@streamdown/code";
-import { math } from "@streamdown/math";
-import { mermaid } from "@streamdown/mermaid";
-import { Streamdown } from "streamdown";
-import "streamdown/styles.css";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -90,23 +83,3 @@ export const MessageAction = ({
     </TooltipProvider>
   );
 };
-
-export type MessageResponseProps = ComponentProps<typeof Streamdown>;
-
-const streamdownPlugins = { cjk, code, math, mermaid };
-
-export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
-    <Streamdown
-      className={cn(
-        "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-        className,
-      )}
-      plugins={streamdownPlugins}
-      {...props}
-    />
-  ),
-  (prevProps, nextProps) => prevProps.children === nextProps.children,
-);
-
-MessageResponse.displayName = "MessageResponse";

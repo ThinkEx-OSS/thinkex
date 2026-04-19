@@ -15,6 +15,11 @@ export const postRequestBodySchema = z.object({
       }),
     ),
   }),
+  workspaceId: z.string().uuid().optional().nullable(),
+  modelId: z.string().optional(),
+  memoryEnabled: z.boolean().optional(),
+  activeFolderId: z.string().uuid().optional().nullable(),
+  selectedCardsContext: z.string().max(200_000).optional(),
 });
 
 export type PostRequestBody = z.infer<typeof postRequestBodySchema>;
