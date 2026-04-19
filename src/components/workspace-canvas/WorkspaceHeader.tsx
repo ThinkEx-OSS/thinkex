@@ -35,7 +35,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ThinkExLogo } from "@/components/ui/thinkex-logo";
 
 import { formatKeyboardShortcut } from "@/lib/utils/keyboard-shortcut";
-import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
+import AiPanelToggleButton from "@/components/layout/AiPanelToggleButton";
 import { WorkspaceItemTypeIcon } from "@/components/workspace/WorkspaceItemTypeIcon";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { IconRenderer } from "@/hooks/use-icon-picker";
@@ -73,7 +73,6 @@ import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
 import { WorkspaceFeedbackDialog } from "./WorkspaceFeedbackDialog";
-import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
 const EMPTY_ITEMS: Item[] = [];
 const EMPTY_RESPONSIVE_BREADCRUMBS = {
   visibleTailKeys: [] as string[],
@@ -302,8 +301,6 @@ export function WorkspaceHeader({
   const [renameValue, setRenameValue] = useState("");
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
   const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
-  const [showQuizDialog, setShowQuizDialog] = useState(false);
-  const [showFlashcardsDialog, setShowFlashcardsDialog] = useState(false);
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const [googleExportLoading, setGoogleExportLoading] = useState(false);
   const [showExportFallbackDialog, setShowExportFallbackDialog] =
@@ -1214,10 +1211,10 @@ export function WorkspaceHeader({
             </button>
 
             {setIsChatExpanded ? (
-              <ChatFloatingButton
+              <AiPanelToggleButton
                 isDesktop={isDesktop}
-                isChatExpanded={isChatExpanded}
-                setIsChatExpanded={setIsChatExpanded}
+                isExpanded={isChatExpanded}
+                setIsExpanded={setIsChatExpanded}
               />
             ) : null}
           </div>
@@ -1315,14 +1312,6 @@ export function WorkspaceHeader({
                         setShowWebsiteDialog(true);
                         setIsNewMenuOpen(false);
                       },
-                      onFlashcards: () => {
-                        setShowFlashcardsDialog(true);
-                        setIsNewMenuOpen(false);
-                      },
-                      onQuiz: () => {
-                        setShowQuizDialog(true);
-                        setIsNewMenuOpen(false);
-                      },
                     },
                     MenuItem: DropdownMenuItem,
                     MenuSub: DropdownMenuSub,
@@ -1334,10 +1323,10 @@ export function WorkspaceHeader({
             )}
 
             {setIsChatExpanded ? (
-              <ChatFloatingButton
+              <AiPanelToggleButton
                 isDesktop={isDesktop}
-                isChatExpanded={isChatExpanded}
-                setIsChatExpanded={setIsChatExpanded}
+                isExpanded={isChatExpanded}
+                setIsExpanded={setIsChatExpanded}
               />
             ) : null}
           </div>
@@ -1497,22 +1486,6 @@ export function WorkspaceHeader({
           else closeAudioDialog();
         }}
         onAudioReady={handleAudioReady}
-      />
-      {/* Quiz Prompt Builder Dialog */}
-      <PromptBuilderDialog
-        open={showQuizDialog}
-        onOpenChange={setShowQuizDialog}
-        action="quiz"
-        items={items}
-        onBeforeSubmit={() => setIsChatExpanded?.(true)}
-      />
-      {/* Flashcards Prompt Builder Dialog */}
-      <PromptBuilderDialog
-        open={showFlashcardsDialog}
-        onOpenChange={setShowFlashcardsDialog}
-        action="flashcards"
-        items={items}
-        onBeforeSubmit={() => setIsChatExpanded?.(true)}
       />
       {/* Feedback Dialog — replaces legacy PostHog popover survey */}
       <WorkspaceFeedbackDialog

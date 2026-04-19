@@ -14,8 +14,13 @@ import {
   rankWorkspaceSearchResults,
   getFolderPath,
 } from "@/lib/workspace-state/search";
-import { getCardTypeIcon } from "@/components/chat/WorkspaceItemPicker";
+import type { CardType } from "@/lib/workspace-state/types";
+import { WorkspaceItemTypeIcon } from "@/components/workspace/WorkspaceItemTypeIcon";
 import { useUIStore } from "@/lib/stores/ui-store";
+
+function getCardTypeIcon(type: CardType) {
+  return <WorkspaceItemTypeIcon type={type} className="size-4" />;
+}
 
 interface WorkspaceSearchDialogProps {
   open: boolean;

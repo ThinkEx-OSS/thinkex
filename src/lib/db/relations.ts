@@ -4,8 +4,6 @@ import {
   workspaceItems,
   workspaceItemContent,
   workspaceItemExtracted,
-  chatThreads,
-  chatMessages,
 } from "./schema";
 
 export const workspacesRelations = relations(workspaces, ({ many }) => ({
@@ -57,17 +55,3 @@ export const workspaceItemExtractedRelations = relations(
   }),
 );
 
-export const chatThreadsRelations = relations(chatThreads, ({ one, many }) => ({
-  workspace: one(workspaces, {
-    fields: [chatThreads.workspaceId],
-    references: [workspaces.id],
-  }),
-  messages: many(chatMessages),
-}));
-
-export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
-  thread: one(chatThreads, {
-    fields: [chatMessages.threadId],
-    references: [chatThreads.id],
-  }),
-}));

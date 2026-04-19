@@ -15,7 +15,7 @@ import {
   CodeBlockLanguageSelectorValue,
   CodeBlockLanguageSelectorContent,
   CodeBlockLanguageSelectorItem,
-} from "@/components/ai-elements/code-block"
+} from "@/components/ui/code-block"
 import "@/components/tiptap-node/code-block-node/code-block-node.css"
 
 // Supported languages for the custom Tiptap code block node

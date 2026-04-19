@@ -15,11 +15,9 @@ import {
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 
-import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
+import AiPanelToggleButton from "@/components/layout/AiPanelToggleButton";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { useAui } from "@assistant-ui/react";
 import { toast } from "sonner";
-import { focusComposerInput } from "@/lib/utils/composer-utils";
 
 // PDF Plugin imports
 import { useZoom, ZoomMode } from '@embedpdf/plugin-zoom/react';
@@ -83,10 +81,6 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
     const captureRef = useRef(capture);
     captureRef.current = capture;
 
-    const aui = useAui();
-    const auiRef = useRef(aui);
-    auiRef.current = aui;
-
     const isChatExpanded = useUIStore((state) => state.isChatExpanded);
     const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
 
@@ -97,24 +91,18 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
 
         const unsubscribe = cap.onCaptureArea(async (result) => {
             try {
-                // Convert blob to File
                 const filename = `capture-page-${result.pageIndex + 1}-${Date.now()}.png`;
-                const file = new File([result.blob], filename, { type: result.imageType });
-
-                // Add attachment to composer
-                await auiRef.current.composer().addAttachment(file);
-                toast.success("Screenshot added to chat");
-
-                // Turn off capture mode
+                const objectUrl = URL.createObjectURL(result.blob);
+                const link = document.createElement("a");
+                link.href = objectUrl;
+                link.download = filename;
+                link.click();
+                URL.revokeObjectURL(objectUrl);
+                toast.success("Screenshot downloaded");
                 captureRef.current?.toggleMarqueeCapture();
-
-                // Focus composer similar to reply flow — expand chat if collapsed, then focus input
-                useUIStore.getState().setIsChatExpanded(true);
-                focusComposerInput();
-
             } catch (error) {
-                console.error("Failed to add capture attachment:", error);
-                toast.error("Failed to add screenshot");
+                console.error("Failed to save capture:", error);
+                toast.error("Failed to save screenshot");
             }
         });
 
@@ -257,10 +245,10 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
 
                     {!isChatExpanded && (
                         <div className="ml-1">
-                            <ChatFloatingButton
+                            <AiPanelToggleButton
                                 isDesktop={true}
-                                isChatExpanded={isChatExpanded}
-                                setIsChatExpanded={setIsChatExpanded}
+                                isExpanded={isChatExpanded}
+                                setIsExpanded={setIsChatExpanded}
                             />
                         </div>
                     )}

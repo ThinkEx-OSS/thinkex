@@ -12,7 +12,7 @@ import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { MobileWarning } from "@/components/ui/MobileWarning";
 import { FloatingWorkspaceCards } from "@/components/background/FloatingWorkspaceCards";
 import { ATTACHMENTS_SESSION_KEY } from "@/contexts/HomeAttachmentsContext";
-import { matchesWebSearchStreamToolName } from "@/lib/ai/chat-tool-names";
+import { matchesWebSearchStreamToolName } from "@/lib/autogen/web-search";
 
 const PROGRESS_LABELS: Record<string, string> = {
   understanding: "Understanding content...",

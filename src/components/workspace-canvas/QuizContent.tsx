@@ -20,10 +20,8 @@ import {
   MessageCircleQuestion,
 } from "lucide-react";
 import { StreamdownMarkdown } from "@/components/ui/streamdown-markdown";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { useAui } from "@assistant-ui/react";
-import { useUIStore } from "@/lib/stores/ui-store";
-import { focusComposerInput } from "@/lib/utils/composer-utils";
 
 interface QuizContentProps {
   item: Item;
@@ -40,11 +38,8 @@ export function QuizContent({
 }: QuizContentProps) {
   const quizData = item.data as QuizData;
   const questions = quizData.questions || [];
-  const aui = useAui();
-
-  // UI store for card selection
-  const selectedCardIds = useUIStore((state) => state.selectedCardIds);
-  const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
+  const aiComingSoonMessage =
+    "AI coming soon — the ThinkEx assistant is being rebuilt";
 
   // Session state
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -183,74 +178,16 @@ export function QuizContent({
     setShowResults(false);
   };
 
-  // Handle Update Quiz - programmatically send message to add more questions
   const handleUpdateQuiz = () => {
-    // First, ensure this card is selected for context
-    if (!selectedCardIds.has(item.id)) {
-      toggleCardSelection(item.id);
-    }
-
-    // Then send the message via composer
-    const composer = aui?.composer?.();
-    if (composer) {
-      try {
-        composer.setText("Add 5 more questions to this quiz");
-        composer.send();
-        toast.success("Requesting more questions...");
-      } catch (error) {
-        toast.error("Failed to send request. Please try again.");
-      }
-    } else {
-      toast.error("Chat not available. Please try again.");
-    }
+    toast.info(aiComingSoonMessage);
   };
 
   const handleAskHint = () => {
-    if (!selectedCardIds.has(item.id)) {
-      toggleCardSelection(item.id);
-    }
-
-    const composer = aui?.composer?.();
-    if (composer) {
-      try {
-        composer.setText(
-          `Give me a hint for this question in "${item.name}": ${currentQuestion.questionText}`,
-        );
-        useUIStore.getState().setIsChatExpanded(true);
-        focusComposerInput(true);
-      } catch (error) {
-        toast.error("Failed to send request. Please try again.");
-      }
-    } else {
-      toast.error("Chat not available. Please try again.");
-    }
+    toast.info(aiComingSoonMessage);
   };
 
   const handleAskExplain = () => {
-    if (!selectedCardIds.has(item.id)) {
-      toggleCardSelection(item.id);
-    }
-
-    const composer = aui?.composer?.();
-    if (composer) {
-      try {
-        const userAnswer =
-          selectedAnswer !== null
-            ? currentQuestion.options[selectedAnswer]
-            : "N/A";
-        const correctAnswer =
-          currentQuestion.options[currentQuestion.correctIndex];
-        composer.setText(
-          `Explain this question in "${item.name}": ${currentQuestion.questionText}\n\nI answered: ${userAnswer}\nCorrect answer: ${correctAnswer}`,
-        );
-        useUIStore.getState().setIsChatExpanded(true);
-        focusComposerInput(true);
-      } catch (error) {
-        toast.error("Failed to send request. Please try again.");
-      }
-    } else {
-      toast.error("Chat not available. Please try again.");
-    }
+    toast.info(aiComingSoonMessage);
   };
 
   // Calculate score
@@ -527,17 +464,22 @@ export function QuizContent({
         <div className="mt-4 flex items-center justify-between">
           <div>
             {!isSubmitted && (
-              <button
-                onMouseDown={preventFocusSteal}
-                onClick={(e) => {
-                  stopPropagation(e);
-                  handleAskHint();
-                }}
-                className="flex items-center gap-2 text-sm text-yellow-600/80 hover:text-yellow-600 transition-colors cursor-pointer dark:text-yellow-400/80 dark:hover:text-yellow-400"
-              >
-                <Lightbulb className="w-4 h-4" />
-                Hint
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onMouseDown={preventFocusSteal}
+                    onClick={(e) => {
+                      stopPropagation(e);
+                      handleAskHint();
+                    }}
+                    className="flex items-center gap-2 text-sm text-yellow-600/80 hover:text-yellow-600 transition-colors cursor-pointer dark:text-yellow-400/80 dark:hover:text-yellow-400"
+                  >
+                    <Lightbulb className="w-4 h-4" />
+                    Hint
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{aiComingSoonMessage}</TooltipContent>
+              </Tooltip>
             )}
           </div>
 
@@ -581,17 +523,22 @@ export function QuizContent({
                 </>
               )}
             </div>
-            <button
-              onMouseDown={preventFocusSteal}
-              onClick={(e) => {
-                stopPropagation(e);
-                handleAskExplain();
-              }}
-              className="mt-2 flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-800 transition-colors cursor-pointer dark:text-foreground/60 dark:hover:text-foreground/80"
-            >
-              <MessageCircleQuestion className="w-3.5 h-3.5" />
-              Ask AI to explain
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onMouseDown={preventFocusSteal}
+                  onClick={(e) => {
+                    stopPropagation(e);
+                    handleAskExplain();
+                  }}
+                  className="mt-2 flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-800 transition-colors cursor-pointer dark:text-foreground/60 dark:hover:text-foreground/80"
+                >
+                  <MessageCircleQuestion className="w-3.5 h-3.5" />
+                  Ask AI to explain
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{aiComingSoonMessage}</TooltipContent>
+            </Tooltip>
           </div>
         )}
       </div>

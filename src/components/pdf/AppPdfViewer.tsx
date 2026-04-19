@@ -25,12 +25,11 @@ import { ExportPluginPackage } from '@embedpdf/plugin-export/react';
 
 import { Loader2, ChevronLeft, ChevronRight, Trash2, Search, X as XIcon, ArrowUp, ArrowDown } from 'lucide-react';
 import { FaQuoteRight } from "react-icons/fa6";
-import { useUIStore } from "@/lib/stores/ui-store";
-import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { askAiPrimaryButtonClass } from "@/lib/ui/ask-ai-toolbar-styles";
 import { toast } from "sonner";
 import { useMemo, ReactNode, useState, useEffect, useRef, useCallback } from 'react';
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AnnotationToolbar } from './AnnotationToolbar';
 import { PdfPasswordPrompt } from './PdfPasswordPrompt';
 
@@ -81,12 +80,6 @@ const PdfStatePersister = ({ documentId, pdfSrc, itemId }: { documentId: string;
 
     const unsub = scrollCapability.onLayoutReady((ev) => {
       if (ev.documentId !== documentId || !ev.isInitial || ev.totalPages < 1) return;
-
-      if (itemId && useUIStore.getState().citationHighlightQuery?.itemId === itemId) {
-        skipNextSaveRef.current = true;
-        setRestored(true);
-        return;
-      }
 
       try {
         const raw = localStorage.getItem(storageKey);
@@ -205,13 +198,9 @@ const TextSelectionMenu = ({
   menuWrapperProps,
   placement,
   documentId,
-  itemName,
 }: SelectionSelectionMenuProps & { documentId: string; itemName?: string }) => {
   const { provides: selectionCapability } = useSelectionCapability();
-  const { state: scrollState } = useScroll(documentId);
-  const addReplySelection = useUIStore((state) => state.addReplySelection);
 
-  // Ask AI handler
   const handleAskAI = useCallback(() => {
     const scope = selectionCapability?.forDocument(documentId);
     if (!scope) return;
@@ -226,17 +215,8 @@ const TextSelectionMenu = ({
         const text = lines.join('\n');
 
         if (text && text.trim().length > 0) {
-          const page = scrollState?.currentPage;
-          const title = itemName
-            ? (page != null && page >= 1 ? `${itemName}, p. ${page}` : itemName)
-            : undefined;
-          addReplySelection({
-            text: text.trim(),
-            title,
-          });
           scope.clear();
-          toast.success("Added to context");
-          focusComposerInput();
+          toast.info("AI coming soon");
         } else {
           console.warn("Ask AI: No text extracted");
         }
@@ -247,9 +227,9 @@ const TextSelectionMenu = ({
 
     } catch (err) {
       console.error("Ask AI Error:", err);
-      toast.error("Failed to add context");
+      toast.error("Failed to extract text");
     }
-  }, [selectionCapability, documentId, addReplySelection, scrollState?.currentPage, itemName]);
+  }, [selectionCapability, documentId]);
 
   return (
     <Popover open>
@@ -263,10 +243,15 @@ const TextSelectionMenu = ({
         className="w-auto min-w-0 border-0 bg-transparent p-0 text-popover-foreground shadow-none outline-none ring-0 ring-offset-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <button type="button" onClick={handleAskAI} className={askAiPrimaryButtonClass}>
-          <FaQuoteRight className="size-3.5 shrink-0" />
-          Ask AI
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button type="button" onClick={handleAskAI} className={askAiPrimaryButtonClass}>
+              <FaQuoteRight className="size-3.5 shrink-0" />
+              Ask AI
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>AI coming soon</TooltipContent>
+        </Tooltip>
       </PopoverContent>
     </Popover>
   );
@@ -694,7 +679,6 @@ const PdfInitialPageScroll = ({
     pendingPageRef.current = null;
     const scope = scrollCapability.forDocument(documentId);
     scope?.scrollToPage({ pageNumber: page, behavior: 'instant' });
-    useUIStore.getState().setCitationHighlightQuery(null);
   }, [layoutReady, scrollCapability, documentId]);
 
   // When initialPage changes after layout is already ready, scroll immediately
@@ -705,116 +689,7 @@ const PdfInitialPageScroll = ({
     if (!scope) return;
     const page = Math.min(Math.max(1, initialPage), totalPages);
     scope.scrollToPage({ pageNumber: page });
-    useUIStore.getState().setCitationHighlightQuery(null);
   }, [scrollCapability, documentId, initialPage]);
-
-  return null;
-};
-
-/** Syncs current PDF page to UI store when PDF is open — used for selected-card context so the AI knows which page the user is viewing. */
-const PdfActivePageSync = ({ documentId, itemId }: { documentId: string; itemId?: string }) => {
-  const { state: scrollState } = useScroll(documentId);
-  const setActivePdfPage = useUIStore((state) => state.setActivePdfPage);
-
-  useEffect(() => {
-    if (!itemId) return;
-    const page = scrollState?.currentPage;
-    if (page != null && page >= 1) {
-      setActivePdfPage(itemId, page);
-    }
-  }, [itemId, scrollState?.currentPage, setActivePdfPage]);
-
-  useEffect(() => {
-    if (!itemId) return;
-    return () => setActivePdfPage(itemId, null);
-  }, [itemId, setActivePdfPage]);
-
-  return null;
-};
-
-/** Syncs citation search query from store: runs text search, scrolls to first match or page fallback. */
-const PdfCitationHighlightSync = ({ documentId, itemId }: { documentId: string; itemId?: string }) => {
-  const { state, provides } = useSearch(documentId);
-  const { provides: scrollCapability } = useScrollCapability();
-  const { state: scrollState } = useScroll(documentId);
-  const scroll = scrollCapability?.forDocument(documentId);
-  const triggeredRef = useRef<string | null>(null);
-  const pageFallbackRef = useRef<number | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-
-  useEffect(() => {
-    if (!itemId) return;
-
-    const clearCitation = () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = undefined;
-      provides?.stopSearch();
-      useUIStore.getState().setCitationHighlightQuery(null);
-      triggeredRef.current = null;
-      pageFallbackRef.current = null;
-    };
-
-    const applyCitation = (hl: { itemId: string; query: string; pageNumber?: number }) => {
-      const hasQuery = !!hl.query?.trim();
-      if (!hasQuery) return; // Page-only handled by PdfInitialPageScroll
-
-      triggeredRef.current = hl.query.trim();
-      pageFallbackRef.current = hl.pageNumber ?? null;
-      provides?.searchAllPages(hl.query.trim());
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(clearCitation, PDF_HIGHLIGHT_DURATION_MS);
-    };
-
-    const unsub = useUIStore.subscribe((storeState) => {
-      const hl = storeState.citationHighlightQuery;
-      if (!hl || hl.itemId !== itemId || !hl.query?.trim()) return;
-      applyCitation(hl);
-    });
-
-    const hl = useUIStore.getState().citationHighlightQuery;
-    if (hl?.itemId === itemId && hl.query?.trim()) applyCitation(hl);
-
-    return () => {
-      unsub();
-      clearCitation();
-    };
-  }, [documentId, itemId, provides]);
-
-  // Scroll to first result when search completes, or fallback to page when no results
-  useEffect(() => {
-    if (!scroll || !triggeredRef.current || state.loading) return;
-    const results = state.results ?? [];
-    const pageFallback = pageFallbackRef.current;
-
-    if (results.length > 0) {
-      const idx = state.activeResultIndex ?? 0;
-      const item = results[idx];
-      if (item) {
-        const minCoordinates = item.rects.reduce(
-          (min, rect) => ({
-            x: Math.min(min.x, rect.origin.x),
-            y: Math.min(min.y, rect.origin.y),
-          }),
-          { x: Infinity, y: Infinity }
-        );
-        scroll.scrollToPage({
-          pageNumber: item.pageIndex + 1,
-          pageCoordinates: minCoordinates,
-          alignX: 50,
-          alignY: 50,
-        });
-        return;
-      }
-    }
-
-    // Text search returned no results: fallback to page number if provided
-    if (results.length === 0 && pageFallback != null) {
-      const totalPages = scrollState?.totalPages ?? 1;
-      const page = Math.min(Math.max(1, pageFallback), totalPages);
-      scroll.scrollToPage({ pageNumber: page });
-      pageFallbackRef.current = null;
-    }
-  }, [scroll, state.results, state.activeResultIndex, state.loading, scrollState?.totalPages]);
 
   return null;
 };
@@ -992,12 +867,6 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
                             documentId={activeDocumentId}
                             initialPage={initialPage}
                           />
-                          {itemId && (
-                            <>
-                              <PdfActivePageSync documentId={activeDocumentId} itemId={itemId} />
-                              <PdfCitationHighlightSync documentId={activeDocumentId} itemId={itemId} />
-                            </>
-                          )}
                           <CaptureOverlay documentId={activeDocumentId} />
                           <Viewport
                             documentId={activeDocumentId}

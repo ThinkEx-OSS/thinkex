@@ -391,7 +391,6 @@ export function SelectionTooltip({
         }}
         style={floatingStyles}
         onMouseDown={(e) => {
-          // Keep the browser selection until click (same idea as assistant-ui SelectionToolbar).
           e.preventDefault();
         }}
         className={cn(

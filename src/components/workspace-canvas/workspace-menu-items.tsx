@@ -1,12 +1,9 @@
 "use client";
 
 import type React from "react";
-import { Folder, Upload, Play, Brain, Mic, Globe, FileText } from "lucide-react";
-import { LuBook } from "react-icons/lu";
-import { PiCardsThreeBold } from "react-icons/pi";
+import { Folder, Upload, Play, Mic, Globe, FileText } from "lucide-react";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { toast } from "sonner";
-
 
 export interface WorkspaceMenuCallbacks {
   onCreateDocument: () => void;
@@ -15,30 +12,33 @@ export interface WorkspaceMenuCallbacks {
   onAudio: () => void;
   onYouTube: () => void;
   onWebsite: () => void;
-  onFlashcards: () => void;
-  onQuiz: () => void;
 }
 
-/**
- * Shared "Create" menu items for both the header dropdown and the right-click
- * context menu.  The caller passes render helpers so the same logical items
- * can be rendered as either DropdownMenuItems or ContextMenuItems.
- */
 export function renderWorkspaceMenuItems({
   callbacks,
   MenuItem,
-  MenuSub,
-  MenuSubTrigger,
-  MenuSubContent,
+  MenuSub: _MenuSub,
+  MenuSubTrigger: _MenuSubTrigger,
+  MenuSubContent: _MenuSubContent,
   MenuLabel,
   showUpload = true,
 }: {
   callbacks: WorkspaceMenuCallbacks;
-  MenuItem: React.ComponentType<{ onSelect?: () => void; className?: string; children: React.ReactNode }>;
+  MenuItem: React.ComponentType<{
+    onSelect?: () => void;
+    className?: string;
+    children: React.ReactNode;
+  }>;
   MenuSub: React.ComponentType<{ children: React.ReactNode }>;
-  MenuSubTrigger: React.ComponentType<{ className?: string; children: React.ReactNode }>;
+  MenuSubTrigger: React.ComponentType<{
+    className?: string;
+    children: React.ReactNode;
+  }>;
   MenuSubContent: React.ComponentType<{ children: React.ReactNode }>;
-  MenuLabel?: React.ComponentType<{ className?: string; children: React.ReactNode }>;
+  MenuLabel?: React.ComponentType<{
+    className?: string;
+    children: React.ReactNode;
+  }>;
   showUpload?: boolean;
 }) {
   const handleAudioClick = () => {
@@ -53,7 +53,9 @@ export function renderWorkspaceMenuItems({
   return (
     <>
       {MenuLabel && (
-        <MenuLabel className="text-xs text-muted-foreground px-2">Create</MenuLabel>
+        <MenuLabel className="px-2 text-xs text-muted-foreground">
+          Create
+        </MenuLabel>
       )}
 
       <MenuItem
@@ -87,7 +89,7 @@ export function renderWorkspaceMenuItems({
         className="flex items-center gap-2 cursor-pointer p-2"
       >
         <Mic className="size-4" />
-        <div className="flex items-center justify-between w-full">
+        <div className="flex w-full items-center justify-between">
           <span>Audio</span>
           <span className="text-xs text-muted-foreground">Lecture/Meeting</span>
         </div>
@@ -108,29 +110,6 @@ export function renderWorkspaceMenuItems({
         <Globe className="size-4" />
         Website
       </MenuItem>
-
-      <MenuSub>
-        <MenuSubTrigger className="flex items-center gap-2 cursor-pointer">
-          <LuBook className="size-4 text-muted-foreground" />
-          Learn
-        </MenuSubTrigger>
-        <MenuSubContent>
-          <MenuItem
-            onSelect={callbacks.onFlashcards}
-            className="flex items-center gap-2 cursor-pointer"
-          >
-            <PiCardsThreeBold className="size-4 text-muted-foreground rotate-180" />
-            Flashcards
-          </MenuItem>
-          <MenuItem
-            onSelect={callbacks.onQuiz}
-            className="flex items-center gap-2 cursor-pointer"
-          >
-            <Brain className="size-4" />
-            Quiz
-          </MenuItem>
-        </MenuSubContent>
-      </MenuSub>
     </>
   );
 }

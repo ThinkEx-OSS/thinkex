@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { LuMinimize2 } from "react-icons/lu";
-import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
+import AiPanelToggleButton from "@/components/layout/AiPanelToggleButton";
 import ItemHeader from "@/components/workspace-canvas/ItemHeader";
 import CardRenderer from "@/components/workspace-canvas/CardRenderer";
 import LazyAppPdfViewer from "@/components/pdf/LazyAppPdfViewer";
@@ -33,7 +33,6 @@ export function ItemPanelContent({
 }: ItemPanelContentProps) {
     const isChatExpanded = useUIStore((state) => state.isChatExpanded);
     const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
-    const citationHighlightQuery = useUIStore((state) => state.citationHighlightQuery);
 
     const isDesktop = true;
 
@@ -89,10 +88,10 @@ export function ItemPanelContent({
                     </button>
 
                     {!isChatExpanded && (
-                        <ChatFloatingButton
+                        <AiPanelToggleButton
                             isDesktop={isDesktop}
-                            isChatExpanded={isChatExpanded}
-                            setIsChatExpanded={setIsChatExpanded}
+                            isExpanded={isChatExpanded}
+                            setIsExpanded={setIsChatExpanded}
                         />
                     )}
                 </div>
@@ -133,14 +132,6 @@ export function ItemPanelContent({
                             showThumbnails={showThumbnails}
                             itemName={item.name}
                             itemId={item.id}
-                            initialPage={
-                                citationHighlightQuery?.itemId === item.id &&
-                                citationHighlightQuery?.pageNumber != null &&
-                                citationHighlightQuery.pageNumber >= 1 &&
-                                !citationHighlightQuery?.query?.trim()
-                                    ? citationHighlightQuery.pageNumber
-                                    : undefined
-                            }
                             isMaximized={true}
                             renderHeader={(documentId, annotationControls) => (
                                 <div>

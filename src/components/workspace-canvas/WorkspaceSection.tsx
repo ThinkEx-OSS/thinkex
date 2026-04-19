@@ -48,7 +48,6 @@ import { AudioRecordingIndicator } from "./AudioRecordingIndicator";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 import { filterItemIdsForFolderCreation } from "@/lib/workspace-state/search";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
-import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
@@ -155,8 +154,6 @@ export function WorkspaceSection({
   // Workspace settings and share modal state
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
   const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
-  const [showQuizDialog, setShowQuizDialog] = useState(false);
-  const [showFlashcardsDialog, setShowFlashcardsDialog] = useState(false);
   const showAudioDialog = useAudioRecordingStore((s) => s.isDialogOpen);
   const openAudioDialog = useAudioRecordingStore((s) => s.openDialog);
   const closeAudioDialog = useAudioRecordingStore((s) => s.closeDialog);
@@ -578,8 +575,6 @@ export function WorkspaceSection({
                 onAudio: () => openAudioDialog(),
                 onYouTube: () => setShowYouTubeDialog(true),
                 onWebsite: () => setShowWebsiteDialog(true),
-                onFlashcards: () => setShowFlashcardsDialog(true),
-                onQuiz: () => setShowQuizDialog(true),
               },
               MenuItem: ContextMenuItem,
               MenuSub: ContextMenuSub,
@@ -660,28 +655,6 @@ export function WorkspaceSection({
           else closeAudioDialog();
         }}
         onAudioReady={handleAudioReady}
-      />
-      {/* Quiz Prompt Builder Dialog */}
-      <PromptBuilderDialog
-        open={showQuizDialog}
-        onOpenChange={setShowQuizDialog}
-        action="quiz"
-        items={state}
-        onBeforeSubmit={() => {
-          if (isDesktop && setIsChatExpanded && !isChatExpanded)
-            setIsChatExpanded(true);
-        }}
-      />
-      {/* Flashcards Prompt Builder Dialog */}
-      <PromptBuilderDialog
-        open={showFlashcardsDialog}
-        onOpenChange={setShowFlashcardsDialog}
-        action="flashcards"
-        items={state}
-        onBeforeSubmit={() => {
-          if (isDesktop && setIsChatExpanded && !isChatExpanded)
-            setIsChatExpanded(true);
-        }}
       />
       {/* Floating recording indicator (visible when dialog is closed but recording is active) */}
       <AudioRecordingIndicator />

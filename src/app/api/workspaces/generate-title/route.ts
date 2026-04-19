@@ -7,12 +7,12 @@ import {
   WORKSPACE_ICON_NAMES,
   formatIconForStorage,
 } from "@/lib/workspace-icons";
-import { getGatewayModelIdForPurpose } from "@/lib/ai/models";
+import { getGatewayModelIdForPurpose } from "@/lib/gateway/models";
 import {
   buildGatewayProviderOptions,
   createGatewayLanguageModel,
   getGatewayAttributionHeaders,
-} from "@/lib/ai/gateway-provider-options";
+} from "@/lib/gateway/provider-options";
 
 const MAX_TITLE_LENGTH = 60;
 

@@ -40,6 +40,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // --- Tiptap Hooks ---
 import { useHeading } from "@/components/tiptap-ui/heading-button";
@@ -101,8 +106,6 @@ import {
   handleImageUpload,
   MAX_FILE_SIZE,
 } from "@/lib/tiptap-utils";
-import { useUIStore } from "@/lib/stores/ui-store";
-import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { askAiPrimaryButtonClass } from "@/lib/ui/ask-ai-toolbar-styles";
 import { toast } from "sonner";
 
@@ -704,8 +707,6 @@ function AskAiBubbleMenu({
   editor: Editor | null;
   cardName?: string;
 }) {
-  const addReplySelection = useUIStore((state) => state.addReplySelection);
-
   const handleAskAI = useCallback(() => {
     if (!editor) return;
 
@@ -715,14 +716,9 @@ function AskAiBubbleMenu({
     const text = extractSelectionTextForAskAI(editor);
     if (!text) return;
 
-    addReplySelection({
-      text,
-      title: cardName,
-    });
     editor.chain().focus().setTextSelection(to).run();
-    toast.success("Added to context");
-    focusComposerInput();
-  }, [editor, addReplySelection, cardName]);
+    toast.info("AI coming soon");
+  }, [editor, cardName]);
 
   if (!editor) return null;
 
@@ -744,14 +740,19 @@ function AskAiBubbleMenu({
         inline: true,
       }}
     >
-      <button
-        type="button"
-        onClick={handleAskAI}
-        className={askAiPrimaryButtonClass}
-      >
-        <FaQuoteRight className="size-3.5 shrink-0" />
-        <span>Ask AI</span>
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={handleAskAI}
+            className={askAiPrimaryButtonClass}
+          >
+            <FaQuoteRight className="size-3.5 shrink-0" />
+            <span>Ask AI</span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>AI coming soon</TooltipContent>
+      </Tooltip>
     </BubbleMenu>
   );
 }

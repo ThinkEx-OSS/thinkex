@@ -1,15 +1,15 @@
 import { NextRequest } from "next/server";
 import { streamText, generateText, Output } from "ai";
 import { z } from "zod";
-import { executeWebSearch } from "@/lib/ai/tools/web-search";
+import { executeWebSearch } from "@/lib/autogen/web-search";
 import { randomUUID } from "crypto";
 import { desc, eq, sql } from "drizzle-orm";
 import { requireAuthWithUserInfo } from "@/lib/api/workspace-helpers";
 import { db, workspaces } from "@/lib/db/client";
 import { generateSlug } from "@/lib/workspace/slug";
-import { workspaceWorker, type CreateItemParams } from "@/lib/ai/workers";
+import { workspaceWorker, type CreateItemParams } from "@/lib/workspace-worker";
 import { searchVideos } from "@/lib/youtube";
-import { FirecrawlClient } from "@/lib/ai/utils/firecrawl";
+import { FirecrawlClient } from "@/lib/firecrawl/client";
 import { findNextAvailablePosition } from "@/lib/workspace-state/grid-layout-helpers";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
 import type { Item, QuizQuestion } from "@/lib/workspace-state/types";
@@ -29,12 +29,12 @@ import {
   type UploadedAsset,
 } from "@/lib/uploads/uploaded-asset";
 import { startAssetProcessing } from "@/lib/uploads/start-asset-processing";
-import { getGatewayModelIdForPurpose } from "@/lib/ai/models";
+import { getGatewayModelIdForPurpose } from "@/lib/gateway/models";
 import {
   buildGatewayProviderOptions,
   createGatewayLanguageModel,
   getGatewayAttributionHeaders,
-} from "@/lib/ai/gateway-provider-options";
+} from "@/lib/gateway/provider-options";
 
 const MAX_TITLE_LENGTH = 60;
 const LOG_TRUNCATE = 400;
