@@ -55,6 +55,7 @@ interface UIState {
   isChatExpanded: boolean;
   isChatMaximized: boolean;
   isThreadListVisible: boolean;
+  activeChatThreadId: string | null;
 
   // Layout state
   workspacePanelSize: number; // percentage (0-100)
@@ -98,6 +99,7 @@ interface UIState {
   setIsChatMaximized: (maximized: boolean) => void;
   toggleChatMaximized: () => void;
   setIsThreadListVisible: (visible: boolean) => void;
+  setActiveChatThreadId: (threadId: string | null) => void;
   toggleThreadListVisible: () => void;
   setWorkspacePanelSize: (size: number) => void;
 
@@ -159,6 +161,7 @@ const initialState = {
   isChatExpanded: true,
   isChatMaximized: false,
   isThreadListVisible: false,
+  activeChatThreadId: null,
 
   // Layout
   workspacePanelSize: PANEL_DEFAULTS.WORKSPACE_WITH_CHAT, // Default when chat is expanded
@@ -405,6 +408,7 @@ export const useUIStore = create<UIState>()(
           set((state) => ({ isChatMaximized: !state.isChatMaximized })),
         setIsThreadListVisible: (visible) =>
           set({ isThreadListVisible: visible }),
+        setActiveChatThreadId: (threadId) => set({ activeChatThreadId: threadId }),
         toggleThreadListVisible: () =>
           set((state) => ({ isThreadListVisible: !state.isThreadListVisible })),
         setWorkspacePanelSize: (size) => set({ workspacePanelSize: size }),

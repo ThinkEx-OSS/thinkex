@@ -14,7 +14,7 @@ import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { ToolUILoadingShell } from "@/components/chat-v2/tools/ToolUILoadingShell";
 import { ToolUIErrorShell } from "@/components/chat-v2/tools/ToolUIErrorShell";
-import { DiffViewer } from "@/components/assistant-ui/diff-viewer";
+import { DiffViewer } from "@/components/chat-v2/diff-viewer";
 import type { WorkspaceResult } from "@/lib/ai/tool-result-schemas";
 import { parseWorkspaceResult } from "@/lib/ai/tool-result-schemas";
 import type { Item } from "@/lib/workspace-state/types";
