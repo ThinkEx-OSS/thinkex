@@ -77,7 +77,10 @@ function formatQuizQuestions(
 ): string {
   const questionText = questions
     .map((question) =>
-      [question.questionText, question.options.join("\n")]
+      [
+        question.question ?? question.questionText ?? "",
+        question.options.join("\n"),
+      ]
         .filter(Boolean)
         .join("\n"),
     )

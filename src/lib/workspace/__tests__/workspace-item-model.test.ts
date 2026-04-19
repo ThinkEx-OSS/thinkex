@@ -7,6 +7,7 @@ import {
   rehydrateWorkspaceItem,
   splitWorkspaceItem,
 } from "../workspace-item-model";
+import { getItemSearchIndex } from "../workspace-item-model-shared";
 
 describe("workspace item model", () => {
   it("round-trips document content and source metadata through table slices", () => {
@@ -125,14 +126,28 @@ describe("workspace item model", () => {
       },
     };
 
-    expect(buildWorkspaceItemTableRows({ workspaceId: "workspace-1", item: flashcard, sourceVersion: 1 }).content.structuredData).toEqual({
+    expect(
+      buildWorkspaceItemTableRows({
+        workspaceId: "workspace-1",
+        item: flashcard,
+        sourceVersion: 1,
+      }).content.structuredData,
+    ).toEqual({
       cards: [{ id: "card-1", front: "Front", back: "Back" }],
     });
-    expect(buildWorkspaceItemTableRows({ workspaceId: "workspace-1", item: youtube, sourceVersion: 1 }).content.embedData).toEqual({
+    expect(
+      buildWorkspaceItemTableRows({
+        workspaceId: "workspace-1",
+        item: youtube,
+        sourceVersion: 1,
+      }).content.embedData,
+    ).toEqual({
       url: "https://youtube.com/watch?v=abc123",
       thumbnail: "https://img.youtube.com/vi/abc123/default.jpg",
     });
-    expect(getWorkspaceItemCapabilities("flashcard")).toEqual(["structured_content"]);
+    expect(getWorkspaceItemCapabilities("flashcard")).toEqual([
+      "structured_content",
+    ]);
     expect(getWorkspaceItemCapabilities("youtube")).toEqual(["embed_ref"]);
   });
 
@@ -219,5 +234,28 @@ describe("workspace item model", () => {
       processingStatus: "complete",
       segments: "not-an-array",
     });
+  });
+
+  it("indexes legacy quiz questionText for search", () => {
+    const item: Item = {
+      id: "quiz-legacy",
+      type: "quiz",
+      name: "Legacy Quiz",
+      subtitle: "",
+      data: {
+        title: "Old Quiz",
+        questions: [
+          {
+            id: "q-1",
+            type: "multiple_choice",
+            questionText: "What is inertia?",
+            options: ["A property of matter", "A force", "Energy", "Heat"],
+            correctIndex: 0,
+          },
+        ],
+      },
+    };
+
+    expect(getItemSearchIndex(item)).toContain("what is inertia?");
   });
 });

@@ -32,27 +32,69 @@ export const flashcardDataSchema = z.object({
 
 export const quizQuestionSchema = z.object({
   id: z.string(),
-  type: z.enum(["multiple_choice", "true_false"]),
-  questionText: z.string(),
+  type: z.enum(["multiple_choice", "true_false"]).optional(),
+  questionText: z.string().optional(),
+  question: z.string().optional(),
   options: z.array(z.string()).default([]),
   correctIndex: z.number().int().min(0).default(0),
+  explanation: z.string().optional(),
+  distractorRationales: z.array(z.string()).optional(),
 });
 
-export const quizQuestionInputSchema = quizQuestionSchema
-  .omit({ id: true, correctIndex: true })
-  .extend({
-    correctIndex: z.number().int().min(0),
+export const quizQuestionInputSchema = z
+  .object({
+    rationale: z
+      .string()
+      .min(1)
+      .describe(
+        "Think step-by-step first: explain what concept this question tests and why the correct answer is correct. This field gives you a reasoning channel before committing to an answer. Not shown to end users.",
+      ),
+    question: z
+      .string()
+      .min(1)
+      .describe(
+        "The question stem shown to the user. Must be clear, self-contained, and unambiguous.",
+      ),
+    correctAnswer: z
+      .string()
+      .min(1)
+      .describe(
+        "The exact text of the correct answer. Must be the single best answer — not 'all of the above' or 'none of the above'.",
+      ),
+    distractors: z
+      .array(
+        z.object({
+          text: z
+            .string()
+            .min(1)
+            .describe("The wrong-answer text shown to the user."),
+          whyWrong: z
+            .string()
+            .min(1)
+            .describe(
+              "The specific misconception, common error, or confusion this distractor represents. This makes the distractor pedagogically useful rather than obviously wrong.",
+            ),
+        }),
+      )
+      .min(1)
+      .max(3)
+      .describe(
+        "Wrong-answer options. Provide exactly 1 for true/false questions (the opposite of correctAnswer) or exactly 3 for multiple choice.",
+      ),
+    explanation: z
+      .string()
+      .min(1)
+      .describe(
+        "User-facing explanation shown after the user submits their answer. Explain why the correct answer is right and provide educational context.",
+      ),
   })
   .refine(
     (q) => {
-      const requiredCount = q.type === "true_false" ? 2 : 4;
-      return (
-        q.options.length === requiredCount && q.correctIndex < q.options.length
-      );
+      return q.distractors.length === 1 || q.distractors.length === 3;
     },
     {
       message:
-        "multiple_choice needs 4 options; true_false needs 2; correctIndex must be < options.length",
+        "distractors must have exactly 1 item (true/false) or exactly 3 items (multiple choice)",
     },
   );
 
