@@ -102,6 +102,10 @@ export const auth = betterAuth({
   },
   // Advanced cookie security configuration
   advanced: {
+    // Bump this prefix whenever cookie scope (domain/path) or the signing
+    // secret changes so orphaned cookies in existing browsers can't collide
+    // with freshly issued ones and produce stuck sessions.
+    cookiePrefix: "thinkex-v1",
     // Force secure cookies (HTTPS only) - critical for preventing session hijacking
     useSecureCookies: process.env.NODE_ENV === "production",
     crossSubDomainCookies: {
