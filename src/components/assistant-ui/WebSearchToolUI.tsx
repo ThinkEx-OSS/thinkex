@@ -9,7 +9,7 @@ import {
     type PropsWithChildren,
 } from "react";
 
-import { useScrollLock, type AssistantToolUIProps } from "@assistant-ui/react";
+import { useChatScrollLock, type ChatToolUIProps } from "@/lib/chat/runtime";
 
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { parseWebSearchResult } from "@/lib/ai/tool-result-schemas";
@@ -35,7 +35,7 @@ const ToolRoot: FC<
 > = ({ className, children }) => {
     const collapsibleRef = useRef<HTMLDivElement>(null);
     const [isOpen, setIsOpen] = useState(false);
-    const lockScroll = useScrollLock(collapsibleRef, ANIMATION_DURATION);
+    const lockScroll = useChatScrollLock(collapsibleRef, ANIMATION_DURATION);
 
     const handleOpenChange = useCallback(
         (open: boolean) => {
@@ -288,7 +288,7 @@ WebSearchContent.displayName = "WebSearchContent";
  * Tool UI component for web_search tool.
  * Displays search query and results in a collapsible format similar to Reasoning.
  */
-export const renderWebSearchToolUI: AssistantToolUIProps<
+export const renderWebSearchToolUI: ChatToolUIProps<
   { query: string },
   WebSearchResult
 >["render"] = ({

@@ -1,7 +1,7 @@
 "use client";
 
 import { Eye } from "lucide-react";
-import type { AssistantToolUIProps } from "@assistant-ui/react";
+import type { ChatToolUIProps } from "@/lib/chat/runtime";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-shell";
 import { ToolUIErrorShell } from "@/components/assistant-ui/tool-ui-error-shell";
@@ -22,7 +22,7 @@ function stripExtension(s: string): string {
     return s.replace(/\.[^.]+$/, "");
 }
 
-export const renderReadWorkspaceToolUI: AssistantToolUIProps<
+export const renderReadWorkspaceToolUI: ChatToolUIProps<
   ReadArgs,
   ReadResult
 >["render"] = ({ args, status, result }) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useAui, useScrollLock, type AssistantToolUIProps } from "@assistant-ui/react";
+import { useChatScrollLock, type ChatToolUIProps } from "@/lib/chat/runtime";
 import { Loader2, Plus, Check, ChevronDownIcon } from "lucide-react";
 import { YouTubeMark } from "@/components/icons/YouTubeMark";
 import { Button } from "@/components/ui/button";
@@ -52,7 +52,7 @@ const ToolRoot: FC<
 > = ({ className, children, defaultOpen = false }) => {
     const collapsibleRef = useRef<HTMLDivElement>(null);
     const [isOpen, setIsOpen] = useState(defaultOpen);
-    const lockScroll = useScrollLock(collapsibleRef, ANIMATION_DURATION);
+    const lockScroll = useChatScrollLock(collapsibleRef, ANIMATION_DURATION);
 
     const handleOpenChange = useCallback(
         (open: boolean) => {
@@ -380,7 +380,7 @@ const YouTubeSearchContent: FC<{
     );
 };
 
-export const renderYouTubeSearchToolUI: AssistantToolUIProps<
+export const renderYouTubeSearchToolUI: ChatToolUIProps<
   SearchYoutubeArgs,
   SearchYoutubeResult
 >["render"] = ({ args, status, result }) => {

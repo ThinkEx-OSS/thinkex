@@ -1,7 +1,7 @@
 "use client";
 
 import { Search } from "lucide-react";
-import type { AssistantToolUIProps } from "@assistant-ui/react";
+import type { ChatToolUIProps } from "@/lib/chat/runtime";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-shell";
 import { ToolUIErrorShell } from "@/components/assistant-ui/tool-ui-error-shell";
@@ -9,7 +9,7 @@ import { ToolUIErrorShell } from "@/components/assistant-ui/tool-ui-error-shell"
 type GrepArgs = { pattern: string; include?: string; path?: string };
 type GrepResult = { success: boolean; matches?: number; output?: string; message?: string };
 
-export const renderSearchWorkspaceToolUI: AssistantToolUIProps<
+export const renderSearchWorkspaceToolUI: ChatToolUIProps<
   GrepArgs,
   GrepResult
 >["render"] = ({ status, result }) => {

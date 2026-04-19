@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
-import type { AssistantToolUIProps } from "@assistant-ui/react";
+import type { ChatToolUIProps } from "@/lib/chat/runtime";
 import { X, Eye, FolderInput, FileText } from "lucide-react";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Button } from "@/components/ui/button";
@@ -179,7 +179,7 @@ const CreateDocumentReceipt = ({
   );
 };
 
-export const renderCreateDocumentToolUI: AssistantToolUIProps<
+export const renderCreateDocumentToolUI: ChatToolUIProps<
   CreateDocumentArgs,
   WorkspaceResult
 >["render"] = (props) => {

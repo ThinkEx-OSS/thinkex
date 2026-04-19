@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
-import type { AssistantToolUIProps } from "@assistant-ui/react";
+import type { ChatToolUIProps } from "@/lib/chat/runtime";
 import { X, Eye } from "lucide-react";
 import { Pencil } from "lucide-react";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
@@ -152,7 +152,7 @@ const EditItemReceipt = ({ args, result, status }: EditItemReceiptProps) => {
   );
 };
 
-export const renderEditItemToolUI: AssistantToolUIProps<
+export const renderEditItemToolUI: ChatToolUIProps<
   EditItemArgs,
   WorkspaceResult
 >["render"] = ({ args, result, status }) => {

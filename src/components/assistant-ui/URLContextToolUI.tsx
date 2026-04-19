@@ -9,7 +9,7 @@ import {
   type PropsWithChildren,
 } from "react";
 
-import { useScrollLock, type AssistantToolUIProps } from "@assistant-ui/react";
+import { useChatScrollLock, type ChatToolUIProps } from "@/lib/chat/runtime";
 
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { parseURLContextResult } from "@/lib/ai/tool-result-schemas";
@@ -36,7 +36,7 @@ const ToolRoot: FC<
 > = ({ className, children }) => {
   const collapsibleRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const lockScroll = useScrollLock(collapsibleRef, ANIMATION_DURATION);
+  const lockScroll = useChatScrollLock(collapsibleRef, ANIMATION_DURATION);
 
   const handleOpenChange = useCallback(
     (open: boolean) => {
@@ -210,7 +210,7 @@ type ProcessUrlsResult =
     };
   };
 
-export const renderURLContextToolUI: AssistantToolUIProps<{
+export const renderURLContextToolUI: ChatToolUIProps<{
   urls?: string[];
   jsonInput?: string;
 }, ProcessUrlsResult>["render"] = ({ args, status, result }) => {

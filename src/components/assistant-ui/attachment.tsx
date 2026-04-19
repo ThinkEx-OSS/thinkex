@@ -429,7 +429,7 @@ export const PromptInputAddAttachment: FC = () => {
     }
   };
 
-  const uploadInputId = "composer-file-upload";
+  const uploadInputId = "prompt-input-file-upload";
 
   return (
     <>

@@ -7,6 +7,7 @@ import type {
   ToolCallMessagePartComponent,
   ReasoningMessagePartComponent,
   ReasoningGroupComponent,
+  AssistantToolUIProps,
 } from '@assistant-ui/react';
 
 export type ChatMessageRole = "user" | "assistant" | "system";
@@ -66,6 +67,7 @@ export type ChatSourcePartComponent = SourceMessagePartComponent;
 export type ChatToolCallPartComponent = ToolCallMessagePartComponent;
 export type ChatReasoningPartComponent = ReasoningMessagePartComponent;
 export type ChatReasoningGroupComponent = ReasoningGroupComponent;
+export type ChatToolUIProps<Args = unknown, Result = unknown> = AssistantToolUIProps<Args, Result>;
 
 /** Scope an attachment belongs to — either the user composer or a rendered message. */
 export type AttachmentScope = "composer" | "message";

@@ -13,6 +13,7 @@ export type {
   ChatSourcePartComponent,
   ChatTextPartProps,
   ChatToolCallPartComponent,
+  ChatToolUIProps,
 } from "./types";
 export * from "./primitives";
 export * from "./hooks";

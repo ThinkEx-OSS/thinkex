@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { AssistantToolUIProps } from "@assistant-ui/react";
+import type { ChatToolUIProps } from "@/lib/chat/runtime";
 import { X, Eye, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -107,7 +107,7 @@ const AddYoutubeVideoReceipt = ({
   );
 };
 
-export const renderAddYoutubeVideoToolUI: AssistantToolUIProps<
+export const renderAddYoutubeVideoToolUI: ChatToolUIProps<
   AddYoutubeVideoArgs,
   WorkspaceResult
 >["render"] = ({ args, result, status }) => {

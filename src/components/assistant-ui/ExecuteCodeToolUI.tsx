@@ -7,7 +7,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
 } from "lucide-react";
-import type { AssistantToolUIProps } from "@assistant-ui/react";
+import type { ChatToolUIProps } from "@/lib/chat/runtime";
 
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { ToolUILoadingShell } from "@/components/assistant-ui/tool-ui-loading-shell";
@@ -31,7 +31,7 @@ function chartLabel(chartType: string, index: number): string {
   return `Chart ${n}`;
 }
 
-export const renderExecuteCodeToolUI: AssistantToolUIProps<
+export const renderExecuteCodeToolUI: ChatToolUIProps<
   { code: string },
   CodeExecuteResult
 >["render"] = ({ status, args, result }) => {
