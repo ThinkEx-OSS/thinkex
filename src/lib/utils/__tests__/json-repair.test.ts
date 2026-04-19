@@ -49,9 +49,18 @@ describe("parseJsonWithRepair", () => {
 
   it("parses new quiz question shape with explanation", () => {
     const input =
-      '{"questions":[{"id":"q1","question":"Q?","options":["a","b","c","d"],"correctIndex":2,"explanation":"because reasons","distractorRationales":["","","",""]}]}';
-    const result = parseJsonWithRepair<{ questions: unknown[] }>(input);
+      '{"questions":[{"id":"q1","question":"Q?","options":["a","b","c","d"],"correctIndex":2,"explanation":"because reasons","distractorRationales":["wrong1","wrong2","","wrong3"]}]}';
+    const result = parseJsonWithRepair<{
+      questions: Array<Record<string, unknown>>;
+    }>(input);
     expect(result.value.questions).toHaveLength(1);
+    const q = result.value.questions[0];
+    expect(q.question).toBe("Q?");
+    expect(q.correctIndex).toBe(2);
+    expect(q.explanation).toBe("because reasons");
+    expect(q.distractorRationales).toEqual(["wrong1", "wrong2", "", "wrong3"]);
+    expect(q.type).toBeUndefined();
+    expect(q.questionText).toBeUndefined();
   });
 
   it("repairs malformed appended flashcard JSON with single quotes", () => {

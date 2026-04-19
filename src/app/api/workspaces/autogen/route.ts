@@ -417,6 +417,38 @@ function streamEvent(ev: StreamEvent): string {
   return JSON.stringify(ev) + "\n";
 }
 
+function stripRationaleFromPartial(partial: unknown): unknown {
+  if (
+    !partial ||
+    typeof partial !== "object" ||
+    !("quiz" in partial) ||
+    !partial.quiz ||
+    typeof partial.quiz !== "object" ||
+    !("questions" in partial.quiz) ||
+    !Array.isArray(partial.quiz.questions)
+  ) {
+    return partial;
+  }
+
+  return {
+    ...partial,
+    quiz: {
+      ...partial.quiz,
+      questions: partial.quiz.questions.map((question) => {
+        if (
+          question &&
+          typeof question === "object" &&
+          "rationale" in question
+        ) {
+          const { rationale: _rationale, ...rest } = question;
+          return rest;
+        }
+        return question;
+      }),
+    },
+  };
+}
+
 /**
  * POST /api/workspaces/autogen
  * Create a workspace with AI-generated content. Streams progress events.
@@ -863,7 +895,13 @@ export async function POST(request: NextRequest) {
 
           for await (const partial of partialOutputStream) {
             output = partial as OutputType;
-            send({ type: "partial", data: { stage: "documentQuiz", partial } });
+            send({
+              type: "partial",
+              data: {
+                stage: "documentQuiz",
+                partial: stripRationaleFromPartial(partial),
+              },
+            });
           }
 
           if (!output?.document || !output?.quiz)
