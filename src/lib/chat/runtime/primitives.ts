@@ -1,5 +1,6 @@
 import {
   ActionBarPrimitive,
+  AttachmentPrimitive,
   AuiIf,
   BranchPickerPrimitive,
   ComposerPrimitive,
@@ -12,6 +13,7 @@ import type { BranchPickerPrimitive as _BPP } from "@assistant-ui/react";
 export const ChatThread = ThreadPrimitive;
 export const ChatMessage = MessagePrimitive;
 export const ChatPromptInput = ComposerPrimitive;
+export const ChatAttachment = AttachmentPrimitive;
 export const ChatActionBar = ActionBarPrimitive;
 export const ChatBranchPicker = BranchPickerPrimitive;
 export const ChatError = ErrorPrimitive;

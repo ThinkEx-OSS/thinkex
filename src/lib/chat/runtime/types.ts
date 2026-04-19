@@ -1,3 +1,14 @@
+import type {
+  AttachmentPrimitive as _AP,
+  TextMessagePartProps,
+  FileMessagePartComponent,
+  ImageMessagePartComponent,
+  SourceMessagePartComponent,
+  ToolCallMessagePartComponent,
+  ReasoningMessagePartComponent,
+  ReasoningGroupComponent,
+} from '@assistant-ui/react';
+
 export type ChatMessageRole = "user" | "assistant" | "system";
 
 export type ChatTextPart = { type: "text"; text: string };
@@ -43,15 +54,6 @@ export interface ComposerActions {
   setRunConfig(config: { custom?: Record<string, unknown> }): void;
   getState(): ComposerStateSnapshot | undefined;
 }
-import type {
-  TextMessagePartProps,
-  FileMessagePartComponent,
-  ImageMessagePartComponent,
-  SourceMessagePartComponent,
-  ToolCallMessagePartComponent,
-  ReasoningMessagePartComponent,
-  ReasoningGroupComponent,
-} from "@assistant-ui/react";
 
 /**
  * Type re-exports — the ACL owns the identity of these types so consumers never
@@ -64,3 +66,21 @@ export type ChatSourcePartComponent = SourceMessagePartComponent;
 export type ChatToolCallPartComponent = ToolCallMessagePartComponent;
 export type ChatReasoningPartComponent = ReasoningMessagePartComponent;
 export type ChatReasoningGroupComponent = ReasoningGroupComponent;
+
+/** Scope an attachment belongs to — either the user composer or a rendered message. */
+export type AttachmentScope = "composer" | "message";
+
+/**
+ * Snapshot of the current attachment in AttachmentPrimitive context. Read by
+ * AttachmentThumb / AttachmentUI to render previews, labels, and upload states.
+ */
+export interface ChatAttachmentSnapshot {
+  id?: string;
+  type?: string;
+  name?: string;
+  file?: File & { name: string };
+  content?: Array<{ type: string; text?: string; image?: string }>;
+}
+
+/** Props for the neutral ChatAttachment primitive — mirrors AttachmentPrimitive.Root. */
+export type ChatAttachmentRootProps = _AP.Root.Props;

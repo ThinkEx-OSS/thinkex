@@ -7,10 +7,13 @@ import {
   useMessagePartText,
   useScrollLock,
 } from "@assistant-ui/react";
+import { useShallow } from "zustand/shallow";
 import type {
+  ChatAttachmentSnapshot,
   ChatMessage,
   ComposerActions,
   ComposerStateSnapshot,
+  AttachmentScope,
   ThreadState,
 } from "./types";
 
@@ -152,4 +155,45 @@ export function useMessagePartTextLengthSnapshot(
     }
     return len;
   });
+}
+
+/**
+ * Scope of the current attachment ("composer" for user uploads, "message" for rendered attachments in a chat message).
+ * Reads `aui.attachment.source` from the AttachmentPrimitive context.
+ */
+export function useAttachmentScope(): AttachmentScope {
+  const aui = useAui();
+  const source = (aui as unknown as { attachment?: { source?: string } } | null)?.attachment?.source;
+  return source === "composer" ? "composer" : "message";
+}
+
+/** Attachment id from AttachmentPrimitive context. */
+export function useAttachmentId(): string | undefined {
+  return useAuiState((s: any) => (s.attachment as { id?: string } | undefined)?.id);
+}
+
+/** Whether the current attachment is an image. */
+export function useIsAttachmentImage(): boolean {
+  return useAuiState((s: any) => (s.attachment as { type?: string } | undefined)?.type === "image");
+}
+
+/**
+ * Shallow-equal snapshot of the current attachment object. The returned object
+ * is stable across renders when the underlying assistant-ui attachment state
+ * hasn't changed.
+ */
+export function useAttachmentSnapshot(): ChatAttachmentSnapshot | undefined {
+  return useAuiState(
+    useShallow((s: any) => {
+      const att = s.attachment as ChatAttachmentSnapshot | undefined;
+      if (!att) return undefined;
+      return {
+        id: att.id,
+        type: att.type,
+        name: att.name,
+        file: att.file,
+        content: att.content,
+      };
+    }),
+  );
 }
