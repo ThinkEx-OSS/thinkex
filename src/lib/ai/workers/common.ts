@@ -64,4 +64,4 @@ export async function executeWorkspaceOperation<T>(
     return newOperation;
 }
 
-// loadCurrentState removed - use loadWorkspaceState from "@/lib/workspace/state-loader" instead
+// loadCurrentState removed - use loadWorkspaceState from "@/lib/workspace/workspace-state-read" instead

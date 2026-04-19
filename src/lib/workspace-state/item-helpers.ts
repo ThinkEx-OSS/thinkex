@@ -1,8 +1,5 @@
 import type { CardType, ItemData, PdfData, FlashcardData, FolderData, YouTubeData, QuizData, ImageData, AudioData, WebsiteData, DocumentData } from "./types";
 
-/**
- * Generate a unique item ID
- */
 export function generateItemId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
@@ -20,7 +17,6 @@ export function defaultDataFor(type: CardType): ItemData {
             back: "",
           },
         ],
-        currentIndex: 0,
       } as FlashcardData;
     case "folder":
       return {} as FolderData;
@@ -42,4 +38,3 @@ export function defaultDataFor(type: CardType): ItemData {
     }
   }
 }
-

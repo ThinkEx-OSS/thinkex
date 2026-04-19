@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { db, workspaces } from "@/lib/db/client";
 import { workspaceCollaborators } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
-import { loadWorkspaceState } from "@/lib/workspace/state-loader";
+import { loadWorkspaceState } from "@/lib/workspace/workspace-state-read";
 import { hasDuplicateName } from "@/lib/workspace/unique-name";
 import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
 import type { Item } from "@/lib/workspace-state/types";

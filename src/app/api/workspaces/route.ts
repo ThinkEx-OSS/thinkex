@@ -3,7 +3,6 @@ import { getTemplateInitialItems } from "@/lib/workspace/templates";
 import { generateSlug } from "@/lib/workspace/slug";
 import type { WorkspaceTemplate } from "@/lib/workspace-state/types";
 import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
-import { createEvent } from "@/lib/workspace/events";
 import { db, workspaces } from "@/lib/db/client";
 import { desc, eq } from "drizzle-orm";
 import {
@@ -11,9 +10,8 @@ import {
   requireAuthWithUserInfo,
   withErrorHandling,
 } from "@/lib/api/workspace-helpers";
-import { appendWorkspaceEventOrThrow } from "@/lib/workspace/workspace-event-store";
-import { workspaceItemProjectionState } from "@/lib/db/schema";
 import { listWorkspacesForUser } from "@/lib/workspace/list-workspaces";
+import { insertWorkspaceItem } from "@/lib/workspace/workspace-item-write";
 
 /**
  * GET /api/workspaces
@@ -32,7 +30,6 @@ export const GET = withErrorHandling(handleGET, "GET /api/workspaces");
  * Create a new workspace
  */
 async function handlePOST(request: NextRequest) {
-  // Use requireAuthWithUserInfo to avoid duplicate session fetch
   const user = await requireAuthWithUserInfo();
   const userId = user.userId;
 
@@ -47,7 +44,6 @@ async function handlePOST(request: NextRequest) {
     initialItems: customInitialItems,
   } = body;
 
-  // Use the provided template, defaulting to "blank"
   const effectiveTemplate: WorkspaceTemplate =
     template && ["blank", "getting_started"].includes(template)
       ? template
@@ -60,7 +56,6 @@ async function handlePOST(request: NextRequest) {
     );
   }
 
-  // Get max sort_order for this user to set new workspace at the end
   const maxSortData = await db
     .select({ sortOrder: workspaces.sortOrder })
     .from(workspaces)
@@ -71,20 +66,18 @@ async function handlePOST(request: NextRequest) {
   const maxSortOrder = maxSortData[0]?.sortOrder ?? -1;
   const newSortOrder = maxSortOrder + 1;
 
-  // Create workspace with retry logic for slug collisions
   let workspace;
   let attempts = 0;
   const MAX_ATTEMPTS = 5;
 
   while (attempts < MAX_ATTEMPTS) {
     try {
-      // Generate slug
       const slug = generateSlug(name);
 
       [workspace] = await db
         .insert(workspaces)
         .values({
-          userId: userId,
+          userId,
           name,
           description: description || "",
           template: effectiveTemplate,
@@ -96,9 +89,8 @@ async function handlePOST(request: NextRequest) {
         })
         .returning();
 
-      break; // Success
+      break;
     } catch (error: any) {
-      // Postgres unique constraint violation code is 23505
       if (error?.code === "23505") {
         attempts++;
         if (attempts === MAX_ATTEMPTS) throw error;
@@ -116,47 +108,21 @@ async function handlePOST(request: NextRequest) {
     ? normalizeWorkspaceItems(customInitialItems)
     : getTemplateInitialItems(effectiveTemplate);
 
-  if (initialItems.length > 0) {
-    await db
-      .insert(workspaceItemProjectionState)
-      .values({
-        workspaceId: workspace.id,
-        lastAppliedVersion: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
-      .onConflictDoNothing();
-
-    const event = createEvent(
-      "BULK_ITEMS_CREATED",
-      { items: initialItems },
-      userId,
-      user.name || user.email || undefined,
-    );
-
-    try {
-      await appendWorkspaceEventOrThrow({
-        workspaceId: workspace.id,
-        event,
-        baseVersion: 0,
-      });
-    } catch (eventError) {
-      await db.delete(workspaces).where(eq(workspaces.id, workspace.id));
-      throw eventError;
-    }
-  } else {
-    await db
-      .insert(workspaceItemProjectionState)
-      .values({
-        workspaceId: workspace.id,
-        lastAppliedVersion: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
-      .onConflictDoNothing();
+  try {
+    await db.transaction(async (tx) => {
+      for (const item of initialItems) {
+        await insertWorkspaceItem(tx, {
+          workspaceId: workspace.id,
+          item,
+          sourceVersion: 0,
+        });
+      }
+    });
+  } catch (insertError) {
+    await db.delete(workspaces).where(eq(workspaces.id, workspace.id));
+    throw insertError;
   }
 
-  // Return workspace with full state for immediate use
   return NextResponse.json(
     {
       workspace: {
