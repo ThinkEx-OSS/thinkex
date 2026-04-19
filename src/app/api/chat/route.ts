@@ -39,6 +39,7 @@ interface ChatRequestBody {
   messages?: ThinkexUIMessage[];
   messageId?: string;
   parentId?: string | null;
+  forceHead?: boolean;
   system?: string;
   workspaceId: string;
   modelId?: string;
@@ -221,6 +222,7 @@ async function handlePOST(req: Request) {
           metadata: userMessage.metadata ?? {},
         },
         updateHeadIfMatches: true,
+        forceHead: body.forceHead === true,
       });
 
       assistantParentId = userMessage.id;
@@ -488,12 +490,14 @@ async function handlePOST(req: Request) {
             metadata: responseMessage.metadata ?? {},
           },
           updateHeadIfMatches: true,
+          forceHead: true,
         });
       },
     });
     logger.debug("🔍 [CHAT-API] toUIMessageStreamResponse succeeded");
     return response;
   } catch (error) {
+    if (error instanceof Response) return error;
     const errorMessage = error instanceof Error ? error.message : String(error);
 
     // Detect timeout errors

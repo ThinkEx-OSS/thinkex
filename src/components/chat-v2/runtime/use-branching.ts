@@ -135,7 +135,6 @@ export function useBranching(args: {
       );
 
       args.setMessages(path);
-      await patchThread(args.threadId, { headMessageId: nextMessage.id });
 
       return {
         message: nextMessage,

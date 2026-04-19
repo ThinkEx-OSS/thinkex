@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
 import { verifyThreadOwnership, verifyWorkspaceAccess } from "@/lib/api/workspace-helpers";
@@ -8,6 +8,8 @@ export async function verifyThread(args: {
   threadId: string;
   userId: string;
 }): Promise<{ thread: typeof chatThreads.$inferSelect }> {
+  // This helper throws Response objects on auth/ownership failures so callers
+  // can return them directly instead of converting them into generic 500s.
   const [thread] = await db
     .select()
     .from(chatThreads)
@@ -30,6 +32,7 @@ export async function upsertMessage(args: {
   parentId: string | null;
   content: Record<string, unknown>;
   updateHeadIfMatches: boolean;
+  forceHead?: boolean;
 }): Promise<void> {
   await db.transaction(async (tx) => {
     await tx
@@ -52,8 +55,9 @@ export async function upsertMessage(args: {
       .limit(1);
 
     const shouldUpdateHead =
-      args.updateHeadIfMatches &&
-      (args.parentId == null || thread?.headMessageId === args.parentId);
+      args.forceHead ||
+      (args.updateHeadIfMatches &&
+        (args.parentId == null || thread?.headMessageId === args.parentId));
 
     const now = new Date().toISOString();
     await tx

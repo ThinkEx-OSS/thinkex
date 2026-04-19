@@ -7,7 +7,6 @@ import { VList, type VListHandle } from "virtua";
 import {
   ArrowUpIcon,
   Brain,
-  CheckIcon,
   ChevronDown,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -295,19 +294,23 @@ export function Thread({
   }, [activePdfPageByItemId, items, selectedCardIds, viewingItemIds]);
 
   const latestRequestRef = useRef({
+    threadId,
     workspaceId,
     modelId: selectedModelId,
     memoryEnabled,
     activeFolderId,
     selectedCardsContext,
+    headMessageId: headId,
   });
 
   latestRequestRef.current = {
+    threadId,
     workspaceId,
     modelId: selectedModelId,
     memoryEnabled,
     activeFolderId,
     selectedCardsContext,
+    headMessageId: headId,
   };
 
   const transport = useMemo(
@@ -319,27 +322,36 @@ export function Thread({
           messages,
           trigger,
           messageId,
+          body: requestBody,
         }) => {
           const request = latestRequestRef.current;
           const lastMessage = messages[messages.length - 1];
+          const requestOverrides = (requestBody ?? {}) as {
+            parentId?: string | null;
+            forceHead?: boolean;
+          };
           const replySelections =
             trigger === "submit-message" && lastMessage?.role === "user"
               ? getMessageReplySelections(lastMessage)
               : [];
+          const parentId =
+            requestOverrides.parentId !== undefined
+              ? requestOverrides.parentId
+              : trigger === "submit-message"
+                ? request.headMessageId ?? null
+                : null;
 
           return {
             body: {
-              id,
+              id: id ?? request.threadId,
               trigger:
                 trigger === "submit-message"
                   ? "submit-user-message"
                   : "regenerate-assistant-message",
               messages,
               messageId,
-              parentId:
-                trigger === "submit-message"
-                  ? messages[messages.length - 2]?.id ?? null
-                  : null,
+              parentId,
+              forceHead: requestOverrides.forceHead === true,
               system: systemPrompt,
               workspaceId: request.workspaceId,
               modelId: request.modelId,
@@ -372,6 +384,16 @@ export function Thread({
     messages: initialMessages,
     experimental_throttle: 50,
   });
+
+  latestRequestRef.current = {
+    threadId,
+    workspaceId,
+    modelId: selectedModelId,
+    memoryEnabled,
+    activeFolderId,
+    selectedCardsContext,
+    headMessageId: messages[messages.length - 1]?.id ?? headId,
+  };
 
   useComposerErrorToasts(error);
 
@@ -506,6 +528,11 @@ export function Thread({
                             text: newText,
                             metadata: result.message.metadata,
                             messageId: result.message.id,
+                          }, {
+                            body: {
+                              forceHead: true,
+                              parentId: result.parentId,
+                            },
                           });
                         }}
                         onMeasure={
@@ -775,7 +802,7 @@ function AssistantMessage({
       data-role="assistant"
       style={minHeight != null ? { minHeight } : undefined}
     >
-      <div className="mx-2 break-words text-foreground">
+      <div className="chat-v2-assistant-message-content mx-2 break-words text-foreground">
         <AssistantLoader
           isRunning={isStreaming}
           isMessageEmpty={message.parts.length === 0}
