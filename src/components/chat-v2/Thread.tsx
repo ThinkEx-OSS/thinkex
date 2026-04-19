@@ -81,6 +81,7 @@ import { CardContextDisplay } from "@/components/chat/CardContextDisplay";
 import { MentionMenu } from "@/components/chat/MentionMenu";
 import { MessageContextBadges } from "@/components/chat/MessageContextBadges";
 import { ReplyContextDisplay } from "@/components/chat/ReplyContextDisplay";
+import AssistantTextSelectionManager from "@/components/chat-v2/AssistantTextSelectionManager";
 
 const TOOL_COMPONENTS: Record<string, React.FC<ToolUIProps<any, any>>> = {
   [CHAT_TOOL.WORKSPACE_SEARCH]: SearchWorkspaceToolUI,
@@ -255,6 +256,7 @@ export interface ThreadProps {
   workspaceId: string;
   items: Item[];
   workspaceName?: string;
+  onComposerHandleChange?: (handle: ComposerHandle | null) => void;
 }
 
 export function Thread({
@@ -262,6 +264,7 @@ export function Thread({
   workspaceId,
   items,
   workspaceName,
+  onComposerHandleChange,
 }: ThreadProps) {
   const { messages: initialMessages, headId, isLoading, tree } = useInitialMessages(threadId);
   const selectedModelId = useUIStore((state) => state.selectedModelId);
@@ -459,10 +462,17 @@ export function Thread({
     [],
   );
 
+  useEffect(() => {
+    onComposerHandleChange?.(composerHandle);
+    return () => {
+      onComposerHandleChange?.(null);
+    };
+  }, [composerHandle, onComposerHandleChange]);
+
   return (
     <ThreadProvider value={{ threadId, messages }}>
       <ComposerProvider value={composerHandle}>
-        <div className="flex h-full flex-col bg-sidebar">
+        <div className="relative flex h-full flex-col bg-sidebar">
           <div className="flex-1 min-h-0 overflow-hidden">
             {isLoading ? (
               <ThreadLoadingSkeleton />
@@ -532,6 +542,7 @@ export function Thread({
               composerStateRef={composerStateRef}
             />
           </div>
+          <AssistantTextSelectionManager className="absolute inset-0 pointer-events-none" />
         </div>
       </ComposerProvider>
     </ThreadProvider>

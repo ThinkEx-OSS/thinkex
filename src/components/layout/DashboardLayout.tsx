@@ -1,10 +1,13 @@
+"use client";
+
 import { Sidebar, SidebarInset } from "@/components/ui/sidebar";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import WorkspaceSidebar from "@/components/workspace-canvas/WorkspaceSidebar";
-import { AssistantPanel } from "@/components/assistant-ui/AssistantPanel";
-import { WorkspaceRuntimeProvider } from "@/components/assistant-ui/WorkspaceRuntimeProvider";
+import { useState } from "react";
+import { AssistantPanel } from "@/components/chat-v2/AssistantPanel";
+import { ComposerProvider, type ComposerHandle } from "@/components/chat-v2/runtime/composer-context";
 import { WorkspaceCanvasDropzone } from "@/components/workspace-canvas/WorkspaceCanvasDropzone";
-import { AssistantDropzone } from "@/components/assistant-ui/AssistantDropzone";
+import { AssistantDropzone } from "@/components/chat-v2/composer/AssistantDropzone";
 import { PANEL_DEFAULTS } from "@/lib/layout-constants";
 import React from "react";
 
@@ -48,6 +51,8 @@ export function DashboardLayout({
   const effectiveChatExpanded = isChatExpanded && !!currentWorkspaceId;
   const effectiveChatMaximized = isChatMaximized && !!currentWorkspaceId;
 
+  const [composerHandle, setComposerHandle] = useState<ComposerHandle | null>(null);
+
   const content = (
     <div className="h-screen flex w-full">
       {/* MAXIMIZED MODE: Show only chat (workspace completely hidden) */}
@@ -56,6 +61,7 @@ export function DashboardLayout({
           <AssistantDropzone>
             <div className="flex-1 h-full">
               <AssistantPanel
+                onComposerHandleChange={setComposerHandle}
                 key={`assistant-panel-${currentWorkspaceId}`}
                 workspaceId={currentWorkspaceId || ""}
                 setIsChatExpanded={setIsChatExpanded}
@@ -118,6 +124,7 @@ export function DashboardLayout({
               >
                 <AssistantDropzone>
                   <AssistantPanel
+                    onComposerHandleChange={setComposerHandle}
                     key={`assistant-panel-${currentWorkspaceId}`}
                     workspaceId={currentWorkspaceId || ""}
                     setIsChatExpanded={setIsChatExpanded}
@@ -133,13 +140,5 @@ export function DashboardLayout({
     </div>
   );
 
-  if (currentWorkspaceId) {
-    return (
-      <WorkspaceRuntimeProvider workspaceId={currentWorkspaceId}>
-        {content}
-      </WorkspaceRuntimeProvider>
-    );
-  }
-
-  return content;
+  return <ComposerProvider value={composerHandle}>{content}</ComposerProvider>;
 }

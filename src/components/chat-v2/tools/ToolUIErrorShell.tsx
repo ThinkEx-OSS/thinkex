@@ -19,7 +19,7 @@ function truncateMessage(msg: string, maxLen: number = MAX_MESSAGE_LENGTH): stri
 }
 
 /**
- * Shared error shell for assistant-ui tool UIs. Card-style layout with
+ * Shared error shell for tool UIs. Card-style layout with
  * error icon + label (+ optional message). Only show when status.type !== "running"
  * (e.g. incomplete + error, or complete + !success).
  */

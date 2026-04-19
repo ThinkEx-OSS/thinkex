@@ -245,7 +245,7 @@ const ReasoningGroupImpl: React.FC<ReasoningGroupProps> = ({
   const [isManuallyOpen, setIsManuallyOpen] = useState(false);
   const isOpen = streaming || isManuallyOpen;
 
-  // Auto-scroll to bottom as reasoning streams (like assistant-ui Viewport autoScroll)
+  // Auto-scroll to bottom as reasoning streams.
   // reasoningTextSnapshot ensures we run on every stream chunk
   useLayoutEffect(() => {
     if (!streaming || !textContainerRef.current) return;

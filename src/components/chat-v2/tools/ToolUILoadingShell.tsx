@@ -11,7 +11,7 @@ export interface ToolUILoadingShellProps {
 }
 
 /**
- * Shared loading shell for assistant-ui tool UIs. Card-style layout with
+ * Shared loading shell for tool UIs. Card-style layout with
  * spinner + label. Use when status.type === "running".
  */
 export function ToolUILoadingShell({

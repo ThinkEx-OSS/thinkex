@@ -204,7 +204,7 @@ const MarkdownTextImpl = ({
 
       if (isVerticalScroll) {
         // Always let vertical scroll bubble up to parent - don't let code block trap it
-        const scrollParent = preElement.closest('.aui-thread-viewport') as HTMLElement;
+        const scrollParent = preElement.closest('.chat-v2-thread-viewport') as HTMLElement;
         if (scrollParent) {
           scrollParent.scrollTop += e.deltaY;
           e.preventDefault();
