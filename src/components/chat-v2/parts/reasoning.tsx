@@ -214,7 +214,7 @@ const ReasoningText = forwardRef<HTMLDivElement, React.ComponentProps<"div">>(
 export interface ReasoningProps {
   text: string;
   streaming: boolean;
-  messageKey?: string;
+  messageKey: string;
 }
 
 const ReasoningImpl: React.FC<ReasoningProps> = ({ text, streaming, messageKey }) => (

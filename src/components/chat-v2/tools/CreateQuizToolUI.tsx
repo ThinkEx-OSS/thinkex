@@ -27,6 +27,7 @@ type CreateQuizToolRendererProps = {
   input?: Partial<CreateQuizInput> | CreateQuizInput;
   output?: QuizResult;
   state: ToolUIState;
+  errorText?: string;
 };
 
 interface CreateQuizReceiptProps {
@@ -201,6 +202,7 @@ function CreateQuizToolRenderer({
   input,
   output,
   state,
+  errorText,
 }: CreateQuizToolRendererProps) {
   const args = input as CreateQuizInput;
   const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
@@ -264,7 +266,7 @@ function CreateQuizToolRenderer({
     content = (
       <ToolUIErrorShell
         label="Failed to create quiz"
-        message="Quiz generation failed"
+        message={errorText ?? "Quiz generation failed"}
       />
     );
   }

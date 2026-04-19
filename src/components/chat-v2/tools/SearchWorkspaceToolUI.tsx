@@ -9,7 +9,11 @@ import { ToolUIErrorShell } from "@/components/chat-v2/tools/ToolUIErrorShell";
 type GrepArgs = { pattern: string; include?: string; path?: string };
 type GrepResult = { success: boolean; matches?: number; output?: string; message?: string };
 
-export const SearchWorkspaceToolUI: React.FC<ToolUIProps<GrepArgs, GrepResult>> = ({ state, output }) => {
+export const SearchWorkspaceToolUI: React.FC<ToolUIProps<GrepArgs, GrepResult>> = ({
+  state,
+  output,
+  errorText,
+}) => {
   let content: React.ReactNode = null;
 
   if (state === "input-streaming" || state === "input-available") {
@@ -39,7 +43,7 @@ export const SearchWorkspaceToolUI: React.FC<ToolUIProps<GrepArgs, GrepResult>> 
     content = (
       <ToolUIErrorShell
         label="Workspace search failed"
-        message={output?.message ?? "Search failed"}
+        message={errorText ?? "Search failed"}
       />
     );
   }

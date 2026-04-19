@@ -29,6 +29,7 @@ type CreateDocumentToolRendererProps = {
   input?: Partial<CreateDocumentArgs> | CreateDocumentArgs;
   output?: WorkspaceResult;
   state: ToolUIState;
+  errorText?: string;
 };
 
 interface CreateDocumentReceiptProps {
@@ -187,6 +188,7 @@ function CreateDocumentToolRenderer({
   input,
   output,
   state,
+  errorText,
 }: CreateDocumentToolRendererProps) {
   const args = input as CreateDocumentArgs;
   const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
@@ -247,7 +249,7 @@ function CreateDocumentToolRenderer({
     content = (
       <ToolUIErrorShell
         label="Failed to create document"
-        message={parsed && !parsed.success ? parsed.message : undefined}
+        message={errorText ?? "Document creation failed"}
       />
     );
   }

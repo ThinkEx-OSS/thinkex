@@ -11,6 +11,7 @@ import {
 
 import { useScrollLock } from "@/lib/chat/use-scroll-lock";
 import type { ToolUIProps, ToolUIState } from "@/components/chat-v2/tools/types";
+import { ToolUIErrorShell } from "@/components/chat-v2/tools/ToolUIErrorShell";
 
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { parseWebSearchResult } from "@/lib/ai/tool-result-schemas";
@@ -207,8 +208,10 @@ const getDomain = (url: string) => {
 const WebSearchContent: FC<{
     state: ToolUIState;
     output: WebSearchResult | null;
-}> = ({ state, output }) => {
+    errorText?: string;
+}> = ({ state, output, errorText }) => {
     const isRunning = state === "input-streaming" || state === "input-available";
+    const isError = state === "output-error";
     const parsed = output ? parseWebSearchResult(output) : null;
     const metadata = parsed?.groundingMetadata;
     const queries = metadata?.webSearchQueries;
@@ -239,7 +242,12 @@ const WebSearchContent: FC<{
                             </div>
                         )}
 
-                        {sources.length > 0 ? (
+                        {isError ? (
+                            <ToolUIErrorShell
+                                label="Web search failed"
+                                message={errorText ?? "Search failed"}
+                            />
+                        ) : sources.length > 0 ? (
                             <div>
                                 <span className="text-xs font-medium text-muted-foreground/70 block mb-2">Sources:</span>
                                 <div className="flex flex-wrap gap-2">
@@ -292,10 +300,11 @@ WebSearchContent.displayName = "WebSearchContent";
 export const WebSearchToolUI: React.FC<ToolUIProps<{ query: string }, WebSearchResult>> = ({
   state,
   output,
+  errorText,
 }) => {
   return (
     <ToolUIErrorBoundary componentName="WebSearch">
-      <WebSearchContent state={state} output={output ?? null} />
+      <WebSearchContent state={state} output={output ?? null} errorText={errorText} />
     </ToolUIErrorBoundary>
   );
 };

@@ -36,6 +36,7 @@ type CreateFlashcardToolRendererProps = {
   input?: Partial<CreateFlashcardArgs> | CreateFlashcardArgs;
   output?: FlashcardResult;
   state: ToolUIState;
+  errorText?: string;
 };
 
 function isCreateFlashcardArgsObject(
@@ -226,6 +227,7 @@ function CreateFlashcardToolRenderer({
   input,
   output,
   state,
+  errorText,
 }: CreateFlashcardToolRendererProps) {
   const args = input as CreateFlashcardArgs;
   const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
@@ -304,7 +306,7 @@ state={state}
     content = (
       <ToolUIErrorShell
         label="Failed to create flashcards"
-        message={parsed && !parsed.success ? parsed.message : undefined}
+        message={errorText ?? "Flashcard generation failed"}
       />
     );
   } else {

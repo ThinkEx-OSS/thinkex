@@ -165,8 +165,11 @@ CitationRenderer.displayName = "CitationRenderer";
 export interface MarkdownTextProps {
   text: string;
   streaming: boolean;
-  /** Stable key per (thread, message). Used to reset mermaid/streamdown state across messages. */
-  messageKey?: string;
+  /**
+   * Stable per-(thread, message) key. REQUIRED — used to reset streamdown/mermaid
+   * state across messages. Pass `${threadId}-${messageId}` from the Thread renderer.
+   */
+  messageKey: string;
   /** Use "reasoning" for smoother streaming in reasoning blocks (blurIn, longer duration). */
   streamingVariant?: "default" | "reasoning";
 }
@@ -184,8 +187,6 @@ const MarkdownTextImpl = ({
       : { animation: "fadeIn" as const, duration: 200, easing: "ease-out" };
 
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const key = messageKey ?? "no-key";
 
   // Set up wheel event handlers for all code blocks to prevent vertical scroll trapping
   useEffect(() => {
@@ -254,7 +255,7 @@ const MarkdownTextImpl = ({
   };
 
   return (
-    <div key={key} ref={containerRef} className="aui-md" onCopy={handleCopy}>
+    <div key={messageKey} ref={containerRef} className="aui-md" onCopy={handleCopy}>
       <Streamdown
         allowedTags={{ citation: [] }}
         animated={animateConfig}

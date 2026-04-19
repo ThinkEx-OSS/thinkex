@@ -22,7 +22,12 @@ function stripExtension(s: string): string {
     return s.replace(/\.[^.]+$/, "");
 }
 
-export const ReadWorkspaceToolUI: React.FC<ToolUIProps<ReadArgs, ReadResult>> = ({ input, state, output }) => {
+export const ReadWorkspaceToolUI: React.FC<ToolUIProps<ReadArgs, ReadResult>> = ({
+  input,
+  state,
+  output,
+  errorText,
+}) => {
   let content: React.ReactNode = null;
 
   if (state === "input-streaming" || state === "input-available") {
@@ -76,7 +81,7 @@ export const ReadWorkspaceToolUI: React.FC<ToolUIProps<ReadArgs, ReadResult>> = 
     content = (
       <ToolUIErrorShell
         label="Workspace read failed"
-        message={output?.message ?? "Read failed"}
+        message={errorText ?? "Read failed"}
       />
     );
   }

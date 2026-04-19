@@ -128,14 +128,29 @@ function useAttachmentSrc(attachment: AttachmentData) {
   const fileSrc = useFileSrc(attachment.file);
   const isUrl = isUrlAttachment(attachment);
   const url = getHttpAttachmentUrl(attachment);
+
+  if (isUrl) {
+    return {
+      src: url ? getFaviconUrl(url) : undefined,
+      isUrl: true,
+      url,
+    };
+  }
+
+  if (attachment.type !== "image") {
+    return { src: undefined, isUrl: false, url: undefined };
+  }
+
   const imageContent = attachment.content?.find(
-    (content): content is { type: string; image?: string } => content.type === "image",
+    (content): content is { type: "image"; image: string } =>
+      content.type === "image" &&
+      typeof (content as { image?: string }).image === "string",
   );
 
   return {
-    src: isUrl ? (url ? getFaviconUrl(url) : undefined) : (fileSrc ?? imageContent?.image),
-    isUrl,
-    url,
+    src: fileSrc ?? imageContent?.image,
+    isUrl: false,
+    url: undefined,
   };
 }
 
