@@ -20,40 +20,69 @@ import type {
   CurrentChatMessage,
   AttachmentScope,
   PromptInputThreadActions,
-  ThreadState,
 } from "./types";
 
-export function useThreadState(): ThreadState {
-  return useAuiState((s: any) => ({
-    messageCount: s.thread?.messages?.length ?? 0,
-    isLoading: !!s.thread?.isLoading,
-    isEmpty: s.thread?.isEmpty ?? true,
-    isRunning: !!s.thread?.isRunning,
-  }));
+/**
+ * Local shape describing the @assistant-ui/react state fields we actually read.
+ * This is intentionally minimal — assistant-ui does not export its state type,
+ * so the ACL defines what it needs. Expand as new selectors are added.
+ */
+interface AuiStateShape {
+  thread?: {
+    messages?: ReadonlyArray<{ id?: string }>;
+    isLoading?: boolean;
+    isEmpty?: boolean;
+    isRunning?: boolean;
+  };
+  threads?: {
+    mainThreadId?: string;
+  };
+  threadListItem?: {
+    id?: string;
+  };
+  composer?: {
+    text?: string;
+  };
+  message?: {
+    id?: string;
+    role?: "user" | "assistant" | "system";
+    status?: { type?: string };
+    parts?: ReadonlyArray<{ type?: string; text?: string }>;
+    content?: readonly unknown[];
+    metadata?: { custom?: Record<string, unknown>; [k: string]: unknown };
+  };
+  attachment?: {
+    id?: string;
+    type?: string;
+    name?: string;
+    file?: File & { name: string };
+    content?: ReadonlyArray<{ type: string; text?: string; image?: string }>;
+  };
 }
 
+
 export function useIsThreadLoading(): boolean {
-  return useAuiState((s: any) => !!s.thread?.isLoading);
+  return useAuiState((s: AuiStateShape) => !!s.thread?.isLoading);
 }
 
 export function useIsThreadEmpty(): boolean {
-  return useAuiState((s: any) => s.thread?.isEmpty ?? true);
+  return useAuiState((s: AuiStateShape) => s.thread?.isEmpty ?? true);
 }
 
 export function useIsThreadRunning(): boolean {
-  return useAuiState((s: any) => !!s.thread?.isRunning);
+  return useAuiState((s: AuiStateShape) => !!s.thread?.isRunning);
 }
 
 export function useThreadMessageCount(): number {
-  return useAuiState((s: any) => s.thread?.messages?.length ?? 0);
+  return useAuiState((s: AuiStateShape) => s.thread?.messages?.length ?? 0);
 }
 
 export function useMainThreadId(): string | null {
-  return useAuiState((s: any) => s.threads?.mainThreadId ?? null);
+  return useAuiState((s: AuiStateShape) => s.threads?.mainThreadId ?? null);
 }
 
 export function useHasPromptInputText(): boolean {
-  return useAuiState((s: any) => Boolean((s.composer?.text ?? "").trim()));
+  return useAuiState((s: AuiStateShape) => Boolean((s.composer?.text ?? "").trim()));
 }
 
 export function useChatMessage(): ChatMessage {
@@ -86,12 +115,12 @@ export const useChatScrollLock = useScrollLock;
 
 /** Current assistant/user message id from MessageRuntime context. */
 export function useCurrentMessageId(): string | null {
-  return useAuiState((s: any) => (s.message as { id?: string } | undefined)?.id ?? null);
+  return useAuiState((s: AuiStateShape) => s.message?.id ?? null);
 }
 
 /** True while this message is actively streaming. */
 export function useIsMessageRunning(): boolean {
-  return useAuiState((s: any) => (s.message as { status?: { type?: string } } | undefined)?.status?.type === "running");
+  return useAuiState((s: AuiStateShape) => s.message?.status?.type === "running");
 }
 
 /**
@@ -99,8 +128,8 @@ export function useIsMessageRunning(): boolean {
  * states before the first token arrives.
  */
 export function useIsMessageEmpty(): boolean {
-  return useAuiState((s: any) => {
-    const msg = s.message as { content?: unknown[] } | undefined;
+  return useAuiState((s: AuiStateShape) => {
+    const msg = s.message;
     return !msg?.content || (Array.isArray(msg.content) && msg.content.length === 0);
   });
 }
@@ -110,9 +139,9 @@ export function useIsMessageEmpty(): boolean {
  * Used to gate old reasoning/tool groups from rendering once newer messages exist.
  */
 export function useIsLastMessage(): boolean {
-  return useAuiState((s: any) => {
-    const thread = s.thread as { messages?: Array<{ id?: string }> } | undefined;
-    const messageId = (s.message as { id?: string } | undefined)?.id;
+  return useAuiState((s: AuiStateShape) => {
+    const thread = s.thread;
+    const messageId = s.message?.id;
     const messages = thread?.messages ?? [];
     const idx = messages.findIndex((m) => m.id === messageId);
     return idx >= 0 && idx === messages.length - 1;
@@ -129,10 +158,8 @@ export function useIsMessagePartStreaming(
   startIndex: number,
   endIndex: number,
 ): boolean {
-  return useAuiState((s: any) => {
-    const msg = s.message as
-      | { status?: { type?: string }; parts?: Array<{ type?: string }> }
-      | undefined;
+  return useAuiState((s: AuiStateShape) => {
+    const msg = s.message;
     if (msg?.status?.type !== "running") return false;
     const parts = msg.parts ?? [];
     const lastIndex = parts.length - 1;
@@ -152,8 +179,8 @@ export function useMessagePartTextLengthSnapshot(
   startIndex: number,
   endIndex: number,
 ): number {
-  return useAuiState((s: any) => {
-    const parts = (s.message as { parts?: Array<{ type?: string; text?: string }> } | undefined)?.parts ?? [];
+  return useAuiState((s: AuiStateShape) => {
+    const parts = s.message?.parts ?? [];
     let len = 0;
     for (let i = startIndex; i <= endIndex && i < parts.length; i++) {
       const p = parts[i];
@@ -175,12 +202,12 @@ export function useAttachmentScope(): AttachmentScope {
 
 /** Attachment id from AttachmentPrimitive context. */
 export function useAttachmentId(): string | undefined {
-  return useAuiState((s: any) => (s.attachment as { id?: string } | undefined)?.id);
+  return useAuiState((s: AuiStateShape) => s.attachment?.id);
 }
 
 /** Whether the current attachment is an image. */
 export function useIsAttachmentImage(): boolean {
-  return useAuiState((s: any) => (s.attachment as { type?: string } | undefined)?.type === "image");
+  return useAuiState((s: AuiStateShape) => s.attachment?.type === "image");
 }
 
 /**
@@ -190,8 +217,8 @@ export function useIsAttachmentImage(): boolean {
  */
 export function useAttachmentSnapshot(): ChatAttachmentSnapshot | undefined {
   return useAuiState(
-    useShallow((s: any) => {
-      const att = s.attachment as ChatAttachmentSnapshot | undefined;
+    useShallow((s: AuiStateShape) => {
+      const att = s.attachment;
       if (!att) return undefined;
       return {
         id: att.id,
@@ -199,19 +226,19 @@ export function useAttachmentSnapshot(): ChatAttachmentSnapshot | undefined {
         name: att.name,
         file: att.file,
         content: att.content,
-      };
+      } as ChatAttachmentSnapshot;
     }),
   );
 }
 
 /** Current chat message from MessageRuntime context — returns the entire message object. */
 export function useCurrentChatMessage(): CurrentChatMessage | undefined {
-  return useAuiState((s: any) => s.message as CurrentChatMessage | undefined);
+  return useAuiState((s: AuiStateShape) => s.message as CurrentChatMessage | undefined);
 }
 
 /** id of the current thread-list item (if open inside a ThreadListItemPrimitive.Root). */
 export function useThreadListItemId(): string | undefined {
-  return useAuiState((s: any) => (s.threadListItem as { id?: string } | undefined)?.id);
+  return useAuiState((s: AuiStateShape) => s.threadListItem?.id);
 }
 
 /**

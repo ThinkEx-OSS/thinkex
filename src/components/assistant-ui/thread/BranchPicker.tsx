@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 
 export const BranchPicker: FC<ChatBranchPickerRootProps> = ({
   className,
+  hideWhenSingleBranch: _hideWhenSingleBranch,
   ...rest
 }) => {
   return (

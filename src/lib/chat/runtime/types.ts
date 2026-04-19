@@ -19,8 +19,7 @@ export type ChatMessagePart =
   | { type: "image"; [k: string]: unknown }
   | { type: "source"; [k: string]: unknown }
   | { type: "reasoning"; [k: string]: unknown }
-  | { type: "tool-call" | "tool-result" | "tool"; [k: string]: unknown }
-  | { type: string; [k: string]: unknown };
+  | { type: "tool-call" | "tool-result" | "tool"; [k: string]: unknown };
 
 export interface ChatMessage {
   id?: string;

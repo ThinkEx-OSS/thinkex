@@ -102,7 +102,11 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
                 const file = new File([result.blob], filename, { type: result.imageType });
 
                 // Add attachment to composer
-                await promptInputRef.current?.addAttachment(file);
+                const promptInput = promptInputRef.current;
+                if (!promptInput) {
+                    throw new Error("Chat composer not ready");
+                }
+                await promptInput.addAttachment(file);
                 toast.success("Screenshot added to chat");
 
                 // Turn off capture mode
