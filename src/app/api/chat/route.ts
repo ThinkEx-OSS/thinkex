@@ -9,7 +9,6 @@ import {
 } from "ai";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 import { withTracing } from "@posthog/ai";
-import type { UIMessage } from "ai";
 import { logger } from "@/lib/utils/logger";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -278,7 +277,8 @@ async function handlePOST(req: Request) {
         (message) => message.id === targetMessageId,
       );
       const searchEnd = regenerateIndex === -1 ? messages.length : regenerateIndex;
-      const lastUserIndex = [...messages.slice(0, searchEnd)]
+      const lastUserIndex = messages
+        .slice(0, searchEnd)
         .map((message, index) => ({ message, index }))
         .reverse()
         .find(({ message }) => message.role === "user")?.index;
@@ -305,7 +305,6 @@ async function handlePOST(req: Request) {
       userId,
       activeFolderId,
       threadId,
-      clientTools: body.tools,
     });
 
     const compatibleMessages = normalizeLegacyToolMessages(messages, {

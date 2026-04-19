@@ -3,7 +3,6 @@
  * Factory function to create all chat tools with shared context
  */
 
-import { frontendTools } from "@assistant-ui/react-ai-sdk";
 import { createProcessUrlsTool } from "./process-urls";
 import {
   createDocumentTool,
@@ -21,7 +20,6 @@ import { createWebSearchTool } from "./web-search";
 import { createSearchWorkspaceTool } from "./search-workspace";
 import { createReadWorkspaceTool } from "./read-workspace";
 import { createExecuteCodeTool } from "./execute-code";
-import { logger } from "@/lib/utils/logger";
 import { CHAT_TOOL } from "@/lib/ai/chat-tool-names";
 
 export interface ChatToolsConfig {
@@ -29,7 +27,6 @@ export interface ChatToolsConfig {
   userId: string | null;
   activeFolderId?: string;
   threadId?: string | null;
-  clientTools?: Record<string, any>;
 }
 
 /**
@@ -42,14 +39,6 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
     activeFolderId: config.activeFolderId,
     threadId: config.threadId ?? null,
   };
-
-  // Safeguard frontendTools
-  let frontendClientTools = {};
-  try {
-    frontendClientTools = frontendTools(config.clientTools || {});
-  } catch (e) {
-    logger.error("❌ frontendTools failed:", e);
-  }
 
   return {
     // URL processing
@@ -76,9 +65,6 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
     // YouTube
     [CHAT_TOOL.YOUTUBE_SEARCH]: createSearchYoutubeTool(),
     [CHAT_TOOL.YOUTUBE_ADD]: createAddYoutubeVideoTool(ctx),
-
-    // Client tools from frontend
-    ...frontendClientTools,
   };
 }
 
