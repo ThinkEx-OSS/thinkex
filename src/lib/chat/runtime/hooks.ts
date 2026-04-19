@@ -3,17 +3,23 @@
 import {
   useAui,
   useAuiState,
+  useAssistantContext,
   useMessage,
   useMessagePartText,
   useScrollLock,
+  useThreadListItem,
 } from "@assistant-ui/react";
 import { useShallow } from "zustand/shallow";
 import type {
   ChatAttachmentSnapshot,
+  ChatAssistantContextOptions,
   ChatMessage,
+  ChatThreadListItem,
   ComposerActions,
   ComposerStateSnapshot,
+  CurrentChatMessage,
   AttachmentScope,
+  PromptInputThreadActions,
   ThreadState,
 } from "./types";
 
@@ -196,4 +202,47 @@ export function useAttachmentSnapshot(): ChatAttachmentSnapshot | undefined {
       };
     }),
   );
+}
+
+/** Current chat message from MessageRuntime context — returns the entire message object. */
+export function useCurrentChatMessage(): CurrentChatMessage | undefined {
+  return useAuiState((s: any) => s.message as CurrentChatMessage | undefined);
+}
+
+/** id of the current thread-list item (if open inside a ThreadListItemPrimitive.Root). */
+export function useThreadListItemId(): string | undefined {
+  return useAuiState((s: any) => (s.threadListItem as { id?: string } | undefined)?.id);
+}
+
+/**
+ * Safe wrapper around assistant-ui's useThreadListItem() — returns the current thread list item.
+ * Used by AppChatHeader and thread-list-dropdown to read the current thread title and initialization state.
+ */
+export function useChatThreadListItem(): ChatThreadListItem | undefined {
+  return useThreadListItem() as unknown as ChatThreadListItem | undefined;
+}
+
+/**
+ * Actions exposed on the current thread-list item (e.g. rename). Returns null when runtime isn't ready.
+ * Consumers previously wrote `aui?.threadListItem().rename(title)` — this facade moves that call behind the ACL.
+ */
+export function usePromptInputThreadActions(): PromptInputThreadActions | null {
+  const aui = useAui();
+  if (!aui) return null;
+  const item = (aui as unknown as { threadListItem?: () => { rename?: (t: string) => Promise<unknown> } }).threadListItem?.();
+  if (!item) return null;
+  return {
+    rename: (newTitle: string) => {
+      if (!item.rename) return Promise.resolve();
+      return item.rename(newTitle);
+    },
+  };
+}
+
+/**
+ * Inject workspace/user context into the assistant's prompt.
+ * Thin wrapper around assistant-ui's useAssistantContext — same signature.
+ */
+export function useChatAssistantContext(options: ChatAssistantContextOptions): void {
+  useAssistantContext(options);
 }

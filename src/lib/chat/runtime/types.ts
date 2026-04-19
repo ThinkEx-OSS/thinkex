@@ -86,3 +86,34 @@ export interface ChatAttachmentSnapshot {
 
 /** Props for the neutral ChatAttachment primitive — mirrors AttachmentPrimitive.Root. */
 export type ChatAttachmentRootProps = _AP.Root.Props;
+
+/**
+ * Thread list item handle (returned by useChatThreadListItem).
+ * The `remoteId` is populated after the thread has been initialized on the server.
+ */
+export interface ChatThreadListItem {
+  id?: string;
+  title?: string;
+  remoteId?: string;
+  [key: string]: unknown;
+}
+
+/** The current chat message as exposed by useCurrentChatMessage. Used by MessageContextBadges. */
+export interface CurrentChatMessage {
+  id?: string;
+  role?: "user" | "assistant" | "system";
+  metadata?: { custom?: Record<string, unknown>; [k: string]: unknown };
+  content?: unknown[];
+  [key: string]: unknown;
+}
+
+/** Options for useChatAssistantContext, mirrors assistant-ui's useAssistantContext. */
+export interface ChatAssistantContextOptions {
+  disabled?: boolean;
+  getContext: () => string;
+}
+
+/** Handle returned by usePromptInputThreadActions — lets consumers rename the current thread. */
+export interface PromptInputThreadActions {
+  rename(newTitle: string): Promise<unknown>;
+}

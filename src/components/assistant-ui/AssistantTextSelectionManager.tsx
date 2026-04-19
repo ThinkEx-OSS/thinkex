@@ -8,9 +8,9 @@ import {
   AssistantThreadSelection,
   type SelectionInfo,
 } from "@/components/assistant-ui/assistant-thread-selection";
+import { useMainThreadId, useThreadListItemId } from "@/lib/chat/runtime";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import { useAuiState } from "@assistant-ui/react";
 
 export default function AssistantTextSelectionManager({
   className,
@@ -28,13 +28,9 @@ export default function AssistantTextSelectionManager({
 
   const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
 
-  const threadListItemId = useAuiState(
-    ({ threadListItem }) => (threadListItem as any)?.id,
-  );
-  const mainThreadId = useAuiState(
-    ({ threads }) => (threads as any)?.mainThreadId,
-  );
-  const currentThreadId = threadListItemId || mainThreadId;
+  const threadListItemId = useThreadListItemId();
+  const mainThreadId = useMainThreadId();
+  const currentThreadId = (threadListItemId || mainThreadId) ?? undefined;
 
   const prevWorkspaceIdRef = useRef<string | null>(workspaceId);
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useAssistantContext } from "@assistant-ui/react";
+import { useChatAssistantContext } from "@/lib/chat/runtime";
 import { useCallback, useMemo } from "react";
 import type { Item } from "@/lib/workspace-state/types";
 import { formatWorkspaceContext } from "@/lib/utils/format-workspace-context";
@@ -21,7 +21,7 @@ export function useWorkspaceContextProvider(
 
   const getContext = useCallback(() => contextInstructions, [contextInstructions]);
 
-  useAssistantContext({
+  useChatAssistantContext({
     disabled: !workspaceId,
     getContext,
   });
