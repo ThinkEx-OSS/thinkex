@@ -1,4 +1,4 @@
-import type { UIMessagePart } from "ai";
+import type { UIMessage } from "ai";
 import type { chatV2Message } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/chat-v2/types";
 
@@ -43,6 +43,6 @@ export function convertToUIMessages(messages: ChatV2MessageRow[]): ChatMessage[]
   return messages.map((message) => ({
     id: message.id,
     role: message.role as ChatMessage["role"],
-    parts: message.parts as UIMessagePart[],
+    parts: message.parts as UIMessage["parts"],
   }));
 }

@@ -22,8 +22,7 @@ export function MessageActions({
   const textFromParts = message.parts
     ?.filter((part) => part.type === "text")
     .map((part) => part.text)
-    .join("
-")
+    .join("\n")
     .trim();
 
   if (!textFromParts) {

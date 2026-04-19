@@ -4,7 +4,7 @@ import type { DataUIPart } from "ai";
 import type React from "react";
 import { createContext, useContext, useMemo, useState } from "react";
 
-type ChatV2DataTypes = Record<string, never>;
+type ChatV2DataTypes = Record<string, unknown>;
 
 type DataStreamContextValue = {
   dataStream: DataUIPart<ChatV2DataTypes>[];
