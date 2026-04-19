@@ -385,7 +385,7 @@ export const UserMessageAttachments: FC = () => {
   );
 };
 
-export const ComposerAttachments: FC = () => {
+export const PromptInputAttachments: FC = () => {
   return (
     <div className="aui-composer-attachments mb-2 flex w-full flex-row items-center gap-2 overflow-x-auto pt-0.5 pb-1 empty:hidden">
       <ComposerPrimitive.Attachments
@@ -395,7 +395,7 @@ export const ComposerAttachments: FC = () => {
   );
 };
 
-export const ComposerAddAttachment: FC = () => {
+export const PromptInputAddAttachment: FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const aui = useAui();
@@ -480,7 +480,7 @@ export const ComposerAddAttachment: FC = () => {
     }
   };
 
-  const uploadInputId = "composer-file-upload";
+  const uploadInputId = "prompt-input-file-upload";
 
   return (
     <>
