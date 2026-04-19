@@ -20,7 +20,7 @@ import {
   saveChat,
   saveMessages,
 } from "@/lib/chat-v2/queries";
-import { convertToUIMessages } from "@/lib/chat-v2/utils";
+import { convertToUIMessages, isUuid } from "@/lib/chat-v2/utils";
 
 export const maxDuration = 60;
 
@@ -120,8 +120,8 @@ export async function DELETE(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
 
-  if (!id) {
-    return new Response("Missing id", { status: 400 });
+  if (!isUuid(id)) {
+    return new Response("Invalid id", { status: 400 });
   }
 
   const existing = await getChatById({ id });

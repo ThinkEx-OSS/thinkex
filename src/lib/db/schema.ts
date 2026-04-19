@@ -764,10 +764,10 @@ export const chatV2 = pgTable(
       .notNull(),
   },
   (table) => [
-    index("idx_chat_v2_user_created").using(
+    index("idx_chat_v2_user_updated").using(
       "btree",
       table.userId.asc().nullsLast().op("text_ops"),
-      table.createdAt.desc().nullsFirst().op("timestamptz_ops"),
+      table.updatedAt.desc().nullsFirst().op("timestamptz_ops"),
     ),
   ],
 );

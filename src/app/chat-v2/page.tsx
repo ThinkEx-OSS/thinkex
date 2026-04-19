@@ -7,7 +7,7 @@ export default async function ChatV2IndexPage() {
   const session = await auth.api.getSession({ headers: headersObj });
 
   if (!session?.user?.id) {
-    redirect("/auth/sign-in");
+    redirect("/auth/sign-in?redirect_url=/chat-v2");
   }
 
   redirect(`/chat-v2/${crypto.randomUUID()}`);

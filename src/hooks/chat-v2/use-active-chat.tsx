@@ -56,7 +56,10 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
     { revalidateOnFocus: false },
   );
 
-  const initialMessages = chatData?.messages ?? [];
+  const initialMessages = useMemo<ChatMessage[]>(
+    () => chatData?.messages ?? [],
+    [chatData?.messages],
+  );
 
   const { messages, setMessages, sendMessage, status, stop } = useChat<ChatMessage>({
     id: chatId,

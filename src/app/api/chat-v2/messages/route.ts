@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { getChatById, getMessagesByChatId } from "@/lib/chat-v2/queries";
-import { convertToUIMessages } from "@/lib/chat-v2/utils";
+import { convertToUIMessages, isUuid } from "@/lib/chat-v2/utils";
 
 export async function GET(request: Request) {
   const headersObj = await headers();
@@ -14,8 +14,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const chatId = searchParams.get("chatId");
 
-  if (!chatId) {
-    return new Response("Missing chatId", { status: 400 });
+  if (!isUuid(chatId)) {
+    return new Response("Invalid chatId", { status: 400 });
   }
 
   const chat = await getChatById({ id: chatId });
