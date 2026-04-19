@@ -97,14 +97,35 @@ export function useChatMessagePartText() {
 export function usePromptInput(): ComposerActions | null {
   const aui = useAui();
   if (!aui) return null;
-  const composer = aui.composer?.();
-  if (!composer) return null;
+
+  const resolveComposer = () => {
+    try {
+      return aui.composer?.() ?? null;
+    } catch {
+      return null;
+    }
+  };
+
   return {
-    setText: (t) => composer.setText(t),
-    send: () => composer.send(),
-    addAttachment: (f) => composer.addAttachment(f),
-    setRunConfig: (cfg) => composer.setRunConfig(cfg as any),
-    getState: () => composer.getState() as unknown as ComposerStateSnapshot | undefined,
+    setText: (t) => {
+      resolveComposer()?.setText(t);
+    },
+    send: () => {
+      resolveComposer()?.send();
+    },
+    addAttachment: async (f) => {
+      const composer = resolveComposer();
+      if (!composer) return;
+      return composer.addAttachment(f);
+    },
+    setRunConfig: (cfg) => {
+      resolveComposer()?.setRunConfig(cfg as any);
+    },
+    getState: () => {
+      const composer = resolveComposer();
+      if (!composer) return undefined;
+      return composer.getState() as unknown as ComposerStateSnapshot | undefined;
+    },
   };
 }
 /**
@@ -256,11 +277,23 @@ export function useChatThreadListItem(): ChatThreadListItem | undefined {
 export function usePromptInputThreadActions(): PromptInputThreadActions | null {
   const aui = useAui();
   if (!aui) return null;
-  const item = (aui as unknown as { threadListItem?: () => { rename?: (t: string) => Promise<unknown> } }).threadListItem?.();
-  if (!item) return null;
+
+  const resolveItem = () => {
+    try {
+      return (
+        (aui as unknown as {
+          threadListItem?: () => { rename?: (t: string) => Promise<unknown> };
+        }).threadListItem?.() ?? null
+      );
+    } catch {
+      return null;
+    }
+  };
+
   return {
     rename: (newTitle: string) => {
-      if (!item.rename) return Promise.resolve();
+      const item = resolveItem();
+      if (!item?.rename) return Promise.resolve();
       return item.rename(newTitle);
     },
   };
