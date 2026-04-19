@@ -38,7 +38,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import type { Item } from "@/lib/workspace-state/types";
-import { useComposer } from "@/components/chat-v2/runtime/composer-context";
+import { useComposerOptional } from "@/components/chat-v2/runtime/composer-context";
 import {
   Brain,
   Play,
@@ -233,7 +233,7 @@ export function PromptBuilderDialog({
 }: PromptBuilderDialogProps) {
   const config = ACTION_CONFIG[action];
   const Icon = config.icon;
-  const composer = useComposer();
+  const composer = useComposerOptional();
   const formId = useId();
 
   const { selectedCardIds } = useSelectedCardIds();
@@ -398,8 +398,8 @@ export function PromptBuilderDialog({
       if (action !== "search" && selectedContextIds.size > 0) {
         selectMultipleCards(Array.from(selectedContextIds));
       }
-      composer.setText(builtPrompt);
-      composer.focus();
+      composer?.setText(builtPrompt);
+      composer?.focus();
     }
     onOpenChange(false);
   }, [

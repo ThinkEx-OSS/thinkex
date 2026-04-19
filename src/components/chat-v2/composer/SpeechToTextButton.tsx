@@ -2,12 +2,12 @@ import "regenerator-runtime/runtime";
 import { Mic, MicOff } from "lucide-react";
 import { FC, useEffect, useState } from "react";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
-import { useComposer } from "@/components/chat-v2/runtime/composer-context";
+import { useComposerOptional } from "@/components/chat-v2/runtime/composer-context";
 import { TooltipIconButton } from "@/components/chat-v2/ui/tooltip-icon-button";
 import { cn } from "@/lib/utils";
 
 export const SpeechToTextButton: FC = () => {
-    const composer = useComposer();
+    const composer = useComposerOptional();
     const {
         transcript,
         listening,
@@ -19,7 +19,7 @@ export const SpeechToTextButton: FC = () => {
 
     // When transcript changes, update composer text
     useEffect(() => {
-        if (listening && transcript) {
+        if (listening && transcript && composer) {
             const separator = originalText && !originalText.endsWith(' ') ? ' ' : '';
             composer.setText(originalText + separator + transcript);
         }
@@ -27,7 +27,7 @@ export const SpeechToTextButton: FC = () => {
 
     const handleStartListening = () => {
         resetTranscript();
-        setOriginalText(composer.getText());
+        setOriginalText(composer?.getText() ?? "");
 
         SpeechRecognition.startListening({ continuous: true });
     };
