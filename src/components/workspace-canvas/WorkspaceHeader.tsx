@@ -222,6 +222,7 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 import { useWorkspaceFilePicker } from "@/hooks/workspace/use-workspace-file-picker";
 import { startAudioProcessing } from "@/lib/audio/start-audio-processing";
+import { validateItemName } from "@/lib/workspace/name-rules";
 
 interface WorkspaceHeaderProps {
   onOpenSearch?: () => void;
@@ -313,6 +314,10 @@ export function WorkspaceHeader({
   const openAudioDialog = useAudioRecordingStore((s) => s.openDialog);
   const closeAudioDialog = useAudioRecordingStore((s) => s.closeDialog);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const renameValidation = useMemo(
+    () => validateItemName(renameValue),
+    [renameValue],
+  );
   const pathname = usePathname();
   const isWorkspaceRoute = pathname.startsWith("/workspace");
 
@@ -438,19 +443,26 @@ export function WorkspaceHeader({
 
   // Handle rename
   const handleRename = useCallback(() => {
-    if (!renamingTarget || !renameValue.trim()) return;
+    if (!renamingTarget || !renameValidation.valid) return;
 
     if (renamingTarget.type === "folder" && onRenameFolder) {
-      onRenameFolder(renamingTarget.id, renameValue.trim());
+      onRenameFolder(renamingTarget.id, renameValidation.normalized);
       toast.success("Folder renamed");
     } else if (renamingTarget.type === "item" && onUpdateActiveItem) {
-      onUpdateActiveItem(renamingTarget.id, { name: renameValue.trim() });
+      onUpdateActiveItem(renamingTarget.id, {
+        name: renameValidation.normalized,
+      });
       toast.success("Item renamed");
     }
 
     setShowRenameDialog(false);
     setRenamingTarget(null);
-  }, [onRenameFolder, onUpdateActiveItem, renamingTarget, renameValue]);
+  }, [
+    onRenameFolder,
+    onUpdateActiveItem,
+    renamingTarget,
+    renameValidation,
+  ]);
 
   const openItemRenameDialog = useCallback(
     (itemId: string, itemName: string) => {
@@ -1396,7 +1408,7 @@ export function WorkspaceHeader({
                 value={renameValue}
                 onChange={(e) => setRenameValue(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && renameValue.trim()) {
+                  if (e.key === "Enter" && renameValidation.valid) {
                     handleRename();
                   } else if (e.key === "Escape") {
                     setShowRenameDialog(false);
@@ -1408,6 +1420,11 @@ export function WorkspaceHeader({
                     : "Item name"
                 }
               />
+              {!renameValidation.valid && renameValue.length > 0 && (
+                <p className="text-xs text-destructive mt-2">
+                  {renameValidation.error}
+                </p>
+              )}
             </div>
             <DialogFooter>
               <Button
@@ -1416,7 +1433,7 @@ export function WorkspaceHeader({
               >
                 Cancel
               </Button>
-              <Button onClick={handleRename} disabled={!renameValue.trim()}>
+              <Button onClick={handleRename} disabled={!renameValidation.valid}>
                 Rename
               </Button>
             </DialogFooter>

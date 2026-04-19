@@ -34,6 +34,7 @@ import {
   upsertWorkspaceItem,
 } from "@/lib/workspace/workspace-item-write";
 import { sanitizeWorkspaceItemForPersistence } from "@/lib/workspace/workspace-item-sanitize";
+import { validateItemName } from "@/lib/workspace/name-rules";
 
 /** Create params for a single item (used by create and bulkCreate). Exported for autogen. */
 export type CreateItemParams = {
@@ -85,6 +86,14 @@ export type CreateItemParams = {
 async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
   const itemId = p.id || crypto.randomUUID();
   const itemType = p.itemType || "document";
+  let providedTitle: string | undefined;
+  if (p.title !== undefined) {
+    const validation = validateItemName(p.title);
+    if (!validation.valid) {
+      throw new Error(`Invalid item name: ${validation.error}`);
+    }
+    providedTitle = validation.normalized;
+  }
 
   let itemData: any;
 
@@ -173,7 +182,7 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
   return {
     id: itemId,
     type: itemType,
-    name: p.title || defaultNames[itemType] || "New Document",
+    name: providedTitle || defaultNames[itemType] || "New Document",
     subtitle: "",
     data: itemData,
     color: getRandomCardColor(),
@@ -445,9 +454,14 @@ export async function workspaceWorker(
           const changes: any = hasQuestions ? { data: updatedData } : {};
 
           if (params.title) {
+            const validation = validateItemName(params.title);
+            if (!validation.valid) {
+              return { success: false, message: validation.error };
+            }
+            const normalizedTitle = validation.normalized;
             const dupError = checkDuplicateName(
               currentState,
-              params.title,
+              normalizedTitle,
               existingItem.type,
               existingItem.folderId ?? null,
               params.itemId,
@@ -455,7 +469,7 @@ export async function workspaceWorker(
             if (dupError) {
               return { success: false, message: dupError };
             }
-            changes.name = params.title;
+            changes.name = normalizedTitle;
           }
 
           await updateWorkspaceItem(
@@ -524,9 +538,14 @@ export async function workspaceWorker(
           const changes: Partial<Item> = { data: updatedData };
 
           if (params.title) {
+            const validation = validateItemName(params.title);
+            if (!validation.valid) {
+              return { success: false, message: validation.error };
+            }
+            const normalizedTitle = validation.normalized;
             const dupError = checkDuplicateName(
               currentState,
-              params.title,
+              normalizedTitle,
               existingItem.type,
               existingItem.folderId ?? null,
               params.itemId,
@@ -534,7 +553,7 @@ export async function workspaceWorker(
             if (dupError) {
               return { success: false, message: dupError };
             }
-            changes.name = params.title;
+            changes.name = normalizedTitle;
           }
 
           await updateWorkspaceItem(
@@ -695,9 +714,14 @@ export async function workspaceWorker(
               data: { ...data, cards: newCards } as FlashcardData,
             };
             if (rename) {
+              const validation = validateItemName(rename);
+              if (!validation.valid) {
+                return { success: false, message: validation.error };
+              }
+              const normalizedRename = validation.normalized;
               const dupError = checkDuplicateName(
                 currentState,
-                rename,
+                normalizedRename,
                 "flashcard",
                 existingItem.folderId ?? null,
                 params.itemId,
@@ -705,7 +729,7 @@ export async function workspaceWorker(
               if (dupError) {
                 return { success: false, message: dupError };
               }
-              changes.name = rename;
+              changes.name = normalizedRename;
             }
 
             await updateWorkspaceItem(
@@ -796,9 +820,14 @@ export async function workspaceWorker(
 
             const changes: Partial<Item> = { data: updatedData };
             if (rename) {
+              const validation = validateItemName(rename);
+              if (!validation.valid) {
+                return { success: false, message: validation.error };
+              }
+              const normalizedRename = validation.normalized;
               const dupError = checkDuplicateName(
                 currentState,
-                rename,
+                normalizedRename,
                 "quiz",
                 existingItem.folderId ?? null,
                 params.itemId,
@@ -806,7 +835,7 @@ export async function workspaceWorker(
               if (dupError) {
                 return { success: false, message: dupError };
               }
-              changes.name = rename;
+              changes.name = normalizedRename;
             }
 
             await updateWorkspaceItem(
@@ -831,9 +860,14 @@ export async function workspaceWorker(
             const changes: Partial<Item> = {};
             const docData = existingItem.data as DocumentData;
             if (rename) {
+              const validation = validateItemName(rename);
+              if (!validation.valid) {
+                return { success: false, message: validation.error };
+              }
+              const normalizedRename = validation.normalized;
               const dupError = checkDuplicateName(
                 currentState,
-                rename,
+                normalizedRename,
                 "document",
                 existingItem.folderId ?? null,
                 params.itemId,
@@ -841,7 +875,7 @@ export async function workspaceWorker(
               if (dupError) {
                 return { success: false, message: dupError };
               }
-              changes.name = rename;
+              changes.name = normalizedRename;
             }
 
             let contentOld = "";
@@ -927,9 +961,14 @@ export async function workspaceWorker(
                   "PDFs can only be renamed. Use empty edits array [] with newName='new name'.",
               };
             }
+            const validation = validateItemName(rename);
+            if (!validation.valid) {
+              return { success: false, message: validation.error };
+            }
+            const normalizedRename = validation.normalized;
             const dupError = checkDuplicateName(
               currentState,
-              rename,
+              normalizedRename,
               "pdf",
               existingItem.folderId ?? null,
               params.itemId,
@@ -937,7 +976,7 @@ export async function workspaceWorker(
             if (dupError) {
               return { success: false, message: dupError };
             }
-            const changes: Partial<Item> = { name: rename };
+            const changes: Partial<Item> = { name: normalizedRename };
             await updateWorkspaceItem(
               params.workspaceId,
               params.itemId,
@@ -949,7 +988,7 @@ export async function workspaceWorker(
             return {
               success: true,
               itemId: params.itemId,
-              message: `Renamed PDF to "${rename}"`,
+              message: `Renamed PDF to "${normalizedRename}"`,
             };
           }
 

@@ -2,10 +2,10 @@ import { tool, zodSchema } from "ai";
 import { z } from "zod";
 import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
-import type { Item } from "@/lib/workspace-state/types";
-import { loadStateForTool, resolveItem, getAvailableItemsList, withSanitizedModelOutput } from "./tool-utils";
+import { loadStateForTool, resolveItem, withSanitizedModelOutput } from "./tool-utils";
 import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
 import { sourceSchema } from "@/lib/workspace-state/item-data-schemas";
+import { getVirtualPath } from "@/lib/utils/workspace-fs";
 
 // Note: Edit functionality is in edit-item-tool.ts (item_edit)
 
@@ -74,7 +74,7 @@ export function createDocumentTool(ctx: WorkspaceToolContext) {
  */
 export function createDeleteItemTool(ctx: WorkspaceToolContext) {
     return withSanitizedModelOutput(tool({
-        description: "Delete a workspace item by name. This permanently removes it from the workspace.",
+        description: "Delete a workspace item by exact name or virtual path (e.g. pdfs/Report.pdf). Names are matched case-insensitively and must be exact. If multiple items share the same name, pass a virtual path instead.",
         inputSchema: zodSchema(
             z.object({
                 itemName: z.string().describe("Item name or virtual path (e.g. pdfs/Report.pdf) to delete"),
@@ -100,18 +100,26 @@ export function createDeleteItemTool(ctx: WorkspaceToolContext) {
 
                 const state = normalizeWorkspaceItems(accessResult.state);
 
-                // Resolve by virtual path or fuzzy name match (any type)
-                const matchedItem = resolveItem(state, itemName);
-
-                if (!matchedItem) {
+                const resolved = resolveItem(state, itemName);
+                if (!resolved.ok) {
+                    if (resolved.reason === "ambiguous") {
+                        const paths = resolved.matches
+                            .map((m) => `"${getVirtualPath(m, state)}"`)
+                            .join(", ");
+                        return {
+                            success: false,
+                            message: `Multiple items named "${itemName}". Pass a virtual path to disambiguate: ${paths}`,
+                        };
+                    }
                     const availableItems = state.map(i => `"${i.name}" (${i.type})`).slice(0, 5).join(", ");
                     return {
                         success: false,
                         message: `Could not find item "${itemName}". ${availableItems ? `Available items: ${availableItems}` : 'No items found in workspace.'}`,
                     };
                 }
+                const matchedItem = resolved.item;
 
-                logger.debug("🎯 [DELETE-ITEM] Found item via fuzzy match:", {
+                logger.debug("🎯 [DELETE-ITEM] Resolved item:", {
                     searchedName: itemName,
                     matchedName: matchedItem.name,
                     matchedId: matchedItem.id,

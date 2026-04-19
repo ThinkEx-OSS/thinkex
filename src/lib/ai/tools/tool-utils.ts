@@ -69,65 +69,48 @@ export async function loadStateForTool(
   return { success: true, state };
 }
 
+export type ResolveItemResult =
+  | { ok: true; item: Item }
+  | { ok: false; reason: "empty"; matches?: never }
+  | { ok: false; reason: "not-found"; matches?: never }
+  | { ok: false; reason: "ambiguous"; matches: Item[] };
+
 /**
- * Resolve an item by virtual path or fuzzy name match.
- * Tries virtual path first when input looks like a path (contains /),
- * then falls back to fuzzyMatchItem for plain names.
- * If itemType is provided, only returns items of that type.
+ * Resolve a workspace item from a path OR exact (case-insensitive) name.
+ *
+ * Resolution order:
+ *   1. If input contains "/", try virtual-path match via resolveItemByPath.
+ *   2. Otherwise (or on path miss), match by exact name, case-insensitive after trim.
+ *
+ * When itemType is given, only items of that type are considered.
+ * When itemType is omitted, folders are included (item_delete may target folders).
+ *
+ * Returns ambiguity explicitly when two or more items share the same name —
+ * callers should surface the virtual paths and require the caller to disambiguate.
  */
 export function resolveItem(
   items: Item[],
   input: string,
   itemType?: Item["type"],
-): Item | undefined {
+): ResolveItemResult {
   const trimmed = input.trim();
-  if (!trimmed) return undefined;
+  if (!trimmed) return { ok: false, reason: "empty" };
 
-  // 1. Try virtual path first when input looks like a path
+  const typeOk = (i: Item) => !itemType || i.type === itemType;
+
   if (trimmed.includes("/")) {
     const byPath = resolveItemByPath(items, trimmed);
-    if (byPath && (!itemType || byPath.type === itemType)) return byPath;
+    if (byPath && typeOk(byPath)) return { ok: true, item: byPath };
   }
 
-  // 2. Fall back to fuzzy name match
-  return fuzzyMatchItem(items, trimmed, itemType);
-}
-
-/**
- * Fuzzy match an item by name within a list of items
- * Tries: exact match -> contains match -> reverse contains match
- * If itemType is provided, only matches items of that type
- */
-export function fuzzyMatchItem(
-  items: Item[],
-  searchName: string,
-  itemType?: Item["type"],
-): Item | undefined {
-  const normalizedSearch = searchName.toLowerCase().trim();
-  const filteredItems = itemType
-    ? items.filter((item) => item.type === itemType)
-    : items;
-
-  // 1. Exact match
-  let matched = filteredItems.find(
-    (item) => item.name.toLowerCase().trim() === normalizedSearch,
+  const normalized = trimmed.toLowerCase();
+  const matches = items.filter(
+    (i) => typeOk(i) && i.name.toLowerCase().trim() === normalized,
   );
 
-  // 2. Contains match (item name contains search)
-  if (!matched) {
-    matched = filteredItems.find((item) =>
-      item.name.toLowerCase().includes(normalizedSearch),
-    );
-  }
-
-  // 3. Reverse contains match (search contains item name)
-  if (!matched) {
-    matched = filteredItems.find((item) =>
-      normalizedSearch.includes(item.name.toLowerCase().trim()),
-    );
-  }
-
-  return matched;
+  if (matches.length === 1) return { ok: true, item: matches[0] };
+  if (matches.length > 1) return { ok: false, reason: "ambiguous", matches };
+  return { ok: false, reason: "not-found" };
 }
 
 /**

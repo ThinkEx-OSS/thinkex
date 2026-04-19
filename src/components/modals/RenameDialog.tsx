@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useId } from "react";
+import { useState, useEffect, useRef, useCallback, useId, useMemo } from "react";
 import {
   Dialog,
   DialogClose,
@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { CardType } from "@/lib/workspace-state/types";
+import { validateItemName } from "@/lib/workspace/name-rules";
 
 interface RenameDialogProps {
   open: boolean;
@@ -32,6 +33,10 @@ export default function RenameDialog({
   const [renameValue, setRenameValue] = useState(currentName || "Untitled");
   const renameInputRef = useRef<HTMLInputElement>(null);
   const formId = useId();
+  const validation = useMemo(
+    () => validateItemName(renameValue),
+    [renameValue],
+  );
 
   // Sync rename value when current name changes
   useEffect(() => {
@@ -55,11 +60,10 @@ export default function RenameDialog({
   }, [open]);
 
   const handleRename = useCallback(() => {
-    if (renameValue.trim()) {
-      onRename(renameValue.trim());
-      onOpenChange(false);
-    }
-  }, [renameValue, onRename, onOpenChange]);
+    if (!validation.valid) return;
+    onRename(validation.normalized);
+    onOpenChange(false);
+  }, [validation, onRename, onOpenChange]);
 
   const getItemTypeLabel = () => {
     switch (itemType) {
@@ -115,6 +119,11 @@ export default function RenameDialog({
               }}
               placeholder={getPlaceholder()}
             />
+            {!validation.valid && renameValue.length > 0 && (
+              <p className="text-xs text-destructive mt-2">
+                {validation.error}
+              </p>
+            )}
           </div>
         </form>
         <DialogFooter>
@@ -123,7 +132,7 @@ export default function RenameDialog({
               Cancel
             </Button>
           </DialogClose>
-          <Button type="submit" form={formId} disabled={!renameValue.trim()}>
+          <Button type="submit" form={formId} disabled={!validation.valid}>
             Rename
           </Button>
         </DialogFooter>

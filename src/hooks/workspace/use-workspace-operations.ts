@@ -22,6 +22,7 @@ import {
   hasDuplicateName,
   getNextUniqueDefaultName,
 } from "@/lib/workspace/unique-name";
+import { validateItemName } from "@/lib/workspace/name-rules";
 import { filterItemIdsForFolderCreation } from "@/lib/workspace-state/search";
 import {
   sanitizeWorkspaceItemChanges,
@@ -230,6 +231,17 @@ export function useWorkspaceOperations(
         return;
       }
 
+      if ("name" in finalChanges && finalChanges.name !== undefined) {
+        const validation = validateItemName(finalChanges.name);
+        if (!validation.valid) {
+          toast.error(validation.error);
+          pendingItemChangesRef.current.delete(itemId);
+          updateItemDebouncerRef.current.delete(itemId);
+          return;
+        }
+        finalChanges.name = validation.normalized;
+      }
+
       const newName = finalChanges.name ?? item.name;
       const newType = finalChanges.type ?? item.type;
       const folderId = finalChanges.folderId ?? item.folderId ?? null;
@@ -386,9 +398,21 @@ export function useWorkspaceOperations(
       const id = crypto.randomUUID();
       const activeFolderId = useUIStore.getState().activeFolderId;
       const folderId = activeFolderId ?? null;
-      const finalName =
-        name ||
-        getNextUniqueDefaultName(currentItemsRef.current, validType, folderId);
+      let finalName: string;
+      if (name !== undefined) {
+        const validation = validateItemName(name);
+        if (!validation.valid) {
+          toast.error(validation.error);
+          return "";
+        }
+        finalName = validation.normalized;
+      } else {
+        finalName = getNextUniqueDefaultName(
+          currentItemsRef.current,
+          validType,
+          folderId,
+        );
+      }
 
       const baseData = defaultDataFor(validType);
       const mergedData = initialData
@@ -482,10 +506,23 @@ export function useWorkspaceOperations(
           const validType = validTypes.includes(type) ? type : "document";
           const id = crypto.randomUUID();
           const folderId = activeFolderId ?? null;
+          let finalName: string;
+          if (name !== undefined) {
+            const validation = validateItemName(name);
+            if (!validation.valid) {
+              return null;
+            }
+            finalName = validation.normalized;
+          } else {
+            const allItemsSoFar = [...itemsInCurrentView, ...itemsSoFar];
+            finalName = getNextUniqueDefaultName(
+              allItemsSoFar,
+              validType,
+              folderId,
+            );
+          }
+
           const allItemsSoFar = [...itemsInCurrentView, ...itemsSoFar];
-          const finalName =
-            name ||
-            getNextUniqueDefaultName(allItemsSoFar, validType, folderId);
 
           if (
             name &&
@@ -742,12 +779,23 @@ export function useWorkspaceOperations(
 
   const createFolder = useCallback(
     (name: string, color?: CardColor): string => {
+      const resolvedName = (() => {
+        if (!name || !name.trim()) return "New Folder";
+        const validation = validateItemName(name);
+        if (!validation.valid) {
+          toast.error(validation.error);
+          return null;
+        }
+        return validation.normalized;
+      })();
+      if (resolvedName === null) return "";
+
       const folderId = crypto.randomUUID();
       const activeFolderId = useUIStore.getState().activeFolderId;
       const folder = sanitizeWorkspaceItemForPersistence({
         id: folderId,
         type: "folder",
-        name: name || "New Folder",
+        name: resolvedName,
         subtitle: "",
         data: defaultDataFor("folder") as ItemData,
         color: color || getRandomCardColor(),
@@ -780,6 +828,17 @@ export function useWorkspaceOperations(
 
   const createFolderWithItems = useCallback(
     (name: string, itemIds: string[], color?: CardColor): string => {
+      const resolvedName = (() => {
+        if (!name || !name.trim()) return "New Folder";
+        const validation = validateItemName(name);
+        if (!validation.valid) {
+          toast.error(validation.error);
+          return null;
+        }
+        return validation.normalized;
+      })();
+      if (resolvedName === null) return "";
+
       const activeFolderId = useUIStore.getState().activeFolderId;
       const safeItemIds = filterItemIdsForFolderCreation(
         itemIds,
@@ -798,7 +857,7 @@ export function useWorkspaceOperations(
       const folder = sanitizeWorkspaceItemForPersistence({
         id: folderId,
         type: "folder",
-        name: name || "New Folder",
+        name: resolvedName,
         subtitle: "",
         data: defaultDataFor("folder") as ItemData,
         color: color || getRandomCardColor(),

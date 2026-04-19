@@ -1,7 +1,6 @@
 import { tool, zodSchema } from "ai";
 import { z } from "zod";
-import { loadStateForTool } from "./tool-utils";
-import { fuzzyMatchItem } from "./tool-utils";
+import { loadStateForTool, resolveItem } from "./tool-utils";
 import { resolveItemByPath } from "./workspace-search-utils";
 import { formatItemContent } from "@/lib/utils/format-workspace-context";
 import { getVirtualPath } from "@/lib/utils/workspace-fs";
@@ -57,7 +56,7 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
                     .string()
                     .optional()
                     .describe(
-                        "Name for fuzzy match — use when path unknown; if multiple items share the name, use path instead"
+                        "Exact name (case-insensitive). If multiple items share the same name, use path to disambiguate. Pass a virtual path for unambiguous resolution."
                     ),
                 lineStart: z
                     .number()
@@ -108,25 +107,16 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
             }
 
             if (!item && itemName?.trim()) {
-                const exactMatches = items.filter(
-                    (i) =>
-                        i.type !== "folder" &&
-                        i.name.toLowerCase().trim() === itemName.toLowerCase().trim()
-                );
-                if (exactMatches.length > 1) {
-                    const paths = exactMatches.map((m) => getVirtualPath(m, items)).join(", ");
+                const contentItems = items.filter((i) => i.type !== "folder");
+                const resolved = resolveItem(contentItems, itemName.trim());
+                if (resolved.ok) {
+                    item = resolved.item;
+                } else if (resolved.reason === "ambiguous") {
+                    const paths = resolved.matches.map((m) => getVirtualPath(m, items)).join(", ");
                     return {
                         success: false,
                         message: `Multiple items named "${itemName}". Use path to disambiguate: ${paths}`,
                     };
-                }
-                if (exactMatches.length === 1) {
-                    item = exactMatches[0]!;
-                } else {
-                    item = fuzzyMatchItem(
-                        items.filter((i) => i.type !== "folder"),
-                        itemName.trim()
-                    );
                 }
             }
 

@@ -52,7 +52,7 @@ describe("createEditItemTool", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockLoadStateForTool.mockResolvedValue({ success: true, state: { items: [documentItem] } });
-    mockResolveItem.mockReturnValue(documentItem);
+    mockResolveItem.mockReturnValue({ ok: true, item: documentItem });
     mockWorkspaceWorker.mockResolvedValue({ success: true, itemId: "doc-1", message: "ok" });
     mockGetVirtualPath.mockReturnValue("documents/My Document.md");
   });
@@ -74,7 +74,7 @@ describe("createEditItemTool", () => {
   });
 
   it("returns item not found message when resolveItem misses", async () => {
-    mockResolveItem.mockReturnValueOnce(undefined);
+    mockResolveItem.mockReturnValueOnce({ ok: false, reason: "not-found" });
     const tool: any = createEditItemTool(ctx);
     const result = await tool.execute({ itemName: "Unknown", edits: [{ oldText: "a", newText: "b" }] });
     expect(result.success).toBe(false);
@@ -87,7 +87,11 @@ describe("createEditItemTool", () => {
       success: true,
       state: { items: [documentItem, duplicate] },
     });
-    mockResolveItem.mockReturnValueOnce(documentItem);
+    mockResolveItem.mockReturnValueOnce({
+      ok: false,
+      reason: "ambiguous",
+      matches: [documentItem, duplicate],
+    });
     mockGetVirtualPath
       .mockReturnValueOnce("documents/My Document.md")
       .mockReturnValueOnce("folder/My Document.md");
@@ -101,7 +105,7 @@ describe("createEditItemTool", () => {
 
   it("rejects non-editable item types", async () => {
     const imageItem = { id: "img-1", type: "image", name: "Figure", data: {} };
-    mockResolveItem.mockReturnValueOnce(imageItem);
+    mockResolveItem.mockReturnValueOnce({ ok: true, item: imageItem });
     mockLoadStateForTool.mockResolvedValueOnce({ success: true, state: { items: [imageItem] } });
 
     const tool: any = createEditItemTool(ctx);
@@ -112,7 +116,7 @@ describe("createEditItemTool", () => {
 
   it("allows PDF rename-only and rejects PDF content edits", async () => {
     const pdfItem = { id: "pdf-1", type: "pdf", name: "Syllabus.pdf", data: { fileUrl: "x", filename: "Syllabus.pdf" } };
-    mockResolveItem.mockReturnValueOnce(pdfItem);
+    mockResolveItem.mockReturnValueOnce({ ok: true, item: pdfItem });
     mockLoadStateForTool.mockResolvedValueOnce({ success: true, state: { items: [pdfItem] } });
 
     const tool: any = createEditItemTool(ctx);
@@ -120,7 +124,7 @@ describe("createEditItemTool", () => {
     expect(contentEditResult.success).toBe(false);
     expect(contentEditResult.message).toMatch(/rename only|can only be renamed/i);
 
-    mockResolveItem.mockReturnValueOnce(pdfItem);
+    mockResolveItem.mockReturnValueOnce({ ok: true, item: pdfItem });
     mockLoadStateForTool.mockResolvedValueOnce({ success: true, state: { items: [pdfItem] } });
     mockWorkspaceWorker.mockResolvedValueOnce({ success: true, itemId: "pdf-1", message: "Renamed PDF" });
 

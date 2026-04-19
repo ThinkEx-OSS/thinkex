@@ -29,7 +29,7 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                 .object({
                     itemName: z
                         .string()
-                        .describe("Name of the item to edit (document, flashcard deck, quiz, or PDF; matched by fuzzy search)"),
+                        .describe("Exact name (case-insensitive) or virtual path of the item to edit. If multiple items share the same name, pass a virtual path to disambiguate."),
                     edits: z.array(z.object({
                         oldText: z.string().describe("Exact text to find in the original content. Must be unique. Copy from workspace_read as-is."),
                         newText: z.string().describe("Replacement text for this edit."),
@@ -95,9 +95,17 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                 }
 
                 const state = normalizeWorkspaceItems(accessResult.state);
-                const matchedItem = resolveItem(state, itemName);
-
-                if (!matchedItem) {
+                const resolved = resolveItem(state, itemName);
+                if (!resolved.ok) {
+                    if (resolved.reason === "ambiguous") {
+                        const paths = resolved.matches
+                            .map((m) => getVirtualPath(m, state))
+                            .join(", ");
+                        return {
+                            success: false,
+                            message: `Multiple items named "${itemName}". Disambiguate using path: ${paths}`,
+                        };
+                    }
                     const sample = state
                         .filter((i) => i.type !== "folder")
                         .slice(0, 5)
@@ -108,18 +116,7 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                         message: `Could not find item "${itemName}". ${sample ? `Example items: ${sample}` : "Workspace may be empty."}`,
                     };
                 }
-
-                const contentItems = state.filter((i) => i.type !== "folder");
-                const sameNameCandidates = contentItems.filter(
-                    (i) => i.name.toLowerCase().trim() === matchedItem.name.toLowerCase().trim()
-                );
-                if (sameNameCandidates.length > 1) {
-                    const paths = sameNameCandidates.map((c) => getVirtualPath(c, state)).join(", ");
-                    return {
-                        success: false,
-                        message: `Multiple items named "${matchedItem.name}". Disambiguate using path: ${paths}`,
-                    };
-                }
+                const matchedItem = resolved.item;
 
                 if (!EDITABLE_TYPES.includes(matchedItem.type as (typeof EDITABLE_TYPES)[number])) {
                     return {
@@ -135,7 +132,7 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                     };
                 }
 
-                logger.debug("🎯 [EDIT-ITEM] Found item via fuzzy match:", {
+                logger.debug("🎯 [EDIT-ITEM] Resolved item for edit:", {
                     searchedName: itemName,
                     matchedName: matchedItem.name,
                     matchedId: matchedItem.id,
