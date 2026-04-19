@@ -28,6 +28,31 @@ import {
   createGatewayLanguageModel,
   getGatewayAttributionHeaders,
 } from "@/lib/ai/gateway-provider-options";
+import { db } from "@/lib/db/client";
+import { chatMessages } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
+import type { ThinkexUIMessage } from "@/lib/chat/types";
+import { upsertMessage, verifyThread } from "@/lib/chat/server-persistence";
+
+interface ChatRequestBody {
+  id: string;
+  trigger?: "submit-user-message" | "regenerate-assistant-message";
+  messages?: ThinkexUIMessage[];
+  messageId?: string;
+  parentId?: string | null;
+  system?: string;
+  workspaceId: string;
+  modelId?: string;
+  memoryEnabled?: boolean;
+  activeFolderId?: string;
+  selectedCardsContext?: string;
+  tools?: Record<string, unknown>;
+  metadata?: {
+    custom?: {
+      replySelections?: ReplySelection[];
+    };
+  };
+}
 
 /**
  * Extract workspaceId from system context or request body
@@ -122,28 +147,159 @@ async function handlePOST(req: Request) {
   }
 
   try {
-    // FIX: Parallelize headers() and req.json() to eliminate waterfall
-    const [headersObj, body] = await Promise.all([headers(), req.json()]);
+    const [headersObj, body] = await Promise.all([
+      headers(),
+      req.json() as Promise<ChatRequestBody>,
+    ]);
 
-    // Get authenticated user ID
     const session = await auth.api.getSession({ headers: headersObj });
     userId = session?.user?.id || null;
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized", code: "UNAUTHORIZED" }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
 
-    const { messages = [] }: { messages?: UIMessage[] } = body;
+    const { messages: rawMessages = [] } = body;
+    const incomingMessages = rawMessages as ThinkexUIMessage[];
     const system = body.system || "";
     workspaceId = extractWorkspaceId(body);
     activeFolderId = body.activeFolderId;
-    // AssistantChatTransport passes thread remoteId as body.id (see assistant-ui react-ai-sdk)
-    const threadId = body.id ?? body.threadId ?? null;
-    // Client-controlled memory toggle (composer settings menu). Server double-checks auth/api key.
+    const threadId = body.id ?? null;
     const memoryEnabled = body.memoryEnabled === true;
+
+    if (!threadId) {
+      return new Response(
+        JSON.stringify({
+          error: "thread id is required",
+          code: "BAD_REQUEST",
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const { thread } = await verifyThread({ threadId, userId });
+
     logger.info("🧵 [CHAT-API] Thread ID:", {
       threadId,
       isDefault: threadId === "DEFAULT_THREAD_ID",
     });
 
-    // Create tools using the modular factory (before convertToModelMessages so
-    // toModelOutput can sanitize historical tool results for the model)
+    let messages = incomingMessages;
+    let assistantParentId: string | null =
+      body.parentId == null ? null : String(body.parentId);
+
+    if (body.trigger === "submit-user-message") {
+      const userMessage = messages[messages.length - 1];
+
+      if (!userMessage || userMessage.role !== "user") {
+        return new Response(
+          JSON.stringify({
+            error: "last message must be a user message",
+            code: "BAD_REQUEST",
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      await upsertMessage({
+        threadId,
+        messageId: userMessage.id,
+        parentId: assistantParentId,
+        content: {
+          role: userMessage.role,
+          parts: userMessage.parts,
+          metadata: userMessage.metadata ?? {},
+        },
+        updateHeadIfMatches: true,
+      });
+
+      assistantParentId = userMessage.id;
+    } else if (body.trigger === "regenerate-assistant-message") {
+      const targetMessageId = body.messageId;
+      if (!targetMessageId) {
+        return new Response(
+          JSON.stringify({
+            error: "messageId is required for regenerate",
+            code: "BAD_REQUEST",
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const [existingAssistant] = await db
+        .select({
+          messageId: chatMessages.messageId,
+          content: chatMessages.content,
+        })
+        .from(chatMessages)
+        .where(
+          and(
+            eq(chatMessages.threadId, threadId),
+            eq(chatMessages.messageId, targetMessageId),
+          ),
+        )
+        .limit(1);
+
+      const existingRole =
+        existingAssistant?.content &&
+        typeof existingAssistant.content === "object" &&
+        !Array.isArray(existingAssistant.content)
+          ? (existingAssistant.content as { role?: string }).role
+          : undefined;
+
+      if (!existingAssistant || existingRole !== "assistant") {
+        return new Response(
+          JSON.stringify({
+            error: "messageId must reference an assistant message in this thread",
+            code: "BAD_REQUEST",
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const regenerateIndex = messages.findIndex(
+        (message) => message.id === targetMessageId,
+      );
+      const searchEnd = regenerateIndex === -1 ? messages.length : regenerateIndex;
+      const lastUserIndex = [...messages.slice(0, searchEnd)]
+        .map((message, index) => ({ message, index }))
+        .reverse()
+        .find(({ message }) => message.role === "user")?.index;
+
+      if (lastUserIndex == null) {
+        return new Response(
+          JSON.stringify({
+            error: "could not find a user message to regenerate from",
+            code: "BAD_REQUEST",
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      messages = messages.slice(0, lastUserIndex + 1);
+      assistantParentId = messages[messages.length - 1]?.id ?? null;
+    }
+
     const tools = createChatTools({
       workspaceId,
       userId,
@@ -167,7 +323,6 @@ async function handlePOST(req: Request) {
 
     const validatedMessages = validation.data;
 
-    // Convert messages (pass tools so toModelOutput strips event from historical tool results)
     let convertedMessages;
     try {
       convertedMessages = await convertToModelMessages(validatedMessages, {
@@ -184,7 +339,6 @@ async function handlePOST(req: Request) {
       throw convertError;
     }
 
-    // Prune older reasoning and tool calls to save context
     convertedMessages = pruneMessages({
       messages: convertedMessages,
       reasoning: "before-last-message",
@@ -192,14 +346,12 @@ async function handlePOST(req: Request) {
       emptyMessages: "remove",
     });
 
-    // Get pre-formatted selected cards context from client (no DB fetch needed)
     const selectedCardsContext = getSelectedCardsContext(body);
 
     const modelId = resolveGatewayModelId(
       body.modelId || getDefaultChatModelId(),
     );
 
-    // Inject selected cards + reply selections into the last user message
     injectSelectionContext(
       convertedMessages,
       body.metadata?.custom,
@@ -220,25 +372,18 @@ async function handlePOST(req: Request) {
         })
       : (baseGatewayModel as any);
 
-    // Supermemory: personalizes prompts via user profile + search, and
-    // auto-saves conversation turns when userId + SUPERMEMORY_API_KEY present.
-    // Sits inside wrapLanguageModel (devtools stays outermost) and outside
-    // withTracing so PostHog telemetry captures the *final* prompt the model
-    // actually receives (with memories already injected).
     const memoryWrappedModel = maybeWithSupermemory(tracedModel, {
       userId: userId ?? "",
       threadId,
       memoryEnabled,
     });
 
-    // Use AI Gateway
     const model = wrapLanguageModel({
       model: memoryWrappedModel,
       middleware:
         process.env.NODE_ENV === "development" ? devToolsMiddleware() : [],
     });
 
-    // Stream the response
     logger.debug("🔍 [CHAT-API] Final messages before streamText:", {
       count: convertedMessages.length,
       modelId,
@@ -306,7 +451,6 @@ async function handlePOST(req: Request) {
     logger.debug(
       "🔍 [CHAT-API] streamText returned, calling toUIMessageStreamResponse...",
     );
-    // Log which provider the Gateway actually used (resolves when stream completes)
     void Promise.resolve((result as any).providerMetadata).then((meta: any) => {
       const provider =
         meta?.gateway?.routing?.resolvedProvider ??
@@ -315,11 +459,39 @@ async function handlePOST(req: Request) {
         logger.info("🔍 [CHAT-API] Gateway resolved provider:", provider);
       }
     });
-    // assistant-ui already persists and rehydrates message history via the
-    // thread history adapter. Passing originalMessages here enables a second
-    // persistence flow in AI SDK that can relink the same ids into a different
-    // parent chain when history loads, triggering duplicate-id repository errors.
-    const response = result.toUIMessageStreamResponse();
+
+    const response = result.toUIMessageStreamResponse({
+      originalMessages: messages,
+      messageMetadata: ({ part }) => {
+        if (part.type === "start") {
+          return {
+            createdAt: Date.now(),
+            model: modelId,
+          };
+        }
+
+        if (part.type === "finish") {
+          return {
+            totalTokens: part.totalUsage.totalTokens,
+          };
+        }
+
+        return undefined;
+      },
+      onFinish: async ({ responseMessage }) => {
+        await upsertMessage({
+          threadId: thread.id,
+          messageId: responseMessage.id,
+          parentId: assistantParentId,
+          content: {
+            role: responseMessage.role,
+            parts: responseMessage.parts,
+            metadata: responseMessage.metadata ?? {},
+          },
+          updateHeadIfMatches: true,
+        });
+      },
+    });
     logger.debug("🔍 [CHAT-API] toUIMessageStreamResponse succeeded");
     return response;
   } catch (error) {
