@@ -17,7 +17,7 @@ import {
 
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { useAui } from "@assistant-ui/react";
+import { usePromptInput } from "@/lib/chat/runtime";
 import { toast } from "sonner";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
 
@@ -83,9 +83,9 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
     const captureRef = useRef(capture);
     captureRef.current = capture;
 
-    const aui = useAui();
-    const auiRef = useRef(aui);
-    auiRef.current = aui;
+    const promptInput = usePromptInput();
+    const promptInputRef = useRef(promptInput);
+    promptInputRef.current = promptInput;
 
     const isChatExpanded = useUIStore((state) => state.isChatExpanded);
     const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
@@ -102,7 +102,11 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
                 const file = new File([result.blob], filename, { type: result.imageType });
 
                 // Add attachment to composer
-                await auiRef.current.composer().addAttachment(file);
+                const promptInput = promptInputRef.current;
+                if (!promptInput) {
+                    throw new Error("Chat composer not ready");
+                }
+                await promptInput.addAttachment(file);
                 toast.success("Screenshot added to chat");
 
                 // Turn off capture mode

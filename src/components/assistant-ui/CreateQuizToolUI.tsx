@@ -3,7 +3,7 @@
 import type { MouseEvent, ReactNode } from "react";
 import { useEffect, useState, useMemo } from "react";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
-import type { AssistantToolUIProps } from "@assistant-ui/react";
+import type { ChatToolUIProps } from "@/lib/chat/runtime";
 import { X, Eye, FolderInput, Brain } from "lucide-react";
 import { logger } from "@/lib/utils/logger";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
@@ -198,7 +198,7 @@ const CreateQuizReceipt = ({
   );
 };
 
-export const renderCreateQuizToolUI: AssistantToolUIProps<
+export const renderCreateQuizToolUI: ChatToolUIProps<
   CreateQuizInput,
   QuizResult
 >["render"] = (props) => {

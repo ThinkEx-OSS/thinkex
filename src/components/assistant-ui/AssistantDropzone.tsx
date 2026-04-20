@@ -1,7 +1,7 @@
 "use client";
 
 import { useDropzone } from "react-dropzone";
-import { useAui } from "@assistant-ui/react";
+import { usePromptInput } from "@/lib/chat/runtime";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Upload } from "lucide-react";
 import { useCallback, useState, useRef } from "react";
@@ -19,7 +19,7 @@ interface AssistantDropzoneProps {
  * Accepts all supported file types and adds them as attachments to the chat composer.
  */
 export function AssistantDropzone({ children }: AssistantDropzoneProps) {
-  const aui = useAui();
+  const promptInput = usePromptInput();
   const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -34,7 +34,7 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
-      if (!currentWorkspaceId || !aui) return;
+      if (!currentWorkspaceId || !promptInput) return;
 
       const MAX_FILES = 10;
       const MAX_FILE_SIZE_MB = 50;
@@ -113,7 +113,7 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
         // Add each file to the composer
         const addPromises = filesToAdd.map(async (file) => {
           try {
-            await aui.composer().addAttachment(file);
+            await promptInput.addAttachment(file);
           } catch (error) {
             console.error("Failed to add attachment:", error);
             // Remove from processing set on error so it can be retried
@@ -142,7 +142,7 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
         }, 200);
       }
     },
-    [aui, currentWorkspaceId]
+    [promptInput, currentWorkspaceId]
   );
 
   // Clear processing state when drag ends (user drags away or cancels)
@@ -157,7 +157,7 @@ export function AssistantDropzone({ children }: AssistantDropzoneProps) {
     onDrop,
     noClick: true, // Don't trigger on click, only drag and drop
     noKeyboard: true, // Don't trigger on keyboard
-    disabled: !currentWorkspaceId || !aui, // Disable if no workspace is selected or api is not available
+    disabled: !currentWorkspaceId || !promptInput, // Disable if no workspace is selected or api is not available
     accept: {
       'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.heic', '.heif', '.avif', '.tiff', '.tif'],
       'application/pdf': ['.pdf'],

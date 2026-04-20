@@ -1,19 +1,14 @@
 "use client";
 
-import { useAuiState } from "@assistant-ui/react";
+import { useIsMessageEmpty, useIsMessageRunning } from "@/lib/chat/runtime";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useTheme } from "next-themes";
 
 export const AssistantLoader = () => {
     const { resolvedTheme } = useTheme();
-    const isRunning = useAuiState(
-        ({ message }) => (message as { status?: { type: string } })?.status?.type === "running"
-    );
+    const isRunning = useIsMessageRunning();
 
-    const isMessageEmpty = useAuiState(({ message }) => {
-        const msg = message as any;
-        return !msg?.content || (Array.isArray(msg.content) && msg.content.length === 0);
-    });
+    const isMessageEmpty = useIsMessageEmpty();
 
     if (!isRunning || !isMessageEmpty) return null;
 

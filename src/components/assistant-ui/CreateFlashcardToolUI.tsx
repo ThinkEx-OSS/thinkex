@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
-import type { AssistantToolUIProps } from "@assistant-ui/react";
+import type { ChatToolUIProps } from "@/lib/chat/runtime";
 import { X, Eye, FolderInput } from "lucide-react";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { logger } from "@/lib/utils/logger";
@@ -219,7 +219,7 @@ const CreateFlashcardReceipt = ({
   );
 };
 
-export const renderCreateFlashcardToolUI: AssistantToolUIProps<
+export const renderCreateFlashcardToolUI: ChatToolUIProps<
   CreateFlashcardArgs,
   FlashcardResult
 >["render"] = (props) => {

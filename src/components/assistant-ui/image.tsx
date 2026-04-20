@@ -10,7 +10,7 @@ import {
 import { createPortal } from "react-dom";
 import { cva, type VariantProps } from "class-variance-authority";
 import { ImageIcon, ImageOffIcon } from "lucide-react";
-import type { ImageMessagePartComponent } from "@assistant-ui/react";
+import type { ChatImagePartComponent } from "@/lib/chat/runtime";
 import { cn } from "@/lib/utils";
 
 const imageVariants = cva(
@@ -230,7 +230,7 @@ function ImageZoom({ src, alt = "Image preview", children }: ImageZoomProps) {
   );
 }
 
-const ImageImpl: ImageMessagePartComponent = ({ image, filename }) => {
+const ImageImpl: ChatImagePartComponent = ({ image, filename }) => {
   return (
     <ImageRoot>
       <ImageZoom src={image} alt={filename || "Image content"}>
@@ -241,7 +241,7 @@ const ImageImpl: ImageMessagePartComponent = ({ image, filename }) => {
   );
 };
 
-const Image = memo(ImageImpl) as unknown as ImageMessagePartComponent & {
+const Image = memo(ImageImpl) as unknown as ChatImagePartComponent & {
   Root: typeof ImageRoot;
   Preview: typeof ImagePreview;
   Filename: typeof ImageFilename;

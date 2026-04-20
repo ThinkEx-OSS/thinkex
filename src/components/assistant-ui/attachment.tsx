@@ -10,23 +10,21 @@ import React, {
 import {
   XIcon,
   Link as LinkIcon,
-  SearchIcon,
-  Plus,
-  Code as CodeIcon,
-  GalleryHorizontalEnd,
   FileText,
   Loader2,
 } from "lucide-react";
 import { LuPaperclip } from "react-icons/lu";
 import { toast } from "sonner";
 import {
-  AttachmentPrimitive,
-  ComposerPrimitive,
-  MessagePrimitive,
-  useAui,
-} from "@assistant-ui/react";
-import { useAuiState } from "@assistant-ui/react";
-import { useShallow } from "zustand/shallow";
+  ChatAttachment,
+  ChatMessage,
+  ChatPromptInput,
+  useAttachmentId,
+  useAttachmentScope,
+  useAttachmentSnapshot,
+  useIsAttachmentImage,
+  usePromptInput,
+} from "@/lib/chat/runtime";
 import {
   Tooltip,
   TooltipContent,
@@ -42,10 +40,8 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { cn } from "@/lib/utils";
 import { useAttachmentUploadStore } from "@/lib/stores/attachment-upload-store";
-import { useUIStore } from "@/lib/stores/ui-store";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
-import { FaCheck } from "react-icons/fa";
 
 const useFileSrc = (file: File | undefined) => {
   const [src, setSrc] = useState<string | undefined>(undefined);
@@ -109,46 +105,29 @@ function isUrlAttachment(att: UrlLikeAttachment | undefined): boolean {
 }
 
 const useAttachmentSrc = () => {
-  const attachmentState = useAuiState(
-    useShallow(
-      ({
-        attachment,
-      }): { file?: File; src?: string; isUrl?: boolean; url?: string } => {
-        const att = attachment as
-          | {
-              type?: string;
-              name?: string;
-              file?: File & { name: string };
-              content?: Array<{ type: string; text?: string; image?: string }>;
-            }
-          | undefined;
-        if (!att)
-          return {
-            file: undefined,
-            src: undefined,
-            isUrl: false,
-            url: undefined,
-          };
-        if (isUrlAttachment(att)) {
-          const url = getHttpAttachmentUrl(att);
-          if (url) {
-            return { isUrl: true, src: getFaviconUrl(url), url };
-          }
-          return { isUrl: true };
-        }
+  const att = useAttachmentSnapshot();
 
-        if (att.type !== "image") return {};
-        if (att.file) return { file: att.file };
-        const imageContent = att.content?.find(
-          (c: { type: string }) => c.type === "image",
-        ) as { type: "image"; image: string } | undefined;
-        if (imageContent?.image) {
-          return { src: imageContent.image };
-        }
-        return {};
-      },
-    ),
-  );
+  const attachmentState: { file?: File; src?: string; isUrl?: boolean; url?: string } = (() => {
+    if (!att) {
+      return { file: undefined, src: undefined, isUrl: false, url: undefined };
+    }
+    if (isUrlAttachment(att)) {
+      const url = getHttpAttachmentUrl(att);
+      if (url) {
+        return { isUrl: true, src: getFaviconUrl(url), url };
+      }
+      return { isUrl: true };
+    }
+    if (att.type !== "image") return {};
+    if (att.file) return { file: att.file };
+    const imageContent = att.content?.find(
+      (c: { type: string }) => c.type === "image",
+    ) as { type: "image"; image: string } | undefined;
+    if (imageContent?.image) {
+      return { src: imageContent.image };
+    }
+    return {};
+  })();
 
   return {
     src: useFileSrc(attachmentState.file) ?? attachmentState.src,
@@ -205,9 +184,7 @@ const AttachmentPreviewDialog: FC<PropsWithChildren> = ({ children }) => {
 };
 
 const AttachmentThumb: FC = () => {
-  const isImage = useAuiState(
-    ({ attachment }) => (attachment as { type?: string })?.type === "image",
-  );
+  const isImage = useIsAttachmentImage();
   const attachmentSrc = useAttachmentSrc();
   const { src, isUrl } = attachmentSrc;
 
@@ -253,34 +230,21 @@ const AttachmentThumb: FC = () => {
 };
 
 const AttachmentUI: FC = () => {
-  const aui = useAui();
-  const isComposer = aui.attachment.source === "composer";
-  const attachmentId = useAuiState(
-    ({ attachment }) => (attachment as { id?: string })?.id,
-  );
+  const scope = useAttachmentScope();
+  const isComposer = scope === "composer";
+  const attachmentId = useAttachmentId();
   const isUploading = useAttachmentUploadStore(
     (s) => attachmentId != null && s.uploadingIds.has(attachmentId),
   );
+  const isImage = useIsAttachmentImage();
 
-  const isImage = useAuiState(
-    ({ attachment }) => (attachment as { type?: string })?.type === "image",
-  );
+  // Snapshot is memoized in the ACL, so deriving multiple values from it is cheap
+  const attSnapshot = useAttachmentSnapshot();
 
-  // Split into separate selectors to avoid creating new objects on each render
-  const typeLabel = useAuiState(({ attachment }) => {
-    const att = attachment as
-      | {
-          type?: string;
-          name?: string;
-          file?: { name: string };
-          content?: Array<{ type: string; text?: string }>;
-        }
-      | undefined;
+  const typeLabel = (() => {
+    const att = attSnapshot;
     if (!att) return "File";
-    if (isUrlAttachment(att)) {
-      return "URL";
-    }
-
+    if (isUrlAttachment(att)) return "URL";
     const type = att.type;
     switch (type) {
       case "image":
@@ -292,24 +256,11 @@ const AttachmentUI: FC = () => {
       default:
         return "File";
     }
-  });
-
-  const isUrl = useAuiState(({ attachment }) => {
-    const att = attachment as
-      | {
-          type?: string;
-          name?: string;
-          file?: { name: string };
-          content?: Array<{ type: string; text?: string }>;
-        }
-      | undefined;
-    if (!att) return false;
-    return isUrlAttachment(att);
-  });
+  })();
 
   return (
     <Tooltip>
-      <AttachmentPrimitive.Root
+      <ChatAttachment.Root
         className={cn(
           "aui-attachment-root relative flex flex-col items-center gap-1.5 max-w-[100px]",
           isImage &&
@@ -350,12 +301,12 @@ const AttachmentUI: FC = () => {
         </div>
         {!(isComposer && isUploading) && (
           <div className="text-[11px] text-muted-foreground w-full truncate text-center px-1 leading-tight">
-            <AttachmentPrimitive.Name />
+            <ChatAttachment.Name />
           </div>
         )}
-      </AttachmentPrimitive.Root>
+      </ChatAttachment.Root>
       <TooltipContent side="top">
-        <AttachmentPrimitive.Name />
+        <ChatAttachment.Name />
       </TooltipContent>
     </Tooltip>
   );
@@ -365,7 +316,7 @@ const AttachmentRemove: FC = () => {
   const { isUrl } = useAttachmentSrc();
 
   return (
-    <AttachmentPrimitive.Remove asChild>
+    <ChatAttachment.Remove asChild>
       <TooltipIconButton
         tooltip={isUrl ? "Remove URL" : "Remove file"}
         className="aui-attachment-tile-remove absolute top-1.5 right-1.5 size-3.5 rounded-full bg-white text-muted-foreground opacity-100 shadow-sm hover:bg-white! [&_svg]:text-black hover:[&_svg]:text-destructive"
@@ -373,32 +324,30 @@ const AttachmentRemove: FC = () => {
       >
         <XIcon className="aui-attachment-remove-icon size-3 dark:stroke-[2.5px]" />
       </TooltipIconButton>
-    </AttachmentPrimitive.Remove>
+    </ChatAttachment.Remove>
   );
 };
 
 export const UserMessageAttachments: FC = () => {
   return (
     <div className="aui-user-message-attachments-end col-span-full col-start-1 row-start-1 flex w-full flex-row justify-end gap-2">
-      <MessagePrimitive.Attachments components={{ Attachment: AttachmentUI }} />
+      <ChatMessage.Attachments components={{ Attachment: AttachmentUI }} />
     </div>
   );
 };
 
-export const ComposerAttachments: FC = () => {
+export const PromptInputAttachments: FC = () => {
   return (
     <div className="aui-composer-attachments mb-2 flex w-full flex-row items-center gap-2 overflow-x-auto pt-0.5 pb-1 empty:hidden">
-      <ComposerPrimitive.Attachments
-        components={{ Attachment: AttachmentUI }}
-      />
+      <ChatPromptInput.Attachments components={{ Attachment: AttachmentUI }} />
     </div>
   );
 };
 
-export const ComposerAddAttachment: FC = () => {
+export const PromptInputAddAttachment: FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const aui = useAui();
+  const promptInput = usePromptInput();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -465,7 +414,7 @@ export const ComposerAddAttachment: FC = () => {
     // Add valid files (non–Office-doc, non–password-protected) — others still upload successfully
     if (filesToAdd.length > 0) {
       filesToAdd.forEach((file) => {
-        aui.composer().addAttachment(file);
+        promptInput?.addAttachment(file);
       });
 
       if (filesToAdd.length < fileArray.length) {
@@ -480,7 +429,7 @@ export const ComposerAddAttachment: FC = () => {
     }
   };
 
-  const uploadInputId = "composer-file-upload";
+  const uploadInputId = "prompt-input-file-upload";
 
   return (
     <>

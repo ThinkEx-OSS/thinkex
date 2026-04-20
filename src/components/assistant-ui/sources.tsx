@@ -3,7 +3,7 @@
 import { memo, useState } from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
-import type { SourceMessagePartComponent } from "@assistant-ui/react";
+import type { ChatSourcePartComponent } from "@/lib/chat/runtime";
 import { cn } from "@/lib/utils";
 
 const extractDomain = (url: string): string => {
@@ -116,7 +116,7 @@ function Source({
   );
 }
 
-const SourcesImpl: SourceMessagePartComponent = ({
+const SourcesImpl: ChatSourcePartComponent = ({
   url,
   title,
   sourceType,
@@ -134,7 +134,7 @@ const SourcesImpl: SourceMessagePartComponent = ({
   );
 };
 
-const Sources = memo(SourcesImpl) as unknown as SourceMessagePartComponent & {
+const Sources = memo(SourcesImpl) as unknown as ChatSourcePartComponent & {
   Root: typeof Source;
   Icon: typeof SourceIcon;
   Title: typeof SourceTitle;

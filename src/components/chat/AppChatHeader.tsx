@@ -4,7 +4,7 @@ import Link from "next/link";
 import { X, ChevronDown, Trash2, Edit2, Check, MessageSquarePlus } from "lucide-react";
 import { RiChatHistoryLine } from "react-icons/ri";
 import { LuMaximize2, LuMinimize2, LuPanelRightClose } from "react-icons/lu";
-import { useAui, useThreadListItem } from "@assistant-ui/react";
+import { useChatThreadListItem, usePromptInputThreadActions } from "@/lib/chat/runtime";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,11 +60,11 @@ export function AppChatHeader({
   const [isEditingCurrentTitle, setIsEditingCurrentTitle] = useState(false);
   const [currentTitleEditValue, setCurrentTitleEditValue] = useState("");
   const currentTitleTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const aui = useAui();
+  const threadActions = usePromptInputThreadActions();
 
   // Get current thread title and state from assistant-ui
   // Using safe hook to handle race condition during thread switching (GitHub issue #2722)
-  const threadListItem = useThreadListItem();
+  const threadListItem = useChatThreadListItem();
   const currentThreadTitle = threadListItem?.title || "New Chat";
   const isThreadInitialized = !!threadListItem?.remoteId;
 
@@ -153,7 +153,7 @@ export function AppChatHeader({
 
     if (trimmedValue && trimmedValue !== currentThreadTitle) {
       try {
-        await aui?.threadListItem().rename(trimmedValue);
+        await threadActions?.rename(trimmedValue);
         toast.success("Title updated");
       } catch (error) {
         console.error("Failed to rename thread:", error);
@@ -442,7 +442,6 @@ export function PopupHeader({ onClose }: PopupHeaderProps) {
 }
 
 export default AppChatHeader;
-
 
 
 

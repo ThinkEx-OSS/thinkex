@@ -38,7 +38,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import type { Item } from "@/lib/workspace-state/types";
-import { useAui } from "@assistant-ui/react";
+import { usePromptInput } from "@/lib/chat/runtime";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
 import {
   Brain,
@@ -234,7 +234,7 @@ export function PromptBuilderDialog({
 }: PromptBuilderDialogProps) {
   const config = ACTION_CONFIG[action];
   const Icon = config.icon;
-  const aui = useAui();
+  const promptInput = usePromptInput();
   const formId = useId();
 
   const { selectedCardIds } = useSelectedCardIds();
@@ -399,7 +399,7 @@ export function PromptBuilderDialog({
       if (action !== "search" && selectedContextIds.size > 0) {
         selectMultipleCards(Array.from(selectedContextIds));
       }
-      aui?.composer().setText(builtPrompt);
+      promptInput?.setText(builtPrompt);
       focusComposerInput();
     }
     onOpenChange(false);
@@ -409,7 +409,7 @@ export function PromptBuilderDialog({
     hasValidTopic,
     onBeforeSubmit,
     onBuild,
-    aui,
+    promptInput,
     onOpenChange,
     selectedContextIds,
     selectMultipleCards,

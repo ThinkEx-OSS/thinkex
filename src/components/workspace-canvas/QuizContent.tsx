@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { StreamdownMarkdown } from "@/components/ui/streamdown-markdown";
 import { toast } from "sonner";
-import { useAui } from "@assistant-ui/react";
+import { usePromptInput } from "@/lib/chat/runtime";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { getQuestionText } from "@/lib/workspace-state/quiz-shuffle";
@@ -41,7 +41,7 @@ export function QuizContent({
 }: QuizContentProps) {
   const quizData = item.data as QuizData;
   const questions = quizData.questions || [];
-  const aui = useAui();
+  const promptInput = usePromptInput();
 
   // UI store for card selection
   const selectedCardIds = useUIStore((state) => state.selectedCardIds);
@@ -192,7 +192,7 @@ export function QuizContent({
     }
 
     // Then send the message via composer
-    const composer = aui?.composer?.();
+    const composer = promptInput;
     if (composer) {
       try {
         composer.setText("Add 5 more questions to this quiz");
@@ -211,7 +211,7 @@ export function QuizContent({
       toggleCardSelection(item.id);
     }
 
-    const composer = aui?.composer?.();
+    const composer = promptInput;
     if (composer) {
       try {
         composer.setText(
@@ -232,7 +232,7 @@ export function QuizContent({
       toggleCardSelection(item.id);
     }
 
-    const composer = aui?.composer?.();
+    const composer = promptInput;
     if (composer) {
       try {
         const userAnswer =

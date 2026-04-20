@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-import { useAuiState } from "@assistant-ui/react";
+import { useCurrentChatMessage } from "@/lib/chat/runtime";
 import { BsArrowReturnRight } from "react-icons/bs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ReplySelection } from "@/lib/stores/ui-store";
@@ -16,7 +16,7 @@ type MessageCustomMetadata = {
  * when viewing user messages in history.
  */
 function MessageContextBadgesImpl() {
-  const message = useAuiState((s) => s.message);
+  const message = useCurrentChatMessage();
   if (!message || message.role !== "user") return null;
 
   const custom = (message.metadata as { custom?: MessageCustomMetadata } | undefined)?.custom;
