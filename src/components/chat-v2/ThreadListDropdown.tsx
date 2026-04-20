@@ -63,11 +63,14 @@ export function ThreadListDropdown({ workspaceId, activeThreadId, onSelectThread
                     onBlur={() => {
                       void (async () => {
                         try {
-                          await fetch(`/api/threads/${thread.remoteId}`, {
+                          const response = await fetch(`/api/threads/${thread.remoteId}`, {
                             method: "PATCH",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ title: editValue.trim() || "New Chat" }),
                           });
+                          if (!response.ok) {
+                            throw new Error("Failed to rename chat");
+                          }
                           await loadThreads();
                         } catch {
                           toast.error("Failed to rename chat");
@@ -119,7 +122,12 @@ export function ThreadListDropdown({ workspaceId, activeThreadId, onSelectThread
             <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => {
               void (async () => {
                 if (!deleteId) return;
-                await fetch(`/api/threads/${deleteId}`, { method: "DELETE" });
+                const response = await fetch(`/api/threads/${deleteId}`, { method: "DELETE" });
+                if (!response.ok) {
+                  toast.error("Failed to delete chat");
+                  setDeleteId(null);
+                  return;
+                }
                 if (deleteId === activeThreadId) onSelectThread(null);
                 setDeleteId(null);
                 await loadThreads();

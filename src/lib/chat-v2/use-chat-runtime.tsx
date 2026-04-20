@@ -56,6 +56,7 @@ interface ChatRuntimeContextValue {
   error?: Error;
   isLoading: boolean;
   refreshMessages: () => Promise<void>;
+  refreshMessagesIfSafe: () => Promise<void>;
   refreshThreads: () => Promise<void>;
   input: string;
   setInput: (value: string) => void;
@@ -182,6 +183,7 @@ export function ChatRuntimeProvider({
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
   const refreshThreadsRef = useRef<() => Promise<void>>(async () => {});
+  const refreshTokenRef = useRef(0);
 
   useEffect(() => {
     setThreadIdState(initialThreadId);
@@ -356,7 +358,10 @@ export function ChatRuntimeProvider({
   const chat = chatRef.current;
 
   const refreshMessages = useCallback(async () => {
-    if (!threadId) {
+    const token = ++refreshTokenRef.current;
+    const loadingThreadId = threadId;
+
+    if (!loadingThreadId) {
       chat.messages = [];
       setIsLoading(false);
       return;
@@ -364,12 +369,29 @@ export function ChatRuntimeProvider({
 
     setIsLoading(true);
     try {
-      const loadedMessages = await loadThreadMessages(threadId);
+      const loadedMessages = await loadThreadMessages(loadingThreadId);
+      if (
+        token !== refreshTokenRef.current ||
+        loadingThreadId !== threadId ||
+        statusRef.current === "streaming" ||
+        statusRef.current === "submitted"
+      ) {
+        return;
+      }
       chat.messages = loadedMessages;
     } finally {
-      setIsLoading(false);
+      if (token === refreshTokenRef.current) {
+        setIsLoading(false);
+      }
     }
-  }, [chat, threadId]);
+  }, [chat, threadId, statusRef]);
+
+  const refreshMessagesIfSafe = useCallback(async () => {
+    if (statusRef.current === "streaming" || statusRef.current === "submitted") {
+      return;
+    }
+    await refreshMessages();
+  }, [refreshMessages, statusRef]);
 
   useEffect(() => {
     void refreshMessages();
@@ -438,6 +460,7 @@ export function ChatRuntimeProvider({
       error: errorRef.current,
       isLoading,
       refreshMessages,
+      refreshMessagesIfSafe,
       refreshThreads,
       input,
       setInput,
@@ -456,6 +479,7 @@ export function ChatRuntimeProvider({
       items,
       messagesRef,
       refreshMessages,
+      refreshMessagesIfSafe,
       refreshThreads,
       sendMessage,
       setThreadId,

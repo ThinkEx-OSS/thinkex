@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { VList, type VListHandle } from "virtua";
 import type { ChatStatus } from "ai";
 import type { ChatMessage } from "@/lib/chat-v2/types";
@@ -16,12 +16,43 @@ interface MessageListProps {
   onRegenerate: (messageId: string) => Promise<void>;
 }
 
+function LastUserMeasurer({
+  children,
+  onMeasure,
+}: {
+  children: ReactNode;
+  onMeasure: (height: number) => void;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+
+    const measure = () => {
+      if (ref.current) {
+        onMeasure(ref.current.getBoundingClientRect().height);
+      }
+    };
+
+    measure();
+
+    const resizeObserver = new ResizeObserver(measure);
+    resizeObserver.observe(ref.current);
+
+    return () => resizeObserver.disconnect();
+  }, [onMeasure]);
+
+  return <div ref={ref}>{children}</div>;
+}
+
 export function MessageList({ threadId, messages, status, isLoading, onReloadThread, onRegenerate }: MessageListProps) {
   const ref = useRef<VListHandle>(null);
-  const userRef = useRef<HTMLDivElement | null>(null);
   const [lastUserSize, setLastUserSize] = useState(0);
   const [blankSize, setBlankSize] = useState(0);
   const prevStatusRef = useRef(status);
+  const handleMeasure = useCallback((height: number) => {
+    setLastUserSize(height);
+  }, []);
 
   useEffect(() => {
     const wasIdle = prevStatusRef.current === "ready" || prevStatusRef.current === "error";
@@ -69,20 +100,16 @@ export function MessageList({ threadId, messages, status, isLoading, onReloadThr
             );
           }
 
+          if (isSecondToLast) {
+            return (
+              <LastUserMeasurer key={message.id} onMeasure={handleMeasure}>
+                <UserMessage threadId={threadId} message={message} onReloadThread={onReloadThread} onRegenerate={onRegenerate} />
+              </LastUserMeasurer>
+            );
+          }
+
           return (
-            <div
-              key={message.id}
-              ref={(node) => {
-                if (isSecondToLast) {
-                  userRef.current = node;
-                  if (node) {
-                    requestAnimationFrame(() => {
-                      setLastUserSize(node.getBoundingClientRect().height);
-                    });
-                  }
-                }
-              }}
-            >
+            <div key={message.id}>
               <UserMessage threadId={threadId} message={message} onReloadThread={onReloadThread} onRegenerate={onRegenerate} />
             </div>
           );

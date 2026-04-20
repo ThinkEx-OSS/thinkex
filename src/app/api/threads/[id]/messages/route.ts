@@ -6,7 +6,7 @@ import {
   verifyWorkspaceAccess,
   verifyThreadOwnership,
 } from "@/lib/api/workspace-helpers";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { withServerObservability } from "@/lib/with-server-observability";
 
 async function getThreadAndVerify(id: string, userId: string) {
@@ -45,16 +45,41 @@ export const GET = withServerObservability(async function GET(
     const rows = await db
       .select()
       .from(chatMessages)
-      .where(and(eq(chatMessages.threadId, id), eq(chatMessages.format, format)))
-      .orderBy(desc(chatMessages.createdAt));
+      .where(and(eq(chatMessages.threadId, id), eq(chatMessages.format, format)));
 
-    const messages = rows.map((r) => ({
-        id: r.messageId,
-        parent_id: r.parentId,
-        format: r.format,
-        content: r.content,
-        created_at: r.createdAt,
-      }));
+    const byId = new Map(rows.map((row) => [row.messageId, row]));
+    const ordered: typeof rows = [];
+
+    if (thread.headMessageId) {
+      let cursor: string | null = thread.headMessageId;
+      const seen = new Set<string>();
+
+      while (cursor && !seen.has(cursor)) {
+        seen.add(cursor);
+        const row = byId.get(cursor);
+        if (!row) break;
+        ordered.push(row);
+        cursor = row.parentId;
+      }
+
+      ordered.reverse();
+    } else {
+      ordered.push(
+        ...rows.sort((a, b) => {
+          const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return at - bt;
+        }),
+      );
+    }
+
+    const messages = ordered.map((r) => ({
+      id: r.messageId,
+      parent_id: r.parentId,
+      format: r.format,
+      content: r.content,
+      created_at: r.createdAt,
+    }));
 
     return NextResponse.json({
       messages,

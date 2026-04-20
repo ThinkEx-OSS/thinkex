@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { AssistantAvailableProvider } from "@/contexts/AssistantAvailabilityContext";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { Item } from "@/lib/workspace-state/types";
 import { ChatRuntimeProvider, useChatRuntime } from "@/lib/chat-v2/use-chat-runtime";
@@ -21,7 +20,7 @@ interface ChatV2PanelProps {
 }
 
 function ChatV2PanelContent({ workspaceId, setIsChatExpanded, isChatMaximized, setIsChatMaximized }: Omit<ChatV2PanelProps, "items" | "onReady">) {
-  const { threadId, setThreadId, messages, status, isLoading, refreshMessages, regenerate, focusComposer } = useChatRuntime();
+  const { threadId, setThreadId, messages, status, isLoading, refreshMessagesIfSafe, regenerate, focusComposer } = useChatRuntime();
 
   return (
     <div className={cn("flex h-full flex-col bg-sidebar", isChatMaximized && "shadow-2xl")} data-tour="chat-panel">
@@ -41,7 +40,7 @@ function ChatV2PanelContent({ workspaceId, setIsChatExpanded, isChatMaximized, s
         messages={messages}
         status={status}
         isLoading={isLoading}
-        onReloadThread={refreshMessages}
+        onReloadThread={refreshMessagesIfSafe}
         onRegenerate={(messageId) => regenerate({ messageId })}
       />
       <div className="mx-auto flex w-full max-w-[50rem] flex-shrink-0 flex-col gap-4 px-4 pb-3 md:pb-4">

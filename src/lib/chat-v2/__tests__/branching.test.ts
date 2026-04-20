@@ -31,7 +31,11 @@ describe("chat-v2 branching helpers", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/threads/thread-1/messages/m2/branches",
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetBranchId: "m3" }),
+      }),
     );
   });
 
@@ -44,7 +48,11 @@ describe("chat-v2 branching helpers", () => {
     expect(data.newMessageId).toBe("m4");
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/chat-v2/edit",
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ threadId: "thread-1", messageId: "m2", text: "edited" }),
+      }),
     );
   });
 });

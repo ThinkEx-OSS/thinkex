@@ -62,7 +62,22 @@ export const POST = withServerObservability(async function POST(req: NextRequest
       return NextResponse.json({ error: "targetBranchId is required" }, { status: 400 });
     }
 
-    await getThreadAndMessage(id, messageId, userId);
+    const { message } = await getThreadAndMessage(id, messageId, userId);
+    const [target] = await db
+      .select()
+      .from(chatMessages)
+      .where(and(eq(chatMessages.threadId, id), eq(chatMessages.messageId, body.targetBranchId)))
+      .limit(1);
+    if (!target) {
+      return NextResponse.json({ error: "Target branch not found" }, { status: 404 });
+    }
+    if (target.parentId !== message.parentId) {
+      return NextResponse.json(
+        { error: "Target is not a sibling of the anchor message" },
+        { status: 400 },
+      );
+    }
+
     const leafId = await findLeaf(id, body.targetBranchId);
     await db.update(chatThreads).set({ headMessageId: leafId, updatedAt: new Date().toISOString() }).where(eq(chatThreads.id, id));
     return NextResponse.json({ headMessageId: leafId });

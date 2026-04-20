@@ -10,7 +10,7 @@ import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useAttachmentUploadStore } from "@/lib/stores/attachment-upload-store";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
-import { isPasswordProtectedPdf } from "@/lib/uploads/pdf-validation";
+import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 import { useChatRuntime, type ComposerAttachment } from "@/lib/chat-v2/use-chat-runtime";
 import { useMentionMenu } from "./hooks/use-mention-menu";
@@ -35,11 +35,21 @@ export function Composer() {
   const { selectedCardIds } = useSelectedCardIds();
 
   const addFiles = useCallback(async (files: File[]) => {
-    const nextAttachments = await Promise.all(files.map(async (file) => {
-      if (await isPasswordProtectedPdf(file)) {
-        emitPasswordProtectedPdf([file.name]);
-        throw new Error(`\"${file.name}\" is password-protected.`);
-      }
+    const pdfFiles = files.filter(
+      (file) =>
+        file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"),
+    );
+    const { rejected: protectedNames } = await filterPasswordProtectedPdfs(pdfFiles);
+
+    if (protectedNames.length > 0) {
+      emitPasswordProtectedPdf(protectedNames);
+    }
+
+    const protectedSet = new Set(protectedNames);
+    const allowedFiles = files.filter((file) => !protectedSet.has(file.name));
+    if (allowedFiles.length === 0) return;
+
+    const nextAttachments: ComposerAttachment[] = allowedFiles.map((file) => {
       const id = crypto.randomUUID();
       useAttachmentUploadStore.getState().addUploading(id);
       const attachment: ComposerAttachment = {
@@ -51,13 +61,32 @@ export function Composer() {
       };
       attachment.uploadPromise = uploadFileDirect(file)
         .then((result) => {
-          setAttachments((current) => current.map((candidate) => candidate.id === id ? { ...candidate, url: result.url, filename: result.displayName, mediaType: result.contentType, isUploading: false } : candidate));
+          setAttachments((current) =>
+            current.map((candidate) =>
+              candidate.id === id
+                ? {
+                    ...candidate,
+                    url: result.url,
+                    filename: result.displayName,
+                    mediaType: result.contentType,
+                    isUploading: false,
+                  }
+                : candidate,
+            ),
+          );
+        })
+        .catch(() => {
+          toast.error(`Failed to upload ${file.name}`);
+          setAttachments((current) =>
+            current.filter((candidate) => candidate.id !== id),
+          );
         })
         .finally(() => {
           useAttachmentUploadStore.getState().removeUploading(id);
         });
       return attachment;
-    }));
+    });
+
     setAttachments((current) => [...current, ...nextAttachments]);
   }, [setAttachments]);
 

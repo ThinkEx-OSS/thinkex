@@ -36,7 +36,6 @@ export async function loadThreadMessages(threadId: string): Promise<ChatMessage[
   const data = (await response.json()) as ThreadMessagesResponse;
 
   return [...data.messages]
-    .sort((a, b) => a.created_at.localeCompare(b.created_at))
     .map((row) => row.content)
     .filter(isChatMessage)
     .map(normalizeParts);

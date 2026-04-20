@@ -26,6 +26,7 @@ import { db } from "@/lib/db/client";
 import { chatMessages, chatThreads } from "@/lib/db/schema";
 import { logger } from "@/lib/utils/logger";
 import type { ReplySelection } from "@/lib/stores/ui-store";
+import { verifyThreadOwnership, verifyWorkspaceAccess } from "@/lib/api/workspace-helpers";
 
 function getSelectedCardsContext(body: Record<string, unknown>): string {
   return typeof body.selectedCardsContext === "string" ? body.selectedCardsContext : "";
@@ -103,7 +104,6 @@ async function handlePOST(req: Request) {
     const session = await auth.api.getSession({ headers: headersObj });
     userId = session?.user?.id ?? null;
 
-    workspaceId = typeof body.workspaceId === "string" ? body.workspaceId : null;
     const threadId = typeof body.id === "string" ? body.id : null;
     const activeFolderId = typeof body.activeFolderId === "string" ? body.activeFolderId : undefined;
     const memoryEnabled = body.memoryEnabled === true;
@@ -114,6 +114,17 @@ async function handlePOST(req: Request) {
     if (!threadId) {
       return new Response(JSON.stringify({ error: "Thread id is required" }), { status: 400, headers: { "Content-Type": "application/json" } });
     }
+
+    const [thread] = await db.select().from(chatThreads).where(eq(chatThreads.id, threadId)).limit(1);
+    if (!thread) {
+      return new Response(JSON.stringify({ error: "Thread not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+    }
+    if (!userId) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
+    }
+    await verifyWorkspaceAccess(thread.workspaceId, userId);
+    verifyThreadOwnership(thread, userId);
+    workspaceId = thread.workspaceId;
 
     const tools = createChatTools({
       workspaceId,
@@ -232,6 +243,10 @@ async function handlePOST(req: Request) {
 
     return createUIMessageStreamResponse({ stream });
   } catch (error) {
+    if (error instanceof Response) {
+      return error;
+    }
+
     const errorMessage = error instanceof Error ? error.message : String(error);
     const isTimeout =
       errorMessage.includes("timeout") ||

@@ -3,6 +3,7 @@
 import { ChevronDown, Check, Edit2, X } from "lucide-react";
 import { LuMaximize2, LuMinimize2, LuPanelRightClose } from "react-icons/lu";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ThreadListDropdown } from "./ThreadListDropdown";
@@ -27,25 +28,42 @@ export function ChatHeader({ workspaceId, threadId, onSelectThread, onCollapse, 
       setDraft("New Chat");
       return;
     }
+
+    let cancelled = false;
+
     void (async () => {
-      const response = await fetch(`/api/threads/${threadId}`, { cache: "no-store" });
-      if (!response.ok) return;
-      const data = (await response.json()) as { title?: string };
-      setThreadTitle(data.title ?? "New Chat");
-      setDraft(data.title ?? "New Chat");
+      try {
+        const response = await fetch(`/api/threads/${threadId}`, { cache: "no-store" });
+        if (!response.ok || cancelled) return;
+        const data = (await response.json()) as { title?: string };
+        if (cancelled) return;
+        setThreadTitle(data.title ?? "New Chat");
+        setDraft(data.title ?? "New Chat");
+      } catch {
+        return;
+      }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [threadId]);
 
   const title = useMemo(() => threadTitle || "New Chat", [threadTitle]);
 
   const save = async () => {
     if (!threadId) return;
-    await fetch(`/api/threads/${threadId}`, {
+    const nextTitle = draft.trim() || "New Chat";
+    const response = await fetch(`/api/threads/${threadId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: draft.trim() || "New Chat" }),
+      body: JSON.stringify({ title: nextTitle }),
     });
-    setThreadTitle(draft.trim() || "New Chat");
+    if (!response.ok) {
+      toast.error("Failed to rename chat");
+      return;
+    }
+    setThreadTitle(nextTitle);
     setEditing(false);
   };
 
