@@ -62,7 +62,7 @@ export function AssistantMessage({ threadId, message, isStreaming, blankSize, on
       </div>
 
       <div className="mt-2 ml-2 flex items-center gap-2">
-        <BranchNav threadId={threadId} messageId={message.id} onChanged={onReloadThread} />
+        <BranchNav threadId={threadId} messageId={message.id} />
         <AssistantActionBar textContent={textContent} onRefresh={() => onRefresh(message.id)} />
       </div>
     </div>

@@ -27,6 +27,7 @@ import { chatMessages, chatThreads } from "@/lib/db/schema";
 import { logger } from "@/lib/utils/logger";
 import type { ReplySelection } from "@/lib/stores/ui-store";
 import { verifyThreadOwnership, verifyWorkspaceAccess } from "@/lib/api/workspace-helpers";
+import { getNewFinishedMessages, resolveInitialParentId } from "@/lib/chat-v2/stream-persistence";
 
 function getSelectedCardsContext(body: Record<string, unknown>): string {
   return typeof body.selectedCardsContext === "string" ? body.selectedCardsContext : "";
@@ -105,6 +106,12 @@ async function handlePOST(req: Request) {
     userId = session?.user?.id ?? null;
 
     const threadId = typeof body.id === "string" ? body.id : null;
+    const trigger =
+      body.trigger === "regenerate-message"
+        ? "regenerate-message"
+        : "submit-message";
+    const regenerateMessageId =
+      typeof body.messageId === "string" ? body.messageId : null;
     const activeFolderId = typeof body.activeFolderId === "string" ? body.activeFolderId : undefined;
     const memoryEnabled = body.memoryEnabled === true;
     const system = typeof body.system === "string" ? body.system : "";
@@ -144,10 +151,24 @@ async function handlePOST(req: Request) {
     const validatedMessages = validation.data;
     const lastMessage = validatedMessages.at(-1);
     const previousMessageId = validatedMessages.at(-2)?.id ?? null;
-    if (lastMessage?.role === "user") {
+    if (trigger === "submit-message" && lastMessage?.role === "user") {
       await saveMessage({ threadId, message: lastMessage, parentId: previousMessageId });
       await updateThreadHead(threadId, lastMessage.id);
     }
+
+    const initialParentId = await resolveInitialParentId({
+      trigger,
+      regenerateMessageId,
+      lastMessage,
+      getStoredMessageParentId: async (messageId) => {
+        const [siblingRow] = await db
+          .select({ parentId: chatMessages.parentId })
+          .from(chatMessages)
+          .where(and(eq(chatMessages.threadId, threadId), eq(chatMessages.messageId, messageId)))
+          .limit(1);
+        return siblingRow?.parentId ?? null;
+      },
+    });
 
     let convertedMessages = await convertToModelMessages(validatedMessages, { tools });
     convertedMessages = pruneMessages({
@@ -225,14 +246,18 @@ async function handlePOST(req: Request) {
     const stream = createUIMessageStream<UIMessage>({
       originalMessages: validatedMessages,
       execute: ({ writer }) => {
+        // TODO: emit data-chat-title here if chat-v2 gets a shared title-generation utility.
         writer.merge(result.toUIMessageStream({
           sendReasoning: true,
           sendSources: true,
         }));
       },
       onFinish: async ({ messages: finishedMessages }) => {
-        let parentId = validatedMessages.at(-1)?.id ?? null;
-        const newMessages = finishedMessages.slice(validatedMessages.length);
+        let parentId = initialParentId;
+        const newMessages = getNewFinishedMessages({
+          finishedMessages,
+          validatedMessages,
+        });
         for (const message of newMessages) {
           await saveMessage({ threadId, message, parentId });
           parentId = message.id;

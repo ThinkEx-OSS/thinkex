@@ -63,6 +63,7 @@ function renderComponent(
 export function renderLegacyTool(part: ChatToolPart): ReactNode {
   const legacyProps = toLegacyToolProps(part);
   const type = canonicalizeToolUIPartType(part.type).replace(/^tool-/, "");
+  const toolName = legacyProps.toolName;
 
   switch (type) {
     case CHAT_TOOL.WEB_FETCH:
@@ -88,6 +89,21 @@ export function renderLegacyTool(part: ChatToolPart): ReactNode {
     case CHAT_TOOL.CODE_EXECUTE:
       return renderComponent(renderExecuteCodeToolUI as ComponentType<LegacyToolProps>, legacyProps);
     default:
-      return null;
+      return (
+        <div className="rounded-md border border-border/50 bg-muted/30 p-3 text-xs">
+          <div className="mb-1 font-medium">Tool: {toolName}</div>
+          {(part.state === "input-streaming" || part.state === "input-available" || part.state === "approval-requested") ? (
+            <div className="text-muted-foreground">Running…</div>
+          ) : null}
+          {part.state === "output-available" ? (
+            <pre className="whitespace-pre-wrap break-all text-[11px] text-muted-foreground">
+              {typeof part.output === "string" ? part.output : JSON.stringify(part.output, null, 2)}
+            </pre>
+          ) : null}
+          {part.state === "output-error" ? (
+            <div className="text-destructive">Error: {String(part.errorText ?? "tool failed")}</div>
+          ) : null}
+        </div>
+      );
   }
 }

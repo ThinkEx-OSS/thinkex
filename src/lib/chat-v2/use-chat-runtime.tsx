@@ -5,6 +5,7 @@ import { useChat, type UseChatHelpers } from "@ai-sdk/react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { formatSelectedCardsMetadata, formatWorkspaceContext } from "@/lib/utils/format-workspace-context";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
@@ -12,6 +13,8 @@ import { createPrepareSendMessagesRequest } from "./prepare-send-messages";
 import { loadThreadMessages } from "./load-thread-messages";
 import type { ChatMessage } from "./types";
 import type { Item } from "@/lib/workspace-state/types";
+import { useDataStream } from "./data-stream-provider";
+import { useShallow } from "zustand/react/shallow";
 
 export type ComposerAttachment = {
   id: string;
@@ -61,25 +64,36 @@ interface ChatRuntimeProviderProps {
   workspaceId: string;
   items: Item[];
   initialThreadId: string | null;
+  onThreadSelectionChange?: (threadId: string | null) => void;
+  onThreadResolved?: (threadId: string) => void;
   onReady?: () => void;
   children: ReactNode;
 }
 
-export function ChatRuntimeProvider({ workspaceId, items, initialThreadId, onReady, children }: ChatRuntimeProviderProps) {
+export function ChatRuntimeProvider({
+  workspaceId,
+  items,
+  initialThreadId,
+  onThreadSelectionChange,
+  onThreadResolved,
+  onReady,
+  children,
+}: ChatRuntimeProviderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { currentWorkspace } = useWorkspaceContext();
+  const { setDataStream } = useDataStream();
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
-  const newChatIdRef = useRef<string>(crypto.randomUUID());
+  const chatIdRef = useRef<string>(initialThreadId ?? crypto.randomUUID());
   const selectedModelId = useUIStore((state) => state.selectedModelId);
   const memoryEnabled = useUIStore((state) => state.memoryEnabled);
   const activeFolderId = useUIStore((state) => state.activeFolderId);
-  const replySelections = useUIStore((state) => state.replySelections);
+  const replySelections = useUIStore(useShallow((state) => state.replySelections));
   const clearReplySelections = useUIStore((state) => state.clearReplySelections);
-  const selectedCardIds = useUIStore((state) => [...state.selectedCardIds]);
-  const activePdfPageByItemId = useUIStore((state) => state.activePdfPageByItemId);
-  const openItems = useUIStore((state) => state.openItems);
+  const { selectedCardIdsArray: selectedCardIds } = useSelectedCardIds();
+  const activePdfPageByItemId = useUIStore(useShallow((state) => state.activePdfPageByItemId));
+  const openItems = useUIStore(useShallow((state) => state.openItems));
   const [threadId, setThreadIdState] = useState<string | null>(initialThreadId);
   const [isLoading, setIsLoading] = useState(Boolean(initialThreadId));
   const [input, setInput] = useState("");
@@ -116,8 +130,9 @@ export function ChatRuntimeProvider({ workspaceId, items, initialThreadId, onRea
 
   const setThreadId = useCallback((nextThreadId: string | null) => {
     setThreadIdState(nextThreadId);
+    onThreadSelectionChange?.(nextThreadId);
     updateUrlThread(pathname, new URLSearchParams(searchParams.toString()), router, nextThreadId);
-  }, [pathname, router, searchParams]);
+  }, [onThreadSelectionChange, pathname, router, searchParams]);
 
   const handleChatError = useCallback((error: Error) => {
     console.error("[Chat Error]", error);
@@ -152,8 +167,9 @@ export function ChatRuntimeProvider({ workspaceId, items, initialThreadId, onRea
   }, []);
 
   const { messages, setMessages: setMessagesRaw, sendMessage: sendMessageRaw, status, stop, regenerate, error } = useChat<ChatMessage>({
-    id: threadId ?? newChatIdRef.current,
+    id: chatIdRef.current,
     messages: [],
+    generateId: () => crypto.randomUUID(),
     transport: new DefaultChatTransport<ChatMessage>({
       api: "/api/chat-v2",
       prepareSendMessagesRequest: async (options) => {
@@ -171,11 +187,16 @@ export function ChatRuntimeProvider({ workspaceId, items, initialThreadId, onRea
         }))({ ...options, id: resolvedThreadId });
       },
     }),
+    onData: (dataPart) => {
+      setDataStream((current) => [...current, dataPart]);
+    },
     onError: handleChatError,
     onFinish: async () => {
       await refreshThreadsRef.current();
     },
   });
+  // TODO: sendAutomaticallyWhen once chat-v2 supports tool approval continuations.
+  // TODO: useAutoResume when chat-v2 adopts resumable streams.
 
   useEffect(() => {
     statusRef.current = status;
@@ -226,7 +247,9 @@ export function ChatRuntimeProvider({ workspaceId, items, initialThreadId, onRea
     });
     if (!response.ok) throw new Error(await response.text());
     const data = (await response.json()) as { id: string };
-    setThreadId(data.id);
+    setThreadIdState(data.id);
+    onThreadResolved?.(data.id);
+    updateUrlThread(pathname, new URLSearchParams(searchParams.toString()), router, data.id);
     return data.id;
   };
 

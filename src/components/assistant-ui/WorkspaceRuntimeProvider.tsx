@@ -24,43 +24,17 @@ import { chatToolToolkit } from "@/components/assistant-ui/chat-toolkit";
 
 interface WorkspaceRuntimeProviderProps {
   workspaceId: string;
+  disableChatRuntime?: boolean;
   children: React.ReactNode;
 }
 
-function createWorkspaceChatRuntimeHook(
-  transport: AssistantChatTransport<UIMessage>,
-  onError: (error: Error) => void,
-) {
-  return function useWorkspaceChatRuntimeHook() {
-    return useChatRuntime({
-      transport,
-      onError,
-      toCreateMessage: toCreateMessageWithContext,
-    });
-  };
-}
-
-/**
- * Bridges the outer RemoteThreadListRuntime's initialize() into a ref
- * so the transport's prepareSendMessagesRequest can eagerly resolve the
- * real thread remoteId before each chat request.
- *
- * Workaround for https://github.com/assistant-ui/assistant-ui/issues/3578
- */
-function ThreadInitBridge({
-  initRef,
-}: {
-  initRef: React.MutableRefObject<(() => Promise<{ remoteId: string }>) | null>;
-}) {
-  const aui = useAui();
-  initRef.current = () => aui.threadListItem().initialize();
-  return null;
-}
-
-export function WorkspaceRuntimeProvider({
+function WorkspaceRuntimeWithChatRuntime({
   workspaceId,
   children,
-}: WorkspaceRuntimeProviderProps) {
+}: {
+  workspaceId: string;
+  children: React.ReactNode;
+}) {
   const selectedModelId = useUIStore((state) => state.selectedModelId);
   const memoryEnabled = useUIStore((state) => state.memoryEnabled);
   const activeFolderId = useUIStore((state) => state.activeFolderId);
@@ -71,7 +45,6 @@ export function WorkspaceRuntimeProvider({
   const { state: workspaceState } = useWorkspaceState(workspaceId);
   const viewingItemIds = useViewingItemIds();
 
-  /** Union of selected cards and items open in the workspace viewer (primary and/or secondary). */
   const contextCardIds = useMemo(() => {
     const ids = new Set<string>(selectedCardIdsSet);
     viewingItemIds.forEach((id) => ids.add(id));
@@ -99,13 +72,6 @@ export function WorkspaceRuntimeProvider({
     );
   }, [workspaceState, contextCardIds, activePdfPageByItemId, viewingItemIds]);
 
-  // Per AI SDK, transport `body` is `Resolvable<object>` — if it is a function, `resolve()`
-  // calls it on every sendMessages (see @ai-sdk/provider-utils resolve()). That gives
-  // fresh metadata without recreating AssistantChatTransport (which would change the
-  // transport passed into useChatRuntime and stress useRemoteThreadListRuntime).
-  // @assistant-ui/react-ai-sdk also wraps the transport in useDynamicChatTransport (Proxy
-  // + ref) so the chat layer can follow transport updates; keeping one transport instance
-  // is still the least surprising option for our custom runtimeHook wrapper.
   const chatApiPayloadRef = useRef({
     workspaceId,
     modelId: selectedModelId,
@@ -125,7 +91,6 @@ export function WorkspaceRuntimeProvider({
   const handleChatError = useCallback((error: Error) => {
     console.error("[Chat Error]", error);
 
-    // Extract error message from various sources (error.message, responseBody, data, etc.)
     const errorMessage = error.message?.toLowerCase() || "";
     const responseBody = (error as any).responseBody?.toLowerCase() || "";
     const errorData = (error as any).data?.error?.message?.toLowerCase() || "";
@@ -184,7 +149,6 @@ export function WorkspaceRuntimeProvider({
           "Please check your GOOGLE_GENERATIVE_AI_API_KEY in your environment variables.",
       });
     } else {
-      // Generic error fallback
       toast.error("Something went wrong", {
         description:
           error.message || "An unexpected error occurred. Please try again.",
@@ -231,8 +195,6 @@ export function WorkspaceRuntimeProvider({
           };
         },
       }),
-    // Body snapshot comes from the ref via Resolvable function above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable transport instance
     [],
   );
 
@@ -255,5 +217,52 @@ export function WorkspaceRuntimeProvider({
       <ThreadInitBridge initRef={threadInitRef} />
       <AssistantAvailableProvider>{children}</AssistantAvailableProvider>
     </AssistantRuntimeProvider>
+  );
+}
+
+function createWorkspaceChatRuntimeHook(
+  transport: AssistantChatTransport<UIMessage>,
+  onError: (error: Error) => void,
+) {
+  return function useWorkspaceChatRuntimeHook() {
+    return useChatRuntime({
+      transport,
+      onError,
+      toCreateMessage: toCreateMessageWithContext,
+    });
+  };
+}
+
+/**
+ * Bridges the outer RemoteThreadListRuntime's initialize() into a ref
+ * so the transport's prepareSendMessagesRequest can eagerly resolve the
+ * real thread remoteId before each chat request.
+ *
+ * Workaround for https://github.com/assistant-ui/assistant-ui/issues/3578
+ */
+function ThreadInitBridge({
+  initRef,
+}: {
+  initRef: React.MutableRefObject<(() => Promise<{ remoteId: string }>) | null>;
+}) {
+  const aui = useAui();
+  initRef.current = () => aui.threadListItem().initialize();
+  return null;
+}
+
+export function WorkspaceRuntimeProvider({
+  workspaceId,
+  disableChatRuntime = false,
+  children,
+}: WorkspaceRuntimeProviderProps) {
+  if (disableChatRuntime) {
+    // Keep assistant availability context for the dashboard, but skip assistant-ui's thread/runtime wiring when chat-v2 is enabled.
+    return <AssistantAvailableProvider>{children}</AssistantAvailableProvider>;
+  }
+
+  return (
+    <WorkspaceRuntimeWithChatRuntime workspaceId={workspaceId}>
+      {children}
+    </WorkspaceRuntimeWithChatRuntime>
   );
 }

@@ -99,7 +99,7 @@ export function UserMessage({ threadId, message, onReloadThread, onRegenerate }:
         {!editing ? <div className="absolute right-0"><UserActionBar textContent={textContent} onEdit={() => setEditing(true)} /></div> : null}
       </div>
 
-      <BranchNav threadId={threadId} messageId={message.id} onChanged={onReloadThread} className="col-span-full col-start-1 justify-end text-xs text-muted-foreground" />
+      <BranchNav threadId={threadId} messageId={message.id} className="col-span-full col-start-1 justify-end text-xs text-muted-foreground" />
     </div>
   );
 }

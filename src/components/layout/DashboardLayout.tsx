@@ -135,12 +135,11 @@ export function DashboardLayout({
   );
 
   if (currentWorkspaceId) {
-    if (USE_NEW_CHAT) {
-      return content;
-    }
-
     return (
-      <WorkspaceRuntimeProvider workspaceId={currentWorkspaceId}>
+      <WorkspaceRuntimeProvider
+        workspaceId={currentWorkspaceId}
+        disableChatRuntime={USE_NEW_CHAT}
+      >
         {content}
       </WorkspaceRuntimeProvider>
     );

@@ -4,19 +4,21 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { fetchBranches, switchBranch } from "@/lib/chat-v2/branches";
+import { useChatRuntime } from "@/lib/chat-v2/use-chat-runtime";
 
 interface BranchNavProps {
   threadId?: string | null;
   messageId: string;
-  onChanged: () => Promise<void>;
   className?: string;
 }
 
-export function BranchNav({ threadId, messageId, onChanged, className }: BranchNavProps) {
+export function BranchNav({ threadId, messageId, className }: BranchNavProps) {
   const [count, setCount] = useState(0);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [siblings, setSiblings] = useState<Array<{ id: string }>>([]);
   const [loading, setLoading] = useState(false);
+  const { status, stop, refreshMessagesIfSafe } = useChatRuntime();
+  const isBusy = status === "streaming" || status === "submitted";
 
   useEffect(() => {
     if (!threadId) return;
@@ -50,8 +52,11 @@ export function BranchNav({ threadId, messageId, onChanged, className }: BranchN
     if (!target) return;
     setLoading(true);
     try {
+      if (isBusy) {
+        await stop();
+      }
       await switchBranch(threadId, messageId, target.id);
-      await onChanged();
+      await refreshMessagesIfSafe();
       setCurrentIndex(nextIndex);
     } finally {
       setLoading(false);
@@ -60,11 +65,11 @@ export function BranchNav({ threadId, messageId, onChanged, className }: BranchN
 
   return (
     <div className={className ?? "inline-flex items-center text-xs text-muted-foreground"}>
-      <Button variant="ghost" size="icon" className="size-6 p-1" disabled={loading} onClick={() => void handleSwitch(-1)}>
+      <Button variant="ghost" size="icon" className="size-6 p-1" disabled={isBusy || loading} onClick={() => void handleSwitch(-1)}>
         <ChevronLeftIcon className="size-4" />
       </Button>
       <span className="font-medium">{currentIndex + 1} / {count}</span>
-      <Button variant="ghost" size="icon" className="size-6 p-1" disabled={loading} onClick={() => void handleSwitch(1)}>
+      <Button variant="ghost" size="icon" className="size-6 p-1" disabled={isBusy || loading} onClick={() => void handleSwitch(1)}>
         <ChevronRightIcon className="size-4" />
       </Button>
     </div>

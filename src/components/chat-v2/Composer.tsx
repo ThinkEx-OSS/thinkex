@@ -16,6 +16,7 @@ import { useChatRuntime, type ComposerAttachment } from "@/lib/chat-v2/use-chat-
 import { useMentionMenu } from "./hooks/use-mention-menu";
 import { usePromptInputPaste } from "./hooks/use-prompt-input-paste";
 import { ComposerToolbar } from "./ComposerToolbar";
+import { useShallow } from "zustand/react/shallow";
 
 export function Composer() {
   const {
@@ -31,7 +32,7 @@ export function Composer() {
     focusComposer,
   } = useChatRuntime();
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
-  const replySelections = useUIStore((state) => state.replySelections);
+  const replySelections = useUIStore(useShallow((state) => state.replySelections));
   const { selectedCardIds } = useSelectedCardIds();
 
   const addFiles = useCallback(async (files: File[]) => {

@@ -45,6 +45,17 @@ function LastUserMeasurer({
   return <div ref={ref}>{children}</div>;
 }
 
+function ThinkingMessage() {
+  return (
+    <div className="mx-auto w-full max-w-[50rem] px-2 pb-4">
+      <div className="chat-v2-assistant-message-content mx-2 flex items-center gap-2 leading-7 break-words text-muted-foreground">
+        <div className="size-2 animate-pulse rounded-full bg-current" />
+        <span className="text-sm">Thinking…</span>
+      </div>
+    </div>
+  );
+}
+
 export function MessageList({ threadId, messages, status, isLoading, onReloadThread, onRegenerate }: MessageListProps) {
   const ref = useRef<VListHandle>(null);
   const [lastUserSize, setLastUserSize] = useState(0);
@@ -114,6 +125,9 @@ export function MessageList({ threadId, messages, status, isLoading, onReloadThr
             </div>
           );
         })}
+        {status === "submitted" && messages.at(-1)?.role !== "assistant" ? (
+          <ThinkingMessage key="thinking-message" />
+        ) : null}
       </VList>
     </div>
   );

@@ -2,8 +2,10 @@
 
 import { AssistantAvailableProvider } from "@/contexts/AssistantAvailabilityContext";
 import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { Item } from "@/lib/workspace-state/types";
+import { DataStreamProvider } from "@/lib/chat-v2/data-stream-provider";
 import { ChatRuntimeProvider, useChatRuntime } from "@/lib/chat-v2/use-chat-runtime";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
@@ -53,13 +55,39 @@ function ChatV2PanelContent({ workspaceId, setIsChatExpanded, isChatMaximized, s
 
 export function ChatV2Panel({ workspaceId, items, onReady, ...rest }: ChatV2PanelProps) {
   const searchParams = useSearchParams();
-  const initialThreadId = searchParams.get("thread");
+  const urlThreadId = searchParams.get("thread");
+  const [providerThreadId, setProviderThreadId] = useState<string | null>(urlThreadId);
+  const persistedThreadIdRef = useRef<string | null>(null);
+  const providerKey = providerThreadId ?? "new";
+
+  useEffect(() => {
+    if (urlThreadId === persistedThreadIdRef.current) {
+      persistedThreadIdRef.current = null;
+      return;
+    }
+    if (urlThreadId !== providerThreadId) {
+      setProviderThreadId(urlThreadId);
+    }
+  }, [providerThreadId, urlThreadId]);
 
   return (
     <AssistantAvailableProvider>
-      <ChatRuntimeProvider workspaceId={workspaceId} items={items} initialThreadId={initialThreadId} onReady={onReady}>
-        <ChatV2PanelContent workspaceId={workspaceId} {...rest} />
-      </ChatRuntimeProvider>
+      <DataStreamProvider key={providerKey}>
+        {/* Remount on explicit thread switches like route-driven chat UIs, but keep new-chat streams alive when the server persists a thread id. */}
+        <ChatRuntimeProvider
+          key={providerKey}
+          workspaceId={workspaceId}
+          items={items}
+          initialThreadId={providerThreadId}
+          onThreadSelectionChange={setProviderThreadId}
+          onThreadResolved={(threadId) => {
+            persistedThreadIdRef.current = threadId;
+          }}
+          onReady={onReady}
+        >
+          <ChatV2PanelContent workspaceId={workspaceId} {...rest} />
+        </ChatRuntimeProvider>
+      </DataStreamProvider>
     </AssistantAvailableProvider>
   );
 }

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
+    "typecheck": "pnpm tc",
     "tc": "tsgo --noEmit",
     "tc:tsc": "tsc --noEmit",
     "clean": "rm -rf .next out dist",

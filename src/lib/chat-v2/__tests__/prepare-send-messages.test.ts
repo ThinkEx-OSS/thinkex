@@ -13,21 +13,27 @@ describe("buildPrepareSendMessagesBody", () => {
       workspaceId: "workspace-1",
       messages,
       trigger: "submit-message",
-      modelId: "model-1",
+      modelId: "gpt-5",
       memoryEnabled: true,
-      activeFolderId: "folder-1",
-      selectedCardsContext: "context",
-      selectedCardIds: ["card-1"],
-      replySelections: [{ text: "quoted text", title: "Doc" }],
-      system: "system prompt",
+      activeFolderId: "folder-123",
+      selectedCardsContext: "[cards-ctx]",
+      selectedCardIds: ["a", "b"],
+      replySelections: [{ text: "quoted", title: "title" }],
+      system: "system-prompt",
     });
 
     expect(body.messages.at(-1)?.metadata).toEqual({
-      replySelections: [{ text: "quoted text", title: "Doc" }],
-      selectedCards: ["card-1"],
+      replySelections: [{ text: "quoted", title: "title" }],
+      selectedCards: ["a", "b"],
     });
+    expect(body.id).toBe("thread-1");
+    expect(body.workspaceId).toBe("workspace-1");
     expect(body.trigger).toBe("submit-message");
-    expect(body.system).toBe("system prompt");
+    expect(body.modelId).toBe("gpt-5");
+    expect(body.memoryEnabled).toBe(true);
+    expect(body.activeFolderId).toBe("folder-123");
+    expect(body.selectedCardsContext).toBe("[cards-ctx]");
+    expect(body.system).toBe("system-prompt");
   });
 
   it("preserves regenerate payload shape when last message is assistant", () => {

@@ -6,7 +6,8 @@ export type ChatMetadata = {
   selectedCards?: string[];
 };
 
-export type ChatDataTypes = Record<string, never>;
+export type CustomUIDataTypes = Record<string, unknown>;
+export type ChatDataTypes = CustomUIDataTypes;
 export type ChatTools = Record<string, { input: unknown; output: unknown }>;
 
 export type ChatMessage = UIMessage<ChatMetadata, ChatDataTypes, ChatTools>;
