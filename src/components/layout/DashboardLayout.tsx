@@ -6,6 +6,7 @@ import { WorkspaceRuntimeProvider } from "@/components/assistant-ui/WorkspaceRun
 import { WorkspaceCanvasDropzone } from "@/components/workspace-canvas/WorkspaceCanvasDropzone";
 import { AssistantDropzone } from "@/components/assistant-ui/AssistantDropzone";
 import { PANEL_DEFAULTS } from "@/lib/layout-constants";
+import { USE_NEW_CHAT } from "@/lib/chat-v2/feature-flag";
 import React from "react";
 
 interface DashboardLayoutProps {
@@ -134,6 +135,10 @@ export function DashboardLayout({
   );
 
   if (currentWorkspaceId) {
+    if (USE_NEW_CHAT) {
+      return content;
+    }
+
     return (
       <WorkspaceRuntimeProvider workspaceId={currentWorkspaceId}>
         {content}

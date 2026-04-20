@@ -9,6 +9,8 @@ import AppChatHeader from "@/components/chat/AppChatHeader";
 import { cn } from "@/lib/utils";
 import AssistantTextSelectionManager from "@/components/assistant-ui/AssistantTextSelectionManager";
 import { useEffect } from "react";
+import { USE_NEW_CHAT } from "@/lib/chat-v2/feature-flag";
+import { ChatV2Panel } from "@/components/chat-v2/ChatV2Panel";
 
 interface AssistantPanelProps {
   workspaceId?: string | null;
@@ -108,9 +110,22 @@ function WorkspaceContextWrapperContent({
   // Workspace name comes from canonical workspace metadata.
   const { currentWorkspace } = useWorkspaceContext();
 
-  // Inject minimal workspace context (metadata and system instructions only)
-  // Cards register their own context individually
-  useWorkspaceContextProvider(workspaceId || null, state, currentWorkspace?.name);
+  if (!USE_NEW_CHAT) {
+    useWorkspaceContextProvider(workspaceId || null, state, currentWorkspace?.name);
+  }
+
+  if (USE_NEW_CHAT) {
+    return (
+      <ChatV2Panel
+        workspaceId={workspaceId || ""}
+        items={items}
+        setIsChatExpanded={setIsChatExpanded}
+        isChatMaximized={isChatMaximized}
+        setIsChatMaximized={setIsChatMaximized}
+        onReady={onReady}
+      />
+    );
+  }
 
 
 
