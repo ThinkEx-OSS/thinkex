@@ -6,10 +6,14 @@ import {
   safeValidateUIMessages,
   stepCountIs,
   wrapLanguageModel,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  type ModelMessage,
+  type ProviderMetadata,
 } from "ai";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 import { withTracing } from "@posthog/ai";
-import type { UIMessage } from "ai";
+import { and, asc, eq, gte } from "drizzle-orm";
 import { logger } from "@/lib/utils/logger";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -28,40 +32,23 @@ import {
   createGatewayLanguageModel,
   getGatewayAttributionHeaders,
 } from "@/lib/ai/gateway-provider-options";
-
-/**
- * Extract workspaceId from system context or request body
- */
-function extractWorkspaceId(body: any): string | null {
-  if (body.workspaceId) {
-    return body.workspaceId;
-  }
-
-  const system = body.system || "";
-  const workspaceIdMatch = system.match(/Workspace ID: ([a-f0-9-]{36})/);
-  if (workspaceIdMatch) {
-    return workspaceIdMatch[1];
-  }
-
-  return null;
-}
-
-/**
- * Selected cards context is now formatted on the client side and sent directly.
- * This eliminates the need for server-side database fetch.
- * If selectedCardsContext is provided, use it; otherwise return empty string.
- */
-function getSelectedCardsContext(body: any): string {
-  // Client now sends pre-formatted context string
-  return body.selectedCardsContext || "";
-}
+import { db } from "@/lib/db/client";
+import { chatThreads, chatMessages } from "@/lib/db/schema";
+import { CHAT_MESSAGE_FORMAT, type ChatMessage } from "@/lib/chat/types";
+import {
+  CHAT_DEBUG_TAG,
+  summarizeMessage,
+  summarizeRoster,
+} from "@/lib/chat/debug";
+import { generateThreadTitle } from "@/lib/chat/generate-title";
+import { chatRequestBodySchema } from "./schema";
 
 /**
  * Inject user-selected context (selected cards + reply quotes / workspace passages) into the last user message.
- * `custom` is body.metadata.custom from the composer's runConfig (replySelections only).
+ * `custom` is `lastUserMessage.metadata.custom` (replySelections only).
  */
 function injectSelectionContext(
-  messages: any[],
+  messages: ModelMessage[],
   custom?: {
     replySelections?: ReplySelection[];
   },
@@ -69,7 +56,6 @@ function injectSelectionContext(
 ): void {
   const parts: string[] = [];
 
-  // Selected cards (pre-formatted from client)
   if (selectedCardsContext && selectedCardsContext.trim()) {
     parts.push(`[Selected cards context:\n${selectedCardsContext.trim()}]`);
   }
@@ -87,18 +73,17 @@ function injectSelectionContext(
 
   const prefix = parts.join("\n") + "\n\n";
 
-  // Find the last user message and prepend the context
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
     if (msg.role !== "user") continue;
 
     if (Array.isArray(msg.content)) {
-      const textIdx = msg.content.findIndex((p: any) => p.type === "text");
+      const textIdx = msg.content.findIndex((p) => p.type === "text");
       if (textIdx !== -1) {
-        msg.content[textIdx] = {
-          ...msg.content[textIdx],
-          text: prefix + msg.content[textIdx].text,
-        };
+        const part = msg.content[textIdx];
+        if (part.type === "text") {
+          msg.content[textIdx] = { ...part, text: prefix + part.text };
+        }
       }
     } else if (typeof msg.content === "string") {
       messages[i] = { ...msg, content: prefix + msg.content };
@@ -107,67 +92,195 @@ function injectSelectionContext(
   }
 }
 
+/**
+ * Hydrate prior turns of a thread from `chat_messages`. Only post-migration
+ * rows (`format = 'ai-sdk-ui/v1'`) are returned; legacy rows stay hidden
+ * until backfill. Mirrors the GET `/api/threads/[id]/messages` response so
+ * the server-side conversation context matches what the client sees.
+ */
+async function loadThreadHistory(threadId: string): Promise<ChatMessage[]> {
+  const rows = await db
+    .select({ content: chatMessages.content })
+    .from(chatMessages)
+    .where(
+      and(
+        eq(chatMessages.threadId, threadId),
+        eq(chatMessages.format, CHAT_MESSAGE_FORMAT),
+      ),
+    )
+    .orderBy(asc(chatMessages.createdAt));
+  return rows.map((r) => r.content) as ChatMessage[];
+}
+
 async function handlePOST(req: Request) {
   let workspaceId: string | null = null;
   let userId: string | null = null;
-  let activeFolderId: string | undefined;
-
-  // Check for API key early (Standardizing on Google Key for now if not using OIDC)
-  // With Gateway, you can check for other keys too, or rely on Gateway's auth
-  if (
-    !process.env.GOOGLE_GENERATIVE_AI_API_KEY &&
-    !process.env.AI_GATEWAY_API_KEY
-  ) {
-    // Optional: make this check more robust or permissive if using OIDC
-  }
 
   try {
-    // FIX: Parallelize headers() and req.json() to eliminate waterfall
-    const [headersObj, body] = await Promise.all([headers(), req.json()]);
+    const [headersObj, rawBody] = await Promise.all([headers(), req.json()]);
+    const parsed = chatRequestBodySchema.safeParse(rawBody);
+    if (!parsed.success) {
+      logger.warn("[CHAT-API] request body failed validation", {
+        issues: parsed.error.issues,
+      });
+      return new Response(
+        JSON.stringify({
+          error: "Bad request",
+          message: "Invalid chat request body.",
+          details: parsed.error.issues,
+          code: "BAD_REQUEST",
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    const body = parsed.data;
 
-    // Get authenticated user ID
     const session = await auth.api.getSession({ headers: headersObj });
     userId = session?.user?.id || null;
 
-    const { messages = [] }: { messages?: UIMessage[] } = body;
-    const system = body.system || "";
-    workspaceId = extractWorkspaceId(body);
-    activeFolderId = body.activeFolderId;
-    // AssistantChatTransport passes thread remoteId as body.id (see assistant-ui react-ai-sdk)
-    const threadId = body.id ?? body.threadId ?? null;
-    // Client-controlled memory toggle (composer settings menu). Server double-checks auth/api key.
+    workspaceId = body.workspaceId;
+    const threadId = body.id;
+    const newMessage = body.message;
     const memoryEnabled = body.memoryEnabled === true;
-    logger.info("🧵 [CHAT-API] Thread ID:", {
+    const trigger = body.trigger;
+    const triggeringMessageId = body.messageId;
+    const activeFolderId = body.activeFolderId ?? undefined;
+    const system = body.system ?? "";
+    const selectedCardsContext = body.selectedCardsContext ?? "";
+
+    logger.info("🧵 [CHAT-API] Thread ID:", { threadId });
+
+    // [chat-debug] Inbound just shows the single new message + trigger now —
+    // history is reconstructed from DB below.
+    logger.info(`${CHAT_DEBUG_TAG} POST /api/chat inbound`, {
       threadId,
-      isDefault: threadId === "DEFAULT_THREAD_ID",
+      trigger,
+      triggeringMessageId,
+      newMessage: summarizeMessage(newMessage),
     });
 
-    // Create tools using the modular factory (before convertToModelMessages so
-    // toModelOutput can sanitize historical tool results for the model)
+    // Upsert the thread row on first write. Client generates the UUID and
+    // sends it as `body.id`; we insert or no-op so the client never has to
+    // make a separate create call.
+    let isNewThread = false;
+    if (workspaceId && userId) {
+      const inserted = await db
+        .insert(chatThreads)
+        .values({ id: threadId, workspaceId, userId })
+        .onConflictDoNothing({ target: chatThreads.id })
+        .returning({ id: chatThreads.id });
+      isNewThread = inserted.length > 0;
+    } else {
+      logger.warn("[CHAT-API] missing workspaceId or userId — skipping upsert", {
+        hasWorkspaceId: !!workspaceId,
+        hasUserId: !!userId,
+      });
+    }
+
+    // SDK-aligned regenerate semantics: when the client fires
+    // `regenerate-message`, hard-truncate persisted history at the targeted
+    // message (inclusive) BEFORE loading. The new turn then lands on top of
+    // a clean slate.
+    //
+    // Cases:
+    //   - User edited a user msg: messageId is that user. Delete it +
+    //     everything after; the new `body.message` is the edited user, which
+    //     gets re-saved below.
+    //   - User refreshed an assistant: messageId is that assistant. Delete
+    //     it + everything after. `body.message` is the user that prompted
+    //     the regen — it's already in DB (createdAt < target), so it survives
+    //     the delete and is hydrated in the history below.
+    if (trigger === "regenerate-message" && triggeringMessageId) {
+      const [target] = await db
+        .select({ createdAt: chatMessages.createdAt })
+        .from(chatMessages)
+        .where(
+          and(
+            eq(chatMessages.threadId, threadId),
+            eq(chatMessages.messageId, triggeringMessageId),
+          ),
+        )
+        .limit(1);
+      if (target?.createdAt) {
+        const deleted = await db
+          .delete(chatMessages)
+          .where(
+            and(
+              eq(chatMessages.threadId, threadId),
+              gte(chatMessages.createdAt, target.createdAt),
+            ),
+          )
+          .returning({ messageId: chatMessages.messageId });
+        logger.info(`${CHAT_DEBUG_TAG} regenerate: truncated history`, {
+          threadId,
+          triggeringMessageId,
+          deletedCount: deleted.length,
+        });
+      } else {
+        logger.info(`${CHAT_DEBUG_TAG} regenerate: no row to truncate`, {
+          threadId,
+          triggeringMessageId,
+        });
+      }
+    }
+
+    // Reconstruct the conversation from DB + the new message. The client
+    // never sends the full roster — server is the source of truth.
+    const historyFromDb = await loadThreadHistory(threadId);
+    const newMessageInDb = historyFromDb.some((m) => m.id === newMessage.id);
+    const uiMessages: ChatMessage[] = newMessageInDb
+      ? historyFromDb
+      : [...historyFromDb, newMessage as ChatMessage];
+
+    logger.info(`${CHAT_DEBUG_TAG} hydrated conversation`, {
+      threadId,
+      historyCount: historyFromDb.length,
+      appendedNew: !newMessageInDb,
+      roster: summarizeRoster(uiMessages),
+    });
+
+    // Persist the new user message before streaming so it survives a
+    // mid-stream error. `onConflictDoNothing` on (threadId, messageId)
+    // makes this idempotent — no-op when the regenerate-refresh-assistant
+    // case sends a user that's already in the DB.
+    if (!newMessageInDb) {
+      await db
+        .insert(chatMessages)
+        .values({
+          threadId,
+          messageId: String(newMessage.id),
+          parentId: null,
+          format: CHAT_MESSAGE_FORMAT,
+          content: newMessage,
+        })
+        .onConflictDoNothing({
+          target: [chatMessages.threadId, chatMessages.messageId],
+        });
+    }
+
+    // Tool factory (depends on workspace context). Built before
+    // convertToModelMessages so toModelOutput can sanitize historical tool
+    // results for the model.
     const tools = createChatTools({
       workspaceId,
       userId,
       activeFolderId,
       threadId,
-      clientTools: body.tools,
     });
 
-    const compatibleMessages = normalizeLegacyToolMessages(messages, {
+    const compatibleMessages = normalizeLegacyToolMessages(uiMessages, {
       availableToolNames: Object.keys(tools),
     });
 
-    const validation = await safeValidateUIMessages({
+    const validation = await safeValidateUIMessages<ChatMessage>({
       messages: compatibleMessages,
       tools,
     });
-
     if (!validation.success) {
       throw validation.error;
     }
-
     const validatedMessages = validation.data;
 
-    // Convert messages (pass tools so toModelOutput strips event from historical tool results)
     let convertedMessages;
     try {
       convertedMessages = await convertToModelMessages(validatedMessages, {
@@ -184,7 +297,6 @@ async function handlePOST(req: Request) {
       throw convertError;
     }
 
-    // Prune older reasoning and tool calls to save context
     convertedMessages = pruneMessages({
       messages: convertedMessages,
       reasoning: "before-last-message",
@@ -192,24 +304,31 @@ async function handlePOST(req: Request) {
       emptyMessages: "remove",
     });
 
-    // Get pre-formatted selected cards context from client (no DB fetch needed)
-    const selectedCardsContext = getSelectedCardsContext(body);
+    // Reply selections live on `lastUserMessage.metadata.custom.replySelections`
+    // so they survive a thread reload. Selected cards stay ephemeral.
+    const replySelectionsForInjection = (() => {
+      for (let i = validatedMessages.length - 1; i >= 0; i--) {
+        const m = validatedMessages[i] as ChatMessage;
+        if (m.role !== "user") continue;
+        return m.metadata?.custom?.replySelections;
+      }
+      return undefined;
+    })();
+
+    injectSelectionContext(
+      convertedMessages,
+      { replySelections: replySelectionsForInjection },
+      selectedCardsContext,
+    );
 
     const modelId = resolveGatewayModelId(
       body.modelId || getDefaultChatModelId(),
     );
 
-    // Inject selected cards + reply selections into the last user message
-    injectSelectionContext(
-      convertedMessages,
-      body.metadata?.custom,
-      selectedCardsContext,
-    );
-
     const posthogClient = getPostHogServerClient();
     const baseGatewayModel = createGatewayLanguageModel(modelId);
     const tracedModel = posthogClient
-      ? withTracing(baseGatewayModel as any, posthogClient, {
+      ? withTracing(baseGatewayModel, posthogClient, {
           posthogDistinctId: userId || "anonymous",
           posthogProperties: {
             workspaceId,
@@ -218,27 +337,20 @@ async function handlePOST(req: Request) {
             memoryEnabled,
           },
         })
-      : (baseGatewayModel as any);
+      : baseGatewayModel;
 
-    // Supermemory: personalizes prompts via user profile + search, and
-    // auto-saves conversation turns when userId + SUPERMEMORY_API_KEY present.
-    // Sits inside wrapLanguageModel (devtools stays outermost) and outside
-    // withTracing so PostHog telemetry captures the *final* prompt the model
-    // actually receives (with memories already injected).
     const memoryWrappedModel = maybeWithSupermemory(tracedModel, {
       userId: userId ?? "",
       threadId,
       memoryEnabled,
     });
 
-    // Use AI Gateway
     const model = wrapLanguageModel({
       model: memoryWrappedModel,
       middleware:
         process.env.NODE_ENV === "development" ? devToolsMiddleware() : [],
     });
 
-    // Stream the response
     logger.debug("🔍 [CHAT-API] Final messages before streamText:", {
       count: convertedMessages.length,
       modelId,
@@ -246,86 +358,187 @@ async function handlePOST(req: Request) {
 
     const providerOptions = buildGatewayProviderOptions(modelId, { userId });
 
-    const result = streamText({
-      model: model,
-      temperature: 1.0,
-      system,
-      messages: convertedMessages,
-      stopWhen: stepCountIs(25),
-      tools,
-      providerOptions: providerOptions as any,
-      headers: getGatewayAttributionHeaders(),
-      experimental_telemetry: {
-        isEnabled: true,
-        metadata: {
-          "tcc.conversational": "true",
-          ...(threadId ? { "tcc.sessionId": String(threadId) } : {}),
-          ...(userId ? { userId } : {}),
-        },
-      },
-      experimental_transform: smoothStream({ chunking: "word", delayInMs: 15 }),
-      onFinish: ({ usage, finishReason }) => {
-        const usageInfo = {
-          inputTokens: usage?.inputTokens,
-          outputTokens: usage?.outputTokens,
-          totalTokens: usage?.totalTokens,
-          cachedInputTokens: usage?.cachedInputTokens, // Standard property
-          reasoningTokens: usage?.reasoningTokens,
-          // Note: Extended provider-specific properties might not be available consistently via Gateway
-          finishReason,
-        };
+    // Kick off title generation in parallel for newly-created threads. The
+    // resolved title is streamed to the client below as a `data-chat-title`
+    // part and persisted to `chat_threads.title`.
+    let titlePromise: Promise<string> | null = null;
+    if (isNewThread && userId && newMessage.role === "user") {
+      const firstUserText = (newMessage.parts ?? [])
+        .filter(
+          (p): p is { type: "text"; text: string } =>
+            p.type === "text" && typeof (p as { text?: string }).text === "string",
+        )
+        .map((p) => p.text)
+        .join(" ")
+        .trim();
+      if (firstUserText) {
+        titlePromise = generateThreadTitle({
+          userId,
+          firstUserMessageText: firstUserText,
+        }).catch((err) => {
+          logger.warn("[chat] title generation failed", err);
+          return "";
+        });
+      }
+    }
 
-        logger.info("📊 [CHAT-API] Final Token Usage:", usageInfo);
-      },
-      onStepFinish: (result) => {
-        // stepType exists in runtime but may not be in type definitions
-        const stepResult = result as typeof result & {
-          stepType?: "initial" | "continue" | "tool-result";
-        };
-        const { stepType, usage, finishReason } = stepResult;
+    const stream = createUIMessageStream<ChatMessage>({
+      originalMessages: validatedMessages,
+      // CRITICAL: when `originalMessages` ends with a user message (always
+      // true for us — we just appended the new one), the SDK does NOT
+      // auto-assign an id to the streamed assistant turn. Without this
+      // generator, every assistant arrives in `onFinish` with `id: ''`,
+      // and the second insert silently no-ops via `onConflictDoNothing` on
+      // (threadId, messageId), dropping every assistant after the first.
+      generateId: () =>
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `asst-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      execute: async ({ writer: dataStream }) => {
+        const result = streamText({
+          model,
+          temperature: 1.0,
+          system,
+          messages: convertedMessages,
+          stopWhen: stepCountIs(25),
+          tools,
+          providerOptions,
+          headers: getGatewayAttributionHeaders(),
+          experimental_telemetry: {
+            isEnabled: true,
+            metadata: {
+              "tcc.conversational": "true",
+              "tcc.sessionId": String(threadId),
+              ...(userId ? { userId } : {}),
+            },
+          },
+          experimental_transform: smoothStream({
+            chunking: "word",
+            delayInMs: 15,
+          }),
+          onFinish: ({ usage, finishReason }) => {
+            logger.info("📊 [CHAT-API] Final Token Usage:", {
+              inputTokens: usage?.inputTokens,
+              outputTokens: usage?.outputTokens,
+              totalTokens: usage?.totalTokens,
+              cachedInputTokens: usage?.cachedInputTokens,
+              reasoningTokens: usage?.reasoningTokens,
+              finishReason,
+            });
+          },
+          onStepFinish: (stepResult) => {
+            const r = stepResult as typeof stepResult & {
+              stepType?: "initial" | "continue" | "tool-result";
+            };
+            if (r.usage) {
+              logger.debug(
+                `📊 [CHAT-API] Step Usage (${r.stepType || "unknown"}):`,
+                {
+                  stepType: r.stepType || "unknown",
+                  inputTokens: r.usage.inputTokens,
+                  outputTokens: r.usage.outputTokens,
+                  totalTokens: r.usage.totalTokens,
+                  cachedInputTokens: r.usage.cachedInputTokens,
+                  reasoningTokens: r.usage.reasoningTokens,
+                  finishReason: r.finishReason,
+                },
+              );
+            }
+          },
+        });
 
-        if (usage) {
-          const stepUsageInfo = {
-            stepType: stepType || "unknown",
-            inputTokens: usage?.inputTokens,
-            outputTokens: usage?.outputTokens,
-            totalTokens: usage?.totalTokens,
-            cachedInputTokens: usage?.cachedInputTokens, // Standard property
-            reasoningTokens: usage?.reasoningTokens,
-            finishReason,
-          };
+        dataStream.merge(result.toUIMessageStream());
 
-          logger.debug(
-            `📊 [CHAT-API] Step Usage (${stepType || "unknown"}):`,
-            stepUsageInfo,
-          );
+        // Log Gateway resolved provider when the metadata is ready.
+        void Promise.resolve(result.providerMetadata).then(
+          (meta: ProviderMetadata | undefined) => {
+            const routing = (meta?.gateway as
+              | {
+                  routing?: {
+                    resolvedProvider?: string;
+                    finalProvider?: string;
+                  };
+                }
+              | undefined)?.routing;
+            const provider =
+              routing?.resolvedProvider ?? routing?.finalProvider;
+            if (provider) {
+              logger.info("🔍 [CHAT-API] Gateway resolved provider:", provider);
+            }
+          },
+        );
+
+        // Stream the title down once it resolves. Client picks it up via
+        // `onData` and updates the threads list without a refetch.
+        if (titlePromise) {
+          const title = await titlePromise;
+          if (title) {
+            dataStream.write({ type: "data-chat-title", data: title });
+            await db
+              .update(chatThreads)
+              .set({ title, updatedAt: new Date().toISOString() })
+              .where(eq(chatThreads.id, threadId));
+          }
         }
       },
+      onFinish: async ({ responseMessage, isAborted }) => {
+        if (isAborted || !userId) {
+          logger.warn(`${CHAT_DEBUG_TAG} onFinish skipped`, {
+            isAborted,
+            hasUserId: !!userId,
+          });
+          return;
+        }
+        try {
+          logger.info(`${CHAT_DEBUG_TAG} onFinish responseMessage`, {
+            threadId,
+            assistant: summarizeMessage(responseMessage),
+          });
+
+          const result = await db
+            .insert(chatMessages)
+            .values({
+              threadId,
+              messageId: String(responseMessage.id),
+              parentId: String(newMessage.id),
+              format: CHAT_MESSAGE_FORMAT,
+              content: responseMessage,
+            })
+            .onConflictDoNothing({
+              target: [chatMessages.threadId, chatMessages.messageId],
+            })
+            .returning({ messageId: chatMessages.messageId });
+
+          if (result.length === 0) {
+            logger.warn(`${CHAT_DEBUG_TAG} assistant insert skipped`, {
+              threadId,
+              messageId: String(responseMessage.id),
+            });
+          }
+
+          const now = new Date().toISOString();
+          await db
+            .update(chatThreads)
+            .set({
+              lastMessageAt: now,
+              updatedAt: now,
+              headMessageId: String(responseMessage.id),
+            })
+            .where(eq(chatThreads.id, threadId));
+        } catch (persistErr) {
+          logger.error("[CHAT-API] onFinish persistence error", persistErr);
+        }
+      },
+      onError: (error) => {
+        logger.error("[CHAT-API] stream error", error);
+        return error instanceof Error ? error.message : String(error);
+      },
     });
 
-    logger.debug(
-      "🔍 [CHAT-API] streamText returned, calling toUIMessageStreamResponse...",
-    );
-    // Log which provider the Gateway actually used (resolves when stream completes)
-    void Promise.resolve((result as any).providerMetadata).then((meta: any) => {
-      const provider =
-        meta?.gateway?.routing?.resolvedProvider ??
-        meta?.gateway?.routing?.finalProvider;
-      if (provider) {
-        logger.info("🔍 [CHAT-API] Gateway resolved provider:", provider);
-      }
-    });
-    // assistant-ui already persists and rehydrates message history via the
-    // thread history adapter. Passing originalMessages here enables a second
-    // persistence flow in AI SDK that can relink the same ids into a different
-    // parent chain when history loads, triggering duplicate-id repository errors.
-    const response = result.toUIMessageStreamResponse();
-    logger.debug("🔍 [CHAT-API] toUIMessageStreamResponse succeeded");
-    return response;
+    return createUIMessageStreamResponse({ stream });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
-    // Detect timeout errors
     const isTimeout =
       errorMessage.includes("timeout") ||
       errorMessage.includes("TIMEOUT") ||
@@ -358,14 +571,10 @@ async function handlePOST(req: Request) {
             "The request took too long to process (exceeded 30 seconds). This can happen with complex queries that require multiple tool calls or extensive processing. Please try breaking your question into smaller parts or simplifying your request.",
           code: "TIMEOUT",
         }),
-        {
-          status: 504,
-          headers: { "Content-Type": "application/json" },
-        },
+        { status: 504, headers: { "Content-Type": "application/json" } },
       );
     }
 
-    // Log other errors
     logger.error("❌ [CHAT-API] Error processing request", {
       errorMessage,
       errorStack: error instanceof Error ? error.stack : undefined,
@@ -390,10 +599,7 @@ async function handlePOST(req: Request) {
           process.env.NODE_ENV === "development" ? errorMessage : undefined,
         code: "INTERNAL_ERROR",
       }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      },
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 }

@@ -6,8 +6,15 @@ import {
   verifyWorkspaceAccess,
   verifyThreadOwnership,
 } from "@/lib/api/workspace-helpers";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { withServerObservability } from "@/lib/with-server-observability";
+import { logger } from "@/lib/utils/logger";
+import {
+  CHAT_DEBUG_TAG,
+  summarizeMessage,
+  summarizeRoster,
+} from "@/lib/chat/debug";
+import { CHAT_MESSAGE_FORMAT } from "@/lib/chat/types";
 
 async function getThreadAndVerify(id: string, userId: string) {
   const [thread] = await db
@@ -27,120 +34,75 @@ async function getThreadAndVerify(id: string, userId: string) {
 }
 
 /**
- * GET /api/threads/[id]/messages?format=ai-sdk/v6
- * Load messages for a thread. Format filter is strict (ai-sdk/v6 only).
+ * GET /api/threads/[id]/messages
+ * Loads the persisted UIMessage history for the new chat runtime. Only rows
+ * written by the post-migration chat API (`format = 'ai-sdk-ui/v1'`) are
+ * returned. Legacy `ai-sdk/v6` rows stay on disk and are intentionally hidden
+ * from the new UI until a backfill script rewrites them.
  */
-export const GET = withServerObservability(async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const userId = await requireAuth();
-    const { id } = await params;
-    const { searchParams } = new URL(req.url);
-    const format = searchParams.get("format") ?? "ai-sdk/v6";
+export const GET = withServerObservability(
+  async function GET(
+    _req: NextRequest,
+    { params }: { params: Promise<{ id: string }> },
+  ) {
+    try {
+      const userId = await requireAuth();
+      const { id } = await params;
 
-    const thread = await getThreadAndVerify(id, userId);
+      await getThreadAndVerify(id, userId);
 
-    const rows = await db
-      .select()
-      .from(chatMessages)
-      .where(and(eq(chatMessages.threadId, id), eq(chatMessages.format, format)))
-      .orderBy(desc(chatMessages.createdAt));
+      // Pull `messageId` and `format` too so the debug log can show the full
+      // row identity if hydration ever returns something unexpected.
+      const rows = await db
+        .select({
+          messageId: chatMessages.messageId,
+          format: chatMessages.format,
+          content: chatMessages.content,
+          createdAt: chatMessages.createdAt,
+        })
+        .from(chatMessages)
+        .where(
+          and(
+            eq(chatMessages.threadId, id),
+            eq(chatMessages.format, CHAT_MESSAGE_FORMAT),
+          ),
+        )
+        .orderBy(asc(chatMessages.createdAt));
 
-    const messages = rows.map((r) => ({
-        id: r.messageId,
-        parent_id: r.parentId,
-        format: r.format,
-        content: r.content,
-        created_at: r.createdAt,
-      }));
+      // content is a stored UIMessage object; no reshaping required.
+      const messages = rows.map((r) => r.content);
 
-    return NextResponse.json({
-      messages,
-      headId: thread.headMessageId ?? undefined,
-    });
-  } catch (error) {
-    if (error instanceof Response) return error;
-    console.error("[threads] messages GET error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
-  }
-}, { routeName: "GET /api/threads/[id]/messages" });
+      // [chat-debug] Snapshot what's actually in the DB for this thread so
+      // we can correlate against what the client receives. If the assistant
+      // rows here have `partCount=0`, the bug is in /api/chat onFinish; if
+      // they look correct, the bug is downstream (transport, hydration,
+      // render).
+      logger.info(`${CHAT_DEBUG_TAG} GET /api/threads/[id]/messages`, {
+        threadId: id,
+        rowCount: rows.length,
+        roster: summarizeRoster(messages as unknown[]),
+        rows: rows.map((r) => ({
+          messageId: r.messageId,
+          format: r.format,
+          createdAt: r.createdAt,
+          content: summarizeMessage(r.content),
+        })),
+      });
 
-/**
- * POST /api/threads/[id]/messages
- * Append a message to a thread
- */
-export const POST = withServerObservability(async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const userId = await requireAuth();
-    const { id } = await params;
-    const body = await req.json().catch(() => ({}));
-    const { messageId, parentId, format, content } = body;
-
-    if (!messageId || !format || content === undefined) {
+      return NextResponse.json({ messages });
+    } catch (error) {
+      if (error instanceof Response) return error;
+      console.error("[threads] messages GET error:", error);
       return NextResponse.json(
-        { error: "messageId, format, and content are required" },
-        { status: 400 }
+        { error: "Internal server error" },
+        { status: 500 },
       );
     }
+  },
+  { routeName: "GET /api/threads/[id]/messages" },
+);
 
-    const thread = await getThreadAndVerify(id, userId);
-
-    try {
-      await db.transaction(async (tx) => {
-        await tx.insert(chatMessages).values({
-          threadId: id,
-          messageId: String(messageId),
-          parentId: parentId ?? null,
-          format: String(format),
-          content: typeof content === "object" ? content : { raw: content },
-        });
-
-        // Only update headMessageId when appending to the current head
-        // (avoids overwriting explicit branch head set via PATCH)
-        const shouldUpdateHead =
-          thread.headMessageId == null ||
-          (parentId != null && parentId === thread.headMessageId);
-        const updates: {
-          lastMessageAt: string;
-          updatedAt: string;
-          headMessageId?: string;
-        } = {
-          lastMessageAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        if (shouldUpdateHead) updates.headMessageId = String(messageId);
-
-        await tx
-          .update(chatThreads)
-          .set(updates)
-          .where(eq(chatThreads.id, id));
-      });
-    } catch (txError: unknown) {
-      const err = txError as { code?: string };
-      if (err?.code === "23505") {
-        return NextResponse.json(
-          { error: "Message already exists (duplicate messageId)" },
-          { status: 409 }
-        );
-      }
-      throw txError;
-    }
-
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    if (error instanceof Response) return error;
-    console.error("[threads] messages POST error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
-  }
-}, { routeName: "POST /api/threads/[id]/messages" });
+// NOTE: a DELETE handler used to live here for the edit-user-message flow.
+// It was removed once the chat route started honoring the SDK's native
+// `regenerate-message` trigger and truncating persisted history server-side
+// in `onFinish`. See `src/app/api/chat/route.ts`.
