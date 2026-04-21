@@ -101,6 +101,7 @@ export function WorkspaceSearchDialog({
       title="Search workspace"
       description="Search for items and folders"
       shouldFilter={false}
+      className="top-[30%] translate-y-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
     >
       <CommandInput
         placeholder="Search items..."

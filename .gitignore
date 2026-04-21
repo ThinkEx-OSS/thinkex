@@ -65,3 +65,7 @@ bun.lockb
 # One-off / local scripts (keep on disk, not versioned)
 /scripts/
 
+# Local Zero SQLite database files
+zero.db
+zero.db-*
+
