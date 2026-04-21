@@ -26,7 +26,7 @@ import { ExportPluginPackage } from '@embedpdf/plugin-export/react';
 import { Loader2, ChevronLeft, ChevronRight, Trash2, Search, X as XIcon, ArrowUp, ArrowDown } from 'lucide-react';
 import { FaQuoteRight } from "react-icons/fa6";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { focusComposerInput } from "@/lib/utils/composer-utils";
+import { useOptionalComposer } from "@/components/chat/composer-context";
 import { askAiPrimaryButtonClass } from "@/lib/ui/ask-ai-toolbar-styles";
 import { toast } from "sonner";
 import { useMemo, ReactNode, useState, useEffect, useRef, useCallback } from 'react';
@@ -210,6 +210,7 @@ const TextSelectionMenu = ({
   const { provides: selectionCapability } = useSelectionCapability();
   const { state: scrollState } = useScroll(documentId);
   const addReplySelection = useUIStore((state) => state.addReplySelection);
+  const composer = useOptionalComposer();
 
   // Ask AI handler
   const handleAskAI = useCallback(() => {
@@ -236,7 +237,7 @@ const TextSelectionMenu = ({
           });
           scope.clear();
           toast.success("Added to context");
-          focusComposerInput();
+          composer?.focus();
         } else {
           console.warn("Ask AI: No text extracted");
         }
@@ -249,7 +250,7 @@ const TextSelectionMenu = ({
       console.error("Ask AI Error:", err);
       toast.error("Failed to add context");
     }
-  }, [selectionCapability, documentId, addReplySelection, scrollState?.currentPage, itemName]);
+  }, [selectionCapability, documentId, addReplySelection, scrollState?.currentPage, itemName, composer]);
 
   return (
     <Popover open>

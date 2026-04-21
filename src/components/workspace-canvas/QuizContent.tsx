@@ -21,9 +21,8 @@ import {
 } from "lucide-react";
 import { StreamdownMarkdown } from "@/components/ui/streamdown-markdown";
 import { toast } from "sonner";
-import { usePromptInput } from "@/lib/chat/runtime";
+import { useOptionalComposer } from "@/components/chat/composer-context";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { focusComposerInput } from "@/lib/utils/composer-utils";
 import { getQuestionText } from "@/lib/workspace-state/quiz-shuffle";
 
 interface QuizContentProps {
@@ -41,7 +40,7 @@ export function QuizContent({
 }: QuizContentProps) {
   const quizData = item.data as QuizData;
   const questions = quizData.questions || [];
-  const promptInput = usePromptInput();
+  const promptInput = useOptionalComposer();
 
   // UI store for card selection
   const selectedCardIds = useUIStore((state) => state.selectedCardIds);
@@ -195,8 +194,8 @@ export function QuizContent({
     const composer = promptInput;
     if (composer) {
       try {
-        composer.setText("Add 5 more questions to this quiz");
-        composer.send();
+        composer.setInput("Add 5 more questions to this quiz");
+        void composer.submit();
         toast.success("Requesting more questions...");
       } catch (error) {
         toast.error("Failed to send request. Please try again.");
@@ -214,11 +213,11 @@ export function QuizContent({
     const composer = promptInput;
     if (composer) {
       try {
-        composer.setText(
+        composer.setInput(
           `Give me a hint for this question in "${item.name}": ${getQuestionText(currentQuestion)}`,
         );
         useUIStore.getState().setIsChatExpanded(true);
-        focusComposerInput(true);
+        composer.focus({ cursorAtEnd: true });
       } catch (error) {
         toast.error("Failed to send request. Please try again.");
       }
@@ -241,11 +240,11 @@ export function QuizContent({
             : "N/A";
         const correctAnswer =
           currentQuestion.options[currentQuestion.correctIndex];
-        composer.setText(
+        composer.setInput(
           `Explain this question in "${item.name}": ${getQuestionText(currentQuestion)}\n\nI answered: ${userAnswer}\nCorrect answer: ${correctAnswer}`,
         );
         useUIStore.getState().setIsChatExpanded(true);
-        focusComposerInput(true);
+        composer.focus({ cursorAtEnd: true });
       } catch (error) {
         toast.error("Failed to send request. Please try again.");
       }

@@ -1,10 +1,10 @@
 import { Sidebar, SidebarInset } from "@/components/ui/sidebar";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import WorkspaceSidebar from "@/components/workspace-canvas/WorkspaceSidebar";
-import { AssistantPanel } from "@/components/assistant-ui/AssistantPanel";
-import { WorkspaceRuntimeProvider } from "@/components/assistant-ui/WorkspaceRuntimeProvider";
+import { ChatPanel } from "@/components/chat/ChatPanel";
+import { ChatProvider } from "@/components/chat/ChatProvider";
+import { ComposerProvider } from "@/components/chat/composer-context";
 import { WorkspaceCanvasDropzone } from "@/components/workspace-canvas/WorkspaceCanvasDropzone";
-import { AssistantDropzone } from "@/components/assistant-ui/AssistantDropzone";
 import { PANEL_DEFAULTS } from "@/lib/layout-constants";
 import React from "react";
 
@@ -53,17 +53,15 @@ export function DashboardLayout({
       {/* MAXIMIZED MODE: Show only chat (workspace completely hidden) */}
       {effectiveChatMaximized ? (
         <div className="relative flex-1 h-full z-10">
-          <AssistantDropzone>
-            <div className="flex-1 h-full">
-              <AssistantPanel
-                key={`assistant-panel-${currentWorkspaceId}`}
-                workspaceId={currentWorkspaceId || ""}
-                setIsChatExpanded={setIsChatExpanded}
-                isChatMaximized={effectiveChatMaximized}
-                setIsChatMaximized={setIsChatMaximized}
-              />
-            </div>
-          </AssistantDropzone>
+          <div className="flex-1 h-full">
+            <ChatPanel
+              key={`chat-panel-${currentWorkspaceId}`}
+              workspaceId={currentWorkspaceId || ""}
+              setIsChatExpanded={setIsChatExpanded}
+              isChatMaximized={effectiveChatMaximized}
+              setIsChatMaximized={setIsChatMaximized}
+            />
+          </div>
         </div>
       ) : (
         <ResizablePanelGroup
@@ -116,15 +114,13 @@ export function DashboardLayout({
                 minSize={`${PANEL_DEFAULTS.CHAT_MIN}%`}
                 maxSize={`${PANEL_DEFAULTS.CHAT_MAX}%`}
               >
-                <AssistantDropzone>
-                  <AssistantPanel
-                    key={`assistant-panel-${currentWorkspaceId}`}
-                    workspaceId={currentWorkspaceId || ""}
-                    setIsChatExpanded={setIsChatExpanded}
-                    isChatMaximized={effectiveChatMaximized}
-                    setIsChatMaximized={setIsChatMaximized}
-                  />
-                </AssistantDropzone>
+                <ChatPanel
+                  key={`chat-panel-${currentWorkspaceId}`}
+                  workspaceId={currentWorkspaceId || ""}
+                  setIsChatExpanded={setIsChatExpanded}
+                  isChatMaximized={effectiveChatMaximized}
+                  setIsChatMaximized={setIsChatMaximized}
+                />
               </ResizablePanel>
             </>
           )}
@@ -135,9 +131,9 @@ export function DashboardLayout({
 
   if (currentWorkspaceId) {
     return (
-      <WorkspaceRuntimeProvider workspaceId={currentWorkspaceId}>
-        {content}
-      </WorkspaceRuntimeProvider>
+      <ChatProvider workspaceId={currentWorkspaceId}>
+        <ComposerProvider>{content}</ComposerProvider>
+      </ChatProvider>
     );
   }
 
