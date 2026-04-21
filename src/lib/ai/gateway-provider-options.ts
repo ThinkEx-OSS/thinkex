@@ -1,4 +1,6 @@
 import { gateway } from "ai";
+import type { ProviderOptions } from "@ai-sdk/provider-utils";
+import type { JSONObject, JSONValue } from "@ai-sdk/provider";
 import { getModelDefinition } from "@/lib/ai/models";
 
 export type GatewayProviderOptionsContext = {
@@ -8,12 +10,16 @@ export type GatewayProviderOptionsContext = {
 /**
  * Shared AI Gateway + provider-specific options for streamText / generateText.
  * Matches behavior previously inlined in POST /api/chat.
+ *
+ * Returns the SDK's `ProviderOptions` (= `Record<string, JSONObject>`) so
+ * callers can pass it straight into `streamText`/`generateText` without an
+ * `as any` cast.
  */
 export function buildGatewayProviderOptions(
   gatewayModelId: string,
   ctx: GatewayProviderOptionsContext = {},
-): Record<string, unknown> {
-  const gatewayOptions: Record<string, unknown> = {
+): ProviderOptions {
+  const gatewayOptions: Record<string, JSONValue> = {
     caching: "auto",
     ...(ctx.userId ? { user: ctx.userId } : {}),
   };
@@ -43,10 +49,10 @@ export function buildGatewayProviderOptions(
     },
   };
 
-  const providerSpecificOptions: Record<string, unknown> = {};
+  const providerSpecificOptions: Record<string, JSONObject> = {};
   const reasoning = def?.gateway?.reasoning;
 
-  const googleConfig: Record<string, unknown> = {
+  const googleConfig: JSONObject = {
     grounding: {
       // googleSearchRetrieval removed to force usage of explicit web_search tool
     },
@@ -63,15 +69,15 @@ export function buildGatewayProviderOptions(
   providerSpecificOptions.google = googleConfig;
 
   if (reasoning?.anthropic) {
-    providerSpecificOptions.anthropic = reasoning.anthropic;
+    providerSpecificOptions.anthropic = reasoning.anthropic as JSONObject;
   }
 
   if (reasoning?.openai) {
-    providerSpecificOptions.openai = reasoning.openai;
+    providerSpecificOptions.openai = reasoning.openai as JSONObject;
   }
 
   return {
-    gateway: gatewayOptions,
+    gateway: gatewayOptions as JSONObject,
     ...providerSpecificOptions,
   };
 }
