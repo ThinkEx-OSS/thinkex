@@ -84,7 +84,7 @@ export const ThreadListDropdown: FC<ThreadListDropdownProps> = ({
         className="w-80 bg-sidebar border-sidebar-border max-h-[500px] p-0 overflow-hidden"
       >
         <Button
-          className="aui-thread-list-new flex items-center justify-start gap-2 rounded-none px-4 py-3 text-start hover:bg-muted/50 transition-all duration-200 font-medium w-full"
+          className="flex items-center justify-start gap-2 rounded-none px-4 py-3 text-start hover:bg-muted/50 transition-all duration-200 font-medium w-full"
           variant="ghost"
           onClick={handleNew}
         >

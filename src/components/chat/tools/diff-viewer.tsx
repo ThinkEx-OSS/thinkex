@@ -153,7 +153,7 @@ function pairLinesForSplit(lines: ParsedLine[]): SplitLinePair[] {
 }
 
 const diffViewerVariants = cva(
-  "aui-diff-viewer overflow-hidden rounded-lg font-sans text-sm",
+  "overflow-hidden rounded-lg font-sans text-sm",
   {
     variants: {
       variant: {

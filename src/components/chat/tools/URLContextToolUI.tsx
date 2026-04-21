@@ -38,7 +38,7 @@ const ToolRoot: FC<
     <Collapsible
       open={isOpen}
       onOpenChange={setIsOpen}
-      className={cn("aui-tool-root mb-4 w-full", className)}
+      className={cn("mb-4 w-full", className)}
       style={
         {
           "--animation-duration": `${ANIMATION_DURATION}ms`,
@@ -59,7 +59,7 @@ ToolRoot.displayName = "ToolRoot";
 const GradientFade: FC<{ className?: string }> = ({ className }) => (
   <div
     className={cn(
-      "aui-tool-fade pointer-events-none absolute inset-x-0 bottom-0 z-10 h-16",
+      "pointer-events-none absolute inset-x-0 bottom-0 z-10 h-16",
       "bg-[linear-gradient(to_top,var(--color-background),transparent)]",
       "animate-in fade-in-0",
       "group-data-[state=open]/collapsible-content:animate-out",
@@ -89,12 +89,12 @@ const ToolTrigger: FC<{
 }) => (
     <CollapsibleTrigger
       className={cn(
-        "aui-tool-trigger group/trigger -mb-2 flex max-w-[75%] items-center gap-2 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground",
+        "group/trigger -mb-2 flex max-w-[75%] items-center gap-2 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground",
         className,
       )}
     >
       {icon}
-      <span className="aui-tool-trigger-label-wrapper relative inline-block leading-none">
+      <span className="relative inline-block leading-none">
         {active ? (
           <ShinyText
             text={label}
@@ -108,7 +108,7 @@ const ToolTrigger: FC<{
       </span>
       <ChevronDownIcon
         className={cn(
-          "aui-tool-trigger-chevron mt-0.5 size-4 shrink-0",
+          "mt-0.5 size-4 shrink-0",
           "transition-transform duration-(--animation-duration) ease-out",
           "group-data-[state=closed]/trigger:-rotate-90",
           "group-data-[state=open]/trigger:rotate-0",
@@ -128,7 +128,7 @@ const ToolContent: FC<
 > = ({ className, children, "aria-busy": ariaBusy }) => (
   <CollapsibleContent
     className={cn(
-      "aui-tool-content relative overflow-hidden text-sm text-muted-foreground outline-none",
+      "relative overflow-hidden text-sm text-muted-foreground outline-none",
       "group/collapsible-content ease-out",
       "data-[state=closed]:animate-collapsible-up",
       "data-[state=open]:animate-collapsible-down",
@@ -157,7 +157,7 @@ const ToolText: FC<
 > = ({ className, children }) => (
   <div
     className={cn(
-      "aui-tool-text relative z-0 space-y-4 pt-4 pl-6 leading-relaxed",
+      "relative z-0 space-y-4 pt-4 pl-6 leading-relaxed",
       "transform-gpu transition-[transform,opacity]",
       "group-data-[state=open]/collapsible-content:animate-in",
       "group-data-[state=closed]/collapsible-content:animate-out",
@@ -243,7 +243,7 @@ export const renderURLContextToolUI: ChatToolUIProps<{
         <ToolTrigger
           active={isRunning}
           label={isRunning ? "Processing links" : "Links processed"}
-          icon={<LinkIcon className="aui-tool-trigger-icon size-4 shrink-0" />}
+          icon={<LinkIcon className="size-4 shrink-0" />}
         />
 
           <ToolContent aria-busy={isRunning}>

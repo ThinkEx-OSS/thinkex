@@ -36,18 +36,15 @@ export const ThreadSuggestions: FC<ThreadSuggestionsProps> = ({ items }) => {
 
   return (
     <>
-      <div className="aui-thread-welcome-suggestions grid w-full grid-cols-2 gap-2 pb-4 sm:grid-cols-3">
+      <div className="grid w-full grid-cols-2 gap-2 pb-4 sm:grid-cols-3">
         {SUGGESTION_ACTIONS.map((suggestedAction, index) => {
           const Icon = suggestedAction.icon;
           return (
-            <div
-              key={`suggested-action-${suggestedAction.title}-${index}`}
-              className="aui-thread-welcome-suggestion-display"
-            >
+            <div key={`suggested-action-${suggestedAction.title}-${index}`}>
               <Button
                 type="button"
                 variant="ghost"
-                className="aui-thread-welcome-suggestion h-auto w-full flex-1 flex-wrap items-center justify-start gap-2 rounded-lg border border-sidebar-border px-5 py-4 text-left text-sm dark:hover:bg-accent/60"
+                className="h-auto w-full flex-1 flex-wrap items-center justify-start gap-2 rounded-lg border border-sidebar-border px-5 py-4 text-left text-sm dark:hover:bg-accent/60"
                 aria-label={suggestedAction.title}
                 onClick={() => {
                   if (
@@ -70,7 +67,7 @@ export const ThreadSuggestions: FC<ThreadSuggestionsProps> = ({ items }) => {
                 }}
               >
                 <Icon className={suggestedAction.iconClassName} />
-                <span className="aui-thread-welcome-suggestion-text-1 font-medium">
+                <span className="font-medium">
                   {suggestedAction.title}
                 </span>
               </Button>

@@ -70,10 +70,10 @@ const UserMessageImpl: FC<UserMessageProps> = ({
 
   return (
     <div
-      className="aui-user-message-root mx-auto grid w-full max-w-[var(--thread-max-width)] auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 px-2 pt-4 pb-1 [&:where(>*)]:col-start-2"
+      className="mx-auto grid w-full max-w-[var(--thread-max-width)] auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 px-2 pt-4 pb-1 [&:where(>*)]:col-start-2"
       data-role="user"
     >
-      <div className="aui-user-message-content-wrapper relative col-start-2 min-w-0">
+      <div className="relative col-start-2 min-w-0">
         <ReplySelectionBadges message={message} />
         {editing ? (
           <UserMessageEditor
@@ -93,7 +93,7 @@ const UserMessageImpl: FC<UserMessageProps> = ({
             }}
           />
         ) : (
-          <div className="aui-user-message-content relative rounded-lg bg-muted px-3 py-2 break-words text-foreground text-sm">
+          <div className="relative rounded-lg bg-muted px-3 py-2 break-words text-foreground text-sm">
             <div
               className={cn(
                 "leading-6 [&>span]:whitespace-pre-wrap",
@@ -135,7 +135,7 @@ const UserMessageImpl: FC<UserMessageProps> = ({
       </div>
 
       {!editing && (
-        <div className="aui-user-message-footer ml-2 flex justify-end col-start-2 relative min-h-[20px]">
+        <div className="ml-2 flex justify-end col-start-2 relative min-h-[20px]">
           <div className="absolute right-0 flex gap-1 text-muted-foreground opacity-0 transition-opacity group-hover/message:opacity-100">
             <TooltipIconButton tooltip="Copy" onClick={handleCopy}>
               {copied ? <CheckIcon /> : <CopyIcon />}

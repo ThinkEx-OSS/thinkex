@@ -14,7 +14,7 @@ type ChatImagePartComponent = React.FC<{ image: string; filename?: string }>;
 import { cn } from "@/lib/utils";
 
 const imageVariants = cva(
-  "aui-image-root relative overflow-hidden rounded-lg",
+  "relative overflow-hidden rounded-lg",
   {
     variants: {
       variant: {
@@ -196,7 +196,7 @@ function ImageZoom({ src, alt = "Image preview", children }: ImageZoomProps) {
         onKeyDown={(e) => e.key === "Enter" && handleOpen()}
         role="button"
         tabIndex={0}
-        className="aui-image-zoom-trigger cursor-zoom-in"
+        className="cursor-zoom-in"
         aria-label="Click to zoom image"
       >
         {children}
@@ -208,7 +208,7 @@ function ImageZoom({ src, alt = "Image preview", children }: ImageZoomProps) {
             data-slot="image-zoom-overlay"
             role="button"
             tabIndex={0}
-            className="aui-image-zoom-overlay fade-in fixed inset-0 z-50 flex animate-in items-center justify-center bg-black/80 duration-200"
+            className="fade-in fixed inset-0 z-50 flex animate-in items-center justify-center bg-black/80 duration-200"
             onClick={handleClose}
             onKeyDown={(e) => e.key === "Enter" && handleClose()}
             aria-label="Close zoomed image"
@@ -217,7 +217,7 @@ function ImageZoom({ src, alt = "Image preview", children }: ImageZoomProps) {
               data-slot="image-zoom-content"
               src={src}
               alt={alt}
-              className="aui-image-zoom-content fade-in zoom-in-95 max-h-[90vh] max-w-[90vw] animate-in cursor-zoom-out object-contain duration-200"
+              className="fade-in zoom-in-95 max-h-[90vh] max-w-[90vw] animate-in cursor-zoom-out object-contain duration-200"
               onClick={(e) => {
                 e.stopPropagation();
                 handleClose();

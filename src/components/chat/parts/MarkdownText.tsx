@@ -238,12 +238,7 @@ const MarkdownTextImpl = ({
   };
 
   return (
-    <div
-      key={messageKey}
-      ref={containerRef}
-      className="aui-md"
-      onCopy={handleCopy}
-    >
+    <div key={messageKey} ref={containerRef} onCopy={handleCopy}>
       <Streamdown
         allowedTags={{ citation: [] }}
         animated={animateConfig}

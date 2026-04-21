@@ -236,7 +236,7 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
 
       <form
         className={cn(
-          "aui-composer-root relative flex w-full flex-col rounded-lg border border-sidebar-border bg-sidebar-accent px-3.5 pt-2 pb-1 shadow-[0_9px_9px_0px_rgba(0,0,0,0.01),0_2px_5px_0px_rgba(0,0,0,0.06)] dark:border-sidebar-border/15",
+          "relative flex w-full flex-col rounded-lg border border-sidebar-border bg-sidebar-accent px-3.5 pt-2 pb-1 shadow-[0_9px_9px_0px_rgba(0,0,0,0.01),0_2px_5px_0px_rgba(0,0,0,0.06)] dark:border-sidebar-border/15",
         )}
         onClick={(e) => {
           if (!e.defaultPrevented) composer.focus();
@@ -244,7 +244,7 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
         onSubmit={handleSubmit}
       >
       {composer.attachments.length > 0 && (
-        <div className="aui-composer-attachments mb-2 flex w-full flex-row items-center gap-2 overflow-x-auto pt-0.5 pb-1">
+        <div className="mb-2 flex w-full flex-row items-center gap-2 overflow-x-auto pt-0.5 pb-1">
           {composer.attachments.map((att) => (
             <AttachmentChip
               key={att.id}
@@ -272,13 +272,13 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
         className="max-h-32 w-full resize-none bg-transparent py-1.5 text-base text-sidebar-foreground outline-none placeholder:text-sidebar-foreground/60 focus:outline-none"
       />
 
-      <div className="aui-composer-action-wrapper relative mb-2 flex items-center justify-between">
+      <div className="relative mb-2 flex items-center justify-between">
         <div className="relative z-0 flex items-center gap-0">
           <Tooltip>
             <TooltipTrigger asChild>
               <label
                 htmlFor="composer-file-input"
-                className="aui-composer-add-attachment flex items-center gap-1.5 rounded-md bg-sidebar-accent px-1.5 py-1 transition-colors flex-shrink-0 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer"
+                className="flex items-center gap-1.5 rounded-md bg-sidebar-accent px-1.5 py-1 transition-colors flex-shrink-0 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer"
                 aria-label="Add attachment"
               >
                 <LuPaperclip className="w-3.5 h-3.5" />
@@ -307,14 +307,14 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
               type="button"
               variant="default"
               size="icon"
-              className="aui-composer-cancel size-[34px] rounded-full border border-muted-foreground/60 hover:bg-primary/75 dark:border-muted-foreground/90"
+              className="size-[34px] rounded-full border border-muted-foreground/60 hover:bg-primary/75 dark:border-muted-foreground/90"
               aria-label="Stop generating"
               onClick={() => {
                 stop();
                 composer.focus();
               }}
             >
-              <Square className="aui-composer-cancel-icon size-3 text-background fill-current" />
+              <Square className="size-3 text-background fill-current" />
             </Button>
           ) : (
             <TooltipIconButton
@@ -327,7 +327,7 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
               type="submit"
               variant="default"
               size="icon"
-              className="aui-composer-send size-[34px] rounded-full p-1"
+              className="size-[34px] rounded-full p-1"
               aria-label="Send message"
               disabled={composer.hasUploadingAttachments}
             >

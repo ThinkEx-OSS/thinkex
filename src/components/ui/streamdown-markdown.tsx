@@ -31,7 +31,7 @@ const StreamdownMarkdownImpl: React.FC<StreamdownMarkdownProps> = ({
   className 
 }) => {
   return (
-    <div className={cn("aui-md", className)}>
+    <div className={cn(className)}>
       <Streamdown
         className="streamdown-content size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
         linkSafety={{ enabled: false }}

@@ -14,12 +14,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <PostHogIdentify />
       {children}
       <PasswordProtectedPdfDialog />
-      <Toaster
-        position="top-right"
-        richColors
-        closeButton
-        className="aui-screenshot-ignore"
-      />
+      <Toaster position="top-right" richColors closeButton />
     </TooltipProvider>
   );
 }
