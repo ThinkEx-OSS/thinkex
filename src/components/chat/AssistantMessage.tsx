@@ -54,10 +54,19 @@ const AssistantMessageImpl: FC<AssistantMessageProps> = ({
 
   return (
     <div
-      className="aui-assistant-message-root group/message relative mx-auto w-full max-w-[var(--thread-max-width)] animate-in pb-4 duration-150 ease-out fade-in slide-in-from-bottom-1"
+      className="group/message relative mx-auto w-full max-w-[var(--thread-max-width)] animate-in pb-4 duration-150 ease-out fade-in slide-in-from-bottom-1"
       data-role="assistant"
     >
-      <div className="aui-assistant-message-content mx-2 leading-7 break-words text-foreground">
+      {/*
+        `data-assistant-content` is the selector the Ask AI selection
+        toolbar (`AssistantThreadSelection`) uses to restrict selections to
+        assistant-body text only. Don't drop it without updating that
+        selector too.
+      */}
+      <div
+        data-assistant-content
+        className="mx-2 leading-7 break-words text-foreground"
+      >
         <AssistantLoader
           message={message}
           isLastAssistant={isLastAssistant}
@@ -78,7 +87,7 @@ const AssistantMessageImpl: FC<AssistantMessageProps> = ({
       </div>
 
       {!isStreaming && (
-        <div className="aui-assistant-message-footer mt-2 ml-2 flex gap-0.5 text-muted-foreground opacity-0 transition-opacity group-hover/message:opacity-100">
+        <div className="mt-2 ml-2 flex gap-0.5 text-muted-foreground opacity-0 transition-opacity group-hover/message:opacity-100">
           <TooltipIconButton tooltip="Copy" onClick={handleCopy}>
             {copied ? <CheckIcon /> : <CopyIcon />}
           </TooltipIconButton>

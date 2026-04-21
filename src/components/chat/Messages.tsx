@@ -199,7 +199,12 @@ const MessagesImpl = () => {
   }
 
   return (
-    <div ref={containerRef} className="h-full">
+    // `data-chat-viewport` is the anchor the Ask AI selection toolbar
+    // (`AssistantThreadSelection`, `SelectionTooltip`) looks up via
+    // `document.querySelector` — it uses this node for range-bounds
+    // containment checks and tooltip positioning. Don't rename without
+    // updating both selectors.
+    <div ref={containerRef} data-chat-viewport className="h-full">
       <VList
         ref={vlistRef}
         style={{ height: "100%" }}

@@ -13,7 +13,11 @@ export interface AssistantThreadSelectionProps {
   className?: string;
   children?: React.ReactNode;
   onSelectionChange?: (selection: SelectionInfo | null) => void;
-  /** Scroll/root container for selection bounds (e.g. `.aui-thread-viewport`) */
+  /**
+   * Query selector for the chat scroll/root container used for selection
+   * bounds. In practice this is `[data-chat-viewport]`, applied on the
+   * `Messages` wrapper — anything outside that subtree is rejected.
+   */
   containerSelector: string;
 }
 
@@ -41,7 +45,7 @@ function calculateTooltipPosition(range: Range): { x: number; y: number } {
 
 /**
  * Captures assistant-thread text selection for the Ask AI toolbar.
- * - Assistant body only (`.aui-assistant-message-content`).
+ * - Assistant body only (`[data-assistant-content]` on `AssistantMessage`).
  * - Commits on mouseup / keyup via rAF (not on every selectionchange while dragging).
  */
 export function AssistantThreadSelection({
@@ -102,8 +106,8 @@ export function AssistantThreadSelection({
           : (range.endContainer as Element);
 
       if (
-        !startEl?.closest(".aui-assistant-message-content") ||
-        !endEl?.closest(".aui-assistant-message-content")
+        !startEl?.closest("[data-assistant-content]") ||
+        !endEl?.closest("[data-assistant-content]")
       ) {
         clear();
         return;

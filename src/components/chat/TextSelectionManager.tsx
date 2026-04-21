@@ -16,9 +16,8 @@ import { cn } from "@/lib/utils";
 /**
  * Listens for text selections inside the conversation viewport and surfaces
  * an "Ask AI" tooltip that pushes the selection into `useUIStore` as a reply.
- * The new Conversation component still tags its viewport with
- * `.aui-thread-viewport`, so the DOM hook from the legacy implementation keeps
- * working unchanged.
+ * Anchored to the `data-chat-viewport` node rendered by `Messages.tsx` —
+ * selection ranges outside that subtree are ignored.
  */
 export function TextSelectionManager({ className }: { className?: string }) {
   const { threadId } = useChatContext();
@@ -89,7 +88,7 @@ export function TextSelectionManager({ className }: { className?: string }) {
       <AssistantThreadSelection
         className={cn("fixed inset-0 pointer-events-none", className)}
         onSelectionChange={handleSelectionChange}
-        containerSelector=".aui-thread-viewport"
+        containerSelector="[data-chat-viewport]"
       />
       <SelectionTooltip
         visible={!!currentSelection}

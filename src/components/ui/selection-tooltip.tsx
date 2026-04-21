@@ -128,7 +128,7 @@ export function SelectionTooltip({
 
     const range = referenceElement;
     let contextElement: Element = document.body;
-    const chatContainer = document.querySelector(".aui-thread-viewport");
+    const chatContainer = document.querySelector("[data-chat-viewport]");
     if (chatContainer) {
       contextElement = chatContainer;
     }
