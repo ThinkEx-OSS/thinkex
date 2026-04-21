@@ -94,13 +94,7 @@ const MessagePartImpl = ({
     }
     case "reasoning": {
       const text = (part as { text?: string }).text ?? "";
-      return (
-        <Reasoning
-          text={text}
-          isStreaming={partIsStreaming}
-          isLastMessage={isLastAssistant}
-        />
-      );
+      return <Reasoning text={text} isStreaming={partIsStreaming} />;
     }
     case "file": {
       const filePart = part as {
