@@ -174,6 +174,8 @@ export async function syncExtractedRow(
     sourceVersion: shell.sourceVersion,
   });
 
+  const updatedAt = new Date().toISOString();
+
   await wrappedTx
     .update(workspaceItems)
     .set({
@@ -200,7 +202,7 @@ export async function syncExtractedRow(
       ocrPages: rows.extracted.ocrPages,
       transcriptText: rows.extracted.transcriptText,
       transcriptSegments: rows.extracted.transcriptSegments,
-      updatedAt: new Date().toISOString(),
+      updatedAt,
     })
     .onConflictDoUpdate({
       target: [
@@ -214,7 +216,7 @@ export async function syncExtractedRow(
         ocrPages: rows.extracted.ocrPages,
         transcriptText: rows.extracted.transcriptText,
         transcriptSegments: rows.extracted.transcriptSegments,
-        updatedAt: new Date().toISOString(),
+        updatedAt,
       },
     });
 }

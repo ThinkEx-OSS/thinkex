@@ -520,6 +520,8 @@ describe("zero mutator extracted-data regressions", () => {
     expect(update.mock.calls[0]?.[0]).not.toHaveProperty("ocrPageCount");
     expect(update.mock.calls[0]?.[0]).not.toHaveProperty("hasTranscript");
     expect(update.mock.calls[0]?.[0]).not.toHaveProperty("contentHash");
+    expect(update.mock.calls[0]?.[0]).not.toHaveProperty("ocrStatus");
+    expect(update.mock.calls[0]?.[0]).not.toHaveProperty("processingStatus");
   });
 
   it("Regression — item.delete still cleans up extracted", async () => {
