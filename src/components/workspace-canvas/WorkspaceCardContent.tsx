@@ -165,18 +165,18 @@ export function WorkspaceCardContent({
                 event.stopPropagation();
               }}
             >
-              <div className="w-full h-full max-w-md max-h-[400px] flex items-center justify-center">
+              <div className="w-full h-full max-w-md max-h-[400px] flex items-center justify-center min-h-0">
                 <Flashcard
                   front={{
                     html: (
                       <div
-                        className="p-8 flex items-center justify-center h-full text-center text-lg font-medium overflow-y-auto"
+                        className="[container-type:size] p-8 flex items-center justify-center h-full min-h-0 w-full text-center font-medium overflow-y-auto"
                         style={{
                           color: resolvedTheme === "dark" ? "#f3f4f6" : "#111827",
                         }}
                       >
-                        <div className="w-full text-left">
-                          <StreamdownMarkdown className="text-lg leading-snug">
+                        <div className="w-full min-w-0 text-left">
+                          <StreamdownMarkdown className="text-[length:clamp(0.82rem,0.42rem+3cqmin,2.85rem)] leading-snug max-w-none [&_.streamdown-content]:!text-inherit [&_.streamdown-content]:![font-size:1em] [&_.streamdown-content_p]:!text-inherit">
                             {frontText}
                           </StreamdownMarkdown>
                         </div>
@@ -186,13 +186,13 @@ export function WorkspaceCardContent({
                   back={{
                     html: (
                       <div
-                        className="p-8 flex items-center justify-center h-full text-center text-lg font-medium overflow-y-auto"
+                        className="[container-type:size] p-8 flex items-center justify-center h-full min-h-0 w-full text-center font-medium overflow-y-auto"
                         style={{
                           color: resolvedTheme === "dark" ? "#f3f4f6" : "#111827",
                         }}
                       >
-                        <div className="w-full text-left">
-                          <StreamdownMarkdown className="text-lg leading-snug">
+                        <div className="w-full min-w-0 text-left">
+                          <StreamdownMarkdown className="text-[length:clamp(0.82rem,0.42rem+3cqmin,2.85rem)] leading-snug max-w-none [&_.streamdown-content]:!text-inherit [&_.streamdown-content]:![font-size:1em] [&_.streamdown-content_p]:!text-inherit">
                             {backText}
                           </StreamdownMarkdown>
                         </div>

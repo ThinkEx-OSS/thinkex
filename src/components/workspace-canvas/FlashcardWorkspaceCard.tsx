@@ -85,7 +85,13 @@ const EMPTY_FLASHCARD_PLACEHOLDER: FlashcardItem = {
 
 /** Center all markdown blocks on the card; keep code blocks full-width and left-aligned. */
 const FLASHCARD_STREAMDOWN_CLASS = cn(
-  "text-base font-medium max-w-none text-center",
+  // Fluid type: size comes from the nearest [container-type:size] ancestor (card face)
+  "font-medium max-w-none text-center leading-[1.45] text-[length:clamp(0.82rem,0.42rem+3cqmin,2.85rem)]",
+  // globals.css fixes .streamdown-content at 0.875rem — inherit this wrapper’s fluid size instead
+  "[&_.streamdown-content]:!text-inherit [&_.streamdown-content]:![font-size:1em]",
+  "[&_.streamdown-content_p]:!text-inherit [&_.streamdown-content_li]:!text-inherit [&_.streamdown-content_td]:!text-inherit [&_.streamdown-content_th]:!text-inherit",
+  "[&_.streamdown-content_h1]:!text-[1.32em] [&_.streamdown-content_h2]:!text-[1.2em] [&_.streamdown-content_h3]:!text-[1.1em] [&_.streamdown-content_h4]:!text-[1.04em]",
+  "[&_.streamdown-content_pre]:!text-[0.9em]",
   "[&_.streamdown-content]:flex [&_.streamdown-content]:flex-col [&_.streamdown-content]:items-center [&_.streamdown-content]:text-center",
   // Lists: drop outside gutter so the block sits in the centered column
   "[&_.streamdown-content_ul]:!ml-0 [&_.streamdown-content_ul]:list-inside",
@@ -110,7 +116,7 @@ const FlashcardSideMarkdownView = memo(
   }) {
     return (
       <div
-        className={`workspace-card-readonly-editor text-foreground size-full min-h-0 antialiased ${isScrollLocked ? "overflow-hidden" : "overflow-auto"} ${className}`}
+        className={`workspace-card-readonly-editor [container-type:size] text-foreground size-full min-h-0 antialiased ${isScrollLocked ? "overflow-hidden" : "overflow-auto"} ${className}`}
         style={{
           paddingTop: "1.5rem",
           paddingBottom: "1.5rem",
@@ -123,7 +129,7 @@ const FlashcardSideMarkdownView = memo(
         >
           <div className="w-full max-w-full min-w-0 text-center">
             {!markdown.trim() ? (
-              <div className="text-center text-sm text-muted-foreground px-2">
+              <div className="text-center text-muted-foreground px-2 text-[length:clamp(0.72rem,0.3rem+2cqmin,1.05rem)]">
                 Ask the AI or click the pencil icon to add flashcards
               </div>
             ) : (
