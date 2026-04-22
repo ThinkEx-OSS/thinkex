@@ -604,4 +604,48 @@ describe("zero mutator extracted-data regressions", () => {
     expect(state.shells.get(key)?.folderId).toBe("folder-2");
     expect(state.extracteds.get(key)).toEqual(before);
   });
+
+  it("syncExtractedRow creates extracted row when one does not yet exist", async () => {
+    // Shell exists (e.g. freshly-inserted PDF before OCR) but no extracted
+    // row has been written. syncExtractedRow must create one rather than
+    // crash or leave the table without a row for this item.
+    const state = createState();
+    const pdf: Item = {
+      id: "pdf-new",
+      type: "pdf",
+      name: "Fresh upload",
+      subtitle: "",
+      data: {
+        fileUrl: "https://example.com/new.pdf",
+        filename: "new.pdf",
+        ocrStatus: "processing",
+      },
+    };
+    seedItem(state, pdf);
+
+    const key = itemKey(WORKSPACE_ID, pdf.id);
+    // Simulate the state where the extracted row was never written yet.
+    state.extracteds.delete(key);
+
+    await syncExtractedRow(
+      createWrappedTx(state, {
+        workspaceId: WORKSPACE_ID,
+        itemId: pdf.id,
+      }) as never,
+      {
+        workspaceId: WORKSPACE_ID,
+        itemId: pdf.id,
+        userId: USER_ID,
+      },
+    );
+
+    const extracted = state.extracteds.get(key);
+    expect(extracted).toBeDefined();
+    expect(extracted?.ocrPages ?? null).toBeNull();
+    expect(extracted?.transcriptText ?? null).toBeNull();
+    expect(extracted?.transcriptSegments ?? null).toBeNull();
+    expect(state.shells.get(key)?.hasOcr).toBe(false);
+    expect(state.shells.get(key)?.ocrPageCount).toBe(0);
+    expect(state.shells.get(key)?.hasTranscript).toBe(false);
+  });
 });
