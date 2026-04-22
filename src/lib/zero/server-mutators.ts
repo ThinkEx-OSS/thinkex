@@ -18,6 +18,7 @@ import {
 import {
   buildWorkspaceItemTableRows,
   rehydrateWorkspaceItem,
+  type WorkspaceItemExtractedProjection,
 } from "@/lib/workspace/workspace-item-model";
 import { mutators as sharedMutators, zeroMutatorSchemas } from "./mutators";
 import { schema } from "./zero-schema.gen";
@@ -156,10 +157,13 @@ export async function syncExtractedRow(
           searchText: existingExtracted.searchText ?? "",
           contentPreview: existingExtracted.contentPreview ?? null,
           ocrText: existingExtracted.ocrText ?? null,
-          ocrPages: (existingExtracted.ocrPages as any) ?? null,
+          ocrPages:
+            (existingExtracted.ocrPages as WorkspaceItemExtractedProjection["ocrPages"]) ??
+            null,
           transcriptText: existingExtracted.transcriptText ?? null,
           transcriptSegments:
-            (existingExtracted.transcriptSegments as any) ?? null,
+            (existingExtracted.transcriptSegments as WorkspaceItemExtractedProjection["transcriptSegments"]) ??
+            null,
         }
       : null,
   });

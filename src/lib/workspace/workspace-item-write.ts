@@ -9,10 +9,15 @@ import type { Item } from "@/lib/workspace-state/types";
 import {
   buildWorkspaceItemTableRows,
   rehydrateWorkspaceItem,
+  type WorkspaceItemExtractedProjection,
 } from "./workspace-item-model";
 import { sanitizeWorkspaceItemForPersistence } from "./workspace-item-sanitize";
 
-type DbTransaction = Parameters<(typeof db)["transaction"]>[0] extends (tx: infer T) => unknown ? T : never;
+type DbTransaction = Parameters<(typeof db)["transaction"]>[0] extends (
+  tx: infer T,
+) => unknown
+  ? T
+  : never;
 type DbExecutor = typeof db | DbTransaction;
 
 export async function loadWorkspaceItemRecord(
@@ -89,8 +94,12 @@ export async function loadWorkspaceItemRecord(
             contentPreview: extracted.contentPreview ?? null,
             ocrText: extracted.ocrText ?? null,
             transcriptText: extracted.transcriptText ?? null,
-            ocrPages: (extracted.ocrPages as any) ?? null,
-            transcriptSegments: (extracted.transcriptSegments as any) ?? null,
+            ocrPages:
+              (extracted.ocrPages as WorkspaceItemExtractedProjection["ocrPages"]) ??
+              null,
+            transcriptSegments:
+              (extracted.transcriptSegments as WorkspaceItemExtractedProjection["transcriptSegments"]) ??
+              null,
           }
         : null,
     }),
