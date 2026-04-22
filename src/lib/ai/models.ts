@@ -58,6 +58,15 @@ export type ModelPurpose =
 
 const PROVIDER_PREFIX_RE = /^(google|anthropic|openai|azure)\//;
 
+/** Stale ids still in client/URL state; map to current `MODEL_REGISTRY` keys. */
+const LEGACY_MODEL_ID_ALIASES: Record<string, string> = {
+  "gpt-5-chat": "gpt-5",
+};
+
+function canonicalModelKey(strippedId: string): string {
+  return LEGACY_MODEL_ID_ALIASES[strippedId] ?? strippedId;
+}
+
 export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
   "gemini-3.1-pro-preview": {
     id: "gemini-3.1-pro-preview",
@@ -68,7 +77,7 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
         order: ["vertex", "google"],
         only: ["vertex", "google"],
       },
-      fallbacks: ["anthropic/claude-sonnet-4.6", "openai/gpt-5-chat"],
+      fallbacks: ["anthropic/claude-sonnet-4.6", "openai/gpt-5"],
       reasoning: {
         google: {
           thinkingConfig: { includeThoughts: true },
@@ -94,7 +103,7 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
         order: ["vertex", "google"],
         only: ["vertex", "google"],
       },
-      fallbacks: ["anthropic/claude-haiku-4.5", "openai/gpt-5-chat"],
+      fallbacks: ["anthropic/claude-haiku-4.5", "openai/gpt-5"],
       reasoning: {
         google: {
           thinkingConfig: {
@@ -157,7 +166,7 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
         order: ["bedrock", "azure", "anthropic"],
         only: ["bedrock", "azure", "anthropic"],
       },
-      fallbacks: ["google/gemini-3.1-pro-preview", "openai/gpt-5-chat"],
+      fallbacks: ["google/gemini-3.1-pro-preview", "openai/gpt-5"],
       reasoning: {
         anthropic: {
           thinking: { type: "adaptive" },
@@ -184,7 +193,7 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
         order: ["bedrock", "azure", "anthropic"],
         only: ["bedrock", "azure", "anthropic"],
       },
-      fallbacks: ["google/gemini-3-flash-preview", "openai/gpt-5-chat"],
+      fallbacks: ["google/gemini-3-flash-preview", "openai/gpt-5"],
     },
     ui: {
       providerLabel: "Claude",
@@ -196,8 +205,8 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
         "Fast drafting, simple transformations, and lower-cost day-to-day use.",
     },
   },
-  "gpt-5-chat": {
-    id: "gpt-5-chat",
+  "gpt-5": {
+    id: "gpt-5",
     provider: "openai",
     tier: "standard",
     gateway: {
@@ -249,15 +258,26 @@ export function getGatewayModelIdForPurpose(purpose: ModelPurpose): string {
 
 export function getModelDefinition(id: string): ModelDefinition | undefined {
   const raw = id.replace(PROVIDER_PREFIX_RE, "");
-  return MODEL_REGISTRY[raw];
+  return MODEL_REGISTRY[canonicalModelKey(raw)];
 }
 
 export function resolveGatewayModelId(input: string): string {
-  if (PROVIDER_PREFIX_RE.test(input)) return input;
+  if (PROVIDER_PREFIX_RE.test(input)) {
+    const m = input.match(/^(google|anthropic|openai|azure)\/(.+)$/);
+    if (m) {
+      const rest = m[2]!;
+      const can = canonicalModelKey(rest);
+      if (can !== rest) {
+        return `${m[1]}/${can}`;
+      }
+    }
+    return input;
+  }
 
   const raw = input.replace(PROVIDER_PREFIX_RE, "");
-  const def = MODEL_REGISTRY[raw];
-  if (def) return `${def.provider}/${raw}`;
+  const key = canonicalModelKey(raw);
+  const def = MODEL_REGISTRY[key];
+  if (def) return `${def.provider}/${def.id}`;
 
   if (raw.startsWith("gemini-")) return `google/${raw}`;
   if (raw.includes("claude")) return `anthropic/${raw}`;
