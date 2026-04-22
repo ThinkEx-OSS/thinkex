@@ -202,8 +202,8 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
     tier: "standard",
     gateway: {
       routing: {
-        order: ["openai", "azure"],
-        only: ["openai", "azure"],
+        order: ["azure", "openai"],
+        only: ["azure", "openai"],
       },
       fallbacks: [
         "anthropic/claude-sonnet-4.6",
