@@ -73,7 +73,7 @@ async function assertWorkspaceWriteAccess(
   }
 }
 
-async function syncExtractedRow(
+export async function syncExtractedRow(
   wrappedTx: DrizzleTransaction<typeof db>,
   params: {
     workspaceId: string;
@@ -115,6 +115,17 @@ async function syncExtractedRow(
     )
     .limit(1);
 
+  const [existingExtracted] = await wrappedTx
+    .select()
+    .from(workspaceItemExtracted)
+    .where(
+      and(
+        eq(workspaceItemExtracted.workspaceId, params.workspaceId),
+        eq(workspaceItemExtracted.itemId, params.itemId),
+      ),
+    )
+    .limit(1);
+
   const item = rehydrateWorkspaceItem({
     shell: {
       itemId: shell.itemId,
@@ -140,6 +151,17 @@ async function syncExtractedRow(
           sourceData: (content.sourceData as never[] | null) ?? null,
         }
       : null,
+    extracted: existingExtracted
+      ? {
+          searchText: existingExtracted.searchText ?? "",
+          contentPreview: existingExtracted.contentPreview ?? null,
+          ocrText: existingExtracted.ocrText ?? null,
+          ocrPages: (existingExtracted.ocrPages as any) ?? null,
+          transcriptText: existingExtracted.transcriptText ?? null,
+          transcriptSegments:
+            (existingExtracted.transcriptSegments as any) ?? null,
+        }
+      : null,
   });
 
   const rows = buildWorkspaceItemTableRows({
@@ -147,6 +169,21 @@ async function syncExtractedRow(
     item,
     sourceVersion: shell.sourceVersion,
   });
+
+  await wrappedTx
+    .update(workspaceItems)
+    .set({
+      hasOcr: rows.item.hasOcr,
+      ocrPageCount: rows.item.ocrPageCount,
+      hasTranscript: rows.item.hasTranscript,
+      contentHash: rows.item.contentHash,
+    })
+    .where(
+      and(
+        eq(workspaceItems.workspaceId, params.workspaceId),
+        eq(workspaceItems.itemId, params.itemId),
+      ),
+    );
 
   await wrappedTx
     .insert(workspaceItemExtracted)
@@ -325,7 +362,11 @@ export const serverMutators = defineMutators(sharedMutators, {
       zeroMutatorSchemas.item.updateMany,
       async ({ tx, ctx, args }) => {
         const wrappedTx = getWrappedTransaction(tx as ServerZeroTx);
-        await assertWorkspaceWriteAccess(wrappedTx, args.workspaceId, ctx.userId);
+        await assertWorkspaceWriteAccess(
+          wrappedTx,
+          args.workspaceId,
+          ctx.userId,
+        );
         await sharedMutators.item.updateMany.fn({ tx, ctx, args });
 
         const contentAffectedIds = [
