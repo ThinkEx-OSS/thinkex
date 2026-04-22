@@ -331,7 +331,7 @@ async function insertItem(
   );
 }
 
-async function upsertItem(
+export async function upsertItem(
   tx: ZeroTx,
   params: {
     workspaceId: string;
@@ -346,7 +346,18 @@ async function upsertItem(
     sourceVersion: params.sourceVersion,
   });
 
-  await tx.mutate.workspace_items.update(toMutateShellRow(rows.item));
+  const fullShell = toMutateShellRow(rows.item);
+  const {
+    hasOcr: _hasOcr,
+    ocrPageCount: _ocrPageCount,
+    hasTranscript: _hasTranscript,
+    contentHash: _contentHash,
+    ...clientSafeShell
+  } = fullShell;
+
+  await tx.mutate.workspace_items.update(
+    clientSafeShell as Parameters<typeof tx.mutate.workspace_items.update>[0],
+  );
   await tx.mutate.workspace_item_content.upsert(
     toMutateContentRow(rows.content),
   );
@@ -575,20 +586,17 @@ export const mutators = defineMutators({
         }
       },
     ),
-    move: defineMutator(
-      zeroMutatorSchemas.item.move,
-      async ({ tx, args }) => {
-        await updateShellOnly(tx, {
-          workspaceId: args.workspaceId,
-          itemId: args.itemId,
-          shellChanges: {
-            folderId: args.folderId ?? undefined,
-            layout: undefined,
-            lastModified: Date.now(),
-          },
-        });
-      },
-    ),
+    move: defineMutator(zeroMutatorSchemas.item.move, async ({ tx, args }) => {
+      await updateShellOnly(tx, {
+        workspaceId: args.workspaceId,
+        itemId: args.itemId,
+        shellChanges: {
+          folderId: args.folderId ?? undefined,
+          layout: undefined,
+          lastModified: Date.now(),
+        },
+      });
+    }),
     moveMany: defineMutator(
       zeroMutatorSchemas.item.moveMany,
       async ({ tx, args }) => {

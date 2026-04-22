@@ -5,10 +5,17 @@ import {
   workspaceItemExtracted,
   workspaceItems,
 } from "@/lib/db/client";
-import { rehydrateWorkspaceItem } from "./workspace-item-model";
+import {
+  rehydrateWorkspaceItem,
+  type WorkspaceItemExtractedProjection,
+} from "./workspace-item-model";
 import type { Item } from "@/lib/workspace-state/types";
 
-type DbTransaction = Parameters<(typeof db)["transaction"]>[0] extends (tx: infer T) => unknown ? T : never;
+type DbTransaction = Parameters<(typeof db)["transaction"]>[0] extends (
+  tx: infer T,
+) => unknown
+  ? T
+  : never;
 type DbExecutor = typeof db | DbTransaction;
 
 async function readWorkspaceState(
@@ -25,7 +32,9 @@ async function readWorkspaceState(
     return [];
   }
 
-  const itemIds = shellRows.map((row: typeof workspaceItems.$inferSelect) => row.itemId);
+  const itemIds = shellRows.map(
+    (row: typeof workspaceItems.$inferSelect) => row.itemId,
+  );
   const [contentRows, extractedRows] = await Promise.all([
     tx
       .select()
@@ -48,10 +57,16 @@ async function readWorkspaceState(
   ]);
 
   const contentByItemId = new Map(
-    contentRows.map((row: typeof workspaceItemContent.$inferSelect) => [row.itemId, row]),
+    contentRows.map((row: typeof workspaceItemContent.$inferSelect) => [
+      row.itemId,
+      row,
+    ]),
   );
   const extractedByItemId = new Map(
-    extractedRows.map((row: typeof workspaceItemExtracted.$inferSelect) => [row.itemId, row]),
+    extractedRows.map((row: typeof workspaceItemExtracted.$inferSelect) => [
+      row.itemId,
+      row,
+    ]),
   );
 
   return shellRows.map((shell: typeof workspaceItems.$inferSelect) => {
@@ -79,7 +94,8 @@ async function readWorkspaceState(
         ? {
             textContent: content.textContent ?? null,
             structuredData:
-              (content.structuredData as Record<string, unknown> | null) ?? null,
+              (content.structuredData as Record<string, unknown> | null) ??
+              null,
             assetData:
               (content.assetData as Record<string, unknown> | null) ?? null,
             embedData:
@@ -93,8 +109,12 @@ async function readWorkspaceState(
             contentPreview: extracted.contentPreview ?? null,
             ocrText: extracted.ocrText ?? null,
             transcriptText: extracted.transcriptText ?? null,
-            ocrPages: (extracted.ocrPages as any) ?? null,
-            transcriptSegments: (extracted.transcriptSegments as any) ?? null,
+            ocrPages:
+              (extracted.ocrPages as WorkspaceItemExtractedProjection["ocrPages"]) ??
+              null,
+            transcriptSegments:
+              (extracted.transcriptSegments as WorkspaceItemExtractedProjection["transcriptSegments"]) ??
+              null,
           }
         : null,
     });
