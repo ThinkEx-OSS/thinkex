@@ -522,6 +522,13 @@ describe("zero mutator extracted-data regressions", () => {
     expect(update.mock.calls[0]?.[0]).not.toHaveProperty("contentHash");
     expect(update.mock.calls[0]?.[0]).not.toHaveProperty("ocrStatus");
     expect(update.mock.calls[0]?.[0]).not.toHaveProperty("processingStatus");
+    // User-editable shell fields must still flow through the shared update.
+    expect(update.mock.calls[0]?.[0]).toMatchObject({
+      workspaceId: WORKSPACE_ID,
+      itemId: pdf.id,
+      name: pdf.name,
+      subtitle: pdf.subtitle,
+    });
   });
 
   it("Regression — item.delete still cleans up extracted", async () => {
