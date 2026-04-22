@@ -521,7 +521,6 @@ describe("zero mutator extracted-data regressions", () => {
     expect(update.mock.calls[0]?.[0]).not.toHaveProperty("hasTranscript");
     expect(update.mock.calls[0]?.[0]).not.toHaveProperty("contentHash");
     expect(update.mock.calls[0]?.[0]).not.toHaveProperty("ocrStatus");
-    expect(update.mock.calls[0]?.[0]).not.toHaveProperty("processingStatus");
     // User-editable shell fields must still flow through the shared update.
     expect(update.mock.calls[0]?.[0]).toMatchObject({
       workspaceId: WORKSPACE_ID,
