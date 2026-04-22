@@ -220,7 +220,7 @@ export const MODEL_REGISTRY: Record<string, ModelDefinition> = {
       ],
       reasoning: {
         openai: {
-          reasoningEffort: "medium",
+          reasoningEffort: "low",
           reasoningSummary: "auto",
         },
       },
