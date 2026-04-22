@@ -520,6 +520,14 @@ describe("zero mutator extracted-data regressions", () => {
     expect(update.mock.calls[0]?.[0]).not.toHaveProperty("ocrPageCount");
     expect(update.mock.calls[0]?.[0]).not.toHaveProperty("hasTranscript");
     expect(update.mock.calls[0]?.[0]).not.toHaveProperty("contentHash");
+    expect(update.mock.calls[0]?.[0]).not.toHaveProperty("ocrStatus");
+    // User-editable shell fields must still flow through the shared update.
+    expect(update.mock.calls[0]?.[0]).toMatchObject({
+      workspaceId: WORKSPACE_ID,
+      itemId: pdf.id,
+      name: pdf.name,
+      subtitle: pdf.subtitle,
+    });
   });
 
   it("Regression — item.delete still cleans up extracted", async () => {
@@ -594,5 +602,49 @@ describe("zero mutator extracted-data regressions", () => {
 
     expect(state.shells.get(key)?.folderId).toBe("folder-2");
     expect(state.extracteds.get(key)).toEqual(before);
+  });
+
+  it("syncExtractedRow creates extracted row when one does not yet exist", async () => {
+    // Shell exists (e.g. freshly-inserted PDF before OCR) but no extracted
+    // row has been written. syncExtractedRow must create one rather than
+    // crash or leave the table without a row for this item.
+    const state = createState();
+    const pdf: Item = {
+      id: "pdf-new",
+      type: "pdf",
+      name: "Fresh upload",
+      subtitle: "",
+      data: {
+        fileUrl: "https://example.com/new.pdf",
+        filename: "new.pdf",
+        ocrStatus: "processing",
+      },
+    };
+    seedItem(state, pdf);
+
+    const key = itemKey(WORKSPACE_ID, pdf.id);
+    // Simulate the state where the extracted row was never written yet.
+    state.extracteds.delete(key);
+
+    await syncExtractedRow(
+      createWrappedTx(state, {
+        workspaceId: WORKSPACE_ID,
+        itemId: pdf.id,
+      }) as never,
+      {
+        workspaceId: WORKSPACE_ID,
+        itemId: pdf.id,
+        userId: USER_ID,
+      },
+    );
+
+    const extracted = state.extracteds.get(key);
+    expect(extracted).toBeDefined();
+    expect(extracted?.ocrPages ?? null).toBeNull();
+    expect(extracted?.transcriptText ?? null).toBeNull();
+    expect(extracted?.transcriptSegments ?? null).toBeNull();
+    expect(state.shells.get(key)?.hasOcr).toBe(false);
+    expect(state.shells.get(key)?.ocrPageCount).toBe(0);
+    expect(state.shells.get(key)?.hasTranscript).toBe(false);
   });
 });

@@ -347,11 +347,27 @@ export async function upsertItem(
   });
 
   const fullShell = toMutateShellRow(rows.item);
+  // Strip workflow-owned / extracted-derived shell fields from the shared
+  // mutator payload. The Zero client can't see `workspace_item_extracted`, so
+  // `splitWorkspaceItem` computes `hasOcr` / `ocrPageCount` / `hasTranscript` /
+  // `contentHash` from truncated data and would clobber the real values.
+  // `ocrStatus` is workflow-owned (written only by `persistOcrResults` and
+  // `workspace-worker` direct-DB paths, plus initial `insertItem` on upload).
+  // A concurrent user edit whose mutator tx snapshots a pre-completion
+  // `"processing"` value before the workflow commits `"complete"` would
+  // otherwise overwrite the workflow's write when the mutator upserts the
+  // shell. `processingStatus` is intentionally *not* stripped here because
+  // the audio retry flow (WorkspaceContent.tsx handleAudioComplete) goes
+  // through this path to flip audio back to `"processing"` after a user
+  // hits retry; stripping it would lose that state transition.
+  // `syncExtractedRow` rebuilds all derived fields server-side from the
+  // real extracted row.
   const {
     hasOcr: _hasOcr,
     ocrPageCount: _ocrPageCount,
     hasTranscript: _hasTranscript,
     contentHash: _contentHash,
+    ocrStatus: _ocrStatus,
     ...clientSafeShell
   } = fullShell;
 
