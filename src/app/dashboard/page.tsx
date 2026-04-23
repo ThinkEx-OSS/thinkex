@@ -18,6 +18,7 @@ import { useSession } from "@/lib/auth-client";
 import { WorkspaceSection } from "@/components/workspace-canvas/WorkspaceSection";
 import { OpenWorkspaceItemView } from "@/components/workspace-canvas/OpenWorkspaceItemView";
 import { AnonymousSignInPrompt } from "@/components/modals/AnonymousSignInPrompt";
+import { RafflePopup } from "@/components/modals/RafflePopup";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import WorkspaceHeader from "@/components/workspace-canvas/WorkspaceHeader";
 import { WorkspaceSearchDialog } from "@/components/workspace-canvas/WorkspaceSearchDialog";
@@ -70,6 +71,10 @@ function DashboardContent({
   const currentWorkspaceTitle = currentWorkspace?.name;
   const currentWorkspaceIcon = currentWorkspace?.icon;
   const currentWorkspaceColor = currentWorkspace?.color;
+  const isWorkspaceOwner =
+    !!session?.user?.id &&
+    !!currentWorkspace &&
+    session.user.id === currentWorkspace.userId;
 
   // Check onboarding status
   // const { shouldShowOnboarding, isLoading: isLoadingOnboarding } = useOnboardingStatus();
@@ -279,6 +284,12 @@ function DashboardContent({
           }
         }}
       />
+      <RafflePopup
+        workspace={currentWorkspace}
+        currentWorkspaceId={currentWorkspaceId}
+        isLoadingWorkspace={isLoadingWorkspace}
+        onOpenFullShare={() => setShowWorkspaceShare(true)}
+      />
       <DashboardLayout
         currentWorkspaceId={currentWorkspaceId}
         onWorkspaceSwitch={switchWorkspace}
@@ -341,6 +352,7 @@ function DashboardContent({
                 operations.getDocumentMarkdownForExport
               }
               googleLoginHint={session?.user?.email ?? null}
+              isWorkspaceOwner={isWorkspaceOwner}
             />
           ) : undefined
         }
