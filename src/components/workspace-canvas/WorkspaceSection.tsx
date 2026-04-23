@@ -1,6 +1,6 @@
 import React, { RefObject, useState, useCallback } from "react";
 import { toast } from "sonner";
-import type { Item, ItemData, CardType } from "@/lib/workspace-state/types";
+import type { Item, CardType } from "@/lib/workspace-state/types";
 import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import type { WorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import WorkspaceContent from "./WorkspaceContent";
@@ -79,10 +79,6 @@ interface WorkspaceSectionProps {
     initialData?: Partial<Item["data"]>,
   ) => string;
   updateItem: (itemId: string, updates: Partial<Item>) => void;
-  updateItemData: (
-    itemId: string,
-    updater: (prev: ItemData) => ItemData,
-  ) => void;
   deleteItem: (itemId: string) => void;
   updateAllItems: (items: Item[]) => void;
 
@@ -123,7 +119,6 @@ export function WorkspaceSection({
   state,
   addItem,
   updateItem,
-  updateItemData,
   deleteItem,
   updateAllItems,
   isChatMaximized,
@@ -531,7 +526,6 @@ export function WorkspaceSection({
                   viewState={state}
                   addItem={addItem}
                   updateItem={updateItem}
-                  updateItemData={updateItemData}
                   deleteItem={deleteItem}
                   updateAllItems={updateAllItems}
                   openWorkspaceItem={openWorkspaceItem}

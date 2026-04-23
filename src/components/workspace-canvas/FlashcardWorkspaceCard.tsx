@@ -7,8 +7,6 @@ import {
   Trash2,
   CheckCircle2,
   Pencil,
-  ZoomIn,
-  ZoomOut,
   Palette,
   ChevronLeft,
   ChevronRight,
@@ -19,7 +17,6 @@ import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
 import { useTheme } from "next-themes";
 import type {
   Item,
-  ItemData,
   FlashcardData,
   FlashcardItem,
 } from "@/lib/workspace-state/types";
@@ -73,16 +70,6 @@ interface FlashcardWorkspaceCardProps {
   workspaceIcon?: string | null;
   workspaceColor?: string | null;
   onUpdateItem: (itemId: string, updates: Partial<Item>) => void;
-  /**
-   * Optional updater-style data patcher. Preferred for patching individual
-   * fields inside `data` (e.g. `zoom`) because it composes with other
-   * in-flight `updateItemData` updaters instead of overwriting the whole
-   * blob the way `onUpdateItem({ data })` does.
-   */
-  onUpdateItemData?: (
-    itemId: string,
-    updater: (prev: ItemData) => ItemData,
-  ) => void;
   onDeleteItem: (itemId: string) => void;
   onOpenModal: (itemId: string) => void;
   onMoveItem?: (itemId: string, folderId: string | null) => void; // Callback to move item to folder
@@ -96,15 +83,10 @@ const EMPTY_FLASHCARD_PLACEHOLDER: FlashcardItem = {
   back: "",
 };
 
-const ZOOM_MIN = 0.5;
-const ZOOM_MAX = 2.5;
-const ZOOM_STEP = 0.1;
-const ZOOM_DEFAULT = 1;
-
 /** Center all markdown blocks on the card; keep code blocks full-width and left-aligned. */
 const FLASHCARD_STREAMDOWN_CLASS = cn(
   // Fluid type: size comes from the nearest [container-type:size] ancestor (card face)
-  "font-medium max-w-none text-center leading-[1.45] text-[length:calc(clamp(0.82rem,0.42rem+3cqmin,2.85rem)*var(--flashcard-zoom,1))]",
+  "font-medium max-w-none text-center leading-[1.45] text-[length:clamp(0.82rem,0.42rem+3cqmin,2.85rem)]",
   // globals.css fixes .streamdown-content at 0.875rem — inherit this wrapper’s fluid size instead
   "[&_.streamdown-content]:!text-inherit [&_.streamdown-content]:![font-size:1em]",
   "[&_.streamdown-content_p]:!text-inherit [&_.streamdown-content_li]:!text-inherit [&_.streamdown-content_td]:!text-inherit [&_.streamdown-content_th]:!text-inherit",
@@ -147,7 +129,7 @@ const FlashcardSideMarkdownView = memo(
         >
           <div className="w-full max-w-full min-w-0 text-center">
             {!markdown.trim() ? (
-              <div className="text-center text-muted-foreground px-2 text-[length:calc(clamp(0.72rem,0.3rem+2cqmin,1.05rem)*var(--flashcard-zoom,1))]">
+              <div className="text-center text-muted-foreground px-2 text-[length:clamp(0.72rem,0.3rem+2cqmin,1.05rem)]">
                 Ask the AI or click the pencil icon to add flashcards
               </div>
             ) : (
@@ -173,7 +155,6 @@ export function FlashcardWorkspaceCard({
   workspaceIcon,
   workspaceColor,
   onUpdateItem,
-  onUpdateItemData,
   onDeleteItem,
   onOpenModal,
   onMoveItem,
@@ -196,9 +177,6 @@ export function FlashcardWorkspaceCard({
     (state) => state.toggleItemScrollLocked,
   );
   const flashcardData = item.data as FlashcardData;
-  const persistedZoom =
-    (flashcardData as FlashcardData & { zoom?: number }).zoom ?? ZOOM_DEFAULT;
-  const [localZoom, setLocalZoom] = useState<number>(persistedZoom);
 
   // Navigation State
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -214,34 +192,6 @@ export function FlashcardWorkspaceCard({
       setCurrentIndex(0);
     }
   }, [cards.length, currentIndex]);
-
-  useEffect(() => {
-    setLocalZoom(persistedZoom);
-  }, [persistedZoom]);
-
-  const clampZoom = (z: number) =>
-    Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 10) / 10));
-
-  const applyZoom = useCallback(
-    (next: number) => {
-      const clamped = clampZoom(next);
-      setLocalZoom(clamped);
-      if (onUpdateItemData) {
-        // Preferred path: compose with any in-flight `updateItemData` updaters
-        // for this item so we never clobber pending Tiptap edits.
-        onUpdateItemData(item.id, (prev) => ({
-          ...(prev as FlashcardData),
-          zoom: clamped,
-        }));
-        return;
-      }
-      // Fallback (legacy wiring): full `data` replacement via updateItem.
-      onUpdateItem(item.id, {
-        data: { ...(item.data as FlashcardData), zoom: clamped },
-      });
-    },
-    [item.id, item.data, onUpdateItem, onUpdateItemData],
-  );
 
   // Persist index change (optional debounce?)
   const handleIndexChange = useCallback((newIndex: number) => {
@@ -535,7 +485,7 @@ export function FlashcardWorkspaceCard({
         <div
           id={`item-${item.id}`}
           className="group size-full relative rounded-md"
-          style={{ ["--flashcard-zoom" as string]: String(localZoom) }}
+          style={{}}
           onMouseDown={handleMouseDown}
           onClick={handleClick}
         >
@@ -580,62 +530,6 @@ export function FlashcardWorkspaceCard({
                 {isScrollLocked ? "Scroll" : "Lock"}
               </span>
             </button>
-
-            <div
-              className="flashcard-control-button inline-flex h-8 items-center overflow-hidden rounded-xl text-white/90"
-              style={getControlStyle(neutralControlBg)}
-            >
-              <button
-                type="button"
-                aria-label="Zoom out"
-                title="Zoom out"
-                disabled={localZoom <= ZOOM_MIN + 1e-6}
-                className="inline-flex h-8 w-8 items-center justify-center cursor-pointer hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  applyZoom(localZoom - ZOOM_STEP);
-                }}
-              >
-                <ZoomOut className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                aria-label={`Zoom: ${Math.round(localZoom * 100)}% — click to reset`}
-                title={`Zoom: ${Math.round(localZoom * 100)}% — click to reset`}
-                className="cursor-pointer select-none px-2 text-xs font-medium tabular-nums tracking-tight hover:text-white"
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  applyZoom(ZOOM_DEFAULT);
-                }}
-              >
-                {Math.round(localZoom * 100)}%
-              </button>
-              <button
-                type="button"
-                aria-label="Zoom in"
-                title="Zoom in"
-                disabled={localZoom >= ZOOM_MAX - 1e-6}
-                className="inline-flex h-8 w-8 items-center justify-center cursor-pointer hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  applyZoom(localZoom + ZOOM_STEP);
-                }}
-              >
-                <ZoomIn className="h-4 w-4" />
-              </button>
-            </div>
 
             <button
               type="button"
