@@ -17,6 +17,7 @@ export function defaultDataFor(type: CardType): ItemData {
             back: "",
           },
         ],
+        zoom: 1,
       } as FlashcardData;
     case "folder":
       return {} as FolderData;

@@ -180,10 +180,17 @@ export function rehydrateWorkspaceItemData(
       const structuredData = isRecord(contentRecord.structuredData)
         ? contentRecord.structuredData
         : {};
+      const z =
+        typeof structuredData.zoom === "number" &&
+        structuredData.zoom >= 0.5 &&
+        structuredData.zoom <= 2.5
+          ? structuredData.zoom
+          : 1;
       merged = {
         cards: Array.isArray(structuredData.cards)
           ? (structuredData.cards as FlashcardItem[])
           : [],
+        zoom: z,
       } satisfies FlashcardData;
       break;
     }
