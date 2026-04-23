@@ -119,8 +119,53 @@ export function FlashcardContent({ item, onUpdateData }: FlashcardContentProps) 
     side: "front" | "back";
   } | null>(null);
 
+  // Local drafts override stale `card.front`/`card.back` while `onUpdateData`
+  // is debounced (~500ms). Without this, re-entering a side within the
+  // debounce window would mount the editor with the stale props value and
+  // silently drop the queued keystrokes when the user types again. Drafts
+  // also prevent the read-only preview from flickering back to old content
+  // between Done and flush.
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const draftKey = (cardId: string, side: "front" | "back") =>
+    `${cardId}:${side}`;
+
+  const resolveMarkdown = useCallback(
+    (card: { id: string; front: string; back: string }, side: "front" | "back"): string => {
+      const draft = drafts[draftKey(card.id, side)];
+      const source = side === "front" ? card.front : card.back;
+      return draft ?? source;
+    },
+    [drafts],
+  );
+
+  // Drop a draft once the authoritative source (item.data) catches up, so
+  // future remote edits via realtime sync aren't masked by a stale local
+  // override.
+  useEffect(() => {
+    setDrafts((prev) => {
+      let changed = false;
+      const next: Record<string, string> = {};
+      for (const [key, value] of Object.entries(prev)) {
+        const [cardId, side] = key.split(":") as [string, "front" | "back"];
+        const card = cards.find((c) => c.id === cardId);
+        if (!card) {
+          changed = true;
+          continue;
+        }
+        const source = side === "front" ? card.front : card.back;
+        if (source === value) {
+          changed = true;
+          continue;
+        }
+        next[key] = value;
+      }
+      return changed ? next : prev;
+    });
+  }, [cards]);
+
   const handleChange = useCallback(
     (cardId: string, side: "front" | "back", markdown: string) => {
+      setDrafts((prev) => ({ ...prev, [draftKey(cardId, side)]: markdown }));
       onUpdateData((prev) => {
         const prevFc = prev as FlashcardData;
         return {
@@ -158,7 +203,7 @@ export function FlashcardContent({ item, onUpdateData }: FlashcardContentProps) 
                 <div className="space-y-6">
                   <FlashcardSideEditable
                     title="Front"
-                    markdown={card.front}
+                    markdown={resolveMarkdown(card, "front")}
                     emptyLabel="No front content"
                     isEditing={
                       editing?.cardId === card.id && editing.side === "front"
@@ -175,7 +220,7 @@ export function FlashcardContent({ item, onUpdateData }: FlashcardContentProps) 
 
                   <FlashcardSideEditable
                     title="Back"
-                    markdown={card.back}
+                    markdown={resolveMarkdown(card, "back")}
                     emptyLabel="No back content"
                     isEditing={
                       editing?.cardId === card.id && editing.side === "back"

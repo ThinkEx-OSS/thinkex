@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Plus, Upload } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
-import type { Item, CardType } from "@/lib/workspace-state/types";
+import type { Item, ItemData, CardType } from "@/lib/workspace-state/types";
 import { filterItemsByFolder } from "@/lib/workspace-state/search";
 import { useAutoScroll } from "@/hooks/ui/use-auto-scroll";
 import { transcriptSegmentsQueryKey } from "@/hooks/workspace/use-transcript-segments";
@@ -26,6 +26,10 @@ interface WorkspaceContentProps {
     initialData?: Partial<Item["data"]>,
   ) => string;
   updateItem: (itemId: string, updates: Partial<Item>) => void;
+  updateItemData: (
+    itemId: string,
+    updater: (prev: ItemData) => ItemData,
+  ) => void;
   deleteItem: (itemId: string) => void;
   updateAllItems: (items: Item[]) => void;
   openWorkspaceItem: (itemId: string | null) => void;
@@ -46,6 +50,7 @@ export default function WorkspaceContent({
   viewState,
   addItem,
   updateItem,
+  updateItemData,
   deleteItem,
   updateAllItems,
   openWorkspaceItem,
@@ -335,6 +340,7 @@ export default function WorkspaceContent({
           onDragStart={handleDragStart}
           onDragStop={handleDragStop}
           onUpdateItem={handleUpdateItem}
+          onUpdateItemData={updateItemData}
           onDeleteItem={handleDeleteItem}
           onUpdateAllItems={handleUpdateAllItems}
           onOpenModal={handleOpenModal}

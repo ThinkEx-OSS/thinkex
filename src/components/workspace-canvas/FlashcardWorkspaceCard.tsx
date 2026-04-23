@@ -19,6 +19,7 @@ import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
 import { useTheme } from "next-themes";
 import type {
   Item,
+  ItemData,
   FlashcardData,
   FlashcardItem,
 } from "@/lib/workspace-state/types";
@@ -72,6 +73,16 @@ interface FlashcardWorkspaceCardProps {
   workspaceIcon?: string | null;
   workspaceColor?: string | null;
   onUpdateItem: (itemId: string, updates: Partial<Item>) => void;
+  /**
+   * Optional updater-style data patcher. Preferred for patching individual
+   * fields inside `data` (e.g. `zoom`) because it composes with other
+   * in-flight `updateItemData` updaters instead of overwriting the whole
+   * blob the way `onUpdateItem({ data })` does.
+   */
+  onUpdateItemData?: (
+    itemId: string,
+    updater: (prev: ItemData) => ItemData,
+  ) => void;
   onDeleteItem: (itemId: string) => void;
   onOpenModal: (itemId: string) => void;
   onMoveItem?: (itemId: string, folderId: string | null) => void; // Callback to move item to folder
@@ -162,6 +173,7 @@ export function FlashcardWorkspaceCard({
   workspaceIcon,
   workspaceColor,
   onUpdateItem,
+  onUpdateItemData,
   onDeleteItem,
   onOpenModal,
   onMoveItem,
@@ -214,11 +226,21 @@ export function FlashcardWorkspaceCard({
     (next: number) => {
       const clamped = clampZoom(next);
       setLocalZoom(clamped);
+      if (onUpdateItemData) {
+        // Preferred path: compose with any in-flight `updateItemData` updaters
+        // for this item so we never clobber pending Tiptap edits.
+        onUpdateItemData(item.id, (prev) => ({
+          ...(prev as FlashcardData),
+          zoom: clamped,
+        }));
+        return;
+      }
+      // Fallback (legacy wiring): full `data` replacement via updateItem.
       onUpdateItem(item.id, {
         data: { ...(item.data as FlashcardData), zoom: clamped },
       });
     },
-    [item.id, item.data, onUpdateItem],
+    [item.id, item.data, onUpdateItem, onUpdateItemData],
   );
 
   // Persist index change (optional debounce?)
