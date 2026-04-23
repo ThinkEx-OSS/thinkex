@@ -30,6 +30,8 @@ export function ShareCountBadge({
   useEffect(() => {
     if (!isWithinWindow) return;
 
+    setClaimCount(null);
+
     const controller = new AbortController();
     fetch(`/api/workspaces/${workspaceId}/share-link`, {
       signal: controller.signal,

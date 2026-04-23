@@ -17,7 +17,23 @@ async function claimAndResolveSlug(params: {
   workspaceId: string;
   userId: string;
   permissionLevel: string;
-}): Promise<{ slug: string | null; inserted: boolean }> {
+}): Promise<{ slug: string | null; inserted: boolean; isOwner: boolean }> {
+  const [workspace] = await db
+    .select({ slug: workspaces.slug, ownerId: workspaces.userId })
+    .from(workspaces)
+    .where(eq(workspaces.id, params.workspaceId))
+    .limit(1);
+
+  if (!workspace) {
+    return { slug: null, inserted: false, isOwner: false };
+  }
+
+  const isOwner = workspace.ownerId === params.userId;
+
+  if (isOwner) {
+    return { slug: workspace.slug, inserted: false, isOwner: true };
+  }
+
   const inserted = await db
     .insert(workspaceCollaborators)
     .values({
@@ -33,13 +49,11 @@ async function claimAndResolveSlug(params: {
     })
     .returning({ id: workspaceCollaborators.id });
 
-  const [workspace] = await db
-    .select({ slug: workspaces.slug })
-    .from(workspaces)
-    .where(eq(workspaces.id, params.workspaceId))
-    .limit(1);
-
-  return { slug: workspace?.slug ?? null, inserted: inserted.length > 0 };
+  return {
+    slug: workspace.slug,
+    inserted: inserted.length > 0,
+    isOwner: false,
+  };
 }
 
 export default async function InviteClaimPage({
