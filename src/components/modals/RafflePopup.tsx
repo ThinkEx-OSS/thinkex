@@ -23,10 +23,6 @@ interface RafflePopupProps {
   currentWorkspaceId: string | null;
   isLoadingWorkspace: boolean;
   onOpenFullShare?: () => void;
-  /** Force the popup open regardless of dismissal state (e.g. user clicked the share-count badge). */
-  manuallyOpen?: boolean;
-  /** Called when a manually-opened popup is closed; parent should clear its manual-open state. */
-  onManuallyClose?: () => void;
 }
 
 const FEATURE_KEY = "midterms-raffle-2026-04";
@@ -37,8 +33,6 @@ export function RafflePopup({
   currentWorkspaceId,
   isLoadingWorkspace,
   onOpenFullShare,
-  manuallyOpen = false,
-  onManuallyClose,
 }: RafflePopupProps) {
   const { data: session } = useSession();
   const { isNew, dismiss } = useNewFeature({
@@ -52,17 +46,16 @@ export function RafflePopup({
   const [isLoadingShareLink, setIsLoadingShareLink] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const canShowPopup =
+  const canRender =
     !!currentWorkspaceId &&
     !isLoadingWorkspace &&
     !!workspace &&
     session?.user?.isAnonymous !== true &&
-    workspace?.userId === session?.user?.id;
-
-  const isOpen = canShowPopup && (isNew || manuallyOpen);
+    workspace?.userId === session?.user?.id &&
+    isNew;
 
   useEffect(() => {
-    if (!isOpen || !workspace) return;
+    if (!canRender || !workspace) return;
 
     const controller = new AbortController();
     setIsLoadingShareLink(true);
@@ -88,16 +81,11 @@ export function RafflePopup({
     return () => {
       controller.abort();
     };
-  }, [isOpen, workspace]);
+  }, [canRender, workspace]);
 
-  if (!canShowPopup || !workspace) {
+  if (!canRender || !workspace) {
     return null;
   }
-
-  const handleClose = () => {
-    if (isNew) dismiss();
-    onManuallyClose?.();
-  };
 
   const deepCopyUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/share-copy/${workspace.id}`;
   const activeUrl = linkMode === "collaborate" ? shareLinkUrl : deepCopyUrl;
@@ -118,9 +106,9 @@ export function RafflePopup({
 
   return (
     <Dialog
-      open={isOpen}
+      open={isNew}
       onOpenChange={(next) => {
-        if (!next) handleClose();
+        if (!next) dismiss();
       }}
     >
       <DialogContent className="sm:max-w-md" overlayClassName="bg-black/70">
@@ -211,7 +199,7 @@ export function RafflePopup({
               type="button"
               variant="outline"
               onClick={() => {
-                handleClose();
+                dismiss();
                 onOpenFullShare();
               }}
             >
@@ -221,7 +209,7 @@ export function RafflePopup({
           ) : (
             <span />
           )}
-          <Button type="button" onClick={handleClose}>
+          <Button type="button" onClick={dismiss}>
             Got it
           </Button>
         </DialogFooter>

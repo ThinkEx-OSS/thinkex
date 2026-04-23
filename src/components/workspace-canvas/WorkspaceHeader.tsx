@@ -255,8 +255,6 @@ interface WorkspaceHeaderProps {
   // Workspace actions
   onOpenSettings?: () => void;
   onOpenShare?: () => void;
-  /** Open the raffle details popup (reopens the "Win a $50 Amazon gift card" dialog). */
-  onShowRaffleDetails?: () => void;
 
   /** Item shown in the fullscreen workspace viewer (`openMode === "single"`) — breadcrumbs + header actions */
   activeOpenWorkspaceItem?: Item | null;
@@ -288,7 +286,6 @@ export function WorkspaceHeader({
   onRenameFolder,
   onOpenSettings,
   onOpenShare,
-  onShowRaffleDetails,
 
   activeOpenWorkspaceItem = null,
   onCloseActiveItem,
@@ -1243,10 +1240,10 @@ export function WorkspaceHeader({
               Feedback
             </button>
 
-            {isWorkspaceOwner && currentWorkspaceId && (
+            {isWorkspaceOwner && currentWorkspaceId && onOpenShare && (
               <ShareCountBadge
                 workspaceId={currentWorkspaceId}
-                onClick={onShowRaffleDetails}
+                onClick={onOpenShare}
               />
             )}
             {onOpenShare && (
