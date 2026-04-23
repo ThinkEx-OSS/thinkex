@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import {
@@ -17,24 +17,8 @@ async function claimAndResolveSlug(params: {
   workspaceId: string;
   userId: string;
   permissionLevel: string;
-}): Promise<{ slug: string | null; inserted: boolean; isOwner: boolean }> {
-  const [workspace] = await db
-    .select({ slug: workspaces.slug, ownerId: workspaces.userId })
-    .from(workspaces)
-    .where(eq(workspaces.id, params.workspaceId))
-    .limit(1);
-
-  if (!workspace) {
-    return { slug: null, inserted: false, isOwner: false };
-  }
-
-  const isOwner = workspace.ownerId === params.userId;
-
-  if (isOwner) {
-    return { slug: workspace.slug, inserted: false, isOwner: true };
-  }
-
-  const inserted = await db
+}): Promise<{ slug: string | null }> {
+  await db
     .insert(workspaceCollaborators)
     .values({
       workspaceId: params.workspaceId,
@@ -46,14 +30,15 @@ async function claimAndResolveSlug(params: {
         workspaceCollaborators.workspaceId,
         workspaceCollaborators.userId,
       ],
-    })
-    .returning({ id: workspaceCollaborators.id });
+    });
 
-  return {
-    slug: workspace.slug,
-    inserted: inserted.length > 0,
-    isOwner: false,
-  };
+  const [workspace] = await db
+    .select({ slug: workspaces.slug })
+    .from(workspaces)
+    .where(eq(workspaces.id, params.workspaceId))
+    .limit(1);
+
+  return { slug: workspace?.slug ?? null };
 }
 
 export default async function InviteClaimPage({
@@ -130,7 +115,7 @@ export default async function InviteClaimPage({
       if (new Date(shareLink.expiresAt) < new Date()) {
         error = "expired";
       } else {
-        const { slug, inserted } = await claimAndResolveSlug({
+        const { slug } = await claimAndResolveSlug({
           workspaceId: shareLink.workspaceId,
           userId: session.user.id,
           permissionLevel: shareLink.permissionLevel,
@@ -139,12 +124,6 @@ export default async function InviteClaimPage({
         if (!slug) {
           error = "workspace-deleted";
         } else {
-          if (inserted) {
-            await db
-              .update(workspaceShareLinks)
-              .set({ claimCount: sql`${workspaceShareLinks.claimCount} + 1` })
-              .where(eq(workspaceShareLinks.id, shareLink.id));
-          }
           workspaceSlug = slug;
         }
       }

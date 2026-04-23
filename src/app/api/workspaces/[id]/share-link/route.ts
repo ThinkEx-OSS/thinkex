@@ -54,29 +54,6 @@ async function handlePOST(
   return NextResponse.json({ token, url });
 }
 
-async function handleGET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const userId = await requireAuth();
-  const { id: workspaceId } = await params;
-
-  await verifyWorkspaceAccess(workspaceId, userId, "editor");
-
-  const [shareLink] = await db
-    .select({ claimCount: workspaceShareLinks.claimCount })
-    .from(workspaceShareLinks)
-    .where(eq(workspaceShareLinks.workspaceId, workspaceId))
-    .limit(1);
-
-  return NextResponse.json({ claimCount: shareLink?.claimCount ?? 0 });
-}
-
-export const GET = withErrorHandling(
-  handleGET,
-  "GET /api/workspaces/[id]/share-link",
-);
-
 export const POST = withErrorHandling(
   handlePOST,
   "POST /api/workspaces/[id]/share-link",

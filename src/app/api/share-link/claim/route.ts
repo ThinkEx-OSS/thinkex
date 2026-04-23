@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { requireAuth, withErrorHandling } from "@/lib/api/workspace-helpers";
 import { db } from "@/lib/db/client";
 import {
@@ -47,40 +47,30 @@ async function handlePOST(request: NextRequest) {
     return NextResponse.json({ error: "Share link expired" }, { status: 410 });
   }
 
+  const [existing] = await db
+    .select()
+    .from(workspaceCollaborators)
+    .where(
+      and(
+        eq(workspaceCollaborators.workspaceId, shareLink.workspaceId),
+        eq(workspaceCollaborators.userId, userId),
+      ),
+    )
+    .limit(1);
+
+  if (!existing) {
+    await db.insert(workspaceCollaborators).values({
+      workspaceId: shareLink.workspaceId,
+      userId,
+      permissionLevel: shareLink.permissionLevel,
+    });
+  }
+
   const [workspace] = await db
-    .select({
-      slug: workspaces.slug,
-      id: workspaces.id,
-      ownerId: workspaces.userId,
-    })
+    .select({ slug: workspaces.slug, id: workspaces.id })
     .from(workspaces)
     .where(eq(workspaces.id, shareLink.workspaceId))
     .limit(1);
-
-  if (workspace && workspace.ownerId !== userId) {
-    const [existing] = await db
-      .select()
-      .from(workspaceCollaborators)
-      .where(
-        and(
-          eq(workspaceCollaborators.workspaceId, shareLink.workspaceId),
-          eq(workspaceCollaborators.userId, userId),
-        ),
-      )
-      .limit(1);
-
-    if (!existing) {
-      await db.insert(workspaceCollaborators).values({
-        workspaceId: shareLink.workspaceId,
-        userId,
-        permissionLevel: shareLink.permissionLevel,
-      });
-      await db
-        .update(workspaceShareLinks)
-        .set({ claimCount: sql`${workspaceShareLinks.claimCount} + 1` })
-        .where(eq(workspaceShareLinks.id, shareLink.id));
-    }
-  }
 
   return NextResponse.json({
     success: true,
