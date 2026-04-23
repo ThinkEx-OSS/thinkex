@@ -55,15 +55,30 @@ export function MidtermsRafflePopup({
   useEffect(() => {
     if (!canRender || !workspace) return;
 
+    const controller = new AbortController();
     setIsLoadingShareLink(true);
     setShareLinkUrl("");
-    fetch(`/api/workspaces/${workspace.id}/share-link`, { method: "POST" })
+
+    fetch(`/api/workspaces/${workspace.id}/share-link`, {
+      method: "POST",
+      signal: controller.signal,
+    })
       .then((res) => res.json())
       .then((data) => {
         if (data.url) setShareLinkUrl(data.url);
       })
-      .catch(console.error)
-      .finally(() => setIsLoadingShareLink(false));
+      .catch((err) => {
+        if ((err as { name?: string } | null)?.name !== "AbortError") {
+          console.error(err);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsLoadingShareLink(false);
+      });
+
+    return () => {
+      controller.abort();
+    };
   }, [canRender, workspace]);
 
   if (!canRender || !workspace) {
