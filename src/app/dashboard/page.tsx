@@ -143,6 +143,9 @@ function DashboardContent({
   const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
   const [showWorkspaceShare, setShowWorkspaceShare] = useState(false);
 
+  // Manual open state for the raffle popup (re-opened via the share-count badge).
+  const [showRafflePopup, setShowRafflePopup] = useState(false);
+
   const showSignInPrompt =
     !!session?.user?.isAnonymous &&
     !isLoadingWorkspace &&
@@ -289,6 +292,8 @@ function DashboardContent({
         currentWorkspaceId={currentWorkspaceId}
         isLoadingWorkspace={isLoadingWorkspace}
         onOpenFullShare={() => setShowWorkspaceShare(true)}
+        manuallyOpen={showRafflePopup}
+        onManuallyClose={() => setShowRafflePopup(false)}
       />
       <DashboardLayout
         currentWorkspaceId={currentWorkspaceId}
@@ -353,6 +358,7 @@ function DashboardContent({
               }
               googleLoginHint={session?.user?.email ?? null}
               isWorkspaceOwner={isWorkspaceOwner}
+              onShowRaffleDetails={() => setShowRafflePopup(true)}
             />
           ) : undefined
         }
