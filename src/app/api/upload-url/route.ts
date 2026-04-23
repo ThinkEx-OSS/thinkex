@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from 'next/server';
 import { getOfficeDocumentConvertUrlFromMeta } from "@/lib/uploads/office-document-validation";
 import { withServerObservability } from "@/lib/with-server-observability";
@@ -40,16 +40,6 @@ async function handlePOST(request: NextRequest) {
 
     const convertUrl = getOfficeDocumentConvertUrlFromMeta(filename, contentType);
     const isOfficeUpload = convertUrl !== null;
-
-    const storageType = process.env.STORAGE_TYPE || 'supabase';
-
-    if (storageType === 'local') {
-      // For local storage, return a flag so the client falls back to /api/upload-file
-      return NextResponse.json({
-        mode: 'local',
-        uploadUrl: '/api/upload-file',
-      });
-    }
 
     // Supabase storage: generate a signed upload URL
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

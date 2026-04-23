@@ -70,14 +70,12 @@ ThinkEx can be self hosted for local development. The setup uses Docker for Post
 *   **Required API Keys:**
     *   **Google AI**: API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
         *   `GOOGLE_GENERATIVE_AI_API_KEY`
+    *   **Supabase** (file uploads): Project URL and keys from [Supabase](https://supabase.com)
+        *   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
 *   **Optional API Keys:**
     *   **Google OAuth**: Get credentials from [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (for OAuth login)
         *   `GOOGLE_CLIENT_ID`
         *   `GOOGLE_CLIENT_SECRET`
-    *   **Supabase**: Project URL and keys from [Supabase](https://supabase.com) (for file storage, alternative to local storage)
-        *   `NEXT_PUBLIC_SUPABASE_URL`
-        *   `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-        *   `SUPABASE_SERVICE_ROLE_KEY`
     *   **Other optional keys** (web scraping, OCR, external conversion service): see [`.env.example`](.env.example) (`FIRECRAWL_API_KEY`, `MISTRAL_API_KEY`, `FASTAPI_*`, `SCRAPING_MODE`, etc.)
 
 #### Automated Setup
@@ -144,7 +142,7 @@ Access ThinkEx at [http://localhost:3000](http://localhost:3000)
       ```
     *   **Better Auth**: Generate `BETTER_AUTH_SECRET` with `openssl rand -base64 32`. For a public URL (not localhost), set `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL` to that origin.
     *   **Google OAuth**: Get credentials from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-    *   **Supabase**: Your Supabase project URL and keys (for file storage, if using Supabase storage)
+    *   **Supabase**: Your Supabase project URL and keys (required for file uploads)
     *   **Google AI**: API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
 
 5.  **Initialize the database**
@@ -160,23 +158,12 @@ Access ThinkEx at [http://localhost:3000](http://localhost:3000)
 7.  **Access the application**
     Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-#### Storage Configuration
+#### File storage (Supabase)
 
-ThinkEx supports two storage backends for file uploads:
+Uploads go to **Supabase Storage**. Configure:
 
-**Option 1: Local File Storage** (Recommended for Self-Hosting)
-- Set `STORAGE_TYPE=local` in your `.env` file
-- Files are stored in the `./uploads` directory
-- No external dependencies required
-- Simple setup with full control over your data
-
-**Option 2: Supabase Storage** (Cloud-based)
-- Set `STORAGE_TYPE=supabase` in your `.env` file
-- Configure Supabase credentials:
-  - `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
-  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Anon (public) key from Supabase
-  - `SUPABASE_SERVICE_ROLE_KEY`: Service role key from Supabase
-- Create a storage bucket named `file-upload` and set it to **Public**
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- A storage bucket named `file-upload` set to **Public**
 
 ## Contributing
 

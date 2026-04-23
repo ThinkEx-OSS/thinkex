@@ -56,9 +56,6 @@ bun.lockb
 .env.*
 !.env.example
 
-# Uploads directory (user-uploaded files)
-/uploads
-
 # AI SDK DevTools
 .devtools
 

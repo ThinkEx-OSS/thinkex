@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     // SSRF: only our public file URLs (same origin or Supabase bucket) with a strict path shape
-    if (!isValidDocumentConversionRequest(file_path, file_url, request.nextUrl.origin)) {
+    if (!isValidDocumentConversionRequest(file_path, file_url)) {
       return NextResponse.json(
         { error: "Invalid conversion source" },
         { status: 400 }

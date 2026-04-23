@@ -75,21 +75,6 @@ setup_env_file() {
         fi
         echo -e "${GREEN}Generated and set BETTER_AUTH_SECRET${RESET}"
     fi
-    
-    # Set STORAGE_TYPE to local for local development if not set or empty
-    if ! grep -q "^STORAGE_TYPE=" .env 2>/dev/null; then
-        echo -e "${YELLOW}Setting STORAGE_TYPE to local for local development...${RESET}"
-        echo "STORAGE_TYPE=local" >> .env
-        echo -e "${GREEN}Set STORAGE_TYPE=local${RESET}"
-    elif grep -q "^STORAGE_TYPE=$" .env 2>/dev/null; then
-        echo -e "${YELLOW}Setting STORAGE_TYPE to local for local development...${RESET}"
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            sed -i '' "s|^STORAGE_TYPE=$|STORAGE_TYPE=local|" .env
-        else
-            sed -i "s|^STORAGE_TYPE=$|STORAGE_TYPE=local|" .env
-        fi
-        echo -e "${GREEN}Set STORAGE_TYPE=local${RESET}"
-    fi
 }
 
 # Main setup function

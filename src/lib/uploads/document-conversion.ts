@@ -13,11 +13,6 @@ function isValidStoragePath(filePath: string): boolean {
   return STORAGE_PATH_PATTERN.test(filePath);
 }
 
-function isValidLocalFileUrl(fileUrl: string, filePath: string, requestOrigin: string): boolean {
-  const expectedUrl = new URL(`/api/files/${filePath}`, requestOrigin);
-  return fileUrl === expectedUrl.toString();
-}
-
 function isValidSupabaseFileUrl(fileUrl: string, filePath: string): boolean {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!supabaseUrl) return false;
@@ -32,7 +27,6 @@ function isValidSupabaseFileUrl(fileUrl: string, filePath: string): boolean {
 export function isValidDocumentConversionRequest(
   filePath: string,
   fileUrl: string,
-  requestOrigin: string
 ): boolean {
   if (
     !filePath ||
@@ -47,10 +41,7 @@ export function isValidDocumentConversionRequest(
     return false;
   }
 
-  return (
-    isValidLocalFileUrl(fileUrl, filePath, requestOrigin) ||
-    isValidSupabaseFileUrl(fileUrl, filePath)
-  );
+  return isValidSupabaseFileUrl(fileUrl, filePath);
 }
 
 export async function requestDocumentPdfConversion(

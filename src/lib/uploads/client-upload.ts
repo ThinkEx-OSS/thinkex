@@ -7,8 +7,6 @@
  * 2. Client requests a signed upload URL from /api/upload-url (tiny JSON payload)
  * 3. Client uploads the file directly to Supabase using the signed URL
  * 4. Returns the public URL of the original uploaded file
- *
- * Falls back to /api/upload-file for local storage mode.
  */
 
 import { convertHeicToJpegIfNeeded } from "./convert-heic";
@@ -76,8 +74,8 @@ async function convertOfficeUpload(
 }
 
 /**
- * Upload a file directly to storage, bypassing the serverless function body limit.
- * Works for both Supabase (direct upload) and local storage (fallback to API route).
+ * Upload a file directly to Supabase storage, bypassing the serverless function body limit.
+ * Small-file retry uses /api/upload-file (Supabase) when the signed PUT fails.
  */
 export async function uploadFileDirect(
   file: File,
@@ -125,21 +123,6 @@ export async function uploadFileDirect(
     console.info(
       `[PDF_UPLOAD] Get signed URL: ${(performance.now() - t0).toFixed(0)}ms`
     );
-  }
-
-  // Local storage mode: fall back to /api/upload-file
-  if (urlData.mode === "local") {
-    const result = await uploadViaApiRoute(file);
-    if (log) {
-      const t = performance.now() - t0;
-      console.info(`[PDF_UPLOAD] Local fallback upload: ${t.toFixed(0)}ms`);
-    }
-
-    if (isOfficeUpload) {
-      return convertOfficeUpload(result.filename, result.url, file.name);
-    }
-
-    return result;
   }
 
   // Step 2: Upload file directly to Supabase using the signed URL
