@@ -18,6 +18,7 @@ import { useSession } from "@/lib/auth-client";
 import { WorkspaceSection } from "@/components/workspace-canvas/WorkspaceSection";
 import { OpenWorkspaceItemView } from "@/components/workspace-canvas/OpenWorkspaceItemView";
 import { AnonymousSignInPrompt } from "@/components/modals/AnonymousSignInPrompt";
+import { MidtermsRafflePopup } from "@/components/modals/MidtermsRafflePopup";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import WorkspaceHeader from "@/components/workspace-canvas/WorkspaceHeader";
 import { WorkspaceSearchDialog } from "@/components/workspace-canvas/WorkspaceSearchDialog";
@@ -278,6 +279,12 @@ function DashboardContent({
             setDismissedSignInPromptWorkspaceId(currentWorkspaceId);
           }
         }}
+      />
+      <MidtermsRafflePopup
+        workspace={currentWorkspace}
+        currentWorkspaceId={currentWorkspaceId}
+        isLoadingWorkspace={isLoadingWorkspace}
+        onOpenFullShare={() => setShowWorkspaceShare(true)}
       />
       <DashboardLayout
         currentWorkspaceId={currentWorkspaceId}
