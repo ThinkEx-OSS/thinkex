@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Copy, Files, GraduationCap, Link2, Mail } from "lucide-react";
+import { Check, Copy, Files, Gift, Link2, Mail } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -18,7 +18,7 @@ import { useSession } from "@/lib/auth-client";
 import { useNewFeature } from "@/lib/utils/new-feature";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
 
-interface MidtermsRafflePopupProps {
+interface RafflePopupProps {
   workspace: WorkspaceWithState | null;
   currentWorkspaceId: string | null;
   isLoadingWorkspace: boolean;
@@ -26,20 +26,22 @@ interface MidtermsRafflePopupProps {
 }
 
 const FEATURE_KEY = "midterms-raffle-2026-04";
-const FEATURE_END_DATE = new Date(2026, 3, 24, 23, 59, 59);
+const FEATURE_END_DATE = new Date(2026, 3, 25, 23, 59, 59);
 
-export function MidtermsRafflePopup({
+export function RafflePopup({
   workspace,
   currentWorkspaceId,
   isLoadingWorkspace,
   onOpenFullShare,
-}: MidtermsRafflePopupProps) {
+}: RafflePopupProps) {
   const { data: session } = useSession();
   const { isNew, dismiss } = useNewFeature({
     featureKey: FEATURE_KEY,
     endDate: FEATURE_END_DATE,
   });
-  const [linkMode, setLinkMode] = useState<"collaborate" | "deepcopy">("collaborate");
+  const [linkMode, setLinkMode] = useState<"collaborate" | "deepcopy">(
+    "collaborate",
+  );
   const [shareLinkUrl, setShareLinkUrl] = useState("");
   const [isLoadingShareLink, setIsLoadingShareLink] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -113,20 +115,21 @@ export function MidtermsRafflePopup({
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-              <GraduationCap className="size-5 text-primary" />
+              <Gift className="size-5 text-primary" />
             </div>
             <Badge
               variant="secondary"
               className="bg-amber-500/15 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400"
             >
-              Midterms raffle
+              Raffle
             </Badge>
           </div>
-          <DialogTitle className="mt-3">Happy midterms!</DialogTitle>
+          <DialogTitle className="mt-3">Win a $50 Amazon gift card</DialogTitle>
           <DialogDescription className="mt-2">
-            Share this workspace with <strong>5 or more classmates</strong> and you'll be entered
-            in our raffle to win a <strong>$50 Amazon gift card</strong>. Copy your share link
-            below and send it over — each person who joins counts.
+            Share this workspace with <strong>5 or more people</strong> and
+            you'll be entered to win a <strong>$50 Amazon gift card</strong>.
+            Copy your share link below and send it over — each person who joins
+            counts.
           </DialogDescription>
         </DialogHeader>
 
@@ -175,7 +178,11 @@ export function MidtermsRafflePopup({
             disabled={!activeUrl || isActiveLoading}
             className="shrink-0"
           >
-            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copied ? (
+              <Check className="h-4 w-4" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
             <span className="ml-2">Copy</span>
           </Button>
         </div>

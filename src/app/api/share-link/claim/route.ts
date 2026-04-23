@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { requireAuth, withErrorHandling } from "@/lib/api/workspace-helpers";
 import { db } from "@/lib/db/client";
 import {
@@ -64,6 +64,10 @@ async function handlePOST(request: NextRequest) {
       userId,
       permissionLevel: shareLink.permissionLevel,
     });
+    await db
+      .update(workspaceShareLinks)
+      .set({ claimCount: sql`${workspaceShareLinks.claimCount} + 1` })
+      .where(eq(workspaceShareLinks.id, shareLink.id));
   }
 
   const [workspace] = await db

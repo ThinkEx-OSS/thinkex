@@ -487,7 +487,6 @@ export const workspaceItemExtracted = pgTable(
   ],
 );
 
-
 export const workspaceCollaborators = pgTable(
   "workspace_collaborators",
   {
@@ -619,6 +618,7 @@ export const workspaceShareLinks = pgTable(
       withTimezone: true,
       mode: "string",
     }).notNull(),
+    claimCount: integer("claim_count").default(0).notNull(),
   },
   (table) => [
     index("idx_workspace_share_links_token").using(
