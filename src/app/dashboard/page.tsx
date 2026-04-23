@@ -371,6 +371,7 @@ function DashboardContent({
             state={state}
             addItem={operations.createItem}
             updateItem={operations.updateItem}
+            updateItemData={operations.updateItemData}
             deleteItem={operations.deleteItem}
             updateAllItems={operations.updateAllItems}
             isChatMaximized={isChatMaximized}
