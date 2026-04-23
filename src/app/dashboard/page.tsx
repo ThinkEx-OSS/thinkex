@@ -18,7 +18,6 @@ import { useSession } from "@/lib/auth-client";
 import { WorkspaceSection } from "@/components/workspace-canvas/WorkspaceSection";
 import { OpenWorkspaceItemView } from "@/components/workspace-canvas/OpenWorkspaceItemView";
 import { AnonymousSignInPrompt } from "@/components/modals/AnonymousSignInPrompt";
-import { RafflePopup } from "@/components/modals/RafflePopup";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import WorkspaceHeader from "@/components/workspace-canvas/WorkspaceHeader";
 import { WorkspaceSearchDialog } from "@/components/workspace-canvas/WorkspaceSearchDialog";
@@ -71,10 +70,6 @@ function DashboardContent({
   const currentWorkspaceTitle = currentWorkspace?.name;
   const currentWorkspaceIcon = currentWorkspace?.icon;
   const currentWorkspaceColor = currentWorkspace?.color;
-  const isWorkspaceOwner =
-    !!session?.user?.id &&
-    !!currentWorkspace &&
-    session.user.id === currentWorkspace.userId;
 
   // Check onboarding status
   // const { shouldShowOnboarding, isLoading: isLoadingOnboarding } = useOnboardingStatus();
@@ -142,9 +137,6 @@ function DashboardContent({
   // Workspace settings/share modals (lifted so header can open them)
   const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
   const [showWorkspaceShare, setShowWorkspaceShare] = useState(false);
-
-  // Manual open state for the raffle popup (re-opened via the share-count badge).
-  const [showRafflePopup, setShowRafflePopup] = useState(false);
 
   const showSignInPrompt =
     !!session?.user?.isAnonymous &&
@@ -287,14 +279,6 @@ function DashboardContent({
           }
         }}
       />
-      <RafflePopup
-        workspace={currentWorkspace}
-        currentWorkspaceId={currentWorkspaceId}
-        isLoadingWorkspace={isLoadingWorkspace}
-        onOpenFullShare={() => setShowWorkspaceShare(true)}
-        manuallyOpen={showRafflePopup}
-        onManuallyClose={() => setShowRafflePopup(false)}
-      />
       <DashboardLayout
         currentWorkspaceId={currentWorkspaceId}
         onWorkspaceSwitch={switchWorkspace}
@@ -357,8 +341,6 @@ function DashboardContent({
                 operations.getDocumentMarkdownForExport
               }
               googleLoginHint={session?.user?.email ?? null}
-              isWorkspaceOwner={isWorkspaceOwner}
-              onShowRaffleDetails={() => setShowRafflePopup(true)}
             />
           ) : undefined
         }
@@ -371,7 +353,6 @@ function DashboardContent({
             state={state}
             addItem={operations.createItem}
             updateItem={operations.updateItem}
-            updateItemData={operations.updateItemData}
             deleteItem={operations.deleteItem}
             updateAllItems={operations.updateAllItems}
             isChatMaximized={isChatMaximized}

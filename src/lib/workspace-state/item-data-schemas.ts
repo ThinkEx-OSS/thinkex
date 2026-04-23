@@ -28,7 +28,6 @@ export const flashcardCardInputSchema = z.object({
 
 export const flashcardDataSchema = z.object({
   cards: z.array(flashcardItemSchema).default([]),
-  zoom: z.number().min(0.5).max(2.5).default(1),
 });
 
 export const quizQuestionSchema = z.object({

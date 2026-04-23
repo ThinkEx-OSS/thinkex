@@ -22,13 +22,6 @@
       "when": 1775793600000,
       "tag": "0002_zero_publication",
       "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1776913168760,
-      "tag": "0003_famous_skaar",
-      "breakpoints": true
     }
   ]
 }

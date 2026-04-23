@@ -3,7 +3,7 @@ import { wrapCompactor, fastVerticalCompactor } from "react-grid-layout/extras";
 import { useFeatureFlagEnabled } from "posthog-js/react";
 import { useMemo, useCallback, useRef, useEffect, useState } from "react";
 import React from "react";
-import type { Item, ItemData } from "@/lib/workspace-state/types";
+import type { Item } from "@/lib/workspace-state/types";
 import { itemsToLayout, generateMissingLayouts, updateItemsWithLayout } from "@/lib/workspace-state/grid-layout-helpers";
 import { isDescendantOf } from "@/lib/workspace-state/search";
 import { WorkspaceCard } from "./WorkspaceCard";
@@ -35,10 +35,6 @@ interface WorkspaceGridProps {
   onDragStart: () => void;
   onDragStop: (layout: LayoutItem[]) => void;
   onUpdateItem: (itemId: string, updates: Partial<Item>) => void;
-  onUpdateItemData?: (
-    itemId: string,
-    updater: (prev: ItemData) => ItemData,
-  ) => void;
   onDeleteItem: (itemId: string) => void;
   onUpdateAllItems: (items: Item[]) => void;
   onOpenModal: (itemId: string) => void;
@@ -65,7 +61,6 @@ function WorkspaceGridComponent({
   onDragStart,
   onDragStop,
   onUpdateItem,
-  onUpdateItemData,
   onDeleteItem,
   onUpdateAllItems,
   onOpenModal,
@@ -667,7 +662,6 @@ function WorkspaceGridComponent({
             workspaceIcon={workspaceIcon}
             workspaceColor={workspaceColor}
             onUpdateItem={handleUpdateItem}
-            onUpdateItemData={onUpdateItemData}
             onDeleteItem={handleDeleteItem}
             onOpenModal={handleOpenModal}
             onMoveItem={onMoveItem}
@@ -691,7 +685,6 @@ function WorkspaceGridComponent({
     allItems,
     displayItems,
     handleUpdateItem,
-    onUpdateItemData,
     handleDeleteItem,
     handleOpenModal,
     onMoveItem,

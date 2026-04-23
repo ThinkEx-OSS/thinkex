@@ -73,7 +73,6 @@ import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
 import { WorkspaceFeedbackDialog } from "./WorkspaceFeedbackDialog";
-import { ShareCountBadge } from "@/components/workspace-canvas/ShareCountBadge";
 import { PromptBuilderDialog } from "@/components/assistant-ui/PromptBuilderDialog";
 const EMPTY_ITEMS: Item[] = [];
 const EMPTY_RESPONSIVE_BREADCRUMBS = {
@@ -255,8 +254,6 @@ interface WorkspaceHeaderProps {
   // Workspace actions
   onOpenSettings?: () => void;
   onOpenShare?: () => void;
-  /** Open the raffle details popup (reopens the "Win a $50 Amazon gift card" dialog). */
-  onShowRaffleDetails?: () => void;
 
   /** Item shown in the fullscreen workspace viewer (`openMode === "single"`) — breadcrumbs + header actions */
   activeOpenWorkspaceItem?: Item | null;
@@ -267,7 +264,6 @@ interface WorkspaceHeaderProps {
   /** Flush pending saves and read latest document markdown from workspace cache (avoids stale export). */
   getDocumentMarkdownForExport?: (itemId: string) => string;
   googleLoginHint?: string | null;
-  isWorkspaceOwner?: boolean;
 }
 
 export function WorkspaceHeader({
@@ -288,7 +284,6 @@ export function WorkspaceHeader({
   onRenameFolder,
   onOpenSettings,
   onOpenShare,
-  onShowRaffleDetails,
 
   activeOpenWorkspaceItem = null,
   onCloseActiveItem,
@@ -297,7 +292,6 @@ export function WorkspaceHeader({
   onUpdateActiveItem,
   getDocumentMarkdownForExport,
   googleLoginHint,
-  isWorkspaceOwner = false,
 }: WorkspaceHeaderProps) {
   const [isNewMenuOpen, setIsNewMenuOpen] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
@@ -1243,12 +1237,6 @@ export function WorkspaceHeader({
               Feedback
             </button>
 
-            {isWorkspaceOwner && currentWorkspaceId && (
-              <ShareCountBadge
-                workspaceId={currentWorkspaceId}
-                onClick={onShowRaffleDetails}
-              />
-            )}
             {onOpenShare && (
               <button
                 type="button"
