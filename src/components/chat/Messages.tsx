@@ -198,6 +198,7 @@ const MessagesImpl = () => {
           key={message.id}
           message={message}
           isAssistantStreaming={isStreaming}
+          canEdit={idx === lastUserIndex}
           minHeight={minHeight}
           onMeasure={idx === lastUserIndex ? setLastUserSize : undefined}
         />,
@@ -288,6 +289,7 @@ function RowWrapper({ children, minHeight, measureRef }: RowWrapperProps) {
 interface UserRowProps {
   message: ChatMessage;
   isAssistantStreaming: boolean;
+  canEdit: boolean;
   minHeight?: number;
   /**
    * Called with the row's current rendered height. Only provided for the
@@ -299,6 +301,7 @@ interface UserRowProps {
 const UserRow = memo(function UserRow({
   message,
   isAssistantStreaming,
+  canEdit,
   minHeight,
   onMeasure,
 }: UserRowProps) {
@@ -333,6 +336,7 @@ const UserRow = memo(function UserRow({
         <UserMessage
           message={message}
           isAssistantStreaming={isAssistantStreaming}
+          canEdit={canEdit}
         />
       </div>
     </RowWrapper>

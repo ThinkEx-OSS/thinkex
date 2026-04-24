@@ -1,10 +1,12 @@
 "use client";
 
 import {
+  ArrowUpIcon,
   CheckIcon,
   ChevronDown,
   ChevronUp,
   CopyIcon,
+  Loader2,
   PencilIcon,
 } from "lucide-react";
 import {
@@ -20,7 +22,6 @@ import { useChatContext } from "@/components/chat/ChatProvider";
 import { MessagePart } from "@/components/chat/parts/MessagePart";
 import { ReplySelectionBadges } from "@/components/chat/parts/ReplySelectionBadges";
 import { TooltipIconButton } from "@/components/chat/tooltip-icon-button";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import type { ChatMessage } from "@/lib/chat/types";
 import { cn } from "@/lib/utils";
@@ -36,17 +37,21 @@ interface UserMessageProps {
   message: ChatMessage;
   /** True while the assistant is currently producing a response. */
   isAssistantStreaming: boolean;
+  /** Only the latest user turn can be edited safely. */
+  canEdit: boolean;
 }
 
 const UserMessageImpl: FC<UserMessageProps> = ({
   message,
   isAssistantStreaming,
+  canEdit,
 }) => {
   const { setMessages, regenerate } = useChatContext();
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [copied, setCopied] = useState(false);
   const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isEditing = editing && canEdit;
 
   const textContent = useMemo(() => {
     return message.parts
@@ -73,14 +78,21 @@ const UserMessageImpl: FC<UserMessageProps> = ({
       className="mx-auto grid w-full max-w-[var(--thread-max-width)] auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 px-2 pt-4 pb-1 [&:where(>*)]:col-start-2"
       data-role="user"
     >
-      <div className="relative col-start-2 min-w-0">
+      <div
+        className={cn(
+          "relative min-w-0",
+          isEditing
+            ? "col-span-2 col-start-1 w-full"
+            : "col-start-2 w-fit max-w-full justify-self-end",
+        )}
+      >
         <ReplySelectionBadges message={message} />
-        {editing ? (
+        {isEditing ? (
           <UserMessageEditor
-            message={message}
             initialText={textContent}
             onCancel={() => setEditing(false)}
             onSubmit={async (newText) => {
+              if (!canEdit) return;
               const idx = nextSetMessages(setMessages, message, newText);
               setEditing(false);
               if (idx >= 0) {
@@ -107,7 +119,6 @@ const UserMessageImpl: FC<UserMessageProps> = ({
                   partIndex={i}
                   totalParts={message.parts.length}
                   message={message}
-                  isLastAssistant={false}
                   isStreaming={false}
                   messageKey={`${message.id}-${i}`}
                 />
@@ -134,19 +145,21 @@ const UserMessageImpl: FC<UserMessageProps> = ({
         )}
       </div>
 
-      {!editing && (
+      {!isEditing && (
         <div className="ml-2 flex justify-end col-start-2 relative min-h-[20px]">
           <div className="absolute right-0 flex gap-1 text-muted-foreground opacity-0 transition-opacity group-hover/message:opacity-100">
             <TooltipIconButton tooltip="Copy" onClick={handleCopy}>
               {copied ? <CheckIcon /> : <CopyIcon />}
             </TooltipIconButton>
-            <TooltipIconButton
-              tooltip="Edit"
-              onClick={() => setEditing(true)}
-              disabled={isAssistantStreaming}
-            >
-              <PencilIcon />
-            </TooltipIconButton>
+            {canEdit ? (
+              <TooltipIconButton
+                tooltip="Edit"
+                onClick={() => setEditing(true)}
+                disabled={isAssistantStreaming}
+              >
+                <PencilIcon />
+              </TooltipIconButton>
+            ) : null}
           </div>
         </div>
       )}
@@ -155,7 +168,6 @@ const UserMessageImpl: FC<UserMessageProps> = ({
 };
 
 interface UserMessageEditorProps {
-  message: ChatMessage;
   initialText: string;
   onCancel: () => void;
   onSubmit: (text: string) => Promise<void> | void;
@@ -181,11 +193,17 @@ function UserMessageEditor({
   }, [value, submitting, onSubmit]);
 
   return (
-    <div className="rounded-lg border bg-background p-2">
-      <Textarea
+    <form
+      className="relative flex w-full min-w-0 flex-col rounded-lg border border-sidebar-border bg-sidebar-accent px-3.5 pt-2 pb-2 shadow-[0_9px_9px_0px_rgba(0,0,0,0.01),0_2px_5px_0px_rgba(0,0,0,0.06)] dark:border-sidebar-border/15"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void handleSubmit();
+      }}
+    >
+      <textarea
         value={value}
         autoFocus
-        rows={3}
+        rows={1}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -197,21 +215,33 @@ function UserMessageEditor({
             onCancel();
           }
         }}
-        className="min-h-[80px] resize-none border-0 shadow-none focus-visible:ring-0"
+        className="max-h-32 w-full resize-none bg-transparent py-1.5 text-base text-sidebar-foreground outline-none placeholder:text-sidebar-foreground/60 focus:outline-none"
       />
-      <div className="mt-2 flex justify-end gap-2">
-        <Button variant="ghost" size="sm" onClick={onCancel}>
+      <div className="relative mt-2 flex items-center justify-end gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground hover:text-foreground"
+          onClick={onCancel}
+        >
           Cancel
         </Button>
         <Button
-          size="sm"
-          onClick={() => void handleSubmit()}
+          type="submit"
+          size="icon"
+          className="size-[34px] shrink-0 rounded-full p-1"
+          aria-label="Save and resend message"
           disabled={!value.trim() || submitting}
         >
-          Save & resend
+          {submitting ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <ArrowUpIcon className="size-4" />
+          )}
         </Button>
       </div>
-    </div>
+    </form>
   );
 }
 

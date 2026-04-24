@@ -191,6 +191,32 @@ async function handlePOST(req: Request) {
     //     the regen — it's already in DB (createdAt < target), so it survives
     //     the delete and is hydrated in the history below.
     if (trigger === "regenerate-message" && triggeringMessageId) {
+      const historyBeforeTruncate = await loadThreadHistory(threadId);
+      const triggeringMessage = historyBeforeTruncate.find(
+        (message) => message.id === triggeringMessageId,
+      );
+      if (triggeringMessage?.role === "user") {
+        const latestUserMessage = [...historyBeforeTruncate]
+          .reverse()
+          .find((message) => message.role === "user");
+        if (
+          latestUserMessage &&
+          latestUserMessage.id !== triggeringMessageId
+        ) {
+          return new Response(
+            JSON.stringify({
+              error: "Conflict",
+              message: "Only the latest user message can be edited.",
+              code: "MESSAGE_EDIT_CONFLICT",
+            }),
+            {
+              status: 409,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+      }
+
       const [target] = await db
         .select({ createdAt: chatMessages.createdAt })
         .from(chatMessages)
