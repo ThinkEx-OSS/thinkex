@@ -55,6 +55,7 @@ export function useVersionChecker(
     queryFn: fetchVersion,
     refetchInterval: intervalMs,
     refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
     staleTime: 0,
     retry: false,
   });
