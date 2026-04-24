@@ -1,35 +1,11 @@
 "use client";
 
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
-import { Loader2Icon } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import type { ChatMessage } from "@/lib/chat/types";
 
-/**
- * Light placeholder before a real `UIMessage` exists. Matches the same layout
- * as {@link PendingAssistantLoader} (gap / padding) so the list does not
- * jump when the assistant row (with a single Lottie) replaces this row. Using
- * one Lottie only on the real assistant message avoids the DotLottie
- * unmount+remount flash from pending → empty assistant.
- */
-export function PreAssistantMessagePlaceholder() {
-  return (
-    <div className="flex items-center gap-3 py-2">
-      <Loader2Icon
-        className="h-4 w-4 shrink-0 animate-spin text-muted-foreground"
-        aria-hidden
-      />
-      <span className="text-base text-muted-foreground">Thinking...</span>
-    </div>
-  );
-}
-
-/**
- * Raw "Thinking…" visual (Lottie + label). Used on the in-thread assistant
- * message while the turn is still empty; see {@link PreAssistantMessagePlaceholder}
- * for the pre-message phase.
- */
+/** Raw "Thinking…" visual (Lottie + label) for an empty in-thread assistant turn. */
 export function PendingAssistantLoader() {
   const { resolvedTheme } = useTheme();
   const lottieSrc =
@@ -57,7 +33,7 @@ interface AssistantLoaderProps {
 
 /**
  * "Thinking…" indicator shown while the latest assistant turn is still empty
- * (no parts streamed yet). Mirrors the legacy Assistant UI loader.
+ * (no parts streamed yet).
  */
 export function AssistantLoader({
   message,

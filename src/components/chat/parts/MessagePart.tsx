@@ -25,8 +25,6 @@ interface MessagePartProps {
   partIndex: number;
   totalParts: number;
   message: ChatMessage;
-  /** True when the message is the latest assistant turn. */
-  isLastAssistant: boolean;
   /** True while the parent message itself is mid-stream. */
   isStreaming: boolean;
   /** Combined messageId+partIndex stable key, used by markdown remount logic. */
@@ -46,7 +44,6 @@ const MessagePartImpl = ({
   partIndex,
   totalParts,
   message,
-  isLastAssistant,
   isStreaming,
   messageKey,
 }: MessagePartProps) => {

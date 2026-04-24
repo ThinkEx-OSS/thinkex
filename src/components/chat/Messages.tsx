@@ -21,9 +21,10 @@ import {
   summarizeRoster,
 } from "@/lib/chat/debug";
 import type { ChatMessage } from "@/lib/chat/types";
-
-/** Breathing room above the pinned user message when a new turn starts. */
-const TOP_OFFSET = 32;
+import {
+  THREAD_SCROLL_PIN_OFFSET,
+  THREAD_TOP_INSET,
+} from "@/components/chat/thread-layout";
 
 /**
  * Virtualized message list with pin-to-top autoscroll. Assumes the thread
@@ -165,7 +166,7 @@ const MessagesImpl = () => {
       handle.scrollToIndex(lastMessageIndex, {
         smooth: true,
         align: "start",
-        offset: -TOP_OFFSET,
+        offset: -THREAD_SCROLL_PIN_OFFSET,
       });
     });
   }, [isStreaming, status, messages]);
@@ -243,8 +244,8 @@ const MessagesImpl = () => {
     <div ref={containerRef} data-chat-viewport className="h-full">
       <VList
         ref={vlistRef}
-        style={{ height: "100%" }}
-        className="overflow-x-hidden px-3 pt-12 sm:px-6"
+        style={{ height: "100%", paddingTop: THREAD_TOP_INSET }}
+        className="overflow-x-hidden px-3 sm:px-6"
       >
         {rows}
       </VList>

@@ -79,7 +79,6 @@ const AssistantMessageImpl: FC<AssistantMessageProps> = ({
             partIndex={i}
             totalParts={message.parts.length}
             message={message}
-            isLastAssistant={isLastAssistant}
             isStreaming={isStreaming}
             messageKey={`${message.id}-${i}`}
           />
