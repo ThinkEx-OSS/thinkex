@@ -13,7 +13,7 @@ import { z } from "zod";
 
 const textPartSchema = z.object({
   type: z.literal("text"),
-  text: z.string().min(1).max(8000),
+  text: z.string().min(1).max(10_000),
 });
 
 const filePartSchema = z.object({

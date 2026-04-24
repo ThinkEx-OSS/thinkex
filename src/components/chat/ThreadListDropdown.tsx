@@ -107,6 +107,7 @@ export const ThreadListDropdown: FC<ThreadListDropdownProps> = ({
                 workspaceId={workspaceId}
                 isActive={thread.id === threadId}
                 onSelect={handleSelect}
+                onDeletedActiveThread={handleNew}
               />
             ))
           )}
@@ -136,6 +137,7 @@ interface ThreadListItemRowProps {
   workspaceId: string;
   isActive: boolean;
   onSelect: (id: string) => void;
+  onDeletedActiveThread: () => void;
 }
 
 const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
@@ -143,6 +145,7 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
   workspaceId,
   isActive,
   onSelect,
+  onDeletedActiveThread,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(thread.title ?? "New Chat");
@@ -211,6 +214,9 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
     setShowDeleteDialog(false);
     try {
       await deleteMutation.mutateAsync(thread.id);
+      if (isActive) {
+        onDeletedActiveThread();
+      }
       toast.success("Chat deleted");
     } catch (err) {
       console.error("Failed to delete thread:", err);

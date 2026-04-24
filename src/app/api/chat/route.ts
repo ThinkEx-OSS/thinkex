@@ -13,10 +13,9 @@ import {
 } from "ai";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
 import { withTracing } from "@posthog/ai";
-import { and, asc, eq, gte } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { logger } from "@/lib/utils/logger";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { after } from "next/server";
 import { createChatTools } from "@/lib/ai/tools";
 import {
   capturePostHogServerException,
@@ -25,6 +24,11 @@ import {
 import { withServerObservability } from "@/lib/with-server-observability";
 import { normalizeLegacyToolMessages } from "@/lib/ai/legacy-tool-message-compat";
 import { maybeWithSupermemory } from "@/lib/ai/supermemory";
+import {
+  requireAuth,
+  verifyThreadOwnership,
+  verifyWorkspaceAccess,
+} from "@/lib/api/workspace-helpers";
 import type { ReplySelection } from "@/lib/stores/ui-store";
 import { getDefaultChatModelId, resolveGatewayModelId } from "@/lib/ai/models";
 import {
@@ -112,12 +116,26 @@ async function loadThreadHistory(threadId: string): Promise<ChatMessage[]> {
   return rows.map((r) => r.content) as ChatMessage[];
 }
 
+async function getThreadById(threadId: string) {
+  const [thread] = await db
+    .select({
+      id: chatThreads.id,
+      workspaceId: chatThreads.workspaceId,
+      userId: chatThreads.userId,
+    })
+    .from(chatThreads)
+    .where(eq(chatThreads.id, threadId))
+    .limit(1);
+
+  return thread;
+}
+
 async function handlePOST(req: Request) {
   let workspaceId: string | null = null;
   let userId: string | null = null;
 
   try {
-    const [headersObj, rawBody] = await Promise.all([headers(), req.json()]);
+    const rawBody = await req.json();
     const parsed = chatRequestBodySchema.safeParse(rawBody);
     if (!parsed.success) {
       logger.warn("[CHAT-API] request body failed validation", {
@@ -135,9 +153,6 @@ async function handlePOST(req: Request) {
     }
     const body = parsed.data;
 
-    const session = await auth.api.getSession({ headers: headersObj });
-    userId = session?.user?.id || null;
-
     workspaceId = body.workspaceId;
     const threadId = body.id;
     const newMessage = body.message;
@@ -147,6 +162,26 @@ async function handlePOST(req: Request) {
     const activeFolderId = body.activeFolderId ?? undefined;
     const system = body.system ?? "";
     const selectedCardsContext = body.selectedCardsContext ?? "";
+
+    userId = await requireAuth();
+    await verifyWorkspaceAccess(workspaceId, userId, "editor");
+
+    const existingThread = await getThreadById(threadId);
+    if (existingThread) {
+      await verifyWorkspaceAccess(existingThread.workspaceId, userId, "editor");
+      verifyThreadOwnership(existingThread, userId);
+
+      if (existingThread.workspaceId !== workspaceId) {
+        return new Response(
+          JSON.stringify({
+            error: "Bad request",
+            message: "Thread does not belong to the requested workspace.",
+            code: "THREAD_WORKSPACE_MISMATCH",
+          }),
+          { status: 400, headers: { "Content-Type": "application/json" } },
+        );
+      }
+    }
 
     logger.info("🧵 [CHAT-API] Thread ID:", { threadId });
 
@@ -162,20 +197,12 @@ async function handlePOST(req: Request) {
     // Upsert the thread row on first write. Client generates the UUID and
     // sends it as `body.id`; we insert or no-op so the client never has to
     // make a separate create call.
-    let isNewThread = false;
-    if (workspaceId && userId) {
-      const inserted = await db
-        .insert(chatThreads)
-        .values({ id: threadId, workspaceId, userId })
-        .onConflictDoNothing({ target: chatThreads.id })
-        .returning({ id: chatThreads.id });
-      isNewThread = inserted.length > 0;
-    } else {
-      logger.warn("[CHAT-API] missing workspaceId or userId — skipping upsert", {
-        hasWorkspaceId: !!workspaceId,
-        hasUserId: !!userId,
-      });
-    }
+    const inserted = await db
+      .insert(chatThreads)
+      .values({ id: threadId, workspaceId, userId })
+      .onConflictDoNothing({ target: chatThreads.id })
+      .returning({ id: chatThreads.id });
+    const isNewThread = inserted.length > 0;
 
     // SDK-aligned regenerate semantics: when the client fires
     // `regenerate-message`, hard-truncate persisted history at the targeted
@@ -217,23 +244,29 @@ async function handlePOST(req: Request) {
         }
       }
 
-      const [target] = await db
-        .select({ createdAt: chatMessages.createdAt })
+      const rowsToTruncate = await db
+        .select({
+          id: chatMessages.id,
+          messageId: chatMessages.messageId,
+        })
         .from(chatMessages)
-        .where(
-          and(
-            eq(chatMessages.threadId, threadId),
-            eq(chatMessages.messageId, triggeringMessageId),
-          ),
-        )
-        .limit(1);
-      if (target?.createdAt) {
+        .where(eq(chatMessages.threadId, threadId))
+        .orderBy(asc(chatMessages.createdAt), asc(chatMessages.id));
+
+      const truncateIndex = rowsToTruncate.findIndex(
+        (row) => row.messageId === triggeringMessageId,
+      );
+
+      if (truncateIndex >= 0) {
+        const deleteIds = rowsToTruncate
+          .slice(truncateIndex)
+          .map((row) => row.id);
         const deleted = await db
           .delete(chatMessages)
           .where(
             and(
               eq(chatMessages.threadId, threadId),
-              gte(chatMessages.createdAt, target.createdAt),
+              inArray(chatMessages.id, deleteIds),
             ),
           )
           .returning({ messageId: chatMessages.messageId });
@@ -384,9 +417,9 @@ async function handlePOST(req: Request) {
 
     const providerOptions = buildGatewayProviderOptions(modelId, { userId });
 
-    // Kick off title generation in parallel for newly-created threads. The
-    // resolved title is streamed to the client below as a `data-chat-title`
-    // part and persisted to `chat_threads.title`.
+    // Kick off title generation in parallel for newly-created threads. We
+    // stream the title when it resolves if the SSE is still open, and persist
+    // it after the response so title generation never holds the stream open.
     let titlePromise: Promise<string> | null = null;
     if (isNewThread && userId && newMessage.role === "user") {
       const firstUserText = (newMessage.parts ?? [])
@@ -404,6 +437,16 @@ async function handlePOST(req: Request) {
         }).catch((err) => {
           logger.warn("[chat] title generation failed", err);
           return "";
+        });
+
+        after(async () => {
+          const title = await titlePromise;
+          if (!title) return;
+
+          await db
+            .update(chatThreads)
+            .set({ title, updatedAt: new Date().toISOString() })
+            .where(eq(chatThreads.id, threadId));
         });
       }
     }
@@ -494,17 +537,12 @@ async function handlePOST(req: Request) {
           },
         );
 
-        // Stream the title down once it resolves. Client picks it up via
-        // `onData` and updates the threads list without a refetch.
         if (titlePromise) {
-          const title = await titlePromise;
-          if (title) {
-            dataStream.write({ type: "data-chat-title", data: title });
-            await db
-              .update(chatThreads)
-              .set({ title, updatedAt: new Date().toISOString() })
-              .where(eq(chatThreads.id, threadId));
-          }
+          void titlePromise.then((title) => {
+            if (title) {
+              dataStream.write({ type: "data-chat-title", data: title });
+            }
+          });
         }
       },
       onFinish: async ({ responseMessage, isAborted }) => {
@@ -563,6 +601,10 @@ async function handlePOST(req: Request) {
 
     return createUIMessageStreamResponse({ stream });
   } catch (error) {
+    if (error instanceof Response) {
+      return error;
+    }
+
     const errorMessage = error instanceof Error ? error.message : String(error);
 
     const isTimeout =
