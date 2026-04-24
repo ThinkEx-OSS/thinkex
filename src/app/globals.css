@@ -35,24 +35,6 @@
   font-size: 1rem;
 }
 
-/* Streamdown code block: language and action buttons on same row (override default flex-col) */
-.streamdown-content [data-streamdown="code-block"] {
-  display: grid !important;
-  grid-template-areas: "header actions" "body body";
-}
-.streamdown-content [data-streamdown="code-block"] > [data-streamdown="code-block-header"] {
-  grid-area: header;
-}
-.streamdown-content [data-streamdown="code-block"] > div:nth-child(2) {
-  grid-area: actions;
-  margin-top: 0 !important;
-}
-.streamdown-content [data-streamdown="code-block"] > [data-streamdown="code-block-body"] {
-  grid-area: body;
-  padding-inline: 0;
-  overflow-x: auto !important;
-}
-
 /* Prosemirror-search citation highlight - theme-aware */
 .ProseMirror-search-match {
   background-color: rgba(234, 179, 8, 0.35);
@@ -1172,4 +1154,3 @@ body:has(.card-detail-modal) .workspace-grid-container {
     opacity: 1;
   }
 }
-

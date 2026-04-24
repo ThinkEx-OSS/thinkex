@@ -1,118 +1,117 @@
 "use client"
 
-import { memo, useCallback, useEffect, useRef, useState } from "react"
+import { memo, useCallback, useState } from "react"
 import type { NodeViewProps } from "@tiptap/react"
-import { NodeViewWrapper, NodeViewContent } from "@tiptap/react"
-import { CheckIcon, CopyIcon } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { NodeViewContent, NodeViewWrapper } from "@tiptap/react"
 import {
   CodeBlockContainer,
+  CodeBlockCopyButton,
   CodeBlockHeader,
-  CodeBlockTitle,
-  CodeBlockActions,
-  CodeBlockLanguageSelector,
-  CodeBlockLanguageSelectorTrigger,
-  CodeBlockLanguageSelectorValue,
-  CodeBlockLanguageSelectorContent,
-  CodeBlockLanguageSelectorItem,
-} from "@/components/ai-elements/code-block"
+} from "streamdown"
+import { bundledLanguagesInfo } from "shiki"
+import "streamdown/styles.css"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 import "@/components/tiptap-node/code-block-node/code-block-node.css"
 
-// Supported languages for the custom Tiptap code block node
-const LANGUAGES: Record<string, { name: string; aliases?: string[] }> = {
-  text: { name: "Plain Text", aliases: ["plaintext", "txt"] },
-  javascript: { name: "JavaScript", aliases: ["js"] },
-  typescript: { name: "TypeScript", aliases: ["ts"] },
-  jsx: { name: "JSX" },
-  tsx: { name: "TSX" },
-  html: { name: "HTML" },
-  css: { name: "CSS" },
-  scss: { name: "SCSS" },
-  json: { name: "JSON" },
-  python: { name: "Python", aliases: ["py"] },
-  java: { name: "Java" },
-  c: { name: "C" },
-  cpp: { name: "C++", aliases: ["c++"] },
-  csharp: { name: "C#", aliases: ["cs", "c#"] },
-  go: { name: "Go" },
-  rust: { name: "Rust", aliases: ["rs"] },
-  ruby: { name: "Ruby", aliases: ["rb"] },
-  php: { name: "PHP" },
-  swift: { name: "Swift" },
-  kotlin: { name: "Kotlin", aliases: ["kt"] },
-  sql: { name: "SQL" },
-  bash: { name: "Bash", aliases: ["sh", "shell", "zsh"] },
-  powershell: { name: "PowerShell", aliases: ["ps", "ps1"] },
-  markdown: { name: "Markdown", aliases: ["md"] },
-  yaml: { name: "YAML", aliases: ["yml"] },
-  xml: { name: "XML" },
-  graphql: { name: "GraphQL", aliases: ["gql"] },
-  docker: { name: "Docker", aliases: ["dockerfile"] },
-  r: { name: "R" },
-  scala: { name: "Scala" },
-  lua: { name: "Lua" },
-  perl: { name: "Perl" },
-  latex: { name: "LaTeX", aliases: ["tex"] },
+const PLAIN_TEXT_LANGUAGE = {
+  id: "text",
+  name: "Plain Text",
 }
 
-// Sort alphabetically for the selector
-const sortedLanguages = Object.entries(LANGUAGES).sort(
-  ([, a], [, b]) => a.name.localeCompare(b.name)
-)
+const languageAliasMap = new Map<string, string>([
+  ["text", "text"],
+  ["plain", "text"],
+  ["plaintext", "text"],
+  ["txt", "text"],
+])
 
-// Resolve alias to canonical language ID
+const languageNameMap = new Map<string, string>([
+  [PLAIN_TEXT_LANGUAGE.id, PLAIN_TEXT_LANGUAGE.name],
+])
+
+const sortedLanguages = [
+  PLAIN_TEXT_LANGUAGE,
+  ...bundledLanguagesInfo
+    .map((language) => {
+      const label =
+        language.name ??
+        language.aliases?.[0] ??
+        language.id
+
+      languageNameMap.set(language.id, label)
+      languageAliasMap.set(language.id, language.id)
+      for (const alias of language.aliases ?? []) {
+        languageAliasMap.set(alias.toLowerCase(), language.id)
+      }
+
+      return {
+        id: language.id,
+        name: label,
+      }
+    })
+    .sort((a, b) => a.name.localeCompare(b.name)),
+]
+
 export function resolveLanguageId(lang: string): string {
   if (!lang) return "text"
-  const lower = lang.toLowerCase()
-  if (LANGUAGES[lower]) return lower
-  for (const [id, { aliases }] of Object.entries(LANGUAGES)) {
-    if (aliases?.includes(lower)) return id
-  }
-  return lower
+  return languageAliasMap.get(lang.toLowerCase()) ?? lang.toLowerCase()
 }
 
-// Get display name for a language
 function getLanguageName(langId: string): string {
-  return LANGUAGES[langId]?.name || langId || "Plain Text"
+  return languageNameMap.get(langId) ?? langId ?? "Plain Text"
 }
 
-// ─── Copy Button ─────────────────────────────────────────────────────────────
-
-const CopyButton = memo(function CopyButton({ getText }: { getText: () => string }) {
-  const [isCopied, setIsCopied] = useState(false)
-  const timeoutRef = useRef<number>(0)
-
-  const handleCopy = useCallback(async () => {
-    if (typeof window === "undefined" || !navigator?.clipboard?.writeText) return
-    try {
-      if (!isCopied) {
-        await navigator.clipboard.writeText(getText())
-        setIsCopied(true)
-        timeoutRef.current = window.setTimeout(() => setIsCopied(false), 2000)
-      }
-    } catch {
-      // Ignore clipboard errors
-    }
-  }, [getText, isCopied])
-
-  useEffect(() => () => window.clearTimeout(timeoutRef.current), [])
-
-  const Icon = isCopied ? CheckIcon : CopyIcon
-
+const EditableCodeBlockHeader = memo(function EditableCodeBlockHeader({
+  language,
+  isLanguageMenuOpen,
+  onLanguageChange,
+  onOpenChange,
+}: {
+  language: string
+  isLanguageMenuOpen: boolean
+  onLanguageChange: (language: string) => void
+  onOpenChange: (open: boolean) => void
+}) {
   return (
-    <Button
-      className="shrink-0"
-      onClick={handleCopy}
-      size="icon"
-      variant="ghost"
-      type="button"
+    <div
+      className="flex min-h-8 items-center justify-between gap-2 text-muted-foreground text-xs"
+      contentEditable={false}
+      data-language={language}
+      data-streamdown="code-block-header"
     >
-      <Icon size={14} />
-    </Button>
+      <Select
+        open={isLanguageMenuOpen}
+        onOpenChange={onOpenChange}
+        value={language}
+        onValueChange={onLanguageChange}
+      >
+        <SelectTrigger
+          className="h-7 w-auto min-w-0 border-none bg-transparent px-2 text-xs font-mono lowercase shadow-none"
+          size="sm"
+        >
+          <SelectValue>{getLanguageName(language)}</SelectValue>
+        </SelectTrigger>
+        {isLanguageMenuOpen ? (
+          <SelectContent align="start">
+            {sortedLanguages.map(({ id, name }) => (
+              <SelectItem key={id} value={id}>
+                {name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        ) : null}
+      </Select>
+
+    </div>
   )
 })
-
-// ─── Node View Component ─────────────────────────────────────────────────────
 
 export function CodeBlockNodeView({ node, updateAttributes, editor }: NodeViewProps) {
   const rawLanguage = node.attrs.language || "text"
@@ -128,49 +127,41 @@ export function CodeBlockNodeView({ node, updateAttributes, editor }: NodeViewPr
     [updateAttributes]
   )
 
-  // Get code text from the node for copy
-  const getText = useCallback(() => node.textContent || "", [node])
+  const code = node.textContent || ""
 
   return (
     <NodeViewWrapper data-language={language}>
       <CodeBlockContainer language={language} className="tiptap-code-block-node">
-        {/* Header: language selector + copy button */}
-        <CodeBlockHeader contentEditable={false}>
-          <CodeBlockTitle>
-            {isEditable ? (
-              <CodeBlockLanguageSelector
-                open={isLanguageMenuOpen}
-                onOpenChange={setIsLanguageMenuOpen}
-                value={language}
-                onValueChange={handleLanguageChange}
-              >
-                <CodeBlockLanguageSelectorTrigger>
-                  <CodeBlockLanguageSelectorValue />
-                </CodeBlockLanguageSelectorTrigger>
-                {isLanguageMenuOpen ? (
-                  <CodeBlockLanguageSelectorContent>
-                    {sortedLanguages.map(([id, { name }]) => (
-                      <CodeBlockLanguageSelectorItem key={id} value={id}>
-                        {name}
-                      </CodeBlockLanguageSelectorItem>
-                    ))}
-                  </CodeBlockLanguageSelectorContent>
-                ) : null}
-              </CodeBlockLanguageSelector>
-            ) : (
-              <span className="font-mono text-xs">{getLanguageName(language)}</span>
-            )}
-          </CodeBlockTitle>
-          <CodeBlockActions>
-            <CopyButton getText={getText} />
-          </CodeBlockActions>
-        </CodeBlockHeader>
+        {isEditable ? (
+          <EditableCodeBlockHeader
+            isLanguageMenuOpen={isLanguageMenuOpen}
+            language={language}
+            onLanguageChange={handleLanguageChange}
+            onOpenChange={setIsLanguageMenuOpen}
+          />
+        ) : (
+          <CodeBlockHeader language={getLanguageName(language)} />
+        )}
 
-        {/* Editable code content area — TipTap manages this */}
-        <div className="relative overflow-auto">
-          <pre className="tiptap-code-block-pre">
-            <NodeViewContent className="tiptap-code-block-code" />
-          </pre>
+        <div
+          className="pointer-events-none sticky top-2 z-10 -mt-10 flex h-8 items-center justify-end"
+          contentEditable={false}
+          data-streamdown="code-block-actions"
+        >
+          <div className="pointer-events-auto flex shrink-0 items-center gap-2 rounded-md border border-sidebar bg-sidebar/80 px-1.5 py-1 supports-[backdrop-filter]:bg-sidebar/70 supports-[backdrop-filter]:backdrop-blur">
+            <CodeBlockCopyButton code={code} type="button" />
+          </div>
+        </div>
+
+        <div
+          className={cn(
+            "overflow-x-auto rounded-md border border-border bg-background p-4 text-sm",
+            "tiptap-code-block-body"
+          )}
+          data-language={language}
+          data-streamdown="code-block-body"
+        >
+          <NodeViewContent as="div" className="tiptap-code-block-content" />
         </div>
       </CodeBlockContainer>
     </NodeViewWrapper>

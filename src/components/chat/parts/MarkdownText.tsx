@@ -35,9 +35,7 @@ import {
 } from "@/lib/utils/preprocess-latex";
 
 const math = createMathPlugin({ singleDollarTextMath: true });
-const code = createCodePlugin({
-  themes: ["one-dark-pro", "one-dark-pro"],
-}) as CodeHighlighterPlugin;
+const code = createCodePlugin() as CodeHighlighterPlugin;
 
 function parseCitationPage(ref: string): {
   title: string;
@@ -257,7 +255,7 @@ const MarkdownTextImpl = ({
           ),
           ol: ({
             children,
-            node,
+            node: _node,
             ...props
           }: HTMLAttributes<HTMLOListElement> & { node?: any }) => (
             <ol
@@ -269,7 +267,7 @@ const MarkdownTextImpl = ({
           ),
           ul: ({
             children,
-            node,
+            node: _node,
             ...props
           }: HTMLAttributes<HTMLUListElement> & { node?: any }) => (
             <ul

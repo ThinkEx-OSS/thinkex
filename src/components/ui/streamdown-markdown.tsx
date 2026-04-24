@@ -12,10 +12,7 @@ import { preprocessLatex } from "@/lib/utils/preprocess-latex";
 
 const math = createMathPlugin({ singleDollarTextMath: true });
 
-// Create code plugin with one-dark-pro theme
-const code = createCodePlugin({
-  themes: ["one-dark-pro", "one-dark-pro"],
-}) as CodeHighlighterPlugin;
+const code = createCodePlugin() as CodeHighlighterPlugin;
 
 interface StreamdownMarkdownProps {
   children: string;
@@ -40,12 +37,12 @@ const StreamdownMarkdownImpl: React.FC<StreamdownMarkdownProps> = ({
           a: (props: AnchorHTMLAttributes<HTMLAnchorElement> & { node?: any }) => (
             <MarkdownLink {...props} />
           ),
-          ol: ({ children, node, ...props }: HTMLAttributes<HTMLOListElement> & { node?: any }) => (
+          ol: ({ children, node: _node, ...props }: HTMLAttributes<HTMLOListElement> & { node?: any }) => (
             <ol className="ml-4 list-outside list-decimal whitespace-normal" {...props}>
               {children}
             </ol>
           ),
-          ul: ({ children, node, ...props }: HTMLAttributes<HTMLUListElement> & { node?: any }) => (
+          ul: ({ children, node: _node, ...props }: HTMLAttributes<HTMLUListElement> & { node?: any }) => (
             <ul className="ml-4 list-outside list-disc whitespace-normal" {...props}>
               {children}
             </ul>
