@@ -182,6 +182,9 @@ Wrong: "...flow of goods and services" <citation>Source Title</citation>.  (do N
 <formatting>
 Markdown (GFM) with proper structure.
 
+CODE BLOCKS:
+- When a code example benefits from specific displayed line numbers, add code-fence metadata like \`startLine=10\` after the language identifier (for example: \`\`\`ts startLine=10). Use this sparingly; otherwise let code blocks use default numbering.
+
 MATH FORMATTING:
 - Use single $...$ for inline math and $$...$$ for block math
 - Inline math: $E = mc^2$ (single dollar signs)
