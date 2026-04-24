@@ -87,7 +87,13 @@ const AssistantMessageImpl: FC<AssistantMessageProps> = ({
       </div>
 
       {!isStreaming && (
-        <div className="mt-2 ml-2 flex gap-0.5 text-muted-foreground opacity-0 transition-opacity group-hover/message:opacity-100">
+        <div
+          className={`mt-2 ml-2 flex gap-0.5 text-muted-foreground transition-opacity ${
+            isLastAssistant
+              ? "opacity-100"
+              : "opacity-0 group-hover/message:opacity-100"
+          }`}
+        >
           <TooltipIconButton tooltip="Copy" onClick={handleCopy}>
             {copied ? <CheckIcon /> : <CopyIcon />}
           </TooltipIconButton>

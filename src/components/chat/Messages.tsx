@@ -14,7 +14,6 @@ import { VList, type VListHandle } from "virtua";
 
 import { AssistantMessage } from "@/components/chat/AssistantMessage";
 import { useChatContext } from "@/components/chat/ChatProvider";
-import { PendingAssistantLoader } from "@/components/chat/AssistantLoader";
 import { UserMessage } from "@/components/chat/UserMessage";
 import {
   chatDebug,
@@ -83,14 +82,30 @@ const MessagesImpl = () => {
     }
     return -1;
   }, [messages]);
+  const lastUserMessage = lastUserIndex >= 0 ? messages[lastUserIndex] : null;
 
   // Between `sendMessage` and the first streamed chunk, useChat has not yet
-  // materialized an assistant message. We still want a "Thinking…" slot at
-  // the bottom holding the spacer, so emit a synthetic trailing row.
-  const showPendingLoader =
+  // materialized an assistant message. We still want the eventual assistant
+  // row to exist immediately so the loader and first streamed token share one
+  // stable render path instead of swapping between separate row types.
+  const showPendingAssistantRow =
     isStreaming &&
     messages.length > 0 &&
     messages[messages.length - 1].role === "user";
+
+  const liveAssistantRowKey = useMemo(() => {
+    if (!lastUserMessage) return null;
+    return `assistant-turn-${lastUserMessage.id}`;
+  }, [lastUserMessage]);
+
+  const pendingAssistantMessage = useMemo<ChatMessage | null>(() => {
+    if (!showPendingAssistantRow || !liveAssistantRowKey) return null;
+    return {
+      id: liveAssistantRowKey,
+      role: "assistant",
+      parts: [],
+    } as ChatMessage;
+  }, [showPendingAssistantRow, liveAssistantRowKey]);
 
   // Measure the scroll viewport so we know how tall the spacer should be.
   // Kept in sync via a ResizeObserver so the reservation adapts when the
@@ -123,34 +138,48 @@ const MessagesImpl = () => {
   const reservedTail = Math.max(0, reservedMinHeight - lastUserSize);
 
   const vlistRef = useRef<VListHandle>(null);
+  const initialTurnPinnedRef = useRef(false);
 
   // Pin the newest message just below the top of the viewport on every new
-  // turn — fire exactly once per `ready → submitted` transition. `status`
-  // going back to `ready` rearms for the next turn.
+  // turn. Most turns arrive as a `ready → submitted` transition, but the
+  // very first turn mounts `<Messages>` after we already left the welcome
+  // state, so there is no prior `ready` render inside this component.
   const prevStatusRef = useRef(status);
   useLayoutEffect(() => {
     const prev = prevStatusRef.current;
     prevStatusRef.current = status;
     const turnStarted =
       prev === "ready" && (status === "submitted" || status === "streaming");
-    if (!turnStarted) return;
+    const initialTurnMountedActive =
+      !initialTurnPinnedRef.current &&
+      isStreaming &&
+      messages.length > 0 &&
+      messages[messages.length - 1]?.role === "user";
+    if (!turnStarted && !initialTurnMountedActive) return;
     const lastMessageIndex = messages.length - 1;
     if (lastMessageIndex < 0) return;
     const handle = vlistRef.current;
     if (!handle) return;
+    initialTurnPinnedRef.current = true;
     requestAnimationFrame(() => {
       handle.scrollToIndex(lastMessageIndex, {
         smooth: true,
         align: "start",
-        offset: -TOP_OFFSET,  // Negative offset = scroll LESS → leaves TOP_OFFSET px of space above the pinned message
+        offset: -TOP_OFFSET,
       });
     });
-  }, [status, messages.length]);
+  }, [isStreaming, status, messages]);
+
+  useEffect(() => {
+    if (!isStreaming) {
+      initialTurnPinnedRef.current = false;
+    }
+  }, [isStreaming]);
 
   // Whichever row ends up at the tail gets the spacer. When the pending
   // loader is present it's the tail; otherwise the last real message is.
   const lastMessageIndex = messages.length - 1;
-  const spacerTarget: "loader" | "message" = showPendingLoader
+  const spacerTarget: "loader" | "message" = showPendingAssistantRow
     ? "loader"
     : "message";
 
@@ -176,12 +205,16 @@ const MessagesImpl = () => {
     }
 
     if (message.role === "assistant") {
+      const rowKey =
+        isStreaming && isLastAssistant && isLastMessage && liveAssistantRowKey
+          ? liveAssistantRowKey
+          : message.id;
       rows.push(
         <AssistantRow
-          key={message.id}
+          key={rowKey}
           message={message}
           isLastAssistant={isLastAssistant}
-          isStreaming={isStreaming && isLastAssistant}
+          isStreaming={isStreaming && isLastMessage}
           minHeight={minHeight}
         />,
       );
@@ -189,10 +222,13 @@ const MessagesImpl = () => {
     }
   });
 
-  if (showPendingLoader) {
+  if (pendingAssistantMessage) {
     rows.push(
-      <PendingLoaderRow
-        key="__pending_loader__"
+      <AssistantRow
+        key={liveAssistantRowKey}
+        message={pendingAssistantMessage}
+        isLastAssistant
+        isStreaming
         minHeight={reservedTail}
       />,
     );
@@ -208,7 +244,7 @@ const MessagesImpl = () => {
       <VList
         ref={vlistRef}
         style={{ height: "100%" }}
-        className="overflow-x-hidden px-3 sm:px-6"
+        className="overflow-x-hidden px-3 pt-12 sm:px-6"
       >
         {rows}
       </VList>
@@ -325,24 +361,5 @@ const AssistantRow = memo(function AssistantRow({
         />
       </div>
     </RowWrapper>
-  );
-});
-
-interface PendingLoaderRowProps {
-  minHeight: number;
-}
-
-const PendingLoaderRow = memo(function PendingLoaderRow({
-  minHeight,
-}: PendingLoaderRowProps) {
-  const style = useMemo(() => ({ minHeight }), [minHeight]);
-  return (
-    <div className="w-full [--thread-max-width:46rem]" style={style}>
-      <div className="mx-auto w-full max-w-[var(--thread-max-width)] px-2">
-        <div className="pb-4">
-          <PendingAssistantLoader />
-        </div>
-      </div>
-    </div>
   );
 });
