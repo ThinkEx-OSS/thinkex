@@ -51,6 +51,12 @@ export function AssistantLoader({
       if (p.type === "reasoning") {
         return !((p as { text?: string }).text?.trim());
       }
+      // Structural step boundary — not user-visible content; keep showing the
+      // loader until real content streams in.
+      if (p.type === "step-start") return true;
+      // Control-channel data parts (e.g. `data-chat-title`) are invisible
+      // side-effects, not in-thread content.
+      if (p.type.startsWith("data-")) return true;
       return false;
     });
   if (!isEmpty) return null;

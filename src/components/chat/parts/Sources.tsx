@@ -12,6 +12,15 @@ const extractDomain = (url: string): string => {
   }
 };
 
+const isSafeHttpUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
 const getDomainInitial = (url: string): string => {
   const domain = extractDomain(url);
   return domain.charAt(0).toUpperCase();
@@ -50,6 +59,7 @@ export interface SourceProps {
 
 export function Source({ url, title, sourceType }: SourceProps) {
   if (sourceType !== "url" || !url) return null;
+  if (!isSafeHttpUrl(url)) return null;
   const domain = extractDomain(url);
   const displayTitle = title || domain;
   return (
