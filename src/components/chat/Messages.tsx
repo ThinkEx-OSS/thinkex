@@ -265,10 +265,9 @@ export const Messages = memo(MessagesImpl);
 interface RowWrapperProps {
   children: ReactNode;
   minHeight?: number;
-  measureRef?: React.Ref<HTMLDivElement>;
 }
 
-function RowWrapper({ children, minHeight, measureRef }: RowWrapperProps) {
+function RowWrapper({ children, minHeight }: RowWrapperProps) {
   const style = useMemo(
     () => (minHeight != null ? { minHeight } : undefined),
     [minHeight],
@@ -279,7 +278,6 @@ function RowWrapper({ children, minHeight, measureRef }: RowWrapperProps) {
   // max-width here would double-shrink the column.
   return (
     <div
-      ref={measureRef}
       className="w-full [--thread-max-width:46rem]"
       style={style}
     >
@@ -307,13 +305,14 @@ const UserRow = memo(function UserRow({
   minHeight,
   onMeasure,
 }: UserRowProps) {
-  const rowRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
 
-  // Attach a ResizeObserver when `onMeasure` is provided. Reports the row's
-  // real height back to <Messages> so reservedTail is accurate.
+  // Measure the inner content, not the outer row wrapper. The wrapper may
+  // receive a `minHeight` spacer, and observing that node creates a feedback
+  // loop: measure height -> derive spacer -> apply spacer -> measure again.
   useLayoutEffect(() => {
     if (!onMeasure) return;
-    const el = rowRef.current;
+    const el = contentRef.current;
     if (!el) return;
     onMeasure(el.getBoundingClientRect().height);
     const ro = new ResizeObserver((entries) => {
@@ -325,16 +324,16 @@ const UserRow = memo(function UserRow({
     return () => ro.disconnect();
   }, [onMeasure]);
 
-  const setMeasureRef = useCallback((node: HTMLDivElement | null) => {
-    rowRef.current = node;
+  const setContentRef = useCallback((node: HTMLDivElement | null) => {
+    contentRef.current = node;
   }, []);
 
   return (
-    <RowWrapper
-      minHeight={minHeight}
-      measureRef={onMeasure ? setMeasureRef : undefined}
-    >
-      <div className="group/message contents">
+    <RowWrapper minHeight={minHeight}>
+      <div
+        ref={onMeasure ? setContentRef : undefined}
+        className="group/message"
+      >
         <UserMessage
           message={message}
           isAssistantStreaming={isAssistantStreaming}

@@ -81,21 +81,21 @@ function ImageFilePart({ url, filename }: FilePartProps) {
 
   return (
     <>
-      <div className="relative max-w-96 overflow-hidden rounded-lg border border-border">
+      <div className="my-1 w-fit max-w-full overflow-hidden rounded-lg border border-border bg-background/70">
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="block w-full cursor-zoom-in"
+          className="block max-w-full cursor-zoom-in"
           aria-label={filename || "Image"}
         >
-          <div className="relative min-h-32">
+          <div className="relative flex min-h-24 w-40 max-w-full items-center justify-center bg-muted/40 sm:w-48">
             {!loaded && !error && (
               <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
                 <ImageIcon className="size-8 animate-pulse text-muted-foreground" />
               </div>
             )}
             {error ? (
-              <div className="flex min-h-32 items-center justify-center bg-muted/50 p-4">
+              <div className="flex min-h-24 w-full items-center justify-center bg-muted/50 p-4">
                 <ImageOffIcon className="size-8 text-muted-foreground" />
               </div>
             ) : (
@@ -103,7 +103,7 @@ function ImageFilePart({ url, filename }: FilePartProps) {
                 src={url}
                 alt={filename || "Image content"}
                 className={cn(
-                  "block h-auto w-full object-contain",
+                  "block max-h-44 w-auto max-w-full object-contain",
                   !loaded && "invisible",
                 )}
                 onLoad={() => setLoaded(true)}
