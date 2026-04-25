@@ -49,8 +49,8 @@ export function maybeWithSupermemory<T>(
       containerTag: userId,
       customId,
       apiKey,
-      mode: "full",
-      addMemory: "always",
+      mode: "full" as const,
+      addMemory: "always" as const,
       verbose: process.env.NODE_ENV === "development",
     }) as unknown as T;
   } catch (error) {

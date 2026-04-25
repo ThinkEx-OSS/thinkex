@@ -45,7 +45,6 @@ next-env.d.ts
 # lock files
 package-lock.json
 yarn.lock
-pnpm-lock.yaml
 bun.lockb
 
 #Ignore cursor directory
@@ -65,4 +64,3 @@ bun.lockb
 # Local Zero SQLite database files
 zero.db
 zero.db-*
-
