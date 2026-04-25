@@ -12,6 +12,7 @@ import {
 } from "react";
 import { VList, type VListHandle } from "virtua";
 
+import { PendingAssistantLoader } from "@/components/chat/AssistantLoader";
 import { AssistantMessage } from "@/components/chat/AssistantMessage";
 import { useChatContext } from "@/components/chat/ChatProvider";
 import { UserMessage } from "@/components/chat/UserMessage";
@@ -83,30 +84,16 @@ const MessagesImpl = () => {
     }
     return -1;
   }, [messages]);
-  const lastUserMessage = lastUserIndex >= 0 ? messages[lastUserIndex] : null;
-
+  const lastUserMessageId =
+    lastUserIndex >= 0 ? messages[lastUserIndex]?.id ?? null : null;
   // Between `sendMessage` and the first streamed chunk, useChat has not yet
-  // materialized an assistant message. We still want the eventual assistant
-  // row to exist immediately so the loader and first streamed token share one
-  // stable render path instead of swapping between separate row types.
+  // materialized an assistant message. Render a dedicated pending row instead
+  // of inventing a fake assistant message identity that later has to be
+  // reconciled with the real server-backed assistant message id.
   const showPendingAssistantRow =
     isStreaming &&
     messages.length > 0 &&
     messages[messages.length - 1].role === "user";
-
-  const liveAssistantRowKey = useMemo(() => {
-    if (!lastUserMessage) return null;
-    return `assistant-turn-${lastUserMessage.id}`;
-  }, [lastUserMessage]);
-
-  const pendingAssistantMessage = useMemo<ChatMessage | null>(() => {
-    if (!showPendingAssistantRow || !liveAssistantRowKey) return null;
-    return {
-      id: liveAssistantRowKey,
-      role: "assistant",
-      parts: [],
-    } as ChatMessage;
-  }, [showPendingAssistantRow, liveAssistantRowKey]);
 
   // Measure the scroll viewport so we know how tall the spacer should be.
   // Kept in sync via a ResizeObserver so the reservation adapts when the
@@ -129,12 +116,17 @@ const MessagesImpl = () => {
   // Track the height of the most-recent user message so we can size the
   // trailing spacer correctly. The UserRow calls `onMeasure` when it's the
   // pin target (i.e. the last user message in the list).
-  const [lastUserSize, setLastUserSize] = useState(0);
-  // Reset when the pin target changes so we don't carry stale measurements
-  // from the previous turn while the new row is mounting.
-  useEffect(() => {
-    setLastUserSize(0);
-  }, [lastUserIndex]);
+  const [lastMeasuredUser, setLastMeasuredUser] = useState<{
+    messageId: string | null;
+    height: number;
+  }>({
+    messageId: null,
+    height: 0,
+  });
+  const lastUserSize =
+    lastMeasuredUser.messageId === lastUserMessageId
+      ? lastMeasuredUser.height
+      : 0;
 
   const reservedTail = Math.max(0, reservedMinHeight - lastUserSize);
 
@@ -180,8 +172,8 @@ const MessagesImpl = () => {
   // Whichever row ends up at the tail gets the spacer. When the pending
   // loader is present it's the tail; otherwise the last real message is.
   const lastMessageIndex = messages.length - 1;
-  const spacerTarget: "loader" | "message" = showPendingAssistantRow
-    ? "loader"
+  const spacerTarget: "pending" | "message" = showPendingAssistantRow
+    ? "pending"
     : "message";
 
   const rows: ReactNode[] = [];
@@ -200,20 +192,33 @@ const MessagesImpl = () => {
           isAssistantStreaming={isStreaming}
           canEdit={idx === lastUserIndex}
           minHeight={minHeight}
-          onMeasure={idx === lastUserIndex ? setLastUserSize : undefined}
+          onMeasure={
+            idx === lastUserIndex
+              ? (height) => {
+                  setLastMeasuredUser((prev) => {
+                    if (
+                      prev.messageId === message.id &&
+                      prev.height === height
+                    ) {
+                      return prev;
+                    }
+                    return {
+                      messageId: message.id,
+                      height,
+                    };
+                  });
+                }
+              : undefined
+          }
         />,
       );
       return;
     }
 
     if (message.role === "assistant") {
-      const rowKey =
-        isStreaming && isLastAssistant && isLastMessage && liveAssistantRowKey
-          ? liveAssistantRowKey
-          : message.id;
       rows.push(
         <AssistantRow
-          key={rowKey}
+          key={message.id}
           message={message}
           isLastAssistant={isLastAssistant}
           isStreaming={isStreaming && isLastMessage}
@@ -224,13 +229,10 @@ const MessagesImpl = () => {
     }
   });
 
-  if (pendingAssistantMessage) {
+  if (showPendingAssistantRow) {
     rows.push(
-      <AssistantRow
-        key={liveAssistantRowKey}
-        message={pendingAssistantMessage}
-        isLastAssistant
-        isStreaming
+      <PendingAssistantRow
+        key="pending-assistant"
         minHeight={reservedTail}
       />,
     );
@@ -364,6 +366,28 @@ const AssistantRow = memo(function AssistantRow({
           isLastAssistant={isLastAssistant}
           isStreaming={isStreaming}
         />
+      </div>
+    </RowWrapper>
+  );
+});
+
+interface PendingAssistantRowProps {
+  minHeight?: number;
+}
+
+const PendingAssistantRow = memo(function PendingAssistantRow({
+  minHeight,
+}: PendingAssistantRowProps) {
+  return (
+    <RowWrapper minHeight={minHeight}>
+      <div className="mx-auto w-full max-w-[var(--thread-max-width)] pb-4">
+        <div
+          data-role="assistant"
+          data-assistant-content
+          className="mx-2 leading-7 break-words text-foreground"
+        >
+          <PendingAssistantLoader />
+        </div>
       </div>
     </RowWrapper>
   );

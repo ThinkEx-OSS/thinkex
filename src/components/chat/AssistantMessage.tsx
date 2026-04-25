@@ -54,7 +54,7 @@ const AssistantMessageImpl: FC<AssistantMessageProps> = ({
 
   return (
     <div
-      className="group/message relative mx-auto w-full max-w-[var(--thread-max-width)] animate-in pb-4 duration-150 ease-out fade-in slide-in-from-bottom-1"
+      className="group/message relative mx-auto w-full max-w-[var(--thread-max-width)] pb-4"
       data-role="assistant"
     >
       {/*
