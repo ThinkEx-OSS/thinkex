@@ -574,11 +574,6 @@ function formatPdfDetailsFull(
     lines.push(`   - Filename: ${data.filename}`);
   }
 
-  const sourceUrl = getPdfSourceUrl(data);
-  if (sourceUrl) {
-    lines.push(`   - URL: ${sourceUrl}`);
-  }
-
   if (data.ocrPages?.length) {
     let pagesToShow = data.ocrPages;
     if (pageStart != null || pageEnd != null) {

@@ -38,15 +38,19 @@ export function maybeWithSupermemory<T>(
   }
 
   try {
-    return withSupermemory(model as never, userId, {
+    const customId =
+      threadId &&
+      typeof threadId === "string" &&
+      threadId !== "DEFAULT_THREAD_ID"
+        ? threadId
+        : `user:${userId}`;
+
+    return withSupermemory(model as never, {
+      containerTag: userId,
+      customId,
       apiKey,
       mode: "full",
       addMemory: "always",
-      ...(threadId &&
-      typeof threadId === "string" &&
-      threadId !== "DEFAULT_THREAD_ID"
-        ? { conversationId: threadId }
-        : {}),
       verbose: process.env.NODE_ENV === "development",
     }) as unknown as T;
   } catch (error) {
