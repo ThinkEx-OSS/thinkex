@@ -189,7 +189,7 @@ importers:
         specifier: ^2.104.0
         version: 2.104.0
       '@supermemory/tools':
-        specifier: ^1.4.7
+        specifier: 1.4.7
         version: 1.4.7(@ai-sdk/provider@3.0.8)(ws@8.20.0)
       '@tanstack/pacer':
         specifier: ^0.20.1
