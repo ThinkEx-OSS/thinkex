@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import {
   memo,
+  useEffect,
   useCallback,
   useMemo,
   useRef,
@@ -57,13 +58,34 @@ const UserMessageImpl: FC<UserMessageProps> = ({
     return message.parts
       .filter(
         (p): p is { type: "text"; text: string } =>
-          p.type === "text" && typeof (p as { text?: string }).text === "string",
+          p.type === "text" &&
+          typeof (p as { text?: string }).text === "string",
       )
       .map((p) => p.text)
       .join("\n\n");
   }, [message.parts]);
+  const fileParts = useMemo(() => {
+    return message.parts.filter(
+      (
+        part,
+      ): part is {
+        type: "file";
+        url: string;
+        mediaType: string;
+        filename?: string;
+      } =>
+        part.type === "file" &&
+        typeof part.url === "string" &&
+        typeof part.mediaType === "string",
+    );
+  }, [message.parts]);
+  const nonFileParts = useMemo(() => {
+    return message.parts.filter((part) => part.type !== "file");
+  }, [message.parts]);
 
   const showExpand = textContent.length > USER_MESSAGE_MAX_CHARS;
+  const canEditText = canEdit && textContent.trim().length > 0;
+  const hasVisibleMessageBody = nonFileParts.length > 0;
 
   const handleCopy = useCallback(() => {
     if (!textContent) return;
@@ -105,53 +127,74 @@ const UserMessageImpl: FC<UserMessageProps> = ({
             }}
           />
         ) : (
-          <div className="relative rounded-lg bg-muted px-3 py-2 break-words text-foreground text-sm">
-            <div
-              className={cn(
-                "leading-6 [&>span]:whitespace-pre-wrap",
-                !expanded && showExpand && "line-clamp-[12]",
-              )}
-            >
-              {message.parts.map((part, i) => (
-                <MessagePart
-                  key={`${message.id}-${i}`}
-                  part={part}
-                  partIndex={i}
-                  totalParts={message.parts.length}
-                  message={message}
-                  isStreaming={false}
-                  messageKey={`${message.id}-${i}`}
-                />
-              ))}
-            </div>
-            {showExpand && (
-              <div className="flex justify-end pt-1.5 mt-1.5">
-                <button
-                  type="button"
-                  onClick={() => setExpanded((e) => !e)}
-                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label={expanded ? "Show less" : "Show more"}
-                >
-                  {expanded ? (
-                    <ChevronUp className="size-3.5" />
-                  ) : (
-                    <ChevronDown className="size-3.5" />
-                  )}
-                  {expanded ? "Show less" : "Show more"}
-                </button>
+          <>
+            {fileParts.length > 0 ? (
+              <div className="mb-1 flex max-w-full flex-wrap justify-end gap-1.5">
+                {fileParts.map((part, i) => (
+                  <MessagePart
+                    key={`${message.id}-file-${i}`}
+                    part={part}
+                    partIndex={i}
+                    totalParts={fileParts.length}
+                    message={message}
+                    isStreaming={false}
+                    messageKey={`${message.id}-file-${i}`}
+                  />
+                ))}
               </div>
-            )}
-          </div>
+            ) : null}
+            {hasVisibleMessageBody ? (
+              <div className="relative rounded-lg bg-muted px-3 py-2 break-words text-foreground text-sm">
+                <div
+                  className={cn(
+                    "leading-6 [&>span]:whitespace-pre-wrap",
+                    !expanded && showExpand && "line-clamp-[12]",
+                  )}
+                >
+                  {nonFileParts.map((part, i) => (
+                    <MessagePart
+                      key={`${message.id}-body-${i}`}
+                      part={part}
+                      partIndex={i}
+                      totalParts={nonFileParts.length}
+                      message={message}
+                      isStreaming={false}
+                      messageKey={`${message.id}-body-${i}`}
+                    />
+                  ))}
+                </div>
+                {showExpand && (
+                  <div className="mt-1.5 flex justify-end pt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setExpanded((e) => !e)}
+                      className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                      aria-label={expanded ? "Show less" : "Show more"}
+                    >
+                      {expanded ? (
+                        <ChevronUp className="size-3.5" />
+                      ) : (
+                        <ChevronDown className="size-3.5" />
+                      )}
+                      {expanded ? "Show less" : "Show more"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </>
         )}
       </div>
 
       {!isEditing && (
         <div className="ml-2 flex justify-end col-start-2 relative min-h-[20px]">
           <div className="absolute right-0 flex gap-1 text-muted-foreground opacity-0 transition-opacity group-hover/message:opacity-100">
-            <TooltipIconButton tooltip="Copy" onClick={handleCopy}>
-              {copied ? <CheckIcon /> : <CopyIcon />}
-            </TooltipIconButton>
-            {canEdit ? (
+            {textContent ? (
+              <TooltipIconButton tooltip="Copy" onClick={handleCopy}>
+                {copied ? <CheckIcon /> : <CopyIcon />}
+              </TooltipIconButton>
+            ) : null}
+            {canEditText ? (
               <TooltipIconButton
                 tooltip="Edit"
                 onClick={() => setEditing(true)}
@@ -180,16 +223,19 @@ function UserMessageEditor({
 }: UserMessageEditorProps) {
   const [value, setValue] = useState(initialText);
   const [submitting, setSubmitting] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
 
   const handleSubmit = useCallback(async () => {
     const text = value.trim();
     if (!text || submitting) return;
     setSubmitting(true);
-    try {
-      await onSubmit(text);
-    } finally {
+    void Promise.resolve(onSubmit(text)).finally(() => {
       setSubmitting(false);
-    }
+    });
   }, [value, submitting, onSubmit]);
 
   return (
@@ -201,8 +247,8 @@ function UserMessageEditor({
       }}
     >
       <textarea
+        ref={textareaRef}
         value={value}
-        autoFocus
         rows={1}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
@@ -262,9 +308,12 @@ function nextSetMessages(
     if (idx < 0) return prev;
     editedIndex = idx;
     const head = prev.slice(0, idx);
+    const preservedParts = prev[idx].parts.filter(
+      (part) => part.type !== "text",
+    );
     const edited: ChatMessage = {
       ...prev[idx],
-      parts: [{ type: "text", text: newText }],
+      parts: [{ type: "text", text: newText }, ...preservedParts],
     };
     return [...head, edited];
   });

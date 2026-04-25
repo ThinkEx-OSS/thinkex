@@ -38,11 +38,13 @@ interface ChatContextValue {
   threadId: string;
   workspaceId: string;
   status: ReturnType<typeof useChat>["status"];
+  error: ReturnType<typeof useChat>["error"];
   messages: ChatMessage[];
   setMessages: ReturnType<typeof useChat<ChatMessage>>["setMessages"];
   sendMessage: ReturnType<typeof useChat<ChatMessage>>["sendMessage"];
   regenerate: ReturnType<typeof useChat<ChatMessage>>["regenerate"];
   stop: ReturnType<typeof useChat>["stop"];
+  clearError: ReturnType<typeof useChat>["clearError"];
   /** True until the persisted history hydrates (only relevant for resumed threads). */
   isHistoryLoading: boolean;
   /** Reset the active chat (new thread id, empty messages). */
@@ -53,7 +55,8 @@ const ChatContext = createContext<ChatContextValue | null>(null);
 
 export function useChatContext(): ChatContextValue {
   const ctx = useContext(ChatContext);
-  if (!ctx) throw new Error("useChatContext must be used inside <ChatProvider>");
+  if (!ctx)
+    throw new Error("useChatContext must be used inside <ChatProvider>");
   return ctx;
 }
 
@@ -80,11 +83,13 @@ function describeChatError(error: Error): {
 } {
   const errorMessage = error.message?.toLowerCase() || "";
   const responseBody =
-    (error as unknown as { responseBody?: string }).responseBody?.toLowerCase() ||
-    "";
+    (
+      error as unknown as { responseBody?: string }
+    ).responseBody?.toLowerCase() || "";
   const errorData =
-    (error as unknown as { data?: { error?: { message?: string } } }).data
-      ?.error?.message?.toLowerCase() || "";
+    (
+      error as unknown as { data?: { error?: { message?: string } } }
+    ).data?.error?.message?.toLowerCase() || "";
   const combined = `${errorMessage} ${responseBody} ${errorData}`;
 
   if (
@@ -290,13 +295,21 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
       if (!title) return;
       queryClient.setQueryData<ThreadListItem[]>(
         chatQueryKeys.threads(workspaceId),
-        (prev) =>
-          prev?.map((t) => (t.id === threadId ? { ...t, title } : t)),
+        (prev) => prev?.map((t) => (t.id === threadId ? { ...t, title } : t)),
       );
     },
   });
 
-  const { messages, status, sendMessage, regenerate, stop, setMessages } = chat;
+  const {
+    messages,
+    status,
+    error,
+    sendMessage,
+    regenerate,
+    stop,
+    clearError,
+    setMessages,
+  } = chat;
 
   // When persisted history loads after the first render, seed messages once.
   // (useChat's `messages` initializer only runs on mount.)
@@ -357,11 +370,13 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
       threadId,
       workspaceId,
       status,
+      error,
       messages: messages as ChatMessage[],
       setMessages,
       sendMessage,
       regenerate,
       stop,
+      clearError,
       isHistoryLoading,
       startNewThread,
     }),
@@ -369,11 +384,13 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
       threadId,
       workspaceId,
       status,
+      error,
       messages,
       setMessages,
       sendMessage,
       regenerate,
       stop,
+      clearError,
       isHistoryLoading,
       startNewThread,
     ],

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import {
   BracesIcon,
   DownloadIcon,
@@ -12,18 +12,24 @@ import {
   VideoIcon,
 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { useEffect } from "react";
 
 import { cn } from "@/lib/utils";
 
-function getMimeTypeIcon(mimeType: string) {
-  if (mimeType.startsWith("image/")) return ImageIcon;
-  if (mimeType === "application/pdf") return FileTextIcon;
-  if (mimeType === "application/json") return BracesIcon;
-  if (mimeType.startsWith("text/")) return FileTextIcon;
-  if (mimeType.startsWith("audio/")) return MusicIcon;
-  if (mimeType.startsWith("video/")) return VideoIcon;
-  return FileIcon;
+function MimeTypeIcon({ mimeType }: { mimeType: string }) {
+  const className = "size-5 shrink-0 text-muted-foreground";
+  if (mimeType.startsWith("image/")) return <ImageIcon className={className} />;
+  if (mimeType === "application/pdf") {
+    return <FileTextIcon className={className} />;
+  }
+  if (mimeType === "application/json") {
+    return <BracesIcon className={className} />;
+  }
+  if (mimeType.startsWith("text/")) {
+    return <FileTextIcon className={className} />;
+  }
+  if (mimeType.startsWith("audio/")) return <MusicIcon className={className} />;
+  if (mimeType.startsWith("video/")) return <VideoIcon className={className} />;
+  return <FileIcon className={className} />;
 }
 
 export interface FilePartProps {
@@ -42,9 +48,15 @@ export const FilePart = memo(function FilePart({
   filename,
 }: FilePartProps) {
   if (mediaType.startsWith("image/")) {
-    return <ImageFilePart url={url} mediaType={mediaType} filename={filename} />;
+    return (
+      <ImageFilePart
+        key={url}
+        url={url}
+        mediaType={mediaType}
+        filename={filename}
+      />
+    );
   }
-  const Icon = getMimeTypeIcon(mediaType);
   return (
     <a
       href={url}
@@ -53,7 +65,7 @@ export const FilePart = memo(function FilePart({
       download={filename}
       className="my-1 inline-flex max-w-full items-center gap-3 rounded-lg border border-border px-3 py-2 text-sm transition-colors hover:bg-muted/50"
     >
-      <Icon className="size-5 shrink-0 text-muted-foreground" />
+      <MimeTypeIcon mimeType={mediaType} />
       <span className="min-w-0 flex-1 truncate font-medium">
         {filename || "File"}
       </span>
@@ -66,11 +78,6 @@ function ImageFilePart({ url, filename }: FilePartProps) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -81,44 +88,44 @@ function ImageFilePart({ url, filename }: FilePartProps) {
 
   return (
     <>
-      <div className="my-1 w-fit max-w-full overflow-hidden rounded-lg border border-border bg-background/70">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="block max-w-full cursor-zoom-in"
-          aria-label={filename || "Image"}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="my-1 block w-fit max-w-full cursor-zoom-in overflow-hidden rounded-md"
+        aria-label={filename || "Image"}
+        title={filename}
+      >
+        <div
+          className={cn(
+            "relative flex w-fit max-w-full items-center justify-center",
+            !loaded && "min-h-12 min-w-12 bg-muted/30",
+            error && "min-h-12 min-w-12 bg-muted/30",
+          )}
         >
-          <div className="relative flex min-h-24 w-40 max-w-full items-center justify-center bg-muted/40 sm:w-48">
-            {!loaded && !error && (
-              <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
-                <ImageIcon className="size-8 animate-pulse text-muted-foreground" />
-              </div>
-            )}
-            {error ? (
-              <div className="flex min-h-24 w-full items-center justify-center bg-muted/50 p-4">
-                <ImageOffIcon className="size-8 text-muted-foreground" />
-              </div>
-            ) : (
-              <img
-                src={url}
-                alt={filename || "Image content"}
-                className={cn(
-                  "block max-h-44 w-auto max-w-full object-contain",
-                  !loaded && "invisible",
-                )}
-                onLoad={() => setLoaded(true)}
-                onError={() => setError(true)}
-              />
-            )}
-          </div>
-        </button>
-        {filename ? (
-          <span className="block truncate px-2 py-1.5 text-muted-foreground text-xs">
-            {filename}
-          </span>
-        ) : null}
-      </div>
-      {mounted && open && !error
+          {!loaded && !error && (
+            <div className="flex items-center justify-center p-3">
+              <ImageIcon className="size-5 animate-pulse text-muted-foreground" />
+            </div>
+          )}
+          {error ? (
+            <div className="flex items-center justify-center p-3">
+              <ImageOffIcon className="size-5 text-muted-foreground" />
+            </div>
+          ) : (
+            <img
+              src={url}
+              alt={filename || "Image content"}
+              className={cn(
+                "block h-auto max-h-28 w-auto max-w-[56vw] rounded-md object-contain sm:max-h-32 sm:max-w-52",
+                !loaded && "invisible",
+              )}
+              onLoad={() => setLoaded(true)}
+              onError={() => setError(true)}
+            />
+          )}
+        </div>
+      </button>
+      {typeof document !== "undefined" && open && !error
         ? createPortal(
             <div
               role="button"
@@ -132,10 +139,6 @@ function ImageFilePart({ url, filename }: FilePartProps) {
                 src={url}
                 alt={filename || "Image content"}
                 className="fade-in zoom-in-95 max-h-[90vh] max-w-[90vw] animate-in cursor-zoom-out object-contain duration-200"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOpen(false);
-                }}
               />
             </div>,
             document.body,

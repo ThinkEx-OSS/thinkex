@@ -1,5 +1,6 @@
 "use client";
 
+import { AlertTriangleIcon } from "lucide-react";
 import {
   memo,
   useCallback,
@@ -15,12 +16,9 @@ import { VList, type VListHandle } from "virtua";
 import { PendingAssistantLoader } from "@/components/chat/AssistantLoader";
 import { AssistantMessage } from "@/components/chat/AssistantMessage";
 import { useChatContext } from "@/components/chat/ChatProvider";
+import { Button } from "@/components/ui/button";
 import { UserMessage } from "@/components/chat/UserMessage";
-import {
-  chatDebug,
-  chatWarn,
-  summarizeRoster,
-} from "@/lib/chat/debug";
+import { chatDebug, chatWarn, summarizeRoster } from "@/lib/chat/debug";
 import type { ChatMessage } from "@/lib/chat/types";
 import {
   THREAD_SCROLL_PIN_OFFSET,
@@ -53,7 +51,7 @@ import {
  *    row. The next turn repeats the cycle.
  */
 const MessagesImpl = () => {
-  const { messages, status } = useChatContext();
+  const { messages, status, error, regenerate, clearError } = useChatContext();
   const isStreaming = status === "streaming" || status === "submitted";
 
   // [chat-debug] Log a roster snapshot whenever the message list changes
@@ -85,7 +83,7 @@ const MessagesImpl = () => {
     return -1;
   }, [messages]);
   const lastUserMessageId =
-    lastUserIndex >= 0 ? messages[lastUserIndex]?.id ?? null : null;
+    lastUserIndex >= 0 ? (messages[lastUserIndex]?.id ?? null) : null;
   // Between `sendMessage` and the first streamed chunk, useChat has not yet
   // materialized an assistant message. Render a dedicated pending row instead
   // of inventing a fake assistant message identity that later has to be
@@ -231,9 +229,18 @@ const MessagesImpl = () => {
 
   if (showPendingAssistantRow) {
     rows.push(
-      <PendingAssistantRow
-        key="pending-assistant"
-        minHeight={reservedTail}
+      <PendingAssistantRow key="pending-assistant" minHeight={reservedTail} />,
+    );
+  }
+
+  if (status === "error" || error) {
+    rows.push(
+      <AssistantErrorRow
+        key="assistant-error"
+        onRetry={() => {
+          clearError();
+          void regenerate();
+        }}
       />,
     );
   }
@@ -277,10 +284,7 @@ function RowWrapper({ children, minHeight }: RowWrapperProps) {
   // apply `mx-auto max-w-[var(--thread-max-width)]`, so adding a second
   // max-width here would double-shrink the column.
   return (
-    <div
-      className="w-full [--thread-max-width:46rem]"
-      style={style}
-    >
+    <div className="w-full [--thread-max-width:46rem]" style={style}>
       {children}
     </div>
   );
@@ -386,6 +390,36 @@ const PendingAssistantRow = memo(function PendingAssistantRow({
           className="mx-2 leading-7 break-words text-foreground"
         >
           <PendingAssistantLoader />
+        </div>
+      </div>
+    </RowWrapper>
+  );
+});
+
+const AssistantErrorRow = memo(function AssistantErrorRow({
+  onRetry,
+}: {
+  onRetry: () => void;
+}) {
+  return (
+    <RowWrapper>
+      <div className="mx-auto w-full max-w-[var(--thread-max-width)] pb-4">
+        <div
+          data-role="assistant"
+          data-assistant-content
+          className="mx-2 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-foreground"
+        >
+          <div className="flex items-start gap-2">
+            <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-destructive" />
+            <div className="min-w-0">
+              <p className="text-sm leading-6">AI failed to respond.</p>
+              <div className="mt-2">
+                <Button size="sm" variant="outline" onClick={onRetry}>
+                  Retry
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </RowWrapper>
