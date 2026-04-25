@@ -102,7 +102,7 @@ import {
   MAX_FILE_SIZE,
 } from "@/lib/tiptap-utils";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { focusComposerInput } from "@/lib/utils/composer-utils";
+import { useOptionalComposer } from "@/components/chat/composer-context";
 import { askAiPrimaryButtonClass } from "@/lib/ui/ask-ai-toolbar-styles";
 import { toast } from "sonner";
 
@@ -705,6 +705,7 @@ function AskAiBubbleMenu({
   cardName?: string;
 }) {
   const addReplySelection = useUIStore((state) => state.addReplySelection);
+  const composer = useOptionalComposer();
 
   const handleAskAI = useCallback(() => {
     if (!editor) return;
@@ -721,8 +722,8 @@ function AskAiBubbleMenu({
     });
     editor.chain().focus().setTextSelection(to).run();
     toast.success("Added to context");
-    focusComposerInput();
-  }, [editor, addReplySelection, cardName]);
+    composer?.focus();
+  }, [editor, addReplySelection, cardName, composer]);
 
   if (!editor) return null;
 

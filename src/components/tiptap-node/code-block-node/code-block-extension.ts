@@ -19,14 +19,15 @@ function createShikiPlugin(): Plugin {
   }
 
   let highlighter: HighlighterGeneric<any, any> | undefined
-  let parser: Parser | undefined
+  let lightParser: Parser | undefined
+  let darkParser: Parser | undefined
 
   const lazyParser: Parser = (parserOptions) => {
     if (!highlighter) {
       if (!globalShiki[shikiSymbol]) {
         globalShiki[shikiSymbol] = import("shiki").then(({ createHighlighter }) =>
           createHighlighter({
-            themes: ["one-dark-pro"],
+            themes: ["github-light", "github-dark"],
             langs: [],
           })
         )
@@ -52,11 +53,23 @@ function createShikiPlugin(): Plugin {
       return highlighter.loadLanguage(language as any)
     }
 
-    if (!parser) {
-      parser = createParser(highlighter as any, { theme: "one-dark-pro" } as any)
+    const prefersDark =
+      typeof document !== "undefined" &&
+      document.documentElement.classList.contains("dark")
+
+    if (!lightParser) {
+      lightParser = createParser(highlighter as any, {
+        theme: "github-light",
+      } as any)
     }
 
-    return parser(parserOptions)
+    if (!darkParser) {
+      darkParser = createParser(highlighter as any, {
+        theme: "github-dark",
+      } as any)
+    }
+
+    return (prefersDark ? darkParser : lightParser)(parserOptions)
   }
 
   return createHighlightPlugin({

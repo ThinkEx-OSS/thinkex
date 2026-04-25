@@ -17,9 +17,8 @@ import {
 
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { usePromptInput } from "@/lib/chat/runtime";
+import { useOptionalComposer } from "@/components/chat/composer-context";
 import { toast } from "sonner";
-import { focusComposerInput } from "@/lib/utils/composer-utils";
 
 // PDF Plugin imports
 import { useZoom, ZoomMode } from '@embedpdf/plugin-zoom/react';
@@ -83,7 +82,7 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
     const captureRef = useRef(capture);
     captureRef.current = capture;
 
-    const promptInput = usePromptInput();
+    const promptInput = useOptionalComposer();
     const promptInputRef = useRef(promptInput);
     promptInputRef.current = promptInput;
 
@@ -106,7 +105,7 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
                 if (!promptInput) {
                     throw new Error("Chat composer not ready");
                 }
-                await promptInput.addAttachment(file);
+                await promptInput.addAttachments([file]);
                 toast.success("Screenshot added to chat");
 
                 // Turn off capture mode
@@ -114,7 +113,7 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
 
                 // Focus composer similar to reply flow — expand chat if collapsed, then focus input
                 useUIStore.getState().setIsChatExpanded(true);
-                focusComposerInput();
+                promptInput.focus();
 
             } catch (error) {
                 console.error("Failed to add capture attachment:", error);

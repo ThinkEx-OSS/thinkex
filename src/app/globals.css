@@ -35,24 +35,6 @@
   font-size: 1rem;
 }
 
-/* Streamdown code block: language and action buttons on same row (override default flex-col) */
-.streamdown-content [data-streamdown="code-block"] {
-  display: grid !important;
-  grid-template-areas: "header actions" "body body";
-}
-.streamdown-content [data-streamdown="code-block"] > [data-streamdown="code-block-header"] {
-  grid-area: header;
-}
-.streamdown-content [data-streamdown="code-block"] > div:nth-child(2) {
-  grid-area: actions;
-  margin-top: 0 !important;
-}
-.streamdown-content [data-streamdown="code-block"] > [data-streamdown="code-block-body"] {
-  grid-area: body;
-  padding-inline: 0;
-  overflow-x: auto !important;
-}
-
 /* Prosemirror-search citation highlight - theme-aware */
 .ProseMirror-search-match {
   background-color: rgba(234, 179, 8, 0.35);
@@ -216,14 +198,6 @@
   body {
     @apply bg-background text-foreground;
   }
-}
-
-/* Prevent CSS smooth scrolling from interfering with assistant-ui's programmatic
-   scrollTo calls. The library uses scrollTo({ behavior: "auto" }) which defers
-   to this CSS property — smooth animation races with DOM updates during streaming,
-   causing missed/janky scroll positions. See: assistant-ui/assistant-ui#3648 */
-.aui-thread-viewport {
-  scroll-behavior: auto;
 }
 
 body {
@@ -1179,21 +1153,4 @@ body:has(.card-detail-modal) .workspace-grid-container {
   to {
     opacity: 1;
   }
-}
-
-/* User message breathe-in animation */
-@keyframes breatheIn {
-  from {
-    opacity: 0;
-    transform: scale(0.7);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.animate-breathe-in {
-  transform-origin: right center;
-  animation: breatheIn 0.7s cubic-bezier(0.16, 1.1, 0.3, 1.02) forwards;
 }

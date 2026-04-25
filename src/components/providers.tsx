@@ -16,12 +16,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       {children}
       <VersionUpdateBanner />
       <PasswordProtectedPdfDialog />
-      <Toaster
-        position="top-right"
-        richColors
-        closeButton
-        className="aui-screenshot-ignore"
-      />
+      <Toaster position="top-right" richColors closeButton />
     </TooltipProvider>
   );
 }
