@@ -250,13 +250,7 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
                 className="flex-1 text-start cursor-pointer min-w-0"
                 onClick={() => onSelect(thread.id)}
               >
-                <div
-                  className="min-w-0 flex-1"
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    setIsEditing(true);
-                  }}
-                >
+                <div className="min-w-0 flex-1">
                   <span className="text-sm break-words block truncate">
                     {title}
                   </span>
