@@ -238,9 +238,6 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
         className={cn(
           "relative flex w-full flex-col rounded-lg border border-sidebar-border bg-sidebar-accent px-3.5 pt-2 pb-1 shadow-[0_9px_9px_0px_rgba(0,0,0,0.01),0_2px_5px_0px_rgba(0,0,0,0.06)] dark:border-sidebar-border/15",
         )}
-        onClick={(e) => {
-          if (!e.defaultPrevented) composer.focus();
-        }}
         onSubmit={handleSubmit}
       >
       {composer.attachments.length > 0 && (
