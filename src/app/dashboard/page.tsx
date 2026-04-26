@@ -17,7 +17,6 @@ import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useSession } from "@/lib/auth-client";
 import { WorkspaceSection } from "@/components/workspace-canvas/WorkspaceSection";
 import { OpenWorkspaceItemView } from "@/components/workspace-canvas/OpenWorkspaceItemView";
-import { AnonymousSignInPrompt } from "@/components/modals/AnonymousSignInPrompt";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import WorkspaceHeader from "@/components/workspace-canvas/WorkspaceHeader";
 import { WorkspaceSearchDialog } from "@/components/workspace-canvas/WorkspaceSearchDialog";
@@ -128,22 +127,9 @@ function DashboardContent({
   // Workspace operations
   const operations = useWorkspaceOperations(currentWorkspaceId, state);
 
-  // Track sign-in prompt dismissal per workspace for anonymous users.
-  const [
-    dismissedSignInPromptWorkspaceId,
-    setDismissedSignInPromptWorkspaceId,
-  ] = useState<string | null>(null);
-
   // Workspace settings/share modals (lifted so header can open them)
   const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
   const [showWorkspaceShare, setShowWorkspaceShare] = useState(false);
-
-  const showSignInPrompt =
-    !!session?.user?.isAnonymous &&
-    !isLoadingWorkspace &&
-    !!currentWorkspaceId &&
-    state.length >= 15 &&
-    dismissedSignInPromptWorkspaceId !== currentWorkspaceId;
 
   // Get sidebar state and controls
   const { toggleSidebar } = useSidebar();
@@ -271,14 +257,6 @@ function DashboardContent({
         open={showOnboardingDialog}
         onOpenChange={setShowOnboardingDialog}
       /> */}
-      <AnonymousSignInPrompt
-        open={showSignInPrompt}
-        onOpenChange={(open) => {
-          if (!open && currentWorkspaceId) {
-            setDismissedSignInPromptWorkspaceId(currentWorkspaceId);
-          }
-        }}
-      />
       <DashboardLayout
         currentWorkspaceId={currentWorkspaceId}
         onWorkspaceSwitch={switchWorkspace}
