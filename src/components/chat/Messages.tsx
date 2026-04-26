@@ -133,25 +133,30 @@ const MessagesImpl = () => {
 
   // When a thread is loaded/switched, drop the user at the bottom of the
   // scroll container so they land on the latest exchange (typically the
-  // most recent assistant response). `<Messages>` unmounts whenever the
-  // active thread changes — `ChatProvider.selectThread` clears messages
-  // and `<ThreadBody>` swaps in the loading skeleton — so this ref is
-  // fresh on every mount and naturally fires once per thread load.
-  const initialScrollToBottomRef = useRef(false);
+  // most recent assistant response). `<Messages>` remounts on every
+  // thread load — `ChatProvider.selectThread` clears messages and
+  // `<ThreadBody>` swaps in the loading skeleton until hydration
+  // completes — so a single mount-time effect is enough; no ref guard
+  // or dep tracking needed.
+  //
+  // We bail when `isStreaming` is true on mount so we don't fight the
+  // pin-to-top effect below in the brand-new-thread case (where
+  // `<Messages>` mounts mid-turn). Empty deps mean the effect won't
+  // re-fire when streaming ends, avoiding a post-turn scroll jolt.
   useLayoutEffect(() => {
-    if (initialScrollToBottomRef.current) return;
-    if (messages.length === 0) return;
-    // Active turns are handled by the pin-to-top effect below; don't
-    // fight it.
     if (isStreaming) return;
+    if (messages.length === 0) return;
     const handle = vlistRef.current;
     if (!handle) return;
-    initialScrollToBottomRef.current = true;
     const lastIndex = messages.length - 1;
     requestAnimationFrame(() => {
       handle.scrollToIndex(lastIndex, { align: "end" });
     });
-  }, [messages.length, isStreaming]);
+    // Intentional: fire once per <Messages> mount. `messages` and
+    // `isStreaming` are read from the first-render closure, which is
+    // the correct moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Pin the newest message just below the top of the viewport on every new
   // turn. Most turns arrive as a `ready → submitted` transition, but the
