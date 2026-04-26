@@ -1,4 +1,5 @@
 import { Zero } from "@rocicorp/zero";
+import { getZeroConfigError } from "@/lib/self-host-config";
 import { mutators } from "./mutators";
 import { schema } from "./zero-schema.gen";
 
@@ -10,6 +11,11 @@ const appURL =
   process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 function createZeroInstance(params: { userId: string }) {
+  const configError = getZeroConfigError();
+  if (configError) {
+    throw new Error(configError);
+  }
+
   return new Zero({
     schema,
     cacheURL: process.env.NEXT_PUBLIC_ZERO_SERVER!,

@@ -4,11 +4,13 @@ import { ZeroProvider as BaseZeroProvider } from "@rocicorp/zero/react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo } from "react";
 import { useSession } from "@/lib/auth-client";
+import { getZeroConfigError } from "@/lib/self-host-config";
 import { destroyZero, getZero } from "./client";
 
 export function ZeroProvider({ children }: { children: ReactNode }) {
   const { data: session, isPending } = useSession();
   const userId = session?.user?.id ?? null;
+  const zeroConfigError = getZeroConfigError();
 
   useEffect(() => {
     if (!userId) {
@@ -17,12 +19,25 @@ export function ZeroProvider({ children }: { children: ReactNode }) {
   }, [userId]);
 
   const zero = useMemo(() => {
-    if (!userId) {
+    if (zeroConfigError || !userId) {
       return null;
     }
 
     return getZero({ userId });
-  }, [userId]);
+  }, [userId, zeroConfigError]);
+
+  if (zeroConfigError) {
+    return (
+      <div className="flex h-full w-full items-center justify-center p-6">
+        <div className="max-w-md rounded-xl border bg-background p-5 text-sm text-muted-foreground shadow-sm">
+          <p className="font-medium text-foreground">Zero is required for local development.</p>
+          <p className="mt-2">
+            {zeroConfigError}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (isPending || !zero) {
     // Show a minimal loading state instead of null to avoid

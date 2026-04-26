@@ -1,15 +1,74 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { createClient } from "@supabase/supabase-js";
+import { existsSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
 import { NextRequest, NextResponse } from "next/server";
+import { join, resolve, sep } from "node:path";
 import {
   getPreferredUploadContentType,
-  isOfficeDocument,
   getOfficeDocumentConvertUrl,
 } from "@/lib/uploads/office-document-validation";
+import {
+  getStorageMode,
+  getUnsupportedLocalStorageMessage,
+} from "@/lib/self-host-config";
 import { withServerObservability } from "@/lib/with-server-observability";
 
 export const maxDuration = 30;
+
+function getUploadsDir(): string {
+  return resolve(process.env.UPLOADS_DIR || join(process.cwd(), "uploads"));
+}
+
+function validateStorageSegment(value: string, label: string): string {
+  if (
+    !value ||
+    value === "." ||
+    value === ".." ||
+    value.includes("/") ||
+    value.includes("\\")
+  ) {
+    throw new Error(`Invalid ${label}`);
+  }
+
+  return value;
+}
+
+function isPathInsideDirectory(filePath: string, directory: string): boolean {
+  return filePath === directory || filePath.startsWith(`${directory}${sep}`);
+}
+
+async function saveFileLocally(
+  file: File,
+  userId: string,
+  filename: string,
+): Promise<{ storagePath: string; publicUrl: string }> {
+  const uploadsDir = getUploadsDir();
+  const ownerId = validateStorageSegment(userId, "user id");
+  const safeFilename = validateStorageSegment(filename, "filename");
+  const targetDir = resolve(uploadsDir, ownerId);
+  const filePath = resolve(targetDir, safeFilename);
+
+  if (!isPathInsideDirectory(targetDir, uploadsDir)) {
+    throw new Error("Invalid user storage path");
+  }
+  if (!isPathInsideDirectory(filePath, uploadsDir)) {
+    throw new Error("Invalid file storage path");
+  }
+
+  if (!existsSync(targetDir)) {
+    await mkdir(targetDir, { recursive: true });
+  }
+
+  const bytes = await file.arrayBuffer();
+  await writeFile(filePath, Buffer.from(bytes));
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const storagePath = `${ownerId}/${safeFilename}`;
+  const publicUrl = `${appUrl}/api/files/${encodeURIComponent(ownerId)}/${encodeURIComponent(safeFilename)}`;
+  return { storagePath, publicUrl };
+}
 
 export const POST = withServerObservability(async function POST(request: NextRequest) {
   try {
@@ -24,7 +83,6 @@ export const POST = withServerObservability(async function POST(request: NextReq
         { status: 401 }
       );
     }
-
     const userId = session.user.id;
 
     // Get file from form data
@@ -97,9 +155,27 @@ export const POST = withServerObservability(async function POST(request: NextReq
     const originalName = file.name;
     // Sanitize filename: remove spaces and special chars, keep only alphanumeric, dots, hyphens, underscores
     const sanitizedName = originalName.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const filename = isOfficeUpload
+    const storageMode = getStorageMode();
+    const filename = storageMode === "supabase" && isOfficeUpload
       ? `uploads/${timestamp}-${random}-${sanitizedName}`
       : `${timestamp}-${random}-${sanitizedName}`;
+
+    if (storageMode === "local") {
+      if (isOfficeUpload) {
+        return NextResponse.json(
+          { error: getUnsupportedLocalStorageMessage("Document conversion") },
+          { status: 400 },
+        );
+      }
+
+      const { publicUrl, storagePath } = await saveFileLocally(file, userId, filename);
+
+      return NextResponse.json({
+        success: true,
+        url: publicUrl,
+        filename: storagePath,
+      });
+    }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

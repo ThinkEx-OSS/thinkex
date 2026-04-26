@@ -4,6 +4,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { isSupabaseClientConfigured } from "@/lib/self-host-config";
 
 let supabaseClient: SupabaseClient | null = null;
 
@@ -16,14 +17,14 @@ export function getSupabaseClient(): SupabaseClient {
         return supabaseClient;
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
+    if (!isSupabaseClientConfigured()) {
         throw new Error(
             'Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are required'
         );
     }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
     supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
         realtime: {
@@ -41,6 +42,10 @@ export function getSupabaseClient(): SupabaseClient {
  * Should be called after user logs in or token refreshes
  */
 export async function setRealtimeAuth(accessToken: string): Promise<void> {
+    if (!isSupabaseClientConfigured()) {
+        return;
+    }
+
     const client = getSupabaseClient();
     await client.realtime.setAuth(accessToken);
 }

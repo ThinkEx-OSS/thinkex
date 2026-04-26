@@ -64,7 +64,6 @@ function generateThreadId(): string {
   }
   return `thread-${Math.random().toString(36).slice(2)}-${Date.now()}`;
 }
-
 /**
  * Owns the *visible* threadId selection for a workspace and binds the
  * current Chat runtime to the rest of the chat surface.

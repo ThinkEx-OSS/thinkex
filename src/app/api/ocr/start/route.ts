@@ -6,6 +6,10 @@ import { verifyWorkspaceAccess } from "@/lib/api/workspace-helpers";
 import { withServerObservability } from "@/lib/with-server-observability";
 import { filterOcrCandidates } from "@/lib/ocr/dispatch";
 import { isAllowedOcrFileUrl } from "@/lib/ocr/url-validation";
+import {
+  getUnsupportedLocalStorageMessage,
+  usesLocalStorage,
+} from "@/lib/self-host-config";
 import { ocrDispatchWorkflow } from "@/workflows/ocr-dispatch";
 import type { OcrCandidate } from "@/lib/ocr/types";
 
@@ -40,12 +44,22 @@ export const POST = withServerObservability(async function POST(req: NextRequest
       );
     }
 
+    if (usesLocalStorage()) {
+      return NextResponse.json(
+        { error: getUnsupportedLocalStorageMessage("OCR") },
+        { status: 400 },
+      );
+    }
+
     const invalidCandidate = candidates.find(
       (candidate) => !isAllowedOcrFileUrl(candidate.fileUrl)
     );
     if (invalidCandidate) {
       return NextResponse.json(
-        { error: "One or more OCR candidate URLs are not allowed" },
+        {
+          error:
+            "OCR only accepts provider-reachable storage URLs configured for this deployment.",
+        },
         { status: 400 }
       );
     }
