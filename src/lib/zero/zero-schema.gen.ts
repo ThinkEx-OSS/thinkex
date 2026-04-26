@@ -51,6 +51,25 @@ const workspaceItemContent = table("workspace_item_content")
   })
   .primaryKey("workspaceId", "itemId");
 
+const workspaceEvents = table("workspace_events")
+  .from("workspace_events")
+  .columns({
+    id: string(),
+    workspaceId: string().from("workspace_id"),
+    userId: string().from("user_id"),
+    actorName: string().from("actor_name").optional(),
+    actorImage: string().from("actor_image").optional(),
+    itemId: string().from("item_id").optional(),
+    itemType: string().from("item_type").optional(),
+    itemName: string().from("item_name").optional(),
+    action: string(),
+    summary: json(),
+    editCount: number().from("edit_count"),
+    createdAt: number().from("created_at").optional(),
+    updatedAt: number().from("updated_at").optional(),
+  })
+  .primaryKey("id");
+
 const workspaceItemsRelationships = relationships(
   workspaceItems,
   ({ one }) => ({
@@ -74,7 +93,7 @@ const workspaceItemContentRelationships = relationships(
 );
 
 export const schema = createSchema({
-  tables: [workspaceItems, workspaceItemContent],
+  tables: [workspaceItems, workspaceItemContent, workspaceEvents],
   relationships: [
     workspaceItemsRelationships,
     workspaceItemContentRelationships,
@@ -90,6 +109,9 @@ export type WorkspaceItemsRow = Row<
 >;
 export type WorkspaceItemContentRow = Row<
   (typeof schema)["tables"]["workspace_item_content"]
+>;
+export type WorkspaceEventsRow = Row<
+  (typeof schema)["tables"]["workspace_events"]
 >;
 
 export const zql = createBuilder(schema);

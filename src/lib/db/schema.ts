@@ -743,3 +743,70 @@ export const chatMessages = pgTable(
     ),
   ],
 );
+
+// Workspace activity events — append-only audit log for collaborator awareness.
+// Server-only writes (via Zero server mutators); RLS allows reads by
+// owner/collaborators, no client write policy.
+export const workspaceEvents = pgTable(
+  "workspace_events",
+  {
+    id: uuid().defaultRandom().primaryKey().notNull(),
+    workspaceId: uuid("workspace_id").notNull(),
+
+    // Actor — snapshot at write time (no FK; matches existing user_id convention)
+    userId: text("user_id").notNull(),
+    actorName: text("actor_name"),
+    actorImage: text("actor_image"),
+
+    // Subject — also snapshot so deleted/renamed items still render meaningfully
+    itemId: text("item_id"),
+    itemType: text("item_type"),
+    itemName: text("item_name"),
+
+    action: text("action").notNull(),
+    // Allowed values: 'item_created' | 'item_renamed' | 'item_updated'
+    //               | 'item_deleted' | 'item_moved' | 'folder_created'
+
+    summary: jsonb("summary").default({}).notNull(),
+    editCount: integer("edit_count").default(1).notNull(),
+
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("idx_workspace_events_workspace_updated").using(
+      "btree",
+      table.workspaceId.asc().nullsLast().op("uuid_ops"),
+      table.updatedAt.desc().nullsFirst().op("timestamptz_ops"),
+    ),
+    index("idx_workspace_events_coalesce").using(
+      "btree",
+      table.workspaceId.asc().nullsLast().op("uuid_ops"),
+      table.userId.asc().nullsLast().op("text_ops"),
+      table.itemId.asc().nullsLast().op("text_ops"),
+      table.action.asc().nullsLast().op("text_ops"),
+      table.updatedAt.desc().nullsFirst().op("timestamptz_ops"),
+    ),
+    foreignKey({
+      columns: [table.workspaceId],
+      foreignColumns: [workspaces.id],
+      name: "workspace_events_workspace_id_fkey",
+    }).onDelete("cascade"),
+    pgPolicy("Users can read workspace events they have access to", {
+      as: "permissive",
+      for: "select",
+      to: ["public"],
+      using: sql`(EXISTS ( SELECT 1
+   FROM workspaces
+  WHERE ((workspaces.id = workspace_events.workspace_id) AND (workspaces.user_id = (auth.jwt() ->> 'sub'::text))))) OR (EXISTS ( SELECT 1
+   FROM workspace_collaborators c
+  WHERE ((c.workspace_id = workspace_events.workspace_id) AND (c.user_id = (auth.jwt() ->> 'sub'::text)))))`,
+    }),
+    // No insert/update/delete policy — server mutators write via wrappedTx
+    // which bypasses RLS by design.
+  ],
+);
