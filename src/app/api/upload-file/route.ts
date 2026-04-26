@@ -9,7 +9,10 @@ import {
   getPreferredUploadContentType,
   getOfficeDocumentConvertUrl,
 } from "@/lib/uploads/office-document-validation";
-import { getStorageMode } from "@/lib/self-host-config";
+import {
+  getStorageMode,
+  getUnsupportedLocalStorageMessage,
+} from "@/lib/self-host-config";
 import { withServerObservability } from "@/lib/with-server-observability";
 
 export const maxDuration = 30;
@@ -118,6 +121,13 @@ export const POST = withServerObservability(async function POST(request: NextReq
       : `${timestamp}-${random}-${sanitizedName}`;
 
     if (storageMode === "local") {
+      if (isOfficeUpload) {
+        return NextResponse.json(
+          { error: getUnsupportedLocalStorageMessage("Document conversion") },
+          { status: 400 },
+        );
+      }
+
       const publicUrl = await saveFileLocally(file, filename);
 
       return NextResponse.json({

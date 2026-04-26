@@ -8,6 +8,7 @@ import {
   getPreferredUploadContentType,
   isOfficeDocument,
 } from "./office-document-validation";
+import { getUnsupportedLocalStorageMessage } from "@/lib/self-host-config";
 
 const MAX_FILE_SIZE_BYTES = 200 * 1024 * 1024; // 200MB
 
@@ -121,14 +122,14 @@ export async function uploadFileDirect(
   }
 
   if (urlData.mode === "local") {
+    if (isOfficeUpload) {
+      throw new Error(getUnsupportedLocalStorageMessage("Document conversion"));
+    }
+
     const result = await uploadViaApiRoute(file);
     if (log) {
       const total = performance.now() - t0;
       console.info(`[PDF_UPLOAD] Local upload fallback: ${total.toFixed(0)}ms`);
-    }
-
-    if (isOfficeUpload) {
-      return convertOfficeUpload(result.filename, result.url, file.name);
     }
 
     return result;

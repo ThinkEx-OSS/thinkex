@@ -3,7 +3,10 @@ import { auth } from "@/lib/auth";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from 'next/server';
 import { getOfficeDocumentConvertUrlFromMeta } from "@/lib/uploads/office-document-validation";
-import { getStorageMode } from "@/lib/self-host-config";
+import {
+  getStorageMode,
+  getUnsupportedLocalStorageMessage,
+} from "@/lib/self-host-config";
 import { withServerObservability } from "@/lib/with-server-observability";
 
 export const maxDuration = 10;
@@ -41,6 +44,13 @@ async function handlePOST(request: NextRequest) {
     const storageMode = getStorageMode();
 
     if (storageMode === "local") {
+      if (isOfficeUpload) {
+        return NextResponse.json(
+          { error: getUnsupportedLocalStorageMessage("Document conversion") },
+          { status: 400 },
+        );
+      }
+
       return NextResponse.json({
         mode: "local",
         uploadUrl: "/api/upload-file",

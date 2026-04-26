@@ -38,15 +38,21 @@ get_env_value() {
     grep -E "^${key}=" .env 2>/dev/null | head -n1 | cut -d'=' -f2-
 }
 
+escape_sed_replacement() {
+    printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'
+}
+
 set_env_value() {
     local key=$1
     local value=$2
+    local escaped_value
+    escaped_value=$(escape_sed_replacement "$value")
 
     if grep -q "^${key}=" .env 2>/dev/null; then
         if [[ "$OSTYPE" == "darwin"* ]]; then
-            sed -i '' "s|^${key}=.*|${key}=${value}|" .env
+            sed -i '' "s|^${key}=.*|${key}=${escaped_value}|" .env
         else
-            sed -i "s|^${key}=.*|${key}=${value}|" .env
+            sed -i "s|^${key}=.*|${key}=${escaped_value}|" .env
         fi
     else
         echo "${key}=${value}" >> .env

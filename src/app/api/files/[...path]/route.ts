@@ -37,6 +37,22 @@ function isPathInsideDirectory(filePath: string, directory: string): boolean {
   return filePath === directory || filePath.startsWith(`${directory}${sep}`);
 }
 
+function getDownloadHeaders(relativePath: string): Headers {
+  const contentType = getContentType(relativePath);
+  const headers = new Headers({
+    "Cache-Control": "private, max-age=0, must-revalidate",
+    "Content-Type": contentType,
+    "X-Content-Type-Options": "nosniff",
+  });
+
+  if (contentType === "image/svg+xml") {
+    const filename = relativePath.split("/").at(-1) ?? "download.svg";
+    headers.set("Content-Disposition", `attachment; filename="${filename}"`);
+  }
+
+  return headers;
+}
+
 async function handleGET(
   _request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> },
@@ -70,10 +86,7 @@ async function handleGET(
 
   const file = await readFile(filePath);
   return new NextResponse(file, {
-    headers: {
-      "Content-Type": getContentType(relativePath),
-      "Cache-Control": "private, max-age=0, must-revalidate",
-    },
+    headers: getDownloadHeaders(relativePath),
   });
 }
 

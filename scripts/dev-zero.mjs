@@ -20,6 +20,7 @@ const REQUIRED_ENV_KEYS = [
   "ZERO_APP_PUBLICATIONS",
   "ZERO_ADMIN_PASSWORD",
   "ZERO_APP_ID",
+  "ZERO_COOKIE_DOMAIN",
   "NEXT_PUBLIC_ZERO_SERVER",
 ];
 
@@ -74,7 +75,7 @@ function failMissingEnv(keys) {
 
 function spawnZero() {
   const pnpmCmd = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-  const forwardedArgs = [...process.argv.slice(2)];
+  const forwardedArgs = process.argv.slice(2);
   if (forwardedArgs[0] === "--") {
     forwardedArgs.shift();
   }
