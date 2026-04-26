@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { LogOut, User } from "lucide-react";
 import { useState, useCallback, memo } from "react";
 import { useSession, signOut } from "@/lib/auth-client";
@@ -265,90 +264,59 @@ function WorkspaceSidebar(props: WorkspaceSidebarProps) {
       </SidebarContent>
 
       <SidebarFooter className="py-1.5">
-        {session?.user?.isAnonymous ? (
-          // Anonymous user footer - Sign in/Sign up (shown on all routes including home)
-          <div className="flex flex-col gap-2 px-2 py-2 w-full">
-            <p className="text-sm text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
-              Sign in to save your work and use unlimited AI
-            </p>
-            <div className="flex items-center gap-2">
-              <Link href="/auth/sign-in" className="flex-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs w-full group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:px-2"
-                >
-                  <span className="group-data-[collapsible=icon]:hidden">Sign in</span>
-                  <span className="group-data-[collapsible=icon]:inline hidden">In</span>
-                </Button>
-              </Link>
-              <Link href="/auth/sign-up" className="flex-1">
-                <Button
-                  size="sm"
-                  className="h-7 text-xs w-full group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:px-2"
-                >
-                  <span className="group-data-[collapsible=icon]:hidden">Sign up</span>
-                  <span className="group-data-[collapsible=icon]:inline hidden">Up</span>
-                </Button>
-              </Link>
-            </div>
-          </div>
-        ) : (
-          // Authenticated user footer - Profile and Support
-          <SidebarMenu>
-            {/* Single row with Guide, Support, and Profile */}
-            <SidebarMenuItem>
-              <div className="flex items-center gap-1.5 w-full" data-tour="help-support-group">
-                {/* Profile avatar */}
-                <div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <SidebarMenuButton
-                        size="default"
-                        className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground h-auto p-1.5 group-data-[collapsible=icon]:h-auto group-data-[collapsible=icon]:min-h-[42px] group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 cursor-pointer"
-                        suppressHydrationWarning
-                      >
-                        <Avatar className="h-7 w-7 rounded-md">
-                          {userImage && <AvatarImage src={userImage} alt={userName} />}
-                          <AvatarFallback className="rounded-md bg-primary/10 text-xs">
-                            {getInitials(userName)}
-                          </AvatarFallback>
-                        </Avatar>
-                      </SidebarMenuButton>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      className="w-[--radix-dropdown-menu-trigger-width] min-w-52 rounded-lg"
-                      side="top"
-                      align="end"
-                      sideOffset={4}
+        <SidebarMenu>
+          {/* Single row with Guide, Support, and Profile */}
+          <SidebarMenuItem>
+            <div className="flex items-center gap-1.5 w-full" data-tour="help-support-group">
+              {/* Profile avatar */}
+              <div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <SidebarMenuButton
+                      size="default"
+                      className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground h-auto p-1.5 group-data-[collapsible=icon]:h-auto group-data-[collapsible=icon]:min-h-[42px] group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 cursor-pointer"
+                      suppressHydrationWarning
                     >
-                      <DropdownMenuItem
-                        onClick={handleOpenUserProfile}
-                        className="cursor-pointer"
-                      >
-                        <User className="mr-2 h-4 w-4" />
-                        <span>Account</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={handleSignOut}
-                        className="cursor-pointer"
-                      >
-                        <LogOut className="mr-2 h-4 w-4" />
-                        <span>Sign out</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-
-                {/* Theme toggle */}
-                <div className="flex items-center gap-1.5 group-data-[collapsible=icon]:hidden">
-                  <ThemeToggle />
-                </div>
+                      <Avatar className="h-7 w-7 rounded-md">
+                        {userImage && <AvatarImage src={userImage} alt={userName} />}
+                        <AvatarFallback className="rounded-md bg-primary/10 text-xs">
+                          {getInitials(userName)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </SidebarMenuButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    className="w-[--radix-dropdown-menu-trigger-width] min-w-52 rounded-lg"
+                    side="top"
+                    align="end"
+                    sideOffset={4}
+                  >
+                    <DropdownMenuItem
+                      onClick={handleOpenUserProfile}
+                      className="cursor-pointer"
+                    >
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Account</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={handleSignOut}
+                      className="cursor-pointer"
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Sign out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        )}
+
+              {/* Theme toggle */}
+              <div className="flex items-center gap-1.5 group-data-[collapsible=icon]:hidden">
+                <ThemeToggle />
+              </div>
+            </div>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
 
       {/* Modals */}

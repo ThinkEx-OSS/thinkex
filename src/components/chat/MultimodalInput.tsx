@@ -39,7 +39,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import type { Item } from "@/lib/workspace-state/types";
 
@@ -53,8 +52,6 @@ const FLOATING_MENU_HIDE_DELAY_MS = 400;
 export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
   const { status, stop, messages } = useChatContext();
   const composer = useComposer();
-  const { data: session } = useSession();
-  const isAnonymous = session?.user?.isAnonymous ?? false;
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -291,8 +288,8 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
             multiple
             accept="image/*,.pdf,.txt,.md,.csv,.json,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.heic,.heif,.avif,.tiff,.tif"
           />
-          {!isAnonymous && <ModelSettingsMenu />}
-          <div className={!isAnonymous ? "ml-0.5" : undefined}>
+          <ModelSettingsMenu />
+          <div className="ml-0.5">
             <ModelPicker />
           </div>
         </div>
