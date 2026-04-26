@@ -4,8 +4,6 @@ import { withWorkflow } from "workflow/next";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
-  // Transpile git-installed packages to ensure proper module resolution
-  transpilePackages: ["react-grid-layout"],
   images: {
     remotePatterns: [
       {

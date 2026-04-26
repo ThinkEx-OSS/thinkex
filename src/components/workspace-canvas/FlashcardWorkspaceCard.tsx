@@ -171,7 +171,6 @@ export function FlashcardWorkspaceCard({
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
-  // Get scroll lock state from Zustand store (persists across interactions)
   const isScrollLocked = useUIStore(selectItemScrollLocked(item.id));
   const toggleItemScrollLocked = useUIStore(
     (state) => state.toggleItemScrollLocked,
@@ -212,44 +211,8 @@ export function FlashcardWorkspaceCard({
     return cards[safeIndex] ?? EMPTY_FLASHCARD_PLACEHOLDER;
   }, [cards, currentIndex]);
 
-  // Flashcard flip animation duration (matches FlipCard component CSS)
   const FLIP_ANIMATION_DURATION = 600;
-
-  // Tracking for flip debounce
   const lastFlipTimeRef = useRef<number>(0);
-
-  // Track minimal local drag detection (same pattern as WorkspaceCard)
-  const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
-  const hasMovedRef = useRef<boolean>(false);
-  const listenersActiveRef = useRef<boolean>(false);
-  const DRAG_THRESHOLD = 10; // pixels - movement beyond this prevents flip
-
-  // OPTIMIZED: Store handlers in refs so they can be added/removed dynamically
-  const handlersRef = useRef<{
-    handleGlobalMouseMove: ((e: MouseEvent) => void) | null;
-    handleGlobalMouseUp: (() => void) | null;
-  }>({ handleGlobalMouseMove: null, handleGlobalMouseUp: null });
-
-  // Cleanup listeners on unmount
-  useEffect(() => {
-    return () => {
-      if (
-        listenersActiveRef.current &&
-        handlersRef.current.handleGlobalMouseMove &&
-        handlersRef.current.handleGlobalMouseUp
-      ) {
-        document.removeEventListener(
-          "mousemove",
-          handlersRef.current.handleGlobalMouseMove,
-        );
-        document.removeEventListener(
-          "mouseup",
-          handlersRef.current.handleGlobalMouseUp,
-        );
-        listenersActiveRef.current = false;
-      }
-    };
-  }, []);
 
   const handleDelete = useCallback(() => {
     setShowDeleteDialog(true);
@@ -276,13 +239,11 @@ export function FlashcardWorkspaceCard({
     [item.id, onUpdateItem],
   );
 
-  // Helper function to hide tabs during flip animation
   const startFlipAnimation = useCallback(() => {
     setIsFlipping(true);
     setTimeout(() => setIsFlipping(false), FLIP_ANIMATION_DURATION);
   }, []);
 
-  // Debounced flip logic
   const handleFlip = useCallback(() => {
     const now = Date.now();
     if (now - lastFlipTimeRef.current < 200) return;
@@ -291,118 +252,47 @@ export function FlashcardWorkspaceCard({
     startFlipAnimation();
   }, [startFlipAnimation]);
 
-  // Handle mouse down - track initial position for drag detection
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      // Don't track if clicking on interactive elements
-      const target = e.target as HTMLElement;
-      if (
-        target.closest("button") ||
+  const isInteractiveTarget = useCallback((target: HTMLElement) => {
+    return Boolean(
+      target.closest("button") ||
+        target.closest("input") ||
+        target.closest("textarea") ||
+        target.closest("select") ||
+        target.closest("a") ||
+        target.closest("label") ||
         target.closest(".flashcard-control-button") ||
-        target.closest('[role="menuitem"]')
-      ) {
-        return;
-      }
+        target.closest('[role="menuitem"]') ||
+        target.closest('[contenteditable="true"]') ||
+        target.closest('[data-slot="dropdown-menu-content"]') ||
+        target.closest('[data-slot="dropdown-menu-trigger"]') ||
+        target.closest('[data-slot="dialog-content"]') ||
+        target.closest('[data-slot="dialog-close"]') ||
+        target.closest('[data-slot="dialog-overlay"]')
+    );
+  }, []);
 
-      // Check if clicking inside a text selection area
-      const selection = window.getSelection();
-      if (selection && selection.toString().length > 0) {
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (isInteractiveTarget(target)) {
         e.stopPropagation();
         return;
       }
 
-      mouseDownRef.current = { x: e.clientX, y: e.clientY };
-      hasMovedRef.current = false;
-
-      // Only add global listeners when mouseDown occurs
-      if (!listenersActiveRef.current) {
-        const handleGlobalMouseMove = (e: MouseEvent) => {
-          if (!mouseDownRef.current) return;
-
-          // Calculate movement delta
-          const deltaX = Math.abs(e.clientX - mouseDownRef.current.x);
-          const deltaY = Math.abs(e.clientY - mouseDownRef.current.y);
-
-          if (hasMovedRef.current) {
-            return;
-          }
-
-          // Check if user is selecting text
-          const selection = window.getSelection();
-          if (selection && selection.toString().length > 0) {
-            mouseDownRef.current = null;
-            hasMovedRef.current = false;
-            return;
-          }
-
-          // Check if movement exceeds threshold (drag detected)
-          if (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD) {
-            hasMovedRef.current = true;
-          }
-        };
-
-        const handleGlobalMouseUp = () => {
-          mouseDownRef.current = null;
-          // Clean up listeners
-          if (
-            listenersActiveRef.current &&
-            handlersRef.current.handleGlobalMouseMove &&
-            handlersRef.current.handleGlobalMouseUp
-          ) {
-            document.removeEventListener(
-              "mousemove",
-              handlersRef.current.handleGlobalMouseMove,
-            );
-            document.removeEventListener(
-              "mouseup",
-              handlersRef.current.handleGlobalMouseUp,
-            );
-            listenersActiveRef.current = false;
-            handlersRef.current.handleGlobalMouseMove = null;
-            handlersRef.current.handleGlobalMouseUp = null;
-          }
-        };
-
-        handlersRef.current.handleGlobalMouseMove = handleGlobalMouseMove;
-        handlersRef.current.handleGlobalMouseUp = handleGlobalMouseUp;
-        document.addEventListener("mousemove", handleGlobalMouseMove);
-        document.addEventListener("mouseup", handleGlobalMouseUp);
-        listenersActiveRef.current = true;
-      }
-    },
-    [DRAG_THRESHOLD],
-  );
-
-  const handleClick = useCallback(
-    (e: React.MouseEvent) => {
-      // If unlocked, we are in "content mode" - allow text selection/scrolling, disable flip
-      if (!isScrollLocked) return;
-
-      // Also prevent flip if user was selecting text (fallback check)
       const selection = window.getSelection();
       if (selection && selection.toString().length > 0) return;
 
-      // Shift+click toggles card selection
       if (e.shiftKey) {
         e.stopPropagation();
         onToggleSelection(item.id);
         return;
       }
 
-      // Prevent flipping if user was dragging
-      const wasDragging = hasMovedRef.current;
-      hasMovedRef.current = false; // Reset immediately after checking
+      if (!isScrollLocked) return;
 
-      if (wasDragging) {
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-
-      // Safe to flip - user clicked without dragging
       handleFlip();
     },
-    [handleFlip, isScrollLocked, onToggleSelection, item.id],
+    [handleFlip, isInteractiveTarget, isScrollLocked, onToggleSelection, item.id],
   );
 
   // Navigation Handlers
@@ -486,15 +376,13 @@ export function FlashcardWorkspaceCard({
           id={`item-${item.id}`}
           className="group size-full relative rounded-md"
           style={{}}
-          onMouseDown={handleMouseDown}
           onClick={handleClick}
         >
           {/* Floating Controls */}
           <div
             className={`absolute top-2 right-2 z-20 flex items-center gap-2 transition-opacity opacity-0 group-hover:opacity-100`}
           >
-            {/* Scroll Lock/Unlock Button */}
-            <button
+              <button
               type="button"
               aria-label={
                 isScrollLocked
@@ -652,10 +540,8 @@ export function FlashcardWorkspaceCard({
             </DialogContent>
           </Dialog>
 
-          {/* Navigation Controls - Only show if Multiple Cards */}
           {cards.length > 1 && (
             <>
-              {/* Prev Button */}
               <button
                 className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/20 hover:bg-black/40 text-white/50 hover:text-white transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm flashcard-control-button cursor-pointer"
                 onClick={goPrev}
@@ -664,7 +550,6 @@ export function FlashcardWorkspaceCard({
               >
                 <ChevronLeft className="w-6 h-6" />
               </button>
-              {/* Next Button */}
               <button
                 className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/20 hover:bg-black/40 text-white/50 hover:text-white transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm flashcard-control-button cursor-pointer"
                 onClick={goNext}
@@ -674,21 +559,16 @@ export function FlashcardWorkspaceCard({
                 <ChevronRight className="w-6 h-6" />
               </button>
 
-              {/* Card Counter */}
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full bg-black/20 text-white/70 text-xs font-medium backdrop-blur-sm pointer-events-none transition-opacity opacity-0 group-hover:opacity-100">
                 {currentIndex + 1} / {cards.length}
               </div>
             </>
           )}
 
-          {/* Flashcard Stack Container */}
           <div className="relative size-full flex flex-col">
-            {/* Main Flashcard - takes up space minus the tabs */}
             <div className="relative flex-1" style={{ marginBottom: "12px" }}>
-              {/* Check for template-created items awaiting generation */}
               {item.name === "Update me" &&
               (!flashcardData.cards || flashcardData.cards.length === 0) ? (
-                // Generating skeleton for template-created flashcards
                 <div
                   className="size-full rounded-md flex flex-col items-center justify-center p-6 text-center"
                   style={{
@@ -727,7 +607,6 @@ export function FlashcardWorkspaceCard({
                   selectedBoxShadow={selectedBoxShadow}
                 />
               )}
-              {/* Stack Tab 1 (directly below main card) - hidden during flip */}
               <div
                 className="absolute left-1 right-1 rounded-b-md transition-opacity duration-200"
                 style={{
@@ -743,7 +622,6 @@ export function FlashcardWorkspaceCard({
                   opacity: isFlipping ? 0 : 1,
                 }}
               />
-              {/* Stack Tab 2 (bottom-most, slightly narrower) - hidden during flip */}
               <div
                 className="absolute left-2 right-2 rounded-b-md transition-opacity duration-200"
                 style={{

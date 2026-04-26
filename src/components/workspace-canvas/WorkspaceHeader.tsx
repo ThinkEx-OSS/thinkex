@@ -64,7 +64,6 @@ import {
   exportMarkdownToGoogleDoc,
   getGoogleOAuthClientId,
 } from "@/lib/exportToGoogleDocs";
-import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import { getFolderPath } from "@/lib/workspace-state/search";
 import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";
 import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
@@ -87,8 +86,6 @@ const BREADCRUMB_ITEM_TEXT_CLASS =
   "min-w-0 max-w-[240px] truncate text-sidebar-foreground";
 const BREADCRUMB_INTERACTIVE_CLASS =
   "cursor-pointer text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-accent/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/60";
-const BREADCRUMB_DRAG_TARGET_CLASS =
-  "bg-blue-500/10 text-sidebar-foreground ring-1 ring-inset ring-blue-500/50";
 const BREADCRUMB_MENU_ITEM_CLASS =
   "flex items-center gap-1.5 rounded-md px-2 py-1.5 cursor-pointer";
 /** Shared shell for header toolbar controls — same border/hover as labeled actions; icon-only uses square hit target */
@@ -241,7 +238,6 @@ interface WorkspaceHeaderProps {
     type: CardType,
     name?: string,
     initialData?: Partial<Item["data"]>,
-    initialLayout?: { w: number; h: number },
   ) => string;
   onPDFUpload?: (files: File[]) => Promise<void>;
   // Callback for when items are created (for auto-scroll/selection)
@@ -316,11 +312,6 @@ export function WorkspaceHeader({
   const pathname = usePathname();
   const isWorkspaceRoute = pathname.startsWith("/workspace");
 
-  // Track drag hover state for breadcrumb elements
-  const [hoveredBreadcrumbTarget, setHoveredBreadcrumbTarget] = useState<
-    string | null
-  >(null); // 'root' or folderId
-  const isDraggingRef = useRef(false);
   const breadcrumbNavRef = useRef<HTMLElement>(null);
   const breadcrumbMeasureRefs = useRef<Record<string, HTMLElement | null>>({});
   const breadcrumbSeparatorMeasureRef = useRef<HTMLSpanElement>(null);
@@ -627,18 +618,13 @@ export function WorkspaceHeader({
   );
 
   const renderRootBreadcrumb = useCallback(() => {
-    const rootHighlightClass =
-      hoveredBreadcrumbTarget === "root" && BREADCRUMB_DRAG_TARGET_CLASS;
-
     if (activeFolderId || activeOpenWorkspaceItem) {
       return (
         <button
           onClick={() => onNavigateToRoot?.()}
-          data-breadcrumb-target="root"
           className={cn(
             breadcrumbItemClass,
             BREADCRUMB_INTERACTIVE_CLASS,
-            rootHighlightClass,
           )}
         >
           {renderRootBreadcrumbLabel()}
@@ -651,11 +637,9 @@ export function WorkspaceHeader({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              data-breadcrumb-target="root"
               className={cn(
                 breadcrumbItemClass,
                 BREADCRUMB_INTERACTIVE_CLASS,
-                rootHighlightClass,
               )}
             >
               {renderRootBreadcrumbLabel()}
@@ -687,11 +671,9 @@ export function WorkspaceHeader({
 
     return (
       <div
-        data-breadcrumb-target="root"
         className={cn(
           breadcrumbItemClass,
           "text-sidebar-foreground/75",
-          hoveredBreadcrumbTarget === "root" && BREADCRUMB_DRAG_TARGET_CLASS,
         )}
       >
         {renderRootBreadcrumbLabel()}
@@ -700,7 +682,6 @@ export function WorkspaceHeader({
   }, [
     activeFolderId,
     breadcrumbItemClass,
-    hoveredBreadcrumbTarget,
     onNavigateToRoot,
     onOpenSettings,
     onOpenShare,
@@ -712,12 +693,9 @@ export function WorkspaceHeader({
     (entry: Extract<BreadcrumbEntry, { kind: "folder" }>) => (
       <button
         onClick={() => handleFolderClick(entry.id)}
-        data-breadcrumb-target="folder"
-        data-folder-id={entry.id}
         className={cn(
           breadcrumbItemClass,
           BREADCRUMB_INTERACTIVE_CLASS,
-          hoveredBreadcrumbTarget === entry.id && BREADCRUMB_DRAG_TARGET_CLASS,
         )}
       >
         {renderFolderBreadcrumbLabel(entry)}
@@ -726,7 +704,6 @@ export function WorkspaceHeader({
     [
       breadcrumbItemClass,
       handleFolderClick,
-      hoveredBreadcrumbTarget,
       renderFolderBreadcrumbLabel,
     ],
   );
@@ -851,55 +828,6 @@ export function WorkspaceHeader({
     }
   }, [showRenameDialog]);
 
-  // Listen for drag hover events on breadcrumb elements
-  useEffect(() => {
-    const handleDragHover = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      const { folderId, isHovering } = customEvent.detail || {};
-
-      // Track drag state - if we get a hover event, dragging is active
-      if (isHovering !== undefined) {
-        isDraggingRef.current = isHovering;
-      }
-
-      if (isHovering) {
-        // When folderId is null, it means hovering over root (breadcrumb target)
-        // When folderId is a string, it means hovering over a folder (could be breadcrumb or card)
-        // We need to check if it's actually a breadcrumb target by checking data attributes
-        let foundTarget: string | null = null;
-
-        if (folderId === null) {
-          // Hovering over root - check if there's a root breadcrumb target
-          const rootTargets = document.querySelectorAll(
-            '[data-breadcrumb-target="root"]',
-          );
-          if (rootTargets.length > 0) {
-            foundTarget = "root";
-          }
-        } else {
-          // Hovering over a folder - check if it's a breadcrumb target
-          const folderTargets = document.querySelectorAll(
-            `[data-breadcrumb-target="folder"][data-folder-id="${folderId}"]`,
-          );
-          if (folderTargets.length > 0) {
-            foundTarget = folderId;
-          }
-        }
-
-        // Only show visual feedback if it's actually a breadcrumb target
-        // (The validation in WorkspaceGrid already ensures it's a valid drop, so we can show feedback)
-        setHoveredBreadcrumbTarget(foundTarget);
-      } else {
-        setHoveredBreadcrumbTarget(null);
-      }
-    };
-
-    window.addEventListener("folder-drag-hover", handleDragHover);
-
-    return () => {
-      window.removeEventListener("folder-drag-hover", handleDragHover);
-    };
-  }, []);
 
   const handleYouTubeCreate = useCallback(
     (url: string, name: string, thumbnail?: string) => {
@@ -983,12 +911,7 @@ export function WorkspaceHeader({
   const handleWebsiteCreate = useCallback(
     (url: string, name: string, favicon?: string) => {
       if (!addItem) return;
-      addItem(
-        "website",
-        name,
-        { url, favicon },
-        DEFAULT_CARD_DIMENSIONS.website,
-      );
+      addItem("website", name, { url, favicon });
       setIsNewMenuOpen(false);
     },
     [addItem],
@@ -1072,8 +995,6 @@ export function WorkspaceHeader({
                           onClick={() => handleFolderClick(entry.id)}
                           className={cn(
                             BREADCRUMB_MENU_ITEM_CLASS,
-                            hoveredBreadcrumbTarget === entry.id &&
-                              BREADCRUMB_DRAG_TARGET_CLASS,
                           )}
                         >
                           <FolderOpen

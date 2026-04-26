@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Loader2,
-  File,
-  FileText,
-  Brain,
-  Mic,
-  Globe,
-} from "lucide-react";
+import { Loader2, File, FileText, Brain, Mic, Globe } from "lucide-react";
 import type { Item, PdfData, WebsiteData } from "@/lib/workspace-state/types";
 import {
   getCardColorWithBlackMix,
@@ -17,22 +10,19 @@ import {
 
 interface WorkspaceCardTypeBadgeProps {
   item: Item;
-  shouldShowPreview: boolean;
   resolvedTheme?: string;
 }
 
 export function WorkspaceCardTypeBadge({
   item,
-  shouldShowPreview,
   resolvedTheme,
 }: WorkspaceCardTypeBadgeProps) {
   const showTypeBadge =
-    (item.type === "pdf" ||
-      item.type === "quiz" ||
-      item.type === "audio" ||
-      item.type === "website" ||
-      item.type === "document") &&
-    !shouldShowPreview;
+    item.type === "pdf" ||
+    item.type === "quiz" ||
+    item.type === "audio" ||
+    item.type === "website" ||
+    item.type === "document";
 
   if (!showTypeBadge) {
     return null;

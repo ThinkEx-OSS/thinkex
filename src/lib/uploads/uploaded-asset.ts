@@ -24,19 +24,16 @@ export type WorkspaceItemDefinition =
       type: "pdf";
       name: string;
       initialData: Partial<PdfData>;
-      initialLayout?: { w: number; h: number };
     }
   | {
       type: "image";
       name: string;
       initialData: Partial<ImageData>;
-      initialLayout?: { w: number; h: number };
     }
   | {
       type: "audio";
       name: string;
       initialData: Partial<AudioData>;
-      initialLayout?: { w: number; h: number };
     };
 
 function getBaseName(filename: string): string {
@@ -95,7 +92,6 @@ export function createUploadedAsset(params: {
 
 export function buildWorkspaceItemDefinitionFromAsset(
   asset: UploadedAsset,
-  options?: { imageLayout?: { w: number; h: number } }
 ): WorkspaceItemDefinition {
   if (asset.kind === "image") {
     return {
@@ -107,7 +103,6 @@ export function buildWorkspaceItemDefinitionFromAsset(
         ocrStatus: "processing",
         ocrPages: [],
       },
-      ...(options?.imageLayout ? { initialLayout: options.imageLayout } : {}),
     };
   }
 
@@ -140,20 +135,17 @@ export function buildWorkspaceItemDefinitionFromAsset(
 
 export function buildWorkspaceItemDefinitionsFromAssets(
   assets: UploadedAsset[],
-  options?: { imageLayout?: { w: number; h: number } }
 ): WorkspaceItemDefinition[] {
-  return assets.map((asset) =>
-    buildWorkspaceItemDefinitionFromAsset(asset, options)
-  );
+  return assets.map((asset) => buildWorkspaceItemDefinitionFromAsset(asset));
 }
 
 export function buildOcrCandidatesFromAssets(
   assets: UploadedAsset[],
-  itemIds: Array<string | undefined>
+  itemIds: Array<string | undefined>,
 ): OcrCandidate[] {
   if (assets.length !== itemIds.length) {
     throw new Error(
-      `Expected assets and itemIds to align, received ${assets.length} assets and ${itemIds.length} itemIds`
+      `Expected assets and itemIds to align, received ${assets.length} assets and ${itemIds.length} itemIds`,
     );
   }
 
@@ -183,7 +175,7 @@ export function buildOcrCandidatesFromAssets(
         contentType: asset.contentType,
         fileSize: asset.fileSize,
         displayName: asset.displayName,
-      })
+      }),
     );
 
     if (sourceUrl) {

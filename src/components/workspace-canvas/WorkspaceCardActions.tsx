@@ -11,7 +11,6 @@ import {
   X,
   Pencil,
 } from "lucide-react";
-import { PiMouseScrollFill, PiMouseScrollBold } from "react-icons/pi";
 import { cn } from "@/lib/utils";
 import type { Item } from "@/lib/workspace-state/types";
 import {
@@ -142,14 +141,11 @@ function getFloatingControlHandlers({
 
 interface WorkspaceCardControlsProps {
   itemType: Item["type"];
-  showScrollLockButton: boolean;
   useDarkOverlay: boolean;
   resolvedTheme?: string;
-  isScrollLocked: boolean;
   isSelected: boolean;
   isEditingTitle: boolean;
   canMove: boolean;
-  onToggleScrollLock: () => void;
   onToggleSelection: () => void;
   onOpenRename: () => void;
   onOpenMove: () => void;
@@ -160,14 +156,11 @@ interface WorkspaceCardControlsProps {
 
 export function WorkspaceCardControls({
   itemType,
-  showScrollLockButton,
   useDarkOverlay,
   resolvedTheme,
-  isScrollLocked,
   isSelected,
   isEditingTitle,
   canMove,
-  onToggleScrollLock,
   onToggleSelection,
   onOpenRename,
   onOpenMove,
@@ -195,11 +188,6 @@ export function WorkspaceCardControls({
       ? "rgba(239, 68, 68, 0.6)"
       : "rgba(239, 68, 68, 0.5)"
     : defaultHoverBackgroundColor;
-  const scrollLockHandlers = getFloatingControlHandlers({
-    defaultBackgroundColor,
-    hoverBackgroundColor: defaultHoverBackgroundColor,
-    onClick: onToggleScrollLock,
-  });
   const selectionHandlers = getFloatingControlHandlers({
     defaultBackgroundColor: selectionBackgroundColor,
     hoverBackgroundColor: selectionHoverBackgroundColor,
@@ -217,38 +205,6 @@ export function WorkspaceCardControls({
         isEditingTitle ? "" : "opacity-0 group-hover:opacity-100",
       )}
     >
-      {showScrollLockButton && (
-        <button
-          type="button"
-          aria-label={
-            isScrollLocked ? "Click to unlock scroll" : "Click to lock scroll"
-          }
-          title={
-            isScrollLocked ? "Click to unlock scroll" : "Click to lock scroll"
-          }
-          className={cn(
-            floatingControlButtonClassName,
-            "gap-1.5 pl-2.5 pr-3 hover:scale-105",
-          )}
-          style={getFloatingControlStyle(defaultBackgroundColor)}
-          {...scrollLockHandlers}
-        >
-          {isScrollLocked ? (
-            <PiMouseScrollFill className="h-4 w-4 shrink-0" />
-          ) : (
-            <PiMouseScrollBold className="h-4 w-4 shrink-0" />
-          )}
-          <span
-            className={cn(
-              "text-xs font-medium",
-              resolvedTheme === "dark" ? "text-white/90" : "text-white/80",
-            )}
-          >
-            {isScrollLocked ? "Scroll" : "Lock"}
-          </span>
-        </button>
-      )}
-
       <button
         type="button"
         aria-label={isSelected ? "Deselect card" : "Select card"}
