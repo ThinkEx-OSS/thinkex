@@ -430,7 +430,10 @@ export function HomeContent({ showDemoVideo, initialAuth }: HomeContentProps) {
 
             <div
               ref={workspacesRef}
-              className="relative z-10 px-6 pb-8 pt-8 min-h-screen bg-gradient-to-b from-transparent via-background to-background"
+              className={cn(
+                "relative z-10 px-6 pb-8 pt-8 bg-gradient-to-b from-transparent via-background to-background",
+                effectiveShowDemo && "min-h-screen",
+              )}
             >
               <div className="w-full max-w-6xl mx-auto h-full">
                 {effectiveShowDemo ? (
