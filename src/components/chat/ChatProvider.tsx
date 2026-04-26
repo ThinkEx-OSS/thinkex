@@ -1,6 +1,6 @@
 "use client";
 
-import { useChat } from "@ai-sdk/react";
+import { type Chat, useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   createContext,
@@ -12,28 +12,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { toast } from "sonner";
-import { useShallow } from "zustand/react/shallow";
 
-import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
-import { useViewingItemIds } from "@/hooks/ui/use-viewing-item-ids";
-import { useWorkspaceContextProvider } from "@/hooks/ai/use-workspace-context-provider";
-import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
-import { chatDebug, chatWarn, summarizeRoster } from "@/lib/chat/debug";
-import {
-  chatQueryKeys,
-  useThreadMessagesQuery,
-  type ThreadListItem,
-} from "@/lib/chat/queries";
-import { createChatTransport } from "@/lib/chat/transport";
+import { useChatRuntimesContext } from "@/components/chat/ChatRuntimes";
+import { chatQueryKeys } from "@/lib/chat/queries";
 import type { ChatMessage } from "@/lib/chat/types";
-import { hasMeaningfulContent } from "@/lib/chat/types";
-import { useUIStore } from "@/lib/stores/ui-store";
 import {
   selectCurrentThreadId,
   useWorkspaceStore,
 } from "@/lib/stores/workspace-store";
-import { formatSelectedCardsMetadata } from "@/lib/utils/format-workspace-context";
 
 interface ChatContextValue {
   threadId: string;
@@ -46,7 +32,7 @@ interface ChatContextValue {
   regenerate: ReturnType<typeof useChat<ChatMessage>>["regenerate"];
   stop: ReturnType<typeof useChat>["stop"];
   clearError: ReturnType<typeof useChat>["clearError"];
-  /** True until the persisted history hydrates (only relevant for resumed threads). */
+  /** True until the runtime for the active thread is ready (hydrated). */
   isHistoryLoading: boolean;
   selectThread: (threadId: string) => void;
   /** Reset the active chat (new thread id, empty messages). */
@@ -79,85 +65,14 @@ function generateThreadId(): string {
   return `thread-${Math.random().toString(36).slice(2)}-${Date.now()}`;
 }
 
-function describeChatError(error: Error): {
-  title: string;
-  description: string;
-} {
-  const errorMessage = error.message?.toLowerCase() || "";
-  const responseBody =
-    (
-      error as unknown as { responseBody?: string }
-    ).responseBody?.toLowerCase() || "";
-  const errorData =
-    (
-      error as unknown as { data?: { error?: { message?: string } } }
-    ).data?.error?.message?.toLowerCase() || "";
-  const combined = `${errorMessage} ${responseBody} ${errorData}`;
-
-  if (
-    combined.includes("timeout") ||
-    combined.includes("504") ||
-    combined.includes("gateway")
-  ) {
-    return {
-      title: "Request timed out",
-      description: "The AI is taking too long to respond. Please try again.",
-    };
-  }
-  if (
-    combined.includes("network") ||
-    combined.includes("fetch") ||
-    combined.includes("failed to fetch")
-  ) {
-    return {
-      title: "Connection error",
-      description: "Unable to reach the server. Please check your connection.",
-    };
-  }
-  if (combined.includes("500") || combined.includes("internal server")) {
-    return {
-      title: "Server error",
-      description: "Something went wrong on our end. Please try again.",
-    };
-  }
-  if (combined.includes("429") || combined.includes("rate limit")) {
-    return {
-      title: "Rate limited",
-      description: "Too many requests. Please wait a moment and try again.",
-    };
-  }
-  if (combined.includes("401") || combined.includes("unauthorized")) {
-    return {
-      title: "Authentication error",
-      description: "Your session may have expired. Please refresh the page.",
-    };
-  }
-  if (
-    combined.includes("api key not valid") ||
-    combined.includes("api_key_invalid") ||
-    combined.includes("api key not defined") ||
-    combined.includes("api key is not set") ||
-    (combined.includes("api key") &&
-      (combined.includes("not valid") || combined.includes("invalid")))
-  ) {
-    return {
-      title: "API key not valid",
-      description:
-        "Please check your GOOGLE_GENERATIVE_AI_API_KEY in your environment variables.",
-    };
-  }
-  return {
-    title: "Something went wrong",
-    description:
-      error.message || "An unexpected error occurred. Please try again.",
-  };
-}
-
 /**
- * Owns the `useChat` instance for a workspace. It resumes the last persisted
- * thread when available, keeps brand-new local threads runtime-only until the
- * first send, and hydrates persisted history only for restored/switched
- * threads.
+ * Owns the *visible* threadId selection for a workspace and binds the
+ * current Chat runtime to the rest of the chat surface.
+ *
+ * Concurrent generation across threads is achieved by storing one `Chat`
+ * instance per threadId in `<ChatRuntimesProvider>`'s in-memory registry.
+ * Switching threads simply rebinds via `useChat({ chat })`; previous
+ * runtimes keep streaming in the background.
  */
 export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
   const persistedThreadId = useWorkspaceStore(
@@ -166,11 +81,13 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
   const setCurrentThreadId = useWorkspaceStore(
     (state) => state.setCurrentThreadId,
   );
+  const { ensureRuntime, getRuntime, aliveThreadIds } =
+    useChatRuntimesContext();
 
   const [threadId, setThreadId] = useState<string>(
     () => persistedThreadId ?? generateThreadId(),
   );
-  const [shouldHydrateHistory, setShouldHydrateHistory] = useState(
+  const [shouldHydrateOnFirstLoad, setShouldHydrateOnFirstLoad] = useState(
     () => !!persistedThreadId,
   );
   const threadIdRef = useRef(threadId);
@@ -182,7 +99,7 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
     previousWorkspaceIdRef.current = workspaceId;
 
     if (!persistedThreadId) {
-      setShouldHydrateHistory(false);
+      setShouldHydrateOnFirstLoad(false);
       if (workspaceChanged) {
         setThreadId(generateThreadId());
       }
@@ -191,139 +108,106 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
 
     if (workspaceChanged || persistedThreadId !== threadIdRef.current) {
       setThreadId(persistedThreadId);
-      setShouldHydrateHistory(true);
+      setShouldHydrateOnFirstLoad(true);
     }
   }, [persistedThreadId, workspaceId]);
 
-  const queryClient = useQueryClient();
-
-  const {
-    data: persistedMessages = [],
-    isLoading: isHistoryLoading,
-  } = useThreadMessagesQuery(threadId, shouldHydrateHistory);
-
-  // [chat-debug] Watch the hydration query so we can confirm what the
-  // server is sending. If the assistant entries here have `partCount=0`,
-  // the bug is in persistence (server side); if they're correct, the bug
-  // is in the seed-into-useChat step below or in the renderer.
+  // Kick off (or short-circuit on) the runtime for the active threadId. The
+  // resolved Chat is stored in the workspace-level registry; we read it back
+  // synchronously below so a thread switch never displays a stale runtime.
   useEffect(() => {
-    if (!shouldHydrateHistory) {
-      chatDebug("hydrate query: skipped for local thread", { threadId });
-      return;
-    }
-    if (isHistoryLoading) {
-      chatDebug("hydrate query: pending/empty", {
-        threadId,
-        isHistoryLoading,
-      });
-      return;
-    }
-    const roster = summarizeRoster(persistedMessages as unknown[]);
-    chatDebug("hydrate query: data", { threadId, ...roster });
-    if (roster.emptyAssistants.length > 0) {
-      chatWarn("hydrate query: assistant rows have empty parts", {
-        threadId,
-        emptyAssistants: roster.emptyAssistants,
-      });
-    }
-  }, [isHistoryLoading, persistedMessages, shouldHydrateHistory, threadId]);
+    void ensureRuntime(threadId, {
+      hydrate: shouldHydrateOnFirstLoad,
+    }).catch((err) => {
+      const isSuperseded =
+        err instanceof Error && /superseded/i.test(err.message);
+      if (!isSuperseded) {
+        console.error("[ChatProvider] failed to ensure runtime", err);
+      }
+    });
+  }, [threadId, shouldHydrateOnFirstLoad, ensureRuntime]);
 
-  // Live request payload context (model, memory, selections). Pulled from
-  // the same zustand stores the old WorkspaceRuntimeProvider used.
-  const selectedModelId = useUIStore((state) => state.selectedModelId);
-  const memoryEnabled = useUIStore((state) => state.memoryEnabled);
-  const activeFolderId = useUIStore((state) => state.activeFolderId);
-  const selectedCardIdsSet = useUIStore((state) => state.selectedCardIds);
-  const activePdfPageByItemId = useUIStore(
-    useShallow((state) => state.activePdfPageByItemId),
-  );
-  const { state: workspaceState } = useWorkspaceState(workspaceId);
-  const viewingItemIds = useViewingItemIds();
+  const chat = useMemo<Chat<ChatMessage> | null>(() => {
+    if (!aliveThreadIds.includes(threadId)) return null;
+    return getRuntime(threadId) ?? null;
+  }, [aliveThreadIds, getRuntime, threadId]);
 
-  const contextCardIds = useMemo(() => {
-    const ids = new Set<string>(selectedCardIdsSet);
-    viewingItemIds.forEach((id) => ids.add(id));
-    return ids;
-  }, [selectedCardIdsSet, viewingItemIds]);
-
-  const selectedCardsContext = useMemo(() => {
-    if (contextCardIds.size === 0) return "";
-    const contextItems = workspaceState.filter((item) =>
-      contextCardIds.has(item.id),
-    );
-    if (contextItems.length === 0) return "";
-    return formatSelectedCardsMetadata(
-      contextItems,
-      workspaceState,
-      activePdfPageByItemId,
-      viewingItemIds,
-    );
-  }, [workspaceState, contextCardIds, activePdfPageByItemId, viewingItemIds]);
-
-  const { currentWorkspace } = useWorkspaceContext();
-  // Build the workspace-level system prompt. Forwarded via the transport so
-  // the server can prepend it to the model messages.
-  const systemPrompt = useWorkspaceContextProvider(
-    workspaceId,
-    workspaceState,
-    currentWorkspace?.name,
+  const selectThread = useCallback(
+    (nextThreadId: string) => {
+      setThreadId(nextThreadId);
+      setShouldHydrateOnFirstLoad(true);
+      setCurrentThreadId(workspaceId, nextThreadId);
+    },
+    [setCurrentThreadId, workspaceId],
   );
 
-  // Live ref so the transport always reads fresh values without recreating.
-  const ctxRef = useRef({
-    threadId,
-    workspaceId,
-    modelId: selectedModelId,
-    memoryEnabled,
-    activeFolderId,
-    selectedCardsContext,
-    system: systemPrompt,
-  });
-  ctxRef.current.threadId = threadId;
-  ctxRef.current.workspaceId = workspaceId;
-  ctxRef.current.modelId = selectedModelId;
-  ctxRef.current.memoryEnabled = memoryEnabled;
-  ctxRef.current.activeFolderId = activeFolderId;
-  ctxRef.current.selectedCardsContext = selectedCardsContext;
-  ctxRef.current.system = systemPrompt;
-
-  const transport = useMemo(
-    () => createChatTransport(() => ctxRef.current),
-    // Stable transport across the component lifetime; payload is pulled
-    // through the ref on every send.
-    [],
-  );
-
-  const handleError = useCallback((error: Error) => {
-    console.error("[Chat Error]", error);
-    const { title, description } = describeChatError(error);
-    toast.error(title, { description });
+  const startNewThread = useCallback(() => {
+    const next = generateThreadId();
+    setThreadId(next);
+    setShouldHydrateOnFirstLoad(false);
   }, []);
 
-  const chat = useChat<ChatMessage>({
-    id: threadId,
-    transport,
-    messages: shouldHydrateHistory
-      ? (persistedMessages as ChatMessage[]).filter((m) =>
-          hasMeaningfulContent(m),
-        )
-      : undefined,
-    onError: handleError,
-    // Live title updates: the chat route writes a `data-chat-title` part to
-    // the SSE stream once `generateThreadTitle` resolves. We patch the
-    // threads list cache so ChatHeader / ThreadListDropdown show the real
-    // title without a refetch.
-    onData: (dataPart) => {
-      if (dataPart.type !== "data-chat-title") return;
-      const title =
-        typeof dataPart.data === "string" ? dataPart.data : undefined;
-      if (!title) return;
-      queryClient.setQueryData<ThreadListItem[]>(
-        chatQueryKeys.threads(workspaceId),
-        (prev) => prev?.map((t) => (t.id === threadId ? { ...t, title } : t)),
-      );
-    },
-  });
+  if (!chat) {
+    return (
+      <ChatContext.Provider
+        value={{
+          threadId,
+          workspaceId,
+          status: "ready",
+          error: undefined,
+          messages: [],
+          setMessages: () => {},
+          sendMessage: async () => {},
+          regenerate: async () => {},
+          stop: async () => {},
+          clearError: () => {},
+          isHistoryLoading: true,
+          selectThread,
+          startNewThread,
+        }}
+      >
+        {children}
+      </ChatContext.Provider>
+    );
+  }
+
+  return (
+    <BoundChatProvider
+      chat={chat}
+      threadId={threadId}
+      workspaceId={workspaceId}
+      persistedThreadId={persistedThreadId}
+      selectThread={selectThread}
+      startNewThread={startNewThread}
+    >
+      {children}
+    </BoundChatProvider>
+  );
+}
+
+interface BoundChatProviderProps {
+  chat: Chat<ChatMessage>;
+  threadId: string;
+  workspaceId: string;
+  persistedThreadId: string | undefined;
+  selectThread: (threadId: string) => void;
+  startNewThread: () => void;
+  children: ReactNode;
+}
+
+function BoundChatProvider({
+  chat,
+  threadId,
+  workspaceId,
+  persistedThreadId,
+  selectThread,
+  startNewThread,
+  children,
+}: BoundChatProviderProps) {
+  const queryClient = useQueryClient();
+  const setCurrentThreadId = useWorkspaceStore(
+    (state) => state.setCurrentThreadId,
+  );
 
   const {
     messages,
@@ -334,14 +218,7 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
     stop,
     clearError,
     setMessages,
-  } = chat;
-
-  const prevThreadIdRef = useRef(threadId);
-  useEffect(() => {
-    if (prevThreadIdRef.current === threadId) return;
-    prevThreadIdRef.current = threadId;
-    setMessages([]);
-  }, [setMessages, threadId]);
+  } = useChat<ChatMessage>({ chat });
 
   const sendMessageWithPersistence = useCallback<
     ChatContextValue["sendMessage"]
@@ -355,74 +232,12 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
     [persistedThreadId, sendMessage, setCurrentThreadId, threadId, workspaceId],
   );
 
-  const selectThread = useCallback((nextThreadId: string) => {
-    queryClient.removeQueries({
-      queryKey: chatQueryKeys.threadMessages(nextThreadId),
-    });
-    setMessages([]);
-    setThreadId(nextThreadId);
-    setShouldHydrateHistory(true);
-    setCurrentThreadId(workspaceId, nextThreadId);
-  }, [queryClient, setCurrentThreadId, setMessages, workspaceId]);
-
-  // When persisted history loads after the first render, seed messages once.
-  // (useChat's `messages` initializer only runs on mount.)
-  const seededRef = useRef(false);
-  useEffect(() => {
-    if (seededRef.current) return;
-    if (persistedMessages.length === 0) return;
-    const cleanPersisted = (persistedMessages as ChatMessage[]).filter((m) =>
-      hasMeaningfulContent(m),
-    );
-    if (messages.length > 0) {
-      chatDebug("seed: skipped, useChat already has messages", {
-        threadId,
-        useChatCount: messages.length,
-        persistedCount: persistedMessages.length,
-        cleanCount: cleanPersisted.length,
-      });
-      seededRef.current = true;
-      return;
-    }
-    chatDebug("seed: pushing persisted messages into useChat", {
-      threadId,
-      droppedEmpty: persistedMessages.length - cleanPersisted.length,
-      ...summarizeRoster(cleanPersisted as unknown[]),
-    });
-    setMessages(cleanPersisted);
-    seededRef.current = true;
-  }, [persistedMessages, messages.length, setMessages, threadId]);
-
-  // Reset the seed guard whenever we switch threads.
-  useEffect(() => {
-    seededRef.current = false;
-  }, [threadId]);
-
-  // After a turn completes, refresh the threads list once so newly-created
-  // threads appear in the sidebar dropdown. Live title updates are handled
-  // by `onData` above (data-chat-title stream part), so a single
-  // post-completion invalidate is enough.
-  const prevStatusRef = useRef(status);
-  useEffect(() => {
-    const prev = prevStatusRef.current;
-    prevStatusRef.current = status;
-    const wasActive = prev === "streaming" || prev === "submitted";
-    const isActive = status === "streaming" || status === "submitted";
-    if (!wasActive || isActive) return;
+  const startNewThreadAndInvalidate = useCallback(() => {
+    startNewThread();
     void queryClient.invalidateQueries({
       queryKey: chatQueryKeys.threads(workspaceId),
     });
-  }, [status, queryClient, workspaceId]);
-
-  const startNewThread = useCallback(() => {
-    const next = generateThreadId();
-    setMessages([]);
-    setThreadId(next);
-    setShouldHydrateHistory(false);
-    void queryClient.invalidateQueries({
-      queryKey: chatQueryKeys.threads(workspaceId),
-    });
-  }, [queryClient, setMessages, workspaceId]);
+  }, [queryClient, startNewThread, workspaceId]);
 
   const value = useMemo<ChatContextValue>(
     () => ({
@@ -433,12 +248,12 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
       messages: messages as ChatMessage[],
       setMessages,
       sendMessage: sendMessageWithPersistence,
-      selectThread,
       regenerate,
       stop,
       clearError,
-      isHistoryLoading: shouldHydrateHistory && isHistoryLoading,
-      startNewThread,
+      isHistoryLoading: false,
+      selectThread,
+      startNewThread: startNewThreadAndInvalidate,
     }),
     [
       threadId,
@@ -448,13 +263,11 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
       messages,
       setMessages,
       sendMessageWithPersistence,
-      selectThread,
       regenerate,
       stop,
       clearError,
-      isHistoryLoading,
-      shouldHydrateHistory,
-      startNewThread,
+      selectThread,
+      startNewThreadAndInvalidate,
     ],
   );
 

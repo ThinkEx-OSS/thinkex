@@ -12,6 +12,10 @@ import {
 import { toast } from "sonner";
 
 import { useChatContext } from "@/components/chat/ChatProvider";
+import {
+  useChatRuntimesContext,
+  useThreadStatus,
+} from "@/components/chat/ChatRuntimes";
 import { TooltipIconButton } from "@/components/chat/tooltip-icon-button";
 import {
   AlertDialog,
@@ -155,6 +159,9 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
   const clearCurrentThreadId = useWorkspaceStore(
     (s) => s.clearCurrentThreadId,
   );
+  const { disposeRuntime } = useChatRuntimesContext();
+  const status = useThreadStatus(thread.id);
+  const isGenerating = status === "submitted" || status === "streaming";
 
   useEffect(() => {
     if (!isEditing) setEditValue(thread.title ?? "New Chat");
@@ -213,6 +220,7 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
 
   const handleDeleteConfirm = async () => {
     setShowDeleteDialog(false);
+    disposeRuntime(thread.id);
     try {
       await deleteMutation.mutateAsync(thread.id);
       clearCurrentThreadId(workspaceId, thread.id);
@@ -253,9 +261,17 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
                 onClick={() => onSelect(thread.id)}
               >
                 <div className="min-w-0 flex-1">
-                  <span className="text-sm break-words block truncate">
-                    {title}
-                  </span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    {isGenerating ? (
+                      <span
+                        aria-label="Generating"
+                        className="inline-block size-2 shrink-0 rounded-full bg-primary animate-pulse"
+                      />
+                    ) : null}
+                    <span className="text-sm break-words block truncate">
+                      {title}
+                    </span>
+                  </div>
                 </div>
               </button>
               <Tooltip>
