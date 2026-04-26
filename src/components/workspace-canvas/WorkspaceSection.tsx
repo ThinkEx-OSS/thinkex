@@ -142,7 +142,6 @@ export function WorkspaceSection({
   // Get active folder info from UI store
   const activeFolderId = useUIStore((uiState) => uiState.activeFolderId);
 
-  // Track grid dragging state for marquee conflict prevention
   // Delete confirmation state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
@@ -541,7 +540,6 @@ export function WorkspaceSection({
                   <MarqueeSelector
                     scrollContainerRef={scrollAreaRef}
                     cardIds={state.map((item) => item.id)}
-                    isGridDragging={false}
                   />
                 )}
             </div>

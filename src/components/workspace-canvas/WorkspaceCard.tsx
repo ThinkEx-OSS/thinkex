@@ -1,4 +1,4 @@
-import { useCallback, useState, memo, useRef, useEffect } from "react";
+import { useCallback, useState, memo, type CSSProperties } from "react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import {
@@ -34,10 +34,6 @@ interface WorkspaceCardProps {
   onMoveItem?: (itemId: string, folderId: string | null) => void;
 }
 
-/**
- * Individual workspace card component.
- * Handles rendering a single card with drag handle, options menu, and content.
- */
 function WorkspaceCard({
   item,
   allItems,
@@ -59,34 +55,6 @@ function WorkspaceCard({
   const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-
-  const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
-  const hasMovedRef = useRef<boolean>(false);
-  const listenersActiveRef = useRef<boolean>(false);
-  const DRAG_THRESHOLD = 10;
-
-  const handlersRef = useRef<{
-    handleGlobalMouseMove: ((e: MouseEvent) => void) | null;
-    handleGlobalMouseUp: (() => void) | null;
-  }>({ handleGlobalMouseMove: null, handleGlobalMouseUp: null });
-
-  useEffect(() => {
-    const handlers = handlersRef.current;
-    return () => {
-      if (
-        listenersActiveRef.current &&
-        handlers.handleGlobalMouseMove &&
-        handlers.handleGlobalMouseUp
-      ) {
-        document.removeEventListener(
-          "mousemove",
-          handlers.handleGlobalMouseMove,
-        );
-        document.removeEventListener("mouseup", handlers.handleGlobalMouseUp);
-        listenersActiveRef.current = false;
-      }
-    };
-  }, []);
 
   const handleNameChange = useCallback(
     (v: string) => {
@@ -160,125 +128,33 @@ function WorkspaceCard({
     }
   }, [item.type, item.data]);
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (
-        target.closest("button") ||
+  const isInteractiveTarget = useCallback((target: HTMLElement) => {
+    return Boolean(
+      target.closest("button") ||
         target.closest("input") ||
         target.closest("textarea") ||
+        target.closest("select") ||
+        target.closest("a") ||
+        target.closest("label") ||
         target.closest('[role="menuitem"]') ||
-        target.closest('[contenteditable="true"]')
-      ) {
-        e.stopPropagation();
-        return;
-      }
-
-      const selection = window.getSelection();
-      if (selection && selection.toString().length > 0) {
-        e.stopPropagation();
-        return;
-      }
-
-      mouseDownRef.current = { x: e.clientX, y: e.clientY };
-      hasMovedRef.current = false;
-
-      if (!listenersActiveRef.current) {
-        const handleGlobalMouseMove = (e: MouseEvent) => {
-          if (!mouseDownRef.current) return;
-
-          const deltaX = Math.abs(e.clientX - mouseDownRef.current.x);
-          const deltaY = Math.abs(e.clientY - mouseDownRef.current.y);
-
-          if (hasMovedRef.current) {
-            return;
-          }
-
-          const selection = window.getSelection();
-          if (selection && selection.toString().length > 0) {
-            mouseDownRef.current = null;
-            hasMovedRef.current = false;
-            return;
-          }
-
-          if (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD) {
-            hasMovedRef.current = true;
-          }
-        };
-
-        const handleGlobalMouseUp = () => {
-          mouseDownRef.current = null;
-          if (
-            listenersActiveRef.current &&
-            handlersRef.current.handleGlobalMouseMove &&
-            handlersRef.current.handleGlobalMouseUp
-          ) {
-            document.removeEventListener(
-              "mousemove",
-              handlersRef.current.handleGlobalMouseMove,
-            );
-            document.removeEventListener(
-              "mouseup",
-              handlersRef.current.handleGlobalMouseUp,
-            );
-            listenersActiveRef.current = false;
-            handlersRef.current.handleGlobalMouseMove = null;
-            handlersRef.current.handleGlobalMouseUp = null;
-          }
-        };
-
-        handlersRef.current.handleGlobalMouseMove = handleGlobalMouseMove;
-        handlersRef.current.handleGlobalMouseUp = handleGlobalMouseUp;
-        document.addEventListener("mousemove", handleGlobalMouseMove);
-        document.addEventListener("mouseup", handleGlobalMouseUp);
-        listenersActiveRef.current = true;
-      }
-    },
-    [DRAG_THRESHOLD],
-  );
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!mouseDownRef.current) return;
-
-    const target = e.target as HTMLElement;
-    if (
-      target.closest("textarea") ||
-      target.closest("input") ||
-      target.closest('[contenteditable="true"]')
-    ) {
-      mouseDownRef.current = null;
-      hasMovedRef.current = false;
-    }
-  }, []);
-
-  const handleMouseUp = useCallback(() => {}, []);
-
-  const handleCardClick = useCallback(
-    (e: React.MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (
-        target.closest('[data-slot="dropdown-menu-item"]') ||
+        target.closest('[contenteditable="true"]') ||
         target.closest('[data-slot="dropdown-menu-content"]') ||
         target.closest('[data-slot="dropdown-menu-trigger"]') ||
         target.closest('[data-slot="popover-content"]') ||
         target.closest('[data-slot="popover"]') ||
         target.closest('[data-slot="dialog-content"]') ||
         target.closest('[data-slot="dialog-close"]') ||
-        target.closest('[data-slot="dialog-overlay"]')
-      ) {
+        target.closest('[data-slot="dialog-overlay"]'),
+    );
+  }, []);
+
+  const handleCardClick = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (isInteractiveTarget(target)) {
         e.preventDefault();
         e.stopPropagation();
         return;
-      }
-
-      if (item.type === "flashcard") {
-        const flashcardElement = target.closest(
-          '.flashcard-container, .flashcard, [class*="flashcard"]',
-        );
-        if (flashcardElement) {
-          e.stopPropagation();
-          return;
-        }
       }
 
       const selection = window.getSelection();
@@ -292,10 +168,7 @@ function WorkspaceCard({
         return;
       }
 
-      const wasDragging = hasMovedRef.current;
-      hasMovedRef.current = false;
-
-      if (wasDragging || isEditingTitle) {
+      if (isEditingTitle) {
         e.preventDefault();
         e.stopPropagation();
         return;
@@ -303,7 +176,7 @@ function WorkspaceCard({
 
       onOpenModal(item.id);
     },
-    [isEditingTitle, item.id, item.type, onOpenModal, onToggleSelection],
+    [isEditingTitle, isInteractiveTarget, item.id, onOpenModal, onToggleSelection],
   );
 
   const handleMove = useCallback(
@@ -361,23 +234,17 @@ function WorkspaceCard({
                     : undefined,
                 transition:
                   "border-color 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease-out",
-              } as React.CSSProperties
+              } as CSSProperties
             }
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
             onClick={handleCardClick}
           >
             <WorkspaceCardControls
               itemType={item.type}
-              showScrollLockButton={false}
               useDarkOverlay={false}
               resolvedTheme={resolvedTheme}
-              isScrollLocked={false}
               isSelected={isSelected}
               isEditingTitle={isEditingTitle}
               canMove={Boolean(onMoveItem)}
-              onToggleScrollLock={() => {}}
               onToggleSelection={() => onToggleSelection(item.id)}
               onOpenRename={() => setShowRenameDialog(true)}
               onOpenMove={() => setShowMoveDialog(true)}
