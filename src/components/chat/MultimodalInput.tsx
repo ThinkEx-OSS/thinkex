@@ -170,6 +170,7 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.altKey || e.metaKey) return;
       if (e.defaultPrevented) return;
+      if (e.isComposing) return;
       if (e.key.length !== 1) return;
 
       const el = inputElRef.current;
@@ -199,6 +200,7 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
     };
 
     const onPaste = (e: ClipboardEvent) => {
+      if (e.defaultPrevented) return;
       const el = inputElRef.current;
       if (!el) return;
 
