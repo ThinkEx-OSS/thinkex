@@ -190,7 +190,6 @@ export function ChatRuntimesProvider({
   // the body via `prepareSendMessagesRequest`'s `id` parameter, so the
   // workspace transport is shared across all runtimes.
   const ctxRef = useRef({
-    threadId: "",
     workspaceId,
     modelId: selectedModelId,
     memoryEnabled,
@@ -275,7 +274,8 @@ export function ChatRuntimesProvider({
       if (inFlight) return inFlight;
 
       const generation = generationRef.current;
-      const promise: Promise<Chat<ChatMessage>> = (async () => {
+      let promise!: Promise<Chat<ChatMessage>>;
+      promise = (async () => {
         let initial: ChatMessage[] = [];
         if (opts.hydrate) {
           try {
@@ -285,10 +285,19 @@ export function ChatRuntimesProvider({
             initial = [];
           }
         }
-        // If we were torn down (workspace switch) while fetching, abandon —
-        // the cleanup bumped the generation counter.
+        // Workspace-level teardown invalidates everything.
         if (generationRef.current !== generation) {
-          chatDebug("runtime: stale build discarded", { threadId });
+          chatDebug("runtime: stale build discarded (workspace teardown)", {
+            threadId,
+          });
+          throw new Error("runtime build superseded");
+        }
+        // Per-thread disposal during hydration: the pending entry was either
+        // removed by disposeRuntime or replaced by a newer ensureRuntime call.
+        // Either way, abandon this build so we don't resurrect a disposed
+        // thread or stomp a fresher Promise.
+        if (pendingRef.current.get(threadId) !== promise) {
+          chatDebug("runtime: stale build discarded (per-thread)", { threadId });
           throw new Error("runtime build superseded");
         }
         pendingRef.current.delete(threadId);
@@ -401,8 +410,23 @@ export function useThreadStatus(
   const chat = useThreadRuntime(threadId);
   return useSyncExternalStore<ThreadStatus>(
     useCallback(
-      (onChange) =>
-        chat ? chat["~registerStatusCallback"](onChange) : () => {},
+      (onChange) => {
+        if (!chat) return () => {};
+        const register = chat["~registerStatusCallback"];
+        if (typeof register !== "function") {
+          // SDK API drift: if the internal subscription method is renamed or
+          // removed, fall back to a no-op subscribe so status indicators
+          // silently degrade to "always idle" rather than throwing a
+          // TypeError for every dropdown row.
+          if (process.env.NODE_ENV !== "production") {
+            console.warn(
+              "[ChatRuntimes] Chat['~registerStatusCallback'] is unavailable — status indicators disabled.",
+            );
+          }
+          return () => {};
+        }
+        return register.call(chat, onChange);
+      },
       [chat],
     ),
     () => (chat ? chat.status : "idle"),

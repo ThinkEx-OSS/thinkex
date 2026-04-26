@@ -75,6 +75,7 @@ function generateThreadId(): string {
  * runtimes keep streaming in the background.
  */
 export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
+  const queryClient = useQueryClient();
   const persistedThreadId = useWorkspaceStore(
     selectCurrentThreadId(workspaceId),
   );
@@ -145,7 +146,10 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
     const next = generateThreadId();
     setThreadId(next);
     setShouldHydrateOnFirstLoad(false);
-  }, []);
+    void queryClient.invalidateQueries({
+      queryKey: chatQueryKeys.threads(workspaceId),
+    });
+  }, [queryClient, workspaceId]);
 
   if (!chat) {
     return (
@@ -204,7 +208,6 @@ function BoundChatProvider({
   startNewThread,
   children,
 }: BoundChatProviderProps) {
-  const queryClient = useQueryClient();
   const setCurrentThreadId = useWorkspaceStore(
     (state) => state.setCurrentThreadId,
   );
@@ -232,13 +235,6 @@ function BoundChatProvider({
     [persistedThreadId, sendMessage, setCurrentThreadId, threadId, workspaceId],
   );
 
-  const startNewThreadAndInvalidate = useCallback(() => {
-    startNewThread();
-    void queryClient.invalidateQueries({
-      queryKey: chatQueryKeys.threads(workspaceId),
-    });
-  }, [queryClient, startNewThread, workspaceId]);
-
   const value = useMemo<ChatContextValue>(
     () => ({
       threadId,
@@ -253,7 +249,7 @@ function BoundChatProvider({
       clearError,
       isHistoryLoading: false,
       selectThread,
-      startNewThread: startNewThreadAndInvalidate,
+      startNewThread,
     }),
     [
       threadId,
@@ -267,7 +263,7 @@ function BoundChatProvider({
       stop,
       clearError,
       selectThread,
-      startNewThreadAndInvalidate,
+      startNewThread,
     ],
   );
 

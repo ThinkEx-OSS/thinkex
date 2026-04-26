@@ -220,9 +220,9 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
 
   const handleDeleteConfirm = async () => {
     setShowDeleteDialog(false);
-    disposeRuntime(thread.id);
     try {
       await deleteMutation.mutateAsync(thread.id);
+      disposeRuntime(thread.id);
       clearCurrentThreadId(workspaceId, thread.id);
       if (isActive) {
         onDeletedActiveThread();
