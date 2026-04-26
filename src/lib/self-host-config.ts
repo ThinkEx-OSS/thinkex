@@ -4,7 +4,26 @@ const ZERO_REQUIRED_MESSAGE =
   "ThinkEx requires Zero for workspace sync in self-hosted development. Set NEXT_PUBLIC_ZERO_SERVER and start the Zero cache server with `pnpm dev`.";
 
 export function getStorageMode(): StorageMode {
-  return process.env.STORAGE_TYPE === "supabase" ? "supabase" : "local";
+  const configuredMode = process.env.STORAGE_TYPE?.trim().toLowerCase();
+  if (configuredMode === "supabase") {
+    return "supabase";
+  }
+
+  if (configuredMode === "local") {
+    return "local";
+  }
+
+  // Preserve the pre-existing production behavior when STORAGE_TYPE has not
+  // been added yet but Supabase credentials are already configured.
+  if (
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() &&
+    (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
+      process.env.SUPABASE_SERVICE_ROLE_KEY?.trim())
+  ) {
+    return "supabase";
+  }
+
+  return "local";
 }
 
 export function usesLocalStorage(): boolean {
