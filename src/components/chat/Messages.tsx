@@ -49,6 +49,21 @@ import {
  *
  * 5. After the turn ends, the spacer persists on the (now) last assistant
  *    row. The next turn repeats the cycle.
+ *
+ * Scroll positioning is governed by a single `useLayoutEffect` with three
+ * mutually exclusive branches:
+ *
+ *   A. Snap-to-bottom on thread mount/switch when the user did NOT just send
+ *      here. Covers opening an existing thread and switching between threads
+ *      (including switching into a mid-assistant-stream).
+ *   B. Pin user-tail to top on thread mount/switch when the user DID just
+ *      send here. Covers welcome → first send and the rare case of mounting
+ *      into a thread whose tail is a freshly-sent user message.
+ *   C. Pin user-tail to top on same-thread `ready → submitted/streaming`
+ *      transitions — i.e. every subsequent turn within a thread.
+ *
+ * `isFirstSeeing` is checked first, so A and B win unambiguously over C
+ * across thread boundaries.
  */
 const MessagesImpl = () => {
   const { messages, status, error, regenerate, clearError, threadId } =
@@ -130,75 +145,87 @@ const MessagesImpl = () => {
   const reservedTail = Math.max(0, reservedMinHeight - lastUserSize);
 
   const vlistRef = useRef<VListHandle>(null);
-  const initialTurnPinnedRef = useRef(false);
 
-  // Pin the newest message just below the top of the viewport on every new
-  // turn. Most turns arrive as a `ready → submitted` transition, but the
-  // very first turn mounts `<Messages>` after we already left the welcome
-  // state, so there is no prior `ready` render inside this component.
+  // Three exclusive branches govern the scroll position:
+  //
+  //   A. Thread mount/switch + the user did NOT just send here → snap to the
+  //      bottom of the scroll container instantly. Covers "open an existing
+  //      thread", "switch between threads", and "switch into a thread that's
+  //      mid-assistant-stream".
+  //
+  //   B. Thread mount/switch + the user DID just send here (status is
+  //      submitted/streaming with a user-tail) → pin the user message to the
+  //      viewport top. Covers welcome → first send, and the rare case of
+  //      switching into a thread whose tail is a freshly-sent user message.
+  //
+  //   C. Same thread, status transitioned ready → submitted/streaming → pin
+  //      the newly-sent user message to the viewport top. This is the every
+  //      subsequent turn case within a thread.
+  //
+  // Branches are mutually exclusive: A and B are gated on `isFirstSeeing`,
+  // C only fires when we've already seen this thread. That mutual exclusion
+  // is what fixes the cross-thread status race — e.g. switching from a
+  // ready thread into a streaming thread used to fire BOTH pin-to-top (via
+  // C) AND snap-to-bottom (via A); now A wins because `isFirstSeeing` is
+  // checked first.
   const prevStatusRef = useRef(status);
+  const prevSeenThreadIdRef = useRef<string | null>(null);
   useLayoutEffect(() => {
-    const prev = prevStatusRef.current;
+    const prevStatus = prevStatusRef.current;
+    const prevSeen = prevSeenThreadIdRef.current;
     prevStatusRef.current = status;
-    const turnStarted =
-      prev === "ready" && (status === "submitted" || status === "streaming");
-    const initialTurnMountedActive =
-      !initialTurnPinnedRef.current &&
-      isStreaming &&
-      messages.length > 0 &&
-      messages[messages.length - 1]?.role === "user";
-    if (!turnStarted && !initialTurnMountedActive) return;
+
     const lastMessageIndex = messages.length - 1;
     if (lastMessageIndex < 0) return;
     const handle = vlistRef.current;
     if (!handle) return;
-    initialTurnPinnedRef.current = true;
-    requestAnimationFrame(() => {
-      handle.scrollToIndex(lastMessageIndex, {
-        smooth: true,
-        align: "start",
-        offset: -THREAD_SCROLL_PIN_OFFSET,
-      });
-    });
-  }, [isStreaming, status, messages]);
 
-  useEffect(() => {
-    if (!isStreaming) {
-      initialTurnPinnedRef.current = false;
-    }
-  }, [isStreaming]);
-
-  // Snap to the bottom of the scroll container the first time `<Messages>`
-  // observes a given threadId — i.e. when the user opens a thread or switches
-  // between threads. This is intentionally separate from the pin-to-top effect
-  // above: that one handles `ready -> submitted` turn starts and the very
-  // first turn out of the welcome state, both of which want the user message
-  // pinned to the viewport top. Snapping to the bottom on those paths would
-  // fight the pin-to-top scroll, so we bail out in the "user just sent"
-  // pattern (streaming/submitted with the tail being a user row).
-  const prevSeenThreadIdRef = useRef<string | null>(null);
-  useLayoutEffect(() => {
-    const prevSeen = prevSeenThreadIdRef.current;
-    prevSeenThreadIdRef.current = threadId;
-    if (prevSeen === threadId) return;
-    if (messages.length === 0) return;
-
-    const tail = messages[messages.length - 1];
+    const tail = messages[lastMessageIndex];
     const userJustSent =
       (status === "submitted" || status === "streaming") &&
       tail?.role === "user";
-    if (userJustSent) return;
+    const isFirstSeeing = prevSeen !== threadId;
 
-    const handle = vlistRef.current;
-    if (!handle) return;
-    const lastIndex = messages.length - 1;
-    // Defer one frame so virtua has a chance to measure the freshly-mounted
-    // rows before we ask for `align: "end"`. virtua's own scroll-jump fix
-    // will reconcile any residual drift as remaining rows finish measuring.
-    requestAnimationFrame(() => {
-      handle.scrollToIndex(lastIndex, { align: "end" });
-    });
-  }, [threadId, messages, status]);
+    let rafId: number | null = null;
+
+    if (isFirstSeeing && !userJustSent) {
+      // Branch A — snap to bottom (instant).
+      prevSeenThreadIdRef.current = threadId;
+      rafId = requestAnimationFrame(() => {
+        handle.scrollToIndex(lastMessageIndex, { align: "end" });
+      });
+    } else if (isFirstSeeing && userJustSent) {
+      // Branch B — pin user-tail to top on first turn out of welcome / when
+      // mounting into an existing user-tail thread.
+      prevSeenThreadIdRef.current = threadId;
+      rafId = requestAnimationFrame(() => {
+        handle.scrollToIndex(lastMessageIndex, {
+          smooth: true,
+          align: "start",
+          offset: -THREAD_SCROLL_PIN_OFFSET,
+        });
+      });
+    } else {
+      // Branch C — same thread, watch for a fresh turn start.
+      const turnStarted =
+        prevStatus === "ready" &&
+        (status === "submitted" || status === "streaming");
+      if (turnStarted) {
+        rafId = requestAnimationFrame(() => {
+          handle.scrollToIndex(lastMessageIndex, {
+            smooth: true,
+            align: "start",
+            offset: -THREAD_SCROLL_PIN_OFFSET,
+          });
+        });
+      }
+    }
+
+    if (rafId !== null) {
+      const id = rafId;
+      return () => cancelAnimationFrame(id);
+    }
+  }, [threadId, status, messages]);
 
   // Whichever row ends up at the tail gets the spacer. When the pending
   // loader is present it's the tail; otherwise the last real message is.
