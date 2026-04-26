@@ -119,12 +119,7 @@ export function useHeadingDropdownMenu(config?: UseHeadingDropdownMenuConfig) {
         canToggle: canToggle(currentEditor),
       }
     },
-  }) ?? {
-    isVisible: true,
-    activeLevel: undefined,
-    isActive: false,
-    canToggle: false,
-  }
+  })
   const {
     isVisible,
     activeLevel,

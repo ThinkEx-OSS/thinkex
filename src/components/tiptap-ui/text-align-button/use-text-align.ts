@@ -208,11 +208,7 @@ export function useTextAlign(config: UseTextAlignConfig) {
         canAlign: canSetTextAlign(currentEditor, align),
       }
     },
-  }) ?? {
-    isVisible: true,
-    isActive: false,
-    canAlign: false,
-  }
+  })
   const { isVisible, isActive, canAlign } = toolbarState
 
   const handleTextAlign = useCallback(() => {

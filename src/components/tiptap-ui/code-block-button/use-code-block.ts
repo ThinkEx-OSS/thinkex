@@ -262,11 +262,7 @@ export function useCodeBlock(config?: UseCodeBlockConfig) {
         canToggle: canToggle(currentEditor),
       }
     },
-  }) ?? {
-    isVisible: true,
-    isActive: false,
-    canToggle: false,
-  }
+  })
   const {
     isVisible,
     isActive,

@@ -323,11 +323,7 @@ export function useHeading(config: UseHeadingConfig) {
         canToggle: canToggle(currentEditor, level),
       }
     },
-  }) ?? {
-    isVisible: true,
-    isActive: false,
-    canToggle: false,
-  }
+  })
   const {
     isVisible,
     isActive,

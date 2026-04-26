@@ -318,11 +318,7 @@ export function useColorHighlight(config: UseColorHighlightConfig) {
         canColorHighlight: canColorHighlight(currentEditor, mode),
       }
     },
-  }) ?? {
-    isVisible: true,
-    isActive: false,
-    canColorHighlight: false,
-  }
+  })
   const {
     isVisible,
     isActive,

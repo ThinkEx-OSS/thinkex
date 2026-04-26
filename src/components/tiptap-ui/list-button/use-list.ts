@@ -331,11 +331,7 @@ export function useList(config: UseListConfig) {
         canToggle: canToggleList(currentEditor, type),
       }
     },
-  }) ?? {
-    isVisible: true,
-    isActive: false,
-    canToggle: false,
-  }
+  })
   const { isVisible, isActive, canToggle } = toolbarState
 
   const handleToggle = useCallback(() => {

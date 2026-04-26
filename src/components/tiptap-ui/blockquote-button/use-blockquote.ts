@@ -252,11 +252,7 @@ export function useBlockquote(config?: UseBlockquoteConfig) {
         canToggle: canToggleBlockquote(currentEditor),
       }
     },
-  }) ?? {
-    isVisible: true,
-    isActive: false,
-    canToggle: false,
-  }
+  })
   const { isVisible, isActive, canToggle } = toolbarState
 
   const handleToggle = useCallback(() => {
