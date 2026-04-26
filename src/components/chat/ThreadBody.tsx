@@ -19,7 +19,7 @@ interface ThreadBodyProps {
  * `<Messages>` can rely on their DOM being present on first mount.
  */
 export function ThreadBody({ empty }: ThreadBodyProps) {
-  const { messages, isHistoryLoading } = useChatContext();
+  const { threadId, messages, isHistoryLoading } = useChatContext();
 
   if (messages.length === 0 && isHistoryLoading) {
     return (
@@ -45,5 +45,14 @@ export function ThreadBody({ empty }: ThreadBodyProps) {
     );
   }
 
-  return <Messages />;
+  // Key by threadId so `<Messages>` remounts on every thread switch.
+  // Today, ChatProvider clears messages on switch and we route through
+  // the skeleton above, so a remount happens naturally. Once the
+  // ChatRuntimesProvider lands and BoundChatProvider rebinds
+  // useChat({ chat }) to a cached runtime, that gap disappears — React
+  // would otherwise reconcile in place and stale per-thread state
+  // (initial scroll position, lastMeasuredUser, prevStatusRef, the
+  // initialTurnPinnedRef guard, virtua's internal cache) would carry
+  // across threads. The key forces a fresh mount instead.
+  return <Messages key={threadId} />;
 }

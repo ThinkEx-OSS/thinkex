@@ -133,11 +133,12 @@ const MessagesImpl = () => {
 
   // When a thread is loaded/switched, drop the user at the bottom of the
   // scroll container so they land on the latest exchange (typically the
-  // most recent assistant response). `<Messages>` remounts on every
-  // thread load — `ChatProvider.selectThread` clears messages and
-  // `<ThreadBody>` swaps in the loading skeleton until hydration
-  // completes — so a single mount-time effect is enough; no ref guard
-  // or dep tracking needed.
+  // most recent assistant response). This relies on `<Messages>` being
+  // keyed by `threadId` in `<ThreadBody>` so React remounts it on every
+  // thread switch — a fresh mount is the one-shot signal, no ref guard
+  // or dep tracking needed. (Without the key the future
+  // `ChatRuntimesProvider` runtime cache would let React reconcile this
+  // tree in place across threads and the effect would stop firing.)
   //
   // We bail when `isStreaming` is true on mount so we don't fight the
   // pin-to-top effect below in the brand-new-thread case (where
