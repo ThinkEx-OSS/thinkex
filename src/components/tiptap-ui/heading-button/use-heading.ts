@@ -1,7 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback } from "react"
 import { type Editor } from "@tiptap/react"
+import { useEditorState } from "@tiptap/react"
 import { NodeSelection, TextSelection } from "@tiptap/pm/state"
 
 // --- Hooks ---
@@ -301,25 +302,37 @@ export function useHeading(config: UseHeadingConfig) {
   } = config
 
   const { editor } = useTiptapEditor(providedEditor)
-  const [isVisible, setIsVisible] = useState<boolean>(true)
-  const canToggleState = canToggle(editor, level)
-  const isActive = isHeadingActive(editor, level)
+  const toolbarState = useEditorState({
+    editor,
+    selector: ({ editor: currentEditor }) => {
+      if (!currentEditor) {
+        return {
+          isVisible: true,
+          isActive: false,
+          canToggle: false,
+        }
+      }
 
-  useEffect(() => {
-    if (!editor) return
-
-    const handleSelectionUpdate = () => {
-      setIsVisible(shouldShowButton({ editor, level, hideWhenUnavailable }))
-    }
-
-    handleSelectionUpdate()
-
-    editor.on("selectionUpdate", handleSelectionUpdate)
-
-    return () => {
-      editor.off("selectionUpdate", handleSelectionUpdate)
-    }
-  }, [editor, level, hideWhenUnavailable])
+      return {
+        isVisible: shouldShowButton({
+          editor: currentEditor,
+          level,
+          hideWhenUnavailable,
+        }),
+        isActive: isHeadingActive(currentEditor, level),
+        canToggle: canToggle(currentEditor, level),
+      }
+    },
+  }) ?? {
+    isVisible: true,
+    isActive: false,
+    canToggle: false,
+  }
+  const {
+    isVisible,
+    isActive,
+    canToggle: canToggleState,
+  } = toolbarState
 
   const handleToggle = useCallback(() => {
     if (!editor) return false

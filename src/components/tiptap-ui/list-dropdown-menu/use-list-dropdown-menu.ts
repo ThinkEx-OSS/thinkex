@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 import type { Editor } from "@tiptap/react"
+import { useEditorState } from "@tiptap/react"
 
 // --- Hooks ---
 import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
@@ -170,40 +171,50 @@ export function useListDropdownMenu(config?: UseListDropdownMenuConfig) {
   } = config || {}
 
   const { editor } = useTiptapEditor(providedEditor)
-  const [isVisible, setIsVisible] = useState(true)
-
-  const listInSchema = types.some((type) => isNodeInSchema(type, editor))
-
   const filteredLists = useMemo(() => getFilteredListOptions(types), [types])
+  const toolbarState = useEditorState({
+    editor,
+    selector: ({ editor: currentEditor }) => {
+      if (!currentEditor) {
+        return {
+          isVisible: true,
+          canToggleAny: false,
+          isAnyActive: false,
+          activeType: undefined,
+        }
+      }
 
-  const canToggleAny = canToggleAnyList(editor, types)
-  const isAnyActive = isAnyListActive(editor, types)
-  const activeType = getActiveListType(editor, types)
-  const activeList = filteredLists.find((option) => option.type === activeType)
+      const listInSchema = types.some((type) =>
+        isNodeInSchema(type, currentEditor)
+      )
+      const canToggleAny = canToggleAnyList(currentEditor, types)
 
-  useEffect(() => {
-    if (!editor) return
-
-    const handleSelectionUpdate = () => {
-      setIsVisible(
-        shouldShowListDropdown({
-          editor,
+      return {
+        isVisible: shouldShowListDropdown({
+          editor: currentEditor,
           listTypes: types,
           hideWhenUnavailable,
           listInSchema,
           canToggleAny,
-        })
-      )
-    }
-
-    handleSelectionUpdate()
-
-    editor.on("selectionUpdate", handleSelectionUpdate)
-
-    return () => {
-      editor.off("selectionUpdate", handleSelectionUpdate)
-    }
-  }, [canToggleAny, editor, hideWhenUnavailable, listInSchema, types])
+        }),
+        canToggleAny,
+        isAnyActive: isAnyListActive(currentEditor, types),
+        activeType: getActiveListType(currentEditor, types),
+      }
+    },
+  }) ?? {
+    isVisible: true,
+    canToggleAny: false,
+    isAnyActive: false,
+    activeType: undefined,
+  }
+  const {
+    isVisible,
+    canToggleAny,
+    isAnyActive,
+    activeType,
+  } = toolbarState
+  const activeList = filteredLists.find((option) => option.type === activeType)
 
   return {
     isVisible,

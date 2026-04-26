@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import type { Editor } from "@tiptap/react"
+import { useEditorState } from "@tiptap/react"
 
 // --- Hooks ---
 import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
@@ -96,29 +96,41 @@ export function useHeadingDropdownMenu(config?: UseHeadingDropdownMenuConfig) {
   } = config || {}
 
   const { editor } = useTiptapEditor(providedEditor)
-  const [isVisible, setIsVisible] = useState(true)
+  const toolbarState = useEditorState({
+    editor,
+    selector: ({ editor: currentEditor }) => {
+      if (!currentEditor) {
+        return {
+          isVisible: true,
+          activeLevel: undefined,
+          isActive: false,
+          canToggle: false,
+        }
+      }
 
-  const activeLevel = getActiveHeadingLevel(editor, levels)
-  const isActive = isHeadingActive(editor)
-  const canToggleState = canToggle(editor)
-
-  useEffect(() => {
-    if (!editor) return
-
-    const handleSelectionUpdate = () => {
-      setIsVisible(
-        shouldShowButton({ editor, hideWhenUnavailable, level: levels })
-      )
-    }
-
-    handleSelectionUpdate()
-
-    editor.on("selectionUpdate", handleSelectionUpdate)
-
-    return () => {
-      editor.off("selectionUpdate", handleSelectionUpdate)
-    }
-  }, [editor, hideWhenUnavailable, levels])
+      return {
+        isVisible: shouldShowButton({
+          editor: currentEditor,
+          hideWhenUnavailable,
+          level: levels,
+        }),
+        activeLevel: getActiveHeadingLevel(currentEditor, levels),
+        isActive: isHeadingActive(currentEditor, levels),
+        canToggle: canToggle(currentEditor),
+      }
+    },
+  }) ?? {
+    isVisible: true,
+    activeLevel: undefined,
+    isActive: false,
+    canToggle: false,
+  }
+  const {
+    isVisible,
+    activeLevel,
+    isActive,
+    canToggle: canToggleState,
+  } = toolbarState
 
   return {
     isVisible,
