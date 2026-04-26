@@ -1,6 +1,7 @@
 import {
   streamText,
   smoothStream,
+  consumeStream,
   convertToModelMessages,
   pruneMessages,
   safeValidateUIMessages,
@@ -38,7 +39,11 @@ import {
 } from "@/lib/ai/gateway-provider-options";
 import { db } from "@/lib/db/client";
 import { chatThreads, chatMessages } from "@/lib/db/schema";
-import { CHAT_MESSAGE_FORMAT, type ChatMessage } from "@/lib/chat/types";
+import {
+  CHAT_MESSAGE_FORMAT,
+  hasMeaningfulContent,
+  type ChatMessage,
+} from "@/lib/chat/types";
 import {
   CHAT_DEBUG_TAG,
   summarizeMessage,
@@ -113,7 +118,8 @@ async function loadThreadHistory(threadId: string): Promise<ChatMessage[]> {
       ),
     )
     .orderBy(asc(chatMessages.createdAt));
-  return rows.map((r) => r.content) as ChatMessage[];
+  const messages = rows.map((r) => r.content) as ChatMessage[];
+  return messages.filter((m) => hasMeaningfulContent(m));
 }
 
 async function getThreadById(threadId: string) {
@@ -344,6 +350,7 @@ async function handlePOST(req: Request) {
     try {
       convertedMessages = await convertToModelMessages(validatedMessages, {
         tools,
+        ignoreIncompleteToolCalls: true,
       });
     } catch (convertError) {
       logger.error("❌ [CHAT-API] convertToModelMessages FAILED:", {
@@ -473,6 +480,7 @@ async function handlePOST(req: Request) {
           tools,
           providerOptions,
           headers: getGatewayAttributionHeaders(),
+          abortSignal: req.signal,
           experimental_telemetry: {
             isEnabled: true,
             metadata: {
@@ -546,10 +554,13 @@ async function handlePOST(req: Request) {
         }
       },
       onFinish: async ({ responseMessage, isAborted }) => {
-        if (isAborted || !userId) {
+        const meaningful = hasMeaningfulContent(responseMessage);
+        if (isAborted || !userId || !meaningful) {
           logger.warn(`${CHAT_DEBUG_TAG} onFinish skipped`, {
             isAborted,
             hasUserId: !!userId,
+            hasMeaningfulContent: meaningful,
+            partCount: responseMessage.parts?.length ?? 0,
           });
           return;
         }
@@ -599,7 +610,10 @@ async function handlePOST(req: Request) {
       },
     });
 
-    return createUIMessageStreamResponse({ stream });
+    return createUIMessageStreamResponse({
+      stream,
+      consumeSseStream: consumeStream,
+    });
   } catch (error) {
     if (error instanceof Response) {
       return error;

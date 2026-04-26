@@ -27,6 +27,7 @@ import {
 } from "@/lib/chat/queries";
 import { createChatTransport } from "@/lib/chat/transport";
 import type { ChatMessage } from "@/lib/chat/types";
+import { hasMeaningfulContent } from "@/lib/chat/types";
 import { useUIStore } from "@/lib/stores/ui-store";
 import {
   selectCurrentThreadId,
@@ -302,7 +303,11 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
   const chat = useChat<ChatMessage>({
     id: threadId,
     transport,
-    messages: shouldHydrateHistory ? persistedMessages : undefined,
+    messages: shouldHydrateHistory
+      ? (persistedMessages as ChatMessage[]).filter((m) =>
+          hasMeaningfulContent(m),
+        )
+      : undefined,
     onError: handleError,
     // Live title updates: the chat route writes a `data-chat-title` part to
     // the SSE stream once `generateThreadTitle` resolves. We patch the
@@ -366,20 +371,25 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
   useEffect(() => {
     if (seededRef.current) return;
     if (persistedMessages.length === 0) return;
+    const cleanPersisted = (persistedMessages as ChatMessage[]).filter((m) =>
+      hasMeaningfulContent(m),
+    );
     if (messages.length > 0) {
       chatDebug("seed: skipped, useChat already has messages", {
         threadId,
         useChatCount: messages.length,
         persistedCount: persistedMessages.length,
+        cleanCount: cleanPersisted.length,
       });
       seededRef.current = true;
       return;
     }
     chatDebug("seed: pushing persisted messages into useChat", {
       threadId,
-      ...summarizeRoster(persistedMessages as unknown[]),
+      droppedEmpty: persistedMessages.length - cleanPersisted.length,
+      ...summarizeRoster(cleanPersisted as unknown[]),
     });
-    setMessages(persistedMessages);
+    setMessages(cleanPersisted);
     seededRef.current = true;
   }, [persistedMessages, messages.length, setMessages, threadId]);
 

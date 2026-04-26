@@ -14,7 +14,7 @@ import {
   summarizeMessage,
   summarizeRoster,
 } from "@/lib/chat/debug";
-import { CHAT_MESSAGE_FORMAT } from "@/lib/chat/types";
+import { CHAT_MESSAGE_FORMAT, hasMeaningfulContent } from "@/lib/chat/types";
 
 async function getThreadAndVerify(id: string, userId: string) {
   const [thread] = await db
@@ -70,7 +70,14 @@ export const GET = withServerObservability(
         .orderBy(asc(chatMessages.createdAt));
 
       // content is a stored UIMessage object; no reshaping required.
-      const messages = rows.map((r) => r.content);
+      // Drop any pre-existing rows whose stored content has no meaningful
+      // parts (empty or `step-start`-only) so corrupted history from before
+      // the persistence guard never poisons hydrated `useChat` state.
+      const messages = rows
+        .map((r) => r.content)
+        .filter((content) =>
+          hasMeaningfulContent(content as { parts?: unknown }),
+        );
 
       // [chat-debug] Snapshot what's actually in the DB for this thread so
       // we can correlate against what the client receives. If the assistant
