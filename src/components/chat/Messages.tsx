@@ -51,7 +51,8 @@ import {
  *    row. The next turn repeats the cycle.
  */
 const MessagesImpl = () => {
-  const { messages, status, error, regenerate, clearError } = useChatContext();
+  const { messages, status, error, regenerate, clearError, threadId } =
+    useChatContext();
   const isStreaming = status === "streaming" || status === "submitted";
 
   // [chat-debug] Log a roster snapshot whenever the message list changes
@@ -166,6 +167,38 @@ const MessagesImpl = () => {
       initialTurnPinnedRef.current = false;
     }
   }, [isStreaming]);
+
+  // Snap to the bottom of the scroll container the first time `<Messages>`
+  // observes a given threadId — i.e. when the user opens a thread or switches
+  // between threads. This is intentionally separate from the pin-to-top effect
+  // above: that one handles `ready -> submitted` turn starts and the very
+  // first turn out of the welcome state, both of which want the user message
+  // pinned to the viewport top. Snapping to the bottom on those paths would
+  // fight the pin-to-top scroll, so we bail out in the "user just sent"
+  // pattern (streaming/submitted with the tail being a user row).
+  const prevSeenThreadIdRef = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const prevSeen = prevSeenThreadIdRef.current;
+    prevSeenThreadIdRef.current = threadId;
+    if (prevSeen === threadId) return;
+    if (messages.length === 0) return;
+
+    const tail = messages[messages.length - 1];
+    const userJustSent =
+      (status === "submitted" || status === "streaming") &&
+      tail?.role === "user";
+    if (userJustSent) return;
+
+    const handle = vlistRef.current;
+    if (!handle) return;
+    const lastIndex = messages.length - 1;
+    // Defer one frame so virtua has a chance to measure the freshly-mounted
+    // rows before we ask for `align: "end"`. virtua's own scroll-jump fix
+    // will reconcile any residual drift as remaining rows finish measuring.
+    requestAnimationFrame(() => {
+      handle.scrollToIndex(lastIndex, { align: "end" });
+    });
+  }, [threadId, messages, status]);
 
   // Whichever row ends up at the tail gets the spacer. When the pending
   // loader is present it's the tail; otherwise the last real message is.
