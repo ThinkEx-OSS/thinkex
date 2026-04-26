@@ -6,6 +6,7 @@
 
 export const CHAT_TOOL = {
   WEB_FETCH: "web_fetch",
+  WEB_MAP: "web_map",
   WEB_SEARCH: "web_search",
   WORKSPACE_SEARCH: "workspace_search",
   WORKSPACE_READ: "workspace_read",
