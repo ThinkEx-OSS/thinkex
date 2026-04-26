@@ -81,8 +81,6 @@ function FolderCardComponent({
   const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isDragHover, setIsDragHover] = useState(false);
-  const [selectedCount, setSelectedCount] = useState<number | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [shouldAutoFocus, setShouldAutoFocus] = useState(false);
 
@@ -112,26 +110,6 @@ function FolderCardComponent({
       }
     }
   }, [item.id, item.name]);
-
-  // Listen for drag hover events
-  useEffect(() => {
-    const handleDragHover = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      const { folderId, isHovering, selectedCount: count } = customEvent.detail || {};
-      if (folderId === item.id) {
-        setIsDragHover(isHovering);
-        setSelectedCount(count ?? null);
-      } else {
-        setIsDragHover(false);
-        setSelectedCount(null);
-      }
-    };
-
-    window.addEventListener('folder-drag-hover', handleDragHover);
-    return () => {
-      window.removeEventListener('folder-drag-hover', handleDragHover);
-    };
-  }, [item.id]);
 
   // Handle mouse down - track initial position for drag detection
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -254,11 +232,9 @@ function FolderCardComponent({
       <ContextMenuTrigger asChild>
         <div
           className={cn(
-            "group size-full rounded-md transition-[box-shadow] duration-150",
-            isDragHover && "border-4 border-blue-500 rounded-md scale-105 z-50"
+            "group size-full rounded-md transition-[box-shadow] duration-150"
           )}
           style={selectedRingStyle}
-          data-folder-id={item.id}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onClick={handleClick}
@@ -432,15 +408,6 @@ function FolderCardComponent({
 
             {/* Hover overlay - covers the main body area */}
             <div className="absolute top-[10%] left-0 right-0 bottom-0 rounded-md rounded-tl-none bg-white/0 group-hover/folder:bg-white/5 transition-colors duration-200 pointer-events-none" />
-
-            {/* Drag hover overlay - shows when item is dragged over folder */}
-            {isDragHover && (
-              <div className="absolute inset-0 bg-blue-500/30 rounded-md flex items-center justify-center z-50 pointer-events-none">
-                <div className="bg-blue-600/90 text-white px-4 py-2 rounded-lg shadow-lg font-semibold text-sm animate-pulse">
-                  Move items here ({(selectedCount ?? 1)} {(selectedCount ?? 1) === 1 ? 'item' : 'items'})
-                </div>
-              </div>
-            )}
           </div>
 
 
@@ -607,4 +574,3 @@ function FolderCardComponent({
 }
 
 export const FolderCard = memo(FolderCardComponent);
-

@@ -15,10 +15,6 @@ import { logger } from "@/lib/utils/logger";
 import { mutators } from "@/lib/zero/mutators";
 import { useUIStore } from "@/lib/stores/ui-store";
 import {
-  getLayoutForBreakpoint,
-  findNextAvailablePosition,
-} from "@/lib/workspace-state/grid-layout-helpers";
-import {
   hasDuplicateName,
   getNextUniqueDefaultName,
 } from "@/lib/workspace/unique-name";
@@ -106,14 +102,12 @@ export interface WorkspaceOperations {
     type: CardType,
     name?: string,
     initialData?: Partial<Item["data"]>,
-    initialLayout?: { w: number; h: number },
   ) => string;
   createItems: (
     items: Array<{
       type: CardType;
       name?: string;
       initialData?: Partial<Item["data"]>;
-      initialLayout?: { w: number; h: number };
     }>,
     options?: { showSuccessToast?: boolean },
   ) => string[];
@@ -369,7 +363,6 @@ export function useWorkspaceOperations(
       type: CardType,
       name?: string,
       initialData?: Partial<Item["data"]>,
-      initialLayout?: { w: number; h: number },
     ) => {
       const validTypes: CardType[] = [
         "pdf",
@@ -395,20 +388,6 @@ export function useWorkspaceOperations(
         ? { ...baseData, ...initialData }
         : baseData;
 
-      let layout: Item["layout"] = undefined;
-      if (initialLayout) {
-        const itemsInView = currentItemsRef.current.filter((item) =>
-          activeFolderId ? item.folderId === activeFolderId : !item.folderId,
-        );
-        const position = findNextAvailablePosition(
-          itemsInView,
-          validType,
-          4,
-          initialLayout.w,
-          initialLayout.h,
-        );
-        layout = { lg: position };
-      }
 
       const item = sanitizeWorkspaceItemForPersistence({
         id,
@@ -418,7 +397,6 @@ export function useWorkspaceOperations(
         data: mergedData as ItemData,
         color: getRandomCardColor(),
         folderId: activeFolderId ?? undefined,
-        ...(layout && { layout }),
       });
 
       if (workspaceIdRef.current) {
@@ -434,7 +412,6 @@ export function useWorkspaceOperations(
               data: item.data as JsonObject,
               color: item.color ?? null,
               folderId: item.folderId ?? null,
-              layout: (item.layout as JsonObject | undefined) ?? null,
             },
           }),
         );
@@ -451,7 +428,6 @@ export function useWorkspaceOperations(
         type: CardType;
         name?: string;
         initialData?: Partial<Item["data"]>;
-        initialLayout?: { w: number; h: number };
       }>,
       options?: { showSuccessToast?: boolean },
     ): string[] => {
@@ -460,14 +436,10 @@ export function useWorkspaceOperations(
       }
 
       const activeFolderId = useUIStore.getState().activeFolderId;
-      const itemsInCurrentView = currentItemsRef.current.filter((item) =>
-        activeFolderId ? item.folderId === activeFolderId : !item.folderId,
-      );
-      const itemsForLayout = [...itemsInCurrentView];
       const itemsSoFar: Item[] = [];
 
       const createdItems: Item[] = items
-        .map(({ type, name, initialData, initialLayout }) => {
+        .map(({ type, name, initialData }) => {
           const validTypes: CardType[] = [
             "pdf",
             "flashcard",
@@ -482,7 +454,7 @@ export function useWorkspaceOperations(
           const validType = validTypes.includes(type) ? type : "document";
           const id = crypto.randomUUID();
           const folderId = activeFolderId ?? null;
-          const allItemsSoFar = [...itemsInCurrentView, ...itemsSoFar];
+          const allItemsSoFar = [...currentItemsRef.current, ...itemsSoFar];
           const finalName =
             name ||
             getNextUniqueDefaultName(allItemsSoFar, validType, folderId);
@@ -499,28 +471,6 @@ export function useWorkspaceOperations(
             ? { ...baseData, ...initialData }
             : baseData;
 
-          let layout: Item["layout"] | undefined;
-          if (initialLayout) {
-            const position = findNextAvailablePosition(
-              itemsForLayout,
-              validType,
-              4,
-              initialLayout.w,
-              initialLayout.h,
-            );
-
-            layout = { lg: position };
-            itemsForLayout.push({
-              id,
-              type: validType,
-              name: finalName,
-              subtitle: "",
-              data: baseData as ItemData,
-              color: getRandomCardColor(),
-              folderId: activeFolderId ?? undefined,
-              layout,
-            });
-          }
 
           const newItem = sanitizeWorkspaceItemForPersistence({
             id,
@@ -530,7 +480,6 @@ export function useWorkspaceOperations(
             data: mergedData as ItemData,
             color: getRandomCardColor(),
             folderId: activeFolderId ?? undefined,
-            layout,
           });
           itemsSoFar.push(newItem);
           return newItem;
@@ -560,7 +509,6 @@ export function useWorkspaceOperations(
               data: item.data as JsonObject,
               color: item.color ?? null,
               folderId: item.folderId ?? null,
-              layout: (item.layout as JsonObject | undefined) ?? null,
             })),
           }),
         );
@@ -686,7 +634,6 @@ export function useWorkspaceOperations(
               data: item.data as JsonObject,
               color: item.color ?? null,
               folderId: item.folderId ?? null,
-              layout: (item.layout as JsonObject | undefined) ?? null,
             })),
             previousItemCount,
           }),
@@ -695,49 +642,6 @@ export function useWorkspaceOperations(
       return;
     }
 
-    const layoutUpdates: Array<{
-      id: string;
-      x: number;
-      y: number;
-      w: number;
-      h: number;
-    }> = [];
-    const currentItemsMap = new Map(latestState.map((item) => [item.id, item]));
-
-    for (const item of items) {
-      const currentItem = currentItemsMap.get(item.id);
-      const currentLayout = currentItem
-        ? getLayoutForBreakpoint(currentItem, "lg")
-        : undefined;
-      const newLayout = getLayoutForBreakpoint(item, "lg");
-
-      if (
-        newLayout &&
-        (!currentLayout ||
-          currentLayout.x !== newLayout.x ||
-          currentLayout.y !== newLayout.y ||
-          currentLayout.w !== newLayout.w ||
-          currentLayout.h !== newLayout.h)
-      ) {
-        layoutUpdates.push({
-          id: item.id,
-          x: newLayout.x,
-          y: newLayout.y,
-          w: newLayout.w,
-          h: newLayout.h,
-        });
-      }
-    }
-
-    if (layoutUpdates.length > 0) {
-      zeroRef.current.mutate(
-        mutators.item.updateMany({
-          workspaceId: currentWorkspaceId,
-          layoutUpdates,
-          previousItemCount,
-        }),
-      );
-    }
   }, []);
 
   const createFolder = useCallback(
@@ -767,7 +671,6 @@ export function useWorkspaceOperations(
               data: folder.data as JsonObject,
               color: folder.color ?? null,
               folderId: folder.folderId ?? null,
-              layout: null,
             },
           }),
         );
@@ -817,7 +720,6 @@ export function useWorkspaceOperations(
               data: folder.data as JsonObject,
               color: folder.color ?? null,
               folderId: folder.folderId ?? null,
-              layout: null,
             },
             itemIds: safeItemIds,
           }),

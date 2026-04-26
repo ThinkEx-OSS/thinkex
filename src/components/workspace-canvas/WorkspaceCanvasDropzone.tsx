@@ -5,9 +5,8 @@ import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import { CgNotes } from "react-icons/cg";
-import { useCallback, useState, useRef, useEffect } from "react";
+import { useCallback, useState, useRef } from "react";
 import { toast } from "sonner";
-import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
 import {
   buildWorkspaceItemDefinitionsFromAssets,
@@ -137,9 +136,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
       try {
         const { uploads, failedFiles } = await uploadSelectedFiles(filteredFiles);
         if (uploads.length > 0) {
-          const itemDefinitions = buildWorkspaceItemDefinitionsFromAssets(uploads, {
-            imageLayout: DEFAULT_CARD_DIMENSIONS.image,
-          });
+          const itemDefinitions = buildWorkspaceItemDefinitionsFromAssets(uploads);
           const createdIds = operations.createItems(itemDefinitions, {
             showSuccessToast: false,
           });

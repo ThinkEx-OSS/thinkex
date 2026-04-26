@@ -1,7 +1,6 @@
 import React, { RefObject, useState, useCallback } from "react";
 import { toast } from "sonner";
 import type { Item, CardType } from "@/lib/workspace-state/types";
-import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import type { WorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import WorkspaceContent from "./WorkspaceContent";
 import SelectionActionBar from "./SelectionActionBar";
@@ -144,8 +143,6 @@ export function WorkspaceSection({
   const activeFolderId = useUIStore((uiState) => uiState.activeFolderId);
 
   // Track grid dragging state for marquee conflict prevention
-  const [isGridDragging, setIsGridDragging] = useState(false);
-
   // Delete confirmation state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
@@ -181,7 +178,6 @@ export function WorkspaceSection({
           type: "website",
           name,
           initialData: { url, favicon },
-          initialLayout: DEFAULT_CARD_DIMENSIONS.website,
         },
       ]);
     },
@@ -382,9 +378,7 @@ export function WorkspaceSection({
         return;
       }
 
-      const itemDefinitions = buildWorkspaceItemDefinitionsFromAssets(uploads, {
-        imageLayout: DEFAULT_CARD_DIMENSIONS.image,
-      });
+      const itemDefinitions = buildWorkspaceItemDefinitionsFromAssets(uploads);
 
       const createdIds = operations.createItems(itemDefinitions, {
         showSuccessToast: false,
@@ -527,15 +521,11 @@ export function WorkspaceSection({
                   addItem={addItem}
                   updateItem={updateItem}
                   deleteItem={deleteItem}
-                  updateAllItems={updateAllItems}
                   openWorkspaceItem={openWorkspaceItem}
-                  scrollContainerRef={scrollAreaRef}
-                  onGridDragStateChange={setIsGridDragging}
                   workspaceName={workspaceTitle || "Workspace"}
                   workspaceIcon={workspaceIcon}
                   workspaceColor={workspaceColor}
                   onMoveItem={operations?.moveItemToFolder}
-                  onMoveItems={operations?.moveItemsToFolder}
                   onDeleteFolderWithContents={
                     operations?.deleteFolderWithContents
                   }
@@ -551,7 +541,7 @@ export function WorkspaceSection({
                   <MarqueeSelector
                     scrollContainerRef={scrollAreaRef}
                     cardIds={state.map((item) => item.id)}
-                    isGridDragging={isGridDragging}
+                    isGridDragging={false}
                   />
                 )}
             </div>

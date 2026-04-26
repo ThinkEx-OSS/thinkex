@@ -76,7 +76,6 @@ export type CreateItemParams = {
   };
   sources?: Array<{ title: string; url: string; favicon?: string }>;
   folderId?: string;
-  layout?: { x: number; y: number; w: number; h: number };
 };
 
 /**
@@ -178,7 +177,6 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
     data: itemData,
     color: getRandomCardColor(),
     folderId: p.folderId,
-    ...(p.layout && { layout: p.layout }),
   };
 }
 
@@ -304,8 +302,7 @@ export async function workspaceWorker(
     }>;
     folderId?: string;
     /** Optional layout { x, y, w, h } for the item (lg breakpoint) */
-    layout?: { x: number; y: number; w: number; h: number };
-  },
+    },
 ): Promise<{
   success: boolean;
   message: string;
@@ -991,13 +988,13 @@ export async function workspaceWorker(
           );
           await deleteWorkspaceItem(params.workspaceId, params.itemId);
 
-          return {
-            success: true,
-            itemId: params.itemId,
-            message: existingItem
-              ? `Deleted \"${existingItem.name}\" successfully`
-              : "Deleted item successfully",
-          };
+            return {
+              success: true,
+              itemId: params.itemId,
+              message: existingItem
+                ? `Deleted "${existingItem.name}" successfully`
+                : "Deleted item successfully",
+            };
         }
 
         // Fallback for unhandled actions
