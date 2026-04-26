@@ -75,9 +75,7 @@ export const GET = withServerObservability(
       // the persistence guard never poisons hydrated `useChat` state.
       const messages = rows
         .map((r) => r.content)
-        .filter((content) =>
-          hasMeaningfulContent(content as { parts?: unknown }),
-        );
+        .filter((content) => hasMeaningfulContent(content));
 
       // [chat-debug] Snapshot what's actually in the DB for this thread so
       // we can correlate against what the client receives. If the assistant

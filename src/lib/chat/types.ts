@@ -31,9 +31,11 @@ export type ChatMessageFormat = typeof CHAT_MESSAGE_FORMAT;
  * (which would otherwise fail `safeValidateUIMessages.parts.nonempty(...)`) never
  * make it into the validated message list.
  */
-export function hasMeaningfulContent(message: { parts?: unknown }): boolean {
-  if (!Array.isArray(message.parts) || message.parts.length === 0) return false;
-  return message.parts.some((part) => {
+export function hasMeaningfulContent(message: unknown): boolean {
+  if (!message || typeof message !== "object") return false;
+  const parts = (message as { parts?: unknown }).parts;
+  if (!Array.isArray(parts) || parts.length === 0) return false;
+  return parts.some((part) => {
     if (!part || typeof part !== "object") return false;
     const type = (part as { type?: unknown }).type;
     if (typeof type !== "string") return false;

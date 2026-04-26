@@ -555,9 +555,16 @@ async function handlePOST(req: Request) {
       },
       onFinish: async ({ responseMessage, isAborted }) => {
         const meaningful = hasMeaningfulContent(responseMessage);
-        if (isAborted || !userId || !meaningful) {
+        if (isAborted) {
+          logger.debug(`${CHAT_DEBUG_TAG} onFinish skipped (aborted)`, {
+            hasUserId: !!userId,
+            hasMeaningfulContent: meaningful,
+            partCount: responseMessage.parts?.length ?? 0,
+          });
+          return;
+        }
+        if (!userId || !meaningful) {
           logger.warn(`${CHAT_DEBUG_TAG} onFinish skipped`, {
-            isAborted,
             hasUserId: !!userId,
             hasMeaningfulContent: meaningful,
             partCount: responseMessage.parts?.length ?? 0,
