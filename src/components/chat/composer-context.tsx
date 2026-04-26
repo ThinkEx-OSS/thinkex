@@ -123,12 +123,10 @@ export function ComposerProvider({ children }: ComposerProviderProps) {
   }, []);
 
   const focus = useCallback((options?: { cursorAtEnd?: boolean }) => {
-    // Double rAF: one frame for the DOM to settle, another to re-assert
-    // focus after same-frame focus thieves (Tiptap bubble menus, popover
-    // close-auto-focus, Tiptap `chain().focus()` after `setTextSelection`).
-    // The second frame is the same pattern Radix UI uses internally for
-    // focus restoration race conditions.
-    const tryFocus = () => {
+    // rAF — not `setTimeout(100)` — because this is usually called while a
+    // modal or dropdown is closing. One frame is enough for the DOM to settle;
+    // any more is arbitrary and user-visible.
+    requestAnimationFrame(() => {
       const el = inputRef.current;
       if (!el) return;
       el.focus();
@@ -136,10 +134,6 @@ export function ComposerProvider({ children }: ComposerProviderProps) {
         const len = el.value.length;
         el.setSelectionRange(len, len);
       }
-    };
-    requestAnimationFrame(() => {
-      tryFocus();
-      requestAnimationFrame(tryFocus);
     });
   }, []);
 
