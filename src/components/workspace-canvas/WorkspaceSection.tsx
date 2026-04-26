@@ -251,14 +251,21 @@ export function WorkspaceSection({
     }
 
     // Blur any active textarea (card titles) when clicking on background or card (but not on the textarea itself)
-    // This ensures card titles save when clicking away, even if clicking on another card
+    // This ensures card titles save when clicking away, even if clicking on another card.
+    // Scope to textareas INSIDE the workspace — never blur the chat composer
+    // (which lives in a sibling ResizablePanel).
     if (
       document.activeElement &&
       document.activeElement.tagName === "TEXTAREA"
     ) {
       const activeTextarea = document.activeElement as HTMLTextAreaElement;
-      // Only blur if we're not clicking on the textarea itself
-      if (activeTextarea !== target && !activeTextarea.contains(target)) {
+      const workspaceEl = event.currentTarget;
+      const isInsideWorkspace = workspaceEl.contains(activeTextarea);
+      if (
+        isInsideWorkspace &&
+        activeTextarea !== target &&
+        !activeTextarea.contains(target)
+      ) {
         activeTextarea.blur();
       }
     }
