@@ -148,6 +148,98 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
     composer.focus();
   }, [composer]);
 
+  // Global "just start typing" capture: when the user types or pastes text
+  // anywhere on the page while no other editable element has focus,
+  // transparently focus the composer textarea and replay the input. Read
+  // textarea.value directly from the DOM (not React state) to avoid stale
+  // closures and unnecessary listener re-binds — React keeps the DOM value
+  // in sync with `composer.input` via the controlled-input pattern.
+  const setInputRef = useRef(composer.setInput);
+  setInputRef.current = composer.setInput;
+  const inputElRef = composer.inputRef;
+
+  useEffect(() => {
+    const isOtherEditable = (el: Element | null): boolean => {
+      if (!el) return false;
+      if (el === inputElRef.current) return false;
+      const tag = el.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return true;
+      return (el as HTMLElement).isContentEditable;
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      if (e.defaultPrevented) return;
+      if (e.key.length !== 1) return;
+
+      const el = inputElRef.current;
+      if (!el) return;
+
+      const active = document.activeElement;
+      if (active === el) return;
+      if (isOtherEditable(active)) return;
+
+      if (el.value.length >= MAX_TEXT_LEN) return;
+
+      e.preventDefault();
+
+      const start = el.selectionStart ?? el.value.length;
+      const end = el.selectionEnd ?? el.value.length;
+      const next = el.value.slice(0, start) + e.key + el.value.slice(end);
+
+      setInputRef.current(next);
+
+      requestAnimationFrame(() => {
+        const node = inputElRef.current;
+        if (!node) return;
+        node.focus();
+        const pos = start + 1;
+        node.setSelectionRange(pos, pos);
+      });
+    };
+
+    const onPaste = (e: ClipboardEvent) => {
+      const el = inputElRef.current;
+      if (!el) return;
+
+      const active = document.activeElement;
+      if (active === el) return;
+      if (isOtherEditable(active)) return;
+
+      const text = e.clipboardData?.getData("text");
+      if (!text) return; // file-only paste falls through to other handlers
+
+      e.preventDefault();
+
+      const start = el.selectionStart ?? el.value.length;
+      const end = el.selectionEnd ?? el.value.length;
+      const proposed =
+        el.value.slice(0, start) + text + el.value.slice(end);
+      const next =
+        proposed.length > MAX_TEXT_LEN
+          ? proposed.slice(0, MAX_TEXT_LEN)
+          : proposed;
+      const insertedLen = next.length - (el.value.length - (end - start));
+
+      setInputRef.current(next);
+
+      requestAnimationFrame(() => {
+        const node = inputElRef.current;
+        if (!node) return;
+        node.focus();
+        const pos = start + insertedLen;
+        node.setSelectionRange(pos, pos);
+      });
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("paste", onPaste);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("paste", onPaste);
+    };
+  }, [inputElRef]);
+
   return (
     <div
       className="relative"
