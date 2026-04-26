@@ -301,8 +301,7 @@ export async function workspaceWorker(
       favicon?: string;
     }>;
     folderId?: string;
-    /** Optional layout { x, y, w, h } for the item (lg breakpoint) */
-    },
+  },
 ): Promise<{
   success: boolean;
   message: string;
@@ -988,13 +987,13 @@ export async function workspaceWorker(
           );
           await deleteWorkspaceItem(params.workspaceId, params.itemId);
 
-            return {
-              success: true,
-              itemId: params.itemId,
-              message: existingItem
-                ? `Deleted "${existingItem.name}" successfully`
-                : "Deleted item successfully",
-            };
+          return {
+            success: true,
+            itemId: params.itemId,
+            message: existingItem
+              ? `Deleted "${existingItem.name}" successfully`
+              : "Deleted item successfully",
+          };
         }
 
         // Fallback for unhandled actions
