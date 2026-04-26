@@ -14,6 +14,18 @@ const math = createMathPlugin({ singleDollarTextMath: true });
 
 const code = createCodePlugin() as CodeHighlighterPlugin;
 
+type MermaidErrorFallbackProps = {
+  chart: string;
+  error: string;
+  retry: () => void;
+};
+
+const MermaidErrorFallback = (_props: MermaidErrorFallbackProps) => (
+  <div className="my-2 text-xs text-muted-foreground">
+    AI failed to create diagram.
+  </div>
+);
+
 interface StreamdownMarkdownProps {
   children: string;
   className?: string;
@@ -52,6 +64,7 @@ const StreamdownMarkdownImpl: React.FC<StreamdownMarkdownProps> = ({
           config: {
             theme: 'dark',
           },
+          errorComponent: MermaidErrorFallback,
         }}
       >
         {preprocessLatex(children)}
