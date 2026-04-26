@@ -1,7 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback } from "react"
 import { type Editor } from "@tiptap/react"
+import { useEditorState } from "@tiptap/react"
 import { NodeSelection, TextSelection } from "@tiptap/pm/state"
 
 // --- Hooks ---
@@ -309,25 +310,29 @@ export function useList(config: UseListConfig) {
   } = config
 
   const { editor } = useTiptapEditor(providedEditor)
-  const [isVisible, setIsVisible] = useState<boolean>(true)
-  const canToggle = canToggleList(editor, type)
-  const isActive = isListActive(editor, type)
+  const toolbarState = useEditorState({
+    editor,
+    selector: ({ editor: currentEditor }) => {
+      if (!currentEditor) {
+        return {
+          isVisible: true,
+          isActive: false,
+          canToggle: false,
+        }
+      }
 
-  useEffect(() => {
-    if (!editor) return
-
-    const handleSelectionUpdate = () => {
-      setIsVisible(shouldShowButton({ editor, type, hideWhenUnavailable }))
-    }
-
-    handleSelectionUpdate()
-
-    editor.on("selectionUpdate", handleSelectionUpdate)
-
-    return () => {
-      editor.off("selectionUpdate", handleSelectionUpdate)
-    }
-  }, [editor, type, hideWhenUnavailable])
+      return {
+        isVisible: shouldShowButton({
+          editor: currentEditor,
+          type,
+          hideWhenUnavailable,
+        }),
+        isActive: isListActive(currentEditor, type),
+        canToggle: canToggleList(currentEditor, type),
+      }
+    },
+  })!
+  const { isVisible, isActive, canToggle } = toolbarState
 
   const handleToggle = useCallback(() => {
     if (!editor) return false

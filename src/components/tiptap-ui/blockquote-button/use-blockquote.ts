@@ -1,7 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback } from "react"
 import type { Editor } from "@tiptap/react"
+import { useEditorState } from "@tiptap/react"
 import { NodeSelection, TextSelection } from "@tiptap/pm/state"
 
 // --- Hooks ---
@@ -231,25 +232,28 @@ export function useBlockquote(config?: UseBlockquoteConfig) {
   } = config || {}
 
   const { editor } = useTiptapEditor(providedEditor)
-  const [isVisible, setIsVisible] = useState<boolean>(true)
-  const canToggle = canToggleBlockquote(editor)
-  const isActive = editor?.isActive("blockquote") || false
+  const toolbarState = useEditorState({
+    editor,
+    selector: ({ editor: currentEditor }) => {
+      if (!currentEditor) {
+        return {
+          isVisible: true,
+          isActive: false,
+          canToggle: false,
+        }
+      }
 
-  useEffect(() => {
-    if (!editor) return
-
-    const handleSelectionUpdate = () => {
-      setIsVisible(shouldShowButton({ editor, hideWhenUnavailable }))
-    }
-
-    handleSelectionUpdate()
-
-    editor.on("selectionUpdate", handleSelectionUpdate)
-
-    return () => {
-      editor.off("selectionUpdate", handleSelectionUpdate)
-    }
-  }, [editor, hideWhenUnavailable])
+      return {
+        isVisible: shouldShowButton({
+          editor: currentEditor,
+          hideWhenUnavailable,
+        }),
+        isActive: currentEditor.isActive("blockquote"),
+        canToggle: canToggleBlockquote(currentEditor),
+      }
+    },
+  })!
+  const { isVisible, isActive, canToggle } = toolbarState
 
   const handleToggle = useCallback(() => {
     if (!editor) return false
