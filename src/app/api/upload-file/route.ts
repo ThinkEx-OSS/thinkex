@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { NextRequest, NextResponse } from "next/server";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import {
   getPreferredUploadContentType,
   getOfficeDocumentConvertUrl,
@@ -17,18 +17,57 @@ import { withServerObservability } from "@/lib/with-server-observability";
 
 export const maxDuration = 30;
 
-async function saveFileLocally(file: File, filename: string): Promise<string> {
-  const uploadsDir = process.env.UPLOADS_DIR || join(process.cwd(), "uploads");
+function getUploadsDir(): string {
+  return resolve(process.env.UPLOADS_DIR || join(process.cwd(), "uploads"));
+}
 
-  if (!existsSync(uploadsDir)) {
-    await mkdir(uploadsDir, { recursive: true });
+function validateStorageSegment(value: string, label: string): string {
+  if (
+    !value ||
+    value === "." ||
+    value === ".." ||
+    value.includes("/") ||
+    value.includes("\\")
+  ) {
+    throw new Error(`Invalid ${label}`);
+  }
+
+  return value;
+}
+
+function isPathInsideDirectory(filePath: string, directory: string): boolean {
+  return filePath === directory || filePath.startsWith(`${directory}${sep}`);
+}
+
+async function saveFileLocally(
+  file: File,
+  userId: string,
+  filename: string,
+): Promise<{ storagePath: string; publicUrl: string }> {
+  const uploadsDir = getUploadsDir();
+  const ownerId = validateStorageSegment(userId, "user id");
+  const safeFilename = validateStorageSegment(filename, "filename");
+  const targetDir = resolve(uploadsDir, ownerId);
+  const filePath = resolve(targetDir, safeFilename);
+
+  if (!isPathInsideDirectory(targetDir, uploadsDir)) {
+    throw new Error("Invalid user storage path");
+  }
+  if (!isPathInsideDirectory(filePath, uploadsDir)) {
+    throw new Error("Invalid file storage path");
+  }
+
+  if (!existsSync(targetDir)) {
+    await mkdir(targetDir, { recursive: true });
   }
 
   const bytes = await file.arrayBuffer();
-  await writeFile(join(uploadsDir, filename), Buffer.from(bytes));
+  await writeFile(filePath, Buffer.from(bytes));
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  return `${appUrl}/api/files/${filename}`;
+  const storagePath = `${ownerId}/${safeFilename}`;
+  const publicUrl = `${appUrl}/api/files/${encodeURIComponent(ownerId)}/${encodeURIComponent(safeFilename)}`;
+  return { storagePath, publicUrl };
 }
 
 export const POST = withServerObservability(async function POST(request: NextRequest) {
@@ -44,6 +83,7 @@ export const POST = withServerObservability(async function POST(request: NextReq
         { status: 401 }
       );
     }
+    const userId = session.user.id;
 
     // Get file from form data
     const formData = await request.formData();
@@ -128,12 +168,12 @@ export const POST = withServerObservability(async function POST(request: NextReq
         );
       }
 
-      const publicUrl = await saveFileLocally(file, filename);
+      const { publicUrl, storagePath } = await saveFileLocally(file, userId, filename);
 
       return NextResponse.json({
         success: true,
         url: publicUrl,
-        filename,
+        filename: storagePath,
       });
     }
 

@@ -18,6 +18,14 @@ export function ZeroProvider({ children }: { children: ReactNode }) {
     }
   }, [userId]);
 
+  const zero = useMemo(() => {
+    if (zeroConfigError || !userId) {
+      return null;
+    }
+
+    return getZero({ userId });
+  }, [userId, zeroConfigError]);
+
   if (zeroConfigError) {
     return (
       <div className="flex h-full w-full items-center justify-center p-6">
@@ -30,14 +38,6 @@ export function ZeroProvider({ children }: { children: ReactNode }) {
       </div>
     );
   }
-
-  const zero = useMemo(() => {
-    if (!userId) {
-      return null;
-    }
-
-    return getZero({ userId });
-  }, [userId]);
 
   if (isPending || !zero) {
     // Show a minimal loading state instead of null to avoid

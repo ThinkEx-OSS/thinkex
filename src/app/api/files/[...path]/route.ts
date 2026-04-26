@@ -66,12 +66,21 @@ async function handleGET(
   }
 
   const { path } = await params;
+  if (path.length !== 2) {
+    return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
+  }
+
+  const [ownerId] = path;
   const relativePath = path.join("/");
   if (
     !relativePath ||
     path.some((segment) => !segment || segment === "." || segment === "..")
   ) {
     return NextResponse.json({ error: "Invalid file path" }, { status: 400 });
+  }
+
+  if (ownerId !== session.user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const uploadsDir = resolve(process.env.UPLOADS_DIR || join(process.cwd(), "uploads"));

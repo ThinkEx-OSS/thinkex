@@ -22,6 +22,31 @@ function extractFilename(url: string): string | null {
   return null;
 }
 
+function parseOwnedLocalPath(filename: string): { ownerId: string; fileName: string } | null {
+  if (filename.includes("..") || filename.includes("\\")) {
+    return null;
+  }
+
+  const segments = filename.split("/");
+  if (segments.length !== 2) {
+    return null;
+  }
+
+  const [ownerId, fileName] = segments;
+  if (
+    !ownerId ||
+    ownerId === "." ||
+    ownerId === ".." ||
+    !fileName ||
+    fileName === "." ||
+    fileName === ".."
+  ) {
+    return null;
+  }
+
+  return { ownerId, fileName };
+}
+
 export async function DELETE(request: NextRequest) {
   try {
     // Get authenticated user from Better Auth
@@ -58,12 +83,16 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (getStorageMode() === "local") {
-      if (filename.includes("/")) {
+      const parsedPath = parseOwnedLocalPath(filename);
+      if (!parsedPath) {
         return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
+      }
+      if (parsedPath.ownerId !== session.user.id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
       const uploadsDir = process.env.UPLOADS_DIR || join(process.cwd(), "uploads");
-      const filePath = join(uploadsDir, filename);
+      const filePath = join(uploadsDir, parsedPath.ownerId, parsedPath.fileName);
 
       if (!existsSync(filePath)) {
         return NextResponse.json({
