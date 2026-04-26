@@ -26,6 +26,19 @@ export interface FirecrawlPageResult {
     metadata?: FirecrawlMetadata;
 }
 
+export interface FirecrawlMapResult {
+    success: boolean;
+    links: Array<{ url: string; title?: string; description?: string }>;
+    error?: string;
+}
+
+export interface FirecrawlMapOptions {
+    search?: string;
+    limit?: number;
+    includeSubdomains?: boolean;
+    sitemap?: "include" | "skip" | "only";
+}
+
 export class FirecrawlClient {
     private apiKey: string;
     private baseUrl = "https://api.firecrawl.dev/v2";
@@ -211,5 +224,98 @@ export class FirecrawlClient {
 
         logger.debug(`🔥 [Firecrawl] Scraping ${urls.length} URLs in parallel`);
         return await Promise.all(urls.map((url) => this.scrapeUrl(url)));
+    }
+
+    async mapUrl(
+        url: string,
+        options: FirecrawlMapOptions = {},
+    ): Promise<FirecrawlMapResult> {
+        if (!this.apiKey) {
+            return {
+                success: false,
+                links: [],
+                error: "Firecrawl API key not configured",
+            };
+        }
+
+        try {
+            logger.debug(`🔥 [Firecrawl] Mapping URL: ${url}`);
+
+            const body: Record<string, unknown> = { url };
+            if (options.search !== undefined) body.search = options.search;
+            if (options.limit !== undefined) body.limit = options.limit;
+            if (options.includeSubdomains !== undefined) {
+                body.includeSubdomains = options.includeSubdomains;
+            }
+            if (options.sitemap !== undefined) body.sitemap = options.sitemap;
+
+            const response = await fetch(`${this.baseUrl}/map`, {
+                method: "POST",
+                headers: this.getHeaders(),
+                body: JSON.stringify(body),
+            });
+
+            if (!response.ok) {
+                return {
+                    success: false,
+                    links: [],
+                    error: await this.parseErrorResponse(response),
+                };
+            }
+
+            const result = await response.json();
+            if (result?.success === false) {
+                return {
+                    success: false,
+                    links: [],
+                    error:
+                        typeof result?.error === "string"
+                            ? result.error
+                            : "Unknown Firecrawl map error",
+                };
+            }
+
+            const rawLinks = Array.isArray(result?.links) ? result.links : [];
+            const links = rawLinks
+                .map((entry: unknown) => {
+                    if (typeof entry === "string") {
+                        return entry.length > 0 ? { url: entry } : null;
+                    }
+                    if (entry && typeof entry === "object" && !Array.isArray(entry)) {
+                        const rec = entry as {
+                            url?: unknown;
+                            title?: unknown;
+                            description?: unknown;
+                        };
+                        if (typeof rec.url !== "string" || rec.url.length === 0) {
+                            return null;
+                        }
+                        return {
+                            url: rec.url,
+                            title: typeof rec.title === "string" ? rec.title : undefined,
+                            description:
+                                typeof rec.description === "string"
+                                    ? rec.description
+                                    : undefined,
+                        };
+                    }
+                    return null;
+                })
+                .filter(
+                    (
+                        link: { url: string; title?: string; description?: string } | null,
+                    ): link is { url: string; title?: string; description?: string } =>
+                        link !== null,
+                );
+
+            return { success: true, links };
+        } catch (error) {
+            logger.error(`❌ [Firecrawl] Error mapping ${url}:`, error);
+            return {
+                success: false,
+                links: [],
+                error: error instanceof Error ? error.message : String(error),
+            };
+        }
     }
 }
