@@ -7,19 +7,16 @@ describe("fetchThreadMessages", () => {
     vi.unstubAllGlobals();
   });
 
-  it("distinguishes missing persisted threads from valid empty threads", async () => {
+  it("returns an empty message list for missing persisted threads", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({ ok: false, status: 404 }),
     );
 
-    await expect(fetchThreadMessages("missing-thread")).resolves.toEqual({
-      kind: "missing",
-      messages: [],
-    });
+    await expect(fetchThreadMessages("missing-thread")).resolves.toEqual([]);
   });
 
-  it("returns found for an existing thread with no messages", async () => {
+  it("returns an empty message list for an existing thread with no messages", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -28,9 +25,6 @@ describe("fetchThreadMessages", () => {
       }),
     );
 
-    await expect(fetchThreadMessages("empty-thread")).resolves.toEqual({
-      kind: "found",
-      messages: [],
-    });
+    await expect(fetchThreadMessages("empty-thread")).resolves.toEqual([]);
   });
 });
