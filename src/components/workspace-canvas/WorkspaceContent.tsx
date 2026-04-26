@@ -1,7 +1,7 @@
 import { useMemo, useCallback, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import { Plus, Upload } from "lucide-react";
+import { FileText, FolderPlus, Plus, Sparkles, Upload } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import type { Item, CardType } from "@/lib/workspace-state/types";
 import { filterItemsByFolder } from "@/lib/workspace-state/search";
@@ -17,6 +17,7 @@ import {
   WORKSPACE_FILE_UPLOAD_ACCEPT_STRING,
   WORKSPACE_FILE_UPLOAD_DESCRIPTION,
 } from "@/lib/uploads/workspace-upload-config";
+import { cn } from "@/lib/utils";
 
 interface WorkspaceContentProps {
   viewState: Item[];
@@ -250,15 +251,61 @@ export default function WorkspaceContent({
   }, [onDragStop]);
 
   const isFiltering = activeFolderId !== null;
+  const isEmptyWorkspace = viewState.length === 0;
+  const isEmptyFolder = isFiltering && filteredItems.length === 0;
 
-  if (viewState.length === 0 || (isFiltering && filteredItems.length === 0)) {
+  const handleCreateDocument = useCallback(() => {
+    const itemId = addItem("document");
+    if (itemId) {
+      toast.success("New document created");
+      onItemCreated?.([itemId]);
+    }
+  }, [addItem, onItemCreated]);
+
+  const handleCreateFolder = useCallback(() => {
+    const itemId = addItem("folder");
+    if (itemId) {
+      toast.success("New folder created");
+    }
+  }, [addItem]);
+
+  const emptyStateTitle = activeFolderId
+    ? "This folder is ready for content"
+    : "Start building this workspace";
+  const emptyStateDescription = activeFolderId
+    ? `Upload ${WORKSPACE_FILE_UPLOAD_DESCRIPTION} or create something new here. Anything you add will stay in this folder.`
+    : `Upload ${WORKSPACE_FILE_UPLOAD_DESCRIPTION} or create your first document to start building this workspace.`;
+
+  const supportedStartingPoints = [
+    {
+      icon: Upload,
+      title: "Upload material",
+      description: WORKSPACE_FILE_UPLOAD_DESCRIPTION,
+    },
+    {
+      icon: FileText,
+      title: "Create a document",
+      description: activeFolderId
+        ? "Add notes directly to this folder"
+        : "Start drafting in a blank document",
+    },
+    {
+      icon: FolderPlus,
+      title: "Organize as you grow",
+      description: activeFolderId
+        ? "Create a nested folder for sub-topics"
+        : "Create folders to keep related work together",
+    },
+  ];
+
+  if (isEmptyWorkspace || isEmptyFolder) {
     return (
       <div className="flex-1 py-4 overflow-hidden">
         <div
           className={`${selectedCardIdsArray.length > 0 ? "pb-20" : ""} size-full workspace-grid-container px-4 sm:px-6`}
         >
-          <EmptyState className="w-full min-w-0 max-w-full">
-            <div className="mx-auto max-w-2xl w-full text-center px-4 sm:px-6 py-10 min-w-0">
+          <EmptyState className="w-full min-w-0 max-w-full border-0 bg-transparent p-0">
+            <div className="mx-auto w-full max-w-5xl min-w-0 px-1 py-6 sm:px-2 sm:py-10">
               <input
                 id={emptyStateUploadInputId}
                 ref={fileInputRef}
@@ -268,53 +315,104 @@ export default function WorkspaceContent({
                 onChange={handleFileChange}
                 accept={WORKSPACE_FILE_UPLOAD_ACCEPT_STRING}
               />
+              <div className="relative overflow-hidden rounded-[28px] border border-border/60 bg-background/85 shadow-[0_24px_90px_-40px_rgba(0,0,0,0.55)] backdrop-blur-xl">
+                <div className="pointer-events-none absolute inset-x-8 top-0 h-28 rounded-full bg-primary/15 blur-3xl" />
+                <div className="pointer-events-none absolute -right-16 top-16 size-40 rounded-full bg-primary/10 blur-3xl" />
+                <div className="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] lg:p-10">
+                  <div className="flex min-w-0 flex-col items-start text-left">
+                    <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary shadow-sm">
+                      <Sparkles className="size-4" />
+                      Ready when you are
+                    </div>
+                    <div className="mb-6 space-y-3">
+                      <h3 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+                        {emptyStateTitle}
+                      </h3>
+                      <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+                        {emptyStateDescription}
+                      </p>
+                    </div>
 
-              <label
-                htmlFor={emptyStateUploadInputId}
-                className="mb-8 p-8 rounded-xl border-2 border-dashed border-muted-foreground/30 bg-muted/20 hover:border-solid hover:shadow-[inset_0_0_0_2px_hsl(var(--muted-foreground)/0.3)] hover:bg-muted/50 transition-all cursor-pointer group block"
-              >
-                <Upload className="size-12 mx-auto mb-4 text-muted-foreground group-hover:text-primary group-hover:scale-110 transition-all duration-200" />
-                <h3 className="text-base font-medium text-foreground mb-2">
-                  {activeFolderId
-                    ? `This folder is empty`
-                    : "This workspace is empty"}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Add {WORKSPACE_FILE_UPLOAD_DESCRIPTION} here, or click to
-                  choose files.
-                </p>
-              </label>
+                    <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className={cn(
+                          "group inline-flex min-h-14 items-center justify-center gap-3 rounded-2xl px-5 py-3 text-left transition-all duration-200",
+                          "bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 hover:shadow-primary/30",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                        )}
+                      >
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/20 transition-transform duration-200 group-hover:scale-105 dark:bg-white/10">
+                          <Upload className="size-5" />
+                        </span>
+                        <span className="flex flex-col items-start">
+                          <span className="text-sm font-semibold sm:text-base">
+                            Upload files
+                          </span>
+                          <span className="text-xs text-primary-foreground/80 sm:text-sm">
+                            {WORKSPACE_FILE_UPLOAD_DESCRIPTION}
+                          </span>
+                        </span>
+                      </button>
 
-              <div className="relative my-8">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border"></div>
+                      <button
+                        type="button"
+                        onClick={handleCreateDocument}
+                        className={cn(
+                          "inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-background/80 px-5 py-3 text-sm font-medium text-foreground shadow-sm transition-all duration-200 sm:text-base",
+                          "hover:border-primary/30 hover:bg-primary/5 hover:text-primary",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                        )}
+                      >
+                        <Plus className="size-[18px]" />
+                        New Document
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleCreateFolder}
+                        className={cn(
+                          "inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-border/70 bg-background/60 px-5 py-3 text-sm font-medium text-muted-foreground transition-all duration-200 sm:text-base",
+                          "hover:border-border hover:bg-muted/60 hover:text-foreground",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                        )}
+                      >
+                        <FolderPlus className="size-[18px]" />
+                        New Folder
+                      </button>
+                    </div>
+
+                    <p className="mt-4 text-xs text-muted-foreground sm:text-sm">
+                      Tip: you can also drag and drop files anywhere in the
+                      workspace.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-3 self-stretch">
+                    {supportedStartingPoints.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <div
+                          key={item.title}
+                          className="flex items-start gap-4 rounded-2xl border border-border/60 bg-background/70 p-4 shadow-sm backdrop-blur-sm"
+                        >
+                          <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/15">
+                            <Icon className="size-5" />
+                          </div>
+                          <div className="min-w-0 space-y-1">
+                            <p className="text-sm font-medium text-foreground">
+                              {item.title}
+                            </p>
+                            <p className="text-sm leading-6 text-muted-foreground">
+                              {item.description}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 py-1.5 bg-muted text-muted-foreground rounded-lg">
-                    or
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Create your first item to get started
-                </p>
-                <button
-                  onClick={() => {
-                    const itemId = addItem("document");
-                    if (itemId) {
-                      toast.success("New document created");
-                      if (onItemCreated) {
-                        onItemCreated([itemId]);
-                      }
-                    }
-                  }}
-                  className="inline-flex items-center gap-2 px-6 py-3 text-base font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 hover:scale-105 transition-all duration-200 active:scale-95 cursor-pointer"
-                >
-                  <Plus className="size-5" />
-                  New Document
-                </button>
               </div>
             </div>
           </EmptyState>
