@@ -53,8 +53,8 @@ export const ThreadListDropdown: FC<ThreadListDropdownProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const { workspaceId, threadId, startNewThread } = useChatContext();
-  const setCurrentThreadId = useWorkspaceStore(
-    (s) => s.setCurrentThreadId,
+  const activatePersistedThread = useWorkspaceStore(
+    (s) => s.activatePersistedThread,
   );
 
   const { data: threads, isLoading } = useThreadsQuery(workspaceId);
@@ -65,10 +65,10 @@ export const ThreadListDropdown: FC<ThreadListDropdownProps> = ({
 
   const handleSelect = useCallback(
     (id: string) => {
-      setCurrentThreadId(workspaceId, id);
+      activatePersistedThread(workspaceId, id);
       setOpen(false);
     },
-    [workspaceId, setCurrentThreadId],
+    [activatePersistedThread, workspaceId],
   );
 
   const handleNew = useCallback(() => {
@@ -154,6 +154,9 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
 
   const renameMutation = useRenameThread(workspaceId);
   const deleteMutation = useDeleteThread(workspaceId);
+  const clearLastPersistedThreadId = useWorkspaceStore(
+    (s) => s.clearLastPersistedThreadId,
+  );
 
   useEffect(() => {
     if (!isEditing) setEditValue(thread.title ?? "New Chat");
@@ -214,6 +217,7 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
     setShowDeleteDialog(false);
     try {
       await deleteMutation.mutateAsync(thread.id);
+      clearLastPersistedThreadId(workspaceId, thread.id);
       if (isActive) {
         onDeletedActiveThread();
       }
