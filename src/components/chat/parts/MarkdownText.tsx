@@ -37,6 +37,18 @@ import {
 const math = createMathPlugin({ singleDollarTextMath: true });
 const code = createCodePlugin() as CodeHighlighterPlugin;
 
+type MermaidErrorFallbackProps = {
+  chart: string;
+  error: string;
+  retry: () => void;
+};
+
+const MermaidErrorFallback = (_props: MermaidErrorFallbackProps) => (
+  <div className="my-2 text-xs text-muted-foreground">
+    AI failed to create diagram.
+  </div>
+);
+
 function parseCitationPage(ref: string): {
   title: string;
   quote?: string;
@@ -278,7 +290,10 @@ const MarkdownTextImpl = ({
             </ul>
           ),
         }}
-        mermaid={{ config: { theme: "dark" } }}
+        mermaid={{
+          config: { theme: "dark" },
+          errorComponent: MermaidErrorFallback,
+        }}
       >
         {preprocessLatex(text)}
       </Streamdown>

@@ -1,8 +1,9 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback } from "react"
 import type { ChainedCommands } from "@tiptap/react"
 import { type Editor } from "@tiptap/react"
+import { useEditorState } from "@tiptap/react"
 
 // --- Hooks ---
 import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
@@ -186,25 +187,29 @@ export function useTextAlign(config: UseTextAlignConfig) {
   } = config
 
   const { editor } = useTiptapEditor(providedEditor)
-  const [isVisible, setIsVisible] = useState<boolean>(true)
-  const canAlign = canSetTextAlign(editor, align)
-  const isActive = isTextAlignActive(editor, align)
+  const toolbarState = useEditorState({
+    editor,
+    selector: ({ editor: currentEditor }) => {
+      if (!currentEditor) {
+        return {
+          isVisible: true,
+          isActive: false,
+          canAlign: false,
+        }
+      }
 
-  useEffect(() => {
-    if (!editor) return
-
-    const handleSelectionUpdate = () => {
-      setIsVisible(shouldShowButton({ editor, align, hideWhenUnavailable }))
-    }
-
-    handleSelectionUpdate()
-
-    editor.on("selectionUpdate", handleSelectionUpdate)
-
-    return () => {
-      editor.off("selectionUpdate", handleSelectionUpdate)
-    }
-  }, [editor, hideWhenUnavailable, align])
+      return {
+        isVisible: shouldShowButton({
+          editor: currentEditor,
+          align,
+          hideWhenUnavailable,
+        }),
+        isActive: isTextAlignActive(currentEditor, align),
+        canAlign: canSetTextAlign(currentEditor, align),
+      }
+    },
+  })!
+  const { isVisible, isActive, canAlign } = toolbarState
 
   const handleTextAlign = useCallback(() => {
     if (!editor) return false

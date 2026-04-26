@@ -12,6 +12,7 @@ import { renderExecuteCodeToolUI } from "./ExecuteCodeToolUI";
 import { renderReadWorkspaceToolUI } from "./ReadWorkspaceToolUI";
 import { renderSearchWorkspaceToolUI } from "./SearchWorkspaceToolUI";
 import { renderURLContextToolUI } from "./URLContextToolUI";
+import { renderWebMapToolUI } from "./WebMapToolUI";
 import { renderWebSearchToolUI } from "./WebSearchToolUI";
 import { renderYouTubeSearchToolUI } from "./YouTubeSearchToolUI";
 
@@ -23,6 +24,7 @@ type ToolRender = (args: ChatToolUIRenderArgs) => React.ReactNode;
  */
 export const TOOL_RENDERERS: Partial<Record<string, ToolRender>> = {
   [CHAT_TOOL.WEB_FETCH]: renderURLContextToolUI as ToolRender,
+  [CHAT_TOOL.WEB_MAP]: renderWebMapToolUI as ToolRender,
   [CHAT_TOOL.WEB_SEARCH]: renderWebSearchToolUI as ToolRender,
   [CHAT_TOOL.CODE_EXECUTE]: renderExecuteCodeToolUI as ToolRender,
   [CHAT_TOOL.WORKSPACE_SEARCH]: renderSearchWorkspaceToolUI as ToolRender,

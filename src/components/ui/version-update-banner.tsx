@@ -1,16 +1,16 @@
 "use client";
 
-import { Gift, RefreshCw, X } from "lucide-react";
+import { Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useVersionChecker } from "@/hooks/ui/use-version-checker";
 import { cn } from "@/lib/utils";
 
 export function VersionUpdateBanner() {
-  const { hasUpdate, dismiss } = useVersionChecker();
+  const { hasUpdate } = useVersionChecker();
 
   if (!hasUpdate) return null;
 
-  const handleRefresh = () => {
+  const handleUpdate = () => {
     window.location.reload();
   };
 
@@ -25,35 +25,28 @@ export function VersionUpdateBanner() {
     >
       <div
         className={cn(
-          "flex items-center gap-3 rounded-full border border-border/60",
-          "bg-background/95 backdrop-blur-md shadow-lg",
+          "flex items-center gap-3 rounded-full border border-white/20",
+          "bg-blue-600 text-white shadow-lg shadow-blue-600/30 backdrop-blur-md",
           "pl-2 pr-1.5 py-1.5",
           "max-w-[calc(100vw-2rem)]",
         )}
       >
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Gift className="size-4 animate-bounce" />
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-white">
+          <Gift
+            className="size-4 will-change-transform [animation:version-update-gift-sway_1.4s_ease-in-out_infinite]"
+            aria-hidden
+          />
         </div>
-        <div className="flex min-w-0 flex-col pr-1 leading-tight">
-          <p className="truncate text-sm font-medium text-foreground">
-            A new version is available
-          </p>
-          <p className="truncate text-xs text-muted-foreground">
-            Refresh to get the latest updates
-          </p>
-        </div>
-        <Button size="sm" onClick={handleRefresh} className="rounded-full">
-          <RefreshCw className="size-3.5" />
-          Refresh
-        </Button>
-        <button
-          type="button"
-          onClick={dismiss}
-          aria-label="Dismiss update notice"
-          className="flex size-7 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        <p className="min-w-0 truncate pr-1 text-sm font-medium text-white">
+          A new version is available
+        </p>
+        <Button
+          size="sm"
+          onClick={handleUpdate}
+          className="rounded-full border-0 bg-white text-blue-700 shadow-sm hover:bg-blue-50"
         >
-          <X className="size-3.5" />
-        </button>
+          Update
+        </Button>
       </div>
     </div>
   );
