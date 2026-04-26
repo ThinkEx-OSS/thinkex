@@ -1,6 +1,6 @@
 "use client";
 
-import { PencilIcon, Trash2Icon } from "lucide-react";
+import { Loader2Icon, PencilIcon, Trash2Icon } from "lucide-react";
 import { PiNotePencilBold } from "react-icons/pi";
 import {
   type FC,
@@ -12,6 +12,10 @@ import {
 import { toast } from "sonner";
 
 import { useChatContext } from "@/components/chat/ChatProvider";
+import {
+  useChatRuntimesContext,
+  useThreadStatus,
+} from "@/components/chat/ChatRuntimes";
 import { TooltipIconButton } from "@/components/chat/tooltip-icon-button";
 import {
   AlertDialog,
@@ -155,6 +159,9 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
   const clearCurrentThreadId = useWorkspaceStore(
     (s) => s.clearCurrentThreadId,
   );
+  const { disposeRuntime } = useChatRuntimesContext();
+  const status = useThreadStatus(thread.id);
+  const isGenerating = status === "submitted" || status === "streaming";
 
   useEffect(() => {
     if (!isEditing) setEditValue(thread.title ?? "New Chat");
@@ -215,6 +222,7 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
     setShowDeleteDialog(false);
     try {
       await deleteMutation.mutateAsync(thread.id);
+      disposeRuntime(thread.id);
       clearCurrentThreadId(workspaceId, thread.id);
       if (isActive) {
         onDeletedActiveThread();
@@ -253,9 +261,17 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
                 onClick={() => onSelect(thread.id)}
               >
                 <div className="min-w-0 flex-1">
-                  <span className="text-sm break-words block truncate">
-                    {title}
-                  </span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    {isGenerating ? (
+                      <Loader2Icon
+                        aria-label="Generating"
+                        className="size-3.5 shrink-0 text-primary animate-spin"
+                      />
+                    ) : null}
+                    <span className="text-sm break-words block truncate">
+                      {title}
+                    </span>
+                  </div>
                 </div>
               </button>
               <Tooltip>
