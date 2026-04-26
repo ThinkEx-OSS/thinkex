@@ -144,6 +144,7 @@ WEB SEARCH GUIDELINES:
 Use web_search when: temporal cues ("today", "latest", "current"), real-time data (scores, stocks, weather), fact verification, niche/recent info.
 Use internal knowledge for: creative writing, coding, general concepts, summarizing provided content.
 If the information is time-sensitive, niche, or uncertain, prefer web_search.
+Use web_map when the user references a single URL but the answer might require knowing what other pages exist on that site (e.g. "what's on docs.foo.com?", "find the auth section of this docs site", or before calling web_fetch on multiple URLs from the same domain). Pair with web_fetch: web_map first to discover, then web_fetch on the chosen URL(s). Don't use web_map for general web search — use web_search.
 
 ${getCodeExecutionSystemInstructions()}
 

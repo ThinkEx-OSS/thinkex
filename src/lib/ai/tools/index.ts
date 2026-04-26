@@ -4,6 +4,7 @@
  */
 
 import { createProcessUrlsTool } from "./process-urls";
+import { createWebMapTool } from "./web-map";
 import {
   createDocumentTool,
   createDeleteItemTool,
@@ -45,6 +46,7 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
   return {
     // URL processing
     [CHAT_TOOL.WEB_FETCH]: createProcessUrlsTool(),
+    [CHAT_TOOL.WEB_MAP]: createWebMapTool(),
 
     // Search
     [CHAT_TOOL.WEB_SEARCH]: createWebSearchTool(),
