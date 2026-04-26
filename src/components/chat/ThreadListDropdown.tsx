@@ -1,6 +1,6 @@
 "use client";
 
-import { PencilIcon, Trash2Icon } from "lucide-react";
+import { Loader2Icon, PencilIcon, Trash2Icon } from "lucide-react";
 import { PiNotePencilBold } from "react-icons/pi";
 import {
   type FC,
@@ -263,9 +263,9 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 min-w-0">
                     {isGenerating ? (
-                      <span
+                      <Loader2Icon
                         aria-label="Generating"
-                        className="inline-block size-2 shrink-0 rounded-full bg-primary animate-pulse"
+                        className="size-3.5 shrink-0 text-primary animate-spin"
                       />
                     ) : null}
                     <span className="text-sm break-words block truncate">
