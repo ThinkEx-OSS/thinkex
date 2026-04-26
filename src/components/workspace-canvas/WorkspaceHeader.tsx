@@ -22,6 +22,7 @@ import {
   Share2,
   Loader2,
   ExternalLink,
+  History,
   MessageSquareText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -73,6 +74,7 @@ import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { renderWorkspaceMenuItems } from "./workspace-menu-items";
 import { WorkspaceFeedbackDialog } from "./WorkspaceFeedbackDialog";
+import { WorkspaceActivityPanel } from "./WorkspaceActivityPanel";
 import { PromptBuilderDialog } from "@/components/chat/PromptBuilderDialog";
 const EMPTY_ITEMS: Item[] = [];
 const EMPTY_RESPONSIVE_BREADCRUMBS = {
@@ -305,6 +307,7 @@ export function WorkspaceHeader({
   const [showQuizDialog, setShowQuizDialog] = useState(false);
   const [showFlashcardsDialog, setShowFlashcardsDialog] = useState(false);
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
+  const [showActivityPanel, setShowActivityPanel] = useState(false);
   const [googleExportLoading, setGoogleExportLoading] = useState(false);
   const [showExportFallbackDialog, setShowExportFallbackDialog] =
     useState(false);
@@ -1248,6 +1251,20 @@ export function WorkspaceHeader({
               </button>
             )}
 
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => setShowActivityPanel(true)}
+                  className={WORKSPACE_HEADER_TOOLBAR_ICON_ONLY_CLASS}
+                  aria-label="Activity"
+                >
+                  <History className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Activity</TooltipContent>
+            </Tooltip>
+
             {/* Search - opens command palette */}
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1518,6 +1535,12 @@ export function WorkspaceHeader({
       <WorkspaceFeedbackDialog
         open={showFeedbackDialog}
         onOpenChange={setShowFeedbackDialog}
+      />
+      {/* Activity panel — read-only audit log */}
+      <WorkspaceActivityPanel
+        workspaceId={currentWorkspaceId ?? null}
+        open={showActivityPanel}
+        onOpenChange={setShowActivityPanel}
       />
     </div>
   );

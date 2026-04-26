@@ -22,6 +22,20 @@
       "when": 1775793600000,
       "tag": "0002_zero_publication",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777188975688,
+      "tag": "0003_cleanup_drift",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777189016133,
+      "tag": "0004_workspace_events",
+      "breakpoints": true
     }
   ]
 }

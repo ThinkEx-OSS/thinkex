@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  user,
   workspaceCollaborators,
+  workspaceEvents,
   workspaceItemContent,
   workspaceItemExtracted,
   workspaceItems,
@@ -93,44 +95,60 @@ function createWrappedTx(
     select(_selection?: unknown) {
       return {
         from(table: unknown) {
+          const limitFn = async (_count: number) => {
+            if (table === workspaces) {
+              const ownerId = state.workspaceOwners.get(
+                target.workspaceId,
+              );
+              return ownerId ? [{ ownerId }] : [];
+            }
+
+            if (table === workspaceCollaborators) {
+              const permissionLevel = state.collaboratorPermissions.get(
+                collaboratorKey(target.workspaceId, USER_ID),
+              );
+              return permissionLevel ? [{ permissionLevel }] : [];
+            }
+
+            const key = itemKey(target.workspaceId, target.itemId);
+
+            if (table === workspaceItems) {
+              const row = state.shells.get(key);
+              return row ? [clone(row)] : [];
+            }
+
+            if (table === workspaceItemContent) {
+              const row = state.contents.get(key);
+              return row ? [clone(row)] : [];
+            }
+
+            if (table === workspaceItemExtracted) {
+              const row = state.extracteds.get(key);
+              return row ? [clone(row)] : [];
+            }
+
+            // recordEvent issues `select(...).from(user)` for actor lookup
+            // and `select(...).from(workspaceEvents).where(...).orderBy(...).limit(1)`
+            // for coalescing. Returning empty rows is the simplest mock.
+            if (table === user) {
+              return [];
+            }
+
+            if (table === workspaceEvents) {
+              return [];
+            }
+
+            return [];
+          };
+          const whereResult = {
+            limit: limitFn,
+            orderBy() {
+              return { limit: limitFn };
+            },
+          };
           return {
             where() {
-              return {
-                limit: async (_count: number) => {
-                  if (table === workspaces) {
-                    const ownerId = state.workspaceOwners.get(
-                      target.workspaceId,
-                    );
-                    return ownerId ? [{ ownerId }] : [];
-                  }
-
-                  if (table === workspaceCollaborators) {
-                    const permissionLevel = state.collaboratorPermissions.get(
-                      collaboratorKey(target.workspaceId, USER_ID),
-                    );
-                    return permissionLevel ? [{ permissionLevel }] : [];
-                  }
-
-                  const key = itemKey(target.workspaceId, target.itemId);
-
-                  if (table === workspaceItems) {
-                    const row = state.shells.get(key);
-                    return row ? [clone(row)] : [];
-                  }
-
-                  if (table === workspaceItemContent) {
-                    const row = state.contents.get(key);
-                    return row ? [clone(row)] : [];
-                  }
-
-                  if (table === workspaceItemExtracted) {
-                    const row = state.extracteds.get(key);
-                    return row ? [clone(row)] : [];
-                  }
-
-                  return [];
-                },
-              };
+              return whereResult;
             },
           };
         },
@@ -141,6 +159,10 @@ function createWrappedTx(
         set(values: Record<string, unknown>) {
           return {
             where: async () => {
+              if (table === workspaceEvents) {
+                // recordEvent's coalesce-update path; no-op for these tests.
+                return;
+              }
               if (table !== workspaceItems) {
                 throw new Error("Unsupported update table");
               }
@@ -162,6 +184,13 @@ function createWrappedTx(
       };
     },
     insert(table: unknown) {
+      if (table === workspaceEvents) {
+        // recordEvent issues a plain `tx.insert(workspaceEvents).values(...)`
+        // with no `.onConflictDoUpdate`; just resolve.
+        return {
+          values: async (_row: Record<string, unknown>) => {},
+        };
+      }
       return {
         values(values: Record<string, unknown>) {
           return {
