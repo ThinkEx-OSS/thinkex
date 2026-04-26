@@ -253,6 +253,17 @@ html {
   0%, 100% { transform: rotate(-4deg); }
   50% { transform: rotate(4deg); }
 }
+
+/** Version update banner — soft left-right “shake” on the gift icon */
+@keyframes version-update-gift-sway {
+  0%,
+  100% {
+    transform: rotate(-8deg);
+  }
+  50% {
+    transform: rotate(8deg);
+  }
+}
 @keyframes icon-paste-pop {
   0%, 100% { transform: translateX(0); }
   50% { transform: translateX(2px); }
