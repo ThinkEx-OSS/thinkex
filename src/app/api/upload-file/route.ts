@@ -1,15 +1,32 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { createClient } from "@supabase/supabase-js";
+import { existsSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
 import { NextRequest, NextResponse } from "next/server";
+import { join } from "node:path";
 import {
   getPreferredUploadContentType,
-  isOfficeDocument,
   getOfficeDocumentConvertUrl,
 } from "@/lib/uploads/office-document-validation";
+import { getStorageMode } from "@/lib/self-host-config";
 import { withServerObservability } from "@/lib/with-server-observability";
 
 export const maxDuration = 30;
+
+async function saveFileLocally(file: File, filename: string): Promise<string> {
+  const uploadsDir = process.env.UPLOADS_DIR || join(process.cwd(), "uploads");
+
+  if (!existsSync(uploadsDir)) {
+    await mkdir(uploadsDir, { recursive: true });
+  }
+
+  const bytes = await file.arrayBuffer();
+  await writeFile(join(uploadsDir, filename), Buffer.from(bytes));
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  return `${appUrl}/api/files/${filename}`;
+}
 
 export const POST = withServerObservability(async function POST(request: NextRequest) {
   try {
@@ -24,8 +41,6 @@ export const POST = withServerObservability(async function POST(request: NextReq
         { status: 401 }
       );
     }
-
-    const userId = session.user.id;
 
     // Get file from form data
     const formData = await request.formData();
@@ -97,9 +112,20 @@ export const POST = withServerObservability(async function POST(request: NextReq
     const originalName = file.name;
     // Sanitize filename: remove spaces and special chars, keep only alphanumeric, dots, hyphens, underscores
     const sanitizedName = originalName.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const filename = isOfficeUpload
+    const storageMode = getStorageMode();
+    const filename = storageMode === "supabase" && isOfficeUpload
       ? `uploads/${timestamp}-${random}-${sanitizedName}`
       : `${timestamp}-${random}-${sanitizedName}`;
+
+    if (storageMode === "local") {
+      const publicUrl = await saveFileLocally(file, filename);
+
+      return NextResponse.json({
+        success: true,
+        url: publicUrl,
+        filename,
+      });
+    }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

@@ -5,6 +5,10 @@ import { ocrPdfFromUrl } from "@/lib/pdf/mistral-ocr";
 import { logger } from "@/lib/utils/logger";
 import { withServerObservability } from "@/lib/with-server-observability";
 import { isAllowedOcrFileUrl } from "@/lib/ocr/url-validation";
+import {
+  getUnsupportedLocalStorageMessage,
+  usesLocalStorage,
+} from "@/lib/self-host-config";
 
 export const dynamic = "force-dynamic";
 
@@ -32,10 +36,23 @@ export const POST = withServerObservability(async function POST(req: NextRequest
       );
     }
 
+    if (usesLocalStorage()) {
+      return NextResponse.json(
+        { error: getUnsupportedLocalStorageMessage("OCR") },
+        { status: 400 },
+      );
+    }
+
     const t0 = Date.now();
 
     if (!isAllowedOcrFileUrl(fileUrl)) {
-      return NextResponse.json({ error: "Invalid fileUrl" }, { status: 400 });
+      return NextResponse.json(
+        {
+          error:
+            "OCR only accepts provider-reachable storage URLs configured for this deployment.",
+        },
+        { status: 400 },
+      );
     }
 
     let pathname: string;

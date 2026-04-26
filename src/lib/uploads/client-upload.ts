@@ -1,12 +1,6 @@
 /**
- * Client-side file upload utility that uploads directly to Supabase storage,
- * bypassing the Vercel 4.5MB serverless function body size limit.
- *
- * Flow:
- * 1. HEIC/HEIF images are converted to JPEG for browser compatibility
- * 2. Client requests a signed upload URL from /api/upload-url (tiny JSON payload)
- * 3. Client uploads the file directly to Supabase using the signed URL
- * 4. Returns the public URL of the original uploaded file
+ * Client-side file upload utility that uploads directly to storage when
+ * available and falls back to the API route in local-file mode.
  */
 
 import { convertHeicToJpegIfNeeded } from "./convert-heic";
@@ -74,8 +68,9 @@ async function convertOfficeUpload(
 }
 
 /**
- * Upload a file directly to Supabase storage, bypassing the serverless function body limit.
- * Small-file retry uses /api/upload-file (Supabase) when the signed PUT fails.
+ * Upload a file directly to storage when the current backend supports signed
+ * URLs. In local-file mode the API responds with `mode=local` and the client
+ * falls back to /api/upload-file.
  */
 export async function uploadFileDirect(
   file: File,
@@ -123,6 +118,20 @@ export async function uploadFileDirect(
     console.info(
       `[PDF_UPLOAD] Get signed URL: ${(performance.now() - t0).toFixed(0)}ms`
     );
+  }
+
+  if (urlData.mode === "local") {
+    const result = await uploadViaApiRoute(file);
+    if (log) {
+      const total = performance.now() - t0;
+      console.info(`[PDF_UPLOAD] Local upload fallback: ${total.toFixed(0)}ms`);
+    }
+
+    if (isOfficeUpload) {
+      return convertOfficeUpload(result.filename, result.url, file.name);
+    }
+
+    return result;
   }
 
   // Step 2: Upload file directly to Supabase using the signed URL

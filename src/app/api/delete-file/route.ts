@@ -1,14 +1,24 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { createClient } from "@supabase/supabase-js";
+import { existsSync } from "node:fs";
+import { unlink } from "node:fs/promises";
 import { NextRequest, NextResponse } from "next/server";
+import { join } from "node:path";
+import { getStorageMode } from "@/lib/self-host-config";
 
-// Extract object path from a Supabase public file URL
+// Extract object path from a supported public file URL
 function extractFilename(url: string): string | null {
   const supabaseMatch = url.match(/\/file-upload\/(.+)$/);
   if (supabaseMatch) {
     return supabaseMatch[1];
   }
+
+  const localMatch = url.match(/\/api\/files\/(.+)$/);
+  if (localMatch) {
+    return localMatch[1];
+  }
+
   return null;
 }
 
@@ -45,6 +55,29 @@ export async function DELETE(request: NextRequest) {
 
     if (filename.includes("..")) {
       return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
+    }
+
+    if (getStorageMode() === "local") {
+      if (filename.includes("/")) {
+        return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
+      }
+
+      const uploadsDir = process.env.UPLOADS_DIR || join(process.cwd(), "uploads");
+      const filePath = join(uploadsDir, filename);
+
+      if (!existsSync(filePath)) {
+        return NextResponse.json({
+          success: true,
+          message: "File not found (may have been deleted already)",
+        });
+      }
+
+      await unlink(filePath);
+
+      return NextResponse.json({
+        success: true,
+        message: "File deleted successfully",
+      });
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

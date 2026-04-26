@@ -33,6 +33,37 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+get_env_value() {
+    local key=$1
+    grep -E "^${key}=" .env 2>/dev/null | head -n1 | cut -d'=' -f2-
+}
+
+set_env_value() {
+    local key=$1
+    local value=$2
+
+    if grep -q "^${key}=" .env 2>/dev/null; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s|^${key}=.*|${key}=${value}|" .env
+        else
+            sed -i "s|^${key}=.*|${key}=${value}|" .env
+        fi
+    else
+        echo "${key}=${value}" >> .env
+    fi
+}
+
+ensure_env_value() {
+    local key=$1
+    local fallback=$2
+    local current
+    current=$(get_env_value "$key")
+
+    if [ -z "$current" ]; then
+        set_env_value "$key" "$fallback"
+    fi
+}
+
 # Function to check PostgreSQL connection
 check_postgres() {
     local db_url=$1
@@ -68,12 +99,41 @@ setup_env_file() {
     if ! grep -q "BETTER_AUTH_SECRET=.*[^=]$" .env 2>/dev/null || grep -q "BETTER_AUTH_SECRET=your-better-auth-secret" .env 2>/dev/null || grep -q "BETTER_AUTH_SECRET=your-better-auth-secret-change-this" .env 2>/dev/null; then
         echo -e "${YELLOW}Generating BETTER_AUTH_SECRET...${RESET}"
         SECRET=$(openssl rand -base64 32)
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            sed -i '' "s|BETTER_AUTH_SECRET=.*|BETTER_AUTH_SECRET=$SECRET|" .env
-        else
-            sed -i "s|BETTER_AUTH_SECRET=.*|BETTER_AUTH_SECRET=$SECRET|" .env
-        fi
+        set_env_value "BETTER_AUTH_SECRET" "$SECRET"
         echo -e "${GREEN}Generated and set BETTER_AUTH_SECRET${RESET}"
+    fi
+
+    ensure_env_value "NEXT_PUBLIC_APP_URL" "http://localhost:3000"
+    ensure_env_value "BETTER_AUTH_URL" "$(get_env_value NEXT_PUBLIC_APP_URL)"
+    ensure_env_value "NEXT_PUBLIC_BETTER_AUTH_URL" "$(get_env_value NEXT_PUBLIC_APP_URL)"
+    ensure_env_value "STORAGE_TYPE" "local"
+    ensure_env_value "UPLOADS_DIR" "./uploads"
+    ensure_env_value "NEXT_PUBLIC_ZERO_SERVER" "http://localhost:4848"
+    ensure_env_value "ZERO_COOKIE_DOMAIN" "localhost"
+}
+
+configure_zero_env() {
+    local db_url=$1
+    local app_url
+    local zero_admin_password
+
+    app_url=$(get_env_value "NEXT_PUBLIC_APP_URL")
+    if [ -z "$app_url" ]; then
+        app_url="http://localhost:3000"
+        set_env_value "NEXT_PUBLIC_APP_URL" "$app_url"
+    fi
+
+    set_env_value "ZERO_UPSTREAM_DB" "$db_url"
+    set_env_value "ZERO_QUERY_URL" "${app_url}/api/zero/query"
+    set_env_value "ZERO_MUTATE_URL" "${app_url}/api/zero/mutate"
+    set_env_value "ZERO_MUTATE_FORWARD_COOKIES" "true"
+    set_env_value "ZERO_QUERY_FORWARD_COOKIES" "true"
+    ensure_env_value "ZERO_APP_PUBLICATIONS" "zero_pub"
+    ensure_env_value "ZERO_APP_ID" "zero_local_dev"
+
+    zero_admin_password=$(get_env_value "ZERO_ADMIN_PASSWORD")
+    if [ -z "$zero_admin_password" ] || [ "$zero_admin_password" = "change-me-before-sharing" ] || [ "$zero_admin_password" = "your-local-dev-secret" ]; then
+        set_env_value "ZERO_ADMIN_PASSWORD" "$(openssl rand -hex 16)"
     fi
 }
 
@@ -258,6 +318,8 @@ else
     fi
 fi
 
+configure_zero_env "$DB_URL"
+
 # Create database if it doesn't exist (for local PostgreSQL)
 if [ "$USE_DOCKER_POSTGRES" = false ]; then
     echo ""
@@ -299,6 +361,20 @@ else
     psql "$DB_URL" -c "CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS \$func\$ SELECT NULL::jsonb; \$func\$;" 2>/dev/null || true
 fi
 
+echo ""
+echo -e "${YELLOW}Creating Zero publication for local sync...${RESET}"
+ZERO_APP_PUBLICATIONS=$(get_env_value "ZERO_APP_PUBLICATIONS")
+ZERO_APP_PUBLICATIONS=${ZERO_APP_PUBLICATIONS:-zero_pub}
+if [ "$USE_DOCKER_POSTGRES" = true ]; then
+    docker-compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE PUBLICATION ${ZERO_APP_PUBLICATIONS} FOR TABLES IN SCHEMA public;" 2>/dev/null || docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE PUBLICATION ${ZERO_APP_PUBLICATIONS} FOR TABLES IN SCHEMA public;" 2>/dev/null || {
+        echo "Publication '${ZERO_APP_PUBLICATIONS}' may already exist, continuing..."
+    }
+else
+    psql "$DB_URL" -c "CREATE PUBLICATION ${ZERO_APP_PUBLICATIONS} FOR TABLES IN SCHEMA public;" 2>/dev/null || {
+        echo "Publication '${ZERO_APP_PUBLICATIONS}' may already exist, continuing..."
+    }
+fi
+
 # Install dependencies
 echo ""
 echo -e "${YELLOW}Installing dependencies...${RESET}"
@@ -331,19 +407,17 @@ pnpm drizzle-kit push --force || {
 }
 
 echo ""
-echo -e "${GREEN}✓ Setup complete!${RESET}"
+echo -e "${GREEN}✓ Core self-host bootstrap complete!${RESET}"
 echo ""
-echo -e "${YELLOW}IMPORTANT: Please edit .env and configure:${RESET}"
+echo -e "${YELLOW}Configured for core self-host:${RESET}"
+echo "   - PostgreSQL connection"
+echo "   - Better Auth local URLs + secret"
+echo "   - Zero local defaults and publication (${ZERO_APP_PUBLICATIONS})"
+echo "   - Local filesystem storage (STORAGE_TYPE=local)"
 echo ""
-echo -e "${RED}Required API Keys:${RESET}"
-echo "   - GOOGLE_GENERATIVE_AI_API_KEY (from Google AI Studio)"
-echo ""
-echo -e "${YELLOW}Optional API Keys:${RESET}"
-echo "   - GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET (for OAuth login)"
-echo "   - Supabase credentials (if using Supabase storage):"
-echo "     * NEXT_PUBLIC_SUPABASE_URL"
-echo "     * NEXT_PUBLIC_SUPABASE_ANON_KEY"
-echo "     * SUPABASE_SERVICE_ROLE_KEY"
+echo -e "${YELLOW}Optional next steps:${RESET}"
+echo "   - Add your AI backend credentials for chat/autogen features"
+echo "   - Add provider-reachable storage + media keys if you need OCR, audio transcription, or office conversion"
 echo ""
 if [ "$USE_DOCKER_POSTGRES" = true ]; then
     echo "PostgreSQL is running in Docker. Useful commands:"
@@ -353,7 +427,6 @@ if [ "$USE_DOCKER_POSTGRES" = true ]; then
     echo ""
 fi
 echo ""
-echo -e "${GREEN}Starting development server...${RESET}"
+echo -e "${GREEN}Start ThinkEx with:${RESET} pnpm dev"
+echo "That command starts Next.js, the AI SDK devtools, and Zero together."
 echo "Access ThinkEx at: http://localhost:3000"
-echo ""
-pnpm dev

@@ -5,6 +5,10 @@ import {
   isValidDocumentConversionRequest,
   requestDocumentPdfConversion,
 } from "@/lib/uploads/document-conversion";
+import {
+  getUnsupportedLocalStorageMessage,
+  usesLocalStorage,
+} from "@/lib/self-host-config";
 
 /**
  * Proxies document-to-PDF conversion to the FastAPI backend.
@@ -23,6 +27,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { file_path, file_url } = body as { file_path?: string; file_url?: string };
 
+    if (usesLocalStorage()) {
+      return NextResponse.json(
+        { error: getUnsupportedLocalStorageMessage("Document conversion") },
+        { status: 400 },
+      );
+    }
+
     if (!file_path || typeof file_path !== "string") {
       return NextResponse.json(
         { error: "file_path is required" },
@@ -40,7 +51,10 @@ export async function POST(request: NextRequest) {
     // SSRF: only our public file URLs (same origin or Supabase bucket) with a strict path shape
     if (!isValidDocumentConversionRequest(file_path, file_url)) {
       return NextResponse.json(
-        { error: "Invalid conversion source" },
+        {
+          error:
+            "Document conversion only accepts provider-reachable storage URLs configured for this deployment.",
+        },
         { status: 400 }
       );
     }

@@ -140,9 +140,9 @@ function describeChatError(error: Error): {
       (combined.includes("not valid") || combined.includes("invalid")))
   ) {
     return {
-      title: "API key not valid",
+      title: "AI backend configuration error",
       description:
-        "Please check your GOOGLE_GENERATIVE_AI_API_KEY in your environment variables.",
+        "Please check the AI provider or gateway environment variables configured for your self-hosted deployment.",
     };
   }
   return {

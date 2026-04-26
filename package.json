@@ -3,7 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"next dev\" \"npx @ai-sdk/devtools\"",
+    "dev": "concurrently -k -s first -n web,zero \"pnpm dev:web\" \"pnpm dev:zero\"",
+    "dev:web": "concurrently -k -s first -n next,ai \"pnpm dev:next\" \"pnpm dev:ai\"",
+    "dev:next": "next dev",
+    "dev:ai": "pnpm exec devtools",
+    "dev:zero": "node scripts/dev-zero.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "oxlint",
