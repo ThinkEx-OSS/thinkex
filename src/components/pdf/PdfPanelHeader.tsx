@@ -28,6 +28,7 @@ import { useFullscreen } from '@embedpdf/plugin-fullscreen/react';
 import { useScroll } from '@embedpdf/plugin-scroll/react';
 import { useCapture } from '@embedpdf/plugin-capture/react';
 import { useExportCapability } from '@embedpdf/plugin-export/react';
+import { useDocumentState } from '@embedpdf/core/react';
 
 
 interface PdfPanelHeaderProps {
@@ -41,7 +42,63 @@ interface PdfPanelHeaderProps {
     renderInPortal?: boolean;
 }
 
+/**
+ * Rotate a captured image blob to match the orientation the user sees in the viewer.
+ *
+ * The embedpdf capture plugin renders `renderPageRect` with rotation=0, so for any page
+ * whose effective viewer rotation is non-zero (either page.rotation from the PDF itself —
+ * common for landscape pages encoded as portrait + 90° — or a user-applied rotation via
+ * the rotate plugin), the produced bitmap is in the unrotated PDF coordinate space and
+ * looks sideways relative to what the user marqueed. This re-encodes it to match.
+ */
+async function rotateCaptureBlob(
+    blob: Blob,
+    rotation: number,
+    type: string
+): Promise<Blob> {
+    const r = ((rotation % 4) + 4) % 4;
+    if (r === 0) return blob;
 
+    const bitmap = await createImageBitmap(blob);
+    try {
+        const w = bitmap.width;
+        const h = bitmap.height;
+        const swap = r === 1 || r === 3;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = swap ? h : w;
+        canvas.height = swap ? w : h;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Failed to get 2D canvas context');
+
+        // Match the CSS transform applied by @embedpdf/plugin-rotate: 1=90°CW, 2=180°, 3=270°CW.
+        switch (r) {
+            case 1:
+                ctx.translate(h, 0);
+                ctx.rotate(Math.PI / 2);
+                break;
+            case 2:
+                ctx.translate(w, h);
+                ctx.rotate(Math.PI);
+                break;
+            case 3:
+                ctx.translate(0, w);
+                ctx.rotate(-Math.PI / 2);
+                break;
+        }
+        ctx.drawImage(bitmap, 0, 0);
+
+        return await new Promise<Blob>((resolve, reject) => {
+            canvas.toBlob(
+                (b) => (b ? resolve(b) : reject(new Error('Failed to encode rotated capture'))),
+                type || 'image/png'
+            );
+        });
+    } finally {
+        bitmap.close();
+    }
+}
 
 
 export const PdfPanelHeader = memo(function PdfPanelHeader({
@@ -82,6 +139,12 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
     const captureRef = useRef(capture);
     captureRef.current = capture;
 
+    // Stabilize documentState ref — used inside onCaptureArea to read the page's
+    // natural rotation and the user's applied rotation without re-subscribing.
+    const documentState = useDocumentState(documentId);
+    const documentStateRef = useRef(documentState);
+    documentStateRef.current = documentState;
+
     const promptInput = useOptionalComposer();
     const promptInputRef = useRef(promptInput);
     promptInputRef.current = promptInput;
@@ -96,9 +159,25 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
 
         const unsubscribe = cap.onCaptureArea(async (result) => {
             try {
+                // The capture plugin always renders at rotation=0, so for landscape PDFs
+                // (page.rotation != 0) or a user-applied rotation the bitmap comes back
+                // sideways relative to what the user marqueed. Re-orient client-side to
+                // match the visible viewer orientation: (page.rotation + doc.rotation) % 4.
+                const ds = documentStateRef.current;
+                const page = ds?.document?.pages?.[result.pageIndex];
+                const pageRotation = page?.rotation ?? 0;
+                const docRotation = ds?.rotation ?? 0;
+                const effectiveRotation = (pageRotation + docRotation) % 4;
+
+                const orientedBlob = await rotateCaptureBlob(
+                    result.blob,
+                    effectiveRotation,
+                    result.imageType
+                );
+
                 // Convert blob to File
                 const filename = `capture-page-${result.pageIndex + 1}-${Date.now()}.png`;
-                const file = new File([result.blob], filename, { type: result.imageType });
+                const file = new File([orientedBlob], filename, { type: result.imageType });
 
                 // Add attachment to composer
                 const promptInput = promptInputRef.current;
