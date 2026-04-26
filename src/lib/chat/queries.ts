@@ -65,31 +65,24 @@ interface MessagesResponse {
   messages: ChatMessage[];
 }
 
-export type ThreadMessagesHydrationResult =
-  | { kind: "found"; messages: ChatMessage[] }
-  | { kind: "missing"; messages: [] };
-
 export async function fetchThreadMessages(
   threadId: string,
-): Promise<ThreadMessagesHydrationResult> {
+): Promise<ChatMessage[]> {
   const res = await fetch(
     `/api/threads/${encodeURIComponent(threadId)}/messages`,
   );
   if (!res.ok) {
-    if (res.status === 404) return { kind: "missing", messages: [] };
+    if (res.status === 404) return [];
     throw new Error(`Failed to load messages: ${res.status}`);
   }
   const data = (await res.json()) as MessagesResponse;
-  return {
-    kind: "found",
-    messages: Array.isArray(data.messages) ? data.messages : [],
-  };
+  return Array.isArray(data.messages) ? data.messages : [];
 }
 
 export function useThreadMessagesQuery(
   threadId: string | null | undefined,
   enabled = true,
-): UseQueryResult<ThreadMessagesHydrationResult, Error> {
+): UseQueryResult<ChatMessage[], Error> {
   return useQuery({
     queryKey: chatQueryKeys.threadMessages(threadId ?? ""),
     queryFn: () => fetchThreadMessages(threadId as string),

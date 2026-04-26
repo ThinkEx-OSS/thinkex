@@ -33,32 +33,24 @@ describe("workspace store chat thread state", () => {
     vi.unstubAllGlobals();
   });
 
-  it("persists only last active persisted thread ids by workspace", async () => {
+  it("persists only thread ids by workspace", async () => {
     const storeModule = await import("../workspace-store");
     const store = storeModule.useWorkspaceStore;
 
     store.getState().setCurrentWorkspaceId("workspace-1");
-    store.getState().setActiveThread("workspace-1", {
-      kind: "new",
-      id: "local-thread-1",
-    });
-
-    expect(globalThis.localStorage.getItem(STORAGE_KEY)).toContain(
-      '"lastPersistedThreadIdByWorkspace":{}',
-    );
-
-    store.getState().activatePersistedThread("workspace-1", "thread-1");
+    store.getState().setCurrentThreadId("workspace-1", "thread-1");
 
     const persisted = JSON.parse(
       globalThis.localStorage.getItem(STORAGE_KEY) ?? "{}",
     ) as {
       state?: {
-        lastPersistedThreadIdByWorkspace?: Record<string, string>;
+        currentThreadIdByWorkspace?: Record<string, string>;
+        currentWorkspaceId?: string | null;
       };
     };
 
     expect(persisted.state).toEqual({
-      lastPersistedThreadIdByWorkspace: { "workspace-1": "thread-1" },
+      currentThreadIdByWorkspace: { "workspace-1": "thread-1" },
     });
 
     vi.resetModules();
@@ -66,30 +58,20 @@ describe("workspace store chat thread state", () => {
     const reloadedState = reloadedModule.useWorkspaceStore.getState();
 
     expect(reloadedState.currentWorkspaceId).toBeNull();
-    expect(reloadedModule.selectActiveThread("workspace-1")(reloadedState)).toBe(
-      undefined,
-    );
     expect(
-      reloadedModule.selectLastPersistedThreadId("workspace-1")(reloadedState),
+      reloadedModule.selectCurrentThreadId("workspace-1")(reloadedState),
     ).toBe("thread-1");
   });
 
-  it("does not restore unsent local thread ids after reload", async () => {
+  it("guards clearing when another thread is already active", async () => {
     const storeModule = await import("../workspace-store");
-    storeModule.useWorkspaceStore.getState().setActiveThread("workspace-2", {
-      kind: "new",
-      id: "local-thread-2",
-    });
+    const store = storeModule.useWorkspaceStore;
 
-    vi.resetModules();
-    const reloadedModule = await import("../workspace-store");
-    const reloadedState = reloadedModule.useWorkspaceStore.getState();
+    store.getState().setCurrentThreadId("workspace-1", "thread-2");
+    store.getState().clearCurrentThreadId("workspace-1", "thread-1");
 
-    expect(reloadedModule.selectActiveThread("workspace-2")(reloadedState)).toBe(
-      undefined,
-    );
     expect(
-      reloadedModule.selectLastPersistedThreadId("workspace-2")(reloadedState),
-    ).toBeUndefined();
+      storeModule.selectCurrentThreadId("workspace-1")(store.getState()),
+    ).toBe("thread-2");
   });
 });
