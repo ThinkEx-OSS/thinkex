@@ -33,6 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
@@ -47,7 +48,6 @@ interface MultimodalInputProps {
 }
 
 const MAX_TEXT_LEN = 10_000;
-
 const FLOATING_MENU_HIDE_DELAY_MS = 400;
 
 export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
@@ -255,7 +255,7 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
       <CardContextDisplay items={items} />
       <ReplyContextDisplay />
 
-      <textarea
+      <Textarea
         ref={composer.inputRef}
         value={composer.input}
         onChange={(e) => composer.setInput(e.target.value)}
@@ -263,10 +263,9 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
         onPaste={handlePaste}
         placeholder="Ask anything"
         rows={1}
-        autoFocus
         aria-label="Message input"
         maxLength={MAX_TEXT_LEN}
-        className="max-h-32 w-full resize-none bg-transparent py-1.5 text-base text-sidebar-foreground outline-none placeholder:text-sidebar-foreground/60 focus:outline-none"
+        className="min-h-0 max-h-32 resize-none overflow-y-auto rounded-none border-0 border-transparent bg-transparent px-0 py-1.5 text-base text-sidebar-foreground shadow-none outline-none placeholder:text-sidebar-foreground/60 focus-visible:border-transparent focus-visible:ring-0 focus:outline-none md:text-base dark:bg-transparent"
       />
 
       <div className="relative mb-2 flex items-center justify-between">
