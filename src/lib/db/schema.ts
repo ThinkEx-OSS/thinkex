@@ -778,10 +778,10 @@ export const workspaceEvents = pgTable(
       .notNull(),
   },
   (table) => [
-    index("idx_workspace_events_workspace_time").using(
+    index("idx_workspace_events_workspace_updated").using(
       "btree",
       table.workspaceId.asc().nullsLast().op("uuid_ops"),
-      table.createdAt.desc().nullsFirst().op("timestamptz_ops"),
+      table.updatedAt.desc().nullsFirst().op("timestamptz_ops"),
     ),
     index("idx_workspace_events_coalesce").using(
       "btree",

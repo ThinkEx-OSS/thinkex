@@ -16,7 +16,7 @@ CREATE TABLE "workspace_events" (
 --> statement-breakpoint
 ALTER TABLE "workspace_events" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "workspace_events" ADD CONSTRAINT "workspace_events_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "idx_workspace_events_workspace_time" ON "workspace_events" USING btree ("workspace_id" uuid_ops,"created_at" timestamptz_ops);--> statement-breakpoint
+CREATE INDEX "idx_workspace_events_workspace_updated" ON "workspace_events" USING btree ("workspace_id" uuid_ops,"updated_at" timestamptz_ops);--> statement-breakpoint
 CREATE INDEX "idx_workspace_events_coalesce" ON "workspace_events" USING btree ("workspace_id" uuid_ops,"user_id" text_ops,"item_id" text_ops,"action" text_ops,"updated_at" timestamptz_ops);--> statement-breakpoint
 CREATE POLICY "Users can read workspace events they have access to" ON "workspace_events" AS PERMISSIVE FOR SELECT TO public USING ((EXISTS ( SELECT 1
    FROM workspaces

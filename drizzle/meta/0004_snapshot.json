@@ -1056,8 +1056,8 @@
         }
       },
       "indexes": {
-        "idx_workspace_events_workspace_time": {
-          "name": "idx_workspace_events_workspace_time",
+        "idx_workspace_events_workspace_updated": {
+          "name": "idx_workspace_events_workspace_updated",
           "columns": [
             {
               "expression": "workspace_id",
@@ -1067,7 +1067,7 @@
               "opclass": "uuid_ops"
             },
             {
-              "expression": "created_at",
+              "expression": "updated_at",
               "isExpression": false,
               "asc": false,
               "nulls": "first",

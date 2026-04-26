@@ -284,11 +284,12 @@ describe("recordEvent", () => {
     expect(state.events).toHaveLength(2);
   });
 
-  it("does NOT coalesce item_created / item_deleted / folder_created", async () => {
+  it("does NOT coalesce item_created / item_deleted / folder_created / item_moved", async () => {
     for (const action of [
       "item_created",
       "item_deleted",
       "folder_created",
+      "item_moved",
     ] as const) {
       const state = createState();
       state.users.set(USER_ID, { id: USER_ID, name: "Alice", image: null });
@@ -298,6 +299,42 @@ describe("recordEvent", () => {
 
       expect(state.events).toHaveLength(2);
     }
+  });
+
+  it("two item_moved events on same item by same user within window do NOT coalesce", async () => {
+    const state = createState();
+    state.users.set(USER_ID, { id: USER_ID, name: "Alice", image: null });
+
+    // A → B
+    await record(state, {
+      action: "item_moved",
+      summary: {
+        fromFolderId: "folder-A",
+        fromFolderName: "A",
+        toFolderId: "folder-B",
+        toFolderName: "B",
+      },
+    });
+    // B → A within window — must not collapse to a no-op A→A
+    await record(state, {
+      action: "item_moved",
+      summary: {
+        fromFolderId: "folder-B",
+        fromFolderName: "B",
+        toFolderId: "folder-A",
+        toFolderName: "A",
+      },
+    });
+
+    expect(state.events).toHaveLength(2);
+    expect(state.events[0].summary).toMatchObject({
+      fromFolderId: "folder-A",
+      toFolderId: "folder-B",
+    });
+    expect(state.events[1].summary).toMatchObject({
+      fromFolderId: "folder-B",
+      toFolderId: "folder-A",
+    });
   });
 
   it("snapshots actor_name and actor_image from user table on insert", async () => {

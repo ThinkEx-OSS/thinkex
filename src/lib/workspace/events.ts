@@ -15,7 +15,6 @@ export type WorkspaceEventAction =
 const COALESCEABLE_ACTIONS = new Set<WorkspaceEventAction>([
   "item_updated",
   "item_renamed",
-  "item_moved",
 ]);
 
 const COALESCE_WINDOW_MS = 5 * 60 * 1000;

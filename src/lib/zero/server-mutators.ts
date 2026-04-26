@@ -641,12 +641,13 @@ export const serverMutators = defineMutators(sharedMutators, {
         const events: EventInput[] = [];
         for (const id of args.deletedIds ?? []) {
           const pre = deletedItemMap.get(id);
+          if (!pre) continue;
           events.push({
             itemId: id,
-            itemType: pre?.type ?? null,
-            itemName: pre?.name ?? null,
+            itemType: pre.type,
+            itemName: pre.name,
             action: "item_deleted",
-            summary: { itemType: pre?.type ?? null },
+            summary: { itemType: pre.type },
           });
         }
         for (const item of args.addedItems ?? []) {

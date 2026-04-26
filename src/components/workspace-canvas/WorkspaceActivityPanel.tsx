@@ -250,19 +250,22 @@ function formatRelativeTimestamp(value: number | string | null): string {
 
   const now = Date.now();
   const diffMs = now - ts;
-  const diffSec = Math.floor(diffMs / 1000);
-  if (diffSec < 60) return "just now";
-  const diffMin = Math.floor(diffSec / 60);
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "just now";
   if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
 
   const date = new Date(ts);
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
+
+  // If the event is today, show hours ago
+  if (date >= startOfToday) {
+    const diffHr = Math.floor(diffMin / 60);
+    return `${diffHr}h ago`;
+  }
+
   const startOfYesterday = new Date(startOfToday);
   startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-
   if (date >= startOfYesterday) return "yesterday";
 
   return date.toLocaleDateString(undefined, {
