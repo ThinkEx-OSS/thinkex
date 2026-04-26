@@ -195,7 +195,7 @@ export function useMark(config: UseMarkConfig) {
         canToggle: canToggleMark(currentEditor, type),
       }
     },
-  })
+  })!
   const { isVisible, isActive, canToggle } = toolbarState
 
   const handleMark = useCallback(() => {

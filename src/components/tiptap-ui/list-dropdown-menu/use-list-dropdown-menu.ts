@@ -202,7 +202,7 @@ export function useListDropdownMenu(config?: UseListDropdownMenuConfig) {
         activeType: getActiveListType(currentEditor, types),
       }
     },
-  })
+  })!
   const {
     isVisible,
     canToggleAny,

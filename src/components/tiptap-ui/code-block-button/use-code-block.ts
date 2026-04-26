@@ -262,7 +262,7 @@ export function useCodeBlock(config?: UseCodeBlockConfig) {
         canToggle: canToggle(currentEditor),
       }
     },
-  })
+  })!
   const {
     isVisible,
     isActive,
