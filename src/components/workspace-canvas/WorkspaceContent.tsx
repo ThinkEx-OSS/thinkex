@@ -1,8 +1,9 @@
 import { useMemo, useCallback, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import { Plus, Upload } from "lucide-react";
-import { EmptyState } from "@/components/empty-state";
+import { Upload, FileText, Folder, Mic, Play, Globe, Brain } from "lucide-react";
+import { PiCardsThreeBold } from "react-icons/pi";
+import { cn } from "@/lib/utils";
 import type { Item, CardType } from "@/lib/workspace-state/types";
 import { filterItemsByFolder } from "@/lib/workspace-state/search";
 import { useAutoScroll } from "@/hooks/ui/use-auto-scroll";
@@ -15,7 +16,6 @@ import { toast } from "sonner";
 import { OCR_COMPLETE_EVENT } from "@/lib/ocr/client";
 import {
   WORKSPACE_FILE_UPLOAD_ACCEPT_STRING,
-  WORKSPACE_FILE_UPLOAD_DESCRIPTION,
 } from "@/lib/uploads/workspace-upload-config";
 
 interface WorkspaceContentProps {
@@ -40,6 +40,11 @@ interface WorkspaceContentProps {
   onDeleteFolderWithContents?: (folderId: string) => void;
   onPDFUpload?: (files: File[]) => Promise<void>;
   onItemCreated?: (itemIds: string[]) => void;
+  onOpenYouTubeDialog?: () => void;
+  onOpenWebsiteDialog?: () => void;
+  onOpenAudioDialog?: () => void;
+  onOpenFlashcardsDialog?: () => void;
+  onOpenQuizDialog?: () => void;
 }
 
 export default function WorkspaceContent({
@@ -60,6 +65,11 @@ export default function WorkspaceContent({
   onDeleteFolderWithContents,
   onPDFUpload,
   onItemCreated,
+  onOpenYouTubeDialog,
+  onOpenWebsiteDialog,
+  onOpenAudioDialog,
+  onOpenFlashcardsDialog,
+  onOpenQuizDialog,
 }: WorkspaceContentProps) {
   const queryClient = useQueryClient();
   const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
@@ -252,72 +262,150 @@ export default function WorkspaceContent({
   const isFiltering = activeFolderId !== null;
 
   if (viewState.length === 0 || (isFiltering && filteredItems.length === 0)) {
+    const actionCards = [
+      {
+        key: "upload",
+        icon: <Upload className="size-5" />,
+        title: "Upload",
+        subtitle: "Documents, Images",
+        hoverStyle: "hover:border-emerald-500/50 hover:shadow-[0_0_20px_-4px_rgba(16,185,129,0.3)] [&:hover_.action-icon]:text-emerald-500",
+        isLabel: true,
+      },
+      {
+        key: "document",
+        icon: <FileText className="size-5" />,
+        title: "Document",
+        subtitle: "Rich text editor",
+        hoverStyle: "hover:border-blue-500/50 hover:shadow-[0_0_20px_-4px_rgba(59,130,246,0.3)] [&:hover_.action-icon]:text-blue-500",
+        onClick: () => {
+          const itemId = addItem("document");
+          if (itemId) {
+            toast.success("New document created");
+            onItemCreated?.([itemId]);
+          }
+        },
+      },
+      {
+        key: "youtube",
+        icon: <Play className="size-5" />,
+        title: "YouTube",
+        subtitle: "Add a video",
+        hoverStyle: "hover:border-red-500/50 hover:shadow-[0_0_20px_-4px_rgba(239,68,68,0.3)] [&:hover_.action-icon]:text-red-500",
+        onClick: onOpenYouTubeDialog,
+      },
+      {
+        key: "website",
+        icon: <Globe className="size-5" />,
+        title: "Website",
+        subtitle: "Save a webpage",
+        hoverStyle: "hover:border-teal-500/50 hover:shadow-[0_0_20px_-4px_rgba(20,184,166,0.3)] [&:hover_.action-icon]:text-teal-500",
+        onClick: onOpenWebsiteDialog,
+      },
+      {
+        key: "audio",
+        icon: <Mic className="size-5" />,
+        title: "Audio",
+        subtitle: "Lectures, Meetings",
+        hoverStyle: "hover:border-rose-500/50 hover:shadow-[0_0_20px_-4px_rgba(244,63,94,0.3)] [&:hover_.action-icon]:text-rose-500",
+        onClick: onOpenAudioDialog,
+      },
+      {
+        key: "folder",
+        icon: <Folder className="size-5" />,
+        title: "Folder",
+        subtitle: "Organize items",
+        hoverStyle: "hover:border-amber-500/50 hover:shadow-[0_0_20px_-4px_rgba(245,158,11,0.3)] [&:hover_.action-icon]:text-amber-500",
+        onClick: () => addItem("folder"),
+      },
+      {
+        key: "flashcards",
+        icon: <PiCardsThreeBold className="size-5 rotate-180" />,
+        title: "Flashcards",
+        subtitle: "Study with AI",
+        hoverStyle: "hover:border-purple-500/50 hover:shadow-[0_0_20px_-4px_rgba(168,85,247,0.3)] [&:hover_.action-icon]:text-purple-500",
+        onClick: onOpenFlashcardsDialog,
+      },
+      {
+        key: "quiz",
+        icon: <Brain className="size-5" />,
+        title: "Quiz",
+        subtitle: "Test yourself",
+        hoverStyle: "hover:border-indigo-500/50 hover:shadow-[0_0_20px_-4px_rgba(99,102,241,0.3)] [&:hover_.action-icon]:text-indigo-500",
+        onClick: onOpenQuizDialog,
+      },
+    ];
+
+    const cardClassName = "group flex flex-col items-start gap-2 p-4 min-h-[88px] w-full rounded-2xl border bg-card/80 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 transition-all duration-300 ease-out text-left cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2";
+
     return (
-      <div className="flex-1 py-4 overflow-hidden">
+      <div className="flex-1 flex flex-col items-center justify-center py-12 px-4 sm:px-6">
         <div
-          className={`${selectedCardIdsArray.length > 0 ? "pb-20" : ""} size-full workspace-grid-container px-4 sm:px-6`}
+          className={cn(
+            "w-full max-w-2xl text-center space-y-8",
+            selectedCardIdsArray.length > 0 && "pb-20",
+          )}
         >
-          <EmptyState className="w-full min-w-0 max-w-full">
-            <div className="mx-auto max-w-2xl w-full text-center px-4 sm:px-6 py-10 min-w-0">
-              <input
-                id={emptyStateUploadInputId}
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="sr-only"
-                onChange={handleFileChange}
-                accept={WORKSPACE_FILE_UPLOAD_ACCEPT_STRING}
-              />
+          <div className="space-y-2">
+            <h3 className="text-lg font-medium text-foreground">
+              {activeFolderId ? "This folder is empty" : "This workspace is empty"}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Get started by adding your first item
+            </p>
+          </div>
 
-              <label
-                htmlFor={emptyStateUploadInputId}
-                className="mb-8 p-8 rounded-xl border-2 border-dashed border-muted-foreground/30 bg-muted/20 hover:border-solid hover:shadow-[inset_0_0_0_2px_hsl(var(--muted-foreground)/0.3)] hover:bg-muted/50 transition-all cursor-pointer group block"
-              >
-                <Upload className="size-12 mx-auto mb-4 text-muted-foreground group-hover:text-primary group-hover:scale-110 transition-all duration-200" />
-                <h3 className="text-base font-medium text-foreground mb-2">
-                  {activeFolderId
-                    ? `This folder is empty`
-                    : "This workspace is empty"}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Add {WORKSPACE_FILE_UPLOAD_DESCRIPTION} here, or click to
-                  choose files.
-                </p>
-              </label>
+          <input
+            id={emptyStateUploadInputId}
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="sr-only"
+            onChange={handleFileChange}
+            accept={WORKSPACE_FILE_UPLOAD_ACCEPT_STRING}
+          />
 
-              <div className="relative my-8">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 py-1.5 bg-muted text-muted-foreground rounded-lg">
-                    or
-                  </span>
-                </div>
-              </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {actionCards.map((card) => {
+              if ("isLabel" in card && card.isLabel) {
+                return (
+                  <label
+                    key={card.key}
+                    htmlFor={emptyStateUploadInputId}
+                    className={cn(cardClassName, card.hoverStyle)}
+                  >
+                    <div className="action-icon text-foreground flex-shrink-0 transition-colors duration-300">
+                      {card.icon}
+                    </div>
+                    <div className="flex flex-col items-start">
+                      <div className="font-medium text-sm text-foreground">{card.title}</div>
+                      <div className="text-xs text-muted-foreground">{card.subtitle}</div>
+                    </div>
+                  </label>
+                );
+              }
 
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Create your first item to get started
-                </p>
+              return (
                 <button
-                  onClick={() => {
-                    const itemId = addItem("document");
-                    if (itemId) {
-                      toast.success("New document created");
-                      if (onItemCreated) {
-                        onItemCreated([itemId]);
-                      }
-                    }
-                  }}
-                  className="inline-flex items-center gap-2 px-6 py-3 text-base font-semibold bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 hover:scale-105 transition-all duration-200 active:scale-95 cursor-pointer"
+                  key={card.key}
+                  type="button"
+                  onClick={"onClick" in card ? card.onClick : undefined}
+                  disabled={!("onClick" in card && card.onClick)}
+                  className={cn(
+                    cardClassName,
+                    "onClick" in card && card.onClick ? card.hoverStyle : "opacity-50 cursor-not-allowed hover:scale-100 hover:translate-y-0",
+                  )}
                 >
-                  <Plus className="size-5" />
-                  New Document
+                  <div className="action-icon text-foreground flex-shrink-0 transition-colors duration-300">
+                    {card.icon}
+                  </div>
+                  <div className="flex flex-col items-start">
+                    <div className="font-medium text-sm text-foreground">{card.title}</div>
+                    <div className="text-xs text-muted-foreground">{card.subtitle}</div>
+                  </div>
                 </button>
-              </div>
-            </div>
-          </EmptyState>
+              );
+            })}
+          </div>
         </div>
       </div>
     );

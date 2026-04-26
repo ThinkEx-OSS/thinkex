@@ -541,6 +541,11 @@ export function WorkspaceSection({
                   }
                   onPDFUpload={handlePDFUpload}
                   onItemCreated={handleCreatedItems}
+                  onOpenYouTubeDialog={() => setShowYouTubeDialog(true)}
+                  onOpenWebsiteDialog={() => setShowWebsiteDialog(true)}
+                  onOpenAudioDialog={() => openAudioDialog()}
+                  onOpenFlashcardsDialog={() => setShowFlashcardsDialog(true)}
+                  onOpenQuizDialog={() => setShowQuizDialog(true)}
                 />
               )}
 
