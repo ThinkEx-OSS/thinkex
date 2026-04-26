@@ -376,13 +376,15 @@ export function HomeContent({ showDemoVideo, initialAuth }: HomeContentProps) {
               <FloatingWorkspaceCards bottomGradientHeight="40%" />
             </div>
 
-            <div
-              className="fixed bottom-0 left-0 right-0 h-[40vh] pointer-events-none z-[5]"
-              style={{
-                background:
-                  "linear-gradient(to bottom, transparent 0%, var(--background) 100%)",
-              }}
-            />
+            {effectiveShowDemo && (
+              <div
+                className="fixed bottom-0 left-0 right-0 h-[40vh] pointer-events-none z-[5]"
+                style={{
+                  background:
+                    "linear-gradient(to bottom, transparent 0%, var(--background) 100%)",
+                }}
+              />
+            )}
 
             <div
               className={cn(
