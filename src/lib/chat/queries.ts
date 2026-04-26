@@ -65,7 +65,9 @@ interface MessagesResponse {
   messages: ChatMessage[];
 }
 
-async function fetchThreadMessages(threadId: string): Promise<ChatMessage[]> {
+export async function fetchThreadMessages(
+  threadId: string,
+): Promise<ChatMessage[]> {
   const res = await fetch(
     `/api/threads/${encodeURIComponent(threadId)}/messages`,
   );
@@ -79,11 +81,12 @@ async function fetchThreadMessages(threadId: string): Promise<ChatMessage[]> {
 
 export function useThreadMessagesQuery(
   threadId: string | null | undefined,
+  enabled = true,
 ): UseQueryResult<ChatMessage[], Error> {
   return useQuery({
     queryKey: chatQueryKeys.threadMessages(threadId ?? ""),
     queryFn: () => fetchThreadMessages(threadId as string),
-    enabled: !!threadId,
+    enabled: !!threadId && enabled,
     staleTime: 60_000,
   });
 }

@@ -47,6 +47,7 @@ interface ChatContextValue {
   clearError: ReturnType<typeof useChat>["clearError"];
   /** True until the persisted history hydrates (only relevant for resumed threads). */
   isHistoryLoading: boolean;
+  selectThread: (threadId: string) => void;
   /** Reset the active chat (new thread id, empty messages). */
   startNewThread: () => void;
 }
@@ -152,9 +153,10 @@ function describeChatError(error: Error): {
 }
 
 /**
- * Owns the `useChat` instance for a workspace. Generates a thread id on first
- * use, hydrates history when a thread id is restored from `workspaceStore`, and
- * exposes the runtime to the rest of the chat surface via context.
+ * Owns the `useChat` instance for a workspace. It resumes the last persisted
+ * thread when available, keeps brand-new local threads runtime-only until the
+ * first send, and hydrates persisted history only for restored/switched
+ * threads.
  */
 export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
   const persistedThreadId = useWorkspaceStore(
@@ -164,33 +166,51 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
     (state) => state.setCurrentThreadId,
   );
 
-  // Lazily generate a thread id when none is persisted. Stored in zustand so
-  // it survives re-renders and selection of the same workspace.
   const [threadId, setThreadId] = useState<string>(
     () => persistedThreadId ?? generateThreadId(),
   );
+  const [shouldHydrateHistory, setShouldHydrateHistory] = useState(
+    () => !!persistedThreadId,
+  );
+  const threadIdRef = useRef(threadId);
+  threadIdRef.current = threadId;
+  const previousWorkspaceIdRef = useRef(workspaceId);
 
   useEffect(() => {
+    const workspaceChanged = previousWorkspaceIdRef.current !== workspaceId;
+    previousWorkspaceIdRef.current = workspaceId;
+
     if (!persistedThreadId) {
-      setCurrentThreadId(workspaceId, threadId);
-    } else if (persistedThreadId !== threadId) {
-      setThreadId(persistedThreadId);
+      setShouldHydrateHistory(false);
+      if (workspaceChanged) {
+        setThreadId(generateThreadId());
+      }
+      return;
     }
-  }, [persistedThreadId, threadId, setCurrentThreadId, workspaceId]);
+
+    if (workspaceChanged || persistedThreadId !== threadIdRef.current) {
+      setThreadId(persistedThreadId);
+      setShouldHydrateHistory(true);
+    }
+  }, [persistedThreadId, workspaceId]);
 
   const queryClient = useQueryClient();
 
-  // History only matters for resumed threads. For brand-new ids, the GET
-  // returns `[]` and useChat starts empty regardless.
-  const { data: persistedMessages, isLoading: isHistoryLoading } =
-    useThreadMessagesQuery(threadId);
+  const {
+    data: persistedMessages = [],
+    isLoading: isHistoryLoading,
+  } = useThreadMessagesQuery(threadId, shouldHydrateHistory);
 
   // [chat-debug] Watch the hydration query so we can confirm what the
   // server is sending. If the assistant entries here have `partCount=0`,
   // the bug is in persistence (server side); if they're correct, the bug
   // is in the seed-into-useChat step below or in the renderer.
   useEffect(() => {
-    if (!persistedMessages) {
+    if (!shouldHydrateHistory) {
+      chatDebug("hydrate query: skipped for local thread", { threadId });
+      return;
+    }
+    if (isHistoryLoading) {
       chatDebug("hydrate query: pending/empty", {
         threadId,
         isHistoryLoading,
@@ -205,7 +225,7 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
         emptyAssistants: roster.emptyAssistants,
       });
     }
-  }, [persistedMessages, threadId, isHistoryLoading]);
+  }, [isHistoryLoading, persistedMessages, shouldHydrateHistory, threadId]);
 
   // Live request payload context (model, memory, selections). Pulled from
   // the same zustand stores the old WorkspaceRuntimeProvider used.
@@ -282,7 +302,7 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
   const chat = useChat<ChatMessage>({
     id: threadId,
     transport,
-    messages: (persistedMessages as ChatMessage[] | undefined) ?? undefined,
+    messages: shouldHydrateHistory ? persistedMessages : undefined,
     onError: handleError,
     // Live title updates: the chat route writes a `data-chat-title` part to
     // the SSE stream once `generateThreadTitle` resolves. We patch the
@@ -311,12 +331,41 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
     setMessages,
   } = chat;
 
+  const prevThreadIdRef = useRef(threadId);
+  useEffect(() => {
+    if (prevThreadIdRef.current === threadId) return;
+    prevThreadIdRef.current = threadId;
+    setMessages([]);
+  }, [setMessages, threadId]);
+
+  const sendMessageWithPersistence = useCallback<
+    ChatContextValue["sendMessage"]
+  >(
+    (...args) => {
+      if (persistedThreadId !== threadId) {
+        setCurrentThreadId(workspaceId, threadId);
+      }
+      return sendMessage(...args);
+    },
+    [persistedThreadId, sendMessage, setCurrentThreadId, threadId, workspaceId],
+  );
+
+  const selectThread = useCallback((nextThreadId: string) => {
+    queryClient.removeQueries({
+      queryKey: chatQueryKeys.threadMessages(nextThreadId),
+    });
+    setMessages([]);
+    setThreadId(nextThreadId);
+    setShouldHydrateHistory(true);
+    setCurrentThreadId(workspaceId, nextThreadId);
+  }, [queryClient, setCurrentThreadId, setMessages, workspaceId]);
+
   // When persisted history loads after the first render, seed messages once.
   // (useChat's `messages` initializer only runs on mount.)
   const seededRef = useRef(false);
   useEffect(() => {
     if (seededRef.current) return;
-    if (!persistedMessages || persistedMessages.length === 0) return;
+    if (persistedMessages.length === 0) return;
     if (messages.length > 0) {
       chatDebug("seed: skipped, useChat already has messages", {
         threadId,
@@ -330,7 +379,7 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
       threadId,
       ...summarizeRoster(persistedMessages as unknown[]),
     });
-    setMessages(persistedMessages as ChatMessage[]);
+    setMessages(persistedMessages);
     seededRef.current = true;
   }, [persistedMessages, messages.length, setMessages, threadId]);
 
@@ -358,12 +407,12 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
   const startNewThread = useCallback(() => {
     const next = generateThreadId();
     setMessages([]);
-    setCurrentThreadId(workspaceId, next);
     setThreadId(next);
+    setShouldHydrateHistory(false);
     void queryClient.invalidateQueries({
       queryKey: chatQueryKeys.threads(workspaceId),
     });
-  }, [queryClient, setMessages, setCurrentThreadId, workspaceId]);
+  }, [queryClient, setMessages, workspaceId]);
 
   const value = useMemo<ChatContextValue>(
     () => ({
@@ -373,11 +422,12 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
       error,
       messages: messages as ChatMessage[],
       setMessages,
-      sendMessage,
+      sendMessage: sendMessageWithPersistence,
+      selectThread,
       regenerate,
       stop,
       clearError,
-      isHistoryLoading,
+      isHistoryLoading: shouldHydrateHistory && isHistoryLoading,
       startNewThread,
     }),
     [
@@ -387,11 +437,13 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
       error,
       messages,
       setMessages,
-      sendMessage,
+      sendMessageWithPersistence,
+      selectThread,
       regenerate,
       stop,
       clearError,
       isHistoryLoading,
+      shouldHydrateHistory,
       startNewThread,
     ],
   );
