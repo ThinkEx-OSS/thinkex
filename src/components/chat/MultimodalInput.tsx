@@ -266,15 +266,15 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
         />
 
         <div className="relative mb-2 flex items-center justify-between">
-          <div className="relative z-0 flex items-center gap-0">
+          <div className="relative z-0 flex items-center gap-3">
             <Tooltip>
               <TooltipTrigger asChild>
                 <label
                   htmlFor="composer-file-input"
-                  className="flex items-center gap-1.5 rounded-md bg-sidebar-accent px-1.5 py-1 transition-colors flex-shrink-0 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer"
+                  className="inline-flex shrink-0 cursor-pointer items-center justify-center rounded-md p-0 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   aria-label="Add attachment"
                 >
-                  <LuPaperclip className="w-3.5 h-3.5" />
+                  <LuPaperclip className="size-3.5" />
                 </label>
               </TooltipTrigger>
               <TooltipContent side="top">Add file</TooltipContent>
@@ -289,9 +289,7 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
               accept="image/*,.pdf,.txt,.md,.csv,.json,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.heic,.heif,.avif,.tiff,.tif"
             />
             <ModelSettingsMenu />
-            <div className="ml-0.5">
-              <ModelPicker />
-            </div>
+            <ModelPicker />
           </div>
 
           <div className="flex items-center gap-2">
