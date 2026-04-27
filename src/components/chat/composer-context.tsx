@@ -16,6 +16,10 @@ import { toast } from "sonner";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 import { useChatContext } from "@/components/chat/ChatProvider";
 import { useAttachmentUploadStore } from "@/lib/stores/attachment-upload-store";
+import {
+  useComposerActionsStore,
+  type ComposerActions,
+} from "@/lib/stores/composer-actions-store";
 import { selectReplySelections, useUIStore } from "@/lib/stores/ui-store";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
 import { isOfficeDocument } from "@/lib/uploads/office-document-validation";
@@ -476,6 +480,36 @@ export function ComposerProvider({ children }: ComposerProviderProps) {
       hasUploadingAttachments,
     ],
   );
+
+  const setComposerActions = useComposerActionsStore(
+    (state) => state.setComposerActions,
+  );
+  const setInputRef = useRef(value.setInput);
+  const addAttachmentsRef = useRef(value.addAttachments);
+  const focusInputRef = useRef(value.focusInput);
+  const submitRef = useRef(value.submit);
+
+  setInputRef.current = value.setInput;
+  addAttachmentsRef.current = value.addAttachments;
+  focusInputRef.current = value.focusInput;
+  submitRef.current = value.submit;
+
+  const composerActionsRef = useRef<ComposerActions | null>(null);
+  if (!composerActionsRef.current) {
+    composerActionsRef.current = {
+      setInput: (nextValue) => setInputRef.current(nextValue),
+      addAttachments: (files) => addAttachmentsRef.current(files),
+      focusInput: (options) => focusInputRef.current(options),
+      submit: () => submitRef.current(),
+    };
+  }
+
+  useEffect(() => {
+    setComposerActions(composerActionsRef.current);
+    return () => {
+      setComposerActions(null);
+    };
+  }, [setComposerActions]);
 
   return (
     <ComposerContext.Provider value={value}>

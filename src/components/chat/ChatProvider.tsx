@@ -1,6 +1,6 @@
 "use client";
 
-import { type Chat, useChat } from "@ai-sdk/react";
+import { Chat, useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   createContext,
@@ -91,8 +91,11 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
     () => !!persistedThreadId,
   );
   const threadIdRef = useRef(threadId);
-  threadIdRef.current = threadId;
   const previousWorkspaceIdRef = useRef(workspaceId);
+
+  useEffect(() => {
+    threadIdRef.current = threadId;
+  }, [threadId]);
 
   useEffect(() => {
     const workspaceChanged = previousWorkspaceIdRef.current !== workspaceId;
@@ -131,6 +134,25 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
     if (!aliveThreadIds.includes(threadId)) return null;
     return getRuntime(threadId) ?? null;
   }, [aliveThreadIds, getRuntime, threadId]);
+  const pendingTransport = useMemo(
+    () => ({
+      sendMessages: async () => {
+        throw new Error("Chat runtime is not ready");
+      },
+      reconnectToStream: async () => null,
+    }),
+    [],
+  );
+  const pendingChat = useMemo(
+    () =>
+      new Chat<ChatMessage>({
+        id: "__pending__",
+        messages: [],
+        transport: pendingTransport,
+      }),
+    [pendingTransport],
+  );
+  const activeChat = chat ?? pendingChat;
 
   const selectThread = useCallback(
     (nextThreadId: string) => {
@@ -149,68 +171,6 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
       queryKey: chatQueryKeys.threads(workspaceId),
     });
   }, [queryClient, workspaceId]);
-
-  if (!chat) {
-    return (
-      <ChatContext.Provider
-        value={{
-          threadId,
-          workspaceId,
-          status: "ready",
-          error: undefined,
-          messages: [],
-          setMessages: () => {},
-          sendMessage: async () => {},
-          regenerate: async () => {},
-          stop: async () => {},
-          clearError: () => {},
-          isHistoryLoading: true,
-          selectThread,
-          startNewThread,
-        }}
-      >
-        {children}
-      </ChatContext.Provider>
-    );
-  }
-
-  return (
-    <BoundChatProvider
-      chat={chat}
-      threadId={threadId}
-      workspaceId={workspaceId}
-      persistedThreadId={persistedThreadId}
-      selectThread={selectThread}
-      startNewThread={startNewThread}
-    >
-      {children}
-    </BoundChatProvider>
-  );
-}
-
-interface BoundChatProviderProps {
-  chat: Chat<ChatMessage>;
-  threadId: string;
-  workspaceId: string;
-  persistedThreadId: string | undefined;
-  selectThread: (threadId: string) => void;
-  startNewThread: () => void;
-  children: ReactNode;
-}
-
-function BoundChatProvider({
-  chat,
-  threadId,
-  workspaceId,
-  persistedThreadId,
-  selectThread,
-  startNewThread,
-  children,
-}: BoundChatProviderProps) {
-  const setCurrentThreadId = useWorkspaceStore(
-    (state) => state.setCurrentThreadId,
-  );
-
   const {
     messages,
     status,
@@ -220,37 +180,46 @@ function BoundChatProvider({
     stop,
     clearError,
     setMessages,
-  } = useChat<ChatMessage>({ chat });
+  } = useChat<ChatMessage>({ chat: activeChat });
 
   const sendMessageWithPersistence = useCallback<
     ChatContextValue["sendMessage"]
   >(
     (...args) => {
+      if (!chat) return Promise.resolve(undefined);
       if (persistedThreadId !== threadId) {
         setCurrentThreadId(workspaceId, threadId);
       }
       return sendMessage(...args);
     },
-    [persistedThreadId, sendMessage, setCurrentThreadId, threadId, workspaceId],
+    [
+      chat,
+      persistedThreadId,
+      sendMessage,
+      setCurrentThreadId,
+      threadId,
+      workspaceId,
+    ],
   );
 
   const value = useMemo<ChatContextValue>(
     () => ({
       threadId,
       workspaceId,
-      status,
-      error,
-      messages: messages as ChatMessage[],
-      setMessages,
+      status: chat ? status : "ready",
+      error: chat ? error : undefined,
+      messages: chat ? (messages as ChatMessage[]) : [],
+      setMessages: chat ? setMessages : () => {},
       sendMessage: sendMessageWithPersistence,
-      regenerate,
-      stop,
-      clearError,
-      isHistoryLoading: false,
+      regenerate: chat ? regenerate : async () => {},
+      stop: chat ? stop : async () => {},
+      clearError: chat ? clearError : () => {},
+      isHistoryLoading: !chat,
       selectThread,
       startNewThread,
     }),
     [
+      chat,
       threadId,
       workspaceId,
       status,

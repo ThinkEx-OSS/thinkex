@@ -38,7 +38,7 @@ import {
 
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { useOptionalComposer } from "@/components/chat/composer-context";
+import { useOptionalComposerActions } from "@/lib/stores/composer-actions-store";
 import { toast } from "sonner";
 
 // PDF Plugin imports
@@ -169,7 +169,7 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
   const documentStateRef = useRef(documentState);
   documentStateRef.current = documentState;
 
-  const promptInput = useOptionalComposer();
+  const promptInput = useOptionalComposerActions();
   const promptInputRef = useRef(promptInput);
   promptInputRef.current = promptInput;
 

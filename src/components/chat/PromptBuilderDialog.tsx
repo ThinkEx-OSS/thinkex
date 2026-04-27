@@ -32,7 +32,7 @@ import {
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import type { Item } from "@/lib/workspace-state/types";
-import { useOptionalComposer } from "@/components/chat/composer-context";
+import { useOptionalComposerActions } from "@/lib/stores/composer-actions-store";
 import {
   Brain,
   Play,
@@ -221,7 +221,7 @@ export function PromptBuilderDialog({
 }: PromptBuilderDialogProps) {
   const config = ACTION_CONFIG[action];
   const Icon = config.icon;
-  const composer = useOptionalComposer();
+  const composer = useOptionalComposerActions();
   const formId = useId();
 
   const { selectedCardIds } = useSelectedCardIds();

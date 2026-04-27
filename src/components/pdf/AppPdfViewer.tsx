@@ -26,7 +26,7 @@ import { ExportPluginPackage } from '@embedpdf/plugin-export/react';
 import { Loader2, ChevronLeft, ChevronRight, Trash2, Search, X as XIcon, ArrowUp, ArrowDown } from 'lucide-react';
 import { FaQuoteRight } from "react-icons/fa6";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { useOptionalComposer } from "@/components/chat/composer-context";
+import { useOptionalComposerActions } from "@/lib/stores/composer-actions-store";
 import { askAiPrimaryButtonClass } from "@/lib/ui/ask-ai-toolbar-styles";
 import { toast } from "sonner";
 import { useMemo, ReactNode, useState, useEffect, useRef, useCallback } from 'react';
@@ -210,7 +210,7 @@ const TextSelectionMenu = ({
   const { provides: selectionCapability } = useSelectionCapability();
   const { state: scrollState } = useScroll(documentId);
   const addReplySelection = useUIStore((state) => state.addReplySelection);
-  const composer = useOptionalComposer();
+  const composer = useOptionalComposerActions();
 
   // Ask AI handler
   const handleAskAI = useCallback(() => {

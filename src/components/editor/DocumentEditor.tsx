@@ -101,7 +101,7 @@ import {
   handleImageUpload,
   MAX_FILE_SIZE,
 } from "@/lib/tiptap-utils";
-import { useOptionalComposer } from "@/components/chat/composer-context";
+import { useOptionalComposerActions } from "@/lib/stores/composer-actions-store";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { askAiPrimaryButtonClass } from "@/lib/ui/ask-ai-toolbar-styles";
 import { toast } from "sonner";
@@ -705,7 +705,7 @@ function AskAiBubbleMenu({
   cardName?: string;
 }) {
   const addReplySelection = useUIStore((state) => state.addReplySelection);
-  const composer = useOptionalComposer();
+  const composer = useOptionalComposerActions();
 
   const handleAskAI = useCallback(() => {
     if (!editor) return;
