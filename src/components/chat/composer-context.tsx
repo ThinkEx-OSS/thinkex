@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -26,6 +27,27 @@ import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+const COMPOSER_FOCUS_RETRY_FRAMES = 12;
+
+const INTERACTIVE_FOCUS_SELECTOR = [
+  "input",
+  "textarea",
+  "select",
+  "button",
+  "a[href]",
+  "summary",
+  "[contenteditable='true']",
+  "[role='button']",
+  "[role='link']",
+  "[role='menuitem']",
+  "[role='option']",
+  "[role='tab']",
+  "[role='checkbox']",
+  "[role='switch']",
+  "[role='radio']",
+  "[role='combobox']",
+  "[role='textbox']",
+].join(", ");
 
 export type ComposerAttachmentStatus = "uploading" | "ready" | "error";
 
@@ -50,13 +72,7 @@ export interface ComposerContextValue {
   addAttachments: (files: File[] | FileList) => Promise<void>;
   removeAttachment: (id: string) => void;
   inputRef: RefObject<HTMLTextAreaElement | null>;
-  /**
-   * Programmatically focus the textarea. Runs on the next animation frame so
-   * it survives closing modals/dropdowns that release focus on unmount. Pass
-   * `{ cursorAtEnd: true }` after a `setInput(...)` insert so the caret lands
-   * at the end of the new text.
-   */
-  focus: (options?: { cursorAtEnd?: boolean }) => void;
+  focusInput: (options?: { cursorAtEnd?: boolean }) => void;
   /**
    * Build a UIMessage and call `sendMessage`. Awaits any in-flight uploads,
    * pulls reply selections from zustand, and resets local state on success.
@@ -70,7 +86,8 @@ const ComposerContext = createContext<ComposerContextValue | null>(null);
 
 export function useComposer(): ComposerContextValue {
   const ctx = useContext(ComposerContext);
-  if (!ctx) throw new Error("useComposer must be used inside <ComposerProvider>");
+  if (!ctx)
+    throw new Error("useComposer must be used inside <ComposerProvider>");
   return ctx;
 }
 
@@ -80,8 +97,43 @@ export function useOptionalComposer(): ComposerContextValue | null {
 
 function detectKind(file: File): ComposerAttachment["kind"] {
   if (file.type.startsWith("image/")) return "image";
-  if (file.type === "application/pdf" || isOfficeDocument(file)) return "document";
+  if (file.type === "application/pdf" || isOfficeDocument(file))
+    return "document";
   return "file";
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  return Boolean(
+    target.closest("input, textarea, select, [contenteditable='true']"),
+  );
+}
+
+function isInteractiveFocusTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target === document.body || target === document.documentElement) {
+    return false;
+  }
+  if (isEditableTarget(target)) return true;
+  if (target.closest(INTERACTIVE_FOCUS_SELECTOR)) return true;
+  return target.tabIndex >= 0;
+}
+
+function hasOpenDialog(): boolean {
+  return Boolean(
+    document.querySelector(
+      "[role='dialog'][data-state='open'], [role='alertdialog'][data-state='open']",
+    ),
+  );
+}
+
+function isComposerHotkey(event: KeyboardEvent): boolean {
+  if (event.defaultPrevented) return false;
+  if (event.isComposing || event.repeat) return false;
+  if (event.metaKey || event.ctrlKey || event.altKey) return false;
+  if (event.key.length !== 1) return false;
+  return event.key.trim().length > 0;
 }
 
 interface ComposerProviderProps {
@@ -102,10 +154,10 @@ export function ComposerProvider({ children }: ComposerProviderProps) {
   const [input, setInputState] = useState("");
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const pendingFocusRef = useRef<{ cursorAtEnd: boolean } | null>(null);
+  const focusFrameRef = useRef<number | null>(null);
   // Tracks upload promises by attachment id so submit() can await them.
-  const uploadPromisesRef = useRef(
-    new Map<string, Promise<string | null>>(),
-  );
+  const uploadPromisesRef = useRef(new Map<string, Promise<string | null>>());
 
   const replySelections = useUIStore(useShallow(selectReplySelections));
   const clearReplySelections = useUIStore(
@@ -122,20 +174,89 @@ export function ComposerProvider({ children }: ComposerProviderProps) {
     setInputState(value);
   }, []);
 
-  const focus = useCallback((options?: { cursorAtEnd?: boolean }) => {
-    // rAF — not `setTimeout(100)` — because this is usually called while a
-    // modal or dropdown is closing. One frame is enough for the DOM to settle;
-    // any more is arbitrary and user-visible.
-    requestAnimationFrame(() => {
+  const flushPendingFocus = useCallback(() => {
+    if (focusFrameRef.current != null) {
+      cancelAnimationFrame(focusFrameRef.current);
+      focusFrameRef.current = null;
+    }
+
+    let attempts = 0;
+    const run = () => {
+      const request = pendingFocusRef.current;
       const el = inputRef.current;
-      if (!el) return;
-      el.focus();
-      if (options?.cursorAtEnd) {
-        const len = el.value.length;
-        el.setSelectionRange(len, len);
+      if (request && el) {
+        if (
+          document.activeElement instanceof HTMLElement &&
+          document.activeElement !== el &&
+          !isEditableTarget(document.activeElement)
+        ) {
+          document.activeElement.blur();
+        }
+
+        el.focus({ preventScroll: true });
+        if (document.activeElement === el) {
+          if (request.cursorAtEnd) {
+            const len = el.value.length;
+            el.setSelectionRange(len, len);
+          }
+          pendingFocusRef.current = null;
+          focusFrameRef.current = null;
+          return;
+        }
       }
-    });
+
+      if (!request || attempts >= COMPOSER_FOCUS_RETRY_FRAMES) {
+        focusFrameRef.current = null;
+        return;
+      }
+
+      attempts += 1;
+      focusFrameRef.current = requestAnimationFrame(run);
+    };
+
+    focusFrameRef.current = requestAnimationFrame(run);
   }, []);
+
+  const focusInput = useCallback(
+    (options?: { cursorAtEnd?: boolean }) => {
+      pendingFocusRef.current = {
+        cursorAtEnd: options?.cursorAtEnd ?? false,
+      };
+      if (!useUIStore.getState().isChatExpanded) {
+        useUIStore.getState().setIsChatExpanded(true);
+      }
+      flushPendingFocus();
+    },
+    [flushPendingFocus],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (focusFrameRef.current != null) {
+        cancelAnimationFrame(focusFrameRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!isComposerHotkey(event)) return;
+      if (hasOpenDialog()) return;
+      if (isInteractiveFocusTarget(event.target)) return;
+      if (document.activeElement === inputRef.current) return;
+
+      event.preventDefault();
+      setInputState((prev) => prev + event.key);
+      pendingFocusRef.current = { cursorAtEnd: true };
+      if (!useUIStore.getState().isChatExpanded) {
+        useUIStore.getState().setIsChatExpanded(true);
+      }
+      flushPendingFocus();
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [flushPendingFocus]);
 
   const removeAttachment = useCallback((id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
@@ -154,7 +275,9 @@ export function ComposerProvider({ children }: ComposerProviderProps) {
       const rejected: string[] = [];
       for (const file of incoming) {
         if (file.size > MAX_FILE_SIZE_BYTES) {
-          rejected.push(`${file.name} (${(file.size / (1024 * 1024)).toFixed(1)}MB)`);
+          rejected.push(
+            `${file.name} (${(file.size / (1024 * 1024)).toFixed(1)}MB)`,
+          );
         } else {
           accepted.push(file);
         }
@@ -287,8 +410,7 @@ export function ComposerProvider({ children }: ComposerProviderProps) {
         a.status === "ready" && !!a.url,
     );
 
-    const messageText =
-      text || (hasReplyContext ? "Empty message" : "");
+    const messageText = text || (hasReplyContext ? "Empty message" : "");
 
     const fileParts = readyFiles.map((a) => ({
       type: "file" as const,
@@ -339,7 +461,7 @@ export function ComposerProvider({ children }: ComposerProviderProps) {
       addAttachments,
       removeAttachment,
       inputRef,
-      focus,
+      focusInput,
       submit,
       hasUploadingAttachments,
     }),
@@ -349,7 +471,7 @@ export function ComposerProvider({ children }: ComposerProviderProps) {
       attachments,
       addAttachments,
       removeAttachment,
-      focus,
+      focusInput,
       submit,
       hasUploadingAttachments,
     ],

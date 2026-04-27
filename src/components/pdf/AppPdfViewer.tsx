@@ -237,7 +237,7 @@ const TextSelectionMenu = ({
           });
           scope.clear();
           toast.success("Added to context");
-          composer?.focus();
+          composer?.focusInput({ cursorAtEnd: true });
         } else {
           console.warn("Ask AI: No text extracted");
         }

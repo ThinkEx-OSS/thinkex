@@ -195,12 +195,14 @@ interface PromptBuilderDialogProps {
   items?: Item[];
   /** Called before applying the prompt. Use for e.g. expanding chat panel. */
   onBeforeSubmit?: () => void;
-  /** Optional override. Default: writes to composer + focuses. */
+  /** Optional override. Default: writes the prompt to the composer. */
   onBuild?: (prompt: string) => void;
 }
 
 const YOUTUBE_URL_REGEX =
   /(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/[^\s]+/gi;
+const EMPTY_ITEMS: Item[] = [];
+
 function extractYouTubeUrl(str: string): string | null {
   const match = str.trim().match(YOUTUBE_URL_REGEX);
   return match ? match[0] : null;
@@ -213,7 +215,7 @@ export function PromptBuilderDialog({
   open,
   onOpenChange,
   action,
-  items = [],
+  items = EMPTY_ITEMS,
   onBeforeSubmit,
   onBuild,
 }: PromptBuilderDialogProps) {
@@ -255,6 +257,11 @@ export function PromptBuilderDialog({
     },
     [],
   );
+  const workspaceSearchInputRef = useCallback((el: HTMLInputElement | null) => {
+    if (el) {
+      el.focus();
+    }
+  }, []);
 
   useEffect(() => {
     if (open) {
@@ -389,9 +396,11 @@ export function PromptBuilderDialog({
         selectMultipleCards(Array.from(selectedContextIds));
       }
       composer?.setInput(builtPrompt);
-      composer?.focus({ cursorAtEnd: true });
     }
     onOpenChange(false);
+    if (!onBuild) {
+      composer?.focusInput({ cursorAtEnd: true });
+    }
   }, [
     action,
     builtPrompt,
@@ -469,11 +478,11 @@ export function PromptBuilderDialog({
               </button>
             </div>
             <Input
+              ref={workspaceSearchInputRef}
               placeholder="Search items in your workspace"
               value={workspaceSearchQuery}
               onChange={(e) => setWorkspaceSearchQuery(e.target.value)}
               className="w-full"
-              autoFocus
             />
             <div className="min-h-[200px] max-h-[50vh] overflow-y-auto overflow-x-hidden rounded-md border">
               <WorkspaceItemPicker

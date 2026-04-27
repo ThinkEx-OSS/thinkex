@@ -28,9 +28,8 @@ export function TextSelectionManager({ className }: { className?: string }) {
   const clearReplySelections = useUIStore((s) => s.clearReplySelections);
 
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  const [currentSelection, setCurrentSelection] = useState<SelectionInfo | null>(
-    null,
-  );
+  const [currentSelection, setCurrentSelection] =
+    useState<SelectionInfo | null>(null);
 
   // Wipe selections when the workspace or active thread changes.
   const prevWorkspaceIdRef = useRef<string | null>(workspaceId);
@@ -80,7 +79,9 @@ export function TextSelectionManager({ className }: { className?: string }) {
     });
     setCurrentSelection(null);
     window.getSelection()?.removeAllRanges();
-    composer?.focus();
+    requestAnimationFrame(() => {
+      composer?.focusInput({ cursorAtEnd: true });
+    });
   }, [currentSelection, addReplySelection, composer]);
 
   return (

@@ -65,6 +65,7 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
   );
   const [isHoveringComposer, setIsHoveringComposer] = useState(false);
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const focusedOnMountRef = useRef(false);
 
   const handleMouseEnter = useCallback(() => {
     if (hideTimeoutRef.current) {
@@ -85,6 +86,12 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
       if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (focusedOnMountRef.current) return;
+    focusedOnMountRef.current = true;
+    composer.focusInput({ cursorAtEnd: true });
+  }, [composer]);
 
   const isThreadEmpty = messages.length === 0;
   const hasComposerText = composer.input.trim().length > 0;
@@ -140,13 +147,6 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
     },
     [composer],
   );
-
-  // Focus on mount so the user can start typing immediately. Single source
-  // of truth — everyone who wants to focus the composer goes through
-  // `composer.focus()` (see composer-context.tsx).
-  useEffect(() => {
-    composer.focus();
-  }, [composer]);
 
   return (
     <div
@@ -237,102 +237,101 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
         )}
         onSubmit={handleSubmit}
       >
-      {composer.attachments.length > 0 && (
-        <div className="mb-2 flex w-full flex-row items-center gap-2 overflow-x-auto pt-0.5 pb-1">
-          {composer.attachments.map((att) => (
-            <AttachmentChip
-              key={att.id}
-              attachment={att}
-              onRemove={composer.removeAttachment}
+        {composer.attachments.length > 0 && (
+          <div className="mb-2 flex w-full flex-row items-center gap-2 overflow-x-auto pt-0.5 pb-1">
+            {composer.attachments.map((att) => (
+              <AttachmentChip
+                key={att.id}
+                attachment={att}
+                onRemove={composer.removeAttachment}
+              />
+            ))}
+          </div>
+        )}
+
+        <CardContextDisplay items={items} />
+        <ReplyContextDisplay />
+
+        <Textarea
+          ref={composer.inputRef}
+          value={composer.input}
+          onChange={(e) => composer.setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
+          placeholder="Ask anything"
+          rows={1}
+          aria-label="Message input"
+          maxLength={MAX_TEXT_LEN}
+          className="min-h-0 max-h-32 resize-none overflow-y-auto rounded-none border-0 border-transparent bg-transparent px-0 py-1.5 text-base text-sidebar-foreground shadow-none outline-none placeholder:text-sidebar-foreground/60 focus-visible:border-transparent focus-visible:ring-0 focus:outline-none md:text-base dark:bg-transparent"
+        />
+
+        <div className="relative mb-2 flex items-center justify-between">
+          <div className="relative z-0 flex items-center gap-0">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <label
+                  htmlFor="composer-file-input"
+                  className="flex items-center gap-1.5 rounded-md bg-sidebar-accent px-1.5 py-1 transition-colors flex-shrink-0 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer"
+                  aria-label="Add attachment"
+                >
+                  <LuPaperclip className="w-3.5 h-3.5" />
+                </label>
+              </TooltipTrigger>
+              <TooltipContent side="top">Add file</TooltipContent>
+            </Tooltip>
+            <input
+              id="composer-file-input"
+              ref={fileInputRef}
+              type="file"
+              className="sr-only"
+              onChange={handleFilePick}
+              multiple
+              accept="image/*,.pdf,.txt,.md,.csv,.json,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.heic,.heif,.avif,.tiff,.tif"
             />
-          ))}
-        </div>
-      )}
+            <ModelSettingsMenu />
+            <div className="ml-0.5">
+              <ModelPicker />
+            </div>
+          </div>
 
-      <CardContextDisplay items={items} />
-      <ReplyContextDisplay />
-
-      <Textarea
-        ref={composer.inputRef}
-        value={composer.input}
-        onChange={(e) => composer.setInput(e.target.value)}
-        onKeyDown={handleKeyDown}
-        onPaste={handlePaste}
-        placeholder="Ask anything"
-        rows={1}
-        aria-label="Message input"
-        maxLength={MAX_TEXT_LEN}
-        className="min-h-0 max-h-32 resize-none overflow-y-auto rounded-none border-0 border-transparent bg-transparent px-0 py-1.5 text-base text-sidebar-foreground shadow-none outline-none placeholder:text-sidebar-foreground/60 focus-visible:border-transparent focus-visible:ring-0 focus:outline-none md:text-base dark:bg-transparent"
-      />
-
-      <div className="relative mb-2 flex items-center justify-between">
-        <div className="relative z-0 flex items-center gap-0">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <label
-                htmlFor="composer-file-input"
-                className="flex items-center gap-1.5 rounded-md bg-sidebar-accent px-1.5 py-1 transition-colors flex-shrink-0 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer"
-                aria-label="Add attachment"
+          <div className="flex items-center gap-2">
+            {isRunning ? (
+              <Button
+                type="button"
+                variant="default"
+                size="icon"
+                className="size-[34px] rounded-full border border-muted-foreground/60 hover:bg-primary/75 dark:border-muted-foreground/90"
+                aria-label="Stop generating"
+                onClick={() => {
+                  stop();
+                }}
               >
-                <LuPaperclip className="w-3.5 h-3.5" />
-              </label>
-            </TooltipTrigger>
-            <TooltipContent side="top">Add file</TooltipContent>
-          </Tooltip>
-          <input
-            id="composer-file-input"
-            ref={fileInputRef}
-            type="file"
-            className="sr-only"
-            onChange={handleFilePick}
-            multiple
-            accept="image/*,.pdf,.txt,.md,.csv,.json,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.heic,.heif,.avif,.tiff,.tif"
-          />
-          <ModelSettingsMenu />
-          <div className="ml-0.5">
-            <ModelPicker />
+                <Square className="size-3 text-background fill-current" />
+              </Button>
+            ) : (
+              <TooltipIconButton
+                tooltip={
+                  composer.hasUploadingAttachments
+                    ? "Uploading attachments..."
+                    : "Send message"
+                }
+                side="bottom"
+                type="submit"
+                variant="default"
+                size="icon"
+                className="size-[34px] rounded-full p-1"
+                aria-label="Send message"
+                disabled={composer.hasUploadingAttachments}
+              >
+                {composer.hasUploadingAttachments ? (
+                  <Loader2 className="size-4 text-background animate-spin" />
+                ) : (
+                  <ArrowUpIcon className="size-4 text-background" />
+                )}
+              </TooltipIconButton>
+            )}
           </div>
         </div>
-
-        <div className="flex items-center gap-2">
-          {isRunning ? (
-            <Button
-              type="button"
-              variant="default"
-              size="icon"
-              className="size-[34px] rounded-full border border-muted-foreground/60 hover:bg-primary/75 dark:border-muted-foreground/90"
-              aria-label="Stop generating"
-              onClick={() => {
-                stop();
-                composer.focus();
-              }}
-            >
-              <Square className="size-3 text-background fill-current" />
-            </Button>
-          ) : (
-            <TooltipIconButton
-              tooltip={
-                composer.hasUploadingAttachments
-                  ? "Uploading attachments..."
-                  : "Send message"
-              }
-              side="bottom"
-              type="submit"
-              variant="default"
-              size="icon"
-              className="size-[34px] rounded-full p-1"
-              aria-label="Send message"
-              disabled={composer.hasUploadingAttachments}
-            >
-              {composer.hasUploadingAttachments ? (
-                <Loader2 className="size-4 text-background animate-spin" />
-              ) : (
-                <ArrowUpIcon className="size-4 text-background" />
-              )}
-            </TooltipIconButton>
-          )}
-        </div>
-      </div>
       </form>
 
       {dialogAction && (

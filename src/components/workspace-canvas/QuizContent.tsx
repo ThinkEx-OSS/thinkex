@@ -216,8 +216,7 @@ export function QuizContent({
         composer.setInput(
           `Give me a hint for this question in "${item.name}": ${getQuestionText(currentQuestion)}`,
         );
-        useUIStore.getState().setIsChatExpanded(true);
-        composer.focus({ cursorAtEnd: true });
+        composer.focusInput({ cursorAtEnd: true });
       } catch (error) {
         toast.error("Failed to send request. Please try again.");
       }
@@ -243,8 +242,7 @@ export function QuizContent({
         composer.setInput(
           `Explain this question in "${item.name}": ${getQuestionText(currentQuestion)}\n\nI answered: ${userAnswer}\nCorrect answer: ${correctAnswer}`,
         );
-        useUIStore.getState().setIsChatExpanded(true);
-        composer.focus({ cursorAtEnd: true });
+        composer.focusInput({ cursorAtEnd: true });
       } catch (error) {
         toast.error("Failed to send request. Please try again.");
       }

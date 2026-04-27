@@ -262,6 +262,18 @@ export function WorkspaceSection({
         activeTextarea.blur();
       }
     }
+
+    // If a button/menu trigger still owns focus after an inert workspace click,
+    // blur it so the next printable key can hand off to the chat composer.
+    if (
+      document.activeElement instanceof HTMLElement &&
+      document.activeElement !== document.body &&
+      document.activeElement !== document.documentElement &&
+      document.activeElement !== target &&
+      !document.activeElement.contains(target)
+    ) {
+      document.activeElement.blur();
+    }
   };
 
   // Handle bulk delete - delete all selected items in one operation
