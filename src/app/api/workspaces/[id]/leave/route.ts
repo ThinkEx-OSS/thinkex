@@ -12,6 +12,9 @@ import { db } from "@/lib/db/client";
 import { workspaceCollaborators, workspaces } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 
+const UUID_REGEX =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function POST(
     _request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -23,6 +26,14 @@ export async function POST(
         }
 
         const { id: workspaceId } = await params;
+
+        if (!UUID_REGEX.test(workspaceId)) {
+            return NextResponse.json(
+                { error: "Invalid workspace id" },
+                { status: 400 }
+            );
+        }
+
         const userId = session.user.id;
 
         const [workspace] = await db
@@ -32,7 +43,10 @@ export async function POST(
             .limit(1);
 
         if (!workspace) {
-            return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+            return NextResponse.json(
+                { error: "Workspace not found or you are not a collaborator" },
+                { status: 404 }
+            );
         }
 
         if (workspace.userId === userId) {
@@ -57,7 +71,7 @@ export async function POST(
 
         if (!deleted) {
             return NextResponse.json(
-                { error: "You are not a collaborator of this workspace." },
+                { error: "Workspace not found or you are not a collaborator" },
                 { status: 404 }
             );
         }

@@ -224,8 +224,7 @@ export function WorkspaceProvider({
       queryClient.setQueryData(
         ["workspaces"],
         (old: WorkspaceWithState[] | undefined) => {
-          if (!old) return [];
-          const remainingWorkspaces = old.filter(
+          const remainingWorkspaces = (old ?? []).filter(
             (w) => w.id !== leftWorkspaceId,
           );
 
