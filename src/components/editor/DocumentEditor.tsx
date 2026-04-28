@@ -928,6 +928,14 @@ export function DocumentEditor({
   });
 
   const hasLoadedInitialContentRef = useRef(false);
+  const autofocusRef = useRef(autofocus);
+  autofocusRef.current = autofocus;
+
+  // Reset the initial-load flag when the editor instance itself changes so a
+  // recreated editor still benefits from the deferred-paint optimization.
+  useEffect(() => {
+    hasLoadedInitialContentRef.current = false;
+  }, [editor]);
 
   // Sync incoming content only when it actually differs from the live editor
   // state. The first content load is deferred to after the modal's open paint
@@ -970,7 +978,7 @@ export function DocumentEditor({
         if (editor.isDestroyed) return;
         applyContent();
         hasLoadedInitialContentRef.current = true;
-        if (autofocus) {
+        if (autofocusRef.current) {
           editor.commands.focus("end");
         }
       });
@@ -980,7 +988,7 @@ export function DocumentEditor({
       if (rafA != null) cancelAnimationFrame(rafA);
       if (rafB != null) cancelAnimationFrame(rafB);
     };
-  }, [editor, content, contentType, autofocus]);
+  }, [editor, content, contentType]);
 
   return (
     <div
