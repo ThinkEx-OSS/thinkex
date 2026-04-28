@@ -3,7 +3,6 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 import WorkspaceSidebar from "@/components/workspace-canvas/WorkspaceSidebar";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { ChatProvider } from "@/components/chat/ChatProvider";
-import { ChatRuntimesProvider } from "@/components/chat/ChatRuntimes";
 import { ComposerProvider } from "@/components/chat/composer-context";
 import { WorkspaceCanvasDropzone } from "@/components/workspace-canvas/WorkspaceCanvasDropzone";
 import { PANEL_DEFAULTS } from "@/lib/layout-constants";
@@ -132,11 +131,9 @@ export function DashboardLayout({
 
   if (currentWorkspaceId) {
     return (
-      <ChatRuntimesProvider workspaceId={currentWorkspaceId}>
-        <ChatProvider workspaceId={currentWorkspaceId}>
-          <ComposerProvider>{content}</ComposerProvider>
-        </ChatProvider>
-      </ChatRuntimesProvider>
+      <ChatProvider workspaceId={currentWorkspaceId}>
+        <ComposerProvider>{content}</ComposerProvider>
+      </ChatProvider>
     );
   }
 

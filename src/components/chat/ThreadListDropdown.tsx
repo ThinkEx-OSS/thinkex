@@ -11,11 +11,11 @@ import {
 } from "react";
 import { toast } from "sonner";
 
-import { useChatContext } from "@/components/chat/ChatProvider";
 import {
-  useChatRuntimesContext,
+  useChatContext,
+  useChatThreadManager,
   useThreadStatus,
-} from "@/components/chat/ChatRuntimes";
+} from "@/components/chat/ChatProvider";
 import { TooltipIconButton } from "@/components/chat/tooltip-icon-button";
 import {
   AlertDialog,
@@ -46,6 +46,7 @@ import {
   useRenameThread,
   useThreadsQuery,
 } from "@/lib/chat/queries";
+import { orderThreadsByRuntimeActivity } from "@/lib/chat/thread-order";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 
 interface ThreadListDropdownProps {
@@ -57,11 +58,19 @@ export const ThreadListDropdown: FC<ThreadListDropdownProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const { workspaceId, threadId, selectThread, startNewThread } = useChatContext();
+  const {
+    getThreadLastStartedAt,
+    getThreadStatusSnapshot,
+  } = useChatThreadManager();
 
   const { data: threads, isLoading } = useThreadsQuery(workspaceId);
 
-  const visibleThreads = (threads ?? []).filter(
-    (t) => t.status !== "archived",
+  const visibleThreads = orderThreadsByRuntimeActivity(
+    (threads ?? []).filter((thread) => thread.status !== "archived"),
+    {
+      getThreadStatus: getThreadStatusSnapshot,
+      getThreadLastStartedAt,
+    },
   );
 
   const handleSelect = useCallback(
@@ -159,13 +168,9 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
   const clearCurrentThreadId = useWorkspaceStore(
     (s) => s.clearCurrentThreadId,
   );
-  const { disposeRuntime } = useChatRuntimesContext();
+  const { disposeThread } = useChatThreadManager();
   const status = useThreadStatus(thread.id);
   const isGenerating = status === "submitted" || status === "streaming";
-
-  useEffect(() => {
-    if (!isEditing) setEditValue(thread.title ?? "New Chat");
-  }, [thread.title, isEditing]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -179,6 +184,7 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
   const handleStartEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    setEditValue(title);
     setIsEditing(true);
   };
 
@@ -196,9 +202,8 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
       console.error("Failed to rename thread:", err);
       toast.error("Failed to update title");
       setEditValue(title);
-    } finally {
-      setIsEditing(false);
     }
+    setIsEditing(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -222,7 +227,7 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
     setShowDeleteDialog(false);
     try {
       await deleteMutation.mutateAsync(thread.id);
-      disposeRuntime(thread.id);
+      disposeThread(thread.id);
       clearCurrentThreadId(workspaceId, thread.id);
       if (isActive) {
         onDeletedActiveThread();
