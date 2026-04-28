@@ -13,10 +13,14 @@ export function register() {
     serviceName: "thinkex",
     spanProcessors: [
       "auto",
-      new TCCSpanProcessor({
-        debug: false,
-        otlpUrl: "https://ingest.thecontext.company",
-      }),
+      ...(process.env.TCC_API_KEY
+        ? [
+            new TCCSpanProcessor({
+              debug: false,
+              otlpUrl: "https://ingest.thecontext.company",
+            }),
+          ]
+        : []),
     ],
   });
 }
