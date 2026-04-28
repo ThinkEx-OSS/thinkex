@@ -8,22 +8,19 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
-  useState,
   type ReactNode,
 } from "react";
-import { VList, type VListHandle } from "virtua";
+import { VList } from "virtua";
 
 import { PendingAssistantLoader } from "@/components/chat/AssistantLoader";
 import { AssistantMessage } from "@/components/chat/AssistantMessage";
 import { useChatContext } from "@/components/chat/ChatProvider";
+import { useThreadViewportController } from "@/components/chat/use-thread-viewport-controller";
 import { Button } from "@/components/ui/button";
 import { UserMessage } from "@/components/chat/UserMessage";
 import { chatDebug, chatWarn, summarizeRoster } from "@/lib/chat/debug";
 import type { ChatMessage } from "@/lib/chat/types";
-import {
-  THREAD_SCROLL_PIN_OFFSET,
-  THREAD_TOP_INSET,
-} from "@/components/chat/thread-layout";
+import { THREAD_TOP_INSET } from "@/components/chat/thread-layout";
 
 /**
  * Virtualized message list with pin-to-top autoscroll. Assumes the thread
@@ -50,24 +47,13 @@ import {
  * 5. After the turn ends, the spacer persists on the (now) last assistant
  *    row. The next turn repeats the cycle.
  *
- * Scroll positioning is governed by a single `useLayoutEffect` with three
- * mutually exclusive branches:
- *
- *   A. Snap-to-bottom on thread mount/switch when the user did NOT just send
- *      here. Covers opening an existing thread and switching between threads
- *      (including switching into a mid-assistant-stream).
- *   B. Pin user-tail to top on thread mount/switch when the user DID just
- *      send here. Covers welcome → first send and the rare case of mounting
- *      into a thread whose tail is a freshly-sent user message.
- *   C. Pin user-tail to top on same-thread `ready → submitted/streaming`
- *      transitions — i.e. every subsequent turn within a thread.
- *
- * `isFirstSeeing` is checked first, so A and B win unambiguously over C
- * across thread boundaries.
+ * Thread-open and same-thread send scroll behavior lives in
+ * `useThreadViewportController()`. `ThreadBody` keys this component by
+ * `threadId`, so "open/switch thread" becomes a real mount instead of
+ * sharing one long-lived effect across multiple thread lifecycles.
  */
 const MessagesImpl = () => {
-  const { messages, status, error, regenerate, clearError, threadId } =
-    useChatContext();
+  const { messages, status, error, regenerate, clearError } = useChatContext();
   const isStreaming = status === "streaming" || status === "submitted";
 
   // [chat-debug] Log a roster snapshot whenever the message list changes
@@ -100,6 +86,18 @@ const MessagesImpl = () => {
   }, [messages]);
   const lastUserMessageId =
     lastUserIndex >= 0 ? (messages[lastUserIndex]?.id ?? null) : null;
+
+  const {
+    viewportRef,
+    listRef,
+    reservedTail,
+    measurePinnedUser,
+  } = useThreadViewportController({
+    messages,
+    status,
+    lastUserMessageId,
+  });
+
   // Between `sendMessage` and the first streamed chunk, useChat has not yet
   // materialized an assistant message. Render a dedicated pending row instead
   // of inventing a fake assistant message identity that later has to be
@@ -108,124 +106,6 @@ const MessagesImpl = () => {
     isStreaming &&
     messages.length > 0 &&
     messages[messages.length - 1].role === "user";
-
-  // Measure the scroll viewport so we know how tall the spacer should be.
-  // Kept in sync via a ResizeObserver so the reservation adapts when the
-  // panel is maximized/minimized.
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [reservedMinHeight, setReservedMinHeight] = useState(0);
-  useLayoutEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    setReservedMinHeight(el.clientHeight);
-    const ro = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) return;
-      setReservedMinHeight(entry.contentRect.height);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  // Track the height of the most-recent user message so we can size the
-  // trailing spacer correctly. The UserRow calls `onMeasure` when it's the
-  // pin target (i.e. the last user message in the list).
-  const [lastMeasuredUser, setLastMeasuredUser] = useState<{
-    messageId: string | null;
-    height: number;
-  }>({
-    messageId: null,
-    height: 0,
-  });
-  const lastUserSize =
-    lastMeasuredUser.messageId === lastUserMessageId
-      ? lastMeasuredUser.height
-      : 0;
-
-  const reservedTail = Math.max(0, reservedMinHeight - lastUserSize);
-
-  const vlistRef = useRef<VListHandle>(null);
-
-  // Three exclusive branches govern the scroll position:
-  //
-  //   A. Thread mount/switch + the user did NOT just send here → snap to the
-  //      bottom of the scroll container instantly. Covers "open an existing
-  //      thread", "switch between threads", and "switch into a thread that's
-  //      mid-assistant-stream".
-  //
-  //   B. Thread mount/switch + the user DID just send here (status is
-  //      submitted/streaming with a user-tail) → pin the user message to the
-  //      viewport top. Covers welcome → first send, and the rare case of
-  //      switching into a thread whose tail is a freshly-sent user message.
-  //
-  //   C. Same thread, status transitioned ready → submitted/streaming → pin
-  //      the newly-sent user message to the viewport top. This is the every
-  //      subsequent turn case within a thread.
-  //
-  // Branches are mutually exclusive: A and B are gated on `isFirstSeeing`,
-  // C only fires when we've already seen this thread. That mutual exclusion
-  // is what fixes the cross-thread status race — e.g. switching from a
-  // ready thread into a streaming thread used to fire BOTH pin-to-top (via
-  // C) AND snap-to-bottom (via A); now A wins because `isFirstSeeing` is
-  // checked first.
-  const prevStatusRef = useRef(status);
-  const prevSeenThreadIdRef = useRef<string | null>(null);
-  useLayoutEffect(() => {
-    const prevStatus = prevStatusRef.current;
-    const prevSeen = prevSeenThreadIdRef.current;
-    prevStatusRef.current = status;
-
-    const lastMessageIndex = messages.length - 1;
-    if (lastMessageIndex < 0) return;
-    const handle = vlistRef.current;
-    if (!handle) return;
-
-    const tail = messages[lastMessageIndex];
-    const userJustSent =
-      (status === "submitted" || status === "streaming") &&
-      tail?.role === "user";
-    const isFirstSeeing = prevSeen !== threadId;
-
-    let rafId: number | null = null;
-
-    if (isFirstSeeing && !userJustSent) {
-      // Branch A — snap to bottom (instant).
-      prevSeenThreadIdRef.current = threadId;
-      rafId = requestAnimationFrame(() => {
-        handle.scrollToIndex(lastMessageIndex, { align: "end" });
-      });
-    } else if (isFirstSeeing && userJustSent) {
-      // Branch B — pin user-tail to top on first turn out of welcome / when
-      // mounting into an existing user-tail thread.
-      prevSeenThreadIdRef.current = threadId;
-      rafId = requestAnimationFrame(() => {
-        handle.scrollToIndex(lastMessageIndex, {
-          smooth: true,
-          align: "start",
-          offset: -THREAD_SCROLL_PIN_OFFSET,
-        });
-      });
-    } else {
-      // Branch C — same thread, watch for a fresh turn start.
-      const turnStarted =
-        prevStatus === "ready" &&
-        (status === "submitted" || status === "streaming");
-      if (turnStarted) {
-        rafId = requestAnimationFrame(() => {
-          handle.scrollToIndex(lastMessageIndex, {
-            smooth: true,
-            align: "start",
-            offset: -THREAD_SCROLL_PIN_OFFSET,
-          });
-        });
-      }
-    }
-
-    if (rafId !== null) {
-      const id = rafId;
-      return () => cancelAnimationFrame(id);
-    }
-  }, [threadId, status, messages]);
 
   // Whichever row ends up at the tail gets the spacer. When the pending
   // loader is present it's the tail; otherwise the last real message is.
@@ -253,18 +133,7 @@ const MessagesImpl = () => {
           onMeasure={
             idx === lastUserIndex
               ? (height) => {
-                  setLastMeasuredUser((prev) => {
-                    if (
-                      prev.messageId === message.id &&
-                      prev.height === height
-                    ) {
-                      return prev;
-                    }
-                    return {
-                      messageId: message.id,
-                      height,
-                    };
-                  });
+                  measurePinnedUser(message.id, height);
                 }
               : undefined
           }
@@ -311,9 +180,9 @@ const MessagesImpl = () => {
     // `document.querySelector` — it uses this node for range-bounds
     // containment checks and tooltip positioning. Don't rename without
     // updating both selectors.
-    <div ref={containerRef} data-chat-viewport className="h-full">
+    <div ref={viewportRef} data-chat-viewport className="h-full">
       <VList
-        ref={vlistRef}
+        ref={listRef}
         style={{ height: "100%", paddingTop: THREAD_TOP_INSET }}
         className="overflow-x-hidden px-3 sm:px-6"
       >

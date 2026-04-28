@@ -407,6 +407,7 @@ async function handlePOST(req: Request) {
 
     const memoryWrappedModel = maybeWithSupermemory(tracedModel, {
       userId: userId ?? "",
+      workspaceId: body.workspaceId,
       threadId,
       memoryEnabled,
     });
