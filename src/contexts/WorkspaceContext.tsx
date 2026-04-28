@@ -36,6 +36,7 @@ interface WorkspaceContextType {
   // Actions
   switchWorkspace: (slug: string) => void;
   deleteWorkspace: (workspaceId: string) => Promise<void>;
+  leaveWorkspace: (workspaceId: string) => Promise<void>;
   markWorkspaceOpened: (workspaceId: string) => void;
 }
 
@@ -206,6 +207,56 @@ export function WorkspaceProvider({
     [deleteWorkspaceMutation],
   );
 
+  // Leave workspace mutation (collaborator self-removal). Mirrors the
+  // delete-workspace cache + redirect handling because both flows remove the
+  // workspace from the user's list and may need to navigate away.
+  const leaveWorkspaceMutation = useMutation({
+    mutationFn: async (workspaceId: string) => {
+      const response = await fetch(`/api/workspaces/${workspaceId}/leave`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to leave workspace");
+      }
+      return workspaceId;
+    },
+    onSuccess: (leftWorkspaceId) => {
+      queryClient.setQueryData(
+        ["workspaces"],
+        (old: WorkspaceWithState[] | undefined) => {
+          if (!old) return [];
+          const remainingWorkspaces = old.filter(
+            (w) => w.id !== leftWorkspaceId,
+          );
+
+          if (leftWorkspaceId === currentWorkspaceId && currentSlug) {
+            if (remainingWorkspaces.length > 0) {
+              switchWorkspace(
+                remainingWorkspaces[0].slug || remainingWorkspaces[0].id,
+              );
+            } else {
+              router.push("/home");
+            }
+          }
+
+          return remainingWorkspaces;
+        },
+      );
+
+      toast.success("Left workspace successfully");
+    },
+    onError: () => {
+      toast.error("Failed to leave workspace");
+    },
+  });
+
+  const leaveWorkspace = useCallback(
+    async (workspaceId: string) => {
+      await leaveWorkspaceMutation.mutateAsync(workspaceId);
+    },
+    [leaveWorkspaceMutation],
+  );
+
   // Optimistically update a single workspace locally without refetching
   const updateWorkspaceLocal = useCallback(
     (workspaceId: string, updates: Partial<WorkspaceWithState>) => {
@@ -271,6 +322,7 @@ export function WorkspaceProvider({
     currentSlug,
     switchWorkspace,
     deleteWorkspace,
+    leaveWorkspace,
     markWorkspaceOpened,
   };
 

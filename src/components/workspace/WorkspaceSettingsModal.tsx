@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, LogOut, Trash2 } from "lucide-react";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
 import { IconPicker } from "@/components/workspace/IconPicker";
 import { IconRenderer } from "@/hooks/use-icon-picker";
@@ -46,7 +46,8 @@ export default function WorkspaceSettingsModal({
   onOpenChange,
   onUpdate,
 }: WorkspaceSettingsModalProps) {
-  const { deleteWorkspace, updateWorkspaceLocal } = useWorkspaceContext();
+  const { deleteWorkspace, leaveWorkspace, updateWorkspaceLocal } =
+    useWorkspaceContext();
   const router = useRouter();
   const [name, setName] = useState("");
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
@@ -56,6 +57,9 @@ export default function WorkspaceSettingsModal({
   const [error, setError] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const isShared = workspace?.isShared ?? false;
 
   useEffect(() => {
     if (workspace && open) {
@@ -153,6 +157,29 @@ export default function WorkspaceSettingsModal({
       setError(err instanceof Error ? err.message : "Failed to delete workspace");
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleLeaveClick = () => {
+    setShowLeaveDialog(true);
+  };
+
+  const handleLeaveConfirm = async () => {
+    if (!workspace) return;
+
+    setIsLeaving(true);
+    try {
+      await leaveWorkspace(workspace.id);
+      setShowLeaveDialog(false);
+      onOpenChange(false);
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (err) {
+      console.error("Error leaving workspace:", err);
+      setError(err instanceof Error ? err.message : "Failed to leave workspace");
+    } finally {
+      setIsLeaving(false);
     }
   };
 
@@ -259,34 +286,54 @@ export default function WorkspaceSettingsModal({
 
                 <Separator className="my-4" />
 
-                {/* Delete Workspace */}
+                {/* Danger Zone — Delete (owner) or Leave (collaborator) */}
                 <div className="space-y-2">
                   <Label className="text-destructive mb-3 block">Danger Zone</Label>
-                  <div className="flex items-center justify-between p-3 rounded-md border border-destructive/20 bg-destructive/5">
-                    <div>
-                      <p className="text-sm font-medium">Delete Workspace</p>
-                      <p className="text-xs text-muted-foreground">
-                        Delete this workspace and all its data. This action cannot be undone right now.
-                      </p>
+                  {isShared ? (
+                    <div className="flex items-center justify-between p-3 rounded-md border border-destructive/20 bg-destructive/5">
+                      <div>
+                        <p className="text-sm font-medium">Leave Workspace</p>
+                        <p className="text-xs text-muted-foreground">
+                          Remove yourself from this workspace. You&apos;ll lose access to all its content. The owner can re-invite you later.
+                        </p>
+                      </div>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleLeaveClick}
+                        disabled={isSaving || isLeaving}
+                      >
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Leave
+                      </Button>
                     </div>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={handleDeleteClick}
-                      disabled={isSaving || isDeleting}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </Button>
-                  </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-3 rounded-md border border-destructive/20 bg-destructive/5">
+                      <div>
+                        <p className="text-sm font-medium">Delete Workspace</p>
+                        <p className="text-xs text-muted-foreground">
+                          Delete this workspace and all its data. This action cannot be undone right now.
+                        </p>
+                      </div>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleDeleteClick}
+                        disabled={isSaving || isDeleting}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </Button>
+                    </div>
+                  )}
                 </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving || isDeleting}>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving || isDeleting || isLeaving}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={isSaving || isDeleting || !name.trim()}>
+            <Button onClick={handleSave} disabled={isSaving || isDeleting || isLeaving || !name.trim()}>
               {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Changes
             </Button>
@@ -315,6 +362,32 @@ export default function WorkspaceSettingsModal({
             >
               {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Leave Confirmation Dialog */}
+      <AlertDialog open={showLeaveDialog} onOpenChange={setShowLeaveDialog}>
+        <AlertDialogContent
+          className=""
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave Workspace</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to leave &quot;{workspace?.name}&quot;? You&apos;ll lose
+              access to all its content. The owner can re-invite you later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLeaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleLeaveConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isLeaving}
+            >
+              {isLeaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Leave
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
