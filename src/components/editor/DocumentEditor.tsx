@@ -910,11 +910,8 @@ export function DocumentEditor({
         },
       }),
     ],
-    ...(contentType === "markdown" && typeof content === "string"
-      ? { content, contentType: "markdown" as const }
-      : content
-        ? { content }
-        : {}),
+    // NOTE: initial content intentionally omitted — content is set via the
+    // useEffect below after first paint to avoid blocking modal-open animation.
     onUpdate: ({ editor }) => {
       const md =
         typeof editor.getMarkdown === "function" ? editor.getMarkdown() : "";
@@ -930,11 +927,17 @@ export function DocumentEditor({
     },
   });
 
-  // Sync incoming content only when it actually differs from the live editor state.
+  const hasLoadedInitialContentRef = useRef(false);
+
+  // Sync incoming content only when it actually differs from the live editor
+  // state. The first content load is deferred to after the modal's open paint
+  // to avoid blocking the open animation with markdown parsing + KaTeX renders.
   useEffect(() => {
     if (!editor) return;
 
-    queueMicrotask(() => {
+    const applyContent = () => {
+      if (editor.isDestroyed) return;
+
       if (contentType === "markdown" && typeof content === "string") {
         if (editor.getMarkdown?.() === content) return;
         editor.commands.setContent(content, {
@@ -949,8 +952,35 @@ export function DocumentEditor({
         return;
 
       editor.commands.setContent(nextContent, { emitUpdate: false });
+    };
+
+    if (hasLoadedInitialContentRef.current) {
+      // External update (e.g., ZeroDB sync from another tab). Apply immediately.
+      applyContent();
+      return;
+    }
+
+    // Initial mount: defer content load until after the modal's open paint to
+    // avoid blocking the animation. Two rAFs ensures we run after at least one
+    // committed frame is on screen.
+    let rafA: number | null = null;
+    let rafB: number | null = null;
+    rafA = requestAnimationFrame(() => {
+      rafB = requestAnimationFrame(() => {
+        if (editor.isDestroyed) return;
+        applyContent();
+        hasLoadedInitialContentRef.current = true;
+        if (autofocus) {
+          editor.commands.focus("end");
+        }
+      });
     });
-  }, [editor, content, contentType]);
+
+    return () => {
+      if (rafA != null) cancelAnimationFrame(rafA);
+      if (rafB != null) cancelAnimationFrame(rafB);
+    };
+  }, [editor, content, contentType, autofocus]);
 
   return (
     <div
