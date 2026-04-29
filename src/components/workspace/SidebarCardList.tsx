@@ -58,7 +58,7 @@ function SidebarItem({ item, allItems, workspaceName, workspaceIcon, workspaceCo
 
     const actions = useItemActionDialogs({
         item,
-        onDeleteItem: onDeleteItem ? (id) => { onDeleteItem(id); toast.success('Item deleted'); } : () => {},
+        onDeleteItem: onDeleteItem ? (id) => { onDeleteItem(id); } : () => {},
         onUpdateItem: onRenameItem ? (id, updates) => { if (updates.name !== undefined) onRenameItem(id, updates.name as string); } : () => {},
         onMoveItem: onMoveItem ? (id, folderId) => { onMoveItem(id, folderId); toast.success('Item moved'); } : undefined,
     });
@@ -276,7 +276,7 @@ function SidebarFolderItem({
     const actions = useItemActionDialogs({
         item: folder,
         itemCount: totalItemCount,
-        onDeleteItem: onDeleteFolder ? (id) => { onDeleteFolder(id); toast.success('Folder deleted'); } : () => {},
+        onDeleteItem: onDeleteFolder ? (id) => { onDeleteFolder(id); } : () => {},
         onUpdateItem: onRenameFolder ? (id, updates) => { if (updates.name !== undefined) onRenameFolder(id, updates.name as string); } : () => {},
         onMoveItem: onMoveItem ? (id, folderId) => { onMoveItem(id, folderId); toast.success('Folder moved'); } : undefined,
     });
