@@ -928,6 +928,8 @@ export function DocumentEditor({
   });
 
   const hasLoadedInitialContentRef = useRef(false);
+  const autofocusRef = useRef(autofocus);
+  autofocusRef.current = autofocus;
 
   // Reset the initial-load flag when the editor instance itself changes so a
   // recreated editor still benefits from the deferred-paint optimization.
@@ -976,6 +978,14 @@ export function DocumentEditor({
         if (editor.isDestroyed) return;
         applyContent();
         hasLoadedInitialContentRef.current = true;
+        // setContent uses tr.replaceWith over the full doc range, which makes
+        // ProseMirror's selection mapping land at the END of the replacement.
+        // Move the cursor to the start to match Tiptap's native autofocus:true.
+        if (autofocusRef.current) {
+          editor.commands.focus("start");
+        } else {
+          editor.commands.setTextSelection(0);
+        }
       });
     });
 
