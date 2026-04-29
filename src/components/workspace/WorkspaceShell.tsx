@@ -368,8 +368,6 @@ function WorkspaceContent({
   );
 }
 
-// Main page component
-// Main page component
 // Main page component (wrapper)
 export function WorkspacePage() {
   return (
