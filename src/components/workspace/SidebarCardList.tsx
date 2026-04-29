@@ -643,7 +643,13 @@ function SidebarFolderItem({
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setIsDropdownOpen(false);
-                                    setShowDeleteDialog(true);
+                                    if (totalItemCount === 0) {
+                                        if (onDeleteFolder) {
+                                            onDeleteFolder(folder.id);
+                                        }
+                                    } else {
+                                        setShowDeleteDialog(true);
+                                    }
                                 }}
                             >
                                 <Trash2 className="mr-2 h-4 w-4" />

@@ -388,7 +388,11 @@ function FolderCardComponent({
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
-                    setShowDeleteConfirm(true);
+                    if (itemCount === 0) {
+                      onDeleteItem(item.id);
+                    } else {
+                      setShowDeleteConfirm(true);
+                    }
                   }}
                   className="text-destructive focus:text-destructive"
                 >
@@ -595,7 +599,13 @@ function FolderCardComponent({
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
-          onSelect={() => setShowDeleteConfirm(true)}
+          onSelect={() => {
+            if (itemCount === 0) {
+              onDeleteItem(item.id);
+            } else {
+              setShowDeleteConfirm(true);
+            }
+          }}
           className="text-destructive focus:text-destructive"
         >
           <Trash2 className="mr-2 h-4 w-4" />
