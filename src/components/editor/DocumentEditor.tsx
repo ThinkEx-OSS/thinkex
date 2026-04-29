@@ -22,7 +22,7 @@ import { Highlight } from "@tiptap/extension-highlight";
 import { Subscript } from "@tiptap/extension-subscript";
 import { Superscript } from "@tiptap/extension-superscript";
 import { Selection } from "@tiptap/extensions";
-import { CachedMathematics } from "@/components/editor/cached-mathematics-extension";
+import { Mathematics } from "@tiptap/extension-mathematics";
 import { TableKit } from "@tiptap/extension-table";
 import { Markdown } from "@tiptap/markdown";
 import { CustomCodeBlock } from "@/components/tiptap-node/code-block-node/code-block-extension";
@@ -887,7 +887,7 @@ export function DocumentEditor({
       Superscript,
       Subscript,
       Selection,
-      CachedMathematics.configure({
+      Mathematics.configure({
         katexOptions: {
           throwOnError: false,
         },
