@@ -75,19 +75,30 @@ export type AudioPlayerElementProps = Omit<ComponentProps<"audio">, "src"> &
       }
   );
 
-export const AudioPlayerElement = ({ ...props }: AudioPlayerElementProps) => (
-  // oxlint-disable-next-line eslint-plugin-jsx-a11y(media-has-caption) -- audio player captions are provided by consumer
-  <audio
-    data-slot="audio-player-element"
-    slot="media"
-    src={
-      "src" in props
-        ? props.src
-        : `data:${props.data.mediaType};base64,${props.data.base64}`
-    }
-    {...props}
-  />
-);
+export const AudioPlayerElement = (props: AudioPlayerElementProps) => {
+  if ("src" in props) {
+    const { src, ...rest } = props;
+    return (
+      // oxlint-disable-next-line eslint-plugin-jsx-a11y(media-has-caption) -- audio player captions are provided by consumer
+      <audio
+        data-slot="audio-player-element"
+        slot="media"
+        src={src}
+        {...rest}
+      />
+    );
+  }
+  const { data, ...rest } = props;
+  return (
+    // oxlint-disable-next-line eslint-plugin-jsx-a11y(media-has-caption) -- audio player captions are provided by consumer
+    <audio
+      data-slot="audio-player-element"
+      slot="media"
+      src={`data:${data.mediaType};base64,${data.base64}`}
+      {...rest}
+    />
+  );
+};
 
 export type AudioPlayerControlBarProps = ComponentProps<typeof MediaControlBar>;
 
