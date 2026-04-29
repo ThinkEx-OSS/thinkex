@@ -207,9 +207,8 @@ export function WorkspaceProvider({
     [deleteWorkspaceMutation],
   );
 
-  // Leave workspace mutation (collaborator self-removal). Mirrors the
-  // delete-workspace cache + redirect handling because both flows remove the
-  // workspace from the user's list and may need to navigate away.
+  // Leave workspace mutation (collaborator self-removal). Updates cache like
+  // delete; on success navigates to /home when leaving the active workspace.
   const leaveWorkspaceMutation = useMutation({
     mutationFn: async (workspaceId: string) => {
       const response = await fetch(`/api/workspaces/${workspaceId}/leave`, {
@@ -229,13 +228,7 @@ export function WorkspaceProvider({
           );
 
           if (leftWorkspaceId === currentWorkspaceId && currentSlug) {
-            if (remainingWorkspaces.length > 0) {
-              switchWorkspace(
-                remainingWorkspaces[0].slug || remainingWorkspaces[0].id,
-              );
-            } else {
-              router.push("/home");
-            }
+            router.push("/home");
           }
 
           return remainingWorkspaces;

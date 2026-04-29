@@ -1,11 +1,32 @@
 "use client";
 
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { ZeroProvider as BaseZeroProvider } from "@rocicorp/zero/react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo } from "react";
+import { useTheme } from "next-themes";
 import { useSession } from "@/lib/auth-client";
 import { getZeroConfigError } from "@/lib/self-host-config";
 import { destroyZero, getZero } from "./client";
+
+/** Same ThinkEx animation as chat “Thinking…” — shown while session / Zero client bootstrap. */
+function ZeroBootstrapLottie() {
+  const { resolvedTheme } = useTheme();
+  const lottieSrc =
+    resolvedTheme === "light" ? "/thinkexlight.lottie" : "/logo.lottie";
+
+  return (
+    <div className="grid min-h-dvh w-full flex-1 place-items-center">
+      <DotLottieReact
+        src={lottieSrc}
+        loop
+        autoplay
+        mode="bounce"
+        className="h-16 w-16 shrink-0"
+      />
+    </div>
+  );
+}
 
 export function ZeroProvider({ children }: { children: ReactNode }) {
   const { data: session, isPending } = useSession();
@@ -40,15 +61,9 @@ export function ZeroProvider({ children }: { children: ReactNode }) {
   }
 
   if (isPending || !zero) {
-    // Show a minimal loading state instead of null to avoid
-    // blank screen flash during session check / anonymous session creation.
-    // We cannot render children here because they use useQuery from
-    // @rocicorp/zero/react which requires the BaseZeroProvider context.
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/20 border-t-muted-foreground" />
-      </div>
-    );
+    // Avoid blank flash during session check / anonymous session creation.
+    // We cannot render children here — they use useQuery from @rocicorp/zero/react.
+    return <ZeroBootstrapLottie />;
   }
 
   return <BaseZeroProvider zero={zero}>{children}</BaseZeroProvider>;
