@@ -910,11 +910,8 @@ export function DocumentEditor({
         },
       }),
     ],
-    ...(contentType === "markdown" && typeof content === "string"
-      ? { content, contentType: "markdown" as const }
-      : content
-        ? { content }
-        : {}),
+    // NOTE: initial content intentionally omitted — content is set via the
+    // useEffect below after first paint to avoid blocking modal-open animation.
     onUpdate: ({ editor }) => {
       const md =
         typeof editor.getMarkdown === "function" ? editor.getMarkdown() : "";
@@ -930,11 +927,20 @@ export function DocumentEditor({
     },
   });
 
-  // Sync incoming content only when it actually differs from the live editor state.
+  const initialLoadedEditorRef = useRef<Editor | null>(null);
+  const autofocusRef = useRef(autofocus);
+  autofocusRef.current = autofocus;
+
+  // Sync incoming content only when it actually differs from the live editor
+  // state. The first content load per editor instance is deferred to after
+  // the modal's open paint to avoid blocking the open animation with
+  // markdown parsing + KaTeX renders.
   useEffect(() => {
     if (!editor) return;
 
-    queueMicrotask(() => {
+    const applyContent = () => {
+      if (editor.isDestroyed) return;
+
       if (contentType === "markdown" && typeof content === "string") {
         if (editor.getMarkdown?.() === content) return;
         editor.commands.setContent(content, {
@@ -949,7 +955,40 @@ export function DocumentEditor({
         return;
 
       editor.commands.setContent(nextContent, { emitUpdate: false });
+    };
+
+    // Subsequent prop change for an already-loaded editor (e.g. ZeroDB sync
+    // from another tab). Apply immediately so external updates feel instant.
+    if (initialLoadedEditorRef.current === editor) {
+      applyContent();
+      return;
+    }
+
+    // Initial load for this editor instance: defer until after the modal's
+    // open paint. Two rAFs ensures we run after at least one committed frame
+    // is on screen.
+    let rafA: number | null = null;
+    let rafB: number | null = null;
+    rafA = requestAnimationFrame(() => {
+      rafB = requestAnimationFrame(() => {
+        if (editor.isDestroyed) return;
+        applyContent();
+        initialLoadedEditorRef.current = editor;
+        // setContent uses tr.replaceWith over the full doc range, which makes
+        // ProseMirror's selection mapping land at the END of the replacement.
+        // Move the cursor to the start to match Tiptap's native autofocus:true.
+        if (autofocusRef.current) {
+          editor.commands.focus("start");
+        } else {
+          editor.commands.setTextSelection(0);
+        }
+      });
     });
+
+    return () => {
+      if (rafA != null) cancelAnimationFrame(rafA);
+      if (rafB != null) cancelAnimationFrame(rafB);
+    };
   }, [editor, content, contentType]);
 
   return (
