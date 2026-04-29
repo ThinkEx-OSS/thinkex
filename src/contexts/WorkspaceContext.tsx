@@ -61,10 +61,6 @@ export function WorkspaceProvider({
     if (pathname.startsWith("/workspace/") && pathname !== "/workspace") {
       return pathname.replace("/workspace/", "");
     }
-    // Backwards compatibility: also check /dashboard/
-    if (pathname.startsWith("/dashboard/") && pathname !== "/dashboard") {
-      return pathname.replace("/dashboard/", "");
-    }
     return null;
   }, [pathname]);
 

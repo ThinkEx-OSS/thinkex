@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
 import { useKeyboardShortcuts } from "@/hooks/ui/use-keyboard-shortcuts";
 import useMediaQuery from "@/hooks/ui/use-media-query";
@@ -17,7 +16,7 @@ import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { useSession } from "@/lib/auth-client";
 import { WorkspaceSection } from "@/components/workspace-canvas/WorkspaceSection";
 import { OpenWorkspaceItemView } from "@/components/workspace-canvas/OpenWorkspaceItemView";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { WorkspaceLayout } from "@/components/layout/WorkspaceLayout";
 import WorkspaceHeader from "@/components/workspace-canvas/WorkspaceHeader";
 import { WorkspaceSearchDialog } from "@/components/workspace-canvas/WorkspaceSearchDialog";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -53,16 +52,16 @@ import {
   getDocumentUploadSuccessMessage,
 } from "@/lib/uploads/upload-feedback";
 
-// Main dashboard content component
-interface DashboardContentProps {
+// Main workspace content component
+interface WorkspaceContentProps {
   currentWorkspace: WorkspaceWithState | null;
   loadingCurrentWorkspace: boolean;
 }
 
-function DashboardContent({
+function WorkspaceContent({
   currentWorkspace,
   loadingCurrentWorkspace,
-}: DashboardContentProps) {
+}: WorkspaceContentProps) {
   const { data: session } = useSession();
 
   const currentWorkspaceId = currentWorkspace?.id || null;
@@ -234,7 +233,7 @@ function DashboardContent({
         itemIds: createdIds,
         onOcrError: (error) => {
           console.error(
-            "[DASHBOARD_PROCESSING] Failed to start processing:",
+            "[WORKSPACE_PROCESSING] Failed to start processing:",
             error,
           );
         },
@@ -257,7 +256,7 @@ function DashboardContent({
         open={showOnboardingDialog}
         onOpenChange={setShowOnboardingDialog}
       /> */}
-      <DashboardLayout
+      <WorkspaceLayout
         currentWorkspaceId={currentWorkspaceId}
         onWorkspaceSwitch={switchWorkspace}
         showCreateModal={showCreateWorkspaceModal}
@@ -372,17 +371,17 @@ function DashboardContent({
 // Main page component
 // Main page component
 // Main page component (wrapper)
-export function DashboardPage() {
+export function WorkspacePage() {
   return (
     <InviteGuard>
-      <DashboardView />
+      <WorkspaceView />
     </InviteGuard>
   );
 }
 
-// Inner component with all the dashboard hooks
+// Inner component with all the workspace hooks
 // Only rendered when InviteGuard allows (authenticated + invite processed)
-function DashboardView() {
+function WorkspaceView() {
   // Get workspace context - currentWorkspace is loaded directly by slug (fast path)
   const { currentWorkspace, loadingCurrentWorkspace, markWorkspaceOpened } =
     useWorkspaceContext();
@@ -419,7 +418,7 @@ function DashboardView() {
   return (
     <ZeroProvider>
       <RealtimeProvider workspaceId={currentWorkspaceId}>
-        <DashboardContent
+        <WorkspaceContent
           currentWorkspace={currentWorkspace}
           loadingCurrentWorkspace={loadingCurrentWorkspace}
         />
@@ -428,7 +427,7 @@ function DashboardView() {
   );
 }
 
-export function DashboardShell() {
+export function WorkspaceShell() {
   return (
     <>
       <MobileWarning />
@@ -436,21 +435,11 @@ export function DashboardShell() {
         <WorkspaceProvider>
           {/* <JoyrideProvider> */}
           <SidebarCoordinator>
-            <DashboardPage />
+            <WorkspacePage />
           </SidebarCoordinator>
           {/* </JoyrideProvider> */}
         </WorkspaceProvider>
       </AnonymousSessionHandler>
     </>
   );
-}
-
-export default function Page() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace("/workspace");
-  }, [router]);
-
-  return null;
 }

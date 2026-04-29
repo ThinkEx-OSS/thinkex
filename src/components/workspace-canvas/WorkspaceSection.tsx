@@ -503,7 +503,7 @@ export function WorkspaceSection({
       onMouseDown={handleWorkspaceMouseDown}
     >
       <input ref={fileInputRef} {...fileInputProps} />
-      {/* WorkspaceHeader is now rendered in DashboardLayout above the sidebar */}
+      {/* WorkspaceHeader is now rendered in WorkspaceLayout above the sidebar */}
 
       {/* Modal Manager - Renders over content */}
       {openItemView}
