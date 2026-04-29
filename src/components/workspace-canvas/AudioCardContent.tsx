@@ -198,6 +198,7 @@ function AudioCardComplete({
   isScrollLocked?: boolean;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const isRepairingDurationRef = useRef(false);
   const [currentTimeSec, setCurrentTimeSec] = useState(0);
   const [activeSegmentIdx, setActiveSegmentIdx] = useState(-1);
   const [copied, setCopied] = useState(false);
@@ -246,12 +247,18 @@ function AudioCardComplete({
 
   // ── Audio event handlers (only for non-compact view) ────────────────────────
 
-  // Track current time for active-segment highlighting.
+  // Track current time for active-segment highlighting. Skip while we're
+  // repairing WebM duration (see effect below) — the seek to 1e101 fires
+  // intermediate timeupdate events at the clamped duration that would
+  // momentarily highlight the last segment before we reset to 0.
   useEffect(() => {
     if (isCompact) return;
     const audio = audioRef.current;
     if (!audio) return;
-    const onTimeUpdate = () => setCurrentTimeSec(audio.currentTime);
+    const onTimeUpdate = () => {
+      if (isRepairingDurationRef.current) return;
+      setCurrentTimeSec(audio.currentTime);
+    };
     audio.addEventListener("timeupdate", onTimeUpdate);
     return () => audio.removeEventListener("timeupdate", onTimeUpdate);
   }, [isCompact]);
@@ -284,9 +291,27 @@ function AudioCardComplete({
         Number.isNaN(audio.duration) ||
         audio.duration === 0
       ) {
+        // Gate the time-tracking listener for the entire repair window so
+        // intermediate currentTime values from the scan don't flicker the
+        // active-segment highlight.
+        isRepairingDurationRef.current = true;
+        const onSeeked = () => {
+          audio.removeEventListener("seeked", onSeeked);
+          isRepairingDurationRef.current = false;
+        };
         const onTimeUpdate = () => {
-          audio.currentTime = 0;
+          // Wait for the browser to compute a real duration before resetting.
+          if (
+            audio.duration === Number.POSITIVE_INFINITY ||
+            Number.isNaN(audio.duration) ||
+            audio.duration === 0
+          ) {
+            return;
+          }
           audio.removeEventListener("timeupdate", onTimeUpdate);
+          // Clear the gate only after the seek-to-0 settles.
+          audio.addEventListener("seeked", onSeeked);
+          audio.currentTime = 0;
         };
         audio.addEventListener("timeupdate", onTimeUpdate);
         // Seek to a far-future time to force the browser to scan the WebM
