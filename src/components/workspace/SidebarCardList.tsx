@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useCallback, useState, useEffect, useRef } from "react";
+import { memo, useMemo, useCallback, useState } from "react";
 import { ChevronRight, FolderOpen, Folder as FolderIcon, MoreVertical, Trash2, Pencil, FolderInput } from "lucide-react";
 import {
     SidebarMenu,
@@ -19,16 +19,6 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useCurrentWorkspaceId } from "@/contexts/WorkspaceContext";
 import {
   useWorkspaceItems,
@@ -40,22 +30,16 @@ import type { Item, CardType } from "@/lib/workspace-state/types";
 import { getChildFolders, getFolderPath } from "@/lib/workspace-state/search";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import MoveToDialog from "@/components/modals/MoveToDialog";
-import RenameDialog from "@/components/modals/RenameDialog";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { WorkspaceItemTypeIcon } from "@/components/workspace/WorkspaceItemTypeIcon";
+import { WorkspaceCardDialogs } from "@/components/workspace-canvas/WorkspaceCardDialogs";
+import { useItemActionDialogs } from "@/hooks/workspace/use-item-action-dialogs";
 
-/**
- * Get icon for card type
- */
 function getCardTypeIcon(type: CardType) {
     return <WorkspaceItemTypeIcon type={type} className="size-3.5" />;
 }
 
-/**
- * Sidebar item button component with hover menu (for nested items)
- */
-interface SidebarItemButtonProps {
+interface SidebarItemProps {
     item: Item;
     allItems: Item[];
     workspaceName: string;
@@ -65,47 +49,33 @@ interface SidebarItemButtonProps {
     onDeleteItem?: (itemId: string) => void;
     onRenameItem?: (itemId: string, newName: string) => void;
     onMoveItem?: (itemId: string, folderId: string | null) => void;
+    isNested?: boolean;
 }
 
-function SidebarItemButton({ item, allItems, workspaceName, workspaceIcon, workspaceColor, onItemClick, onDeleteItem, onRenameItem, onMoveItem }: SidebarItemButtonProps) {
+function SidebarItem({ item, allItems, workspaceName, workspaceIcon, workspaceColor, onItemClick, onDeleteItem, onRenameItem, onMoveItem, isNested = false }: SidebarItemProps) {
     const [isHovered, setIsHovered] = useState(false);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-    const [showRenameDialog, setShowRenameDialog] = useState(false);
-    const [showMoveDialog, setShowMoveDialog] = useState(false);
 
-    const handleDelete = useCallback(() => {
-        if (onDeleteItem) {
-            onDeleteItem(item.id);
-        }
-        setShowDeleteDialog(false);
-    }, [item.id, onDeleteItem]);
+    const actions = useItemActionDialogs({
+        item,
+        onDeleteItem: onDeleteItem ? (id) => { onDeleteItem(id); toast.success('Item deleted'); } : () => {},
+        onUpdateItem: onRenameItem ? (id, updates) => { if (updates.name !== undefined) onRenameItem(id, updates.name as string); } : () => {},
+        onMoveItem: onMoveItem ? (id, folderId) => { onMoveItem(id, folderId); toast.success('Item moved'); } : undefined,
+    });
 
-    const handleRename = useCallback((newName: string) => {
-        if (onRenameItem) {
-            onRenameItem(item.id, newName);
-        }
-    }, [item.id, onRenameItem]);
+    const Wrapper = isNested ? SidebarMenuSubItem : SidebarMenuItem;
 
-    const handleMove = useCallback((folderId: string | null) => {
-        if (onMoveItem) {
-            onMoveItem(item.id, folderId);
-            toast.success('Item moved');
-        }
-    }, [item.id, onMoveItem]);
-
-    return (
-        <SidebarMenuSubItem>
+    const content = (
+        <Wrapper>
             <div
                 className="relative w-full"
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
             >
                 <SidebarMenuButton
-                    size="sm"
+                    size={isNested ? "sm" : undefined}
                     className="w-full cursor-pointer p-0"
                     onClick={(e: React.MouseEvent) => {
-                        // Don't trigger item click if clicking the menu button
                         if ((e.target as HTMLElement).closest('[data-menu-button]')) {
                             e.stopPropagation();
                             return;
@@ -113,208 +83,37 @@ function SidebarItemButton({ item, allItems, workspaceName, workspaceIcon, works
                         onItemClick(item);
                     }}
                 >
-                    <div className="flex items-center gap-2 px-1 py-1 w-full">
-                        {getCardTypeIcon(item.type)}
-                        <span className={cn("flex-1 text-xs", (isHovered || isDropdownOpen) ? "truncate pr-6" : "truncate")}>
-                            {item.name || "Untitled"}
-                        </span>
-                    </div>
-                </SidebarMenuButton>
-                {/* Three dots menu button - appears on hover or when dropdown is open */}
-                {(isHovered || isDropdownOpen) && (onDeleteItem || onRenameItem) && (
-                    <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
-                        <DropdownMenuTrigger asChild>
-                            <button
-                                data-menu-button
-                                className="absolute right-1 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center rounded hover:bg-sidebar-accent flex-shrink-0 z-50 pointer-events-auto cursor-pointer"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                }}
-                                onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                }}
-                                onMouseUp={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                }}
-                                type="button"
-                            >
-                                <MoreVertical className="size-3 text-muted-foreground pointer-events-none" />
-                            </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                            align="end"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            {onRenameItem && (
-                                <DropdownMenuItem
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setIsDropdownOpen(false);
-                                        setShowRenameDialog(true);
-                                    }}
-                                >
-                                    <Pencil className="mr-2 h-4 w-4" />
-                                    Rename
-                                </DropdownMenuItem>
-                            )}
-                            {onMoveItem && (
-                                <DropdownMenuItem
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setIsDropdownOpen(false);
-                                        setShowMoveDialog(true);
-                                    }}
-                                >
-                                    <FolderInput className="mr-2 h-4 w-4" />
-                                    Move to
-                                </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setIsDropdownOpen(false);
-                                    setShowDeleteDialog(true);
-                                }}
-                            >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                )}
-            </div>
-            {/* Delete confirmation dialog */}
-            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete {item.type === 'pdf' ? 'PDF' : item.type === 'flashcard' ? 'Flashcard' : 'Note'}</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to delete &quot;{item.name || 'Untitled'}&quot;? This action cannot be undone right now.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleDelete}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                            Delete
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-            {/* Rename Dialog */}
-            <RenameDialog
-                open={showRenameDialog}
-                onOpenChange={setShowRenameDialog}
-                currentName={item.name || "Untitled"}
-                itemType={item.type}
-                onRename={handleRename}
-            />
-            {/* Move to Dialog */}
-            {onMoveItem && (
-                <MoveToDialog
-                    open={showMoveDialog}
-                    onOpenChange={setShowMoveDialog}
-                    item={item}
-                    allItems={allItems}
-                    workspaceName={workspaceName}
-                    workspaceIcon={workspaceIcon}
-                    workspaceColor={workspaceColor}
-                    onMove={handleMove}
-                />
-            )}
-        </SidebarMenuSubItem>
-    );
-}
-
-/**
- * Root-level sidebar item component with hover menu (for items not in folders)
- */
-interface SidebarRootItemProps {
-    item: Item;
-    allItems: Item[];
-    workspaceName: string;
-    workspaceIcon?: string | null;
-    workspaceColor?: string | null;
-    onItemClick: (item: Item) => void;
-    onDeleteItem?: (itemId: string) => void;
-    onRenameItem?: (itemId: string, newName: string) => void;
-    onMoveItem?: (itemId: string, folderId: string | null) => void;
-}
-
-function SidebarRootItem({ item, allItems, workspaceName, workspaceIcon, workspaceColor, onItemClick, onDeleteItem, onRenameItem, onMoveItem }: SidebarRootItemProps) {
-    const [isHovered, setIsHovered] = useState(false);
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-    const [showRenameDialog, setShowRenameDialog] = useState(false);
-    const [showMoveDialog, setShowMoveDialog] = useState(false);
-
-    const handleDelete = useCallback(() => {
-        if (onDeleteItem) {
-            onDeleteItem(item.id);
-        }
-        setShowDeleteDialog(false);
-    }, [item.id, onDeleteItem]);
-
-    const handleRename = useCallback((newName: string) => {
-        if (onRenameItem) {
-            onRenameItem(item.id, newName);
-        }
-    }, [item.id, onRenameItem]);
-
-    const handleMove = useCallback((folderId: string | null) => {
-        if (onMoveItem) {
-            onMoveItem(item.id, folderId);
-            toast.success('Item moved');
-        }
-    }, [item.id, onMoveItem]);
-
-
-    return (
-        <SidebarMenuItem>
-            <div
-                className="relative w-full"
-                onMouseEnter={() => setIsHovered(true)}
-                onMouseLeave={() => setIsHovered(false)}
-            >
-                <SidebarMenuButton
-                    className="w-full cursor-pointer p-0"
-                    onClick={(e: React.MouseEvent) => {
-                        // Don't trigger item click if clicking the menu button
-                        if ((e.target as HTMLElement).closest('[data-menu-button]')) {
-                            e.stopPropagation();
-                            return;
-                        }
-                        onItemClick(item);
-                    }}
-                >
-                    <div className="flex items-center w-full">
-                        {/* Icon area - matches folder chevron area structure */}
-                        <div className="px-1 py-2 flex items-center justify-center flex-shrink-0 w-6">
+                    {isNested ? (
+                        <div className="flex items-center gap-2 px-1 py-1 w-full">
                             {getCardTypeIcon(item.type)}
-                        </div>
-                        {/* Item name area - matches folder name area structure */}
-                        <div className={cn(
-                            "flex-1 flex items-center px-1 py-1 rounded cursor-pointer min-w-0"
-                        )}>
                             <span className={cn("flex-1 text-xs", (isHovered || isDropdownOpen) ? "truncate pr-6" : "truncate")}>
                                 {item.name || "Untitled"}
                             </span>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="flex items-center w-full">
+                            <div className="px-1 py-2 flex items-center justify-center flex-shrink-0 w-6">
+                                {getCardTypeIcon(item.type)}
+                            </div>
+                            <div className={cn(
+                                "flex-1 flex items-center px-1 py-1 rounded cursor-pointer min-w-0"
+                            )}>
+                                <span className={cn("flex-1 text-xs", (isHovered || isDropdownOpen) ? "truncate pr-6" : "truncate")}>
+                                    {item.name || "Untitled"}
+                                </span>
+                            </div>
+                        </div>
+                    )}
                 </SidebarMenuButton>
-                {/* Three dots menu button - appears on hover or when dropdown is open */}
                 {(isHovered || isDropdownOpen) && (onDeleteItem || onRenameItem) && (
                     <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
                         <DropdownMenuTrigger asChild>
                             <button
                                 data-menu-button
-                                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded hover:bg-sidebar-accent flex-shrink-0 z-50 pointer-events-auto cursor-pointer"
+                                className={cn(
+                                    "absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center rounded hover:bg-sidebar-accent flex-shrink-0 z-50 pointer-events-auto cursor-pointer",
+                                    isNested ? "h-5 w-5" : "h-6 w-6"
+                                )}
                                 onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
@@ -329,7 +128,10 @@ function SidebarRootItem({ item, allItems, workspaceName, workspaceIcon, workspa
                                 }}
                                 type="button"
                             >
-                                <MoreVertical className="size-3.5 text-muted-foreground pointer-events-none" />
+                                <MoreVertical className={cn(
+                                    "text-muted-foreground pointer-events-none",
+                                    isNested ? "size-3" : "size-3.5"
+                                )} />
                             </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
@@ -341,7 +143,7 @@ function SidebarRootItem({ item, allItems, workspaceName, workspaceIcon, workspa
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setIsDropdownOpen(false);
-                                        setShowRenameDialog(true);
+                                        actions.requestRename();
                                     }}
                                 >
                                     <Pencil className="mr-2 h-4 w-4" />
@@ -353,7 +155,7 @@ function SidebarRootItem({ item, allItems, workspaceName, workspaceIcon, workspa
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setIsDropdownOpen(false);
-                                        setShowMoveDialog(true);
+                                        actions.requestMove();
                                     }}
                                 >
                                     <FolderInput className="mr-2 h-4 w-4" />
@@ -365,7 +167,7 @@ function SidebarRootItem({ item, allItems, workspaceName, workspaceIcon, workspa
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setIsDropdownOpen(false);
-                                    setShowDeleteDialog(true);
+                                    actions.requestDelete();
                                 }}
                             >
                                 <Trash2 className="mr-2 h-4 w-4" />
@@ -375,56 +177,36 @@ function SidebarRootItem({ item, allItems, workspaceName, workspaceIcon, workspa
                     </DropdownMenu>
                 )}
             </div>
-            {/* Delete confirmation dialog */}
-            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete {item.type === 'pdf' ? 'PDF' : item.type === 'flashcard' ? 'Flashcard' : 'Note'}</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to delete &quot;{item.name || 'Untitled'}&quot;? This action cannot be undone right now.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleDelete}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                            Delete
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-            {/* Rename Dialog */}
-            <RenameDialog
-                open={showRenameDialog}
-                onOpenChange={setShowRenameDialog}
-                currentName={item.name || "Untitled"}
-                itemType={item.type}
-                onRename={handleRename}
+            <WorkspaceCardDialogs
+                item={item}
+                allItems={allItems}
+                workspaceName={workspaceName}
+                workspaceIcon={workspaceIcon}
+                workspaceColor={workspaceColor}
+                isColorPickerOpen={false}
+                onColorPickerOpenChange={() => {}}
+                showDeleteDialog={actions.showDeleteDialog}
+                onDeleteDialogChange={actions.setShowDeleteDialog}
+                showMoveDialog={actions.showMoveDialog}
+                onMoveDialogChange={actions.setShowMoveDialog}
+                showRenameDialog={actions.showRenameDialog}
+                onRenameDialogChange={actions.setShowRenameDialog}
+                onColorChange={() => {}}
+                onDeleteConfirm={actions.confirmDelete}
+                onRename={(newName) => { actions.handleRename(newName); toast.success('Item renamed'); }}
+                onMove={onMoveItem ? actions.handleMove : undefined}
             />
-            {/* Move to Dialog */}
-            {onMoveItem && (
-                <MoveToDialog
-                    open={showMoveDialog}
-                    onOpenChange={setShowMoveDialog}
-                    item={item}
-                    allItems={allItems}
-                    workspaceName={workspaceName}
-                    workspaceIcon={workspaceIcon}
-                    workspaceColor={workspaceColor}
-                    onMove={handleMove}
-                />
-            )}
-        </SidebarMenuItem>
+        </Wrapper>
     );
+
+    return content;
 }
 
 interface SidebarFolderItemProps {
-    folder: Item; // Folder is now an item with type: 'folder'
+    folder: Item;
     isActive: boolean;
     isOpen: boolean;
-    allItems: Item[]; // All items for finding children
+    allItems: Item[];
     workspaceName: string;
     workspaceIcon?: string | null;
     workspaceColor?: string | null;
@@ -435,7 +217,7 @@ interface SidebarFolderItemProps {
     onToggleFolder: (folderId: string) => void;
     activeFolderId: string | null;
     onFolderClickHandler: (folderId: string) => void;
-    isNested?: boolean; // Whether this folder is nested inside another folder
+    isNested?: boolean;
     onDeleteItem?: (itemId: string) => void;
     onDeleteFolder?: (folderId: string) => void;
     onRenameFolder?: (folderId: string, newName: string) => void;
@@ -443,9 +225,6 @@ interface SidebarFolderItemProps {
     onMoveItem?: (itemId: string, folderId: string | null) => void;
 }
 
-/**
- * Sidebar item for a folder - recursively renders child folders and items
- */
 function SidebarFolderItem({
     folder,
     isActive,
@@ -470,9 +249,7 @@ function SidebarFolderItem({
 }: SidebarFolderItemProps) {
     const [isHovered, setIsHovered] = useState(false);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-    const [showRenameDialog, setShowRenameDialog] = useState(false);
-    const [showMoveDialog, setShowMoveDialog] = useState(false);
+
     const handleChevronClick = useCallback((e: React.MouseEvent) => {
         e.stopPropagation();
         onToggle();
@@ -484,40 +261,25 @@ function SidebarFolderItem({
         onFolderClick();
     }, [onFolderClick, isActive]);
 
-    const handleDelete = useCallback(() => {
-        if (onDeleteFolder) {
-            onDeleteFolder(folder.id);
-        }
-        setShowDeleteDialog(false);
-    }, [folder.id, onDeleteFolder]);
-
-    const handleRename = useCallback((newName: string) => {
-        if (onRenameFolder) {
-            onRenameFolder(folder.id, newName);
-        }
-    }, [folder.id, onRenameFolder]);
-
-    const handleMove = useCallback((folderId: string | null) => {
-        if (onMoveItem) {
-            onMoveItem(folder.id, folderId);
-            toast.success('Folder moved');
-        }
-    }, [folder.id, onMoveItem]);
-
-
-    // Get child folders (folders with folderId === this folder's id)
     const childFolders = useMemo(() => {
         return getChildFolders(folder.id, allItems);
     }, [folder.id, allItems]);
 
-    // Get direct items (non-folders with folderId === this folder's id)
     const directItems = useMemo(() => {
-        return allItems.filter(i =>
-            i.type !== 'folder' && i.folderId === folder.id
+        return allItems.filter(
+            (item) => item.folderId === folder.id && item.type !== "folder"
         );
     }, [folder.id, allItems]);
 
     const totalItemCount = childFolders.length + directItems.length;
+
+    const actions = useItemActionDialogs({
+        item: folder,
+        itemCount: totalItemCount,
+        onDeleteItem: onDeleteFolder ? (id) => { onDeleteFolder(id); toast.success('Folder deleted'); } : () => {},
+        onUpdateItem: onRenameFolder ? (id, updates) => { if (updates.name !== undefined) onRenameFolder(id, updates.name as string); } : () => {},
+        onMoveItem: onMoveItem ? (id, folderId) => { onMoveItem(id, folderId); toast.success('Folder moved'); } : undefined,
+    });
 
     const folderContent = (
         <Collapsible open={isOpen} onOpenChange={onToggle}>
@@ -533,7 +295,6 @@ function SidebarFolderItem({
                         isActive ? "bg-blue-600/30 cursor-default hover:bg-blue-600/30" : "cursor-pointer"
                     )}
                     onClick={(e: React.MouseEvent) => {
-                        // Don't trigger folder click if clicking the menu button
                         if ((e.target as HTMLElement).closest('[data-menu-button]')) {
                             e.stopPropagation();
                             return;
@@ -541,7 +302,6 @@ function SidebarFolderItem({
                     }}
                 >
                     <div className="flex items-center w-full">
-                        {/* Icon/Chevron - shows icon by default, chevron on hover or when expanded */}
                         <div
                             onClick={handleChevronClick}
                             className={cn(
@@ -558,7 +318,6 @@ function SidebarFolderItem({
                                 }
                             }}
                         >
-                            {/* Show chevron when expanded or on hover, otherwise show icon */}
                             {isOpen || isHovered ? (
                                 <ChevronRight
                                     className={cn(
@@ -574,7 +333,6 @@ function SidebarFolderItem({
                                 )
                             )}
                         </div>
-                        {/* Folder div - handles folder filter */}
                         <div
                             onClick={handleFolderClick}
                             className={cn(
@@ -586,7 +344,6 @@ function SidebarFolderItem({
                         </div>
                     </div>
                 </SidebarMenuButton>
-                {/* Three dots menu button - appears on hover or when dropdown is open */}
                 {(isHovered || isDropdownOpen) && (onDeleteFolder || onRenameFolder) && (
                     <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
                         <DropdownMenuTrigger asChild>
@@ -619,7 +376,7 @@ function SidebarFolderItem({
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setIsDropdownOpen(false);
-                                        setShowRenameDialog(true);
+                                        actions.requestRename();
                                     }}
                                 >
                                     <Pencil className="mr-2 h-4 w-4" />
@@ -631,7 +388,7 @@ function SidebarFolderItem({
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setIsDropdownOpen(false);
-                                        setShowMoveDialog(true);
+                                        actions.requestMove();
                                     }}
                                 >
                                     <FolderInput className="mr-2 h-4 w-4" />
@@ -643,13 +400,7 @@ function SidebarFolderItem({
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setIsDropdownOpen(false);
-                                    if (totalItemCount === 0) {
-                                        if (onDeleteFolder) {
-                                            onDeleteFolder(folder.id);
-                                        }
-                                    } else {
-                                        setShowDeleteDialog(true);
-                                    }
+                                    actions.requestDelete();
                                 }}
                             >
                                 <Trash2 className="mr-2 h-4 w-4" />
@@ -661,7 +412,6 @@ function SidebarFolderItem({
             </div>
             <CollapsibleContent>
                 <SidebarMenuSub>
-                    {/* Child folders (recursive) */}
                     {childFolders.map((childFolder) => (
                         <SidebarFolderItem
                             key={childFolder.id}
@@ -687,9 +437,8 @@ function SidebarFolderItem({
                             onMoveItem={onMoveItem}
                         />
                     ))}
-                    {/* Direct items (non-folders) */}
                     {directItems.map((item) => (
-                        <SidebarItemButton
+                        <SidebarItem
                             key={item.id}
                             item={item}
                             allItems={allItems}
@@ -700,6 +449,7 @@ function SidebarFolderItem({
                             onDeleteItem={onDeleteItem}
                             onRenameItem={onRenameItem}
                             onMoveItem={onMoveItem}
+                            isNested={true}
                         />
                     ))}
                     {totalItemCount === 0 && (
@@ -711,51 +461,29 @@ function SidebarFolderItem({
                     )}
                 </SidebarMenuSub>
             </CollapsibleContent>
-            {/* Delete confirmation dialog */}
-            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Folder</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to delete &quot;{folder.name}&quot;? Items in this folder will be moved out, but not deleted.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleDelete}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                            Delete
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-            {/* Rename Dialog */}
-            <RenameDialog
-                open={showRenameDialog}
-                onOpenChange={setShowRenameDialog}
-                currentName={folder.name}
-                itemType="folder"
-                onRename={handleRename}
+            <WorkspaceCardDialogs
+                item={folder}
+                allItems={allItems}
+                workspaceName={workspaceName}
+                workspaceIcon={workspaceIcon}
+                workspaceColor={workspaceColor}
+                isColorPickerOpen={false}
+                onColorPickerOpenChange={() => {}}
+                showDeleteDialog={actions.showDeleteDialog}
+                onDeleteDialogChange={actions.setShowDeleteDialog}
+                showMoveDialog={actions.showMoveDialog}
+                onMoveDialogChange={actions.setShowMoveDialog}
+                showRenameDialog={actions.showRenameDialog}
+                onRenameDialogChange={actions.setShowRenameDialog}
+                onColorChange={() => {}}
+                onDeleteConfirm={actions.confirmDelete}
+                onRename={(newName) => { actions.handleRename(newName); toast.success('Folder renamed'); }}
+                onMove={onMoveItem ? actions.handleMove : undefined}
+                itemCount={totalItemCount}
             />
-            {/* Move to Dialog */}
-            {onMoveItem && (
-                <MoveToDialog
-                    open={showMoveDialog}
-                    onOpenChange={setShowMoveDialog}
-                    item={folder}
-                    allItems={allItems}
-                    workspaceName={workspaceName}
-                    workspaceIcon={workspaceIcon}
-                    workspaceColor={workspaceColor}
-                    onMove={handleMove}
-                />
-            )}
         </Collapsible>
     );
 
-    // Wrap in appropriate container based on nesting level
     if (isNested) {
         return (
             <SidebarMenuSubItem>
@@ -771,9 +499,6 @@ function SidebarFolderItem({
     );
 }
 
-/**
- * SidebarCardList - Shows all folders in collapsible sections
- */
 function SidebarCardList() {
     const currentWorkspaceId = useCurrentWorkspaceId();
     const state = useWorkspaceItems();
@@ -783,19 +508,16 @@ function SidebarCardList() {
     const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
     const openWorkspaceItem = useUIStore((state) => state.openWorkspaceItem);
 
-    // Get current workspace details
     const currentWorkspace = useMemo(() => {
         return workspaces.find(w => w.id === currentWorkspaceId) || null;
     }, [workspaces, currentWorkspaceId]);
 
-    // Get workspace operations for delete functionality
     const operations = useWorkspaceOperations(currentWorkspaceId, state || { items: [] });
 
     const handleDeleteItem = useCallback(
         async (itemId: string) => {
             if (operations) {
                 await operations.deleteItem(itemId);
-                toast.success('Item deleted');
             }
         },
         [operations]
@@ -805,7 +527,6 @@ function SidebarCardList() {
         async (folderId: string) => {
             if (operations) {
                 operations.deleteFolder(folderId);
-                toast.success('Folder deleted');
             }
         },
         [operations]
@@ -815,7 +536,6 @@ function SidebarCardList() {
         async (itemId: string, newName: string) => {
             if (operations) {
                 operations.updateItem(itemId, { name: newName });
-                toast.success('Item renamed');
             }
         },
         [operations]
@@ -825,7 +545,6 @@ function SidebarCardList() {
         async (folderId: string, newName: string) => {
             if (operations) {
                 operations.updateItem(folderId, { name: newName });
-                toast.success('Folder renamed');
             }
         },
         [operations]
@@ -840,7 +559,6 @@ function SidebarCardList() {
         [operations]
     );
 
-    // Track which folders are open (for collapsible UI, not for filtering)
     const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
 
     const toggleFolder = useCallback((folderId: string) => {
@@ -855,24 +573,20 @@ function SidebarCardList() {
         });
     }, []);
 
-    // Get all items
     const allItems = useMemo(() => {
         return state || [];
     }, [state]);
 
-    // Get root-level folders (folders with no folderId)
     const rootFolders = useMemo(() => {
         return getChildFolders(null, allItems);
     }, [allItems]);
 
-    // Get loose items (non-folders not in any folder)
     const looseItems = useMemo(() => {
         return allItems.filter(item =>
             item.type !== 'folder' && !item.folderId
         );
     }, [allItems]);
 
-    // Handle clicking on a folder - switch folder filter (keeps panels open; breadcrumb handles "navigate back")
     const handleFolderClick = useCallback(
         (folderId: string) => {
             if (activeFolderId === folderId) {
@@ -884,13 +598,10 @@ function SidebarCardList() {
         [activeFolderId, setActiveFolderId]
     );
 
-    // Handle clicking on an item - open parent folders, set active folder, and open the item's modal (matches Cmd+K)
     const handleItemClick = useCallback(
         (item: Item) => {
-            // Skip folders - they use handleFolderClick
             if (item.type === "folder") return;
 
-            // If item is in a folder, open all parent folders in the sidebar and set active folder
             if (item.folderId) {
                 const folderPath = getFolderPath(item.folderId, allItems);
                 setOpenFolders((prev) => {
@@ -905,7 +616,6 @@ function SidebarCardList() {
                 setActiveFolderId(null);
             }
 
-            // Open the item in its detail modal (same as clicking the card)
             openWorkspaceItem(item.id);
         },
         [allItems, setActiveFolderId, openWorkspaceItem]
@@ -929,7 +639,6 @@ function SidebarCardList() {
         );
     }
 
-    // Get workspace name, icon, and color
     const workspaceName = currentWorkspace?.name || "Workspace";
     const workspaceIcon = currentWorkspace?.icon;
     const workspaceColor = currentWorkspace?.color;
@@ -937,7 +646,6 @@ function SidebarCardList() {
     return (
         <div className="group-data-[collapsible=icon]:hidden">
             <SidebarMenu>
-                {/* Root-level folders (recursively render children) */}
                 {rootFolders.map((folder) => (
                     <SidebarFolderItem
                         key={folder.id}
@@ -963,9 +671,8 @@ function SidebarCardList() {
                     />
                 ))}
 
-                {/* Loose items (not in any folder) */}
                 {looseItems.map((item) => (
-                    <SidebarRootItem
+                    <SidebarItem
                         key={item.id}
                         item={item}
                         allItems={allItems}
@@ -976,6 +683,7 @@ function SidebarCardList() {
                         onDeleteItem={handleDeleteItem}
                         onRenameItem={handleRenameItem}
                         onMoveItem={handleMoveItem}
+                        isNested={false}
                     />
                 ))}
             </SidebarMenu>

@@ -3,11 +3,11 @@
 import { memo, useState, useCallback, useEffect, useRef } from "react";
 import { MoreVertical, Trash2, Palette, CheckCircle2, FolderInput, X, Pencil } from "lucide-react";
 import ItemHeader from "@/components/workspace-canvas/ItemHeader";
-import { SwatchesPicker, ColorResult } from "react-color";
 import { cn } from "@/lib/utils";
 import type { Item } from "@/lib/workspace-state/types";
-import { getCardColorCSS, getCardAccentColor, SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
+import { getCardColorCSS, getCardAccentColor } from "@/lib/workspace-state/colors";
 import { useTheme } from "next-themes";
+import { toast } from "sonner";
 
 import { useUIStore } from "@/lib/stores/ui-store";
 import {
@@ -24,25 +24,8 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import MoveToDialog from "@/components/modals/MoveToDialog";
-import RenameDialog from "@/components/modals/RenameDialog";
-import { toast } from "sonner";
+import { WorkspaceCardDialogs } from "./WorkspaceCardDialogs";
+import { useItemActionDialogs } from "@/hooks/workspace/use-item-action-dialogs";
 
 interface FolderCardProps {
   item: Item; // Folder-type item
@@ -75,11 +58,15 @@ function FolderCardComponent({
   onDeleteFolderWithContents,
   onMoveItem,
 }: FolderCardProps) {
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteOption, setDeleteOption] = useState<'keep' | 'delete' | null>(null);
-  const [showMoveDialog, setShowMoveDialog] = useState(false);
-  const [showRenameDialog, setShowRenameDialog] = useState(false);
+  const actions = useItemActionDialogs({
+    item,
+    itemCount,
+    onDeleteItem,
+    onDeleteFolderWithContents,
+    onUpdateItem,
+    onMoveItem: onMoveItem ? (id, folderId) => { onMoveItem(id, folderId); toast.success('Folder moved'); } : undefined,
+  });
+
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isDragHover, setIsDragHover] = useState(false);
   const [selectedCount, setSelectedCount] = useState<number | null>(null);
@@ -194,14 +181,6 @@ function FolderCardComponent({
     onOpenFolder(item.id);
   }, [item.id, onOpenFolder, onToggleSelection, isEditingTitle]);
 
-  const handleColorChange = useCallback(
-    (color: ColorResult) => {
-      onUpdateItem(item.id, { color: color.hex as CardColor });
-      setShowColorPicker(false);
-    },
-    [item.id, onUpdateItem]
-  );
-
   // Handlers for inline title editing (like WorkspaceCard)
   const handleNameChange = useCallback((v: string) => {
     onUpdateItem(item.id, { name: v });
@@ -210,28 +189,6 @@ function FolderCardComponent({
   const handleNameCommit = useCallback((v: string) => {
     onUpdateItem(item.id, { name: v });
   }, [item.id, onUpdateItem]);
-
-  const handleDelete = useCallback(() => {
-    if (deleteOption === 'delete' && onDeleteFolderWithContents) {
-      onDeleteFolderWithContents(item.id);
-    } else {
-      onDeleteItem(item.id);
-    }
-    setShowDeleteConfirm(false);
-    setDeleteOption(null);
-  }, [item.id, onDeleteItem, onDeleteFolderWithContents, deleteOption]);
-
-  const handleRename = useCallback((newName: string) => {
-    onUpdateItem(item.id, { name: newName });
-    toast.success("Folder renamed");
-  }, [item.id, onUpdateItem]);
-
-  // Reset delete option when dialog closes
-  useEffect(() => {
-    if (!showDeleteConfirm) {
-      setDeleteOption(null);
-    }
-  }, [showDeleteConfirm]);
 
   const { resolvedTheme } = useTheme();
 
@@ -355,7 +312,7 @@ function FolderCardComponent({
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
-                    setShowRenameDialog(true);
+                    actions.requestRename();
                   }}
                 >
                   <Pencil className="mr-2 h-4 w-4" />
@@ -366,7 +323,7 @@ function FolderCardComponent({
                     <DropdownMenuItem
                       onClick={(e) => {
                         e.stopPropagation();
-                        setShowMoveDialog(true);
+                        actions.requestMove();
                       }}
                     >
                       <FolderInput className="mr-2 h-4 w-4" />
@@ -378,7 +335,7 @@ function FolderCardComponent({
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
-                    setShowColorPicker(true);
+                    actions.requestColorPicker();
                   }}
                 >
                   <Palette className="mr-2 h-4 w-4" />
@@ -388,11 +345,7 @@ function FolderCardComponent({
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (itemCount === 0) {
-                      onDeleteItem(item.id);
-                    } else {
-                      setShowDeleteConfirm(true);
-                    }
+                    actions.requestDelete();
                   }}
                   className="text-destructive focus:text-destructive"
                 >
@@ -447,165 +400,54 @@ function FolderCardComponent({
             )}
           </div>
 
-
-          {/* Color Picker Dialog - same styling as WorkspaceCard */}
-          <Dialog open={showColorPicker} onOpenChange={setShowColorPicker}>
-            <DialogContent
-              className="w-auto max-w-fit p-6"
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <DialogHeader>
-                <DialogTitle>Choose Folder Color</DialogTitle>
-              </DialogHeader>
-              <div
-                className="flex justify-center color-picker-wrapper"
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                <SwatchesPicker
-                  color={folderColor}
-                  onChange={handleColorChange}
-                  colors={SWATCHES_COLOR_GROUPS}
-                />
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          {/* Delete Confirmation Dialog */}
-          <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-            <AlertDialogContent
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Folder</AlertDialogTitle>
-                <AlertDialogDescription asChild>
-                  <div className="space-y-4">
-                    <div>
-                      Choose what happens to the {itemCount} {itemCount === 1 ? 'item' : 'items'} in &quot;{item.name}&quot;:
-                    </div>
-                    <div className="space-y-3 pt-2">
-                      <label className="flex items-start space-x-3 cursor-pointer group">
-                        <input
-                          type="radio"
-                          name="deleteOption"
-                          value="keep"
-                          checked={deleteOption === 'keep'}
-                          onChange={() => setDeleteOption('keep')}
-                          className="mt-1 h-4 w-4 text-primary focus:ring-primary border-gray-300"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <div className="flex-1">
-                          <div className="font-medium text-sm">Keep items</div>
-                          <div className="text-xs text-muted-foreground">
-                            Move items out of folder before deleting
-                          </div>
-                        </div>
-                      </label>
-                      <label className={`flex items-start space-x-3 group ${onDeleteFolderWithContents ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
-                        <input
-                          type="radio"
-                          name="deleteOption"
-                          value="delete"
-                          checked={deleteOption === 'delete'}
-                          onChange={() => setDeleteOption('delete')}
-                          disabled={!onDeleteFolderWithContents}
-                          className="mt-1 h-4 w-4 text-destructive focus:ring-destructive border-gray-300 disabled:opacity-50"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <div className="flex-1">
-                          <div className="font-medium text-sm text-destructive">Delete items</div>
-                          <div className="text-xs text-muted-foreground">
-                            Delete folder and all {itemCount} {itemCount === 1 ? 'item' : 'items'} inside
-                          </div>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDeleteOption(null);
-                  }}
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
-                  Cancel
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete();
-                  }}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  disabled={deleteOption === null}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-
-          {/* Rename Dialog */}
-          <RenameDialog
-            open={showRenameDialog}
-            onOpenChange={setShowRenameDialog}
-            currentName={item.name}
-            itemType="folder"
-            onRename={handleRename}
+          <WorkspaceCardDialogs
+            item={item}
+            allItems={allItems}
+            workspaceName={workspaceName}
+            workspaceIcon={workspaceIcon}
+            workspaceColor={workspaceColor}
+            isColorPickerOpen={actions.showColorPicker}
+            onColorPickerOpenChange={actions.setShowColorPicker}
+            showDeleteDialog={actions.showDeleteDialog}
+            onDeleteDialogChange={actions.setShowDeleteDialog}
+            showMoveDialog={actions.showMoveDialog}
+            onMoveDialogChange={actions.setShowMoveDialog}
+            showRenameDialog={actions.showRenameDialog}
+            onRenameDialogChange={actions.setShowRenameDialog}
+            onColorChange={actions.handleColorChange}
+            onDeleteConfirm={actions.confirmDelete}
+            onRename={(newName) => { actions.handleRename(newName); toast.success("Folder renamed"); }}
+            onMove={onMoveItem ? actions.handleMove : undefined}
+            itemCount={itemCount}
+            deleteOption={actions.deleteOption}
+            onDeleteOptionChange={actions.setDeleteOption}
+            canDeleteWithContents={Boolean(onDeleteFolderWithContents)}
           />
-
-          {/* Move to Dialog */}
-          {onMoveItem && (
-            <MoveToDialog
-              open={showMoveDialog}
-              onOpenChange={setShowMoveDialog}
-              item={item}
-              allItems={allItems}
-              workspaceName={workspaceName}
-              workspaceIcon={workspaceIcon}
-              workspaceColor={workspaceColor}
-              onMove={(folderId) => {
-                onMoveItem(item.id, folderId);
-                toast.success('Folder moved');
-              }}
-            />
-          )}
         </div>
       </ContextMenuTrigger>
 
       {/* Right-Click Context Menu */}
       <ContextMenuContent className="w-48">
-        <ContextMenuItem onSelect={() => setShowRenameDialog(true)}>
+        <ContextMenuItem onSelect={() => actions.requestRename()}>
           <Pencil className="mr-2 h-4 w-4" />
           <span>Rename</span>
         </ContextMenuItem>
         {onMoveItem && (
           <>
-            <ContextMenuItem onSelect={() => setShowMoveDialog(true)}>
+            <ContextMenuItem onSelect={() => actions.requestMove()}>
               <FolderInput className="mr-2 h-4 w-4" />
               <span>Move to</span>
             </ContextMenuItem>
             <ContextMenuSeparator />
           </>
         )}
-        <ContextMenuItem onSelect={() => setShowColorPicker(true)}>
+        <ContextMenuItem onSelect={() => actions.requestColorPicker()}>
           <Palette className="mr-2 h-4 w-4" />
           <span>Change Color</span>
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
-          onSelect={() => {
-            if (itemCount === 0) {
-              onDeleteItem(item.id);
-            } else {
-              setShowDeleteConfirm(true);
-            }
-          }}
+          onSelect={() => actions.requestDelete()}
           className="text-destructive focus:text-destructive"
         >
           <Trash2 className="mr-2 h-4 w-4" />
@@ -617,4 +459,3 @@ function FolderCardComponent({
 }
 
 export const FolderCard = memo(FolderCardComponent);
-

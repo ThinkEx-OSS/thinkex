@@ -22,12 +22,10 @@ import type {
 } from "@/lib/workspace-state/types";
 import { FlipCard } from "./FlipCard";
 import {
-  SWATCHES_COLOR_GROUPS,
   getCardColorCSS,
   getCardAccentColor,
   type CardColor,
 } from "@/lib/workspace-state/colors";
-import { SwatchesPicker, ColorResult } from "react-color";
 import { useUIStore, selectItemScrollLocked } from "@/lib/stores/ui-store";
 import { StreamdownMarkdown } from "@/components/ui/streamdown-markdown";
 import {
@@ -44,24 +42,8 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import MoveToDialog from "@/components/modals/MoveToDialog";
-import RenameDialog from "@/components/modals/RenameDialog";
+import { WorkspaceCardDialogs } from "./WorkspaceCardDialogs";
+import { useItemActionDialogs } from "@/hooks/workspace/use-item-action-dialogs";
 import { cn } from "@/lib/utils";
 interface FlashcardWorkspaceCardProps {
   item: Item;
@@ -165,10 +147,13 @@ export function FlashcardWorkspaceCard({
   const onToggleSelection = useUIStore((state) => state.toggleCardSelection);
   const { resolvedTheme } = useTheme();
 
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showMoveDialog, setShowMoveDialog] = useState(false);
-  const [showRenameDialog, setShowRenameDialog] = useState(false);
-  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
+  const actions = useItemActionDialogs({
+    item,
+    onDeleteItem,
+    onUpdateItem,
+    onMoveItem: onMoveItem ? (id, folderId) => { onMoveItem(id, folderId); toast.success("Item moved"); } : undefined,
+  });
+
   const [isFlipped, setIsFlipped] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
   // Get scroll lock state from Zustand store (persists across interactions)
@@ -250,31 +235,6 @@ export function FlashcardWorkspaceCard({
       }
     };
   }, []);
-
-  const handleDelete = useCallback(() => {
-    setShowDeleteDialog(true);
-  }, []);
-
-  const confirmDelete = useCallback(() => {
-    onDeleteItem(item.id);
-    setShowDeleteDialog(false);
-  }, [item.id, onDeleteItem]);
-
-  const handleColorChange = useCallback(
-    (color: ColorResult) => {
-      onUpdateItem(item.id, { color: color.hex as CardColor });
-      setIsColorPickerOpen(false);
-    },
-    [item.id, onUpdateItem],
-  );
-
-  const handleRename = useCallback(
-    (newName: string) => {
-      onUpdateItem(item.id, { name: newName });
-      toast.success("Flashcard renamed");
-    },
-    [item.id, onUpdateItem],
-  );
 
   // Helper function to hide tabs during flip animation
   const startFlipAnimation = useCallback(() => {
@@ -596,13 +556,13 @@ export function FlashcardWorkspaceCard({
                 className="w-48"
                 onClick={(e) => e.stopPropagation()}
               >
-                <DropdownMenuItem onSelect={() => setShowRenameDialog(true)}>
+                <DropdownMenuItem onSelect={() => actions.requestRename()}>
                   <Pencil className="mr-2 h-4 w-4" />
                   <span>Rename</span>
                 </DropdownMenuItem>
                 {onMoveItem && (
                   <>
-                    <DropdownMenuItem onSelect={() => setShowMoveDialog(true)}>
+                    <DropdownMenuItem onSelect={() => actions.requestMove()}>
                       <FolderInput className="mr-2 h-4 w-4" />
                       <span>Move to</span>
                     </DropdownMenuItem>
@@ -613,13 +573,13 @@ export function FlashcardWorkspaceCard({
                   <Pencil className="mr-2 h-4 w-4" />
                   <span>Edit</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setIsColorPickerOpen(true)}>
+                <DropdownMenuItem onSelect={() => actions.requestColorPicker()}>
                   <Palette className="mr-2 h-4 w-4" />
                   <span>Change Color</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={handleDelete}
+                  onClick={() => actions.requestDelete()}
                   className="text-destructive focus:text-destructive"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
@@ -628,29 +588,6 @@ export function FlashcardWorkspaceCard({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-
-          <Dialog open={isColorPickerOpen} onOpenChange={setIsColorPickerOpen}>
-            <DialogContent
-              className="w-auto max-w-fit p-6"
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <DialogHeader>
-                <DialogTitle>Choose a Color</DialogTitle>
-              </DialogHeader>
-              <div
-                className="flex justify-center color-picker-wrapper"
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                <SwatchesPicker
-                  color={item.color || "#3B82F6"}
-                  colors={SWATCHES_COLOR_GROUPS}
-                  onChangeComplete={handleColorChange}
-                />
-              </div>
-            </DialogContent>
-          </Dialog>
 
           {/* Navigation Controls - Only show if Multiple Cards */}
           {cards.length > 1 && (
@@ -762,65 +699,37 @@ export function FlashcardWorkspaceCard({
             </div>
           </div>
 
-          <AlertDialog
-            open={showDeleteDialog}
-            onOpenChange={setShowDeleteDialog}
-          >
-            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Flashcard</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Are you sure you want to delete "
-                  {item.name || "this flashcard"}"? You can restore from version
-                  history if needed.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={confirmDelete}>
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-
-          {/* Rename Dialog */}
-          <RenameDialog
-            open={showRenameDialog}
-            onOpenChange={setShowRenameDialog}
-            currentName={item.name || "Untitled"}
-            itemType={item.type}
-            onRename={handleRename}
+          <WorkspaceCardDialogs
+            item={item}
+            allItems={allItems || []}
+            workspaceName={workspaceName || ""}
+            workspaceIcon={workspaceIcon}
+            workspaceColor={workspaceColor}
+            isColorPickerOpen={actions.showColorPicker}
+            onColorPickerOpenChange={actions.setShowColorPicker}
+            showDeleteDialog={actions.showDeleteDialog}
+            onDeleteDialogChange={actions.setShowDeleteDialog}
+            showMoveDialog={actions.showMoveDialog}
+            onMoveDialogChange={actions.setShowMoveDialog}
+            showRenameDialog={actions.showRenameDialog}
+            onRenameDialogChange={actions.setShowRenameDialog}
+            onColorChange={actions.handleColorChange}
+            onDeleteConfirm={() => { actions.confirmDelete(); toast.success("Card deleted successfully"); }}
+            onRename={(newName) => { actions.handleRename(newName); toast.success("Flashcard renamed"); }}
+            onMove={onMoveItem ? actions.handleMove : undefined}
           />
-
-          {/* Move to Dialog */}
-          {onMoveItem && allItems && workspaceName && (
-            <MoveToDialog
-              open={showMoveDialog}
-              onOpenChange={setShowMoveDialog}
-              item={item}
-              allItems={allItems}
-              workspaceName={workspaceName}
-              workspaceIcon={workspaceIcon}
-              workspaceColor={workspaceColor}
-              onMove={(folderId) => {
-                onMoveItem(item.id, folderId);
-                toast.success("Item moved");
-              }}
-            />
-          )}
         </div>
       </ContextMenuTrigger>
 
       {/* Right-Click Context Menu */}
       <ContextMenuContent className="w-48">
-        <ContextMenuItem onSelect={() => setShowRenameDialog(true)}>
+        <ContextMenuItem onSelect={() => actions.requestRename()}>
           <Pencil className="mr-2 h-4 w-4" />
           <span>Rename</span>
         </ContextMenuItem>
         {onMoveItem && (
           <>
-            <ContextMenuItem onSelect={() => setShowMoveDialog(true)}>
+            <ContextMenuItem onSelect={() => actions.requestMove()}>
               <FolderInput className="mr-2 h-4 w-4" />
               <span>Move to</span>
             </ContextMenuItem>
@@ -831,13 +740,13 @@ export function FlashcardWorkspaceCard({
           <Pencil className="mr-2 h-4 w-4" />
           <span>Edit</span>
         </ContextMenuItem>
-        <ContextMenuItem onSelect={() => setIsColorPickerOpen(true)}>
+        <ContextMenuItem onSelect={() => actions.requestColorPicker()}>
           <Palette className="mr-2 h-4 w-4" />
           <span>Change Color</span>
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
-          onSelect={handleDelete}
+          onSelect={() => actions.requestDelete()}
           className="text-destructive focus:text-destructive"
         >
           <Trash2 className="mr-2 h-4 w-4" />
