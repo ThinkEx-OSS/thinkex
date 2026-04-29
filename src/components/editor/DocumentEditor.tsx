@@ -927,19 +927,14 @@ export function DocumentEditor({
     },
   });
 
-  const hasLoadedInitialContentRef = useRef(false);
+  const initialLoadedEditorRef = useRef<Editor | null>(null);
   const autofocusRef = useRef(autofocus);
   autofocusRef.current = autofocus;
 
-  // Reset the initial-load flag when the editor instance itself changes so a
-  // recreated editor still benefits from the deferred-paint optimization.
-  useEffect(() => {
-    hasLoadedInitialContentRef.current = false;
-  }, [editor]);
-
   // Sync incoming content only when it actually differs from the live editor
-  // state. The first content load is deferred to after the modal's open paint
-  // to avoid blocking the open animation with markdown parsing + KaTeX renders.
+  // state. The first content load per editor instance is deferred to after
+  // the modal's open paint to avoid blocking the open animation with
+  // markdown parsing + KaTeX renders.
   useEffect(() => {
     if (!editor) return;
 
@@ -962,22 +957,23 @@ export function DocumentEditor({
       editor.commands.setContent(nextContent, { emitUpdate: false });
     };
 
-    if (hasLoadedInitialContentRef.current) {
-      // External update (e.g., ZeroDB sync from another tab). Apply immediately.
+    // Subsequent prop change for an already-loaded editor (e.g. ZeroDB sync
+    // from another tab). Apply immediately so external updates feel instant.
+    if (initialLoadedEditorRef.current === editor) {
       applyContent();
       return;
     }
 
-    // Initial mount: defer content load until after the modal's open paint to
-    // avoid blocking the animation. Two rAFs ensures we run after at least one
-    // committed frame is on screen.
+    // Initial load for this editor instance: defer until after the modal's
+    // open paint. Two rAFs ensures we run after at least one committed frame
+    // is on screen.
     let rafA: number | null = null;
     let rafB: number | null = null;
     rafA = requestAnimationFrame(() => {
       rafB = requestAnimationFrame(() => {
         if (editor.isDestroyed) return;
         applyContent();
-        hasLoadedInitialContentRef.current = true;
+        initialLoadedEditorRef.current = editor;
         // setContent uses tr.replaceWith over the full doc range, which makes
         // ProseMirror's selection mapping land at the END of the replacement.
         // Move the cursor to the start to match Tiptap's native autofocus:true.
