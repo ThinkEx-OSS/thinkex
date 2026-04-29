@@ -11,7 +11,7 @@ const ogImage = getFullImageUrl(seoConfig.defaultImage);
 export const metadata: Metadata = {
   title: pageTitle,
   description: pageDescription,
-  keywords: ["home", "workspaces", "dashboard", "productivity tools"],
+  keywords: ["home", "workspaces", "productivity tools"],
   authors: [{ name: seoConfig.author }],
   robots: { index: true, follow: true },
   alternates: { canonical: pageUrl },

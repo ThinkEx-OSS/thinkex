@@ -5,7 +5,7 @@ import { getDefaultChatModelId } from "@/lib/ai/models";
 
 /**
  * UI Store - Manages all UI state (chat, modals, search, layout, reply context)
- * This replaces scattered useState hooks in dashboard
+ * This replaces scattered useState hooks in workspace
  */
 
 /** Column / keyboard focus when two items are open (split). */

@@ -8,7 +8,7 @@ import { WorkspaceCanvasDropzone } from "@/components/workspace-canvas/Workspace
 import { PANEL_DEFAULTS } from "@/lib/layout-constants";
 import React from "react";
 
-interface DashboardLayoutProps {
+interface WorkspaceLayoutProps {
   // Workspace sidebar
   currentWorkspaceId: string | null;
   onWorkspaceSwitch: (slug: string) => void;
@@ -28,10 +28,10 @@ interface DashboardLayoutProps {
 }
 
 /**
- * Main dashboard layout component.
+ * Main workspace layout component.
  * Handles the overall structure including sidebars and layout animations.
  */
-export function DashboardLayout({
+export function WorkspaceLayout({
   currentWorkspaceId,
   onWorkspaceSwitch,
   showCreateModal,
@@ -42,7 +42,7 @@ export function DashboardLayout({
   setIsChatMaximized,
   workspaceSection,
   workspaceHeader,
-}: DashboardLayoutProps) {
+}: WorkspaceLayoutProps) {
   // Render logic
   // Ensure chat is only shown when a workspace is active
   const effectiveChatExpanded = isChatExpanded && !!currentWorkspaceId;

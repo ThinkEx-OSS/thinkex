@@ -1,7 +1,7 @@
 "use client";
 
-import { DashboardShell } from "../../dashboard/page";
+import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 
 export default function WorkspacePage() {
-  return <DashboardShell />;
+  return <WorkspaceShell />;
 }

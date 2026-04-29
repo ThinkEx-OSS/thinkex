@@ -22,7 +22,7 @@ interface ChatPanelProps {
 /**
  * Renders the chat panel chrome (header, message list, composer, dropzone).
  * Assumes both `ChatProvider` and `ComposerProvider` already wrap this tree —
- * `DashboardLayout` mounts them once at the layout level so workspace UI
+ * `WorkspaceLayout` mounts them once at the layout level so workspace UI
  * outside the chat panel can also drive the composer.
  */
 export function ChatPanel({
