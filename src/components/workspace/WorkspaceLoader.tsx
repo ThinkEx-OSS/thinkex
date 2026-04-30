@@ -1,31 +1,21 @@
 "use client";
 
-import { DotLottieReact } from "@lottiefiles/dotlottie-react";
-import { useTheme } from "next-themes";
-
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThreadLoadingSkeleton } from "@/components/chat/ThreadLoadingSkeleton";
 
-function useBrandLottieSrc() {
-  const { resolvedTheme } = useTheme();
-  return resolvedTheme === "light" ? "/thinkexlight.lottie" : "/logo.lottie";
-}
-
 /**
- * Full-viewport loader for the **pre-shell** phases — used while there's no
- * workspace chrome on screen yet (no session, Zero client not ready).
+ * Full-shell skeleton: header bar + bento card grid. Used by `ZeroProvider`
+ * while the session/Zero client are bootstrapping (when there's no live
+ * `WorkspaceLayout` yet) so the user sees the same chrome that will appear
+ * once the shell mounts.
  */
 export function WorkspaceLoader() {
-  const src = useBrandLottieSrc();
   return (
-    <div className="grid min-h-dvh w-full flex-1 place-items-center">
-      <DotLottieReact
-        src={src}
-        loop
-        autoplay
-        mode="bounce"
-        className="h-16 w-16 shrink-0"
-      />
+    <div className="flex min-h-dvh w-full flex-col">
+      <WorkspaceHeaderSkeleton />
+      <div className="flex-1 overflow-hidden">
+        <WorkspaceCardsLoader />
+      </div>
     </div>
   );
 }
