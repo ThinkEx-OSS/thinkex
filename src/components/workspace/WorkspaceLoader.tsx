@@ -2,20 +2,44 @@
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThreadLoadingSkeleton } from "@/components/chat/ThreadLoadingSkeleton";
+import { PANEL_DEFAULTS } from "@/lib/layout-constants";
+import { useUIStore } from "@/lib/stores/ui-store";
 
 /**
- * Full-shell skeleton: header bar + bento card grid. Used by `ZeroProvider`
- * while the session/Zero client are bootstrapping (when there's no live
- * `WorkspaceLayout` yet) so the user sees the same chrome that will appear
- * once the shell mounts.
+ * Full-shell skeleton: header bar + bento card grid + (when chat is open)
+ * a chat-panel slot. Used by `ZeroProvider` while the session/Zero client
+ * are bootstrapping. Reads the same chat-expanded state as `WorkspaceLayout`
+ * so the canvas doesn't paint full-width and then snap when the real layout
+ * mounts with chat open.
  */
 export function WorkspaceLoader() {
-  return (
-    <div className="flex min-h-dvh w-full flex-col">
-      <WorkspaceHeaderSkeleton />
-      <div className="flex-1 overflow-hidden">
-        <WorkspaceCardsLoader />
+  const isChatExpanded = useUIStore((s) => s.isChatExpanded);
+  const isChatMaximized = useUIStore((s) => s.isChatMaximized);
+
+  if (isChatMaximized) {
+    return (
+      <div className="flex min-h-dvh w-full">
+        <ChatPanelSkeleton />
       </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-dvh w-full">
+      <div
+        className="flex flex-col"
+        style={{ width: isChatExpanded ? `${100 - PANEL_DEFAULTS.CHAT}%` : "100%" }}
+      >
+        <WorkspaceHeaderSkeleton />
+        <div className="flex-1 overflow-hidden">
+          <WorkspaceCardsLoader />
+        </div>
+      </div>
+      {isChatExpanded ? (
+        <div style={{ width: `${PANEL_DEFAULTS.CHAT}%` }}>
+          <ChatPanelSkeleton />
+        </div>
+      ) : null}
     </div>
   );
 }
