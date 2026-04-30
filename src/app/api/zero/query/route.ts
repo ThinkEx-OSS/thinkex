@@ -53,48 +53,53 @@ async function getAllowedWorkspaceIds(
   return allowed;
 }
 
-/**
- * Per-query workspaceId extractors. Fail-closed: a workspace-scoped query
- * must be registered here for the route to allow it. Adding a new
- * `workspace.*` query without an entry will (correctly) cause the route to
- * deny all instances of that query rather than silently bypass authz.
- */
-const WORKSPACE_QUERY_EXTRACTORS: Record<
-  string,
-  (args: ReadonlyJSONValue | undefined) => string | null
-> = {
-  "workspace.items": (args) => {
-    if (!Array.isArray(args)) return null;
-    const first = args[0];
-    if (
-      first &&
-      typeof first === "object" &&
-      !Array.isArray(first) &&
-      "workspaceId" in first &&
-      typeof (first as { workspaceId?: unknown }).workspaceId === "string"
-    ) {
-      return (first as { workspaceId: string }).workspaceId;
-    }
-    return null;
-  },
-};
+function extractWorkspaceIdArg(
+  args: ReadonlyJSONValue | undefined,
+): string | null {
+  if (!Array.isArray(args)) return null;
+  const first = args[0];
+  if (
+    first &&
+    typeof first === "object" &&
+    !Array.isArray(first) &&
+    "workspaceId" in first &&
+    typeof (first as { workspaceId?: unknown }).workspaceId === "string"
+  ) {
+    return (first as { workspaceId: string }).workspaceId;
+  }
+  return null;
+}
 
+/**
+ * Fail-closed authorization decision per query.
+ *
+ * Anything under `workspace.*` must be explicitly handled in the switch
+ * below with a known argument shape — adding a new workspace-scoped query
+ * without updating this function will (correctly) cause the route to deny
+ * every instance of it rather than silently bypass authz.
+ *
+ * Implemented as a literal switch (not a lookup table) so CodeQL can see
+ * the dispatch is bounded to the names listed here.
+ */
 function getWorkspaceIdForQuery(
   name: string,
   args: ReadonlyJSONValue | undefined,
 ): { kind: "ok"; workspaceId: string } | { kind: "deny" } | { kind: "global" } {
-  // Anything under `workspace.*` MUST have a registered extractor and a
-  // resolvable workspaceId — otherwise we deny by default.
-  if (name.startsWith("workspace.")) {
-    const extractor = WORKSPACE_QUERY_EXTRACTORS[name];
-    if (!extractor) return { kind: "deny" };
-    const workspaceId = extractor(args);
-    if (!workspaceId) return { kind: "deny" };
-    return { kind: "ok", workspaceId };
+  switch (name) {
+    case "workspace.items": {
+      const workspaceId = extractWorkspaceIdArg(args);
+      return workspaceId
+        ? { kind: "ok", workspaceId }
+        : { kind: "deny" };
+    }
+    default:
+      // Anything else under workspace.* is unrecognized → deny.
+      // Other namespaces (e.g. `user.preferences`) skip workspace authz;
+      // per-query authz lives in those resolvers themselves.
+      return name.startsWith("workspace.")
+        ? { kind: "deny" }
+        : { kind: "global" };
   }
-  // Future namespaces with no workspace context (e.g. `user.preferences`)
-  // bypass workspace authz; per-query authz lives in the resolver itself.
-  return { kind: "global" };
 }
 
 export async function POST(request: NextRequest) {
