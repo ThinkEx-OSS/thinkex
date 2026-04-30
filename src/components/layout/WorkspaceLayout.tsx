@@ -15,6 +15,7 @@ import { WorkspaceCanvasDropzone } from "@/components/workspace-canvas/Workspace
 import { PANEL_DEFAULTS } from "@/lib/layout-constants";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { useWorkspaceView } from "@/hooks/workspace/use-workspace-view";
 import { WorkspaceHeaderSkeleton } from "@/components/workspace/WorkspaceLoader";
 
 interface WorkspaceLayoutProps {
@@ -33,6 +34,8 @@ export function WorkspaceLayout({
 }: WorkspaceLayoutProps) {
   const { currentWorkspace, switchWorkspace } = useWorkspaceContext();
   const currentWorkspaceId = currentWorkspace?.id ?? null;
+  const view = useWorkspaceView();
+  const isWorkspaceReady = view.kind === "ready";
 
   const isChatExpanded = useUIStore((s) => s.isChatExpanded);
   const isChatMaximized = useUIStore((s) => s.isChatMaximized);
@@ -74,7 +77,7 @@ export function WorkspaceLayout({
             }
           >
             <div className="h-full flex flex-col relative overflow-hidden">
-              {currentWorkspaceId ? workspaceHeader : <WorkspaceHeaderSkeleton />}
+              {isWorkspaceReady ? workspaceHeader : <WorkspaceHeaderSkeleton />}
               <div className="flex flex-1 overflow-hidden relative">
                 <Sidebar
                   side="left"
