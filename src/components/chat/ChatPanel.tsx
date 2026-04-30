@@ -12,6 +12,7 @@ import {
   useWorkspaceItems,
   useWorkspaceItemsLoading,
 } from "@/hooks/workspace/use-workspace-items";
+import { useWorkspaceView } from "@/hooks/workspace/use-workspace-view";
 import { ChatPanelSkeleton } from "@/components/workspace/WorkspaceLoader";
 import { cn } from "@/lib/utils";
 
@@ -38,13 +39,15 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const state = useWorkspaceItems();
   const isLoading = useWorkspaceItemsLoading();
+  const view = useWorkspaceView();
+  const isReady = view.kind === "ready";
 
   useEffect(() => {
     if (!workspaceId || isLoading || !onReady) return;
     onReady();
   }, [workspaceId, isLoading, onReady]);
 
-  if (!workspaceId) return <ChatPanelSkeleton />;
+  if (!workspaceId || !isReady) return <ChatPanelSkeleton />;
 
   const handleToggleMaximize = () => {
     setIsChatMaximized?.(!isChatMaximized);
