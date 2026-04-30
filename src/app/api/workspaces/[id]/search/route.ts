@@ -44,7 +44,7 @@ async function handlePOST(
     }))
     .filter((r) => r.score > 0.6)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 8)
+    .slice(0, 25)
     .map((r) => r.itemId);
 
   return NextResponse.json({ itemIds });
