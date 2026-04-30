@@ -53,19 +53,16 @@ async function getAllowedWorkspaceIds(
   return allowed;
 }
 
-function extractWorkspaceIdArg(
-  args: ReadonlyJSONValue | undefined,
-): string | null {
-  if (!Array.isArray(args)) return null;
-  const first = args[0];
+/** Reads `workspaceId` off a single arg object (the unwrapped first arg). */
+function readWorkspaceId(arg: ReadonlyJSONValue | undefined): string | null {
   if (
-    first &&
-    typeof first === "object" &&
-    !Array.isArray(first) &&
-    "workspaceId" in first &&
-    typeof (first as { workspaceId?: unknown }).workspaceId === "string"
+    arg &&
+    typeof arg === "object" &&
+    !Array.isArray(arg) &&
+    "workspaceId" in arg &&
+    typeof (arg as { workspaceId?: unknown }).workspaceId === "string"
   ) {
-    return (first as { workspaceId: string }).workspaceId;
+    return (arg as { workspaceId: string }).workspaceId;
   }
   return null;
 }
@@ -77,11 +74,11 @@ function extractWorkspaceIdArg(
  */
 function getRequiredWorkspaceId(
   name: string,
-  args: ReadonlyJSONValue | undefined,
+  arg: ReadonlyJSONValue | undefined,
 ): string | null {
   switch (name) {
     case "workspace.items":
-      return extractWorkspaceIdArg(args);
+      return readWorkspaceId(arg);
     default:
       return null;
   }
@@ -117,7 +114,10 @@ export async function POST(request: NextRequest) {
     ...new Set(
       queryRequests.flatMap((req) => {
         const name = typeof req?.name === "string" ? req.name : "";
-        const id = getRequiredWorkspaceId(name, req?.args as ReadonlyJSONValue);
+        const firstArg = Array.isArray(req?.args)
+          ? (req.args[0] as ReadonlyJSONValue | undefined)
+          : undefined;
+        const id = getRequiredWorkspaceId(name, firstArg);
         return id ? [id] : [];
       }),
     ),
