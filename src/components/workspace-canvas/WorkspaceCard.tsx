@@ -4,10 +4,8 @@ import { toast } from "sonner";
 import {
   getCardColorCSS,
   getCardAccentColor,
-  type CardColor,
 } from "@/lib/workspace-state/colors";
 import type { Item, DocumentData } from "@/lib/workspace-state/types";
-import type { ColorResult } from "react-color";
 import { useUIStore, selectItemScrollLocked } from "@/lib/stores/ui-store";
 import { getLayoutForBreakpoint } from "@/lib/workspace-state/grid-layout-helpers";
 import {
@@ -22,6 +20,7 @@ import {
 import { WorkspaceCardContent } from "./WorkspaceCardContent";
 import { WorkspaceCardDialogs } from "./WorkspaceCardDialogs";
 import { WorkspaceCardTypeBadge } from "./WorkspaceCardTypeBadge";
+import { useItemActionDialogs } from "@/hooks/workspace/use-item-action-dialogs";
 
 interface WorkspaceCardProps {
   item: Item;
@@ -72,10 +71,13 @@ function WorkspaceCard({
   const onToggleSelection = useUIStore((state) => state.toggleCardSelection);
 
   // No dynamic calculations needed - just overflow hidden
-  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showMoveDialog, setShowMoveDialog] = useState(false);
-  const [showRenameDialog, setShowRenameDialog] = useState(false);
+  const actions = useItemActionDialogs({
+    item,
+    onDeleteItem,
+    onUpdateItem,
+    onMoveItem: onMoveItem ? (id, folderId) => { onMoveItem(id, folderId); toast.success("Item moved"); } : undefined,
+  });
+
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   // Get scroll lock state from Zustand store (persists across interactions)
   const isScrollLocked = useUIStore(selectItemScrollLocked(item.id));
@@ -151,33 +153,6 @@ function WorkspaceCard({
   const handleTitleBlur = useCallback(() => {
     setIsEditingTitle(false);
   }, []);
-
-  // Handle color change from color picker
-  const handleColorChange = useCallback(
-    (color: ColorResult) => {
-      onUpdateItem(item.id, { color: color.hex as CardColor });
-      setIsColorPickerOpen(false);
-    },
-    [item.id, onUpdateItem],
-  );
-
-  const handleDelete = useCallback(() => {
-    setShowDeleteDialog(true);
-  }, []);
-
-  const handleDeleteConfirm = useCallback(() => {
-    onDeleteItem(item.id);
-    setShowDeleteDialog(false);
-    toast.success("Card deleted successfully");
-  }, [item.id, onDeleteItem]);
-
-  const handleRename = useCallback(
-    (newName: string) => {
-      onUpdateItem(item.id, { name: newName });
-      toast.success("Card renamed");
-    },
-    [item.id, onUpdateItem],
-  );
 
   const handleCopyMarkdown = useCallback(() => {
     if (item.type !== "document") return;
@@ -384,15 +359,6 @@ function WorkspaceCard({
     ],
   );
 
-  const handleMove = useCallback(
-    (folderId: string | null) => {
-      if (!onMoveItem) return;
-      onMoveItem(item.id, folderId);
-      toast.success("Item moved");
-    },
-    [item.id, onMoveItem],
-  );
-
   const shouldUseFramelessLayout =
     item.type === "youtube" ||
     item.type === "image" ||
@@ -469,11 +435,11 @@ function WorkspaceCard({
               canMove={Boolean(onMoveItem)}
               onToggleScrollLock={() => toggleItemScrollLocked(item.id)}
               onToggleSelection={() => onToggleSelection(item.id)}
-              onOpenRename={() => setShowRenameDialog(true)}
-              onOpenMove={() => setShowMoveDialog(true)}
+              onOpenRename={() => actions.requestRename()}
+              onOpenMove={() => actions.requestMove()}
               onCopyMarkdown={handleCopyMarkdown}
-              onOpenColorPicker={() => setIsColorPickerOpen(true)}
-              onDelete={handleDelete}
+              onOpenColorPicker={() => actions.requestColorPicker()}
+              onDelete={() => actions.requestDelete()}
             />
 
             <WorkspaceCardTypeBadge
@@ -508,18 +474,18 @@ function WorkspaceCard({
             workspaceName={workspaceName}
             workspaceIcon={workspaceIcon}
             workspaceColor={workspaceColor}
-            isColorPickerOpen={isColorPickerOpen}
-            onColorPickerOpenChange={setIsColorPickerOpen}
-            showDeleteDialog={showDeleteDialog}
-            onDeleteDialogChange={setShowDeleteDialog}
-            showMoveDialog={showMoveDialog}
-            onMoveDialogChange={setShowMoveDialog}
-            showRenameDialog={showRenameDialog}
-            onRenameDialogChange={setShowRenameDialog}
-            onColorChange={handleColorChange}
-            onDeleteConfirm={handleDeleteConfirm}
-            onRename={handleRename}
-            onMove={onMoveItem ? handleMove : undefined}
+            isColorPickerOpen={actions.showColorPicker}
+            onColorPickerOpenChange={actions.setShowColorPicker}
+            showDeleteDialog={actions.showDeleteDialog}
+            onDeleteDialogChange={actions.setShowDeleteDialog}
+            showMoveDialog={actions.showMoveDialog}
+            onMoveDialogChange={actions.setShowMoveDialog}
+            showRenameDialog={actions.showRenameDialog}
+            onRenameDialogChange={actions.setShowRenameDialog}
+            onColorChange={actions.handleColorChange}
+            onDeleteConfirm={() => { actions.confirmDelete(); toast.success("Card deleted successfully"); }}
+            onRename={(newName) => { actions.handleRename(newName); toast.success("Card renamed"); }}
+            onMove={onMoveItem ? actions.handleMove : undefined}
           />
         </div>
       </ContextMenuTrigger>
@@ -528,11 +494,11 @@ function WorkspaceCard({
         <WorkspaceCardContextMenuItems
           itemType={item.type}
           canMove={Boolean(onMoveItem)}
-          onOpenRename={() => setShowRenameDialog(true)}
-          onOpenMove={() => setShowMoveDialog(true)}
+          onOpenRename={() => actions.requestRename()}
+          onOpenMove={() => actions.requestMove()}
           onCopyMarkdown={handleCopyMarkdown}
-          onOpenColorPicker={() => setIsColorPickerOpen(true)}
-          onDelete={handleDelete}
+          onOpenColorPicker={() => actions.requestColorPicker()}
+          onDelete={() => actions.requestDelete()}
         />
       </ContextMenuContent>
     </ContextMenu>
