@@ -2,6 +2,7 @@
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThreadLoadingSkeleton } from "@/components/chat/ThreadLoadingSkeleton";
+import { THREAD_TOP_INSET } from "@/components/chat/thread-layout";
 import { PANEL_DEFAULTS } from "@/lib/layout-constants";
 import { useUIStore } from "@/lib/stores/ui-store";
 
@@ -75,7 +76,10 @@ export function ChatPanelSkeleton() {
         <Skeleton className="h-7 w-7 rounded-md" />
         <Skeleton className="h-7 w-7 rounded-md" />
       </div>
-      <div className="flex-1 overflow-hidden">
+      <div
+        className="h-full w-full flex-1 overflow-x-hidden overflow-y-auto px-3 sm:px-6"
+        style={{ paddingTop: THREAD_TOP_INSET }}
+      >
         <ThreadLoadingSkeleton />
       </div>
       <div className="px-3 pb-3 sm:px-6">
