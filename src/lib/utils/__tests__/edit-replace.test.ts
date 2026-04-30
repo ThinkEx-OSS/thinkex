@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   applyEdits,
+  applyEditsBestEffort,
   replace,
   normalizeLineEndings,
   trimDiff,
@@ -205,6 +206,86 @@ describe("applyEdits", () => {
     const content = "hello\r\nworld";
     const result = applyEdits(content, [{ oldText: "hello", newText: "goodbye" }]);
     expect(result.baseContent).toBe("hello\nworld");
+  });
+
+  it("matches trimmed boundary text when unique", () => {
+    const content = "  \n\n\n- Satisfaction\n  - Describe specific nonprofit *in detail*:\n  ...\n\n  \n\n\n";
+    const result = applyEdits(content, [
+      {
+        oldText: "- Satisfaction\n  - Describe specific nonprofit *in detail*:\n  ...",
+        newText: "- Satisfaction\n  - Describe specific nonprofit *in detail*:\n  - Updated details",
+      },
+    ]);
+    expect(result.newContent).toContain("Updated details");
+  });
+
+  it("keeps ambiguity errors under lenient matching", () => {
+    const block = "  \n\n\n- Satisfaction\n  ...\n\n  \n\n\n";
+    const content = `${block}middle\n${block}`;
+    expect(() =>
+      applyEdits(content, [{ oldText: "- Satisfaction\n  ...", newText: "- Satisfaction\n  - updated" }]),
+    ).toThrow(/occurrences/i);
+  });
+
+  it("does not accept weak context-aware 50% middle-line matches", () => {
+    const content = ["- Question", "  - correct", "  - wrongA", "- End"].join("\n");
+    expect(() =>
+      applyEdits(content, [
+        {
+          oldText: ["- Question", "  - correct", "  - wrongB", "- End"].join("\n"),
+          newText: ["- Question", "  - updated", "  - wrongB", "- End"].join("\n"),
+        },
+      ]),
+    ).toThrow(/Could not find/);
+  });
+});
+
+describe("applyEditsBestEffort", () => {
+  it("applies successful edits and reports failed ones", () => {
+    const content = "alpha\nbeta\ngamma";
+    const result = applyEditsBestEffort(content, [
+      { oldText: "beta", newText: "BETA" },
+      { oldText: "missing", newText: "x" },
+    ]);
+    expect(result.newContent).toBe("alpha\nBETA\ngamma");
+    expect(result.appliedEditIndices).toEqual([0]);
+    expect(result.failedEdits).toEqual([
+      expect.objectContaining({ index: 1 }),
+    ]);
+    expect(result.hadFailures).toBe(true);
+  });
+
+  it("marks hadFailures false when all edits apply", () => {
+    const content = "alpha\nbeta\ngamma";
+    const result = applyEditsBestEffort(content, [
+      { oldText: "alpha", newText: "ALPHA" },
+      { oldText: "gamma", newText: "GAMMA" },
+    ]);
+    expect(result.newContent).toBe("ALPHA\nbeta\nGAMMA");
+    expect(result.appliedEditIndices).toEqual([0, 1]);
+    expect(result.failedEdits).toEqual([]);
+    expect(result.hadFailures).toBe(false);
+  });
+
+  it("retries overlap-rejected edits in pass 2", () => {
+    const content = "abcde";
+    const result = applyEditsBestEffort(content, [
+      { oldText: "abc", newText: "xabc" },
+      { oldText: "abcde", newText: "ABCDE" },
+    ]);
+    expect(result.newContent).toBe("xABCDE");
+    expect(result.appliedEditIndices).toEqual([0, 1]);
+    expect(result.failedEdits).toEqual([]);
+    expect(result.hadFailures).toBe(false);
+  });
+
+  it("throws when all edits fail", () => {
+    expect(() =>
+      applyEditsBestEffort("alpha\nbeta", [
+        { oldText: "missing one", newText: "x" },
+        { oldText: "missing two", newText: "y" },
+      ]),
+    ).toThrow(/Could not find/);
   });
 });
 
