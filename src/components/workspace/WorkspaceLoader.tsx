@@ -50,16 +50,16 @@ export function WorkspaceLoader() {
  * 1/2/3/4 columns at sm/md/lg with mixed col/row spans.
  */
 const BENTO_TILES: ReadonlyArray<{ col: string; row: string }> = [
-  { col: "lg:col-span-2", row: "row-span-2" },
-  { col: "lg:col-span-1", row: "row-span-1" },
+  { col: "lg:col-span-2", row: "row-span-3" },
+  { col: "lg:col-span-1", row: "row-span-2" },
   { col: "lg:col-span-1", row: "row-span-3" },
   { col: "lg:col-span-1", row: "row-span-2" },
-  { col: "lg:col-span-2", row: "row-span-1" },
-  { col: "lg:col-span-1", row: "row-span-2" },
   { col: "lg:col-span-2", row: "row-span-2" },
-  { col: "lg:col-span-1", row: "row-span-1" },
+  { col: "lg:col-span-1", row: "row-span-3" },
+  { col: "lg:col-span-2", row: "row-span-2" },
   { col: "lg:col-span-1", row: "row-span-2" },
-  { col: "lg:col-span-2", row: "row-span-1" },
+  { col: "lg:col-span-1", row: "row-span-3" },
+  { col: "lg:col-span-2", row: "row-span-2" },
 ];
 
 export function WorkspaceCardsLoader() {
@@ -67,7 +67,7 @@ export function WorkspaceCardsLoader() {
     <div className="size-full px-4 pt-6 sm:px-6">
       <div
         className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
-        style={{ gridAutoRows: "5rem" }}
+        style={{ gridAutoRows: "3.25rem" }}
       >
         {BENTO_TILES.map((tile, i) => (
           <Skeleton
