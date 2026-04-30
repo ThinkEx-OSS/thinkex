@@ -34,7 +34,7 @@ import WorkspaceSettingsModal from "@/components/workspace/WorkspaceSettingsModa
 import ShareWorkspaceDialog from "@/components/workspace/ShareWorkspaceDialog";
 import { AccountModal } from "@/components/auth/AccountModal";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
+import { useCurrentWorkspaceId } from "@/contexts/WorkspaceContext";
 import { useUIStore } from "@/lib/stores/ui-store";
 // import { useJoyride } from "@/contexts/JoyrideContext";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
@@ -70,7 +70,7 @@ function WorkspaceSidebar(props: WorkspaceSidebarProps) {
   } = useWorkspaceContext();
 
   // Get current workspace ID from Zustand store (moved in Phase 3)
-  const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+  const currentWorkspaceId = useCurrentWorkspaceId();
 
   const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
   const navigateToRoot = useUIStore((state) => state.navigateToRoot);

@@ -5,16 +5,15 @@ import { useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 
 /**
- * Simplified WorkspaceContext - ONLY manages workspace list
+ * WorkspaceContext is the single source of truth for the active workspace.
  *
  * State management responsibilities:
- * - Workspace list: WorkspaceContext (this file)
- * - Current workspace & save status: Zustand (workspace-store.ts)
- * - UI state: Zustand (ui-store.ts)
- * - Workspace data: Zero sync + React Query
+ * - Workspace list + active workspace + slug: WorkspaceContext (this file)
+ * - Per-workspace persisted UI state (e.g. last thread): Zustand workspace-store
+ * - Other UI state: Zustand ui-store
+ * - Workspace items: Zero sync (via WorkspaceItemsProvider)
  */
 interface WorkspaceContextType {
   // Workspace list
@@ -28,6 +27,7 @@ interface WorkspaceContextType {
 
   // Current workspace (loaded by slug for direct access)
   currentWorkspace: WorkspaceWithState | null;
+  currentWorkspaceId: string | null;
   loadingCurrentWorkspace: boolean;
 
   // Current slug (derived from URL)
@@ -51,9 +51,6 @@ export function WorkspaceProvider({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const currentWorkspaceId = useWorkspaceStore(
-    (state) => state.currentWorkspaceId,
-  );
   const queryClient = useQueryClient();
 
   // Derive current slug synchronously from pathname (no useEffect delay)
@@ -103,9 +100,8 @@ export function WorkspaceProvider({
       queryKey: ["workspace-by-slug", currentSlug],
       queryFn: async () => {
         if (!currentSlug) return null;
-        // Use metadata=true for faster loading - skip state replay
         const response = await fetch(
-          `/api/workspaces/slug/${currentSlug}?metadata=true`,
+          `/api/workspaces/slug/${encodeURIComponent(currentSlug)}`,
         );
         if (!response.ok) {
           if (response.status === 404) return null;
@@ -123,6 +119,7 @@ export function WorkspaceProvider({
     });
 
   const currentWorkspace = currentWorkspaceData || null;
+  const currentWorkspaceId = currentWorkspace?.id ?? null;
 
   // Merge current workspace into list if not already present
   const workspaces = useMemo(() => {
@@ -306,6 +303,7 @@ export function WorkspaceProvider({
     loadWorkspaces,
     updateWorkspaceLocal,
     currentWorkspace,
+    currentWorkspaceId,
     loadingCurrentWorkspace,
     currentSlug,
     switchWorkspace,
@@ -329,4 +327,9 @@ export function useWorkspaceContext() {
     );
   }
   return context;
+}
+
+/** Shorthand for `useWorkspaceContext().currentWorkspaceId`. */
+export function useCurrentWorkspaceId(): string | null {
+  return useWorkspaceContext().currentWorkspaceId;
 }

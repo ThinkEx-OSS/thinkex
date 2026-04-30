@@ -27,7 +27,7 @@ import { isPasswordProtectedPdf } from "@/lib/uploads/pdf-validation";
 import { processPdfAttachmentsInBackground } from "@/lib/uploads/process-pdf-attachments-in-background";
 import { useShallow } from "zustand/react/shallow";
 
-import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
+import { useWorkspaceItems } from "@/hooks/workspace/use-workspace-items";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
@@ -167,7 +167,7 @@ export function ComposerProvider({ children }: ComposerProviderProps) {
   const clearReplySelections = useUIStore(
     (state) => state.clearReplySelections,
   );
-  const { state: workspaceState } = useWorkspaceState(workspaceId);
+  const workspaceState = useWorkspaceItems();
   const operations = useWorkspaceOperations(workspaceId, workspaceState);
 
   const hasUploadingAttachments = useAttachmentUploadStore(

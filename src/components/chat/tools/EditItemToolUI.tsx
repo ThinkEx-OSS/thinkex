@@ -2,11 +2,10 @@
 
 import type { ReactNode } from "react";
 import { useMemo } from "react";
-import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
+import { useWorkspaceItems } from "@/hooks/workspace/use-workspace-items";
 import type { ChatToolUIProps } from "@/lib/chat/tool-ui-types";
 import { X, Eye } from "lucide-react";
 import { Pencil } from "lucide-react";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/lib/stores/ui-store";
@@ -48,8 +47,7 @@ interface EditItemReceiptProps {
 
 const EditItemReceipt = ({ args, result, status }: EditItemReceiptProps) => {
   const openWorkspaceItem = useUIStore((s) => s.openWorkspaceItem);
-  const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
-  const { state: workspaceState } = useWorkspaceState(workspaceId);
+  const workspaceState = useWorkspaceItems();
   const navigateToItem = useNavigateToItem();
 
   const card = useMemo(() => {

@@ -8,7 +8,12 @@ import { MultimodalInput } from "@/components/chat/MultimodalInput";
 import { TextSelectionManager } from "@/components/chat/TextSelectionManager";
 import { ThreadBody } from "@/components/chat/ThreadBody";
 import { ThreadWelcome } from "@/components/chat/ThreadWelcome";
-import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
+import {
+  useWorkspaceItems,
+  useWorkspaceItemsLoading,
+} from "@/hooks/workspace/use-workspace-items";
+import { useWorkspaceView } from "@/hooks/workspace/use-workspace-view";
+import { ChatPanelSkeleton } from "@/components/workspace/WorkspaceLoader";
 import { cn } from "@/lib/utils";
 
 interface ChatPanelProps {
@@ -32,13 +37,17 @@ export function ChatPanel({
   setIsChatMaximized,
   onReady,
 }: ChatPanelProps) {
-  const { state, isLoading } = useWorkspaceState(workspaceId ?? null);
+  const state = useWorkspaceItems();
+  const isLoading = useWorkspaceItemsLoading();
+  const view = useWorkspaceView();
+  const isReady = view.kind === "ready";
 
   useEffect(() => {
-    if (!isLoading && state && onReady) onReady();
-  }, [isLoading, state, onReady]);
+    if (!workspaceId || isLoading || !onReady) return;
+    onReady();
+  }, [workspaceId, isLoading, onReady]);
 
-  if (!workspaceId) return null;
+  if (!workspaceId || !isReady) return <ChatPanelSkeleton />;
 
   const handleToggleMaximize = () => {
     setIsChatMaximized?.(!isChatMaximized);

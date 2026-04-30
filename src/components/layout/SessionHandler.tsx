@@ -1,42 +1,32 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useSession, signIn } from "@/lib/auth-client";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { WorkspaceLoader } from "@/components/workspace/WorkspaceLoader";
 
 /**
- * Handles anonymous session creation.
- * Creates anonymous session if needed. No loading screen - renders children immediately.
+ * Ensures we never render Zero/auth-dependent UI before a session cookie is in
+ * place. When no session is found, kicks off `signIn.anonymous()` exactly once
+ * (StrictMode-safe) and shows the loader until the cookie lands. Without this
+ * gate, the first Zero query can race the anonymous-cookie write and 401.
  */
-export function AnonymousSessionHandler({ children }: { children: React.ReactNode }) {
+export function AnonymousSessionHandler({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { data: session, isPending } = useSession();
+  const inFlight = useRef(false);
 
   useEffect(() => {
-    // If no session and not loading, create anonymous session
-    if (!isPending && !session) {
-      signIn.anonymous().catch((error) => {
-        console.error("Failed to create anonymous session:", error);
-      });
-    }
+    if (isPending || session || inFlight.current) return;
+    inFlight.current = true;
+    signIn.anonymous().catch((error) => {
+      console.error("Failed to create anonymous session:", error);
+      inFlight.current = false;
+    });
   }, [session, isPending]);
 
-  // Always render children - no loading screen
+  if (isPending || !session) return <WorkspaceLoader />;
   return <>{children}</>;
-}
-
-/**
- * Wrapper for sidebar provider with default open state.
- */
-export function SidebarCoordinator({ 
-  children, 
-  defaultOpen = false 
-}: { 
-  children: React.ReactNode;
-  defaultOpen?: boolean;
-}) {
-  return (
-    <SidebarProvider defaultOpen={defaultOpen}>
-      {children}
-    </SidebarProvider>
-  );
 }

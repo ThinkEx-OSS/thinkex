@@ -10,7 +10,7 @@ import {
 } from "@/components/chat/parts/AssistantThreadSelection";
 import { SelectionTooltip } from "@/components/ui/selection-tooltip";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
+import { useCurrentWorkspaceId } from "@/contexts/WorkspaceContext";
 import { cn } from "@/lib/utils";
 
 /**
@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 export function TextSelectionManager({ className }: { className?: string }) {
   const { threadId } = useChatContext();
   const composer = useOptionalComposer();
-  const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
+  const workspaceId = useCurrentWorkspaceId();
 
   const addReplySelection = useUIStore((s) => s.addReplySelection);
   const clearReplySelections = useUIStore((s) => s.clearReplySelections);

@@ -9,7 +9,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
 import { useViewingItemIds } from "@/hooks/ui/use-viewing-item-ids";
 import { useWorkspaceContextProvider } from "@/hooks/ai/use-workspace-context-provider";
-import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
+import { useWorkspaceItems } from "@/hooks/workspace/use-workspace-items";
 import { chatDebug, summarizeRoster } from "@/lib/chat/debug";
 import { chatQueryKeys, fetchThreadMessages, type ThreadListItem } from "@/lib/chat/queries";
 import { createChatTransport } from "@/lib/chat/transport";
@@ -213,7 +213,7 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
   const activePdfPageByItemId = useUIStore(
     useShallow((state) => state.activePdfPageByItemId),
   );
-  const { state: workspaceState } = useWorkspaceState(workspaceId);
+  const workspaceState = useWorkspaceItems();
   const viewingItemIds = useViewingItemIds();
   const { currentWorkspace } = useWorkspaceContext();
   const systemPrompt = useWorkspaceContextProvider(

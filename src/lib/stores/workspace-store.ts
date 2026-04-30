@@ -1,10 +1,16 @@
 import { create } from "zustand";
 import { createJSONStorage, devtools, persist } from "zustand/middleware";
 
+/**
+ * Persistent UI state keyed by workspace.
+ *
+ * NOTE: `currentWorkspaceId` is intentionally NOT in this store. The active
+ * workspace is derived from the URL slug inside `WorkspaceContext`; mirroring
+ * it into Zustand would create two sources of truth and cascading renders.
+ * Read it via `useCurrentWorkspaceId()` from `@/contexts/WorkspaceContext`.
+ */
 interface WorkspaceStoreState {
-  currentWorkspaceId: string | null;
   currentThreadIdByWorkspace: Record<string, string>;
-  setCurrentWorkspaceId: (id: string | null) => void;
   setCurrentThreadId: (workspaceId: string, threadId: string) => void;
   clearCurrentThreadId: (workspaceId: string, threadId?: string) => void;
 }
@@ -13,9 +19,7 @@ export const useWorkspaceStore = create<WorkspaceStoreState>()(
   devtools(
     persist(
       (set) => ({
-        currentWorkspaceId: null,
         currentThreadIdByWorkspace: {},
-        setCurrentWorkspaceId: (id) => set({ currentWorkspaceId: id }),
         setCurrentThreadId: (workspaceId, threadId) =>
           set((state) => ({
             currentThreadIdByWorkspace: {
@@ -45,9 +49,6 @@ export const useWorkspaceStore = create<WorkspaceStoreState>()(
     { name: "Workspace Store" },
   ),
 );
-
-export const selectCurrentWorkspaceId = (state: WorkspaceStoreState) =>
-  state.currentWorkspaceId;
 
 export const selectCurrentThreadId =
   (workspaceId: string | null) => (state: WorkspaceStoreState) =>

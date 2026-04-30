@@ -6,7 +6,7 @@ import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 
 import { useOptionalComposer } from "@/components/chat/composer-context";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
+import { useCurrentWorkspaceId } from "@/contexts/WorkspaceContext";
 import { OFFICE_DOCUMENT_ACCEPT } from "@/lib/uploads/office-document-validation";
 
 interface ChatDropzoneProps {
@@ -20,7 +20,7 @@ interface ChatDropzoneProps {
  */
 export function ChatDropzone({ children }: ChatDropzoneProps) {
   const composer = useOptionalComposer();
-  const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
+  const currentWorkspaceId = useCurrentWorkspaceId();
   const [isDragging, setIsDragging] = useState(false);
 
   const isProcessingRef = useRef(false);

@@ -6,8 +6,8 @@ import { YouTubeMark } from "@/components/icons/YouTubeMark";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, type FC, type PropsWithChildren } from "react";
 import { toast } from "sonner";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
+import { useCurrentWorkspaceId } from "@/contexts/WorkspaceContext";
+import { useWorkspaceItems } from "@/hooks/workspace/use-workspace-items";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import { initialItems } from "@/lib/workspace-state/state";
 import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
@@ -192,8 +192,8 @@ const YouTubeSearchContent: FC<{
     status: { type: string };
     result: SearchYoutubeResult | null;
 }> = ({ args, status, result }) => {
-    const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-    const { state: workspaceState } = useWorkspaceState(workspaceId);
+    const workspaceId = useCurrentWorkspaceId();
+    const workspaceState = useWorkspaceItems();
     const operations = useWorkspaceOperations(workspaceId, workspaceState || initialItems);
 
     const [addedVideos, setAddedVideos] = useState<Set<string>>(new Set());

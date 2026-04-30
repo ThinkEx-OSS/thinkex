@@ -29,8 +29,11 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
+import { useCurrentWorkspaceId } from "@/contexts/WorkspaceContext";
+import {
+  useWorkspaceItems,
+  useWorkspaceItemsLoading,
+} from "@/hooks/workspace/use-workspace-items";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import { useUIStore } from "@/lib/stores/ui-store";
 import type { Item, CardType } from "@/lib/workspace-state/types";
@@ -766,8 +769,9 @@ function SidebarFolderItem({
  * SidebarCardList - Shows all folders in collapsible sections
  */
 function SidebarCardList() {
-    const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-    const { state, isLoading } = useWorkspaceState(currentWorkspaceId);
+    const currentWorkspaceId = useCurrentWorkspaceId();
+    const state = useWorkspaceItems();
+    const isLoading = useWorkspaceItemsLoading();
     const { workspaces } = useWorkspaceContext();
     const activeFolderId = useUIStore((state) => state.activeFolderId);
     const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
