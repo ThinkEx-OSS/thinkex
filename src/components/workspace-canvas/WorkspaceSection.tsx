@@ -415,31 +415,34 @@ export function WorkspaceSection({
           </div>
         </ContextMenuTrigger>
 
-        {/* Right-Click Context Menu */}
+        {/* Right-Click Context Menu — only render mutation items when the
+            workspace is fully loaded; otherwise the menu would expose
+            create/upload actions that fail against a not-yet-ready store. */}
         <ContextMenuContent className="w-56">
-          {renderWorkspaceMenuItems({
-            callbacks: {
-              onCreateDocument: () => {
-                const itemId = addItem("document");
-                if (itemId) handleCreatedItems([itemId]);
+          {view.kind === "ready" &&
+            renderWorkspaceMenuItems({
+              callbacks: {
+                onCreateDocument: () => {
+                  const itemId = addItem("document");
+                  if (itemId) handleCreatedItems([itemId]);
+                },
+                onCreateFolder: () => {
+                  addItem("folder");
+                },
+                onUpload: () => handleUploadMenuItemClick(),
+                onAudio: () => openAudioDialog(),
+                onYouTube: () => setShowYouTubeDialog(true),
+                onWebsite: () => setShowWebsiteDialog(true),
+                onFlashcards: () => setShowFlashcardsDialog(true),
+                onQuiz: () => setShowQuizDialog(true),
               },
-              onCreateFolder: () => {
-                addItem("folder");
-              },
-              onUpload: () => handleUploadMenuItemClick(),
-              onAudio: () => openAudioDialog(),
-              onYouTube: () => setShowYouTubeDialog(true),
-              onWebsite: () => setShowWebsiteDialog(true),
-              onFlashcards: () => setShowFlashcardsDialog(true),
-              onQuiz: () => setShowQuizDialog(true),
-            },
-            MenuItem: ContextMenuItem,
-            MenuSub: ContextMenuSub,
-            MenuSubTrigger: ContextMenuSubTrigger,
-            MenuSubContent: ContextMenuSubContent,
-            MenuLabel: ContextMenuLabel,
-            showUpload: !!currentWorkspaceId,
-          })}
+              MenuItem: ContextMenuItem,
+              MenuSub: ContextMenuSub,
+              MenuSubTrigger: ContextMenuSubTrigger,
+              MenuSubContent: ContextMenuSubContent,
+              MenuLabel: ContextMenuLabel,
+              showUpload: !!currentWorkspaceId,
+            })}
         </ContextMenuContent>
       </ContextMenu>
       {/* Selection Action Bar - show when cards are selected */}

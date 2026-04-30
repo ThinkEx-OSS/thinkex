@@ -17,7 +17,8 @@ import { destroyZero, getZero } from "./client";
 
 interface ZeroStatus {
   isReady: boolean;
-  reset: () => void;
+  /** Returns a promise so callers can await full teardown if they need to. */
+  reset: () => Promise<void>;
 }
 
 const ZeroStatusContext = createContext<ZeroStatus | null>(null);
@@ -29,7 +30,7 @@ export function useZeroStatus(): ZeroStatus {
 }
 
 /** Recreate the Zero client for the current user (UI retry path). */
-export function useZeroReset(): () => void {
+export function useZeroReset(): () => Promise<void> {
   return useZeroStatus().reset;
 }
 
@@ -46,7 +47,7 @@ export function ZeroProvider({ children }: { children: ReactNode }) {
   // double-invoke would close the live client while children still hold it.
   const prevUserIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (prevUserIdRef.current && !userId) destroyZero();
+    if (prevUserIdRef.current && !userId) void destroyZero();
     prevUserIdRef.current = userId;
   }, [userId]);
 
@@ -60,8 +61,10 @@ export function ZeroProvider({ children }: { children: ReactNode }) {
   const status = useMemo<ZeroStatus>(
     () => ({
       isReady: !!zero,
-      reset: () => {
-        destroyZero();
+      // Await the old client's async close so the next useMemo doesn't
+      // create the replacement before the previous WebSocket has shut down.
+      reset: async () => {
+        await destroyZero();
         setResetVersion((v) => v + 1);
       },
     }),

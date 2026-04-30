@@ -16,7 +16,7 @@ export type WorkspaceView =
   | { kind: "loading" }
   | { kind: "unauthenticated" }
   | { kind: "denied" }
-  | { kind: "error"; message: string; retry: () => void }
+  | { kind: "error"; message: string; retry: () => Promise<void> }
   | { kind: "ready"; items: Item[]; workspace: WorkspaceWithState };
 
 export function useWorkspaceView(): WorkspaceView {

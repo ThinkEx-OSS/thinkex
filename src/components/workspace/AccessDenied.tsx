@@ -15,7 +15,7 @@ export interface AccessDeniedProps {
    * If provided, renders a primary "Try again" button that calls this. Used by
    * the Zero error/timeout state — keeps page state instead of reloading.
    */
-  onRetry?: () => void;
+  onRetry?: () => void | Promise<void>;
 }
 
 export function AccessDenied({

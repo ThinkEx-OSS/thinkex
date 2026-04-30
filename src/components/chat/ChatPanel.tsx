@@ -40,8 +40,9 @@ export function ChatPanel({
   const isLoading = useWorkspaceItemsLoading();
 
   useEffect(() => {
-    if (!isLoading && state && onReady) onReady();
-  }, [isLoading, state, onReady]);
+    if (!workspaceId || isLoading || !onReady) return;
+    onReady();
+  }, [workspaceId, isLoading, onReady]);
 
   if (!workspaceId) return <ChatPanelSkeleton />;
 

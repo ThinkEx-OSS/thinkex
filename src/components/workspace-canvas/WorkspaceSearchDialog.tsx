@@ -85,6 +85,13 @@ export function WorkspaceSearchDialog({
   );
 
   const emptyMessage = useMemo(() => {
+    if (
+      view.kind === "denied" ||
+      view.kind === "unauthenticated" ||
+      view.kind === "error"
+    ) {
+      return "Workspace unavailable.";
+    }
     if (isLoadingWorkspace || !currentWorkspaceId) {
       return "Loading...";
     }
@@ -95,7 +102,7 @@ export function WorkspaceSearchDialog({
       return `No results for "${query}".`;
     }
     return "Type to search...";
-  }, [isLoadingWorkspace, currentWorkspaceId, safeItems.length, query]);
+  }, [view.kind, isLoadingWorkspace, currentWorkspaceId, safeItems.length, query]);
 
   return (
     <CommandDialog

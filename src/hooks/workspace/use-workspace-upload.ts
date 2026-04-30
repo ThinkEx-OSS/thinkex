@@ -40,7 +40,8 @@ export function useWorkspaceUpload({
   return useCallback(
     async (files: File[]) => {
       if (!operations || !currentWorkspaceId) {
-        throw new Error("Workspace not available");
+        toast.error("Workspace isn't ready yet — try again in a moment.");
+        return;
       }
 
       let candidates = files;
@@ -56,7 +57,11 @@ export function useWorkspaceUpload({
       }
 
       const { acceptedFiles, protectedPdfNames } =
-        await prepareWorkspaceUploadSelection(candidates);
+        await prepareWorkspaceUploadSelection(candidates, {
+          maxFileSizeBytes: enforceSizeLimit
+            ? MAX_FILE_SIZE_BYTES
+            : Number.POSITIVE_INFINITY,
+        });
       if (protectedPdfNames.length > 0) emitPasswordProtectedPdf(protectedPdfNames);
       if (acceptedFiles.length === 0) return;
 

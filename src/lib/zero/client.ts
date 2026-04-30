@@ -26,20 +26,30 @@ function createZeroInstance({ userId }: { userId: string }) {
 let zeroInstance: ReturnType<typeof createZeroInstance> | null = null;
 let zeroUserId: string | null = null;
 
-export function destroyZero() {
-  if (!zeroInstance) return;
-  void zeroInstance.close();
+/**
+ * Tear down the active client. `Zero.close()` is async (Replicache shutdown +
+ * WebSocket abort), so callers that *must* avoid overlap (e.g. the explicit
+ * `reset()` retry path) should `await` this. The user-swap path inside
+ * `getZero` does not await: clients are scoped per-user so any tail-end
+ * traffic from the old session can't leak into the new one's data.
+ */
+export function destroyZero(): Promise<void> {
+  const inst = zeroInstance;
+  if (!inst) return Promise.resolve();
   zeroInstance = null;
   zeroUserId = null;
+  return inst.close();
 }
 
 /**
  * Returns the active Zero client for `userId`. If the user changed (logout,
- * anonymous → authed, swap), tears down the previous client first so its
- * in-flight requests can't race the new session cookie.
+ * anonymous → authed, swap), kicks off teardown of the previous client; the
+ * new client is created immediately so the React render that triggered the
+ * swap has a value to commit. Brief client-side overlap during the old
+ * client's async close is acceptable.
  */
 export function getZero(params: { userId: string }) {
-  if (zeroInstance && zeroUserId !== params.userId) destroyZero();
+  if (zeroInstance && zeroUserId !== params.userId) void destroyZero();
   if (!zeroInstance) {
     zeroInstance = createZeroInstance(params);
     zeroUserId = params.userId;

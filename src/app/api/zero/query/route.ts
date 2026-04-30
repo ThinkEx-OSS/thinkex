@@ -53,19 +53,48 @@ async function getAllowedWorkspaceIds(
   return allowed;
 }
 
-function extractWorkspaceId(args: ReadonlyJSONValue | undefined): string | null {
-  if (!Array.isArray(args)) return null;
-  const first = args[0];
-  if (
-    first &&
-    typeof first === "object" &&
-    !Array.isArray(first) &&
-    "workspaceId" in first &&
-    typeof (first as { workspaceId?: unknown }).workspaceId === "string"
-  ) {
-    return (first as { workspaceId: string }).workspaceId;
+/**
+ * Per-query workspaceId extractors. Fail-closed: a workspace-scoped query
+ * must be registered here for the route to allow it. Adding a new
+ * `workspace.*` query without an entry will (correctly) cause the route to
+ * deny all instances of that query rather than silently bypass authz.
+ */
+const WORKSPACE_QUERY_EXTRACTORS: Record<
+  string,
+  (args: ReadonlyJSONValue | undefined) => string | null
+> = {
+  "workspace.items": (args) => {
+    if (!Array.isArray(args)) return null;
+    const first = args[0];
+    if (
+      first &&
+      typeof first === "object" &&
+      !Array.isArray(first) &&
+      "workspaceId" in first &&
+      typeof (first as { workspaceId?: unknown }).workspaceId === "string"
+    ) {
+      return (first as { workspaceId: string }).workspaceId;
+    }
+    return null;
+  },
+};
+
+function getWorkspaceIdForQuery(
+  name: string,
+  args: ReadonlyJSONValue | undefined,
+): { kind: "ok"; workspaceId: string } | { kind: "deny" } | { kind: "global" } {
+  // Anything under `workspace.*` MUST have a registered extractor and a
+  // resolvable workspaceId — otherwise we deny by default.
+  if (name.startsWith("workspace.")) {
+    const extractor = WORKSPACE_QUERY_EXTRACTORS[name];
+    if (!extractor) return { kind: "deny" };
+    const workspaceId = extractor(args);
+    if (!workspaceId) return { kind: "deny" };
+    return { kind: "ok", workspaceId };
   }
-  return null;
+  // Future namespaces with no workspace context (e.g. `user.preferences`)
+  // bypass workspace authz; per-query authz lives in the resolver itself.
+  return { kind: "global" };
 }
 
 export async function POST(request: NextRequest) {
@@ -100,9 +129,14 @@ export async function POST(request: NextRequest) {
 
   const requestedWorkspaceIds = [
     ...new Set(
-      queryRequests
-        .map((req) => extractWorkspaceId(req?.args as ReadonlyJSONValue))
-        .filter((id): id is string => typeof id === "string"),
+      queryRequests.flatMap((req) => {
+        const name = typeof req?.name === "string" ? req.name : "";
+        const decision = getWorkspaceIdForQuery(
+          name,
+          req?.args as ReadonlyJSONValue,
+        );
+        return decision.kind === "ok" ? [decision.workspaceId] : [];
+      }),
     ),
   ];
 
@@ -120,23 +154,29 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const deniedWorkspaceIds = requestedWorkspaceIds.filter(
+  const deniedCount = requestedWorkspaceIds.filter(
     (id) => !allowedWorkspaceIds.has(id),
-  );
+  ).length;
 
-  if (deniedWorkspaceIds.length > 0) {
-    console.warn("[zero/query] Denied workspace access for user", {
-      userId,
-      requestedWorkspaceIds,
-      deniedWorkspaceIds,
+  if (deniedCount > 0) {
+    // Counts only — raw user/workspace IDs are deliberately excluded from logs.
+    console.warn("[zero/query] Denied workspace access", {
+      requested: requestedWorkspaceIds.length,
+      denied: deniedCount,
     });
   }
 
   try {
     const result = await handleQueryRequest(
       (name, args) => {
-        const workspaceId = extractWorkspaceId(args);
-        if (workspaceId && !allowedWorkspaceIds.has(workspaceId)) {
+        const decision = getWorkspaceIdForQuery(name, args);
+        if (decision.kind === "deny") {
+          throw new Error(WORKSPACE_ACCESS_DENIED_ERROR);
+        }
+        if (
+          decision.kind === "ok" &&
+          !allowedWorkspaceIds.has(decision.workspaceId)
+        ) {
           // Per-query throw → Zero returns it as an `app` error for THIS query
           // only. Other queries in the same batch still resolve normally.
           throw new Error(WORKSPACE_ACCESS_DENIED_ERROR);

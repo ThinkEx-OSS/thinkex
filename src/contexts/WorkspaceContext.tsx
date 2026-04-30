@@ -100,7 +100,9 @@ export function WorkspaceProvider({
       queryKey: ["workspace-by-slug", currentSlug],
       queryFn: async () => {
         if (!currentSlug) return null;
-        const response = await fetch(`/api/workspaces/slug/${currentSlug}`);
+        const response = await fetch(
+          `/api/workspaces/slug/${encodeURIComponent(currentSlug)}`,
+        );
         if (!response.ok) {
           if (response.status === 404) return null;
           throw new Error("Failed to fetch workspace");
