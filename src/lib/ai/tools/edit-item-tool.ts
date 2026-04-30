@@ -19,7 +19,8 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
     return withSanitizedModelOutput(tool({
         description:
             "Edit a document, flashcard deck, quiz, or PDF. You must use workspace_read at least once before editing. " +
-            "TARGETED EDIT: provide edits array with one or more {oldText, newText} pairs. Each oldText must match exactly and uniquely in the original content. Copy from workspace_read as-is. When changing multiple separate sections, use one call with multiple edits[] entries instead of multiple calls. " +
+            "TARGETED EDIT: provide edits array with one or more {oldText, newText} pairs. Matches must be unique; whitespace/context fallbacks are supported. " +
+            "MULTI-EDIT: successful edits may still apply even if some fail; in that case response includes applied/failed details with success=false. " +
             "FULL REWRITE: single edit with oldText='' and newText=entire new content (quizzes: only the JSON). " +
             "RENAME ONLY: empty edits array [] with newName='new name'. " +
             "PDFs: RENAME ONLY — empty edits array with newName. " +
@@ -31,10 +32,10 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                         .string()
                         .describe("Name of the item to edit (document, flashcard deck, quiz, or PDF; matched by fuzzy search)"),
                     edits: z.array(z.object({
-                        oldText: z.string().describe("Exact text to find in the original content. Must be unique. Copy from workspace_read as-is."),
+                        oldText: z.string().describe("Text to find in original content. Must be unique."),
                         newText: z.string().describe("Replacement text for this edit."),
                     })).describe(
-                        "One or more targeted replacements. Each edit is matched against the original content, not incrementally. Do not include overlapping edits. If two changes touch the same block or nearby lines, merge them into one edit instead. For full rewrite: use a single edit with oldText='' and newText=entire new content."
+                        "One or more targeted replacements. Prefer non-overlapping edits. For full rewrite: use one edit with oldText='' and full newText."
                     ),
                     newName: z.string().optional().describe("Rename the item to this. If not provided, the existing name is preserved."),
                     sources: z

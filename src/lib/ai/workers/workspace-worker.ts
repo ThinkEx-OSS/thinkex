@@ -21,7 +21,8 @@ import {
   checkDuplicateName,
 } from "@/lib/workspace/mutation-helpers";
 import {
-  applyEdits,
+  applyEditsBestEffort,
+  type FailedEdit,
   trimDiff,
   normalizeLineEndings,
 } from "@/lib/utils/edit-replace";
@@ -221,6 +222,12 @@ async function updateWorkspaceItem(
       item: sanitizeWorkspaceItemForPersistence(updater(existing.item)),
     });
   });
+}
+
+function formatFailedEdits(failedEdits: FailedEdit[]): string {
+  return failedEdits
+    .map((f) => `edits[${f.index}]: ${f.reason}`)
+    .join(" | ");
 }
 
 async function deleteWorkspaceItem(workspaceId: string, itemId: string) {
@@ -645,6 +652,13 @@ export async function workspaceWorker(
           if (existingItem.type === "flashcard") {
             const data = existingItem.data as FlashcardData;
             const cards: FlashcardItem[] = data.cards ?? [];
+            let editDiagnostics:
+              | {
+                  appliedEditIndices: number[];
+                  failedEdits: FailedEdit[];
+                  hadFailures: boolean;
+                }
+              | undefined;
 
             const payload = {
               cards: cards.map((c) => ({
@@ -661,8 +675,14 @@ export async function workspaceWorker(
               ) {
                 serialized = params.edits![0].newText;
               } else {
-                const { newContent } = applyEdits(serialized, params.edits!);
+                const {
+                  newContent,
+                  appliedEditIndices,
+                  failedEdits,
+                  hadFailures,
+                } = applyEditsBestEffort(serialized, params.edits!);
                 serialized = newContent;
+                editDiagnostics = { appliedEditIndices, failedEdits, hadFailures };
               }
             }
 
@@ -720,10 +740,19 @@ export async function workspaceWorker(
             );
 
             return {
-              success: true,
+              success: !editDiagnostics?.hadFailures,
               itemId: params.itemId,
-              message: `Updated flashcard deck (${newCards.length} cards)`,
+              message: editDiagnostics?.hadFailures
+                ? `Updated flashcard deck (${newCards.length} cards) with partial edits. Applied ${editDiagnostics.appliedEditIndices.length} edit(s), failed ${editDiagnostics.failedEdits.length}: ${formatFailedEdits(editDiagnostics.failedEdits)}`
+                : `Updated flashcard deck (${newCards.length} cards)`,
               cardCount: newCards.length,
+              ...(editDiagnostics
+                ? {
+                    partialApplied: editDiagnostics.hadFailures,
+                    appliedEditIndices: editDiagnostics.appliedEditIndices,
+                    failedEdits: editDiagnostics.failedEdits,
+                  }
+                : {}),
             };
           }
 
@@ -731,6 +760,13 @@ export async function workspaceWorker(
             const data = existingItem.data as QuizData;
             const questions = data.questions ?? [];
             const payload = { questions };
+            let editDiagnostics:
+              | {
+                  appliedEditIndices: number[];
+                  failedEdits: FailedEdit[];
+                  hadFailures: boolean;
+                }
+              | undefined;
             let serialized = JSON.stringify(payload, null, 2);
             if (!isRenameOnly) {
               if (
@@ -739,8 +775,14 @@ export async function workspaceWorker(
               ) {
                 serialized = params.edits![0].newText;
               } else {
-                const { newContent } = applyEdits(serialized, params.edits!);
+                const {
+                  newContent,
+                  appliedEditIndices,
+                  failedEdits,
+                  hadFailures,
+                } = applyEditsBestEffort(serialized, params.edits!);
                 serialized = newContent;
+                editDiagnostics = { appliedEditIndices, failedEdits, hadFailures };
               }
             }
 
@@ -838,16 +880,32 @@ export async function workspaceWorker(
             );
 
             return {
-              success: true,
+              success: !editDiagnostics?.hadFailures,
               itemId: params.itemId,
-              message: `Updated quiz (${validatedQuestions.length} questions)`,
+              message: editDiagnostics?.hadFailures
+                ? `Updated quiz (${validatedQuestions.length} questions) with partial edits. Applied ${editDiagnostics.appliedEditIndices.length} edit(s), failed ${editDiagnostics.failedEdits.length}: ${formatFailedEdits(editDiagnostics.failedEdits)}`
+                : `Updated quiz (${validatedQuestions.length} questions)`,
               questionCount: validatedQuestions.length,
+              ...(editDiagnostics
+                ? {
+                    partialApplied: editDiagnostics.hadFailures,
+                    appliedEditIndices: editDiagnostics.appliedEditIndices,
+                    failedEdits: editDiagnostics.failedEdits,
+                  }
+                : {}),
             };
           }
 
           if (existingItem.type === "document") {
             const changes: Partial<Item> = {};
             const docData = existingItem.data as DocumentData;
+            let editDiagnostics:
+              | {
+                  appliedEditIndices: number[];
+                  failedEdits: FailedEdit[];
+                  hadFailures: boolean;
+                }
+              | undefined;
             if (rename) {
               const dupError = checkDuplicateName(
                 currentState,
@@ -876,8 +934,14 @@ export async function workspaceWorker(
                 contentNew = params.edits![0].newText;
               } else {
                 contentOld = normalizeLineEndings(docData.markdown ?? "");
-                const { newContent } = applyEdits(contentOld, params.edits!);
+                const {
+                  newContent,
+                  appliedEditIndices,
+                  failedEdits,
+                  hadFailures,
+                } = applyEditsBestEffort(contentOld, params.edits!);
                 contentNew = newContent;
+                editDiagnostics = { appliedEditIndices, failedEdits, hadFailures };
               }
               changes.data = {
                 markdown: contentNew,
@@ -929,14 +993,23 @@ export async function workspaceWorker(
             }
 
             return {
-              success: true,
+              success: !editDiagnostics?.hadFailures,
               itemId: params.itemId,
-              message: "Updated document successfully",
+              message: editDiagnostics?.hadFailures
+                ? `Updated document with partial edits. Applied ${editDiagnostics.appliedEditIndices.length} edit(s), failed ${editDiagnostics.failedEdits.length}: ${formatFailedEdits(editDiagnostics.failedEdits)}`
+                : "Updated document successfully",
               diff: diffOutput,
               filediff: {
                 additions: filediffAdditions,
                 deletions: filediffDeletions,
               },
+              ...(editDiagnostics
+                ? {
+                    partialApplied: editDiagnostics.hadFailures,
+                    appliedEditIndices: editDiagnostics.appliedEditIndices,
+                    failedEdits: editDiagnostics.failedEdits,
+                  }
+                : {}),
             };
           }
 

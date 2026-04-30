@@ -194,6 +194,23 @@ describe("createEditItemTool", () => {
     expect(result.message).toMatch(/occurrences/i);
   });
 
+  it("passes through partial-apply diagnostics when worker returns success=false", async () => {
+    mockWorkspaceWorker.mockResolvedValueOnce({
+      success: false,
+      message: "Applied 1 edit(s), failed 1",
+      partialApplied: true,
+      appliedEditIndices: [0],
+      failedEdits: [{ index: 1, reason: "Could not find edits[1]." }],
+    });
+    const tool: any = createEditItemTool(ctx);
+    const result = await tool.execute({ itemName: "My Document", edits: [{ oldText: "a", newText: "b" }] });
+
+    expect(result.success).toBe(false);
+    expect(result.partialApplied).toBe(true);
+    expect(result.appliedEditIndices).toEqual([0]);
+    expect(result.failedEdits).toEqual([{ index: 1, reason: "Could not find edits[1]." }]);
+  });
+
   it("rejects empty edits array without newName", async () => {
     const tool: any = createEditItemTool(ctx);
     const result = await tool.execute({ itemName: "My Document", edits: [] });
