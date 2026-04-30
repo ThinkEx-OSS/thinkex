@@ -71,34 +71,19 @@ function extractWorkspaceIdArg(
 }
 
 /**
- * Fail-closed authorization decision per query.
- *
- * Anything under `workspace.*` must be explicitly handled in the switch
- * below with a known argument shape — adding a new workspace-scoped query
- * without updating this function will (correctly) cause the route to deny
- * every instance of it rather than silently bypass authz.
- *
- * Implemented as a literal switch (not a lookup table) so CodeQL can see
- * the dispatch is bounded to the names listed here.
+ * Returns the workspaceId a query needs access to, or null to deny.
+ * Switch (not lookup table) keeps the dispatch bounded for CodeQL.
+ * New queries must be added here explicitly.
  */
-function getWorkspaceIdForQuery(
+function getRequiredWorkspaceId(
   name: string,
   args: ReadonlyJSONValue | undefined,
-): { kind: "ok"; workspaceId: string } | { kind: "deny" } | { kind: "global" } {
+): string | null {
   switch (name) {
-    case "workspace.items": {
-      const workspaceId = extractWorkspaceIdArg(args);
-      return workspaceId
-        ? { kind: "ok", workspaceId }
-        : { kind: "deny" };
-    }
+    case "workspace.items":
+      return extractWorkspaceIdArg(args);
     default:
-      // Anything else under workspace.* is unrecognized → deny.
-      // Other namespaces (e.g. `user.preferences`) skip workspace authz;
-      // per-query authz lives in those resolvers themselves.
-      return name.startsWith("workspace.")
-        ? { kind: "deny" }
-        : { kind: "global" };
+      return null;
   }
 }
 
@@ -120,13 +105,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Bad request" }, { status: 400 });
   }
 
-  // Zero query request body shape: `[tag, [{ id, name, args: [arg0, ...] }, ...]]`.
-  // Extract every workspaceId referenced so we can run a single batched access
-  // check before letting Zero resolve queries. We must NOT throw out of the
-  // outer scope on a single denied workspace — that would poison the whole
-  // batch. Instead we throw per-query inside the transformQuery callback;
-  // Zero turns those into per-query `app` errors and the rest of the batch
-  // still resolves.
+  // Body shape: `[tag, [{ id, name, args: [arg0, ...] }, ...]]`.
+  // Authz throws happen per-query inside the callback so a single denied
+  // workspace doesn't poison the whole batch.
   const queryRequests =
     Array.isArray(body) && body.length > 1 && Array.isArray(body[1])
       ? (body[1] as QueryRequest[])
@@ -136,11 +117,8 @@ export async function POST(request: NextRequest) {
     ...new Set(
       queryRequests.flatMap((req) => {
         const name = typeof req?.name === "string" ? req.name : "";
-        const decision = getWorkspaceIdForQuery(
-          name,
-          req?.args as ReadonlyJSONValue,
-        );
-        return decision.kind === "ok" ? [decision.workspaceId] : [];
+        const id = getRequiredWorkspaceId(name, req?.args as ReadonlyJSONValue);
+        return id ? [id] : [];
       }),
     ),
   ];
@@ -164,7 +142,6 @@ export async function POST(request: NextRequest) {
   ).length;
 
   if (deniedCount > 0) {
-    // Counts only — raw user/workspace IDs are deliberately excluded from logs.
     console.warn("[zero/query] Denied workspace access", {
       requested: requestedWorkspaceIds.length,
       denied: deniedCount,
@@ -174,16 +151,8 @@ export async function POST(request: NextRequest) {
   try {
     const result = await handleQueryRequest(
       (name, args) => {
-        const decision = getWorkspaceIdForQuery(name, args);
-        if (decision.kind === "deny") {
-          throw new Error(WORKSPACE_ACCESS_DENIED_ERROR);
-        }
-        if (
-          decision.kind === "ok" &&
-          !allowedWorkspaceIds.has(decision.workspaceId)
-        ) {
-          // Per-query throw → Zero returns it as an `app` error for THIS query
-          // only. Other queries in the same batch still resolve normally.
+        const workspaceId = getRequiredWorkspaceId(name, args);
+        if (!workspaceId || !allowedWorkspaceIds.has(workspaceId)) {
           throw new Error(WORKSPACE_ACCESS_DENIED_ERROR);
         }
         return mustGetQuery(queries, name).fn({ args, ctx });

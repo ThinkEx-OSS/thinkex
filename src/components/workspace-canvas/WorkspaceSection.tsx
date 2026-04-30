@@ -415,9 +415,7 @@ export function WorkspaceSection({
           </div>
         </ContextMenuTrigger>
 
-        {/* Right-Click Context Menu — only render mutation items when the
-            workspace is fully loaded; otherwise the menu would expose
-            create/upload actions that fail against a not-yet-ready store. */}
+        {/* Mutation items only when the workspace is ready. */}
         <ContextMenuContent className="w-56">
           {view.kind === "ready" &&
             renderWorkspaceMenuItems({

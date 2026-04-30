@@ -41,10 +41,8 @@ export function ZeroProvider({ children }: { children: ReactNode }) {
 
   const [resetVersion, setResetVersion] = useState(0);
 
-  // Tear down only on logout (non-null → null). User-swap (A → B) is handled
-  // inside `getZero`, which destroys the previous instance before creating the
-  // new one. Crucially, we do NOT destroy in an effect cleanup — StrictMode's
-  // double-invoke would close the live client while children still hold it.
+  // Logout-only teardown. User-swap is handled inside getZero. Don't destroy
+  // in an effect cleanup — StrictMode would close the live client mid-render.
   const prevUserIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (prevUserIdRef.current && !userId) void destroyZero();
@@ -61,8 +59,6 @@ export function ZeroProvider({ children }: { children: ReactNode }) {
   const status = useMemo<ZeroStatus>(
     () => ({
       isReady: !!zero,
-      // Await the old client's async close so the next useMemo doesn't
-      // create the replacement before the previous WebSocket has shut down.
       reset: async () => {
         await destroyZero();
         setResetVersion((v) => v + 1);
