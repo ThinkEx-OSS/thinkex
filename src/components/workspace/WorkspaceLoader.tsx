@@ -52,13 +52,12 @@ export function WorkspaceLoader() {
 const BENTO_TILES: ReadonlyArray<{ col: string; row: string }> = [
   { col: "lg:col-span-2", row: "row-span-3" },
   { col: "lg:col-span-1", row: "row-span-2" },
+  { col: "lg:col-span-1", row: "row-span-4" },
+  { col: "lg:col-span-1", row: "row-span-2" },
+  { col: "lg:col-span-3", row: "row-span-2" },
+  { col: "lg:col-span-2", row: "row-span-3" },
   { col: "lg:col-span-1", row: "row-span-3" },
   { col: "lg:col-span-1", row: "row-span-2" },
-  { col: "lg:col-span-2", row: "row-span-2" },
-  { col: "lg:col-span-1", row: "row-span-3" },
-  { col: "lg:col-span-2", row: "row-span-2" },
-  { col: "lg:col-span-1", row: "row-span-2" },
-  { col: "lg:col-span-1", row: "row-span-3" },
   { col: "lg:col-span-2", row: "row-span-2" },
 ];
 
@@ -66,7 +65,7 @@ export function WorkspaceCardsLoader() {
   return (
     <div className="size-full px-4 pt-6 sm:px-6">
       <div
-        className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+        className="grid grid-flow-row-dense grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
         style={{ gridAutoRows: "3.25rem" }}
       >
         {BENTO_TILES.map((tile, i) => (
