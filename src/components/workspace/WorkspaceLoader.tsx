@@ -2,10 +2,19 @@
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThreadLoadingSkeleton } from "@/components/chat/ThreadLoadingSkeleton";
+import { cn } from "@/lib/utils";
 import { THREAD_TOP_INSET } from "@/components/chat/thread-layout";
 import { PANEL_DEFAULTS } from "@/lib/layout-constants";
 import { useUIStore } from "@/lib/stores/ui-store";
 
+/** Must stay in sync with `WorkspaceGrid` rowHeight + GRID_MARGIN + default 1-col h. */
+const GRID_ROW_HEIGHT_PX = 25;
+const GRID_MARGIN_Y_PX = 16;
+/** Default single-column card height in grid rows (`grid-layout-helpers` h=4 for doc/folder/etc.). */
+const DEFAULT_CARD_GRID_ROWS = 4;
+const SKELETON_CARD_HEIGHT_PX =
+  DEFAULT_CARD_GRID_ROWS * GRID_ROW_HEIGHT_PX +
+  (DEFAULT_CARD_GRID_ROWS - 1) * GRID_MARGIN_Y_PX;
 /**
  * Full-shell skeleton: header bar + bento card grid + (when chat is open)
  * a chat-panel slot. Used by `ZeroProvider` while the session/Zero client
@@ -47,14 +56,31 @@ export function WorkspaceLoader() {
 
 /**
  * In-shell loader for `view.kind === "loading"` inside `WorkspaceSection`.
- * Uniform 1/2/3/4-column card grid at sm/md/lg.
+ * Padding/gap mirror `WorkspaceContent` + `WorkspaceGrid`: outer `py-4`,
+ * horizontal inset 16px (`px-4`, same as RGL `containerPadding` [16, 0]),
+ * `gap-4` (= 16px) like `GRID_MARGIN` [16, 16]. Tile height matches RGL’s
+ * pixel height for a default h=4 card (rowHeight×h + marginY×(h−1)). Ghost
+ * tiles use a flat muted fill (not solid `Skeleton` blocks).
  */
 export function WorkspaceCardsLoader() {
   return (
-    <div className="size-full px-4 pt-6 sm:px-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+    <div className="w-full py-4">
+      <div className="grid grid-cols-1 gap-4 px-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {Array.from({ length: 8 }).map((_, i) => (
-          <Skeleton key={i} className="h-44 rounded-xl" />
+          <div
+            key={i}
+            aria-hidden
+            className={cn(
+              "rounded-xl",
+              "border border-border/25 bg-muted/15",
+              "shadow-sm ring-1 ring-inset ring-foreground/[0.05]",
+              "animate-pulse",
+            )}
+            style={{
+              height: SKELETON_CARD_HEIGHT_PX,
+              animationDelay: `${i * 80}ms`,
+            }}
+          />
         ))}
       </div>
     </div>
