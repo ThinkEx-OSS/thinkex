@@ -32,9 +32,10 @@ export function useWorkspaceView(): WorkspaceView {
 
     if (currentSlug && !currentWorkspace) {
       if (loadingCurrentWorkspace) return { kind: "loading" };
-      return session?.user?.isAnonymous
-        ? { kind: "unauthenticated" }
-        : { kind: "denied" };
+      if (!session || session.user?.isAnonymous) {
+        return { kind: "unauthenticated" };
+      }
+      return { kind: "denied" };
     }
     if (!currentWorkspace) return { kind: "loading" };
 
