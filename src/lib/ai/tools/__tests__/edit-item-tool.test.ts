@@ -209,6 +209,7 @@ describe("createEditItemTool", () => {
     expect(result.partialApplied).toBe(true);
     expect(result.appliedEditIndices).toEqual([0]);
     expect(result.failedEdits).toEqual([{ index: 1, reason: "Could not find edits[1]." }]);
+    expect(result.itemName).toBe("My Document");
   });
 
   it("rejects empty edits array without newName", async () => {

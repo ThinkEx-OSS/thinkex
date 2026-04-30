@@ -109,6 +109,7 @@ function countOccurrences(content: string, oldText: string): number {
 }
 
 type Replacer = (content: string, find: string) => Iterable<string>;
+const CONTEXT_AWARE_SIMILARITY_THRESHOLD = 0.8;
 
 const simpleReplacer: Replacer = function* (_content, find) {
   yield find;
@@ -250,11 +251,13 @@ const contextAwareReplacer: Replacer = function* (content, find) {
           if (blockLine === findLine) matchingLines++;
         }
       }
-      if (totalNonEmptyLines === 0 || matchingLines / totalNonEmptyLines >= 0.5) {
+      if (
+        totalNonEmptyLines === 0 ||
+        matchingLines / totalNonEmptyLines >= CONTEXT_AWARE_SIMILARITY_THRESHOLD
+      ) {
         yield blockLines.join("\n");
         break;
       }
-      break;
     }
   }
 };
@@ -465,10 +468,7 @@ export function applyEditsBestEffort(content: string, edits: Edit[]): BestEffort
     }
     const prev = nonOverlapping[nonOverlapping.length - 1]!;
     if (prev.matchIndex + prev.matchLength > curr.matchIndex) {
-      failedEdits.push({
-        index: curr.editIndex,
-        reason: `edits[${prev.editIndex}] and edits[${curr.editIndex}] overlap. Merge them into one edit or target disjoint regions.`,
-      });
+      pending.add(curr.editIndex);
       continue;
     }
     nonOverlapping.push(curr);

@@ -153,7 +153,7 @@ export function createEditItemTool(ctx: WorkspaceToolContext) {
                     sources: input.sources,
                 });
 
-                if (workerResult.success) {
+                if (workerResult.success || (workerResult as { partialApplied?: boolean }).partialApplied) {
                     return {
                         ...workerResult,
                         itemName: newName ?? matchedItem.name,
