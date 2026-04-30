@@ -1,7 +1,6 @@
 "use client";
 
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
-import { Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,13 +32,36 @@ export function WorkspaceLoader() {
 
 /**
  * In-shell loader for `view.kind === "loading"` inside `WorkspaceSection`.
- * The header skeleton + chat panel already give the shell its frame; the
- * card area just needs a quiet spinner.
+ * Bento-style placeholder grid that mirrors the freeform card layout —
+ * 1/2/3/4 columns at sm/md/lg with mixed col/row spans.
  */
+const BENTO_TILES: ReadonlyArray<{ col: string; row: string }> = [
+  { col: "lg:col-span-2", row: "row-span-2" },
+  { col: "lg:col-span-1", row: "row-span-1" },
+  { col: "lg:col-span-1", row: "row-span-3" },
+  { col: "lg:col-span-1", row: "row-span-2" },
+  { col: "lg:col-span-2", row: "row-span-1" },
+  { col: "lg:col-span-1", row: "row-span-2" },
+  { col: "lg:col-span-2", row: "row-span-2" },
+  { col: "lg:col-span-1", row: "row-span-1" },
+  { col: "lg:col-span-1", row: "row-span-2" },
+  { col: "lg:col-span-2", row: "row-span-1" },
+];
+
 export function WorkspaceCardsLoader() {
   return (
-    <div className="flex min-h-full flex-1 items-center justify-center p-6">
-      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/60" />
+    <div className="size-full px-4 pt-6 sm:px-6">
+      <div
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+        style={{ gridAutoRows: "5rem" }}
+      >
+        {BENTO_TILES.map((tile, i) => (
+          <Skeleton
+            key={i}
+            className={`${tile.col} ${tile.row} rounded-xl`}
+          />
+        ))}
+      </div>
     </div>
   );
 }
