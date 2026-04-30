@@ -46,33 +46,14 @@ export function WorkspaceLoader() {
 
 /**
  * In-shell loader for `view.kind === "loading"` inside `WorkspaceSection`.
- * Bento-style placeholder grid that mirrors the freeform card layout —
- * 1/2/3/4 columns at sm/md/lg with mixed col/row spans.
+ * Uniform 1/2/3/4-column card grid at sm/md/lg.
  */
-const BENTO_TILES: ReadonlyArray<{ col: string; row: string }> = [
-  { col: "lg:col-span-2", row: "row-span-3" },
-  { col: "lg:col-span-1", row: "row-span-2" },
-  { col: "lg:col-span-1", row: "row-span-4" },
-  { col: "lg:col-span-1", row: "row-span-2" },
-  { col: "lg:col-span-3", row: "row-span-2" },
-  { col: "lg:col-span-2", row: "row-span-3" },
-  { col: "lg:col-span-1", row: "row-span-3" },
-  { col: "lg:col-span-1", row: "row-span-2" },
-  { col: "lg:col-span-2", row: "row-span-2" },
-];
-
 export function WorkspaceCardsLoader() {
   return (
     <div className="size-full px-4 pt-6 sm:px-6">
-      <div
-        className="grid grid-flow-row-dense grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
-        style={{ gridAutoRows: "3.25rem" }}
-      >
-        {BENTO_TILES.map((tile, i) => (
-          <Skeleton
-            key={i}
-            className={`${tile.col} ${tile.row} rounded-xl`}
-          />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Skeleton key={i} className="h-44 rounded-xl" />
         ))}
       </div>
     </div>
