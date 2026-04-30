@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mustGetQuery, type ReadonlyJSONValue } from "@rocicorp/zero";
 import { handleQueryRequest } from "@rocicorp/zero/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { workspaceCollaborators, workspaces } from "@/lib/db/schema";
@@ -16,36 +16,56 @@ type QueryRequest = {
   args?: readonly unknown[];
 };
 
-async function hasWorkspaceReadAccess(
-  workspaceId: string,
+/**
+ * Fetch the set of workspace IDs (out of `candidateIds`) that `userId` is allowed
+ * to read. Done in two batched queries (owner + collaborator) so we don't fan out
+ * to N round trips when Zero batches queries on the client.
+ */
+async function getAllowedWorkspaceIds(
+  candidateIds: readonly string[],
   userId: string,
-): Promise<boolean> {
-  const [workspace] = await db
-    .select({ ownerId: workspaces.userId })
-    .from(workspaces)
-    .where(eq(workspaces.id, workspaceId))
-    .limit(1);
-
-  if (!workspace) {
-    return false;
+): Promise<Set<string>> {
+  if (candidateIds.length === 0) {
+    return new Set();
   }
 
-  if (workspace.ownerId === userId) {
-    return true;
-  }
-
-  const [collaborator] = await db
-    .select({ id: workspaceCollaborators.id })
-    .from(workspaceCollaborators)
-    .where(
-      and(
-        eq(workspaceCollaborators.workspaceId, workspaceId),
-        eq(workspaceCollaborators.userId, userId),
+  const [ownedRows, collaboratorRows] = await Promise.all([
+    db
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .where(
+        and(eq(workspaces.userId, userId), inArray(workspaces.id, candidateIds)),
       ),
-    )
-    .limit(1);
+    db
+      .select({ id: workspaceCollaborators.workspaceId })
+      .from(workspaceCollaborators)
+      .where(
+        and(
+          eq(workspaceCollaborators.userId, userId),
+          inArray(workspaceCollaborators.workspaceId, candidateIds),
+        ),
+      ),
+  ]);
 
-  return !!collaborator;
+  const allowed = new Set<string>();
+  for (const row of ownedRows) allowed.add(row.id);
+  for (const row of collaboratorRows) allowed.add(row.id);
+  return allowed;
+}
+
+function extractWorkspaceId(args: ReadonlyJSONValue | undefined): string | null {
+  if (!Array.isArray(args)) return null;
+  const first = args[0];
+  if (
+    first &&
+    typeof first === "object" &&
+    !Array.isArray(first) &&
+    "workspaceId" in first &&
+    typeof (first as { workspaceId?: unknown }).workspaceId === "string"
+  ) {
+    return (first as { workspaceId: string }).workspaceId;
+  }
+  return null;
 }
 
 export async function POST(request: NextRequest) {
@@ -58,87 +78,77 @@ export async function POST(request: NextRequest) {
   const userId = session.user.id;
   const ctx = { userId };
 
+  let body: unknown;
   try {
-    /**
-     * `handleQueryRequest` calls the `TransformQueryFunction` callback
-     * synchronously, so we cannot do async workspace access checks inside that
-     * callback. We must extract workspace IDs up front and verify access before
-     * handing the request to Zero.
-     *
-     * Zero query request bodies are encoded as:
-     * `[tag, [{ id, name, args: [arg0, ...] }, ...]]`.
-     */
-    const body = (await request.json()) as unknown;
-    const queryRequests =
-      Array.isArray(body) && body.length > 1 && Array.isArray(body[1])
-        ? (body[1] as QueryRequest[])
-        : [];
+    body = await request.json();
+  } catch (error) {
+    console.error("[zero/query] Failed to parse body:", error);
+    return NextResponse.json({ error: "Bad request" }, { status: 400 });
+  }
 
-    if (queryRequests.length === 0) {
-      console.warn(
-        "Zero query request body did not match expected protocol format",
-        { body },
-      );
-    }
+  // Zero query request body shape: `[tag, [{ id, name, args: [arg0, ...] }, ...]]`.
+  // Extract every workspaceId referenced so we can run a single batched access
+  // check before letting Zero resolve queries. We must NOT throw out of the
+  // outer scope on a single denied workspace — that would poison the whole
+  // batch. Instead we throw per-query inside the transformQuery callback;
+  // Zero turns those into per-query `app` errors and the rest of the batch
+  // still resolves.
+  const queryRequests =
+    Array.isArray(body) && body.length > 1 && Array.isArray(body[1])
+      ? (body[1] as QueryRequest[])
+      : [];
 
-    const workspaceIds = [
-      ...new Set(
-        queryRequests.flatMap((queryRequest) => {
-          if (!queryRequest || typeof queryRequest !== "object") {
-            return [];
-          }
+  const requestedWorkspaceIds = [
+    ...new Set(
+      queryRequests
+        .map((req) => extractWorkspaceId(req?.args as ReadonlyJSONValue))
+        .filter((id): id is string => typeof id === "string"),
+    ),
+  ];
 
-          const args = Array.isArray(queryRequest.args)
-            ? queryRequest.args
-            : [];
-          const firstArg = args?.[0];
+  let allowedWorkspaceIds = new Set<string>();
+  try {
+    allowedWorkspaceIds = await getAllowedWorkspaceIds(
+      requestedWorkspaceIds,
+      userId,
+    );
+  } catch (error) {
+    console.error("[zero/query] Access check failed:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
+  }
 
-          if (
-            firstArg &&
-            typeof firstArg === "object" &&
-            "workspaceId" in firstArg &&
-            typeof firstArg.workspaceId === "string"
-          ) {
-            return [firstArg.workspaceId];
-          }
+  const deniedWorkspaceIds = requestedWorkspaceIds.filter(
+    (id) => !allowedWorkspaceIds.has(id),
+  );
 
-          if (args.length > 0) {
-            console.warn("Zero query request args missing workspaceId", {
-              queryRequest,
-            });
-          }
+  if (deniedWorkspaceIds.length > 0) {
+    console.warn("[zero/query] Denied workspace access for user", {
+      userId,
+      requestedWorkspaceIds,
+      deniedWorkspaceIds,
+    });
+  }
 
-          return [];
-        }),
-      ),
-    ];
-
-    // When workspace IDs are found, verify access. When none are found
-    // (e.g. Zero's initial connection handshake), pass through to
-    // handleQueryRequest — it will resolve the queries or return errors
-    // for any that require args.
-    for (const workspaceId of workspaceIds) {
-      const hasAccess = await hasWorkspaceReadAccess(workspaceId, userId);
-      if (!hasAccess) {
-        throw new Error(WORKSPACE_ACCESS_DENIED_ERROR);
-      }
-    }
-
+  try {
     const result = await handleQueryRequest(
-      (name, args) => mustGetQuery(queries, name).fn({ args, ctx }),
+      (name, args) => {
+        const workspaceId = extractWorkspaceId(args);
+        if (workspaceId && !allowedWorkspaceIds.has(workspaceId)) {
+          // Per-query throw → Zero returns it as an `app` error for THIS query
+          // only. Other queries in the same batch still resolve normally.
+          throw new Error(WORKSPACE_ACCESS_DENIED_ERROR);
+        }
+        return mustGetQuery(queries, name).fn({ args, ctx });
+      },
       schema,
       body as ReadonlyJSONValue,
     );
 
     return NextResponse.json(result);
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message === WORKSPACE_ACCESS_DENIED_ERROR
-    ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     console.error("[zero/query] Unhandled error:", error);
     return NextResponse.json(
       { error: "Internal server error" },

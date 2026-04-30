@@ -1,59 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, workspaces } from "@/lib/db/client";
 import { eq, and, ne } from "drizzle-orm";
-import { loadWorkspaceState } from "@/lib/workspace/workspace-state-read";
 import {
   requireAuth,
   verifyWorkspaceOwnership,
-  verifyWorkspaceAccess,
   withErrorHandling,
 } from "@/lib/api/workspace-helpers";
 import { generateSlug } from "@/lib/workspace/slug";
-
-/**
- * GET /api/workspaces/[id]
- * Get a specific workspace with its state
- * Supports owner and collaborators
- */
-async function handleGET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  // Start independent operations in parallel
-  const paramsPromise = params;
-  const authPromise = requireAuth();
-
-  const { id } = await paramsPromise;
-  const userId = await authPromise;
-
-  // Check access (owner or collaborator)
-  const accessInfo = await verifyWorkspaceAccess(id, userId, "viewer");
-
-  // Get workspace data
-  const [workspace] = await db
-    .select()
-    .from(workspaces)
-    .where(eq(workspaces.id, id))
-    .limit(1);
-
-  if (!workspace) {
-    return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
-  }
-
-  // Get current workspace state from projection tables
-  const state = await loadWorkspaceState(id, { userId });
-
-  return NextResponse.json({
-    workspace: {
-      ...workspace,
-      state,
-      isShared: !accessInfo.isOwner,
-      permissionLevel: accessInfo.permissionLevel,
-    },
-  });
-}
-
-export const GET = withErrorHandling(handleGET, "GET /api/workspaces/[id]");
 
 /**
  * PATCH /api/workspaces/[id]

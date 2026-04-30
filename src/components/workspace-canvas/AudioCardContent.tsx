@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
+import { useCurrentWorkspaceId } from "@/contexts/WorkspaceContext";
 import {
   Mic,
   AlertCircle,
@@ -71,7 +71,7 @@ export function AudioCardContent({
   isCompact = false,
   isScrollLocked = false,
 }: AudioCardContentProps) {
-  const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+  const workspaceId = useCurrentWorkspaceId();
   const audioData = item.data as AudioData;
   const [isRetrying, setIsRetrying] = useState(false);
 

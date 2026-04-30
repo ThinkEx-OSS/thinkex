@@ -16,13 +16,15 @@ import {
 } from "@/lib/workspace-state/search";
 import { getCardTypeIcon } from "@/components/chat/WorkspaceItemPicker";
 import { useUIStore } from "@/lib/stores/ui-store";
+import { useWorkspaceView } from "@/hooks/workspace/use-workspace-view";
+
+const EMPTY_ITEMS: Item[] = [];
 
 interface WorkspaceSearchDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   items: Item[];
   currentWorkspaceId: string | null;
-  isLoadingWorkspace: boolean;
 }
 
 export function WorkspaceSearchDialog({
@@ -30,14 +32,15 @@ export function WorkspaceSearchDialog({
   onOpenChange,
   items,
   currentWorkspaceId,
-  isLoadingWorkspace,
 }: WorkspaceSearchDialogProps) {
+  const view = useWorkspaceView();
+  const isLoadingWorkspace = view.kind === "loading";
   const [query, setQuery] = useState("");
   const navigateToFolder = useUIStore((state) => state.navigateToFolder);
   const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
   const openWorkspaceItem = useUIStore((state) => state.openWorkspaceItem);
 
-  const safeItems = items ?? [];
+  const safeItems = items ?? EMPTY_ITEMS;
 
   // Reset query when workspace changes
   useEffect(() => {

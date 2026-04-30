@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
+import { useWorkspaceItems } from "@/hooks/workspace/use-workspace-items";
 import type { ChatToolUIProps } from "@/lib/chat/tool-ui-types";
 import { X, Eye, FolderInput, FileText } from "lucide-react";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
+import { useCurrentWorkspaceId } from "@/contexts/WorkspaceContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import MoveToDialog from "@/components/modals/MoveToDialog";
@@ -52,8 +52,7 @@ const CreateDocumentReceipt = ({
   workspaceIcon,
   workspaceColor,
 }: CreateDocumentReceiptProps) => {
-  const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-  const { state: workspaceState } = useWorkspaceState(workspaceId);
+  const workspaceState = useWorkspaceItems();
   const navigateToItem = useNavigateToItem();
   const openWorkspaceItem = useUIStore((state) => state.openWorkspaceItem);
   const [showMoveDialog, setShowMoveDialog] = useState(false);
@@ -191,8 +190,8 @@ function CreateDocumentToolRenderer({
   result,
   status,
 }: CreateDocumentToolRendererProps) {
-  const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-  const { state: workspaceState } = useWorkspaceState(workspaceId);
+  const workspaceId = useCurrentWorkspaceId();
+  const workspaceState = useWorkspaceItems();
   const operations = useWorkspaceOperations(
     workspaceId,
     workspaceState || initialItems,

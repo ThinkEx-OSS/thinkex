@@ -2,8 +2,7 @@
 
 import { useCallback } from "react";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
+import { useWorkspaceItems } from "@/hooks/workspace/use-workspace-items";
 import { toast } from "sonner";
 
 let activeCleanup: (() => void) | null = null;
@@ -12,8 +11,7 @@ let activeCleanup: (() => void) | null = null;
  * Hook that provides a function to navigate to and highlight an item in the workspace.
  */
 export function useNavigateToItem() {
-    const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-    const { state: workspaceState } = useWorkspaceState(workspaceId);
+    const workspaceState = useWorkspaceItems();
     const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
 
     const navigateToItem = useCallback(

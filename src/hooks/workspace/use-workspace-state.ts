@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@rocicorp/zero/react";
 import { rehydrateWorkspaceItem } from "@/lib/workspace/workspace-item-model";
 import type { WorkspaceItemContentProjection } from "@/lib/workspace/workspace-item-model-types";
@@ -15,13 +15,51 @@ type WorkspaceItemQueryRow = WorkspaceItemsRow & {
     | WorkspaceItemContentRow;
 };
 
-export function useWorkspaceState(workspaceId: string | null) {
-  const [rawRows, status] = useQuery(
+const LOADING_TIMEOUT_MS = 8_000;
+
+export type WorkspaceStateStatus =
+  | "idle" // no workspaceId yet
+  | "loading" // Zero hasn't returned a result
+  | "ready" // results in hand (possibly empty)
+  | "error" // Zero reported an error
+  | "timeout"; // still in 'unknown' after LOADING_TIMEOUT_MS
+
+export interface UseWorkspaceStateResult {
+  state: Item[];
+  status: WorkspaceStateStatus;
+  isLoading: boolean;
+  isReady: boolean;
+  error: Error | null;
+}
+
+export function useWorkspaceState(
+  workspaceId: string | null,
+): UseWorkspaceStateResult {
+  const [rawRows, queryStatus] = useQuery(
     workspaceId ? queries.workspace.items({ workspaceId }) : null,
   );
   const rows = rawRows as unknown as
     | readonly WorkspaceItemQueryRow[]
     | undefined;
+
+  const [timedOut, setTimedOut] = useState(false);
+
+  // Reset the timer whenever workspace or query status changes.
+  useEffect(() => {
+    setTimedOut(false);
+    if (!workspaceId) return;
+    if (queryStatus.type !== "unknown") return;
+
+    const timer = setTimeout(() => setTimedOut(true), LOADING_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [workspaceId, queryStatus.type]);
+
+  const status = useMemo<WorkspaceStateStatus>(() => {
+    if (!workspaceId) return "idle";
+    if (queryStatus.type === "error") return "error";
+    if (queryStatus.type === "unknown") return timedOut ? "timeout" : "loading";
+    return "ready";
+  }, [workspaceId, queryStatus.type, timedOut]);
 
   const state = useMemo<Item[]>(() => {
     if (!rows) {
@@ -66,18 +104,20 @@ export function useWorkspaceState(workspaceId: string | null) {
   }, [rows]);
 
   const error = useMemo(() => {
-    if (status.type !== "error") {
-      return null;
+    if (queryStatus.type === "error") {
+      return new Error(queryStatus.error.message);
     }
-
-    return new Error(status.error.message);
-  }, [status]);
+    if (status === "timeout") {
+      return new Error("Workspace data timed out");
+    }
+    return null;
+  }, [queryStatus, status]);
 
   return {
     state,
-    isLoading: Boolean(workspaceId) && status.type === "unknown",
+    status,
+    isLoading: status === "loading",
+    isReady: status === "ready",
     error,
-    version: 0,
-    refetch: async () => {},
   };
 }

@@ -2,11 +2,11 @@
 
 import type { MouseEvent, ReactNode } from "react";
 import { useEffect, useState, useMemo } from "react";
-import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
+import { useWorkspaceItems } from "@/hooks/workspace/use-workspace-items";
 import type { ChatToolUIProps } from "@/lib/chat/tool-ui-types";
 import { X, Eye, FolderInput, Brain } from "lucide-react";
 import { logger } from "@/lib/utils/logger";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
+import { useCurrentWorkspaceId } from "@/contexts/WorkspaceContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import MoveToDialog from "@/components/modals/MoveToDialog";
@@ -53,8 +53,7 @@ const CreateQuizReceipt = ({
   workspaceIcon,
   workspaceColor,
 }: CreateQuizReceiptProps) => {
-  const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-  const { state: workspaceState } = useWorkspaceState(workspaceId);
+  const workspaceState = useWorkspaceItems();
   const navigateToItem = useNavigateToItem();
 
   // State for MoveToDialog
@@ -210,8 +209,8 @@ function CreateQuizToolRenderer({
   result,
   status,
 }: CreateQuizToolRendererProps) {
-  const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-  const { state: workspaceState } = useWorkspaceState(workspaceId);
+  const workspaceId = useCurrentWorkspaceId();
+  const workspaceState = useWorkspaceItems();
   const operations = useWorkspaceOperations(
     workspaceId,
     workspaceState || initialItems,

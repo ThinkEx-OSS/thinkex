@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
+import { useCurrentWorkspaceId } from "@/contexts/WorkspaceContext";
 import { Plus, Upload } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import type { Item, CardType } from "@/lib/workspace-state/types";
@@ -62,7 +62,7 @@ export default function WorkspaceContent({
   onItemCreated,
 }: WorkspaceContentProps) {
   const queryClient = useQueryClient();
-  const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+  const workspaceId = useCurrentWorkspaceId();
 
   const localScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef =

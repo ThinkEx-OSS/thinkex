@@ -1,11 +1,11 @@
 "use client";
 
 import { useDropzone } from "react-dropzone";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
+import { useCurrentWorkspaceId } from "@/contexts/WorkspaceContext";
+import { useWorkspaceItems } from "@/hooks/workspace/use-workspace-items";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import { CgNotes } from "react-icons/cg";
-import { useCallback, useState, useRef, useEffect } from "react";
+import { useCallback, useState, useRef } from "react";
 import { toast } from "sonner";
 import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import { useReactiveNavigation } from "@/hooks/ui/use-reactive-navigation";
@@ -39,8 +39,8 @@ interface WorkspaceCanvasDropzoneProps {
  * Accepts supported workspace files and creates corresponding cards when dropped.
  */
 export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzoneProps) {
-  const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-  const { state: workspaceState } = useWorkspaceState(currentWorkspaceId);
+  const currentWorkspaceId = useCurrentWorkspaceId();
+  const workspaceState = useWorkspaceItems();
   const operations = useWorkspaceOperations(currentWorkspaceId, workspaceState);
   const [isDragging, setIsDragging] = useState(false);
 

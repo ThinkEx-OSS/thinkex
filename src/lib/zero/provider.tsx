@@ -1,70 +1,97 @@
 "use client";
 
-import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { ZeroProvider as BaseZeroProvider } from "@rocicorp/zero/react";
-import type { ReactNode } from "react";
-import { useEffect, useMemo } from "react";
-import { useTheme } from "next-themes";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useSession } from "@/lib/auth-client";
 import { getZeroConfigError } from "@/lib/self-host-config";
+import { WorkspaceLoader } from "@/components/workspace/WorkspaceLoader";
 import { destroyZero, getZero } from "./client";
 
-/** Same ThinkEx animation as chat “Thinking…” — shown while session / Zero client bootstrap. */
-function ZeroBootstrapLottie() {
-  const { resolvedTheme } = useTheme();
-  const lottieSrc =
-    resolvedTheme === "light" ? "/thinkexlight.lottie" : "/logo.lottie";
+interface ZeroStatus {
+  isReady: boolean;
+  reset: () => void;
+}
 
-  return (
-    <div className="grid min-h-dvh w-full flex-1 place-items-center">
-      <DotLottieReact
-        src={lottieSrc}
-        loop
-        autoplay
-        mode="bounce"
-        className="h-16 w-16 shrink-0"
-      />
-    </div>
-  );
+const ZeroStatusContext = createContext<ZeroStatus | null>(null);
+
+export function useZeroStatus(): ZeroStatus {
+  const ctx = useContext(ZeroStatusContext);
+  if (!ctx) throw new Error("useZeroStatus must be used within ZeroProvider");
+  return ctx;
+}
+
+/** Recreate the Zero client for the current user (UI retry path). */
+export function useZeroReset(): () => void {
+  return useZeroStatus().reset;
 }
 
 export function ZeroProvider({ children }: { children: ReactNode }) {
   const { data: session, isPending } = useSession();
   const userId = session?.user?.id ?? null;
-  const zeroConfigError = getZeroConfigError();
+  const configError = getZeroConfigError();
 
+  const [resetVersion, setResetVersion] = useState(0);
+
+  // Tear down only on logout (non-null → null). User-swap (A → B) is handled
+  // inside `getZero`, which destroys the previous instance before creating the
+  // new one. Crucially, we do NOT destroy in an effect cleanup — StrictMode's
+  // double-invoke would close the live client while children still hold it.
+  const prevUserIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!userId) {
-      destroyZero();
-    }
+    if (prevUserIdRef.current && !userId) destroyZero();
+    prevUserIdRef.current = userId;
   }, [userId]);
 
-  const zero = useMemo(() => {
-    if (zeroConfigError || !userId) {
-      return null;
-    }
+  const zero = useMemo(
+    () => (configError || !userId ? null : getZero({ userId })),
+    // resetVersion is intentional: bumping it forces a new client after reset().
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [userId, configError, resetVersion],
+  );
 
-    return getZero({ userId });
-  }, [userId, zeroConfigError]);
+  const status = useMemo<ZeroStatus>(
+    () => ({
+      isReady: !!zero,
+      reset: () => {
+        destroyZero();
+        setResetVersion((v) => v + 1);
+      },
+    }),
+    [zero],
+  );
 
-  if (zeroConfigError) {
+  if (configError) {
     return (
       <div className="flex h-full w-full items-center justify-center p-6">
         <div className="max-w-md rounded-xl border bg-background p-5 text-sm text-muted-foreground shadow-sm">
-          <p className="font-medium text-foreground">Zero is required for local development.</p>
-          <p className="mt-2">
-            {zeroConfigError}
+          <p className="font-medium text-foreground">
+            Zero is required for local development.
           </p>
+          <p className="mt-2">{configError}</p>
         </div>
       </div>
     );
   }
 
   if (isPending || !zero) {
-    // Avoid blank flash during session check / anonymous session creation.
-    // We cannot render children here — they use useQuery from @rocicorp/zero/react.
-    return <ZeroBootstrapLottie />;
+    return (
+      <ZeroStatusContext.Provider value={status}>
+        <WorkspaceLoader />
+      </ZeroStatusContext.Provider>
+    );
   }
 
-  return <BaseZeroProvider zero={zero}>{children}</BaseZeroProvider>;
+  return (
+    <ZeroStatusContext.Provider value={status}>
+      <BaseZeroProvider zero={zero}>{children}</BaseZeroProvider>
+    </ZeroStatusContext.Provider>
+  );
 }
