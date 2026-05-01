@@ -66,17 +66,6 @@ export function HomeAttachmentCards({
               <>
                 <Skeleton className="size-5 shrink-0 rounded" />
                 <Skeleton className="h-4 flex-1 min-w-[60px]" />
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemoveFile(i);
-                  }}
-                  className="ml-1 shrink-0 rounded p-0.5 hover:bg-muted"
-                  aria-label="Remove file"
-                >
-                  <X className="size-3.5" />
-                </button>
               </>
             ) : (
               <>
@@ -90,19 +79,19 @@ export function HomeAttachmentCards({
                 <span className="truncate text-sm" title={displayName}>
                   {truncateText(displayName, 24)}
                 </span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemoveFile(i);
-                  }}
-                  className="ml-1 shrink-0 rounded p-0.5 hover:bg-muted"
-                  aria-label="Remove file"
-                >
-                  <X className="size-3.5" />
-                </button>
               </>
             )}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemoveFile(i);
+              }}
+              className="ml-1 shrink-0 rounded p-0.5 hover:bg-muted"
+              aria-label="Remove file"
+            >
+              <X className="size-3.5" />
+            </button>
           </div>
         );
       })}
