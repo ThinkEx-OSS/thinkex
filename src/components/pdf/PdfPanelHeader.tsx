@@ -28,6 +28,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Kbd } from "@/components/ui/kbd";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -243,6 +244,17 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
     };
   }, [captureState.isMarqueeCaptureActive]);
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        captureRef.current?.toggleMarqueeCapture();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const zoomPercent = zoomState?.currentZoomLevel
     ? Math.round(zoomState.currentZoomLevel * 100)
     : 100;
@@ -270,8 +282,8 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
       </TooltipTrigger>
       <TooltipContent>
         {captureState.isMarqueeCaptureActive
-          ? "Cancel capture (Esc)"
-          : "Capture Area"}
+          ? <>Cancel capture <Kbd className="ml-1">Esc</Kbd></>
+          : <>Capture Area <Kbd className="ml-1">{formatKeyboardShortcut("C", true)}</Kbd></>}
       </TooltipContent>
     </Tooltip>
   );
