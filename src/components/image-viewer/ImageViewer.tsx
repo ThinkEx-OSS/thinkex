@@ -389,6 +389,7 @@ export default function ImageViewer({
           minScale={0.1}
           maxScale={10}
           centerOnInit={true}
+          smooth={true}
           wheel={{ step: 0.03 }}
           doubleClick={{ mode: "reset" }}
           panning={{ disabled: isCapturing }}
