@@ -125,7 +125,7 @@ async function rotateCaptureBlob(
 }
 
 // Track mounted PdfPanelHeader instances so only the most recent one
-// responds to the global Cmd+Shift+C shortcut (avoids firing on every
+// responds to the global Cmd+Shift+X shortcut (avoids firing on every
 // panel when multiple PDFs are open).
 const _mountedPanelStack: string[] = [];
 
@@ -269,7 +269,7 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
         target instanceof HTMLElement &&
         target.closest("input, textarea, select, [contenteditable='true']")
       ) return;
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "c") {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "x") {
         e.preventDefault();
         captureRef.current?.toggleMarqueeCapture();
       }
@@ -305,8 +305,8 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
       </TooltipTrigger>
       <TooltipContent>
         {captureState.isMarqueeCaptureActive
-          ? <>Cancel capture <Kbd className="ml-1">Esc</Kbd> <Kbd>{formatKeyboardShortcut("C", true)}</Kbd></>
-          : <>Capture Area <Kbd className="ml-1">{formatKeyboardShortcut("C", true)}</Kbd></>}
+          ? <>Cancel capture <Kbd className="ml-1">Esc</Kbd> <Kbd>{formatKeyboardShortcut("X", true)}</Kbd></>
+          : <>Capture Area <Kbd className="ml-1">{formatKeyboardShortcut("X", true)}</Kbd></>}
       </TooltipContent>
     </Tooltip>
   );
