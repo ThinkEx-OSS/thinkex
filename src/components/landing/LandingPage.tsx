@@ -6,7 +6,6 @@ import { useTheme } from "next-themes";
 import { ThinkExLogo } from "@/components/ui/thinkex-logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 const VIDEO_BASE =
   "https://uxcoymwbfcbvkgwbhttq.supabase.co/storage/v1/object/public/video";
@@ -74,6 +73,7 @@ function AutoplayVideo({
 
   return (
     <video
+      key={src}
       ref={videoRef}
       src={src}
       poster={poster}

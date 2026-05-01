@@ -6,11 +6,12 @@ import { LandingPage } from "@/components/landing/LandingPage";
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
+  let session = null;
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
-    if (session) redirect("/home");
+    session = await auth.api.getSession({ headers: await headers() });
   } catch {
-    // If auth check fails, show landing page
+    // Auth check failed, show landing page
   }
+  if (session) redirect("/home");
   return <LandingPage />;
 }
