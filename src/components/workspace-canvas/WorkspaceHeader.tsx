@@ -1104,7 +1104,7 @@ export function WorkspaceHeader({
         {activeOpenWorkspaceItem ? (
           // Item open: show type-specific header actions (aligned with breadcrumbs)
           <div className="flex shrink-0 items-center gap-2 pointer-events-auto">
-            {activeOpenWorkspaceItem.type === "pdf" && (
+            {(activeOpenWorkspaceItem.type === "pdf" || activeOpenWorkspaceItem.type === "image") && (
               <div
                 id="workspace-header-portal"
                 className="flex items-center gap-2"
@@ -1197,7 +1197,7 @@ export function WorkspaceHeader({
               </DropdownMenu>
             )}
 
-            {activeOpenWorkspaceItem.type === "pdf" && (
+            {(activeOpenWorkspaceItem.type === "pdf" || activeOpenWorkspaceItem.type === "image") && (
               <div
                 id="workspace-header-portal-right"
                 className="flex items-center gap-2"

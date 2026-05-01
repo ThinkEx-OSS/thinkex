@@ -163,6 +163,7 @@
     "react-quizlet-flashcard": "^4.0.22",
     "react-resizable-panels": "^4.9.0",
     "react-shiki": "^0.9.1",
+    "react-zoom-pan-pinch": "^4.0.3",
     "regenerator-runtime": "^0.14.1",
     "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",

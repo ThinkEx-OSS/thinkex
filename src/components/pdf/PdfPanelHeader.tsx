@@ -41,6 +41,7 @@ import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useOptionalComposerActions } from "@/lib/stores/composer-actions-store";
 import { toast } from "sonner";
+import { rotateCaptureBlob, addCaptureToChat } from "@/lib/capture/capture-utils";
 
 // PDF Plugin imports
 import { useZoom, ZoomMode } from "@embedpdf/plugin-zoom/react";
@@ -61,67 +62,6 @@ interface PdfPanelHeaderProps {
   showThumbnails: boolean;
   onToggleThumbnails: () => void;
   renderInPortal?: boolean;
-}
-
-/**
- * Rotate a captured image blob to match the orientation the user sees in the viewer.
- *
- * The embedpdf capture plugin renders `renderPageRect` with rotation=0, so for any page
- * whose effective viewer rotation is non-zero (either page.rotation from the PDF itself —
- * common for landscape pages encoded as portrait + 90° — or a user-applied rotation via
- * the rotate plugin), the produced bitmap is in the unrotated PDF coordinate space and
- * looks sideways relative to what the user marqueed. This re-encodes it to match.
- */
-async function rotateCaptureBlob(
-  blob: Blob,
-  rotation: number,
-  type: string,
-): Promise<Blob> {
-  const r = ((rotation % 4) + 4) % 4;
-  if (r === 0) return blob;
-
-  const bitmap = await createImageBitmap(blob);
-  try {
-    const w = bitmap.width;
-    const h = bitmap.height;
-    const swap = r === 1 || r === 3;
-
-    const canvas = document.createElement("canvas");
-    canvas.width = swap ? h : w;
-    canvas.height = swap ? w : h;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Failed to get 2D canvas context");
-
-    // Match the CSS transform applied by @embedpdf/plugin-rotate: 1=90°CW, 2=180°, 3=270°CW.
-    switch (r) {
-      case 1:
-        ctx.translate(h, 0);
-        ctx.rotate(Math.PI / 2);
-        break;
-      case 2:
-        ctx.translate(w, h);
-        ctx.rotate(Math.PI);
-        break;
-      case 3:
-        ctx.translate(0, w);
-        ctx.rotate(-Math.PI / 2);
-        break;
-    }
-    ctx.drawImage(bitmap, 0, 0);
-
-    return await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (b) =>
-          b
-            ? resolve(b)
-            : reject(new Error("Failed to encode rotated capture")),
-        type || "image/png",
-      );
-    });
-  } finally {
-    bitmap.close();
-  }
 }
 
 // Track mounted PdfPanelHeader instances so only the most recent one
@@ -205,24 +145,9 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
           result.imageType,
         );
 
-        // Convert blob to File
         const filename = `capture-page-${result.pageIndex + 1}-${Date.now()}.png`;
-        const file = new File([orientedBlob], filename, {
-          type: result.imageType,
-        });
-
-        // Add attachment to composer
-        const promptInput = promptInputRef.current;
-        if (!promptInput) {
-          throw new Error("Chat composer not ready");
-        }
-        await promptInput.addAttachments([file]);
-        toast.success("Screenshot added to chat");
-
-        // Turn off capture mode
+        await addCaptureToChat(orientedBlob, filename, result.imageType, promptInputRef.current);
         captureRef.current?.toggleMarqueeCapture();
-
-        promptInput.focusInput({ cursorAtEnd: true });
       } catch (error) {
         console.error("Failed to add capture attachment:", error);
         toast.error("Failed to add screenshot");
