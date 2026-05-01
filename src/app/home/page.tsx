@@ -7,7 +7,6 @@ import { headers } from "next/headers";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  let showDemoVideo = true;
   let initialAuth: InitialAuth = {
     isAnonymous: true,
     userName: null,
@@ -23,19 +22,15 @@ export default async function HomePage() {
     });
 
     if (session?.user.isAnonymous) {
-      const workspaceList = await listWorkspacesForUser(session.user.id);
-      showDemoVideo = workspaceList.length === 0;
-      initialWorkspaces = workspaceList;
+      initialWorkspaces = await listWorkspacesForUser(session.user.id);
     } else if (session) {
-      showDemoVideo = false;
       initialAuth = {
         isAnonymous: false,
         userName: session.user.name || null,
         userImage: session.user.image || null,
       };
       try {
-        const workspaceList = await listWorkspacesForUser(session.user.id);
-        initialWorkspaces = workspaceList;
+        initialWorkspaces = await listWorkspacesForUser(session.user.id);
       } catch (error) {
         console.error("[home] Failed to fetch workspaces:", error);
       }
@@ -46,7 +41,6 @@ export default async function HomePage() {
 
   return (
     <HomeShell
-      showDemoVideo={showDemoVideo}
       initialAuth={initialAuth}
       initialWorkspaces={initialWorkspaces}
     />
