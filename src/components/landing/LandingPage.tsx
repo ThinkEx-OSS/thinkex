@@ -138,7 +138,19 @@ export function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section className="flex flex-col items-center px-6 pt-10 pb-16 md:pt-16 md:pb-20">
+      <section className="relative flex flex-col items-center px-6 pt-10 pb-16 md:pt-16 md:pb-20 overflow-hidden">
+        {/* Floating file icons — left side */}
+        <div className="hidden lg:block absolute inset-0 pointer-events-none" aria-hidden>
+          <FileText className="pointer-events-auto absolute left-[8%] top-[18%] size-10 xl:size-12 text-blue-500/50 -rotate-12 animate-[landing-float_4s_ease-in-out_infinite] cursor-pointer transition-all duration-300 hover:text-blue-500 hover:scale-125 hover:drop-shadow-[0_0_12px_rgba(59,130,246,0.5)]" />
+          <FileImage className="pointer-events-auto absolute left-[12%] top-[50%] size-9 xl:size-11 text-emerald-500/50 rotate-6 animate-[landing-float_5s_ease-in-out_infinite_0.5s] cursor-pointer transition-all duration-300 hover:text-emerald-500 hover:scale-125 hover:drop-shadow-[0_0_12px_rgba(16,185,129,0.5)]" />
+          <FileAudio className="pointer-events-auto absolute left-[6%] top-[76%] size-10 xl:size-12 text-amber-500/50 -rotate-6 animate-[landing-float_4.5s_ease-in-out_infinite_1s] cursor-pointer transition-all duration-300 hover:text-amber-500 hover:scale-125 hover:drop-shadow-[0_0_12px_rgba(245,158,11,0.5)]" />
+        </div>
+        {/* Floating AI logos — right side */}
+        <div className="hidden lg:block absolute inset-0 pointer-events-none" aria-hidden>
+          <NextImage src="/model-logos/gemini.svg" alt="" width={48} height={48} className="pointer-events-auto absolute right-[10%] top-[15%] size-10 xl:size-12 opacity-50 rotate-12 animate-[landing-float_4.5s_ease-in-out_infinite_0.3s] cursor-pointer transition-all duration-300 hover:opacity-100 hover:scale-125 hover:drop-shadow-[0_0_12px_rgba(66,133,244,0.5)]" />
+          <NextImage src="/model-logos/claude.svg" alt="" width={48} height={48} className="pointer-events-auto absolute right-[14%] top-[48%] size-9 xl:size-11 opacity-50 -rotate-6 animate-[landing-float_5s_ease-in-out_infinite_0.8s] cursor-pointer transition-all duration-300 hover:opacity-100 hover:scale-125 hover:drop-shadow-[0_0_12px_rgba(217,119,87,0.5)]" />
+          <NextImage src="/model-logos/chatgpt.svg" alt="" width={48} height={48} className="pointer-events-auto absolute right-[8%] top-[78%] size-10 xl:size-12 opacity-50 rotate-6 dark:invert animate-[landing-float_4s_ease-in-out_infinite_1.2s] cursor-pointer transition-all duration-300 hover:opacity-100 hover:scale-125 hover:drop-shadow-[0_0_12px_rgba(0,0,0,0.3)]" />
+        </div>
         <div className="w-full max-w-5xl mx-auto flex flex-col items-center text-center gap-5 md:gap-6">
           <div className="flex flex-col items-center gap-6 md:gap-8">
             <p className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-normal tracking-normal text-muted-foreground md:gap-2.5 md:px-5 md:py-2.5 md:text-[0.9375rem]">
@@ -150,26 +162,7 @@ export function LandingPage() {
               <span>100% free for Finals season</span>
             </p>
             <h1 className="text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-medium tracking-tight leading-[1.08]">
-              <span className="block">
-                Your{" "}
-                <span className="relative inline-block group/files">
-                  <span className="relative z-10 decoration-2 underline decoration-dotted decoration-foreground/15 underline-offset-[6px] group-hover/files:decoration-foreground/40 transition-colors duration-200">Files</span>
-                  <span className="pointer-events-none absolute -top-8 md:-top-10 lg:-top-12 left-1/2 -translate-x-1/2 flex items-center">
-                    <FileText className="absolute size-6 md:size-8 lg:size-10 text-blue-500 drop-shadow-sm opacity-0 translate-y-3 translate-x-0 rotate-0 scale-90 group-hover/files:opacity-100 group-hover/files:translate-y-0 group-hover/files:-translate-x-[130%] group-hover/files:-rotate-12 group-hover/files:scale-100 transition-all duration-300 ease-out" />
-                    <FileImage className="absolute size-6 md:size-8 lg:size-10 text-emerald-500 drop-shadow-sm opacity-0 translate-y-3 scale-90 -translate-x-1/2 group-hover/files:opacity-100 group-hover/files:translate-y-0 group-hover/files:-translate-x-1/2 group-hover/files:scale-100 transition-all duration-300 ease-out delay-75" />
-                    <FileAudio className="absolute size-6 md:size-8 lg:size-10 text-amber-500 drop-shadow-sm opacity-0 translate-y-3 translate-x-0 rotate-0 scale-90 group-hover/files:opacity-100 group-hover/files:translate-y-0 group-hover/files:translate-x-[30%] group-hover/files:rotate-12 group-hover/files:scale-100 transition-all duration-300 ease-out delay-150" />
-                  </span>
-                </span>
-                {" "}and{" "}
-                <span className="relative inline-block group/ai">
-                  <span className="relative z-10 decoration-2 underline decoration-dotted decoration-foreground/15 underline-offset-[6px] group-hover/ai:decoration-foreground/40 transition-colors duration-200">AI</span>
-                  <span className="pointer-events-none absolute -top-8 md:-top-10 lg:-top-12 left-1/2 -translate-x-1/2 flex items-center">
-                    <NextImage src="/model-logos/gemini.svg" alt="Gemini" width={40} height={40} className="absolute size-6 md:size-8 lg:size-10 drop-shadow-sm opacity-0 translate-y-3 translate-x-0 rotate-0 scale-90 group-hover/ai:opacity-100 group-hover/ai:translate-y-0 group-hover/ai:-translate-x-[130%] group-hover/ai:-rotate-12 group-hover/ai:scale-100 transition-all duration-300 ease-out" />
-                    <NextImage src="/model-logos/claude.svg" alt="Claude" width={40} height={40} className="absolute size-6 md:size-8 lg:size-10 drop-shadow-sm opacity-0 translate-y-3 scale-90 -translate-x-1/2 group-hover/ai:opacity-100 group-hover/ai:translate-y-0 group-hover/ai:-translate-x-1/2 group-hover/ai:scale-100 transition-all duration-300 ease-out delay-75" />
-                    <NextImage src="/model-logos/chatgpt.svg" alt="ChatGPT" width={40} height={40} className="absolute size-6 md:size-8 lg:size-10 drop-shadow-sm opacity-0 translate-y-3 translate-x-0 rotate-0 scale-90 dark:invert group-hover/ai:opacity-100 group-hover/ai:translate-y-0 group-hover/ai:translate-x-[30%] group-hover/ai:rotate-12 group-hover/ai:scale-100 transition-all duration-300 ease-out delay-150" />
-                  </span>
-                </span>
-              </span>
+              <span className="block">Your Files and AI</span>
               <span className="block">in One Place</span>
             </h1>
           </div>
@@ -206,7 +199,7 @@ export function LandingPage() {
           {FEATURES.map((f) => (
             <div key={f.title} className="flex flex-col gap-4">
               <div>
-                <h2 className="text-lg md:text-xl font-semibold tracking-tight">
+                <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">
                   {f.title}
                 </h2>
                 <p className="mt-1 text-muted-foreground text-sm md:text-base">
