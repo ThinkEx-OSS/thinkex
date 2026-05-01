@@ -299,7 +299,7 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
       </TooltipTrigger>
       <TooltipContent>
         {captureState.isMarqueeCaptureActive
-          ? <>Cancel capture <Kbd className="ml-1">Esc</Kbd></>
+          ? <>Cancel capture <Kbd className="ml-1">Esc</Kbd> <Kbd>{formatKeyboardShortcut("C", true)}</Kbd></>
           : <>Capture Area <Kbd className="ml-1">{formatKeyboardShortcut("C", true)}</Kbd></>}
       </TooltipContent>
     </Tooltip>
