@@ -154,19 +154,19 @@ export function LandingPage() {
                 Your{" "}
                 <span className="relative inline-block group/files">
                   <span className="relative z-10 decoration-2 underline decoration-dotted decoration-foreground/15 underline-offset-[6px] group-hover/files:decoration-foreground/40 transition-colors duration-200">Files</span>
-                  <span className="pointer-events-none absolute -top-7 md:-top-9 lg:-top-11 left-1/2 -translate-x-1/2 flex items-end gap-1.5 md:gap-2 opacity-0 scale-75 translate-y-2 group-hover/files:opacity-100 group-hover/files:scale-100 group-hover/files:translate-y-0 transition-all duration-300 ease-out">
-                    <FileText className="size-6 md:size-8 lg:size-10 text-blue-500 drop-shadow-sm -rotate-12 transition-all duration-300 delay-0 group-hover/files:-rotate-6" />
-                    <FileImage className="size-6 md:size-8 lg:size-10 text-emerald-500 drop-shadow-sm transition-all duration-300 delay-75" />
-                    <FileAudio className="size-6 md:size-8 lg:size-10 text-amber-500 drop-shadow-sm rotate-12 transition-all duration-300 delay-150 group-hover/files:rotate-6" />
+                  <span className="pointer-events-none absolute -top-8 md:-top-10 lg:-top-12 left-1/2 -translate-x-1/2 flex items-center">
+                    <FileText className="absolute size-6 md:size-8 lg:size-10 text-blue-500 drop-shadow-sm opacity-0 translate-y-3 translate-x-0 rotate-0 scale-90 group-hover/files:opacity-100 group-hover/files:translate-y-0 group-hover/files:-translate-x-[130%] group-hover/files:-rotate-12 group-hover/files:scale-100 transition-all duration-300 ease-out" />
+                    <FileImage className="absolute size-6 md:size-8 lg:size-10 text-emerald-500 drop-shadow-sm opacity-0 translate-y-3 scale-90 -translate-x-1/2 group-hover/files:opacity-100 group-hover/files:translate-y-0 group-hover/files:-translate-x-1/2 group-hover/files:scale-100 transition-all duration-300 ease-out delay-75" />
+                    <FileAudio className="absolute size-6 md:size-8 lg:size-10 text-amber-500 drop-shadow-sm opacity-0 translate-y-3 translate-x-0 rotate-0 scale-90 group-hover/files:opacity-100 group-hover/files:translate-y-0 group-hover/files:translate-x-[30%] group-hover/files:rotate-12 group-hover/files:scale-100 transition-all duration-300 ease-out delay-150" />
                   </span>
                 </span>
                 {" "}and{" "}
                 <span className="relative inline-block group/ai">
                   <span className="relative z-10 decoration-2 underline decoration-dotted decoration-foreground/15 underline-offset-[6px] group-hover/ai:decoration-foreground/40 transition-colors duration-200">AI</span>
-                  <span className="pointer-events-none absolute -top-7 md:-top-9 lg:-top-11 left-1/2 -translate-x-1/2 flex items-end gap-1.5 md:gap-2 opacity-0 scale-75 translate-y-2 group-hover/ai:opacity-100 group-hover/ai:scale-100 group-hover/ai:translate-y-0 transition-all duration-300 ease-out">
-                    <NextImage src="/model-logos/gemini.svg" alt="Gemini" width={40} height={40} className="size-6 md:size-8 lg:size-10 drop-shadow-sm -rotate-12 transition-all duration-300 delay-0 group-hover/ai:-rotate-6" />
-                    <NextImage src="/model-logos/claude.svg" alt="Claude" width={40} height={40} className="size-6 md:size-8 lg:size-10 drop-shadow-sm transition-all duration-300 delay-75" />
-                    <NextImage src="/model-logos/chatgpt.svg" alt="ChatGPT" width={40} height={40} className="size-6 md:size-8 lg:size-10 drop-shadow-sm rotate-12 transition-all duration-300 delay-150 group-hover/ai:rotate-6 dark:invert" />
+                  <span className="pointer-events-none absolute -top-8 md:-top-10 lg:-top-12 left-1/2 -translate-x-1/2 flex items-center">
+                    <NextImage src="/model-logos/gemini.svg" alt="Gemini" width={40} height={40} className="absolute size-6 md:size-8 lg:size-10 drop-shadow-sm opacity-0 translate-y-3 translate-x-0 rotate-0 scale-90 group-hover/ai:opacity-100 group-hover/ai:translate-y-0 group-hover/ai:-translate-x-[130%] group-hover/ai:-rotate-12 group-hover/ai:scale-100 transition-all duration-300 ease-out" />
+                    <NextImage src="/model-logos/claude.svg" alt="Claude" width={40} height={40} className="absolute size-6 md:size-8 lg:size-10 drop-shadow-sm opacity-0 translate-y-3 scale-90 -translate-x-1/2 group-hover/ai:opacity-100 group-hover/ai:translate-y-0 group-hover/ai:-translate-x-1/2 group-hover/ai:scale-100 transition-all duration-300 ease-out delay-75" />
+                    <NextImage src="/model-logos/chatgpt.svg" alt="ChatGPT" width={40} height={40} className="absolute size-6 md:size-8 lg:size-10 drop-shadow-sm opacity-0 translate-y-3 translate-x-0 rotate-0 scale-90 dark:invert group-hover/ai:opacity-100 group-hover/ai:translate-y-0 group-hover/ai:translate-x-[30%] group-hover/ai:rotate-12 group-hover/ai:scale-100 transition-all duration-300 ease-out delay-150" />
                   </span>
                 </span>
               </span>
