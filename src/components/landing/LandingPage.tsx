@@ -9,7 +9,6 @@ import { ThinkExLogo } from "@/components/ui/thinkex-logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/layout/SiteFooter";
-import { LogoLoop } from "@/components/landing/LogoLoop";
 
 const VIDEO_BASE =
   "https://uxcoymwbfcbvkgwbhttq.supabase.co/storage/v1/object/public/video";
@@ -40,18 +39,6 @@ const FEATURES = [
     light: `${VIDEO_BASE}/step-5-collab-light.mp4`,
   },
 ] as const;
-
-const UNIVERSITY_LOGOS = [
-  { src: "/university-logos/mit.png", alt: "MIT" },
-  { src: "/university-logos/stanford.png", alt: "Stanford" },
-  { src: "/university-logos/harvard.png", alt: "Harvard" },
-  { src: "/university-logos/maryland.png", alt: "University of Maryland" },
-  { src: "/university-logos/berkeley.png", alt: "UC Berkeley" },
-  { src: "/university-logos/yale.png", alt: "Yale" },
-  { src: "/university-logos/princeton.png", alt: "Princeton" },
-  { src: "/university-logos/columbia.png", alt: "Columbia" },
-  { src: "/university-logos/oxford.png", alt: "Oxford" },
-];
 
 function AutoplayVideo({
   src,
@@ -154,15 +141,15 @@ export function LandingPage() {
       <section className="relative flex flex-col items-center px-6 pt-5 pb-16 md:pt-9 md:pb-20 overflow-hidden">
         {/* Floating file icons — left side */}
         <div className="hidden lg:block absolute inset-0 pointer-events-none" aria-hidden>
-          <FileText className="pointer-events-auto absolute left-[8%] top-[18%] size-10 xl:size-12 text-blue-500 -rotate-12 animate-[landing-float_4s_ease-in-out_infinite] cursor-pointer transition-all duration-300 hover:scale-125 hover:drop-shadow-[0_0_12px_rgba(59,130,246,0.5)]" />
-          <FileImage className="pointer-events-auto absolute left-[12%] top-[50%] size-9 xl:size-11 text-emerald-500 rotate-6 animate-[landing-float_5s_ease-in-out_infinite_0.5s] cursor-pointer transition-all duration-300 hover:scale-125 hover:drop-shadow-[0_0_12px_rgba(16,185,129,0.5)]" />
-          <FolderOpen className="pointer-events-auto absolute left-[6%] top-[76%] size-10 xl:size-12 text-amber-600 -rotate-6 animate-[landing-float_4.5s_ease-in-out_infinite_1s] cursor-pointer transition-all duration-300 hover:scale-125 hover:drop-shadow-[0_0_12px_rgba(217,119,6,0.45)] dark:text-amber-500" />
+          <FileText className="absolute left-[8%] top-[18%] size-10 xl:size-12 text-blue-500 -rotate-12 animate-[landing-float_4s_ease-in-out_infinite]" />
+          <FileImage className="absolute left-[12%] top-[50%] size-9 xl:size-11 text-emerald-500 rotate-6 animate-[landing-float_5s_ease-in-out_infinite_0.5s]" />
+          <FolderOpen className="absolute left-[6%] top-[76%] size-10 xl:size-12 text-amber-600 -rotate-6 animate-[landing-float_4.5s_ease-in-out_infinite_1s] dark:text-amber-500" />
         </div>
         {/* Floating AI logos — right side */}
         <div className="hidden lg:block absolute inset-0 pointer-events-none" aria-hidden>
-          <NextImage src="/model-logos/gemini.svg" alt="" width={48} height={48} className="pointer-events-auto absolute right-[10%] top-[15%] size-10 xl:size-12 rotate-12 animate-[landing-float_4.5s_ease-in-out_infinite_0.3s] cursor-pointer transition-all duration-300 hover:scale-125 hover:drop-shadow-[0_0_12px_rgba(66,133,244,0.5)]" />
-          <NextImage src="/model-logos/claude.svg" alt="" width={48} height={48} className="pointer-events-auto absolute right-[14%] top-[48%] size-9 xl:size-11 -rotate-6 animate-[landing-float_5s_ease-in-out_infinite_0.8s] cursor-pointer transition-all duration-300 hover:scale-125 hover:drop-shadow-[0_0_12px_rgba(217,119,87,0.5)]" />
-          <NextImage src="/model-logos/chatgpt.svg" alt="" width={48} height={48} className="pointer-events-auto absolute right-[8%] top-[78%] size-10 xl:size-12 rotate-6 dark:invert animate-[landing-float_4s_ease-in-out_infinite_1.2s] cursor-pointer transition-all duration-300 hover:scale-125 hover:drop-shadow-[0_0_12px_rgba(0,0,0,0.3)]" />
+          <NextImage src="/model-logos/gemini.svg" alt="" width={48} height={48} className="absolute right-[10%] top-[15%] size-10 xl:size-12 rotate-12 animate-[landing-float_4.5s_ease-in-out_infinite_0.3s]" />
+          <NextImage src="/model-logos/claude.svg" alt="" width={48} height={48} className="absolute right-[14%] top-[48%] size-9 xl:size-11 -rotate-6 animate-[landing-float_5s_ease-in-out_infinite_0.8s]" />
+          <NextImage src="/model-logos/chatgpt.svg" alt="" width={48} height={48} className="absolute right-[8%] top-[78%] size-10 xl:size-12 rotate-6 dark:invert animate-[landing-float_4s_ease-in-out_infinite_1.2s]" />
         </div>
         <div className="w-full max-w-5xl mx-auto flex flex-col items-center text-center gap-5 md:gap-6">
           <div className="flex flex-col items-center gap-6 md:gap-8">
@@ -202,26 +189,6 @@ export function LandingPage() {
             poster="/finaldemo-poster.png"
             preload="metadata"
             className="w-full"
-          />
-        </div>
-      </section>
-
-      {/* University logos */}
-      <section className="pb-24">
-        <p className="text-center text-sm text-muted-foreground mb-6">
-          Trusted by students at top universities
-        </p>
-        <div className="flex min-h-[4.75rem] items-center py-4 [&_img]:grayscale [&_img]:opacity-60 dark:[&_img]:invert [&_img]:hover:grayscale-0 [&_img]:hover:opacity-100 [&_img]:transition-all [&_img]:duration-300 md:min-h-[5.25rem]">
-          <LogoLoop
-            logos={UNIVERSITY_LOGOS}
-            speed={60}
-            direction="left"
-            logoHeight={48}
-            gap={72}
-            hoverSpeed={0}
-            scaleOnHover
-            fadeOut
-            ariaLabel="Universities using ThinkEx"
           />
         </div>
       </section>
