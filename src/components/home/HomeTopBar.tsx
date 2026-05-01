@@ -29,13 +29,8 @@ export function HomeTopBar({
       className={cn(
         "fixed top-0 left-0 right-0 z-50",
         "flex items-center justify-between px-3 py-1",
-        "transition-all duration-300",
+        "bg-background border-b border-border/50",
       )}
-      style={{
-        backgroundColor: showBackground
-          ? `hsl(240 5.9% 10% / 0.18)`
-          : "transparent",
-      }}
     >
       <Link href="/home" className="flex items-center gap-2 group">
         <div className="relative h-6 w-6 flex items-center justify-center transition-transform group-hover:scale-105">
