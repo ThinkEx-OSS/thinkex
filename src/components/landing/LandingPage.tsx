@@ -2,7 +2,8 @@
 
 import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, FileText, FileImage, FileAudio } from "lucide-react";
+import NextImage from "next/image";
 import { useTheme } from "next-themes";
 import { ThinkExLogo } from "@/components/ui/thinkex-logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -150,7 +151,26 @@ export function LandingPage() {
               <span>100% free for Finals season</span>
             </p>
             <h1 className="text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-medium tracking-tight leading-[1.08]">
-              <span className="block">Your Files and AI</span>
+              <span className="block">
+                Your{" "}
+                <span className="relative inline-block group/files">
+                  <span className="relative z-10 decoration-2 underline decoration-dotted decoration-foreground/15 underline-offset-[6px] group-hover/files:decoration-foreground/40 transition-colors duration-200">Files</span>
+                  <span className="pointer-events-none absolute -top-7 md:-top-9 lg:-top-11 left-1/2 -translate-x-1/2 flex items-end gap-1.5 md:gap-2 opacity-0 scale-75 translate-y-2 group-hover/files:opacity-100 group-hover/files:scale-100 group-hover/files:translate-y-0 transition-all duration-300 ease-out">
+                    <FileText className="size-6 md:size-8 lg:size-10 text-blue-500 drop-shadow-sm -rotate-12 transition-all duration-300 delay-0 group-hover/files:-rotate-6" />
+                    <FileImage className="size-6 md:size-8 lg:size-10 text-emerald-500 drop-shadow-sm transition-all duration-300 delay-75" />
+                    <FileAudio className="size-6 md:size-8 lg:size-10 text-amber-500 drop-shadow-sm rotate-12 transition-all duration-300 delay-150 group-hover/files:rotate-6" />
+                  </span>
+                </span>
+                {" "}and{" "}
+                <span className="relative inline-block group/ai">
+                  <span className="relative z-10 decoration-2 underline decoration-dotted decoration-foreground/15 underline-offset-[6px] group-hover/ai:decoration-foreground/40 transition-colors duration-200">AI</span>
+                  <span className="pointer-events-none absolute -top-7 md:-top-9 lg:-top-11 left-1/2 -translate-x-1/2 flex items-end gap-1.5 md:gap-2 opacity-0 scale-75 translate-y-2 group-hover/ai:opacity-100 group-hover/ai:scale-100 group-hover/ai:translate-y-0 transition-all duration-300 ease-out">
+                    <NextImage src="/model-logos/gemini.svg" alt="Gemini" width={40} height={40} className="size-6 md:size-8 lg:size-10 drop-shadow-sm -rotate-12 transition-all duration-300 delay-0 group-hover/ai:-rotate-6" />
+                    <NextImage src="/model-logos/claude.svg" alt="Claude" width={40} height={40} className="size-6 md:size-8 lg:size-10 drop-shadow-sm transition-all duration-300 delay-75" />
+                    <NextImage src="/model-logos/chatgpt.svg" alt="ChatGPT" width={40} height={40} className="size-6 md:size-8 lg:size-10 drop-shadow-sm rotate-12 transition-all duration-300 delay-150 group-hover/ai:rotate-6 dark:invert" />
+                  </span>
+                </span>
+              </span>
               <span className="block">in One Place</span>
             </h1>
           </div>
