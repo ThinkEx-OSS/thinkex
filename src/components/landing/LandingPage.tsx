@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
-import { GraduationCap, FileText, FileImage, FileAudio } from "lucide-react";
+import { GraduationCap, FileText, FileImage, FolderOpen } from "lucide-react";
 import NextImage from "next/image";
 import { useTheme } from "next-themes";
 import { ThinkExLogo } from "@/components/ui/thinkex-logo";
@@ -123,7 +123,7 @@ export function LandingPage() {
       <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-6 h-[4.5rem]">
           <Link href="/" className="flex items-center gap-3">
-            <ThinkExLogo size={38} priority />
+            <ThinkExLogo size={34} priority />
             <span className="text-2xl md:text-3xl font-medium tracking-tight">
               ThinkEx
             </span>
@@ -138,12 +138,12 @@ export function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section className="relative flex flex-col items-center px-6 pt-10 pb-16 md:pt-16 md:pb-20 overflow-hidden">
+      <section className="relative flex flex-col items-center px-6 pt-5 pb-16 md:pt-9 md:pb-20 overflow-hidden">
         {/* Floating file icons — left side */}
         <div className="hidden lg:block absolute inset-0 pointer-events-none" aria-hidden>
           <FileText className="pointer-events-auto absolute left-[8%] top-[18%] size-10 xl:size-12 text-blue-500 -rotate-12 animate-[landing-float_4s_ease-in-out_infinite] cursor-pointer transition-all duration-300 hover:scale-125 hover:drop-shadow-[0_0_12px_rgba(59,130,246,0.5)]" />
           <FileImage className="pointer-events-auto absolute left-[12%] top-[50%] size-9 xl:size-11 text-emerald-500 rotate-6 animate-[landing-float_5s_ease-in-out_infinite_0.5s] cursor-pointer transition-all duration-300 hover:scale-125 hover:drop-shadow-[0_0_12px_rgba(16,185,129,0.5)]" />
-          <FileAudio className="pointer-events-auto absolute left-[6%] top-[76%] size-10 xl:size-12 text-amber-500 -rotate-6 animate-[landing-float_4.5s_ease-in-out_infinite_1s] cursor-pointer transition-all duration-300 hover:scale-125 hover:drop-shadow-[0_0_12px_rgba(245,158,11,0.5)]" />
+          <FolderOpen className="pointer-events-auto absolute left-[6%] top-[76%] size-10 xl:size-12 text-amber-600 -rotate-6 animate-[landing-float_4.5s_ease-in-out_infinite_1s] cursor-pointer transition-all duration-300 hover:scale-125 hover:drop-shadow-[0_0_12px_rgba(217,119,6,0.45)] dark:text-amber-500" />
         </div>
         {/* Floating AI logos — right side */}
         <div className="hidden lg:block absolute inset-0 pointer-events-none" aria-hidden>
@@ -167,7 +167,7 @@ export function LandingPage() {
             </h1>
           </div>
           <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed">
-            Study and research without switching between endless windows
+            Study and research without switching between endless tabs
           </p>
         </div>
         <div className="mt-8 flex justify-center">
@@ -225,7 +225,7 @@ export function LandingPage() {
           Ready to get started?
         </h2>
         <p className="mt-4 text-lg md:text-xl text-muted-foreground">
-          Study and research without switching between endless windows
+          Study and research without switching between endless tabs
         </p>
         <div className="mt-8">
           <Button
