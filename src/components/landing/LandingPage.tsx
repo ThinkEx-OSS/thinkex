@@ -122,16 +122,16 @@ export function LandingPage() {
     <div className="min-h-screen bg-background text-foreground">
       {/* Nav */}
       <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b border-border/40">
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-6 h-14">
-          <Link href="/" className="flex items-center gap-2.5">
-            <ThinkExLogo size={24} priority />
-            <span className="text-base font-semibold tracking-tight">
+        <div className="max-w-6xl mx-auto flex items-center justify-between px-6 h-[4.5rem]">
+          <Link href="/" className="flex items-center gap-3">
+            <ThinkExLogo size={38} priority />
+            <span className="text-2xl md:text-3xl font-medium tracking-tight">
               ThinkEx
             </span>
           </Link>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Button variant="ghost" size="sm" asChild>
+          <div className="flex items-center gap-3">
+            <ThemeToggle size="md" />
+            <Button size="lg" className="px-6 text-base" asChild>
               <Link href="/auth/sign-in">Sign In</Link>
             </Button>
           </div>
@@ -139,26 +139,23 @@ export function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section className="flex flex-col items-center text-center px-6 pt-28 pb-16 md:pt-36 md:pb-20">
-        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] max-w-2xl">
-          Your Docs, Media, and AI&nbsp;in&nbsp;One&nbsp;Place
-        </h1>
-        <p className="mt-5 text-lg md:text-xl text-muted-foreground max-w-lg leading-relaxed">
-          Study and research without switching between endless windows
-        </p>
-        <div className="mt-8 flex flex-col items-center gap-3">
-          <Button size="lg" className="px-8 text-base" asChild>
+      <section className="flex flex-col items-center px-6 pt-16 pb-16 md:pt-24 md:pb-20">
+        <div className="w-full max-w-5xl mx-auto flex flex-col items-center text-center gap-5 md:gap-6">
+          <h1 className="text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-medium tracking-tight leading-[1.08]">
+            Your Docs, Media, and AI&nbsp;in&nbsp;One&nbsp;Place
+          </h1>
+          <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed">
+            Study and research without switching between endless windows
+          </p>
+        </div>
+        <div className="mt-8 flex justify-center">
+          <Button
+            size="lg"
+            className="h-auto min-h-12 px-8 py-4 text-lg"
+            asChild
+          >
             <Link href="/home">Get Started</Link>
           </Button>
-          <span className="text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Link
-              href="/auth/sign-in"
-              className="underline underline-offset-4 hover:text-foreground transition-colors"
-            >
-              Sign in
-            </Link>
-          </span>
         </div>
       </section>
 
@@ -202,11 +199,15 @@ export function LandingPage() {
 
       {/* Bottom CTA */}
       <section className="flex flex-col items-center text-center px-6 pt-8 pb-16 md:pb-24">
-        <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+        <h2 className="text-3xl md:text-4xl font-medium tracking-tight">
           Ready to get started?
         </h2>
         <div className="mt-6">
-          <Button size="lg" className="px-8 text-base" asChild>
+          <Button
+            size="lg"
+            className="h-auto min-h-12 px-8 py-4 text-lg"
+            asChild
+          >
             <Link href="/home">Get Started</Link>
           </Button>
         </div>
