@@ -40,6 +40,7 @@
     "@ai-sdk/provider-utils": "4.0.23",
     "@ai-sdk/react": "^3.0.170",
     "@contextcompany/otel": "^1.0.15",
+    "@databuddy/sdk": "^2.4.11",
     "@e2b/code-interpreter": "^2.4.0",
     "@embedpdf/core": "^2.14.0",
     "@embedpdf/engines": "^2.14.0",

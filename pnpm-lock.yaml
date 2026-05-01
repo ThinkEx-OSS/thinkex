@@ -26,6 +26,9 @@ importers:
       '@contextcompany/otel':
         specifier: ^1.0.15
         version: 1.0.15(@opentelemetry/api@1.9.1)(@vercel/otel@2.1.2(@opentelemetry/api-logs@0.215.0)(@opentelemetry/api@1.9.1)(@opentelemetry/instrumentation@0.215.0(@opentelemetry/api@1.9.1))(@opentelemetry/resources@2.7.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-logs@0.215.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-metrics@2.7.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.7.0(@opentelemetry/api@1.9.1)))(rxjs@7.8.2)
+      '@databuddy/sdk':
+        specifier: ^2.4.11
+        version: 2.4.11(react@19.2.5)(vue@3.5.32(typescript@6.0.3))
       '@e2b/code-interpreter':
         specifier: ^2.4.0
         version: 2.4.0
@@ -882,6 +885,17 @@ packages:
 
   '@databases/validate-unicode@1.0.0':
     resolution: {integrity: sha512-dLKqxGcymeVwEb/6c44KjOnzaAafFf0Wxa8xcfEjx/qOl3rdijsKYBAtIGhtVtOlpPf/PFKfgTuFurSPn/3B/g==}
+
+  '@databuddy/sdk@2.4.11':
+    resolution: {integrity: sha512-pDT0tfsLOhuFnX0MHSOOt+qq9IPAB7rktuWclVgaRU3D6A6Mw7pN0oRttvPPKc3Ue7gUvq3kOtFkhmquLtmVQA==}
+    peerDependencies:
+      react: '>=18'
+      vue: '>=3'
+    peerDependenciesMeta:
+      react:
+        optional: true
+      vue:
+        optional: true
 
   '@dotenvx/dotenvx@1.61.1':
     resolution: {integrity: sha512-2OUX4KDKvQA6oa7oESG8eNcV4K/2C5jgrbxUcT0VoH9Zelg6dT+rDYew4w2GmXRV3db0tUaM4QZG3MyJL3fU5Q==}
@@ -10990,6 +11004,11 @@ snapshots:
   '@databases/sql@3.3.0': {}
 
   '@databases/validate-unicode@1.0.0': {}
+
+  '@databuddy/sdk@2.4.11(react@19.2.5)(vue@3.5.32(typescript@6.0.3))':
+    optionalDependencies:
+      react: 19.2.5
+      vue: 3.5.32(typescript@6.0.3)
 
   '@dotenvx/dotenvx@1.61.1':
     dependencies:
