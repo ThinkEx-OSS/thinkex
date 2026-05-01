@@ -263,6 +263,12 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
     const onKeyDown = (e: KeyboardEvent) => {
       // Only the topmost panel responds to the shortcut.
       if (_mountedPanelStack[_mountedPanelStack.length - 1] !== documentId) return;
+      // Don't fire while the user is typing in an editable control.
+      const target = e.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest("input, textarea, select, [contenteditable='true']")
+      ) return;
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "c") {
         e.preventDefault();
         captureRef.current?.toggleMarqueeCapture();
