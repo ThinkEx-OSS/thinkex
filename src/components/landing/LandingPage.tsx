@@ -211,13 +211,13 @@ export function LandingPage() {
         <p className="text-center text-sm text-muted-foreground mb-6">
           Trusted by students at top universities
         </p>
-        <div className="h-10 [&_.logoloop__item_img]:grayscale [&_.logoloop__item_img]:opacity-60 dark:[&_.logoloop__item_img]:invert [&_.logoloop__item_img]:hover:grayscale-0 [&_.logoloop__item_img]:hover:opacity-100 [&_.logoloop__item_img]:transition-all [&_.logoloop__item_img]:duration-300">
+        <div className="flex min-h-[4.75rem] items-center py-4 [&_img]:grayscale [&_img]:opacity-60 dark:[&_img]:invert [&_img]:hover:grayscale-0 [&_img]:hover:opacity-100 [&_img]:transition-all [&_img]:duration-300 md:min-h-[5.25rem]">
           <LogoLoop
             logos={UNIVERSITY_LOGOS}
             speed={60}
             direction="left"
-            logoHeight={32}
-            gap={64}
+            logoHeight={48}
+            gap={72}
             hoverSpeed={0}
             scaleOnHover
             fadeOut
