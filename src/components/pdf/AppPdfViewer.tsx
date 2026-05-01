@@ -16,7 +16,7 @@ import { FullscreenPluginPackage } from '@embedpdf/plugin-fullscreen/react';
 import { InteractionManagerPluginPackage, PagePointerProvider } from '@embedpdf/plugin-interaction-manager/react';
 import { TilingPluginPackage, TilingLayer } from '@embedpdf/plugin-tiling/react';
 import { ThumbnailPluginPackage, ThumbnailsPane, ThumbImg } from '@embedpdf/plugin-thumbnail/react';
-import { AnnotationPluginPackage, AnnotationLayer, useAnnotationCapability, AnnotationSelectionMenuProps } from '@embedpdf/plugin-annotation/react';
+import { AnnotationPluginPackage, AnnotationLayer, useAnnotationCapability, AnnotationSelectionMenuProps, LockModeType } from '@embedpdf/plugin-annotation/react';
 import { CapturePluginPackage, MarqueeCapture, useCapture } from '@embedpdf/plugin-capture/react';
 import { HistoryPluginPackage } from '@embedpdf/plugin-history/react';
 import { SearchPluginPackage, SearchLayer, useSearch } from '@embedpdf/plugin-search/react';
@@ -893,8 +893,15 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
     // Dependencies first for Annotations
     createPluginRegistration(HistoryPluginPackage),
     createPluginRegistration(AnnotationPluginPackage, {
-      // You can add configuration here like author name if we had user profiles
       annotationAuthor: "User",
+      tools: [{
+        id: 'link',
+        categories: ['annotation', 'markup', 'link-nav'],
+      }],
+      locked: {
+        type: LockModeType.Include,
+        categories: ['link-nav'],
+      },
     }),
     createPluginRegistration(ThumbnailPluginPackage, {
       width: 180,
