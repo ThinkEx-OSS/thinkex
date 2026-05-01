@@ -124,6 +124,11 @@ async function rotateCaptureBlob(
   }
 }
 
+// Track mounted PdfPanelHeader instances so only the most recent one
+// responds to the global Cmd+Shift+C shortcut (avoids firing on every
+// panel when multiple PDFs are open).
+const _mountedPanelStack: string[] = [];
+
 export const PdfPanelHeader = memo(function PdfPanelHeader({
   documentId,
   itemName,
@@ -244,8 +249,20 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
     };
   }, [captureState.isMarqueeCaptureActive]);
 
+  // Register / unregister this panel on the module-level stack so only
+  // the topmost (most-recently-mounted) panel owns the global shortcut.
+  useEffect(() => {
+    _mountedPanelStack.push(documentId);
+    return () => {
+      const idx = _mountedPanelStack.lastIndexOf(documentId);
+      if (idx >= 0) _mountedPanelStack.splice(idx, 1);
+    };
+  }, [documentId]);
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      // Only the topmost panel responds to the shortcut.
+      if (_mountedPanelStack[_mountedPanelStack.length - 1] !== documentId) return;
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "c") {
         e.preventDefault();
         captureRef.current?.toggleMarqueeCapture();
@@ -253,7 +270,7 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [documentId]);
 
   const zoomPercent = zoomState?.currentZoomLevel
     ? Math.round(zoomState.currentZoomLevel * 100)
