@@ -7,36 +7,33 @@ import { useTheme } from "next-themes";
 import { ThinkExLogo } from "@/components/ui/thinkex-logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 
 const VIDEO_BASE =
   "https://uxcoymwbfcbvkgwbhttq.supabase.co/storage/v1/object/public/video";
 
 const FEATURES = [
   {
-    title: "Upload a PDF, AI makes summaries & study guides",
-    description:
-      "Drop in any document and get instant AI-generated summaries, flashcards, and study materials.",
+    title: "Instant AI Study Guides",
+    description: "Drop a PDF, get summaries, flashcards, and study materials.",
     dark: `${VIDEO_BASE}/step-2-generate-card-dark-3.mp4`,
     light: `${VIDEO_BASE}/step-2-generate-card-light-3.mp4`,
   },
   {
-    title: "Select cards & chat with AI for answers from your materials",
-    description:
-      "Highlight what matters. Ask questions and get grounded answers from your own sources.",
+    title: "Chat With Your Sources",
+    description: "Ask questions, get answers grounded in your own materials.",
     dark: `${VIDEO_BASE}/step-3-pdf-ss-dark.mp4`,
     light: `${VIDEO_BASE}/step-3-pdf-ss-light.mp4`,
   },
   {
-    title: "Drag, resize & organize cards on your grid",
-    description:
-      "Arrange your workspace exactly how you think. Move, resize, and group cards freely.",
+    title: "A Canvas That Adapts to You",
+    description: "Drag, resize, and organize cards however you think.",
     dark: `${VIDEO_BASE}/step-1-arrange-dark.mp4`,
     light: `${VIDEO_BASE}/step-1-arrange-light.mp4`,
   },
   {
-    title: "Share your workspace to collaborate in real time",
-    description:
-      "Invite teammates to your workspace. See changes live, work together seamlessly.",
+    title: "Real-Time Collaboration",
+    description: "Invite teammates. See changes live, work together seamlessly.",
     dark: `${VIDEO_BASE}/step-5-collab-dark.mp4`,
     light: `${VIDEO_BASE}/step-5-collab-light.mp4`,
   },
@@ -74,7 +71,6 @@ function AutoplayVideo({
 
   return (
     <video
-      key={src}
       ref={videoRef}
       src={src}
       poster={poster}
@@ -98,6 +94,7 @@ function FeatureVideo({
   mounted: boolean;
   isDark: boolean;
 }) {
+  const src = isDark ? darkSrc : lightSrc;
   if (!mounted) {
     return (
       <div className="w-full aspect-video rounded-2xl bg-muted animate-pulse" />
@@ -105,8 +102,9 @@ function FeatureVideo({
   }
   return (
     <AutoplayVideo
-      src={isDark ? darkSrc : lightSrc}
-      className="w-full rounded-2xl"
+      key={src}
+      src={src}
+      className="w-full aspect-video rounded-2xl"
     />
   );
 }
@@ -187,12 +185,12 @@ export function LandingPage() {
       <section className="px-6 pb-24">
         <div className="max-w-5xl mx-auto flex flex-col gap-24">
           {FEATURES.map((f) => (
-            <div key={f.title} className="flex flex-col gap-6">
-              <div className="max-w-xl">
-                <h2 className="text-2xl md:text-3xl font-semibold tracking-tight leading-snug">
+            <div key={f.title} className="flex flex-col gap-4">
+              <div>
+                <h2 className="text-lg md:text-xl font-semibold tracking-tight">
                   {f.title}
                 </h2>
-                <p className="mt-2 text-muted-foreground text-base md:text-lg leading-relaxed">
+                <p className="mt-1 text-muted-foreground text-sm md:text-base">
                   {f.description}
                 </p>
               </div>
@@ -210,11 +208,14 @@ export function LandingPage() {
       </section>
 
       {/* Bottom CTA */}
-      <section className="flex flex-col items-center text-center px-6 pt-8 pb-16 md:pb-24">
-        <h2 className="text-3xl md:text-4xl font-medium tracking-tight">
+      <section className="flex flex-col items-center text-center px-6 pt-16 pb-16 md:pt-24 md:pb-20">
+        <h2 className="text-4xl md:text-5xl lg:text-6xl font-medium tracking-tight leading-[1.08]">
           Ready to get started?
         </h2>
-        <div className="mt-6">
+        <p className="mt-4 text-lg md:text-xl text-muted-foreground">
+          Study and research without switching between endless windows
+        </p>
+        <div className="mt-8">
           <Button
             size="lg"
             className="h-auto min-h-12 px-8 py-4 text-lg"
@@ -226,11 +227,7 @@ export function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border/40 py-6">
-        <p className="text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} ThinkEx
-        </p>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
