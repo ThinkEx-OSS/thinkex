@@ -820,36 +820,6 @@ const PdfCitationHighlightSync = ({ documentId, itemId }: { documentId: string; 
   return null;
 };
 
-const PdfWheelZoomFix = ({ documentId, children }: { documentId: string; children: ReactNode }) => {
-  const { provides: zoomScope } = useZoom(documentId);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || !zoomScope) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey && !e.metaKey) return;
-      e.preventDefault();
-
-      const factor = Math.pow(2, -e.deltaY / 500);
-      const currentZoom = zoomScope.getState().currentZoomLevel;
-      const delta = currentZoom * (factor - 1);
-
-      const rect = el.getBoundingClientRect();
-      zoomScope.requestZoomBy(delta, {
-        vx: e.clientX - rect.left,
-        vy: e.clientY - rect.top,
-      });
-    };
-
-    el.addEventListener('wheel', handleWheel, { passive: false });
-    return () => el.removeEventListener('wheel', handleWheel);
-  }, [zoomScope]);
-
-  return <div ref={ref} className="w-full h-full">{children}</div>;
-};
-
 const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, itemId, initialPage, isMaximized, initialShowAnnotations = false }: Props) => {
   // Use the shared Pdfium engine from context
   const { engine, isLoading } = useEngineContext();
@@ -1030,13 +1000,12 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
                             </>
                           )}
                           <CaptureOverlay documentId={activeDocumentId} />
-                          <PdfWheelZoomFix documentId={activeDocumentId}>
-                            <Viewport
-                              documentId={activeDocumentId}
-                              className="w-full h-full"
-                              style={{ backgroundColor: 'var(--sidebar)' }}
-                            >
-                              <ZoomGestureWrapper documentId={activeDocumentId} enableWheel={false}>
+                          <Viewport
+                            documentId={activeDocumentId}
+                            className="w-full h-full"
+                            style={{ backgroundColor: 'var(--sidebar)' }}
+                          >
+                            <ZoomGestureWrapper documentId={activeDocumentId}>
                               <Scroller
                                 documentId={activeDocumentId}
                                 renderPage={({ pageIndex }) => (
@@ -1091,9 +1060,8 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
                                   </Rotate>
                                 )}
                               />
-                              </ZoomGestureWrapper>
-                            </Viewport>
-                          </PdfWheelZoomFix>
+                            </ZoomGestureWrapper>
+                          </Viewport>
 
                           {/* Page Controls overlay */}
                           <PageControls
