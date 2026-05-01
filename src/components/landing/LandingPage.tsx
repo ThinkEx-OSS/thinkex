@@ -9,6 +9,7 @@ import { ThinkExLogo } from "@/components/ui/thinkex-logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { LogoLoop } from "@/components/landing/LogoLoop";
 
 const VIDEO_BASE =
   "https://uxcoymwbfcbvkgwbhttq.supabase.co/storage/v1/object/public/video";
@@ -39,6 +40,18 @@ const FEATURES = [
     light: `${VIDEO_BASE}/step-5-collab-light.mp4`,
   },
 ] as const;
+
+const UNIVERSITY_LOGOS = [
+  { src: "/university-logos/mit.png", alt: "MIT" },
+  { src: "/university-logos/stanford.png", alt: "Stanford" },
+  { src: "/university-logos/harvard.png", alt: "Harvard" },
+  { src: "/university-logos/maryland.png", alt: "University of Maryland" },
+  { src: "/university-logos/berkeley.png", alt: "UC Berkeley" },
+  { src: "/university-logos/yale.png", alt: "Yale" },
+  { src: "/university-logos/princeton.png", alt: "Princeton" },
+  { src: "/university-logos/columbia.png", alt: "Columbia" },
+  { src: "/university-logos/oxford.png", alt: "Oxford" },
+];
 
 function AutoplayVideo({
   src,
@@ -182,13 +195,33 @@ export function LandingPage() {
       </section>
 
       {/* Main demo video */}
-      <section className="px-6 pb-24">
+      <section className="px-6 pb-16">
         <div className="max-w-5xl mx-auto rounded-2xl border border-border/60 shadow-lg overflow-hidden bg-card">
           <AutoplayVideo
             src="/finaldemo.mp4"
             poster="/finaldemo-poster.png"
             preload="metadata"
             className="w-full"
+          />
+        </div>
+      </section>
+
+      {/* University logos */}
+      <section className="pb-24">
+        <p className="text-center text-sm text-muted-foreground mb-6">
+          Trusted by students at top universities
+        </p>
+        <div className="h-10 [&_.logoloop__item_img]:grayscale [&_.logoloop__item_img]:opacity-60 dark:[&_.logoloop__item_img]:invert [&_.logoloop__item_img]:hover:grayscale-0 [&_.logoloop__item_img]:hover:opacity-100 [&_.logoloop__item_img]:transition-all [&_.logoloop__item_img]:duration-300">
+          <LogoLoop
+            logos={UNIVERSITY_LOGOS}
+            speed={60}
+            direction="left"
+            logoHeight={32}
+            gap={64}
+            hoverSpeed={0}
+            scaleOnHover
+            fadeOut
+            ariaLabel="Universities using ThinkEx"
           />
         </div>
       </section>
