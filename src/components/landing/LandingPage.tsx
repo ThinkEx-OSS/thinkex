@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
+import { GraduationCap } from "lucide-react";
 import { useTheme } from "next-themes";
 import { ThinkExLogo } from "@/components/ui/thinkex-logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -141,9 +142,20 @@ export function LandingPage() {
       {/* Hero */}
       <section className="flex flex-col items-center px-6 pt-16 pb-16 md:pt-24 md:pb-20">
         <div className="w-full max-w-5xl mx-auto flex flex-col items-center text-center gap-5 md:gap-6">
-          <h1 className="text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-medium tracking-tight leading-[1.08]">
-            Your Docs, Media, and AI&nbsp;in&nbsp;One&nbsp;Place
-          </h1>
+          <div className="flex flex-col items-center gap-10 md:gap-12">
+            <p className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-normal tracking-normal text-muted-foreground md:gap-2.5 md:px-5 md:py-2.5 md:text-[0.9375rem]">
+              <GraduationCap
+                className="size-4 shrink-0 text-muted-foreground/90 md:size-[1.125rem]"
+                strokeWidth={1.5}
+                aria-hidden
+              />
+              <span>100% free for Finals season</span>
+            </p>
+            <h1 className="text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-medium tracking-tight leading-[1.08]">
+              <span className="block">Your Files and AI</span>
+              <span className="block">in One Place</span>
+            </h1>
+          </div>
           <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed">
             Study and research without switching between endless windows
           </p>
