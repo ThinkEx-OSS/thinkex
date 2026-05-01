@@ -122,7 +122,7 @@ export const AttachmentChip: FC<AttachmentChipProps> = ({
               ) : null}
             </Dialog>
           )}
-          {!readOnly && onRemove && attachment.status !== "uploading" && (
+          {!readOnly && onRemove && (
             <TooltipIconButton
               tooltip="Remove file"
               className="absolute top-1.5 right-1.5 size-3.5 rounded-full bg-white text-muted-foreground opacity-100 shadow-sm hover:bg-white! [&_svg]:text-black hover:[&_svg]:text-destructive"
@@ -133,11 +133,9 @@ export const AttachmentChip: FC<AttachmentChipProps> = ({
             </TooltipIconButton>
           )}
         </div>
-        {attachment.status !== "uploading" && (
-          <div className="text-[11px] text-muted-foreground w-full truncate text-center px-1 leading-tight">
-            {attachment.name}
-          </div>
-        )}
+        <div className="text-[11px] text-muted-foreground w-full truncate text-center px-1 leading-tight">
+          {attachment.name}
+        </div>
       </div>
       <TooltipContent side="top">{attachment.name}</TooltipContent>
     </Tooltip>
