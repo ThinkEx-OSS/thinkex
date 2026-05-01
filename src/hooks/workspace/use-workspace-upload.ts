@@ -18,6 +18,8 @@ import {
   getDocumentUploadSuccessMessage,
 } from "@/lib/uploads/upload-feedback";
 import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
+import { isTextOrCodeFile } from "@/lib/uploads/accepted-file-types";
+import { textFileToMarkdown } from "@/lib/uploads/text-file-to-markdown";
 
 const MAX_FILE_SIZE_MB = 50;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -40,7 +42,7 @@ export function useWorkspaceUpload({
   return useCallback(
     async (files: File[]) => {
       if (!operations || !currentWorkspaceId) {
-        toast.error("Workspace isn't ready yet — try again in a moment.");
+        toast.error("Workspace isn't ready yet \u2014 try again in a moment.");
         return;
       }
 
@@ -65,15 +67,45 @@ export function useWorkspaceUpload({
       if (protectedPdfNames.length > 0) emitPasswordProtectedPdf(protectedPdfNames);
       if (acceptedFiles.length === 0) return;
 
+      const textFiles = acceptedFiles.filter(f => isTextOrCodeFile(f.name));
+      const uploadableFiles = acceptedFiles.filter(f => !isTextOrCodeFile(f.name));
+
+      const textCreatedIds: string[] = [];
+      for (const file of textFiles) {
+        const markdown = await textFileToMarkdown(file);
+        if (markdown !== null) {
+          const name = file.name.replace(/\.[^/.]+$/, "");
+          const ids = operations.createItems([{
+            type: "document",
+            name,
+            initialData: { markdown },
+          }], { showSuccessToast: false });
+          textCreatedIds.push(...ids);
+        }
+      }
+
+      if (uploadableFiles.length === 0) {
+        if (textCreatedIds.length > 0) {
+          onItemsCreated?.(textCreatedIds);
+          toast.success(
+            `${textCreatedIds.length} document${textCreatedIds.length === 1 ? "" : "s"} created`,
+          );
+        }
+        return;
+      }
+
       const toastId = toast.loading(
-        getDocumentUploadLoadingMessage(acceptedFiles.length),
+        getDocumentUploadLoadingMessage(uploadableFiles.length),
       );
-      const { uploads, failedFiles } = await uploadSelectedFiles(acceptedFiles);
+      const { uploads, failedFiles } = await uploadSelectedFiles(uploadableFiles);
       toast.dismiss(toastId);
 
       if (uploads.length === 0) {
         if (failedFiles.length > 0) {
           toast.error(getDocumentUploadFailureMessage(failedFiles.length));
+        }
+        if (textCreatedIds.length > 0) {
+          onItemsCreated?.(textCreatedIds);
         }
         return;
       }
@@ -84,7 +116,7 @@ export function useWorkspaceUpload({
         }),
         { showSuccessToast: false },
       );
-      onItemsCreated?.(createdIds);
+      onItemsCreated?.([...textCreatedIds, ...createdIds]);
 
       void startAssetProcessing({
         workspaceId: currentWorkspaceId,
@@ -94,11 +126,12 @@ export function useWorkspaceUpload({
           console.error("[WORKSPACE_PROCESSING] Failed to start processing:", e),
       });
 
+      const totalCreated = uploads.length + textCreatedIds.length;
       if (failedFiles.length === 0) {
-        toast.success(getDocumentUploadSuccessMessage(uploads.length));
+        toast.success(getDocumentUploadSuccessMessage(totalCreated));
       } else {
         toast.warning(
-          getDocumentUploadPartialMessage(uploads.length, failedFiles.length),
+          getDocumentUploadPartialMessage(totalCreated, failedFiles.length),
         );
       }
     },

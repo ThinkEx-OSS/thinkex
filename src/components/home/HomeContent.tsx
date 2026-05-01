@@ -12,9 +12,9 @@ import { useCreateWorkspace } from "@/hooks/workspace/use-create-workspace";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { cn } from "@/lib/utils";
 import {
-  HOME_FILE_UPLOAD_ACCEPT_STRING,
+  HOME_UPLOAD_ACCEPT_STRING,
   isStudyDocumentFile,
-} from "@/lib/uploads/home-upload-config";
+} from "@/lib/uploads/accepted-file-types";
 import { ChevronDown } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -166,7 +166,7 @@ function HeroAttachmentsSection({
         id={uploadInputId}
         ref={fileInputRef}
         type="file"
-        accept={HOME_FILE_UPLOAD_ACCEPT_STRING}
+        accept={HOME_UPLOAD_ACCEPT_STRING}
         multiple
         className="sr-only"
         onChange={handleFileChange}

@@ -7,10 +7,10 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-  HOME_FILE_UPLOAD_ACCEPT,
-  HOME_FILE_UPLOAD_DESCRIPTION,
-  HOME_FILE_UPLOAD_REJECT_MESSAGE,
-} from "@/lib/uploads/home-upload-config";
+  HOME_UPLOAD_ACCEPT,
+  HOME_UPLOAD_DESCRIPTION,
+  HOME_UPLOAD_REJECT_MESSAGE,
+} from "@/lib/uploads/accepted-file-types";
 
 interface HomeHeroDropzoneProps {
   children: React.ReactNode;
@@ -44,11 +44,11 @@ export function HomeHeroDropzone({ children, onFilesDropped }: HomeHeroDropzoneP
     onDrop,
     noClick: true,
     noKeyboard: true,
-    accept: HOME_FILE_UPLOAD_ACCEPT,
+    accept: HOME_UPLOAD_ACCEPT,
     onDropRejected: (fileRejections) => {
       if (fileRejections.length > 0) {
         const names = fileRejections.map((r) => r.file.name).join(", ");
-        toast.error(`${HOME_FILE_UPLOAD_REJECT_MESSAGE} Rejected: ${names}`);
+        toast.error(`${HOME_UPLOAD_REJECT_MESSAGE} Rejected: ${names}`);
       }
     },
   });
@@ -71,7 +71,7 @@ export function HomeHeroDropzone({ children, onFilesDropped }: HomeHeroDropzoneP
             <div className="space-y-2">
               <h3 className="text-lg font-semibold text-foreground">Drop files here</h3>
               <p className="text-sm text-muted-foreground">
-                {HOME_FILE_UPLOAD_DESCRIPTION} only
+                {HOME_UPLOAD_DESCRIPTION} only
               </p>
             </div>
           </div>

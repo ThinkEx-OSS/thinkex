@@ -3,10 +3,10 @@
 import { useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
-import { WORKSPACE_FILE_UPLOAD_ACCEPT_STRING } from "@/lib/uploads/workspace-upload-config";
+import { WORKSPACE_UPLOAD_ACCEPT_STRING } from "@/lib/uploads/accepted-file-types";
 
 export const WORKSPACE_FILE_INPUT_ACCEPT =
-  WORKSPACE_FILE_UPLOAD_ACCEPT_STRING;
+  WORKSPACE_UPLOAD_ACCEPT_STRING;
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 
 interface UseWorkspaceFilePickerOptions {
@@ -111,7 +111,7 @@ export function useWorkspaceFilePicker({
     }
 
     if (documentFiles.length > 0) {
-      toast.error("Document upload not available");
+      toast.error("This file type is not supported in this context.");
     }
   }, [onFilesSelected, onImageUpload]);
 

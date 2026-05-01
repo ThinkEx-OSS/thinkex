@@ -2,6 +2,7 @@
 
 import { ArrowUpIcon, Loader2, Square } from "lucide-react";
 import { LuPaperclip } from "react-icons/lu";
+import { CHAT_UPLOAD_ACCEPT_STRING } from "@/lib/uploads/accepted-file-types";
 import {
   useCallback,
   useEffect,
@@ -286,7 +287,7 @@ export const MultimodalInput: FC<MultimodalInputProps> = ({ items }) => {
               className="sr-only"
               onChange={handleFilePick}
               multiple
-              accept="image/*,.pdf,.txt,.md,.csv,.json,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.heic,.heif,.avif,.tiff,.tif"
+              accept={CHAT_UPLOAD_ACCEPT_STRING}
             />
             <ModelSettingsMenu />
             <ModelPicker />

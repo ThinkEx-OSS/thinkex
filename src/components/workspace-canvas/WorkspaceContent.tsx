@@ -14,9 +14,9 @@ import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { toast } from "sonner";
 import { OCR_COMPLETE_EVENT } from "@/lib/ocr/client";
 import {
-  WORKSPACE_FILE_UPLOAD_ACCEPT_STRING,
-  WORKSPACE_FILE_UPLOAD_DESCRIPTION,
-} from "@/lib/uploads/workspace-upload-config";
+  WORKSPACE_UPLOAD_ACCEPT_STRING,
+  WORKSPACE_UPLOAD_DESCRIPTION,
+} from "@/lib/uploads/accepted-file-types";
 
 interface WorkspaceContentProps {
   viewState: Item[];
@@ -266,7 +266,7 @@ export default function WorkspaceContent({
                 multiple
                 className="sr-only"
                 onChange={handleFileChange}
-                accept={WORKSPACE_FILE_UPLOAD_ACCEPT_STRING}
+                accept={WORKSPACE_UPLOAD_ACCEPT_STRING}
               />
 
               <label
@@ -280,7 +280,7 @@ export default function WorkspaceContent({
                     : "This workspace is empty"}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Add {WORKSPACE_FILE_UPLOAD_DESCRIPTION} here, or click to
+                  Add {WORKSPACE_UPLOAD_DESCRIPTION} here, or click to
                   choose files.
                 </p>
               </label>

@@ -24,11 +24,7 @@ import { selectReplySelections, useUIStore } from "@/lib/stores/ui-store";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
 import { isOfficeDocument } from "@/lib/uploads/office-document-validation";
 import { isPasswordProtectedPdf } from "@/lib/uploads/pdf-validation";
-import { processPdfAttachmentsInBackground } from "@/lib/uploads/process-pdf-attachments-in-background";
 import { useShallow } from "zustand/react/shallow";
-
-import { useWorkspaceItems } from "@/hooks/workspace/use-workspace-items";
-import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 const COMPOSER_FOCUS_RETRY_FRAMES = 12;
@@ -167,8 +163,6 @@ export function ComposerProvider({ children }: ComposerProviderProps) {
   const clearReplySelections = useUIStore(
     (state) => state.clearReplySelections,
   );
-  const workspaceState = useWorkspaceItems();
-  const operations = useWorkspaceOperations(workspaceId, workspaceState);
 
   const hasUploadingAttachments = useAttachmentUploadStore(
     (s) => s.uploadingIds.size > 0,
@@ -371,26 +365,8 @@ export function ComposerProvider({ children }: ComposerProviderProps) {
         uploadPromisesRef.current.set(row.id, promise);
       }
 
-      // PDFs and Office docs get processed into the workspace in the background
-      // (extracts text + creates an item) — same UX as before the migration.
-      const pdfsAndOffice = finalFiles.filter(
-        (f) =>
-          f.type === "application/pdf" ||
-          f.name.toLowerCase().endsWith(".pdf") ||
-          isOfficeDocument(f),
-      );
-      if (pdfsAndOffice.length > 0 && workspaceId) {
-        const wrapped = newRows
-          .filter((row) => pdfsAndOffice.some((f) => f === row.file))
-          .map((row) => ({ id: row.id, file: row.file }));
-        void processPdfAttachmentsInBackground(
-          wrapped,
-          workspaceId,
-          operations,
-        );
-      }
     },
-    [operations, workspaceId],
+    [],
   );
 
   const submit = useCallback(async () => {

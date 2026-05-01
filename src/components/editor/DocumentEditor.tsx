@@ -57,7 +57,6 @@ import {
 } from "@/components/tiptap-ui/color-highlight-popover";
 
 // --- Tiptap Node ---
-import { ImageUploadNode } from "@/components/tiptap-node/image-upload-node/image-upload-node-extension";
 import { HorizontalRule } from "@/components/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension";
 import "@/components/tiptap-node/blockquote-node/blockquote-node.scss";
 import "@/components/tiptap-node/code-block-node/code-block-node.scss";
@@ -98,8 +97,6 @@ import { EditorThemeToggle } from "@/components/editor/EditorThemeToggle";
 import {
   cn,
   extractSelectionTextForAskAI,
-  handleImageUpload,
-  MAX_FILE_SIZE,
 } from "@/lib/tiptap-utils";
 import { useOptionalComposerActions } from "@/lib/stores/composer-actions-store";
 import { useUIStore } from "@/lib/stores/ui-store";
@@ -896,13 +893,6 @@ export function DocumentEditor({
         table: {
           resizable: false,
         },
-      }),
-      ImageUploadNode.configure({
-        accept: "image/*",
-        maxSize: MAX_FILE_SIZE,
-        limit: 3,
-        upload: handleImageUpload,
-        onError: (error) => console.error("Upload failed:", error),
       }),
       Markdown.configure({
         markedOptions: {
