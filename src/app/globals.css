@@ -1165,3 +1165,9 @@ body:has(.card-detail-modal) .workspace-grid-container {
     opacity: 1;
   }
 }
+
+/* Landing page floating icon animation */
+@keyframes landing-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
