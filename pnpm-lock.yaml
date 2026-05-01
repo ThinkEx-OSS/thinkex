@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@embedpdf/plugin-zoom':
+    hash: 0c593e80c7ece894ff0c5aba981739e672316bace772bb2562c83c8f687f0bb6
+    path: patches/@embedpdf__plugin-zoom.patch
+
 importers:
 
   .:
@@ -88,7 +93,7 @@ importers:
         version: 2.14.0(@embedpdf/core@2.14.0(preact@10.29.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(svelte@5.55.4)(vue@3.5.32(typescript@6.0.3)))(preact@10.29.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(svelte@5.55.4)(vue@3.5.32(typescript@6.0.3))
       '@embedpdf/plugin-zoom':
         specifier: ^2.14.0
-        version: 2.14.0(769ec7203295d0a02899c1022642f36a)
+        version: 2.14.0(patch_hash=0c593e80c7ece894ff0c5aba981739e672316bace772bb2562c83c8f687f0bb6)(769ec7203295d0a02899c1022642f36a)
       '@floating-ui/react':
         specifier: ^0.27.19
         version: 0.27.19(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -11225,7 +11230,7 @@ snapshots:
       svelte: 5.55.4
       vue: 3.5.32(typescript@6.0.3)
 
-  '@embedpdf/plugin-zoom@2.14.0(769ec7203295d0a02899c1022642f36a)':
+  '@embedpdf/plugin-zoom@2.14.0(patch_hash=0c593e80c7ece894ff0c5aba981739e672316bace772bb2562c83c8f687f0bb6)(769ec7203295d0a02899c1022642f36a)':
     dependencies:
       '@embedpdf/core': 2.14.0(preact@10.29.1)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(svelte@5.55.4)(vue@3.5.32(typescript@6.0.3))
       '@embedpdf/models': 2.14.0

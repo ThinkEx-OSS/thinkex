@@ -1,0 +1,2 @@
+patchedDependencies:
+  '@embedpdf/plugin-zoom': patches/@embedpdf__plugin-zoom.patch
