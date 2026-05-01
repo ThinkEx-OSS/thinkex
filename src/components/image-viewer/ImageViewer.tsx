@@ -389,7 +389,7 @@ export default function ImageViewer({
           minScale={0.1}
           maxScale={10}
           centerOnInit={true}
-          wheel={{ step: 0.03, smoothStep: 0.004 }}
+          wheel={{ step: 0.03 }}
           doubleClick={{ mode: "reset" }}
           panning={{ disabled: isCapturing }}
           onTransform={(_ref: ReactZoomPanPinchRef, state: { scale: number }) => {
