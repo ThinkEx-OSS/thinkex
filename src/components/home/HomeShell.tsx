@@ -14,11 +14,13 @@ export interface InitialAuth {
 }
 
 interface HomeShellProps {
+  showDemoVideo: boolean;
   initialAuth: InitialAuth;
   initialWorkspaces: WorkspaceListItem[] | null;
 }
 
 export function HomeShell({
+  showDemoVideo,
   initialAuth,
   initialWorkspaces,
 }: HomeShellProps) {
@@ -28,7 +30,10 @@ export function HomeShell({
       <AnonymousSessionHandler>
         <WorkspaceProvider initialWorkspaces={initialWorkspaces}>
           <HomeLayout>
-            <HomeContent initialAuth={initialAuth} />
+            <HomeContent
+              showDemoVideo={showDemoVideo}
+              initialAuth={initialAuth}
+            />
           </HomeLayout>
         </WorkspaceProvider>
       </AnonymousSessionHandler>
