@@ -24,7 +24,6 @@ import {
 } from "@/lib/posthog-server";
 import { withServerObservability } from "@/lib/with-server-observability";
 import { normalizeLegacyToolMessages } from "@/lib/ai/legacy-tool-message-compat";
-import { sanitizeForJsonb } from "@/lib/utils/sanitize-unicode";
 import { maybeWithSupermemory } from "@/lib/ai/supermemory";
 import {
   requireAuth,
@@ -317,7 +316,7 @@ async function handlePOST(req: Request) {
           messageId: String(newMessage.id),
           parentId: null,
           format: CHAT_MESSAGE_FORMAT,
-          content: sanitizeForJsonb(newMessage),
+          content: newMessage,
         })
         .onConflictDoNothing({
           target: [chatMessages.threadId, chatMessages.messageId],
@@ -586,7 +585,7 @@ async function handlePOST(req: Request) {
               messageId: String(responseMessage.id),
               parentId: String(newMessage.id),
               format: CHAT_MESSAGE_FORMAT,
-              content: sanitizeForJsonb(responseMessage),
+              content: responseMessage,
             })
             .onConflictDoNothing({
               target: [chatMessages.threadId, chatMessages.messageId],

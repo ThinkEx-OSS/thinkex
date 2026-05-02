@@ -224,12 +224,7 @@ const TextSelectionMenu = ({
       // Use the .wait(successCb, errorCb) pattern
       // Casting to any to avoid strict TS issues if the type definition is slightly off for 'wait'
       (textTask as any).wait((lines: string[]) => {
-        // Strip unpaired UTF-16 surrogates that PDF text extraction can produce
-        // from mathematical/supplementary-plane characters.
-        const text = lines.join('\n').replace(
-          /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g,
-          '\ufffd',
-        );
+        const text = lines.join('\n');
 
         if (text && text.trim().length > 0) {
           const page = scrollState?.currentPage;
