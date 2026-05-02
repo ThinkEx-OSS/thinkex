@@ -130,11 +130,10 @@ export function AssistantThreadSelection({
 
   useEffect(() => {
     const handleMouseUp = (e: MouseEvent) => {
-      const target = e.target as Element;
-      if (
-        target?.closest(".selection-tooltip-container") ||
-        target?.closest(".selection-tooltip-action")
-      ) {
+      const target = e.target;
+      if (!(target instanceof Element)) return;
+
+      if (target.closest(".selection-tooltip-container")) {
         return;
       }
 
@@ -147,16 +146,11 @@ export function AssistantThreadSelection({
 
       if (
         !hasTextSelection &&
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.tagName === "BUTTON" ||
-          target.closest("button") ||
+        (target.closest("button") ||
           target.closest('[role="button"]') ||
           target.closest("input") ||
           target.closest("textarea") ||
-          target.closest('[contenteditable="true"]') ||
-          target.closest('[contenteditable="false"]'))
+          target.closest('[contenteditable="true"]'))
       ) {
         return;
       }
@@ -172,10 +166,10 @@ export function AssistantThreadSelection({
       const sel = window.getSelection();
       const el = document.activeElement;
       if (
-        el &&
+        el instanceof HTMLElement &&
         (el.tagName === "INPUT" ||
           el.tagName === "TEXTAREA" ||
-          (el as HTMLElement).isContentEditable)
+          el.isContentEditable)
       ) {
         if (
           sel?.anchorNode &&

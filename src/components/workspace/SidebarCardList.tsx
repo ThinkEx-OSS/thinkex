@@ -106,7 +106,7 @@ function SidebarItemButton({ item, allItems, workspaceName, workspaceIcon, works
                     className="w-full cursor-pointer p-0"
                     onClick={(e: React.MouseEvent) => {
                         // Don't trigger item click if clicking the menu button
-                        if ((e.target as HTMLElement).closest('[data-menu-button]')) {
+                        if (e.target instanceof HTMLElement && e.target.closest('[data-menu-button]')) {
                             e.stopPropagation();
                             return;
                         }
@@ -286,7 +286,7 @@ function SidebarRootItem({ item, allItems, workspaceName, workspaceIcon, workspa
                     className="w-full cursor-pointer p-0"
                     onClick={(e: React.MouseEvent) => {
                         // Don't trigger item click if clicking the menu button
-                        if ((e.target as HTMLElement).closest('[data-menu-button]')) {
+                        if (e.target instanceof HTMLElement && e.target.closest('[data-menu-button]')) {
                             e.stopPropagation();
                             return;
                         }
@@ -534,7 +534,7 @@ function SidebarFolderItem({
                     )}
                     onClick={(e: React.MouseEvent) => {
                         // Don't trigger folder click if clicking the menu button
-                        if ((e.target as HTMLElement).closest('[data-menu-button]')) {
+                        if (e.target instanceof HTMLElement && e.target.closest('[data-menu-button]')) {
                             e.stopPropagation();
                             return;
                         }

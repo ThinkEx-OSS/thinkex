@@ -282,7 +282,7 @@ const PdfCopyKeyboardHandler = ({ documentId }: { documentId: string }) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
         // Don't intercept when user is typing in an input/textarea
         const el = document.activeElement;
-        if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as HTMLElement).isContentEditable)) {
+        if (el instanceof HTMLElement && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) {
           return;
         }
 

@@ -200,7 +200,8 @@ function WorkspaceCard({
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       // Don't track if clicking on interactive elements or text inputs
-      const target = e.target as HTMLElement;
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
       if (
         target.closest("button") ||
         target.closest("input") ||
@@ -292,7 +293,8 @@ function WorkspaceCard({
 
     // Only check for text input/selection if drag hasn't been detected yet
     // This prevents starting a drag when user is trying to select text
-    const target = e.target as HTMLElement;
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
     if (
       target.closest("textarea") ||
       target.closest("input") ||
@@ -314,7 +316,8 @@ function WorkspaceCard({
   const handleCardClick = useCallback(
     (e: React.MouseEvent) => {
       // Check if click originated from dropdown menu
-      const target = e.target as HTMLElement;
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
       if (
         target.closest('[data-slot="dropdown-menu-item"]') ||
         target.closest('[data-slot="dropdown-menu-content"]') ||

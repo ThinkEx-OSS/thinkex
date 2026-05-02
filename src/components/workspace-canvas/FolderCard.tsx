@@ -121,7 +121,8 @@ function FolderCardComponent({
   // Handle mouse down - track initial position for drag detection
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     // Don't track if clicking on interactive elements
-    const target = e.target as HTMLElement;
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
     if (
       target.closest('button') ||
       target.closest('input') ||
@@ -149,7 +150,8 @@ function FolderCardComponent({
   // Handle click - only open folder if it wasn't a drag
   const handleClick = useCallback((e: React.MouseEvent) => {
     // Don't open if clicking on interactive elements
-    const target = e.target as HTMLElement;
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
     if (
       target.closest('button') ||
       target.closest('[data-slot="dropdown-menu-content"]') ||

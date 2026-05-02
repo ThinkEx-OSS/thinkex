@@ -118,7 +118,8 @@ export function MarqueeSelector({
     if (e.button !== 0) return;
 
     // Don't start if clicking on a card or interactive element
-    const target = e.target as HTMLElement;
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
 
     // Clear native text selection when clicking on workspace background
     // (MarqueeSelector captures background clicks before they reach WorkspaceSection)
@@ -147,7 +148,8 @@ export function MarqueeSelector({
     if (e.button !== 0 || !e.shiftKey) return;
 
     // Don't interfere with text inputs
-    const target = e.target as HTMLElement;
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
       return;
     }

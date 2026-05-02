@@ -152,11 +152,12 @@ export function WorkspaceSection({
       // Check for Delete or Backspace key
       if (e.key === "Delete" || e.key === "Backspace") {
         // Don't trigger if user is typing in an input, textarea, or contenteditable
-        const target = e.target as HTMLElement;
+        const target = e.target;
         if (
-          target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable
+          target instanceof HTMLElement &&
+          (target.tagName === "INPUT" ||
+            target.tagName === "TEXTAREA" ||
+            target.isContentEditable)
         ) {
           return;
         }
@@ -173,7 +174,8 @@ export function WorkspaceSection({
   const handleWorkspaceMouseDown = (
     event: React.MouseEvent<HTMLDivElement>,
   ) => {
-    const target = event.target as HTMLElement;
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
 
     // Clear native text selection when clicking anywhere in the workspace
     // (Background clicks are handled by MarqueeSelector; this fires for card clicks etc.)

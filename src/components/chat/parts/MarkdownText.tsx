@@ -199,7 +199,8 @@ const MarkdownTextImpl = ({
     if (!container) return;
 
     const handleWheel = (e: WheelEvent) => {
-      const target = e.target as HTMLElement;
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
       const preElement = target.closest("pre");
       if (!preElement) return;
       const isVerticalScroll = Math.abs(e.deltaY) > Math.abs(e.deltaX);
