@@ -204,7 +204,9 @@ const WebSearchContent: FC<{
         ? argsQuery
             ? `Searching the web for "${argsQuery}"`
             : "Searching the web"
-        : "Searched the web";
+        : argsQuery
+          ? `Searched the web for "${argsQuery}"`
+          : "Searched the web";
 
     return (
         <ToolRoot>

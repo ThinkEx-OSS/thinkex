@@ -22,8 +22,9 @@ export const toolTitleField = z
   .string()
   .min(1)
   .max(60)
+  .optional()
   .describe(
-    'A short present-tense gerund phrase (3–6 words) describing what this tool call is doing in plain language for a non-technical user. Shown in the UI while the tool runs. Examples: "Searching your notes for photosynthesis", "Reading the Wikipedia article", "Computing average grades". No trailing punctuation, no tool names, no jargon (regex, URL, etc.).',
+    'A short present-tense gerund phrase (3–6 words) describing what this tool call is doing in plain language for a non-technical user. Shown in the UI while the tool runs. Examples: "Searching your notes for photosynthesis", "Reading the Wikipedia article", "Computing average grades". No trailing punctuation, no tool names, no jargon (regex, URL, etc.). Strongly encouraged on every call so the user sees meaningful progress instead of a generic loading label.',
   );
 
 /**
