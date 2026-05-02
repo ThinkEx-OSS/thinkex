@@ -295,7 +295,8 @@ export function FlashcardWorkspaceCard({
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       // Don't track if clicking on interactive elements
-      const target = e.target as HTMLElement;
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
       if (
         target.closest("button") ||
         target.closest(".flashcard-control-button") ||

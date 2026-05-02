@@ -140,7 +140,8 @@ function WorkspaceGridComponent({
     const oldItem = args[1];
     const e = args[4];
     // Check if the click originated from a dropdown menu - if so, don't start drag
-    const target = e.target as HTMLElement;
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
     if (
       target.closest('[data-slot="dropdown-menu-item"]') ||
       target.closest('[data-slot="dropdown-menu-content"]') ||
@@ -194,7 +195,7 @@ function WorkspaceGridComponent({
     const elementAtPoint = document.elementFromPoint(cursorX, cursorY);
     if (elementAtPoint) {
       // Check if the element or its parents have data-folder-id
-      const folderElement = elementAtPoint.closest('[data-folder-id]') as HTMLElement;
+      const folderElement = elementAtPoint.closest('[data-folder-id]');
       if (folderElement) {
         const folderId = folderElement.getAttribute('data-folder-id');
         if (folderId && folderId !== draggedItemId) {
@@ -430,8 +431,8 @@ function WorkspaceGridComponent({
         // Hide the card elements to prevent React Grid Layout from animating them back
         // Only hide if we're actually going to move them (handlers exist)
         for (const cardId of validCardsToMove) {
-          const cardElement = document.querySelector(`[id="item-${cardId}"]`)?.closest('.react-grid-item') as HTMLElement;
-          if (cardElement) {
+          const cardElement = document.querySelector(`[id="item-${cardId}"]`)?.closest('.react-grid-item');
+          if (cardElement instanceof HTMLElement) {
             cardElement.style.display = 'none';
             cardElement.style.visibility = 'hidden';
             cardElement.style.opacity = '0';

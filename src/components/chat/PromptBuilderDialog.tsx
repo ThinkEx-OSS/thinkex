@@ -429,7 +429,7 @@ export function PromptBuilderDialog({
         return;
       }
       if (e.key === "Enter") {
-        const isTextarea = (e.target as HTMLElement).tagName === "TEXTAREA";
+        const isTextarea = e.target instanceof HTMLElement && e.target.tagName === "TEXTAREA";
         if (isTextarea) {
           if (e.metaKey || e.ctrlKey) {
             e.preventDefault();
