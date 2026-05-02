@@ -63,6 +63,16 @@ export default function WorkspaceContent({
     return filterItemsByFolder(viewState, activeFolderId ?? null);
   }, [viewState, activeFolderId]);
 
+  const folderItems = useMemo(
+    () => filteredItems.filter((item) => item.type === "folder"),
+    [filteredItems],
+  );
+
+  const contentItems = useMemo(
+    () => filteredItems.filter((item) => item.type !== "folder"),
+    [filteredItems],
+  );
+
   const handleOpenFolder = useCallback(
     (folderId: string) => {
       setActiveFolderId(folderId);
@@ -215,9 +225,10 @@ export default function WorkspaceContent({
     [onPDFUpload],
   );
 
-  const isFiltering = activeFolderId !== null;
-
-  if (viewState.length === 0 || (isFiltering && filteredItems.length === 0)) {
+  if (
+    viewState.length === 0 ||
+    (folderItems.length === 0 && contentItems.length === 0)
+  ) {
     return (
       <div className="flex-1 py-4 overflow-hidden">
         <div
@@ -294,7 +305,8 @@ export default function WorkspaceContent({
       <div className={selectedCardIdsArray.length > 0 ? "pb-20" : undefined}>
         <WorkspaceGrid
           key={activeFolderId ?? "root"}
-          items={filteredItems}
+          folderItems={folderItems}
+          contentItems={contentItems}
           allItems={viewState}
           onUpdateItem={handleUpdateItem}
           onDeleteItem={handleDeleteItem}

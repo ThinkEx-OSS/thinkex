@@ -6,7 +6,8 @@ import { FlashcardWorkspaceCard } from "./FlashcardWorkspaceCard";
 import { FolderCard } from "./FolderCard";
 
 interface WorkspaceGridProps {
-  items: Item[];
+  folderItems: Item[];
+  contentItems: Item[];
   allItems: Item[];
   onUpdateItem: (itemId: string, updates: Partial<Item>) => void;
   onDeleteItem: (itemId: string) => void;
@@ -31,8 +32,12 @@ const GRID_ITEM_HEIGHTS: Record<Item["type"], string> = {
   document: "min-h-[22rem]",
 };
 
+const GRID_COLUMNS_CLASS =
+  "grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-4";
+
 function WorkspaceGridComponent({
-  items,
+  folderItems,
+  contentItems,
   allItems,
   onUpdateItem,
   onDeleteItem,
@@ -82,29 +87,41 @@ function WorkspaceGridComponent({
     return counts;
   }, [allItems]);
 
-  const children = useMemo(() => {
-    return items.map((item) => {
-      const wrapperClass = `min-w-0 ${GRID_ITEM_HEIGHTS[item.type]}`;
+  const folderChildren = useMemo(() => {
+    return folderItems.map((item) => (
+      <div key={item.id} className={`min-w-0 ${GRID_ITEM_HEIGHTS.folder}`}>
+        <FolderCard
+          item={item}
+          itemCount={folderItemCounts.get(item.id) || 0}
+          allItems={allItems}
+          workspaceName={workspaceName}
+          workspaceIcon={workspaceIcon}
+          workspaceColor={workspaceColor}
+          onOpenFolder={handleOpenFolder}
+          onUpdateItem={handleUpdateItem}
+          onDeleteItem={handleDeleteItem}
+          onDeleteFolderWithContents={onDeleteFolderWithContents}
+          onMoveItem={onMoveItem}
+        />
+      </div>
+    ));
+  }, [
+    allItems,
+    folderItemCounts,
+    folderItems,
+    handleDeleteItem,
+    handleOpenFolder,
+    handleUpdateItem,
+    onDeleteFolderWithContents,
+    onMoveItem,
+    workspaceColor,
+    workspaceIcon,
+    workspaceName,
+  ]);
 
-      if (item.type === "folder") {
-        return (
-          <div key={item.id} className={wrapperClass}>
-            <FolderCard
-              item={item}
-              itemCount={folderItemCounts.get(item.id) || 0}
-              allItems={allItems}
-              workspaceName={workspaceName}
-              workspaceIcon={workspaceIcon}
-              workspaceColor={workspaceColor}
-              onOpenFolder={handleOpenFolder}
-              onUpdateItem={handleUpdateItem}
-              onDeleteItem={handleDeleteItem}
-              onDeleteFolderWithContents={onDeleteFolderWithContents}
-              onMoveItem={onMoveItem}
-            />
-          </div>
-        );
-      }
+  const contentChildren = useMemo(() => {
+    return contentItems.map((item) => {
+      const wrapperClass = `min-w-0 ${GRID_ITEM_HEIGHTS[item.type]}`;
 
       if (item.type === "flashcard") {
         return (
@@ -142,13 +159,10 @@ function WorkspaceGridComponent({
     });
   }, [
     allItems,
-    folderItemCounts,
+    contentItems,
     handleDeleteItem,
-    handleOpenFolder,
     handleOpenModal,
     handleUpdateItem,
-    items,
-    onDeleteFolderWithContents,
     onMoveItem,
     workspaceColor,
     workspaceIcon,
@@ -157,8 +171,13 @@ function WorkspaceGridComponent({
 
   return (
     <div className="w-full workspace-grid-container px-4 sm:px-6">
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-4">
-        {children}
+      <div className="flex flex-col gap-4">
+        {folderChildren.length > 0 ? (
+          <div className={GRID_COLUMNS_CLASS}>{folderChildren}</div>
+        ) : null}
+        {contentChildren.length > 0 ? (
+          <div className={GRID_COLUMNS_CLASS}>{contentChildren}</div>
+        ) : null}
       </div>
     </div>
   );
