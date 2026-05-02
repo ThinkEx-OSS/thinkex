@@ -21,7 +21,7 @@ export function compareWorkspaceItemsByOrder(a: Item, b: Item): number {
     return sortOrderDiff;
   }
 
-  return a.id.localeCompare(b.id);
+  return 0;
 }
 
 export function sortWorkspaceItemsByOrder(items: Item[]): Item[] {

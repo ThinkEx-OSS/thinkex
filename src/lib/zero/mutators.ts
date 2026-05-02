@@ -526,12 +526,29 @@ async function deleteItemById(
         .where("folderId", params.itemId),
     );
     const now = Date.now();
+    const allItems = sortWorkspaceItemsByOrder(
+      await loadWorkspaceShells(tx, params.workspaceId),
+    );
+
     for (const child of children) {
+      const childItem = toItem(child);
+      const sortOrder = getNextSortOrderForItem(allItems, {
+        type: childItem.type,
+        folderId: undefined,
+      });
+
+      allItems.push({
+        ...childItem,
+        folderId: undefined,
+        sortOrder,
+      });
+
       await updateShellOnly(tx, {
         workspaceId: params.workspaceId,
         itemId: child.itemId,
         shellChanges: {
           folderId: undefined,
+          sortOrder,
           layout: undefined,
           lastModified: now,
         },
