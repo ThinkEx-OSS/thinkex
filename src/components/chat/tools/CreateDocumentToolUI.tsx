@@ -243,7 +243,16 @@ function CreateDocumentToolRenderer({
       />
     );
   } else if (status.type === "running") {
-    content = <ToolUILoadingShell label="Creating document..." />;
+    const titleRunning = args?.title?.trim();
+    content = (
+      <ToolUILoadingShell
+        label={
+          titleRunning
+            ? `Creating "${titleRunning}"…`
+            : "Creating document…"
+        }
+      />
+    );
   } else if (status.type === "incomplete" && status.reason === "error") {
     content = (
       <ToolUIErrorShell

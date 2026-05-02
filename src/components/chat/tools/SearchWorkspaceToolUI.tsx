@@ -6,17 +6,22 @@ import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { ToolUILoadingShell } from "./tool-ui-loading-shell";
 import { ToolUIErrorShell } from "./tool-ui-error-shell";
 
-type GrepArgs = { pattern: string; include?: string; path?: string };
+type GrepArgs = { title?: string; pattern: string; include?: string; path?: string };
 type GrepResult = { success: boolean; matches?: number; output?: string; message?: string };
 
 export const renderSearchWorkspaceToolUI: ChatToolUIProps<
   GrepArgs,
   GrepResult
->["render"] = ({ status, result }) => {
+>["render"] = ({ args, status, result }) => {
   let content: React.ReactNode = null;
 
   if (status.type === "running") {
-    content = <ToolUILoadingShell label="Searching workspace..." />;
+    const title = args?.title?.trim();
+    content = (
+      <ToolUILoadingShell
+        label={title ? `${title}…` : "Searching workspace…"}
+      />
+    );
   } else if (status.type === "complete" && result) {
     if (!result.success && result.message) {
       content = (

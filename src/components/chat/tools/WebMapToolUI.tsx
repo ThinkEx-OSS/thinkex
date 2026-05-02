@@ -269,7 +269,7 @@ export const renderWebMapToolUI: ChatToolUIProps<
                     rel="noopener noreferrer"
                     className="text-xs text-primary hover:underline break-all"
                   >
-                    {sourceUrl}
+                    {sourceUrl.replace(/^https?:\/\//, "")}
                   </a>
                 </div>
               )}
@@ -316,7 +316,7 @@ export const renderWebMapToolUI: ChatToolUIProps<
                             rel="noopener noreferrer"
                             className="text-xs text-primary hover:underline break-all"
                           >
-                            {link.url}
+                            {link.url.replace(/^https?:\/\//, "")}
                           </a>
                         </div>
                         {link.title && (

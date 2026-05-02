@@ -2,10 +2,29 @@
  * Shared utilities for AI tools
  */
 
+import { z } from "zod";
 import { loadWorkspaceState } from "@/lib/workspace/workspace-state-read";
 import type { Item } from "@/lib/workspace-state/types";
 import type { WorkspaceToolContext } from "./workspace-tools";
 import { resolveItemByPath } from "./workspace-search-utils";
+
+/**
+ * Shared `title` field for tool inputs whose other arguments are technical
+ * (regex patterns, raw URLs, generated code). The model writes a short
+ * present-tense gerund phrase that the UI shows while the tool runs, in
+ * place of a generic "Loading…" label.
+ *
+ * Place this as the FIRST field in a tool's input schema so it streams in
+ * before the heavier arguments and the loading shell can render it
+ * immediately during `input-streaming`.
+ */
+export const toolTitleField = z
+  .string()
+  .min(1)
+  .max(60)
+  .describe(
+    'A short present-tense gerund phrase (3–6 words) describing what this tool call is doing in plain language for a non-technical user. Shown in the UI while the tool runs. Examples: "Searching your notes for photosynthesis", "Reading the Wikipedia article", "Computing average grades". No trailing punctuation, no tool names, no jargon (regex, URL, etc.).',
+  );
 
 /**
  * Sanitize tool results for the model's context window.

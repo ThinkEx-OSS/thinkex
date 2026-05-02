@@ -8,6 +8,7 @@ import {
   type CodeExecuteResult,
   type CodeExecuteStep,
 } from "@/lib/ai/code-execute-shared";
+import { toolTitleField } from "./tool-utils";
 
 const SANDBOX_TIMEOUT_MS = 300_000;
 const EXECUTION_TIMEOUT_MS = 60_000;
@@ -84,6 +85,7 @@ export function createExecuteCodeTool() {
     description: buildCodeExecuteToolDescription(),
     inputSchema: zodSchema(
       z.object({
+        title: toolTitleField,
         code: z
           .string()
           .min(1)

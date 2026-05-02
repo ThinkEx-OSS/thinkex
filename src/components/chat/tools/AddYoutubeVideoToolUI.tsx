@@ -130,7 +130,14 @@ export const renderAddYoutubeVideoToolUI: ChatToolUIProps<
   if (parsed?.success) {
     content = <AddYoutubeVideoReceipt args={args} result={parsed} status={status} />;
   } else if (status.type === "running") {
-    content = <ToolUILoadingShell label="Adding YouTube video..." />;
+    const titleRunning = args?.title?.trim();
+    content = (
+      <ToolUILoadingShell
+        label={
+          titleRunning ? `Adding "${titleRunning}"…` : "Adding YouTube video…"
+        }
+      />
+    );
   } else if (status.type === "complete" && parsed && !parsed.success) {
     content = (
       <ToolUIErrorShell
