@@ -21,6 +21,7 @@ const workspaceItems = table("workspace_items")
     subtitle: string(),
     color: string().optional(),
     folderId: string().from("folder_id").optional(),
+    sortOrder: number().from("sort_order").optional(),
     layout: json().optional(),
     lastModified: number().from("last_modified").optional(),
     sourceVersion: number().from("source_version"),

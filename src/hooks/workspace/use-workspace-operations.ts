@@ -20,6 +20,10 @@ import {
 } from "@/lib/workspace/unique-name";
 import { filterItemIdsForFolderCreation } from "@/lib/workspace-state/search";
 import {
+  getWorkspaceItemLane,
+  sortWorkspaceItemsByOrder,
+} from "@/lib/workspace-state/order";
+import {
   sanitizeWorkspaceItemChanges,
   sanitizeWorkspaceItemForPersistence,
 } from "@/lib/workspace/workspace-item-sanitize";
@@ -42,6 +46,7 @@ type WorkspaceItemMutatorChanges = {
   data?: JsonObject;
   color?: string | null;
   folderId?: string | null;
+  sortOrder?: number | null;
   layout?: JsonObject | null;
   lastModified?: number;
 };
@@ -58,6 +63,24 @@ function getAllDescendantIds(folderId: string, items: Item[]): string[] {
   }
 
   return descendantIds;
+}
+
+function getNextSortOrderForItem(
+  items: Item[],
+  item: Pick<Item, "type" | "folderId">,
+): number {
+  const siblings = items.filter(
+    (candidate) =>
+      getWorkspaceItemLane(candidate) === getWorkspaceItemLane(item) &&
+      (candidate.folderId ?? null) === (item.folderId ?? null),
+  );
+  const maxSortOrder = siblings.reduce<number>(
+    (max, candidate) =>
+      candidate.sortOrder == null ? max : Math.max(max, candidate.sortOrder),
+    -1,
+  );
+
+  return Math.max(maxSortOrder + 1, siblings.length);
 }
 
 function toMutatorChanges(changes: Partial<Item>): WorkspaceItemMutatorChanges {
@@ -78,6 +101,9 @@ function toMutatorChanges(changes: Partial<Item>): WorkspaceItemMutatorChanges {
   }
   if (sanitized.folderId !== undefined) {
     mutatorChanges.folderId = sanitized.folderId ?? null;
+  }
+  if (sanitized.sortOrder !== undefined) {
+    mutatorChanges.sortOrder = sanitized.sortOrder ?? null;
   }
   if (sanitized.layout !== undefined) {
     mutatorChanges.layout =
@@ -359,11 +385,7 @@ export function useWorkspaceOperations(
   }, []);
 
   const createItem = useCallback(
-    (
-      type: CardType,
-      name?: string,
-      initialData?: Partial<Item["data"]>,
-    ) => {
+    (type: CardType, name?: string, initialData?: Partial<Item["data"]>) => {
       const validTypes: CardType[] = [
         "pdf",
         "flashcard",
@@ -387,7 +409,10 @@ export function useWorkspaceOperations(
       const mergedData = initialData
         ? { ...baseData, ...initialData }
         : baseData;
-
+      const sortOrder = getNextSortOrderForItem(currentItemsRef.current, {
+        type: validType,
+        folderId: activeFolderId ?? undefined,
+      });
 
       const item = sanitizeWorkspaceItemForPersistence({
         id,
@@ -397,6 +422,7 @@ export function useWorkspaceOperations(
         data: mergedData as ItemData,
         color: getRandomCardColor(),
         folderId: activeFolderId ?? undefined,
+        sortOrder,
       });
 
       if (workspaceIdRef.current) {
@@ -412,6 +438,7 @@ export function useWorkspaceOperations(
               data: item.data as JsonObject,
               color: item.color ?? null,
               folderId: item.folderId ?? null,
+              sortOrder: item.sortOrder ?? null,
             },
           }),
         );
@@ -470,7 +497,13 @@ export function useWorkspaceOperations(
           const mergedData = initialData
             ? { ...baseData, ...initialData }
             : baseData;
-
+          const sortOrder = getNextSortOrderForItem(
+            [...currentItemsRef.current, ...itemsSoFar],
+            {
+              type: validType,
+              folderId: activeFolderId ?? undefined,
+            },
+          );
 
           const newItem = sanitizeWorkspaceItemForPersistence({
             id,
@@ -480,6 +513,7 @@ export function useWorkspaceOperations(
             data: mergedData as ItemData,
             color: getRandomCardColor(),
             folderId: activeFolderId ?? undefined,
+            sortOrder,
           });
           itemsSoFar.push(newItem);
           return newItem;
@@ -509,6 +543,7 @@ export function useWorkspaceOperations(
               data: item.data as JsonObject,
               color: item.color ?? null,
               folderId: item.folderId ?? null,
+              sortOrder: item.sortOrder ?? null,
             })),
           }),
         );
@@ -634,6 +669,7 @@ export function useWorkspaceOperations(
               data: item.data as JsonObject,
               color: item.color ?? null,
               folderId: item.folderId ?? null,
+              sortOrder: item.sortOrder ?? null,
             })),
             previousItemCount,
           }),
@@ -641,13 +677,16 @@ export function useWorkspaceOperations(
       }
       return;
     }
-
   }, []);
 
   const createFolder = useCallback(
     (name: string, color?: CardColor): string => {
       const folderId = crypto.randomUUID();
       const activeFolderId = useUIStore.getState().activeFolderId;
+      const sortOrder = getNextSortOrderForItem(currentItemsRef.current, {
+        type: "folder",
+        folderId: activeFolderId ?? undefined,
+      });
       const folder = sanitizeWorkspaceItemForPersistence({
         id: folderId,
         type: "folder",
@@ -656,6 +695,7 @@ export function useWorkspaceOperations(
         data: defaultDataFor("folder") as ItemData,
         color: color || getRandomCardColor(),
         folderId: activeFolderId ?? undefined,
+        sortOrder,
       });
 
       if (workspaceIdRef.current) {
@@ -671,6 +711,7 @@ export function useWorkspaceOperations(
               data: folder.data as JsonObject,
               color: folder.color ?? null,
               folderId: folder.folderId ?? null,
+              sortOrder: folder.sortOrder ?? null,
             },
           }),
         );
@@ -698,6 +739,10 @@ export function useWorkspaceOperations(
       }
 
       const folderId = crypto.randomUUID();
+      const sortOrder = getNextSortOrderForItem(getLatestItemsFromState(), {
+        type: "folder",
+        folderId: activeFolderId ?? undefined,
+      });
       const folder = sanitizeWorkspaceItemForPersistence({
         id: folderId,
         type: "folder",
@@ -706,6 +751,7 @@ export function useWorkspaceOperations(
         data: defaultDataFor("folder") as ItemData,
         color: color || getRandomCardColor(),
         folderId: activeFolderId ?? undefined,
+        sortOrder,
       });
 
       if (workspaceIdRef.current) {
@@ -720,6 +766,7 @@ export function useWorkspaceOperations(
               data: folder.data as JsonObject,
               color: folder.color ?? null,
               folderId: folder.folderId ?? null,
+              sortOrder: folder.sortOrder ?? null,
             },
             itemIds: safeItemIds,
           }),
@@ -839,16 +886,18 @@ export function useWorkspaceOperations(
         return;
       }
 
-      const itemNames = itemIds
-        .map(
-          (id) => currentItemsRef.current.find((item) => item.id === id)?.name,
-        )
+      const orderedItems = sortWorkspaceItemsByOrder(
+        currentItemsRef.current.filter((item) => itemIds.includes(item.id)),
+      );
+      const orderedItemIds = orderedItems.map((item) => item.id);
+      const itemNames = orderedItems
+        .map((item) => item.name)
         .filter((name): name is string => name != null);
 
       zeroRef.current.mutate(
         mutators.item.moveMany({
           workspaceId: currentWorkspaceId,
-          itemIds,
+          itemIds: orderedItemIds,
           folderId,
           itemNames,
         }),

@@ -269,6 +269,7 @@ export const workspaceItems = pgTable(
     subtitle: text().default("").notNull(),
     color: text(),
     folderId: text("folder_id"),
+    sortOrder: integer("sort_order"),
     layout: jsonb(),
     lastModified: bigint("last_modified", { mode: "number" }),
     sourceVersion: integer("source_version").notNull(),
@@ -305,6 +306,13 @@ export const workspaceItems = pgTable(
       "btree",
       table.workspaceId.asc().nullsLast().op("uuid_ops"),
       table.type.asc().nullsLast().op("text_ops"),
+    ),
+    index("idx_workspace_items_workspace_folder_type_sort_order").using(
+      "btree",
+      table.workspaceId.asc().nullsLast().op("uuid_ops"),
+      table.folderId.asc().nullsLast().op("text_ops"),
+      table.type.asc().nullsLast().op("text_ops"),
+      table.sortOrder.asc().nullsLast().op("int4_ops"),
     ),
     index("idx_workspace_items_workspace_updated").using(
       "btree",
@@ -486,7 +494,6 @@ export const workspaceItemExtracted = pgTable(
     ),
   ],
 );
-
 
 export const workspaceCollaborators = pgTable(
   "workspace_collaborators",

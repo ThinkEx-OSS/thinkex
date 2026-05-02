@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
   workspaceItemContent,
@@ -26,7 +26,11 @@ async function readWorkspaceState(
     .select()
     .from(workspaceItems)
     .where(eq(workspaceItems.workspaceId, workspaceId))
-    .orderBy(asc(workspaceItems.createdAt), asc(workspaceItems.itemId));
+    .orderBy(
+      sql`${workspaceItems.sortOrder} asc nulls last`,
+      asc(workspaceItems.createdAt),
+      asc(workspaceItems.itemId),
+    );
 
   if (shellRows.length === 0) {
     return [];
@@ -85,6 +89,7 @@ async function readWorkspaceState(
         subtitle: shell.subtitle,
         color: (shell.color as Item["color"]) ?? null,
         folderId: shell.folderId ?? null,
+        sortOrder: shell.sortOrder ?? null,
         layout: (shell.layout as Item["layout"]) ?? null,
         lastModified: shell.lastModified ?? null,
         ocrStatus: shell.ocrStatus ?? null,

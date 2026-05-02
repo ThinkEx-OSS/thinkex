@@ -284,10 +284,12 @@ function createServerTx(
   };
 }
 
-function createZeroTx(state: FakeState) {
+function createZeroTx(state: FakeState, runQueue?: unknown[]) {
+  const queue = [...(runQueue ?? [])];
+
   return {
     mutate: createMutateApi(state),
-    run: vi.fn(async () => null),
+    run: vi.fn(async () => queue.shift() ?? null),
   };
 }
 
@@ -482,6 +484,108 @@ describe("zero mutator extracted-data regressions", () => {
       { index: 0, markdown: "Page body" },
     ]);
     expect(state.shells.get(key)?.hasOcr).toBe(true);
+  });
+
+  it("item.create appends to the end of its container lane", async () => {
+    const state = createState();
+    seedItem(state, {
+      id: "folder-1",
+      type: "folder",
+      name: "Folder 1",
+      subtitle: "",
+      data: {},
+      sortOrder: 0,
+    });
+    seedItem(state, {
+      id: "folder-2",
+      type: "folder",
+      name: "Folder 2",
+      subtitle: "",
+      data: {},
+      sortOrder: 1,
+    });
+    seedItem(state, {
+      id: "doc-1",
+      type: "document",
+      name: "Doc 1",
+      subtitle: "",
+      data: { markdown: "" },
+      sortOrder: 0,
+    });
+
+    const zeroTx = createZeroTx(state, [
+      Array.from(state.shells.values()).map((row) => clone(row)),
+    ]);
+
+    await mutators.item.create.fn({
+      tx: zeroTx as never,
+      ctx: { userId: USER_ID },
+      args: {
+        workspaceId: WORKSPACE_ID,
+        id: "folder-3",
+        item: {
+          id: "folder-3",
+          type: "folder",
+          name: "Folder 3",
+          subtitle: "",
+          data: {},
+        },
+      },
+    });
+
+    expect(state.shells.get(itemKey(WORKSPACE_ID, "folder-3"))?.sortOrder).toBe(
+      2,
+    );
+  });
+
+  it("item.move appends moved items to the destination lane", async () => {
+    const state = createState();
+    seedItem(state, {
+      id: "doc-root",
+      type: "document",
+      name: "Doc root",
+      subtitle: "",
+      data: { markdown: "" },
+      sortOrder: 0,
+    });
+    seedItem(state, {
+      id: "doc-a",
+      type: "document",
+      name: "Doc A",
+      subtitle: "",
+      folderId: "folder-1",
+      data: { markdown: "" },
+      sortOrder: 0,
+    });
+    seedItem(state, {
+      id: "doc-b",
+      type: "document",
+      name: "Doc B",
+      subtitle: "",
+      folderId: "folder-1",
+      data: { markdown: "" },
+      sortOrder: 1,
+    });
+
+    const zeroTx = createZeroTx(state, [
+      clone(state.shells.get(itemKey(WORKSPACE_ID, "doc-root"))!),
+      clone(state.contents.get(itemKey(WORKSPACE_ID, "doc-root"))!),
+      Array.from(state.shells.values()).map((row) => clone(row)),
+    ]);
+
+    await mutators.item.move.fn({
+      tx: zeroTx as never,
+      ctx: { userId: USER_ID },
+      args: {
+        workspaceId: WORKSPACE_ID,
+        itemId: "doc-root",
+        folderId: "folder-1",
+      },
+    });
+
+    const moved = state.shells.get(itemKey(WORKSPACE_ID, "doc-root"));
+    expect(moved?.folderId).toBe("folder-1");
+    expect(moved?.sortOrder).toBe(2);
   });
 
   it("Client optimistic upsertItem no longer clobbers shell flags", async () => {

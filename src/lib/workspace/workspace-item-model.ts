@@ -14,7 +14,10 @@ import type {
   YouTubeData,
 } from "@/lib/workspace-state/types";
 import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
-import { emptyDataForType, itemDataSchemas } from "./workspace-item-model-schemas";
+import {
+  emptyDataForType,
+  itemDataSchemas,
+} from "./workspace-item-model-schemas";
 import {
   getItemContentPreview,
   getItemSearchIndex,
@@ -381,6 +384,7 @@ export function splitWorkspaceItem(item: Item): WorkspaceItemSplitResult {
       subtitle: normalized.subtitle ?? "",
       color: normalized.color ?? null,
       folderId: normalized.folderId ?? null,
+      sortOrder: normalized.sortOrder ?? null,
       layout: normalized.layout ?? null,
       lastModified: normalized.lastModified ?? null,
       dataSchemaVersion: WORKSPACE_ITEM_DATA_SCHEMA_VERSION,
@@ -434,6 +438,7 @@ export function rehydrateWorkspaceItem(params: {
     | "subtitle"
     | "color"
     | "folderId"
+    | "sortOrder"
     | "layout"
     | "lastModified"
     | "ocrStatus"
@@ -460,6 +465,7 @@ export function rehydrateWorkspaceItem(params: {
     ),
     ...(shell.color ? { color: shell.color } : {}),
     ...(shell.folderId ? { folderId: shell.folderId } : {}),
+    ...(shell.sortOrder != null ? { sortOrder: shell.sortOrder } : {}),
     ...(shell.layout ? { layout: shell.layout } : {}),
     ...(shell.lastModified != null ? { lastModified: shell.lastModified } : {}),
   };

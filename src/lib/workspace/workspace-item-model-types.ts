@@ -27,6 +27,7 @@ export interface WorkspaceItemShellProjection {
   subtitle: string;
   color: CardColor | null;
   folderId: string | null;
+  sortOrder: number | null;
   layout: ResponsiveLayouts | LayoutPosition | null;
   lastModified: number | null;
   dataSchemaVersion: number;

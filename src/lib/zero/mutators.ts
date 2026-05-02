@@ -14,6 +14,10 @@ import {
   sanitizeWorkspaceItemChanges,
   sanitizeWorkspaceItemForPersistence,
 } from "@/lib/workspace/workspace-item-sanitize";
+import {
+  getWorkspaceItemLane,
+  sortWorkspaceItemsByOrder,
+} from "@/lib/workspace-state/order";
 import { schema, zql } from "./zero-schema.gen";
 
 type ZeroTx = Transaction<typeof schema>;
@@ -83,6 +87,7 @@ const itemSchema = z.object({
   data: jsonObjectSchema,
   color: z.string().nullable().optional(),
   folderId: z.string().nullable().optional(),
+  sortOrder: z.number().int().nullable().optional(),
   layout: jsonObjectSchema.nullable().optional(),
   lastModified: z.number().int().optional(),
 });
@@ -97,6 +102,7 @@ const itemChangesSchema = z.object({
   data: jsonObjectSchema.optional(),
   color: z.string().nullable().optional(),
   folderId: z.string().nullable().optional(),
+  sortOrder: z.number().int().nullable().optional(),
   layout: jsonObjectSchema.nullable().optional(),
   lastModified: z.number().int().optional(),
 });
@@ -160,6 +166,15 @@ export const zeroMutatorSchemas = {
       folderId: z.string().nullable(),
       itemNames: z.array(z.string()).optional(),
     }),
+    reorder: z.object({
+      workspaceId: z.string().uuid(),
+      updates: z.array(
+        z.object({
+          itemId: z.string(),
+          sortOrder: z.number().int(),
+        }),
+      ),
+    }),
   },
   folder: {
     createWithItems: z.object({
@@ -183,6 +198,7 @@ function toItem(input: z.infer<typeof itemSchema>): Item {
     ...(input.folderId !== undefined
       ? { folderId: input.folderId ?? undefined }
       : {}),
+    ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
     ...(input.layout !== undefined
       ? { layout: input.layout ?? undefined }
       : {}),
@@ -213,6 +229,9 @@ function mergeItemChanges(
       : {}),
     ...(sanitizedChanges.folderId !== undefined
       ? { folderId: sanitizedChanges.folderId ?? undefined }
+      : {}),
+    ...(sanitizedChanges.sortOrder !== undefined
+      ? { sortOrder: sanitizedChanges.sortOrder }
       : {}),
     ...(sanitizedChanges.layout !== undefined
       ? { layout: sanitizedChanges.layout ?? undefined }
@@ -253,6 +272,61 @@ function toMutateContentRow(
   };
 }
 
+async function loadWorkspaceShells(
+  tx: ZeroTx,
+  workspaceId: string,
+): Promise<Item[]> {
+  const shells =
+    (await tx.run(zql.workspace_items.where("workspaceId", workspaceId))) ?? [];
+
+  return shells.map((shell) =>
+    rehydrateWorkspaceItem({
+      shell: {
+        itemId: shell.itemId,
+        type: shell.type as Item["type"],
+        name: shell.name,
+        subtitle: shell.subtitle,
+        color: (shell.color as Item["color"]) ?? null,
+        folderId: shell.folderId ?? null,
+        sortOrder: shell.sortOrder ?? null,
+        layout: (shell.layout as Item["layout"] | undefined) ?? null,
+        lastModified: shell.lastModified ?? null,
+        ocrStatus: shell.ocrStatus ?? null,
+        processingStatus: shell.processingStatus ?? null,
+      },
+    }),
+  );
+}
+
+function getNextSortOrderForItem(
+  items: Item[],
+  item: Pick<Item, "type" | "folderId">,
+) {
+  const siblings = items.filter(
+    (candidate) =>
+      getWorkspaceItemLane(candidate) === getWorkspaceItemLane(item) &&
+      (candidate.folderId ?? null) === (item.folderId ?? null),
+  );
+  const maxSortOrder = siblings.reduce<number>(
+    (max, candidate) =>
+      candidate.sortOrder == null ? max : Math.max(max, candidate.sortOrder),
+    -1,
+  );
+
+  return Math.max(maxSortOrder + 1, siblings.length);
+}
+
+function withAssignedSortOrder(item: Item, items: Item[]): Item {
+  if (item.sortOrder != null) {
+    return item;
+  }
+
+  return {
+    ...item,
+    sortOrder: getNextSortOrderForItem(items, item),
+  };
+}
+
 async function loadItem(
   tx: ZeroTx,
   params: { workspaceId: string; itemId: string },
@@ -287,6 +361,7 @@ async function loadItem(
         subtitle: shell.subtitle,
         color: (shell.color as Item["color"]) ?? null,
         folderId: shell.folderId ?? null,
+        sortOrder: shell.sortOrder ?? null,
         layout: (shell.layout as Item["layout"] | undefined) ?? null,
         lastModified: shell.lastModified ?? null,
         ocrStatus: shell.ocrStatus ?? null,
@@ -319,9 +394,16 @@ async function insertItem(
     userId: string | null;
   },
 ) {
+  const item =
+    params.item.sortOrder != null
+      ? params.item
+      : withAssignedSortOrder(
+          params.item,
+          await loadWorkspaceShells(tx, params.workspaceId),
+        );
   const rows = buildWorkspaceItemTableRows({
     workspaceId: params.workspaceId,
-    item: params.item,
+    item,
     sourceVersion: params.sourceVersion ?? 0,
   });
 
@@ -387,6 +469,7 @@ async function updateShellOnly(
     shellChanges: Partial<{
       layout: Item["layout"];
       folderId: string | undefined;
+      sortOrder: number | null;
       lastModified: number;
     }>;
   },
@@ -399,6 +482,9 @@ async function updateShellOnly(
       : {}),
     ...("folderId" in params.shellChanges
       ? { folderId: params.shellChanges.folderId ?? null }
+      : {}),
+    ...("sortOrder" in params.shellChanges
+      ? { sortOrder: params.shellChanges.sortOrder }
       : {}),
     ...(params.shellChanges.lastModified !== undefined
       ? { lastModified: params.shellChanges.lastModified }
@@ -460,11 +546,15 @@ export const mutators = defineMutators({
       zeroMutatorSchemas.item.create,
       async ({ tx, ctx, args }) => {
         const now = Date.now();
-        const item = toItem({
-          ...args.item,
-          id: args.id,
-          lastModified: now,
-        });
+        const existingItems = await loadWorkspaceShells(tx, args.workspaceId);
+        const item = withAssignedSortOrder(
+          toItem({
+            ...args.item,
+            id: args.id,
+            lastModified: now,
+          }),
+          existingItems,
+        );
 
         await insertItem(tx, {
           workspaceId: args.workspaceId,
@@ -511,14 +601,21 @@ export const mutators = defineMutators({
       zeroMutatorSchemas.item.createMany,
       async ({ tx, ctx, args }) => {
         const now = Date.now();
+        const allItems = await loadWorkspaceShells(tx, args.workspaceId);
 
         for (const rawItem of args.items) {
-          await insertItem(tx, {
-            workspaceId: args.workspaceId,
-            item: toItem({
+          const item = withAssignedSortOrder(
+            toItem({
               ...rawItem,
               lastModified: now,
             }),
+            allItems,
+          );
+
+          allItems.push(item);
+          await insertItem(tx, {
+            workspaceId: args.workspaceId,
+            item,
             userId: ctx.userId,
             sourceVersion: 0,
           });
@@ -567,14 +664,21 @@ export const mutators = defineMutators({
 
         if (args.addedItems?.length) {
           const now = Date.now();
+          const allItems = await loadWorkspaceShells(tx, args.workspaceId);
 
           for (const rawItem of args.addedItems) {
-            await insertItem(tx, {
-              workspaceId: args.workspaceId,
-              item: toItem({
+            const item = withAssignedSortOrder(
+              toItem({
                 ...rawItem,
                 lastModified: now,
               }),
+              allItems,
+            );
+
+            allItems.push(item);
+            await insertItem(tx, {
+              workspaceId: args.workspaceId,
+              item,
               userId: ctx.userId,
               sourceVersion: 0,
             });
@@ -603,11 +707,38 @@ export const mutators = defineMutators({
       },
     ),
     move: defineMutator(zeroMutatorSchemas.item.move, async ({ tx, args }) => {
+      const existing = await loadItem(tx, {
+        workspaceId: args.workspaceId,
+        itemId: args.itemId,
+      });
+
+      if (!existing) {
+        await updateShellOnly(tx, {
+          workspaceId: args.workspaceId,
+          itemId: args.itemId,
+          shellChanges: {
+            folderId: args.folderId ?? undefined,
+            layout: undefined,
+            lastModified: Date.now(),
+          },
+        });
+        return;
+      }
+
+      const allItems = sortWorkspaceItemsByOrder(
+        await loadWorkspaceShells(tx, args.workspaceId),
+      );
+      const nextSortOrder = getNextSortOrderForItem(allItems, {
+        type: existing.item.type,
+        folderId: args.folderId ?? undefined,
+      });
+
       await updateShellOnly(tx, {
         workspaceId: args.workspaceId,
         itemId: args.itemId,
         shellChanges: {
           folderId: args.folderId ?? undefined,
+          sortOrder: nextSortOrder,
           layout: undefined,
           lastModified: Date.now(),
         },
@@ -617,8 +748,54 @@ export const mutators = defineMutators({
       zeroMutatorSchemas.item.moveMany,
       async ({ tx, args }) => {
         const now = Date.now();
+        const allItems = sortWorkspaceItemsByOrder(
+          await loadWorkspaceShells(tx, args.workspaceId),
+        );
+        const movedItems = sortWorkspaceItemsByOrder(
+          (
+            await Promise.all(
+              args.itemIds.map(async (itemId) => {
+                const existing = await loadItem(tx, {
+                  workspaceId: args.workspaceId,
+                  itemId,
+                });
+
+                return existing?.item ?? null;
+              }),
+            )
+          ).filter((item): item is Item => item != null),
+        );
+
+        for (const item of movedItems) {
+          const nextSortOrder = getNextSortOrderForItem(allItems, {
+            type: item.type,
+            folderId: args.folderId ?? undefined,
+          });
+
+          allItems.push({
+            ...item,
+            folderId: args.folderId ?? undefined,
+            sortOrder: nextSortOrder,
+          });
+          await updateShellOnly(tx, {
+            workspaceId: args.workspaceId,
+            itemId: item.id,
+            shellChanges: {
+              folderId: args.folderId ?? undefined,
+              sortOrder: nextSortOrder,
+              layout: undefined,
+              lastModified: now,
+            },
+          });
+        }
+
+        const movedItemIds = new Set(movedItems.map((item) => item.id));
 
         for (const itemId of args.itemIds) {
+          if (movedItemIds.has(itemId)) {
+            continue;
+          }
+
           await updateShellOnly(tx, {
             workspaceId: args.workspaceId,
             itemId,
@@ -631,24 +808,91 @@ export const mutators = defineMutators({
         }
       },
     ),
+    reorder: defineMutator(
+      zeroMutatorSchemas.item.reorder,
+      async ({ tx, args }) => {
+        const now = Date.now();
+
+        for (const update of args.updates) {
+          await updateShellOnly(tx, {
+            workspaceId: args.workspaceId,
+            itemId: update.itemId,
+            shellChanges: {
+              sortOrder: update.sortOrder,
+              lastModified: now,
+            },
+          });
+        }
+      },
+    ),
   },
   folder: {
     createWithItems: defineMutator(
       zeroMutatorSchemas.folder.createWithItems,
       async ({ tx, ctx, args }) => {
         const now = Date.now();
-
-        await insertItem(tx, {
-          workspaceId: args.workspaceId,
-          item: toItem({
+        const allItems = await loadWorkspaceShells(tx, args.workspaceId);
+        const folder = withAssignedSortOrder(
+          toItem({
             ...args.folder,
             lastModified: now,
           }),
+          allItems,
+        );
+
+        allItems.push(folder);
+        await insertItem(tx, {
+          workspaceId: args.workspaceId,
+          item: folder,
           userId: ctx.userId,
           sourceVersion: 0,
         });
 
+        const movedItems = sortWorkspaceItemsByOrder(
+          (
+            await Promise.all(
+              args.itemIds.map(async (itemId) => {
+                const existing = await loadItem(tx, {
+                  workspaceId: args.workspaceId,
+                  itemId,
+                });
+
+                return existing?.item ?? null;
+              }),
+            )
+          ).filter((item): item is Item => item != null),
+        );
+
+        for (const item of movedItems) {
+          const nextSortOrder = getNextSortOrderForItem(allItems, {
+            type: item.type,
+            folderId: args.folder.id,
+          });
+
+          allItems.push({
+            ...item,
+            folderId: args.folder.id,
+            sortOrder: nextSortOrder,
+          });
+          await updateShellOnly(tx, {
+            workspaceId: args.workspaceId,
+            itemId: item.id,
+            shellChanges: {
+              folderId: args.folder.id,
+              sortOrder: nextSortOrder,
+              layout: undefined,
+              lastModified: now,
+            },
+          });
+        }
+
+        const movedItemIds = new Set(movedItems.map((item) => item.id));
+
         for (const itemId of args.itemIds) {
+          if (movedItemIds.has(itemId)) {
+            continue;
+          }
+
           await updateShellOnly(tx, {
             workspaceId: args.workspaceId,
             itemId,

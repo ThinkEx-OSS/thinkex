@@ -71,6 +71,7 @@ export interface Item {
   data: ItemData;
   color?: CardColor;
   folderId?: string;
+  sortOrder?: number | null;
   layout?: ResponsiveLayouts | LayoutPosition;
   lastModified?: number;
 }

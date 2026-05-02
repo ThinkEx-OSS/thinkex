@@ -135,6 +135,7 @@ export async function syncExtractedRow(
       subtitle: shell.subtitle,
       color: (shell.color as never) ?? null,
       folderId: shell.folderId ?? null,
+      sortOrder: shell.sortOrder ?? null,
       layout: (shell.layout as never) ?? null,
       lastModified: shell.lastModified ?? null,
       ocrStatus: shell.ocrStatus ?? null,
@@ -392,6 +393,10 @@ export const serverMutators = defineMutators(sharedMutators, {
     moveMany: withAuthOnly(
       zeroMutatorSchemas.item.moveMany,
       sharedMutators.item.moveMany,
+    ),
+    reorder: withAuthOnly(
+      zeroMutatorSchemas.item.reorder,
+      sharedMutators.item.reorder,
     ),
   },
   folder: {
