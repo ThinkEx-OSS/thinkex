@@ -8,7 +8,7 @@ import { PANEL_DEFAULTS } from "@/lib/layout-constants";
 import { useUIStore } from "@/lib/stores/ui-store";
 
 /** Must stay in sync with the smallest `WorkspaceGrid` card wrapper min-height (`min-h-[14rem]`). */
-const SKELETON_CARD_HEIGHT_PX = 14 * 16;
+const SKELETON_CARD_HEIGHT = "14rem";
 /**
  * Full-shell skeleton: header bar + bento card grid + (when chat is open)
  * a chat-panel slot. Used by `ZeroProvider` while the session/Zero client
@@ -71,7 +71,7 @@ export function WorkspaceCardsLoader() {
               "animate-pulse",
             )}
             style={{
-              height: SKELETON_CARD_HEIGHT_PX,
+              height: SKELETON_CARD_HEIGHT,
               animationDelay: `${i * 80}ms`,
             }}
           />
