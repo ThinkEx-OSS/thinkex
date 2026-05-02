@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import React from "react";
 import { DragDropProvider, type DragEndEvent } from "@dnd-kit/react";
-import { arrayMove } from "@dnd-kit/helpers";
 import { isSortable } from "@dnd-kit/react/sortable";
 import type { Item } from "@/lib/workspace-state/types";
 import { WorkspaceCard } from "./WorkspaceCard";
@@ -12,6 +11,10 @@ import {
   type WorkspaceGridLane,
   SortableWorkspaceGridItem,
 } from "./SortableWorkspaceGridItem";
+import {
+  resolveWorkspaceGridDragEnd,
+  type FolderCardDropTargetData,
+} from "./workspace-grid-dnd";
 
 interface WorkspaceGridProps {
   folderItems: Item[];
@@ -56,7 +59,8 @@ function WorkspaceGridComponent({
     items: Item[];
   } | null>(null);
   const isDraggingRef = useRef(false);
-  const currentContainerId = folderItems[0]?.folderId ?? contentItems[0]?.folderId ?? null;
+  const currentContainerId =
+    folderItems[0]?.folderId ?? contentItems[0]?.folderId ?? null;
 
   const handleUpdateItem = useCallback(
     (itemId: string, updates: Partial<Item>) => {
@@ -112,22 +116,6 @@ function WorkspaceGridComponent({
     return counts;
   }, [allItems]);
 
-  const getLaneFromGroup = useCallback((group: string | number | undefined) => {
-    if (typeof group !== "string") {
-      return null;
-    }
-
-    if (group.endsWith(":folders")) {
-      return "folders" as const;
-    }
-
-    if (group.endsWith(":items")) {
-      return "items" as const;
-    }
-
-    return null;
-  }, []);
-
   const commitLaneOrder = useCallback(
     (lane: WorkspaceGridLane, nextItems: Item[]) => {
       if (lane === "folders") {
@@ -173,38 +161,36 @@ function WorkspaceGridComponent({
         return;
       }
 
-      const { initialIndex, index, initialGroup, group } = source;
+      const resolution = resolveWorkspaceGridDragEnd({
+        snapshot,
+        source,
+        targetData: event.operation.target?.data as
+          | FolderCardDropTargetData
+          | undefined,
+      });
 
-      if (
-        initialGroup == null ||
-        group == null ||
-        initialGroup !== group ||
-        initialIndex === index
-      ) {
+      if (resolution.kind === "reset") {
         setOrderedFolderItems(snapshot.folders);
         setOrderedContentItems(snapshot.items);
         return;
       }
 
-      const lane = getLaneFromGroup(
-        typeof group === "string" ? group : String(group),
-      );
+      if (resolution.kind === "move-to-folder") {
+        if (!onMoveItem) {
+          setOrderedFolderItems(snapshot.folders);
+          setOrderedContentItems(snapshot.items);
+          return;
+        }
 
-      if (!lane) {
         setOrderedFolderItems(snapshot.folders);
-        setOrderedContentItems(snapshot.items);
+        setOrderedContentItems(resolution.nextItems);
+        onMoveItem(resolution.itemId, resolution.folderId);
         return;
       }
 
-      const nextItems = arrayMove(
-        lane === "folders" ? snapshot.folders : snapshot.items,
-        initialIndex,
-        index,
-      );
-
-      commitLaneOrder(lane, nextItems);
+      commitLaneOrder(resolution.lane, resolution.nextItems);
     },
-    [commitLaneOrder, getLaneFromGroup],
+    [commitLaneOrder, onMoveItem],
   );
 
   const folderChildren = useMemo(() => {
@@ -231,6 +217,7 @@ function WorkspaceGridComponent({
             onDeleteFolderWithContents={onDeleteFolderWithContents}
             onMoveItem={onMoveItem}
             dragHandle={dragHandle}
+            itemDropTargetId={`folder-drop:${item.id}`}
           />
         )}
       </SortableWorkspaceGridItem>

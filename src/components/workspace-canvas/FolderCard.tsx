@@ -1,5 +1,6 @@
 "use client";
 
+import { useDroppable } from "@dnd-kit/react";
 import { memo, useState, useCallback, useEffect, type ReactNode } from "react";
 import {
   MoreVertical,
@@ -70,6 +71,7 @@ interface FolderCardProps {
   onDeleteFolderWithContents?: (folderId: string) => void;
   onMoveItem?: (itemId: string, folderId: string | null) => void;
   dragHandle?: ReactNode;
+  itemDropTargetId?: string;
 }
 
 function FolderCardComponent({
@@ -85,10 +87,13 @@ function FolderCardComponent({
   onDeleteFolderWithContents,
   onMoveItem,
   dragHandle,
+  itemDropTargetId,
 }: FolderCardProps) {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteOption, setDeleteOption] = useState<"keep" | "delete" | null>(null);
+  const [deleteOption, setDeleteOption] = useState<"keep" | "delete" | null>(
+    null,
+  );
   const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -99,6 +104,15 @@ function FolderCardComponent({
   const onToggleSelection = useUIStore((state) => state.toggleCardSelection);
 
   const folderColor = item.color || "#6366F1";
+  const { ref: dropTargetRef, isDropTarget: isItemDropTarget } = useDroppable({
+    id: itemDropTargetId ?? `folder-drop:${item.id}`,
+    accept: "item",
+    collisionPriority: 1,
+    data: {
+      kind: "folder-card-drop-target",
+      folderId: item.id,
+    },
+  });
 
   useEffect(() => {
     if (item.name === "New Folder") {
@@ -115,18 +129,18 @@ function FolderCardComponent({
   const isInteractiveTarget = useCallback((target: HTMLElement) => {
     return Boolean(
       target.closest("button") ||
-        target.closest("input") ||
-        target.closest("textarea") ||
-        target.closest("select") ||
-        target.closest("a") ||
-        target.closest("label") ||
-        target.closest('[role="menuitem"]') ||
-        target.closest('[contenteditable="true"]') ||
-        target.closest('[data-slot="dropdown-menu-content"]') ||
-        target.closest('[data-slot="dropdown-menu-trigger"]') ||
-        target.closest('[data-slot="dialog-content"]') ||
-        target.closest('[data-slot="dialog-close"]') ||
-        target.closest('[data-slot="dialog-overlay"]'),
+      target.closest("input") ||
+      target.closest("textarea") ||
+      target.closest("select") ||
+      target.closest("a") ||
+      target.closest("label") ||
+      target.closest('[role="menuitem"]') ||
+      target.closest('[contenteditable="true"]') ||
+      target.closest('[data-slot="dropdown-menu-content"]') ||
+      target.closest('[data-slot="dropdown-menu-trigger"]') ||
+      target.closest('[data-slot="dialog-content"]') ||
+      target.closest('[data-slot="dialog-close"]') ||
+      target.closest('[data-slot="dialog-overlay"]'),
     );
   }, []);
 
@@ -154,7 +168,13 @@ function FolderCardComponent({
 
       onOpenFolder(item.id);
     },
-    [isEditingTitle, isInteractiveTarget, item.id, onOpenFolder, onToggleSelection],
+    [
+      isEditingTitle,
+      isInteractiveTarget,
+      item.id,
+      onOpenFolder,
+      onToggleSelection,
+    ],
   );
 
   const handleColorChange = useCallback(
@@ -223,7 +243,12 @@ function FolderCardComponent({
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
-          className={cn("group size-full rounded-md transition-[box-shadow] duration-150")}
+          ref={dropTargetRef as (element: HTMLDivElement | null) => void}
+          className={cn(
+            "group size-full rounded-md transition-[box-shadow,transform] duration-150",
+            isItemDropTarget &&
+              "ring-2 ring-primary/60 ring-offset-2 ring-offset-background",
+          )}
           style={selectedRingStyle}
           onClick={handleClick}
         >
@@ -291,7 +316,10 @@ function FolderCardComponent({
               )}
             </button>
 
-            <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+            <DropdownMenu
+              open={isDropdownOpen}
+              onOpenChange={setIsDropdownOpen}
+            >
               <DropdownMenuTrigger asChild className="cursor-pointer">
                 <button
                   type="button"
@@ -307,17 +335,23 @@ function FolderCardComponent({
                     e.preventDefault();
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+                    e.currentTarget.style.backgroundColor =
+                      "rgba(0, 0, 0, 0.5)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+                    e.currentTarget.style.backgroundColor =
+                      "rgba(255, 255, 255, 0.1)";
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <MoreVertical className="h-4 w-4" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
+              <DropdownMenuContent
+                align="end"
+                className="w-48"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
@@ -391,7 +425,21 @@ function FolderCardComponent({
               </div>
             </div>
 
-            <div className="absolute top-[10%] left-0 right-0 bottom-0 rounded-md rounded-tl-none bg-white/0 group-hover/folder:bg-white/5 transition-colors duration-200 pointer-events-none" />
+            <div
+              className={cn(
+                "absolute top-[10%] left-0 right-0 bottom-0 rounded-md rounded-tl-none bg-white/0 transition-colors duration-200 pointer-events-none",
+                isItemDropTarget
+                  ? "bg-primary/12"
+                  : "group-hover/folder:bg-white/5",
+              )}
+            />
+
+            {isItemDropTarget ? (
+              <div className="pointer-events-none absolute inset-x-4 bottom-4 z-20 flex items-center justify-center gap-2 rounded-full bg-background/90 px-3 py-1.5 text-xs font-medium text-foreground shadow-lg backdrop-blur-sm">
+                <FolderInput className="h-3.5 w-3.5 text-primary" />
+                <span>Move into folder</span>
+              </div>
+            ) : null}
 
             {dragHandle}
           </div>
@@ -419,7 +467,10 @@ function FolderCardComponent({
             </DialogContent>
           </Dialog>
 
-          <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <AlertDialog
+            open={showDeleteConfirm}
+            onOpenChange={setShowDeleteConfirm}
+          >
             <AlertDialogContent
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
@@ -429,7 +480,9 @@ function FolderCardComponent({
                 <AlertDialogDescription asChild>
                   <div className="space-y-4">
                     <div>
-                      Choose what happens to the {itemCount} {itemCount === 1 ? "item" : "items"} in &quot;{item.name}&quot;:
+                      Choose what happens to the {itemCount}{" "}
+                      {itemCount === 1 ? "item" : "items"} in &quot;{item.name}
+                      &quot;:
                     </div>
                     <div className="space-y-3 pt-2">
                       <label className="flex items-start space-x-3 cursor-pointer group">
@@ -449,7 +502,9 @@ function FolderCardComponent({
                           </div>
                         </div>
                       </label>
-                      <label className={`flex items-start space-x-3 group ${onDeleteFolderWithContents ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}>
+                      <label
+                        className={`flex items-start space-x-3 group ${onDeleteFolderWithContents ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
+                      >
                         <input
                           type="radio"
                           name="deleteOption"
@@ -461,9 +516,12 @@ function FolderCardComponent({
                           onClick={(e) => e.stopPropagation()}
                         />
                         <div className="flex-1">
-                          <div className="font-medium text-sm text-destructive">Delete items</div>
+                          <div className="font-medium text-sm text-destructive">
+                            Delete items
+                          </div>
                           <div className="text-xs text-muted-foreground">
-                            Delete folder and all {itemCount} {itemCount === 1 ? "item" : "items"} inside
+                            Delete folder and all {itemCount}{" "}
+                            {itemCount === 1 ? "item" : "items"} inside
                           </div>
                         </div>
                       </label>
