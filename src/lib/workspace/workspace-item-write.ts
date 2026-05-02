@@ -37,6 +37,7 @@ export async function getNextWorkspaceItemSortOrder(
   const [row] = await tx
     .select({
       maxSortOrder: sql<number>`max(${workspaceItems.sortOrder})`,
+      siblingCount: sql<number>`count(*)`,
     })
     .from(workspaceItems)
     .where(
@@ -49,7 +50,7 @@ export async function getNextWorkspaceItemSortOrder(
       ),
     );
 
-  return (row?.maxSortOrder ?? -1) + 1;
+  return Math.max((row?.maxSortOrder ?? -1) + 1, row?.siblingCount ?? 0);
 }
 
 export async function loadWorkspaceItemRecord(
