@@ -29,6 +29,9 @@ importers:
       '@databuddy/sdk':
         specifier: ^2.4.11
         version: 2.4.11(react@19.2.5)(vue@3.5.32(typescript@6.0.3))
+      '@dnd-kit/dom':
+        specifier: 0.4.1-beta-20260430231058
+        version: 0.4.1-beta-20260430231058
       '@dnd-kit/helpers':
         specifier: 0.4.1-beta-20260430231058
         version: 0.4.1-beta-20260430231058

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Feedback } from "@dnd-kit/dom";
 import { useSortable } from "@dnd-kit/react/sortable";
 import type { Item } from "@/lib/workspace-state/types";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,7 @@ export function SortableWorkspaceGridItem({
     group,
     type: sortableType,
     accept: sortableType,
+    plugins: [Feedback.configure({ feedback: "clone" })],
     data: {
       group,
       lane,
@@ -55,9 +57,14 @@ export function SortableWorkspaceGridItem({
   return (
     <div
       ref={ref as (element: HTMLDivElement | null) => void}
-      className={cn("size-full", className, isDragging && "z-20")}
+      className={cn(
+        "size-full rounded-md transition-[box-shadow,opacity,transform] duration-150",
+        className,
+        isDragging && "z-20 opacity-70",
+        isDropTarget && !isDragging && "ring-2 ring-primary/30 ring-offset-2 ring-offset-background",
+      )}
       style={{
-        opacity: isDragging ? 0.82 : undefined,
+        opacity: isDragging ? 0.7 : undefined,
         transform: isDragging ? "scale(0.985)" : undefined,
         filter: isDragging
           ? "drop-shadow(0 12px 24px rgba(0, 0, 0, 0.18))"

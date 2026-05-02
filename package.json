@@ -41,6 +41,7 @@
     "@ai-sdk/react": "^3.0.170",
     "@contextcompany/otel": "^1.0.15",
     "@databuddy/sdk": "^2.4.11",
+    "@dnd-kit/dom": "0.4.1-beta-20260430231058",
     "@dnd-kit/helpers": "0.4.1-beta-20260430231058",
     "@dnd-kit/react": "0.4.1-beta-20260430231058",
     "@e2b/code-interpreter": "^2.4.0",
