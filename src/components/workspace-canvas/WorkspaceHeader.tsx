@@ -24,7 +24,7 @@ import {
   ExternalLink,
   MessageSquareText,
 } from "lucide-react";
-import { useDragDropMonitor, useDroppable } from "@dnd-kit/react";
+import { useDragOperation, useDroppable } from "@dnd-kit/react";
 import { isSortable } from "@dnd-kit/react/sortable";
 import { cn } from "@/lib/utils";
 import {
@@ -414,8 +414,23 @@ export function WorkspaceHeader({
   const [responsiveBreadcrumbs, setResponsiveBreadcrumbs] = useState(
     EMPTY_RESPONSIVE_BREADCRUMBS,
   );
-  const [activeDragSource, setActiveDragSource] =
-    useState<ActiveWorkspaceDragSource | null>(null);
+  const { source: dragSource } = useDragOperation();
+  const activeDragSource = useMemo<ActiveWorkspaceDragSource | null>(() => {
+    if (!dragSource || !isSortable(dragSource)) {
+      return null;
+    }
+
+    return {
+      itemId:
+        typeof dragSource.data?.itemId === "string"
+          ? dragSource.data.itemId
+          : null,
+      containerId:
+        typeof dragSource.data?.containerId === "string"
+          ? dragSource.data.containerId
+          : null,
+    };
+  }, [dragSource]);
 
   // Consistent breadcrumb item styling
   const breadcrumbItemClass =
@@ -880,30 +895,6 @@ export function WorkspaceHeader({
       renameInputRef.current.select();
     }
   }, [showRenameDialog]);
-
-  useDragDropMonitor({
-    onDragStart(event) {
-      const { source } = event.operation;
-
-      if (!isSortable(source)) {
-        setActiveDragSource(null);
-        return;
-      }
-
-      setActiveDragSource({
-        itemId:
-          typeof source.data?.itemId === "string" ? source.data.itemId : null,
-        containerId:
-          typeof source.data?.containerId === "string"
-            ? source.data.containerId
-            : null,
-      });
-    },
-    onDragEnd() {
-      setActiveDragSource(null);
-    },
-  });
-
 
   const handleYouTubeCreate = useCallback(
     (url: string, name: string, thumbnail?: string) => {

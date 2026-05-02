@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Feedback } from "@dnd-kit/dom";
 import { useSortable } from "@dnd-kit/react/sortable";
 import type { Item } from "@/lib/workspace-state/types";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,13 @@ export function SortableWorkspaceGridItem({
     group,
     type: sortableType,
     accept: sortableType,
+    plugins: (defaults) => [
+      ...defaults,
+      Feedback.configure({
+        feedback: "clone",
+        dropAnimation: null,
+      }),
+    ],
     data: {
       group,
       lane,
