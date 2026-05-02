@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
+import { useCurrentWorkspaceId } from "@/contexts/WorkspaceContext";
 import { Plus, Upload } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import type { Item, CardType } from "@/lib/workspace-state/types";
@@ -13,9 +13,9 @@ import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { toast } from "sonner";
 import { OCR_COMPLETE_EVENT } from "@/lib/ocr/client";
 import {
-  WORKSPACE_FILE_UPLOAD_ACCEPT_STRING,
-  WORKSPACE_FILE_UPLOAD_DESCRIPTION,
-} from "@/lib/uploads/workspace-upload-config";
+  WORKSPACE_UPLOAD_ACCEPT_STRING,
+  WORKSPACE_UPLOAD_DESCRIPTION,
+} from "@/lib/uploads/accepted-file-types";
 
 interface WorkspaceContentProps {
   viewState: Item[];
@@ -53,7 +53,7 @@ export default function WorkspaceContent({
   onItemCreated,
 }: WorkspaceContentProps) {
   const queryClient = useQueryClient();
-  const workspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+  const workspaceId = useCurrentWorkspaceId();
   const { selectedCardIdsArray } = useSelectedCardIds();
   const activeFolderId = useUIStore((state) => state.activeFolderId);
   const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
@@ -232,7 +232,7 @@ export default function WorkspaceContent({
                 multiple
                 className="sr-only"
                 onChange={handleFileChange}
-                accept={WORKSPACE_FILE_UPLOAD_ACCEPT_STRING}
+                accept={WORKSPACE_UPLOAD_ACCEPT_STRING}
               />
 
               <label
@@ -246,7 +246,7 @@ export default function WorkspaceContent({
                     : "This workspace is empty"}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Add {WORKSPACE_FILE_UPLOAD_DESCRIPTION} here, or click to
+                  Add {WORKSPACE_UPLOAD_DESCRIPTION} here, or click to
                   choose files.
                 </p>
               </label>

@@ -13,22 +13,17 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useOptionalComposer } from "@/components/chat/composer-context";
 import { useUIStore } from "@/lib/stores/ui-store";
 
 export function ModelSettingsMenu() {
   const memoryEnabled = useUIStore((state) => state.memoryEnabled);
   const setMemoryEnabled = useUIStore((state) => state.setMemoryEnabled);
-  const composer = useOptionalComposer();
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <DropdownMenu
       open={isOpen}
-      onOpenChange={(open) => {
-        setIsOpen(open);
-        if (!open) composer?.focus();
-      }}
+      onOpenChange={setIsOpen}
     >
       <Tooltip>
         <TooltipTrigger asChild>
@@ -36,7 +31,7 @@ export function ModelSettingsMenu() {
             <button
               type="button"
               aria-label="Chat settings"
-              className="ml-0.5 flex cursor-pointer items-center gap-1.5 rounded-md bg-sidebar-accent px-1.5 py-1 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="inline-flex cursor-pointer items-center justify-center rounded-md p-0 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <Settings2 className="size-3.5" />
             </button>

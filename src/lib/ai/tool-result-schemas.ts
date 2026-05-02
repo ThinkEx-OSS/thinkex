@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { parseWithSchema } from "@/components/tool-ui/shared";
 import { ProcessUrlsOutputSchema } from "@/lib/ai/process-urls-shared";
+import { WebMapOutputSchema } from "@/lib/ai/web-map-shared";
 import {
   WebSearchResultSchema,
   normalizeWebSearchResult,
@@ -152,4 +153,43 @@ export function parseWebSearchResult(input: unknown): z.infer<typeof WebSearchRe
   }
 
   return parseWithSchema(WebSearchResultSchema, input, "WebSearchResult");
+}
+
+/** web_map – result is string or { text, links, metadata } */
+export const WebMapResultSchema = z.union([z.string(), WebMapOutputSchema]);
+
+export type WebMapResult = z.infer<typeof WebMapResultSchema>;
+
+export function parseWebMapResult(input: unknown): WebMapResult {
+  if (typeof input === "string") {
+    return input;
+  }
+
+  if (input == null) {
+    return "";
+  }
+
+  if (typeof input !== "object") {
+    return String(input);
+  }
+
+  if (Array.isArray(input)) {
+    return JSON.stringify(input);
+  }
+
+  const res = WebMapOutputSchema.safeParse(input);
+  if (res.success) {
+    return res.data;
+  }
+
+  const obj = input as Record<string, unknown>;
+  if (typeof obj.text === "string") {
+    return obj.text;
+  }
+
+  if (typeof obj.message === "string") {
+    return obj.message;
+  }
+
+  return JSON.stringify(input);
 }

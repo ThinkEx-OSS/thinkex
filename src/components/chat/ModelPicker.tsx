@@ -17,7 +17,6 @@ import {
   getModelDefinition,
   type ModelDefinition,
 } from "@/lib/ai/models";
-import { useOptionalComposer } from "@/components/chat/composer-context";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { cn } from "@/lib/utils";
 
@@ -180,7 +179,6 @@ function getModelDisplayName(modelId: string): string {
 export function ModelPicker() {
   const selectedModelId = useUIStore((state) => state.selectedModelId);
   const setSelectedModelId = useUIStore((state) => state.setSelectedModelId);
-  const composer = useOptionalComposer();
   const [isOpen, setIsOpen] = useState(false);
   const [hoverDescModelId, setHoverDescModelId] = useState<string | null>(null);
 
@@ -197,14 +195,13 @@ export function ModelPicker() {
         setIsOpen(open);
         if (!open) {
           setHoverDescModelId(null);
-          composer?.focus();
         }
       }}
     >
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="flex cursor-pointer items-center gap-1.5 rounded-md bg-sidebar-accent px-1.5 py-1 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex cursor-pointer items-center gap-1 rounded-md p-0 text-left text-xs font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <span>{getModelDisplayName(selectedModel.id)}</span>
         </button>
@@ -248,7 +245,6 @@ export function ModelPicker() {
                     setSelectedModelId(model.id);
                     setIsOpen(false);
                     setHoverDescModelId(null);
-                    composer?.focus();
                   }}
                 />
               ))}

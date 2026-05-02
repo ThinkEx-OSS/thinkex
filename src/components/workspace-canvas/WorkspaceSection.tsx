@@ -1,24 +1,20 @@
-import React, { RefObject, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback } from "react";
 import { toast } from "sonner";
-import type { Item, CardType } from "@/lib/workspace-state/types";
+import type { Item } from "@/lib/workspace-state/types";
 import type { WorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import WorkspaceContent from "./WorkspaceContent";
 import SelectionActionBar from "./SelectionActionBar";
-import { WorkspaceSkeleton } from "@/components/workspace/WorkspaceSkeleton";
+import { WorkspaceCardsLoader } from "@/components/workspace/WorkspaceLoader";
 import { MarqueeSelector } from "./MarqueeSelector";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
-import { useSession } from "@/lib/auth-client";
+import useMediaQuery from "@/hooks/ui/use-media-query";
 import { LoginGate } from "@/components/workspace/LoginGate";
 import { AccessDenied } from "@/components/workspace/AccessDenied";
+import { useWorkspaceView } from "@/hooks/workspace/use-workspace-view";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { useWorkspaceUpload } from "@/hooks/workspace/use-workspace-upload";
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
-import { buildWorkspaceItemDefinitionsFromAssets } from "@/lib/uploads/uploaded-asset";
-import {
-  getFileSizeLabel,
-  prepareWorkspaceUploadSelection,
-  uploadSelectedFiles,
-} from "@/lib/uploads/upload-selection";
-import { emitPasswordProtectedPdf } from "@/components/modals/PasswordProtectedPdfDialog";
 
 import MoveToDialog from "@/components/modals/MoveToDialog";
 import {
@@ -53,91 +49,46 @@ import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
 import { useWorkspaceFilePicker } from "@/hooks/workspace/use-workspace-file-picker";
 import { startAudioProcessing } from "@/lib/audio/start-audio-processing";
-import { startAssetProcessing } from "@/lib/uploads/start-asset-processing";
-import {
-  getDocumentUploadFailureMessage,
-  getDocumentUploadLoadingMessage,
-  getDocumentUploadPartialMessage,
-  getDocumentUploadSuccessMessage,
-} from "@/lib/uploads/upload-feedback";
 
 interface WorkspaceSectionProps {
-  // Loading states
-  loadingWorkspaces: boolean;
-  isLoadingWorkspace: boolean;
-
-  // Workspace state
-  currentWorkspaceId: string | null;
-  currentSlug: string | null;
   state: Item[];
-
-  // Operations
-  addItem: (
-    type: CardType,
-    name?: string,
-    initialData?: Partial<Item["data"]>,
-  ) => string;
-  updateItem: (itemId: string, updates: Partial<Item>) => void;
-  deleteItem: (itemId: string) => void;
-  updateAllItems: (items: Item[]) => void;
-
-  // Full operations object for advanced functionality
-  operations?: WorkspaceOperations;
-
-  // Layout state
-  isChatMaximized: boolean;
-
-  // Chat state
-  isDesktop?: boolean;
-  isChatExpanded?: boolean;
-  setIsChatExpanded?: (expanded: boolean) => void;
-  // Modal state
-  openWorkspaceItem: (itemId: string | null) => void;
-
-  // Refs
-  titleInputRef: RefObject<HTMLInputElement>;
-  scrollAreaRef: RefObject<HTMLDivElement>;
-
-  // Workspace metadata
-  workspaceTitle?: string;
-  workspaceIcon?: string | null;
-  workspaceColor?: string | null;
+  operations: WorkspaceOperations;
   /** Full-screen open-item viewer (PDF / card shells), mounted above the grid scroll area */
   openItemView?: React.ReactNode;
 }
 
 /**
  * Workspace section component that encapsulates the main workspace area.
- * Includes header, content, and action bar.
+ * Reads workspace metadata, chat/UI state, and current workspace from
+ * context/stores rather than prop-drilling.
  */
 export function WorkspaceSection({
-  loadingWorkspaces,
-  isLoadingWorkspace,
-  currentWorkspaceId,
-  currentSlug,
   state,
-  addItem,
-  updateItem,
-  deleteItem,
-  updateAllItems,
-  isChatMaximized,
-  isDesktop,
-  isChatExpanded,
-  setIsChatExpanded,
-  openWorkspaceItem,
-  titleInputRef,
-  scrollAreaRef,
-  workspaceTitle,
-  workspaceIcon,
-  workspaceColor,
   operations,
   openItemView,
 }: WorkspaceSectionProps) {
-  // Card selection state from UI store
-  // Use array selector with shallow comparison to prevent unnecessary re-renders and SSR issues
+  const { currentWorkspace } = useWorkspaceContext();
+  const currentWorkspaceId = currentWorkspace?.id ?? null;
+  const workspaceTitle = currentWorkspace?.name;
+  const workspaceIcon = currentWorkspace?.icon ?? null;
+  const workspaceColor = currentWorkspace?.color ?? null;
+
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const isChatMaximized = useUIStore((s) => s.isChatMaximized);
+  const isChatExpanded = useUIStore((s) => s.isChatExpanded);
+  const setIsChatExpanded = useUIStore((s) => s.setIsChatExpanded);
+  const openWorkspaceItem = useUIStore((s) => s.openWorkspaceItem);
+
+  const addItem = operations.createItem;
+  const updateItem = operations.updateItem;
+  const deleteItem = operations.deleteItem;
+  const updateAllItems = operations.updateAllItems;
+
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+
   const { selectedCardIdsArray, selectedCardIds } = useSelectedCardIds();
-  const clearCardSelection = useUIStore((state) => state.clearCardSelection);
-  const { data: session } = useSession();
+  const clearCardSelection = useUIStore((s) => s.clearCardSelection);
+  const view = useWorkspaceView();
 
   // Get active folder info from UI store
   const activeFolderId = useUIStore((uiState) => uiState.activeFolderId);
@@ -162,16 +113,13 @@ export function WorkspaceSection({
 
   const handleYouTubeCreate = useCallback(
     (url: string, name: string, thumbnail?: string) => {
-      if (addItem) {
-        addItem("youtube", name, { url, thumbnail });
-      }
+      addItem("youtube", name, { url, thumbnail });
     },
     [addItem],
   );
 
   const handleWebsiteCreate = useCallback(
     (url: string, name: string, favicon?: string) => {
-      if (!operations) return;
       operations.createItems([
         {
           type: "website",
@@ -199,11 +147,12 @@ export function WorkspaceSection({
       // Check for Delete or Backspace key
       if (e.key === "Delete" || e.key === "Backspace") {
         // Don't trigger if user is typing in an input, textarea, or contenteditable
-        const target = e.target as HTMLElement;
+        const target = e.target;
         if (
-          target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable
+          target instanceof HTMLElement &&
+          (target.tagName === "INPUT" ||
+            target.tagName === "TEXTAREA" ||
+            target.isContentEditable)
         ) {
           return;
         }
@@ -220,7 +169,8 @@ export function WorkspaceSection({
   const handleWorkspaceMouseDown = (
     event: React.MouseEvent<HTMLDivElement>,
   ) => {
-    const target = event.target as HTMLElement;
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
 
     // Clear native text selection when clicking anywhere in the workspace
     // (Background clicks are handled by MarqueeSelector; this fires for card clicks etc.)
@@ -237,14 +187,6 @@ export function WorkspaceSection({
       return;
     }
 
-    // Blur workspace title input if it's focused
-    if (
-      titleInputRef?.current &&
-      document.activeElement === titleInputRef.current
-    ) {
-      titleInputRef.current.blur();
-    }
-
     // Blur any active textarea (card titles) when clicking on background or card (but not on the textarea itself)
     // This ensures card titles save when clicking away, even if clicking on another card
     if (
@@ -256,6 +198,18 @@ export function WorkspaceSection({
       if (activeTextarea !== target && !activeTextarea.contains(target)) {
         activeTextarea.blur();
       }
+    }
+
+    // If a button/menu trigger still owns focus after an inert workspace click,
+    // blur it so the next printable key can hand off to the chat composer.
+    if (
+      document.activeElement instanceof HTMLElement &&
+      document.activeElement !== document.body &&
+      document.activeElement !== document.documentElement &&
+      document.activeElement !== target &&
+      !document.activeElement.contains(target)
+    ) {
+      document.activeElement.blur();
     }
   };
 
@@ -276,19 +230,13 @@ export function WorkspaceSection({
     }
   };
 
-  // Handle move selected items to folder
   const handleMoveSelected = () => {
-    if (!operations || selectedCardIdsArray.length === 0) {
-      return;
-    }
+    if (selectedCardIdsArray.length === 0) return;
     setShowMoveDialog(true);
   };
 
-  // Handle move confirmation from dialog
   const handleMoveConfirm = (itemIds: string[], folderId: string | null) => {
-    if (!operations || itemIds.length === 0) {
-      return;
-    }
+    if (itemIds.length === 0) return;
     operations.moveItemsToFolder(itemIds, folderId);
     clearCardSelection();
     setShowMoveDialog(false);
@@ -296,11 +244,8 @@ export function WorkspaceSection({
     toast.success(`Moved ${count} ${count === 1 ? "item" : "items"}`);
   };
 
-  // Handle creating a new folder from selected cards
   const handleCreateFolderFromSelection = () => {
-    if (!operations || selectedCardIdsArray.length === 0) {
-      return;
-    }
+    if (selectedCardIdsArray.length === 0) return;
 
     // Prevent cycles: exclude active folder and its ancestors from selection
     // (e.g. when searching, user could select the active folder or a parent folder)
@@ -326,86 +271,11 @@ export function WorkspaceSection({
     // Note: FolderCard auto-focuses the title when name is "New Folder"
   };
 
-  // Handle file upload from workspace pickers/empty states
-  const handlePDFUpload = useCallback(
-    async (files: File[]) => {
-      if (!operations || !currentWorkspaceId) {
-        throw new Error("Workspace operations not available");
-      }
-
-      const MAX_FILE_SIZE_MB = 50;
-      const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-      const oversizedFiles = files.filter(
-        (file) => file.size > MAX_FILE_SIZE_BYTES,
-      );
-      const validFiles = files.filter(
-        (file) => file.size <= MAX_FILE_SIZE_BYTES,
-      );
-
-      if (oversizedFiles.length > 0) {
-        toast.error(
-          `The following file${oversizedFiles.length > 1 ? "s" : ""} exceed${oversizedFiles.length === 1 ? "s" : ""} the ${MAX_FILE_SIZE_MB}MB limit:\n${oversizedFiles
-            .map((file) => getFileSizeLabel(file))
-            .join("\n")}`,
-        );
-      }
-
-      if (validFiles.length === 0) {
-        return;
-      }
-
-      const { acceptedFiles: filesToUpload, protectedPdfNames } =
-        await prepareWorkspaceUploadSelection(validFiles);
-      if (protectedPdfNames.length > 0) {
-        emitPasswordProtectedPdf(protectedPdfNames);
-      }
-      if (filesToUpload.length === 0) {
-        return;
-      }
-
-      const uploadToastId = toast.loading(
-        getDocumentUploadLoadingMessage(filesToUpload.length),
-      );
-      const { uploads, failedFiles } = await uploadSelectedFiles(filesToUpload);
-
-      toast.dismiss(uploadToastId);
-
-      if (uploads.length === 0) {
-        if (failedFiles.length > 0) {
-          toast.error(getDocumentUploadFailureMessage(failedFiles.length));
-        }
-        return;
-      }
-
-      const itemDefinitions = buildWorkspaceItemDefinitionsFromAssets(uploads);
-
-      const createdIds = operations.createItems(itemDefinitions, {
-        showSuccessToast: false,
-      });
-      handleCreatedItems(createdIds);
-
-      void startAssetProcessing({
-        workspaceId: currentWorkspaceId,
-        assets: uploads,
-        itemIds: createdIds,
-        onOcrError: (error) => {
-          console.error(
-            "[WORKSPACE_PROCESSING] Failed to start processing:",
-            error,
-          );
-        },
-      });
-
-      if (failedFiles.length === 0) {
-        toast.success(getDocumentUploadSuccessMessage(uploads.length));
-      } else {
-        toast.warning(
-          getDocumentUploadPartialMessage(uploads.length, failedFiles.length),
-        );
-      }
-    },
-    [currentWorkspaceId, handleCreatedItems, operations],
-  );
+  const handlePDFUpload = useWorkspaceUpload({
+    currentWorkspaceId,
+    operations,
+    onItemsCreated: handleCreatedItems,
+  });
 
   const {
     fileInputRef,
@@ -420,8 +290,6 @@ export function WorkspaceSection({
   }, [openFilePicker]);
   const handleAudioReady = useCallback(
     async (file: File) => {
-      if (!addItem) return;
-
       const loadingToastId = toast.loading("Uploading audio...");
 
       try {
@@ -451,7 +319,7 @@ export function WorkspaceSection({
           processingStatus: "processing",
         } as Partial<Item["data"]>);
 
-        if (handleCreatedItems && itemId) {
+        if (itemId) {
           handleCreatedItems([itemId]);
         }
 
@@ -484,7 +352,7 @@ export function WorkspaceSection({
       onMouseDown={handleWorkspaceMouseDown}
     >
       <input ref={fileInputRef} {...fileInputProps} />
-      {/* WorkspaceHeader is now rendered in DashboardLayout above the sidebar */}
+      {/* WorkspaceHeader is now rendered in WorkspaceLayout above the sidebar */}
 
       {/* Modal Manager - Renders over content */}
       {openItemView}
@@ -496,26 +364,21 @@ export function WorkspaceSection({
             className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent"
           >
             <div className="relative min-h-full flex flex-col">
-              {/* Show skeleton until workspace content is loaded */}
-              {(!currentWorkspaceId && currentSlug) ||
-              (currentWorkspaceId && isLoadingWorkspace) ? (
-                // If it's taking too long or we have no workspace ID but have a slug,
-                // check if we're anonymous to show login gate, or authenticated to show access denied
-                !isLoadingWorkspace &&
-                !loadingWorkspaces &&
-                !currentWorkspaceId ? (
-                  session?.user?.isAnonymous ? (
-                    <LoginGate />
-                  ) : (
-                    <AccessDenied />
-                  )
-                ) : (
-                  <WorkspaceSkeleton />
-                )
+              {view.kind === "loading" ? (
+                <WorkspaceCardsLoader />
+              ) : view.kind === "unauthenticated" ? (
+                <LoginGate />
+              ) : view.kind === "denied" ? (
+                <AccessDenied />
+              ) : view.kind === "error" ? (
+                <AccessDenied
+                  title="Couldn't load workspace"
+                  description={view.message}
+                  onRetry={view.retry}
+                />
               ) : (
-                /* Workspace content - assumes workspace exists (home route handles no-workspace state) */
+                /* view.kind === "ready" — workspace exists, items in hand */
                 <WorkspaceContent
-                  key={`workspace-content-${currentWorkspaceId || "none"}`}
                   viewState={state}
                   addItem={addItem}
                   updateItem={updateItem}
@@ -524,9 +387,9 @@ export function WorkspaceSection({
                   workspaceName={workspaceTitle || "Workspace"}
                   workspaceIcon={workspaceIcon}
                   workspaceColor={workspaceColor}
-                  onMoveItem={operations?.moveItemToFolder}
+                  onMoveItem={operations.moveItemToFolder}
                   onDeleteFolderWithContents={
-                    operations?.deleteFolderWithContents
+                    operations.deleteFolderWithContents
                   }
                   onPDFUpload={handlePDFUpload}
                   onItemCreated={handleCreatedItems}
@@ -534,33 +397,27 @@ export function WorkspaceSection({
               )}
 
               {/* Marquee selector for rectangular card selection - inside scroll container to capture all events */}
-              {!isChatMaximized &&
-                currentWorkspaceId &&
-                !isLoadingWorkspace && (
-                  <MarqueeSelector
-                    scrollContainerRef={scrollAreaRef}
-                    cardIds={state.map((item) => item.id)}
-                  />
-                )}
+              {!isChatMaximized && view.kind === "ready" && (
+                <MarqueeSelector
+                  scrollContainerRef={scrollAreaRef}
+                  cardIds={state.map((item) => item.id)}
+                />
+              )}
             </div>
           </div>
         </ContextMenuTrigger>
 
-        {/* Right-Click Context Menu */}
-        {addItem && (
-          <ContextMenuContent className="w-56">
-            {renderWorkspaceMenuItems({
+        {/* Mutation items only when the workspace is ready. */}
+        <ContextMenuContent className="w-56">
+          {view.kind === "ready" &&
+            renderWorkspaceMenuItems({
               callbacks: {
                 onCreateDocument: () => {
-                  if (addItem) {
-                    const itemId = addItem("document");
-                    if (handleCreatedItems && itemId) {
-                      handleCreatedItems([itemId]);
-                    }
-                  }
+                  const itemId = addItem("document");
+                  if (itemId) handleCreatedItems([itemId]);
                 },
                 onCreateFolder: () => {
-                  if (addItem) addItem("folder");
+                  addItem("folder");
                 },
                 onUpload: () => handleUploadMenuItemClick(),
                 onAudio: () => openAudioDialog(),
@@ -574,10 +431,9 @@ export function WorkspaceSection({
               MenuSubTrigger: ContextMenuSubTrigger,
               MenuSubContent: ContextMenuSubContent,
               MenuLabel: ContextMenuLabel,
-              showUpload: !!(operations && currentWorkspaceId),
+              showUpload: !!currentWorkspaceId,
             })}
-          </ContextMenuContent>
-        )}
+        </ContextMenuContent>
       </ContextMenu>
       {/* Selection Action Bar - show when cards are selected */}
       {state.length > 0 && !isChatMaximized && selectedCardIds.size > 0 && (

@@ -24,10 +24,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { MarkdownLink } from "@/components/ui/markdown-link";
 import { useNavigateToItem } from "@/hooks/ui/use-navigate-to-item";
-import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
+import { useWorkspaceItems } from "@/hooks/workspace/use-workspace-items";
 import { resolveItemByPath } from "@/lib/ai/tools/workspace-search-utils";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 import { cn } from "@/lib/utils";
 import {
   getCitationUrl,
@@ -95,8 +94,7 @@ function extractCitationText(children: ReactNode): string {
 
 const CitationRenderer = memo(({ children }: { children?: ReactNode }) => {
   const ref = extractCitationText(children);
-  const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
-  const { state: workspaceState } = useWorkspaceState(workspaceId);
+  const workspaceState = useWorkspaceItems();
   const navigateToItem = useNavigateToItem();
   const openWorkspaceItem = useUIStore((s) => s.openWorkspaceItem);
   const setCitationHighlightQuery = useUIStore(
@@ -201,7 +199,8 @@ const MarkdownTextImpl = ({
     if (!container) return;
 
     const handleWheel = (e: WheelEvent) => {
-      const target = e.target as HTMLElement;
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
       const preElement = target.closest("pre");
       if (!preElement) return;
       const isVerticalScroll = Math.abs(e.deltaY) > Math.abs(e.deltaX);

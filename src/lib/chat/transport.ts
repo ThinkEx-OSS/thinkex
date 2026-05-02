@@ -1,8 +1,6 @@
 import { DefaultChatTransport, type UIMessage } from "ai";
 
 export interface ChatTransportContext {
-  /** Stable thread id (client-generated UUID, upserted server-side on first write). */
-  threadId: string;
   workspaceId: string;
   /** Resolved gateway model id for the active chat. */
   modelId: string;
@@ -38,9 +36,9 @@ export function createChatTransport(
   return new DefaultChatTransport({
     api: "/api/chat",
     prepareSendMessagesRequest: ({ id, messages, trigger, messageId, body }) => {
-      // `id` is the chat id the SDK manages — equal to ctx.threadId since
-      // we pass `useChat({ id: threadId })`. Forwarded as `body.id` so the
-      // route can upsert `chat_threads.id` without a separate parameter.
+      // `id` is the chat id the SDK manages — set when the runtime is
+      // constructed with `new Chat({ id: threadId })`. Forwarded as `body.id`
+      // so the route can upsert `chat_threads.id` without a separate parameter.
       //
       // `trigger` + `messageId` are forwarded as-is so the server can honor
       // `regenerate-message`: it truncates persisted history at the

@@ -6,8 +6,8 @@ import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 
 import { useOptionalComposer } from "@/components/chat/composer-context";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import { OFFICE_DOCUMENT_ACCEPT } from "@/lib/uploads/office-document-validation";
+import { useCurrentWorkspaceId } from "@/contexts/WorkspaceContext";
+import { CHAT_UPLOAD_ACCEPT } from "@/lib/uploads/accepted-file-types";
 
 interface ChatDropzoneProps {
   children: React.ReactNode;
@@ -20,7 +20,7 @@ interface ChatDropzoneProps {
  */
 export function ChatDropzone({ children }: ChatDropzoneProps) {
   const composer = useOptionalComposer();
-  const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
+  const currentWorkspaceId = useCurrentWorkspaceId();
   const [isDragging, setIsDragging] = useState(false);
 
   const isProcessingRef = useRef(false);
@@ -56,28 +56,7 @@ export function ChatDropzone({ children }: ChatDropzoneProps) {
     noClick: true,
     noKeyboard: true,
     disabled: !currentWorkspaceId || !composer,
-    accept: {
-      "image/*": [
-        ".png",
-        ".jpg",
-        ".jpeg",
-        ".gif",
-        ".webp",
-        ".svg",
-        ".bmp",
-        ".heic",
-        ".heif",
-        ".avif",
-        ".tiff",
-        ".tif",
-      ],
-      "application/pdf": [".pdf"],
-      ...OFFICE_DOCUMENT_ACCEPT,
-      "text/plain": [".txt"],
-      "text/markdown": [".md"],
-      "text/csv": [".csv"],
-      "application/json": [".json"],
-    },
+    accept: CHAT_UPLOAD_ACCEPT,
     onDragEnter: () => setIsDragging(true),
     onDragLeave: () => setIsDragging(false),
     onDropAccepted: () => setIsDragging(false),
@@ -86,7 +65,7 @@ export function ChatDropzone({ children }: ChatDropzoneProps) {
       if (fileRejections.length === 0) return;
       const names = fileRejections.map((r) => r.file.name);
       toast.error(
-        `The following file${names.length > 1 ? "s are" : " is"} not supported:\n${names.join("\n")}\n\nSupported: Images, PDFs, Office docs, Text files`,
+        `The following file${names.length > 1 ? "s are" : " is"} not supported:\n${names.join("\n")}\n\nThis file type is not supported.`,
       );
     },
   });

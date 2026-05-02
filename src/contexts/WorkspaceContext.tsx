@@ -5,16 +5,15 @@ import { useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { WorkspaceWithState } from "@/lib/workspace-state/types";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 
 /**
- * Simplified WorkspaceContext - ONLY manages workspace list
+ * WorkspaceContext is the single source of truth for the active workspace.
  *
  * State management responsibilities:
- * - Workspace list: WorkspaceContext (this file)
- * - Current workspace & save status: Zustand (workspace-store.ts)
- * - UI state: Zustand (ui-store.ts)
- * - Workspace data: Zero sync + React Query
+ * - Workspace list + active workspace + slug: WorkspaceContext (this file)
+ * - Per-workspace persisted UI state (e.g. last thread): Zustand workspace-store
+ * - Other UI state: Zustand ui-store
+ * - Workspace items: Zero sync (via WorkspaceItemsProvider)
  */
 interface WorkspaceContextType {
   // Workspace list
@@ -28,6 +27,7 @@ interface WorkspaceContextType {
 
   // Current workspace (loaded by slug for direct access)
   currentWorkspace: WorkspaceWithState | null;
+  currentWorkspaceId: string | null;
   loadingCurrentWorkspace: boolean;
 
   // Current slug (derived from URL)
@@ -36,6 +36,7 @@ interface WorkspaceContextType {
   // Actions
   switchWorkspace: (slug: string) => void;
   deleteWorkspace: (workspaceId: string) => Promise<void>;
+  leaveWorkspace: (workspaceId: string) => Promise<void>;
   markWorkspaceOpened: (workspaceId: string) => void;
 }
 
@@ -50,19 +51,12 @@ export function WorkspaceProvider({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const currentWorkspaceId = useWorkspaceStore(
-    (state) => state.currentWorkspaceId,
-  );
   const queryClient = useQueryClient();
 
   // Derive current slug synchronously from pathname (no useEffect delay)
   const currentSlug = useMemo(() => {
     if (pathname.startsWith("/workspace/") && pathname !== "/workspace") {
       return pathname.replace("/workspace/", "");
-    }
-    // Backwards compatibility: also check /dashboard/
-    if (pathname.startsWith("/dashboard/") && pathname !== "/dashboard") {
-      return pathname.replace("/dashboard/", "");
     }
     return null;
   }, [pathname]);
@@ -106,9 +100,8 @@ export function WorkspaceProvider({
       queryKey: ["workspace-by-slug", currentSlug],
       queryFn: async () => {
         if (!currentSlug) return null;
-        // Use metadata=true for faster loading - skip state replay
         const response = await fetch(
-          `/api/workspaces/slug/${currentSlug}?metadata=true`,
+          `/api/workspaces/slug/${encodeURIComponent(currentSlug)}`,
         );
         if (!response.ok) {
           if (response.status === 404) return null;
@@ -126,6 +119,7 @@ export function WorkspaceProvider({
     });
 
   const currentWorkspace = currentWorkspaceData || null;
+  const currentWorkspaceId = currentWorkspace?.id ?? null;
 
   // Merge current workspace into list if not already present
   const workspaces = useMemo(() => {
@@ -206,6 +200,48 @@ export function WorkspaceProvider({
     [deleteWorkspaceMutation],
   );
 
+  // Leave workspace mutation (collaborator self-removal). Updates cache like
+  // delete; on success navigates to /home when leaving the active workspace.
+  const leaveWorkspaceMutation = useMutation({
+    mutationFn: async (workspaceId: string) => {
+      const response = await fetch(`/api/workspaces/${workspaceId}/leave`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to leave workspace");
+      }
+      return workspaceId;
+    },
+    onSuccess: (leftWorkspaceId) => {
+      queryClient.setQueryData(
+        ["workspaces"],
+        (old: WorkspaceWithState[] | undefined) => {
+          const remainingWorkspaces = (old ?? []).filter(
+            (w) => w.id !== leftWorkspaceId,
+          );
+
+          if (leftWorkspaceId === currentWorkspaceId && currentSlug) {
+            router.push("/home");
+          }
+
+          return remainingWorkspaces;
+        },
+      );
+
+      toast.success("Left workspace successfully");
+    },
+    onError: () => {
+      toast.error("Failed to leave workspace");
+    },
+  });
+
+  const leaveWorkspace = useCallback(
+    async (workspaceId: string) => {
+      await leaveWorkspaceMutation.mutateAsync(workspaceId);
+    },
+    [leaveWorkspaceMutation],
+  );
+
   // Optimistically update a single workspace locally without refetching
   const updateWorkspaceLocal = useCallback(
     (workspaceId: string, updates: Partial<WorkspaceWithState>) => {
@@ -267,10 +303,12 @@ export function WorkspaceProvider({
     loadWorkspaces,
     updateWorkspaceLocal,
     currentWorkspace,
+    currentWorkspaceId,
     loadingCurrentWorkspace,
     currentSlug,
     switchWorkspace,
     deleteWorkspace,
+    leaveWorkspace,
     markWorkspaceOpened,
   };
 
@@ -289,4 +327,9 @@ export function useWorkspaceContext() {
     );
   }
   return context;
+}
+
+/** Shorthand for `useWorkspaceContext().currentWorkspaceId`. */
+export function useCurrentWorkspaceId(): string | null {
+  return useWorkspaceContext().currentWorkspaceId;
 }

@@ -161,7 +161,7 @@ export default function SharePage() {
   if (session && !session.user.isAnonymous) {
     const handleModalClose = (open: boolean) => {
       if (!open) {
-        // Redirect to dashboard when modal is closed without importing
+        // Redirect to home when modal is closed without importing
         router.push("/home");
       }
     };

@@ -3,16 +3,17 @@ import { auth } from "@/lib/auth";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from 'next/server';
 import { getOfficeDocumentConvertUrlFromMeta } from "@/lib/uploads/office-document-validation";
+import {
+  getStorageMode,
+  getUnsupportedLocalStorageMessage,
+} from "@/lib/self-host-config";
 import { withServerObservability } from "@/lib/with-server-observability";
 
 export const maxDuration = 10;
 
 /**
- * Generates a signed upload URL for direct client-to-Supabase uploads.
- * This avoids the Vercel 4.5MB serverless function body size limit.
- * 
- * The client sends only the filename/metadata (tiny JSON payload),
- * receives a signed URL, then uploads the file directly to Supabase.
+ * Generates a signed upload URL for direct storage uploads.
+ * In local mode the client falls back to /api/upload-file.
  */
 async function handlePOST(request: NextRequest) {
   try {
@@ -40,6 +41,21 @@ async function handlePOST(request: NextRequest) {
 
     const convertUrl = getOfficeDocumentConvertUrlFromMeta(filename, contentType);
     const isOfficeUpload = convertUrl !== null;
+    const storageMode = getStorageMode();
+
+    if (storageMode === "local") {
+      if (isOfficeUpload) {
+        return NextResponse.json(
+          { error: getUnsupportedLocalStorageMessage("Document conversion") },
+          { status: 400 },
+        );
+      }
+
+      return NextResponse.json({
+        mode: "local",
+        uploadUrl: "/api/upload-file",
+      });
+    }
 
     // Supabase storage: generate a signed upload URL
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

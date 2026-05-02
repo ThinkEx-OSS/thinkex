@@ -30,7 +30,7 @@ export function emitPasswordProtectedPdf(fileNames: string[]) {
  * Global dialog that warns users about password-protected PDFs
  * and links them to iLovePDF to unlock.
  *
- * Mount this once near the app root (e.g. dashboard shell or DashboardLayout).
+ * Mount this once near the app root (e.g. WorkspaceShell or WorkspaceLayout).
  */
 export function PasswordProtectedPdfDialog() {
   const [open, setOpen] = useState(false);

@@ -16,7 +16,7 @@ import { FullscreenPluginPackage } from '@embedpdf/plugin-fullscreen/react';
 import { InteractionManagerPluginPackage, PagePointerProvider } from '@embedpdf/plugin-interaction-manager/react';
 import { TilingPluginPackage, TilingLayer } from '@embedpdf/plugin-tiling/react';
 import { ThumbnailPluginPackage, ThumbnailsPane, ThumbImg } from '@embedpdf/plugin-thumbnail/react';
-import { AnnotationPluginPackage, AnnotationLayer, useAnnotationCapability, AnnotationSelectionMenuProps } from '@embedpdf/plugin-annotation/react';
+import { AnnotationPluginPackage, AnnotationLayer, useAnnotationCapability, AnnotationSelectionMenuProps, LockModeType } from '@embedpdf/plugin-annotation/react';
 import { CapturePluginPackage, MarqueeCapture, useCapture } from '@embedpdf/plugin-capture/react';
 import { HistoryPluginPackage } from '@embedpdf/plugin-history/react';
 import { SearchPluginPackage, SearchLayer, useSearch } from '@embedpdf/plugin-search/react';
@@ -26,7 +26,7 @@ import { ExportPluginPackage } from '@embedpdf/plugin-export/react';
 import { Loader2, ChevronLeft, ChevronRight, Trash2, Search, X as XIcon, ArrowUp, ArrowDown } from 'lucide-react';
 import { FaQuoteRight } from "react-icons/fa6";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { useOptionalComposer } from "@/components/chat/composer-context";
+import { useOptionalComposerActions } from "@/lib/stores/composer-actions-store";
 import { askAiPrimaryButtonClass } from "@/lib/ui/ask-ai-toolbar-styles";
 import { toast } from "sonner";
 import { useMemo, ReactNode, useState, useEffect, useRef, useCallback } from 'react';
@@ -210,7 +210,7 @@ const TextSelectionMenu = ({
   const { provides: selectionCapability } = useSelectionCapability();
   const { state: scrollState } = useScroll(documentId);
   const addReplySelection = useUIStore((state) => state.addReplySelection);
-  const composer = useOptionalComposer();
+  const composer = useOptionalComposerActions();
 
   // Ask AI handler
   const handleAskAI = useCallback(() => {
@@ -237,7 +237,7 @@ const TextSelectionMenu = ({
           });
           scope.clear();
           toast.success("Added to context");
-          composer?.focus();
+          composer?.focusInput({ cursorAtEnd: true });
         } else {
           console.warn("Ask AI: No text extracted");
         }
@@ -282,7 +282,7 @@ const PdfCopyKeyboardHandler = ({ documentId }: { documentId: string }) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
         // Don't intercept when user is typing in an input/textarea
         const el = document.activeElement;
-        if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || (el as HTMLElement).isContentEditable)) {
+        if (el instanceof HTMLElement && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) {
           return;
         }
 
@@ -893,8 +893,15 @@ const AppPdfViewer = ({ pdfSrc, showThumbnails = false, renderHeader, itemName, 
     // Dependencies first for Annotations
     createPluginRegistration(HistoryPluginPackage),
     createPluginRegistration(AnnotationPluginPackage, {
-      // You can add configuration here like author name if we had user profiles
       annotationAuthor: "User",
+      tools: [{
+        id: 'link',
+        categories: ['annotation', 'markup', 'link-nav'],
+      }],
+      locked: {
+        type: LockModeType.Include,
+        categories: ['link-nav'],
+      },
     }),
     createPluginRegistration(ThumbnailPluginPackage, {
       width: 180,

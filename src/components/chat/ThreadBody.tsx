@@ -19,7 +19,7 @@ interface ThreadBodyProps {
  * `<Messages>` can rely on their DOM being present on first mount.
  */
 export function ThreadBody({ empty }: ThreadBodyProps) {
-  const { messages, isHistoryLoading } = useChatContext();
+  const { messages, isHistoryLoading, threadId } = useChatContext();
 
   if (messages.length === 0 && isHistoryLoading) {
     return (
@@ -45,5 +45,5 @@ export function ThreadBody({ empty }: ThreadBodyProps) {
     );
   }
 
-  return <Messages />;
+  return <Messages key={threadId} />;
 }

@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase-client";
+import { isSupabaseClientConfigured } from "@/lib/self-host-config";
 
 export interface CollaboratorPresence {
   userId: string;
@@ -49,6 +50,11 @@ export function useWorkspacePresence(
 
   const cleanup = useCallback(() => {
     if (channelRef.current) {
+      if (!isSupabaseClientConfigured()) {
+        channelRef.current = null;
+        return;
+      }
+
       const supabase = getSupabaseClient();
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
@@ -58,6 +64,12 @@ export function useWorkspacePresence(
   useEffect(() => {
     if (!workspaceId || !currentUser || !clientKey) {
       cleanup();
+      return;
+    }
+
+    if (!isSupabaseClientConfigured()) {
+      cleanup();
+      setCollaborators([]);
       return;
     }
 

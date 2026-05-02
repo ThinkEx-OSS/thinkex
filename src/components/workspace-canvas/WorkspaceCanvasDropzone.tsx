@@ -1,8 +1,8 @@
 "use client";
 
 import { useDropzone } from "react-dropzone";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
-import { useWorkspaceState } from "@/hooks/workspace/use-workspace-state";
+import { useCurrentWorkspaceId } from "@/contexts/WorkspaceContext";
+import { useWorkspaceItems } from "@/hooks/workspace/use-workspace-items";
 import { useWorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import { CgNotes } from "react-icons/cg";
 import { useCallback, useState, useRef } from "react";
@@ -25,9 +25,11 @@ import {
   getDocumentUploadSuccessMessage,
 } from "@/lib/uploads/upload-feedback";
 import {
-  WORKSPACE_FILE_UPLOAD_ACCEPT,
-  WORKSPACE_FILE_UPLOAD_DESCRIPTION,
-} from "@/lib/uploads/workspace-upload-config";
+  WORKSPACE_UPLOAD_ACCEPT,
+  WORKSPACE_UPLOAD_DESCRIPTION,
+  isTextOrCodeFile,
+} from "@/lib/uploads/accepted-file-types";
+import { textFileToMarkdown } from "@/lib/uploads/text-file-to-markdown";
 
 interface WorkspaceCanvasDropzoneProps {
   children: React.ReactNode;
@@ -38,8 +40,8 @@ interface WorkspaceCanvasDropzoneProps {
  * Accepts supported workspace files and creates corresponding cards when dropped.
  */
 export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzoneProps) {
-  const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-  const { state: workspaceState } = useWorkspaceState(currentWorkspaceId);
+  const currentWorkspaceId = useCurrentWorkspaceId();
+  const workspaceState = useWorkspaceItems();
   const operations = useWorkspaceOperations(currentWorkspaceId, workspaceState);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -126,21 +128,51 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
         return;
       }
 
+      const textFiles = filteredFiles.filter(f => isTextOrCodeFile(f.name));
+      const uploadableFiles = filteredFiles.filter(f => !isTextOrCodeFile(f.name));
+
       isProcessingRef.current = true;
 
-      // Show loading toast
+      const textCreatedIds: string[] = [];
+      for (const file of textFiles) {
+        const markdown = await textFileToMarkdown(file);
+        if (markdown !== null) {
+          const name = file.name.replace(/\.[^/.]+$/, "");
+          const ids = operations.createItems([{
+            type: "document",
+            name,
+            initialData: { markdown },
+          }], { showSuccessToast: false });
+          textCreatedIds.push(...ids);
+        }
+      }
+
+      if (uploadableFiles.length === 0) {
+        if (textCreatedIds.length > 0) {
+          handleCreatedItems(textCreatedIds);
+          toast.success(
+            `${textCreatedIds.length} document${textCreatedIds.length === 1 ? "" : "s"} created`,
+          );
+        }
+        filteredFiles.forEach((file) => {
+          processingFilesRef.current.delete(getFileKey(file));
+        });
+        isProcessingRef.current = false;
+        return;
+      }
+
       const loadingToastId = toast.loading(
-        getDocumentUploadLoadingMessage(filteredFiles.length)
+        getDocumentUploadLoadingMessage(uploadableFiles.length)
       );
 
       try {
-        const { uploads, failedFiles } = await uploadSelectedFiles(filteredFiles);
+        const { uploads, failedFiles } = await uploadSelectedFiles(uploadableFiles);
         if (uploads.length > 0) {
           const itemDefinitions = buildWorkspaceItemDefinitionsFromAssets(uploads);
           const createdIds = operations.createItems(itemDefinitions, {
             showSuccessToast: false,
           });
-          handleCreatedItems(createdIds);
+          handleCreatedItems([...textCreatedIds, ...createdIds]);
 
           toast.dismiss(loadingToastId);
 
@@ -154,7 +186,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
           });
 
           // Show success toast
-          const totalCreated = uploads.length;
+          const totalCreated = uploads.length + textCreatedIds.length;
           const failedCount = failedFiles.length;
           if (totalCreated > 0 && failedCount === 0) {
             toast.success(getDocumentUploadSuccessMessage(totalCreated));
@@ -164,7 +196,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
         }
 
         // Show error if some files failed to upload
-        if (filteredFiles.length > 0 && filteredFiles.length === failedFiles.length) {
+        if (uploadableFiles.length > 0 && uploadableFiles.length === failedFiles.length) {
           const failedCount = failedFiles.length;
           toast.error(getDocumentUploadFailureMessage(failedCount));
         }
@@ -195,7 +227,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
     noClick: true, // Don't trigger on click, only drag and drop
     noKeyboard: true, // Don't trigger on keyboard
     disabled: !currentWorkspaceId, // Disable if no workspace is selected
-    accept: WORKSPACE_FILE_UPLOAD_ACCEPT,
+    accept: WORKSPACE_UPLOAD_ACCEPT,
     onDragEnter: () => setIsDragging(true),
     onDragLeave: () => {
       setIsDragging(false);
@@ -211,7 +243,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
       if (fileRejections.length > 0) {
         const rejectedFileNames = fileRejections.map((r) => r.file.name);
         toast.error(
-          `Only PDF, Office, image, and audio files can be dropped.\nRejected: ${rejectedFileNames.join(", ")}`
+          `This file type is not supported.\nRejected: ${rejectedFileNames.join(", ")}`
         );
       }
     },
@@ -233,7 +265,7 @@ export function WorkspaceCanvasDropzone({ children }: WorkspaceCanvasDropzonePro
                 Add files
               </h3>
               <p className="text-sm text-muted-foreground">
-                Drop {WORKSPACE_FILE_UPLOAD_DESCRIPTION} here to create cards
+                Drop {WORKSPACE_UPLOAD_DESCRIPTION} here to create cards
               </p>
             </div>
           </div>

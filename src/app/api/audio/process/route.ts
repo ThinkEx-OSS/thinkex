@@ -6,6 +6,10 @@ import {
   verifyWorkspaceAccess,
   withErrorHandling,
 } from "@/lib/api/workspace-helpers";
+import {
+  getUnsupportedLocalStorageMessage,
+  usesLocalStorage,
+} from "@/lib/self-host-config";
 import { isAllowedAssetUrl } from "@/lib/tasks/validate-asset-url";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +21,15 @@ export const dynamic = "force-dynamic";
  */
 async function handlePOST(req: NextRequest) {
   const userId = await requireAuth();
+
+  if (usesLocalStorage()) {
+    return NextResponse.json(
+      {
+        error: getUnsupportedLocalStorageMessage("Audio transcription"),
+      },
+      { status: 400 },
+    );
+  }
 
   if (!process.env.ASSEMBLYAI_API_KEY) {
     return NextResponse.json(
@@ -51,7 +64,10 @@ async function handlePOST(req: NextRequest) {
 
   if (!isAllowedAssetUrl(fileUrl)) {
     return NextResponse.json(
-      { error: "fileUrl origin is not allowed" },
+      {
+        error:
+          "Audio transcription only accepts provider-reachable storage URLs configured for this deployment.",
+      },
       { status: 400 },
     );
   }

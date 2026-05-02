@@ -7,11 +7,13 @@ import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
 import ItemHeader from "@/components/workspace-canvas/ItemHeader";
 import CardRenderer from "@/components/workspace-canvas/CardRenderer";
 import LazyAppPdfViewer from "@/components/pdf/LazyAppPdfViewer";
+import LazyImageViewer from "@/components/image-viewer/LazyImageViewer";
+import { ImagePanelHeader } from "@/components/image-viewer/ImagePanelHeader";
 import { YouTubePanelContent } from "@/components/workspace-canvas/YouTubePanelContent";
 import { WebsitePanelContent } from "@/components/workspace-canvas/WebsitePanelContent";
 import { PdfPanelHeader } from "@/components/pdf/PdfPanelHeader";
 import { getCardColorCSS, getWhiteTintedColor } from "@/lib/workspace-state/colors";
-import type { Item, ItemData, PdfData } from "@/lib/workspace-state/types";
+import type { Item, ItemData, PdfData, ImageData } from "@/lib/workspace-state/types";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -40,6 +42,7 @@ export function ItemPanelContent({
     const isPdf = item.type === 'pdf';
     const isYouTube = item.type === 'youtube';
     const isWebsite = item.type === 'website';
+    const isImage = item.type === 'image';
     const pdfPreviewUrl = isPdf ? (item.data as PdfData).fileUrl : undefined;
     /** PDF cards still processing upload have no viewer yet — need a local title bar. */
     const showPdfAwaitingFileHeader = isPdf && !pdfPreviewUrl;
@@ -119,8 +122,8 @@ export function ItemPanelContent({
             {showPdfAwaitingFileHeader && renderPdfAwaitingFileHeader()}
 
             <div
-                className={`${(isPdf && pdfPreviewUrl) || isYouTube || isWebsite ? "flex-1 flex flex-col min-h-0" : "flex-1 overflow-y-auto modal-scrollable flex flex-col"}`}
-                style={(!isPdf || !pdfPreviewUrl) && !isYouTube && !isWebsite ? {
+                className={`${(isPdf && pdfPreviewUrl) || isYouTube || isWebsite || isImage ? "flex-1 flex flex-col min-h-0" : "flex-1 overflow-y-auto modal-scrollable flex flex-col"}`}
+                style={(!isPdf || !pdfPreviewUrl) && !isYouTube && !isWebsite && !isImage ? {
                     ['--scrollbar-color' as string]: item.color
                         ? getWhiteTintedColor(item.color, 0.7, 0.2)
                         : "rgba(255, 255, 255, 0.2)",
@@ -167,6 +170,27 @@ export function ItemPanelContent({
                     <WebsitePanelContent
                         item={item}
                     />
+                ) : isImage ? (
+                    <div className="w-full flex-1 min-h-0 flex flex-col">
+                        <LazyImageViewer
+                            src={(item.data as ImageData).url}
+                            alt={(item.data as ImageData).altText || item.name}
+                            itemName={item.name}
+                            itemId={item.id}
+                            isMaximized={true}
+                            renderHeader={(controls) => (
+                                <ImagePanelHeader
+                                    itemName={item.name}
+                                    isMaximized={true}
+                                    onClose={onClose}
+                                    onMaximize={onMaximize}
+                                    controls={controls}
+                                    renderInPortal={true}
+                                    imageSrc={(item.data as ImageData).url}
+                                />
+                            )}
+                        />
+                    </div>
                 ) : (
                     <CardRenderer
                         key={item.id}

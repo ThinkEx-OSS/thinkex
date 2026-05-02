@@ -8,22 +8,19 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
-  useState,
   type ReactNode,
 } from "react";
-import { VList, type VListHandle } from "virtua";
+import { VList } from "virtua";
 
 import { PendingAssistantLoader } from "@/components/chat/AssistantLoader";
 import { AssistantMessage } from "@/components/chat/AssistantMessage";
 import { useChatContext } from "@/components/chat/ChatProvider";
+import { useThreadViewportController } from "@/components/chat/use-thread-viewport-controller";
 import { Button } from "@/components/ui/button";
 import { UserMessage } from "@/components/chat/UserMessage";
 import { chatDebug, chatWarn, summarizeRoster } from "@/lib/chat/debug";
 import type { ChatMessage } from "@/lib/chat/types";
-import {
-  THREAD_SCROLL_PIN_OFFSET,
-  THREAD_TOP_INSET,
-} from "@/components/chat/thread-layout";
+import { THREAD_TOP_INSET } from "@/components/chat/thread-layout";
 
 /**
  * Virtualized message list with pin-to-top autoscroll. Assumes the thread
@@ -49,6 +46,11 @@ import {
  *
  * 5. After the turn ends, the spacer persists on the (now) last assistant
  *    row. The next turn repeats the cycle.
+ *
+ * Thread-open and same-thread send scroll behavior lives in
+ * `useThreadViewportController()`. `ThreadBody` keys this component by
+ * `threadId`, so "open/switch thread" becomes a real mount instead of
+ * sharing one long-lived effect across multiple thread lifecycles.
  */
 const MessagesImpl = () => {
   const { messages, status, error, regenerate, clearError } = useChatContext();
@@ -84,6 +86,18 @@ const MessagesImpl = () => {
   }, [messages]);
   const lastUserMessageId =
     lastUserIndex >= 0 ? (messages[lastUserIndex]?.id ?? null) : null;
+
+  const {
+    viewportRef,
+    listRef,
+    reservedTail,
+    measurePinnedUser,
+  } = useThreadViewportController({
+    messages,
+    status,
+    lastUserMessageId,
+  });
+
   // Between `sendMessage` and the first streamed chunk, useChat has not yet
   // materialized an assistant message. Render a dedicated pending row instead
   // of inventing a fake assistant message identity that later has to be
@@ -92,80 +106,6 @@ const MessagesImpl = () => {
     isStreaming &&
     messages.length > 0 &&
     messages[messages.length - 1].role === "user";
-
-  // Measure the scroll viewport so we know how tall the spacer should be.
-  // Kept in sync via a ResizeObserver so the reservation adapts when the
-  // panel is maximized/minimized.
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [reservedMinHeight, setReservedMinHeight] = useState(0);
-  useLayoutEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    setReservedMinHeight(el.clientHeight);
-    const ro = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) return;
-      setReservedMinHeight(entry.contentRect.height);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  // Track the height of the most-recent user message so we can size the
-  // trailing spacer correctly. The UserRow calls `onMeasure` when it's the
-  // pin target (i.e. the last user message in the list).
-  const [lastMeasuredUser, setLastMeasuredUser] = useState<{
-    messageId: string | null;
-    height: number;
-  }>({
-    messageId: null,
-    height: 0,
-  });
-  const lastUserSize =
-    lastMeasuredUser.messageId === lastUserMessageId
-      ? lastMeasuredUser.height
-      : 0;
-
-  const reservedTail = Math.max(0, reservedMinHeight - lastUserSize);
-
-  const vlistRef = useRef<VListHandle>(null);
-  const initialTurnPinnedRef = useRef(false);
-
-  // Pin the newest message just below the top of the viewport on every new
-  // turn. Most turns arrive as a `ready → submitted` transition, but the
-  // very first turn mounts `<Messages>` after we already left the welcome
-  // state, so there is no prior `ready` render inside this component.
-  const prevStatusRef = useRef(status);
-  useLayoutEffect(() => {
-    const prev = prevStatusRef.current;
-    prevStatusRef.current = status;
-    const turnStarted =
-      prev === "ready" && (status === "submitted" || status === "streaming");
-    const initialTurnMountedActive =
-      !initialTurnPinnedRef.current &&
-      isStreaming &&
-      messages.length > 0 &&
-      messages[messages.length - 1]?.role === "user";
-    if (!turnStarted && !initialTurnMountedActive) return;
-    const lastMessageIndex = messages.length - 1;
-    if (lastMessageIndex < 0) return;
-    const handle = vlistRef.current;
-    if (!handle) return;
-    initialTurnPinnedRef.current = true;
-    requestAnimationFrame(() => {
-      handle.scrollToIndex(lastMessageIndex, {
-        smooth: true,
-        align: "start",
-        offset: -THREAD_SCROLL_PIN_OFFSET,
-      });
-    });
-  }, [isStreaming, status, messages]);
-
-  useEffect(() => {
-    if (!isStreaming) {
-      initialTurnPinnedRef.current = false;
-    }
-  }, [isStreaming]);
 
   // Whichever row ends up at the tail gets the spacer. When the pending
   // loader is present it's the tail; otherwise the last real message is.
@@ -193,18 +133,7 @@ const MessagesImpl = () => {
           onMeasure={
             idx === lastUserIndex
               ? (height) => {
-                  setLastMeasuredUser((prev) => {
-                    if (
-                      prev.messageId === message.id &&
-                      prev.height === height
-                    ) {
-                      return prev;
-                    }
-                    return {
-                      messageId: message.id,
-                      height,
-                    };
-                  });
+                  measurePinnedUser(message.id, height);
                 }
               : undefined
           }
@@ -251,9 +180,9 @@ const MessagesImpl = () => {
     // `document.querySelector` — it uses this node for range-bounds
     // containment checks and tooltip positioning. Don't rename without
     // updating both selectors.
-    <div ref={containerRef} data-chat-viewport className="h-full">
+    <div ref={viewportRef} data-chat-viewport className="h-full">
       <VList
-        ref={vlistRef}
+        ref={listRef}
         style={{ height: "100%", paddingTop: THREAD_TOP_INSET }}
         className="overflow-x-hidden px-3 sm:px-6"
       >

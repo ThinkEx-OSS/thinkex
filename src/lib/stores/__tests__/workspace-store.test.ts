@@ -37,7 +37,6 @@ describe("workspace store chat thread state", () => {
     const storeModule = await import("../workspace-store");
     const store = storeModule.useWorkspaceStore;
 
-    store.getState().setCurrentWorkspaceId("workspace-1");
     store.getState().setCurrentThreadId("workspace-1", "thread-1");
 
     const persisted = JSON.parse(
@@ -45,7 +44,6 @@ describe("workspace store chat thread state", () => {
     ) as {
       state?: {
         currentThreadIdByWorkspace?: Record<string, string>;
-        currentWorkspaceId?: string | null;
       };
     };
 
@@ -57,7 +55,6 @@ describe("workspace store chat thread state", () => {
     const reloadedModule = await import("../workspace-store");
     const reloadedState = reloadedModule.useWorkspaceStore.getState();
 
-    expect(reloadedState.currentWorkspaceId).toBeNull();
     expect(
       reloadedModule.selectCurrentThreadId("workspace-1")(reloadedState),
     ).toBe("thread-1");

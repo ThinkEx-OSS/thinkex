@@ -23,6 +23,7 @@ Contributions should prioritize:
 - Node.js **v20+**
 - pnpm
 - PostgreSQL (local or Docker)
+- Zero cache server configuration from [SELF_HOSTING.md](SELF_HOSTING.md)
 
 ### Quick Setup (Recommended)
 
@@ -31,6 +32,7 @@ Run the interactive setup script:
 git clone https://github.com/ThinkEx-OSS/thinkex.git
 cd thinkex
 ./setup.sh
+pnpm dev
 ```
 
 ### Manual Setup
@@ -42,3 +44,5 @@ cp .env.example .env
 pnpm db:push
 pnpm dev
 ```
+
+Use [SELF_HOSTING.md](SELF_HOSTING.md) as the source of truth for environment variables, Zero startup, local storage, and optional media integrations.

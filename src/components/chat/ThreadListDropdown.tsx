@@ -1,6 +1,6 @@
 "use client";
 
-import { PencilIcon, Trash2Icon } from "lucide-react";
+import { Loader2Icon, PencilIcon, Trash2Icon } from "lucide-react";
 import { PiNotePencilBold } from "react-icons/pi";
 import {
   type FC,
@@ -11,7 +11,11 @@ import {
 } from "react";
 import { toast } from "sonner";
 
-import { useChatContext } from "@/components/chat/ChatProvider";
+import {
+  useChatContext,
+  useChatThreadManager,
+  useThreadStatus,
+} from "@/components/chat/ChatProvider";
 import { TooltipIconButton } from "@/components/chat/tooltip-icon-button";
 import {
   AlertDialog,
@@ -42,6 +46,7 @@ import {
   useRenameThread,
   useThreadsQuery,
 } from "@/lib/chat/queries";
+import { orderThreadsByRuntimeActivity } from "@/lib/chat/thread-order";
 import { useWorkspaceStore } from "@/lib/stores/workspace-store";
 
 interface ThreadListDropdownProps {
@@ -53,11 +58,19 @@ export const ThreadListDropdown: FC<ThreadListDropdownProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const { workspaceId, threadId, selectThread, startNewThread } = useChatContext();
+  const {
+    getThreadLastStartedAt,
+    getThreadStatusSnapshot,
+  } = useChatThreadManager();
 
   const { data: threads, isLoading } = useThreadsQuery(workspaceId);
 
-  const visibleThreads = (threads ?? []).filter(
-    (t) => t.status !== "archived",
+  const visibleThreads = orderThreadsByRuntimeActivity(
+    (threads ?? []).filter((thread) => thread.status !== "archived"),
+    {
+      getThreadStatus: getThreadStatusSnapshot,
+      getThreadLastStartedAt,
+    },
   );
 
   const handleSelect = useCallback(
@@ -79,6 +92,7 @@ export const ThreadListDropdown: FC<ThreadListDropdownProps> = ({
       <DropdownMenuContent
         align="end"
         className="w-80 bg-sidebar border-sidebar-border max-h-[500px] p-0 overflow-hidden"
+        onCloseAutoFocus={(event) => event.preventDefault()}
       >
         <Button
           className="flex items-center justify-start gap-2 rounded-none px-4 py-3 text-start hover:bg-muted/50 transition-all duration-200 font-medium w-full"
@@ -154,10 +168,9 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
   const clearCurrentThreadId = useWorkspaceStore(
     (s) => s.clearCurrentThreadId,
   );
-
-  useEffect(() => {
-    if (!isEditing) setEditValue(thread.title ?? "New Chat");
-  }, [thread.title, isEditing]);
+  const { disposeThread } = useChatThreadManager();
+  const status = useThreadStatus(thread.id);
+  const isGenerating = status === "submitted" || status === "streaming";
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -171,6 +184,7 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
   const handleStartEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    setEditValue(title);
     setIsEditing(true);
   };
 
@@ -188,9 +202,8 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
       console.error("Failed to rename thread:", err);
       toast.error("Failed to update title");
       setEditValue(title);
-    } finally {
-      setIsEditing(false);
     }
+    setIsEditing(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -214,6 +227,7 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
     setShowDeleteDialog(false);
     try {
       await deleteMutation.mutateAsync(thread.id);
+      disposeThread(thread.id);
       clearCurrentThreadId(workspaceId, thread.id);
       if (isActive) {
         onDeletedActiveThread();
@@ -252,9 +266,17 @@ const ThreadListItemRow: FC<ThreadListItemRowProps> = ({
                 onClick={() => onSelect(thread.id)}
               >
                 <div className="min-w-0 flex-1">
-                  <span className="text-sm break-words block truncate">
-                    {title}
-                  </span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    {isGenerating ? (
+                      <Loader2Icon
+                        aria-label="Generating"
+                        className="size-3.5 shrink-0 text-primary animate-spin"
+                      />
+                    ) : null}
+                    <span className="text-sm break-words block truncate">
+                      {title}
+                    </span>
+                  </div>
                 </div>
               </button>
               <Tooltip>

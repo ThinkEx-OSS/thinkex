@@ -10,7 +10,7 @@ import {
 } from "@/components/chat/parts/AssistantThreadSelection";
 import { SelectionTooltip } from "@/components/ui/selection-tooltip";
 import { useUIStore } from "@/lib/stores/ui-store";
-import { useWorkspaceStore } from "@/lib/stores/workspace-store";
+import { useCurrentWorkspaceId } from "@/contexts/WorkspaceContext";
 import { cn } from "@/lib/utils";
 
 /**
@@ -22,15 +22,14 @@ import { cn } from "@/lib/utils";
 export function TextSelectionManager({ className }: { className?: string }) {
   const { threadId } = useChatContext();
   const composer = useOptionalComposer();
-  const workspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
+  const workspaceId = useCurrentWorkspaceId();
 
   const addReplySelection = useUIStore((s) => s.addReplySelection);
   const clearReplySelections = useUIStore((s) => s.clearReplySelections);
 
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  const [currentSelection, setCurrentSelection] = useState<SelectionInfo | null>(
-    null,
-  );
+  const [currentSelection, setCurrentSelection] =
+    useState<SelectionInfo | null>(null);
 
   // Wipe selections when the workspace or active thread changes.
   const prevWorkspaceIdRef = useRef<string | null>(workspaceId);
@@ -80,7 +79,9 @@ export function TextSelectionManager({ className }: { className?: string }) {
     });
     setCurrentSelection(null);
     window.getSelection()?.removeAllRanges();
-    composer?.focus();
+    requestAnimationFrame(() => {
+      composer?.focusInput({ cursorAtEnd: true });
+    });
   }, [currentSelection, addReplySelection, composer]);
 
   return (

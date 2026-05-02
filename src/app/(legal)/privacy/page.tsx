@@ -75,7 +75,7 @@ export default function PrivacyPage() {
 
         <h3>Files and uploads</h3>
         <p>
-          We process and store files you upload, such as PDFs, images, videos,
+          We process and store files you upload, such as PDFs, images,
           audio files, and office or document files. Files are stored in
           Supabase Storage.
         </p>

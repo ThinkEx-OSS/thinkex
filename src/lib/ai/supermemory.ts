@@ -4,8 +4,12 @@ import { withSupermemory } from "@supermemory/tools/ai-sdk";
 
 import { logger } from "@/lib/utils/logger";
 
+/** Supermemory ingest constraint on `containerTag` (see SDK `DocumentAddParams`). */
+const MAX_CONTAINER_TAG_LENGTH = 100;
+
 type SupermemoryWrapOptions = {
   userId: string;
+  workspaceId: string;
   threadId?: string | null;
   memoryEnabled: boolean;
 };
@@ -14,7 +18,7 @@ export function maybeWithSupermemory<T>(
   model: T,
   options: SupermemoryWrapOptions,
 ): T {
-  const { userId, threadId, memoryEnabled } = options;
+  const { userId, workspaceId, threadId, memoryEnabled } = options;
 
   // Server-side kill switch. Neutralizes the wrapper without touching UI,
   // state, or transport plumbing — set the env to `false` to
@@ -28,6 +32,12 @@ export function maybeWithSupermemory<T>(
 
   if (!memoryEnabled) return model;
   if (!userId) return model;
+  if (!workspaceId?.trim()) {
+    logger.warn(
+      "🧠 [SUPERMEMORY] memoryEnabled=true but workspaceId is missing; skipping memory injection",
+    );
+    return model;
+  }
 
   const apiKey = process.env.SUPERMEMORY_API_KEY;
   if (!apiKey) {
@@ -45,8 +55,17 @@ export function maybeWithSupermemory<T>(
         ? threadId
         : `user:${userId}`;
 
+    const containerTag = `${userId}_${workspaceId}`;
+    if (containerTag.length > MAX_CONTAINER_TAG_LENGTH) {
+      logger.warn(
+        "🧠 [SUPERMEMORY] workspace-scoped containerTag exceeds limit; skipping memory injection",
+        { length: containerTag.length },
+      );
+      return model;
+    }
+
     return withSupermemory(model as never, {
-      containerTag: userId,
+      containerTag,
       customId,
       apiKey,
       mode: "full" as const,

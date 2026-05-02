@@ -2,7 +2,7 @@
  * Layout Constants
  * 
  * Centralized configuration for all layout-related magic numbers.
- * These values control the responsive behavior of the dashboard layout.
+ * These values control the responsive behavior of the workspace layout.
  */
 
 // ===== SIDEBAR WIDTHS =====

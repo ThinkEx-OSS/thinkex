@@ -58,112 +58,48 @@ Nothing disappears into a black box. You see what AI sees and control what it wo
 
 ## Self-Hosting
 
-ThinkEx can be self hosted for local development. The setup uses Docker for PostgreSQL (recommended) while running the Next.js app locally.
+ThinkEx supports a **core self-host** path for local development:
+
+- PostgreSQL
+- Better Auth secret + app URL
+- Zero cache server
+- Local filesystem storage
+
+`pnpm dev` is the supported one-command entrypoint for this setup. It starts:
+
+- Next.js
+- the AI SDK devtools
+- Zero
 
 ### Quick Start
-
-#### Prerequisites
-
-*   [Node.js](https://nodejs.org/) (v20+)
-*   [pnpm](https://pnpm.io/) (will be installed automatically if missing)
-*   [Docker](https://docs.docker.com/get-docker/) (recommended for PostgreSQL) OR [PostgreSQL](https://www.postgresql.org/download/) (v12+) installed locally
-*   **Required API Keys:**
-    *   **Google AI**: API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
-        *   `GOOGLE_GENERATIVE_AI_API_KEY`
-    *   **Supabase** (file uploads): Project URL and keys from [Supabase](https://supabase.com)
-        *   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
-*   **Optional API Keys:**
-    *   **Google OAuth**: Get credentials from [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (for OAuth login)
-        *   `GOOGLE_CLIENT_ID`
-        *   `GOOGLE_CLIENT_SECRET`
-    *   **Other optional keys** (web scraping, OCR, external conversion service): see [`.env.example`](.env.example) (`FIRECRAWL_API_KEY`, `MISTRAL_API_KEY`, `FASTAPI_*`, `SCRAPING_MODE`, etc.)
-
-#### Automated Setup
-
-Run the interactive setup script:
 
 ```bash
 git clone https://github.com/ThinkEx-OSS/thinkex.git
 cd thinkex
 ./setup.sh
+pnpm dev
 ```
 
-The script will:
-- Check prerequisites (Node.js, pnpm, Docker)
-- Create `.env` file from template
-- Generate `BETTER_AUTH_SECRET` automatically
-- Start PostgreSQL in Docker (or use local PostgreSQL if Docker is not available)
-- Configure database connection
-- Install dependencies
-- Initialize the database schema
-- Start the development server automatically
+Access ThinkEx at [http://localhost:3000](http://localhost:3000).
 
-Access ThinkEx at [http://localhost:3000](http://localhost:3000)
+### What Core Self-Host Includes
 
-**PostgreSQL Docker Commands:**
-- Stop PostgreSQL: `docker-compose down`
-- Start PostgreSQL: `docker-compose up -d`
-- View logs: `docker-compose logs -f postgres`
+- Local uploads, viewing, and deletion using `STORAGE_TYPE=local`
+- Workspace sync through Zero
+- The main app shell and workspace flows
 
-#### Manual Setup
+### What Core Self-Host Does Not Include
 
-1.  **Clone the repository**
-    ```bash
-    git clone https://github.com/ThinkEx-OSS/thinkex.git
-    cd thinkex
-    ```
+OCR, audio transcription, and office document conversion require provider-reachable object storage plus the relevant provider credentials. Those features are intentionally not supported in local-file core mode and will fail with explicit messages.
 
-2.  **Start PostgreSQL (Docker)**
-    ```bash
-    docker-compose up -d postgres
-    ```
-    
-    Or use your local PostgreSQL installation.
+### Full Setup Guide
 
-3.  **Install dependencies**
-    ```bash
-    pnpm install
-    ```
+See [SELF_HOSTING.md](SELF_HOSTING.md) for:
 
-4.  **Configure environment variables**
-    ```bash
-    cp .env.example .env
-    ```
-    
-    Edit `.env` and configure:
-    
-    *   **Database**: Set `DATABASE_URL` to your PostgreSQL connection string
-      ```bash
-      # For Docker PostgreSQL:
-      DATABASE_URL=postgresql://thinkex:thinkex_password_change_me@localhost:5432/thinkex
-      
-      # For local PostgreSQL:
-      DATABASE_URL=postgresql://user:password@localhost:5432/thinkex
-      ```
-    *   **Better Auth**: Generate `BETTER_AUTH_SECRET` with `openssl rand -base64 32`. For a public URL (not localhost), set `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL` to that origin.
-    *   **Google OAuth**: Get credentials from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-    *   **Supabase**: Your Supabase project URL and keys (required for file uploads)
-    *   **Google AI**: API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
-
-5.  **Initialize the database**
-    ```bash
-    pnpm db:push
-    ```
-
-6.  **Start the development server**
-    ```bash
-    pnpm dev
-    ```
-
-7.  **Access the application**
-    Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-#### File storage (Supabase)
-
-Uploads go to **Supabase Storage**. Configure:
-
-- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
-- A storage bucket named `file-upload` set to **Public**
+- required local environment variables
+- Zero configuration
+- local storage behavior
+- optional integrations such as Supabase, OCR, audio, analytics, and email
 
 ## Contributing
 

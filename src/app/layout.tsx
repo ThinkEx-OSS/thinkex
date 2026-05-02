@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 
 // Using system fonts instead of custom fonts
+import { DatabuddyAnalytics } from "@/components/analytics/DatabuddyAnalytics";
 import { Providers } from "@/components/providers";
 import { QueryProvider } from "@/components/query-provider";
 import { PostHogProvider } from "@/components/providers/PostHogProvider";
@@ -84,6 +85,7 @@ export default function RootLayout({
           <PostHogProvider>
             <QueryProvider>
               <Providers>
+                <DatabuddyAnalytics />
                 <Script
                   src="https://accounts.google.com/gsi/client"
                   strategy="afterInteractive"

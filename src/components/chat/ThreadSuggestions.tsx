@@ -24,15 +24,14 @@ export const ThreadSuggestions: FC<ThreadSuggestionsProps> = ({ items }) => {
   const handleDirectFill = useCallback(
     (action: string) => {
       composer?.setInput(action);
-      composer?.focus({ cursorAtEnd: true });
+      composer?.focusInput({ cursorAtEnd: true });
     },
     [composer],
   );
 
   const handleTriggerFileInput = useCallback(() => {
-    document.getElementById("prompt-input-file-upload")?.click();
-    composer?.focus({ cursorAtEnd: true });
-  }, [composer]);
+    document.getElementById("composer-file-input")?.click();
+  }, []);
 
   return (
     <>
@@ -67,9 +66,7 @@ export const ThreadSuggestions: FC<ThreadSuggestionsProps> = ({ items }) => {
                 }}
               >
                 <Icon className={suggestedAction.iconClassName} />
-                <span className="font-medium">
-                  {suggestedAction.title}
-                </span>
+                <span className="font-medium">{suggestedAction.title}</span>
               </Button>
             </div>
           );

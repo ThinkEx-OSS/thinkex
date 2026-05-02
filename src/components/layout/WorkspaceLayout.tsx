@@ -1,61 +1,61 @@
+"use client";
+
+import React from "react";
 import { Sidebar, SidebarInset } from "@/components/ui/sidebar";
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
 import WorkspaceSidebar from "@/components/workspace-canvas/WorkspaceSidebar";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { ChatProvider } from "@/components/chat/ChatProvider";
 import { ComposerProvider } from "@/components/chat/composer-context";
 import { WorkspaceCanvasDropzone } from "@/components/workspace-canvas/WorkspaceCanvasDropzone";
 import { PANEL_DEFAULTS } from "@/lib/layout-constants";
-import React from "react";
+import { useUIStore } from "@/lib/stores/ui-store";
+import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
+import { useWorkspaceView } from "@/hooks/workspace/use-workspace-view";
+import { WorkspaceHeaderSkeleton } from "@/components/workspace/WorkspaceLoader";
 
-interface DashboardLayoutProps {
-  // Workspace sidebar
-  currentWorkspaceId: string | null;
-  onWorkspaceSwitch: (slug: string) => void;
-  showCreateModal: boolean;
-  setShowCreateModal: (show: boolean) => void;
-
-  // Chat state
-  isDesktop: boolean;
-  isChatExpanded: boolean;
-  isChatMaximized: boolean;
-  setIsChatExpanded: (expanded: boolean) => void;
-  setIsChatMaximized: (maximized: boolean) => void;
-
-  // Component slots
+interface WorkspaceLayoutProps {
   workspaceSection: React.ReactNode;
-  workspaceHeader?: React.ReactNode; // Header that spans above sidebar + workspace
+  /** Header rendered above sidebar + canvas. Pass `undefined` to hide. */
+  workspaceHeader?: React.ReactNode;
 }
 
 /**
- * Main dashboard layout component.
- * Handles the overall structure including sidebars and layout animations.
+ * Main workspace layout. Reads chat/sidebar state from stores and the active
+ * workspace from context; only takes the visual slot props.
  */
-export function DashboardLayout({
-  currentWorkspaceId,
-  onWorkspaceSwitch,
-  showCreateModal,
-  setShowCreateModal,
-  isChatExpanded,
-  isChatMaximized,
-  setIsChatExpanded,
-  setIsChatMaximized,
+export function WorkspaceLayout({
   workspaceSection,
   workspaceHeader,
-}: DashboardLayoutProps) {
-  // Render logic
-  // Ensure chat is only shown when a workspace is active
-  const effectiveChatExpanded = isChatExpanded && !!currentWorkspaceId;
-  const effectiveChatMaximized = isChatMaximized && !!currentWorkspaceId;
+}: WorkspaceLayoutProps) {
+  const { currentWorkspace, switchWorkspace } = useWorkspaceContext();
+  const currentWorkspaceId = currentWorkspace?.id ?? null;
+  const view = useWorkspaceView();
+  const isWorkspaceReady = view.kind === "ready";
+
+  const isChatExpanded = useUIStore((s) => s.isChatExpanded);
+  const isChatMaximized = useUIStore((s) => s.isChatMaximized);
+  const setIsChatExpanded = useUIStore((s) => s.setIsChatExpanded);
+  const setIsChatMaximized = useUIStore((s) => s.setIsChatMaximized);
+  const showCreateModal = useUIStore((s) => s.showCreateWorkspaceModal);
+  const setShowCreateModal = useUIStore((s) => s.setShowCreateWorkspaceModal);
+
+  // Reserve the chat slot as soon as the user wants chat open, even before
+  // `currentWorkspaceId` lands. Otherwise the workspace canvas paints full-width
+  // for the slug→id roundtrip and then suddenly shrinks ~25% when chat snaps in.
+  const effectiveChatExpanded = isChatExpanded;
+  const effectiveChatMaximized = isChatMaximized;
 
   const content = (
     <div className="h-screen flex w-full">
-      {/* MAXIMIZED MODE: Show only chat (workspace completely hidden) */}
       {effectiveChatMaximized ? (
         <div className="relative flex-1 h-full z-10">
           <div className="flex-1 h-full">
             <ChatPanel
-              key={`chat-panel-${currentWorkspaceId}`}
               workspaceId={currentWorkspaceId || ""}
               setIsChatExpanded={setIsChatExpanded}
               isChatMaximized={effectiveChatMaximized}
@@ -64,33 +64,29 @@ export function DashboardLayout({
           </div>
         </div>
       ) : (
-        <ResizablePanelGroup
-          key={`layout-${effectiveChatExpanded ? "chat" : "no-chat"}`}
-          id={`layout-${effectiveChatExpanded ? "chat" : "no-chat"}`}
-          orientation="horizontal"
-          className="flex-1 z-10"
-        >
-          {/* Left Area: Workspace area (header + sidebar + workspace canvas) */}
+        <ResizablePanelGroup orientation="horizontal" className="flex-1 z-10">
           <ResizablePanel
             id="left-area-panel"
-            defaultSize={(() => {
-              if (!effectiveChatExpanded) return "100%";
-              return `${100 - PANEL_DEFAULTS.CHAT}%`;
-            })()}
-            minSize={effectiveChatExpanded ? `${PANEL_DEFAULTS.WORKSPACE_MIN}%` : "100%"}
+            defaultSize={
+              effectiveChatExpanded ? `${100 - PANEL_DEFAULTS.CHAT}%` : "100%"
+            }
+            minSize={
+              effectiveChatExpanded
+                ? `${PANEL_DEFAULTS.WORKSPACE_MIN}%`
+                : "100%"
+            }
           >
             <div className="h-full flex flex-col relative overflow-hidden">
-              {!!currentWorkspaceId && workspaceHeader}
+              {isWorkspaceReady ? workspaceHeader : <WorkspaceHeaderSkeleton />}
               <div className="flex flex-1 overflow-hidden relative">
                 <Sidebar
                   side="left"
                   variant="sidebar"
                   collapsible="offcanvas"
-                  key={`sidebar-${currentWorkspaceId || "none"}`}
                   embedded
                 >
                   <WorkspaceSidebar
-                    onWorkspaceSwitch={onWorkspaceSwitch}
+                    onWorkspaceSwitch={switchWorkspace}
                     showCreateModal={showCreateModal}
                     setShowCreateModal={setShowCreateModal}
                     isChatExpanded={effectiveChatExpanded}
@@ -98,13 +94,14 @@ export function DashboardLayout({
                   />
                 </Sidebar>
                 <SidebarInset className="flex flex-col relative overflow-hidden">
-                  <WorkspaceCanvasDropzone>{workspaceSection}</WorkspaceCanvasDropzone>
+                  <WorkspaceCanvasDropzone>
+                    {workspaceSection}
+                  </WorkspaceCanvasDropzone>
                 </SidebarInset>
               </div>
             </div>
           </ResizablePanel>
 
-          {/* Chat Section - Only when expanded and workspace exists */}
           {effectiveChatExpanded && (
             <>
               <ResizableHandle id="workspace-chat-handle" />
@@ -115,7 +112,6 @@ export function DashboardLayout({
                 maxSize={`${PANEL_DEFAULTS.CHAT_MAX}%`}
               >
                 <ChatPanel
-                  key={`chat-panel-${currentWorkspaceId}`}
                   workspaceId={currentWorkspaceId || ""}
                   setIsChatExpanded={setIsChatExpanded}
                   isChatMaximized={effectiveChatMaximized}
