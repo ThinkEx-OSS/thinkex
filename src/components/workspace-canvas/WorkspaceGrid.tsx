@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import React from "react";
-import { DragDropProvider, type DragEndEvent } from "@dnd-kit/react";
+import { useDragDropMonitor, type DragEndEvent } from "@dnd-kit/react";
 import { isSortable } from "@dnd-kit/react/sortable";
 import type { Item } from "@/lib/workspace-state/types";
 import { WorkspaceCard } from "./WorkspaceCard";
@@ -182,8 +182,13 @@ function WorkspaceGridComponent({
           return;
         }
 
-        setOrderedFolderItems(snapshot.folders);
-        setOrderedContentItems(resolution.nextItems);
+        if (resolution.sourceLane === "folders") {
+          setOrderedFolderItems(resolution.nextItems);
+          setOrderedContentItems(snapshot.items);
+        } else {
+          setOrderedFolderItems(snapshot.folders);
+          setOrderedContentItems(resolution.nextItems);
+        }
         onMoveItem(resolution.itemId, resolution.folderId);
         return;
       }
@@ -203,7 +208,7 @@ function WorkspaceGridComponent({
         containerId={currentContainerId}
         className={GRID_ITEM_CLASS}
       >
-        {({ dragHandle }) => (
+        {() => (
           <FolderCard
             item={item}
             itemCount={folderItemCounts.get(item.id) || 0}
@@ -216,7 +221,6 @@ function WorkspaceGridComponent({
             onDeleteItem={handleDeleteItem}
             onDeleteFolderWithContents={onDeleteFolderWithContents}
             onMoveItem={onMoveItem}
-            dragHandle={dragHandle}
             itemDropTargetId={`folder-drop:${item.id}`}
           />
         )}
@@ -249,7 +253,7 @@ function WorkspaceGridComponent({
             containerId={currentContainerId}
             className={GRID_ITEM_CLASS}
           >
-            {({ dragHandle }) => (
+            {() => (
               <FlashcardWorkspaceCard
                 item={item}
                 allItems={allItems}
@@ -260,7 +264,6 @@ function WorkspaceGridComponent({
                 onDeleteItem={handleDeleteItem}
                 onOpenModal={handleOpenModal}
                 onMoveItem={onMoveItem}
-                dragHandle={dragHandle}
               />
             )}
           </SortableWorkspaceGridItem>
@@ -276,7 +279,7 @@ function WorkspaceGridComponent({
           containerId={currentContainerId}
           className={GRID_ITEM_CLASS}
         >
-          {({ dragHandle }) => (
+          {() => (
             <WorkspaceCard
               item={item}
               allItems={allItems}
@@ -287,7 +290,6 @@ function WorkspaceGridComponent({
               onDeleteItem={handleDeleteItem}
               onOpenModal={handleOpenModal}
               onMoveItem={onMoveItem}
-              dragHandle={dragHandle}
             />
           )}
         </SortableWorkspaceGridItem>
@@ -306,35 +308,38 @@ function WorkspaceGridComponent({
     workspaceName,
   ]);
 
+  useDragDropMonitor({
+    onDragStart: handleDragStart,
+    onDragEnd: handleDragEnd,
+  });
+
   return (
-    <DragDropProvider onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="w-full workspace-grid-container px-4 sm:px-6">
-        <div className="flex flex-col gap-4">
-          {folderChildren.length > 0 ? (
-            <div
-              data-workspace-sortable-group={getWorkspaceSortableGroup(
-                currentContainerId,
-                "folders",
-              )}
-              className={GRID_COLUMNS_CLASS}
-            >
-              {folderChildren}
-            </div>
-          ) : null}
-          {contentChildren.length > 0 ? (
-            <div
-              data-workspace-sortable-group={getWorkspaceSortableGroup(
-                currentContainerId,
-                "items",
-              )}
-              className={GRID_COLUMNS_CLASS}
-            >
-              {contentChildren}
-            </div>
-          ) : null}
-        </div>
+    <div className="w-full workspace-grid-container px-4 sm:px-6">
+      <div className="flex flex-col gap-4">
+        {folderChildren.length > 0 ? (
+          <div
+            data-workspace-sortable-group={getWorkspaceSortableGroup(
+              currentContainerId,
+              "folders",
+            )}
+            className={GRID_COLUMNS_CLASS}
+          >
+            {folderChildren}
+          </div>
+        ) : null}
+        {contentChildren.length > 0 ? (
+          <div
+            data-workspace-sortable-group={getWorkspaceSortableGroup(
+              currentContainerId,
+              "items",
+            )}
+            className={GRID_COLUMNS_CLASS}
+          >
+            {contentChildren}
+          </div>
+        ) : null}
       </div>
-    </DragDropProvider>
+    </div>
   );
 }
 

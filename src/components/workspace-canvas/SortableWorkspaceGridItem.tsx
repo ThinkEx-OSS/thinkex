@@ -1,11 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Feedback } from "@dnd-kit/dom";
 import { useSortable } from "@dnd-kit/react/sortable";
 import type { Item } from "@/lib/workspace-state/types";
 import { cn } from "@/lib/utils";
-import { WorkspaceCardDragHandle } from "./WorkspaceCardDragHandle";
 
 export type WorkspaceGridLane = "folders" | "items";
 
@@ -23,9 +21,7 @@ interface SortableWorkspaceGridItemProps {
   containerId: string | null;
   className?: string;
   children: (props: {
-    dragHandle: ReactNode;
     isDragging: boolean;
-    isDropTarget: boolean;
   }) => ReactNode;
 }
 
@@ -39,13 +35,12 @@ export function SortableWorkspaceGridItem({
 }: SortableWorkspaceGridItemProps) {
   const group = getWorkspaceSortableGroup(containerId, lane);
   const sortableType = lane === "folders" ? "folder" : "item";
-  const { ref, handleRef, isDragging, isDropTarget } = useSortable({
+  const { ref, isDragging } = useSortable({
     id: item.id,
     index,
     group,
     type: sortableType,
     accept: sortableType,
-    plugins: [Feedback.configure({ feedback: "clone" })],
     data: {
       group,
       lane,
@@ -61,7 +56,6 @@ export function SortableWorkspaceGridItem({
         "size-full rounded-md transition-[box-shadow,opacity,transform] duration-150",
         className,
         isDragging && "z-20 opacity-70",
-        isDropTarget && !isDragging && "ring-2 ring-primary/30 ring-offset-2 ring-offset-background",
       )}
       style={{
         opacity: isDragging ? 0.7 : undefined,
@@ -72,14 +66,7 @@ export function SortableWorkspaceGridItem({
       }}
     >
       {children({
-        dragHandle: (
-          <WorkspaceCardDragHandle
-            ref={handleRef as (element: HTMLButtonElement | null) => void}
-            label={lane === "folders" ? "Reorder folder" : "Reorder card"}
-          />
-        ),
         isDragging,
-        isDropTarget,
       })}
     </div>
   );

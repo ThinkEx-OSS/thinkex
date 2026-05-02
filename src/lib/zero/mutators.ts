@@ -160,12 +160,21 @@ export const zeroMutatorSchemas = {
       itemId: z.string(),
       folderId: z.string().nullable(),
       itemName: z.string().optional(),
+      sortOrder: sortOrderSchema.optional(),
     }),
     moveMany: z.object({
       workspaceId: z.string().uuid(),
       itemIds: z.array(z.string()),
       folderId: z.string().nullable(),
       itemNames: z.array(z.string()).optional(),
+      sortOrders: z
+        .array(
+          z.object({
+            itemId: z.string(),
+            sortOrder: sortOrderSchema,
+          }),
+        )
+        .optional(),
     }),
     reorder: z.object({
       workspaceId: z.string().uuid(),
@@ -730,6 +739,20 @@ export const mutators = defineMutators({
       },
     ),
     move: defineMutator(zeroMutatorSchemas.item.move, async ({ tx, args }) => {
+      if (args.sortOrder !== undefined) {
+        await updateShellOnly(tx, {
+          workspaceId: args.workspaceId,
+          itemId: args.itemId,
+          shellChanges: {
+            folderId: args.folderId ?? undefined,
+            sortOrder: args.sortOrder,
+            layout: undefined,
+            lastModified: Date.now(),
+          },
+        });
+        return;
+      }
+
       const existing = await loadItem(tx, {
         workspaceId: args.workspaceId,
         itemId: args.itemId,
@@ -770,6 +793,35 @@ export const mutators = defineMutators({
     moveMany: defineMutator(
       zeroMutatorSchemas.item.moveMany,
       async ({ tx, args }) => {
+        if (args.sortOrders?.length) {
+          const sortOrdersById = new Map(
+            args.sortOrders.map((entry) => [entry.itemId, entry.sortOrder]),
+          );
+          const now = Date.now();
+
+          for (const itemId of args.itemIds) {
+            const sortOrder = sortOrdersById.get(itemId);
+
+            if (sortOrder === undefined) {
+              throw new ApplicationError(
+                `Missing sort order for moved item ${itemId}.`,
+              );
+            }
+
+            await updateShellOnly(tx, {
+              workspaceId: args.workspaceId,
+              itemId,
+              shellChanges: {
+                folderId: args.folderId ?? undefined,
+                sortOrder,
+                layout: undefined,
+                lastModified: now,
+              },
+            });
+          }
+          return;
+        }
+
         const now = Date.now();
         const allItems = sortWorkspaceItemsByOrder(
           await loadWorkspaceShells(tx, args.workspaceId),

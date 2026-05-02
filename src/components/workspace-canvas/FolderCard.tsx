@@ -1,7 +1,7 @@
 "use client";
 
 import { useDroppable } from "@dnd-kit/react";
-import { memo, useState, useCallback, useEffect, type ReactNode } from "react";
+import { memo, useState, useCallback, useEffect, useMemo } from "react";
 import {
   MoreVertical,
   Trash2,
@@ -70,7 +70,6 @@ interface FolderCardProps {
   onDeleteItem: (itemId: string) => void;
   onDeleteFolderWithContents?: (folderId: string) => void;
   onMoveItem?: (itemId: string, folderId: string | null) => void;
-  dragHandle?: ReactNode;
   itemDropTargetId?: string;
 }
 
@@ -86,7 +85,6 @@ function FolderCardComponent({
   onDeleteItem,
   onDeleteFolderWithContents,
   onMoveItem,
-  dragHandle,
   itemDropTargetId,
 }: FolderCardProps) {
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -104,10 +102,31 @@ function FolderCardComponent({
   const onToggleSelection = useUIStore((state) => state.toggleCardSelection);
 
   const folderColor = item.color || "#6366F1";
+
+  const pointerOnlyCollision = useMemo(
+    () =>
+      ({ dragOperation, droppable }: { dragOperation: { source?: { id?: string | number } | null; position: { current: { x: number; y: number } | null } }; droppable: { id: string | number; shape?: { containsPoint: (p: { x: number; y: number }) => boolean; center: { x: number; y: number } } | null } }) => {
+        if (dragOperation.source?.id === item.id) return null;
+        const pointer = dragOperation.position.current;
+        if (!pointer || !droppable.shape) return null;
+        if (!droppable.shape.containsPoint(pointer)) return null;
+        const cx = droppable.shape.center.x - pointer.x;
+        const cy = droppable.shape.center.y - pointer.y;
+        return {
+          id: droppable.id,
+          value: 1 / Math.sqrt(cx * cx + cy * cy),
+          type: 2,
+          priority: 3,
+        };
+      },
+    [item.id],
+  );
+
   const { ref: dropTargetRef, isDropTarget: isItemDropTarget } = useDroppable({
     id: itemDropTargetId ?? `folder-drop:${item.id}`,
-    accept: "item",
-    collisionPriority: 1,
+    accept: ["item", "folder"],
+    collisionPriority: 4,
+    collisionDetector: pointerOnlyCollision,
     data: {
       kind: "folder-card-drop-target",
       folderId: item.id,
@@ -440,8 +459,6 @@ function FolderCardComponent({
                 <span>Move into folder</span>
               </div>
             ) : null}
-
-            {dragHandle}
           </div>
 
           <Dialog open={showColorPicker} onOpenChange={setShowColorPicker}>

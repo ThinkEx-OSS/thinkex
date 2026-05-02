@@ -3,7 +3,6 @@ import {
   useState,
   memo,
   type CSSProperties,
-  type ReactNode,
 } from "react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -38,7 +37,6 @@ interface WorkspaceCardProps {
   onDeleteItem: (itemId: string) => void;
   onOpenModal: (itemId: string) => void;
   onMoveItem?: (itemId: string, folderId: string | null) => void;
-  dragHandle?: ReactNode;
 }
 
 function WorkspaceCard({
@@ -51,7 +49,6 @@ function WorkspaceCard({
   onDeleteItem,
   onOpenModal,
   onMoveItem,
-  dragHandle,
 }: WorkspaceCardProps) {
   const { resolvedTheme } = useTheme();
 
@@ -272,8 +269,6 @@ function WorkspaceCard({
               onTitleFocus={handleTitleFocus}
               onTitleBlur={handleTitleBlur}
             />
-
-            {dragHandle}
           </article>
 
           <WorkspaceCardDialogs

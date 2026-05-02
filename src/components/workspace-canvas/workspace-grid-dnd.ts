@@ -27,6 +27,7 @@ export type WorkspaceGridDragResolution =
       kind: "move-to-folder";
       itemId: string;
       folderId: string;
+      sourceLane: WorkspaceGridLane;
       nextItems: Item[];
     }
   | {
@@ -52,20 +53,28 @@ export function resolveWorkspaceGridDragEnd(params: {
       : null;
 
   if (
-    source.type === "item" &&
     sourceItemId &&
     targetData?.kind === "folder-card-drop-target" &&
     typeof targetData.folderId === "string"
   ) {
-    if (sourceContainerId === targetData.folderId) {
+    const targetFolderId = targetData.folderId;
+
+    if (sourceItemId === targetFolderId) {
       return { kind: "reset" };
     }
+    if (sourceContainerId === targetFolderId) {
+      return { kind: "reset" };
+    }
+
+    const sourceLane: WorkspaceGridLane = source.type === "folder" ? "folders" : "items";
+    const affectedList = sourceLane === "folders" ? snapshot.folders : snapshot.items;
 
     return {
       kind: "move-to-folder",
       itemId: sourceItemId,
-      folderId: targetData.folderId,
-      nextItems: snapshot.items.filter((item) => item.id !== sourceItemId),
+      folderId: targetFolderId,
+      sourceLane,
+      nextItems: affectedList.filter((item) => item.id !== sourceItemId),
     };
   }
 
