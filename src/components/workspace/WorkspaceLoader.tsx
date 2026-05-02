@@ -7,14 +7,8 @@ import { THREAD_TOP_INSET } from "@/components/chat/thread-layout";
 import { PANEL_DEFAULTS } from "@/lib/layout-constants";
 import { useUIStore } from "@/lib/stores/ui-store";
 
-/** Must stay in sync with `WorkspaceGrid` rowHeight + GRID_MARGIN + default 1-col h. */
-const GRID_ROW_HEIGHT_PX = 25;
-const GRID_MARGIN_Y_PX = 16;
-/** Default single-column card height in grid rows for standard cards. */
-const DEFAULT_CARD_GRID_ROWS = 4;
-const SKELETON_CARD_HEIGHT_PX =
-  DEFAULT_CARD_GRID_ROWS * GRID_ROW_HEIGHT_PX +
-  (DEFAULT_CARD_GRID_ROWS - 1) * GRID_MARGIN_Y_PX;
+/** Must stay in sync with the smallest `WorkspaceGrid` card wrapper min-height (`min-h-[14rem]`). */
+const SKELETON_CARD_HEIGHT_PX = 14 * 16;
 /**
  * Full-shell skeleton: header bar + bento card grid + (when chat is open)
  * a chat-panel slot. Used by `ZeroProvider` while the session/Zero client
@@ -57,10 +51,10 @@ export function WorkspaceLoader() {
 /**
  * In-shell loader for `view.kind === "loading"` inside `WorkspaceSection`.
  * Padding/gap mirror `WorkspaceContent` + `WorkspaceGrid`: outer `py-4`,
- * horizontal inset 16px (`px-4`, same as RGL `containerPadding` [16, 0]),
- * `gap-4` (= 16px) like `GRID_MARGIN` [16, 16]. Tile height matches RGL’s
- * pixel height for a default h=4 card (rowHeight×h + marginY×(h−1)). Ghost
- * tiles use a flat muted fill (not solid `Skeleton` blocks).
+ * horizontal inset 16px (`px-4`), and `gap-4`. Tile height matches the
+ * smallest simplified `WorkspaceGrid` card wrapper so loading cards do not
+ * collapse relative to the real canvas. Ghost tiles use a flat muted fill
+ * (not solid `Skeleton` blocks).
  */
 export function WorkspaceCardsLoader() {
   return (

@@ -32,6 +32,47 @@ export function MarqueeSelector({
   const { handleDragStart: startAutoScroll, handleDragStop: stopAutoScroll } =
     useAutoScroll(scrollContainerRef as React.RefObject<HTMLDivElement | null>);
 
+  const isInteractiveTarget = useCallback((target: HTMLElement) => {
+    return Boolean(
+      target.closest('[id^="item-"]') ||
+        target.closest("button") ||
+        target.closest('[role="button"]') ||
+        target.closest("input") ||
+        target.closest("textarea") ||
+        target.closest("select") ||
+        target.closest("a") ||
+        target.closest("label") ||
+        target.closest('[role="menuitem"]') ||
+        target.closest('[contenteditable="true"]') ||
+        target.closest('[data-slot="dropdown-menu-content"]') ||
+        target.closest('[data-slot="dropdown-menu-trigger"]') ||
+        target.closest('[data-slot="popover-content"]') ||
+        target.closest('[data-slot="popover"]') ||
+        target.closest('[data-slot="dialog-content"]') ||
+        target.closest('[data-slot="dialog-close"]') ||
+        target.closest('[data-slot="dialog-overlay"]') ||
+        target.isContentEditable,
+    );
+  }, []);
+
+  const canStartMarqueeFromEvent = useCallback(
+    (e: MouseEvent) => {
+      const container = scrollContainerRef.current;
+      const target = e.target;
+
+      if (!container || !(target instanceof HTMLElement)) {
+        return false;
+      }
+
+      if (!container.contains(target)) {
+        return false;
+      }
+
+      return !isInteractiveTarget(target);
+    },
+    [isInteractiveTarget, scrollContainerRef],
+  );
+
   useEffect(() => {
     if (isSelecting) {
       document.body.classList.add("marquee-selecting");
@@ -92,54 +133,28 @@ export function MarqueeSelector({
     (e: MouseEvent) => {
       if (e.button !== 0) return;
 
-      const target = e.target as HTMLElement;
       window.getSelection()?.removeAllRanges();
 
-      if (
-        target.closest('[id^="item-"]') ||
-        target.closest("button") ||
-        target.closest('[role="button"]') ||
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
-      ) {
+      if (!canStartMarqueeFromEvent(e)) {
         return;
       }
 
       startMarqueeSelection(e);
     },
-    [startMarqueeSelection],
+    [canStartMarqueeFromEvent, startMarqueeSelection],
   );
 
   const handleGlobalShiftMouseDown = useCallback(
     (e: MouseEvent) => {
       if (e.button !== 0 || !e.shiftKey) return;
 
-      const target = e.target as HTMLElement;
-      if (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
-      ) {
+      if (!canStartMarqueeFromEvent(e)) {
         return;
       }
 
-      const container = scrollContainerRef.current;
-      if (!container) return;
-
-      const containerRect = container.getBoundingClientRect();
-      const x = e.clientX - containerRect.left + container.scrollLeft;
-      const y = e.clientY - containerRect.top + container.scrollTop;
-
-      startPointRef.current = { x, y };
-      setIsSelecting(true);
-      isDraggingRef.current = true;
-      startAutoScroll();
-
-      e.preventDefault();
-      e.stopPropagation();
+      startMarqueeSelection(e);
     },
-    [scrollContainerRef, startAutoScroll],
+    [canStartMarqueeFromEvent, startMarqueeSelection],
   );
 
   const handleMouseMove = useCallback(
