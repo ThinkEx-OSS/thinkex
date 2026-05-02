@@ -24,6 +24,8 @@ import {
   ExternalLink,
   MessageSquareText,
 } from "lucide-react";
+import { useDragDropMonitor, useDroppable } from "@dnd-kit/react";
+import { isSortable } from "@dnd-kit/react/sortable";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -220,6 +222,92 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
 import { useWorkspaceFilePicker } from "@/hooks/workspace/use-workspace-file-picker";
 import { startAudioProcessing } from "@/lib/audio/start-audio-processing";
 
+type ActiveWorkspaceDragSource = {
+  itemId: string | null;
+  containerId: string | null;
+};
+
+function BreadcrumbDropTarget({
+  id,
+  kind,
+  folderId = null,
+  activeDragSource,
+  children,
+}: {
+  id: string;
+  kind: "breadcrumb-folder-drop-target" | "breadcrumb-root-drop-target";
+  folderId?: string | null;
+  activeDragSource: ActiveWorkspaceDragSource | null;
+  children: React.ReactNode;
+}) {
+  const pointerOnlyCollision = useMemo(
+    () =>
+      ({
+        dragOperation,
+        droppable,
+      }: {
+        dragOperation: {
+          source?: { id?: string | number } | null;
+          position: { current: { x: number; y: number } | null };
+        };
+        droppable: {
+          id: string | number;
+          shape?: {
+            containsPoint: (p: { x: number; y: number }) => boolean;
+            center: { x: number; y: number };
+          } | null;
+        };
+      }) => {
+        const pointer = dragOperation.position.current;
+        if (!pointer || !droppable.shape) return null;
+        if (!droppable.shape.containsPoint(pointer)) return null;
+
+        const cx = droppable.shape.center.x - pointer.x;
+        const cy = droppable.shape.center.y - pointer.y;
+
+        return {
+          id: droppable.id,
+          value: 1 / Math.sqrt(cx * cx + cy * cy),
+          type: 2,
+          priority: 3,
+        };
+      },
+    [],
+  );
+
+  const { ref, isDropTarget } = useDroppable({
+    id,
+    accept: ["item", "folder"],
+    collisionPriority: 4,
+    collisionDetector: pointerOnlyCollision,
+    data:
+      kind === "breadcrumb-root-drop-target"
+        ? { kind }
+        : { kind, folderId },
+  });
+
+  const isNoOpTarget = activeDragSource
+    ? folderId === null
+      ? activeDragSource.containerId === null
+      : activeDragSource.itemId === folderId ||
+        activeDragSource.containerId === folderId
+    : false;
+  const showDropAffordance =
+    Boolean(activeDragSource) && isDropTarget && !isNoOpTarget;
+
+  return (
+    <div
+      ref={ref as (element: HTMLDivElement | null) => void}
+      className="relative inline-flex min-w-0 max-w-full items-center rounded-md"
+    >
+      {children}
+      {showDropAffordance ? (
+        <div className="pointer-events-none absolute inset-0 z-10 rounded-md ring-1 ring-inset ring-primary/60 bg-primary/6" />
+      ) : null}
+    </div>
+  );
+}
+
 interface WorkspaceHeaderProps {
   onOpenSearch?: () => void;
   // Save indicator props
@@ -326,6 +414,8 @@ export function WorkspaceHeader({
   const [responsiveBreadcrumbs, setResponsiveBreadcrumbs] = useState(
     EMPTY_RESPONSIVE_BREADCRUMBS,
   );
+  const [activeDragSource, setActiveDragSource] =
+    useState<ActiveWorkspaceDragSource | null>(null);
 
   // Consistent breadcrumb item styling
   const breadcrumbItemClass =
@@ -568,104 +658,198 @@ export function WorkspaceHeader({
     [breadcrumbEntryLookup, responsiveBreadcrumbs.visibleTailKeys],
   );
 
-  const renderRootBreadcrumbLabel = useCallback(
-    () => (
-      <>
-        <IconRenderer
-          icon={workspaceIcon}
-          className="h-4 w-4 shrink-0"
-          style={{ color: workspaceColor || undefined }}
-        />
-        <span
-          className={BREADCRUMB_ROOT_TEXT_CLASS}
-          title={workspaceBreadcrumbLabel}
-        >
-          {workspaceBreadcrumbLabel}
-        </span>
-      </>
-    ),
-    [workspaceBreadcrumbLabel, workspaceColor, workspaceIcon],
-  );
+  const renderBreadcrumbLabel = (entry: BreadcrumbEntry) => {
+    switch (entry.kind) {
+      case "root":
+        return (
+          <>
+            <IconRenderer
+              icon={workspaceIcon}
+              className="h-4 w-4 shrink-0"
+              style={{ color: workspaceColor || undefined }}
+            />
+            <span
+              className={BREADCRUMB_ROOT_TEXT_CLASS}
+              title={workspaceBreadcrumbLabel}
+            >
+              {workspaceBreadcrumbLabel}
+            </span>
+          </>
+        );
+      case "folder":
+        return (
+          <>
+            <FolderOpen
+              className="h-3.5 w-3.5 shrink-0"
+              style={{ color: entry.color || undefined }}
+            />
+            <span className={BREADCRUMB_FOLDER_TEXT_CLASS} title={entry.label}>
+              {entry.label}
+            </span>
+          </>
+        );
+      case "item":
+        return (
+          <>
+            <WorkspaceItemTypeIcon
+              type={entry.itemType}
+              className="h-3.5 w-3.5 shrink-0"
+            />
+            <span className={BREADCRUMB_ITEM_TEXT_CLASS} title={entry.label}>
+              {entry.label}
+            </span>
+          </>
+        );
+      default:
+        return null;
+    }
+  };
 
-  const renderFolderBreadcrumbLabel = useCallback(
-    (entry: Extract<BreadcrumbEntry, { kind: "folder" }>) => (
-      <>
-        <FolderOpen
-          className="h-3.5 w-3.5 shrink-0"
-          style={{ color: entry.color || undefined }}
-        />
-        <span className={BREADCRUMB_FOLDER_TEXT_CLASS} title={entry.label}>
-          {entry.label}
-        </span>
-      </>
-    ),
-    [],
-  );
-
-  const renderItemBreadcrumbLabel = useCallback(
-    (entry: Extract<BreadcrumbEntry, { kind: "item" }>) => (
-      <>
-        <WorkspaceItemTypeIcon
-          type={entry.itemType}
-          className="h-3.5 w-3.5 shrink-0"
-        />
-        <span className={BREADCRUMB_ITEM_TEXT_CLASS} title={entry.label}>
-          {entry.label}
-        </span>
-      </>
-    ),
-    [],
-  );
-
-  const renderRootBreadcrumb = useCallback(() => {
-    if (activeFolderId || activeOpenWorkspaceItem) {
+  const renderItemBreadcrumb = (
+    entry: Extract<BreadcrumbEntry, { kind: "item" }>,
+    measurement = false,
+  ) => {
+    if (measurement) {
       return (
-        <button
-          onClick={() => onNavigateToRoot?.()}
+        <div
           className={cn(
             breadcrumbItemClass,
-            BREADCRUMB_INTERACTIVE_CLASS,
+            "group pr-0.5 text-sidebar-foreground/75",
           )}
         >
-          {renderRootBreadcrumbLabel()}
+          {renderBreadcrumbLabel(entry)}
+          <span
+            aria-hidden="true"
+            className="ml-0.5 rounded-full p-0.5 opacity-0"
+          >
+            <X className="h-3 w-3" />
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => openItemRenameDialog(entry.id, entry.label)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            openItemRenameDialog(entry.id, entry.label);
+          }
+        }}
+        className={cn(
+          breadcrumbItemClass,
+          BREADCRUMB_INTERACTIVE_CLASS,
+          "group pr-0.5",
+        )}
+      >
+        {renderBreadcrumbLabel(entry)}
+
+        <button
+          type="button"
+          aria-label={`Close ${entry.label}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCloseActiveItem?.(entry.id);
+          }}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+          }}
+          className="ml-0.5 rounded-full p-0.5 transition-all cursor-pointer text-sidebar-foreground/45 hover:text-red-600 hover:bg-accent opacity-0 group-hover:opacity-100"
+        >
+          <X className="h-3 w-3" />
         </button>
+      </div>
+    );
+  };
+
+  const renderBreadcrumbEntry = (entry: BreadcrumbEntry) => {
+    if (entry.kind === "item") {
+      return renderItemBreadcrumb(entry);
+    }
+
+    if (entry.kind === "folder") {
+      return (
+        <BreadcrumbDropTarget
+          id={`breadcrumb-drop:folder:${entry.id}`}
+          kind="breadcrumb-folder-drop-target"
+          folderId={entry.id}
+          activeDragSource={activeDragSource}
+        >
+          <button
+            onClick={() => handleFolderClick(entry.id)}
+            className={cn(
+              breadcrumbItemClass,
+              BREADCRUMB_INTERACTIVE_CLASS,
+            )}
+          >
+            {renderBreadcrumbLabel(entry)}
+          </button>
+        </BreadcrumbDropTarget>
+      );
+    }
+
+    if (activeFolderId || activeOpenWorkspaceItem) {
+      return (
+        <BreadcrumbDropTarget
+          id="breadcrumb-drop:root"
+          kind="breadcrumb-root-drop-target"
+          activeDragSource={activeDragSource}
+        >
+          <button
+            onClick={() => onNavigateToRoot?.()}
+            className={cn(
+              breadcrumbItemClass,
+              BREADCRUMB_INTERACTIVE_CLASS,
+            )}
+          >
+            {renderBreadcrumbLabel(entry)}
+          </button>
+        </BreadcrumbDropTarget>
       );
     }
 
     if (onOpenSettings || onOpenShare) {
       return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className={cn(
-                breadcrumbItemClass,
-                BREADCRUMB_INTERACTIVE_CLASS,
+        <BreadcrumbDropTarget
+          id="breadcrumb-drop:root"
+          kind="breadcrumb-root-drop-target"
+          activeDragSource={activeDragSource}
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={cn(
+                  breadcrumbItemClass,
+                  BREADCRUMB_INTERACTIVE_CLASS,
+                )}
+              >
+                {renderBreadcrumbLabel(entry)}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              {onOpenSettings && (
+                <DropdownMenuItem
+                  onClick={onOpenSettings}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </DropdownMenuItem>
               )}
-            >
-              {renderRootBreadcrumbLabel()}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-48">
-            {onOpenSettings && (
-              <DropdownMenuItem
-                onClick={onOpenSettings}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Settings className="h-4 w-4" />
-                Settings
-              </DropdownMenuItem>
-            )}
-            {onOpenShare && (
-              <DropdownMenuItem
-                onClick={onOpenShare}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Share2 className="h-4 w-4" />
-                Share
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {onOpenShare && (
+                <DropdownMenuItem
+                  onClick={onOpenShare}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Share2 className="h-4 w-4" />
+                  Share
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </BreadcrumbDropTarget>
       );
     }
 
@@ -676,149 +860,18 @@ export function WorkspaceHeader({
           "text-sidebar-foreground/75",
         )}
       >
-        {renderRootBreadcrumbLabel()}
+        {renderBreadcrumbLabel(entry)}
       </div>
     );
-  }, [
-    activeFolderId,
-    breadcrumbItemClass,
-    onNavigateToRoot,
-    onOpenSettings,
-    onOpenShare,
-    activeOpenWorkspaceItem,
-    renderRootBreadcrumbLabel,
-  ]);
+  };
 
-  const renderFolderBreadcrumb = useCallback(
-    (entry: Extract<BreadcrumbEntry, { kind: "folder" }>) => (
-      <button
-        onClick={() => handleFolderClick(entry.id)}
-        className={cn(
-          breadcrumbItemClass,
-          BREADCRUMB_INTERACTIVE_CLASS,
-        )}
-      >
-        {renderFolderBreadcrumbLabel(entry)}
-      </button>
-    ),
-    [
-      breadcrumbItemClass,
-      handleFolderClick,
-      renderFolderBreadcrumbLabel,
-    ],
-  );
+  const renderMeasurementBreadcrumbEntry = (entry: BreadcrumbEntry) => {
+    if (entry.kind === "item") {
+      return renderItemBreadcrumb(entry, true);
+    }
 
-  const renderItemBreadcrumb = useCallback(
-    (
-      entry: Extract<BreadcrumbEntry, { kind: "item" }>,
-      measurement = false,
-    ) => {
-      if (measurement) {
-        return (
-          <div
-            className={cn(
-              breadcrumbItemClass,
-              "group pr-0.5 text-sidebar-foreground/75",
-            )}
-          >
-            {renderItemBreadcrumbLabel(entry)}
-            <span
-              aria-hidden="true"
-              className="ml-0.5 rounded-full p-0.5 opacity-0"
-            >
-              <X className="h-3 w-3" />
-            </span>
-          </div>
-        );
-      }
-
-      return (
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => openItemRenameDialog(entry.id, entry.label)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              openItemRenameDialog(entry.id, entry.label);
-            }
-          }}
-          className={cn(
-            breadcrumbItemClass,
-            BREADCRUMB_INTERACTIVE_CLASS,
-            "group pr-0.5",
-          )}
-        >
-          {renderItemBreadcrumbLabel(entry)}
-
-          <button
-            type="button"
-            aria-label={`Close ${entry.label}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onCloseActiveItem?.(entry.id);
-            }}
-            onKeyDown={(e) => {
-              e.stopPropagation();
-            }}
-            className="ml-0.5 rounded-full p-0.5 transition-all cursor-pointer text-sidebar-foreground/45 hover:text-red-600 hover:bg-accent opacity-0 group-hover:opacity-100"
-          >
-            <X className="h-3 w-3" />
-          </button>
-        </div>
-      );
-    },
-    [
-      breadcrumbItemClass,
-      onCloseActiveItem,
-      openItemRenameDialog,
-      renderItemBreadcrumbLabel,
-    ],
-  );
-
-  const renderBreadcrumbEntry = useCallback(
-    (entry: BreadcrumbEntry) => {
-      switch (entry.kind) {
-        case "root":
-          return renderRootBreadcrumb();
-        case "folder":
-          return renderFolderBreadcrumb(entry);
-        case "item":
-          return renderItemBreadcrumb(entry);
-        default:
-          return null;
-      }
-    },
-    [renderFolderBreadcrumb, renderItemBreadcrumb, renderRootBreadcrumb],
-  );
-
-  const renderMeasurementBreadcrumbEntry = useCallback(
-    (entry: BreadcrumbEntry) => {
-      switch (entry.kind) {
-        case "root":
-          return (
-            <div className={breadcrumbItemClass}>
-              {renderRootBreadcrumbLabel()}
-            </div>
-          );
-        case "folder":
-          return (
-            <div className={breadcrumbItemClass}>
-              {renderFolderBreadcrumbLabel(entry)}
-            </div>
-          );
-        case "item":
-          return renderItemBreadcrumb(entry, true);
-        default:
-          return null;
-      }
-    },
-    [
-      breadcrumbItemClass,
-      renderFolderBreadcrumbLabel,
-      renderItemBreadcrumb,
-      renderRootBreadcrumbLabel,
-    ],
-  );
+    return <div className={breadcrumbItemClass}>{renderBreadcrumbLabel(entry)}</div>;
+  };
 
   // Auto-focus and select all text when dialog opens
   useEffect(() => {
@@ -827,6 +880,29 @@ export function WorkspaceHeader({
       renameInputRef.current.select();
     }
   }, [showRenameDialog]);
+
+  useDragDropMonitor({
+    onDragStart(event) {
+      const { source } = event.operation;
+
+      if (!isSortable(source)) {
+        setActiveDragSource(null);
+        return;
+      }
+
+      setActiveDragSource({
+        itemId:
+          typeof source.data?.itemId === "string" ? source.data.itemId : null,
+        containerId:
+          typeof source.data?.containerId === "string"
+            ? source.data.containerId
+            : null,
+      });
+    },
+    onDragEnd() {
+      setActiveDragSource(null);
+    },
+  });
 
 
   const handleYouTubeCreate = useCallback(
@@ -963,7 +1039,7 @@ export function WorkspaceHeader({
             ref={breadcrumbNavRef}
             className="flex min-w-0 flex-1 items-center overflow-hidden text-xs text-sidebar-foreground/70"
           >
-            {renderRootBreadcrumb()}
+            {renderBreadcrumbEntry(breadcrumbEntries[0])}
 
             {hiddenBreadcrumbEntries.length > 0 && (
               <>

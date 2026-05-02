@@ -7,6 +7,14 @@ export type FolderCardDropTargetData = {
   folderId?: string;
 };
 
+export type BreadcrumbRootDropTargetData = {
+  kind?: string;
+};
+
+export type WorkspaceMoveDropTargetData =
+  | FolderCardDropTargetData
+  | BreadcrumbRootDropTargetData;
+
 export type WorkspaceGridDragSource = {
   type?: unknown;
   data?: {
@@ -26,7 +34,7 @@ export type WorkspaceGridDragResolution =
   | {
       kind: "move-to-folder";
       itemId: string;
-      folderId: string;
+      folderId: string | null;
       sourceLane: WorkspaceGridLane;
       nextItems: Item[];
     }
@@ -42,7 +50,7 @@ export function resolveWorkspaceGridDragEnd(params: {
     items: Item[];
   };
   source: WorkspaceGridDragSource;
-  targetData?: FolderCardDropTargetData;
+  targetData?: WorkspaceMoveDropTargetData;
 }): WorkspaceGridDragResolution {
   const { snapshot, source, targetData } = params;
   const sourceItemId =
@@ -52,13 +60,52 @@ export function resolveWorkspaceGridDragEnd(params: {
       ? source.data.containerId
       : null;
 
-  if (
-    sourceItemId &&
-    targetData?.kind === "folder-card-drop-target" &&
-    typeof targetData.folderId === "string"
-  ) {
-    const targetFolderId = targetData.folderId;
+  let targetFolderId: string | null | undefined;
 
+  if (
+    targetData?.kind === "folder-card-drop-target" ||
+    targetData?.kind === "breadcrumb-folder-drop-target"
+  ) {
+    targetFolderId =
+      "folderId" in targetData && typeof targetData.folderId === "string"
+        ? targetData.folderId
+        : undefined;
+  } else if (targetData?.kind === "breadcrumb-root-drop-target") {
+    targetFolderId = null;
+  }
+  const { initialIndex, index, initialGroup, group } = source;
+
+  if (
+    initialGroup != null &&
+    group != null &&
+    initialGroup === group &&
+    initialIndex !== index
+  ) {
+    const groupName = typeof group === "string" ? group : String(group);
+    let lane: WorkspaceGridLane | null = null;
+
+    if (groupName.endsWith(":folders")) {
+      lane = "folders";
+    } else if (groupName.endsWith(":items")) {
+      lane = "items";
+    }
+
+    if (!lane) {
+      return { kind: "reset" };
+    }
+
+    return {
+      kind: "reorder",
+      lane,
+      nextItems: arrayMove(
+        lane === "folders" ? snapshot.folders : snapshot.items,
+        initialIndex,
+        index,
+      ),
+    };
+  }
+
+  if (sourceItemId && targetFolderId !== undefined) {
     if (sourceItemId === targetFolderId) {
       return { kind: "reset" };
     }
@@ -77,8 +124,6 @@ export function resolveWorkspaceGridDragEnd(params: {
       nextItems: affectedList.filter((item) => item.id !== sourceItemId),
     };
   }
-
-  const { initialIndex, index, initialGroup, group } = source;
 
   if (
     initialGroup == null ||

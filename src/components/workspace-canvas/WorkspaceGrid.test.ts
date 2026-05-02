@@ -49,6 +49,7 @@ describe("resolveWorkspaceGridDragEnd", () => {
       kind: "move-to-folder",
       itemId: "doc-a",
       folderId: "folder-1",
+      sourceLane: "items",
       nextItems: [itemB],
     });
   });
@@ -80,6 +81,75 @@ describe("resolveWorkspaceGridDragEnd", () => {
       targetData: {
         kind: "folder-card-drop-target",
         folderId: "folder-1",
+      },
+    });
+
+    expect(result).toEqual({ kind: "reset" });
+  });
+
+  it("moves an item to the workspace root from a breadcrumb root target", () => {
+    const item = createItem({
+      id: "doc-a",
+      type: "document",
+      folderId: "folder-1",
+      sortOrder: 0,
+    });
+
+    const result = resolveWorkspaceGridDragEnd({
+      snapshot: {
+        folders: [],
+        items: [item],
+      },
+      source: {
+        type: "item",
+        data: {
+          itemId: "doc-a",
+          containerId: "folder-1",
+        },
+        initialIndex: 0,
+        index: 0,
+        initialGroup: "folder-1:items",
+        group: "folder-1:items",
+      },
+      targetData: {
+        kind: "breadcrumb-root-drop-target",
+      },
+    });
+
+    expect(result).toEqual({
+      kind: "move-to-folder",
+      itemId: "doc-a",
+      folderId: null,
+      sourceLane: "items",
+      nextItems: [],
+    });
+  });
+
+  it("no-ops when dropping a root item onto the root breadcrumb", () => {
+    const item = createItem({
+      id: "doc-a",
+      type: "document",
+      sortOrder: 0,
+    });
+
+    const result = resolveWorkspaceGridDragEnd({
+      snapshot: {
+        folders: [],
+        items: [item],
+      },
+      source: {
+        type: "item",
+        data: {
+          itemId: "doc-a",
+          containerId: null,
+        },
+        initialIndex: 0,
+        index: 0,
+        initialGroup: "root:items",
+        group: "root:items",
+      },
+      targetData: {
+        kind: "breadcrumb-root-drop-target",
       },
     });
 
