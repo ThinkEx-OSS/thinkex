@@ -78,6 +78,7 @@ function isJsonObject(value: unknown): value is JsonObject {
 }
 
 const jsonObjectSchema = z.custom<JsonObject>(isJsonObject);
+const sortOrderSchema = z.number().int().min(0);
 
 const itemSchema = z.object({
   id: z.string(),
@@ -87,7 +88,7 @@ const itemSchema = z.object({
   data: jsonObjectSchema,
   color: z.string().nullable().optional(),
   folderId: z.string().nullable().optional(),
-  sortOrder: z.number().int().nullable().optional(),
+  sortOrder: sortOrderSchema.nullable().optional(),
   layout: jsonObjectSchema.nullable().optional(),
   lastModified: z.number().int().optional(),
 });
@@ -102,7 +103,7 @@ const itemChangesSchema = z.object({
   data: jsonObjectSchema.optional(),
   color: z.string().nullable().optional(),
   folderId: z.string().nullable().optional(),
-  sortOrder: z.number().int().nullable().optional(),
+  sortOrder: sortOrderSchema.nullable().optional(),
   layout: jsonObjectSchema.nullable().optional(),
   lastModified: z.number().int().optional(),
 });
@@ -171,7 +172,7 @@ export const zeroMutatorSchemas = {
       updates: z.array(
         z.object({
           itemId: z.string(),
-          sortOrder: z.number().int(),
+          sortOrder: sortOrderSchema,
         }),
       ),
     }),
