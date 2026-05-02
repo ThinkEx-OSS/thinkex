@@ -189,20 +189,30 @@ const getDomain = (url: string) => {
 };
 
 const WebSearchContent: FC<{
+    args: { query?: string };
     status: { type: string };
     result: WebSearchResult | null;
-}> = ({ status, result }) => {
+}> = ({ args, status, result }) => {
     const isRunning = status.type === "running";
     const parsed = result ? parseWebSearchResult(result) : null;
     const metadata = parsed?.groundingMetadata;
     const queries = metadata?.webSearchQueries;
     const sources = parsed?.sources ?? [];
 
+    const argsQuery = args?.query?.trim();
+    const triggerLabel = isRunning
+        ? argsQuery
+            ? `Searching the web for "${argsQuery}"`
+            : "Searching the web"
+        : argsQuery
+          ? `Searched the web for "${argsQuery}"`
+          : "Searched the web";
+
     return (
         <ToolRoot>
             <ToolTrigger
                 active={isRunning}
-                label="Searching Web"
+                label={triggerLabel}
                 icon={<GlobeIcon className="size-4 shrink-0" />}
             />
 
@@ -277,12 +287,13 @@ export const renderWebSearchToolUI: ChatToolUIProps<
   { query: string },
   WebSearchResult
 >["render"] = ({
+  args,
   status,
   result,
 }) => {
   return (
     <ToolUIErrorBoundary componentName="WebSearch">
-      <WebSearchContent status={status} result={result ?? null} />
+      <WebSearchContent args={args} status={status} result={result ?? null} />
     </ToolUIErrorBoundary>
   );
 };

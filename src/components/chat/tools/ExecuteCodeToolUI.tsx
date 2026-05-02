@@ -32,13 +32,17 @@ function chartLabel(chartType: string, index: number): string {
 }
 
 export const renderExecuteCodeToolUI: ChatToolUIProps<
-  { code: string },
+  { title?: string; code: string },
   CodeExecuteResult
 >["render"] = ({ status, args, result }) => {
+  const runningLabel =
+    typeof args?.title === "string" && args.title.trim().length > 0
+      ? `${args.title.trim()}…`
+      : "Calculating…";
   return (
     <ToolUIErrorBoundary componentName="ExecuteCode">
       {status.type === "running" ? (
-        <ToolUILoadingShell label="Calculating…" />
+        <ToolUILoadingShell label={runningLabel} />
       ) : status.type === "incomplete" ? (
         <div className="my-1 rounded-md border border-border/50 bg-card/50 px-3 py-2 text-xs text-muted-foreground">
           Couldn&apos;t complete this step. Try again or rephrase your question.
@@ -54,7 +58,7 @@ function ExecuteCodeResult({
   args,
   result,
 }: {
-  args: { code: string };
+  args: { title?: string; code: string };
   result: CodeExecuteResult | undefined;
 }) {
   const [showCode, setShowCode] = useState(false);

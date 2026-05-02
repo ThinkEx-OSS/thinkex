@@ -265,7 +265,7 @@ export const renderURLContextToolUI: ChatToolUIProps<{
                                 rel="noopener noreferrer"
                                 className="text-xs text-primary hover:underline break-all"
                               >
-                                {url}
+                                {url.replace(/^https?:\/\//, "")}
                               </a>
                             </div>
                             {urlMeta && isComplete && urlMeta.urlRetrievalStatus && (
