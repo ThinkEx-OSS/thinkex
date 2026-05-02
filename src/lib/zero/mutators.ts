@@ -531,7 +531,11 @@ async function deleteItemById(
     );
 
     for (const child of children) {
-      const childItem = toItem(child);
+      const childItem = allItems.find((item) => item.id === child.itemId);
+      if (!childItem) {
+        continue;
+      }
+
       const sortOrder = getNextSortOrderForItem(allItems, {
         type: childItem.type,
         folderId: undefined,
