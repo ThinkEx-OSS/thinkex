@@ -531,12 +531,13 @@ async function deleteItemById(
       await loadWorkspaceShells(tx, params.workspaceId),
     );
 
-    for (const child of children) {
-      const childItem = allItems.find((item) => item.id === child.itemId);
-      if (!childItem) {
-        continue;
-      }
+    const orderedChildren = sortWorkspaceItemsByOrder(
+      children
+        .map((child) => allItems.find((item) => item.id === child.itemId) ?? null)
+        .filter((item): item is Item => item != null),
+    );
 
+    for (const childItem of orderedChildren) {
       const sortOrder = getNextSortOrderForItem(allItems, {
         type: childItem.type,
         folderId: undefined,
@@ -550,7 +551,7 @@ async function deleteItemById(
 
       await updateShellOnly(tx, {
         workspaceId: params.workspaceId,
-        itemId: child.itemId,
+        itemId: childItem.id,
         shellChanges: {
           folderId: undefined,
           sortOrder,
@@ -834,6 +835,71 @@ export const mutators = defineMutators({
       zeroMutatorSchemas.item.reorder,
       async ({ tx, args }) => {
         const now = Date.now();
+        const updatesByItemId = new Map(
+          args.updates.map((update) => [update.itemId, update]),
+        );
+
+        if (updatesByItemId.size !== args.updates.length) {
+          throw new ApplicationError("Reorder payload contains duplicate items.");
+        }
+
+        const allItems = await loadWorkspaceShells(tx, args.workspaceId);
+        const updatedItems = args.updates.map((update) => {
+          const item = allItems.find((candidate) => candidate.id === update.itemId);
+          if (!item) {
+            throw new ApplicationError(
+              `Workspace item ${update.itemId} was not found.`,
+            );
+          }
+          return item;
+        });
+        const firstItem = updatedItems[0];
+
+        if (!firstItem) {
+          return;
+        }
+
+        const lane = getWorkspaceItemLane(firstItem);
+        const folderId = firstItem.folderId ?? null;
+
+        if (
+          updatedItems.some(
+            (item) =>
+              getWorkspaceItemLane(item) !== lane ||
+              (item.folderId ?? null) !== folderId,
+          )
+        ) {
+          throw new ApplicationError(
+            "Reorder payload must contain items from one folder and lane.",
+          );
+        }
+
+        const siblingItems = allItems.filter(
+          (item) =>
+            getWorkspaceItemLane(item) === lane &&
+            (item.folderId ?? null) === folderId,
+        );
+
+        if (siblingItems.length !== args.updates.length) {
+          throw new ApplicationError(
+            "Reorder payload must include every item in the lane.",
+          );
+        }
+
+        const sortOrders = args.updates.map((update) => update.sortOrder);
+        const uniqueSortOrders = new Set(sortOrders);
+        const expectedSortOrders = new Set(
+          Array.from({ length: siblingItems.length }, (_, index) => index),
+        );
+
+        if (
+          uniqueSortOrders.size !== sortOrders.length ||
+          sortOrders.some((sortOrder) => !expectedSortOrders.has(sortOrder))
+        ) {
+          throw new ApplicationError(
+            "Reorder payload must use contiguous sort orders starting at zero.",
+          );
+        }
 
         for (const update of args.updates) {
           await updateShellOnly(tx, {
