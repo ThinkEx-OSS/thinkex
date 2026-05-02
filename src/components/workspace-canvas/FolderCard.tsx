@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, useCallback, useEffect } from "react";
+import { memo, useState, useCallback, useEffect, type ReactNode } from "react";
 import {
   MoreVertical,
   Trash2,
@@ -69,6 +69,7 @@ interface FolderCardProps {
   onDeleteItem: (itemId: string) => void;
   onDeleteFolderWithContents?: (folderId: string) => void;
   onMoveItem?: (itemId: string, folderId: string | null) => void;
+  dragHandle?: ReactNode;
 }
 
 function FolderCardComponent({
@@ -83,6 +84,7 @@ function FolderCardComponent({
   onDeleteItem,
   onDeleteFolderWithContents,
   onMoveItem,
+  dragHandle,
 }: FolderCardProps) {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -390,6 +392,8 @@ function FolderCardComponent({
             </div>
 
             <div className="absolute top-[10%] left-0 right-0 bottom-0 rounded-md rounded-tl-none bg-white/0 group-hover/folder:bg-white/5 transition-colors duration-200 pointer-events-none" />
+
+            {dragHandle}
           </div>
 
           <Dialog open={showColorPicker} onOpenChange={setShowColorPicker}>

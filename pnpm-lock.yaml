@@ -29,6 +29,12 @@ importers:
       '@databuddy/sdk':
         specifier: ^2.4.11
         version: 2.4.11(react@19.2.5)(vue@3.5.32(typescript@6.0.3))
+      '@dnd-kit/helpers':
+        specifier: 0.4.1-beta-20260430231058
+        version: 0.4.1-beta-20260430231058
+      '@dnd-kit/react':
+        specifier: 0.4.1-beta-20260430231058
+        version: 0.4.1-beta-20260430231058(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@e2b/code-interpreter':
         specifier: ^2.4.0
         version: 2.4.0
@@ -896,6 +902,30 @@ packages:
         optional: true
       vue:
         optional: true
+
+  '@dnd-kit/abstract@0.4.1-beta-20260430231058':
+    resolution: {integrity: sha512-59hnowyFzR7sfUuX3scjiRIBHbBtj87zMMyxD1w2Aj1LykbsM5igi4gMoPM7N6ZEQbIO2+ov/LvepOtQAeAMNw==}
+
+  '@dnd-kit/collision@0.4.1-beta-20260430231058':
+    resolution: {integrity: sha512-rL5sVmRhJNcgjXPapD504x5wpDYNXcb79uVdMreyc0eSlFL5COlxxGi/GrBGfoZpsLJBsslfLcFyGvh0EdqLoQ==}
+
+  '@dnd-kit/dom@0.4.1-beta-20260430231058':
+    resolution: {integrity: sha512-hpvIQEsgHXwvWeJrtMySIPGfzFNlsHNJjChyssVRrseR9LXx8pNt2bsqmSZ7RfaCBhu/fslOPE47edxf+2iBFA==}
+
+  '@dnd-kit/geometry@0.4.1-beta-20260430231058':
+    resolution: {integrity: sha512-QqRhwKubUFAg4CxzX/Hxf/Q3TcZsZiLRQF6xQZjwq5KWgItq5qaEjL5VRhECqLCyYiM5jWohzmVMVmtS+MFw/A==}
+
+  '@dnd-kit/helpers@0.4.1-beta-20260430231058':
+    resolution: {integrity: sha512-cjJ4EMxMUOOydMOITWknkvgidUZkUG6pt5T8VeQa+niCbrs265BS7hSvKaNoLpakebAL+m/kKLiFXRKO+A37nA==}
+
+  '@dnd-kit/react@0.4.1-beta-20260430231058':
+    resolution: {integrity: sha512-VcS5ZIIYDs+WPws5ZW/bGRfT30q+t6qeFSi1lv8kypQFXJxohW3wdMRAbo++xetMXtzDpAR+KGhOcEzcofvnjQ==}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+
+  '@dnd-kit/state@0.4.1-beta-20260430231058':
+    resolution: {integrity: sha512-QtNxyFGsGlvR32BeNShCPowRx/h9tQNQqWgQs8+UKjEp70k4phGMk8o6YfUCruqyF1yMFEyNxAh+ScAOdVXg8g==}
 
   '@dotenvx/dotenvx@1.61.1':
     resolution: {integrity: sha512-2OUX4KDKvQA6oa7oESG8eNcV4K/2C5jgrbxUcT0VoH9Zelg6dT+rDYew4w2GmXRV3db0tUaM4QZG3MyJL3fU5Q==}
@@ -3517,6 +3547,9 @@ packages:
     resolution: {integrity: sha512-1NW/ilwnRfCfohwrB/gr42adBFKomL4t+/YeUOYYWD91WpO983k5y/pKDNrS2u3pf+SHyZ9E2kuzhAw+Y6mggg==}
     peerDependencies:
       webpack: ^5
+
+  '@preact/signals-core@1.14.1':
+    resolution: {integrity: sha512-vxPpfXqrwUe9lpjqfYNjAF/0RF/eFGeLgdJzdmIIZjpOnTmGmAB4BjWone562mJGMRP4frU6iZ6ei3PDsu52Ng==}
 
   '@protobufjs/aspromise@1.1.2':
     resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
@@ -10992,6 +11025,50 @@ snapshots:
       react: 19.2.5
       vue: 3.5.32(typescript@6.0.3)
 
+  '@dnd-kit/abstract@0.4.1-beta-20260430231058':
+    dependencies:
+      '@dnd-kit/geometry': 0.4.1-beta-20260430231058
+      '@dnd-kit/state': 0.4.1-beta-20260430231058
+      tslib: 2.8.1
+
+  '@dnd-kit/collision@0.4.1-beta-20260430231058':
+    dependencies:
+      '@dnd-kit/abstract': 0.4.1-beta-20260430231058
+      '@dnd-kit/geometry': 0.4.1-beta-20260430231058
+      tslib: 2.8.1
+
+  '@dnd-kit/dom@0.4.1-beta-20260430231058':
+    dependencies:
+      '@dnd-kit/abstract': 0.4.1-beta-20260430231058
+      '@dnd-kit/collision': 0.4.1-beta-20260430231058
+      '@dnd-kit/geometry': 0.4.1-beta-20260430231058
+      '@dnd-kit/state': 0.4.1-beta-20260430231058
+      tslib: 2.8.1
+
+  '@dnd-kit/geometry@0.4.1-beta-20260430231058':
+    dependencies:
+      '@dnd-kit/state': 0.4.1-beta-20260430231058
+      tslib: 2.8.1
+
+  '@dnd-kit/helpers@0.4.1-beta-20260430231058':
+    dependencies:
+      '@dnd-kit/abstract': 0.4.1-beta-20260430231058
+      tslib: 2.8.1
+
+  '@dnd-kit/react@0.4.1-beta-20260430231058(react-dom@19.2.5(react@19.2.5))(react@19.2.5)':
+    dependencies:
+      '@dnd-kit/abstract': 0.4.1-beta-20260430231058
+      '@dnd-kit/dom': 0.4.1-beta-20260430231058
+      '@dnd-kit/state': 0.4.1-beta-20260430231058
+      react: 19.2.5
+      react-dom: 19.2.5(react@19.2.5)
+      tslib: 2.8.1
+
+  '@dnd-kit/state@0.4.1-beta-20260430231058':
+    dependencies:
+      '@preact/signals-core': 1.14.1
+      tslib: 2.8.1
+
   '@dotenvx/dotenvx@1.61.1':
     dependencies:
       commander: 11.1.0
@@ -13318,6 +13395,8 @@ snapshots:
       webpack: 5.106.2(@swc/core@1.15.3)(esbuild@0.27.7)
     transitivePeerDependencies:
       - debug
+
+  '@preact/signals-core@1.14.1': {}
 
   '@protobufjs/aspromise@1.1.2': {}
 

@@ -31,6 +31,7 @@ interface WorkspaceContentProps {
   workspaceIcon?: string | null;
   workspaceColor?: string | null;
   onMoveItem?: (itemId: string, folderId: string | null) => void;
+  reorderItems?: (orderedItemIds: string[]) => void;
   onOpenFolder?: (folderId: string) => void;
   onDeleteFolderWithContents?: (folderId: string) => void;
   onPDFUpload?: (files: File[]) => Promise<void>;
@@ -47,6 +48,7 @@ export default function WorkspaceContent({
   workspaceIcon,
   workspaceColor,
   onMoveItem,
+  reorderItems,
   onOpenFolder,
   onDeleteFolderWithContents,
   onPDFUpload,
@@ -315,6 +317,7 @@ export default function WorkspaceContent({
           workspaceIcon={workspaceIcon}
           workspaceColor={workspaceColor}
           onMoveItem={onMoveItem}
+          onReorderItems={reorderItems}
           onOpenFolder={handleOpenFolder}
           onDeleteFolderWithContents={onDeleteFolderWithContents}
         />

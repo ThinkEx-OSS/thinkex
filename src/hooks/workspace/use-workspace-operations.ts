@@ -157,6 +157,7 @@ export interface WorkspaceOperations {
   deleteFolderWithContents: (folderId: string) => void;
   moveItemToFolder: (itemId: string, folderId: string | null) => void;
   moveItemsToFolder: (itemIds: string[], folderId: string | null) => void;
+  reorderItems: (orderedItemIds: string[]) => void;
   isPending: boolean;
   isError: boolean;
   error: Error | null;
@@ -906,6 +907,23 @@ export function useWorkspaceOperations(
     [],
   );
 
+  const reorderItems = useCallback((orderedItemIds: string[]) => {
+    const currentWorkspaceId = workspaceIdRef.current;
+    if (!currentWorkspaceId || orderedItemIds.length === 0) {
+      return;
+    }
+
+    zeroRef.current.mutate(
+      mutators.item.reorder({
+        workspaceId: currentWorkspaceId,
+        updates: orderedItemIds.map((itemId, index) => ({
+          itemId,
+          sortOrder: index,
+        })),
+      }),
+    );
+  }, []);
+
   const flushPendingChanges = useCallback((itemId: string) => {
     updateItemDebouncerRef.current.get(itemId)?.flush();
     updateItemDataDebouncerRef.current.get(itemId)?.flush();
@@ -936,6 +954,7 @@ export function useWorkspaceOperations(
     deleteFolderWithContents,
     moveItemToFolder,
     moveItemsToFolder,
+    reorderItems,
     isPending: false,
     isError: false,
     error: null,

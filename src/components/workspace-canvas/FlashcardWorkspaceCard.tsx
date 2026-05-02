@@ -1,6 +1,14 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef, useMemo, memo } from "react";
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  useMemo,
+  memo,
+  type ReactNode,
+} from "react";
 import { toast } from "sonner";
 import {
   MoreVertical,
@@ -73,6 +81,7 @@ interface FlashcardWorkspaceCardProps {
   onDeleteItem: (itemId: string) => void;
   onOpenModal: (itemId: string) => void;
   onMoveItem?: (itemId: string, folderId: string | null) => void; // Callback to move item to folder
+  dragHandle?: ReactNode;
   // NOTE: isSelected removed - card subscribes directly to store for performance
   // onToggleSelection is still passed as a prop for the shift+click handler
 }
@@ -158,6 +167,7 @@ export function FlashcardWorkspaceCard({
   onDeleteItem,
   onOpenModal,
   onMoveItem,
+  dragHandle,
 }: FlashcardWorkspaceCardProps) {
   // Subscribe directly to this card's selection state from the store
   // This prevents full grid re-renders when selection changes
@@ -559,7 +569,12 @@ export function FlashcardWorkspaceCard({
                 <ChevronRight className="w-6 h-6" />
               </button>
 
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full bg-black/20 text-white/70 text-xs font-medium backdrop-blur-sm pointer-events-none transition-opacity opacity-0 group-hover:opacity-100">
+              <div
+                className={cn(
+                  "absolute left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full bg-black/20 text-white/70 text-xs font-medium backdrop-blur-sm pointer-events-none transition-opacity opacity-0 group-hover:opacity-100",
+                  dragHandle ? "bottom-12" : "bottom-4",
+                )}
+              >
                 {currentIndex + 1} / {cards.length}
               </div>
             </>
@@ -687,6 +702,8 @@ export function FlashcardWorkspaceCard({
               }}
             />
           )}
+
+          {dragHandle}
         </div>
       </ContextMenuTrigger>
 

@@ -388,6 +388,7 @@ export function WorkspaceSection({
                   workspaceIcon={workspaceIcon}
                   workspaceColor={workspaceColor}
                   onMoveItem={operations.moveItemToFolder}
+                  reorderItems={operations.reorderItems}
                   onDeleteFolderWithContents={
                     operations.deleteFolderWithContents
                   }
