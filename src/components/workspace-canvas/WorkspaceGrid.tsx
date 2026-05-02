@@ -20,20 +20,10 @@ interface WorkspaceGridProps {
   onDeleteFolderWithContents?: (folderId: string) => void;
 }
 
-const GRID_ITEM_HEIGHTS: Record<Item["type"], string> = {
-  pdf: "min-h-[22rem]",
-  flashcard: "min-h-[24rem]",
-  folder: "min-h-[14rem]",
-  youtube: "min-h-[22rem]",
-  quiz: "min-h-[28rem]",
-  image: "min-h-[22rem]",
-  audio: "min-h-[22rem]",
-  website: "min-h-[14rem]",
-  document: "min-h-[22rem]",
-};
+const GRID_ITEM_CLASS = "min-w-0 h-[10rem]";
 
 const GRID_COLUMNS_CLASS =
-  "grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-4";
+  "grid grid-cols-[repeat(auto-fill,14rem)] justify-start gap-4";
 
 function WorkspaceGridComponent({
   folderItems,
@@ -89,7 +79,7 @@ function WorkspaceGridComponent({
 
   const folderChildren = useMemo(() => {
     return folderItems.map((item) => (
-      <div key={item.id} className={`min-w-0 ${GRID_ITEM_HEIGHTS.folder}`}>
+      <div key={item.id} className={GRID_ITEM_CLASS}>
         <FolderCard
           item={item}
           itemCount={folderItemCounts.get(item.id) || 0}
@@ -121,11 +111,9 @@ function WorkspaceGridComponent({
 
   const contentChildren = useMemo(() => {
     return contentItems.map((item) => {
-      const wrapperClass = `min-w-0 ${GRID_ITEM_HEIGHTS[item.type]}`;
-
       if (item.type === "flashcard") {
         return (
-          <div key={item.id} className={wrapperClass}>
+          <div key={item.id} className={GRID_ITEM_CLASS}>
             <FlashcardWorkspaceCard
               item={item}
               allItems={allItems}
@@ -142,7 +130,7 @@ function WorkspaceGridComponent({
       }
 
       return (
-        <div key={item.id} className={wrapperClass}>
+        <div key={item.id} className={GRID_ITEM_CLASS}>
           <WorkspaceCard
             item={item}
             allItems={allItems}
