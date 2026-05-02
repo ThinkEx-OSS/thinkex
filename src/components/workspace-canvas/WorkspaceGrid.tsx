@@ -20,10 +20,10 @@ interface WorkspaceGridProps {
   onDeleteFolderWithContents?: (folderId: string) => void;
 }
 
-const GRID_ITEM_CLASS = "min-w-0 h-[10rem]";
+const GRID_ITEM_CLASS = "min-w-0 aspect-[4/3]";
 
 const GRID_COLUMNS_CLASS =
-  "grid grid-cols-[repeat(auto-fill,14rem)] justify-start gap-4";
+  "grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-4";
 
 function WorkspaceGridComponent({
   folderItems,
