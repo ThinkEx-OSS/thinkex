@@ -9,7 +9,6 @@ import {
   QuizData,
   ImageData,
   AudioData,
-  WebsiteData,
   DocumentData,
 } from "@/lib/workspace-state/types";
 
@@ -51,8 +50,6 @@ export function defaultDataFor(type: CardType): ItemData {
       return { fileUrl: "", filename: "", processingStatus: "uploading" } as AudioData;
     case "quiz":
       return { questions: [] } as QuizData;
-    case "website":
-      return { url: "" } as WebsiteData;
     default: {
       const exhaustiveCheck: never = type;
       return exhaustiveCheck;

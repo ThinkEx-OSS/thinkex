@@ -9,7 +9,6 @@ import {
   quizDataSchema,
   imageDataSchema,
   audioDataSchema,
-  websiteDataSchema,
   documentDataSchema,
 } from "@/lib/workspace-state/item-data-schemas";
 
@@ -21,7 +20,6 @@ export const itemDataSchemas: Record<CardType, z.ZodType<ItemData>> = {
   quiz: quizDataSchema as z.ZodType<ItemData>,
   image: imageDataSchema as z.ZodType<ItemData>,
   audio: audioDataSchema as z.ZodType<ItemData>,
-  website: websiteDataSchema as z.ZodType<ItemData>,
   document: documentDataSchema as z.ZodType<ItemData>,
 };
 
@@ -33,7 +31,6 @@ export const itemCapabilities: Record<CardType, WorkspaceItemCapability[]> = {
   quiz: ["structured_content"],
   image: ["asset_ref", "ocr_content"],
   audio: ["asset_ref", "structured_content", "transcript_content"],
-  website: ["embed_ref"],
   document: ["text_content", "sources"],
 };
 
@@ -53,8 +50,6 @@ export function emptyDataForType(type: CardType): ItemData {
       return { url: "" };
     case "audio":
       return { fileUrl: "", filename: "", processingStatus: "uploading" };
-    case "website":
-      return { url: "" };
     case "document":
       return { markdown: "" };
   }

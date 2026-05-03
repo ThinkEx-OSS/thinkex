@@ -46,7 +46,6 @@ import { renderWorkspaceMenuItems } from "./workspace-menu-items";
 import { PromptBuilderDialog } from "@/components/chat/PromptBuilderDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
-import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
 import { useWorkspaceFilePicker } from "@/hooks/workspace/use-workspace-file-picker";
 import { startAudioProcessing } from "@/lib/audio/start-audio-processing";
 
@@ -101,7 +100,6 @@ export function WorkspaceSection({
 
   // Workspace settings and share modal state
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
-  const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
   const [showQuizDialog, setShowQuizDialog] = useState(false);
   const [showFlashcardsDialog, setShowFlashcardsDialog] = useState(false);
   const showAudioDialog = useAudioRecordingStore((s) => s.isDialogOpen);
@@ -116,19 +114,6 @@ export function WorkspaceSection({
       addItem("youtube", name, { url, thumbnail });
     },
     [addItem],
-  );
-
-  const handleWebsiteCreate = useCallback(
-    (url: string, name: string, favicon?: string) => {
-      operations.createItems([
-        {
-          type: "website",
-          name,
-          initialData: { url, favicon },
-        },
-      ]);
-    },
-    [operations],
   );
 
   // Handle delete request (from button or keyboard)
@@ -267,8 +252,6 @@ export function WorkspaceSection({
 
     // Clear the selection
     clearCardSelection();
-
-    // Note: FolderCard auto-focuses the title when name is "New Folder"
   };
 
   const handlePDFUpload = useWorkspaceUpload({
@@ -423,7 +406,6 @@ export function WorkspaceSection({
                 onUpload: () => handleUploadMenuItemClick(),
                 onAudio: () => openAudioDialog(),
                 onYouTube: () => setShowYouTubeDialog(true),
-                onWebsite: () => setShowWebsiteDialog(true),
                 onFlashcards: () => setShowFlashcardsDialog(true),
                 onQuiz: () => setShowQuizDialog(true),
               },
@@ -492,11 +474,6 @@ export function WorkspaceSection({
       />
 
       {/* Website Dialog */}
-      <CreateWebsiteDialog
-        open={showWebsiteDialog}
-        onOpenChange={setShowWebsiteDialog}
-        onCreate={handleWebsiteCreate}
-      />
       {/* Audio Recorder Dialog */}
       <AudioRecorderDialog
         open={showAudioDialog}

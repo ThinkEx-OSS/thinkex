@@ -395,7 +395,6 @@ export function useWorkspaceOperations(
         "quiz",
         "image",
         "audio",
-        "website",
         "document",
       ];
       const validType = validTypes.includes(type) ? type : "document";
@@ -476,7 +475,6 @@ export function useWorkspaceOperations(
             "quiz",
             "image",
             "audio",
-            "website",
             "document",
           ];
           const validType = validTypes.includes(type) ? type : "document";

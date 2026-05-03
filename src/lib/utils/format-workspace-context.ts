@@ -7,7 +7,6 @@ import type {
   QuizQuestion,
   ImageData,
   AudioData,
-  WebsiteData,
   DocumentData,
 } from "@/lib/workspace-state/types";
 import { getVirtualPath } from "./workspace-fs";
@@ -253,9 +252,6 @@ function formatItem(item: Item, index: number): string {
     case "image":
       lines.push(...formatImageDetails(item.data as ImageData));
       break;
-    case "website":
-      lines.push(...formatWebsiteDetails(item.data as WebsiteData));
-      break;
   }
 
   return lines.join("\n");
@@ -283,15 +279,6 @@ function formatFlashcardDetails(data: FlashcardData): string[] {
 function formatImageDetails(data: ImageData): string[] {
   const details = [];
   if (data.altText) details.push(`Alt: ${data.altText}`);
-  return details.length > 0 ? [`   - ${details.join(", ")}`] : [];
-}
-
-/**
- * Formats Website-specific details
- */
-function formatWebsiteDetails(data: WebsiteData): string[] {
-  const details = [];
-  if (data.url) details.push(`URL: ${data.url}`);
   return details.length > 0 ? [`   - ${details.join(", ")}`] : [];
 }
 
@@ -524,9 +511,6 @@ export function formatItemContent(
     case "document":
       lines.push(...formatDocumentDetailsFull(item.data as DocumentData));
       break;
-    case "website":
-      lines.push(...formatWebsiteDetailsFull(item.data as WebsiteData));
-      break;
     default:
       break;
   }
@@ -746,27 +730,6 @@ function formatAudioDetailsFull(data: AudioData): string[] {
     }
   } else {
     lines.push(`   - (No timeline segments available)`);
-  }
-
-  return lines;
-}
-
-/**
- * Formats website details with FULL content
- */
-function formatWebsiteDetailsFull(data: WebsiteData): string[] {
-  const lines: string[] = [];
-
-  if (data.url) {
-    lines.push(`   - URL: ${data.url}`);
-    try {
-      const parsed = new URL(data.url);
-      lines.push(`   - Domain: ${parsed.hostname.replace(/^www\./, "")}`);
-    } catch {
-      // Ignore invalid URLs
-    }
-  } else {
-    lines.push(`   - (No website URL available)`);
   }
 
   return lines;

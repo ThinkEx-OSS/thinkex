@@ -30,7 +30,6 @@ const cardTypeSchema = z.enum([
   "quiz",
   "image",
   "audio",
-  "website",
   "document",
 ]);
 

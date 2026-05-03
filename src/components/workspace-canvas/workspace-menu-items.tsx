@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { Folder, Upload, Play, Brain, Mic, Globe, FileText } from "lucide-react";
+import { Folder, Upload, Play, Brain, Mic, FileText } from "lucide-react";
 import { LuBook } from "react-icons/lu";
 import { PiCardsThreeBold } from "react-icons/pi";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
@@ -14,7 +14,6 @@ export interface WorkspaceMenuCallbacks {
   onUpload: () => void;
   onAudio: () => void;
   onYouTube: () => void;
-  onWebsite: () => void;
   onFlashcards: () => void;
   onQuiz: () => void;
 }
@@ -99,14 +98,6 @@ export function renderWorkspaceMenuItems({
       >
         <Play className="size-4" />
         YouTube
-      </MenuItem>
-
-      <MenuItem
-        onSelect={callbacks.onWebsite}
-        className="flex items-center gap-2 cursor-pointer"
-      >
-        <Globe className="size-4" />
-        Website
       </MenuItem>
 
       <MenuSub>

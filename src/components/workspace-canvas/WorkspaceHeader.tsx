@@ -21,7 +21,6 @@ import {
   Settings,
   Share2,
   Loader2,
-  ExternalLink,
   MessageSquareText,
 } from "lucide-react";
 import { useDragOperation, useDroppable } from "@dnd-kit/react";
@@ -68,7 +67,6 @@ import {
 } from "@/lib/exportToGoogleDocs";
 import { getFolderPath } from "@/lib/workspace-state/search";
 import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";
-import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
 import { CollaboratorAvatars } from "@/components/workspace/CollaboratorAvatars";
 import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
@@ -302,7 +300,7 @@ function BreadcrumbDropTarget({
     >
       {children}
       {showDropAffordance ? (
-        <div className="pointer-events-none absolute inset-0 z-10 rounded-md ring-1 ring-inset ring-primary/60 bg-primary/6" />
+        <div className="pointer-events-none absolute inset-0 z-10 rounded-md ring-1 ring-inset ring-blue-500/45 bg-blue-500/12 dark:ring-blue-400/55 dark:bg-blue-400/15" />
       ) : null}
     </div>
   );
@@ -385,7 +383,6 @@ export function WorkspaceHeader({
   } | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
-  const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
   const [showQuizDialog, setShowQuizDialog] = useState(false);
   const [showFlashcardsDialog, setShowFlashcardsDialog] = useState(false);
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
@@ -975,15 +972,6 @@ export function WorkspaceHeader({
     [addItem, currentWorkspaceId, onItemCreated],
   );
 
-  const handleWebsiteCreate = useCallback(
-    (url: string, name: string, favicon?: string) => {
-      if (!addItem) return;
-      addItem("website", name, { url, favicon });
-      setIsNewMenuOpen(false);
-    },
-    [addItem],
-  );
-
   const {
     fileInputRef,
     inputProps: fileInputProps,
@@ -1098,28 +1086,6 @@ export function WorkspaceHeader({
                 className="flex items-center gap-2"
               />
             )}
-
-            {activeOpenWorkspaceItem.type === "website" &&
-              (() => {
-                const websiteData =
-                  activeOpenWorkspaceItem.data as import("@/lib/workspace-state/types").WebsiteData;
-                return (
-                  <button
-                    className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer px-2"
-                    aria-label="Open link in new tab"
-                    onClick={() =>
-                      window.open(
-                        websiteData.url,
-                        "_blank",
-                        "noopener,noreferrer",
-                      )
-                    }
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    <span className="text-xs font-medium">Open</span>
-                  </button>
-                );
-              })()}
 
             {activeOpenWorkspaceItem.type === "document" && (
               <DropdownMenu>
@@ -1299,10 +1265,6 @@ export function WorkspaceHeader({
                         setShowYouTubeDialog(true);
                         setIsNewMenuOpen(false);
                       },
-                      onWebsite: () => {
-                        setShowWebsiteDialog(true);
-                        setIsNewMenuOpen(false);
-                      },
                       onFlashcards: () => {
                         setShowFlashcardsDialog(true);
                         setIsNewMenuOpen(false);
@@ -1472,11 +1434,6 @@ export function WorkspaceHeader({
         onCreate={handleYouTubeCreate}
       />
       {/* Website Dialog */}
-      <CreateWebsiteDialog
-        open={showWebsiteDialog}
-        onOpenChange={setShowWebsiteDialog}
-        onCreate={handleWebsiteCreate}
-      />
       {/* Audio Recorder Dialog */}
       <AudioRecorderDialog
         open={showAudioDialog}

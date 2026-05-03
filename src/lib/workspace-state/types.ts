@@ -11,7 +11,6 @@ import {
   quizDataSchema,
   audioSegmentSchema,
   audioDataSchema,
-  websiteDataSchema,
   documentDataSchema,
   folderDataSchema,
 } from "./item-data-schemas";
@@ -24,7 +23,6 @@ export type CardType =
   | "quiz"
   | "image"
   | "audio"
-  | "website"
   | "document";
 
 export type Source = z.infer<typeof sourceSchema>;
@@ -38,7 +36,6 @@ export type QuizQuestion = z.infer<typeof quizQuestionSchema>;
 export type QuizData = z.infer<typeof quizDataSchema>;
 export type AudioSegment = z.infer<typeof audioSegmentSchema>;
 export type AudioData = z.infer<typeof audioDataSchema>;
-export type WebsiteData = z.infer<typeof websiteDataSchema>;
 export type DocumentData = z.infer<typeof documentDataSchema>;
 
 export type ItemData =
@@ -49,7 +46,6 @@ export type ItemData =
   | QuizData
   | ImageData
   | AudioData
-  | WebsiteData
   | DocumentData;
 
 export interface LayoutPosition {
