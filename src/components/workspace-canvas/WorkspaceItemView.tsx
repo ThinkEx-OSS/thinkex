@@ -57,6 +57,8 @@ export function WorkspaceCanvasItemPreview({
       {item.type === "document" ? <DocumentCardContent item={item} /> : null}
 
       {item.type === "pdf" ? <PdfCardContent item={item} /> : null}
+
+      {item.type === "audio" ? <AudioCardContent item={item} isCompact /> : null}
     </>
   );
 }
