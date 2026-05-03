@@ -19,10 +19,7 @@ import {
   WorkspaceCardControls,
 } from "./WorkspaceCardActions";
 import { SharedCardDialogs, SimpleDeleteDialog } from "./CardDialogs";
-import {
-  isFramelessWorkspaceCardItem,
-  WorkspaceCanvasItemPreview,
-} from "./WorkspaceItemView";
+import { WorkspaceCanvasItemPreview } from "./WorkspaceItemView";
 import { useCardActionState } from "./useCardActionState";
 
 interface WorkspaceCardProps {
@@ -120,8 +117,6 @@ function WorkspaceCard({
     (e: React.MouseEvent) => {
       const target = e.target as HTMLElement;
       if (isInteractiveTarget(target)) {
-        e.preventDefault();
-        e.stopPropagation();
         return;
       }
 
@@ -173,7 +168,6 @@ function WorkspaceCard({
     [item.id, onMoveItem],
   );
 
-  const shouldUseFramelessLayout = isFramelessWorkspaceCardItem(item);
   const cardTitle = item.name || "Untitled";
 
   return (
@@ -186,11 +180,7 @@ function WorkspaceCard({
             data-item-type={item.type}
             role="button"
             tabIndex={0}
-            className={`relative min-h-0 flex-1 rounded-md scroll-mt-4 flex flex-col overflow-hidden transition-all duration-200 cursor-pointer ${
-              shouldUseFramelessLayout
-                ? "p-0"
-                : "p-3 border shadow-sm hover:border-foreground/30 hover:shadow-md focus-within:border-foreground/50"
-            }`}
+            className="relative min-h-0 flex-1 rounded-md scroll-mt-4 flex flex-col overflow-hidden border p-3 shadow-sm transition-all duration-200 cursor-pointer hover:border-foreground/30 hover:shadow-md focus-within:border-foreground/50"
             style={
               {
                 backgroundColor:
@@ -214,9 +204,7 @@ function WorkspaceCard({
                     : "transparent",
                 borderWidth: isSelected
                   ? "3px"
-                  : shouldUseFramelessLayout
-                    ? "0px"
-                    : "1px",
+                  : "1px",
                 boxShadow:
                   isSelected && resolvedTheme !== "dark"
                     ? "0 0 3px rgba(0, 0, 0, 0.8), 0 0 8px rgba(0, 0, 0, 0.5)"

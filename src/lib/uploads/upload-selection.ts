@@ -68,10 +68,11 @@ export async function uploadSelectedFile(file: File): Promise<UploadedAsset> {
 
   if (isPdf) {
     try {
+      const shouldUseOriginalFile = isPdfFile(file);
       const generatedThumbnail = await generatePdfThumbnail({
         filename: uploadResult.displayName || file.name,
-        file: file.type === "application/pdf" ? file : undefined,
-        url: file.type === "application/pdf" ? undefined : uploadResult.url,
+        file: shouldUseOriginalFile ? file : undefined,
+        url: shouldUseOriginalFile ? undefined : uploadResult.url,
       });
       const thumbnailUpload = await uploadFileDirect(generatedThumbnail.file);
 

@@ -866,19 +866,12 @@ export function useWorkspaceOperations(
       const item = currentItemsRef.current.find(
         (candidate) => candidate.id === itemId,
       );
-      const sortOrder = item
-        ? getNextSortOrderForItem(currentItemsRef.current, {
-            type: item.type,
-            folderId: folderId ?? undefined,
-          })
-        : undefined;
       zeroRef.current.mutate(
         mutators.item.move({
           workspaceId: currentWorkspaceId,
           itemId,
           folderId,
           itemName: item?.name,
-          sortOrder,
         }),
       );
     },
@@ -899,23 +892,6 @@ export function useWorkspaceOperations(
       const itemNames = orderedItems
         .map((item) => item.name)
         .filter((name): name is string => name != null);
-      const allItems = [...currentItemsRef.current];
-      const sortOrders = orderedItems.map((item) => {
-        const sortOrder = getNextSortOrderForItem(allItems, {
-          type: item.type,
-          folderId: folderId ?? undefined,
-        });
-        allItems.push({
-          ...item,
-          folderId: folderId ?? undefined,
-          sortOrder,
-        });
-
-        return {
-          itemId: item.id,
-          sortOrder,
-        };
-      });
 
       zeroRef.current.mutate(
         mutators.item.moveMany({
@@ -923,7 +899,6 @@ export function useWorkspaceOperations(
           itemIds: orderedItemIds,
           folderId,
           itemNames,
-          sortOrders,
         }),
       );
     },

@@ -1,133 +1,31 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { FileText, Loader2 } from "lucide-react";
-import { generatePdfThumbnail } from "@/lib/pdf/generate-pdf-thumbnail";
-import { enqueuePdfThumbnailBackfill } from "@/lib/pdf/pdf-thumbnail-backfill";
-import { uploadFileDirect } from "@/lib/uploads/client-upload";
 import type { Item, PdfData } from "@/lib/workspace-state/types";
+import { usePdfThumbnailBackfill } from "./usePdfThumbnailBackfill";
 
 interface PdfCardContentProps {
   item: Item;
   onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
 }
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, ms);
-  });
-}
-
 export function PdfCardContent({ item, onUpdateItem }: PdfCardContentProps) {
   const pdfData = item.data as PdfData;
-  const thumbnailUrl = pdfData.thumbnailUrl;
-  const fileUrl = pdfData.fileUrl;
-  const isPending = pdfData.thumbnailStatus === "pending";
-  const [isVisible, setIsVisible] = useState(false);
-  const [isQueuedLocally, setIsQueuedLocally] = useState(false);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const hasScheduledRef = useRef(false);
+  const { containerRef, showPendingState } = usePdfThumbnailBackfill({
+    item,
+    pdfData,
+    onUpdateItem,
+  });
 
-  useEffect(() => {
-    const node = containerRef.current;
-    if (!node) {
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsVisible(entry?.isIntersecting ?? false);
-      },
-      {
-        rootMargin: "240px 0px",
-        threshold: 0.01,
-      },
-    );
-
-    observer.observe(node);
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (thumbnailUrl) {
-      hasScheduledRef.current = true;
-      setIsQueuedLocally(false);
-      return;
-    }
-
-    if (!isVisible || !fileUrl || !onUpdateItem || hasScheduledRef.current) {
-      return;
-    }
-
-    const nextData = {
-      ...pdfData,
-      thumbnailStatus: "pending",
-    } satisfies PdfData;
-
-    const wasQueued = enqueuePdfThumbnailBackfill({
-      itemId: item.id,
-      run: async () => {
-        for (let attempt = 0; attempt < 3; attempt += 1) {
-          try {
-            const generatedThumbnail = await generatePdfThumbnail({
-              filename: pdfData.filename || `${item.name || "document"}.pdf`,
-              url: fileUrl,
-            });
-            const thumbnailUpload = await uploadFileDirect(
-              generatedThumbnail.file,
-            );
-
-            onUpdateItem(item.id, {
-              data: {
-                ...pdfData,
-                thumbnailUrl: thumbnailUpload.url,
-                thumbnailWidth: generatedThumbnail.width,
-                thumbnailHeight: generatedThumbnail.height,
-                thumbnailStatus: "ready",
-              } satisfies PdfData,
-            });
-            setIsQueuedLocally(false);
-            return;
-          } catch (error) {
-            if (attempt === 2) {
-              onUpdateItem(item.id, {
-                data: {
-                  ...pdfData,
-                  thumbnailStatus: "failed",
-                } satisfies PdfData,
-              });
-              setIsQueuedLocally(false);
-              throw error;
-            }
-
-            await wait(1200);
-          }
-        }
-      },
-    });
-
-    if (!wasQueued) {
-      return;
-    }
-
-    hasScheduledRef.current = true;
-    setIsQueuedLocally(true);
-    onUpdateItem(item.id, { data: nextData });
-  }, [fileUrl, isVisible, item.id, item.name, onUpdateItem, pdfData, thumbnailUrl]);
-
-  const showPendingState = isPending || isQueuedLocally;
-
-  if (thumbnailUrl) {
+  if (pdfData.thumbnailUrl) {
     return (
       <div
         ref={containerRef}
         className="relative flex h-full min-h-0 flex-1 overflow-hidden rounded-md bg-black/5 dark:bg-white/5"
       >
         <Image
-          src={thumbnailUrl}
+          src={pdfData.thumbnailUrl}
           alt={item.name || pdfData.filename || "PDF preview"}
           fill
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"

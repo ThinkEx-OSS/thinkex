@@ -29,10 +29,6 @@ import {
   extractYouTubeVideoId,
 } from "@/lib/utils/youtube-url";
 
-export function isFramelessWorkspaceCardItem(item: Item): boolean {
-  return false;
-}
-
 export function usesManagedWorkspacePanelLayout(item: Item): boolean {
   if (item.type === "youtube" || item.type === "image") {
     return true;
