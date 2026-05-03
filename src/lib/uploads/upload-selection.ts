@@ -1,5 +1,7 @@
 import { uploadFileDirect } from "@/lib/uploads/client-upload";
 import { filterPasswordProtectedPdfs } from "@/lib/uploads/pdf-validation";
+import { generatePdfThumbnail } from "@/lib/pdf/generate-pdf-thumbnail";
+import { isPdfUploadMeta } from "@/lib/pdf/pdf-item";
 import {
   createUploadedAsset,
   type UploadedAsset,
@@ -60,6 +62,47 @@ export async function prepareWorkspaceUploadSelection(
 
 export async function uploadSelectedFile(file: File): Promise<UploadedAsset> {
   const uploadResult = await uploadFileDirect(file);
+
+  const isPdf =
+    isPdfUploadMeta(uploadResult.displayName || file.name, uploadResult.contentType);
+
+  if (isPdf) {
+    try {
+      const generatedThumbnail = await generatePdfThumbnail({
+        filename: uploadResult.displayName || file.name,
+        file: file.type === "application/pdf" ? file : undefined,
+        url: file.type === "application/pdf" ? undefined : uploadResult.url,
+      });
+      const thumbnailUpload = await uploadFileDirect(generatedThumbnail.file);
+
+      return createUploadedAsset({
+        fileUrl: uploadResult.url,
+        filename: uploadResult.filename || file.name,
+        displayName: uploadResult.displayName || file.name,
+        fileSize: file.size,
+        contentType:
+          uploadResult.contentType || file.type || "application/octet-stream",
+        originalFile: file,
+        pdfThumbnailUrl: thumbnailUpload.url,
+        pdfThumbnailWidth: generatedThumbnail.width,
+        pdfThumbnailHeight: generatedThumbnail.height,
+        pdfThumbnailStatus: "ready",
+      });
+    } catch (error) {
+      console.error(`PDF thumbnail generation failed for "${file.name}":`, error);
+      return createUploadedAsset({
+        fileUrl: uploadResult.url,
+        filename: uploadResult.filename || file.name,
+        displayName: uploadResult.displayName || file.name,
+        fileSize: file.size,
+        contentType:
+          uploadResult.contentType || file.type || "application/octet-stream",
+        originalFile: file,
+        pdfThumbnailStatus: "failed",
+      });
+    }
+  }
+
   return createUploadedAsset({
     fileUrl: uploadResult.url,
     filename: uploadResult.filename || file.name,

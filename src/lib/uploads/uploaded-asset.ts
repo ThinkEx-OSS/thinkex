@@ -17,6 +17,10 @@ export interface UploadedAsset {
   contentType: string;
   name: string;
   originalFile?: File;
+  pdfThumbnailUrl?: string;
+  pdfThumbnailWidth?: number;
+  pdfThumbnailHeight?: number;
+  pdfThumbnailStatus?: PdfData["thumbnailStatus"];
 }
 
 export type WorkspaceItemDefinition =
@@ -72,6 +76,10 @@ export function createUploadedAsset(params: {
   fileSize?: number;
   contentType: string;
   originalFile?: File;
+  pdfThumbnailUrl?: string;
+  pdfThumbnailWidth?: number;
+  pdfThumbnailHeight?: number;
+  pdfThumbnailStatus?: PdfData["thumbnailStatus"];
 }): UploadedAsset {
   const kind = inferAssetKind(params);
   const name = getBaseName(params.displayName);
@@ -86,6 +94,18 @@ export function createUploadedAsset(params: {
     fileSize: params.fileSize,
     contentType: resolvedType,
     name,
+    ...(params.pdfThumbnailUrl
+      ? { pdfThumbnailUrl: params.pdfThumbnailUrl }
+      : {}),
+    ...(params.pdfThumbnailWidth != null
+      ? { pdfThumbnailWidth: params.pdfThumbnailWidth }
+      : {}),
+    ...(params.pdfThumbnailHeight != null
+      ? { pdfThumbnailHeight: params.pdfThumbnailHeight }
+      : {}),
+    ...(params.pdfThumbnailStatus != null
+      ? { pdfThumbnailStatus: params.pdfThumbnailStatus }
+      : {}),
     ...(params.originalFile ? { originalFile: params.originalFile } : {}),
   };
 }
@@ -123,13 +143,25 @@ export function buildWorkspaceItemDefinitionFromAsset(
   return {
     type: "pdf",
     name: asset.name,
-    initialData: buildPdfDataFromUpload({
-      fileUrl: asset.fileUrl,
-      filename: asset.filename,
-      contentType: asset.contentType,
-      fileSize: asset.fileSize,
-      displayName: asset.displayName,
-    }),
+    initialData: {
+      ...buildPdfDataFromUpload({
+        fileUrl: asset.fileUrl,
+        filename: asset.filename,
+        contentType: asset.contentType,
+        fileSize: asset.fileSize,
+        displayName: asset.displayName,
+      }),
+      ...(asset.pdfThumbnailUrl ? { thumbnailUrl: asset.pdfThumbnailUrl } : {}),
+      ...(asset.pdfThumbnailWidth != null
+        ? { thumbnailWidth: asset.pdfThumbnailWidth }
+        : {}),
+      ...(asset.pdfThumbnailHeight != null
+        ? { thumbnailHeight: asset.pdfThumbnailHeight }
+        : {}),
+      ...(asset.pdfThumbnailStatus != null
+        ? { thumbnailStatus: asset.pdfThumbnailStatus }
+        : {}),
+    },
   };
 }
 

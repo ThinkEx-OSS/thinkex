@@ -107,6 +107,10 @@ export const pdfDataSchema = z.object({
   fileUrl: z.string().default(""),
   filename: z.string().default(""),
   fileSize: z.number().optional(),
+  thumbnailUrl: z.string().optional(),
+  thumbnailWidth: z.number().optional(),
+  thumbnailHeight: z.number().optional(),
+  thumbnailStatus: z.enum(["pending", "ready", "failed"]).optional(),
   ocrStatus: z.enum(["complete", "failed", "processing"]).optional(),
   ocrError: z.string().optional(),
   ocrPages: z.array(ocrPageSchema).optional(),
@@ -147,11 +151,6 @@ export const audioDataSchema = z.object({
 export const youtubeDataSchema = z.object({
   url: z.string().default(""),
   thumbnail: z.string().optional(),
-});
-
-export const websiteDataSchema = z.object({
-  url: z.string().default(""),
-  favicon: z.string().optional(),
 });
 
 export const documentDataSchema = z.object({
