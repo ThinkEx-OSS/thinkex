@@ -8,7 +8,6 @@ import type {
   FlashcardData,
   QuizData,
   AudioData,
-  WebsiteData,
   DocumentData,
 } from "@/lib/workspace-state/types";
 import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
@@ -77,16 +76,6 @@ export function extractSearchableText(
         );
       }
       return body(parts.join("\n"));
-    }
-    case "website": {
-      const data = item.data as WebsiteData;
-      const url = data.url || "";
-      let domain = "";
-      try {
-        domain = new URL(url).hostname.replace(/^www\./, "");
-      } catch {}
-      const content = `URL: ${url}\nDomain: ${domain}`;
-      return body(content);
     }
     case "document": {
       const data = item.data as DocumentData;

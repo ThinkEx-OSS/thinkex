@@ -185,16 +185,6 @@ describe("workspace item model", () => {
         },
       },
       {
-        id: "website-1",
-        type: "website",
-        name: "Website",
-        subtitle: "",
-        data: {
-          url: "https://example.com",
-          favicon: "https://example.com/favicon.ico",
-        },
-      },
-      {
         id: "folder-1",
         type: "folder",
         name: "Folder",

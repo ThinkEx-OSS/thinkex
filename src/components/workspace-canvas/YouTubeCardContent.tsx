@@ -1,82 +1,64 @@
 "use client";
 
+import Image from "next/image";
+import { AlertCircle, Play } from "lucide-react";
 import type { Item, YouTubeData } from "@/lib/workspace-state/types";
 import {
+  extractYouTubePlaylistId,
   extractYouTubeVideoId,
   getYouTubeThumbnailUrl,
-  extractYouTubePlaylistId,
 } from "@/lib/utils/youtube-url";
-import { Play } from "lucide-react";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
 
 interface YouTubeCardContentProps {
   item: Item;
 }
 
-/** Thumbnail preview on the canvas; playback happens in the YouTube panel. */
 export function YouTubeCardContent({ item }: YouTubeCardContentProps) {
   const youtubeData = item.data as YouTubeData;
   const videoId = extractYouTubeVideoId(youtubeData.url);
   const playlistId = extractYouTubePlaylistId(youtubeData.url);
-  const thumbnailUrl = youtubeData.thumbnail || getYouTubeThumbnailUrl(youtubeData.url);
+  const thumbnailUrl =
+    youtubeData.thumbnail || getYouTubeThumbnailUrl(youtubeData.url);
   const hasValidUrl = videoId !== null || playlistId !== null;
 
   if (!hasValidUrl) {
     return (
-      <div className="p-1 min-h-0">
-        <div className="flex flex-col items-center justify-center gap-3 text-center h-full">
-          <div className="rounded-lg p-4 bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-            <span className="text-red-400 font-medium">Invalid YouTube URL</span>
-          </div>
-          <p className="text-xs text-muted-foreground/70">
-            Please check the URL and try again
-          </p>
-        </div>
+      <div className="flex h-full min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-md px-4 text-center">
+        <AlertCircle className="size-5 text-red-700 dark:text-red-300" />
+        <p className="text-sm text-red-700 dark:text-red-200">
+          Invalid YouTube URL
+        </p>
       </div>
     );
   }
 
-  const title = item.name || "YouTube Video";
+  if (!thumbnailUrl) {
+    return (
+      <div className="flex h-full min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-md px-4 text-center">
+        <div className="flex size-10 items-center justify-center rounded-full bg-red-600 text-white shadow-sm">
+          <Play className="ml-0.5 size-5 fill-current" />
+        </div>
+        <p className="text-sm text-foreground">YouTube</p>
+      </div>
+    );
+  }
 
   return (
-    <HoverCard openDelay={100} closeDelay={100}>
-      <HoverCardTrigger asChild>
-        <div className="flex-1 min-h-0 relative group" data-youtube-content>
-          <div className="relative w-full h-full cursor-pointer group">
-            {thumbnailUrl ? (
-              <>
-                <img
-                  src={thumbnailUrl}
-                  alt={item.name || "YouTube Video"}
-                  className="w-full h-full object-cover rounded-lg"
-                />
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors rounded-lg" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center shadow-lg transition-all group-hover:scale-110">
-                    <Play className="h-7 w-7 text-white fill-white ml-1" />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-red-500/10 to-red-600/10 rounded-lg border border-red-500/20">
-                <div className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center shadow-lg transition-all group-hover:scale-110 mb-3">
-                  <Play className="h-8 w-8 text-white fill-white ml-1" />
-                </div>
-                <p className="text-sm font-medium text-foreground">YouTube Playlist</p>
-                <p className="text-xs text-muted-foreground mt-1">Click to play</p>
-              </div>
-            )}
-          </div>
+    <div className="relative flex h-full min-h-0 flex-1 overflow-hidden rounded-md bg-black/10">
+      <Image
+        src={thumbnailUrl}
+        alt={item.name || "YouTube preview"}
+        fill
+        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+        className="object-cover"
+      />
+      <div className="absolute inset-0 bg-black/18" />
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="flex size-11 items-center justify-center rounded-full bg-red-600/95 text-white shadow-lg">
+          <Play className="ml-0.5 size-5 fill-current" />
         </div>
-      </HoverCardTrigger>
-      <HoverCardContent side="top" className="max-w-[320px]">
-        <p className="text-sm font-medium">{title}</p>
-      </HoverCardContent>
-    </HoverCard>
+      </div>
+    </div>
   );
 }
 

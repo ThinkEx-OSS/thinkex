@@ -43,7 +43,7 @@ const ReadWorkspaceResultSchema = z.discriminatedUnion("success", [
 export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Read workspace item text by path or name (documents, flashcards, PDFs, quizzes, images, audio, websites, YouTube). Audio returns the segment timeline when present, not raw audio — paginate with lineStart/limit and nextLineStart when hasMore. " +
+            "Read workspace item text by path or name (documents, flashcards, PDFs, quizzes, images, audio, YouTube). Audio returns the segment timeline when present, not raw audio — paginate with lineStart/limit and nextLineStart when hasMore. " +
             "Lines have no prefixes (safe for item_edit oldText). rangeNote indicates full vs partial read. PDFs: pageStart/pageEnd. Long lines truncated at 2000 chars. Default limit 500, max 2000 lines per call.",
         inputSchema: zodSchema(
             z.object({
@@ -144,7 +144,7 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
             if (item.type === "folder") {
                 return {
                     success: false,
-                    message: "Folders have no readable content. Use path to a document, flashcard, PDF, quiz, image, audio, website, or YouTube item.",
+                    message: "Folders have no readable content. Use path to a document, flashcard, PDF, quiz, image, audio, or YouTube item.",
                 };
             }
 

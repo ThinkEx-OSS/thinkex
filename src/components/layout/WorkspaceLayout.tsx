@@ -12,6 +12,7 @@ import { ChatPanel } from "@/components/chat/ChatPanel";
 import { ChatProvider } from "@/components/chat/ChatProvider";
 import { ComposerProvider } from "@/components/chat/composer-context";
 import { WorkspaceCanvasDropzone } from "@/components/workspace-canvas/WorkspaceCanvasDropzone";
+import { WorkspaceDragDropProvider } from "@/components/workspace-canvas/WorkspaceDragDropProvider";
 import { PANEL_DEFAULTS } from "@/lib/layout-constants";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useWorkspaceContext } from "@/contexts/WorkspaceContext";
@@ -76,30 +77,32 @@ export function WorkspaceLayout({
                 : "100%"
             }
           >
-            <div className="h-full flex flex-col relative overflow-hidden">
-              {isWorkspaceReady ? workspaceHeader : <WorkspaceHeaderSkeleton />}
-              <div className="flex flex-1 overflow-hidden relative">
-                <Sidebar
-                  side="left"
-                  variant="sidebar"
-                  collapsible="offcanvas"
-                  embedded
-                >
-                  <WorkspaceSidebar
-                    onWorkspaceSwitch={switchWorkspace}
-                    showCreateModal={showCreateModal}
-                    setShowCreateModal={setShowCreateModal}
-                    isChatExpanded={effectiveChatExpanded}
-                    setIsChatExpanded={setIsChatExpanded}
-                  />
-                </Sidebar>
-                <SidebarInset className="flex flex-col relative overflow-hidden">
-                  <WorkspaceCanvasDropzone>
-                    {workspaceSection}
-                  </WorkspaceCanvasDropzone>
-                </SidebarInset>
+            <WorkspaceDragDropProvider>
+              <div className="h-full flex flex-col relative overflow-hidden">
+                {isWorkspaceReady ? workspaceHeader : <WorkspaceHeaderSkeleton />}
+                <div className="flex flex-1 overflow-hidden relative">
+                  <Sidebar
+                    side="left"
+                    variant="sidebar"
+                    collapsible="offcanvas"
+                    embedded
+                  >
+                    <WorkspaceSidebar
+                      onWorkspaceSwitch={switchWorkspace}
+                      showCreateModal={showCreateModal}
+                      setShowCreateModal={setShowCreateModal}
+                      isChatExpanded={effectiveChatExpanded}
+                      setIsChatExpanded={setIsChatExpanded}
+                    />
+                  </Sidebar>
+                  <SidebarInset className="flex flex-col relative overflow-hidden">
+                    <WorkspaceCanvasDropzone>
+                      {workspaceSection}
+                    </WorkspaceCanvasDropzone>
+                  </SidebarInset>
+                </div>
               </div>
-            </div>
+            </WorkspaceDragDropProvider>
           </ResizablePanel>
 
           {effectiveChatExpanded && (

@@ -17,6 +17,10 @@ export interface UploadedAsset {
   contentType: string;
   name: string;
   originalFile?: File;
+  pdfThumbnailUrl?: string;
+  pdfThumbnailWidth?: number;
+  pdfThumbnailHeight?: number;
+  pdfThumbnailStatus?: PdfData["thumbnailStatus"];
 }
 
 export type WorkspaceItemDefinition =
@@ -24,19 +28,16 @@ export type WorkspaceItemDefinition =
       type: "pdf";
       name: string;
       initialData: Partial<PdfData>;
-      initialLayout?: { w: number; h: number };
     }
   | {
       type: "image";
       name: string;
       initialData: Partial<ImageData>;
-      initialLayout?: { w: number; h: number };
     }
   | {
       type: "audio";
       name: string;
       initialData: Partial<AudioData>;
-      initialLayout?: { w: number; h: number };
     };
 
 function getBaseName(filename: string): string {
@@ -75,6 +76,10 @@ export function createUploadedAsset(params: {
   fileSize?: number;
   contentType: string;
   originalFile?: File;
+  pdfThumbnailUrl?: string;
+  pdfThumbnailWidth?: number;
+  pdfThumbnailHeight?: number;
+  pdfThumbnailStatus?: PdfData["thumbnailStatus"];
 }): UploadedAsset {
   const kind = inferAssetKind(params);
   const name = getBaseName(params.displayName);
@@ -89,13 +94,24 @@ export function createUploadedAsset(params: {
     fileSize: params.fileSize,
     contentType: resolvedType,
     name,
+    ...(params.pdfThumbnailUrl
+      ? { pdfThumbnailUrl: params.pdfThumbnailUrl }
+      : {}),
+    ...(params.pdfThumbnailWidth != null
+      ? { pdfThumbnailWidth: params.pdfThumbnailWidth }
+      : {}),
+    ...(params.pdfThumbnailHeight != null
+      ? { pdfThumbnailHeight: params.pdfThumbnailHeight }
+      : {}),
+    ...(params.pdfThumbnailStatus != null
+      ? { pdfThumbnailStatus: params.pdfThumbnailStatus }
+      : {}),
     ...(params.originalFile ? { originalFile: params.originalFile } : {}),
   };
 }
 
 export function buildWorkspaceItemDefinitionFromAsset(
   asset: UploadedAsset,
-  options?: { imageLayout?: { w: number; h: number } }
 ): WorkspaceItemDefinition {
   if (asset.kind === "image") {
     return {
@@ -107,7 +123,6 @@ export function buildWorkspaceItemDefinitionFromAsset(
         ocrStatus: "processing",
         ocrPages: [],
       },
-      ...(options?.imageLayout ? { initialLayout: options.imageLayout } : {}),
     };
   }
 
@@ -128,32 +143,41 @@ export function buildWorkspaceItemDefinitionFromAsset(
   return {
     type: "pdf",
     name: asset.name,
-    initialData: buildPdfDataFromUpload({
-      fileUrl: asset.fileUrl,
-      filename: asset.filename,
-      contentType: asset.contentType,
-      fileSize: asset.fileSize,
-      displayName: asset.displayName,
-    }),
+    initialData: {
+      ...buildPdfDataFromUpload({
+        fileUrl: asset.fileUrl,
+        filename: asset.filename,
+        contentType: asset.contentType,
+        fileSize: asset.fileSize,
+        displayName: asset.displayName,
+      }),
+      ...(asset.pdfThumbnailUrl ? { thumbnailUrl: asset.pdfThumbnailUrl } : {}),
+      ...(asset.pdfThumbnailWidth != null
+        ? { thumbnailWidth: asset.pdfThumbnailWidth }
+        : {}),
+      ...(asset.pdfThumbnailHeight != null
+        ? { thumbnailHeight: asset.pdfThumbnailHeight }
+        : {}),
+      ...(asset.pdfThumbnailStatus != null
+        ? { thumbnailStatus: asset.pdfThumbnailStatus }
+        : {}),
+    },
   };
 }
 
 export function buildWorkspaceItemDefinitionsFromAssets(
   assets: UploadedAsset[],
-  options?: { imageLayout?: { w: number; h: number } }
 ): WorkspaceItemDefinition[] {
-  return assets.map((asset) =>
-    buildWorkspaceItemDefinitionFromAsset(asset, options)
-  );
+  return assets.map((asset) => buildWorkspaceItemDefinitionFromAsset(asset));
 }
 
 export function buildOcrCandidatesFromAssets(
   assets: UploadedAsset[],
-  itemIds: Array<string | undefined>
+  itemIds: Array<string | undefined>,
 ): OcrCandidate[] {
   if (assets.length !== itemIds.length) {
     throw new Error(
-      `Expected assets and itemIds to align, received ${assets.length} assets and ${itemIds.length} itemIds`
+      `Expected assets and itemIds to align, received ${assets.length} assets and ${itemIds.length} itemIds`,
     );
   }
 
@@ -183,7 +207,7 @@ export function buildOcrCandidatesFromAssets(
         contentType: asset.contentType,
         fileSize: asset.fileSize,
         displayName: asset.displayName,
-      })
+      }),
     );
 
     if (sourceUrl) {

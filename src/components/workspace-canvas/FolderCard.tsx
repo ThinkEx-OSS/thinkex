@@ -1,67 +1,45 @@
 "use client";
 
-import { memo, useState, useCallback, useEffect, useRef } from "react";
-import { MoreVertical, Trash2, Palette, CheckCircle2, FolderInput, X, Pencil } from "lucide-react";
-import ItemHeader from "@/components/workspace-canvas/ItemHeader";
-import { SwatchesPicker, ColorResult } from "react-color";
+import { useDroppable } from "@dnd-kit/react";
+import { memo, useState, useCallback, useEffect, useMemo } from "react";
+import { type ColorResult } from "react-color";
 import { cn } from "@/lib/utils";
 import type { Item } from "@/lib/workspace-state/types";
-import { getCardColorCSS, getCardAccentColor, SWATCHES_COLOR_GROUPS, type CardColor } from "@/lib/workspace-state/colors";
-import { useTheme } from "next-themes";
-
-import { useUIStore } from "@/lib/stores/ui-store";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  getCardColorCSS,
+  getCardAccentColor,
+  type CardColor,
+} from "@/lib/workspace-state/colors";
+import { useTheme } from "next-themes";
+import { useUIStore } from "@/lib/stores/ui-store";
 import {
   ContextMenu,
   ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import MoveToDialog from "@/components/modals/MoveToDialog";
-import RenameDialog from "@/components/modals/RenameDialog";
 import { toast } from "sonner";
+import {
+  WorkspaceCardContextMenuItems,
+  WorkspaceCardControls,
+} from "./WorkspaceCardActions";
+import { FolderDeleteDialog, SharedCardDialogs } from "./CardDialogs";
+import { useCardActionState } from "./useCardActionState";
 
 interface FolderCardProps {
-  item: Item; // Folder-type item
+  item: Item;
   itemCount: number;
-  allItems: Item[]; // All items for the move dialog tree
+  allItems: Item[];
   workspaceName: string;
   workspaceIcon?: string | null;
   workspaceColor?: string | null;
   onOpenFolder: (folderId: string) => void;
   onUpdateItem: (itemId: string, updates: Partial<Item>) => void;
   onDeleteItem: (itemId: string) => void;
-  onDeleteFolderWithContents?: (folderId: string) => void; // Callback to delete folder and all items inside
-  onMoveItem?: (itemId: string, folderId: string | null) => void; // Callback to move folder to another location
+  onDeleteFolderWithContents?: (folderId: string) => void;
+  onMoveItem?: (itemId: string, folderId: string | null) => void;
+  itemDropTargetId?: string;
 }
 
-/**
- * FolderCard - A folder-shaped card that displays in the workspace grid
- * Now uses Item type with type: 'folder' instead of separate Folder type
- */
 function FolderCardComponent({
   item,
   itemCount,
@@ -74,517 +52,329 @@ function FolderCardComponent({
   onDeleteItem,
   onDeleteFolderWithContents,
   onMoveItem,
+  itemDropTargetId,
 }: FolderCardProps) {
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteOption, setDeleteOption] = useState<'keep' | 'delete' | null>(null);
-  const [showMoveDialog, setShowMoveDialog] = useState(false);
-  const [showRenameDialog, setShowRenameDialog] = useState(false);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isDragHover, setIsDragHover] = useState(false);
-  const [selectedCount, setSelectedCount] = useState<number | null>(null);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-
-  // Subscribe directly to this folder's selection state from the store
-  const isSelected = useUIStore(
-    (state) => state.selectedCardIds.has(item.id)
+  const {
+    isColorPickerOpen,
+    setIsColorPickerOpen,
+    showDeleteDialog,
+    setShowDeleteDialog,
+    showMoveDialog,
+    setShowMoveDialog,
+    showRenameDialog,
+    setShowRenameDialog,
+    openColorPicker,
+    openDeleteDialog,
+    openMoveDialog,
+    openRenameDialog,
+  } = useCardActionState();
+  const [deleteOption, setDeleteOption] = useState<"keep" | "delete" | null>(
+    null,
   );
-  const   onToggleSelection = useUIStore((state) => state.toggleCardSelection);
 
-  // Track drag movement to prevent opening folder after drag
-  const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
-  const hasMovedRef = useRef<boolean>(false);
-  const DRAG_THRESHOLD = 5; // pixels
+  const isSelected = useUIStore((state) => state.selectedCardIds.has(item.id));
+  const onToggleSelection = useUIStore((state) => state.toggleCardSelection);
+  const { resolvedTheme } = useTheme();
 
-  const folderColor = item.color || "#6366F1"; // Default to indigo
+  const folderColor = item.color || "#6366F1";
 
-  // Listen for drag hover events
+  const pointerOnlyCollision = useMemo(
+    () =>
+      ({
+        dragOperation,
+        droppable,
+      }: {
+        dragOperation: {
+          source?: { id?: string | number } | null;
+          position: { current: { x: number; y: number } | null };
+        };
+        droppable: {
+          id: string | number;
+          shape?: {
+            containsPoint: (point: { x: number; y: number }) => boolean;
+            center: { x: number; y: number };
+          } | null;
+        };
+      }) => {
+        if (dragOperation.source?.id === item.id) return null;
+        const pointer = dragOperation.position.current;
+        if (!pointer || !droppable.shape) return null;
+        if (!droppable.shape.containsPoint(pointer)) return null;
+        const cx = droppable.shape.center.x - pointer.x;
+        const cy = droppable.shape.center.y - pointer.y;
+        return {
+          id: droppable.id,
+          value: 1 / Math.sqrt(cx * cx + cy * cy),
+          type: 2,
+          priority: 3,
+        };
+      },
+    [item.id],
+  );
+
+  const { ref: dropTargetRef, isDropTarget: isItemDropTarget } = useDroppable({
+    id: itemDropTargetId ?? `folder-drop:${item.id}`,
+    accept: ["item", "folder"],
+    collisionPriority: 4,
+    collisionDetector: pointerOnlyCollision,
+    data: {
+      kind: "folder-card-drop-target",
+      folderId: item.id,
+    },
+  });
+
   useEffect(() => {
-    const handleDragHover = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      const { folderId, isHovering, selectedCount: count } = customEvent.detail || {};
-      if (folderId === item.id) {
-        setIsDragHover(isHovering);
-        setSelectedCount(count ?? null);
-      } else {
-        setIsDragHover(false);
-        setSelectedCount(null);
+    if (!showDeleteDialog) {
+      setDeleteOption(null);
+    }
+  }, [showDeleteDialog]);
+
+  const isInteractiveTarget = useCallback((target: HTMLElement) => {
+    return Boolean(
+      target.closest("button") ||
+        target.closest("input") ||
+        target.closest("textarea") ||
+        target.closest("select") ||
+        target.closest("a") ||
+        target.closest("label") ||
+        target.closest('[role="menuitem"]') ||
+        target.closest('[data-slot="dropdown-menu-content"]') ||
+        target.closest('[data-slot="dropdown-menu-trigger"]') ||
+        target.closest('[data-slot="popover-content"]') ||
+        target.closest('[data-slot="popover"]') ||
+        target.closest('[data-slot="dialog-content"]') ||
+        target.closest('[data-slot="dialog-close"]') ||
+        target.closest('[data-slot="dialog-overlay"]'),
+    );
+  }, []);
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (isInteractiveTarget(target)) {
+        return;
       }
-    };
 
-    window.addEventListener('folder-drag-hover', handleDragHover);
-    return () => {
-      window.removeEventListener('folder-drag-hover', handleDragHover);
-    };
-  }, [item.id]);
+      const selection = window.getSelection();
+      if (selection && selection.toString().length > 0) {
+        return;
+      }
 
-  // Handle mouse down - track initial position for drag detection
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // Don't track if clicking on interactive elements
-    const target = e.target;
-    if (!(target instanceof HTMLElement)) return;
-    if (
-      target.closest('button') ||
-      target.closest('input') ||
-      target.closest('textarea') ||
-      target.closest('[role="menuitem"]')
-    ) {
-      return;
-    }
-    mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
-    hasMovedRef.current = false;
-  }, []);
+      if (e.shiftKey) {
+        e.stopPropagation();
+        onToggleSelection(item.id);
+        return;
+      }
 
-  // Handle mouse move - detect if user moved beyond threshold
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!mouseDownPosRef.current || hasMovedRef.current) return;
+      onOpenFolder(item.id);
+    },
+    [isInteractiveTarget, item.id, onOpenFolder, onToggleSelection],
+  );
 
-    const deltaX = Math.abs(e.clientX - mouseDownPosRef.current.x);
-    const deltaY = Math.abs(e.clientY - mouseDownPosRef.current.y);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLElement>) => {
+      if (e.key !== "Enter" && e.key !== " ") {
+        return;
+      }
 
-    if (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD) {
-      hasMovedRef.current = true;
-    }
-  }, []);
+      const target = e.target as HTMLElement;
+      if (isInteractiveTarget(target)) {
+        return;
+      }
 
-  // Handle click - only open folder if it wasn't a drag
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    // Don't open if clicking on interactive elements
-    const target = e.target;
-    if (!(target instanceof HTMLElement)) return;
-    if (
-      target.closest('button') ||
-      target.closest('[data-slot="dropdown-menu-content"]') ||
-      target.closest('[data-slot="dropdown-menu-trigger"]') ||
-      target.closest('[data-slot="dialog-content"]') ||
-      target.closest('[data-slot="dialog-close"]') ||
-      target.closest('[data-slot="dialog-overlay"]')
-    ) {
-      return;
-    }
+      e.preventDefault();
 
-    // Shift+click toggles folder selection
-    if (e.shiftKey) {
-      e.stopPropagation();
-      onToggleSelection(item.id);
-      return;
-    }
+      if (e.shiftKey) {
+        onToggleSelection(item.id);
+        return;
+      }
 
-    // Don't open if user was dragging or is editing title
-    if (hasMovedRef.current || isEditingTitle) {
-      hasMovedRef.current = false;
-      mouseDownPosRef.current = null;
-      return;
-    }
-
-    mouseDownPosRef.current = null;
-    onOpenFolder(item.id);
-  }, [item.id, onOpenFolder, onToggleSelection, isEditingTitle]);
+      onOpenFolder(item.id);
+    },
+    [isInteractiveTarget, item.id, onOpenFolder, onToggleSelection],
+  );
 
   const handleColorChange = useCallback(
     (color: ColorResult) => {
       onUpdateItem(item.id, { color: color.hex as CardColor });
-      setShowColorPicker(false);
+      setIsColorPickerOpen(false);
     },
-    [item.id, onUpdateItem]
+    [item.id, onUpdateItem, setIsColorPickerOpen],
   );
 
-  // Handlers for inline title editing (like WorkspaceCard)
-  const handleNameChange = useCallback((v: string) => {
-    onUpdateItem(item.id, { name: v });
-  }, [item.id, onUpdateItem]);
-
-  const handleNameCommit = useCallback((v: string) => {
-    onUpdateItem(item.id, { name: v });
-  }, [item.id, onUpdateItem]);
+  const handleRename = useCallback(
+    (newName: string) => {
+      onUpdateItem(item.id, { name: newName });
+      toast.success("Folder renamed");
+    },
+    [item.id, onUpdateItem],
+  );
 
   const handleDelete = useCallback(() => {
-    if (deleteOption === 'delete' && onDeleteFolderWithContents) {
+    if (deleteOption === "delete" && onDeleteFolderWithContents) {
       onDeleteFolderWithContents(item.id);
     } else {
       onDeleteItem(item.id);
     }
-    setShowDeleteConfirm(false);
+    setShowDeleteDialog(false);
     setDeleteOption(null);
-  }, [item.id, onDeleteItem, onDeleteFolderWithContents, deleteOption]);
+  }, [
+    deleteOption,
+    item.id,
+    onDeleteFolderWithContents,
+    onDeleteItem,
+    setShowDeleteDialog,
+  ]);
 
-  const handleRename = useCallback((newName: string) => {
-    onUpdateItem(item.id, { name: newName });
-    toast.success("Folder renamed");
-  }, [item.id, onUpdateItem]);
-
-  // Reset delete option when dialog closes
-  useEffect(() => {
-    if (!showDeleteConfirm) {
-      setDeleteOption(null);
-    }
-  }, [showDeleteConfirm]);
-
-  const { resolvedTheme } = useTheme();
-
-  // Calculate colors using the same utilities as WorkspaceCard
-  const bodyBgColor = getCardColorCSS(folderColor, 0.25); // Body is more transparent
-  const tabBgColor = getCardColorCSS(folderColor, 0.35); // Tab is slightly less transparent
-  const borderColor = isSelected ? 'rgba(255, 255, 255, 0.8)' : getCardAccentColor(folderColor, 0.5);
-  // Selection ring on outer wrapper (like normal cards) – avoids overflow-hidden clipping
-  // Light mode: match resize-handle style with layered dark shadow for visibility
-  const selectedRingStyle = isSelected
-    ? {
-        boxShadow: resolvedTheme === 'dark'
-          ? '0 0 0 3px rgba(255, 255, 255, 0.8)'
-          : '0 0 0 3px rgba(255, 255, 255, 0.8), 0 0 2px rgba(0, 0, 0, 0.9), 0 0 4px rgba(0, 0, 0, 0.8), 0 0 8px rgba(0, 0, 0, 0.6), 0 0 12px rgba(0, 0, 0, 0.4)',
-      }
+  const bodyBgColor = getCardColorCSS(folderColor, 0.25);
+  const tabBgColor = getCardColorCSS(folderColor, 0.35);
+  const borderColor = isSelected
+    ? "rgba(255, 255, 255, 0.8)"
+    : getCardAccentColor(folderColor, 0.5);
+  const folderTitle = item.name || "Folder";
+  const selectedOutlineWidth = isSelected ? "3px" : "1px";
+  const selectedFolderGlow = isSelected
+    ? resolvedTheme === "dark"
+      ? "0 0 10px rgba(255, 255, 255, 0.2)"
+      : "0 0 2px rgba(0, 0, 0, 0.7), 0 0 6px rgba(0, 0, 0, 0.35)"
     : undefined;
+  const itemCountLabel = `${itemCount} item${itemCount === 1 ? "" : "s"}`;
 
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
-          className={cn(
-            "group size-full rounded-md transition-[box-shadow] duration-150",
-            isDragHover && "border-4 border-blue-500 rounded-md scale-105 z-50"
-          )}
-          style={selectedRingStyle}
-          data-folder-id={item.id}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
+          ref={dropTargetRef as (element: HTMLDivElement | null) => void}
+          className="group flex size-full min-h-0 flex-col rounded-md transition-[box-shadow,transform] duration-150"
           onClick={handleClick}
+          onKeyDown={handleKeyDown}
+          role="button"
+          tabIndex={0}
         >
           <div
             id={`item-${item.id}`}
-            className="relative size-full cursor-pointer group/folder transition-all duration-200 overflow-hidden"
+            className="relative min-h-0 flex-1 cursor-pointer overflow-hidden transition-all duration-200"
           >
-            {/* Folder tab - top left, more transparent than body */}
             <div
-              className="absolute top-0 left-0 h-[10%] w-[35%] rounded-t-md border border-b-0"
+              className="absolute left-0 top-0 h-[10%] w-[35%] rounded-t-md border border-b-0"
               style={{
                 backgroundColor: tabBgColor,
-                borderColor: borderColor,
-                borderTopWidth: '1px',
-                borderLeftWidth: '1px',
-                borderRightWidth: '1px',
+                borderColor,
+                borderTopWidth: selectedOutlineWidth,
+                borderLeftWidth: selectedOutlineWidth,
+                borderRightWidth: selectedOutlineWidth,
                 borderBottomWidth: 0,
-                transition: 'border-color 150ms ease-out',
+                boxShadow: selectedFolderGlow,
+                transition: "border-color 150ms ease-out",
               }}
             />
 
-            {/* Main folder body - starts where tab ends, less transparent */}
             <div
-              className="absolute top-[10%] left-0 right-0 bottom-0 rounded-md rounded-tl-none border"
+              className="absolute bottom-0 left-0 right-0 top-[10%] rounded-md rounded-tl-none border"
               style={{
                 backgroundColor: bodyBgColor,
-                borderColor: borderColor,
-                borderWidth: '1px',
-                transition: 'border-color 150ms ease-out',
+                borderColor,
+                borderWidth: selectedOutlineWidth,
+                boxShadow: selectedFolderGlow,
+                transition: "border-color 150ms ease-out",
               }}
             />
 
-            {/* Selection Button */}
-            <button
-              type="button"
-              aria-label={isSelected ? 'Deselect folder' : 'Select folder'}
-              title={isSelected ? 'Deselect folder' : 'Select folder'}
-              className={`absolute right-12 top-3 inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 z-10 cursor-pointer ${isEditingTitle ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover/folder:opacity-100'}`}
-              style={{
-                backgroundColor: isSelected ? 'rgba(239, 68, 68, 0.3)' : 'rgba(255, 255, 255, 0.1)',
-                backdropFilter: 'blur(8px)'
-              }}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.backgroundColor = isSelected ? 'rgba(239, 68, 68, 0.5)' : 'rgba(0, 0, 0, 0.5)';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.backgroundColor = isSelected ? 'rgba(239, 68, 68, 0.3)' : 'rgba(255, 255, 255, 0.1)';
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleSelection(item.id);
-              }}
-            >
-              {isSelected ? (
-                <X className="h-4 w-4" />
-              ) : (
-                <CheckCircle2 className="h-4 w-4" />
+            <div
+              className={cn(
+                "pointer-events-none absolute bottom-0 left-0 right-0 top-[10%] rounded-md rounded-tl-none transition-colors duration-200",
+                isItemDropTarget ? "opacity-0" : "bg-white/0 group-hover:bg-white/5",
               )}
-            </button>
+            />
 
-            {/* Options Menu */}
-            <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
-              <DropdownMenuTrigger asChild className="cursor-pointer">
-                <button
-                  type="button"
-                  aria-label="Folder settings"
-                  title="Folder settings"
-                  className={`absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-xl text-white/90 hover:text-white hover:scale-110 hover:shadow-lg transition-all duration-200 z-10 cursor-pointer ${isEditingTitle ? 'opacity-0 pointer-events-none' : (isDropdownOpen ? 'opacity-100' : 'opacity-0 group-hover/folder:opacity-100')}`}
-                  style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    backdropFilter: 'blur(8px)'
-                  }}
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowRenameDialog(true);
-                  }}
-                >
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Rename
-                </DropdownMenuItem>
-                {onMoveItem && (
-                  <>
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowMoveDialog(true);
-                      }}
-                    >
-                      <FolderInput className="mr-2 h-4 w-4" />
-                      Move to
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowColorPicker(true);
-                  }}
-                >
-                  <Palette className="mr-2 h-4 w-4" />
-                  Change Color
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowDeleteConfirm(true);
-                  }}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Folder
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {isItemDropTarget ? (
+              <div className="pointer-events-none absolute inset-0 z-10 rounded-md ring-1 ring-inset ring-blue-500/45 bg-blue-500/12 dark:ring-blue-400/55 dark:bg-blue-400/15" />
+            ) : null}
 
-            {/* Content container */}
-            <div className="relative h-full flex flex-col p-4 pt-[14%]">
-
-              {/* Editable title - like WorkspaceCard */}
-              <div className="flex-1 flex flex-col justify-center overflow-visible min-h-0">
-                <ItemHeader
-                  id={item.id}
-                  name={item.name}
-                  subtitle=""
-                  description=""
-                  onNameChange={handleNameChange}
-                  onNameCommit={handleNameCommit}
-                  onSubtitleChange={() => { }}
-                  onTitleFocus={() => setIsEditingTitle(true)}
-                  onTitleBlur={() => setIsEditingTitle(false)}
-                  readOnly={false}
-                  noMargin={true}
-                />
-                {/* Item count as subtext */}
-                <p className="text-sm text-muted-foreground mt-1">
-                  {itemCount} {itemCount === 1 ? "item" : "items"}
-                </p>
-              </div>
+            <div
+              className="absolute right-3 top-3 z-20"
+            >
+              <WorkspaceCardControls
+                isSelected={isSelected}
+                canMove={Boolean(onMoveItem)}
+                selectionLabel="folder"
+                settingsLabel="Folder settings"
+                onToggleSelection={() => onToggleSelection(item.id)}
+                onOpenRename={openRenameDialog}
+                onOpenMove={openMoveDialog}
+                onOpenColorPicker={openColorPicker}
+                onDelete={openDeleteDialog}
+              />
             </div>
 
-            {/* Hover overlay - covers the main body area */}
-            <div className="absolute top-[10%] left-0 right-0 bottom-0 rounded-md rounded-tl-none bg-white/0 group-hover/folder:bg-white/5 transition-colors duration-200 pointer-events-none" />
-
-            {/* Drag hover overlay - shows when item is dragged over folder */}
-            {isDragHover && (
-              <div className="absolute inset-0 bg-blue-500/30 rounded-md flex items-center justify-center z-50 pointer-events-none">
-                <div className="bg-blue-600/90 text-white px-4 py-2 rounded-lg shadow-lg font-semibold text-sm animate-pulse">
-                  Move items here ({(selectedCount ?? 1)} {(selectedCount ?? 1) === 1 ? 'item' : 'items'})
+            <div className="absolute inset-x-4 bottom-4 top-[14%] z-10 flex items-center">
+              <div className="w-full">
+                <div
+                  className="inline-block max-w-full truncate cursor-text text-left text-base font-medium leading-snug text-foreground underline-offset-2 hover:underline"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openRenameDialog();
+                  }}
+                >
+                  {folderTitle}
+                </div>
+                <div className="truncate text-left text-sm text-muted-foreground">
+                  {itemCountLabel}
                 </div>
               </div>
-            )}
+            </div>
           </div>
 
-
-          {/* Color Picker Dialog - same styling as WorkspaceCard */}
-          <Dialog open={showColorPicker} onOpenChange={setShowColorPicker}>
-            <DialogContent
-              className="w-auto max-w-fit p-6"
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <DialogHeader>
-                <DialogTitle>Choose Folder Color</DialogTitle>
-              </DialogHeader>
-              <div
-                className="flex justify-center color-picker-wrapper"
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                <SwatchesPicker
-                  color={folderColor}
-                  onChange={handleColorChange}
-                  colors={SWATCHES_COLOR_GROUPS}
-                />
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          {/* Delete Confirmation Dialog */}
-          <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-            <AlertDialogContent
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Folder</AlertDialogTitle>
-                <AlertDialogDescription asChild>
-                  <div className="space-y-4">
-                    <div>
-                      Choose what happens to the {itemCount} {itemCount === 1 ? 'item' : 'items'} in &quot;{item.name}&quot;:
-                    </div>
-                    <div className="space-y-3 pt-2">
-                      <label className="flex items-start space-x-3 cursor-pointer group">
-                        <input
-                          type="radio"
-                          name="deleteOption"
-                          value="keep"
-                          checked={deleteOption === 'keep'}
-                          onChange={() => setDeleteOption('keep')}
-                          className="mt-1 h-4 w-4 text-primary focus:ring-primary border-gray-300"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <div className="flex-1">
-                          <div className="font-medium text-sm">Keep items</div>
-                          <div className="text-xs text-muted-foreground">
-                            Move items out of folder before deleting
-                          </div>
-                        </div>
-                      </label>
-                      <label className={`flex items-start space-x-3 group ${onDeleteFolderWithContents ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
-                        <input
-                          type="radio"
-                          name="deleteOption"
-                          value="delete"
-                          checked={deleteOption === 'delete'}
-                          onChange={() => setDeleteOption('delete')}
-                          disabled={!onDeleteFolderWithContents}
-                          className="mt-1 h-4 w-4 text-destructive focus:ring-destructive border-gray-300 disabled:opacity-50"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <div className="flex-1">
-                          <div className="font-medium text-sm text-destructive">Delete items</div>
-                          <div className="text-xs text-muted-foreground">
-                            Delete folder and all {itemCount} {itemCount === 1 ? 'item' : 'items'} inside
-                          </div>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDeleteOption(null);
-                  }}
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
-                  Cancel
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete();
-                  }}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  disabled={deleteOption === null}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-
-          {/* Rename Dialog */}
-          <RenameDialog
-            open={showRenameDialog}
-            onOpenChange={setShowRenameDialog}
-            currentName={item.name}
-            itemType="folder"
+          <SharedCardDialogs
+            item={item}
+            allItems={allItems}
+            workspaceName={workspaceName}
+            workspaceIcon={workspaceIcon}
+            workspaceColor={workspaceColor}
+            isColorPickerOpen={isColorPickerOpen}
+            onColorPickerOpenChange={setIsColorPickerOpen}
+            showMoveDialog={showMoveDialog}
+            onMoveDialogChange={setShowMoveDialog}
+            showRenameDialog={showRenameDialog}
+            onRenameDialogChange={setShowRenameDialog}
+            onColorChange={handleColorChange}
             onRename={handleRename}
+            onMove={
+              onMoveItem
+                ? (folderId) => {
+                    onMoveItem(item.id, folderId);
+                    toast.success("Folder moved");
+                  }
+                : undefined
+            }
+            colorDialogTitle="Choose Folder Color"
           />
-
-          {/* Move to Dialog */}
-          {onMoveItem && (
-            <MoveToDialog
-              open={showMoveDialog}
-              onOpenChange={setShowMoveDialog}
-              item={item}
-              allItems={allItems}
-              workspaceName={workspaceName}
-              workspaceIcon={workspaceIcon}
-              workspaceColor={workspaceColor}
-              onMove={(folderId) => {
-                onMoveItem(item.id, folderId);
-                toast.success('Folder moved');
-              }}
-            />
-          )}
+          <FolderDeleteDialog
+            open={showDeleteDialog}
+            onOpenChange={setShowDeleteDialog}
+            itemName={item.name}
+            itemCount={itemCount}
+            canDeleteContents={Boolean(onDeleteFolderWithContents)}
+            deleteOption={deleteOption}
+            onDeleteOptionChange={setDeleteOption}
+            onConfirm={handleDelete}
+            onCancel={() => setDeleteOption(null)}
+          />
         </div>
       </ContextMenuTrigger>
 
-      {/* Right-Click Context Menu */}
       <ContextMenuContent className="w-48">
-        <ContextMenuItem onSelect={() => setShowRenameDialog(true)}>
-          <Pencil className="mr-2 h-4 w-4" />
-          <span>Rename</span>
-        </ContextMenuItem>
-        {onMoveItem && (
-          <>
-            <ContextMenuItem onSelect={() => setShowMoveDialog(true)}>
-              <FolderInput className="mr-2 h-4 w-4" />
-              <span>Move to</span>
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-          </>
-        )}
-        <ContextMenuItem onSelect={() => setShowColorPicker(true)}>
-          <Palette className="mr-2 h-4 w-4" />
-          <span>Change Color</span>
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem
-          onSelect={() => setShowDeleteConfirm(true)}
-          className="text-destructive focus:text-destructive"
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          <span>Delete Folder</span>
-        </ContextMenuItem>
+        <WorkspaceCardContextMenuItems
+          canMove={Boolean(onMoveItem)}
+          onOpenRename={openRenameDialog}
+          onOpenMove={openMoveDialog}
+          onOpenColorPicker={openColorPicker}
+          onDelete={openDeleteDialog}
+        />
       </ContextMenuContent>
-    </ContextMenu >
+    </ContextMenu>
   );
 }
 
 export const FolderCard = memo(FolderCardComponent);
-

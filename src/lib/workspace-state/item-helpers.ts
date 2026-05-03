@@ -1,4 +1,4 @@
-import type { CardType, ItemData, PdfData, FlashcardData, FolderData, YouTubeData, QuizData, ImageData, AudioData, WebsiteData, DocumentData } from "./types";
+import type { CardType, ItemData, PdfData, FlashcardData, FolderData, YouTubeData, QuizData, ImageData, AudioData, DocumentData } from "./types";
 
 export function generateItemId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -28,8 +28,6 @@ export function defaultDataFor(type: CardType): ItemData {
       return { fileUrl: "", filename: "", processingStatus: "uploading" } as AudioData;
     case "quiz":
       return { questions: [] } as QuizData;
-    case "website":
-      return { url: "" } as WebsiteData;
     case "document":
       return { markdown: "" } as DocumentData;
     default: {

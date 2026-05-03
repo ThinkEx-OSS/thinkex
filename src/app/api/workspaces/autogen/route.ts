@@ -2,17 +2,15 @@ import { NextRequest } from "next/server";
 import { streamText, generateText, Output } from "ai";
 import { z } from "zod";
 import { executeWebSearch } from "@/lib/ai/tools/web-search";
-import { randomUUID } from "crypto";
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { requireAuthWithUserInfo } from "@/lib/api/workspace-helpers";
 import { db, workspaces } from "@/lib/db/client";
 import { generateSlug } from "@/lib/workspace/slug";
 import { workspaceWorker, type CreateItemParams } from "@/lib/ai/workers";
 import { searchVideos } from "@/lib/youtube";
 import { FirecrawlClient } from "@/lib/ai/utils/firecrawl";
-import { findNextAvailablePosition } from "@/lib/workspace-state/grid-layout-helpers";
 import { generateItemId } from "@/lib/workspace-state/item-helpers";
-import type { Item, QuizQuestion } from "@/lib/workspace-state/types";
+import type { QuizQuestion } from "@/lib/workspace-state/types";
 import { quizQuestionInputSchema } from "@/lib/workspace-state/item-data-schemas";
 import { materializeQuizQuestion } from "@/lib/workspace-state/quiz-shuffle";
 import { CANVAS_CARD_COLORS } from "@/lib/workspace-state/colors";
@@ -45,14 +43,6 @@ function truncateForLog(s: string, max = LOG_TRUNCATE): string {
   return s.slice(0, max) + "...";
 }
 
-/** Layout positions for autogen items (matches desired workspace arrangement) */
-const AUTOGEN_LAYOUTS = {
-  youtube: { x: 0, y: 0, w: 2, h: 7 },
-  document: { x: 2, y: 0, w: 2, h: 9 },
-  quiz: { x: 0, y: 7, w: 2, h: 13 },
-  pdf: { w: 1, h: 4 },
-  image: { w: 2, h: 8 },
-} as const;
 
 type FileUrlItem = {
   url: string;
@@ -603,21 +593,6 @@ export async function POST(request: NextRequest) {
           workspaceId,
         });
 
-        // Create PDF and image items immediately so OCR can start (runs in parallel with Phase 1)
-        // Seed with known content-item positions so files are placed around them (matching pre-restructuring layout)
-        // Always reserve YouTube footprint so a later searched YouTube item (AUTOGEN_LAYOUTS.youtube) never overlaps early PDFs/images
-        const pdfItemLayouts: Pick<Item, "type" | "layout">[] = [
-          {
-            type: "document",
-            layout: AUTOGEN_LAYOUTS.document as Item["layout"],
-          },
-          { type: "quiz", layout: AUTOGEN_LAYOUTS.quiz as Item["layout"] },
-          {
-            type: "youtube",
-            layout: AUTOGEN_LAYOUTS.youtube as Item["layout"],
-          },
-        ];
-
         const documentAssets: UploadedAsset[] = documentFileUrls.map((pdf) =>
           createUploadedAsset({
             fileUrl: pdf.url,
@@ -637,15 +612,9 @@ export async function POST(request: NextRequest) {
           }),
         );
 
+        // Create PDF and image items immediately so OCR can start (runs in parallel with Phase 1)
         const pdfCreateParams: CreateItemParams[] = [];
         for (const asset of documentAssets) {
-          const position = findNextAvailablePosition(
-            pdfItemLayouts as Item[],
-            "pdf",
-            4,
-            AUTOGEN_LAYOUTS.pdf.w,
-            AUTOGEN_LAYOUTS.pdf.h,
-          );
           const pdfItemId = generateItemId();
           const itemDefinition = buildWorkspaceItemDefinitionFromAsset(asset);
           if (itemDefinition.type !== "pdf") continue;
@@ -654,20 +623,11 @@ export async function POST(request: NextRequest) {
             title: asset.name,
             itemType: "pdf",
             pdfData: itemDefinition.initialData as CreateItemParams["pdfData"],
-            layout: position,
           });
-          pdfItemLayouts.push({ type: "pdf", layout: position });
         }
 
         const imageCreateParams: CreateItemParams[] = [];
         for (const asset of imageAssets) {
-          const position = findNextAvailablePosition(
-            pdfItemLayouts as Item[],
-            "image",
-            4,
-            AUTOGEN_LAYOUTS.image.w,
-            AUTOGEN_LAYOUTS.image.h,
-          );
           const imgItemId = generateItemId();
           const itemDefinition = buildWorkspaceItemDefinitionFromAsset(asset);
           if (itemDefinition.type !== "image") continue;
@@ -677,9 +637,7 @@ export async function POST(request: NextRequest) {
             itemType: "image",
             imageData:
               itemDefinition.initialData as CreateItemParams["imageData"],
-            layout: position,
           });
-          pdfItemLayouts.push({ type: "image", layout: position });
         }
 
         const fileCreateParams = [...pdfCreateParams, ...imageCreateParams];
@@ -921,12 +879,10 @@ export async function POST(request: NextRequest) {
             document: {
               title: output.document.title,
               content: output.document.content,
-              layout: AUTOGEN_LAYOUTS.document,
             },
             quiz: {
               title: output.quiz.title,
               questions,
-              layout: AUTOGEN_LAYOUTS.quiz,
             },
           };
         };
@@ -945,7 +901,6 @@ export async function POST(request: NextRequest) {
                 return {
                   title: "YouTube Video",
                   url: youtubeUrlFromLinks,
-                  layout: AUTOGEN_LAYOUTS.youtube,
                 };
               }
               const videos = await searchVideos(youtubeSearchTerm, 3);
@@ -958,7 +913,6 @@ export async function POST(request: NextRequest) {
               return {
                 title: video.title,
                 url: video.url,
-                layout: AUTOGEN_LAYOUTS.youtube,
               };
             } catch (err) {
               logger.warn("[AUTOGEN] YouTube search failed", {
@@ -984,13 +938,11 @@ export async function POST(request: NextRequest) {
             title: generatedDocument.title,
             content: generatedDocument.content,
             itemType: "document",
-            layout: generatedDocument.layout,
           },
           {
             title: quizContent.title,
             itemType: "quiz",
             quizData: { questions: quizContent.questions },
-            layout: quizContent.layout,
           },
           ...(youtubeResult
             ? [
@@ -998,7 +950,6 @@ export async function POST(request: NextRequest) {
                   title: youtubeResult.title,
                   itemType: "youtube" as const,
                   youtubeData: { url: youtubeResult.url },
-                  layout: youtubeResult.layout,
                 },
               ]
             : []),

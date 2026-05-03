@@ -1,6 +1,6 @@
 "use client";
 
-import { File, FileText, Folder as FolderIcon, Globe, ImageIcon, Mic, Play, Brain } from "lucide-react";
+import { File, FileText, Folder as FolderIcon, ImageIcon, Mic, Play, Brain } from "lucide-react";
 import { PiCardsThreeBold } from "react-icons/pi";
 import type { CardType } from "@/lib/workspace-state/types";
 import { cn } from "@/lib/utils";
@@ -28,8 +28,6 @@ export function WorkspaceItemTypeIcon({ type, className }: WorkspaceItemTypeIcon
       return <ImageIcon className={cn("text-emerald-500", className)} />;
     case "audio":
       return <Mic className={cn("text-orange-400", className)} />;
-    case "website":
-      return <Globe className={cn("text-sky-400", className)} />;
     default:
       return <FileText className={cn("text-muted-foreground", className)} />;
   }

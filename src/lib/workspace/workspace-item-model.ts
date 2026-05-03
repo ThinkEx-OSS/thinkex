@@ -10,11 +10,13 @@ import type {
   PdfData,
   QuizData,
   QuizQuestion,
-  WebsiteData,
   YouTubeData,
 } from "@/lib/workspace-state/types";
 import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
-import { emptyDataForType, itemDataSchemas } from "./workspace-item-model-schemas";
+import {
+  emptyDataForType,
+  itemDataSchemas,
+} from "./workspace-item-model-schemas";
 import {
   getItemContentPreview,
   getItemSearchIndex,
@@ -100,6 +102,18 @@ export function rehydrateWorkspaceItemData(
           typeof assetData.filename === "string" ? assetData.filename : "",
         ...(typeof assetData.fileSize === "number"
           ? { fileSize: assetData.fileSize }
+          : {}),
+        ...(typeof assetData.thumbnailUrl === "string"
+          ? { thumbnailUrl: assetData.thumbnailUrl }
+          : {}),
+        ...(typeof assetData.thumbnailWidth === "number"
+          ? { thumbnailWidth: assetData.thumbnailWidth }
+          : {}),
+        ...(typeof assetData.thumbnailHeight === "number"
+          ? { thumbnailHeight: assetData.thumbnailHeight }
+          : {}),
+        ...(typeof assetData.thumbnailStatus === "string"
+          ? { thumbnailStatus: assetData.thumbnailStatus as PdfData["thumbnailStatus"] }
           : {}),
         ...(typeof shell.ocrStatus === "string"
           ? { ocrStatus: shell.ocrStatus as PdfData["ocrStatus"] }
@@ -213,18 +227,6 @@ export function rehydrateWorkspaceItemData(
       } satisfies YouTubeData;
       break;
     }
-    case "website": {
-      const embedData = isRecord(contentRecord.embedData)
-        ? contentRecord.embedData
-        : {};
-      merged = {
-        url: typeof embedData.url === "string" ? embedData.url : "",
-        ...(typeof embedData.favicon === "string"
-          ? { favicon: embedData.favicon }
-          : {}),
-      } satisfies WebsiteData;
-      break;
-    }
     case "folder": {
       merged = {};
       break;
@@ -279,6 +281,16 @@ export function splitWorkspaceItem(item: Item): WorkspaceItemSplitResult {
         fileUrl: data.fileUrl,
         filename: data.filename,
         ...(data.fileSize != null ? { fileSize: data.fileSize } : {}),
+        ...(data.thumbnailUrl != null ? { thumbnailUrl: data.thumbnailUrl } : {}),
+        ...(data.thumbnailWidth != null
+          ? { thumbnailWidth: data.thumbnailWidth }
+          : {}),
+        ...(data.thumbnailHeight != null
+          ? { thumbnailHeight: data.thumbnailHeight }
+          : {}),
+        ...(data.thumbnailStatus != null
+          ? { thumbnailStatus: data.thumbnailStatus }
+          : {}),
         ...(data.ocrError != null ? { ocrError: data.ocrError } : {}),
       };
       ocrStatus = data.ocrStatus ?? null;
@@ -342,14 +354,6 @@ export function splitWorkspaceItem(item: Item): WorkspaceItemSplitResult {
       };
       break;
     }
-    case "website": {
-      const data = normalized.data as WebsiteData;
-      content.embedData = {
-        url: data.url,
-        ...(data.favicon != null ? { favicon: data.favicon } : {}),
-      };
-      break;
-    }
     case "folder":
       break;
   }
@@ -381,6 +385,7 @@ export function splitWorkspaceItem(item: Item): WorkspaceItemSplitResult {
       subtitle: normalized.subtitle ?? "",
       color: normalized.color ?? null,
       folderId: normalized.folderId ?? null,
+      sortOrder: normalized.sortOrder ?? null,
       layout: normalized.layout ?? null,
       lastModified: normalized.lastModified ?? null,
       dataSchemaVersion: WORKSPACE_ITEM_DATA_SCHEMA_VERSION,
@@ -434,6 +439,7 @@ export function rehydrateWorkspaceItem(params: {
     | "subtitle"
     | "color"
     | "folderId"
+    | "sortOrder"
     | "layout"
     | "lastModified"
     | "ocrStatus"
@@ -460,6 +466,7 @@ export function rehydrateWorkspaceItem(params: {
     ),
     ...(shell.color ? { color: shell.color } : {}),
     ...(shell.folderId ? { folderId: shell.folderId } : {}),
+    ...(shell.sortOrder != null ? { sortOrder: shell.sortOrder } : {}),
     ...(shell.layout ? { layout: shell.layout } : {}),
     ...(shell.lastModified != null ? { lastModified: shell.lastModified } : {}),
   };

@@ -15,6 +15,29 @@ type WorkspaceItemQueryRow = WorkspaceItemsRow & {
     | WorkspaceItemContentRow;
 };
 
+function compareWorkspaceItemQueryRows(
+  a: WorkspaceItemQueryRow,
+  b: WorkspaceItemQueryRow,
+): number {
+  const sortOrderDiff =
+    (a.sortOrder ?? Number.MAX_SAFE_INTEGER) -
+    (b.sortOrder ?? Number.MAX_SAFE_INTEGER);
+
+  if (sortOrderDiff !== 0) {
+    return sortOrderDiff;
+  }
+
+  const createdAtDiff =
+    (a.createdAt ?? Number.MAX_SAFE_INTEGER) -
+    (b.createdAt ?? Number.MAX_SAFE_INTEGER);
+
+  if (createdAtDiff !== 0) {
+    return createdAtDiff;
+  }
+
+  return a.itemId.localeCompare(b.itemId);
+}
+
 const LOADING_TIMEOUT_MS = 8_000;
 
 export type WorkspaceStateStatus =
@@ -66,7 +89,7 @@ export function useWorkspaceState(
       return [];
     }
 
-    return rows.map((row) => {
+    return [...rows].sort(compareWorkspaceItemQueryRows).map((row) => {
       const contentRow = Array.isArray(row.workspaceItemContent)
         ? (row.workspaceItemContent[0] ?? null)
         : (row.workspaceItemContent ?? null);
@@ -79,6 +102,7 @@ export function useWorkspaceState(
           subtitle: row.subtitle,
           color: (row.color as Item["color"]) ?? null,
           folderId: row.folderId ?? null,
+          sortOrder: row.sortOrder ?? null,
           layout: (row.layout as Item["layout"]) ?? null,
           lastModified: row.lastModified ?? null,
           ocrStatus: row.ocrStatus ?? null,

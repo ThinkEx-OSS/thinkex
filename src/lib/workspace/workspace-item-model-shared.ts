@@ -11,7 +11,6 @@ import type {
   PdfData,
   QuizData,
   QuizQuestion,
-  WebsiteData,
   YouTubeData,
 } from "@/lib/workspace-state/types";
 import { itemCapabilities } from "./workspace-item-model-schemas";
@@ -161,11 +160,6 @@ function getItemSearchBody(item: Item): string {
         data.transcript,
         data.segments,
       );
-    }
-    case "website": {
-      const data = item.data as WebsiteData;
-      const domain = getDomain(data.url);
-      return [data.url, domain].filter(Boolean).join("\n");
     }
     case "youtube": {
       const data = item.data as YouTubeData;

@@ -17,6 +17,7 @@ export function buildPdfDataFromUpload(meta: UploadedPdfMeta): PdfData {
     fileUrl: meta.fileUrl,
     filename: meta.filename,
     fileSize: meta.fileSize,
+    thumbnailStatus: "pending",
     ocrStatus: "processing",
     ocrPages: [],
   };
@@ -31,5 +32,5 @@ export function getPdfSourceFilename(pdfData: PdfData | undefined | null): strin
 }
 
 export function getPdfPreviewUrl(pdfData: PdfData | undefined | null): string | undefined {
-  return pdfData?.fileUrl;
+  return pdfData?.thumbnailUrl || pdfData?.fileUrl;
 }

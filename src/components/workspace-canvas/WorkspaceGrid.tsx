@@ -1,626 +1,113 @@
-import { Responsive as ResponsiveGridLayout, type Layout, type LayoutItem, useContainerWidth } from "react-grid-layout";
-import { wrapCompactor, fastVerticalCompactor } from "react-grid-layout/extras";
-import { useFeatureFlagEnabled } from "posthog-js/react";
-import { useMemo, useCallback, useRef, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import React from "react";
+import { useDragDropMonitor, type DragEndEvent } from "@dnd-kit/react";
+import { isSortable } from "@dnd-kit/react/sortable";
 import type { Item } from "@/lib/workspace-state/types";
-import { itemsToLayout, generateMissingLayouts, updateItemsWithLayout } from "@/lib/workspace-state/grid-layout-helpers";
-import { isDescendantOf } from "@/lib/workspace-state/search";
 import { WorkspaceCard } from "./WorkspaceCard";
-import { FlashcardWorkspaceCard } from "./FlashcardWorkspaceCard";
 import { FolderCard } from "./FolderCard";
-import { useUIStore } from "@/lib/stores/ui-store";
-
-const GRID_BREAKPOINTS = { lg: 0 } as const;
-const GRID_COLS = { lg: 4 } as const;
-const GRID_MARGIN: [number, number] = [16, 16];
-const GRID_CONTAINER_PADDING: [number, number] = [16, 0];
-const GRID_RESIZE_HANDLES = [
-  "s",
-  "w",
-  "e",
-  "n",
-  "se",
-  "sw",
-  "ne",
-  "nw",
-] as Array<"s" | "w" | "e" | "n" | "se" | "sw" | "ne" | "nw">;
+import {
+  getWorkspaceSortableGroup,
+  type WorkspaceGridLane,
+  SortableWorkspaceGridItem,
+} from "./SortableWorkspaceGridItem";
+import {
+  resolveWorkspaceGridDragEnd,
+  type FolderCardDropTargetData,
+} from "./workspace-grid-dnd";
 
 interface WorkspaceGridProps {
-  items: Item[]; // Filtered items to display (includes folder-type items)
-  allItems: Item[]; // All items (unfiltered) for layout updates
-  isFiltered: boolean; // Whether currently in filtered mode
-  isTemporaryFilter?: boolean; // Whether in temporary filter mode (search) - prevents layout saves
-
-  onDragStart: () => void;
-  onDragStop: (layout: LayoutItem[]) => void;
+  folderItems: Item[];
+  contentItems: Item[];
+  allItems: Item[];
   onUpdateItem: (itemId: string, updates: Partial<Item>) => void;
   onDeleteItem: (itemId: string) => void;
-  onUpdateAllItems: (items: Item[]) => void;
   onOpenModal: (itemId: string) => void;
-  onGridDragStateChange?: (isDragging: boolean) => void;
   workspaceName: string;
   workspaceIcon?: string | null;
   workspaceColor?: string | null;
-  onMoveItem?: (itemId: string, folderId: string | null) => void; // Callback to move item to folder
-  onMoveItems?: (itemIds: string[], folderId: string | null) => void; // Callback to move multiple items to folder (bulk move)
-  onOpenFolder?: (folderId: string) => void; // Callback when folder is clicked
-  onDeleteFolderWithContents?: (folderId: string) => void; // Callback to delete folder and all items inside
+  onMoveItem?: (itemId: string, folderId: string | null) => void;
+  onOpenFolder?: (folderId: string) => void;
+  onDeleteFolderWithContents?: (folderId: string) => void;
+  onReorderItems?: (orderedItemIds: string[]) => void;
 }
 
-/**
- * Grid layout component that manages the positioning and layout of workspace cards.
- * Handles drag-and-drop, resizing, and layout recalculation.
- */
-function WorkspaceGridComponent({
-  items,
-  allItems,
-  isFiltered,
-  isTemporaryFilter = false,
+const GRID_ITEM_CLASS = "min-w-0 aspect-[4/3]";
 
-  onDragStart,
-  onDragStop,
+const GRID_COLUMNS_CLASS =
+  "grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-6";
+
+function WorkspaceGridComponent({
+  folderItems,
+  contentItems,
+  allItems,
   onUpdateItem,
   onDeleteItem,
-  onUpdateAllItems,
   onOpenModal,
-  onGridDragStateChange,
   workspaceName,
   workspaceIcon,
   workspaceColor,
   onMoveItem,
-  onMoveItems,
   onOpenFolder,
   onDeleteFolderWithContents,
+  onReorderItems,
 }: WorkspaceGridProps) {
-  const useWrapCompactor = useFeatureFlagEnabled("wrap-compactor");
-  const compactor = useWrapCompactor ? wrapCompactor : fastVerticalCompactor;
+  const [orderedFolderItems, setOrderedFolderItems] = useState(folderItems);
+  const [orderedContentItems, setOrderedContentItems] = useState(contentItems);
+  const dragSnapshotRef = useRef<{
+    folders: Item[];
+    items: Item[];
+  } | null>(null);
+  const isDraggingRef = useRef(false);
+  const currentContainerId =
+    folderItems[0]?.folderId ?? contentItems[0]?.folderId ?? null;
 
-  const layoutChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const hasUserInteractedRef = useRef<boolean>(false);
-  const draggedItemIdRef = useRef<string | null>(null);
-  const hoveredFolderIdRef = useRef<string | null | '__root__'>(null); // '__root__' is sentinel for root drop
-  const clearCardSelection = useUIStore((state) => state.clearCardSelection);
+  const handleUpdateItem = useCallback(
+    (itemId: string, updates: Partial<Item>) => {
+      onUpdateItem(itemId, updates);
+    },
+    [onUpdateItem],
+  );
 
-  // Use container width hook for v2 API
-  const { width, containerRef, mounted } = useContainerWidth();
+  const handleDeleteItem = useCallback(
+    (itemId: string) => {
+      onDeleteItem(itemId);
+    },
+    [onDeleteItem],
+  );
 
-  // Track post-mount state to enable transform transitions only after initial layout
-  const [hasMounted, setHasMounted] = useState(false);
+  const handleOpenModal = useCallback(
+    (itemId: string) => {
+      onOpenModal(itemId);
+    },
+    [onOpenModal],
+  );
+
+  const handleOpenFolder = useCallback(
+    (folderId: string) => {
+      onOpenFolder?.(folderId);
+    },
+    [onOpenFolder],
+  );
+
   useEffect(() => {
-    if (!mounted) return;
-    const raf = requestAnimationFrame(() => {
-      setHasMounted(true);
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [mounted]);
-
-  // OPTIMIZED: Store layout in ref to avoid including it in callback dependencies
-  // This prevents handleDragStop from changing when layout changes, which causes ReactGridLayout re-renders
-  const layoutRef = useRef<LayoutItem[]>([]);
-
-  // OPTIMIZED: Store allItems in ref to avoid callback dependencies
-  // This prevents callbacks from changing when these values change
-  const allItemsRef = useRef(allItems);
-
-  // Update refs whenever values change
-  React.useEffect(() => {
-    allItemsRef.current = allItems;
-  }, [allItems]);
-
-  // Generate layouts for items that don't have them.
-  const itemsWithLayout = useMemo(() => generateMissingLayouts(items, 4), [items]);
-
-  // Display all items (no longer hiding items when panels are open)
-  const displayItems = itemsWithLayout;
-
-
-  // Note: Standard react-grid-layout handles bounds automatically.
-  // Custom constraints (Youtube height, etc) are handled in onResize callback.
-
-  // Note: Layout is now computed in combinedLayout below to include folders
-
-  // Debounced handler for live updates during drag/resize
-  // NOTE: We disable this and only save on drag stop to prevent unnecessary saves on clicks
-  // react-grid-layout fires onLayoutChange even on simple clicks, causing unwanted updates
-  const handleLayoutChange = useCallback(() => {
-    // Cancel any pending timeouts - we only save on drag stop now
-    if (layoutChangeTimeoutRef.current) {
-      clearTimeout(layoutChangeTimeoutRef.current);
-      layoutChangeTimeoutRef.current = null;
-    }
-
-    // Don't save anything from onLayoutChange - handleDragStop handles all saves
-    // This prevents unwanted BULK-UPDATE events on simple clicks
-    return;
-  }, []);
-
-  // Handle drag start - with RGL v2, this only fires after 3px movement (real drag, not click)
-  const handleDragStart = useCallback((...args: [Layout, LayoutItem | null, LayoutItem | null, LayoutItem | null, Event, HTMLElement | null]) => {
-    const oldItem = args[1];
-    const e = args[4];
-    // Check if the click originated from a dropdown menu - if so, don't start drag
-    const target = e.target;
-    if (!(target instanceof HTMLElement)) return;
-    if (
-      target.closest('[data-slot="dropdown-menu-item"]') ||
-      target.closest('[data-slot="dropdown-menu-content"]') ||
-      target.closest('[data-slot="dropdown-menu-trigger"]') ||
-      target.closest('[role="menuitem"]')
-    ) {
-      // Prevent drag by not setting draggedItemIdRef
+    if (isDraggingRef.current) {
       return;
     }
 
-    // Extract item ID from the element
-    if (!oldItem) return; // Safety check for null oldItem
-    const itemId = oldItem.i;
-    draggedItemIdRef.current = itemId;
-    hoveredFolderIdRef.current = null; // Reset hover state
+    setOrderedFolderItems(folderItems);
+  }, [folderItems]);
 
-    hasUserInteractedRef.current = true;
-    onDragStart();
-    onGridDragStateChange?.(true);
-  }, [onDragStart, onGridDragStateChange]);
-
-  // Handle drag to detect folder hover based on cursor position
-  const handleDrag = useCallback((...args: [Layout, LayoutItem | null, LayoutItem | null, LayoutItem | null, Event, HTMLElement | null]) => {
-    const e = args[4];
-    const draggedItemId = draggedItemIdRef.current;
-    if (!draggedItemId || !e) return;
-
-
-
-    const draggedItem = allItemsRef.current.find(i => i.id === draggedItemId);
-    if (!draggedItem) {
-      if (hoveredFolderIdRef.current !== null) {
-        hoveredFolderIdRef.current = null;
-        window.dispatchEvent(new CustomEvent('folder-drag-hover', {
-          detail: { folderId: null, isHovering: false }
-        }));
-      }
+  useEffect(() => {
+    if (isDraggingRef.current) {
       return;
     }
 
-    // Cast Event to MouseEvent to access clientX/clientY
-    const mouseEvent = e as MouseEvent;
-    const cursorX = mouseEvent.clientX;
-    const cursorY = mouseEvent.clientY;
+    setOrderedContentItems(contentItems);
+  }, [contentItems]);
 
-    // Find all folder cards and check if cursor is within any folder's bounding box
-    // Use elementFromPoint first for more accurate detection, then fallback to bounding box
-    let hoveredFolder: string | null = null;
-
-    // First, try elementFromPoint for more accurate detection
-    const elementAtPoint = document.elementFromPoint(cursorX, cursorY);
-    if (elementAtPoint) {
-      // Check if the element or its parents have data-folder-id
-      const folderElement = elementAtPoint.closest('[data-folder-id]');
-      if (folderElement) {
-        const folderId = folderElement.getAttribute('data-folder-id');
-        if (folderId && folderId !== draggedItemId) {
-          const folderItem = allItemsRef.current.find(i => i.id === folderId && i.type === 'folder');
-          if (folderItem) {
-            hoveredFolder = folderId;
-          }
-        }
-      }
-    }
-
-    // Fallback to bounding box check if elementFromPoint didn't find anything
-    if (!hoveredFolder) {
-      // Get all folder items from all items
-      const folderItems = allItemsRef.current.filter(item => item.type === 'folder');
-
-      // Check each folder card's bounding box
-      for (const folderItem of folderItems) {
-        // Skip if this is the folder being dragged
-        if (folderItem.id === draggedItemId) continue;
-
-        // Find the folder card element by its ID
-        const folderCardElement = document.querySelector(`[data-folder-id="${folderItem.id}"]`) as HTMLElement;
-        if (!folderCardElement) continue;
-
-        // Get bounding box of the folder card
-        const rect = folderCardElement.getBoundingClientRect();
-
-        // Check if cursor is within the folder card's bounds
-        if (
-          cursorX >= rect.left &&
-          cursorX <= rect.right &&
-          cursorY >= rect.top &&
-          cursorY <= rect.bottom
-        ) {
-          // Validate before setting - check if already in this folder
-          if (draggedItem.folderId !== folderItem.id) {
-            hoveredFolder = folderItem.id;
-            break;
-          }
-        }
-      }
-    }
-
-    // Check breadcrumb elements if no folder card is hovered
-    if (!hoveredFolder) {
-      // Find all breadcrumb target elements
-      const breadcrumbTargets = document.querySelectorAll('[data-breadcrumb-target]');
-
-      for (const target of breadcrumbTargets) {
-        // Skip if element is not visible
-        const rect = target.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) continue;
-
-        // Check if cursor is within the breadcrumb element's bounds
-        if (
-          cursorX >= rect.left &&
-          cursorX <= rect.right &&
-          cursorY >= rect.top &&
-          cursorY <= rect.bottom
-        ) {
-          const targetType = target.getAttribute('data-breadcrumb-target');
-
-          if (targetType === 'root') {
-            // Workspace root drop - only valid if dragged item is in a folder
-            if (draggedItem.folderId) {
-              hoveredFolder = '__root__'; // Special value for root
-              break;
-            }
-          } else if (targetType === 'folder') {
-            const folderId = target.getAttribute('data-folder-id');
-            if (folderId) {
-              // Validate the drop target
-              let isValidTarget = true;
-
-              // Check if dragging folder onto itself
-              if (draggedItemId === folderId) {
-                isValidTarget = false;
-              } else if (draggedItem.type === 'folder') {
-                // Check for circular references
-                if (isDescendantOf(folderId, draggedItemId, allItemsRef.current)) {
-                  isValidTarget = false;
-                }
-              }
-
-              // Check if already in target folder
-              if (draggedItem.folderId === folderId) {
-                isValidTarget = false;
-              }
-
-              if (isValidTarget) {
-                hoveredFolder = folderId;
-                break;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // If dragging a folder onto another folder, check for circular references
-    // (This check is already done in breadcrumb validation, but needed here for folder cards)
-    if (draggedItem.type === 'folder' && hoveredFolder && hoveredFolder !== '__root__') {
-      // Prevent dropping folder onto itself
-      if (draggedItemId === hoveredFolder) {
-        hoveredFolder = null;
-      } else {
-        // Prevent dropping folder onto its descendant
-        if (isDescendantOf(hoveredFolder, draggedItemId, allItemsRef.current)) {
-          hoveredFolder = null;
-        }
-      }
-    }
-
-    // Check if already in target location (for both folder cards and breadcrumbs)
-    if (hoveredFolder && hoveredFolder !== '__root__') {
-      if (draggedItem.folderId === hoveredFolder) {
-        hoveredFolder = null;
-      }
-    } else if (hoveredFolder === '__root__') {
-      // For root drops, only valid if item is currently in a folder
-      if (!draggedItem.folderId) {
-        hoveredFolder = null;
-      }
-    }
-
-    // Calculate selected count - if dragged card is selected, count all selected, otherwise just 1
-    const selectedCardIds = useUIStore.getState().selectedCardIds;
-    const isDraggedCardSelected = selectedCardIds.has(draggedItemId);
-    const selectedCount = isDraggedCardSelected ? selectedCardIds.size : 1;
-
-    // Update hover state if changed
-    if (hoveredFolder !== hoveredFolderIdRef.current) {
-      hoveredFolderIdRef.current = hoveredFolder;
-      // Convert '__root__' sentinel to null for event (header expects null for root)
-      const eventFolderId = hoveredFolder === '__root__' ? null : hoveredFolder;
-      window.dispatchEvent(new CustomEvent('folder-drag-hover', {
-        detail: { folderId: eventFolderId, isHovering: hoveredFolder !== null, selectedCount }
-      }));
-    } else if (hoveredFolder !== null) {
-      // Even if folder hasn't changed, update selected count in case selection changed during drag
-      // Convert '__root__' sentinel to null for event (header expects null for root)
-      const eventFolderId = hoveredFolder === '__root__' ? null : hoveredFolder;
-      window.dispatchEvent(new CustomEvent('folder-drag-hover', {
-        detail: { folderId: eventFolderId, isHovering: true, selectedCount }
-      }));
-    }
-  }, []);
-
-  // Handle resize start - track which item is being resized
-  const handleResizeStart = useCallback((...args: [Layout, LayoutItem | null, LayoutItem | null, LayoutItem | null, Event, HTMLElement | null]) => {
-    const oldItem = args[1];
-    hasUserInteractedRef.current = true;
-    // Track which item is being resized (same as drag)
-    if (!oldItem) return;
-    draggedItemIdRef.current = oldItem.i;
-    // Enable autoscroll during resize to help with grid expansion
-    onDragStart();
-    onGridDragStateChange?.(true);
-  }, [onDragStart, onGridDragStateChange]);
-
-  // Handle drag stop - with RGL v2, this only fires for actual drags (not clicks)
-  // Click handling is now done by individual card components via their onClick handlers
-  const handleDragStop = useCallback((...args: [Layout, LayoutItem | null, LayoutItem | null, LayoutItem | null, Event, HTMLElement | null]) => {
-    const newLayout = args[0];
-    const draggedItemId = draggedItemIdRef.current;
-
-    // If no drag was started (e.g., click on dropdown), exit early
-    if (!draggedItemId) {
-      onDragStop([]);
-      onGridDragStateChange?.(false);
-      return;
-    }
-
-    // Find the item
-    // Cancel any pending debounced update
-    if (layoutChangeTimeoutRef.current) {
-      clearTimeout(layoutChangeTimeoutRef.current);
-    }
-
-    // Always call onDragStop to reset auto-scroll state
-    onDragStop(newLayout.length > 0 && !isFiltered ? [...newLayout] : []);
-
-    // Don't save layout if in temporary filter mode (search)
-    if (isTemporaryFilter) {
-      hoveredFolderIdRef.current = null;
-      draggedItemIdRef.current = null;
-      onGridDragStateChange?.(false);
-      return;
-    }
-
-    // Handle folder drop - if dropping on a folder or root, move the item (works for both items and folders)
-    const hoveredFolderId = hoveredFolderIdRef.current;
-    if (hoveredFolderId !== null && draggedItemId) {
-      // Check if dragged card is part of selection
-      const selectedCardIds = useUIStore.getState().selectedCardIds;
-      const isDraggedCardSelected = selectedCardIds.has(draggedItemId);
-      const cardsToMove = isDraggedCardSelected
-        ? Array.from(selectedCardIds)
-        : [draggedItemId];
-
-      // Convert '__root__' sentinel to null for root drops
-      const targetFolderId = hoveredFolderId === '__root__' ? null : hoveredFolderId;
-
-      // Filter out invalid moves (already in folder, circular references, etc.)
-      const validCardsToMove: string[] = [];
-      for (const cardId of cardsToMove) {
-        const card = allItemsRef.current.find(i => i.id === cardId);
-        if (!card) continue;
-
-        // Skip if already in target location
-        if (card.folderId === targetFolderId) continue;
-
-        // For root drops, only valid if item is currently in a folder
-        if (targetFolderId === null && !card.folderId) {
-          continue; // Already at root
-        }
-
-        // Check circular references for folders
-        if (card.type === 'folder' && targetFolderId !== null) {
-          if (cardId === targetFolderId ||
-            isDescendantOf(targetFolderId, cardId, allItemsRef.current)) {
-            continue; // Skip invalid moves
-          }
-        }
-
-        validCardsToMove.push(cardId);
-      }
-
-      // Use bulk move if multiple cards, otherwise use single move
-      // Only proceed if we have at least one move handler
-      if (validCardsToMove.length > 0 && (onMoveItem || onMoveItems)) {
-        // Hide the card elements to prevent React Grid Layout from animating them back
-        // Only hide if we're actually going to move them (handlers exist)
-        for (const cardId of validCardsToMove) {
-          const cardElement = document.querySelector(`[id="item-${cardId}"]`)?.closest('.react-grid-item');
-          if (cardElement instanceof HTMLElement) {
-            cardElement.style.display = 'none';
-            cardElement.style.visibility = 'hidden';
-            cardElement.style.opacity = '0';
-            cardElement.style.pointerEvents = 'none';
-          }
-        }
-
-        if (validCardsToMove.length === 1 && onMoveItem) {
-          // Single item move
-          onMoveItem(validCardsToMove[0], targetFolderId);
-        } else if (validCardsToMove.length > 1 && onMoveItems) {
-          // Bulk move
-          onMoveItems(validCardsToMove, targetFolderId);
-        } else if (onMoveItem) {
-          // Fallback to single move if bulk not available
-          validCardsToMove.forEach(cardId => onMoveItem(cardId, targetFolderId));
-        }
-
-        // Clear selection after successful move (only if we moved selected cards)
-        if (isDraggedCardSelected) {
-          clearCardSelection();
-        }
-      }
-
-      // Clear state and exit
-      hoveredFolderIdRef.current = null;
-      window.dispatchEvent(new CustomEvent('folder-drag-hover', {
-        detail: { folderId: null, isHovering: false }
-      }));
-      draggedItemIdRef.current = null;
-      onGridDragStateChange?.(false);
-      return;
-    }
-
-    // Check if layout actually changed (position or size)
-    let layoutChanged = false;
-    const newItemLayout = newLayout.find(l => l.i === draggedItemId);
-    const currentItemLayout = layoutRef.current.find(l => l.i === draggedItemId);
-
-    if (newItemLayout && currentItemLayout) {
-      layoutChanged =
-        newItemLayout.x !== currentItemLayout.x ||
-        newItemLayout.y !== currentItemLayout.y ||
-        newItemLayout.w !== currentItemLayout.w ||
-        newItemLayout.h !== currentItemLayout.h;
-    }
-
-    if (layoutChanged) {
-      const updatedItems = updateItemsWithLayout(allItemsRef.current, [...newLayout]);
-      onUpdateAllItems(updatedItems);
-    }
-
-    // Clear hover state
-    if (hoveredFolderIdRef.current !== null) {
-      hoveredFolderIdRef.current = null;
-      window.dispatchEvent(new CustomEvent('folder-drag-hover', {
-        detail: { folderId: null, isHovering: false }
-      }));
-    }
-
-    // Clear the dragged item reference
-    draggedItemIdRef.current = null;
-    onGridDragStateChange?.(false);
-  }, [clearCardSelection, onDragStop, isFiltered, isTemporaryFilter, onGridDragStateChange, onUpdateAllItems, onMoveItem, onMoveItems]);
-
-  // Handle resize to enforce constraints
-  // Note cards can transition between compact (w=1, h=4) and expanded (w>=2, h>=9) modes
-  // based on EITHER width or height changes, allowing vertical-only resizing to trigger mode switches
-  const handleResize = useCallback((...args: [Layout, LayoutItem | null, LayoutItem | null, LayoutItem | null, Event, HTMLElement | null]) => {
-    const oldItem = args[1];
-    const newItem = args[2];
-    const placeholder = args[3];
-    // Normal workspace mode: enforce custom constraints
-    if (!newItem || !oldItem) return;
-    const itemData = allItemsRef.current.find(i => i.id === newItem.i);
-
-    if (itemData) {
-      if (itemData.type === 'image') {
-        // No aspect ratio snapping - free resize within min/max bounds
-      } else if (itemData.type === 'youtube') {
-        // At w=1: force h=4 (matches compact document/PDF cards). At w=2: force h=7
-        if (newItem.w === 1) {
-          newItem.h = 4;
-        } else {
-          newItem.h = 7;
-        }
-      } else if (itemData.type === 'folder' || itemData.type === 'flashcard') {
-        // Folders and flashcards don't need minimum height enforcement - skip
-      } else if (itemData.type === 'document' || itemData.type === 'pdf' || itemData.type === 'quiz' || itemData.type === 'audio') {
-        // Note, Document, PDF, Quiz, and Audio (recording) cards: handle transitions between compact and expanded modes
-        // Note/Document/Audio cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=9
-        // PDF cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=6
-        // Quiz cards: Compact mode: w=1, h=4 | Expanded mode: w>=2, h>=13
-        const wasCompact = oldItem.w === 1;
-        const widthChanged = oldItem.w !== newItem.w;
-        const minExpandedHeight = itemData.type === 'pdf' ? 6 : itemData.type === 'quiz' ? 13 : 9;
-
-        // Check for mode transitions triggered by height-only resize
-        if (!widthChanged) {
-          if (wasCompact && newItem.h > 4) {
-            // Growing a compact card taller → expand to wide mode
-            newItem.w = 2;
-          } else if (!wasCompact && newItem.h < minExpandedHeight) {
-            // Shrinking a wide card shorter → collapse to compact mode
-            newItem.w = 1;
-          }
-        }
-
-        // Apply constraints based on final width
-        if (newItem.w >= 2) {
-          newItem.h = Math.max(newItem.h, minExpandedHeight);
-        } else {
-          newItem.h = 4;
-        }
-      }
-
-      // Sync placeholder if it exists
-      if (placeholder) {
-        placeholder.w = newItem.w;
-        placeholder.h = newItem.h;
-      }
-
-      // Clamp position to prevent off-screen glitches when resizing from left/west or top/north handles.
-      // react-grid-layout can set negative x/y when dragging those edges; we clamp to grid bounds.
-      newItem.x = Math.max(0, Math.min(4 - newItem.w, newItem.x));
-      newItem.y = Math.max(0, newItem.y);
-      if (placeholder) {
-        placeholder.x = newItem.x;
-        placeholder.y = newItem.y;
-      }
-    }
-  }, []);
-
-  // Handle resize stop - save immediately
-  const handleResizeStop = useCallback((newLayout: Layout) => {
-    // Cancel any pending debounced update
-    if (layoutChangeTimeoutRef.current) {
-      clearTimeout(layoutChangeTimeoutRef.current);
-    }
-
-    // Note: resize doesn't use autoscroll, but we call onDragStop anyway as a safety measure
-    // in case there's any edge case where drag state got stuck
-    onDragStop([]);
-
-    // Don't save if in temporary filter mode (search), but folder views should save
-    if (isTemporaryFilter) {
-      onGridDragStateChange?.(false);
-      draggedItemIdRef.current = null;
-      return;
-    }
-
-    // For resize, we always save since resize always changes layout
-    // Folders are now items with type: 'folder', so they're included in updateItemsWithLayout
-
-    const updatedItems = updateItemsWithLayout(allItemsRef.current, [...newLayout]);
-    onUpdateAllItems(updatedItems);
-
-    draggedItemIdRef.current = null;
-    onGridDragStateChange?.(false);
-  }, [isTemporaryFilter, onUpdateAllItems, onGridDragStateChange, onDragStop]);
-
-
-  // Handle item updates - no automatic height recalculation
-  // Height calculations are only used during initial card placement
-  // Users can manually resize cards as needed
-  // OPTIMIZED: Wrap parent callback to ensure stable reference
-  const handleUpdateItem = useCallback((itemId: string, updates: Partial<Item>) => {
-    onUpdateItem(itemId, updates);
-  }, [onUpdateItem]);
-
-  // OPTIMIZED: Wrap all callbacks to ensure stable references
-  const handleDeleteItem = useCallback((itemId: string) => {
-    onDeleteItem(itemId);
-  }, [onDeleteItem]);
-
-  const handleOpenModal = useCallback((itemId: string) => {
-    onOpenModal(itemId);
-  }, [onOpenModal]);
-
-  // Folder operation handler (folders are now items with type: 'folder')
-  const handleOpenFolder = useCallback((folderId: string) => {
-    onOpenFolder?.(folderId);
-  }, [onOpenFolder]);
-
-  // Create a map of folder item counts (for folder-type items)
   const folderItemCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    allItems.forEach(item => {
+    allItems.forEach((item) => {
       if (item.folderId) {
         counts.set(item.folderId, (counts.get(item.folderId) || 0) + 1);
       }
@@ -628,20 +115,99 @@ function WorkspaceGridComponent({
     return counts;
   }, [allItems]);
 
-  // Layout for all items (including folder-type items)
-  const combinedLayout = useMemo(() => {
-    return itemsToLayout(displayItems);
-  }, [displayItems]);
+  const commitLaneOrder = useCallback(
+    (lane: WorkspaceGridLane, nextItems: Item[]) => {
+      if (lane === "folders") {
+        setOrderedFolderItems(nextItems);
+      } else {
+        setOrderedContentItems(nextItems);
+      }
 
-  useEffect(() => {
-    layoutRef.current = combinedLayout;
-  }, [combinedLayout]);
+      onReorderItems?.(nextItems.map((item) => item.id));
+    },
+    [onReorderItems],
+  );
 
-  // Memoize children to take advantage of ResponsiveGridLayout's shouldComponentUpdate optimization
-  const children = useMemo(() => {
-    return displayItems.map((item) => (
-      <div key={item.id}>
-        {item.type === 'folder' ? (
+  const handleDragStart = useCallback(() => {
+    isDraggingRef.current = true;
+    dragSnapshotRef.current = {
+      folders: orderedFolderItems,
+      items: orderedContentItems,
+    };
+  }, [orderedContentItems, orderedFolderItems]);
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const snapshot = dragSnapshotRef.current;
+      isDraggingRef.current = false;
+      dragSnapshotRef.current = null;
+
+      if (!snapshot) {
+        return;
+      }
+
+      if (event.canceled) {
+        setOrderedFolderItems(snapshot.folders);
+        setOrderedContentItems(snapshot.items);
+        return;
+      }
+
+      const { source } = event.operation;
+
+      if (!isSortable(source)) {
+        setOrderedFolderItems(snapshot.folders);
+        setOrderedContentItems(snapshot.items);
+        return;
+      }
+
+      const resolution = resolveWorkspaceGridDragEnd({
+        snapshot,
+        source,
+        targetData: event.operation.target?.data as
+          | FolderCardDropTargetData
+          | undefined,
+      });
+
+      if (resolution.kind === "reset") {
+        setOrderedFolderItems(snapshot.folders);
+        setOrderedContentItems(snapshot.items);
+        return;
+      }
+
+      if (resolution.kind === "move-to-folder") {
+        if (!onMoveItem) {
+          setOrderedFolderItems(snapshot.folders);
+          setOrderedContentItems(snapshot.items);
+          return;
+        }
+
+        if (resolution.sourceLane === "folders") {
+          setOrderedFolderItems(resolution.nextItems);
+          setOrderedContentItems(snapshot.items);
+        } else {
+          setOrderedFolderItems(snapshot.folders);
+          setOrderedContentItems(resolution.nextItems);
+        }
+        onMoveItem(resolution.itemId, resolution.folderId);
+        return;
+      }
+
+      commitLaneOrder(resolution.lane, resolution.nextItems);
+    },
+    [commitLaneOrder, onMoveItem],
+  );
+
+  const folderChildren = useMemo(() => {
+    return orderedFolderItems.map((item, index) => (
+      <SortableWorkspaceGridItem
+        key={item.id}
+        item={item}
+        index={index}
+        lane="folders"
+        containerId={currentContainerId}
+        className={GRID_ITEM_CLASS}
+      >
+        {() => (
           <FolderCard
             item={item}
             itemCount={folderItemCounts.get(item.id) || 0}
@@ -654,102 +220,97 @@ function WorkspaceGridComponent({
             onDeleteItem={handleDeleteItem}
             onDeleteFolderWithContents={onDeleteFolderWithContents}
             onMoveItem={onMoveItem}
-          />
-        ) : item.type === 'flashcard' ? (
-          <FlashcardWorkspaceCard
-            item={item}
-            allItems={allItems}
-            workspaceName={workspaceName}
-            workspaceIcon={workspaceIcon}
-            workspaceColor={workspaceColor}
-            onUpdateItem={handleUpdateItem}
-            onDeleteItem={handleDeleteItem}
-            onOpenModal={handleOpenModal}
-            onMoveItem={onMoveItem}
-          />
-        ) : (
-          <WorkspaceCard
-            item={item}
-            allItems={allItems}
-            workspaceName={workspaceName}
-            workspaceIcon={workspaceIcon}
-            workspaceColor={workspaceColor}
-            onUpdateItem={handleUpdateItem}
-            onDeleteItem={handleDeleteItem}
-            onOpenModal={handleOpenModal}
-            onMoveItem={onMoveItem}
+            itemDropTargetId={`folder-drop:${item.id}`}
           />
         )}
-      </div>
+      </SortableWorkspaceGridItem>
     ));
   }, [
     allItems,
-    displayItems,
-    handleUpdateItem,
-    handleDeleteItem,
-    handleOpenModal,
-    onMoveItem,
-    onDeleteFolderWithContents,
-    handleOpenFolder,
+    currentContainerId,
     folderItemCounts,
-    workspaceName,
-    workspaceIcon,
+    handleDeleteItem,
+    handleOpenFolder,
+    handleUpdateItem,
+    onDeleteFolderWithContents,
+    onMoveItem,
+    orderedFolderItems,
     workspaceColor,
+    workspaceIcon,
+    workspaceName,
   ]);
 
-  // Cleanup on unmount - ensure drag state is reset
-  useEffect(() => {
-    return () => {
-      if (layoutChangeTimeoutRef.current) {
-        clearTimeout(layoutChangeTimeoutRef.current);
-      }
-      // Ensure autoscroll state is cleaned up on unmount
-      // This handles edge cases where component unmounts during drag
-      onDragStop([]);
-      onGridDragStateChange?.(false);
-    };
-  }, [onDragStop, onGridDragStateChange]);
+  const contentChildren = useMemo(() => {
+    return orderedContentItems.map((item, index) => {
+      return (
+        <SortableWorkspaceGridItem
+          key={item.id}
+          item={item}
+          index={index}
+          lane="items"
+          containerId={currentContainerId}
+          className={GRID_ITEM_CLASS}
+        >
+          {() => (
+            <WorkspaceCard
+              item={item}
+              allItems={allItems}
+              workspaceName={workspaceName}
+              workspaceIcon={workspaceIcon}
+              workspaceColor={workspaceColor}
+              onUpdateItem={handleUpdateItem}
+              onDeleteItem={handleDeleteItem}
+              onOpenModal={handleOpenModal}
+              onMoveItem={onMoveItem}
+            />
+          )}
+        </SortableWorkspaceGridItem>
+      );
+    });
+  }, [
+    allItems,
+    currentContainerId,
+    handleDeleteItem,
+    handleOpenModal,
+    handleUpdateItem,
+    onMoveItem,
+    orderedContentItems,
+    workspaceColor,
+    workspaceIcon,
+    workspaceName,
+  ]);
 
-  const layouts = useMemo(() => ({
-    lg: combinedLayout,
-  }), [combinedLayout]);
+  useDragDropMonitor({
+    onDragStart: handleDragStart,
+    onDragEnd: handleDragEnd,
+  });
 
   return (
-    <div className={`w-full workspace-grid-container${hasMounted ? ' workspace-grid-mounted' : ''}`} ref={containerRef}>
-      <style>{`
-        .react-grid-item.react-grid-placeholder {
-          transition: transform 100ms ease-out !important;
-        }
-      `}</style>
-      {mounted && (
-        <ResponsiveGridLayout
-          className="layout"
-          width={width}
-          layouts={layouts}
-          breakpoints={GRID_BREAKPOINTS}
-          cols={GRID_COLS}
-          rowHeight={25}
-          margin={GRID_MARGIN}
-          containerPadding={GRID_CONTAINER_PADDING}
-
-          dragConfig={{ enabled: true }}
-          resizeConfig={{
-            enabled: true,
-            handles: GRID_RESIZE_HANDLES,
-          }}
-
-          onLayoutChange={handleLayoutChange}
-          onDragStart={handleDragStart}
-          onDrag={handleDrag}
-          onDragStop={handleDragStop}
-          onResize={handleResize}
-          onResizeStart={handleResizeStart}
-          onResizeStop={handleResizeStop}
-          compactor={compactor}
-        >
-          {children}
-        </ResponsiveGridLayout>
-      )}
+    <div className="w-full workspace-grid-container px-4 sm:px-6">
+      <div className="flex flex-col gap-4">
+        {folderChildren.length > 0 ? (
+          <div
+            data-workspace-sortable-group={getWorkspaceSortableGroup(
+              currentContainerId,
+              "folders",
+            )}
+            className={GRID_COLUMNS_CLASS}
+          >
+            {folderChildren}
+          </div>
+        ) : null}
+        {contentChildren.length > 0 ? (
+          <div
+            data-workspace-sortable-group={getWorkspaceSortableGroup(
+              currentContainerId,
+              "items",
+            )}
+            className={GRID_COLUMNS_CLASS}
+          >
+            {contentChildren}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

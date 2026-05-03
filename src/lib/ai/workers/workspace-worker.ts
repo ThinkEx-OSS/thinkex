@@ -77,7 +77,6 @@ export type CreateItemParams = {
   };
   sources?: Array<{ title: string; url: string; favicon?: string }>;
   folderId?: string;
-  layout?: { x: number; y: number; w: number; h: number };
 };
 
 /**
@@ -179,7 +178,6 @@ async function buildItemFromCreateParams(p: CreateItemParams): Promise<Item> {
     data: itemData,
     color: getRandomCardColor(),
     folderId: p.folderId,
-    ...(p.layout && { layout: p.layout }),
   };
 }
 
@@ -310,8 +308,6 @@ export async function workspaceWorker(
       favicon?: string;
     }>;
     folderId?: string;
-    /** Optional layout { x, y, w, h } for the item (lg breakpoint) */
-    layout?: { x: number; y: number; w: number; h: number };
   },
 ): Promise<{
   success: boolean;
@@ -1068,7 +1064,7 @@ export async function workspaceWorker(
             success: true,
             itemId: params.itemId,
             message: existingItem
-              ? `Deleted \"${existingItem.name}\" successfully`
+              ? `Deleted "${existingItem.name}" successfully`
               : "Deleted item successfully",
           };
         }

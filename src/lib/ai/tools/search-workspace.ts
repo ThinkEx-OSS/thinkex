@@ -41,12 +41,12 @@ function buildRegex(pattern: string): RegExp {
 export function createSearchWorkspaceTool(ctx: WorkspaceToolContext) {
     return tool({
         description:
-            "Grep search across workspace. All item types match on path/title, including documents, flashcards, PDFs, quizzes, audio, images, websites, and YouTube cards. Types with readable body content or metadata also search that body. Line numbers for content matches align with workspace_read(path, lineStart). include: optional item type filter. path: folder prefix or exact item path; for long items use workspace_read(path, lineStart) on matches. Plain text or regex. Max 100 matches.",
+            "Grep search across workspace. All item types match on path/title, including documents, flashcards, PDFs, quizzes, audio, images, and YouTube cards. Types with readable body content or metadata also search that body. Line numbers for content matches align with workspace_read(path, lineStart). include: optional item type filter. path: folder prefix or exact item path; for long items use workspace_read(path, lineStart) on matches. Plain text or regex. Max 100 matches.",
         inputSchema: zodSchema(
             z.object({
                 title: toolTitleField,
                 pattern: z.string().describe("Search pattern (plain text or regex)"),
-                include: z.string().optional().describe('Optional item type filter, e.g. "document", "flashcard", "pdf", "quiz", "audio", "image", "website", or "youtube"'),
+                include: z.string().optional().describe('Optional item type filter, e.g. "document", "flashcard", "pdf", "quiz", "audio", "image", or "youtube"'),
                 path: z.string().optional().describe("Folder prefix (Physics/) or exact item path (Physics/documents/File.md)"),
             })
         ),

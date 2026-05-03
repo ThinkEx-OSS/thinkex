@@ -21,9 +21,10 @@ import {
   Settings,
   Share2,
   Loader2,
-  ExternalLink,
   MessageSquareText,
 } from "lucide-react";
+import { useDragOperation, useDroppable } from "@dnd-kit/react";
+import { isSortable } from "@dnd-kit/react/sortable";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -64,10 +65,8 @@ import {
   exportMarkdownToGoogleDoc,
   getGoogleOAuthClientId,
 } from "@/lib/exportToGoogleDocs";
-import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import { getFolderPath } from "@/lib/workspace-state/search";
 import { CreateYouTubeDialog } from "@/components/modals/CreateYouTubeDialog";
-import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
 import { CollaboratorAvatars } from "@/components/workspace/CollaboratorAvatars";
 import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
@@ -87,8 +86,6 @@ const BREADCRUMB_ITEM_TEXT_CLASS =
   "min-w-0 max-w-[240px] truncate text-sidebar-foreground";
 const BREADCRUMB_INTERACTIVE_CLASS =
   "cursor-pointer text-sidebar-foreground/75 hover:text-sidebar-foreground hover:bg-accent/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/60";
-const BREADCRUMB_DRAG_TARGET_CLASS =
-  "bg-blue-500/10 text-sidebar-foreground ring-1 ring-inset ring-blue-500/50";
 const BREADCRUMB_MENU_ITEM_CLASS =
   "flex items-center gap-1.5 rounded-md px-2 py-1.5 cursor-pointer";
 /** Shared shell for header toolbar controls — same border/hover as labeled actions; icon-only uses square hit target */
@@ -223,6 +220,92 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
 import { useWorkspaceFilePicker } from "@/hooks/workspace/use-workspace-file-picker";
 import { startAudioProcessing } from "@/lib/audio/start-audio-processing";
 
+type ActiveWorkspaceDragSource = {
+  itemId: string | null;
+  containerId: string | null;
+};
+
+function BreadcrumbDropTarget({
+  id,
+  kind,
+  folderId = null,
+  activeDragSource,
+  children,
+}: {
+  id: string;
+  kind: "breadcrumb-folder-drop-target" | "breadcrumb-root-drop-target";
+  folderId?: string | null;
+  activeDragSource: ActiveWorkspaceDragSource | null;
+  children: React.ReactNode;
+}) {
+  const pointerOnlyCollision = useMemo(
+    () =>
+      ({
+        dragOperation,
+        droppable,
+      }: {
+        dragOperation: {
+          source?: { id?: string | number } | null;
+          position: { current: { x: number; y: number } | null };
+        };
+        droppable: {
+          id: string | number;
+          shape?: {
+            containsPoint: (p: { x: number; y: number }) => boolean;
+            center: { x: number; y: number };
+          } | null;
+        };
+      }) => {
+        const pointer = dragOperation.position.current;
+        if (!pointer || !droppable.shape) return null;
+        if (!droppable.shape.containsPoint(pointer)) return null;
+
+        const cx = droppable.shape.center.x - pointer.x;
+        const cy = droppable.shape.center.y - pointer.y;
+
+        return {
+          id: droppable.id,
+          value: 1 / Math.sqrt(cx * cx + cy * cy),
+          type: 2,
+          priority: 3,
+        };
+      },
+    [],
+  );
+
+  const { ref, isDropTarget } = useDroppable({
+    id,
+    accept: ["item", "folder"],
+    collisionPriority: 4,
+    collisionDetector: pointerOnlyCollision,
+    data:
+      kind === "breadcrumb-root-drop-target"
+        ? { kind }
+        : { kind, folderId },
+  });
+
+  const isNoOpTarget = activeDragSource
+    ? folderId === null
+      ? activeDragSource.containerId === null
+      : activeDragSource.itemId === folderId ||
+        activeDragSource.containerId === folderId
+    : false;
+  const showDropAffordance =
+    Boolean(activeDragSource) && isDropTarget && !isNoOpTarget;
+
+  return (
+    <div
+      ref={ref as (element: HTMLDivElement | null) => void}
+      className="relative inline-flex min-w-0 max-w-full items-center rounded-md"
+    >
+      {children}
+      {showDropAffordance ? (
+        <div className="pointer-events-none absolute inset-0 z-10 rounded-md ring-1 ring-inset ring-blue-500/45 bg-blue-500/12 dark:ring-blue-400/55 dark:bg-blue-400/15" />
+      ) : null}
+    </div>
+  );
+}
+
 interface WorkspaceHeaderProps {
   onOpenSearch?: () => void;
   // Save indicator props
@@ -241,7 +324,6 @@ interface WorkspaceHeaderProps {
     type: CardType,
     name?: string,
     initialData?: Partial<Item["data"]>,
-    initialLayout?: { w: number; h: number },
   ) => string;
   onPDFUpload?: (files: File[]) => Promise<void>;
   // Callback for when items are created (for auto-scroll/selection)
@@ -301,7 +383,6 @@ export function WorkspaceHeader({
   } | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
-  const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
   const [showQuizDialog, setShowQuizDialog] = useState(false);
   const [showFlashcardsDialog, setShowFlashcardsDialog] = useState(false);
   const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
@@ -316,11 +397,6 @@ export function WorkspaceHeader({
   const pathname = usePathname();
   const isWorkspaceRoute = pathname.startsWith("/workspace");
 
-  // Track drag hover state for breadcrumb elements
-  const [hoveredBreadcrumbTarget, setHoveredBreadcrumbTarget] = useState<
-    string | null
-  >(null); // 'root' or folderId
-  const isDraggingRef = useRef(false);
   const breadcrumbNavRef = useRef<HTMLElement>(null);
   const breadcrumbMeasureRefs = useRef<Record<string, HTMLElement | null>>({});
   const breadcrumbSeparatorMeasureRef = useRef<HTMLSpanElement>(null);
@@ -335,6 +411,23 @@ export function WorkspaceHeader({
   const [responsiveBreadcrumbs, setResponsiveBreadcrumbs] = useState(
     EMPTY_RESPONSIVE_BREADCRUMBS,
   );
+  const { source: dragSource } = useDragOperation();
+  const activeDragSource = useMemo<ActiveWorkspaceDragSource | null>(() => {
+    if (!dragSource || !isSortable(dragSource)) {
+      return null;
+    }
+
+    return {
+      itemId:
+        typeof dragSource.data?.itemId === "string"
+          ? dragSource.data.itemId
+          : null,
+      containerId:
+        typeof dragSource.data?.containerId === "string"
+          ? dragSource.data.containerId
+          : null,
+    };
+  }, [dragSource]);
 
   // Consistent breadcrumb item styling
   const breadcrumbItemClass =
@@ -577,271 +670,220 @@ export function WorkspaceHeader({
     [breadcrumbEntryLookup, responsiveBreadcrumbs.visibleTailKeys],
   );
 
-  const renderRootBreadcrumbLabel = useCallback(
-    () => (
-      <>
-        <IconRenderer
-          icon={workspaceIcon}
-          className="h-4 w-4 shrink-0"
-          style={{ color: workspaceColor || undefined }}
-        />
-        <span
-          className={BREADCRUMB_ROOT_TEXT_CLASS}
-          title={workspaceBreadcrumbLabel}
-        >
-          {workspaceBreadcrumbLabel}
-        </span>
-      </>
-    ),
-    [workspaceBreadcrumbLabel, workspaceColor, workspaceIcon],
-  );
+  const renderBreadcrumbLabel = (entry: BreadcrumbEntry) => {
+    switch (entry.kind) {
+      case "root":
+        return (
+          <>
+            <IconRenderer
+              icon={workspaceIcon}
+              className="h-4 w-4 shrink-0"
+              style={{ color: workspaceColor || undefined }}
+            />
+            <span
+              className={BREADCRUMB_ROOT_TEXT_CLASS}
+              title={workspaceBreadcrumbLabel}
+            >
+              {workspaceBreadcrumbLabel}
+            </span>
+          </>
+        );
+      case "folder":
+        return (
+          <>
+            <FolderOpen
+              className="h-3.5 w-3.5 shrink-0"
+              style={{ color: entry.color || undefined }}
+            />
+            <span className={BREADCRUMB_FOLDER_TEXT_CLASS} title={entry.label}>
+              {entry.label}
+            </span>
+          </>
+        );
+      case "item":
+        return (
+          <>
+            <WorkspaceItemTypeIcon
+              type={entry.itemType}
+              className="h-3.5 w-3.5 shrink-0"
+            />
+            <span className={BREADCRUMB_ITEM_TEXT_CLASS} title={entry.label}>
+              {entry.label}
+            </span>
+          </>
+        );
+      default:
+        return null;
+    }
+  };
 
-  const renderFolderBreadcrumbLabel = useCallback(
-    (entry: Extract<BreadcrumbEntry, { kind: "folder" }>) => (
-      <>
-        <FolderOpen
-          className="h-3.5 w-3.5 shrink-0"
-          style={{ color: entry.color || undefined }}
-        />
-        <span className={BREADCRUMB_FOLDER_TEXT_CLASS} title={entry.label}>
-          {entry.label}
-        </span>
-      </>
-    ),
-    [],
-  );
-
-  const renderItemBreadcrumbLabel = useCallback(
-    (entry: Extract<BreadcrumbEntry, { kind: "item" }>) => (
-      <>
-        <WorkspaceItemTypeIcon
-          type={entry.itemType}
-          className="h-3.5 w-3.5 shrink-0"
-        />
-        <span className={BREADCRUMB_ITEM_TEXT_CLASS} title={entry.label}>
-          {entry.label}
-        </span>
-      </>
-    ),
-    [],
-  );
-
-  const renderRootBreadcrumb = useCallback(() => {
-    const rootHighlightClass =
-      hoveredBreadcrumbTarget === "root" && BREADCRUMB_DRAG_TARGET_CLASS;
-
-    if (activeFolderId || activeOpenWorkspaceItem) {
+  const renderItemBreadcrumb = (
+    entry: Extract<BreadcrumbEntry, { kind: "item" }>,
+    measurement = false,
+  ) => {
+    if (measurement) {
       return (
-        <button
-          onClick={() => onNavigateToRoot?.()}
-          data-breadcrumb-target="root"
+        <div
           className={cn(
             breadcrumbItemClass,
-            BREADCRUMB_INTERACTIVE_CLASS,
-            rootHighlightClass,
+            "group pr-0.5 text-sidebar-foreground/75",
           )}
         >
-          {renderRootBreadcrumbLabel()}
-        </button>
-      );
-    }
-
-    if (onOpenSettings || onOpenShare) {
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              data-breadcrumb-target="root"
-              className={cn(
-                breadcrumbItemClass,
-                BREADCRUMB_INTERACTIVE_CLASS,
-                rootHighlightClass,
-              )}
-            >
-              {renderRootBreadcrumbLabel()}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-48">
-            {onOpenSettings && (
-              <DropdownMenuItem
-                onClick={onOpenSettings}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Settings className="h-4 w-4" />
-                Settings
-              </DropdownMenuItem>
-            )}
-            {onOpenShare && (
-              <DropdownMenuItem
-                onClick={onOpenShare}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Share2 className="h-4 w-4" />
-                Share
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          {renderBreadcrumbLabel(entry)}
+          <span
+            aria-hidden="true"
+            className="ml-0.5 rounded-full p-0.5 opacity-0"
+          >
+            <X className="h-3 w-3" />
+          </span>
+        </div>
       );
     }
 
     return (
       <div
-        data-breadcrumb-target="root"
-        className={cn(
-          breadcrumbItemClass,
-          "text-sidebar-foreground/75",
-          hoveredBreadcrumbTarget === "root" && BREADCRUMB_DRAG_TARGET_CLASS,
-        )}
-      >
-        {renderRootBreadcrumbLabel()}
-      </div>
-    );
-  }, [
-    activeFolderId,
-    breadcrumbItemClass,
-    hoveredBreadcrumbTarget,
-    onNavigateToRoot,
-    onOpenSettings,
-    onOpenShare,
-    activeOpenWorkspaceItem,
-    renderRootBreadcrumbLabel,
-  ]);
-
-  const renderFolderBreadcrumb = useCallback(
-    (entry: Extract<BreadcrumbEntry, { kind: "folder" }>) => (
-      <button
-        onClick={() => handleFolderClick(entry.id)}
-        data-breadcrumb-target="folder"
-        data-folder-id={entry.id}
+        role="button"
+        tabIndex={0}
+        onClick={() => openItemRenameDialog(entry.id, entry.label)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            openItemRenameDialog(entry.id, entry.label);
+          }
+        }}
         className={cn(
           breadcrumbItemClass,
           BREADCRUMB_INTERACTIVE_CLASS,
-          hoveredBreadcrumbTarget === entry.id && BREADCRUMB_DRAG_TARGET_CLASS,
+          "group pr-0.5",
         )}
       >
-        {renderFolderBreadcrumbLabel(entry)}
-      </button>
-    ),
-    [
-      breadcrumbItemClass,
-      handleFolderClick,
-      hoveredBreadcrumbTarget,
-      renderFolderBreadcrumbLabel,
-    ],
-  );
+        {renderBreadcrumbLabel(entry)}
 
-  const renderItemBreadcrumb = useCallback(
-    (
-      entry: Extract<BreadcrumbEntry, { kind: "item" }>,
-      measurement = false,
-    ) => {
-      if (measurement) {
-        return (
-          <div
+        <button
+          type="button"
+          aria-label={`Close ${entry.label}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCloseActiveItem?.(entry.id);
+          }}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+          }}
+          className="ml-0.5 rounded-full p-0.5 transition-all cursor-pointer text-sidebar-foreground/45 hover:text-red-600 hover:bg-accent opacity-0 group-hover:opacity-100"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+    );
+  };
+
+  const renderBreadcrumbEntry = (entry: BreadcrumbEntry) => {
+    if (entry.kind === "item") {
+      return renderItemBreadcrumb(entry);
+    }
+
+    if (entry.kind === "folder") {
+      return (
+        <BreadcrumbDropTarget
+          id={`breadcrumb-drop:folder:${entry.id}`}
+          kind="breadcrumb-folder-drop-target"
+          folderId={entry.id}
+          activeDragSource={activeDragSource}
+        >
+          <button
+            onClick={() => handleFolderClick(entry.id)}
             className={cn(
               breadcrumbItemClass,
-              "group pr-0.5 text-sidebar-foreground/75",
+              BREADCRUMB_INTERACTIVE_CLASS,
             )}
           >
-            {renderItemBreadcrumbLabel(entry)}
-            <span
-              aria-hidden="true"
-              className="ml-0.5 rounded-full p-0.5 opacity-0"
-            >
-              <X className="h-3 w-3" />
-            </span>
-          </div>
-        );
-      }
-
-      return (
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => openItemRenameDialog(entry.id, entry.label)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              openItemRenameDialog(entry.id, entry.label);
-            }
-          }}
-          className={cn(
-            breadcrumbItemClass,
-            BREADCRUMB_INTERACTIVE_CLASS,
-            "group pr-0.5",
-          )}
-        >
-          {renderItemBreadcrumbLabel(entry)}
-
-          <button
-            type="button"
-            aria-label={`Close ${entry.label}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onCloseActiveItem?.(entry.id);
-            }}
-            onKeyDown={(e) => {
-              e.stopPropagation();
-            }}
-            className="ml-0.5 rounded-full p-0.5 transition-all cursor-pointer text-sidebar-foreground/45 hover:text-red-600 hover:bg-accent opacity-0 group-hover:opacity-100"
-          >
-            <X className="h-3 w-3" />
+            {renderBreadcrumbLabel(entry)}
           </button>
-        </div>
+        </BreadcrumbDropTarget>
       );
-    },
-    [
-      breadcrumbItemClass,
-      onCloseActiveItem,
-      openItemRenameDialog,
-      renderItemBreadcrumbLabel,
-    ],
-  );
+    }
 
-  const renderBreadcrumbEntry = useCallback(
-    (entry: BreadcrumbEntry) => {
-      switch (entry.kind) {
-        case "root":
-          return renderRootBreadcrumb();
-        case "folder":
-          return renderFolderBreadcrumb(entry);
-        case "item":
-          return renderItemBreadcrumb(entry);
-        default:
-          return null;
-      }
-    },
-    [renderFolderBreadcrumb, renderItemBreadcrumb, renderRootBreadcrumb],
-  );
+    if (activeFolderId || activeOpenWorkspaceItem) {
+      return (
+        <BreadcrumbDropTarget
+          id="breadcrumb-drop:root"
+          kind="breadcrumb-root-drop-target"
+          activeDragSource={activeDragSource}
+        >
+          <button
+            onClick={() => onNavigateToRoot?.()}
+            className={cn(
+              breadcrumbItemClass,
+              BREADCRUMB_INTERACTIVE_CLASS,
+            )}
+          >
+            {renderBreadcrumbLabel(entry)}
+          </button>
+        </BreadcrumbDropTarget>
+      );
+    }
 
-  const renderMeasurementBreadcrumbEntry = useCallback(
-    (entry: BreadcrumbEntry) => {
-      switch (entry.kind) {
-        case "root":
-          return (
-            <div className={breadcrumbItemClass}>
-              {renderRootBreadcrumbLabel()}
-            </div>
-          );
-        case "folder":
-          return (
-            <div className={breadcrumbItemClass}>
-              {renderFolderBreadcrumbLabel(entry)}
-            </div>
-          );
-        case "item":
-          return renderItemBreadcrumb(entry, true);
-        default:
-          return null;
-      }
-    },
-    [
-      breadcrumbItemClass,
-      renderFolderBreadcrumbLabel,
-      renderItemBreadcrumb,
-      renderRootBreadcrumbLabel,
-    ],
-  );
+    if (onOpenSettings || onOpenShare) {
+      return (
+        <BreadcrumbDropTarget
+          id="breadcrumb-drop:root"
+          kind="breadcrumb-root-drop-target"
+          activeDragSource={activeDragSource}
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={cn(
+                  breadcrumbItemClass,
+                  BREADCRUMB_INTERACTIVE_CLASS,
+                )}
+              >
+                {renderBreadcrumbLabel(entry)}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              {onOpenSettings && (
+                <DropdownMenuItem
+                  onClick={onOpenSettings}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </DropdownMenuItem>
+              )}
+              {onOpenShare && (
+                <DropdownMenuItem
+                  onClick={onOpenShare}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <Share2 className="h-4 w-4" />
+                  Share
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </BreadcrumbDropTarget>
+      );
+    }
+
+    return (
+      <div
+        className={cn(
+          breadcrumbItemClass,
+          "text-sidebar-foreground/75",
+        )}
+      >
+        {renderBreadcrumbLabel(entry)}
+      </div>
+    );
+  };
+
+  const renderMeasurementBreadcrumbEntry = (entry: BreadcrumbEntry) => {
+    if (entry.kind === "item") {
+      return renderItemBreadcrumb(entry, true);
+    }
+
+    return <div className={breadcrumbItemClass}>{renderBreadcrumbLabel(entry)}</div>;
+  };
 
   // Auto-focus and select all text when dialog opens
   useEffect(() => {
@@ -850,56 +892,6 @@ export function WorkspaceHeader({
       renameInputRef.current.select();
     }
   }, [showRenameDialog]);
-
-  // Listen for drag hover events on breadcrumb elements
-  useEffect(() => {
-    const handleDragHover = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      const { folderId, isHovering } = customEvent.detail || {};
-
-      // Track drag state - if we get a hover event, dragging is active
-      if (isHovering !== undefined) {
-        isDraggingRef.current = isHovering;
-      }
-
-      if (isHovering) {
-        // When folderId is null, it means hovering over root (breadcrumb target)
-        // When folderId is a string, it means hovering over a folder (could be breadcrumb or card)
-        // We need to check if it's actually a breadcrumb target by checking data attributes
-        let foundTarget: string | null = null;
-
-        if (folderId === null) {
-          // Hovering over root - check if there's a root breadcrumb target
-          const rootTargets = document.querySelectorAll(
-            '[data-breadcrumb-target="root"]',
-          );
-          if (rootTargets.length > 0) {
-            foundTarget = "root";
-          }
-        } else {
-          // Hovering over a folder - check if it's a breadcrumb target
-          const folderTargets = document.querySelectorAll(
-            `[data-breadcrumb-target="folder"][data-folder-id="${folderId}"]`,
-          );
-          if (folderTargets.length > 0) {
-            foundTarget = folderId;
-          }
-        }
-
-        // Only show visual feedback if it's actually a breadcrumb target
-        // (The validation in WorkspaceGrid already ensures it's a valid drop, so we can show feedback)
-        setHoveredBreadcrumbTarget(foundTarget);
-      } else {
-        setHoveredBreadcrumbTarget(null);
-      }
-    };
-
-    window.addEventListener("folder-drag-hover", handleDragHover);
-
-    return () => {
-      window.removeEventListener("folder-drag-hover", handleDragHover);
-    };
-  }, []);
 
   const handleYouTubeCreate = useCallback(
     (url: string, name: string, thumbnail?: string) => {
@@ -980,20 +972,6 @@ export function WorkspaceHeader({
     [addItem, currentWorkspaceId, onItemCreated],
   );
 
-  const handleWebsiteCreate = useCallback(
-    (url: string, name: string, favicon?: string) => {
-      if (!addItem) return;
-      addItem(
-        "website",
-        name,
-        { url, favicon },
-        DEFAULT_CARD_DIMENSIONS.website,
-      );
-      setIsNewMenuOpen(false);
-    },
-    [addItem],
-  );
-
   const {
     fileInputRef,
     inputProps: fileInputProps,
@@ -1040,7 +1018,7 @@ export function WorkspaceHeader({
             ref={breadcrumbNavRef}
             className="flex min-w-0 flex-1 items-center overflow-hidden text-xs text-sidebar-foreground/70"
           >
-            {renderRootBreadcrumb()}
+            {renderBreadcrumbEntry(breadcrumbEntries[0])}
 
             {hiddenBreadcrumbEntries.length > 0 && (
               <>
@@ -1072,8 +1050,6 @@ export function WorkspaceHeader({
                           onClick={() => handleFolderClick(entry.id)}
                           className={cn(
                             BREADCRUMB_MENU_ITEM_CLASS,
-                            hoveredBreadcrumbTarget === entry.id &&
-                              BREADCRUMB_DRAG_TARGET_CLASS,
                           )}
                         >
                           <FolderOpen
@@ -1110,28 +1086,6 @@ export function WorkspaceHeader({
                 className="flex items-center gap-2"
               />
             )}
-
-            {activeOpenWorkspaceItem.type === "website" &&
-              (() => {
-                const websiteData =
-                  activeOpenWorkspaceItem.data as import("@/lib/workspace-state/types").WebsiteData;
-                return (
-                  <button
-                    className="h-8 flex items-center justify-center gap-1.5 rounded-md border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground hover:bg-accent transition-colors cursor-pointer px-2"
-                    aria-label="Open link in new tab"
-                    onClick={() =>
-                      window.open(
-                        websiteData.url,
-                        "_blank",
-                        "noopener,noreferrer",
-                      )
-                    }
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    <span className="text-xs font-medium">Open</span>
-                  </button>
-                );
-              })()}
 
             {activeOpenWorkspaceItem.type === "document" && (
               <DropdownMenu>
@@ -1311,10 +1265,6 @@ export function WorkspaceHeader({
                         setShowYouTubeDialog(true);
                         setIsNewMenuOpen(false);
                       },
-                      onWebsite: () => {
-                        setShowWebsiteDialog(true);
-                        setIsNewMenuOpen(false);
-                      },
                       onFlashcards: () => {
                         setShowFlashcardsDialog(true);
                         setIsNewMenuOpen(false);
@@ -1484,11 +1434,6 @@ export function WorkspaceHeader({
         onCreate={handleYouTubeCreate}
       />
       {/* Website Dialog */}
-      <CreateWebsiteDialog
-        open={showWebsiteDialog}
-        onOpenChange={setShowWebsiteDialog}
-        onCreate={handleWebsiteCreate}
-      />
       {/* Audio Recorder Dialog */}
       <AudioRecorderDialog
         open={showAudioDialog}

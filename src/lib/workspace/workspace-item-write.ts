@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import {
   db,
   workspaceItemContent,
@@ -19,6 +19,39 @@ type DbTransaction = Parameters<(typeof db)["transaction"]>[0] extends (
   ? T
   : never;
 type DbExecutor = typeof db | DbTransaction;
+
+function getWorkspaceItemLaneFilter(type: Item["type"]) {
+  return type === "folder"
+    ? eq(workspaceItems.type, "folder")
+    : ne(workspaceItems.type, "folder");
+}
+
+export async function getNextWorkspaceItemSortOrder(
+  tx: DbExecutor,
+  params: {
+    workspaceId: string;
+    folderId?: string | null;
+    type: Item["type"];
+  },
+): Promise<number> {
+  const [row] = await tx
+    .select({
+      maxSortOrder: sql<number>`max(${workspaceItems.sortOrder})`,
+      siblingCount: sql<number>`count(*)`,
+    })
+    .from(workspaceItems)
+    .where(
+      and(
+        eq(workspaceItems.workspaceId, params.workspaceId),
+        params.folderId == null
+          ? isNull(workspaceItems.folderId)
+          : eq(workspaceItems.folderId, params.folderId),
+        getWorkspaceItemLaneFilter(params.type),
+      ),
+    );
+
+  return Math.max((row?.maxSortOrder ?? -1) + 1, row?.siblingCount ?? 0);
+}
 
 export async function loadWorkspaceItemRecord(
   tx: DbExecutor,
@@ -70,6 +103,7 @@ export async function loadWorkspaceItemRecord(
         subtitle: shell.subtitle,
         color: (shell.color as Item["color"]) ?? null,
         folderId: shell.folderId ?? null,
+        sortOrder: shell.sortOrder ?? null,
         layout: (shell.layout as Item["layout"]) ?? null,
         lastModified: shell.lastModified ?? null,
         ocrStatus: shell.ocrStatus ?? null,
@@ -115,9 +149,20 @@ export async function insertWorkspaceItem(
     sourceVersion?: number;
   },
 ): Promise<void> {
+  const item =
+    params.item.sortOrder == null
+      ? {
+          ...params.item,
+          sortOrder: await getNextWorkspaceItemSortOrder(tx, {
+            workspaceId: params.workspaceId,
+            folderId: params.item.folderId ?? null,
+            type: params.item.type,
+          }),
+        }
+      : params.item;
   const rows = buildWorkspaceItemTableRows({
     workspaceId: params.workspaceId,
-    item: sanitizeWorkspaceItemForPersistence(params.item),
+    item: sanitizeWorkspaceItemForPersistence(item),
     sourceVersion: params.sourceVersion ?? 0,
   });
 
@@ -165,6 +210,7 @@ export async function upsertWorkspaceItem(
       subtitle: rows.item.subtitle,
       color: rows.item.color,
       folderId: rows.item.folderId,
+      sortOrder: rows.item.sortOrder,
       layout: rows.item.layout,
       lastModified: rows.item.lastModified,
       sourceVersion: rows.item.sourceVersion,

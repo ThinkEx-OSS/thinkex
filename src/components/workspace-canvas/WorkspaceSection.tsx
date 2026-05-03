@@ -1,7 +1,6 @@
 import React, { useRef, useState, useCallback } from "react";
 import { toast } from "sonner";
 import type { Item } from "@/lib/workspace-state/types";
-import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import type { WorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
 import WorkspaceContent from "./WorkspaceContent";
 import SelectionActionBar from "./SelectionActionBar";
@@ -47,7 +46,6 @@ import { renderWorkspaceMenuItems } from "./workspace-menu-items";
 import { PromptBuilderDialog } from "@/components/chat/PromptBuilderDialog";
 import { useAudioRecordingStore } from "@/lib/stores/audio-recording-store";
 import { AudioRecorderDialog } from "@/components/modals/AudioRecorderDialog";
-import { CreateWebsiteDialog } from "@/components/modals/CreateWebsiteDialog";
 import { useWorkspaceFilePicker } from "@/hooks/workspace/use-workspace-file-picker";
 import { startAudioProcessing } from "@/lib/audio/start-audio-processing";
 
@@ -94,9 +92,6 @@ export function WorkspaceSection({
   // Get active folder info from UI store
   const activeFolderId = useUIStore((uiState) => uiState.activeFolderId);
 
-  // Track grid dragging state for marquee conflict prevention
-  const [isGridDragging, setIsGridDragging] = useState(false);
-
   // Delete confirmation state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
@@ -105,7 +100,6 @@ export function WorkspaceSection({
 
   // Workspace settings and share modal state
   const [showYouTubeDialog, setShowYouTubeDialog] = useState(false);
-  const [showWebsiteDialog, setShowWebsiteDialog] = useState(false);
   const [showQuizDialog, setShowQuizDialog] = useState(false);
   const [showFlashcardsDialog, setShowFlashcardsDialog] = useState(false);
   const showAudioDialog = useAudioRecordingStore((s) => s.isDialogOpen);
@@ -120,20 +114,6 @@ export function WorkspaceSection({
       addItem("youtube", name, { url, thumbnail });
     },
     [addItem],
-  );
-
-  const handleWebsiteCreate = useCallback(
-    (url: string, name: string, favicon?: string) => {
-      operations.createItems([
-        {
-          type: "website",
-          name,
-          initialData: { url, favicon },
-          initialLayout: DEFAULT_CARD_DIMENSIONS.website,
-        },
-      ]);
-    },
-    [operations],
   );
 
   // Handle delete request (from button or keyboard)
@@ -272,8 +252,6 @@ export function WorkspaceSection({
 
     // Clear the selection
     clearCardSelection();
-
-    // Note: FolderCard auto-focuses the title when name is "New Folder"
   };
 
   const handlePDFUpload = useWorkspaceUpload({
@@ -388,15 +366,12 @@ export function WorkspaceSection({
                   addItem={addItem}
                   updateItem={updateItem}
                   deleteItem={deleteItem}
-                  updateAllItems={updateAllItems}
                   openWorkspaceItem={openWorkspaceItem}
-                  scrollContainerRef={scrollAreaRef}
-                  onGridDragStateChange={setIsGridDragging}
                   workspaceName={workspaceTitle || "Workspace"}
                   workspaceIcon={workspaceIcon}
                   workspaceColor={workspaceColor}
                   onMoveItem={operations.moveItemToFolder}
-                  onMoveItems={operations.moveItemsToFolder}
+                  reorderItems={operations.reorderItems}
                   onDeleteFolderWithContents={
                     operations.deleteFolderWithContents
                   }
@@ -410,7 +385,6 @@ export function WorkspaceSection({
                 <MarqueeSelector
                   scrollContainerRef={scrollAreaRef}
                   cardIds={state.map((item) => item.id)}
-                  isGridDragging={isGridDragging}
                 />
               )}
             </div>
@@ -432,7 +406,6 @@ export function WorkspaceSection({
                 onUpload: () => handleUploadMenuItemClick(),
                 onAudio: () => openAudioDialog(),
                 onYouTube: () => setShowYouTubeDialog(true),
-                onWebsite: () => setShowWebsiteDialog(true),
                 onFlashcards: () => setShowFlashcardsDialog(true),
                 onQuiz: () => setShowQuizDialog(true),
               },
@@ -501,11 +474,6 @@ export function WorkspaceSection({
       />
 
       {/* Website Dialog */}
-      <CreateWebsiteDialog
-        open={showWebsiteDialog}
-        onOpenChange={setShowWebsiteDialog}
-        onCreate={handleWebsiteCreate}
-      />
       {/* Audio Recorder Dialog */}
       <AudioRecorderDialog
         open={showAudioDialog}

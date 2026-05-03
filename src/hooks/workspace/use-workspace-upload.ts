@@ -3,7 +3,6 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import type { WorkspaceOperations } from "@/hooks/workspace/use-workspace-operations";
-import { DEFAULT_CARD_DIMENSIONS } from "@/lib/workspace-state/grid-layout-helpers";
 import { buildWorkspaceItemDefinitionsFromAssets } from "@/lib/uploads/uploaded-asset";
 import {
   getFileSizeLabel,
@@ -111,9 +110,7 @@ export function useWorkspaceUpload({
       }
 
       const createdIds = operations.createItems(
-        buildWorkspaceItemDefinitionsFromAssets(uploads, {
-          imageLayout: DEFAULT_CARD_DIMENSIONS.image,
-        }),
+        buildWorkspaceItemDefinitionsFromAssets(uploads),
         { showSuccessToast: false },
       );
       onItemsCreated?.([...textCreatedIds, ...createdIds]);

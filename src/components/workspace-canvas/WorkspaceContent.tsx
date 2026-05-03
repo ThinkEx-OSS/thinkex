@@ -5,7 +5,6 @@ import { Plus, Upload } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import type { Item, CardType } from "@/lib/workspace-state/types";
 import { filterItemsByFolder } from "@/lib/workspace-state/search";
-import { useAutoScroll } from "@/hooks/ui/use-auto-scroll";
 import { transcriptSegmentsQueryKey } from "@/hooks/workspace/use-transcript-segments";
 import { AUDIO_COMPLETE_EVENT } from "@/lib/audio/poll-audio-processing";
 import { WorkspaceGrid } from "./WorkspaceGrid";
@@ -27,15 +26,12 @@ interface WorkspaceContentProps {
   ) => string;
   updateItem: (itemId: string, updates: Partial<Item>) => void;
   deleteItem: (itemId: string) => void;
-  updateAllItems: (items: Item[]) => void;
   openWorkspaceItem: (itemId: string | null) => void;
-  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
-  onGridDragStateChange?: (isDragging: boolean) => void;
   workspaceName?: string;
   workspaceIcon?: string | null;
   workspaceColor?: string | null;
   onMoveItem?: (itemId: string, folderId: string | null) => void;
-  onMoveItems?: (itemIds: string[], folderId: string | null) => void;
+  reorderItems?: (orderedItemIds: string[]) => void;
   onOpenFolder?: (folderId: string) => void;
   onDeleteFolderWithContents?: (folderId: string) => void;
   onPDFUpload?: (files: File[]) => Promise<void>;
@@ -47,15 +43,12 @@ export default function WorkspaceContent({
   addItem,
   updateItem,
   deleteItem,
-  updateAllItems,
   openWorkspaceItem,
-  scrollContainerRef: externalScrollContainerRef,
-  onGridDragStateChange,
   workspaceName,
   workspaceIcon,
   workspaceColor,
   onMoveItem,
-  onMoveItems,
+  reorderItems,
   onOpenFolder,
   onDeleteFolderWithContents,
   onPDFUpload,
@@ -63,24 +56,24 @@ export default function WorkspaceContent({
 }: WorkspaceContentProps) {
   const queryClient = useQueryClient();
   const workspaceId = useCurrentWorkspaceId();
-
-  const localScrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const scrollContainerRef =
-    externalScrollContainerRef || localScrollContainerRef;
-
-  const { handleDragStart: onDragStart, handleDragStop: onDragStop } =
-    useAutoScroll(scrollContainerRef);
-
   const { selectedCardIdsArray } = useSelectedCardIds();
-
   const activeFolderId = useUIStore((state) => state.activeFolderId);
   const setActiveFolderId = useUIStore((state) => state.setActiveFolderId);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredItems = useMemo(() => {
     return filterItemsByFolder(viewState, activeFolderId ?? null);
   }, [viewState, activeFolderId]);
+
+  const folderItems = useMemo(
+    () => filteredItems.filter((item) => item.type === "folder"),
+    [filteredItems],
+  );
+
+  const contentItems = useMemo(
+    () => filteredItems.filter((item) => item.type !== "folder"),
+    [filteredItems],
+  );
 
   const handleOpenFolder = useCallback(
     (folderId: string) => {
@@ -155,13 +148,6 @@ export default function WorkspaceContent({
       deleteItem(itemId);
     },
     [deleteItem],
-  );
-
-  const handleUpdateAllItems = useCallback(
-    (items: Item[]) => {
-      updateAllItems(items);
-    },
-    [updateAllItems],
   );
 
   const handleOpenModal = useCallback(
@@ -241,17 +227,10 @@ export default function WorkspaceContent({
     [onPDFUpload],
   );
 
-  const handleDragStart = useCallback(() => {
-    onDragStart();
-  }, [onDragStart]);
-
-  const handleDragStop = useCallback(() => {
-    onDragStop();
-  }, [onDragStop]);
-
-  const isFiltering = activeFolderId !== null;
-
-  if (viewState.length === 0 || (isFiltering && filteredItems.length === 0)) {
+  if (
+    viewState.length === 0 ||
+    (folderItems.length === 0 && contentItems.length === 0)
+  ) {
     return (
       <div className="flex-1 py-4 overflow-hidden">
         <div
@@ -328,22 +307,17 @@ export default function WorkspaceContent({
       <div className={selectedCardIdsArray.length > 0 ? "pb-20" : undefined}>
         <WorkspaceGrid
           key={activeFolderId ?? "root"}
-          items={filteredItems}
+          folderItems={folderItems}
+          contentItems={contentItems}
           allItems={viewState}
-          isFiltered={isFiltering}
-          isTemporaryFilter={false}
-          onDragStart={handleDragStart}
-          onDragStop={handleDragStop}
           onUpdateItem={handleUpdateItem}
           onDeleteItem={handleDeleteItem}
-          onUpdateAllItems={handleUpdateAllItems}
           onOpenModal={handleOpenModal}
-          onGridDragStateChange={onGridDragStateChange}
           workspaceName={workspaceName || "Workspace"}
           workspaceIcon={workspaceIcon}
           workspaceColor={workspaceColor}
           onMoveItem={onMoveItem}
-          onMoveItems={onMoveItems}
+          onReorderItems={reorderItems}
           onOpenFolder={handleOpenFolder}
           onDeleteFolderWithContents={onDeleteFolderWithContents}
         />
