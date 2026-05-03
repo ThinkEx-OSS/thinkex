@@ -19,19 +19,20 @@ import { QuizContent } from "./QuizContent";
 import { AudioCardContent } from "./AudioCardContent";
 import { YouTubeCardContent } from "./YouTubeCardContent";
 import { ImageCardContent } from "./ImageCardContent";
+import { DocumentCardContent } from "./DocumentCardContent";
+import { PdfCardContent } from "./PdfCardContent";
 import { YouTubePanelContent } from "./YouTubePanelContent";
-import { WebsitePanelContent } from "./WebsitePanelContent";
 import {
   extractYouTubePlaylistId,
   extractYouTubeVideoId,
 } from "@/lib/utils/youtube-url";
 
 export function isFramelessWorkspaceCardItem(item: Item): boolean {
-  return item.type === "youtube" || item.type === "image";
+  return false;
 }
 
 export function usesManagedWorkspacePanelLayout(item: Item): boolean {
-  if (item.type === "youtube" || item.type === "website" || item.type === "image") {
+  if (item.type === "youtube" || item.type === "image") {
     return true;
   }
 
@@ -42,12 +43,20 @@ export function usesManagedWorkspacePanelLayout(item: Item): boolean {
   return false;
 }
 
-export function WorkspaceCanvasItemPreview({ item }: { item: Item }) {
+export function WorkspaceCanvasItemPreview({
+  item,
+}: {
+  item: Item;
+}) {
   return (
     <>
       {item.type === "youtube" ? <CanvasYouTubePreview item={item} /> : null}
 
       {item.type === "image" ? <ImageCardContent item={item} /> : null}
+
+      {item.type === "document" ? <DocumentCardContent item={item} /> : null}
+
+      {item.type === "pdf" ? <PdfCardContent item={item} /> : null}
     </>
   );
 }
@@ -154,10 +163,6 @@ export function WorkspacePanelItemPreview({
 
   if (item.type === "youtube") {
     return <YouTubePanelContent item={item} onUpdateItemData={onUpdateData} />;
-  }
-
-  if (item.type === "website") {
-    return <WebsitePanelContent item={item} />;
   }
 
   if (item.type === "image") {

@@ -34,7 +34,7 @@ interface WorkspaceGridProps {
 const GRID_ITEM_CLASS = "min-w-0 aspect-[4/3]";
 
 const GRID_COLUMNS_CLASS =
-  "grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-4";
+  "grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-6";
 
 function WorkspaceGridComponent({
   folderItems,

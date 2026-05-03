@@ -2,7 +2,6 @@
 
 import { useDroppable } from "@dnd-kit/react";
 import { memo, useState, useCallback, useEffect, useMemo } from "react";
-import { FolderInput } from "lucide-react";
 import { type ColorResult } from "react-color";
 import { cn } from "@/lib/utils";
 import type { Item } from "@/lib/workspace-state/types";
@@ -125,25 +124,6 @@ function FolderCardComponent({
   });
 
   useEffect(() => {
-    if (item.name !== "New Folder") {
-      return;
-    }
-
-    setShowRenameDialog(true);
-
-    const element = document.getElementById(`item-${item.id}`);
-    if (!element) {
-      return;
-    }
-
-    const timeoutId = setTimeout(() => {
-      element.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 100);
-
-    return () => clearTimeout(timeoutId);
-  }, [item.id, item.name, setShowRenameDialog]);
-
-  useEffect(() => {
     if (!showDeleteDialog) {
       setDeleteOption(null);
     }
@@ -252,7 +232,6 @@ function FolderCardComponent({
     ? "rgba(255, 255, 255, 0.8)"
     : getCardAccentColor(folderColor, 0.5);
   const folderTitle = item.name || "Folder";
-  const itemCountLabel = `${itemCount} ${itemCount === 1 ? "item" : "items"}`;
   const selectedOutlineWidth = isSelected ? "3px" : "1px";
   const selectedFolderGlow = isSelected
     ? resolvedTheme === "dark"
@@ -265,11 +244,7 @@ function FolderCardComponent({
       <ContextMenuTrigger asChild>
         <div
           ref={dropTargetRef as (element: HTMLDivElement | null) => void}
-          className={cn(
-            "group flex size-full min-h-0 flex-col rounded-md transition-[box-shadow,transform] duration-150",
-            isItemDropTarget &&
-              "ring-2 ring-primary/60 ring-offset-2 ring-offset-background",
-          )}
+          className="group flex size-full min-h-0 flex-col rounded-md transition-[box-shadow,transform] duration-150"
           onClick={handleClick}
           onKeyDown={handleKeyDown}
           role="button"
@@ -304,10 +279,30 @@ function FolderCardComponent({
               }}
             />
 
+            <div
+              className={cn(
+                "pointer-events-none absolute bottom-0 left-0 right-0 top-[10%] rounded-md rounded-tl-none transition-colors duration-200",
+                isItemDropTarget ? "opacity-0" : "bg-white/0 group-hover:bg-white/5",
+              )}
+            />
+
+            {isItemDropTarget ? (
+              <div className="pointer-events-none absolute inset-0 z-10 rounded-md ring-1 ring-inset ring-blue-500/45 bg-blue-500/12 dark:ring-blue-400/55 dark:bg-blue-400/15" />
+            ) : null}
+          </div>
+
+          <div className="flex min-w-0 items-start gap-2 px-1 pt-2">
+            <div
+              className="min-w-0 flex-1 truncate text-sm font-medium leading-snug text-foreground underline-offset-2 hover:underline"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openRenameDialog();
+              }}
+            >
+              {folderTitle}
+            </div>
             <WorkspaceCardControls
-              itemType={item.type}
-              useDarkOverlay={false}
-              resolvedTheme={resolvedTheme}
               isSelected={isSelected}
               canMove={Boolean(onMoveItem)}
               selectionLabel="folder"
@@ -318,29 +313,6 @@ function FolderCardComponent({
               onOpenColorPicker={openColorPicker}
               onDelete={openDeleteDialog}
             />
-
-            <div
-              className={cn(
-                "pointer-events-none absolute bottom-0 left-0 right-0 top-[10%] rounded-md rounded-tl-none bg-white/0 transition-colors duration-200",
-                isItemDropTarget ? "bg-primary/12" : "group-hover:bg-white/5",
-              )}
-            />
-
-            {isItemDropTarget ? (
-              <div className="pointer-events-none absolute inset-x-4 bottom-4 z-20 flex items-center justify-center gap-2 rounded-full bg-background/90 px-3 py-1.5 text-xs font-medium text-foreground shadow-lg backdrop-blur-sm">
-                <FolderInput className="h-3.5 w-3.5 text-primary" />
-                <span>Move into folder</span>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="min-w-0 px-1 pt-2">
-            <div className="truncate text-sm font-medium leading-snug text-foreground">
-              {folderTitle}
-            </div>
-            <div className="truncate pt-0.5 text-xs text-muted-foreground">
-              {itemCountLabel}
-            </div>
           </div>
 
           <SharedCardDialogs
@@ -383,7 +355,6 @@ function FolderCardComponent({
 
       <ContextMenuContent className="w-48">
         <WorkspaceCardContextMenuItems
-          itemType={item.type}
           canMove={Boolean(onMoveItem)}
           onOpenRename={openRenameDialog}
           onOpenMove={openMoveDialog}

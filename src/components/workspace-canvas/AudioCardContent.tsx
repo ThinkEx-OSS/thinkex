@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useCurrentWorkspaceId } from "@/contexts/WorkspaceContext";
 import {
+  AudioLines,
   Mic,
   AlertCircle,
   Loader2,
@@ -43,6 +44,25 @@ function parseTimestamp(ts: string): number {
   return 0;
 }
 
+function formatAudioDuration(seconds: number | undefined): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) {
+    return "Audio";
+  }
+
+  const totalSeconds = Math.round(seconds);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const remainingSeconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, "0")}:${remainingSeconds
+      .toString()
+      .padStart(2, "0")}`;
+  }
+
+  return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+}
+
 const SPEAKER_COLORS = [
   "bg-blue-500/15 text-blue-700 dark:text-blue-400",
   "bg-purple-500/15 text-purple-700 dark:text-purple-400",
@@ -74,6 +94,33 @@ export function AudioCardContent({
   const workspaceId = useCurrentWorkspaceId();
   const audioData = item.data as AudioData;
   const [isRetrying, setIsRetrying] = useState(false);
+
+  if (isCompact) {
+    const compactLabel =
+      audioData.processingStatus === "uploading"
+        ? "Uploading..."
+        : audioData.processingStatus === "processing"
+          ? "Processing..."
+          : audioData.processingStatus === "failed"
+            ? "Preview unavailable"
+            : formatAudioDuration(audioData.duration);
+
+    return (
+      <div className="flex h-full min-h-0 flex-1 flex-col items-center justify-center gap-3 rounded-md px-4 text-center">
+        <div className="flex size-10 items-center justify-center rounded-full bg-foreground/8 text-muted-foreground">
+          {audioData.processingStatus === "uploading" ||
+          audioData.processingStatus === "processing" ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : audioData.processingStatus === "failed" ? (
+            <AlertCircle className="h-5 w-5" />
+          ) : (
+            <AudioLines className="h-5 w-5" />
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground">{compactLabel}</p>
+      </div>
+    );
+  }
 
   const handleRetry = useCallback(() => {
     if (!audioData.fileUrl || !workspaceId || isRetrying) return;
@@ -344,53 +391,6 @@ function AudioCardComplete({
   }, []);
 
   // ── Compact view ────────────────────────────────────────────────────────
-
-  if (isCompact) {
-    return (
-      <div
-        className={cn(
-          "flex-1 min-h-0 px-4 pb-4 space-y-3 pt-2",
-          isScrollLocked ? "overflow-hidden" : "overflow-y-auto",
-        )}
-      >
-        {audioData.processingStatus === "complete" && (
-          <div className="space-y-1.5">
-            <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Timeline
-            </h4>
-            {isLoadingSegments && segments.length === 0 ? (
-              <TranscriptSegmentsSkeleton compact />
-            ) : transcriptError ? (
-              <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                Failed to load transcript.
-              </div>
-            ) : segments.length > 0 ? (
-              <div className="space-y-1 p-1 -m-1">
-                {segments.slice(0, 3).map((segment, idx) => (
-                  <SegmentRow
-                    key={idx}
-                    segment={segment}
-                    isActive={false}
-                    speakerColor={
-                      speakerColorMap.get(segment.speaker) ??
-                      SPEAKER_COLORS[0]
-                    }
-                    onSeek={undefined}
-                    isCompact={isCompact}
-                  />
-                ))}
-                {segments.length > 3 && (
-                  <div className="text-center text-[10px] text-muted-foreground py-2">
-                    ... {segments.length - 3} more timestamps
-                  </div>
-                )}
-              </div>
-            ) : null}
-          </div>
-        )}
-      </div>
-    );
-  }
 
   // ── Non-compact view ────────────────────────────────────────────────────
 

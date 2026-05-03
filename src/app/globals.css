@@ -695,6 +695,15 @@ body.marquee-selecting iframe {
   }
 }
 
+/* @dnd-kit clone feedback — in-grid placeholder only (`data-dnd-placeholder="clone"`).
+   Floated preview is the same draggable node tagged `data-dnd-dragging` — not matched here.
+   Observer copies inline opacity from SortableWorkspaceGridItem; !important shadows that
+   only on the slot clone. Avoid filter here: it can create stacking-context quirks beside
+   the fixed drag layer on some GPUs. */
+.workspace-grid-container [data-dnd-placeholder="clone"]:not([data-dnd-dragging]) {
+  opacity: 0.42 !important;
+}
+
 /* Hide workspace cards when detail modal is open */
 body:has(.card-detail-modal) .workspace-grid-container {
   opacity: 0;

@@ -1,8 +1,8 @@
 "use client";
 
-import { Loader2, File, FileText, Brain, Mic, Globe } from "lucide-react";
+import { Loader2, File, Brain, Mic } from "lucide-react";
 import { PiCardsThreeBold } from "react-icons/pi";
-import type { Item, PdfData, WebsiteData } from "@/lib/workspace-state/types";
+import type { Item, PdfData } from "@/lib/workspace-state/types";
 import {
   getCardColorWithBlackMix,
   getIconColorFromCardColorWithOpacity,
@@ -22,9 +22,7 @@ export function WorkspaceCardTypeBadge({
     item.type === "pdf" ||
     item.type === "flashcard" ||
     item.type === "quiz" ||
-    item.type === "audio" ||
-    item.type === "website" ||
-    item.type === "document";
+    item.type === "audio";
 
   if (!showTypeBadge) {
     return null;
@@ -66,56 +64,6 @@ export function WorkspaceCardTypeBadge({
         <>
           <Brain className="h-5 w-5 shrink-0" />
           <span>Quiz</span>
-        </>
-      ) : item.type === "website" ? (
-        (() => {
-          const websiteData = item.data as WebsiteData;
-          const favicon = websiteData.favicon;
-          const fallbackId = `fallback-${item.id}`;
-          const faviconId = `favicon-${item.id}`;
-
-          return (
-            <>
-              {favicon && (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  id={faviconId}
-                  src={favicon}
-                  alt=""
-                  className="h-5 w-5 shrink-0 rounded"
-                  onLoad={(event) => {
-                    if (event.currentTarget.naturalHeight === 16) {
-                      event.currentTarget.style.display = "none";
-                      const fallback = document.getElementById(fallbackId);
-                      if (fallback) {
-                        fallback.style.display = "flex";
-                      }
-                    }
-                  }}
-                  onError={(event) => {
-                    event.currentTarget.style.display = "none";
-                    const fallback = document.getElementById(fallbackId);
-                    if (fallback) {
-                      fallback.style.display = "flex";
-                    }
-                  }}
-                />
-              )}
-              <div
-                id={fallbackId}
-                className="h-5 w-5 shrink-0 flex items-center justify-center"
-                style={{ display: favicon ? "none" : "flex" }}
-              >
-                <Globe className="h-5 w-5 shrink-0" />
-              </div>
-              <span>Website</span>
-            </>
-          );
-        })()
-      ) : item.type === "document" ? (
-        <>
-          <FileText className="h-5 w-5 shrink-0" />
-          <span>DOC</span>
         </>
       ) : (
         <>

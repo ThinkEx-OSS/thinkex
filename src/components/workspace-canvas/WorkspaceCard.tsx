@@ -19,7 +19,6 @@ import {
   WorkspaceCardControls,
 } from "./WorkspaceCardActions";
 import { SharedCardDialogs, SimpleDeleteDialog } from "./CardDialogs";
-import { WorkspaceCardTypeBadge } from "./WorkspaceCardTypeBadge";
 import {
   isFramelessWorkspaceCardItem,
   WorkspaceCanvasItemPreview,
@@ -50,6 +49,14 @@ function WorkspaceCard({
   onMoveItem,
 }: WorkspaceCardProps) {
   const { resolvedTheme } = useTheme();
+  const youtubeBackgroundColor =
+    resolvedTheme === "dark"
+      ? "rgba(220, 38, 38, 0.22)"
+      : "rgba(239, 68, 68, 0.14)";
+  const youtubeBorderColor =
+    resolvedTheme === "dark"
+      ? "rgba(248, 113, 113, 0.38)"
+      : "rgba(220, 38, 38, 0.26)";
 
   const isSelected = useUIStore((state) => state.selectedCardIds.has(item.id));
   const onToggleSelection = useUIStore((state) => state.toggleCardSelection);
@@ -187,8 +194,8 @@ function WorkspaceCard({
             style={
               {
                 backgroundColor:
-                  item.type === "youtube" || item.type === "image"
-                    ? "transparent"
+                  item.type === "youtube"
+                    ? youtubeBackgroundColor
                     : item.color
                       ? getCardColorCSS(
                           item.color,
@@ -197,7 +204,9 @@ function WorkspaceCard({
                       : "var(--card)",
                 borderColor: isSelected
                   ? "rgba(255, 255, 255, 0.8)"
-                  : item.color
+                  : item.type === "youtube"
+                    ? youtubeBorderColor
+                    : item.color
                     ? getCardAccentColor(
                         item.color,
                         resolvedTheme === "dark" ? 0.5 : 0.3,
@@ -218,30 +227,35 @@ function WorkspaceCard({
             }
             onClick={handleCardClick}
             onKeyDown={handleCardKeyDown}
-          >
-            <WorkspaceCardControls
-              itemType={item.type}
-              useDarkOverlay={false}
-              resolvedTheme={resolvedTheme}
-              isSelected={isSelected}
-              canMove={Boolean(onMoveItem)}
-              onToggleSelection={() => onToggleSelection(item.id)}
-              onOpenRename={openRenameDialog}
-              onOpenMove={openMoveDialog}
-              onOpenColorPicker={openColorPicker}
-              onDelete={openDeleteDialog}
-            />
-
-            <WorkspaceCardTypeBadge item={item} resolvedTheme={resolvedTheme} />
-
-            <WorkspaceCanvasItemPreview item={item} />
-          </article>
-
-          <div className="min-w-0 px-1 pt-2">
-            <div className="truncate text-sm font-medium leading-snug text-foreground">
-              {cardTitle}
+            >
+            <div className="flex min-w-0 items-start gap-2 pb-2">
+              <div
+                className="min-w-0 flex-1"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  openRenameDialog();
+                }}
+              >
+                <div className="truncate text-base font-medium leading-snug text-foreground underline-offset-2 hover:underline">
+                  {cardTitle}
+                </div>
+              </div>
+              <WorkspaceCardControls
+                isSelected={isSelected}
+                canMove={Boolean(onMoveItem)}
+                onToggleSelection={() => onToggleSelection(item.id)}
+                onOpenRename={openRenameDialog}
+                onOpenMove={openMoveDialog}
+                onOpenColorPicker={openColorPicker}
+                onDelete={openDeleteDialog}
+              />
             </div>
-          </div>
+
+            <div className="min-h-0 flex-1">
+              <WorkspaceCanvasItemPreview item={item} />
+            </div>
+          </article>
 
           <SharedCardDialogs
             item={item}
@@ -271,7 +285,6 @@ function WorkspaceCard({
 
       <ContextMenuContent className="w-48">
         <WorkspaceCardContextMenuItems
-          itemType={item.type}
           canMove={Boolean(onMoveItem)}
           onOpenRename={openRenameDialog}
           onOpenMove={openMoveDialog}
