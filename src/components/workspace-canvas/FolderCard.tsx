@@ -238,6 +238,7 @@ function FolderCardComponent({
       ? "0 0 10px rgba(255, 255, 255, 0.2)"
       : "0 0 2px rgba(0, 0, 0, 0.7), 0 0 6px rgba(0, 0, 0, 0.35)"
     : undefined;
+  const itemCountLabel = `${itemCount} item${itemCount === 1 ? "" : "s"}`;
 
   return (
     <ContextMenu>
@@ -289,30 +290,40 @@ function FolderCardComponent({
             {isItemDropTarget ? (
               <div className="pointer-events-none absolute inset-0 z-10 rounded-md ring-1 ring-inset ring-blue-500/45 bg-blue-500/12 dark:ring-blue-400/55 dark:bg-blue-400/15" />
             ) : null}
-          </div>
 
-          <div className="flex min-w-0 items-start gap-2 px-1 pt-2">
             <div
-              className="min-w-0 flex-1 truncate text-sm font-medium leading-snug text-foreground underline-offset-2 hover:underline"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                openRenameDialog();
-              }}
+              className="absolute right-3 top-3 z-20"
             >
-              {folderTitle}
+              <WorkspaceCardControls
+                isSelected={isSelected}
+                canMove={Boolean(onMoveItem)}
+                selectionLabel="folder"
+                settingsLabel="Folder settings"
+                onToggleSelection={() => onToggleSelection(item.id)}
+                onOpenRename={openRenameDialog}
+                onOpenMove={openMoveDialog}
+                onOpenColorPicker={openColorPicker}
+                onDelete={openDeleteDialog}
+              />
             </div>
-            <WorkspaceCardControls
-              isSelected={isSelected}
-              canMove={Boolean(onMoveItem)}
-              selectionLabel="folder"
-              settingsLabel="Folder settings"
-              onToggleSelection={() => onToggleSelection(item.id)}
-              onOpenRename={openRenameDialog}
-              onOpenMove={openMoveDialog}
-              onOpenColorPicker={openColorPicker}
-              onDelete={openDeleteDialog}
-            />
+
+            <div className="absolute inset-x-4 bottom-4 top-[14%] z-10 flex items-center">
+              <div className="w-full">
+                <div
+                  className="inline-block max-w-full truncate cursor-text text-left text-base font-medium leading-snug text-foreground underline-offset-2 hover:underline"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openRenameDialog();
+                  }}
+                >
+                  {folderTitle}
+                </div>
+                <div className="truncate text-left text-sm text-muted-foreground">
+                  {itemCountLabel}
+                </div>
+              </div>
+            </div>
           </div>
 
           <SharedCardDialogs

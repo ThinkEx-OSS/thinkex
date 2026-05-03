@@ -237,7 +237,7 @@ function WorkspaceCard({
                   openRenameDialog();
                 }}
               >
-                <div className="truncate text-base font-medium leading-snug text-foreground underline-offset-2 hover:underline">
+                <div className="truncate cursor-text text-base font-medium leading-snug text-foreground underline-offset-2 hover:underline">
                   {cardTitle}
                 </div>
               </div>
