@@ -9,7 +9,6 @@ import type {
   ImageData,
   DocumentData,
 } from "@/lib/workspace-state/types";
-import ItemHeader from "@/components/workspace-canvas/ItemHeader";
 import { DocumentEditor } from "@/components/editor/DocumentEditor";
 import LazyAppPdfViewer from "@/components/pdf/LazyAppPdfViewer";
 import { PdfPanelHeader } from "@/components/pdf/PdfPanelHeader";
@@ -44,39 +43,9 @@ export function usesManagedWorkspacePanelLayout(item: Item): boolean {
 }
 
 export function WorkspaceCanvasItemPreview({ item }: { item: Item }) {
-  const isCompactTextCard =
-    item.type === "pdf" ||
-    item.type === "flashcard" ||
-    item.type === "quiz" ||
-    item.type === "audio" ||
-    item.type === "document";
-  const shouldShowHeader = item.type !== "youtube" && item.type !== "image";
-
   return (
     <>
-      {shouldShowHeader ? (
-        <div
-          className={
-            isCompactTextCard ? "flex-1 flex flex-col min-h-0" : "flex-shrink-0"
-          }
-        >
-          <div className="relative z-10 h-full">
-            <ItemHeader
-              id={item.id}
-              name={item.name}
-              subtitle={item.subtitle}
-              description=""
-              readOnly={true}
-              noMargin={true}
-              allowWrap={isCompactTextCard}
-            />
-          </div>
-        </div>
-      ) : null}
-
-      {item.type === "youtube" ? (
-        <CanvasYouTubePreview item={item} />
-      ) : null}
+      {item.type === "youtube" ? <CanvasYouTubePreview item={item} /> : null}
 
       {item.type === "image" ? <ImageCardContent item={item} /> : null}
     </>

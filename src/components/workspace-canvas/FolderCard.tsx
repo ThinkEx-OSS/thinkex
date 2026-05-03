@@ -251,13 +251,13 @@ function FolderCardComponent({
   const borderColor = isSelected
     ? "rgba(255, 255, 255, 0.8)"
     : getCardAccentColor(folderColor, 0.5);
-  const selectedRingStyle = isSelected
-    ? {
-        boxShadow:
-          resolvedTheme === "dark"
-            ? "0 0 0 3px rgba(255, 255, 255, 0.8)"
-            : "0 0 0 3px rgba(255, 255, 255, 0.8), 0 0 2px rgba(0, 0, 0, 0.9), 0 0 4px rgba(0, 0, 0, 0.8), 0 0 8px rgba(0, 0, 0, 0.6), 0 0 12px rgba(0, 0, 0, 0.4)",
-      }
+  const folderTitle = item.name || "Folder";
+  const itemCountLabel = `${itemCount} ${itemCount === 1 ? "item" : "items"}`;
+  const selectedOutlineWidth = isSelected ? "3px" : "1px";
+  const selectedFolderGlow = isSelected
+    ? resolvedTheme === "dark"
+      ? "0 0 10px rgba(255, 255, 255, 0.2)"
+      : "0 0 2px rgba(0, 0, 0, 0.7), 0 0 6px rgba(0, 0, 0, 0.35)"
     : undefined;
 
   return (
@@ -266,11 +266,10 @@ function FolderCardComponent({
         <div
           ref={dropTargetRef as (element: HTMLDivElement | null) => void}
           className={cn(
-            "group size-full rounded-md transition-[box-shadow,transform] duration-150",
+            "group flex size-full min-h-0 flex-col rounded-md transition-[box-shadow,transform] duration-150",
             isItemDropTarget &&
               "ring-2 ring-primary/60 ring-offset-2 ring-offset-background",
           )}
-          style={selectedRingStyle}
           onClick={handleClick}
           onKeyDown={handleKeyDown}
           role="button"
@@ -278,17 +277,18 @@ function FolderCardComponent({
         >
           <div
             id={`item-${item.id}`}
-            className="relative size-full cursor-pointer overflow-hidden transition-all duration-200"
+            className="relative min-h-0 flex-1 cursor-pointer overflow-hidden transition-all duration-200"
           >
             <div
               className="absolute left-0 top-0 h-[10%] w-[35%] rounded-t-md border border-b-0"
               style={{
                 backgroundColor: tabBgColor,
                 borderColor,
-                borderTopWidth: "1px",
-                borderLeftWidth: "1px",
-                borderRightWidth: "1px",
+                borderTopWidth: selectedOutlineWidth,
+                borderLeftWidth: selectedOutlineWidth,
+                borderRightWidth: selectedOutlineWidth,
                 borderBottomWidth: 0,
+                boxShadow: selectedFolderGlow,
                 transition: "border-color 150ms ease-out",
               }}
             />
@@ -298,7 +298,8 @@ function FolderCardComponent({
               style={{
                 backgroundColor: bodyBgColor,
                 borderColor,
-                borderWidth: "1px",
+                borderWidth: selectedOutlineWidth,
+                boxShadow: selectedFolderGlow,
                 transition: "border-color 150ms ease-out",
               }}
             />
@@ -314,21 +315,9 @@ function FolderCardComponent({
               onToggleSelection={() => onToggleSelection(item.id)}
               onOpenRename={openRenameDialog}
               onOpenMove={openMoveDialog}
-              onCopyMarkdown={() => {}}
               onOpenColorPicker={openColorPicker}
               onDelete={openDeleteDialog}
             />
-
-            <div className="relative flex h-full flex-col p-4 pt-[14%]">
-              <div className="flex flex-1 flex-col justify-center overflow-visible min-h-0">
-                <div className="text-base font-medium text-foreground">
-                  {item.name || "Folder"}
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {itemCount} {itemCount === 1 ? "item" : "items"}
-                </p>
-              </div>
-            </div>
 
             <div
               className={cn(
@@ -343,6 +332,15 @@ function FolderCardComponent({
                 <span>Move into folder</span>
               </div>
             ) : null}
+          </div>
+
+          <div className="min-w-0 px-1 pt-2">
+            <div className="truncate text-sm font-medium leading-snug text-foreground">
+              {folderTitle}
+            </div>
+            <div className="truncate pt-0.5 text-xs text-muted-foreground">
+              {itemCountLabel}
+            </div>
           </div>
 
           <SharedCardDialogs
@@ -389,7 +387,6 @@ function FolderCardComponent({
           canMove={Boolean(onMoveItem)}
           onOpenRename={openRenameDialog}
           onOpenMove={openMoveDialog}
-          onCopyMarkdown={() => {}}
           onOpenColorPicker={openColorPicker}
           onDelete={openDeleteDialog}
         />

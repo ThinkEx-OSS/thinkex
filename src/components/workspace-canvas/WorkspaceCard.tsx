@@ -6,7 +6,7 @@ import {
   getCardAccentColor,
   type CardColor,
 } from "@/lib/workspace-state/colors";
-import type { Item, DocumentData } from "@/lib/workspace-state/types";
+import type { Item } from "@/lib/workspace-state/types";
 import type { ColorResult } from "react-color";
 import { useUIStore } from "@/lib/stores/ui-store";
 import {
@@ -90,23 +90,6 @@ function WorkspaceCard({
     [item.id, onUpdateItem],
   );
 
-  const handleCopyMarkdown = useCallback(() => {
-    if (item.type !== "document") return;
-    const md = (item.data as DocumentData).markdown ?? "";
-    if (md) {
-      navigator.clipboard
-        .writeText(md)
-        .then(() => {
-          toast.success("Copied to clipboard");
-        })
-        .catch(() => {
-          toast.error("Failed to copy");
-        });
-    } else {
-      toast.error("No content to copy");
-    }
-  }, [item.type, item.data]);
-
   const isInteractiveTarget = useCallback((target: HTMLElement) => {
     return Boolean(
       target.closest("button") ||
@@ -184,18 +167,19 @@ function WorkspaceCard({
   );
 
   const shouldUseFramelessLayout = isFramelessWorkspaceCardItem(item);
+  const cardTitle = item.name || "Untitled";
 
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div className="group size-full">
+        <div className="group flex size-full min-h-0 flex-col">
           <article
             id={`item-${item.id}`}
             data-youtube-card
             data-item-type={item.type}
             role="button"
             tabIndex={0}
-            className={`relative rounded-md scroll-mt-4 size-full flex flex-col overflow-hidden transition-all duration-200 cursor-pointer ${
+            className={`relative min-h-0 flex-1 rounded-md scroll-mt-4 flex flex-col overflow-hidden transition-all duration-200 cursor-pointer ${
               shouldUseFramelessLayout
                 ? "p-0"
                 : "p-3 border shadow-sm hover:border-foreground/30 hover:shadow-md focus-within:border-foreground/50"
@@ -244,7 +228,6 @@ function WorkspaceCard({
               onToggleSelection={() => onToggleSelection(item.id)}
               onOpenRename={openRenameDialog}
               onOpenMove={openMoveDialog}
-              onCopyMarkdown={handleCopyMarkdown}
               onOpenColorPicker={openColorPicker}
               onDelete={openDeleteDialog}
             />
@@ -253,6 +236,12 @@ function WorkspaceCard({
 
             <WorkspaceCanvasItemPreview item={item} />
           </article>
+
+          <div className="min-w-0 px-1 pt-2">
+            <div className="truncate text-sm font-medium leading-snug text-foreground">
+              {cardTitle}
+            </div>
+          </div>
 
           <SharedCardDialogs
             item={item}
@@ -286,7 +275,6 @@ function WorkspaceCard({
           canMove={Boolean(onMoveItem)}
           onOpenRename={openRenameDialog}
           onOpenMove={openMoveDialog}
-          onCopyMarkdown={handleCopyMarkdown}
           onOpenColorPicker={openColorPicker}
           onDelete={openDeleteDialog}
         />

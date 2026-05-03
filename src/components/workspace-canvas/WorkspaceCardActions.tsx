@@ -7,7 +7,6 @@ import {
   Palette,
   CheckCircle2,
   FolderInput,
-  Copy,
   X,
   Pencil,
 } from "lucide-react";
@@ -38,7 +37,6 @@ interface WorkspaceCardMenuItemsProps {
   canMove: boolean;
   onOpenRename: () => void;
   onOpenMove: () => void;
-  onCopyMarkdown: () => void;
   onOpenColorPicker: () => void;
   onDelete: () => void;
   MenuItem: MenuItemComponent;
@@ -59,7 +57,6 @@ function WorkspaceCardMenuItems({
   canMove,
   onOpenRename,
   onOpenMove,
-  onCopyMarkdown,
   onOpenColorPicker,
   onDelete,
   MenuItem,
@@ -76,15 +73,6 @@ function WorkspaceCardMenuItems({
           <MenuItem onSelect={onOpenMove}>
             <FolderInput className="mr-2 h-4 w-4" />
             <span>Move to</span>
-          </MenuItem>
-          <MenuSeparator />
-        </>
-      )}
-      {itemType === "document" && (
-        <>
-          <MenuItem onSelect={onCopyMarkdown}>
-            <Copy className="mr-2 h-4 w-4" />
-            <span>Copy Markdown</span>
           </MenuItem>
           <MenuSeparator />
         </>
@@ -150,7 +138,6 @@ interface WorkspaceCardControlsProps {
   onToggleSelection: () => void;
   onOpenRename: () => void;
   onOpenMove: () => void;
-  onCopyMarkdown: () => void;
   onOpenColorPicker: () => void;
   onDelete: () => void;
 }
@@ -166,7 +153,6 @@ export function WorkspaceCardControls({
   onToggleSelection,
   onOpenRename,
   onOpenMove,
-  onCopyMarkdown,
   onOpenColorPicker,
   onDelete,
 }: WorkspaceCardControlsProps) {
@@ -236,7 +222,6 @@ export function WorkspaceCardControls({
             canMove={canMove}
             onOpenRename={onOpenRename}
             onOpenMove={onOpenMove}
-            onCopyMarkdown={onCopyMarkdown}
             onOpenColorPicker={onOpenColorPicker}
             onDelete={onDelete}
             MenuItem={DropdownMenuItem}
@@ -253,7 +238,6 @@ interface WorkspaceCardContextMenuItemsProps {
   canMove: boolean;
   onOpenRename: () => void;
   onOpenMove: () => void;
-  onCopyMarkdown: () => void;
   onOpenColorPicker: () => void;
   onDelete: () => void;
 }
