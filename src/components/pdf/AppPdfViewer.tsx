@@ -224,7 +224,7 @@ const TextSelectionMenu = ({
       // Use the .wait(successCb, errorCb) pattern
       // Casting to any to avoid strict TS issues if the type definition is slightly off for 'wait'
       (textTask as any).wait((lines: string[]) => {
-        const text = lines.join('\n');
+        const text = lines.join('\n').toWellFormed();
 
         if (text && text.trim().length > 0) {
           const page = scrollState?.currentPage;

@@ -256,7 +256,13 @@ const YouTubeSearchContent: FC<{
                     </div>
                     <div className="flex flex-col min-w-0 flex-1">
                         <span className="text-xs font-medium truncate">
-                            {isRunning ? "Searching YouTube..." : "YouTube Search"}
+                            {isRunning
+                                ? args?.query?.trim()
+                                    ? `Searching YouTube for "${args.query.trim()}"…`
+                                    : "Searching YouTube…"
+                                : args?.query?.trim()
+                                  ? `YouTube: "${args.query.trim()}"`
+                                  : "YouTube Search"}
                         </span>
                         {status.type === "complete" && result && (
                             <span className="text-[10px] text-muted-foreground">

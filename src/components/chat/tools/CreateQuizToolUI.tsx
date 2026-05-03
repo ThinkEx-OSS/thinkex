@@ -244,7 +244,14 @@ function CreateQuizToolRenderer({
   let content: ReactNode = null;
 
   if (status.type === "running") {
-    content = <ToolUILoadingShell label="Generating quiz..." />;
+    const titleRunning = args?.title?.trim();
+    content = (
+      <ToolUILoadingShell
+        label={
+          titleRunning ? `Creating "${titleRunning}" quiz…` : "Generating quiz…"
+        }
+      />
+    );
   } else if (status.type === "complete" && parsed?.success) {
     content = (
       <CreateQuizReceipt

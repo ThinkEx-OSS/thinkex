@@ -294,7 +294,17 @@ function CreateFlashcardToolRenderer({
     logger.debug(
       "⏳ [CreateFlashcardTool] Rendering loading state - status is running",
     );
-    content = <ToolUILoadingShell label="Generating flashcards..." />;
+    const argsObjRunning = isCreateFlashcardArgsObject(args) ? args : null;
+    const titleRunning = argsObjRunning?.title?.trim();
+    content = (
+      <ToolUILoadingShell
+        label={
+          titleRunning
+            ? `Creating "${titleRunning}" flashcards…`
+            : "Generating flashcards…"
+        }
+      />
+    );
   } else if (status.type === "complete" && !parsed) {
     logger.error("🎨 [CreateFlashcardTool] Complete status had no parseable result");
     content = (
