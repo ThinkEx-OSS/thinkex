@@ -21,6 +21,7 @@ import { YouTubeCardContent } from "./YouTubeCardContent";
 import { ImageCardContent } from "./ImageCardContent";
 import { DocumentCardContent } from "./DocumentCardContent";
 import { PdfCardContent } from "./PdfCardContent";
+import { QuizCardContent } from "./QuizCardContent";
 import { YouTubePanelContent } from "./YouTubePanelContent";
 import {
   extractYouTubePlaylistId,
@@ -59,6 +60,8 @@ export function WorkspaceCanvasItemPreview({
       {item.type === "pdf" ? <PdfCardContent item={item} /> : null}
 
       {item.type === "audio" ? <AudioCardContent item={item} isCompact /> : null}
+
+      {item.type === "quiz" ? <QuizCardContent item={item} /> : null}
     </>
   );
 }
