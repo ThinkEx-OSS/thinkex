@@ -47,8 +47,10 @@ export function usesManagedWorkspacePanelLayout(item: Item): boolean {
 
 export function WorkspaceCanvasItemPreview({
   item,
+  onUpdateItem,
 }: {
   item: Item;
+  onUpdateItem?: (itemId: string, updates: Partial<Item>) => void;
 }) {
   return (
     <>
@@ -58,7 +60,9 @@ export function WorkspaceCanvasItemPreview({
 
       {item.type === "document" ? <DocumentCardContent item={item} /> : null}
 
-      {item.type === "pdf" ? <PdfCardContent item={item} /> : null}
+      {item.type === "pdf" ? (
+        <PdfCardContent item={item} onUpdateItem={onUpdateItem} />
+      ) : null}
 
       {item.type === "audio" ? <AudioCardContent item={item} isCompact /> : null}
 

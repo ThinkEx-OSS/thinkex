@@ -253,7 +253,10 @@ function WorkspaceCard({
             </div>
 
             <div className="min-h-0 flex-1">
-              <WorkspaceCanvasItemPreview item={item} />
+              <WorkspaceCanvasItemPreview
+                item={item}
+                onUpdateItem={onUpdateItem}
+              />
             </div>
           </article>
 
