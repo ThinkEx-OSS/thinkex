@@ -8,8 +8,8 @@ export function ItemHeader(props: {
   name: string;
   subtitle: string;
   description: string;
-  onNameChange: (value: string) => void;
-  onSubtitleChange: (value: string) => void;
+  onNameChange?: (value: string) => void;
+  onSubtitleChange?: (value: string) => void;
   onNameCommit?: (value: string) => void;
   onDescriptionCommit?: (value: string) => void;
   readOnly?: boolean;
@@ -115,7 +115,7 @@ export function ItemHeader(props: {
     if (value !== name) {
       if (onNameCommit) {
         onNameCommit(value);
-      } else {
+      } else if (onNameChange) {
         onNameChange(value);
       }
     }
@@ -234,5 +234,4 @@ export function ItemHeader(props: {
 }
 
 export default ItemHeader;
-
 

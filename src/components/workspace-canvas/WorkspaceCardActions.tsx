@@ -144,8 +144,9 @@ interface WorkspaceCardControlsProps {
   useDarkOverlay: boolean;
   resolvedTheme?: string;
   isSelected: boolean;
-  isEditingTitle: boolean;
   canMove: boolean;
+  selectionLabel?: string;
+  settingsLabel?: string;
   onToggleSelection: () => void;
   onOpenRename: () => void;
   onOpenMove: () => void;
@@ -159,8 +160,9 @@ export function WorkspaceCardControls({
   useDarkOverlay,
   resolvedTheme,
   isSelected,
-  isEditingTitle,
   canMove,
+  selectionLabel = "card",
+  settingsLabel = "Card settings",
   onToggleSelection,
   onOpenRename,
   onOpenMove,
@@ -199,16 +201,11 @@ export function WorkspaceCardControls({
   });
 
   return (
-    <div
-      className={cn(
-        "absolute top-3 right-3 z-20 flex items-center gap-2",
-        isEditingTitle ? "" : "opacity-0 group-hover:opacity-100",
-      )}
-    >
+    <div className="absolute top-3 right-3 z-20 flex items-center gap-2 opacity-0 group-hover:opacity-100">
       <button
         type="button"
-        aria-label={isSelected ? "Deselect card" : "Select card"}
-        title={isSelected ? "Deselect card" : "Select card"}
+        aria-label={isSelected ? `Deselect ${selectionLabel}` : `Select ${selectionLabel}`}
+        title={isSelected ? `Deselect ${selectionLabel}` : `Select ${selectionLabel}`}
         className={cn(floatingControlButtonClassName, "w-8 hover:scale-110")}
         style={getFloatingControlStyle(selectionBackgroundColor)}
         {...selectionHandlers}
@@ -220,8 +217,8 @@ export function WorkspaceCardControls({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            aria-label="Card settings"
-            title="Card settings"
+            aria-label={settingsLabel}
+            title={settingsLabel}
             className={cn(floatingControlButtonClassName, "w-8 hover:scale-110")}
             style={getFloatingControlStyle(defaultBackgroundColor)}
             {...settingsHandlers}

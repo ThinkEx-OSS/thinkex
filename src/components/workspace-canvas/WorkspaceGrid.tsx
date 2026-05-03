@@ -4,7 +4,6 @@ import { useDragDropMonitor, type DragEndEvent } from "@dnd-kit/react";
 import { isSortable } from "@dnd-kit/react/sortable";
 import type { Item } from "@/lib/workspace-state/types";
 import { WorkspaceCard } from "./WorkspaceCard";
-import { FlashcardWorkspaceCard } from "./FlashcardWorkspaceCard";
 import { FolderCard } from "./FolderCard";
 import {
   getWorkspaceSortableGroup,
@@ -243,33 +242,6 @@ function WorkspaceGridComponent({
 
   const contentChildren = useMemo(() => {
     return orderedContentItems.map((item, index) => {
-      if (item.type === "flashcard") {
-        return (
-          <SortableWorkspaceGridItem
-            key={item.id}
-            item={item}
-            index={index}
-            lane="items"
-            containerId={currentContainerId}
-            className={GRID_ITEM_CLASS}
-          >
-            {() => (
-              <FlashcardWorkspaceCard
-                item={item}
-                allItems={allItems}
-                workspaceName={workspaceName}
-                workspaceIcon={workspaceIcon}
-                workspaceColor={workspaceColor}
-                onUpdateItem={handleUpdateItem}
-                onDeleteItem={handleDeleteItem}
-                onOpenModal={handleOpenModal}
-                onMoveItem={onMoveItem}
-              />
-            )}
-          </SortableWorkspaceGridItem>
-        );
-      }
-
       return (
         <SortableWorkspaceGridItem
           key={item.id}

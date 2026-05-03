@@ -76,9 +76,6 @@ interface UIState {
   // Card selection state (user actions only — opening a panel does not change selection)
   selectedCardIds: Set<string>;
 
-  // Scroll lock state per item (itemId -> isScrollLocked)
-  itemScrollLocked: Map<string, boolean>;
-
   // Reply selection state
   replySelections: ReplySelection[];
 
@@ -136,10 +133,6 @@ interface UIState {
   clearCardSelection: () => void;
   selectMultipleCards: (ids: string[]) => void;
 
-  // Actions - Scroll lock state
-  setItemScrollLocked: (itemId: string, isLocked: boolean) => void;
-  toggleItemScrollLocked: (itemId: string) => void;
-
   // Actions - Reply selection
   addReplySelection: (selection: ReplySelection) => void;
   removeReplySelection: (index: number) => void;
@@ -177,9 +170,6 @@ const initialState = {
 
   // Card selection
   selectedCardIds: new Set<string>(),
-
-  // Scroll lock state
-  itemScrollLocked: new Map<string, boolean>(),
 
   // Reply selection
   replySelections: [],
@@ -345,21 +335,6 @@ export const useUIStore = create<UIState>()(
 
         selectMultipleCards: (ids) => set({ selectedCardIds: new Set(ids) }),
 
-        // Scroll lock actions
-        setItemScrollLocked: (itemId, isLocked) =>
-          set((state) => {
-            const newMap = new Map(state.itemScrollLocked);
-            newMap.set(itemId, isLocked);
-            return { itemScrollLocked: newMap };
-          }),
-        toggleItemScrollLocked: (itemId) =>
-          set((state) => {
-            const newMap = new Map(state.itemScrollLocked);
-            const current = newMap.get(itemId) ?? true;
-            newMap.set(itemId, !current);
-            return { itemScrollLocked: newMap };
-          }),
-
         // Reply selection actions
         addReplySelection: (selection) =>
           set((state) => {
@@ -440,9 +415,3 @@ export const selectSelectedCardIdsArray = (state: UIState): string[] => {
 };
 
 export const selectReplySelections = (state: UIState) => state.replySelections;
-
-export const selectItemScrollLocked =
-  (itemId: string) =>
-  (state: UIState): boolean => {
-    return state.itemScrollLocked.get(itemId) ?? true;
-  };

@@ -3,14 +3,12 @@
 import { useMemo } from "react";
 import type {
   Item,
-  ItemData,
   FlashcardData,
 } from "@/lib/workspace-state/types";
 import { StreamdownMarkdown } from "@/components/ui/streamdown-markdown";
 
 interface FlashcardContentProps {
   item: Item;
-  onUpdateData: (updater: (prev: ItemData) => ItemData) => void;
 }
 
 function FlashcardSidePreview({

@@ -1,9 +1,4 @@
-import {
-  useCallback,
-  useState,
-  memo,
-  type CSSProperties,
-} from "react";
+import { useCallback, memo, type CSSProperties } from "react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import {
@@ -23,9 +18,13 @@ import {
   WorkspaceCardContextMenuItems,
   WorkspaceCardControls,
 } from "./WorkspaceCardActions";
-import { WorkspaceCardContent } from "./WorkspaceCardContent";
-import { WorkspaceCardDialogs } from "./WorkspaceCardDialogs";
+import { SharedCardDialogs, SimpleDeleteDialog } from "./CardDialogs";
 import { WorkspaceCardTypeBadge } from "./WorkspaceCardTypeBadge";
+import {
+  isFramelessWorkspaceCardItem,
+  WorkspaceCanvasItemPreview,
+} from "./WorkspaceItemView";
+import { useCardActionState } from "./useCardActionState";
 
 interface WorkspaceCardProps {
   item: Item;
@@ -54,59 +53,34 @@ function WorkspaceCard({
 
   const isSelected = useUIStore((state) => state.selectedCardIds.has(item.id));
   const onToggleSelection = useUIStore((state) => state.toggleCardSelection);
-
-  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showMoveDialog, setShowMoveDialog] = useState(false);
-  const [showRenameDialog, setShowRenameDialog] = useState(false);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-
-  const handleNameChange = useCallback(
-    (v: string) => {
-      onUpdateItem(item.id, { name: v });
-    },
-    [item.id, onUpdateItem],
-  );
-
-  const handleNameCommit = useCallback(
-    (v: string) => {
-      onUpdateItem(item.id, { name: v });
-    },
-    [item.id, onUpdateItem],
-  );
-
-  const handleSubtitleChange = useCallback(
-    (v: string) => {
-      onUpdateItem(item.id, { subtitle: v });
-    },
-    [item.id, onUpdateItem],
-  );
-
-  const handleTitleFocus = useCallback(() => {
-    setIsEditingTitle(true);
-  }, []);
-
-  const handleTitleBlur = useCallback(() => {
-    setIsEditingTitle(false);
-  }, []);
+  const {
+    isColorPickerOpen,
+    setIsColorPickerOpen,
+    showDeleteDialog,
+    setShowDeleteDialog,
+    showMoveDialog,
+    setShowMoveDialog,
+    showRenameDialog,
+    setShowRenameDialog,
+    openColorPicker,
+    openDeleteDialog,
+    openMoveDialog,
+    openRenameDialog,
+  } = useCardActionState();
 
   const handleColorChange = useCallback(
     (color: ColorResult) => {
       onUpdateItem(item.id, { color: color.hex as CardColor });
       setIsColorPickerOpen(false);
     },
-    [item.id, onUpdateItem],
+    [item.id, onUpdateItem, setIsColorPickerOpen],
   );
-
-  const handleDelete = useCallback(() => {
-    setShowDeleteDialog(true);
-  }, []);
 
   const handleDeleteConfirm = useCallback(() => {
     onDeleteItem(item.id);
     setShowDeleteDialog(false);
     toast.success("Card deleted successfully");
-  }, [item.id, onDeleteItem]);
+  }, [item.id, onDeleteItem, setShowDeleteDialog]);
 
   const handleRename = useCallback(
     (newName: string) => {
@@ -142,7 +116,6 @@ function WorkspaceCard({
         target.closest("a") ||
         target.closest("label") ||
         target.closest('[role="menuitem"]') ||
-        target.closest('[contenteditable="true"]') ||
         target.closest('[data-slot="dropdown-menu-content"]') ||
         target.closest('[data-slot="dropdown-menu-trigger"]') ||
         target.closest('[data-slot="popover-content"]') ||
@@ -173,15 +146,32 @@ function WorkspaceCard({
         return;
       }
 
-      if (isEditingTitle) {
-        e.preventDefault();
-        e.stopPropagation();
+      onOpenModal(item.id);
+    },
+    [isInteractiveTarget, item.id, onOpenModal, onToggleSelection],
+  );
+
+  const handleCardKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLElement>) => {
+      if (e.key !== "Enter" && e.key !== " ") {
+        return;
+      }
+
+      const target = e.target as HTMLElement;
+      if (isInteractiveTarget(target)) {
+        return;
+      }
+
+      e.preventDefault();
+
+      if (e.shiftKey) {
+        onToggleSelection(item.id);
         return;
       }
 
       onOpenModal(item.id);
     },
-    [isEditingTitle, isInteractiveTarget, item.id, onOpenModal, onToggleSelection],
+    [isInteractiveTarget, item.id, onOpenModal, onToggleSelection],
   );
 
   const handleMove = useCallback(
@@ -193,8 +183,7 @@ function WorkspaceCard({
     [item.id, onMoveItem],
   );
 
-  const shouldUseFramelessLayout =
-    item.type === "youtube" || item.type === "image";
+  const shouldUseFramelessLayout = isFramelessWorkspaceCardItem(item);
 
   return (
     <ContextMenu>
@@ -204,6 +193,8 @@ function WorkspaceCard({
             id={`item-${item.id}`}
             data-youtube-card
             data-item-type={item.type}
+            role="button"
+            tabIndex={0}
             className={`relative rounded-md scroll-mt-4 size-full flex flex-col overflow-hidden transition-all duration-200 cursor-pointer ${
               shouldUseFramelessLayout
                 ? "p-0"
@@ -242,36 +233,28 @@ function WorkspaceCard({
               } as CSSProperties
             }
             onClick={handleCardClick}
+            onKeyDown={handleCardKeyDown}
           >
             <WorkspaceCardControls
               itemType={item.type}
               useDarkOverlay={false}
               resolvedTheme={resolvedTheme}
               isSelected={isSelected}
-              isEditingTitle={isEditingTitle}
               canMove={Boolean(onMoveItem)}
               onToggleSelection={() => onToggleSelection(item.id)}
-              onOpenRename={() => setShowRenameDialog(true)}
-              onOpenMove={() => setShowMoveDialog(true)}
+              onOpenRename={openRenameDialog}
+              onOpenMove={openMoveDialog}
               onCopyMarkdown={handleCopyMarkdown}
-              onOpenColorPicker={() => setIsColorPickerOpen(true)}
-              onDelete={handleDelete}
+              onOpenColorPicker={openColorPicker}
+              onDelete={openDeleteDialog}
             />
 
             <WorkspaceCardTypeBadge item={item} resolvedTheme={resolvedTheme} />
 
-            <WorkspaceCardContent
-              item={item}
-              resolvedTheme={resolvedTheme}
-              onNameChange={handleNameChange}
-              onNameCommit={handleNameCommit}
-              onSubtitleChange={handleSubtitleChange}
-              onTitleFocus={handleTitleFocus}
-              onTitleBlur={handleTitleBlur}
-            />
+            <WorkspaceCanvasItemPreview item={item} />
           </article>
 
-          <WorkspaceCardDialogs
+          <SharedCardDialogs
             item={item}
             allItems={allItems}
             workspaceName={workspaceName}
@@ -279,16 +262,20 @@ function WorkspaceCard({
             workspaceColor={workspaceColor}
             isColorPickerOpen={isColorPickerOpen}
             onColorPickerOpenChange={setIsColorPickerOpen}
-            showDeleteDialog={showDeleteDialog}
-            onDeleteDialogChange={setShowDeleteDialog}
             showMoveDialog={showMoveDialog}
             onMoveDialogChange={setShowMoveDialog}
             showRenameDialog={showRenameDialog}
             onRenameDialogChange={setShowRenameDialog}
             onColorChange={handleColorChange}
-            onDeleteConfirm={handleDeleteConfirm}
             onRename={handleRename}
             onMove={onMoveItem ? handleMove : undefined}
+          />
+          <SimpleDeleteDialog
+            open={showDeleteDialog}
+            onOpenChange={setShowDeleteDialog}
+            title="Delete Card"
+            description={`Are you sure you want to delete "${item.name}"? This action cannot be undone.`}
+            onConfirm={handleDeleteConfirm}
           />
         </div>
       </ContextMenuTrigger>
@@ -297,11 +284,11 @@ function WorkspaceCard({
         <WorkspaceCardContextMenuItems
           itemType={item.type}
           canMove={Boolean(onMoveItem)}
-          onOpenRename={() => setShowRenameDialog(true)}
-          onOpenMove={() => setShowMoveDialog(true)}
+          onOpenRename={openRenameDialog}
+          onOpenMove={openMoveDialog}
           onCopyMarkdown={handleCopyMarkdown}
-          onOpenColorPicker={() => setIsColorPickerOpen(true)}
-          onDelete={handleDelete}
+          onOpenColorPicker={openColorPicker}
+          onDelete={openDeleteDialog}
         />
       </ContextMenuContent>
     </ContextMenu>
