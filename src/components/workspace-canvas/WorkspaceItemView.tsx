@@ -46,6 +46,7 @@ export function usesManagedWorkspacePanelLayout(item: Item): boolean {
 export function WorkspaceCanvasItemPreview({ item }: { item: Item }) {
   const isCompactTextCard =
     item.type === "pdf" ||
+    item.type === "flashcard" ||
     item.type === "quiz" ||
     item.type === "audio" ||
     item.type === "document";
@@ -69,14 +70,6 @@ export function WorkspaceCanvasItemPreview({ item }: { item: Item }) {
               noMargin={true}
               allowWrap={isCompactTextCard}
             />
-          </div>
-        </div>
-      ) : null}
-
-      {item.type === "flashcard" ? (
-        <div className="flex-1 min-h-0 px-3 pb-3">
-          <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-foreground/10 bg-foreground/5 px-4 text-center dark:border-white/10 dark:bg-white/5">
-            <p className="text-sm font-medium text-foreground">Flashcards</p>
           </div>
         </div>
       ) : null}

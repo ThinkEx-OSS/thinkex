@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, File, FileText, Brain, Mic, Globe } from "lucide-react";
+import { PiCardsThreeBold } from "react-icons/pi";
 import type { Item, PdfData, WebsiteData } from "@/lib/workspace-state/types";
 import {
   getCardColorWithBlackMix,
@@ -19,6 +20,7 @@ export function WorkspaceCardTypeBadge({
 }: WorkspaceCardTypeBadgeProps) {
   const showTypeBadge =
     item.type === "pdf" ||
+    item.type === "flashcard" ||
     item.type === "quiz" ||
     item.type === "audio" ||
     item.type === "website" ||
@@ -55,6 +57,11 @@ export function WorkspaceCardTypeBadge({
             <span>PDF</span>
           </>
         )
+      ) : item.type === "flashcard" ? (
+        <>
+          <PiCardsThreeBold className="h-5 w-5 shrink-0" />
+          <span>Flashcards</span>
+        </>
       ) : item.type === "quiz" ? (
         <>
           <Brain className="h-5 w-5 shrink-0" />
