@@ -23,7 +23,19 @@
     "eslint/no-cond-assign": "warn",
     "unicorn/prefer-string-starts-ends-with": "warn",
     "unicorn/no-new-array": "warn",
-    "unicorn/no-invalid-fetch-options": "warn"
+    "unicorn/no-invalid-fetch-options": "warn",
+    "eslint/no-restricted-imports": [
+      "warn",
+      {
+        "paths": [
+          {
+            "name": "react",
+            "importNames": ["useEffect"],
+            "message": "Avoid direct useEffect. Use useMountEffect, useEventListener, useBodyScrollLock, or create a purpose-named hook."
+          }
+        ]
+      }
+    ]
   },
   "env": {
     "builtin": true
