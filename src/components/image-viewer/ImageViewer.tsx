@@ -391,7 +391,7 @@ export default function ImageViewer({
           centerOnInit={true}
           smooth={true}
           wheel={{ step: 0.008, touchPadDisabled: true }}
-          trackPadPanning={{ disabled: false }}
+          trackPadPanning={{ disabled: isCapturing }}
           doubleClick={{ mode: "reset" }}
           panning={{ disabled: isCapturing }}
           onTransform={(_ref: ReactZoomPanPinchRef, state: { scale: number }) => {
