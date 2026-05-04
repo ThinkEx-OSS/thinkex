@@ -107,6 +107,42 @@ export function parseFlashcardResult(input: unknown): FlashcardResult {
   return coerceToFlashcardResult(input);
 }
 
+/** quiz_add_questions */
+export const QuizAddQuestionsResultSchema = baseWorkspace.extend({
+  questionsAdded: z.number().optional(),
+  totalQuestions: z.number().optional(),
+}).passthrough();
+export type QuizAddQuestionsResult = z.infer<typeof QuizAddQuestionsResultSchema>;
+
+const coerceToQuizAddQuestionsResult = createCoerceFunction<QuizAddQuestionsResult>(
+  QuizAddQuestionsResultSchema,
+  "QuizAddQuestionsResult",
+);
+export function parseQuizAddQuestionsResult(input: unknown): QuizAddQuestionsResult {
+  if (input != null && typeof input === "object" && !Array.isArray(input)) {
+    return parseWithSchema(QuizAddQuestionsResultSchema, input, "QuizAddQuestionsResult");
+  }
+  return coerceToQuizAddQuestionsResult(input);
+}
+
+/** flashcard_add_cards */
+export const FlashcardAddCardsResultSchema = baseWorkspace.extend({
+  cardsAdded: z.number().optional(),
+  totalCards: z.number().optional(),
+}).passthrough();
+export type FlashcardAddCardsResult = z.infer<typeof FlashcardAddCardsResultSchema>;
+
+const coerceToFlashcardAddCardsResult = createCoerceFunction<FlashcardAddCardsResult>(
+  FlashcardAddCardsResultSchema,
+  "FlashcardAddCardsResult",
+);
+export function parseFlashcardAddCardsResult(input: unknown): FlashcardAddCardsResult {
+  if (input != null && typeof input === "object" && !Array.isArray(input)) {
+    return parseWithSchema(FlashcardAddCardsResultSchema, input, "FlashcardAddCardsResult");
+  }
+  return coerceToFlashcardAddCardsResult(input);
+}
+
 /** web_fetch – result is string or { text, metadata } */
 export const URLContextResultSchema = z.union([z.string(), ProcessUrlsOutputSchema]);
 

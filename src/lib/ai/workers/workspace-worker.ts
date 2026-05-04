@@ -247,7 +247,9 @@ export async function workspaceWorker(
     | "edit"
     | "updateQuiz"
     | "updatePdfContent"
-    | "updateImageContent",
+    | "updateImageContent"
+    | "add_questions"
+    | "add_cards",
   params: {
     workspaceId: string;
     /** For bulkCreate: array of create params (no workspaceId). Items are built and appended as one BULK_ITEMS_CREATED event. */
@@ -308,6 +310,8 @@ export async function workspaceWorker(
       favicon?: string;
     }>;
     folderId?: string;
+    questions?: QuizQuestion[];
+    cards?: Array<{ front: string; back: string }>;
   },
 ): Promise<{
   success: boolean;
@@ -316,6 +320,10 @@ export async function workspaceWorker(
   cardCount?: number;
   event?: unknown;
   version?: number;
+  questionsAdded?: number;
+  totalQuestions?: number;
+  cardsAdded?: number;
+  totalCards?: number;
 }> {
   // For "create" and "bulkCreate" operations, allow parallel execution (bypass queue)
   // For other operations, serialize via queue
@@ -1066,6 +1074,83 @@ export async function workspaceWorker(
             message: existingItem
               ? `Deleted "${existingItem.name}" successfully`
               : "Deleted item successfully",
+          };
+        }
+
+        if (action === "add_questions") {
+          if (!params.itemId || !params.workspaceId) {
+            throw new Error("Item ID and workspace ID required for add_questions");
+          }
+          const questions: QuizQuestion[] = params.questions ?? [];
+          if (questions.length === 0) {
+            throw new Error("At least one question is required");
+          }
+
+          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
+          const existingItem = currentState.find((i: Item) => i.id === params.itemId);
+          if (!existingItem) {
+            throw new Error(`Item not found with ID: ${params.itemId}`);
+          }
+          if (existingItem.type !== "quiz") {
+            throw new Error(`Item is not a quiz (type: ${existingItem.type})`);
+          }
+
+          const data = existingItem.data as QuizData;
+          const existingQuestions = data.questions ?? [];
+          const updatedQuestions = [...existingQuestions, ...questions];
+
+          await updateWorkspaceItem(params.workspaceId, params.itemId, (item) => ({
+            ...item,
+            data: { ...(item.data as QuizData), questions: updatedQuestions } as QuizData,
+          }));
+
+          return {
+            success: true,
+            itemId: params.itemId,
+            questionsAdded: questions.length,
+            totalQuestions: updatedQuestions.length,
+            message: `Added ${questions.length} question(s).`,
+          };
+        }
+
+        if (action === "add_cards") {
+          if (!params.itemId || !params.workspaceId) {
+            throw new Error("Item ID and workspace ID required for add_cards");
+          }
+          const newCards: Array<{ front: string; back: string }> = params.cards ?? [];
+          if (newCards.length === 0) {
+            throw new Error("At least one card is required");
+          }
+
+          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
+          const existingItem = currentState.find((i: Item) => i.id === params.itemId);
+          if (!existingItem) {
+            throw new Error(`Item not found with ID: ${params.itemId}`);
+          }
+          if (existingItem.type !== "flashcard") {
+            throw new Error(`Item is not a flashcard deck (type: ${existingItem.type})`);
+          }
+
+          const data = existingItem.data as FlashcardData;
+          const existingCards = data.cards ?? [];
+          const cardsWithIds: FlashcardItem[] = newCards.map((c) => ({
+            id: generateItemId(),
+            front: String(c.front ?? ""),
+            back: String(c.back ?? ""),
+          }));
+          const updatedCards = [...existingCards, ...cardsWithIds];
+
+          await updateWorkspaceItem(params.workspaceId, params.itemId, (item) => ({
+            ...item,
+            data: { ...(item.data as FlashcardData), cards: updatedCards } as FlashcardData,
+          }));
+
+          return {
+            success: true,
+            itemId: params.itemId,
+            cardsAdded: cardsWithIds.length,
+            totalCards: updatedCards.length,
+            message: `Added ${cardsWithIds.length} card(s).`,
           };
         }
 

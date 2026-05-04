@@ -11,8 +11,8 @@ import {
   type WorkspaceToolContext,
 } from "./workspace-tools";
 import { createEditItemTool } from "./edit-item-tool";
-import { createFlashcardsTool } from "./flashcard-tools";
-import { createQuizTool } from "./quiz-tools";
+import { createFlashcardsTool, createFlashcardAddCardsTool } from "./flashcard-tools";
+import { createQuizTool, createQuizAddQuestionsTool } from "./quiz-tools";
 import {
   createSearchYoutubeTool,
   createAddYoutubeVideoTool,
@@ -62,9 +62,11 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
 
     // Flashcards
     [CHAT_TOOL.FLASHCARDS_CREATE]: createFlashcardsTool(ctx),
+    [CHAT_TOOL.FLASHCARD_ADD_CARDS]: createFlashcardAddCardsTool(ctx),
 
     // Quizzes
     [CHAT_TOOL.QUIZ_CREATE]: createQuizTool(ctx),
+    [CHAT_TOOL.QUIZ_ADD_QUESTIONS]: createQuizAddQuestionsTool(ctx),
 
     // YouTube
     [CHAT_TOOL.YOUTUBE_SEARCH]: createSearchYoutubeTool(),

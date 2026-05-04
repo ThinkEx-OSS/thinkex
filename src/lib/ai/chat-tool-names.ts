@@ -18,6 +18,8 @@ export const CHAT_TOOL = {
   YOUTUBE_SEARCH: "youtube_search",
   YOUTUBE_ADD: "youtube_add",
   CODE_EXECUTE: "code_execute",
+  QUIZ_ADD_QUESTIONS: "quiz_add_questions",
+  FLASHCARD_ADD_CARDS: "flashcard_add_cards",
 } as const;
 
 export type ChatToolName = (typeof CHAT_TOOL)[keyof typeof CHAT_TOOL];

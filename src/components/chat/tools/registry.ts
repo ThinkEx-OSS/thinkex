@@ -4,6 +4,8 @@ import type {
 } from "@/lib/chat/tool-ui-types";
 
 import { renderAddYoutubeVideoToolUI } from "./AddYoutubeVideoToolUI";
+import { renderAddQuizQuestionsToolUI } from "./AddQuizQuestionsToolUI";
+import { renderAddFlashcardCardsToolUI } from "./AddFlashcardCardsToolUI";
 import { renderCreateDocumentToolUI } from "./CreateDocumentToolUI";
 import { renderCreateFlashcardToolUI } from "./CreateFlashcardToolUI";
 import { renderCreateQuizToolUI } from "./CreateQuizToolUI";
@@ -32,7 +34,9 @@ export const TOOL_RENDERERS: Partial<Record<string, ToolRender>> = {
   [CHAT_TOOL.DOCUMENT_CREATE]: renderCreateDocumentToolUI as ToolRender,
   [CHAT_TOOL.ITEM_EDIT]: renderEditItemToolUI as ToolRender,
   [CHAT_TOOL.FLASHCARDS_CREATE]: renderCreateFlashcardToolUI as ToolRender,
+  [CHAT_TOOL.FLASHCARD_ADD_CARDS]: renderAddFlashcardCardsToolUI as ToolRender,
   [CHAT_TOOL.QUIZ_CREATE]: renderCreateQuizToolUI as ToolRender,
+  [CHAT_TOOL.QUIZ_ADD_QUESTIONS]: renderAddQuizQuestionsToolUI as ToolRender,
   [CHAT_TOOL.YOUTUBE_SEARCH]: renderYouTubeSearchToolUI as ToolRender,
   [CHAT_TOOL.YOUTUBE_ADD]: renderAddYoutubeVideoToolUI as ToolRender,
 };

@@ -10,7 +10,9 @@ import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
 import type { QuizQuestion } from "@/lib/workspace-state/types";
-import { withSanitizedModelOutput } from "./tool-utils";
+import { loadStateForTool, resolveItem, withSanitizedModelOutput } from "./tool-utils";
+import { getVirtualPath } from "@/lib/utils/workspace-fs";
+import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
 import { quizQuestionInputSchema } from "@/lib/workspace-state/item-data-schemas";
 import { materializeQuizQuestion } from "@/lib/workspace-state/quiz-shuffle";
 
@@ -104,4 +106,76 @@ export function createQuizTool(ctx: WorkspaceToolContext) {
   );
 }
 
-// Edit functionality is in edit-item-tool.ts (item_edit)
+const AddQuizQuestionsInputSchema = z.object({
+  itemName: z.string().describe("Name of the existing quiz to add questions to (matched by fuzzy search)"),
+  questions: z.array(quizQuestionInputSchema).min(1).max(50).describe(
+    "New questions to append. Same format as quiz_create: provide rationale, question, correctAnswer, distractors (3 for MC, 1 for T/F), and explanation for each."
+  ),
+});
+export type AddQuizQuestionsInput = z.infer<typeof AddQuizQuestionsInputSchema>;
+
+export function createQuizAddQuestionsTool(ctx: WorkspaceToolContext) {
+  return withSanitizedModelOutput(
+    tool({
+      description:
+        "Add questions to an existing quiz. Use this instead of item_edit when you need to append new questions to a quiz. " +
+        "Uses the same question format as quiz_create. Does NOT require workspace_read first.",
+      inputSchema: zodSchema(AddQuizQuestionsInputSchema),
+      strict: true,
+      execute: async (input: AddQuizQuestionsInput) => {
+        if (!input.questions || input.questions.length === 0) {
+          return { success: false, message: "At least one question is required." };
+        }
+        if (!ctx.workspaceId) {
+          return { success: false, message: "No workspace context available" };
+        }
+
+        const accessResult = await loadStateForTool(ctx);
+        if (!accessResult.success) {
+          return accessResult;
+        }
+        const state = normalizeWorkspaceItems(accessResult.state);
+        const matchedItem = resolveItem(state, input.itemName);
+        if (!matchedItem) {
+          const sample = state.filter((i) => i.type !== "folder").slice(0, 5).map((i) => `"${i.name}" (${i.type})`).join(", ");
+          return { success: false, message: `Could not find item "${input.itemName}". ${sample ? `Example items: ${sample}` : "Workspace may be empty."}` };
+        }
+        if (matchedItem.type !== "quiz") {
+          return { success: false, message: `Item "${matchedItem.name}" is not a quiz (type: ${matchedItem.type}).` };
+        }
+
+        const contentItems = state.filter((i) => i.type !== "folder");
+        const sameNameCandidates = contentItems.filter(
+          (i) => i.name.toLowerCase().trim() === matchedItem.name.toLowerCase().trim()
+        );
+        if (sameNameCandidates.length > 1) {
+          const paths = sameNameCandidates.map((c) => getVirtualPath(c, state)).join(", ");
+          return { success: false, message: `Multiple items named "${matchedItem.name}". Disambiguate using path: ${paths}` };
+        }
+
+        const materializedQuestions: QuizQuestion[] = input.questions.map((q) => materializeQuizQuestion(q));
+
+        try {
+          const result = await workspaceWorker("add_questions", {
+            workspaceId: ctx.workspaceId,
+            itemId: matchedItem.id,
+            questions: materializedQuestions,
+          });
+
+          return {
+            success: true,
+            itemId: matchedItem.id,
+            questionsAdded: materializedQuestions.length,
+            totalQuestions: result.totalQuestions,
+            message: result.message,
+          };
+        } catch (error) {
+          return {
+            success: false,
+            message: `Error adding questions: ${error instanceof Error ? error.message : String(error)}`,
+          };
+        }
+      },
+    })
+  );
+}
