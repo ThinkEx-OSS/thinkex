@@ -750,3 +750,20 @@ export const chatMessages = pgTable(
     ),
   ],
 );
+
+export const workspaceItemUserState = pgTable(
+  "workspace_item_user_state",
+  {
+    workspaceId: uuid("workspace_id").notNull(),
+    itemId: text("item_id").notNull(),
+    userId: text("user_id").notNull(),
+    stateKey: text("state_key").default("item").notNull(),
+    stateType: text("state_type").notNull(),
+    stateSchemaVersion: integer("state_schema_version").default(1).notNull(),
+    state: jsonb("state").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [{
+    pk: primaryKey({ columns: [table.workspaceId, table.itemId, table.userId, table.stateKey] }),
+  }]
+);
