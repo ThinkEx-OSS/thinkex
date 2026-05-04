@@ -1062,8 +1062,17 @@ export async function workspaceWorker(
             throw new Error("At least one item ID is required for move");
           }
 
+          const currentState = await loadWorkspaceItemsForValidation(
+            params.workspaceId,
+            userId,
+          );
+
           const movedItems: string[] = [];
           for (const itemId of params.itemIds) {
+            const existingItem = currentState.find((i: any) => i.id === itemId);
+            if (!existingItem) {
+              throw new Error(`Item "${itemId}" not found in workspace`);
+            }
             await updateWorkspaceItem(
               params.workspaceId,
               itemId,

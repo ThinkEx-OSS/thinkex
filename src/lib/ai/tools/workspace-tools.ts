@@ -101,10 +101,16 @@ export function createDeleteItemTool(ctx: WorkspaceToolContext) {
                     .describe(
                         "Array of item names or virtual paths to delete. Each is matched by fuzzy search."
                     ),
+                itemName: z.string().optional().describe("Deprecated: use itemNames instead. Single item name for backward compatibility."),
             })
         ),
         strict: true,
-        execute: async ({ itemNames }) => {
+        execute: async (rawInput: { itemNames?: string[]; itemName?: string }) => {
+            const itemNames = rawInput.itemNames ?? (rawInput.itemName ? [rawInput.itemName] : []);
+            if (itemNames.length === 0) {
+                return { success: false, message: "At least one item name is required." };
+            }
+
             if (!ctx.workspaceId) {
                 return {
                     success: false,

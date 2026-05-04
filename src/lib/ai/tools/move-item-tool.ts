@@ -12,7 +12,7 @@ export function createMoveItemTool(ctx: WorkspaceToolContext) {
       description:
         "Move one or more workspace items to a different folder. " +
         "Provide an array of item names and the target folder name. " +
-        "Use folderName=null or omit it to move items to the workspace root.",
+        "Use folderName=null to move items to the workspace root.",
       inputSchema: zodSchema(
         z.object({
           itemNames: z
@@ -30,7 +30,7 @@ export function createMoveItemTool(ctx: WorkspaceToolContext) {
       strict: true,
       execute: async (input: {
         itemNames: string[];
-        folderName: string | null;
+        folderName: string | null | undefined;
       }) => {
         const { itemNames, folderName } = input;
 
