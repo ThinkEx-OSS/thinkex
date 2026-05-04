@@ -5,6 +5,7 @@ import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
 import { loadStateForTool, resolveItem, resolveFolderByName, withSanitizedModelOutput } from "./tool-utils";
 import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
+import { isDescendantOf } from "@/lib/workspace-state/search";
 
 export function createMoveItemTool(ctx: WorkspaceToolContext) {
   return withSanitizedModelOutput(
@@ -62,9 +63,15 @@ export function createMoveItemTool(ctx: WorkspaceToolContext) {
           for (const name of itemNames) {
             const item = resolveItem(state, name);
             if (item) {
-              if (item.type === "folder" && item.id === targetFolderId) {
-                failedNames.push(`"${name}" (cannot move folder into itself)`);
-                continue;
+              if (item.type === "folder" && targetFolderId) {
+                if (item.id === targetFolderId) {
+                  failedNames.push(`"${name}" (cannot move folder into itself)`);
+                  continue;
+                }
+                if (isDescendantOf(targetFolderId, item.id, state)) {
+                  failedNames.push(`"${name}" (cannot move folder into its own subfolder)`);
+                  continue;
+                }
               }
               resolvedItems.push({ id: item.id, name: item.name });
             } else {
