@@ -69,6 +69,14 @@ export function QuizContent({
   );
 
   const initializedRef = useRef(false);
+  const initializedItemIdRef = useRef(item.id);
+
+  useEffect(() => {
+    if (initializedItemIdRef.current !== item.id) {
+      initializedRef.current = false;
+      initializedItemIdRef.current = item.id;
+    }
+  }, [item.id]);
 
   useEffect(() => {
     if (isLoading || initializedRef.current) return;
