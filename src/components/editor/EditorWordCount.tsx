@@ -3,12 +3,21 @@
 import { useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import { cn } from "@/lib/tiptap-utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface EditorWordCountProps {
   editor: Editor | null;
+  variant?: "floating" | "toolbar";
 }
 
-export function EditorWordCount({ editor }: EditorWordCountProps) {
+export function EditorWordCount({
+  editor,
+  variant = "floating",
+}: EditorWordCountProps) {
   const counts = useEditorState({
     editor,
     selector: ({ editor: e }) => {
@@ -38,6 +47,37 @@ export function EditorWordCount({ editor }: EditorWordCountProps) {
   if (!counts) return null;
 
   const { words, characters, hasSelection, selectedWords, selectedChars } = counts;
+
+  if (variant === "toolbar") {
+    const wordLabel = hasSelection
+      ? `${selectedWords}/${words} words`
+      : `${words} words`;
+    const charLabel = hasSelection
+      ? `${selectedChars}/${characters} chars`
+      : `${characters} chars`;
+
+    return (
+      <Tooltip delayDuration={150}>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="ml-auto h-6.5 whitespace-nowrap rounded-md px-1.5 py-1 text-[11px] font-medium tabular-nums text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            aria-label="Word count"
+          >
+            {wordLabel}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent
+          side="bottom"
+          align="end"
+          sideOffset={6}
+          className="px-2.5 py-1.5 text-[11px] font-medium tabular-nums"
+        >
+          <div className="whitespace-nowrap">{charLabel}</div>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
 
   return (
     <div

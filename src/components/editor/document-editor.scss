@@ -98,11 +98,12 @@
 
 .simple-editor-wrapper-embedded {
   width: 100%;
-  height: auto;
-  min-height: 100%;
-  overflow: visible;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
 }
 
 .simple-editor-content {
@@ -115,6 +116,9 @@
 
 .simple-editor-content-embedded {
   min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .simple-editor-content .tiptap.ProseMirror.simple-editor {
@@ -131,7 +135,7 @@
 
 .simple-editor-content-embedded .tiptap.ProseMirror.simple-editor {
   min-height: 100%;
-  padding: 0.75rem 1.5rem 2rem;
+  padding: 0.75rem 1.5rem 4rem;
 }
 
 .simple-editor-content-embedded .tiptap.ProseMirror.simple-editor > * {

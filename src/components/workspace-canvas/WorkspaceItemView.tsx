@@ -30,7 +30,11 @@ import {
 } from "@/lib/utils/youtube-url";
 
 export function usesManagedWorkspacePanelLayout(item: Item): boolean {
-  if (item.type === "youtube" || item.type === "image") {
+  if (
+    item.type === "youtube" ||
+    item.type === "image" ||
+    item.type === "document"
+  ) {
     return true;
   }
 
@@ -223,12 +227,15 @@ export function WorkspacePanelItemPreview({
     const markdown = documentData.markdown ?? "";
 
     return (
-      <div className="flex flex-col">
+      <div className="flex w-full flex-1 min-h-0 flex-col">
         <DocumentEditor
           autofocus={true}
           cardName={item.name}
+          className="flex-1 min-h-0"
           content={markdown || undefined}
+          contentClassName="modal-scrollable min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
           contentType={markdown ? "markdown" : undefined}
+          editorClassName="min-h-full"
           embedded={true}
           showThemeToggle={false}
           onUpdate={({ markdown: nextMarkdown }) => {

@@ -143,7 +143,8 @@ const TEXT_ALIGN_OPTIONS: TextAlignType[] = [
   "justify",
 ];
 
-const toolbarButtonClass = "h-8 gap-1.5 rounded-md px-2.5 text-sm shadow-none";
+const toolbarButtonClass =
+  "h-6.5 gap-0.5 rounded-md px-1.5 text-[11px] text-muted-foreground hover:text-foreground data-[active-state=on]:text-foreground shadow-none [&_svg]:size-3.5";
 
 function ToolbarIconButton({
   active = false,
@@ -461,8 +462,7 @@ function BlocksDropdown({ editor }: { editor: Editor | null }) {
           variant="ghost"
           size="sm"
           title="Format"
-          data-active-state={isFormatActive ? "on" : "off"}
-          className={cn(toolbarButtonClass, "min-w-0")}
+          className={cn(toolbarButtonClass, "min-w-0 gap-1")}
         >
           <Type className="tiptap-button-icon" />
           <span className="hidden sm:inline">Format</span>
@@ -595,7 +595,7 @@ function AlignDropdown({ editor }: { editor: Editor | null }) {
           data-active-state={isAlignActive ? "on" : "off"}
           className={cn(
             toolbarButtonClass,
-            "justify-center font-medium [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+            "justify-center font-medium [&_svg]:pointer-events-none [&_svg]:size-3.5 [&_svg]:shrink-0",
             "min-w-0",
           )}
         >
@@ -626,7 +626,7 @@ function TableControls({ editor }: { editor: Editor | null }) {
 
   return (
     <>
-      <Separator orientation="vertical" className="h-5" />
+      <Separator orientation="vertical" className="h-4" />
       <ToolbarGroup>
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
@@ -637,7 +637,7 @@ function TableControls({ editor }: { editor: Editor | null }) {
               title="Table Options"
               className={cn(toolbarButtonClass, "min-w-0")}
             >
-              <Settings className="size-4" />
+              <Settings className="size-3.5" />
               <span className="text-xs font-medium">Table</span>
             </Button>
           </DropdownMenuTrigger>
@@ -768,11 +768,10 @@ const MainToolbarContent = ({
   showThemeToggle: boolean;
 }) => {
   return (
-    <div className="flex items-center">
+    <div className="flex w-full items-center gap-1">
       <ToolbarGroup>
         <BlocksDropdown editor={editor} />
       </ToolbarGroup>
-      <Separator orientation="vertical" className="h-5" />
       <ToolbarGroup>
         {INLINE_MARKS.map((type) => (
           <InlineMarkToolbarButton key={type} editor={editor} type={type} />
@@ -788,9 +787,10 @@ const MainToolbarContent = ({
         <AlignDropdown editor={editor} />
       </ToolbarGroup>
       <TableControls editor={editor} />
+      <EditorWordCount editor={editor} variant="toolbar" />
       {showThemeToggle ? (
         <>
-          <Separator orientation="vertical" className="h-5" />
+          <Separator orientation="vertical" className="h-4" />
           <ToolbarGroup>
             <EditorThemeToggle />
           </ToolbarGroup>
@@ -807,7 +807,7 @@ const MobileToolbarContent = ({
   editor: Editor | null;
   onBack: () => void;
 }) => (
-  <div className="flex items-center">
+  <div className="flex w-full items-center gap-1">
     <ToolbarGroup>
       <Button
         variant="ghost"
@@ -819,8 +819,9 @@ const MobileToolbarContent = ({
         <Highlighter className="tiptap-button-icon" />
       </Button>
     </ToolbarGroup>
-    <Separator orientation="vertical" className="h-5" />
+    <Separator orientation="vertical" className="h-4" />
     <ColorHighlightPopoverContent editor={editor} />
+    <EditorWordCount editor={editor} variant="toolbar" />
   </div>
 );
 
@@ -998,7 +999,7 @@ export function DocumentEditor({
           role="toolbar"
           aria-label="Editor toolbar"
           className={cn(
-            "z-40 flex items-center gap-2 overflow-x-auto bg-sidebar",
+            "z-40 flex items-center gap-1 overflow-x-auto bg-sidebar px-1 py-1 [&_button]:cursor-default",
             isMobile
               ? "absolute inset-x-0 rounded-none border border-x-0 border-b-0"
               : "sticky top-0 mx-auto w-fit max-w-[calc(100%-1.5rem)] rounded-b-lg",
@@ -1031,7 +1032,6 @@ export function DocumentEditor({
           )}
         />
 
-        <EditorWordCount editor={editor} />
       </EditorContext.Provider>
     </div>
   );
