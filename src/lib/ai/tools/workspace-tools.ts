@@ -3,7 +3,7 @@ import { z } from "zod";
 import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { Item } from "@/lib/workspace-state/types";
-import { loadStateForTool, resolveItem, resolveFolderByName, getAvailableItemsList, withSanitizedModelOutput } from "./tool-utils";
+import { loadStateForTool, resolveItem, resolveFolderByName, withSanitizedModelOutput } from "./tool-utils";
 import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
 import { sourceSchema } from "@/lib/workspace-state/item-data-schemas";
 
