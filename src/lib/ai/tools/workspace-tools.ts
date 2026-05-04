@@ -97,7 +97,7 @@ export function createDeleteItemTool(ctx: WorkspaceToolContext) {
             z.object({
                 itemNames: z
                     .array(z.string())
-                    .min(1)
+                    .optional()
                     .describe(
                         "Array of item names or virtual paths to delete. Each is matched by fuzzy search."
                     ),
@@ -106,9 +106,9 @@ export function createDeleteItemTool(ctx: WorkspaceToolContext) {
         ),
         strict: true,
         execute: async (rawInput: { itemNames?: string[]; itemName?: string }) => {
-            const itemNames = rawInput.itemNames ?? (rawInput.itemName ? [rawInput.itemName] : []);
+            const itemNames = rawInput.itemNames?.length ? rawInput.itemNames : (rawInput.itemName ? [rawInput.itemName] : []);
             if (itemNames.length === 0) {
-                return { success: false, message: "At least one item name is required." };
+                return { success: false, message: "At least one item name is required. Provide itemNames array or itemName string." };
             }
 
             if (!ctx.workspaceId) {
