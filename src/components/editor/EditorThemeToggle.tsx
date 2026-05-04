@@ -40,6 +40,8 @@ export function EditorThemeToggle() {
       onClick={toggleDarkMode}
       aria-label={`Switch to ${isDarkMode ? "light" : "dark"} mode`}
       variant="ghost"
+      size="small"
+      className="h-6.5 px-1.5 text-[11px] text-muted-foreground hover:text-foreground [&_svg]:size-3.5"
     >
       {isDarkMode ? (
         <Moon className="tiptap-button-icon" />

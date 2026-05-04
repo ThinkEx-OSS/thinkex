@@ -218,6 +218,9 @@ importers:
       '@tiptap/core':
         specifier: 3.22.3
         version: 3.22.3(@tiptap/pm@3.22.3)
+      '@tiptap/extension-character-count':
+        specifier: 3.22.3
+        version: 3.22.3(@tiptap/extensions@3.22.3(@tiptap/core@3.22.3(@tiptap/pm@3.22.3))(@tiptap/pm@3.22.3))
       '@tiptap/extension-code-block':
         specifier: 3.22.3
         version: 3.22.3(@tiptap/core@3.22.3(@tiptap/pm@3.22.3))(@tiptap/pm@3.22.3)
@@ -5101,6 +5104,11 @@ packages:
     resolution: {integrity: sha512-TB+d3fGcTixYjO7coKqTr1mGTJuqr8hjDCPUFgzuvKyJnBhqWITmBzQ/8CLq4rr6mihgGURbD3N+xkQuPAKFiw==}
     peerDependencies:
       '@tiptap/extension-list': 3.22.4
+
+  '@tiptap/extension-character-count@3.22.3':
+    resolution: {integrity: sha512-MAs446aZWyAdVVSK+jkxoxR+N3n/ucMRCoenyekqdDDwkn4l3mDVC469X8Iby80/+66cRyHFFAbOivOoB8ds/g==}
+    peerDependencies:
+      '@tiptap/extensions': ^3.22.3
 
   '@tiptap/extension-code-block@3.22.3':
     resolution: {integrity: sha512-RiQtEjDAPrHpdo6sw6b7fOw/PijqgFIsozKKkGcSeBgWHQuFg7q9OxJTj+l0e60rVwSu/5gmKEEobzM9bX+t2Q==}
@@ -15132,6 +15140,10 @@ snapshots:
   '@tiptap/extension-bullet-list@3.22.4(@tiptap/extension-list@3.22.3(@tiptap/core@3.22.3(@tiptap/pm@3.22.3))(@tiptap/pm@3.22.3))':
     dependencies:
       '@tiptap/extension-list': 3.22.3(@tiptap/core@3.22.3(@tiptap/pm@3.22.3))(@tiptap/pm@3.22.3)
+
+  '@tiptap/extension-character-count@3.22.3(@tiptap/extensions@3.22.3(@tiptap/core@3.22.3(@tiptap/pm@3.22.3))(@tiptap/pm@3.22.3))':
+    dependencies:
+      '@tiptap/extensions': 3.22.3(@tiptap/core@3.22.3(@tiptap/pm@3.22.3))(@tiptap/pm@3.22.3)
 
   '@tiptap/extension-code-block@3.22.3(@tiptap/core@3.22.3(@tiptap/pm@3.22.3))(@tiptap/pm@3.22.3)':
     dependencies:
