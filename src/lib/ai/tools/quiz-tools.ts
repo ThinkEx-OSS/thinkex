@@ -10,7 +10,7 @@ import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
 import type { QuizQuestion } from "@/lib/workspace-state/types";
-import { loadStateForTool, resolveItem, withSanitizedModelOutput } from "./tool-utils";
+import { loadStateForTool, resolveItem, resolveFolderByName, withSanitizedModelOutput } from "./tool-utils";
 import { getVirtualPath } from "@/lib/utils/workspace-fs";
 import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
 import { quizQuestionInputSchema } from "@/lib/workspace-state/item-data-schemas";
@@ -30,6 +30,9 @@ const CreateQuizInputSchema = z.object({
     .describe(
       "Array of quiz questions. For each question: provide `rationale` (your reasoning — not shown to users), `question` (the stem), `correctAnswer` (the right answer as text), `distractors` (3 wrong options with `whyWrong` rationales for multiple choice, or 1 wrong option for true/false — e.g. correctAnswer: 'True' with distractors: [{text: 'False', whyWrong: '...'}]), and `explanation` (user-facing explanation shown after they answer).",
     ),
+  folderName: z.string().optional().describe(
+    "Name of the folder to create this item in. If not provided, creates in the user's current folder view. Use this when you want to organize items into specific folders."
+  ),
 });
 export type CreateQuizInput = z.infer<typeof CreateQuizInputSchema>;
 
@@ -65,6 +68,21 @@ export function createQuizTool(ctx: WorkspaceToolContext) {
             materializeQuizQuestion(q),
           );
 
+          let targetFolderId = ctx.activeFolderId;
+          if (input.folderName !== undefined) {
+            try {
+              const accessResult = await loadStateForTool(ctx);
+              if (!accessResult.success) return accessResult;
+              const state = normalizeWorkspaceItems(accessResult.state);
+              targetFolderId = resolveFolderByName(state, input.folderName, ctx.activeFolderId);
+            } catch (error) {
+              return {
+                success: false,
+                message: error instanceof Error ? error.message : String(error),
+              };
+            }
+          }
+
           logger.debug("🎯 [CREATE-QUIZ] Creating quiz:", {
             title,
             questionCount: questions.length,
@@ -77,7 +95,7 @@ export function createQuizTool(ctx: WorkspaceToolContext) {
             quizData: {
               questions,
             },
-            folderId: ctx.activeFolderId,
+            folderId: targetFolderId,
           });
 
           if (!workerResult.success) {

@@ -11,6 +11,7 @@ import {
   type WorkspaceToolContext,
 } from "./workspace-tools";
 import { createEditItemTool } from "./edit-item-tool";
+import { createMoveItemTool } from "./move-item-tool";
 import { createFlashcardsTool, createFlashcardAddCardsTool } from "./flashcard-tools";
 import { createQuizTool, createQuizAddQuestionsTool } from "./quiz-tools";
 import {
@@ -59,6 +60,7 @@ export function createChatTools(config: ChatToolsConfig): Record<string, any> {
     [CHAT_TOOL.ITEM_EDIT]: createEditItemTool(ctx),
 
     [CHAT_TOOL.ITEM_DELETE]: createDeleteItemTool(ctx),
+    [CHAT_TOOL.ITEM_MOVE]: createMoveItemTool(ctx),
 
     // Flashcards
     [CHAT_TOOL.FLASHCARDS_CREATE]: createFlashcardsTool(ctx),

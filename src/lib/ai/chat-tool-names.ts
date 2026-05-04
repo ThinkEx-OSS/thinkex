@@ -20,6 +20,7 @@ export const CHAT_TOOL = {
   CODE_EXECUTE: "code_execute",
   QUIZ_ADD_QUESTIONS: "quiz_add_questions",
   FLASHCARD_ADD_CARDS: "flashcard_add_cards",
+  ITEM_MOVE: "item_move",
 } as const;
 
 export type ChatToolName = (typeof CHAT_TOOL)[keyof typeof CHAT_TOOL];
@@ -53,6 +54,8 @@ export const LEGACY_CHAT_TOOL_NAMES: Record<string, ChatToolName> = {
   search_youtube: CHAT_TOOL.YOUTUBE_SEARCH,
   add_youtube_video: CHAT_TOOL.YOUTUBE_ADD,
   youtube_video_add: CHAT_TOOL.YOUTUBE_ADD,
+  moveItem: CHAT_TOOL.ITEM_MOVE,
+  move_item: CHAT_TOOL.ITEM_MOVE,
 };
 
 const canonicalToLegacy = (() => {
