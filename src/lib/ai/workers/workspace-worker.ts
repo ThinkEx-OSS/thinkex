@@ -223,14 +223,73 @@ async function updateWorkspaceItem(
 }
 
 function formatFailedEdits(failedEdits: FailedEdit[]): string {
-  return failedEdits
-    .map((f) => `edits[${f.index}]: ${f.reason}`)
-    .join(" | ");
+  return failedEdits.map((f) => `edits[${f.index}]: ${f.reason}`).join(" | ");
 }
 
 async function deleteWorkspaceItem(workspaceId: string, itemId: string) {
   await db.transaction(async (tx) => {
     await deleteWorkspaceItemById(tx, { workspaceId, itemId });
+  });
+}
+
+async function moveWorkspaceItems(
+  workspaceId: string,
+  items: Item[],
+  itemIds: string[],
+  folderId: string | null | undefined,
+) {
+  const targetFolderId = folderId ?? null;
+  const movingItemIds = new Set(itemIds);
+  const itemsById = new Map(items.map((item) => [item.id, item]));
+  const movingItems = itemIds.map((itemId) => {
+    const item = itemsById.get(itemId);
+    if (!item) {
+      throw new Error(`Item "${itemId}" not found in workspace`);
+    }
+    return item;
+  });
+
+  const projectedState = items.map((item) =>
+    movingItemIds.has(item.id)
+      ? {
+          ...item,
+          folderId: folderId ?? undefined,
+        }
+      : item,
+  );
+
+  for (const item of movingItems) {
+    const dupError = checkDuplicateName(
+      projectedState,
+      item.name,
+      item.type,
+      targetFolderId,
+      item.id,
+    );
+    if (dupError) {
+      throw new Error(dupError);
+    }
+  }
+
+  await db.transaction(async (tx) => {
+    for (const itemId of itemIds) {
+      const existing = await loadWorkspaceItemRecord(tx, {
+        workspaceId,
+        itemId,
+      });
+      if (!existing) {
+        throw new Error(`Item "${itemId}" not found in workspace`);
+      }
+
+      await upsertWorkspaceItem(tx, {
+        workspaceId,
+        sourceVersion: existing.sourceVersion,
+        item: sanitizeWorkspaceItemForPersistence({
+          ...existing.item,
+          folderId: folderId ?? undefined,
+        }),
+      });
+    }
   });
 }
 
@@ -689,7 +748,11 @@ export async function workspaceWorker(
                   hadFailures,
                 } = applyEditsBestEffort(serialized, params.edits!);
                 serialized = newContent;
-                editDiagnostics = { appliedEditIndices, failedEdits, hadFailures };
+                editDiagnostics = {
+                  appliedEditIndices,
+                  failedEdits,
+                  hadFailures,
+                };
               }
             }
 
@@ -789,7 +852,11 @@ export async function workspaceWorker(
                   hadFailures,
                 } = applyEditsBestEffort(serialized, params.edits!);
                 serialized = newContent;
-                editDiagnostics = { appliedEditIndices, failedEdits, hadFailures };
+                editDiagnostics = {
+                  appliedEditIndices,
+                  failedEdits,
+                  hadFailures,
+                };
               }
             }
 
@@ -948,7 +1015,11 @@ export async function workspaceWorker(
                   hadFailures,
                 } = applyEditsBestEffort(contentOld, params.edits!);
                 contentNew = newContent;
-                editDiagnostics = { appliedEditIndices, failedEdits, hadFailures };
+                editDiagnostics = {
+                  appliedEditIndices,
+                  failedEdits,
+                  hadFailures,
+                };
               }
               changes.data = {
                 markdown: contentNew,
@@ -1067,26 +1138,16 @@ export async function workspaceWorker(
             userId,
           );
 
-          const movedItems: string[] = [];
-          for (const itemId of params.itemIds) {
-            const existingItem = currentState.find((i: any) => i.id === itemId);
-            if (!existingItem) {
-              throw new Error(`Item "${itemId}" not found in workspace`);
-            }
-            await updateWorkspaceItem(
-              params.workspaceId,
-              itemId,
-              (item) => ({
-                ...item,
-                folderId: params.folderId ?? undefined,
-              }),
-            );
-            movedItems.push(itemId);
-          }
+          await moveWorkspaceItems(
+            params.workspaceId,
+            currentState,
+            params.itemIds,
+            params.folderId,
+          );
 
           return {
             success: true,
-            message: `Moved ${movedItems.length} item(s) successfully`,
+            message: `Moved ${params.itemIds.length} item(s) successfully`,
           };
         }
 
@@ -1115,15 +1176,22 @@ export async function workspaceWorker(
 
         if (action === "add_questions") {
           if (!params.itemId || !params.workspaceId) {
-            throw new Error("Item ID and workspace ID required for add_questions");
+            throw new Error(
+              "Item ID and workspace ID required for add_questions",
+            );
           }
           const questions: QuizQuestion[] = params.questions ?? [];
           if (questions.length === 0) {
             throw new Error("At least one question is required");
           }
 
-          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
-          const existingItem = currentState.find((i: Item) => i.id === params.itemId);
+          const currentState = await loadWorkspaceItemsForValidation(
+            params.workspaceId,
+            userId,
+          );
+          const existingItem = currentState.find(
+            (i: Item) => i.id === params.itemId,
+          );
           if (!existingItem) {
             throw new Error(`Item not found with ID: ${params.itemId}`);
           }
@@ -1135,10 +1203,17 @@ export async function workspaceWorker(
           const existingQuestions = data.questions ?? [];
           const updatedQuestions = [...existingQuestions, ...questions];
 
-          await updateWorkspaceItem(params.workspaceId, params.itemId, (item) => ({
-            ...item,
-            data: { ...(item.data as QuizData), questions: updatedQuestions } as QuizData,
-          }));
+          await updateWorkspaceItem(
+            params.workspaceId,
+            params.itemId,
+            (item) => ({
+              ...item,
+              data: {
+                ...(item.data as QuizData),
+                questions: updatedQuestions,
+              } as QuizData,
+            }),
+          );
 
           return {
             success: true,
@@ -1153,18 +1228,26 @@ export async function workspaceWorker(
           if (!params.itemId || !params.workspaceId) {
             throw new Error("Item ID and workspace ID required for add_cards");
           }
-          const newCards: Array<{ front: string; back: string }> = params.cards ?? [];
+          const newCards: Array<{ front: string; back: string }> =
+            params.cards ?? [];
           if (newCards.length === 0) {
             throw new Error("At least one card is required");
           }
 
-          const currentState = await loadWorkspaceItemsForValidation(params.workspaceId, userId);
-          const existingItem = currentState.find((i: Item) => i.id === params.itemId);
+          const currentState = await loadWorkspaceItemsForValidation(
+            params.workspaceId,
+            userId,
+          );
+          const existingItem = currentState.find(
+            (i: Item) => i.id === params.itemId,
+          );
           if (!existingItem) {
             throw new Error(`Item not found with ID: ${params.itemId}`);
           }
           if (existingItem.type !== "flashcard") {
-            throw new Error(`Item is not a flashcard deck (type: ${existingItem.type})`);
+            throw new Error(
+              `Item is not a flashcard deck (type: ${existingItem.type})`,
+            );
           }
 
           const data = existingItem.data as FlashcardData;
@@ -1176,10 +1259,17 @@ export async function workspaceWorker(
           }));
           const updatedCards = [...existingCards, ...cardsWithIds];
 
-          await updateWorkspaceItem(params.workspaceId, params.itemId, (item) => ({
-            ...item,
-            data: { ...(item.data as FlashcardData), cards: updatedCards } as FlashcardData,
-          }));
+          await updateWorkspaceItem(
+            params.workspaceId,
+            params.itemId,
+            (item) => ({
+              ...item,
+              data: {
+                ...(item.data as FlashcardData),
+                cards: updatedCards,
+              } as FlashcardData,
+            }),
+          );
 
           return {
             success: true,

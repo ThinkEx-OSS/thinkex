@@ -3,7 +3,12 @@ import { z } from "zod";
 import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
-import { loadStateForTool, resolveItem, resolveFolderByName, withSanitizedModelOutput } from "./tool-utils";
+import {
+  loadStateForTool,
+  resolveItem,
+  resolveFolderByName,
+  withSanitizedModelOutput,
+} from "./tool-utils";
 import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
 import { isDescendantOf } from "@/lib/workspace-state/search";
 
@@ -24,9 +29,9 @@ export function createMoveItemTool(ctx: WorkspaceToolContext) {
             .string()
             .nullable()
             .describe(
-              "Name of the target folder (matched by fuzzy search). Use null to move to workspace root."
+              "Name of the target folder (matched by fuzzy search). Use null to move to workspace root.",
             ),
-        })
+        }),
       ),
       strict: true,
       execute: async (input: {
@@ -65,11 +70,15 @@ export function createMoveItemTool(ctx: WorkspaceToolContext) {
             if (item) {
               if (item.type === "folder" && targetFolderId) {
                 if (item.id === targetFolderId) {
-                  failedNames.push(`"${name}" (cannot move folder into itself)`);
+                  failedNames.push(
+                    `"${name}" (cannot move folder into itself)`,
+                  );
                   continue;
                 }
                 if (isDescendantOf(targetFolderId, item.id, state)) {
-                  failedNames.push(`"${name}" (cannot move folder into its own subfolder)`);
+                  failedNames.push(
+                    `"${name}" (cannot move folder into its own subfolder)`,
+                  );
                   continue;
                 }
               }
@@ -120,6 +129,6 @@ export function createMoveItemTool(ctx: WorkspaceToolContext) {
           };
         }
       },
-    })
+    }),
   );
 }
