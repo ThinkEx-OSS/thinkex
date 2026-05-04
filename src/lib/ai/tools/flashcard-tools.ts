@@ -3,7 +3,7 @@ import { tool, zodSchema } from "ai";
 import { logger } from "@/lib/utils/logger";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
-import { loadStateForTool, resolveItem, withSanitizedModelOutput } from "./tool-utils";
+import { loadStateForTool, resolveItem, resolveFolderByName, withSanitizedModelOutput } from "./tool-utils";
 import { getVirtualPath } from "@/lib/utils/workspace-fs";
 import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
 import { flashcardCardInputSchema } from "@/lib/workspace-state/item-data-schemas";
@@ -17,27 +17,30 @@ export function createFlashcardsTool(ctx: WorkspaceToolContext) {
             z.object({
                 title: z.string().nullable().describe("The title of the flashcard deck (defaults to 'Flashcard Deck' if not provided)"),
                 cards: z.array(flashcardCardInputSchema).min(1).describe("Array of flashcard objects, each with 'front' and 'back' properties"),
+                folderName: z.string().optional().describe(
+                    "Name of the folder to create this item in. If not provided, creates in the user's current folder view. Use this when you want to organize items into specific folders."
+                ),
             })
         ),
         strict: true,
-        execute: async (input: { title?: string | null; cards: Array<{ front: string; back: string }> }) => {
-            logger.debug("🎴 [CREATE-FLASHCARDS] Tool execution started");
+        execute: async (input: { title?: string | null; cards: Array<{ front: string; back: string }>; folderName?: string }) => {
+            logger.debug("\ud83c\udccf [CREATE-FLASHCARDS] Tool execution started");
 
             const title = input.title || "Flashcard Deck";
             const cards = input.cards || [];
 
             if (cards.length === 0) {
-                logger.error("❌ [CREATE-FLASHCARDS] No valid cards found in input");
+                logger.error("\u274c [CREATE-FLASHCARDS] No valid cards found in input");
                 return {
                     success: false,
                     message: "At least one flashcard is required. Provide an array of cards with 'front' and 'back' properties.",
                 };
             }
 
-            logger.debug("🎯 [ORCHESTRATOR] Delegating to Workspace Worker (create flashcard):", { title, cardCount: cards.length });
+            logger.debug("\ud83c\udfaf [ORCHESTRATOR] Delegating to Workspace Worker (create flashcard):", { title, cardCount: cards.length });
 
             if (!ctx.workspaceId) {
-                logger.error("❌ [CREATE-FLASHCARDS] No workspace context available");
+                logger.error("\u274c [CREATE-FLASHCARDS] No workspace context available");
                 return {
                     success: false,
                     message: "No workspace context available",
@@ -45,18 +48,33 @@ export function createFlashcardsTool(ctx: WorkspaceToolContext) {
             }
 
             try {
+                let targetFolderId = ctx.activeFolderId;
+                if (input.folderName !== undefined) {
+                    try {
+                        const accessResult = await loadStateForTool(ctx);
+                        if (!accessResult.success) return accessResult;
+                        const state = normalizeWorkspaceItems(accessResult.state);
+                        targetFolderId = resolveFolderByName(state, input.folderName, ctx.activeFolderId);
+                    } catch (error) {
+                        return {
+                            success: false,
+                            message: error instanceof Error ? error.message : String(error),
+                        };
+                    }
+                }
+
                 const result = await workspaceWorker("create", {
                     workspaceId: ctx.workspaceId,
                     title,
                     itemType: "flashcard",
                     flashcardData: { cards },
-                    folderId: ctx.activeFolderId,
+                    folderId: targetFolderId,
                 });
 
-                logger.debug("✅ [CREATE-FLASHCARDS] Worker result:", result);
+                logger.debug("\u2705 [CREATE-FLASHCARDS] Worker result:", result);
                 return result;
             } catch (error) {
-                logger.error("❌ [CREATE-FLASHCARDS] Error executing worker:", error);
+                logger.error("\u274c [CREATE-FLASHCARDS] Error executing worker:", error);
                 return {
                     success: false,
                     message: `Error creating flashcards: ${error instanceof Error ? error.message : String(error)}`,

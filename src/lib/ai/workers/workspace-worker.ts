@@ -245,6 +245,7 @@ export async function workspaceWorker(
     | "bulkCreate"
     | "delete"
     | "edit"
+    | "move"
     | "updateQuiz"
     | "updatePdfContent"
     | "updateImageContent"
@@ -254,6 +255,8 @@ export async function workspaceWorker(
     workspaceId: string;
     /** For bulkCreate: array of create params (no workspaceId). Items are built and appended as one BULK_ITEMS_CREATED event. */
     items?: CreateItemParams[];
+    /** For move: array of item IDs to move */
+    itemIds?: string[];
     title?: string;
     content?: string; // For create
     /** Multi-edit array: each {oldText, newText} is matched against the original content */
@@ -1052,6 +1055,30 @@ export async function workspaceWorker(
           }
 
           throw new Error(`Item type "${existingItem.type}" is not editable`);
+        }
+
+        if (action === "move") {
+          if (!params.itemIds?.length) {
+            throw new Error("At least one item ID is required for move");
+          }
+
+          const movedItems: string[] = [];
+          for (const itemId of params.itemIds) {
+            await updateWorkspaceItem(
+              params.workspaceId,
+              itemId,
+              (item) => ({
+                ...item,
+                folderId: params.folderId ?? undefined,
+              }),
+            );
+            movedItems.push(itemId);
+          }
+
+          return {
+            success: true,
+            message: `Moved ${movedItems.length} item(s) successfully`,
+          };
         }
 
         if (action === "delete") {

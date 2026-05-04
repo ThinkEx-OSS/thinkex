@@ -4,7 +4,9 @@ import { logger } from "@/lib/utils/logger";
 import { searchVideos } from "@/lib/youtube";
 import { workspaceWorker } from "@/lib/ai/workers";
 import type { WorkspaceToolContext } from "./workspace-tools";
-import { withSanitizedModelOutput } from "./tool-utils";
+import { withSanitizedModelOutput, loadStateForTool, resolveFolderByName } from "./tool-utils";
+
+import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
 
 /**
  * Create the youtube_search tool
@@ -47,10 +49,13 @@ export function createAddYoutubeVideoTool(ctx: WorkspaceToolContext) {
             z.object({
                 videoId: z.string().describe("The YouTube Video ID (not the full URL)"),
                 title: z.string().describe("The title of the video"),
+                folderName: z.string().optional().describe(
+                    "Name of the folder to create this item in. If not provided, creates in the user's current folder view. Use this when you want to organize items into specific folders."
+                ),
             })
         ),
         strict: true,
-        execute: async ({ videoId, title }) => {
+        execute: async ({ videoId, title, folderName }) => {
             logger.debug("📹 [YOUTUBE] Adding video:", { videoId, title });
 
             if (!ctx.workspaceId) {
@@ -60,6 +65,21 @@ export function createAddYoutubeVideoTool(ctx: WorkspaceToolContext) {
                 };
             }
 
+            let targetFolderId = ctx.activeFolderId;
+            if (folderName !== undefined) {
+                try {
+                    const accessResult = await loadStateForTool(ctx);
+                    if (!accessResult.success) return accessResult;
+                    const state = normalizeWorkspaceItems(accessResult.state);
+                    targetFolderId = resolveFolderByName(state, folderName, ctx.activeFolderId);
+                } catch (error) {
+                    return {
+                        success: false,
+                        message: error instanceof Error ? error.message : String(error),
+                    };
+                }
+            }
+
             const url = `https://www.youtube.com/watch?v=${videoId}`;
 
             return await workspaceWorker("create", {
@@ -67,7 +87,7 @@ export function createAddYoutubeVideoTool(ctx: WorkspaceToolContext) {
                 title,
                 itemType: "youtube",
                 youtubeData: { url },
-                folderId: ctx.activeFolderId,
+                folderId: targetFolderId,
             });
         },
     }));

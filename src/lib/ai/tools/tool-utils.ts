@@ -151,6 +151,42 @@ export function fuzzyMatchItem(
 }
 
 /**
+ * Resolve a folder by name from workspace state.
+ * Returns the folder ID if found, or fallbackFolderId if folderName is null/undefined.
+ * Throws descriptive error if folder name doesn't match any folder.
+ */
+export function resolveFolderByName(
+  items: Item[],
+  folderName: string | null | undefined,
+  fallbackFolderId?: string,
+): string | undefined {
+  if (folderName === null || folderName === undefined) {
+    return fallbackFolderId;
+  }
+  const trimmed = folderName.trim();
+  if (!trimmed) return fallbackFolderId;
+
+  const folders = items.filter((i) => i.type === "folder");
+  // Exact match first
+  let matched = folders.find(
+    (f) => f.name.toLowerCase().trim() === trimmed.toLowerCase(),
+  );
+  // Contains match
+  if (!matched) {
+    matched = folders.find((f) =>
+      f.name.toLowerCase().includes(trimmed.toLowerCase()),
+    );
+  }
+  if (!matched) {
+    const available = folders.map((f) => `"${f.name}"`).slice(0, 5).join(", ");
+    throw new Error(
+      `Could not find folder "${folderName}". ${available ? `Available folders: ${available}` : "No folders in workspace."}`,
+    );
+  }
+  return matched.id;
+}
+
+/**
  * Get a formatted list of available items of a given type
  */
 export function getAvailableItemsList(
