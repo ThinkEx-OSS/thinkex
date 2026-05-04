@@ -27,7 +27,7 @@ export function EditorWordCount({ editor }: EditorWordCountProps) {
 
       if (hasSelection) {
         const selectedText = e.state.doc.textBetween(from, to, " ");
-        selectedChars = selectedText.length;
+        selectedChars = e.state.doc.textBetween(from, to).length;
         selectedWords = selectedText.trim().split(/\s+/).filter(Boolean).length;
       }
 
