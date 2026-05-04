@@ -26,6 +26,7 @@ import { Mathematics } from "@tiptap/extension-mathematics";
 import { TableKit } from "@tiptap/extension-table";
 import { Markdown } from "@tiptap/markdown";
 import { CharacterCount } from "@tiptap/extension-character-count";
+import { MarkdownEscape } from "@/components/editor/markdown-escape-extension";
 import { CustomCodeBlock } from "@/components/tiptap-node/code-block-node/code-block-extension";
 import "katex/dist/katex.min.css";
 import { EditorWordCount } from "@/components/editor/EditorWordCount";
@@ -892,6 +893,7 @@ export function DocumentEditor({
           throwOnError: false,
         },
       }),
+      MarkdownEscape,
       TableKit.configure({
         table: {
           resizable: false,
