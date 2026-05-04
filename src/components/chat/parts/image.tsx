@@ -4,9 +4,12 @@ import {
   memo,
   useState,
   useEffect,
+  useSyncExternalStore,
   useRef,
   type PropsWithChildren,
 } from "react";
+import { useBodyScrollLock } from "@/hooks/use-body-scroll-lock";
+import { useEventListener } from "@/hooks/use-event-listener";
 import { createPortal } from "react-dom";
 import { cva, type VariantProps } from "class-variance-authority";
 import { ImageIcon, ImageOffIcon } from "lucide-react";
@@ -161,33 +164,22 @@ type ImageZoomProps = PropsWithChildren<{
 }>;
 
 function ImageZoom({ src, alt = "Image preview", children }: ImageZoomProps) {
-  const [isMounted, setIsMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+
+  useEventListener("keydown", (e) => {
+    if (e.key === "Escape") setIsOpen(false);
+  }, { enabled: isOpen });
+
+  useBodyScrollLock(isOpen);
 
   const handleOpen = () => setIsOpen(true);
   const handleClose = () => setIsOpen(false);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsOpen(false);
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = originalOverflow;
-    };
-  }, [isOpen]);
 
   return (
     <>

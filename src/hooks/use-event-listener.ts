@@ -20,7 +20,7 @@ export function useEventListener<K extends keyof WindowEventMap>(
   const { enabled = true, target, capture = false } = options ?? {};
 
   useEffect(() => {
-    const el = target ?? window;
+    const el = target === undefined ? window : target;
     if (!enabled || !el) return;
 
     const listener = (event: Event) => savedHandler.current(event as WindowEventMap[K]);
