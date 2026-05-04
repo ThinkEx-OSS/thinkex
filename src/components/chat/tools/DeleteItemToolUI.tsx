@@ -56,7 +56,7 @@ export const renderDeleteItemToolUI: ChatToolUIProps<
   WorkspaceResult
 >["render"] = ({ args, result, status }) => {
   let parsed: DeleteItemResult | null = null;
-  if (status.type === "complete" && result != null) {
+  if (result != null) {
     try {
       parsed = parseWorkspaceResult(result) as DeleteItemResult;
     } catch {

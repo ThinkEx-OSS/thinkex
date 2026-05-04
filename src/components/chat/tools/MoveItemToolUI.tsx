@@ -54,7 +54,7 @@ export const renderMoveItemToolUI: ChatToolUIProps<
   WorkspaceResult
 >["render"] = ({ args, result, status }) => {
   let parsed: MoveItemResult | null = null;
-  if (status.type === "complete" && result != null) {
+  if (result != null) {
     try {
       parsed = parseWorkspaceResult(result) as MoveItemResult;
     } catch {
