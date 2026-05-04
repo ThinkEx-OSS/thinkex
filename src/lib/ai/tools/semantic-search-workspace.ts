@@ -1,6 +1,6 @@
 import { tool, zodSchema } from "ai";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { db, workspaceItemContent } from "@/lib/db/client";
 import { embedText, cosineSimilarity } from "@/lib/ai/embeddings";
 import { loadStateForTool } from "./tool-utils";
@@ -76,7 +76,12 @@ export function createSemanticSearchWorkspaceTool(ctx: WorkspaceToolContext) {
               embedData: workspaceItemContent.embedData,
             })
             .from(workspaceItemContent)
-            .where(eq(workspaceItemContent.workspaceId, ctx.workspaceId)),
+            .where(
+              and(
+                eq(workspaceItemContent.workspaceId, ctx.workspaceId),
+                isNotNull(workspaceItemContent.embedData),
+              ),
+            ),
         ]);
       } catch {
         return {

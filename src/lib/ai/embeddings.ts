@@ -12,6 +12,7 @@ export async function embedText(text: string): Promise<number[]> {
 }
 
 export function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length || a.length === 0) return 0;
   let dot = 0,
     normA = 0,
     normB = 0;
