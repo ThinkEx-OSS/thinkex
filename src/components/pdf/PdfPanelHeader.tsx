@@ -119,6 +119,9 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
   const promptInputRef = useRef(promptInput);
   promptInputRef.current = promptInput;
 
+  const itemNameRef = useRef(itemName);
+  itemNameRef.current = itemName;
+
   const isChatExpanded = useUIStore((state) => state.isChatExpanded);
   const setIsChatExpanded = useUIStore((state) => state.setIsChatExpanded);
 
@@ -145,7 +148,7 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
           result.imageType,
         );
 
-        const filename = `capture-${itemName.replace(/[^a-zA-Z0-9]/g, "_")}-page-${result.pageIndex + 1}-${Date.now()}.png`;
+        const filename = `capture-${itemNameRef.current.replace(/[^a-zA-Z0-9]/g, "_")}-page-${result.pageIndex + 1}-${Date.now()}.png`;
         await addCaptureToChat(orientedBlob, filename, result.imageType, promptInputRef.current);
         captureRef.current?.toggleMarqueeCapture();
       } catch (error) {
