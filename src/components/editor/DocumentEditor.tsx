@@ -1031,7 +1031,7 @@ export function DocumentEditor({
           )}
         />
 
-        <EditorWordCount editor={editor} />
+        {!embedded && <EditorWordCount editor={editor} />}
       </EditorContext.Provider>
     </div>
   );
