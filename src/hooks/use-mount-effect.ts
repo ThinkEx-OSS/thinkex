@@ -2,7 +2,8 @@
 import { useEffect } from "react";
 
 /**
- * Runs an effect exactly once on mount (and cleanup on unmount).
+ * Runs an effect on mount (and cleanup on unmount).
+ * In React StrictMode dev mode, effects fire twice — do not rely on exactly-once semantics.
  * This is the only sanctioned way to call useEffect with an empty dependency array.
  * For all other cases, use derived state, event handlers, or a purpose-named hook.
  *

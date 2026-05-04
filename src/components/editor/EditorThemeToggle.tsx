@@ -6,30 +6,34 @@ import { Button } from "@/components/tiptap-ui-primitive/button"
 // --- Icons ---
 import { Moon } from "lucide-react"
 import { Sun } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useSyncExternalStore, useState, useEffect } from "react"
+
+function usePrefersDark(): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      const mq = window.matchMedia("(prefers-color-scheme: dark)");
+      mq.addEventListener("change", cb);
+      return () => mq.removeEventListener("change", cb);
+    },
+    () =>
+      !!document.querySelector('meta[name="color-scheme"][content="dark"]') ||
+      window.matchMedia("(prefers-color-scheme: dark)").matches,
+    () => false
+  );
+}
 
 export function EditorThemeToggle() {
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(false)
+  const prefersDark = usePrefersDark();
+  const [manualOverride, setManualOverride] = useState<boolean | null>(null);
+  const isDarkMode = manualOverride ?? prefersDark;
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
-    const handleChange = () => setIsDarkMode(mediaQuery.matches)
-    mediaQuery.addEventListener("change", handleChange)
-    return () => mediaQuery.removeEventListener("change", handleChange)
-  }, [])
+    document.documentElement.classList.toggle("dark", isDarkMode);
+  }, [isDarkMode]);
 
-  useEffect(() => {
-    const initialDarkMode =
-      !!document.querySelector('meta[name="color-scheme"][content="dark"]') ||
-      window.matchMedia("(prefers-color-scheme: dark)").matches
-    setIsDarkMode(initialDarkMode)
-  }, [])
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", isDarkMode)
-  }, [isDarkMode])
-
-  const toggleDarkMode = () => setIsDarkMode((isDark) => !isDark)
+  const toggleDarkMode = () => setManualOverride(prev =>
+    prev === null ? !prefersDark : !prev
+  );
 
   return (
     <Button

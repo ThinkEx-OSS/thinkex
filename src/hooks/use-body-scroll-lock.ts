@@ -1,17 +1,26 @@
 /* oxlint-disable eslint(no-restricted-imports) */
 import { useEffect } from "react";
 
+let lockCount = 0;
+let originalOverflow = "";
+
 /**
  * Locks `document.body` scroll when `locked` is true.
- * Restores the original overflow value on unlock or unmount.
+ * Uses a shared counter so concurrent locks don't conflict.
  */
 export function useBodyScrollLock(locked: boolean): void {
   useEffect(() => {
     if (!locked) return;
-    const original = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    if (lockCount === 0) {
+      originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+    }
+    lockCount++;
     return () => {
-      document.body.style.overflow = original;
+      lockCount--;
+      if (lockCount === 0) {
+        document.body.style.overflow = originalOverflow;
+      }
     };
   }, [locked]);
 }

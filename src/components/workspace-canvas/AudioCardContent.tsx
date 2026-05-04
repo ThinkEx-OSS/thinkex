@@ -247,7 +247,7 @@ function AudioCardComplete({
   const audioRef = useRef<HTMLAudioElement>(null);
   const isRepairingDurationRef = useRef(false);
   const [currentTimeSec, setCurrentTimeSec] = useState(0);
-  const [activeSegmentIdx, setActiveSegmentIdx] = useState(-1);
+
   const [copied, setCopied] = useState(false);
 
   const hasEagerSegments =
@@ -310,16 +310,15 @@ function AudioCardComplete({
     return () => audio.removeEventListener("timeupdate", onTimeUpdate);
   }, [isCompact]);
 
-  // Compute active segment from current time.
-  useEffect(() => {
-    if (isCompact || segments.length === 0) return;
+  const activeSegmentIdx = useMemo(() => {
+    if (isCompact || segments.length === 0) return -1;
     let active = -1;
     for (let i = 0; i < segments.length; i++) {
       const segTime = parseTimestamp(segments[i].timestamp);
       if (currentTimeSec >= segTime) active = i;
       else break;
     }
-    setActiveSegmentIdx(active);
+    return active;
   }, [currentTimeSec, segments, isCompact]);
 
   // WebM/MediaRecorder NaN duration fix. MediaRecorder produces WebM blobs

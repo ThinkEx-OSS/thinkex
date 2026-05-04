@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo, useEffect } from "react";
+import { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { ArrowUp } from "lucide-react";
@@ -127,28 +127,29 @@ export function HomePromptInput({ shouldFocus, initialValue, onInitialValueAppli
     return cleaned.replace(/\s+/g, " ").trim();
   };
 
-  // Apply initial value (e.g. from clipboard paste) — run link detection too
-  useEffect(() => {
-    if (initialValue !== undefined && initialValue !== "") {
-      setValue(processTextForLinks(initialValue));
-      onInitialValueApplied?.();
-    }
-  }, [initialValue, onInitialValueApplied]);
-
-  // Handle user typing — extract pasted/typed URLs into link attachments
-  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setValue(processTextForLinks(e.target.value));
-  };
-
-  // Auto-resize effect
-  useEffect(() => {
+  const resizeTextarea = useCallback(() => {
     const textarea = inputRef.current;
     if (textarea) {
       textarea.style.height = 'auto';
       textarea.style.height = `${textarea.scrollHeight}px`;
       setIsExpanded(textarea.scrollHeight > 80);
     }
-  }, [value]);
+  }, []);
+
+  // Apply initial value (e.g. from clipboard paste) — run link detection too
+  useEffect(() => {
+    if (initialValue !== undefined && initialValue !== "") {
+      setValue(processTextForLinks(initialValue));
+      onInitialValueApplied?.();
+      requestAnimationFrame(resizeTextarea);
+    }
+  }, [initialValue, onInitialValueApplied, resizeTextarea]);
+
+  // Handle user typing — extract pasted/typed URLs into link attachments
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setValue(processTextForLinks(e.target.value));
+    requestAnimationFrame(resizeTextarea);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
