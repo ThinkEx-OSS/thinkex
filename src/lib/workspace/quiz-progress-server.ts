@@ -22,5 +22,7 @@ export async function loadQuizProgress(
     .limit(1);
 
   if (rows.length === 0) return null;
-  return rows[0].state as QuizProgressState;
+  const state = rows[0].state as QuizProgressState;
+  if (!state || !Array.isArray(state.answers)) return null;
+  return state;
 }

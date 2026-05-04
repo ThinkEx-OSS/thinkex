@@ -155,9 +155,9 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
                     : undefined;
 
             let quizProgress: QuizProgressState | null = null;
-            if (item.type === "quiz" && ctx.userId) {
+            if (item.type === "quiz" && ctx.userId && ctx.workspaceId) {
                 const { loadQuizProgress } = await import("@/lib/workspace/quiz-progress-server");
-                quizProgress = await loadQuizProgress(ctx.workspaceId!, item.id, ctx.userId);
+                quizProgress = await loadQuizProgress(ctx.workspaceId, item.id, ctx.userId);
             }
 
             const fullContent =
