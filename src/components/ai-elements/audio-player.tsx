@@ -107,7 +107,7 @@ export const AudioPlayerControlBar = ({
   ...props
 }: AudioPlayerControlBarProps) => (
   <MediaControlBar data-slot="audio-player-control-bar" {...props}>
-    <ButtonGroup orientation="horizontal">{children}</ButtonGroup>
+    <ButtonGroup orientation="horizontal" className="w-full">{children}</ButtonGroup>
   </MediaControlBar>
 );
 
@@ -183,7 +183,7 @@ export const AudioPlayerTimeRange = ({
   className,
   ...props
 }: AudioPlayerTimeRangeProps) => (
-  <ButtonGroupText asChild className="bg-transparent">
+  <ButtonGroupText asChild className="flex-1 min-w-0 bg-transparent">
     <MediaTimeRange
       className={className}
       data-slot="audio-player-time-range"
