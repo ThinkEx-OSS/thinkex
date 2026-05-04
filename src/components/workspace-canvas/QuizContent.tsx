@@ -18,18 +18,22 @@ import {
   Plus,
   Lightbulb,
   MessageCircleQuestion,
+  Loader2,
 } from "lucide-react";
 import { StreamdownMarkdown } from "@/components/ui/streamdown-markdown";
 import { toast } from "sonner";
 import { useOptionalComposerActions } from "@/lib/stores/composer-actions-store";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { getQuestionText } from "@/lib/workspace-state/quiz-shuffle";
+import { useCurrentWorkspaceId } from "@/contexts/WorkspaceContext";
+import { useQuizProgress } from "@/hooks/use-quiz-progress";
+import type { QuizProgressState } from "@/lib/workspace-state/quiz-progress-types";
 
 interface QuizContentProps {
   item: Item;
   onUpdateData: (updater: (prev: ItemData) => ItemData) => void;
   isScrollLocked?: boolean;
-  className?: string; // Optional (e.g. padding when in modal)
+  className?: string;
 }
 
 export function QuizContent({
@@ -42,12 +46,16 @@ export function QuizContent({
   const questions = quizData.questions || [];
   const promptInput = useOptionalComposerActions();
 
-  // UI store for card selection
   const selectedCardIds = useUIStore((state) => state.selectedCardIds);
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
   const setActiveItemContext = useUIStore((state) => state.setActiveItemContext);
 
-  // Session state
+  const workspaceId = useCurrentWorkspaceId();
+  const { progress, isLoading, updateProgress } = useQuizProgress(
+    workspaceId ?? "",
+    item.id,
+  );
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -55,8 +63,51 @@ export function QuizContent({
     Array<{ questionId: string; userAnswer: number; isCorrect: boolean }>
   >([]);
   const [showResults, setShowResults] = useState(false);
+  const [attemptNumber, setAttemptNumber] = useState(1);
+  const [startedAt, setStartedAt] = useState<string>(
+    new Date().toISOString(),
+  );
 
-  // Track previous question count and IDs to detect when new questions are added
+  const initializedRef = useRef(false);
+  const initializedItemIdRef = useRef(item.id);
+
+  useEffect(() => {
+    if (initializedItemIdRef.current !== item.id) {
+      initializedRef.current = false;
+      initializedItemIdRef.current = item.id;
+    }
+  }, [item.id]);
+
+  useEffect(() => {
+    if (isLoading || initializedRef.current) return;
+    initializedRef.current = true;
+
+    if (!progress || !progress.answers || progress.answers.length === 0) return;
+
+    const validAnswers = progress.answers.filter((a) =>
+      questions.some((q) => q.id === a.questionId),
+    );
+
+    setAnsweredQuestions(
+      validAnswers.map((a) => ({
+        questionId: a.questionId,
+        userAnswer: a.userAnswer,
+        isCorrect: a.isCorrect,
+      })),
+    );
+    setAttemptNumber(progress.attemptNumber ?? 1);
+    setStartedAt(progress.startedAt ?? new Date().toISOString());
+
+    if (progress.completedAt && validAnswers.length >= questions.length) {
+      setShowResults(true);
+    } else {
+      const firstUnanswered = questions.findIndex(
+        (q) => !validAnswers.some((a) => a.questionId === q.id),
+      );
+      setCurrentIndex(firstUnanswered >= 0 ? firstUnanswered : 0);
+    }
+  }, [isLoading, progress, questions]);
+
   const prevQuestionCountRef = useRef(questions.length);
   const prevQuestionIdsRef = useRef<Set<string>>(
     new Set(questions.map((q) => q.id)),
@@ -81,55 +132,42 @@ export function QuizContent({
     return () => setActiveItemContext(item.id, null);
   }, [item.id, setActiveItemContext]);
 
-  // Sync effect: ensure showResults state matches reality of questions vs answered
-  // and handle new questions being added
   useEffect(() => {
     const prevCount = prevQuestionCountRef.current;
     const currentCount = questions.length;
     const prevIds = prevQuestionIdsRef.current;
 
-    // Detect if new questions were actually added (not just a re-render)
     const currentIds = new Set(questions.map((q) => q.id));
     const questionsAdded = questions.filter((q) => !prevIds.has(q.id)).length;
 
-    // Check if we have unanswered questions
     const hasUnansweredQuestions = answeredQuestions.length < currentCount;
 
     if (questionsAdded > 0 && currentCount > prevCount) {
-      // New questions were added
-
       if (showResults) {
-        // If we were showing results, we need to hide them and let user answer new questions
         toast.success(
           `${questionsAdded} new question${questionsAdded > 1 ? "s" : ""} added! Continue your quiz.`,
         );
         setShowResults(false);
-        setCurrentIndex(prevCount); // Go to first new question
+        setCurrentIndex(prevCount);
         setSelectedAnswer(null);
         setIsSubmitted(false);
       } else {
-        // Just notify user
         toast.success(
           `${questionsAdded} new question${questionsAdded > 1 ? "s" : ""} added!`,
         );
       }
     } else if (showResults && hasUnansweredQuestions) {
-      // Sanity check: if showing results but we have unanswered questions (e.g. from sync mismatch),
-      // force exit results mode
       setShowResults(false);
     }
 
-    // Update refs for next comparison
     prevQuestionCountRef.current = currentCount;
     prevQuestionIdsRef.current = currentIds;
   }, [questions, showResults, answeredQuestions.length, currentIndex]);
 
-  // Check if current question was already answered
   const previousAnswer = useMemo(() => {
     return answeredQuestions.find((a) => a.questionId === currentQuestion?.id);
   }, [answeredQuestions, currentQuestion?.id]);
 
-  // Restore state when navigating to previously answered question
   useEffect(() => {
     if (previousAnswer) {
       setSelectedAnswer(previousAnswer.userAnswer);
@@ -140,13 +178,35 @@ export function QuizContent({
     }
   }, [currentIndex, previousAnswer]);
 
-  // Handle answer selection
+  const buildProgressState = useCallback(
+    (
+      answers: typeof answeredQuestions,
+      completed: boolean,
+    ): QuizProgressState => ({
+      answers: answers.map((a) => ({
+        ...a,
+        answeredAt:
+          progress?.answers?.find((pa) => pa.questionId === a.questionId)
+            ?.answeredAt ?? new Date().toISOString(),
+      })),
+      attemptNumber,
+      startedAt,
+      ...(completed
+        ? {
+            completedAt: new Date().toISOString(),
+            score: answers.filter((a) => a.isCorrect).length,
+            totalQuestions: questions.length,
+          }
+        : {}),
+    }),
+    [attemptNumber, startedAt, progress?.answers, questions.length],
+  );
+
   const handleSelectAnswer = (index: number) => {
     if (isSubmitted) return;
     setSelectedAnswer(index);
   };
 
-  // Handle answer submission
   const handleSubmit = () => {
     if (selectedAnswer === null || isSubmitted) return;
 
@@ -164,50 +224,60 @@ export function QuizContent({
 
     setAnsweredQuestions(newAnsweredQuestions);
     setIsSubmitted(true);
-  };
 
-  // Navigation
-  const handleNext = () => {
-    if (currentIndex < totalQuestions - 1) {
-      const nextIndex = currentIndex + 1;
-      setCurrentIndex(nextIndex);
-    } else {
-      // Show results
-      setShowResults(true);
+    if (workspaceId) {
+      updateProgress(buildProgressState(newAnsweredQuestions, false));
     }
   };
 
-  // Arrow navigation - only moves between questions, never shows results
+  const handleNext = () => {
+    if (currentIndex < totalQuestions - 1) {
+      setCurrentIndex(currentIndex + 1);
+    } else {
+      setShowResults(true);
+      if (workspaceId) {
+        updateProgress(buildProgressState(answeredQuestions, true));
+      }
+    }
+  };
+
   const handleArrowNext = () => {
     if (currentIndex < totalQuestions - 1) {
-      const nextIndex = currentIndex + 1;
-      setCurrentIndex(nextIndex);
+      setCurrentIndex(currentIndex + 1);
     }
   };
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
-      const prevIndex = currentIndex - 1;
-      setCurrentIndex(prevIndex);
+      setCurrentIndex(currentIndex - 1);
     }
   };
 
   const handleRestart = () => {
+    const newAttempt = attemptNumber + 1;
+    const newStartedAt = new Date().toISOString();
     setCurrentIndex(0);
     setSelectedAnswer(null);
     setIsSubmitted(false);
     setAnsweredQuestions([]);
     setShowResults(false);
+    setAttemptNumber(newAttempt);
+    setStartedAt(newStartedAt);
+
+    if (workspaceId) {
+      updateProgress({
+        answers: [],
+        attemptNumber: newAttempt,
+        startedAt: newStartedAt,
+      });
+    }
   };
 
-  // Handle Update Quiz - programmatically send message to add more questions
   const handleUpdateQuiz = () => {
-    // First, ensure this card is selected for context
     if (!selectedCardIds.has(item.id)) {
       toggleCardSelection(item.id);
     }
 
-    // Then send the message via composer
     const composer = promptInput;
     if (composer) {
       try {
@@ -268,23 +338,32 @@ export function QuizContent({
     }
   };
 
-  // Calculate score
   const score = useMemo(() => {
     return answeredQuestions.filter((a) => a.isCorrect).length;
   }, [answeredQuestions]);
 
-  // Prevent focus stealing from chat input
   const preventFocusSteal = (e: React.MouseEvent) => {
     e.preventDefault();
   };
 
-  // Stop propagation so card click doesn't open modal when interacting with quiz
   const stopPropagation = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
 
+  if (isLoading) {
+    return (
+      <div
+        className={cn(
+          "flex flex-col h-full items-center justify-center",
+          className,
+        )}
+      >
+        <Loader2 className="w-6 h-6 animate-spin text-foreground/40 dark:text-white/40" />
+      </div>
+    );
+  }
+
   if (!currentQuestion && !showResults) {
-    // Template-created items have "Update me" name and should show generating skeleton
     const isAwaitingGeneration =
       item.name === "Update me" && questions.length === 0;
 
@@ -376,7 +455,6 @@ export function QuizContent({
       );
     }
 
-    // User-created quiz with no questions - show empty state
     return (
       <div
         className={cn(
@@ -394,7 +472,6 @@ export function QuizContent({
     );
   }
 
-  // Results view
   if (showResults) {
     const percentage =
       totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;

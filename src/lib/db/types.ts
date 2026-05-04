@@ -11,6 +11,7 @@ import {
   workspaceItemExtracted,
   userProfiles,
   workspaceCollaborators,
+  workspaceItemUserState,
 } from "./schema";
 import type { Item } from "@/lib/workspace-state/types";
 
@@ -42,6 +43,13 @@ export type WorkspaceCollaborator = InferSelectModel<
 >;
 export type WorkspaceCollaboratorInsert = InferInsertModel<
   typeof workspaceCollaborators
+>;
+
+export type WorkspaceItemUserState = InferSelectModel<
+  typeof workspaceItemUserState
+>;
+export type WorkspaceItemUserStateInsert = InferInsertModel<
+  typeof workspaceItemUserState
 >;
 
 export type PermissionLevel = "viewer" | "editor";
