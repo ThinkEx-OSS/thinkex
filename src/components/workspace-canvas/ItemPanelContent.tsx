@@ -3,7 +3,6 @@
 import { X } from "lucide-react";
 import { LuMinimize2 } from "react-icons/lu";
 import ChatFloatingButton from "@/components/chat/ChatFloatingButton";
-import ItemHeader from "@/components/workspace-canvas/ItemHeader";
 import { getCardColorCSS, getWhiteTintedColor } from "@/lib/workspace-state/colors";
 import type { Item, ItemData, PdfData } from "@/lib/workspace-state/types";
 import { useUIStore } from "@/lib/stores/ui-store";
@@ -44,18 +43,7 @@ export function ItemPanelContent({
         <div>
             <div className="flex items-center justify-between py-2 px-3">
                 <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden mr-2">
-                    <ItemHeader
-                        id={item.id}
-                        name={item.name}
-                        subtitle={item.subtitle}
-                        description=""
-                        onNameChange={(v) => onUpdateItem({ name: v })}
-                        onNameCommit={(v) => onUpdateItem({ name: v })}
-                        onSubtitleChange={(v) => onUpdateItem({ subtitle: v })}
-                        noMargin={true}
-                        textSize="lg"
-                        fullWidth
-                    />
+                    <h2 className="text-lg font-medium truncate">{item.name}</h2>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                     <Tooltip>
