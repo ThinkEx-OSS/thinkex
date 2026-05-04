@@ -9,6 +9,7 @@ export const CHAT_TOOL = {
   WEB_MAP: "web_map",
   WEB_SEARCH: "web_search",
   WORKSPACE_SEARCH: "workspace_search",
+  WORKSPACE_SEMANTIC_SEARCH: "workspace_semantic_search",
   WORKSPACE_READ: "workspace_read",
   DOCUMENT_CREATE: "document_create",
   ITEM_EDIT: "item_edit",

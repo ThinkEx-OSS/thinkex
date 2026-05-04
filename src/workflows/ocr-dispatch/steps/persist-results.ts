@@ -7,6 +7,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { getOcrPagesTextContent } from "@/lib/utils/ocr-pages";
 import type { OcrItemResult } from "@/lib/ocr/types";
+import { embedText } from "@/lib/ai/embeddings";
 
 export async function persistOcrResults(
   workspaceId: string,
@@ -97,5 +98,23 @@ export async function persistOcrResults(
           ),
         );
     });
+
+    if (result.ok && ocrText) {
+      embedText(ocrText)
+        .then((vector) =>
+          db
+            .update(workspaceItemContent)
+            .set({ embedData: { vector } })
+            .where(
+              and(
+                eq(workspaceItemContent.workspaceId, workspaceId),
+                eq(workspaceItemContent.itemId, result.itemId),
+              ),
+            ),
+        )
+        .catch((err) =>
+          console.error("[embed] OCR embedding failed:", result.itemId, err),
+        );
+    }
   }
 }
