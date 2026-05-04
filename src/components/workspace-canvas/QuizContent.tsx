@@ -45,6 +45,7 @@ export function QuizContent({
   // UI store for card selection
   const selectedCardIds = useUIStore((state) => state.selectedCardIds);
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
+  const setActiveItemContext = useUIStore((state) => state.setActiveItemContext);
 
   // Session state
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -63,6 +64,22 @@ export function QuizContent({
 
   const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
+
+  useEffect(() => {
+    if (currentQuestion && !showResults) {
+      setActiveItemContext(item.id, {
+        type: 'quiz',
+        questionIndex: currentIndex,
+        questionId: currentQuestion.id,
+      });
+    } else {
+      setActiveItemContext(item.id, null);
+    }
+  }, [item.id, currentIndex, currentQuestion, showResults, setActiveItemContext]);
+
+  useEffect(() => {
+    return () => setActiveItemContext(item.id, null);
+  }, [item.id, setActiveItemContext]);
 
   // Sync effect: ensure showResults state matches reality of questions vs answered
   // and handle new questions being added

@@ -210,8 +210,8 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
   const memoryEnabled = useUIStore((state) => state.memoryEnabled);
   const activeFolderId = useUIStore((state) => state.activeFolderId);
   const selectedCardIdsSet = useUIStore((state) => state.selectedCardIds);
-  const activePdfPageByItemId = useUIStore(
-    useShallow((state) => state.activePdfPageByItemId),
+  const activeItemContext = useUIStore(
+    useShallow((state) => state.activeItemContext),
   );
   const workspaceState = useWorkspaceItems();
   const viewingItemIds = useViewingItemIds();
@@ -237,10 +237,10 @@ export function ChatProvider({ workspaceId, children }: ChatProviderProps) {
     return formatSelectedCardsMetadata(
       contextItems,
       workspaceState,
-      activePdfPageByItemId,
+      activeItemContext,
       viewingItemIds,
     );
-  }, [workspaceState, contextCardIds, activePdfPageByItemId, viewingItemIds]);
+  }, [workspaceState, contextCardIds, activeItemContext, viewingItemIds]);
 
   const transportContext = useMemo(
     () => ({

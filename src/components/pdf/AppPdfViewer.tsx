@@ -715,20 +715,20 @@ const PdfInitialPageScroll = ({
 /** Syncs current PDF page to UI store when PDF is open — used for selected-card context so the AI knows which page the user is viewing. */
 const PdfActivePageSync = ({ documentId, itemId }: { documentId: string; itemId?: string }) => {
   const { state: scrollState } = useScroll(documentId);
-  const setActivePdfPage = useUIStore((state) => state.setActivePdfPage);
+  const setActiveItemContext = useUIStore((state) => state.setActiveItemContext);
 
   useEffect(() => {
     if (!itemId) return;
     const page = scrollState?.currentPage;
     if (page != null && page >= 1) {
-      setActivePdfPage(itemId, page);
+      setActiveItemContext(itemId, { type: 'pdf', page });
     }
-  }, [itemId, scrollState?.currentPage, setActivePdfPage]);
+  }, [itemId, scrollState?.currentPage, setActiveItemContext]);
 
   useEffect(() => {
     if (!itemId) return;
-    return () => setActivePdfPage(itemId, null);
-  }, [itemId, setActivePdfPage]);
+    return () => setActiveItemContext(itemId, null);
+  }, [itemId, setActiveItemContext]);
 
   return null;
 };
