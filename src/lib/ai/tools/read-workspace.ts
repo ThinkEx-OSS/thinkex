@@ -7,6 +7,7 @@ import { formatItemContent } from "@/lib/utils/format-workspace-context";
 import { getVirtualPath } from "@/lib/utils/workspace-fs";
 import type { WorkspaceToolContext } from "./workspace-tools";
 import type { DocumentData } from "@/lib/workspace-state/types";
+import type { QuizProgressState } from "@/lib/workspace-state/quiz-progress-types";
 import { normalizeWorkspaceItems } from "@/lib/workspace-state/state";
 
 const DEFAULT_LIMIT = 500;
@@ -153,10 +154,19 @@ export function createReadWorkspaceTool(ctx: WorkspaceToolContext) {
                     ? { pageStart, pageEnd }
                     : undefined;
 
+            let quizProgress: QuizProgressState | null = null;
+            if (item.type === "quiz" && ctx.userId) {
+                const { loadQuizProgress } = await import("@/lib/workspace/quiz-progress-server");
+                quizProgress = await loadQuizProgress(ctx.workspaceId!, item.id, ctx.userId);
+            }
+
             const fullContent =
                 item.type === "document"
                     ? ((item.data as DocumentData).markdown ?? "")
-                    : formatItemContent(item, pdfPageRange);
+                    : formatItemContent(item, {
+                        ...pdfPageRange,
+                        quizProgress,
+                    });
             const allLines = fullContent.split(/\r?\n/);
             const totalLines = allLines.length;
             const startIdx = Math.max(0, lineStart - 1);

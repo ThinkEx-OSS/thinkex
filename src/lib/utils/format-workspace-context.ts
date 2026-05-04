@@ -14,6 +14,7 @@ import { getPdfSourceUrl } from "@/lib/pdf/pdf-item";
 import { getCodeExecutionSystemInstructions } from "@/lib/ai/code-execute-environment";
 
 import type { ItemViewContext } from "@/lib/stores/ui-store";
+import type { QuizProgressState } from "@/lib/workspace-state/quiz-progress-types";
 
 /**
  * Formats item metadata only (no content). Used for workspace context in system prompt.
@@ -477,6 +478,8 @@ export interface FormatItemContentOptions {
   pageStart?: number;
   /** For PDFs: 1-indexed end page (inclusive) */
   pageEnd?: number;
+  /** For quizzes: user progress state */
+  quizProgress?: QuizProgressState | null;
 }
 
 /**
@@ -506,7 +509,7 @@ export function formatItemContent(
       lines.push(...formatYouTubeDetailsFull(item.data as YouTubeData));
       break;
     case "quiz":
-      lines.push(...formatQuizDetailsFull(item.data as QuizData));
+      lines.push(...formatQuizDetailsFull(item.data as QuizData, options?.quizProgress));
       break;
     case "image":
       lines.push(...formatImageDetailsFull(item.data as ImageData));
@@ -681,10 +684,34 @@ function formatFlashcardDetailsFull(data: FlashcardData): string[] {
 
 /**
  * Formats quiz details as raw JSON (editable by item_edit).
+ * When progress is available, prepends a read-only summary block.
  */
-function formatQuizDetailsFull(data: QuizData): string[] {
+function formatQuizDetailsFull(
+  data: QuizData,
+  progress?: QuizProgressState | null,
+): string[] {
+  const lines: string[] = [];
+
+  if (progress && progress.answers.length > 0) {
+    lines.push("--- Progress (read-only) ---");
+    const score = progress.score ?? progress.answers.filter(a => a.isCorrect).length;
+    const total = progress.totalQuestions ?? data.questions?.length ?? 0;
+    const pct = total > 0 ? Math.round((score / total) * 100) : 0;
+    lines.push(`Attempt ${progress.attemptNumber} | Score: ${score}/${total} (${pct}%)${progress.completedAt ? ' | Completed' : ' | In progress'}`);
+
+    const answerMap = new Map(progress.answers.map(a => [a.questionId, a]));
+    const statuses = (data.questions || []).map((q, i) => {
+      const answer = answerMap.get(q.id);
+      if (!answer) return `Q${i + 1} unanswered`;
+      return `Q${i + 1} ${answer.isCorrect ? '\u2713' : '\u2717'}`;
+    });
+    lines.push(`Questions: ${statuses.join(', ')}`);
+    lines.push("---");
+  }
+
   const payload = { questions: data.questions || [] };
-  return [JSON.stringify(payload, null, 2)];
+  lines.push(JSON.stringify(payload, null, 2));
+  return lines;
 }
 
 /**
