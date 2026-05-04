@@ -25,8 +25,10 @@ import { Selection } from "@tiptap/extensions";
 import { Mathematics } from "@tiptap/extension-mathematics";
 import { TableKit } from "@tiptap/extension-table";
 import { Markdown } from "@tiptap/markdown";
+import { CharacterCount } from "@tiptap/extension-character-count";
 import { CustomCodeBlock } from "@/components/tiptap-node/code-block-node/code-block-extension";
 import "katex/dist/katex.min.css";
+import { EditorWordCount } from "@/components/editor/EditorWordCount";
 
 // --- UI ---
 import { Button } from "@/components/ui/button";
@@ -899,6 +901,7 @@ export function DocumentEditor({
           gfm: true,
         },
       }),
+      CharacterCount,
     ],
     // NOTE: initial content intentionally omitted — content is set via the
     // useEffect below after first paint to avoid blocking modal-open animation.
@@ -1027,6 +1030,8 @@ export function DocumentEditor({
             contentClassName,
           )}
         />
+
+        <EditorWordCount editor={editor} />
       </EditorContext.Provider>
     </div>
   );
