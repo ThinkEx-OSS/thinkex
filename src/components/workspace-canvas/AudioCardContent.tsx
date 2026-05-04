@@ -397,27 +397,27 @@ function AudioCardComplete({
     <div className="flex flex-col">
       {/* Sticky header: player + Copy Transcript button */}
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40">
-        <div className="px-4 pt-3 pb-2">
-          <AudioPlayer className="w-full">
-            <AudioPlayerElement
-              ref={audioRef}
-              src={audioData.fileUrl}
-              preload="metadata"
-            />
-            <AudioPlayerControlBar>
-              <AudioPlayerPlayButton />
-              <AudioPlayerSeekBackwardButton />
-              <AudioPlayerSeekForwardButton />
-              <AudioPlayerTimeDisplay />
-              <AudioPlayerTimeRange />
-              <AudioPlayerDurationDisplay />
-              <AudioPlayerMuteButton />
-              <AudioPlayerVolumeRange />
-            </AudioPlayerControlBar>
-          </AudioPlayer>
-        </div>
-        {!!transcript && (
-          <div className="px-4 pb-2 flex justify-end">
+        <div className="px-4 pt-3 pb-2 flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <AudioPlayer className="w-full">
+              <AudioPlayerElement
+                ref={audioRef}
+                src={audioData.fileUrl}
+                preload="metadata"
+              />
+              <AudioPlayerControlBar>
+                <AudioPlayerPlayButton />
+                <AudioPlayerSeekBackwardButton />
+                <AudioPlayerSeekForwardButton />
+                <AudioPlayerTimeDisplay />
+                <AudioPlayerTimeRange />
+                <AudioPlayerDurationDisplay />
+                <AudioPlayerMuteButton />
+                <AudioPlayerVolumeRange />
+              </AudioPlayerControlBar>
+            </AudioPlayer>
+          </div>
+          {!!transcript && (
             <button
               type="button"
               onClick={() => {
@@ -426,7 +426,7 @@ function AudioCardComplete({
                   setTimeout(() => setCopied(false), 2000);
                 });
               }}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
             >
               {copied ? (
                 <Check className="h-3 w-3 text-green-500" />
@@ -435,8 +435,8 @@ function AudioCardComplete({
               )}
               {copied ? "Copied!" : "Copy Transcript"}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Body — flows naturally; the parent ItemPanelContent provides scroll */}
