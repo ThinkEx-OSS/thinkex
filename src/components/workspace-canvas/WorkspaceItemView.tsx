@@ -201,7 +201,7 @@ export function WorkspacePanelItemPreview({
   }
 
   if (item.type === "flashcard") {
-    return <FlashcardContent item={item} />;
+    return <FlashcardContent item={item} className="p-4 md:p-5 lg:p-6" />;
   }
 
   if (item.type === "quiz") {
