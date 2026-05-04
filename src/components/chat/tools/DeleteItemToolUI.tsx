@@ -2,8 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { ChatToolUIProps } from "@/lib/chat/tool-ui-types";
-import { Trash2, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Trash2 } from "lucide-react";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { ToolUILoadingShell } from "./tool-ui-loading-shell";
 import { ToolUIErrorShell } from "./tool-ui-error-shell";
@@ -29,17 +28,9 @@ const DeleteItemReceipt = ({ args, result, status }: DeleteItemReceiptProps) => 
   const names = result.deletedItems ?? args.itemNames;
 
   return (
-    <div
-      className={cn(
-        "my-1 flex w-full items-center justify-between overflow-hidden rounded-md border border-border/25 bg-card/50 text-card-foreground shadow-sm px-2 py-2",
-      )}
-    >
+    <div className="my-1 flex w-full items-center justify-between overflow-hidden rounded-md border border-border/25 bg-card/50 text-card-foreground shadow-sm px-2 py-2">
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        <div
-          className={cn(
-            status?.type === "complete" ? "text-red-400" : "text-red-400",
-          )}
-        >
+        <div className="text-red-400">
           <Trash2 className="size-4" />
         </div>
         <div className="flex flex-col min-w-0 flex-1">

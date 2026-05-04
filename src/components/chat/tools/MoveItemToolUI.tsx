@@ -2,8 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { ChatToolUIProps } from "@/lib/chat/tool-ui-types";
-import { FolderInput, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { FolderInput } from "lucide-react";
 import { ToolUIErrorBoundary } from "@/components/tool-ui/shared";
 import { ToolUILoadingShell } from "./tool-ui-loading-shell";
 import { ToolUIErrorShell } from "./tool-ui-error-shell";
@@ -22,20 +21,15 @@ interface MoveItemResult extends WorkspaceResult {
 interface MoveItemReceiptProps {
   args: MoveItemArgs;
   result: MoveItemResult;
-  status: { type: string };
 }
 
-const MoveItemReceipt = ({ args, result, status }: MoveItemReceiptProps) => {
+const MoveItemReceipt = ({ args, result }: MoveItemReceiptProps) => {
   const count = result.movedCount ?? result.movedItems?.length ?? 0;
   const names = result.movedItems ?? args.itemNames;
   const target = result.targetFolder ?? args.folderName ?? "root";
 
   return (
-    <div
-      className={cn(
-        "my-1 flex w-full items-center justify-between overflow-hidden rounded-md border border-border/25 bg-card/50 text-card-foreground shadow-sm px-2 py-2",
-      )}
-    >
+    <div className="my-1 flex w-full items-center justify-between overflow-hidden rounded-md border border-border/25 bg-card/50 text-card-foreground shadow-sm px-2 py-2">
       <div className="flex items-center gap-2 flex-1 min-w-0">
         <div className="text-blue-400">
           <FolderInput className="size-4" />
@@ -71,7 +65,7 @@ export const renderMoveItemToolUI: ChatToolUIProps<
   let content: ReactNode = null;
 
   if (parsed?.success) {
-    content = <MoveItemReceipt args={args} result={parsed} status={status} />;
+    content = <MoveItemReceipt args={args} result={parsed} />;
   } else if (status.type === "running") {
     const count = args?.itemNames?.length ?? 0;
     content = (
