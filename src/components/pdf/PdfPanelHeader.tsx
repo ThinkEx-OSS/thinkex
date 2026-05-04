@@ -145,7 +145,7 @@ export const PdfPanelHeader = memo(function PdfPanelHeader({
           result.imageType,
         );
 
-        const filename = `capture-page-${result.pageIndex + 1}-${Date.now()}.png`;
+        const filename = `capture-${itemName.replace(/[^a-zA-Z0-9]/g, "_")}-page-${result.pageIndex + 1}-${Date.now()}.png`;
         await addCaptureToChat(orientedBlob, filename, result.imageType, promptInputRef.current);
         captureRef.current?.toggleMarqueeCapture();
       } catch (error) {
