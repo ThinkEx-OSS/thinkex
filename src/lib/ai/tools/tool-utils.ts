@@ -50,6 +50,12 @@ const MODEL_STRIP_FIELDS = new Set([
   "deletedItem", // redundant with message
   "itemName", // redundant with message
   "title", // redundant with message
+  "deletedCount", // redundant with message
+  "deletedItems", // redundant with message
+  "movedCount", // redundant with message
+  "movedItems", // redundant with message
+  "targetFolder", // redundant with message
+  "failedItems", // redundant with message
 ]);
 
 export function withSanitizedModelOutput<T extends Record<string, any>>(

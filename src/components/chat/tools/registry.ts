@@ -17,6 +17,8 @@ import { renderURLContextToolUI } from "./URLContextToolUI";
 import { renderWebMapToolUI } from "./WebMapToolUI";
 import { renderWebSearchToolUI } from "./WebSearchToolUI";
 import { renderYouTubeSearchToolUI } from "./YouTubeSearchToolUI";
+import { renderDeleteItemToolUI } from "./DeleteItemToolUI";
+import { renderMoveItemToolUI } from "./MoveItemToolUI";
 
 type ToolRender = (args: ChatToolUIRenderArgs) => React.ReactNode;
 
@@ -39,4 +41,6 @@ export const TOOL_RENDERERS: Partial<Record<string, ToolRender>> = {
   [CHAT_TOOL.QUIZ_ADD_QUESTIONS]: renderAddQuizQuestionsToolUI as ToolRender,
   [CHAT_TOOL.YOUTUBE_SEARCH]: renderYouTubeSearchToolUI as ToolRender,
   [CHAT_TOOL.YOUTUBE_ADD]: renderAddYoutubeVideoToolUI as ToolRender,
+  [CHAT_TOOL.ITEM_DELETE]: renderDeleteItemToolUI as ToolRender,
+  [CHAT_TOOL.ITEM_MOVE]: renderMoveItemToolUI as ToolRender,
 };
