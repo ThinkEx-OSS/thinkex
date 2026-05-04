@@ -12,6 +12,9 @@ export function useQuizProgress(workspaceId: string, itemId: string) {
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    setIsLoading(true);
+    setProgress(null);
+
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -19,11 +22,21 @@ export function useQuizProgress(workspaceId: string, itemId: string) {
       `/api/workspace/${workspaceId}/quiz-progress?itemId=${encodeURIComponent(itemId)}`,
       { signal: controller.signal },
     )
-      .then((res) => res.json())
-      .then((data) => setProgress(data.state ?? null))
+      .then((res) => {
+        if (!res.ok) {
+          console.error("[useQuizProgress] load returned", res.status);
+          setProgress(null);
+          return;
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (data) setProgress(data.state ?? null);
+      })
       .catch((err) => {
         if (err.name !== "AbortError") {
           console.error("[useQuizProgress] load failed", err);
+          setProgress(null);
         }
       })
       .finally(() => setIsLoading(false));
@@ -58,9 +71,5 @@ export function useQuizProgress(workspaceId: string, itemId: string) {
     [saveProgress],
   );
 
-  const clearProgress = useCallback(() => {
-    setProgress(null);
-  }, []);
-
-  return { progress, isLoading, updateProgress, clearProgress };
+  return { progress, isLoading, updateProgress };
 }
