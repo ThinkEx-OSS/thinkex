@@ -11,6 +11,10 @@ import { getDefaultChatModelId } from "@/lib/ai/models";
 /** Column / keyboard focus when two items are open (split). */
 export type WorkspaceItemSlot = "primary" | "secondary";
 
+export type ItemViewContext =
+  | { type: 'pdf'; page: number }
+  | { type: 'quiz'; questionIndex: number; questionId: string };
+
 /**
  * Up to two workspace items “open” at once.
  * - Today: only `primary` is used; UI is fullscreen one-item view.
@@ -86,8 +90,8 @@ interface UIState {
     pageNumber?: number;
   } | null;
 
-  // PDF active page: itemId -> current page when PDF is open (for selected-card context)
-  activePdfPageByItemId: Record<string, number>;
+  // Active item context: itemId -> view context when item is open (for selected-card context)
+  activeItemContext: Record<string, ItemViewContext>;
 
   // Actions - Chat
   setIsChatExpanded: (expanded: boolean) => void;
@@ -140,7 +144,7 @@ interface UIState {
   setCitationHighlightQuery: (
     query: { itemId: string; query: string; pageNumber?: number } | null,
   ) => void;
-  setActivePdfPage: (itemId: string, page: number | null) => void;
+  setActiveItemContext: (itemId: string, context: ItemViewContext | null) => void;
 
   // Utility actions
   resetChatState: () => void;
@@ -174,7 +178,7 @@ const initialState = {
   // Reply selection
   replySelections: [],
   citationHighlightQuery: null,
-  activePdfPageByItemId: {},
+  activeItemContext: {},
 };
 
 export const useUIStore = create<UIState>()(
@@ -351,15 +355,15 @@ export const useUIStore = create<UIState>()(
         setCitationHighlightQuery: (query) => {
           set({ citationHighlightQuery: query });
         },
-        setActivePdfPage: (itemId, page) => {
+        setActiveItemContext: (itemId, context) => {
           set((state) => {
-            const next = { ...state.activePdfPageByItemId };
-            if (page == null) {
+            const next = { ...state.activeItemContext };
+            if (context == null) {
               delete next[itemId];
             } else {
-              next[itemId] = page;
+              next[itemId] = context;
             }
-            return { activePdfPageByItemId: next };
+            return { activeItemContext: next };
           });
         },
 

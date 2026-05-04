@@ -3,7 +3,7 @@
 import { useState, useMemo, memo } from "react";
 
 import { X, ChevronDown, ChevronUp, Eye } from "lucide-react";
-import { useUIStore } from "@/lib/stores/ui-store";
+import { useUIStore, type ItemViewContext } from "@/lib/stores/ui-store";
 import { useSelectedCardIds } from "@/hooks/ui/use-selected-card-ids";
 import { useViewingItemIds } from "@/hooks/ui/use-viewing-item-ids";
 import { cn } from "@/lib/utils";
@@ -17,9 +17,18 @@ interface CardContextDisplayProps {
  * Displays selected cards as context chips above the chat input.
  * Shows cards in a collapsible view - single line by default, expandable to show all.
  */
+function getItemContextBadge(ctx: ItemViewContext | undefined): string | null {
+  if (!ctx) return null;
+  switch (ctx.type) {
+    case 'pdf': return ctx.page >= 1 ? `p.${ctx.page}` : null;
+    case 'quiz': return `q.${ctx.questionIndex + 1}`;
+    default: return null;
+  }
+}
+
 function CardContextDisplayImpl({ items }: CardContextDisplayProps) {
   const { selectedCardIds } = useSelectedCardIds();
-  const activePdfPageByItemId = useUIStore((state) => state.activePdfPageByItemId);
+  const activeItemContext = useUIStore((state) => state.activeItemContext);
   const viewingItemIds = useViewingItemIds();
   const toggleCardSelection = useUIStore((state) => state.toggleCardSelection);
 
@@ -104,17 +113,18 @@ function CardContextDisplayImpl({ items }: CardContextDisplayProps) {
               )}
             </div>
 
-            {/* Card Title + Page number for PDFs */}
+            {/* Card Title + context badge */}
             <span className="text-xs max-w-[80px] truncate">
               {item.name || "Untitled"}
             </span>
-            {item.type === "pdf" &&
-              activePdfPageByItemId[item.id] != null &&
-              activePdfPageByItemId[item.id] >= 1 && (
-              <span className="text-xs text-muted-foreground flex-shrink-0">
-                p.{activePdfPageByItemId[item.id]}
-              </span>
-            )}
+            {(() => {
+              const badge = getItemContextBadge(activeItemContext[item.id]);
+              return badge ? (
+                <span className="text-xs text-muted-foreground flex-shrink-0">
+                  {badge}
+                </span>
+              ) : null;
+            })()}
           </div>
           );
         })}

@@ -13,15 +13,17 @@ import { getVirtualPath } from "./workspace-fs";
 import { getPdfSourceUrl } from "@/lib/pdf/pdf-item";
 import { getCodeExecutionSystemInstructions } from "@/lib/ai/code-execute-environment";
 
+import type { ItemViewContext } from "@/lib/stores/ui-store";
+
 /**
  * Formats item metadata only (no content). Used for workspace context in system prompt.
- * When activePdfPages is provided and item is a PDF, includes activePage if user is currently viewing it.
+ * When activeItemContext is provided, includes view-specific metadata (e.g. activePage for PDFs, activeQuestion for quizzes).
  * When viewingItemIds is provided and item's panel is open, includes (currently viewing) for any item type.
  */
 function formatItemMetadata(
   item: Item,
   items: Item[],
-  activePdfPages?: Record<string, number>,
+  activeItemContext?: Record<string, ItemViewContext>,
   viewingItemIds?: Set<string>,
 ): string {
   const path = getVirtualPath(item, items);
@@ -32,9 +34,9 @@ function formatItemMetadata(
     case "pdf": {
       const d = item.data as PdfData;
       if (d?.filename) parts.push(`filename=${d.filename}`);
-      const activePage = activePdfPages?.[item.id];
-      if (activePage != null && activePage >= 1) {
-        parts.push(`activePage=${activePage}`);
+      const ctx = activeItemContext?.[item.id];
+      if (ctx?.type === 'pdf' && ctx.page >= 1) {
+        parts.push(`activePage=${ctx.page}`);
       }
       break;
     }
@@ -47,6 +49,10 @@ function formatItemMetadata(
     case "quiz": {
       const d = item.data as QuizData;
       parts.push(`questions=${d?.questions?.length ?? 0}`);
+      const ctx = activeItemContext?.[item.id];
+      if (ctx?.type === 'quiz') {
+        parts.push(`activeQuestion=${ctx.questionIndex + 1}`);
+      }
       break;
     }
     case "audio": {
@@ -115,7 +121,7 @@ Your knowledge cutoff date is January 2025.
 </time_and_knowledge>
 
 <context>
-The selected/open context lists what the user is working with: explicitly selected cards plus any item open in a workspace panel (no checkmark required). All listed items matter. Items marked (currently viewing) have highest priority — they are open right now, so prioritize them for ambiguous prompts ("this", "here", "that one", "what I'm looking at") and when relevant otherwise. For PDFs with activePage=N, that specific page is the focus.
+The selected/open context lists what the user is working with: explicitly selected cards plus any item open in a workspace panel (no checkmark required). All listed items matter. Items marked (currently viewing) have highest priority — they are open right now, so prioritize them for ambiguous prompts ("this", "here", "that one", "what I'm looking at") and when relevant otherwise. For PDFs with activePage=N, that specific page is the focus. For quizzes with activeQuestion=N, that specific question is what the user is looking at.
 Context entries provide paths and metadata only — use workspace_search or workspace_read for full text (audio: segment timeline via workspace_read, not raw audio; paginate with lineStart/limit when long).
 If no context is provided, explain how to add items: open a card, or select via checkmark, shift-click, or drag-select.
 Rely only on facts from fetched content. Do not invent or assume information.
@@ -149,7 +155,7 @@ ${getCodeExecutionSystemInstructions()}
 
 PDF: Always try workspace_read first for workspace PDFs (pageStart/pageEnd for page ranges). If content is not yet extracted, tell the user it is still being prepared and try again shortly.
 PDF VISUALS: PDF OCR in this workspace gives you textual structure from the PDF, including normal text and inline tables, but not visual understanding of charts, figures, diagrams, or screenshots embedded in the PDF. Do not claim you can see those visuals unless the user has separately attached a screenshot/image of that region. If the user needs help with a chart or figure from a PDF, tell them to open the PDF and use the camera button in the top right of the open pdf panelto add a screenshot of that area to chat.
-When selected card metadata includes (currently viewing) or activePage=N (for PDFs), the user has that item or page open. Prioritize these for ambiguous references ("this", "here", "this page", "what I'm looking at") and tailor responses to that context.
+When selected card metadata includes (currently viewing) or activePage=N (for PDFs) or activeQuestion=N (for quizzes), the user has that item or page/question open. Prioritize these for ambiguous references ("this", "here", "this page", "what I'm looking at") and tailor responses to that context.
 
 YOUTUBE: If user says "add a video" without a topic, infer from workspace context. Don't ask - just search.
 
@@ -366,12 +372,12 @@ function formatRichContentSection(richContent: RichContent): string {
 /**
  * Formats selected cards as metadata only (paths, names, types).
  * Use when the AI has grep/read tools — it fetches content on demand.
- * When activePdfPages is provided, PDF items include activePage (page user is currently viewing).
+ * When activeItemContext is provided, items include view-specific metadata (e.g. activePage for PDFs, activeQuestion for quizzes).
  */
 export function formatSelectedCardsMetadata(
   selectedItems: Item[],
   allItems?: Item[],
-  activePdfPages?: Record<string, number>,
+  activeItemContext?: Record<string, ItemViewContext>,
   viewingItemIds?: Set<string>,
 ): string {
   if (selectedItems.length === 0) {
@@ -396,7 +402,7 @@ No selected or open items.
     formatItemMetadata(
       item,
       allItems ?? effectiveItems,
-      activePdfPages,
+      activeItemContext,
       viewingItemIds,
     ),
   );
