@@ -76,8 +76,8 @@ export const ColorHighlightPopoverButton = forwardRef<
     type="button"
     className={cn(
       buttonVariants({ variant: "ghost", size: "sm" }),
-      "h-8 gap-1.5 rounded-md px-2.5 text-sm shadow-none",
-      "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:size-4",
+      "h-6.5 gap-0.5 rounded-md px-1.5 text-[11px] text-muted-foreground hover:text-foreground shadow-none",
+      "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:size-3.5",
       className
     )}
     role="button"

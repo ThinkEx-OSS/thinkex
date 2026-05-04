@@ -1,4 +1,14 @@
-import { Extension } from "@tiptap/core";
+import { Extension, type MarkdownToken } from "@tiptap/core";
+
+type EscapeMarkdownToken = MarkdownToken & {
+  type: "escape";
+  raw: string;
+  text: string;
+};
+
+function isEscapeMarkdownToken(token: MarkdownToken): token is EscapeMarkdownToken {
+  return token.type === "escape" && typeof token.text === "string";
+}
 
 /**
  * TipTap's MarkdownManager silently drops marked.js 'escape' tokens
@@ -14,8 +24,17 @@ export const MarkdownEscape = Extension.create({
 
   markdownTokenName: "escape",
 
-  parseMarkdown: (token: any) => ({
-    type: "text",
-    text: token.text ?? "",
-  }),
+  parseMarkdown: (token: MarkdownToken) => {
+    if (!isEscapeMarkdownToken(token)) {
+      return {
+        type: "text",
+        text: token.raw ?? "",
+      };
+    }
+
+    return {
+      type: "text",
+      text: token.text,
+    };
+  },
 });
