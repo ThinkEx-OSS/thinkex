@@ -25,6 +25,7 @@ import { Selection } from "@tiptap/extensions";
 import { Mathematics } from "@tiptap/extension-mathematics";
 import { TableKit } from "@tiptap/extension-table";
 import { Markdown } from "@tiptap/markdown";
+import { MarkdownEscape } from "@/components/editor/markdown-escape-extension";
 import { CustomCodeBlock } from "@/components/tiptap-node/code-block-node/code-block-extension";
 import "katex/dist/katex.min.css";
 
@@ -889,6 +890,7 @@ export function DocumentEditor({
           throwOnError: false,
         },
       }),
+      MarkdownEscape,
       TableKit.configure({
         table: {
           resizable: false,
