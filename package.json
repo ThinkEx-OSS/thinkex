@@ -149,7 +149,7 @@
     "papaparse": "^5.5.3",
     "parse-diff": "^0.11.1",
     "pdfjs-dist": "4.10.38",
-    "postcss": "^8.5.8",
+    "postcss": "^8.5.11",
     "postgres": "^3.4.9",
     "posthog-js": "^1.369.5",
     "posthog-node": "^5.29.4",
