@@ -26,6 +26,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useSession } from "@/lib/auth-client";
 
 import { WorkspaceGridSkeleton } from "@/components/home/WorkspaceGridSkeleton";
 
@@ -35,6 +36,8 @@ interface WorkspaceGridProps {
 
 export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id ?? null;
   const showCreateWorkspaceModal = useUIStore(
     (state) => state.showCreateWorkspaceModal,
   );
@@ -65,6 +68,14 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
   // Multi-select state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const isSelectionMode = selectedIds.size > 0;
+  const selectedWorkspaces = useMemo(
+    () => workspaces.filter((workspace) => selectedIds.has(workspace.id)),
+    [workspaces, selectedIds],
+  );
+  const allowBulkInvite =
+    !!currentUserId &&
+    selectedWorkspaces.length > 1 &&
+    selectedWorkspaces.every((workspace) => workspace.userId === currentUserId);
 
   const toggleSelection = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -441,6 +452,7 @@ export function WorkspaceGrid({ searchQuery = "" }: WorkspaceGridProps) {
       <ShareWorkspaceDialog
         workspace={null}
         workspaceIds={Array.from(selectedIds)}
+        allowBulkInvite={allowBulkInvite}
         open={showShareDialog}
         onOpenChange={(open) => {
           setShowShareDialog(open);

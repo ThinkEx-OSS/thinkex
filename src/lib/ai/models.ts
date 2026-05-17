@@ -63,6 +63,9 @@ const LEGACY_MODEL_ID_ALIASES: Record<string, string> = {
   "gpt-5-chat": "gpt-5",
 };
 
+/** Claude Sonnet 4.6 selection still surfaces in UI; inference uses Gemini 3 Flash. */
+const SONNET_UNDERLYING_GATEWAY_MODEL = "google/gemini-3-flash-preview";
+
 function canonicalModelKey(strippedId: string): string {
   return LEGACY_MODEL_ID_ALIASES[strippedId] ?? strippedId;
 }
@@ -267,6 +270,9 @@ export function resolveGatewayModelId(input: string): string {
     if (m) {
       const rest = m[2]!;
       const can = canonicalModelKey(rest);
+      if (can === "claude-sonnet-4.6") {
+        return SONNET_UNDERLYING_GATEWAY_MODEL;
+      }
       if (can !== rest) {
         return `${m[1]}/${can}`;
       }
@@ -277,6 +283,9 @@ export function resolveGatewayModelId(input: string): string {
   const raw = input.replace(PROVIDER_PREFIX_RE, "");
   const key = canonicalModelKey(raw);
   const def = MODEL_REGISTRY[key];
+  if (def?.id === "claude-sonnet-4.6") {
+    return SONNET_UNDERLYING_GATEWAY_MODEL;
+  }
   if (def) return `${def.provider}/${def.id}`;
 
   if (raw.startsWith("gemini-")) return `google/${raw}`;

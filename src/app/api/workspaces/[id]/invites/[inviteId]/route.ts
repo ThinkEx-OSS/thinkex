@@ -3,7 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
 import { workspaceInvites } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
-import { withErrorHandling, requireAuth, verifyWorkspaceAccess } from "@/lib/api/workspace-helpers";
+import {
+  withErrorHandling,
+  requireAuth,
+  verifyWorkspaceOwnership,
+} from "@/lib/api/workspace-helpers";
 
 // DELETE /api/workspaces/[id]/invites/[inviteId]
 async function handleDELETE(
@@ -13,8 +17,7 @@ async function handleDELETE(
     const { id: workspaceId, inviteId } = await params;
     const userId = await requireAuth();
 
-    // Verify access (only editors/owners can revoke)
-    await verifyWorkspaceAccess(workspaceId, userId, "editor");
+    await verifyWorkspaceOwnership(workspaceId, userId);
 
     // Check if invite exists and belongs to workspace
     const [invite] = await db
