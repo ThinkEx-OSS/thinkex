@@ -28,8 +28,8 @@ importers:
         specifier: ^0.3.7
         version: 0.3.7
       '@cloudflare/sandbox':
-        specifier: 0.12.1
-        version: 0.12.1
+        specifier: 0.12.2
+        version: 0.12.2
       '@cloudflare/shell':
         specifier: ^0.4.1
         version: 0.4.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(@tanstack/ai@0.22.0(@opentelemetry/api@1.9.1))(ai@6.0.208(zod@4.4.3))(zod@4.4.3)
@@ -857,8 +857,8 @@ packages:
     resolution: {integrity: sha512-jxQYkj8dSIzc0cD6cMMNdOc1UVjqSqu8BZdor5s8cGjW2I8BjODt/kWPVdY+u9zj3ms75Q5qaZgnxUad83+eAg==}
     engines: {node: '>=22.0.0'}
 
-  '@cloudflare/sandbox@0.12.1':
-    resolution: {integrity: sha512-P1ZmNDLYtuEY1ZUcAx0OgTol98VqS617LGd4nf1RTOjSV2yHLDAp59NI36/gg3/pxkHPgmAEyFIjH/ie8FoA7g==}
+  '@cloudflare/sandbox@0.12.2':
+    resolution: {integrity: sha512-B3hgDEJuNT7IomMVN/oFulRFiHcs0rDUKDRuA1T36dOgR7gGheEQs3YpNp07lbREy0w4Gv+xob61+JCqE8FyAQ==}
     peerDependencies:
       '@openai/agents': ^0.3.3
       '@opencode-ai/sdk': ^1.1.40
@@ -9132,7 +9132,7 @@ snapshots:
 
   '@cloudflare/kv-asset-handler@0.5.0': {}
 
-  '@cloudflare/sandbox@0.12.1':
+  '@cloudflare/sandbox@0.12.2':
     dependencies:
       '@cloudflare/containers': 0.3.7
       aws4fetch: 1.0.20
