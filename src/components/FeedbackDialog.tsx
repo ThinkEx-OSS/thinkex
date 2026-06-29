@@ -85,7 +85,7 @@ function FeedbackDialogForm({
 		<>
 			<form id={formId} className="space-y-6" onSubmit={handleSubmit}>
 				<FieldGroup>
-					{openQuestions.map((question) => (
+					{openQuestions.map((question, index) => (
 						<Field key={question.id}>
 							<FieldLabel htmlFor={`${formId}-${question.id}`}>
 								{feedbackQuestionLabel}
@@ -100,6 +100,7 @@ function FeedbackDialogForm({
 								placeholder={feedbackPlaceholder}
 								rows={4}
 								required={!question.optional}
+								autoFocus={index === 0}
 								onChange={(event) => {
 									const value = event.target.value;
 									setResponses((current) => ({
