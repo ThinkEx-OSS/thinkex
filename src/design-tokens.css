@@ -1,0 +1,87 @@
+/**
+ * ThinkEx design tokens
+ *
+ * 1. Primitives — raw palette. Override --tx-neutral-* in .dark for dark mode.
+ * 2. Semantics — map meaning → primitives. Components use these via Tailwind.
+ *
+ * Logo / brand accent colors are intentionally NOT wired here yet.
+ * UI uses neutral chrome + standard utility hues until brand is defined.
+ */
+
+:root {
+	/* UI utility palette (generic — not logo) */
+	--tx-ui-blue-400: oklch(0.707 0.165 254.6);
+	--tx-ui-blue-500: oklch(0.623 0.214 259.8);
+	--tx-ui-blue-600: oklch(0.546 0.245 262.9);
+	--tx-ui-emerald-500: oklch(0.696 0.17 162.5);
+	--tx-ui-amber-500: oklch(0.769 0.188 70.1);
+	--tx-ui-rose-500: oklch(0.645 0.246 16.4);
+	--tx-ui-violet-500: oklch(0.606 0.25 292.7);
+	--tx-ui-cyan-500: oklch(0.715 0.143 215.2);
+
+	/* Neutral primitives — light */
+	--tx-neutral-50: oklch(0.976 0.003 106.6);
+	--tx-neutral-100: oklch(0.955 0.005 95);
+	--tx-neutral-200: oklch(0.927 0.007 97.3);
+	--tx-neutral-300: oklch(0.885 0.007 97.3);
+	--tx-neutral-600: oklch(0.52 0.011 93.6);
+	--tx-neutral-900: oklch(0.281 0.009 88.7);
+	--tx-neutral-950: oklch(0.985 0 0);
+
+	/* Semantics — light */
+	--background: var(--tx-neutral-50);
+	--foreground: var(--tx-neutral-900);
+	--card: var(--tx-neutral-50);
+	--card-foreground: var(--tx-neutral-900);
+	--popover: var(--tx-neutral-50);
+	--popover-foreground: var(--tx-neutral-900);
+	--primary: var(--tx-neutral-900);
+	--primary-foreground: var(--tx-neutral-950);
+	--secondary: var(--tx-neutral-100);
+	--secondary-foreground: var(--tx-neutral-900);
+	--muted: var(--tx-neutral-200);
+	--muted-foreground: var(--tx-neutral-600);
+	--accent: var(--tx-neutral-300);
+	--accent-foreground: var(--tx-neutral-900);
+	--destructive: oklch(0.577 0.245 27.325);
+	--success: var(--tx-ui-emerald-500);
+	--warning: var(--tx-ui-amber-500);
+	--info: var(--tx-ui-blue-600);
+	--border: var(--tx-neutral-300);
+	--input: var(--tx-neutral-300);
+	--ring: oklch(0.708 0 0);
+	--selection: rgb(37 99 235 / 35%);
+	--chart-1: var(--tx-ui-blue-400);
+	--chart-2: var(--tx-ui-blue-600);
+	--chart-3: var(--tx-ui-emerald-500);
+	--chart-4: var(--tx-ui-amber-500);
+	--chart-5: var(--tx-ui-rose-500);
+	--chart-6: var(--tx-ui-violet-500);
+	--shadow-elevated: 0 14px 40px color-mix(in oklch, var(--foreground) 18%, transparent);
+	--dialog-footer: color-mix(in oklch, var(--muted) 50%, var(--popover));
+}
+
+.dark {
+	/* Neutral primitives — dark */
+	--tx-neutral-50: oklch(0.145 0 0);
+	--tx-neutral-100: oklch(0.19 0 0);
+	--tx-neutral-200: oklch(0.205 0 0);
+	--tx-neutral-300: oklch(0.269 0 0);
+	--tx-neutral-600: oklch(0.708 0 0);
+	--tx-neutral-900: oklch(0.985 0 0);
+	--tx-neutral-950: oklch(0.205 0 0);
+
+	/* Semantics — dark overrides */
+	--card: var(--tx-neutral-200);
+	--popover: var(--tx-neutral-200);
+	--secondary: var(--tx-neutral-300);
+	--primary: var(--tx-neutral-900);
+	--primary-foreground: var(--tx-neutral-950);
+	--destructive: oklch(0.704 0.191 22.216);
+	--border: oklch(1 0 0 / 10%);
+	--input: oklch(1 0 0 / 15%);
+	--ring: oklch(0.556 0 0);
+	--selection: rgb(37 99 235 / 42%);
+	--shadow-elevated: 0 14px 40px color-mix(in oklch, var(--foreground) 45%, transparent);
+	--dialog-footer: color-mix(in oklch, var(--secondary) 50%, var(--popover));
+}

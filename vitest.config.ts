@@ -1,14 +1,15 @@
-import { defineConfig } from "vitest/config";
-import path from "path";
+import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
+import { defineConfig } from "vite-plus/test/config";
 
 export default defineConfig({
-  test: {
-    environment: "node",
-    include: ["src/**/*.test.ts", "src/**/*.spec.ts"],
-  },
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-  },
+	plugins: [
+		cloudflareTest({
+			wrangler: {
+				configPath: "./wrangler.jsonc",
+			},
+		}),
+	],
+	test: {
+		include: ["src/**/*.test.ts"],
+	},
 });

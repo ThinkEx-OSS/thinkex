@@ -1,0 +1,73 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches:
+      - staging
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 45
+    environment:
+      name: staging
+      url: https://staging.thinkex.app
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: true
+
+    env:
+      # Runtime and deploy secrets are synced into GitHub Actions secrets from Infisical.
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+      POSTHOG_PROJECT_ID: ${{ secrets.POSTHOG_PROJECT_ID }}
+      VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
+      VITE_POSTHOG_PROJECT_TOKEN: ${{ secrets.VITE_POSTHOG_PROJECT_TOKEN }}
+      DEPLOY_SHA: ${{ github.sha }}
+      DEPLOY_REF: ${{ github.ref_name }}
+      DEPLOY_ENVIRONMENT: staging
+      DEPLOY_URL: https://staging.thinkex.app
+      DEPLOY_WORKER: thinkex-staging
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: .node-version
+          cache: true
+
+      - name: Install dependencies
+        run: vp install --frozen-lockfile
+
+      - name: Verify branch quality gates
+        run: vp run check && vp run test
+
+      - name: Build staging bundle
+        run: vp run build:staging
+
+      - name: Apply staging migrations
+        run: vp run db:migrate:staging
+
+      - name: Deploy staging Worker
+        run: vp run deploy:worker:staging
+
+      - name: Write deployment summary
+        run: |
+          {
+            echo "## Staging deployment"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Environment | ${DEPLOY_ENVIRONMENT} |"
+            echo "| URL | [${DEPLOY_URL}](${DEPLOY_URL}) |"
+            echo "| Cloudflare Worker | ${DEPLOY_WORKER} |"
+            echo "| Ref | \`${DEPLOY_REF}\` |"
+            echo "| Commit | \`${DEPLOY_SHA}\` |"
+            echo "| Run | [${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) |"
+          } >> "$GITHUB_STEP_SUMMARY"

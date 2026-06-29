@@ -1,0 +1,2 @@
+export const WORKSPACE_FILE_PREVIEW_MAX_WIDTH = 480;
+export const WORKSPACE_FILE_PREVIEW_CONTENT_TYPE = "image/webp";

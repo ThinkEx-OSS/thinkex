@@ -1,0 +1,41 @@
+packages:
+  - "."
+
+overrides:
+  vite: npm:@voidzero-dev/vite-plus-core@0.2.1
+  vitest: 4.1.9
+
+peerDependencyRules:
+  allowedVersions:
+    "@babel/helper-create-class-features-plugin>@babel/core": 7.29.0
+    "@babel/helper-plugin-utils>@babel/core": 7.29.0
+    "@babel/helper-replace-supers>@babel/core": 7.29.0
+    "@babel/plugin-proposal-decorators>@babel/core": 7.29.0
+    "@babel/plugin-syntax-decorators>@babel/core": 7.29.0
+    "@cloudflare/think>vite": 0.2.1
+    "@cloudflare/vite-plugin>vite": 0.2.1
+    "@rolldown/plugin-babel>vite": 0.2.1
+    "@tailwindcss/typography>tailwindcss": 4.3.1
+    "@tailwindcss/vite>vite": 0.2.1
+    "@tanstack/devtools-vite>vite": 0.2.1
+    "@tanstack/react-start>vite": 0.2.1
+    "@tanstack/router-plugin>vite": 0.2.1
+    "@tanstack/start-plugin-core>vite": 0.2.1
+    "@tiptap/extension-mathematics>katex": 0.17.0
+    "@vitejs/plugin-react>vite": 0.2.1
+    "@vitest/mocker>vite": 0.2.1
+    "agents>vite": 0.2.1
+    "vitefu>vite": 0.2.1
+    "vitest>vite": 0.2.1
+    "zod-validation-error>zod": 4.4.3
+
+allowBuilds:
+  "@mongodb-js/zstd": true
+  "@posthog/cli": true
+  core-js: true
+  core-js-pure: true
+  esbuild: true
+  msw: true
+  node-liblzma: true
+  sharp: true
+  workerd: true

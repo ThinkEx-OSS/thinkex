@@ -1,0 +1,382 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	// Default config is used for local development. Deploys should target an
+	// explicit Wrangler environment.
+	"name": "thinkex",
+	"compatibility_date": "2026-03-24",
+	"compatibility_flags": ["nodejs_compat"],
+	"main": "src/server.ts",
+	"workers_dev": true,
+	"preview_urls": true,
+	"observability": {
+		"enabled": true,
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			"invocation_logs": true,
+			"persist": true,
+		},
+		"traces": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			"persist": true,
+		},
+	},
+	"ai": {
+		"binding": "AI",
+		"remote": true,
+	},
+	"worker_loaders": [
+		{
+			"binding": "LOADER",
+		},
+	],
+	"browser": {
+		"binding": "BROWSER",
+		"remote": true,
+	},
+	"vars": {
+		"FIRECRAWL_API_URL": "https://api.firecrawl.dev",
+		"WORKSPACE_INVITE_FROM_EMAIL": "invites@thinkex.app",
+	},
+	"send_email": [
+		{
+			"name": "EMAIL",
+			"remote": true,
+		},
+	],
+	"r2_buckets": [
+		{
+			"binding": "WORKSPACE_KERNEL_FILES",
+			"bucket_name": "thinkex-workspace-kernel-files",
+		},
+	],
+	"secrets": {
+		"required": [
+			"BETTER_AUTH_URL",
+			"BETTER_AUTH_SECRET",
+			"GOOGLE_CLIENT_ID",
+			"GOOGLE_CLIENT_SECRET",
+			"FIRECRAWL_API_KEY",
+			"LLAMA_CLOUD_API_KEY",
+			"AI_GATEWAY_API_KEY",
+		],
+	},
+	"workflows": [
+		{
+			"name": "workspace-file-extraction",
+			"binding": "WORKSPACE_FILE_EXTRACTION_WORKFLOW",
+			"class_name": "WorkspaceFileExtractionWorkflow",
+		},
+	],
+	"containers": [
+		{
+			"class_name": "Sandbox",
+			"image": "./containers/sandbox/Dockerfile",
+			"instance_type": "lite",
+			"max_instances": 1,
+		},
+		{
+			"class_name": "OfficePdfConverter",
+			"image": "./containers/gotenberg/Dockerfile",
+			"instance_type": "standard-1",
+			"max_instances": 1,
+		},
+		{
+			"class_name": "ImageFileConverter",
+			"image": "./containers/image-converter/Dockerfile",
+			"instance_type": "lite",
+			"max_instances": 1,
+		},
+	],
+	"upload_source_maps": true,
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "UserAIStore",
+				"class_name": "UserAIStore",
+			},
+			{
+				"name": "WorkspaceKernel",
+				"class_name": "WorkspaceKernel",
+			},
+			{
+				"name": "DocumentSession",
+				"class_name": "DocumentSession",
+			},
+			{
+				"name": "CODE_SANDBOX",
+				"class_name": "Sandbox",
+			},
+			{
+				"name": "OFFICE_PDF_CONVERTER",
+				"class_name": "OfficePdfConverter",
+			},
+			{
+				"name": "IMAGE_FILE_CONVERTER",
+				"class_name": "ImageFileConverter",
+			},
+		],
+	},
+	"migrations": [
+		{
+			"tag": "v2_user_ai_store",
+			"new_sqlite_classes": ["UserAIStore"],
+		},
+		{
+			"tag": "v3_workspace_kernel",
+			"new_sqlite_classes": ["WorkspaceKernel"],
+		},
+		{
+			"tag": "v4_document_session",
+			"new_sqlite_classes": ["DocumentSession"],
+		},
+		{
+			"tag": "v5_office_pdf_converter",
+			"new_sqlite_classes": ["OfficePdfConverter"],
+		},
+		{
+			"tag": "v6_code_sandbox",
+			"new_sqlite_classes": ["Sandbox"],
+		},
+		{
+			"tag": "v7_image_file_converter",
+			"new_sqlite_classes": ["ImageFileConverter"],
+		},
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "thinkex",
+			"database_id": "e5ff462d-fab3-4ab2-9259-fd107c2df809",
+			"migrations_dir": "drizzle",
+		},
+	],
+	"env": {
+		"staging": {
+			"name": "thinkex-staging",
+			"routes": [
+				{
+					"pattern": "staging.thinkex.app",
+					"custom_domain": true,
+				},
+			],
+			// Provision dedicated staging resources before the first deploy.
+			"vars": {
+				"FIRECRAWL_API_URL": "https://api.firecrawl.dev",
+				"WORKSPACE_INVITE_FROM_EMAIL": "invites@thinkex.app",
+			},
+			"secrets": {
+				"required": [
+					"BETTER_AUTH_URL",
+					"BETTER_AUTH_SECRET",
+					"GOOGLE_CLIENT_ID",
+					"GOOGLE_CLIENT_SECRET",
+					"FIRECRAWL_API_KEY",
+					"LLAMA_CLOUD_API_KEY",
+					"AI_GATEWAY_API_KEY",
+				],
+			},
+			"ai": {
+				"binding": "AI",
+				"remote": true,
+			},
+			"worker_loaders": [
+				{
+					"binding": "LOADER",
+				},
+			],
+			"browser": {
+				"binding": "BROWSER",
+				"remote": true,
+			},
+			"send_email": [
+				{
+					"name": "EMAIL",
+					"remote": true,
+				},
+			],
+			"r2_buckets": [
+				{
+					"binding": "WORKSPACE_KERNEL_FILES",
+					"bucket_name": "thinkex-workspace-kernel-files-staging",
+				},
+			],
+			"workflows": [
+				{
+					"name": "workspace-file-extraction-staging",
+					"binding": "WORKSPACE_FILE_EXTRACTION_WORKFLOW",
+					"class_name": "WorkspaceFileExtractionWorkflow",
+				},
+			],
+			"containers": [
+				{
+					"class_name": "Sandbox",
+					"image": "./containers/sandbox/Dockerfile",
+					"instance_type": "lite",
+					"max_instances": 1,
+				},
+				{
+					"class_name": "OfficePdfConverter",
+					"image": "./containers/gotenberg/Dockerfile",
+					"instance_type": "standard-1",
+					"max_instances": 1,
+				},
+				{
+					"class_name": "ImageFileConverter",
+					"image": "./containers/image-converter/Dockerfile",
+					"instance_type": "lite",
+					"max_instances": 1,
+				},
+			],
+			"durable_objects": {
+				"bindings": [
+					{
+						"name": "UserAIStore",
+						"class_name": "UserAIStore",
+					},
+					{
+						"name": "WorkspaceKernel",
+						"class_name": "WorkspaceKernel",
+					},
+					{
+						"name": "DocumentSession",
+						"class_name": "DocumentSession",
+					},
+					{
+						"name": "CODE_SANDBOX",
+						"class_name": "Sandbox",
+					},
+					{
+						"name": "OFFICE_PDF_CONVERTER",
+						"class_name": "OfficePdfConverter",
+					},
+					{
+						"name": "IMAGE_FILE_CONVERTER",
+						"class_name": "ImageFileConverter",
+					},
+				],
+			},
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "thinkex-staging",
+					"database_id": "babf13a7-a12d-4946-83da-29370106d728",
+					"migrations_dir": "drizzle",
+				},
+			],
+		},
+		"production": {
+			"name": "thinkex",
+			"routes": [
+				{
+					"pattern": "thinkex.app",
+					"custom_domain": true,
+				},
+			],
+			"vars": {
+				"FIRECRAWL_API_URL": "https://api.firecrawl.dev",
+				"WORKSPACE_INVITE_FROM_EMAIL": "invites@thinkex.app",
+			},
+			"secrets": {
+				"required": [
+					"BETTER_AUTH_URL",
+					"BETTER_AUTH_SECRET",
+					"GOOGLE_CLIENT_ID",
+					"GOOGLE_CLIENT_SECRET",
+					"FIRECRAWL_API_KEY",
+					"LLAMA_CLOUD_API_KEY",
+					"AI_GATEWAY_API_KEY",
+				],
+			},
+			"ai": {
+				"binding": "AI",
+				"remote": true,
+			},
+			"worker_loaders": [
+				{
+					"binding": "LOADER",
+				},
+			],
+			"browser": {
+				"binding": "BROWSER",
+				"remote": true,
+			},
+			"send_email": [
+				{
+					"name": "EMAIL",
+					"remote": true,
+				},
+			],
+			"r2_buckets": [
+				{
+					"binding": "WORKSPACE_KERNEL_FILES",
+					"bucket_name": "thinkex-workspace-kernel-files",
+				},
+			],
+			"workflows": [
+				{
+					"name": "workspace-file-extraction",
+					"binding": "WORKSPACE_FILE_EXTRACTION_WORKFLOW",
+					"class_name": "WorkspaceFileExtractionWorkflow",
+				},
+			],
+			"containers": [
+				{
+					"class_name": "Sandbox",
+					"image": "./containers/sandbox/Dockerfile",
+					"instance_type": "lite",
+					"max_instances": 1,
+				},
+				{
+					"class_name": "OfficePdfConverter",
+					"image": "./containers/gotenberg/Dockerfile",
+					"instance_type": "standard-1",
+					"max_instances": 1,
+				},
+				{
+					"class_name": "ImageFileConverter",
+					"image": "./containers/image-converter/Dockerfile",
+					"instance_type": "lite",
+					"max_instances": 1,
+				},
+			],
+			"durable_objects": {
+				"bindings": [
+					{
+						"name": "UserAIStore",
+						"class_name": "UserAIStore",
+					},
+					{
+						"name": "WorkspaceKernel",
+						"class_name": "WorkspaceKernel",
+					},
+					{
+						"name": "DocumentSession",
+						"class_name": "DocumentSession",
+					},
+					{
+						"name": "CODE_SANDBOX",
+						"class_name": "Sandbox",
+					},
+					{
+						"name": "OFFICE_PDF_CONVERTER",
+						"class_name": "OfficePdfConverter",
+					},
+					{
+						"name": "IMAGE_FILE_CONVERTER",
+						"class_name": "ImageFileConverter",
+					},
+				],
+			},
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "thinkex",
+					"database_id": "e5ff462d-fab3-4ab2-9259-fd107c2df809",
+					"migrations_dir": "drizzle",
+				},
+			],
+		},
+	},
+}

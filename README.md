@@ -1,118 +1,76 @@
-<p align="center">
-  <a href="https://thinkex.app">
-    <img alt="ThinkEx" src="public/readmelogo.svg" width="500" />
-  </a>
-</p>
+# ThinkEx
 
-<p align="center">
-  <a href="https://thinkex.app">Try ThinkEx</a> · <a href="#features">Features</a> · <a href="#self-hosting">Self-Host</a> · <a href="#contributing">Contribute</a>
-</p>
+ThinkEx is a workspace for thinking across notes, documents, media, and AI in one place.
 
-## The Problem
+ThinkEx is built around persistent workspaces instead of disposable chat threads. You can lay out sources side by side, organize them spatially, ask questions against specific context, and keep the resulting knowledge inside the workspace instead of losing it in chat history.
 
-Today's apps and AI split what should be a single, fluid process: AI reasoning happens in isolated chat threads, while your information is scattered across tabs and windows.
+## Overview
 
-**This split prevents knowledge from compounding.** Each conversation starts from scratch. Insights don't connect to your existing work. You can't build on past thinking. Valuable insights get buried in chat history, and you find yourself explaining the same context repeatedly. Information disappears into logs you never revisit.
+This repository contains the current ThinkEx web app. It is built with React and TanStack Start and deployed on Cloudflare Workers.
 
-ThinkEx solves this by making context explicit, organized, and persistent.
+At a high level, the app combines:
 
-## What is ThinkEx?
+- a browser-based workspace UI
+- first-class documents and media
+- AI-assisted reasoning inside the workspace
+- collaboration and sharing
+- storage, workflows, and realtime infrastructure on Cloudflare
 
-ThinkEx is a visual thinking environment where notes, media, and AI conversations compound into lasting knowledge.
+## What ThinkEx Does
 
-Think of a large desk where you spread out textbooks, notes, and papers to work. You look back and forth, connecting dots, comparing sources, and asking questions. ThinkEx brings that desk to your browser, where AI can help alongside you.
+ThinkEx is aimed at research, synthesis, and knowledge work where context matters.
 
-1.  **See Everything**: Bring PDFs, videos, and notes onto a visual canvas. Organize them spatially to make sense of the information.
-2.  **Compare Sources**: Look across your sources side-by-side. Spot patterns and contradictions that only emerge when everything is visible.
-3.  **Targeted Reasoning**: Select specific items on your desk for the AI to analyze. Point to a note and a paragraph and ask for the connection.
-4.  **Capture Insights**: Extract findings into structured knowledge that become part of your permanent workspace.
-
-## Features
-
-*   **User-Controlled Context**: Manually select exact cards, notes, or document sections for the AI. No opaque retrieval mechanisms.
-*   **Spatial Canvas**: Arrange notes, PDFs, videos, and chat side-by-side.
-*   **First-Class Media**: Native PDF viewing with highlights; YouTube videos with transcript-backed context.
-*   **Persistent Knowledge**: Saved cards (notes, flashcards, references) remain in your workspace.
-*   **Multi-Model**: Switch AI models per task without locking into a single provider.
-*   **Sharing**: Share or export workspaces with others
-
-## Why Existing Tools Fall Short
-
-| Approach          | Examples                 | What It Loses                                     |
-| :---------------- | :----------------------- | :------------------------------------------------ |
-| Chat-First        | ChatGPT, Gemini, Claude  | Insights vanish into endless scroll and context resets every conversation. |
-| Notes-First       | Notion, Obsidian         | AI is bolted on and isolated from your info.     |
-| Retrieval-First   | NotebookLM              | Sources are trapped behind the interface where you can't see or work with them. |
-
-### ThinkEx is different
-
-Nothing disappears into a black box. You see what AI sees and control what it works with. And it's open source, so you get full transparency, no model lock-in, and a product driven by the community.
+- Work in persistent workspaces instead of one-off chats.
+- Put notes, PDFs, and other artifacts next to each other.
+- Ask the AI about the exact context you selected.
+- Save outputs back into the workspace as part of the ongoing work.
+- Share workspaces with collaborators.
 
 ## Tech Stack
 
-*   **Framework**: [Next.js](https://nextjs.org/)
-*   **Styling**: [Tailwind CSS](https://tailwindcss.com/), [Shadcn UI](https://ui.shadcn.com/)
-*   **Database**: [PostgreSQL](https://github.com/postgres/postgres) with [Drizzle ORM](https://orm.drizzle.team/)
-*   **State**: [TanStack Query](https://tanstack.com/query/latest), [Zustand](https://github.com/pmndrs/zustand)
-*   **Auth**: [Better Auth](https://www.better-auth.com/)
+- React 19
+- TanStack Start, Router, and Query
+- TypeScript
+- Tailwind CSS
+- Better Auth
+- Drizzle ORM
+- Vite+
+- Tiptap for rich text editing
+- Yjs / PartyServer for collaborative document state
+- EmbedPDF / PDFium for PDF rendering
+- Cloudflare Workers
+- Cloudflare D1
+- Cloudflare R2
+- Cloudflare Durable Objects
+- Cloudflare Workflows
+- Cloudflare Containers
+- Cloudflare Email
 
-## Self-Hosting
-
-ThinkEx supports a **core self-host** path for local development:
-
-- PostgreSQL
-- Better Auth secret + app URL
-- Zero cache server
-- Local filesystem storage
-
-`pnpm dev` is the supported one-command entrypoint for this setup. It starts:
-
-- Next.js
-- the AI SDK devtools
-- Zero
-
-### Quick Start
+## Local Development
 
 ```bash
-git clone https://github.com/ThinkEx-OSS/thinkex.git
-cd thinkex
-./setup.sh
+pnpm install
 pnpm dev
 ```
 
-Access ThinkEx at [http://localhost:3000](http://localhost:3000).
+The app runs at [http://localhost:3000](http://localhost:3000).
 
-### What Core Self-Host Includes
+Local development expects secrets through Infisical.
 
-- Local uploads, viewing, and deletion using `STORAGE_TYPE=local`
-- Workspace sync through Zero
-- The main app shell and workspace flows
+Common commands:
 
-### What Core Self-Host Does Not Include
+- `pnpm dev`
+- `pnpm test`
+- `pnpm check`
+- `pnpm build`
 
-OCR, audio transcription, and office document conversion require provider-reachable object storage plus the relevant provider credentials. Those features are intentionally not supported in local-file core mode and will fail with explicit messages.
+## Deployment Model
 
-### Full Setup Guide
+The repository currently targets local development, staging, and production. Deployment is handled through GitHub Actions and Wrangler. Database changes flow through Drizzle-generated SQL plus Wrangler D1 migrations. Cloudflare Containers run the Gotenberg-based `OfficePdfConverter` used for office-to-PDF conversion.
 
-See [SELF_HOSTING.md](SELF_HOSTING.md) for:
+## Repository
 
-- required local environment variables
-- Zero configuration
-- local storage behavior
-- optional integrations such as Supabase, OCR, audio, analytics, and email
-
-## Contributing
-
-We welcome contributions.
-
-1.  Fork the repository.
-2.  Create a feature branch: `git checkout -b feature/new-feature`
-3.  Commit changes: `git commit -m 'Add new feature'`
-4.  Push to branch: `git push origin feature/new-feature`
-5.  Open a Pull Request.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
-
-## License
-
-This project is licensed under the [AGPL-3.0 License](LICENSE).
+- `src/features/workspaces/` contains most of the product-specific logic.
+- `src/integrations/` contains external service integrations such as PostHog.
+- `drizzle/` contains the current database migration baseline.
+- `wrangler.jsonc` is the main Cloudflare runtime config.

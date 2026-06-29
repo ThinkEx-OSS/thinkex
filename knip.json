@@ -1,0 +1,24 @@
+{
+	"$schema": "https://unpkg.com/knip@6/schema.json",
+	"entry": ["src/client.tsx", "src/router.tsx", "src/routes/**/*.{ts,tsx}"],
+	"project": ["src/**/*.{ts,tsx}"],
+	"ignoreFiles": ["src/components/ui/**"],
+	"ignoreIssues": {
+		"src/components/ui/**": ["exports", "types", "enumMembers"],
+		"src/components/ai-elements/**": ["exports", "types"]
+	},
+	"ignoreExportsUsedInFile": true,
+	"ignoreBinaries": ["infisical"],
+	"ignoreDependencies": [
+		"@babel/plugin-proposal-decorators",
+		"@tailwindcss/typography",
+		"@tanstack/devtools-event-client",
+		"@tanstack/router-plugin",
+		"@voidzero-dev/vite-plus-core",
+		"cloudflare",
+		"shadcn",
+		"tailwindcss",
+		"tw-animate-css"
+	],
+	"drizzle": false
+}

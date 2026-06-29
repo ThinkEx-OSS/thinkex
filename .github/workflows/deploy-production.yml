@@ -1,0 +1,83 @@
+name: Deploy Production
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 45
+    environment:
+      name: production
+      url: https://thinkex.app
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: true
+
+    env:
+      # Runtime and deploy secrets are synced into GitHub Actions secrets from Infisical.
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+      POSTHOG_PROJECT_ID: ${{ secrets.POSTHOG_PROJECT_ID }}
+      VITE_POSTHOG_FEEDBACK_SURVEY_ID: ${{ secrets.VITE_POSTHOG_FEEDBACK_SURVEY_ID }}
+      VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
+      VITE_POSTHOG_PROJECT_TOKEN: ${{ secrets.VITE_POSTHOG_PROJECT_TOKEN }}
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      DEPLOY_REF: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+      DEPLOY_ENVIRONMENT: production
+      DEPLOY_URL: https://thinkex.app
+      DEPLOY_WORKER: thinkex
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+
+      - uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: .node-version
+          cache: true
+
+      - name: Install dependencies
+        run: vp install --frozen-lockfile
+
+      - name: Verify branch quality gates
+        run: vp run check && vp run test
+
+      - name: Build production bundle
+        run: vp run build:production
+
+      - name: Apply production migrations
+        run: vp run db:migrate
+
+      - name: Deploy production Worker
+        run: vp run deploy:worker
+
+      - name: Write deployment summary
+        run: |
+          {
+            echo "## Production deployment"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Environment | ${DEPLOY_ENVIRONMENT} |"
+            echo "| URL | [${DEPLOY_URL}](${DEPLOY_URL}) |"
+            echo "| Cloudflare Worker | ${DEPLOY_WORKER} |"
+            echo "| Ref | \`${DEPLOY_REF}\` |"
+            echo "| Commit | \`${DEPLOY_SHA}\` |"
+            echo "| Run | [${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) |"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -3,7 +3,7 @@
 Thanks for your interest in contributing to **ThinkEx**!
 We welcome bug reports, feature suggestions, and pull requests.
 
-Please read this guide before getting started. See also our [Code of Conduct](CODE_OF_CONDUCT.md) and [Security Policy](SECURITY.md) for reporting vulnerabilities.
+Please read this guide before getting started.
 
 ---
 
@@ -11,6 +11,7 @@ Please read this guide before getting started. See also our [Code of Conduct](CO
 
 ThinkEx is a **production application**, not a demo or template.
 Contributions should prioritize:
+
 - Reliability
 - Maintainability
 - Clear user value
@@ -19,30 +20,43 @@ Contributions should prioritize:
 
 ## Development Setup
 
-### Prerequisites
-- Node.js **v20+**
+ThinkEx is a React and TanStack Start app deployed on Cloudflare Workers.
+
+Prerequisites:
+
+- Node.js
 - pnpm
-- PostgreSQL (local or Docker)
-- Zero cache server configuration from [SELF_HOSTING.md](SELF_HOSTING.md)
+- Infisical access for local secrets
 
-### Quick Setup (Recommended)
-
-Run the interactive setup script:
-```bash
-git clone https://github.com/ThinkEx-OSS/thinkex.git
-cd thinkex
-./setup.sh
-pnpm dev
-```
-
-### Manual Setup
 ```bash
 git clone https://github.com/ThinkEx-OSS/thinkex.git
 cd thinkex
 pnpm install
-cp .env.example .env
-pnpm db:push
 pnpm dev
 ```
 
-Use [SELF_HOSTING.md](SELF_HOSTING.md) as the source of truth for environment variables, Zero startup, local storage, and optional media integrations.
+The app runs at [http://localhost:3000](http://localhost:3000).
+
+## Useful Commands
+
+```bash
+pnpm dev
+pnpm check
+pnpm test
+pnpm build
+pnpm verify
+```
+
+Use `pnpm verify` before opening a pull request when possible.
+
+## Help
+
+Join the [ThinkEx Discord](https://discord.gg/dtPnzkqCcG) if you need help with setup, contribution scope, or local development.
+
+## Pull Requests
+
+- Keep changes focused.
+- Explain what changed and why.
+- Include testing notes.
+- Do not include generated build output.
+- Do not run deployment, remote migration, legacy-data, or secret-management commands unless a maintainer asks for them.

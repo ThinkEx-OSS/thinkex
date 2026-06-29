@@ -1,33 +1,19 @@
 {
   "version": "7",
-  "dialect": "postgresql",
+  "dialect": "sqlite",
   "entries": [
     {
       "idx": 0,
-      "version": "7",
-      "when": 1768802558046,
-      "tag": "0000_baseline",
+      "version": "6",
+      "when": 1782271140796,
+      "tag": "0000_initial",
       "breakpoints": true
     },
     {
       "idx": 1,
-      "version": "7",
-      "when": 1775704317855,
-      "tag": "0001_stormy_rawhide_kid",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1775793600000,
-      "tag": "0002_zero_publication",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1777697286614,
-      "tag": "0003_lumpy_jamie_braddock",
+      "version": "6",
+      "when": 1782668884562,
+      "tag": "0001_last_mulholland_black",
       "breakpoints": true
     }
   ]
