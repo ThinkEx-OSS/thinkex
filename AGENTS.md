@@ -11,9 +11,9 @@ Skills: `.agents/skills/` — routing and repo config in `.agents/skills/README.
 
 Do not run deploy, remote migration, legacy-data, or secret-management commands unless explicitly asked.
 
-## Cursor Cloud specific instructions
+## Cloud agent / local dev instructions
 
-The update script runs `pnpm install --frozen-lockfile`; deps, Node, Docker and a gitignored `.dev.vars` already exist in the VM snapshot. Notes below cover non-obvious run/startup caveats.
+Non-obvious run/startup caveats for cloud agents and local development. In a provisioned cloud VM, dependencies, Node, Docker, and a gitignored `.dev.vars` already exist and `pnpm install --frozen-lockfile` runs on startup.
 
 - **Node version**: `vite-plus` (`vp`) loads a native binding that requires Node `^22.18.0`. The VM ships Node 22.23 via symlinks in `/usr/local/cargo/bin` (first on `PATH`, so non-interactive shells and the update script use it). The default `/exec-daemon/node` is 22.14 and is too old — never override the symlinks with it, or `pnpm install`'s `prepare` step (`vp config`) and `vp` will fail to load the binding.
 - **Run the dev server with `pnpm serve:dev`, not `pnpm dev`.** `pnpm dev` wraps Infisical, which has no credentials here. `pnpm serve:dev` reads the gitignored `.dev.vars` (already present: `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_ALLOWED_HOSTS`). See `docs/ENVIRONMENT.md`.
