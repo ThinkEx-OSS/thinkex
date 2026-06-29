@@ -131,7 +131,7 @@
 		"zustand": "^5.0.14"
 	},
 	"devDependencies": {
-		"@babel/plugin-proposal-decorators": "^7.29.7",
+		"@babel/plugin-proposal-decorators": "^8.0.2",
 		"@cloudflare/vitest-pool-workers": "^0.16.17",
 		"@cloudflare/workers-types": "^4.20260627.1",
 		"@commitlint/cli": "^21.0.2",
