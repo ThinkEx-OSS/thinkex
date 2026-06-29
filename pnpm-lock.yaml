@@ -97,8 +97,8 @@ importers:
         specifier: ^2.14.4
         version: 2.14.4(bcf63ab56c515258ce407a3684f47512)
       '@posthog/ai':
-        specifier: ^8.2.1
-        version: 8.2.1(@ai-sdk/provider@3.0.10)(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.8.0(@opentelemetry/api@1.9.1))(posthog-node@5.38.4)
+        specifier: ^8.2.2
+        version: 8.2.2(@ai-sdk/provider@3.0.10)(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.8.0(@opentelemetry/api@1.9.1))(posthog-node@5.38.4)
       '@posthog/react':
         specifier: ^1.10.3
         version: 1.10.3(@types/react@19.2.17)(posthog-js@1.393.0)(react@19.2.7)
@@ -3258,8 +3258,8 @@ packages:
   '@poppinss/exception@1.2.3':
     resolution: {integrity: sha512-dCED+QRChTVatE9ibtoaxc+WkdzOSjYTKi/+uacHWIsfodVfpsueo3+DKpgU5Px8qXjgmXkSvhXvSCz3fnP9lw==}
 
-  '@posthog/ai@8.2.1':
-    resolution: {integrity: sha512-nW6z2iNY57pGfbYaiCFV61CwOpISqW42q0DeJStFvT/LnS8wAQRc3HaTNoYytHuEO2wqErlVA2bRUjbpD89nrQ==}
+  '@posthog/ai@8.2.2':
+    resolution: {integrity: sha512-e0Z2LmMaAQbPV9YVh4WuvP0W5soy4k7oHbmj27ApnNjL1V51/PjJo6SP4Ea7flqLHeLYRTN91684vjvxURfYOA==}
     engines: {node: ^20.20.0 || >=22.22.0}
     peerDependencies:
       '@ai-sdk/provider': ^2.0.0 || ^3.0.0
@@ -3300,6 +3300,9 @@ packages:
   '@posthog/core@1.37.1':
     resolution: {integrity: sha512-KRBuxF/XBm3tNpqWlXpWE82XxsYsJb0jSyEic14LMXMvqDv5iApK1jfV0+seikDb9SpPs3tPkWUfHdwaUtFBtQ==}
 
+  '@posthog/core@1.38.0':
+    resolution: {integrity: sha512-QLrJh0hMVpEJXHNyiJR9YhvIO5tzLDedw4UHdvB+ub4fXHMtHCA8H44qgl11HWR3ajpjxtJ8hs3HyOGVF3Zc1w==}
+
   '@posthog/plugin-utils@1.1.2':
     resolution: {integrity: sha512-CS/14cMmny9NN/LHAb4QZdW3TfxhbKzsfyVYMCjsRdE0IKMTrXMr0cPRZxwczsN6VnWvVoy2Dd5wcG6RrIjlYA==}
 
@@ -3320,6 +3323,9 @@ packages:
 
   '@posthog/types@1.391.0':
     resolution: {integrity: sha512-oJ6jkqVMq+T4ax9F0rUllJc0KHpSgpaMwTNYWkE70iBiyXDVyhcNBmYnNKzSODgpzsaQNI6VfK8JrRYbkSJZZw==}
+
+  '@posthog/types@1.391.1':
+    resolution: {integrity: sha512-ASwd7Nf4pViqdYRYaNRyPYRVKWa1CcHUAUWR0XeQJLGdNnsWACBwe0sSieb/cHnKsRXjRwO/23KIY83lm/Ccpw==}
 
   '@preact/signals-core@1.14.2':
     resolution: {integrity: sha512-RZHdBj9ZF4n40Rp4jS052EHHjBWf96P9oNdXPfhQTovCuWY9iQn3Gq+gOTJSgBO9A/JBuPfMOWsSX/lIU9Pc/A==}
@@ -8198,8 +8204,8 @@ packages:
     resolution: {integrity: sha512-vIYxrBCC/N/K+Js3qSN88go7kIfNPssr/hHCesKCQNAjmgvYS2oqr69kIufEG+O4+PfezOH4EbIeHCfFov8ZgQ==}
     hasBin: true
 
-  uuid@14.0.0:
-    resolution: {integrity: sha512-Qo+uWgilfSmAhXCMav1uYFynlQO7fMFiMVZsQqZRMIXp0O7rR7qjkj+cPvBHLgBqi960QCoo/PH2/6ZtVqKvrg==}
+  uuid@14.0.1:
+    resolution: {integrity: sha512-6ZxzVpzDXDa3bJWaHilVayA+BH/1zmxCJoVgvmqJnid/gPoKHxUrS/aC/T6LGQtNHT+XHG9fXPJB4d+IrU30Ew==}
     hasBin: true
 
   validate-npm-package-name@7.0.2:
@@ -10864,9 +10870,9 @@ snapshots:
 
   '@poppinss/exception@1.2.3': {}
 
-  '@posthog/ai@8.2.1(@ai-sdk/provider@3.0.10)(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.8.0(@opentelemetry/api@1.9.1))(posthog-node@5.38.4)':
+  '@posthog/ai@8.2.2(@ai-sdk/provider@3.0.10)(@opentelemetry/api@1.9.1)(@opentelemetry/sdk-trace-base@2.8.0(@opentelemetry/api@1.9.1))(posthog-node@5.38.4)':
     dependencies:
-      '@posthog/core': 1.37.1
+      '@posthog/core': 1.38.0
       posthog-node: 5.38.4
       uuid: 11.1.1
       zod: 4.4.3
@@ -10882,6 +10888,10 @@ snapshots:
   '@posthog/core@1.37.1':
     dependencies:
       '@posthog/types': 1.391.0
+
+  '@posthog/core@1.38.0':
+    dependencies:
+      '@posthog/types': 1.391.1
 
   '@posthog/plugin-utils@1.1.2':
     dependencies:
@@ -10901,6 +10911,8 @@ snapshots:
       rollup: 4.62.2
 
   '@posthog/types@1.391.0': {}
+
+  '@posthog/types@1.391.1': {}
 
   '@preact/signals-core@1.14.2': {}
 
@@ -14449,7 +14461,7 @@ snapshots:
       roughjs: 4.6.6
       stylis: 4.4.0
       ts-dedent: 2.2.0
-      uuid: 14.0.0
+      uuid: 14.0.1
 
   micromark-core-commonmark@2.0.3:
     dependencies:
@@ -16404,7 +16416,7 @@ snapshots:
 
   uuid@11.1.1: {}
 
-  uuid@14.0.0: {}
+  uuid@14.0.1: {}
 
   validate-npm-package-name@7.0.2: {}
 

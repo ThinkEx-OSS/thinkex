@@ -64,7 +64,7 @@
 		"@embedpdf/plugin-tiling": "^2.14.4",
 		"@embedpdf/plugin-viewport": "^2.14.4",
 		"@embedpdf/plugin-zoom": "^2.14.4",
-		"@posthog/ai": "^8.2.1",
+		"@posthog/ai": "^8.2.2",
 		"@posthog/react": "^1.10.3",
 		"@posthog/rollup-plugin": "^1.4.7",
 		"@streamdown/cjk": "^1.0.3",
