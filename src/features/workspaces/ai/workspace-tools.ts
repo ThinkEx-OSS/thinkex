@@ -13,6 +13,8 @@ import { workspaceItemTypeSchema } from "#/features/workspaces/contracts";
 import { documentMarkdownEditSchema } from "#/features/workspaces/documents/document-markdown-edits";
 import { listWorkspaceKernelItems } from "#/features/workspaces/kernel/workspace-kernel-access";
 
+const workspaceDocumentMarkdownMathInstruction =
+	"For document Markdown math, use `$...$` for inline math and `$$...$$` on separate lines for block math. Escape literal currency dollar signs as `\\$`.";
 const workspacePathSchema = z.string().min(1);
 const workspaceIndexSchema = z.number().int().nonnegative();
 
@@ -103,7 +105,9 @@ const workspaceEditItemInputSchema = z.object({
 		.array(documentMarkdownEditSchema)
 		.min(1)
 		.max(40)
-		.describe("Ordered text edits to apply to the item projection."),
+		.describe(
+			`Ordered text edits to apply to the item projection. ${workspaceDocumentMarkdownMathInstruction}`,
+		),
 });
 
 const workspaceRenameItemInputSchema = z.object({
@@ -136,7 +140,9 @@ const workspaceCreateItemsInputSchema = z.object({
 					path: z.string().min(1).describe("Final absolute path for the document to create."),
 					initialContent: z
 						.string()
-						.describe("Optional initial Markdown content for the document.")
+						.describe(
+							`Optional initial Markdown content for the document. ${workspaceDocumentMarkdownMathInstruction}`,
+						)
 						.optional(),
 				}),
 			]),
@@ -430,8 +436,7 @@ export function createAIThreadWorkspaceTools(input: {
 			},
 		}),
 		workspace_create_items: createThreadTool({
-			description:
-				"Create one or more folders or documents at exact absolute paths. If a path already exists, creation fails instead of renaming.",
+			description: `Create one or more folders or documents at exact absolute paths. If a path already exists, creation fails instead of renaming. ${workspaceDocumentMarkdownMathInstruction}`,
 			inputSchema: workspaceCreateItemsInputSchema,
 			inputExamples: workspaceCreateItemsInputExamples,
 			outputSchema: workspaceCreateItemsOutputSchema,
@@ -457,8 +462,7 @@ export function createAIThreadWorkspaceTools(input: {
 			},
 		}),
 		workspace_edit_item: createThreadTool({
-			description:
-				"Edit one actual ThinkEx workspace document by absolute path. Read before editing unless the user requested a simple append or prepend.",
+			description: `Edit one actual ThinkEx workspace document by absolute path. Read before editing unless the user requested a simple append or prepend. ${workspaceDocumentMarkdownMathInstruction}`,
 			inputSchema: workspaceEditItemInputSchema,
 			inputExamples: workspaceEditItemInputExamples,
 			outputSchema: workspaceEditItemOutputSchema,

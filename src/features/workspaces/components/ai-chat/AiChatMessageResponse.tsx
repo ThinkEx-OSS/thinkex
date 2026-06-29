@@ -1,7 +1,8 @@
 import { cjk } from "@streamdown/cjk";
-import { math } from "@streamdown/math";
+import { createMathPlugin } from "@streamdown/math";
 import type { ComponentProps } from "react";
 import { Streamdown, type StreamdownProps } from "streamdown";
+import "katex/dist/katex.min.css";
 import { MarkdownCodeBlock } from "#/features/workspaces/components/ai-chat/ai-chat-code-block";
 import { cn } from "#/lib/utils";
 
@@ -9,6 +10,10 @@ type AiChatMessageResponseProps = ComponentProps<typeof Streamdown> & {
 	isStreaming?: boolean;
 };
 
+const math = createMathPlugin({
+	errorColor: "var(--color-muted-foreground)",
+	singleDollarTextMath: true,
+});
 const streamdownPlugins = { cjk, math };
 const streamdownComponents = { code: MarkdownCodeBlock };
 const streamdownAnimation = {
