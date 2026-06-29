@@ -1,0 +1,34 @@
+# Local development secrets for `pnpm serve:dev`.
+#
+# Copy this file to `.dev.vars` (gitignored) and fill in the values you need.
+# `pnpm dev` instead pulls these from Infisical, and cloud agents / sandboxes
+# inject them as environment variables, so neither needs this file.
+#
+# See docs/ENVIRONMENT.md for the full breakdown.
+
+# Only names declared in `secrets.required` in wrangler.jsonc are loaded, so the
+# optional keys below are commented out rather than removed.
+
+# --- Required: bare minimum to boot the dev server and sign in ---
+
+# Any random string (32+ chars). Generate one with:
+#   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+BETTER_AUTH_SECRET="replace-with-a-long-random-string"
+
+# Canonical app origin used by auth (set this to wherever you load the app).
+BETTER_AUTH_URL="http://localhost:3000"
+
+# --- Optional: each gates one feature; leave unset to disable that feature ---
+
+# Google sign-in. When unset, the auth page offers "Continue as guest" instead.
+# GOOGLE_CLIENT_ID=""
+# GOOGLE_CLIENT_SECRET=""
+
+# AI chat and title generation (Vercel AI Gateway).
+# AI_GATEWAY_API_KEY=""
+
+# Web search and URL/PDF extraction (Firecrawl).
+# FIRECRAWL_API_KEY=""
+
+# Document extraction (LlamaParse).
+# LLAMA_CLOUD_API_KEY=""

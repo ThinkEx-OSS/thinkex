@@ -48,14 +48,22 @@ ThinkEx is aimed at research, synthesis, and knowledge work where context matter
 
 ## Local Development
 
+With Infisical access (core team):
+
 ```bash
 pnpm install
 pnpm dev
 ```
 
-The app runs at [http://localhost:3000](http://localhost:3000).
+Without Infisical (contributors / cloud agents): copy the env template and run the dev server directly.
 
-Local development expects secrets through Infisical.
+```bash
+pnpm install
+cp .dev.vars.example .dev.vars   # fill in BETTER_AUTH_SECRET
+pnpm serve:dev
+```
+
+The app runs at [http://localhost:3000](http://localhost:3000). Only `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` are required to run; every other secret gates an optional feature. In local dev the auth page also offers **Continue as guest**, so you can sign in without configuring Google OAuth. See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md).
 
 Common commands:
 
