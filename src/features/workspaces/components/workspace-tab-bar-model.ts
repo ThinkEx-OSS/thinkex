@@ -1,17 +1,18 @@
+import type { CSSProperties } from "react";
+
 const TAB_MAX_WIDTH = "16rem";
 const WORKSPACE_TAB_GAP_WIDTH = "0.25rem";
 
-export const WORKSPACE_TAB_ITEM_CLASS = "flex min-w-0 items-center gap-1";
+export const WORKSPACE_TAB_ITEM_CLASS = "flex min-w-0 flex-1 basis-0 items-center";
 
-export function getWorkspaceTabGridStyle(input: {
+export function getWorkspaceTabListStyle(input: {
 	tabCount: number;
 	lockedTabWidth: number | null;
-}) {
+}): CSSProperties {
 	const normalMaxWidth = `calc(${input.tabCount} * ${TAB_MAX_WIDTH})`;
 
 	if (!input.lockedTabWidth) {
 		return {
-			gridTemplateColumns: `repeat(${input.tabCount}, minmax(0, 1fr))`,
 			width: "100%",
 			maxWidth: normalMaxWidth,
 		};
@@ -21,8 +22,21 @@ export function getWorkspaceTabGridStyle(input: {
 	const lockedWidth = `calc(${input.tabCount} * ${input.lockedTabWidth}px + ${gapCount} * ${WORKSPACE_TAB_GAP_WIDTH})`;
 
 	return {
-		gridTemplateColumns: `repeat(${input.tabCount}, minmax(0, ${input.lockedTabWidth}px))`,
 		width: lockedWidth,
 		maxWidth: lockedWidth,
+	};
+}
+
+export function getWorkspaceTabItemStyle(input: { lockedTabWidth: number | null }): CSSProperties {
+	if (!input.lockedTabWidth) {
+		return {
+			flex: "1 1 0",
+			maxWidth: TAB_MAX_WIDTH,
+		};
+	}
+
+	return {
+		flex: `0 0 ${input.lockedTabWidth}px`,
+		maxWidth: input.lockedTabWidth,
 	};
 }

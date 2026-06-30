@@ -1,12 +1,10 @@
 import { useSortable } from "@dnd-kit/react/sortable";
 import type { LucideIcon } from "lucide-react";
-import { type ReactNode, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useRef, useState } from "react";
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "#/components/ui/context-menu";
 import { WorkspaceTabShell } from "#/features/workspaces/components/WorkspaceTabShell";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
-import { workspaceControlledSortablePlugins } from "#/features/workspaces/components/workspace-sortable-plugins";
 import { WORKSPACE_TAB_ITEM_CLASS } from "#/features/workspaces/components/workspace-tab-bar-model";
-import { horizontalTabCollisionDetector } from "#/features/workspaces/components/workspace-tab-collision";
 import { WORKSPACE_SORTABLE_TAB_TRANSITION } from "#/features/workspaces/components/workspace-tab-motion";
 import {
 	createWorkspaceTabDragData,
@@ -15,10 +13,20 @@ import {
 import type { WorkspaceTab } from "#/features/workspaces/state/workspace-tabs-store";
 import { cn } from "#/lib/utils";
 
-export function WorkspaceTabDivider({ isVisible = true }: { isVisible?: boolean }) {
+export function WorkspaceTabDivider({
+	className,
+	isVisible = true,
+}: {
+	className?: string;
+	isVisible?: boolean;
+}) {
 	return (
 		<div
-			className={cn("relative z-10 h-4 w-px shrink-0 bg-border/70", !isVisible && "opacity-0")}
+			className={cn(
+				"relative z-10 h-4 w-px shrink-0 bg-border/70",
+				!isVisible && "opacity-0",
+				className,
+			)}
 			aria-hidden="true"
 		/>
 	);
@@ -34,6 +42,7 @@ export function WorkspaceTabItem({
 	showDivider,
 	showDividerLine,
 	showClose,
+	style,
 	onBeforeClose,
 	onActivate,
 	onClose,
@@ -48,6 +57,7 @@ export function WorkspaceTabItem({
 	showDivider: boolean;
 	showDividerLine: boolean;
 	showClose: boolean;
+	style?: CSSProperties;
 	onBeforeClose: (element: HTMLElement | null) => void;
 	onActivate: () => void;
 	onClose: () => void;
@@ -73,12 +83,10 @@ export function WorkspaceTabItem({
 		type: WORKSPACE_TAB_DRAG_TYPE,
 		accept: WORKSPACE_TAB_DRAG_TYPE,
 		disabled: !capabilities.canMutateContent,
-		collisionDetector: horizontalTabCollisionDetector,
 		transition: {
 			...WORKSPACE_SORTABLE_TAB_TRANSITION,
 			idle: false,
 		},
-		plugins: workspaceControlledSortablePlugins,
 		data: createWorkspaceTabDragData(tab.id),
 	});
 	const showAttachedChrome = isActive && !isDragSource;
@@ -86,14 +94,20 @@ export function WorkspaceTabItem({
 	const tabContent = (
 		<div
 			ref={setTabElement}
+			style={style}
 			className={cn(
 				"relative motion-safe:will-change-transform",
 				WORKSPACE_TAB_ITEM_CLASS,
 				isDragSource && "opacity-70",
-				isDropTarget && "rounded-md bg-muted/50",
+				isDropTarget && !isDragSource && "rounded-md bg-muted/50",
 			)}
 		>
-			{showDivider ? <WorkspaceTabDivider isVisible={showDividerLine} /> : null}
+			{showDivider ? (
+				<WorkspaceTabDivider
+					className="pointer-events-none absolute top-1/2 left-0 -translate-x-0.5 -translate-y-1/2"
+					isVisible={showDividerLine}
+				/>
+			) : null}
 			<WorkspaceTabShell
 				title={title}
 				TabIcon={TabIcon}

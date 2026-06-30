@@ -7,7 +7,10 @@ import {
 	WorkspaceTabItem,
 } from "#/features/workspaces/components/WorkspaceTabBarItem";
 import { WorkspaceToolbarIconButton } from "#/features/workspaces/components/WorkspaceToolbar";
-import { getWorkspaceTabGridStyle } from "#/features/workspaces/components/workspace-tab-bar-model";
+import {
+	getWorkspaceTabItemStyle,
+	getWorkspaceTabListStyle,
+} from "#/features/workspaces/components/workspace-tab-bar-model";
 import type { WorkspaceSummary } from "#/features/workspaces/contracts";
 import { getWorkspaceDisplay } from "#/features/workspaces/model/display";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
@@ -45,8 +48,11 @@ export default function WorkspaceTabBar({
 }: WorkspaceTabBarProps) {
 	const { Icon, color } = getWorkspaceDisplay(workspace);
 	const closeResizeLock = useWorkspaceTabCloseResizeLock(tabs.length);
-	const gridStyle = getWorkspaceTabGridStyle({
+	const listStyle = getWorkspaceTabListStyle({
 		tabCount: tabs.length,
+		lockedTabWidth: closeResizeLock.lockedTabWidth,
+	});
+	const tabItemStyle = getWorkspaceTabItemStyle({
 		lockedTabWidth: closeResizeLock.lockedTabWidth,
 	});
 	const lastTab = tabs[tabs.length - 1];
@@ -59,11 +65,11 @@ export default function WorkspaceTabBar({
 		>
 			<div
 				className={cn(
-					"grid min-w-0 max-w-full items-center gap-1 overflow-visible",
+					"flex min-w-0 max-w-full items-center gap-1 overflow-visible",
 					closeResizeLock.shouldAnimateResize &&
 						"transition-[width,max-width] duration-150 ease-out",
 				)}
-				style={gridStyle}
+				style={listStyle}
 			>
 				{tabs.map((tab, tabIndex) => {
 					const previousTab = tabs[tabIndex - 1];
@@ -92,6 +98,7 @@ export default function WorkspaceTabBar({
 							showDivider={showDivider}
 							showDividerLine={showDividerLine}
 							showClose={tabs.length > 1}
+							style={tabItemStyle}
 							onBeforeClose={closeResizeLock.lockFromElement}
 							onActivate={() => onActivateTab(tab)}
 							onClose={() => onCloseTab(tab)}
