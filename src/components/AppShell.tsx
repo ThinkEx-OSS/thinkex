@@ -25,7 +25,7 @@ export default function AppShell({
 			data-app-shell
 			className="flex h-screen flex-col overflow-hidden bg-background text-foreground"
 		>
-			<header className="z-40 shrink-0 border-b border-border/60 bg-background">
+			<header className="z-40 shrink-0 bg-muted">
 				<div className="relative flex h-12 w-full items-center gap-3 px-4">
 					<div className="relative z-10 flex min-w-0 shrink-0 items-center gap-3 text-foreground">
 						<Link

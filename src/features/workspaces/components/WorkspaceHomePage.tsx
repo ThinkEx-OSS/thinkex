@@ -87,8 +87,8 @@ function WorkspaceHomeNavbarControls({
 	});
 
 	return (
-		<div className="flex w-full min-w-0 items-center justify-center">
-			<div className="relative w-full min-w-0 max-w-56 sm:max-w-72">
+		<div className="hidden w-full min-w-0 items-center justify-center sm:flex">
+			<div className="relative w-full min-w-0 max-w-72">
 				<Search
 					aria-hidden="true"
 					className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
@@ -100,7 +100,7 @@ function WorkspaceHomeNavbarControls({
 					onChange={(event) => onSearchChange(event.currentTarget.value)}
 					placeholder="Search workspaces"
 					aria-label="Search workspaces"
-					className="h-9 bg-background/70 pr-8 pl-8 text-sm shadow-none sm:h-8"
+					className="h-8 bg-background/70 pr-8 pl-8 text-sm shadow-none"
 				/>
 				{searchValue ? (
 					<button
