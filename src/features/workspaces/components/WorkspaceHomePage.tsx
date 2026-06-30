@@ -30,7 +30,7 @@ import { useCreateWorkspaceMutation } from "#/features/workspaces/use-create-wor
 import { useCopyToClipboard } from "#/hooks/use-copy-to-clipboard";
 import { useTypeToFocusTextInput } from "#/hooks/use-type-to-focus-text-input";
 
-const workspaceHomeCommunityLinkOrder = ["Discord", "Reddit", "Twitter / X", "GitHub"];
+const workspaceHomeCommunityLinkOrder = ["Discord", "Twitter / X", "GitHub"];
 
 export function WorkspaceHomePage() {
 	const { data: workspaces } = useSuspenseQuery(workspacesQueryOptions());

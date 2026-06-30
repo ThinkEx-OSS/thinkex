@@ -10,7 +10,6 @@
   <a href="https://github.com/ThinkEx-OSS/thinkex/stargazers"><img alt="GitHub stars" src="https://shieldcn.dev/github/stars/ThinkEx-OSS/thinkex.svg?variant=secondary&size=sm&theme=amber"></a>
   <a href="https://x.com/trythinkex"><img alt="X" src="https://shieldcn.dev/badge/X-follow-000000.svg?variant=secondary&size=sm&logo=x"></a>
   <a href="https://discord.gg/dtPnzkqCcG"><img alt="Discord" src="https://shieldcn.dev/badge/Discord-join-5865f2.svg?variant=secondary&size=sm&logo=discord"></a>
-  <a href="https://www.reddit.com/r/thinkex"><img alt="Reddit" src="https://shieldcn.dev/badge/Reddit-join-ff4500.svg?variant=secondary&size=sm&logo=reddit"></a>
 </p>
 
 ThinkEx is a workspace for thinking across notes, documents, media, and AI in one place.
