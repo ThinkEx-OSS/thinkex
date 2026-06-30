@@ -38,6 +38,7 @@ The dev server boots and lets you sign in with just the two variables below. Eve
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google sign-in | Google sign-in fails; use **Continue as guest** (shown in local dev) |
 | `AI_GATEWAY_API_KEY` | AI chat / title generation (Vercel AI Gateway) | AI calls error when invoked |
 | `FIRECRAWL_API_KEY` | Web search + URL/PDF extraction (Firecrawl) | Those calls error when invoked |
+| `TCC_API_KEY` | Agent observability export (The Context Company) | AI chat still works; TCC export is skipped |
 | `LLAMA_CLOUD_API_KEY` | Document extraction (LlamaParse) | Those calls error when invoked |
 
 ## Signing in without Google

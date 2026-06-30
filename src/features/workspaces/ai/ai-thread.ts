@@ -22,6 +22,7 @@ import { generateText, type LanguageModel, type ToolSet } from "ai";
 import type { AIInspectorSnapshot } from "#/features/workspaces/ai/ai-inspector";
 import { AIThreadInspectorRecorder } from "#/features/workspaces/ai/ai-thread-inspector-recorder";
 import { AIThreadPostHogRecorder } from "#/features/workspaces/ai/ai-thread-posthog-recorder";
+import { AIThreadTccRecorder } from "#/features/workspaces/ai/ai-thread-tcc-recorder";
 import {
 	createAIThreadTools,
 	createAIThreadTurnToolConfig,
@@ -78,6 +79,11 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 		private activeRunStartedAt: number | undefined;
 		private readonly inspector = new AIThreadInspectorRecorder(this);
 		private readonly posthog = new AIThreadPostHogRecorder({
+			schedule: (task) => {
+				void this.keepAliveWhile(() => task);
+			},
+		});
+		private readonly tcc = new AIThreadTccRecorder({
 			schedule: (task) => {
 				void this.keepAliveWhile(() => task);
 			},
@@ -176,6 +182,13 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 				modelId,
 				thread,
 			});
+			this.tcc.recordTurnStarted({
+				ctx,
+				env: this.env,
+				modelId,
+				system,
+				thread,
+			});
 
 			return {
 				model: getWorkspaceAiLanguageModel(modelId, this.env, this.sessionAffinity),
@@ -191,6 +204,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 		beforeStep(ctx: PrepareStepContext): StepConfig | undefined {
 			this.inspector.recordStepStarted(ctx);
 			this.posthog.recordStepStarted(ctx);
+			this.tcc.recordStepStarted(ctx);
 
 			return undefined;
 		}
@@ -198,6 +212,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 		beforeToolCall(ctx: ToolCallContext): ToolCallDecision | undefined {
 			this.inspector.recordToolStarted(ctx);
 			this.posthog.recordToolStarted(ctx);
+			this.tcc.recordToolStarted(ctx);
 
 			return undefined;
 		}
@@ -205,6 +220,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 		override async onChatResponse(result: ChatResponseResult) {
 			this.inspector.recordTurnFinished(result);
 			this.posthog.recordTurnFinished(result);
+			this.tcc.recordTurnFinished(result);
 			if (!this._shouldSettleRunAfterResponse(result)) {
 				await this._refreshSessionPromptIfNeeded();
 				return;
@@ -219,6 +235,9 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 			this.inspector.recordTurnError(error);
 			this.posthog.recordTurnError(error, {
 				errorClassification: ctx?.classification,
+				errorStage: ctx?.stage,
+			});
+			this.tcc.recordTurnError(error, {
 				errorStage: ctx?.stage,
 			});
 			void this.keepAliveWhile(async () => {
@@ -241,6 +260,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 		afterToolCall(ctx: ToolCallResultContext): void {
 			this.inspector.recordToolFinished(ctx);
 			this.posthog.recordToolFinished(ctx);
+			this.tcc.recordToolFinished(ctx);
 
 			if (ctx.success && ctx.toolName === "set_context") {
 				this.shouldRefreshSessionPrompt = true;
@@ -250,6 +270,7 @@ export function createAIThreadClass(getUserAIStore: () => typeof UserAIStore) {
 		onStepFinish(ctx: StepContext): void {
 			this.inspector.recordStepFinished(ctx);
 			this.posthog.recordStepFinished(ctx);
+			this.tcc.recordStepFinished(ctx);
 		}
 
 		onChunk(ctx: ChunkContext): void {
