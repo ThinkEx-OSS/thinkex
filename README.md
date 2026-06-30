@@ -13,9 +13,7 @@
 </p>
 
 <p align="center">
-  <strong>Open notes, documents, media, and AI chat in one workspace.</strong>
-  <br>
-  The workspace built for how you study, research, and create.
+  <strong>The workspace built for how you study, research, and create.</strong>
 </p>
 
 <p align="center">
