@@ -9,6 +9,7 @@ import WorkspaceDragProvider from "#/features/workspaces/components/WorkspaceDra
 import { WorkspaceFileIntakeProvider } from "#/features/workspaces/components/WorkspaceFileIntakeProvider";
 import { WorkspaceFileUploadProvider } from "#/features/workspaces/components/WorkspaceFileUploadProvider";
 import { WorkspaceItemToolbarProvider } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
+import WorkspaceMobileLayout from "#/features/workspaces/components/WorkspaceMobileLayout";
 import WorkspacePaneRenderer from "#/features/workspaces/components/WorkspacePaneRenderer";
 import { WorkspacePdfEngineProvider } from "#/features/workspaces/components/WorkspacePdfEngineProvider";
 import { WorkspaceMaximizedPresentation } from "#/features/workspaces/components/WorkspacePresentation";
@@ -17,6 +18,10 @@ import WorkspaceSplitPresentation from "#/features/workspaces/components/Workspa
 import WorkspaceStandardTabPanes from "#/features/workspaces/components/WorkspaceStandardTabPanes";
 import WorkspaceTopBar from "#/features/workspaces/components/WorkspaceTopBar";
 import { WorkspaceMutationAccessProvider } from "#/features/workspaces/components/workspace-mutation-access";
+import {
+	useWorkspaceViewPolicy,
+	WorkspaceViewCapabilitiesProvider,
+} from "#/features/workspaces/components/workspace-view-policy";
 import type { WorkspaceItemType, WorkspaceSummary } from "#/features/workspaces/contracts";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
 import { isWorkspaceItemView } from "#/features/workspaces/model/view";
@@ -111,6 +116,7 @@ export function WorkspaceShell({
 		activeViewFromUrl,
 	});
 	const normalizedUiSession = useWorkspaceUiSession(workspace.id);
+	const { capabilities: viewCapabilities, viewportMode } = useWorkspaceViewPolicy();
 	const selectedItemIds = useWorkspaceSelectionItemIds(workspace.id);
 	const { chatSurfaceMode, presentation } = normalizedUiSession;
 	const hasHeavyViewerRuntimeItems = scopedItems.some(workspaceItemRequiresHeavyViewerRuntime);
@@ -175,8 +181,44 @@ export function WorkspaceShell({
 		workspaceName: workspace.name,
 	};
 
+	const contextBar = (
+		<WorkspaceContextBar
+			workspace={workspace}
+			activeItem={activeItem}
+			itemsById={itemsById}
+			toolbarSlotId={activeTab.id}
+			onCreateItem={createWorkspaceItem}
+			onCloseItemView={isWorkspaceItemView(activeItem) ? closeItemView : undefined}
+			onNavigateToRoot={openWorkspaceRoot}
+			onNavigateToItem={openItem}
+		/>
+	);
+	const standardTabPanes = (
+		<WorkspaceStandardTabPanes
+			activeTabId={activeTab.id}
+			itemsById={itemsById}
+			scopedItems={scopedItems}
+			tabs={session.tabs}
+			workspace={workspace}
+			onCloseItemView={closeItemView}
+			onCreateItem={createWorkspaceItem}
+			onOpenItem={openItem}
+		/>
+	);
+
 	const presentationContent =
-		presentation.mode === "maximized" ? (
+		viewportMode === "mobile" ? (
+			<WorkspaceItemToolbarProvider>
+				<WorkspaceMobileLayout
+					workspace={workspace}
+					contextBar={contextBar}
+					content={standardTabPanes}
+					chatSurfaceMode={chatSurfaceMode}
+					onOpenChat={() => setChatSurfaceMode(workspace.id, "fullscreen")}
+					chatPanel={<AiChatPanel context={aiContextScope} />}
+				/>
+			</WorkspaceItemToolbarProvider>
+		) : presentation.mode === "maximized" ? (
 			<WorkspaceMaximizedPresentation>
 				<WorkspacePaneRenderer
 					aiContextScope={aiContextScope}
@@ -198,18 +240,7 @@ export function WorkspaceShell({
 							itemsById={itemsById}
 							tabs={session.tabs}
 							activeTab={activeTab}
-							contextBar={
-								<WorkspaceContextBar
-									workspace={workspace}
-									activeItem={activeItem}
-									itemsById={itemsById}
-									toolbarSlotId={activeTab.id}
-									onCreateItem={createWorkspaceItem}
-									onCloseItemView={isWorkspaceItemView(activeItem) ? closeItemView : undefined}
-									onNavigateToRoot={openWorkspaceRoot}
-									onNavigateToItem={openItem}
-								/>
-							}
+							contextBar={contextBar}
 							presence={realtime}
 							onActivateTab={activateWorkspaceTab}
 							onCloseTab={closeWorkspaceTab}
@@ -232,16 +263,7 @@ export function WorkspaceShell({
 								onOpenItem={openItem}
 							/>
 						) : (
-							<WorkspaceStandardTabPanes
-								activeTabId={activeTab.id}
-								itemsById={itemsById}
-								scopedItems={scopedItems}
-								tabs={session.tabs}
-								workspace={workspace}
-								onCloseItemView={closeItemView}
-								onCreateItem={createWorkspaceItem}
-								onOpenItem={openItem}
-							/>
+							standardTabPanes
 						)
 					}
 					chatPanel={<AiChatPanel context={aiContextScope} />}
@@ -258,7 +280,9 @@ export function WorkspaceShell({
 					onMoveItems={moveWorkspaceItemsMutation.mutate}
 					onWorkspaceDragCommand={dispatchWorkspaceDragCommand}
 				>
-					{presentationContent}
+					<WorkspaceViewCapabilitiesProvider capabilities={viewCapabilities}>
+						{presentationContent}
+					</WorkspaceViewCapabilitiesProvider>
 				</WorkspaceDragProvider>
 			</WorkspaceFileIntakeProvider>
 		</WorkspaceFileUploadProvider>

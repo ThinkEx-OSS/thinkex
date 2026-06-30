@@ -37,7 +37,7 @@ import {
 import { TilingLayer, TilingPluginPackage } from "@embedpdf/plugin-tiling/react";
 import { Viewport, ViewportPluginPackage } from "@embedpdf/plugin-viewport/react";
 import { ZoomGestureWrapper, ZoomMode, ZoomPluginPackage } from "@embedpdf/plugin-zoom/react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { Spinner } from "#/components/ui/spinner";
 import {
 	WorkspaceCaptureShortcuts,
@@ -52,6 +52,7 @@ import {
 	type WorkspacePdfCaptureResult,
 } from "#/features/workspaces/components/WorkspacePdfCapture";
 import { WorkspacePdfPageControl } from "#/features/workspaces/components/WorkspacePdfPageControl";
+import { useWorkspaceViewCapabilities } from "#/features/workspaces/components/workspace-view-policy";
 import { createCaptureAttachmentFile } from "#/features/workspaces/components/workspace-region-capture";
 import { stageCaptureAttachmentToComposerWithFeedback } from "#/features/workspaces/composer/workspace-composer-actions";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
@@ -105,12 +106,22 @@ export default function WorkspacePdfViewer({
 	const fileUrl = getWorkspaceFileContentUrl(workspaceId, item.id);
 	const { engine, error, isLoading } = useEngineContext();
 	const [isCaptureActive, setIsCaptureActive] = useState(false);
+	const enableFileCapture = useWorkspaceViewCapabilities().fileCapture;
+	const captureActive = enableFileCapture && isCaptureActive;
+	const exitCapture = useCallback(() => {
+		setIsCaptureActive(false);
+	}, []);
+	const toggleCapture = useCallback(() => {
+		setIsCaptureActive((current) => !current);
+	}, []);
 
 	useFileItemToolbar({
-		capture: {
-			isActive: isCaptureActive,
-			onToggle: () => setIsCaptureActive((current) => !current),
-		},
+		capture: enableFileCapture
+			? {
+					isActive: captureActive,
+					onToggle: toggleCapture,
+				}
+			: undefined,
 		fileName: item.name,
 		fileUrl,
 		slotId: toolbarSlotId ?? item.id,
@@ -133,10 +144,11 @@ export default function WorkspacePdfViewer({
 								documentId={item.id}
 								fileName={item.name}
 								fileUrl={fileUrl}
-								isCaptureActive={isCaptureActive}
+								isCaptureActive={captureActive}
 								itemId={item.id}
-								onCaptureModeExit={() => setIsCaptureActive(false)}
-								onCaptureModeToggle={() => setIsCaptureActive((current) => !current)}
+								onCaptureModeExit={exitCapture}
+								onCaptureModeToggle={toggleCapture}
+								enableFileCapture={enableFileCapture}
 								workspaceId={workspaceId}
 							/>
 						) : (
@@ -145,7 +157,7 @@ export default function WorkspacePdfViewer({
 					}
 				</EmbedPDF>
 			)}
-			<WorkspaceCaptureViewerFrame active={isCaptureActive} />
+			{enableFileCapture ? <WorkspaceCaptureViewerFrame active={captureActive} /> : null}
 		</div>
 	);
 }
@@ -153,6 +165,7 @@ export default function WorkspacePdfViewer({
 function WorkspacePdfDocumentLoader({
 	activeDocumentId,
 	documentId,
+	enableFileCapture,
 	fileName,
 	fileUrl,
 	isCaptureActive,
@@ -163,6 +176,7 @@ function WorkspacePdfDocumentLoader({
 }: {
 	activeDocumentId: string | null;
 	documentId: string;
+	enableFileCapture: boolean;
 	fileName: string;
 	fileUrl: string;
 	isCaptureActive: boolean;
@@ -245,6 +259,7 @@ function WorkspacePdfDocumentLoader({
 					itemId={itemId}
 					onCaptureModeExit={onCaptureModeExit}
 					onCaptureModeToggle={onCaptureModeToggle}
+					enableFileCapture={enableFileCapture}
 					workspaceId={workspaceId}
 					{...props}
 				/>
@@ -256,6 +271,7 @@ function WorkspacePdfDocumentLoader({
 function WorkspacePdfDocumentContent({
 	documentId,
 	documentState,
+	enableFileCapture,
 	fileName,
 	fileUrl,
 	isCaptureActive,
@@ -269,6 +285,7 @@ function WorkspacePdfDocumentContent({
 }: {
 	documentId: string;
 	documentState: DocumentState;
+	enableFileCapture: boolean;
 	fileName: string;
 	fileUrl: string;
 	isCaptureActive: boolean;
@@ -318,12 +335,16 @@ function WorkspacePdfDocumentContent({
 				workspaceId={workspaceId}
 			/>
 			<WorkspacePdfSelectionShortcuts documentId={documentId} />
-			<WorkspaceCaptureShortcuts
-				isActive={isCaptureActive}
-				onExit={onCaptureModeExit}
-				onToggle={onCaptureModeToggle}
-			/>
-			<WorkspacePdfCaptureInteractionMode documentId={documentId} isActive={isCaptureActive} />
+			{enableFileCapture ? (
+				<>
+					<WorkspaceCaptureShortcuts
+						isActive={isCaptureActive}
+						onExit={onCaptureModeExit}
+						onToggle={onCaptureModeToggle}
+					/>
+					<WorkspacePdfCaptureInteractionMode documentId={documentId} isActive={isCaptureActive} />
+				</>
+			) : null}
 			<ZoomGestureWrapper
 				className="min-h-full"
 				documentId={documentId}
@@ -345,6 +366,7 @@ function WorkspacePdfDocumentContent({
 							pageLayout={pageLayout}
 							renderCapability={renderCapability}
 							selectionPoint={selectionPoint}
+							enableFileCapture={enableFileCapture}
 							workspaceId={workspaceId}
 						/>
 					)}
@@ -358,6 +380,7 @@ function WorkspacePdfDocumentContent({
 function WorkspacePdfPage({
 	documentId,
 	documentState,
+	enableFileCapture,
 	isCaptureActive,
 	itemId,
 	onCapture,
@@ -368,6 +391,7 @@ function WorkspacePdfPage({
 }: {
 	documentId: string;
 	documentState: DocumentState;
+	enableFileCapture: boolean;
 	isCaptureActive: boolean;
 	itemId: string;
 	onCapture: (capture: WorkspacePdfCaptureResult) => void;
@@ -416,7 +440,7 @@ function WorkspacePdfPage({
 							documentId={documentId}
 							pageIndex={pageLayout.pageIndex}
 						/>
-						{page ? (
+						{enableFileCapture && page ? (
 							<WorkspacePdfCapturePageOverlay
 								active={isCaptureActive}
 								documentState={documentState}

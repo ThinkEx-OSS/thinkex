@@ -142,6 +142,7 @@ export default function AiChatPanelToolbar({
 
 					<WorkspaceToolbarIconButton
 						aria-label={isMaximized ? "Restore AI chat" : "Maximize AI chat"}
+						className="hidden sm:inline-flex"
 						onClick={isMaximized ? onRestore : onMaximize}
 					>
 						{isMaximized ? <Minimize2 /> : <Maximize2 />}

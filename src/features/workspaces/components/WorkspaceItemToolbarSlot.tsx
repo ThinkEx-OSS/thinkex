@@ -20,7 +20,7 @@ type WorkspaceItemToolbarRegistration =
 			slotId: string;
 	  }
 	| {
-			capture: {
+			capture?: {
 				isActive: boolean;
 				onToggle: () => void;
 			};
@@ -96,7 +96,7 @@ export function useFileItemToolbar({
 	fileUrl,
 	slotId,
 }: {
-	capture: {
+	capture?: {
 		isActive: boolean;
 		onToggle: () => void;
 	};
@@ -106,14 +106,22 @@ export function useFileItemToolbar({
 }) {
 	const context = use(WorkspaceItemToolbarContext);
 	const setRegistration = context?.setRegistration;
+	const captureIsActive = capture?.isActive;
+	const captureOnToggle = capture?.onToggle;
 
 	useEffect(() => {
 		if (!setRegistration) {
 			return;
 		}
 
+		const registeredCapture = captureOnToggle
+			? {
+					isActive: Boolean(captureIsActive),
+					onToggle: captureOnToggle,
+				}
+			: undefined;
 		const registration = {
-			capture,
+			capture: registeredCapture,
 			fileName,
 			fileUrl,
 			kind: "file" as const,
@@ -125,7 +133,8 @@ export function useFileItemToolbar({
 				existing?.kind === "file" &&
 				existing.fileName === fileName &&
 				existing.fileUrl === fileUrl &&
-				existing.capture.isActive === capture.isActive
+				existing.capture?.isActive === registeredCapture?.isActive &&
+				existing.capture?.onToggle === registeredCapture?.onToggle
 			) {
 				return current;
 			}
@@ -148,7 +157,7 @@ export function useFileItemToolbar({
 				return next;
 			});
 		};
-	}, [capture, fileName, fileUrl, slotId, setRegistration]);
+	}, [captureIsActive, captureOnToggle, fileName, fileUrl, slotId, setRegistration]);
 }
 
 export function WorkspaceItemToolbarSlot({
