@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
 
-import { cn } from "#/lib/utils";
-
 interface WorkspaceCardMetaRowProps {
 	leading?: ReactNode;
 	trailing?: ReactNode | null;
@@ -16,15 +14,13 @@ export function WorkspaceCardMetaRow({ leading, trailing }: WorkspaceCardMetaRow
 	}
 
 	return (
-		<div
-			className={cn(
-				"flex items-center gap-2 text-xs text-muted-foreground",
-				hasLeading ? "justify-between" : "justify-end",
-			)}
-		>
+		<div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
 			{hasLeading ? <div className="min-w-0">{leading}</div> : null}
+			{hasLeading && hasTrailing ? (
+				<span aria-hidden="true" className="h-3 w-px shrink-0 bg-border/70" />
+			) : null}
 			{hasTrailing ? (
-				<span className="shrink-0" suppressHydrationWarning>
+				<span className="min-w-0 truncate" suppressHydrationWarning>
 					{trailing}
 				</span>
 			) : null}

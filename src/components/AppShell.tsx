@@ -25,15 +25,17 @@ export default function AppShell({
 			data-app-shell
 			className="flex h-screen flex-col overflow-hidden bg-background text-foreground"
 		>
-			<header className="z-40 shrink-0 bg-muted">
-				<div className="flex h-12 w-full items-center gap-3 px-4">
-					<div className="flex min-w-0 shrink-0 items-center gap-3 text-foreground">
+			<header className="z-40 shrink-0 border-b border-border/60 bg-background">
+				<div className="relative flex h-12 w-full items-center gap-3 px-4">
+					<div className="relative z-10 flex min-w-0 shrink-0 items-center gap-3 text-foreground">
 						<Link
 							to="/home"
 							className="flex shrink-0 items-center gap-3 rounded-md text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
 						>
 							<ThinkExLogo size={28} />
-							<span className="text-xl font-semibold tracking-tight sm:text-2xl">ThinkEx</span>
+							<span className="hidden text-xl font-semibold tracking-tight sm:inline sm:text-2xl">
+								ThinkEx
+							</span>
 						</Link>
 						{headerContext ? (
 							<>
@@ -45,11 +47,14 @@ export default function AppShell({
 						) : null}
 					</div>
 
-					<div className="flex min-w-0 flex-1 items-center justify-center gap-2">
+					<div className="absolute inset-x-16 flex min-w-0 items-center justify-center gap-2 sm:static sm:flex-1">
 						{navbarControls}
 					</div>
 
-					<nav className="flex shrink-0 items-center justify-end gap-1" aria-label="Site">
+					<nav
+						className="relative z-10 ml-auto flex shrink-0 items-center justify-end gap-1"
+						aria-label="Site"
+					>
 						{siteControls}
 						<UserProfileDropdown />
 					</nav>

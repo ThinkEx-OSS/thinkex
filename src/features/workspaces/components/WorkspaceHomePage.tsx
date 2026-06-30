@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { ChevronDown, Mail, Search, X } from "lucide-react";
+import { Mail, Search, UsersRound, X } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -51,7 +51,7 @@ export function WorkspaceHomePage() {
 			siteControls={<WorkspaceHomeCommunityMenu />}
 		>
 			<div className="space-y-4 pb-8">
-				<section className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
+				<section className="grid grid-cols-1 gap-3 sm:gap-5 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4">
 					<CreateWorkspaceCard
 						onCreate={() => createWorkspaceMutation.mutate()}
 						pending={createWorkspaceMutation.isPending}
@@ -88,7 +88,7 @@ function WorkspaceHomeNavbarControls({
 
 	return (
 		<div className="flex w-full min-w-0 items-center justify-center">
-			<div className="relative w-full min-w-0 max-w-72">
+			<div className="relative w-full min-w-0 max-w-56 sm:max-w-72">
 				<Search
 					aria-hidden="true"
 					className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
@@ -100,7 +100,7 @@ function WorkspaceHomeNavbarControls({
 					onChange={(event) => onSearchChange(event.currentTarget.value)}
 					placeholder="Search workspaces"
 					aria-label="Search workspaces"
-					className="h-8 bg-background/70 pr-8 pl-8 text-sm shadow-none"
+					className="h-9 bg-background/70 pr-8 pl-8 text-sm shadow-none sm:h-8"
 				/>
 				{searchValue ? (
 					<button
@@ -120,12 +120,12 @@ function WorkspaceHomeNavbarControls({
 function NoWorkspaceSearchResultsCard({ search }: { search: string }) {
 	return (
 		<Card className="gap-0 overflow-hidden border-transparent bg-muted/10 py-0 shadow-none ring-0 dark:bg-muted/5">
-			<div className="flex w-full flex-col rounded-xl text-left">
-				<div className="flex aspect-[5/2] items-center justify-center">
-					<Search className="size-11 text-muted-foreground/70" strokeWidth={1.75} />
+			<div className="flex w-full flex-row items-center rounded-xl text-left sm:flex-col sm:items-stretch">
+				<div className="flex size-14 shrink-0 items-center justify-center sm:aspect-[5/2] sm:size-auto sm:w-full">
+					<Search className="size-6 text-muted-foreground/70 sm:size-11" strokeWidth={1.75} />
 				</div>
 
-				<CardHeader className="gap-2 px-4 py-3">
+				<CardHeader className="min-w-0 flex-1 gap-1 px-3 py-2.5 sm:gap-2 sm:px-4 sm:py-3">
 					<CardTitle>No matching workspaces</CardTitle>
 					<CardDescription className="truncate text-xs">
 						Nothing matches "{search.trim()}"
@@ -152,12 +152,13 @@ function WorkspaceHomeCommunityMenu() {
 					<Button
 						variant="ghost"
 						size="sm"
-						className="h-8 px-2 text-muted-foreground hover:text-foreground"
+						aria-label="Community"
+						className="size-9 px-0 text-muted-foreground hover:text-foreground sm:h-8 sm:w-auto sm:px-2"
 					/>
 				}
 			>
-				Community
-				<ChevronDown className="size-4" />
+				<UsersRound className="size-4" />
+				<span className="hidden sm:inline">Community</span>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-48">
 				<DropdownMenuGroup>

@@ -223,7 +223,7 @@ function WorkspaceSettingsDialogContent({
 				) : null}
 			</FieldGroup>
 
-			<DialogFooter className="items-center sm:justify-between">
+			<DialogFooter className="flex-row! items-center justify-between!">
 				{canDelete ? (
 					<Popover open={isConfirmingDelete} onOpenChange={setIsConfirmingDelete}>
 						<PopoverTrigger
@@ -235,7 +235,7 @@ function WorkspaceSettingsDialogContent({
 									disabled={deleteWorkspaceMutation.isPending}
 								>
 									<Trash2 className="size-4" />
-									Delete workspace
+									Delete
 								</Button>
 							}
 						/>
@@ -269,7 +269,7 @@ function WorkspaceSettingsDialogContent({
 				) : (
 					<div />
 				)}
-				<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+				<div className="flex flex-row! gap-2">
 					<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
 						Cancel
 					</Button>

@@ -35,6 +35,7 @@ export function getWorkspaceDisplay(workspace: WorkspaceSummary) {
 		Icon: workspaceIcons[icon],
 		color: {
 			bg: colorDefinition.chromeClassName,
+			surface: colorDefinition.surfaceClassName,
 			text: colorDefinition.iconClassName,
 		},
 	};
