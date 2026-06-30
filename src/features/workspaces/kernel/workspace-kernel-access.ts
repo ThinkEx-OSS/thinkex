@@ -1,5 +1,3 @@
-import { getAgentByName } from "agents";
-
 import { createDbContext } from "#/db/server";
 import { workspaceKernelAgentName } from "#/features/workspaces/agent-routes";
 import type {
@@ -61,6 +59,7 @@ export interface WorkspaceKernelClient {
 		onNameConflict?: WorkspaceKernelNameConflictPolicy;
 		color?: CreateWorkspaceItemInput["color"];
 		metadataJson?: Record<string, JsonValue>;
+		linkItemIds?: string[];
 		initialContent?: string;
 		actorUserId?: string | null;
 		clientMutationId?: string | null;
@@ -88,6 +87,12 @@ export interface WorkspaceKernelClient {
 	updateItemColor(input: {
 		itemId: string;
 		color: UpdateWorkspaceItemColorInput["color"];
+		actorUserId?: string | null;
+		clientMutationId?: string | null;
+	}): Promise<WorkspaceCommandResult<WorkspaceItemSummary>>;
+	updateItemLinks(input: {
+		itemId: string;
+		linkItemIds: string[];
 		actorUserId?: string | null;
 		clientMutationId?: string | null;
 	}): Promise<WorkspaceCommandResult<WorkspaceItemSummary>>;
@@ -354,6 +359,8 @@ export async function getWorkspaceKernelFromEnv(
 	env: Cloudflare.Env,
 	workspaceId: string,
 ): Promise<WorkspaceKernelClient> {
+	const { getAgentByName } = await import("agents");
+
 	return getAgentByName(
 		env[workspaceKernelAgentName],
 		workspaceId,

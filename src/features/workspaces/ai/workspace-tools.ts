@@ -42,6 +42,16 @@ const workspacePathItemSchema = z.object({
 	type: workspaceItemTypeSchema,
 });
 
+const workspaceItemLinksSchema = z
+	.array(workspacePathSchema)
+	.max(20)
+	.describe("Absolute paths of workspace items this item should link to.");
+
+const workspaceItemLinkOutputSchema = z.object({
+	path: workspacePathSchema,
+	type: workspaceItemTypeSchema,
+});
+
 const workspacePreviousPathItemSchema = workspacePathItemSchema.extend({
 	previousPath: workspacePathSchema,
 });
@@ -99,16 +109,32 @@ const workspaceReadItemsInputSchema = z.object({
 		.describe("Absolute paths in the actual ThinkEx workspace to read."),
 });
 
-const workspaceEditItemInputSchema = z.object({
-	path: z.string().min(1).describe("Absolute path of one actual ThinkEx workspace item to edit."),
-	edits: z
-		.array(documentMarkdownEditSchema)
-		.min(1)
-		.max(40)
-		.describe(
-			`Ordered text edits to apply to the item projection. ${workspaceDocumentMarkdownMathInstruction}`,
-		),
-});
+const workspaceEditItemInputSchema = z
+	.object({
+		path: z.string().min(1).describe("Absolute path of one actual ThinkEx workspace item to edit."),
+		edits: z
+			.array(documentMarkdownEditSchema)
+			.min(1)
+			.max(40)
+			.describe(
+				`Ordered text edits to apply to the item projection. ${workspaceDocumentMarkdownMathInstruction}`,
+			)
+			.optional(),
+		links: workspaceItemLinksSchema
+			.optional()
+			.describe(
+				"Optional replacement set of related workspace items. Omit to leave links unchanged; pass [] to clear all links.",
+			),
+	})
+	.superRefine((input, context) => {
+		if ((input.edits?.length ?? 0) === 0 && input.links === undefined) {
+			context.addIssue({
+				code: "custom",
+				message: "Provide at least one edit or links.",
+				path: ["edits"],
+			});
+		}
+	});
 
 const workspaceRenameItemInputSchema = z.object({
 	name: z.string().trim().min(1).max(160).describe("New user-visible item name."),
@@ -134,6 +160,7 @@ const workspaceCreateItemsInputSchema = z.object({
 				z.object({
 					type: z.literal("folder"),
 					path: z.string().min(1).describe("Final absolute path for the folder to create."),
+					links: workspaceItemLinksSchema.optional(),
 				}),
 				z.object({
 					type: z.literal("document"),
@@ -144,6 +171,7 @@ const workspaceCreateItemsInputSchema = z.object({
 							`Optional initial Markdown content for the document. ${workspaceDocumentMarkdownMathInstruction}`,
 						)
 						.optional(),
+					links: workspaceItemLinksSchema.optional(),
 				}),
 			]),
 		)
@@ -209,6 +237,7 @@ const workspaceCreateItemsInputExamples = createInputExamples<
 			type: "document",
 			path: "/Demo Folder/Demo Document",
 			initialContent: "# Demo Document\nThis document was created as part of a tool demo.",
+			links: ["/Demo Folder"],
 		},
 	],
 });
@@ -223,6 +252,7 @@ const workspaceEditItemInputExamples = createInputExamples<
 	z.input<typeof workspaceEditItemInputSchema>
 >({
 	path: "/Demo Folder/Demo Document",
+	links: ["/Demo Folder"],
 	edits: [
 		{
 			type: "overwrite",
@@ -248,6 +278,7 @@ const workspaceReadItemsOutputSchema = createWorkspaceItemsResultSchema({
 		type: z.enum(["document", "file", "flashcard", "quiz"]),
 		status: z.enum(["failed", "pending", "ready", "unsupported"]),
 		content: z.string().optional(),
+		links: z.array(workspaceItemLinkOutputSchema),
 		pages: workspaceReadPagesSchema.optional(),
 	}),
 	failureSchema: createFailureSchema([
@@ -270,6 +301,9 @@ const workspaceCreateItemsOutputSchema = createWorkspaceItemsResultSchema({
 	failureSchema: createFailureSchema([
 		"cannot_create_root",
 		"invalid_initial_content",
+		"link_path_is_root",
+		"link_path_not_absolute",
+		"link_path_not_found",
 		"path_already_exists",
 		"path_not_absolute",
 		"path_not_canonical",
@@ -326,6 +360,7 @@ const workspaceEditItemOutputSchema = z.object({
 		.array(z.string())
 		.describe("Content projection warnings after applying edits.")
 		.optional(),
+	links: z.array(workspaceItemLinkOutputSchema).optional(),
 });
 
 type WorkspaceThreadToolConfig<
@@ -392,7 +427,7 @@ export function createAIThreadWorkspaceTools(input: {
 		}),
 		workspace_read_items: createThreadTool({
 			description:
-				"Read ThinkEx documents and files by absolute path. Use pages for continuation: PDF pages for PDFs, 1000-line Markdown pages for documents and extracted files. Defaults to page 1. Check pages.total before reading more.",
+				"Read ThinkEx documents and files by absolute path, including any workspace item links previously attached to each item. Use pages for continuation: PDF pages for PDFs, 1000-line Markdown pages for documents and extracted files. Defaults to page 1. Check pages.total before reading more.",
 			inputSchema: workspaceReadItemsInputSchema,
 			inputExamples: workspaceReadItemsInputExamples,
 			outputSchema: workspaceReadItemsOutputSchema,
@@ -436,7 +471,7 @@ export function createAIThreadWorkspaceTools(input: {
 			},
 		}),
 		workspace_create_items: createThreadTool({
-			description: `Create one or more folders or documents at exact absolute paths. If a path already exists, creation fails instead of renaming. ${workspaceDocumentMarkdownMathInstruction}`,
+			description: `Create one or more folders or documents at exact absolute paths. If a path already exists, creation fails instead of renaming. Optionally link each new item to existing workspace items, or to items created earlier in the same request, when you judge them meaningfully related. ${workspaceDocumentMarkdownMathInstruction}`,
 			inputSchema: workspaceCreateItemsInputSchema,
 			inputExamples: workspaceCreateItemsInputExamples,
 			outputSchema: workspaceCreateItemsOutputSchema,
@@ -462,16 +497,17 @@ export function createAIThreadWorkspaceTools(input: {
 			},
 		}),
 		workspace_edit_item: createThreadTool({
-			description: `Edit one actual ThinkEx workspace document by absolute path. Read before editing unless the user requested a simple append or prepend. ${workspaceDocumentMarkdownMathInstruction}`,
+			description: `Edit one actual ThinkEx workspace item by absolute path. Use edits for document content changes and links to replace the item's related workspace items when you judge other items meaningfully related. Omit links to leave them unchanged, or pass [] to clear them. Read before editing document content unless the user requested a simple append or prepend. ${workspaceDocumentMarkdownMathInstruction}`,
 			inputSchema: workspaceEditItemInputSchema,
 			inputExamples: workspaceEditItemInputExamples,
 			outputSchema: workspaceEditItemOutputSchema,
-			execute: async ({ path, edits }, thread) => {
+			execute: async ({ path, edits, links }, thread) => {
 				return await editWorkspaceKernelAiItem({
 					workspaceId: thread.workspaceId,
 					userId: thread.userId,
 					path,
 					edits,
+					links,
 				});
 			},
 		}),

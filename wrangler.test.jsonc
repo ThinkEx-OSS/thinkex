@@ -1,0 +1,47 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "thinkex-test",
+	"compatibility_date": "2026-03-24",
+	"compatibility_flags": ["nodejs_compat"],
+	"main": "src/test-worker.ts",
+	"vars": {
+		"FIRECRAWL_API_URL": "https://api.firecrawl.dev",
+		"WORKSPACE_INVITE_FROM_EMAIL": "invites@thinkex.app",
+	},
+	"r2_buckets": [
+		{
+			"binding": "WORKSPACE_KERNEL_FILES",
+			"bucket_name": "thinkex-test-workspace-kernel-files",
+		},
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "WorkspaceKernel",
+				"class_name": "WorkspaceKernel",
+			},
+			{
+				"name": "DocumentSession",
+				"class_name": "DocumentSession",
+			},
+		],
+	},
+	"migrations": [
+		{
+			"tag": "v1_test_workspace_kernel",
+			"new_sqlite_classes": ["WorkspaceKernel"],
+		},
+		{
+			"tag": "v2_test_document_session",
+			"new_sqlite_classes": ["DocumentSession"],
+		},
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "thinkex-test",
+			"database_id": "00000000-0000-0000-0000-000000000000",
+			"migrations_dir": "drizzle",
+		},
+	],
+}

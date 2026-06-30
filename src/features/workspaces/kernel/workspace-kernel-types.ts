@@ -30,6 +30,7 @@ export interface CreateWorkspaceKernelItemArgs {
 	onNameConflict?: WorkspaceKernelNameConflictPolicy;
 	color?: WorkspaceItemColor;
 	metadataJson?: Record<string, JsonValue>;
+	linkItemIds?: string[];
 	initialContent?: string;
 	actorUserId?: string | null;
 	clientMutationId?: string | null;
@@ -139,6 +140,13 @@ export interface ReadWorkspaceKernelFileProjectionResult {
 export interface WriteWorkspaceKernelItemArgs {
 	itemId: string;
 	content: string;
+	actorUserId?: string | null;
+	clientMutationId?: string | null;
+}
+
+export interface UpdateWorkspaceKernelItemLinksArgs {
+	itemId: string;
+	linkItemIds: string[];
 	actorUserId?: string | null;
 	clientMutationId?: string | null;
 }

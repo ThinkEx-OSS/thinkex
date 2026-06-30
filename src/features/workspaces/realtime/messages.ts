@@ -23,7 +23,8 @@ export type WorkspaceRealtimeEvent =
 				| "workspace.item.renamed"
 				| "workspace.item.moved"
 				| "workspace.item.color.updated"
-				| "workspace.item.content.updated";
+				| "workspace.item.content.updated"
+				| "workspace.item.metadata.updated";
 			payload: { item: WorkspaceItemSummary };
 	  })
 	| (WorkspaceRealtimeEventBase & {
