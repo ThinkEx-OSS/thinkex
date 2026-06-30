@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import {
 	workspaceItemDocumentPreviewPanelClass,
@@ -32,17 +32,18 @@ export default function WorkspaceItemPreviewSurface({ item }: WorkspaceItemPrevi
 
 function WorkspaceItemDocumentPreview({ item }: { item: WorkspaceItem }) {
 	const previewText = getWorkspaceDocumentPreviewText(item);
+	const desktopPreview = previewText ? (
+		<div className={workspaceItemDocumentPreviewPanelClass}>
+			<p className={workspaceItemDocumentPreviewTextClass}>{previewText}</p>
+		</div>
+	) : (
+		<WorkspaceItemDocumentPreviewEmpty />
+	);
 
 	return (
-		<div className={workspaceItemPreviewContentLayerClass}>
-			{previewText ? (
-				<div className={workspaceItemDocumentPreviewPanelClass}>
-					<p className={workspaceItemDocumentPreviewTextClass}>{previewText}</p>
-				</div>
-			) : (
-				<WorkspaceItemDocumentPreviewEmpty />
-			)}
-		</div>
+		<WorkspaceItemMobileIconDesktopPreview item={item}>
+			{desktopPreview}
+		</WorkspaceItemMobileIconDesktopPreview>
 	);
 }
 
@@ -65,7 +66,7 @@ function WorkspaceItemFilePreview({ item }: { item: WorkspaceItem }) {
 
 	if (showImage) {
 		return (
-			<div className={workspaceItemPreviewContentLayerClass}>
+			<WorkspaceItemMobileIconDesktopPreview item={item}>
 				<img
 					src={previewUrl ?? undefined}
 					alt=""
@@ -74,11 +75,28 @@ function WorkspaceItemFilePreview({ item }: { item: WorkspaceItem }) {
 					className="size-full object-cover object-top"
 					onError={() => setFailedPreviewUrl(previewUrl)}
 				/>
-			</div>
+			</WorkspaceItemMobileIconDesktopPreview>
 		);
 	}
 
 	return <WorkspaceItemIconPreview item={item} />;
+}
+
+function WorkspaceItemMobileIconDesktopPreview({
+	children,
+	item,
+}: {
+	children: ReactNode;
+	item: WorkspaceItem;
+}) {
+	return (
+		<>
+			<div className={cn(workspaceItemPreviewContentLayerClass, "sm:hidden")}>
+				<WorkspaceItemIconPreview item={item} />
+			</div>
+			<div className={cn(workspaceItemPreviewContentLayerClass, "hidden sm:block")}>{children}</div>
+		</>
+	);
 }
 
 /** Icon-only preview for folders and types without a custom thumbnail yet. */

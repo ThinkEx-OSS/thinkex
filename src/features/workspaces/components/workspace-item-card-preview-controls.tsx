@@ -74,7 +74,7 @@ export function WorkspaceItemCardPreviewControls({
 					aria-hidden="true"
 				/>
 			</ItemCardPreviewButton>
-			<div aria-hidden="true" className="h-full flex-1" />
+			<div aria-hidden="true" className="hidden h-full flex-1 sm:block" />
 			<WorkspaceItemActionsMenu
 				item={item}
 				trigger={
@@ -82,7 +82,7 @@ export function WorkspaceItemCardPreviewControls({
 						aria-label={`Open actions for ${item.name}`}
 						onClick={(event) => event.stopPropagation()}
 					>
-						<EllipsisVertical className="size-3.5" aria-hidden="true" />
+						<EllipsisVertical className="size-5 sm:size-3.5" aria-hidden="true" />
 					</ItemCardPreviewButton>
 				}
 				onMoveItem={onMoveItem}

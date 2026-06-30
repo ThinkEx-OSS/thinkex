@@ -14,9 +14,9 @@ export function WorkspaceItemCardFooter({ item }: WorkspaceItemCardFooterProps) 
 	return (
 		<WorkspaceCardMetaRow
 			leading={
-				<span className="flex min-w-0 items-center gap-1.5">
+				<span className="flex min-w-0 items-center sm:gap-1.5">
 					<Icon
-						className={cn("size-3.5 shrink-0", iconClassName)}
+						className={cn("hidden size-3.5 shrink-0 sm:block", iconClassName)}
 						strokeWidth={1.75}
 						aria-hidden="true"
 					/>
