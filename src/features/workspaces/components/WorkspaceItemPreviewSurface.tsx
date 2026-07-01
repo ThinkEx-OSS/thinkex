@@ -40,12 +40,16 @@ export default function WorkspaceItemPreviewSurface({
 
 function WorkspaceItemDocumentPreview({ item }: { item: WorkspaceItem }) {
 	const previewText = getWorkspaceDocumentPreviewText(item);
-	return previewText ? (
-		<div className={workspaceItemDocumentPreviewPanelClass}>
-			<p className={workspaceItemDocumentPreviewTextClass}>{previewText}</p>
+	return (
+		<div className={workspaceItemPreviewContentLayerClass}>
+			{previewText ? (
+				<div className={workspaceItemDocumentPreviewPanelClass}>
+					<p className={workspaceItemDocumentPreviewTextClass}>{previewText}</p>
+				</div>
+			) : (
+				<WorkspaceItemDocumentPreviewEmpty />
+			)}
 		</div>
-	) : (
-		<WorkspaceItemDocumentPreviewEmpty />
 	);
 }
 
