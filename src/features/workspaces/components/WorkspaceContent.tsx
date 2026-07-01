@@ -34,8 +34,10 @@ import { MoveWorkspaceItemsDialog } from "#/features/workspaces/components/Works
 import { useWorkspacePaneHotkey } from "#/features/workspaces/components/WorkspacePaneRuntime";
 import { WorkspaceRootEmptyPreview } from "#/features/workspaces/components/WorkspaceRootEmptyPreview";
 import WorkspaceSelectionActionBar from "#/features/workspaces/components/WorkspaceSelectionActionBar";
+import { WorkspaceUploadClickTarget } from "#/features/workspaces/components/WorkspaceUploadClickTarget";
 import { workspaceItemGridClass } from "#/features/workspaces/components/workspace-item-card-chrome";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
+import { useWorkspaceViewCapabilities } from "#/features/workspaces/components/workspace-view-policy";
 import type { WorkspaceItemType, WorkspaceSummary } from "#/features/workspaces/contracts";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
 import { getWorkspaceChildren, splitWorkspaceChildren } from "#/features/workspaces/model/tree";
@@ -116,12 +118,14 @@ function WorkspaceBrowseContent({
 	const [moveSelectedDialogOpen, setMoveSelectedDialogOpen] = useState(false);
 	const [isNativeFileDropTarget, setIsNativeFileDropTarget] = useState(false);
 	const browseSurfaceRef = useRef<HTMLElement>(null);
-	const { uploadFiles } = useWorkspaceFileIntake();
+	const { requestFileUpload, uploadFiles } = useWorkspaceFileIntake();
+	const viewCapabilities = useWorkspaceViewCapabilities();
 	const parentId = getWorkspaceBrowseParentId(activeItem);
 	const children = getWorkspaceChildren(items, parentId);
 	const { folders, items: nonFolderItems } = splitWorkspaceChildren(children);
 	const isWorkspaceRoot = parentId === null;
 	const isEmpty = children.length === 0;
+	const requestUploadToBrowseLocation = () => requestFileUpload(parentId);
 	const handleNativeFileDrop = (files: FileList) => {
 		if (!capabilities.canMutateContent) {
 			return;
@@ -195,60 +199,73 @@ function WorkspaceBrowseContent({
 		stopPropagation: false,
 	});
 
+	const browseSurfaceContent = (
+		<>
+			{folders.length > 0 ? (
+				<WorkspaceItemGrid
+					items={folders}
+					allItems={items}
+					selectedItemIds={selectedItemIds}
+					onOpenItem={onOpenItem}
+					onMoveItem={actionDialogs.openMoveDialog}
+					onRenameItem={actionDialogs.setRenamingItem}
+					onDeleteItem={actionDialogs.openDeleteAlert}
+					onSelectionChange={setItemSelected}
+					onItemElementChange={registerItemElement}
+				/>
+			) : null}
+			{nonFolderItems.length > 0 ? (
+				<WorkspaceItemGrid
+					items={nonFolderItems}
+					allItems={items}
+					selectedItemIds={selectedItemIds}
+					onOpenItem={onOpenItem}
+					onMoveItem={actionDialogs.openMoveDialog}
+					onRenameItem={actionDialogs.setRenamingItem}
+					onDeleteItem={actionDialogs.openDeleteAlert}
+					onSelectionChange={setItemSelected}
+					onItemElementChange={registerItemElement}
+				/>
+			) : null}
+			{isEmpty ? (
+				isWorkspaceRoot && capabilities.canMutateContent ? (
+					<WorkspaceRootEmptyPreview onUploadFiles={requestUploadToBrowseLocation} />
+				) : (
+					<WorkspaceBrowseEmptyState
+						canUpload={capabilities.canMutateContent}
+						isWorkspaceRoot={isWorkspaceRoot}
+						onUploadFiles={requestUploadToBrowseLocation}
+					/>
+				)
+			) : null}
+		</>
+	);
+	const browseSurface = (
+		<section
+			data-scroll-root
+			ref={browseSurfaceRef}
+			className="flex h-full flex-col gap-6 overflow-y-auto px-4 py-3 outline-none"
+			aria-label="Workspace content"
+			tabIndex={-1}
+			{...marqueeSurfaceProps}
+		>
+			{browseSurfaceContent}
+		</section>
+	);
+
 	return (
 		<>
 			<div className="relative h-full min-h-0">
-				<ContextMenu>
-					<ContextMenuTrigger
-						render={
-							<section
-								data-scroll-root
-								ref={browseSurfaceRef}
-								className="flex h-full flex-col gap-6 overflow-y-auto px-4 py-3 outline-none"
-								aria-label="Workspace content"
-								tabIndex={-1}
-								{...marqueeSurfaceProps}
-							/>
-						}
-					>
-						{folders.length > 0 ? (
-							<WorkspaceItemGrid
-								items={folders}
-								allItems={items}
-								selectedItemIds={selectedItemIds}
-								onOpenItem={onOpenItem}
-								onMoveItem={actionDialogs.openMoveDialog}
-								onRenameItem={actionDialogs.setRenamingItem}
-								onDeleteItem={actionDialogs.openDeleteAlert}
-								onSelectionChange={setItemSelected}
-								onItemElementChange={registerItemElement}
-							/>
-						) : null}
-						{nonFolderItems.length > 0 ? (
-							<WorkspaceItemGrid
-								items={nonFolderItems}
-								allItems={items}
-								selectedItemIds={selectedItemIds}
-								onOpenItem={onOpenItem}
-								onMoveItem={actionDialogs.openMoveDialog}
-								onRenameItem={actionDialogs.setRenamingItem}
-								onDeleteItem={actionDialogs.openDeleteAlert}
-								onSelectionChange={setItemSelected}
-								onItemElementChange={registerItemElement}
-							/>
-						) : null}
-						{isEmpty ? (
-							isWorkspaceRoot && capabilities.canMutateContent ? (
-								<WorkspaceRootEmptyPreview />
-							) : (
-								<WorkspaceBrowseEmptyState isWorkspaceRoot={isWorkspaceRoot} />
-							)
-						) : null}
-					</ContextMenuTrigger>
-					<ContextMenuContent className="w-56">
-						<WorkspaceCreateContextMenuContent parentId={parentId} onCreateItem={onCreateItem} />
-					</ContextMenuContent>
-				</ContextMenu>
+				{viewCapabilities.contextMenus ? (
+					<ContextMenu>
+						<ContextMenuTrigger render={browseSurface} />
+						<ContextMenuContent className="w-56">
+							<WorkspaceCreateContextMenuContent parentId={parentId} onCreateItem={onCreateItem} />
+						</ContextMenuContent>
+					</ContextMenu>
+				) : (
+					browseSurface
+				)}
 				<WorkspaceSelectionActionBar
 					selectedCount={selectedItems.length}
 					onMove={openMoveSelectedDialog}
@@ -298,34 +315,55 @@ function WorkspaceBrowseContent({
 	);
 }
 
-function WorkspaceBrowseEmptyState({ isWorkspaceRoot }: { isWorkspaceRoot: boolean }) {
-	if (!isWorkspaceRoot) {
-		return (
-			<Empty className="border border-dashed bg-muted/20">
-				<EmptyHeader>
-					<EmptyMedia variant="icon">
-						<FolderOpen />
-					</EmptyMedia>
-					<EmptyTitle>This folder is empty</EmptyTitle>
-					<EmptyDescription>Items added here will appear in this folder.</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
-		);
-	}
-
-	return (
-		<Empty className="border border-dashed bg-muted/20">
+function WorkspaceBrowseEmptyState({
+	canUpload,
+	isWorkspaceRoot,
+	onUploadFiles,
+}: {
+	canUpload: boolean;
+	isWorkspaceRoot: boolean;
+	onUploadFiles: () => void;
+}) {
+	const uploadLabel = isWorkspaceRoot
+		? "Upload files to this workspace"
+		: "Upload files to this folder";
+	const Icon = isWorkspaceRoot ? Eye : FolderOpen;
+	const title = isWorkspaceRoot ? "This workspace is empty" : "This folder is empty";
+	const description = canUpload
+		? "Click anywhere here to upload files."
+		: isWorkspaceRoot
+			? "An editor needs to add the first items before anything appears here."
+			: "Items added here will appear in this folder.";
+	const emptyState = (
+		<Empty
+			className={cn(
+				"border border-dashed bg-muted/20",
+				canUpload && "transition-colors hover:bg-muted/30",
+			)}
+		>
 			<EmptyHeader>
 				<EmptyMedia variant="icon">
-					<Eye />
+					<Icon />
 				</EmptyMedia>
-				<EmptyTitle>This workspace is empty</EmptyTitle>
-				<EmptyDescription>
-					An editor needs to add the first items before anything appears here.
-				</EmptyDescription>
+				<EmptyTitle>{title}</EmptyTitle>
+				<EmptyDescription>{description}</EmptyDescription>
 			</EmptyHeader>
 		</Empty>
 	);
+
+	if (canUpload) {
+		return (
+			<WorkspaceUploadClickTarget
+				className="flex flex-1"
+				aria-label={uploadLabel}
+				onUploadFiles={onUploadFiles}
+			>
+				{emptyState}
+			</WorkspaceUploadClickTarget>
+		);
+	}
+
+	return emptyState;
 }
 
 function WorkspaceItemGrid({
@@ -445,6 +483,8 @@ function WorkspaceItemView({
 	onRenameItem: (item: WorkspaceItem) => void;
 	onDeleteItem: (item: WorkspaceItem) => void;
 }) {
+	const viewCapabilities = useWorkspaceViewCapabilities();
+
 	if (item.type === "document") {
 		return (
 			<DocumentEditorSurface item={item} toolbarSlotId={viewInstanceId} workspaceId={workspaceId} />
@@ -465,31 +505,33 @@ function WorkspaceItemView({
 	}
 
 	const { Icon: ItemIcon, iconClassName, surfaceClassName } = getWorkspaceItemDisplay(item);
+	const itemViewContent = (
+		<div className="flex flex-col items-center gap-3 text-center">
+			<ItemIcon className={cn("size-12", iconClassName)} strokeWidth={1.75} aria-hidden="true" />
+			<div className="space-y-1">
+				<h2 className="font-medium text-foreground text-sm">{item.name}</h2>
+			</div>
+		</div>
+	);
+	const itemViewSurface = (
+		<section
+			className={cn(
+				"flex h-full min-h-0 items-center justify-center bg-background",
+				surfaceClassName,
+			)}
+		>
+			{itemViewContent}
+		</section>
+	);
+
+	if (!viewCapabilities.contextMenus) {
+		return <div className="h-full min-h-0">{itemViewSurface}</div>;
+	}
 
 	return (
 		<div className="h-full min-h-0">
 			<ContextMenu>
-				<ContextMenuTrigger
-					render={
-						<section
-							className={cn(
-								"flex h-full min-h-0 items-center justify-center bg-background",
-								surfaceClassName,
-							)}
-						/>
-					}
-				>
-					<div className="flex flex-col items-center gap-3 text-center">
-						<ItemIcon
-							className={cn("size-12", iconClassName)}
-							strokeWidth={1.75}
-							aria-hidden="true"
-						/>
-						<div className="space-y-1">
-							<h2 className="font-medium text-foreground text-sm">{item.name}</h2>
-						</div>
-					</div>
-				</ContextMenuTrigger>
+				<ContextMenuTrigger render={itemViewSurface} />
 				<WorkspaceItemActionsContextMenuContent
 					item={item}
 					onMoveItem={onMoveItem}

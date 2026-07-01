@@ -3,6 +3,7 @@ import { type ComponentType, type LazyExoticComponent, lazy, Suspense } from "re
 import { ContextMenu, ContextMenuTrigger } from "#/components/ui/context-menu";
 import { Spinner } from "#/components/ui/spinner";
 import { WorkspaceItemActionsContextMenuContent } from "#/features/workspaces/components/WorkspaceItemActionsMenu";
+import { useWorkspaceViewCapabilities } from "#/features/workspaces/components/workspace-view-policy";
 import { getWorkspaceItemDisplay } from "#/features/workspaces/model/item-display";
 import type { WorkspaceItem } from "#/features/workspaces/model/types";
 import {
@@ -44,20 +45,26 @@ export default function WorkspaceFileViewer({
 }: WorkspaceFileViewerProps) {
 	const descriptor = resolveWorkspaceFileTypeFromItem(item);
 	const Viewer = descriptor ? workspaceFileViewers[descriptor.assetKind] : null;
+	const viewCapabilities = useWorkspaceViewCapabilities();
+	const viewerContent = Viewer ? (
+		<Suspense fallback={<WorkspaceFileViewerSkeleton />}>
+			<Viewer item={item} toolbarSlotId={toolbarSlotId} workspaceId={workspaceId} />
+		</Suspense>
+	) : (
+		<div className="flex h-full items-center justify-center bg-background">
+			<WorkspaceUnsupportedFilePlaceholder item={item} />
+		</div>
+	);
+
+	if (!viewCapabilities.contextMenus) {
+		return <div className="h-full min-h-0 overflow-hidden">{viewerContent}</div>;
+	}
 
 	return (
 		<div className="h-full min-h-0">
 			<ContextMenu>
 				<ContextMenuTrigger render={<section className="h-full min-h-0 overflow-hidden" />}>
-					{Viewer ? (
-						<Suspense fallback={<WorkspaceFileViewerSkeleton />}>
-							<Viewer item={item} toolbarSlotId={toolbarSlotId} workspaceId={workspaceId} />
-						</Suspense>
-					) : (
-						<div className="flex h-full items-center justify-center bg-background">
-							<WorkspaceUnsupportedFilePlaceholder item={item} />
-						</div>
-					)}
+					{viewerContent}
 				</ContextMenuTrigger>
 				<WorkspaceItemActionsContextMenuContent
 					item={item}

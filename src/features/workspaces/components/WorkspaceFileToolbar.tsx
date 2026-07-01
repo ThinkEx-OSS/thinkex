@@ -18,7 +18,7 @@ export function WorkspaceFileToolbar({
 	fileName,
 	fileUrl,
 }: {
-	capture: {
+	capture?: {
 		isActive: boolean;
 		onToggle: () => void;
 	};
@@ -36,18 +36,20 @@ export function WorkspaceFileToolbar({
 
 	return (
 		<WorkspaceToolbarGroup scrollable>
-			<WorkspaceToolbarTextButton
-				className={cn(
-					capture.isActive
-						? "bg-blue-500/10 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-						: undefined,
-				)}
-				aria-pressed={capture.isActive}
-				onClick={capture.onToggle}
-			>
-				<Camera />
-				Capture
-			</WorkspaceToolbarTextButton>
+			{capture ? (
+				<WorkspaceToolbarTextButton
+					className={cn(
+						capture.isActive
+							? "bg-blue-500/10 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+							: undefined,
+					)}
+					aria-pressed={capture.isActive}
+					onClick={capture.onToggle}
+				>
+					<Camera />
+					Capture
+				</WorkspaceToolbarTextButton>
+			) : null}
 			<DropdownMenu>
 				<DropdownMenuTrigger render={<WorkspaceToolbarIconButton aria-label="More file actions" />}>
 					<EllipsisVertical />

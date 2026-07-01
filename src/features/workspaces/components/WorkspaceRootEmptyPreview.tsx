@@ -9,6 +9,7 @@ import {
 	EmptyTitle,
 } from "#/components/ui/empty";
 import { WorkspaceCardMetaRow } from "#/features/workspaces/components/workspace-card-meta-row";
+import { WorkspaceUploadClickTarget } from "#/features/workspaces/components/WorkspaceUploadClickTarget";
 import {
 	workspaceItemCardBaseClass,
 	workspaceItemDocumentPreviewPanelClass,
@@ -88,13 +89,17 @@ type WorkspaceRootEmptyDemoCard =
 	| (typeof workspaceRootEmptyDemoFolders)[number]
 	| (typeof workspaceRootEmptyDemoItems)[number];
 
-export function WorkspaceRootEmptyPreview() {
+export function WorkspaceRootEmptyPreview({ onUploadFiles }: { onUploadFiles: () => void }) {
 	return (
 		<div className="relative min-h-[24rem] flex-1 opacity-90">
 			<WorkspaceRootEmptyDemoGrid />
-			<div className="pointer-events-none absolute inset-0 z-10 flex">
+			<WorkspaceUploadClickTarget
+				className="absolute inset-0 z-10 flex"
+				aria-label="Upload files to this workspace"
+				onUploadFiles={onUploadFiles}
+			>
 				<WorkspaceRootDropEmptyState />
-			</div>
+			</WorkspaceUploadClickTarget>
 		</div>
 	);
 }
@@ -107,7 +112,7 @@ function WorkspaceRootDropEmptyState() {
 					<WorkspaceRootEmptyMedia />
 				</EmptyMedia>
 				<EmptyTitle>Drop your files here</EmptyTitle>
-				<EmptyDescription>Or click New to get started</EmptyDescription>
+				<EmptyDescription>Click anywhere here to upload files</EmptyDescription>
 			</EmptyHeader>
 		</Empty>
 	);

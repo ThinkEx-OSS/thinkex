@@ -7,6 +7,7 @@ import {
 } from "#/features/workspaces/components/WorkspaceCaptureChrome";
 import { useFileItemToolbar } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
 import { WorkspaceImageRegionCaptureOverlay } from "#/features/workspaces/components/WorkspaceRegionCaptureOverlay";
+import { useWorkspaceViewCapabilities } from "#/features/workspaces/components/workspace-view-policy";
 import { renderImageRegionCapture } from "#/features/workspaces/components/workspace-image-capture";
 import { createCaptureAttachmentFile } from "#/features/workspaces/components/workspace-region-capture";
 import { stageCaptureAttachmentToComposerWithFeedback } from "#/features/workspaces/composer/workspace-composer-actions";
@@ -52,16 +53,26 @@ function WorkspaceImageViewerContent({
 	const imageRef = useRef<HTMLImageElement>(null);
 	const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 	const [isCaptureActive, setIsCaptureActive] = useState(false);
+	const enableFileCapture = useWorkspaceViewCapabilities().fileCapture;
+	const captureActive = enableFileCapture && isCaptureActive;
+	const exitCapture = useCallback(() => {
+		setIsCaptureActive(false);
+	}, []);
+	const toggleCapture = useCallback(() => {
+		setIsCaptureActive((current) => !current);
+	}, []);
 	const { containerRef, contentStyle, deferCaptureSelection } = useWorkspaceImageViewerTransform({
 		enabled: status !== "error",
-		isCaptureActive,
+		isCaptureActive: captureActive,
 	});
 
 	useFileItemToolbar({
-		capture: {
-			isActive: isCaptureActive,
-			onToggle: () => setIsCaptureActive((current) => !current),
-		},
+		capture: enableFileCapture
+			? {
+					isActive: captureActive,
+					onToggle: toggleCapture,
+				}
+			: undefined,
 		fileName: item.name,
 		fileUrl,
 		slotId: toolbarSlotId ?? item.id,
@@ -98,7 +109,7 @@ function WorkspaceImageViewerContent({
 			ref={containerRef}
 			className={cn(
 				"relative h-full min-h-0 overflow-hidden bg-background touch-none",
-				isCaptureActive ? "cursor-crosshair" : "cursor-grab active:cursor-grabbing",
+				captureActive ? "cursor-crosshair" : "cursor-grab active:cursor-grabbing",
 			)}
 		>
 			{status === "loading" ? (
@@ -134,20 +145,24 @@ function WorkspaceImageViewerContent({
 					/>
 				</div>
 			)}
-			{status === "ready" ? (
+			{enableFileCapture && status === "ready" ? (
 				<WorkspaceImageRegionCaptureOverlay
-					active={isCaptureActive}
+					active={captureActive}
 					boundsRef={containerRef}
 					onCapture={handleCapture}
 					deferCaptureSelection={deferCaptureSelection}
 				/>
 			) : null}
-			<WorkspaceCaptureViewerFrame active={isCaptureActive} />
-			<WorkspaceCaptureShortcuts
-				isActive={isCaptureActive}
-				onExit={() => setIsCaptureActive(false)}
-				onToggle={() => setIsCaptureActive((current) => !current)}
-			/>
+			{enableFileCapture ? (
+				<>
+					<WorkspaceCaptureViewerFrame active={captureActive} />
+					<WorkspaceCaptureShortcuts
+						isActive={captureActive}
+						onExit={exitCapture}
+						onToggle={toggleCapture}
+					/>
+				</>
+			) : null}
 		</div>
 	);
 }

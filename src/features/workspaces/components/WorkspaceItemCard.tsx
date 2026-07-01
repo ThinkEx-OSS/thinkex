@@ -12,11 +12,14 @@ import {
 	workspaceItemCardHoverClass,
 	workspaceItemCardSelectedClass,
 	workspaceItemCardUnselectedHoverClass,
+	workspaceItemPreviewControlsLayerClass,
 } from "#/features/workspaces/components/workspace-item-card-chrome";
 import { WorkspaceItemCardFooter } from "#/features/workspaces/components/workspace-item-card-footer";
+import { WorkspaceItemCardPreviewControls } from "#/features/workspaces/components/workspace-item-card-preview-controls";
 import { WorkspaceItemCardPreviewStage } from "#/features/workspaces/components/workspace-item-card-preview-stage";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
 import { workspaceItemSortablePlugins } from "#/features/workspaces/components/workspace-sortable-plugins";
+import { useWorkspaceViewCapabilities } from "#/features/workspaces/components/workspace-view-policy";
 import {
 	createWorkspaceItemDragData,
 	getWorkspaceDragSource,
@@ -58,6 +61,7 @@ export default function WorkspaceItemCard({
 	onElementChange,
 }: WorkspaceItemCardProps) {
 	const { capabilities, itemSortableDisabled } = useWorkspaceMutationAccess();
+	const viewCapabilities = useWorkspaceViewCapabilities();
 	const { canMutateContent } = capabilities;
 	const isFolder = item.type === "folder";
 	const row = isFolder ? "folder" : "item";
@@ -206,14 +210,17 @@ export default function WorkspaceItemCard({
 				aria-label={`Open ${item.name}`}
 				onClick={handleOpen}
 			/>
-			<WorkspaceItemCardPreviewStage
-				item={item}
-				isSelected={isSelected}
-				onSelectionChange={onSelectionChange}
-				onMoveItem={onMoveItem}
-				onRenameItem={onRenameItem}
-				onDeleteItem={onDeleteItem}
-			/>
+			<WorkspaceItemCardPreviewStage item={item} />
+			<div className={workspaceItemPreviewControlsLayerClass}>
+				<WorkspaceItemCardPreviewControls
+					item={item}
+					isSelected={isSelected}
+					onSelectionChange={onSelectionChange}
+					onMoveItem={onMoveItem}
+					onRenameItem={onRenameItem}
+					onDeleteItem={onDeleteItem}
+				/>
+			</div>
 			{showFolderDropAffordance ? (
 				<div
 					className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-background/35 backdrop-blur-[1px]"
@@ -225,20 +232,13 @@ export default function WorkspaceItemCard({
 					</div>
 				</div>
 			) : null}
-			<CardHeader className="pointer-events-none relative z-10 shrink-0 gap-1 px-3 py-2">
+			<CardHeader className="pointer-events-none relative z-10 min-w-0 flex-1 self-center justify-start gap-1 py-2 pr-24 pl-3 sm:flex-none sm:shrink-0 sm:self-auto sm:px-3">
 				<CardTitle className="min-w-0">
-					{canMutateContent ? (
-						<button
-							type="button"
-							className="pointer-events-auto relative z-20 block max-w-full cursor-text truncate rounded-sm text-left underline-offset-4 outline-none transition-colors hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-							aria-label={`Rename ${item.name}`}
-							onClick={handleRenameClick}
-						>
-							{item.name}
-						</button>
-					) : (
-						<span className="relative z-20 block max-w-full truncate">{item.name}</span>
-					)}
+					<WorkspaceItemCardTitle
+						canRename={canMutateContent}
+						itemName={item.name}
+						onRenameClick={handleRenameClick}
+					/>
 				</CardTitle>
 				{isFolder ? (
 					meta ? (
@@ -251,6 +251,10 @@ export default function WorkspaceItemCard({
 		</Card>
 	);
 
+	if (!viewCapabilities.contextMenus) {
+		return card;
+	}
+
 	return (
 		<ContextMenu>
 			<ContextMenuTrigger render={card} />
@@ -261,5 +265,33 @@ export default function WorkspaceItemCard({
 				onDeleteItem={onDeleteItem}
 			/>
 		</ContextMenu>
+	);
+}
+
+function WorkspaceItemCardTitle({
+	canRename,
+	itemName,
+	onRenameClick,
+}: {
+	canRename: boolean;
+	itemName: string;
+	onRenameClick: (event: MouseEvent<HTMLButtonElement>) => void;
+}) {
+	if (!canRename) {
+		return <span className="relative z-20 block max-w-full truncate">{itemName}</span>;
+	}
+
+	return (
+		<>
+			<span className="relative z-20 block max-w-full truncate sm:hidden">{itemName}</span>
+			<button
+				type="button"
+				className="pointer-events-auto relative z-20 hidden max-w-full cursor-text truncate rounded-sm text-left underline-offset-4 outline-none transition-colors hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:block"
+				aria-label={`Rename ${itemName}`}
+				onClick={onRenameClick}
+			>
+				{itemName}
+			</button>
+		</>
 	);
 }
