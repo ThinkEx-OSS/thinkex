@@ -353,7 +353,11 @@ function WorkspaceBrowseEmptyState({
 
 	if (canUpload) {
 		return (
-			<WorkspaceUploadClickTarget aria-label={uploadLabel} onUploadFiles={onUploadFiles}>
+			<WorkspaceUploadClickTarget
+				className="flex flex-1"
+				aria-label={uploadLabel}
+				onUploadFiles={onUploadFiles}
+			>
 				{emptyState}
 			</WorkspaceUploadClickTarget>
 		);

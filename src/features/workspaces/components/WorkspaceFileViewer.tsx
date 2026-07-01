@@ -57,7 +57,7 @@ export default function WorkspaceFileViewer({
 	);
 
 	if (!viewCapabilities.contextMenus) {
-		return <div className="h-full min-h-0">{viewerContent}</div>;
+		return <div className="h-full min-h-0 overflow-hidden">{viewerContent}</div>;
 	}
 
 	return (

@@ -119,6 +119,7 @@ export function WorkspaceShell({
 	const { capabilities: viewCapabilities, viewportMode } = useWorkspaceViewPolicy();
 	const selectedItemIds = useWorkspaceSelectionItemIds(workspace.id);
 	const { chatSurfaceMode, presentation } = normalizedUiSession;
+	const mobileChatSurfaceMode = chatSurfaceMode === "docked" ? "hidden" : chatSurfaceMode;
 	const hasHeavyViewerRuntimeItems = scopedItems.some(workspaceItemRequiresHeavyViewerRuntime);
 	const createWorkspaceItem = (input: { type: WorkspaceItemType; parentId: string | null }) => {
 		if (!getWorkspaceMemberCapabilities(workspace.membershipRole).canMutateContent) {
@@ -213,7 +214,7 @@ export function WorkspaceShell({
 					workspace={workspace}
 					contextBar={contextBar}
 					content={standardTabPanes}
-					chatSurfaceMode={chatSurfaceMode}
+					chatSurfaceMode={mobileChatSurfaceMode}
 					onOpenChat={() => setChatSurfaceMode(workspace.id, "fullscreen")}
 					chatPanel={<AiChatPanel context={aiContextScope} />}
 				/>

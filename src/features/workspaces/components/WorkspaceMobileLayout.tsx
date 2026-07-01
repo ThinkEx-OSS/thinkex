@@ -71,16 +71,16 @@ export default function WorkspaceMobileLayout({
 							</nav>
 						</div>
 						{contextBar}
-						<WorkspaceShareDialog
-							membershipRole={workspace.membershipRole}
-							onOpenChange={setShareOpen}
-							open={shareOpen}
-							workspaceId={workspace.id}
-							workspaceName={workspace.name}
-						/>
 					</header>
 				}
 				content={content}
+			/>
+			<WorkspaceShareDialog
+				membershipRole={workspace.membershipRole}
+				onOpenChange={setShareOpen}
+				open={shareOpen}
+				workspaceId={workspace.id}
+				workspaceName={workspace.name}
 			/>
 
 			{chatPanel && isChatOpen ? (

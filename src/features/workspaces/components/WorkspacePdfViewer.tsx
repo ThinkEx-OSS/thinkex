@@ -106,7 +106,9 @@ export default function WorkspacePdfViewer({
 	const fileUrl = getWorkspaceFileContentUrl(workspaceId, item.id);
 	const { engine, error, isLoading } = useEngineContext();
 	const [isCaptureActive, setIsCaptureActive] = useState(false);
-	const enableFileCapture = useWorkspaceViewCapabilities().fileCapture;
+	const viewCapabilities = useWorkspaceViewCapabilities();
+	const enableFileCapture = viewCapabilities.fileCapture;
+	const enableSelectionMenu = viewCapabilities.contextMenus;
 	const captureActive = enableFileCapture && isCaptureActive;
 	const exitCapture = useCallback(() => {
 		setIsCaptureActive(false);
@@ -149,6 +151,7 @@ export default function WorkspacePdfViewer({
 								onCaptureModeExit={exitCapture}
 								onCaptureModeToggle={toggleCapture}
 								enableFileCapture={enableFileCapture}
+								enableSelectionMenu={enableSelectionMenu}
 								workspaceId={workspaceId}
 							/>
 						) : (
@@ -166,6 +169,7 @@ function WorkspacePdfDocumentLoader({
 	activeDocumentId,
 	documentId,
 	enableFileCapture,
+	enableSelectionMenu,
 	fileName,
 	fileUrl,
 	isCaptureActive,
@@ -177,6 +181,7 @@ function WorkspacePdfDocumentLoader({
 	activeDocumentId: string | null;
 	documentId: string;
 	enableFileCapture: boolean;
+	enableSelectionMenu: boolean;
 	fileName: string;
 	fileUrl: string;
 	isCaptureActive: boolean;
@@ -260,6 +265,7 @@ function WorkspacePdfDocumentLoader({
 					onCaptureModeExit={onCaptureModeExit}
 					onCaptureModeToggle={onCaptureModeToggle}
 					enableFileCapture={enableFileCapture}
+					enableSelectionMenu={enableSelectionMenu}
 					workspaceId={workspaceId}
 					{...props}
 				/>
@@ -272,6 +278,7 @@ function WorkspacePdfDocumentContent({
 	documentId,
 	documentState,
 	enableFileCapture,
+	enableSelectionMenu,
 	fileName,
 	fileUrl,
 	isCaptureActive,
@@ -286,6 +293,7 @@ function WorkspacePdfDocumentContent({
 	documentId: string;
 	documentState: DocumentState;
 	enableFileCapture: boolean;
+	enableSelectionMenu: boolean;
 	fileName: string;
 	fileUrl: string;
 	isCaptureActive: boolean;
@@ -367,6 +375,7 @@ function WorkspacePdfDocumentContent({
 							renderCapability={renderCapability}
 							selectionPoint={selectionPoint}
 							enableFileCapture={enableFileCapture}
+							enableSelectionMenu={enableSelectionMenu}
 							workspaceId={workspaceId}
 						/>
 					)}
@@ -381,6 +390,7 @@ function WorkspacePdfPage({
 	documentId,
 	documentState,
 	enableFileCapture,
+	enableSelectionMenu,
 	isCaptureActive,
 	itemId,
 	onCapture,
@@ -392,6 +402,7 @@ function WorkspacePdfPage({
 	documentId: string;
 	documentState: DocumentState;
 	enableFileCapture: boolean;
+	enableSelectionMenu: boolean;
 	isCaptureActive: boolean;
 	itemId: string;
 	onCapture: (capture: WorkspacePdfCaptureResult) => void;
@@ -422,15 +433,19 @@ function WorkspacePdfPage({
 						<SelectionLayer
 							documentId={documentId}
 							pageIndex={pageLayout.pageIndex}
-							selectionMenu={(props) => (
-								<WorkspacePdfAskSelectionMenu
-									{...props}
-									documentId={documentId}
-									itemId={itemId}
-									selectionPoint={selectionPoint}
-									workspaceId={workspaceId}
-								/>
-							)}
+							selectionMenu={
+								enableSelectionMenu
+									? (props) => (
+											<WorkspacePdfAskSelectionMenu
+												{...props}
+												documentId={documentId}
+												itemId={itemId}
+												selectionPoint={selectionPoint}
+												workspaceId={workspaceId}
+											/>
+										)
+									: undefined
+							}
 							textStyle={{
 								background: "var(--selection)",
 							}}
