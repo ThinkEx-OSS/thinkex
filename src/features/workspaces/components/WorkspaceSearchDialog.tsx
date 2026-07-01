@@ -2,6 +2,7 @@ import {
 	Command,
 	CommandDialog,
 	CommandEmpty,
+	CommandFooter,
 	CommandGroup,
 	CommandInput,
 	CommandItem,
@@ -55,6 +56,7 @@ export function WorkspaceSearchDialog({
 						))}
 					</CommandGroup>
 				</CommandList>
+				<CommandFooter />
 			</Command>
 		</CommandDialog>
 	);
