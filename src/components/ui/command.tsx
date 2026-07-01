@@ -1,4 +1,5 @@
-import { CheckIcon, SearchIcon } from "lucide-react";
+import { Autocomplete as AutocompletePrimitive } from "@base-ui/react";
+import { CheckIcon, CornerDownLeftIcon, SearchIcon } from "lucide-react";
 import * as React from "react";
 import {
 	Dialog,
@@ -32,7 +33,7 @@ function Command({ className, children, ...props }: React.ComponentProps<"div">)
 	const [search, setSearch] = React.useState("");
 	const [items, setItems] = React.useState(() => new Map<string, boolean>());
 
-	const registerItem = (id: string, visible: boolean) => {
+	const registerItem = React.useCallback((id: string, visible: boolean) => {
 		setItems((current) => {
 			if (current.get(id) === visible) {
 				return current;
@@ -42,9 +43,9 @@ function Command({ className, children, ...props }: React.ComponentProps<"div">)
 			next.set(id, visible);
 			return next;
 		});
-	};
+	}, []);
 
-	const unregisterItem = (id: string) => {
+	const unregisterItem = React.useCallback((id: string) => {
 		setItems((current) => {
 			if (!current.has(id)) {
 				return current;
@@ -54,29 +55,42 @@ function Command({ className, children, ...props }: React.ComponentProps<"div">)
 			next.delete(id);
 			return next;
 		});
-	};
+	}, []);
+
+	const contextValue = React.useMemo(
+		() => ({
+			registerItem,
+			search,
+			setSearch,
+			unregisterItem,
+			visibleCount: Array.from(items.values()).filter(Boolean).length,
+		}),
+		[items, registerItem, search, unregisterItem],
+	);
 
 	return (
-		<CommandContext.Provider
-			value={{
-				registerItem,
-				search,
-				setSearch,
-				unregisterItem,
-				visibleCount: Array.from(items.values()).filter(Boolean).length,
-			}}
+		<AutocompletePrimitive.Root
+			inline
+			open
+			autoHighlight="always"
+			keepHighlight
+			mode="none"
+			value={search}
+			onValueChange={setSearch}
 		>
-			<div
-				data-slot="command"
-				className={cn(
-					"flex size-full flex-col overflow-hidden rounded-xl! bg-popover p-1 text-popover-foreground",
-					className,
-				)}
-				{...props}
-			>
-				{children}
-			</div>
-		</CommandContext.Provider>
+			<CommandContext.Provider value={contextValue}>
+				<div
+					data-slot="command"
+					className={cn(
+						"flex size-full flex-col overflow-hidden rounded-xl! bg-popover p-1 text-popover-foreground",
+						className,
+					)}
+					{...props}
+				>
+					{children}
+				</div>
+			</CommandContext.Provider>
+		</AutocompletePrimitive.Root>
 	);
 }
 
@@ -110,14 +124,13 @@ function CommandDialog({
 	);
 }
 
-function CommandInput({ className, onChange, value, ...props }: React.ComponentProps<"input">) {
+function CommandInput({ className, onChange, ...props }: React.ComponentProps<"input">) {
 	const { search, setSearch } = useCommandContext();
-	const resolvedValue = value ?? search;
 
 	return (
 		<div data-slot="command-input-wrapper" className="p-1 pb-0">
 			<InputGroup className="h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
-				<input
+				<AutocompletePrimitive.Input
 					data-slot="command-input"
 					className={cn(
 						"w-full text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
@@ -127,7 +140,7 @@ function CommandInput({ className, onChange, value, ...props }: React.ComponentP
 						setSearch(event.currentTarget.value);
 						onChange?.(event);
 					}}
-					value={resolvedValue}
+					value={search}
 					{...props}
 				/>
 				<InputGroupAddon>
@@ -140,7 +153,7 @@ function CommandInput({ className, onChange, value, ...props }: React.ComponentP
 
 function CommandList({ className, ...props }: React.ComponentProps<"div">) {
 	return (
-		<div
+		<AutocompletePrimitive.List
 			data-slot="command-list"
 			className={cn(
 				"no-scrollbar max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto outline-none",
@@ -169,9 +182,19 @@ function CommandEmpty({ className, ...props }: React.ComponentProps<"div">) {
 
 function CommandGroup({ className, ...props }: React.ComponentProps<"div">) {
 	return (
-		<div
+		<AutocompletePrimitive.Group
 			data-slot="command-group"
 			className={cn("overflow-hidden p-1 text-foreground", className)}
+			{...props}
+		/>
+	);
+}
+
+function CommandGroupLabel({ className, ...props }: React.ComponentProps<"div">) {
+	return (
+		<AutocompletePrimitive.GroupLabel
+			data-slot="command-group-label"
+			className={cn("px-2 py-1.5 text-xs font-medium text-muted-foreground", className)}
 			{...props}
 		/>
 	);
@@ -218,10 +241,10 @@ function CommandItem({
 	};
 
 	return (
-		<div
+		<AutocompletePrimitive.Item
 			data-slot="command-item"
 			className={cn(
-				"group/command-item relative flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none in-data-[slot=dialog-content]:rounded-lg! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-checked:bg-muted data-checked:text-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground data-selected:bg-accent data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-checked:**:[svg]:text-foreground data-selected:**:[svg]:text-foreground",
+				"group/command-item relative flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none in-data-[slot=dialog-content]:rounded-lg! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-checked:bg-muted data-checked:text-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground data-highlighted:bg-accent data-highlighted:text-foreground data-selected:bg-accent data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
 				className,
 			)}
 			onClick={(event) => {
@@ -229,20 +252,14 @@ function CommandItem({
 				onClick?.(event);
 			}}
 			onKeyDown={(event) => {
-				if (event.key === "Enter" || event.key === " ") {
-					event.preventDefault();
-					selectItem();
-				}
 				onKeyDown?.(event);
 			}}
-			aria-selected={false}
-			role="option"
-			tabIndex={0}
+			value={itemValue}
 			{...props}
 		>
 			{children}
 			<CheckIcon className="ml-auto opacity-0 group-has-data-[slot=command-shortcut]/command-item:hidden group-data-[checked=true]/command-item:opacity-100" />
-		</div>
+		</AutocompletePrimitive.Item>
 	);
 }
 
@@ -259,11 +276,43 @@ function CommandShortcut({ className, ...props }: React.ComponentProps<"span">) 
 	);
 }
 
+function CommandFooter({ className, children, ...props }: React.ComponentProps<"div">) {
+	return (
+		<div
+			data-slot="command-footer"
+			className={cn(
+				"flex items-center justify-between gap-3 border-t px-3 py-2 text-xs text-muted-foreground",
+				className,
+			)}
+			{...props}
+		>
+			{children ?? (
+				<>
+					<span className="flex items-center gap-1.5">
+						<kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] leading-none">
+							↑↓
+						</kbd>
+						Navigate
+					</span>
+					<span className="flex items-center gap-1.5">
+						<kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] leading-none">
+							<CornerDownLeftIcon className="size-3" aria-label="Enter" />
+						</kbd>
+						Open
+					</span>
+				</>
+			)}
+		</div>
+	);
+}
+
 export {
 	Command,
 	CommandDialog,
 	CommandEmpty,
+	CommandFooter,
 	CommandGroup,
+	CommandGroupLabel,
 	CommandInput,
 	CommandItem,
 	CommandList,
