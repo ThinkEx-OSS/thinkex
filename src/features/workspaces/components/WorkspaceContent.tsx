@@ -11,6 +11,7 @@ import {
 } from "#/components/ui/empty";
 import { DocumentEditorSurface } from "#/features/workspaces/components/document-editor/DocumentEditorSurface";
 import { WorkspaceClipboardIntakeDialog } from "#/features/workspaces/components/WorkspaceClipboardIntakeDialog";
+import WorkspaceClickableEmptyState from "#/features/workspaces/components/WorkspaceClickableEmptyState";
 import { useWorkspaceClipboardIntake } from "#/features/workspaces/components/useWorkspaceClipboardIntake";
 import { useWorkspaceItemActionDialogState } from "#/features/workspaces/components/useWorkspaceItemActionDialogState";
 import {
@@ -34,7 +35,6 @@ import { MoveWorkspaceItemsDialog } from "#/features/workspaces/components/Works
 import { useWorkspacePaneHotkey } from "#/features/workspaces/components/WorkspacePaneRuntime";
 import { WorkspaceRootEmptyPreview } from "#/features/workspaces/components/WorkspaceRootEmptyPreview";
 import WorkspaceSelectionActionBar from "#/features/workspaces/components/WorkspaceSelectionActionBar";
-import { WorkspaceUploadClickTarget } from "#/features/workspaces/components/WorkspaceUploadClickTarget";
 import { workspaceItemGridClass } from "#/features/workspaces/components/workspace-item-card-chrome";
 import { useWorkspaceMutationAccess } from "#/features/workspaces/components/workspace-mutation-access";
 import { useWorkspaceViewCapabilities } from "#/features/workspaces/components/workspace-view-policy";
@@ -154,6 +154,7 @@ function WorkspaceBrowseContent({
 		registerItemElement,
 		surfaceProps: marqueeSurfaceProps,
 	} = useWorkspaceMarqueeSelection({
+		enabled: viewCapabilities.workspaceMarqueeSelection,
 		selectedItemIds,
 		setSelectedItemIds,
 	});
@@ -334,13 +335,27 @@ function WorkspaceBrowseEmptyState({
 		: isWorkspaceRoot
 			? "An editor needs to add the first items before anything appears here."
 			: "Items added here will appear in this folder.";
-	const emptyState = (
-		<Empty
-			className={cn(
-				"border border-dashed bg-muted/20",
-				canUpload && "transition-colors hover:bg-muted/30",
-			)}
-		>
+
+	if (canUpload) {
+		return (
+			<WorkspaceClickableEmptyState
+				className="w-full flex-1"
+				aria-label={uploadLabel}
+				description={description}
+				media={
+					<span className="flex size-10 items-center justify-center rounded-lg bg-muted text-foreground [&_svg:not([class*='size-'])]:size-6">
+						<Icon aria-hidden="true" />
+					</span>
+				}
+				onClick={onUploadFiles}
+				surfaceClassName="bg-muted/20 transition-colors hover:bg-muted/30"
+				title={title}
+			/>
+		);
+	}
+
+	return (
+		<Empty className="border border-dashed bg-muted/20">
 			<EmptyHeader>
 				<EmptyMedia variant="icon">
 					<Icon />
@@ -350,20 +365,6 @@ function WorkspaceBrowseEmptyState({
 			</EmptyHeader>
 		</Empty>
 	);
-
-	if (canUpload) {
-		return (
-			<WorkspaceUploadClickTarget
-				className="flex flex-1"
-				aria-label={uploadLabel}
-				onUploadFiles={onUploadFiles}
-			>
-				{emptyState}
-			</WorkspaceUploadClickTarget>
-		);
-	}
-
-	return emptyState;
 }
 
 function WorkspaceItemGrid({

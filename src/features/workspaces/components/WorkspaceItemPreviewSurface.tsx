@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 
 import {
 	workspaceItemDocumentPreviewPanelClass,
@@ -16,10 +16,18 @@ import {
 import { cn } from "#/lib/utils";
 
 interface WorkspaceItemPreviewSurfaceProps {
+	enablePreviews: boolean;
 	item: WorkspaceItem;
 }
 
-export default function WorkspaceItemPreviewSurface({ item }: WorkspaceItemPreviewSurfaceProps) {
+export default function WorkspaceItemPreviewSurface({
+	enablePreviews,
+	item,
+}: WorkspaceItemPreviewSurfaceProps) {
+	if (!enablePreviews) {
+		return <WorkspaceItemIconPreview item={item} />;
+	}
+
 	switch (item.type) {
 		case "document":
 			return <WorkspaceItemDocumentPreview item={item} />;
@@ -32,18 +40,12 @@ export default function WorkspaceItemPreviewSurface({ item }: WorkspaceItemPrevi
 
 function WorkspaceItemDocumentPreview({ item }: { item: WorkspaceItem }) {
 	const previewText = getWorkspaceDocumentPreviewText(item);
-	const desktopPreview = previewText ? (
+	return previewText ? (
 		<div className={workspaceItemDocumentPreviewPanelClass}>
 			<p className={workspaceItemDocumentPreviewTextClass}>{previewText}</p>
 		</div>
 	) : (
 		<WorkspaceItemDocumentPreviewEmpty />
-	);
-
-	return (
-		<WorkspaceItemMobileIconDesktopPreview item={item}>
-			{desktopPreview}
-		</WorkspaceItemMobileIconDesktopPreview>
 	);
 }
 
@@ -66,7 +68,7 @@ function WorkspaceItemFilePreview({ item }: { item: WorkspaceItem }) {
 
 	if (showImage) {
 		return (
-			<WorkspaceItemMobileIconDesktopPreview item={item}>
+			<div className={workspaceItemPreviewContentLayerClass}>
 				<img
 					src={previewUrl ?? undefined}
 					alt=""
@@ -75,28 +77,11 @@ function WorkspaceItemFilePreview({ item }: { item: WorkspaceItem }) {
 					className="size-full object-cover object-top"
 					onError={() => setFailedPreviewUrl(previewUrl)}
 				/>
-			</WorkspaceItemMobileIconDesktopPreview>
+			</div>
 		);
 	}
 
 	return <WorkspaceItemIconPreview item={item} />;
-}
-
-function WorkspaceItemMobileIconDesktopPreview({
-	children,
-	item,
-}: {
-	children: ReactNode;
-	item: WorkspaceItem;
-}) {
-	return (
-		<>
-			<div className={cn(workspaceItemPreviewContentLayerClass, "sm:hidden")}>
-				<WorkspaceItemIconPreview item={item} />
-			</div>
-			<div className={cn(workspaceItemPreviewContentLayerClass, "hidden sm:block")}>{children}</div>
-		</>
-	);
 }
 
 /** Icon-only preview for folders and types without a custom thumbnail yet. */

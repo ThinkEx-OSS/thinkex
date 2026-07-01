@@ -19,6 +19,7 @@ type WorkspaceMarqueeState = {
 };
 
 type WorkspaceMarqueeSelectionInput = {
+	enabled: boolean;
 	selectedItemIds: ReadonlySet<string>;
 	setSelectedItemIds: (itemIds: Iterable<string>) => void;
 };
@@ -28,6 +29,7 @@ const WORKSPACE_MARQUEE_IGNORED_TARGET_SELECTOR =
 	'button,a,input,textarea,select,[role="button"],[data-workspace-selection-item]';
 
 export function useWorkspaceMarqueeSelection({
+	enabled,
 	selectedItemIds,
 	setSelectedItemIds,
 }: WorkspaceMarqueeSelectionInput) {
@@ -35,7 +37,9 @@ export function useWorkspaceMarqueeSelection({
 	const marqueeStateRef = useRef<WorkspaceMarqueeState | null>(null);
 	const [marqueeState, setMarqueeState] = useState<WorkspaceMarqueeState | null>(null);
 	const marqueeRect = marqueeState?.started
-		? getWorkspaceMarqueeRect(marqueeState.start, marqueeState.current)
+		? enabled
+			? getWorkspaceMarqueeRect(marqueeState.start, marqueeState.current)
+			: null
 		: null;
 	const setCurrentMarqueeState = (next: WorkspaceMarqueeState | null) => {
 		marqueeStateRef.current = next;
@@ -50,6 +54,10 @@ export function useWorkspaceMarqueeSelection({
 		itemElements.delete(itemId);
 	};
 	const handlePointerDown = (event: PointerEvent<HTMLElement>) => {
+		if (!enabled) {
+			return;
+		}
+
 		if (event.target instanceof Element && !event.currentTarget.contains(event.target)) {
 			return;
 		}
@@ -74,6 +82,10 @@ export function useWorkspaceMarqueeSelection({
 		});
 	};
 	const handlePointerMove = (event: PointerEvent<HTMLElement>) => {
+		if (!enabled) {
+			return;
+		}
+
 		const current = marqueeStateRef.current;
 
 		if (!current || current.pointerId !== event.pointerId) {

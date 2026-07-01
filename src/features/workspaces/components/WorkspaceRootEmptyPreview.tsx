@@ -1,15 +1,9 @@
+import type { ReactNode } from "react";
 import { FileText, FolderOpen, Image } from "lucide-react";
 
 import { Card, CardHeader, CardTitle } from "#/components/ui/card";
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from "#/components/ui/empty";
+import WorkspaceClickableEmptyState from "#/features/workspaces/components/WorkspaceClickableEmptyState";
 import { WorkspaceCardMetaRow } from "#/features/workspaces/components/workspace-card-meta-row";
-import { WorkspaceUploadClickTarget } from "#/features/workspaces/components/WorkspaceUploadClickTarget";
 import {
 	workspaceItemCardBaseClass,
 	workspaceItemDocumentPreviewPanelClass,
@@ -93,43 +87,31 @@ export function WorkspaceRootEmptyPreview({ onUploadFiles }: { onUploadFiles: ()
 	return (
 		<div className="relative min-h-[24rem] flex-1 opacity-90">
 			<WorkspaceRootEmptyDemoGrid />
-			<WorkspaceUploadClickTarget
-				className="absolute inset-0 z-10 flex"
+			<WorkspaceClickableEmptyState
+				className="absolute inset-0 z-10 rounded-lg"
 				aria-label="Upload files to this workspace"
-				onUploadFiles={onUploadFiles}
-			>
-				<WorkspaceRootDropEmptyState />
-			</WorkspaceUploadClickTarget>
+				description="Click anywhere here to upload files"
+				media={<WorkspaceRootEmptyMedia />}
+				onClick={onUploadFiles}
+				surfaceClassName="bg-background/80 backdrop-blur-[1px]"
+				title="Drop your files here"
+			/>
 		</div>
-	);
-}
-
-function WorkspaceRootDropEmptyState() {
-	return (
-		<Empty className="border border-dashed bg-background/80 backdrop-blur-[1px]">
-			<EmptyHeader>
-				<EmptyMedia>
-					<WorkspaceRootEmptyMedia />
-				</EmptyMedia>
-				<EmptyTitle>Drop your files here</EmptyTitle>
-				<EmptyDescription>Click anywhere here to upload files</EmptyDescription>
-			</EmptyHeader>
-		</Empty>
 	);
 }
 
 function WorkspaceRootEmptyMedia() {
 	return (
-		<div className="relative flex h-18 w-24 items-center justify-center">
+		<span className="relative flex h-18 w-24 items-center justify-center">
 			{workspaceRootEmptyMediaIcons.map(({ Icon, className, iconClassName }) => (
-				<div
+				<span
 					key={`${Icon.displayName ?? Icon.name}-${className}`}
 					className={cn("absolute flex items-center justify-center", className)}
 				>
 					<Icon className={cn("size-8", iconClassName)} strokeWidth={1.9} aria-hidden="true" />
-				</div>
+				</span>
 			))}
-		</div>
+		</span>
 	);
 }
 
@@ -166,18 +148,18 @@ function WorkspaceRootEmptyDemoCard({ card }: { card: WorkspaceRootEmptyDemoCard
 				"pointer-events-none cursor-default bg-card/75 opacity-90 ring-foreground/5 active:cursor-default",
 			)}
 		>
-			<div className={cn(workspaceItemPreviewStageClass, "min-h-24 bg-muted/50")}>
+			<div className={cn(workspaceItemPreviewStageClass, "bg-muted/50 sm:min-h-24")}>
 				<WorkspaceRootEmptyDemoCardPreview card={card} />
 			</div>
-			<CardHeader className="pointer-events-none relative z-10 shrink-0 gap-1 px-3 py-2">
+			<CardHeader className="pointer-events-none relative z-10 min-w-0 flex-1 self-center justify-start gap-1 py-2 pr-3 pl-3 sm:flex-none sm:shrink-0 sm:self-auto sm:px-3">
 				<CardTitle className="min-w-0">
 					<span className="relative z-20 block max-w-full truncate">{card.title}</span>
 				</CardTitle>
 				<WorkspaceCardMetaRow
 					leading={
-						<span className="flex min-w-0 items-center gap-1.5">
+						<span className="flex min-w-0 items-center sm:gap-1.5">
 							<Icon
-								className={cn("size-3.5 shrink-0", card.iconClassName)}
+								className={cn("hidden size-3.5 shrink-0 sm:block", card.iconClassName)}
 								strokeWidth={1.75}
 								aria-hidden="true"
 							/>
@@ -192,31 +174,56 @@ function WorkspaceRootEmptyDemoCard({ card }: { card: WorkspaceRootEmptyDemoCard
 }
 
 function WorkspaceRootEmptyDemoCardPreview({ card }: { card: WorkspaceRootEmptyDemoCard }) {
-	const { Icon } = card;
-
 	if (card.type === "pdf") {
 		return (
-			<div className={workspaceItemPreviewContentLayerClass}>
-				<img
-					src={card.previewSrc}
-					alt=""
-					loading="lazy"
-					decoding="async"
-					className="size-full object-cover object-top opacity-50 grayscale-[20%]"
-				/>
-			</div>
+			<WorkspaceRootEmptyDemoMobileIconDesktopPreview card={card}>
+				<div className={workspaceItemPreviewContentLayerClass}>
+					<img
+						src={card.previewSrc}
+						alt=""
+						loading="lazy"
+						decoding="async"
+						className="size-full object-cover object-top opacity-50 grayscale-[20%]"
+					/>
+				</div>
+			</WorkspaceRootEmptyDemoMobileIconDesktopPreview>
 		);
 	}
 
 	if (card.type === "document") {
 		return (
-			<div className={workspaceItemPreviewContentLayerClass}>
-				<div className={workspaceItemDocumentPreviewPanelClass}>
-					<p className={workspaceItemDocumentPreviewTextClass}>{card.preview}</p>
+			<WorkspaceRootEmptyDemoMobileIconDesktopPreview card={card}>
+				<div className={workspaceItemPreviewContentLayerClass}>
+					<div className={workspaceItemDocumentPreviewPanelClass}>
+						<p className={workspaceItemDocumentPreviewTextClass}>{card.preview}</p>
+					</div>
 				</div>
-			</div>
+			</WorkspaceRootEmptyDemoMobileIconDesktopPreview>
 		);
 	}
+
+	return <WorkspaceRootEmptyDemoIconPreview card={card} />;
+}
+
+function WorkspaceRootEmptyDemoMobileIconDesktopPreview({
+	card,
+	children,
+}: {
+	card: WorkspaceRootEmptyDemoCard;
+	children: ReactNode;
+}) {
+	return (
+		<>
+			<div className={cn(workspaceItemPreviewContentLayerClass, "sm:hidden")}>
+				<WorkspaceRootEmptyDemoIconPreview card={card} />
+			</div>
+			<div className={cn(workspaceItemPreviewContentLayerClass, "hidden sm:block")}>{children}</div>
+		</>
+	);
+}
+
+function WorkspaceRootEmptyDemoIconPreview({ card }: { card: WorkspaceRootEmptyDemoCard }) {
+	const { Icon } = card;
 
 	return (
 		<div className={workspaceItemPreviewContentLayerClass}>

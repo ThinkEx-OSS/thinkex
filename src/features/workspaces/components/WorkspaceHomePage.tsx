@@ -153,7 +153,7 @@ function WorkspaceHomeCommunityMenu() {
 						variant="ghost"
 						size="sm"
 						aria-label="Community"
-						className="size-9 px-0 text-muted-foreground hover:text-foreground sm:h-8 sm:w-auto sm:px-2"
+						className="size-10 px-0 text-muted-foreground hover:text-foreground sm:h-8 sm:w-auto sm:px-2"
 					/>
 				}
 			>

@@ -210,7 +210,10 @@ export default function WorkspaceItemCard({
 				aria-label={`Open ${item.name}`}
 				onClick={handleOpen}
 			/>
-			<WorkspaceItemCardPreviewStage item={item} />
+			<WorkspaceItemCardPreviewStage
+				enablePreviews={viewCapabilities.itemCardPreviews}
+				item={item}
+			/>
 			<div className={workspaceItemPreviewControlsLayerClass}>
 				<WorkspaceItemCardPreviewControls
 					item={item}

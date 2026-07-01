@@ -24,6 +24,7 @@ import WorkspaceItemActionsMenu from "#/features/workspaces/components/Workspace
 import { WorkspaceItemToolbarSlot } from "#/features/workspaces/components/WorkspaceItemToolbarSlot";
 import { workspaceDropdownMenuRenderer } from "#/features/workspaces/components/WorkspaceMenuRenderers";
 import { MoveWorkspaceItemsDialog } from "#/features/workspaces/components/WorkspaceMoveItemsDialog";
+import WorkspaceMobileBreadcrumbOverflow from "#/features/workspaces/components/WorkspaceMobileBreadcrumbOverflow";
 import { WorkspaceSearchDialog } from "#/features/workspaces/components/WorkspaceSearchDialog";
 import WorkspaceSettingsDialog from "#/features/workspaces/components/WorkspaceSettingsDialog";
 import { WorkspaceShareDialog } from "#/features/workspaces/components/WorkspaceShareDialog";
@@ -74,6 +75,7 @@ export default function WorkspaceContextBar({
 	const [shareOpen, setShareOpen] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const breadcrumbs = getWorkspaceBreadcrumbItems(activeItem, itemsById);
+	const mobileOverflowBreadcrumbs = breadcrumbs.slice(0, -1);
 	const createParentId = getWorkspaceBrowseParentId(activeItem);
 	const {
 		clearDeletingItem,
@@ -99,7 +101,7 @@ export default function WorkspaceContextBar({
 
 	return (
 		<>
-			<div className="relative z-10 flex h-11 items-center gap-3 bg-background px-4 text-sm">
+			<div className="relative z-10 flex h-12 items-center gap-3 bg-background px-4 text-sm sm:h-11">
 				<Breadcrumb className="min-w-0 flex-1">
 					<BreadcrumbList className="flex-nowrap gap-1.5 overflow-hidden sm:gap-1.5">
 						<BreadcrumbItem className="min-w-0">
@@ -109,6 +111,7 @@ export default function WorkspaceContextBar({
 									label={workspace.name}
 									iconClassName={color.text}
 									isCurrent={false}
+									hideLabelOnMobile={true}
 									onClick={onNavigateToRoot}
 								/>
 							) : (
@@ -134,11 +137,16 @@ export default function WorkspaceContextBar({
 								/>
 							)}
 						</BreadcrumbItem>
-						{breadcrumbs.map((item) => (
+						<WorkspaceMobileBreadcrumbOverflow
+							items={mobileOverflowBreadcrumbs}
+							onNavigateToItem={onNavigateToItem}
+						/>
+						{breadcrumbs.map((item, index) => (
 							<WorkspaceBreadcrumbItem
 								key={item.id}
 								item={item}
 								isCurrent={item.id === activeItem?.id}
+								isMobileHidden={index < breadcrumbs.length - 1}
 								onClick={() => onNavigateToItem(item)}
 								onRenameItem={setRenamingItem}
 								onMoveItem={openMoveDialog}
@@ -274,6 +282,7 @@ function getWorkspaceRootMenuActions(input: {
 function WorkspaceBreadcrumbItem({
 	item,
 	isCurrent,
+	isMobileHidden,
 	onClick,
 	onRenameItem,
 	onMoveItem,
@@ -281,17 +290,19 @@ function WorkspaceBreadcrumbItem({
 }: {
 	item: WorkspaceItem;
 	isCurrent: boolean;
+	isMobileHidden: boolean;
 	onClick: () => void;
 	onRenameItem: (item: WorkspaceItem) => void;
 	onMoveItem: (item: WorkspaceItem) => void;
 	onDeleteItem: (item: WorkspaceItem) => void;
 }) {
 	const { Icon, iconClassName } = getWorkspaceItemDisplay(item);
+	const mobileHiddenClassName = isMobileHidden ? "hidden sm:flex" : undefined;
 
 	return (
 		<>
-			<BreadcrumbSeparator className="text-muted-foreground/60" />
-			<BreadcrumbItem className="min-w-0">
+			<BreadcrumbSeparator className={cn("text-muted-foreground/60", mobileHiddenClassName)} />
+			<BreadcrumbItem className={cn("min-w-0", isCurrent && "flex-shrink", mobileHiddenClassName)}>
 				{isCurrent ? (
 					<WorkspaceItemActionsMenu
 						item={item}
@@ -334,12 +345,14 @@ function CrumbButton({
 	icon: Icon,
 	label,
 	iconClassName,
+	hideLabelOnMobile = false,
 	isCurrent,
 	onClick,
 }: {
 	icon: ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
 	label: string;
 	iconClassName?: string;
+	hideLabelOnMobile?: boolean;
 	isCurrent: boolean;
 	onClick: () => void;
 }) {
@@ -348,7 +361,13 @@ function CrumbButton({
 	if (isCurrent) {
 		return (
 			<BreadcrumbPage className={breadcrumbCurrentClassName}>
-				<CrumbContent icon={Icon} label={label} iconClassName={iconColor} isCurrent={true} />
+				<CrumbContent
+					icon={Icon}
+					label={label}
+					hideLabelOnMobile={hideLabelOnMobile}
+					iconClassName={iconColor}
+					isCurrent={true}
+				/>
 			</BreadcrumbPage>
 		);
 	}
@@ -364,7 +383,12 @@ function CrumbButton({
 				/>
 			}
 		>
-			<CrumbContent icon={Icon} label={label} iconClassName={iconColor} />
+			<CrumbContent
+				icon={Icon}
+				label={label}
+				hideLabelOnMobile={hideLabelOnMobile}
+				iconClassName={iconColor}
+			/>
 		</BreadcrumbLink>
 	);
 }
@@ -372,12 +396,14 @@ function CrumbButton({
 function CrumbContent({
 	icon: Icon,
 	label,
+	hideLabelOnMobile = false,
 	iconClassName,
 	isCurrent = false,
 	showDisclosure = false,
 }: {
 	icon: ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
 	label: string;
+	hideLabelOnMobile?: boolean;
 	iconClassName: string;
 	isCurrent?: boolean;
 	showDisclosure?: boolean;
@@ -385,7 +411,7 @@ function CrumbContent({
 	return (
 		<>
 			<Icon className={cn("size-3.5 shrink-0", iconClassName)} aria-hidden={true} />
-			<CrumbLabel label={label} isCurrent={isCurrent} />
+			<CrumbLabel label={label} hideOnMobile={hideLabelOnMobile} isCurrent={isCurrent} />
 			{showDisclosure ? (
 				<ChevronDown className="size-3 shrink-0 text-muted-foreground" aria-hidden={true} />
 			) : null}
@@ -393,11 +419,20 @@ function CrumbContent({
 	);
 }
 
-function CrumbLabel({ label, isCurrent }: { label: string; isCurrent: boolean }) {
+function CrumbLabel({
+	hideOnMobile,
+	isCurrent,
+	label,
+}: {
+	hideOnMobile?: boolean;
+	isCurrent: boolean;
+	label: string;
+}) {
 	return (
 		<span
 			className={cn(
-				"min-w-0 truncate",
+				"min-w-0 max-w-40 truncate sm:max-w-none",
+				hideOnMobile && "hidden sm:inline",
 				// Keep the active emphasis visual only so breadcrumb spacing never reflows.
 				isCurrent && currentCrumbLabelClassName,
 			)}
