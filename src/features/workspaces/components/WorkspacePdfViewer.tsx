@@ -459,19 +459,14 @@ function WorkspacePdfPage({
 			) : null}
 		</>
 	);
-	const needsPagePointerInteraction = interactions.textSelection || interactions.fileCapture;
 
 	return (
 		<div className="absolute inset-0 overflow-hidden bg-background">
 			<Rotate documentId={documentId} pageIndex={pageLayout.pageIndex}>
 				<div className="absolute inset-0">
-					{needsPagePointerInteraction ? (
-						<PagePointerProvider documentId={documentId} pageIndex={pageLayout.pageIndex}>
-							{pageLayers}
-						</PagePointerProvider>
-					) : (
-						<div className="relative h-full w-full">{pageLayers}</div>
-					)}
+					<PagePointerProvider documentId={documentId} pageIndex={pageLayout.pageIndex}>
+						{pageLayers}
+					</PagePointerProvider>
 				</div>
 			</Rotate>
 		</div>
