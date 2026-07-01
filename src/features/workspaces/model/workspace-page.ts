@@ -24,6 +24,7 @@ export function applyWorkspaceEventToPage(
 		case "workspace.item.moved":
 		case "workspace.item.color.updated":
 		case "workspace.item.content.updated":
+		case "workspace.item.metadata.updated":
 			return upsertWorkspaceItemInPage(page, event.payload.item, event.revision);
 		case "workspace.items.moved":
 			return upsertWorkspaceItemsInPage(page, event.payload.items, event.revision);

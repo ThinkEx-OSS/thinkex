@@ -17,6 +17,7 @@ import {
 	type KernelItemRow,
 	mapKernelItemRow,
 } from "#/features/workspaces/kernel/workspace-kernel-rows";
+import { parseWorkspaceItemMetadataJson } from "#/features/workspaces/kernel/workspace-kernel-metadata";
 import type { WorkspaceKernelSql } from "#/features/workspaces/kernel/workspace-kernel-schema";
 import type { WorkspaceKernelStore } from "#/features/workspaces/kernel/workspace-kernel-store";
 import type {
@@ -28,8 +29,10 @@ import type {
 	ReadWorkspaceKernelItemArgs,
 	RenameWorkspaceKernelItemArgs,
 	UpdateWorkspaceKernelItemColorArgs,
+	UpdateWorkspaceKernelItemLinksArgs,
 	WriteWorkspaceKernelItemArgs,
 } from "#/features/workspaces/kernel/workspace-kernel-types";
+import { withWorkspaceItemLinksMetadata } from "#/features/workspaces/model/workspace-item-links";
 import {
 	resolveWorkspaceItemColorForCreate,
 	workspaceItemSupportsCustomColor,
@@ -82,18 +85,24 @@ export class WorkspaceKernelItemCommands {
 			onNameConflict: input.onNameConflict,
 		});
 		const shellPath = getWorkspaceKernelShellPath({ id, type });
-		const { initialContent, metadataJson } = buildWorkspaceItemCreateBootstrap({
+		const bootstrap = buildWorkspaceItemCreateBootstrap({
 			type,
 			name,
 			metadataJson: input.metadataJson ?? {},
 			initialContent: input.initialContent,
 		});
+		const metadataJson =
+			input.linkItemIds === undefined
+				? bootstrap.metadataJson
+				: withWorkspaceItemLinksMetadata(bootstrap.metadataJson, input.linkItemIds);
+
+		this.assertLinkTargetsExist(input.linkItemIds ?? []);
 
 		await this.createWorkspaceFile({
 			type,
 			name,
 			shellPath,
-			initialContent,
+			initialContent: bootstrap.initialContent,
 		});
 
 		this.sql`
@@ -234,6 +243,30 @@ export class WorkspaceKernelItemCommands {
 		});
 	}
 
+	async updateItemLinks(
+		input: UpdateWorkspaceKernelItemLinksArgs,
+	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
+		const item = this.store.assertActiveItem(input.itemId);
+		const metadataJson = withWorkspaceItemLinksMetadata(
+			parseWorkspaceItemMetadataJson(item.metadata_json),
+			input.linkItemIds,
+		);
+
+		this.assertLinkTargetsExist(input.linkItemIds);
+		this.sql`
+			UPDATE kernel_items
+			SET metadata_json = ${JSON.stringify(metadataJson)}, updated_at = ${Date.now()}
+			WHERE id = ${input.itemId} AND deleted_at IS NULL
+		`;
+
+		return this.commitItemEvent({
+			type: "workspace.item.metadata.updated",
+			itemId: input.itemId,
+			actorUserId: input.actorUserId,
+			clientMutationId: input.clientMutationId,
+		});
+	}
+
 	async deleteItems(
 		input: DeleteWorkspaceKernelItemsArgs,
 	): Promise<WorkspaceCommandResult<DeleteWorkspaceKernelItemsResult>> {
@@ -341,7 +374,8 @@ export class WorkspaceKernelItemCommands {
 		type:
 			| "workspace.item.renamed"
 			| "workspace.item.color.updated"
-			| "workspace.item.content.updated";
+			| "workspace.item.content.updated"
+			| "workspace.item.metadata.updated";
 		itemId: string;
 		actorUserId?: string | null;
 		clientMutationId?: string | null;
@@ -355,6 +389,12 @@ export class WorkspaceKernelItemCommands {
 		});
 
 		return { result: item, event };
+	}
+
+	private assertLinkTargetsExist(linkItemIds: readonly string[]) {
+		for (const linkItemId of linkItemIds) {
+			this.store.assertActiveItem(linkItemId);
+		}
 	}
 
 	private moveItemRow(input: {

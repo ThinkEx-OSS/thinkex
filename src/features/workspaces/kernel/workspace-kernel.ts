@@ -30,6 +30,7 @@ import type {
 	ReadWorkspaceKernelItemArgs,
 	RenameWorkspaceKernelItemArgs,
 	UpdateWorkspaceKernelItemColorArgs,
+	UpdateWorkspaceKernelItemLinksArgs,
 	UpsertWorkspaceKernelFileProjectionArgs,
 	WorkspaceKernelPage,
 	WriteWorkspaceKernelItemArgs,
@@ -158,6 +159,12 @@ export class WorkspaceKernel extends Agent<Cloudflare.Env> {
 		input: UpdateWorkspaceKernelItemColorArgs,
 	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
 		return await this.itemCommands.updateItemColor(input);
+	}
+
+	async updateItemLinks(
+		input: UpdateWorkspaceKernelItemLinksArgs,
+	): Promise<WorkspaceCommandResult<WorkspaceItemSummary>> {
+		return await this.itemCommands.updateItemLinks(input);
 	}
 
 	async deleteItems(

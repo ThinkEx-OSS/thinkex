@@ -1,8 +1,10 @@
 import {
 	getWorkspaceKernelAiPageContext,
+	resolveWorkspaceKernelAiLinkPaths,
 	resolveWorkspaceKernelAiPath,
+	type WorkspaceKernelAiCreatedLinkTarget,
+	type WorkspaceKernelAiLinkResolutionFailureCode,
 } from "#/features/workspaces/ai/workspace-kernel-ai-common";
-import type { WorkspaceItemSummary } from "#/features/workspaces/contracts";
 import { parseMarkdownToTiptapDocumentProjection } from "#/features/workspaces/documents/document-markdown";
 import { stringifyTiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import type { WorkspaceKernelClient } from "#/features/workspaces/kernel/workspace-kernel-access";
@@ -20,6 +22,7 @@ export interface CreateWorkspaceKernelAiItemInput {
 	type: "document" | "folder";
 	path: string;
 	initialContent?: string;
+	links?: string[];
 }
 
 export interface CreateWorkspaceKernelAiItemsInput {
@@ -61,6 +64,7 @@ type WorkspaceKernelAiCreatePathResolution =
 type CreateWorkspaceKernelAiFailureCode =
 	| "cannot_create_root"
 	| "invalid_initial_content"
+	| WorkspaceKernelAiLinkResolutionFailureCode
 	| "path_already_exists"
 	| "path_not_absolute"
 	| "path_not_canonical"
@@ -77,7 +81,7 @@ export async function createWorkspaceKernelAiItems(
 	});
 	const items: CreateWorkspaceKernelAiCreatedItem[] = [];
 	const failed: CreateWorkspaceKernelAiFailure[] = [];
-	const createdItemsByPath = new Map<string, { id: string; type: WorkspaceItemSummary["type"] }>();
+	const createdItemsByPath = new Map<string, WorkspaceKernelAiCreatedLinkTarget>();
 
 	for (const [index, itemInput] of input.items.entries()) {
 		const path = resolveWorkspaceKernelAiCreatePath(itemInput.path);
@@ -117,15 +121,37 @@ export async function createWorkspaceKernelAiItems(
 			continue;
 		}
 
+		const links =
+			itemInput.links === undefined
+				? undefined
+				: resolveWorkspaceKernelAiLinkPaths({
+						createdItemsByPath,
+						paths: itemInput.links,
+						tree: context.tree,
+					});
+
+		if (links?.status === "failed") {
+			failed.push({
+				code: links.code,
+				index,
+				path: links.path,
+			});
+			continue;
+		}
+
+		const itemId = crypto.randomUUID();
+		const linkItemIds = links?.linkItemIds.filter((linkItemId) => linkItemId !== itemId);
 		let command: Awaited<ReturnType<WorkspaceKernelClient["createItem"]>>;
 
 		try {
 			command = await context.kernel.createItem({
+				id: itemId,
 				parentId: parent.parentId,
 				type: itemInput.type,
 				name: path.name,
 				onNameConflict: "error",
 				initialContent: initialContent.content,
+				linkItemIds,
 				actorUserId: input.userId,
 				clientMutationId: null,
 			});
@@ -168,7 +194,7 @@ export async function createWorkspaceKernelAiItems(
 }
 
 function resolveWorkspaceKernelAiCreateParent(input: {
-	createdItemsByPath: ReadonlyMap<string, { id: string; type: WorkspaceItemSummary["type"] }>;
+	createdItemsByPath: ReadonlyMap<string, WorkspaceKernelAiCreatedLinkTarget>;
 	parentPath: string;
 	tree: WorkspaceKernelTree;
 }):

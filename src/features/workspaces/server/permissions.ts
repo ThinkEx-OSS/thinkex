@@ -1,4 +1,3 @@
-import { getRequestHeaders } from "@tanstack/react-start/server";
 import { and, eq, isNull } from "drizzle-orm";
 
 import { workspaceMembers, workspaces } from "#/db/schema";
@@ -6,7 +5,6 @@ import type { createDbContext } from "#/db/server";
 import type { WorkspaceMembershipRole } from "#/features/workspaces/contracts";
 import { canGrantRole } from "#/features/workspaces/invites/workspace-invite-rules";
 import { getWorkspaceMemberCapabilities } from "#/features/workspaces/workspace-member-capabilities";
-import { getSessionFromHeaders } from "#/lib/auth-queries.server";
 
 type Db = Awaited<ReturnType<typeof createDbContext>>["db"];
 type WorkspaceRole = WorkspaceMembershipRole;
@@ -26,6 +24,10 @@ export class WorkspaceForbiddenError extends Error {
 }
 
 export async function getCurrentUserId() {
+	const [{ getRequestHeaders }, { getSessionFromHeaders }] = await Promise.all([
+		import("@tanstack/react-start/server"),
+		import("#/lib/auth-queries.server"),
+	]);
 	const session = await getSessionFromHeaders(getRequestHeaders());
 	const userId = session?.user.id;
 

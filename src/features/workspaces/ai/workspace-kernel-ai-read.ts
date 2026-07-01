@@ -1,4 +1,5 @@
 import {
+	getWorkspaceKernelAiItemLinks,
 	getWorkspaceKernelAiPageContext,
 	resolveWorkspaceKernelAiPath,
 } from "#/features/workspaces/ai/workspace-kernel-ai-common";
@@ -13,6 +14,7 @@ import { parseMarkdownPagesProjection } from "#/features/workspaces/extraction/p
 import { parseTiptapDocumentJson } from "#/features/workspaces/documents/tiptap-document";
 import type { WorkspaceKernelClient } from "#/features/workspaces/kernel/workspace-kernel-access";
 import { resolveWorkspaceFileTypeFromItem } from "#/features/workspaces/model/workspace-file";
+import type { WorkspaceItemLink } from "#/features/workspaces/model/workspace-item-links";
 
 export interface ReadWorkspaceKernelAiItemsInput {
 	pages?: string;
@@ -23,6 +25,7 @@ export interface ReadWorkspaceKernelAiItemsInput {
 
 export interface WorkspaceKernelAiReadItem {
 	content?: string;
+	links: WorkspaceItemLink[];
 	pages?: WorkspaceKernelAiReadPages;
 	path: string;
 	status: "failed" | "pending" | "ready" | "unsupported";
@@ -111,6 +114,7 @@ export async function readWorkspaceKernelAiItems(
 					item: resolution.item,
 					kernel: context.kernel,
 					pages: input.pages,
+					pageItems: context.pageItems,
 					path: resolution.path,
 				}),
 			);
@@ -135,9 +139,14 @@ async function readWorkspaceKernelAiItem(input: {
 	item: WorkspaceItemSummary;
 	kernel: WorkspaceKernelClient;
 	pages?: string;
+	pageItems: WorkspaceItemSummary[];
 	path: string;
 }): Promise<WorkspaceKernelAiReadItem> {
 	const { item } = input;
+	const links = getWorkspaceKernelAiItemLinks({
+		item,
+		pageItems: input.pageItems,
+	});
 
 	if (item.type === "folder") {
 		throw new Error("Folder paths should be handled before item reads.");
@@ -150,6 +159,7 @@ async function readWorkspaceKernelAiItem(input: {
 
 		return {
 			content: page.content,
+			links,
 			pages: page.pages,
 			path: input.path,
 			status: "ready",
@@ -162,6 +172,7 @@ async function readWorkspaceKernelAiItem(input: {
 	}
 
 	return {
+		links,
 		path: input.path,
 		status: "unsupported",
 		type: item.type,
@@ -172,17 +183,22 @@ async function readWorkspaceKernelAiFileItem(input: {
 	item: WorkspaceItemSummary;
 	kernel: WorkspaceKernelClient;
 	pages?: string;
+	pageItems: WorkspaceItemSummary[];
 	path: string;
 }): Promise<WorkspaceKernelAiReadItem> {
 	const { item } = input;
+	const links = getWorkspaceKernelAiItemLinks({
+		item,
+		pageItems: input.pageItems,
+	});
 	const fileType = resolveWorkspaceFileTypeFromItem(item);
 
 	if (!fileType) {
-		return createWorkspaceKernelAiFileStatusItem(input.path, "unsupported");
+		return createWorkspaceKernelAiFileStatusItem(input.path, "unsupported", links);
 	}
 
 	if (fileType.aiReadStrategy !== "markdown_extraction") {
-		return createWorkspaceKernelAiFileStatusItem(input.path, "unsupported");
+		return createWorkspaceKernelAiFileStatusItem(input.path, "unsupported", links);
 	}
 
 	const pagesProjection = await input.kernel.readFileProjection({
@@ -195,15 +211,15 @@ async function readWorkspaceKernelAiFileItem(input: {
 		pagesProjection?.status === "processing" ||
 		pagesProjection?.status === "not_started"
 	) {
-		return createWorkspaceKernelAiFileStatusItem(input.path, "pending");
+		return createWorkspaceKernelAiFileStatusItem(input.path, "pending", links);
 	}
 
 	if (!pagesProjection) {
-		return createWorkspaceKernelAiFileStatusItem(input.path, "pending");
+		return createWorkspaceKernelAiFileStatusItem(input.path, "pending", links);
 	}
 
 	if (pagesProjection.status !== "ready" || pagesProjection.content === null) {
-		return createWorkspaceKernelAiFileStatusItem(input.path, "failed");
+		return createWorkspaceKernelAiFileStatusItem(input.path, "failed", links);
 	}
 
 	const pageRead = readWorkspaceAiProjectionPages(
@@ -215,6 +231,7 @@ async function readWorkspaceKernelAiFileItem(input: {
 
 	return {
 		content: pageRead.content,
+		links,
 		pages: pageRead.pages,
 		path: input.path,
 		status: "ready",
@@ -225,8 +242,10 @@ async function readWorkspaceKernelAiFileItem(input: {
 function createWorkspaceKernelAiFileStatusItem(
 	path: string,
 	status: WorkspaceKernelAiReadItem["status"],
+	links: WorkspaceItemLink[],
 ): WorkspaceKernelAiReadItem {
 	return {
+		links,
 		path,
 		status,
 		type: "file",
