@@ -139,16 +139,19 @@ export async function createWorkspaceKernelAiItems(
 			continue;
 		}
 
+		const itemId = crypto.randomUUID();
+		const linkItemIds = links?.linkItemIds.filter((linkItemId) => linkItemId !== itemId);
 		let command: Awaited<ReturnType<WorkspaceKernelClient["createItem"]>>;
 
 		try {
 			command = await context.kernel.createItem({
+				id: itemId,
 				parentId: parent.parentId,
 				type: itemInput.type,
 				name: path.name,
 				onNameConflict: "error",
 				initialContent: initialContent.content,
-				linkItemIds: links?.linkItemIds,
+				linkItemIds,
 				actorUserId: input.userId,
 				clientMutationId: null,
 			});

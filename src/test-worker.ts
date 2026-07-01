@@ -8,6 +8,10 @@ import {
 	type WorkspaceKernelSql,
 } from "#/features/workspaces/kernel/workspace-kernel-schema";
 import { WorkspaceKernelStore } from "#/features/workspaces/kernel/workspace-kernel-store";
+import {
+	applyDocumentMarkdownEdits,
+	type DocumentMarkdownEdit,
+} from "#/features/workspaces/documents/document-markdown-edits";
 import type {
 	CreateWorkspaceKernelItemArgs,
 	DeleteWorkspaceKernelItemsArgs,
@@ -23,12 +27,14 @@ import type {
 const workspaceKernelInlineThresholdBytes = 1_500_000;
 
 export class DocumentSession extends DurableObject<Env> {
-	async applyMarkdownEdits(input: { edits: unknown[] }) {
+	async applyMarkdownEdits(input: { edits: DocumentMarkdownEdit[] }) {
+		const result = applyDocumentMarkdownEdits("", input.edits);
+
 		return {
-			applied: input.edits.length,
-			failed: 0,
-			failures: [],
-			status: "applied",
+			applied: result.applied,
+			failed: result.failed,
+			failures: result.failures,
+			status: result.status,
 			warnings: [],
 		};
 	}

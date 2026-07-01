@@ -26,7 +26,9 @@ export interface EditWorkspaceKernelAiItemInput {
 	workspaceId: string;
 }
 
-type EditWorkspaceKernelAiFailure = DocumentSessionApplyMarkdownEditsResult["failures"][number];
+type EditWorkspaceKernelAiFailure = DocumentSessionApplyMarkdownEditsResult["failures"][number] & {
+	path?: string;
+};
 
 export interface EditWorkspaceKernelAiItemResult {
 	applied: number;
@@ -79,14 +81,21 @@ export async function editWorkspaceKernelAiItem(
 		return {
 			path: resolution.path,
 			warnings: [],
-			...failedWorkspaceAiEditResult(links.code, Math.max(edits.length, 1), links.index),
+			...failedWorkspaceAiEditResult(
+				links.code,
+				Math.max(edits.length, 1),
+				links.index,
+				links.path,
+			),
 		};
 	}
+
+	const linkItemIds = links?.linkItemIds.filter((linkItemId) => linkItemId !== resolution.item.id);
 
 	if (edits.length === 0) {
 		const command = await context.kernel.updateItemLinks({
 			itemId: resolution.item.id,
-			linkItemIds: links?.linkItemIds ?? [],
+			linkItemIds: linkItemIds ?? [],
 			actorUserId: input.userId,
 			clientMutationId: null,
 		});
@@ -120,11 +129,11 @@ export async function editWorkspaceKernelAiItem(
 		edits,
 	});
 	const command =
-		links === undefined
+		links === undefined || result.failures.length > 0
 			? null
 			: await context.kernel.updateItemLinks({
 					itemId: resolution.item.id,
-					linkItemIds: links.linkItemIds,
+					linkItemIds: linkItemIds ?? [],
 					actorUserId: input.userId,
 					clientMutationId: null,
 				});
@@ -155,11 +164,18 @@ function failedWorkspaceAiEditResult(
 	code: EditWorkspaceKernelAiFailureCode,
 	editCount: number,
 	failureIndex?: number,
+	failurePath?: string,
 ): Pick<EditWorkspaceKernelAiItemResult, "applied" | "failed"> {
 	if (failureIndex !== undefined) {
 		return {
 			applied: 0,
-			failed: [{ code, index: failureIndex }],
+			failed: [
+				{
+					code,
+					index: failureIndex,
+					...(failurePath === undefined ? {} : { path: failurePath }),
+				},
+			],
 		};
 	}
 

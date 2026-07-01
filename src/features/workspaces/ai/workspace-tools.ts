@@ -354,6 +354,7 @@ const workspaceEditItemOutputSchema = z.object({
 		z.object({
 			code: z.string(),
 			index: workspaceIndexSchema,
+			path: workspacePathSchema.optional(),
 		}),
 	),
 	warnings: z

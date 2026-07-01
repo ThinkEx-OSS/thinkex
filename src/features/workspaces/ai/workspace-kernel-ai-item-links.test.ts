@@ -121,6 +121,59 @@ describe("workspace kernel AI item links", () => {
 		expect(doc?.metadataJson[WORKSPACE_DOCUMENT_PREVIEW_TEXT_METADATA_KEY]).toBe("Doc");
 	});
 
+	it("drops self links from edit link updates", async () => {
+		await createWorkspaceKernelAiItems({
+			userId,
+			workspaceId,
+			items: [
+				{ type: "document", path: "/A", initialContent: "# A" },
+				{ type: "document", path: "/Doc", initialContent: "# Doc" },
+			],
+		});
+
+		const edited = await editWorkspaceKernelAiItem({
+			userId,
+			workspaceId,
+			path: "/Doc",
+			links: ["/Doc", "/A"],
+		});
+
+		expect(edited.failed).toEqual([]);
+		await expectItemLinks("/Doc", [{ path: "/A", type: "document" }]);
+	});
+
+	it("does not mutate links when document edits fail", async () => {
+		await createWorkspaceKernelAiItems({
+			userId,
+			workspaceId,
+			items: [
+				{ type: "document", path: "/A", initialContent: "# A" },
+				{ type: "document", path: "/B", initialContent: "# B" },
+				{ type: "document", path: "/Doc", initialContent: "# Doc", links: ["/A"] },
+			],
+		});
+
+		const edited = await editWorkspaceKernelAiItem({
+			userId,
+			workspaceId,
+			path: "/Doc",
+			edits: [{ type: "replace", oldText: "", newText: "replacement" }],
+			links: ["/B"],
+		});
+
+		expect(edited).toMatchObject({
+			applied: 0,
+			failed: [{ code: "empty_old_text", index: 0 }],
+		});
+		await expectItemLinks("/Doc", [{ path: "/A", type: "document" }]);
+
+		const kernel = await getWorkspaceKernelFromEnv(env, workspaceId);
+		const page = await kernel.getPage();
+		const doc = page.items.find((item) => item.name === "Doc");
+
+		expect(doc?.metadataJson[WORKSPACE_DOCUMENT_PREVIEW_TEXT_METADATA_KEY]).toBe("Doc");
+	});
+
 	it("fails create and edit clearly when a link target cannot be resolved", async () => {
 		const created = await createWorkspaceKernelAiItems({
 			userId,
@@ -164,6 +217,7 @@ describe("workspace kernel AI item links", () => {
 			{
 				code: "link_path_not_found",
 				index: 0,
+				path: "/Missing",
 			},
 		]);
 		await expectItemLinks("/Doc", [{ path: "/A", type: "document" }]);
@@ -212,6 +266,7 @@ describe("workspace kernel AI item links", () => {
 			{
 				code: "link_path_not_absolute",
 				index: 0,
+				path: "Missing",
 			},
 		]);
 		await expectItemLinks("/Doc", [{ path: "/A", type: "document" }]);
@@ -260,6 +315,7 @@ describe("workspace kernel AI item links", () => {
 			{
 				code: "link_path_is_root",
 				index: 0,
+				path: "/",
 			},
 		]);
 		await expectItemLinks("/Doc", [{ path: "/A", type: "document" }]);
