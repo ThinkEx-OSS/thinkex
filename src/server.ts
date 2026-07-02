@@ -50,7 +50,7 @@ function buildContentSecurityPolicy() {
 	}
 
 	if (!isProduction) {
-		scriptSrc.push("'unsafe-eval'", "https://unpkg.com");
+		scriptSrc.push("'unsafe-eval'");
 		connectSrc.push("ws:", "http://localhost:*", "http://127.0.0.1:*");
 	}
 

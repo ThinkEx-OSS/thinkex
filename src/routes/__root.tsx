@@ -72,9 +72,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 		<html lang="en" suppressHydrationWarning>
 			<head>
 				<HeadContent />
-				{import.meta.env.DEV ? (
-					<script src="https://unpkg.com/react-grab/dist/index.global.js" crossOrigin="anonymous" />
-				) : null}
 			</head>
 			<body>
 				<ThemeProvider defaultTheme="system" storageKey="theme">
