@@ -45,7 +45,7 @@ import { cn } from "#/lib/utils";
 
 const breadcrumbContentClassName = "flex min-w-0 items-center gap-1.5 truncate";
 const breadcrumbCurrentClassName = `${breadcrumbContentClassName} text-foreground`;
-const breadcrumbLinkClassName = `${breadcrumbContentClassName} rounded-sm border-0 bg-transparent p-0 font-[inherit] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:translate-y-0`;
+const breadcrumbLinkClassName = `${breadcrumbContentClassName} rounded-sm border-0 bg-transparent p-0 font-[inherit] text-muted-foreground underline-offset-4 outline-none transition-colors hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring active:translate-y-0`;
 const currentCrumbLabelClassName = "[text-shadow:0.025em_0_0_currentColor]";
 
 interface WorkspaceContextBarProps {
